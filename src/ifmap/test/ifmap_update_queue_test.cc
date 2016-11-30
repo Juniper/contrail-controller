@@ -6,6 +6,7 @@
 
 #include "base/logging.h"
 #include "base/task.h"
+#include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/db_table.h"
@@ -22,21 +23,23 @@ using namespace std;
 class IFMapUpdateQueueTest : public ::testing::Test {
 protected:
     IFMapUpdateQueueTest()
-        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-          server_(&db_, &graph_, evm_.io_service()), tbl_(NULL),
+        : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+          link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+          server_(&node_db_, &link_db_, &graph_, &evm_), tbl_(NULL),
           queue_(new IFMapUpdateQueue(&server_)) {
     }
 
     virtual void SetUp() {
-        vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        tbl_ = IFMapTable::FindTable(&db_, "virtual-network");
+        vnc_cfg_Server_ModuleInit(&server_, &node_db_, &graph_);
+        tbl_ = IFMapTable::FindTable(&node_db_, "virtual-network");
         ASSERT_TRUE(tbl_);
     }
     virtual void TearDown() {
         evm_.Shutdown();
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph graph_;
     EventManager evm_;
     IFMapServer server_;
@@ -556,6 +559,7 @@ TEST_F(IFMapUpdateQueueTest, GetLast) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    ControlNode::SetDefaultSchedulingPolicy();
     bool success = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return success;

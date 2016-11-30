@@ -36,7 +36,9 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
-        (TaskExclusion(scheduler->GetTaskId("db::IFMapTable")))
+        (TaskExclusion(scheduler->GetTaskId("ifmap::Config")))
+        (TaskExclusion(scheduler->GetTaskId("db::IFMapNodeTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::IFMapLinkTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")))
         (TaskExclusion(scheduler->GetTaskId("ifmap::StateMachine")))
@@ -53,7 +55,8 @@ void ControlNode::SetDefaultSchedulingPolicy() {
 
     // Policy for bgp::ConfigHelper Task.
     // Same as that for bgp:Config Task except that bgp:ConfigHelper
-    // is not exclusive with db::IFMapTable and ifmap::StateMachine.
+    // is not exclusive with ifmap::Config,
+    // db::IFMapLinkTable, db::IFMapNodeTable and ifmap::StateMachine.
     TaskPolicy config_helper_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
@@ -197,11 +200,19 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::RouteAggregation"),
         route_aggregation_policy);
 
-    // Policy for db::IFMapTable Task.
+    // Policy for db::IFMapNodeTable and ifmap::Config Task.
     TaskPolicy db_ifmap_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("db::IFMapLinkTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::IFMapNodeTable")))
+        (TaskExclusion(scheduler->GetTaskId("ifmap::Config")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")));
-    scheduler->SetPolicy(scheduler->GetTaskId("db::IFMapTable"),
+
+    scheduler->SetPolicy(scheduler->GetTaskId("db::IFMapNodeTable"),
+        db_ifmap_policy);
+    scheduler->SetPolicy(scheduler->GetTaskId("db::IFMapLinkTable"),
+        db_ifmap_policy);
+    scheduler->SetPolicy(scheduler->GetTaskId("ifmap::Config"),
         db_ifmap_policy);
 
     // Policy for db::Walker Task.
@@ -213,12 +224,14 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy walker_policy = boost::assign::list_of
         // Following tasks trigger WalkTable
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("ifmap::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         // Following tasks updates db table partition
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
-        (TaskExclusion(scheduler->GetTaskId("db::IFMapTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::IFMapNodeTable")))
+        (TaskExclusion(scheduler->GetTaskId("db::IFMapLinkTable")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))

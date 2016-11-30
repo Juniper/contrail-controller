@@ -306,8 +306,9 @@ IFMapSTEventMgr::EventType IFMapSTEventMgr::GetNextEvent() {
 // **** Start IFMapStressTest routines.
 
 IFMapStressTest::IFMapStressTest()
-        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-          ifmap_server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL),
+        : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+          link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+          ifmap_server_(&node_db_, &link_db_, &db_graph_, &evm_), parser_(NULL),
           xmpp_server_(NULL), log_buffer_(kMAX_LOG_NUM_EVENTS),
           events_ignored_(0) {
 }
@@ -331,12 +332,12 @@ void IFMapStressTest::SetUp() {
     thread_.reset(new ServerThread(&evm_));
     xmpp_server_->Initialize(0);
 
-    IFMapLinkTable_Init(&db_, &db_graph_);
+    IFMapLinkTable_Init(&link_db_, &db_graph_);
     parser_ = IFMapServerParser::GetInstance("vnc_cfg");
     vnc_cfg_ParserInit(parser_);
-    vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
+    vnc_cfg_Server_ModuleInit(&ifmap_server_, &node_db_, &db_graph_);
     bgp_schema_ParserInit(parser_);
-    bgp_schema_Server_ModuleInit(&db_, &db_graph_);
+    bgp_schema_Server_ModuleInit(&ifmap_server_, &node_db_, &db_graph_);
     ifmap_server_.Initialize();
 
     ifmap_channel_mgr_.reset(new IFMapChannelManager(xmpp_server_,
@@ -359,11 +360,12 @@ void IFMapStressTest::TearDown() {
     ifmap_server_.Shutdown();
 
     WaitForIdle();
-    IFMapLinkTable_Clear(&db_);
-    IFMapTable::ClearTables(&db_);
+    IFMapLinkTable_Clear(&link_db_);
+    IFMapTable::ClearTables(&node_db_);
 
     WaitForIdle();
-    db_.Clear();
+    node_db_.Clear();
+    link_db_.Clear();
     DB::ClearFactoryRegistry();
     parser_->MetadataClear("vnc_cfg");
 
@@ -495,7 +497,7 @@ void IFMapStressTest::VerifyConfig() {
         TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(vr_name) != NULL);
     }
     IFMapTable *vm_table = static_cast<IFMapTable *>(
-        db_.FindTable("__ifmap__.virtual_machine.0"));
+        node_db_.FindTable("__ifmap__.virtual_machine.0"));
     assert(vm_table);
     for (int client_id = 0; client_id < config_options_.num_xmpp_clients();
          ++client_id) {
@@ -537,7 +539,7 @@ void IFMapStressTest::VerifyConfig() {
 
 void IFMapStressTest::VerifyNodes() {
     IFMapTable *vr_table = static_cast<IFMapTable *>(
-        db_.FindTable("__ifmap__.virtual_router.0"));
+        node_db_.FindTable("__ifmap__.virtual_router.0"));
     assert(vr_table);
     for (VrNameSet::const_iterator vr_iter = vr_nodes_created_.begin();
             vr_iter != vr_nodes_created_.end(); ++vr_iter) {
@@ -545,7 +547,7 @@ void IFMapStressTest::VerifyNodes() {
     }
 
     IFMapTable *vm_table = static_cast<IFMapTable *>(
-        db_.FindTable("__ifmap__.virtual_machine.0"));
+        node_db_.FindTable("__ifmap__.virtual_machine.0"));
     assert(vm_table);
     for (VmNameSet::const_iterator vm_iter = vm_nodes_created_.begin();
             vm_iter != vm_nodes_created_.end(); ++vm_iter) {
@@ -553,10 +555,10 @@ void IFMapStressTest::VerifyNodes() {
     }
 
     IFMapTable *vmi_table = static_cast<IFMapTable *>(
-        db_.FindTable("__ifmap__.virtual_machine_interface.0"));
+        node_db_.FindTable("__ifmap__.virtual_machine_interface.0"));
     assert(vmi_table);
     IFMapTable *vn_table = static_cast<IFMapTable *>(
-        db_.FindTable("__ifmap__.virtual_network.0"));
+        node_db_.FindTable("__ifmap__.virtual_network.0"));
     assert(vn_table);
     int client_id = -1, vm_id = -1;
     for (VmNameSet::const_iterator vm_iter = vm_configs_added_names_.begin();
@@ -649,13 +651,13 @@ void IFMapStressTest::VirtualRouterNodeAdd() {
 
     // Add 2 properties to the VR: id-perms and display-name.
     autogen::IdPermsType *prop1 = new autogen::IdPermsType();
-    ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-router", vr_name, 0,
+    ifmap_test_util::IFMapMsgNodeAdd(&node_db_, "virtual-router", vr_name, 0,
                                      "id-perms", prop1);
     autogen::VirtualRouter::StringProperty *prop2 =
         new autogen::VirtualRouter::StringProperty();
     prop2->data = vr_name;
     // If the node has already been added, it will look like a 'change'.
-    ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-router", vr_name, 0,
+    ifmap_test_util::IFMapMsgNodeAdd(&node_db_, "virtual-router", vr_name, 0,
                                      "display-name", prop2);
 
     vr_nodes_created_.insert(vr_name);
@@ -676,12 +678,12 @@ void IFMapStressTest::VirtualRouterNodeDelete() {
 
     // Remove all the properties that were added during node add.
     autogen::IdPermsType *prop1 = new autogen::IdPermsType();
-    ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-router", vr_name, 0,
+    ifmap_test_util::IFMapMsgNodeDelete(&node_db_, "virtual-router", vr_name, 0,
                                         "id-perms", prop1);
     autogen::VirtualRouter::StringProperty *prop2 =
         new autogen::VirtualRouter::StringProperty();
     prop2->data = vr_name;
-    ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-router", vr_name, 0,
+    ifmap_test_util::IFMapMsgNodeDelete(&node_db_, "virtual-router", vr_name, 0,
                                         "display-name", prop2);
 
     vr_nodes_created_.erase(vr_name);
@@ -793,12 +795,12 @@ void IFMapStressTest::VirtualMachineNodeAdd() {
     autogen::IdPermsType *prop1 = new autogen::IdPermsType();
     prop1->uuid.uuid_mslong = kUUID_MSLONG;
     prop1->uuid.uuid_lslong = GetUuidLsLong(client_id, vm_id);
-    ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-machine", vm_name, 0,
+    ifmap_test_util::IFMapMsgNodeAdd(&node_db_, "virtual-machine", vm_name, 0,
                                      "id-perms", prop1);
     autogen::VirtualMachine::StringProperty *prop2 =
         new autogen::VirtualMachine::StringProperty();
     prop2->data = vm_name;
-    ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-machine", vm_name, 0,
+    ifmap_test_util::IFMapMsgNodeAdd(&node_db_, "virtual-machine", vm_name, 0,
                                      "display-name", prop2);
 
     vm_nodes_created_.insert(vm_name);
@@ -833,12 +835,12 @@ void IFMapStressTest::VirtualMachineNodeDelete() {
     autogen::IdPermsType *prop1 = new autogen::IdPermsType();
     prop1->uuid.uuid_mslong = kUUID_MSLONG;
     prop1->uuid.uuid_lslong = GetUuidLsLong(client_id, vm_id);
-    ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-machine", vm_name, 0,
+    ifmap_test_util::IFMapMsgNodeDelete(&node_db_, "virtual-machine", vm_name, 0,
                                         "id-perms", prop1);
     autogen::VirtualMachine::StringProperty *prop2 =
         new autogen::VirtualMachine::StringProperty();
     prop2->data = vm_name;
-    ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-machine", vm_name, 0,
+    ifmap_test_util::IFMapMsgNodeDelete(&node_db_, "virtual-machine", vm_name, 0,
                                         "display-name", prop2);
 
     vm_nodes_created_.erase(vm_name);
@@ -883,27 +885,27 @@ void IFMapStressTest::OtherConfigAdd() {
         // Create the VMI node with uuid and display-name.
         string vmi_name = VMINameCreate(client_id, vm_id, vmi_id);
         autogen::IdPermsType *prop1 = new autogen::IdPermsType();
-        ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-machine-interface",
+        ifmap_test_util::IFMapMsgNodeAdd(&node_db_, "virtual-machine-interface",
                                          vmi_name, 0, "id-perms", prop1);
         autogen::VirtualMachine::StringProperty *prop2 =
             new autogen::VirtualMachine::StringProperty();
         prop2->data = vmi_name;
-        ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-machine-interface",
+        ifmap_test_util::IFMapMsgNodeAdd(&node_db_, "virtual-machine-interface",
                                          vmi_name, 0, "display-name", prop2);
-        ifmap_test_util::IFMapMsgLink(&db_, "virtual-machine", vm_name,
+        ifmap_test_util::IFMapMsgLink(&node_db_, "virtual-machine", vm_name,
             "virtual-machine-interface", vmi_name,
             "virtual-machine-interface-virtual-machine");
 
         // Create the virtual network node with uuid and display-name.
         string vn_name = VirtualNetworkNameCreate(client_id, vm_id, vmi_id);
         prop1 = new autogen::IdPermsType();
-        ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-network",
+        ifmap_test_util::IFMapMsgNodeAdd(&node_db_, "virtual-network",
                                          vn_name, 0, "id-perms", prop1);
         prop2 = new autogen::VirtualMachine::StringProperty();
         prop2->data = vn_name;
-        ifmap_test_util::IFMapMsgNodeAdd(&db_, "virtual-network",
+        ifmap_test_util::IFMapMsgNodeAdd(&node_db_, "virtual-network",
                                          vn_name, 0, "display-name", prop2);
-        ifmap_test_util::IFMapMsgLink(&db_, "virtual-machine-interface",
+        ifmap_test_util::IFMapMsgLink(&node_db_, "virtual-machine-interface",
             vmi_name, "virtual-network", vn_name,
             "virtual-machine-interface-virtual-network");
     }
@@ -937,28 +939,28 @@ void IFMapStressTest::OtherConfigDeleteInternal(const string &vm_name) {
     for (int vmi_id = 0; vmi_id < config_options_.num_vmis(); ++vmi_id) {
         string vmi_name = VMINameCreate(client_id, vm_id, vmi_id);
 
-        ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-machine", vm_name,
+        ifmap_test_util::IFMapMsgUnlink(&node_db_, "virtual-machine", vm_name,
             "virtual-machine-interface", vmi_name,
             "virtual-machine-interface-virtual-machine");
         autogen::IdPermsType *prop1 = new autogen::IdPermsType();
-        ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-machine-interface",
+        ifmap_test_util::IFMapMsgNodeDelete(&node_db_, "virtual-machine-interface",
                                             vmi_name, 0, "id-perms", prop1);
         autogen::VirtualMachine::StringProperty *prop2 =
             new autogen::VirtualMachine::StringProperty();
         prop2->data = vmi_name;
-        ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-machine-interface",
+        ifmap_test_util::IFMapMsgNodeDelete(&node_db_, "virtual-machine-interface",
                                             vmi_name, 0, "display-name", prop2);
 
         string vn_name = VirtualNetworkNameCreate(client_id, vm_id, vmi_id);
-        ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-machine-interface",
+        ifmap_test_util::IFMapMsgUnlink(&node_db_, "virtual-machine-interface",
             vmi_name, "virtual-network", vn_name,
             "virtual-machine-interface-virtual-network");
         prop1 = new autogen::IdPermsType();
-        ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-network",
+        ifmap_test_util::IFMapMsgNodeDelete(&node_db_, "virtual-network",
                                             vn_name, 0, "id-perms", prop1);
         prop2 = new autogen::VirtualMachine::StringProperty();
         prop2->data = vn_name;
-        ifmap_test_util::IFMapMsgNodeDelete(&db_, "virtual-network",
+        ifmap_test_util::IFMapMsgNodeDelete(&node_db_, "virtual-network",
                                             vn_name, 0, "display-name", prop2);
     }
     vm_configs_added_names_.erase(vm_name);

@@ -43,6 +43,7 @@ public:
 private:
     static const int kMaxLinkDeleteWalks = 1;
 
+    class GraphWalkRequest;
     void ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode, const BitSet &bset);
     void JoinVertex(DBGraphVertex *vertex, const BitSet &bset);
     void NotifyEdge(DBGraphEdge *edge, const BitSet &bset);
@@ -59,10 +60,12 @@ private:
     void UpdateNewReachableNodesTracker(int client_index, IFMapState *state);
     void OldReachableNodesCleanupInterest(int client_index);
     void NewReachableNodesCleanupInterest(int client_index);
+    bool GraphWalkRequestHandler(GraphWalkRequest *req);
 
     DBGraph *graph_;
     IFMapExporter *exporter_;
     boost::scoped_ptr<TaskTrigger> link_delete_walk_trigger_;
+    boost::scoped_ptr<WorkQueue<GraphWalkRequest *> > graph_walk_queue_;;
     std::auto_ptr<IFMapTypenameWhiteList> traversal_white_list_;
     BitSet link_delete_clients_;
     size_t walk_client_index_;

@@ -16,6 +16,7 @@ class IFMapLink;
 class IFMapObject;
 class IFMapIdentifier;
 class IFMapLinkAttr;
+class IFMapServer;
 
 class IFMapServerTable : public IFMapTable {
 public:
@@ -29,7 +30,7 @@ public:
         std::auto_ptr<AutogenProperty> content;
     };
 
-    IFMapServerTable(DB *db, const std::string &name, DBGraph *graph);
+    IFMapServerTable(IFMapServer *server, DB *db, const std::string &name, DBGraph *graph);
 
     // Allocate an IFMapNode.
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
@@ -55,8 +56,10 @@ public:
     void IFMapRemoveVrVmLink(IFMapNode *vr_node, IFMapNode *vm_node);
     static void RemoveObjectAndDeleteNode(IFMapNode *node,
                                           const IFMapOrigin &origin);
+    const IFMapServer *server() const { return server_; }
 
 private:
+    IFMapServer *server_;
     IFMapNode *EntryLocate(RequestKey *key, bool *changep);
     IFMapNode *EntryLookup(RequestKey *key);
 

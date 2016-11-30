@@ -215,7 +215,8 @@ bool ShowIFMapTable::BufferOneTable(const IFMapTableShowReq *request,
     IFMapSandeshContext *sctx = 
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
-    IFMapTable *table = IFMapTable::FindTable(sctx->ifmap_server()->database(),
+    IFMapTable *table =
+        IFMapTable::FindTable(sctx->ifmap_server()->node_database(),
                                               request->get_table_name());
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
@@ -237,7 +238,7 @@ bool ShowIFMapTable::BufferAllTables(const IFMapTableShowReq *request,
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     string last_name = last_node_name;
 
-    DB *db = sctx->ifmap_server()->database();
+    DB *db = sctx->ifmap_server()->node_database();
     DB::iterator iter;
     if (next_table_name.empty()) {
         iter = db->lower_bound("__ifmap__.");
@@ -425,7 +426,7 @@ void IFMapTableShowReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.allocFn_ = ShowIFMapTable::AllocBuffer;
     s0.cbFn_ = ShowIFMapTable::BufferStage;
     s0.instances_.push_back(0);
@@ -447,7 +448,7 @@ void IFMapTableShowReqIterate::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.allocFn_ = ShowIFMapTable::AllocBuffer;
     s0.cbFn_ = ShowIFMapTable::BufferStageIterate;
     s0.instances_.push_back(0);
@@ -617,7 +618,7 @@ bool ShowIFMapLinkTable::BufferStageCommon(const IFMapLinkTableShowReq *request,
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
-        sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
+        sctx->ifmap_server()->link_database()->FindTable("__ifmap_metadata__.0"));
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
         show_data->send_buffer.reserve(kMaxElementsPerRound);
@@ -752,7 +753,7 @@ void IFMapLinkTableShowReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapLinkTable");
     s0.allocFn_ = ShowIFMapLinkTable::AllocBuffer;
     s0.cbFn_ = ShowIFMapLinkTable::BufferStage;
     s0.instances_.push_back(0);
@@ -774,7 +775,7 @@ void IFMapLinkTableShowReqIterate::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapLinkTable");
     s0.allocFn_ = ShowIFMapLinkTable::AllocBuffer;
     s0.cbFn_ = ShowIFMapLinkTable::BufferStageIterate;
     s0.instances_.push_back(0);
@@ -808,7 +809,7 @@ static bool IFMapNodeShowReqHandleRequest(const Sandesh *sr,
         // +1 to go to the next character after ':'
         string node_name = fq_node_name.substr(type_length + 1);
 
-        DB *db = sctx->ifmap_server()->database();
+        DB *db = sctx->ifmap_server()->node_database();
         IFMapTable *table = IFMapTable::FindTable(db, node_type);
         if (table) {
             IFMapNode *src = table->FindNode(node_name);
@@ -839,7 +840,7 @@ void IFMapNodeShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.cbFn_ = IFMapNodeShowReqHandleRequest;
     s0.instances_.push_back(0);
 
@@ -1057,7 +1058,7 @@ bool ShowIFMapPerClientNodes::BufferStageCommon(
 
     string last_name = last_node_name;
     string search_string = request->get_search_string();
-    DB *db = ifmap_server->database();
+    DB *db = ifmap_server->node_database();
 
     DB::iterator iter;
     if (next_table_name.empty()) {
@@ -1194,7 +1195,7 @@ void IFMapPerClientNodesShowReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.allocFn_ = ShowIFMapPerClientNodes::AllocBuffer;
     s0.cbFn_ = ShowIFMapPerClientNodes::BufferStage;
     s0.instances_.push_back(0);
@@ -1216,7 +1217,7 @@ void IFMapPerClientNodesShowReqIterate::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.allocFn_ = ShowIFMapPerClientNodes::AllocBuffer;
     s0.cbFn_ = ShowIFMapPerClientNodes::BufferStageIterate;
     s0.instances_.push_back(0);
@@ -1371,7 +1372,7 @@ void ShowIFMapPerClientLinkTable::BufferTable(
     }
 
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
-        sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
+        sctx->ifmap_server()->link_database()->FindTable("__ifmap_metadata__.0"));
 
     if (table) {
         vector<IFMapPerClientLinksShowInfo> dest_buffer;
@@ -1456,7 +1457,7 @@ void IFMapPerClientLinksShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapLinkTable");
     s0.cbFn_ = ShowIFMapPerClientLinkTable::HandleRequest;
     s0.instances_.push_back(0);
 
@@ -1469,7 +1470,7 @@ void IFMapPerClientLinksShowReqIterate::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapLinkTable");
     s0.cbFn_ = ShowIFMapPerClientLinkTable::HandleRequestIterate;
     s0.instances_.push_back(0);
 
@@ -1591,7 +1592,7 @@ void IFMapUuidToNodeMappingReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.allocFn_ = ShowIFMapUuidToNodeMapping::AllocBuffer;
     s0.cbFn_ = ShowIFMapUuidToNodeMapping::BufferStage;
     s0.instances_.push_back(0);
@@ -1719,7 +1720,7 @@ void IFMapNodeToUuidMappingReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.allocFn_ = ShowIFMapNodeToUuidMapping::AllocBuffer;
     s0.cbFn_ = ShowIFMapNodeToUuidMapping::BufferStage;
     s0.instances_.push_back(0);
@@ -1846,7 +1847,7 @@ void IFMapPendingVmRegReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.allocFn_ = ShowIFMapPendingVmReg::AllocBuffer;
     s0.cbFn_ = ShowIFMapPendingVmReg::BufferStage;
     s0.instances_.push_back(0);
@@ -1896,7 +1897,7 @@ void IFMapServerClientShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.cbFn_ = IFMapServerClientShowReqHandleRequest;
     s0.instances_.push_back(0);
 
@@ -1914,7 +1915,7 @@ static bool IFMapNodeTableListShowReqHandleRequest(const Sandesh *sr,
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     vector<IFMapNodeTableListShowEntry> dest_buffer;
-    IFMapTable::FillNodeTableList(sctx->ifmap_server()->database(),
+    IFMapTable::FillNodeTableList(sctx->ifmap_server()->node_database(),
                                   &dest_buffer);
 
     IFMapNodeTableListShowResp *response = new IFMapNodeTableListShowResp();
@@ -1932,7 +1933,7 @@ void IFMapNodeTableListShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.cbFn_ = IFMapNodeTableListShowReqHandleRequest;
     s0.instances_.push_back(0);
 

@@ -11,14 +11,18 @@
 
 #include "base/logging.h"
 #include "base/task.h"
+#include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/db_table_partition.h"
 #include "ifmap/autogen.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
+#include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_util.h"
 #include "ifmap/test/ifmap_test_util.h"
+#include "io/event_manager.h"
+#include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
 using boost::assign::list_of;
@@ -176,8 +180,8 @@ private:
 template <typename ObjectType>
 class IFMapDB : public IFMapServerTable {
 public:
-    IFMapDB(DB *db, const string &name, DBGraph *graph)
-            : IFMapServerTable(db, name, graph) {
+    IFMapDB(IFMapServer *server, DB *db, const string &name, DBGraph *graph)
+            : IFMapServerTable(server, db, name, graph) {
         size_t start = name.find('.');
         size_t end = name.find('.', start + 1);
         typename_ = string(name, start + 1, end - (start + 1));
@@ -188,9 +192,9 @@ public:
         return typename_.c_str();
     }
 
-    static DBTable *CreateTable(DB *db, const string &name) {
+    static DBTable *CreateTable(IFMapServer *server, DB *db, const string &name) {
         DBGraph *graph = db->GetGraph("__ifmap__");
-        DBTable *tbl = new IFMapDB(db, name, graph);
+        DBTable *tbl = new IFMapDB(server, db, name, graph);
         tbl->Init();
         return tbl;
     }
@@ -210,50 +214,49 @@ typedef IFMapDB<VirtualMachine> DBTable_virtual_machine;
 typedef IFMapDB<Vswitch> DBTable_vswitch;
 typedef IFMapDB<VmVswitchAssociation> DBTable_vm_vswitch_association;
 
-static void ModuleInit(DB *db) {
-    db->RegisterFactory("__ifmap__.tenant.0", &DBTable_tenant::CreateTable);
-    db->CreateTable("__ifmap__.tenant.0");
-    db->RegisterFactory("__ifmap__.virtual_network.0",
-                        &DBTable_virtual_network::CreateTable);
-    db->CreateTable("__ifmap__.virtual_network.0");
-    db->RegisterFactory("__ifmap__.virtual_machine.0",
-                        &DBTable_virtual_machine::CreateTable);
-    db->CreateTable("__ifmap__.virtual_machine.0");
-    db->RegisterFactory("__ifmap__.vswitch.0",
-                        &DBTable_vswitch::CreateTable);
-    db->CreateTable("__ifmap__.vswitch.0");
-
-    db->RegisterFactory("__ifmap__.vm_vswitch_association.0",
-                        &DBTable_vm_vswitch_association::CreateTable);
-    db->CreateTable("__ifmap__.vm_vswitch_association.0");
+static void ModuleInit(IFMapServer *server, DB *db) {
+    DBTable *table;
+    table = DBTable_tenant::CreateTable(server, db, "__ifmap__.tenant.0");
+    db->AddTable(table);
+    table = DBTable_virtual_network::CreateTable(server, db, "__ifmap__.virtual_network.0");
+    db->AddTable(table);
+    table = DBTable_virtual_machine::CreateTable(server, db, "__ifmap__.virtual_machine.0");
+    db->AddTable(table);
+    table = DBTable_vswitch::CreateTable(server, db, "__ifmap__.vswitch.0");
+    db->AddTable(table);
+    table = DBTable_vm_vswitch_association::CreateTable(server, db, "__ifmap__.vm_vswitch_association.0");
+    db->AddTable(table);
 }
 }  // namespace
-
 
 class IFMapServerTableTest : public ::testing::Test {
 protected:
     IFMapServerTableTest()
-        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")) {
-        db_.SetGraph("__ifmap__", &graph_);
+        : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+          link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+          server_(&node_db_, &link_db_, &graph_, &evm_) {
+        node_db_.SetGraph("__ifmap__", &graph_);
     }
 
     virtual void SetUp() {
-        datatypes::ModuleInit(&db_);
-        IFMapLinkTable_Init(&db_, &graph_);
+        datatypes::ModuleInit(&server_, &node_db_);
+        IFMapLinkTable_Init(&link_db_, &graph_);
     }
 
     virtual void TearDown() {
         IFMapLinkTable *ltable = static_cast<IFMapLinkTable *>(
-            db_.FindTable("__ifmap_metadata__.0"));
+            link_db_.FindTable("__ifmap_metadata__.0"));
         ltable->Clear();
-        IFMapTable::ClearTables(&db_);
+        IFMapTable::ClearTables(&node_db_);
         Wait();
-        db_.Clear();
+        node_db_.Clear();
+        link_db_.Clear();
         DB::ClearFactoryRegistry();
+        evm_.Shutdown();
     }
 
     IFMapNode *TableLookup(const string &type, const string &name) {
-        IFMapTable *tbl = IFMapTable::FindTable(&db_, type);
+        IFMapTable *tbl = IFMapTable::FindTable(&node_db_, type);
         if (tbl == NULL) {
             return NULL;
         }
@@ -267,7 +270,7 @@ protected:
                           const string &attr) {
         auto_ptr<DBRequest> request(new DBRequest());
         request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        IFMapTable *tbl = IFMapTable::FindTable(&db_, type);
+        IFMapTable *tbl = IFMapTable::FindTable(&node_db_, type);
         IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
         request->key.reset(key);
         key->id_name = objid;
@@ -291,7 +294,7 @@ protected:
                           const string &attr) {
         auto_ptr<DBRequest> request(new DBRequest());
         request->oper = DBRequest::DB_ENTRY_DELETE;
-        IFMapTable *tbl = IFMapTable::FindTable(&db_, type);
+        IFMapTable *tbl = IFMapTable::FindTable(&node_db_, type);
         IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
         request->key.reset(key);
         key->id_name = objid;
@@ -305,13 +308,13 @@ protected:
     void IFMapMsgLink(const string &lhs, const string &rhs,
                       const string &lid, const string &rid) {
         string metadata = lhs + "-" + rhs;
-        ifmap_test_util::IFMapMsgLink(&db_, lhs, lid, rhs, rid, metadata);
+        ifmap_test_util::IFMapMsgLink(&node_db_, lhs, lid, rhs, rid, metadata);
     }
 
     void IFMapMsgUnlink(const string &lhs, const string &rhs,
                         const string &lid, const string &rid) {
         string metadata = lhs + "-" + rhs;
-        ifmap_test_util::IFMapMsgUnlink(&db_, lhs, lid, rhs, rid, metadata);
+        ifmap_test_util::IFMapMsgUnlink(&node_db_, lhs, lid, rhs, rid, metadata);
     }
 
     void IFMapMsgLinkAttr(const string &meta,
@@ -331,7 +334,7 @@ protected:
             data->content.reset(dp);
             dp->data = attr;
         }
-        IFMapTable *tbl = IFMapTable::FindTable(&db_,lhs);
+        IFMapTable *tbl = IFMapTable::FindTable(&node_db_,lhs);
         tbl->Enqueue(request.get());
     }
 
@@ -357,8 +360,11 @@ protected:
         }
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph graph_;
+    EventManager evm_;
+    IFMapServer server_;
 };
 
 struct graph_visitor {
@@ -376,7 +382,7 @@ TEST_F(IFMapServerTableTest, CreateDelete) {
     IFMapMsgLink("tenant", "virtual-network", "foo", "vn1");
     Wait();
 
-    IFMapTable *tbl = IFMapTable::FindTable(&db_, "tenant");
+    IFMapTable *tbl = IFMapTable::FindTable(&node_db_, "tenant");
     EXPECT_EQ(2, TableCount(tbl));
 
     IFMapClearProperty("tenant", "foo", "attr");
@@ -400,7 +406,7 @@ TEST_F(IFMapServerTableTest, CreateDelete) {
 
     EXPECT_EQ(0, TableCount(tbl));
 
-    tbl = IFMapTable::FindTable(&db_, "virtual-network");
+    tbl = IFMapTable::FindTable(&node_db_, "virtual-network");
     EXPECT_EQ(0, TableCount(tbl));    
 }
 
@@ -472,7 +478,7 @@ TEST_F(IFMapServerTableTest, DuplicateLink) {
     Wait();
 
     IFMapLinkTable *ltable = static_cast<IFMapLinkTable *>(
-        db_.FindTable("__ifmap_metadata__.0"));
+        link_db_.FindTable("__ifmap_metadata__.0"));
     ASSERT_TRUE(ltable != NULL);
 
     EXPECT_EQ(1, TableCount(ltable));
@@ -498,6 +504,7 @@ TEST_F(IFMapServerTableTest, DuplicateLink) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    ControlNode::SetDefaultSchedulingPolicy();
     bool success = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return success;

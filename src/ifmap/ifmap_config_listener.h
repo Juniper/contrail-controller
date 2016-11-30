@@ -45,7 +45,8 @@ class IFMapConfigListener {
  public:
     class ConfigManager {
      public:
-        virtual DB* database() = 0;
+        virtual DB* node_database() = 0;
+        virtual DB* link_database() = 0;
         virtual DBGraph* graph() = 0;
         virtual void OnChange() = 0;
         virtual ~ConfigManager() {}
@@ -81,7 +82,8 @@ class IFMapConfigListener {
     virtual void LinkObserver(DBTablePartBase* root, DBEntryBase* db_entry);
     void ChangeListAdd(IFMapNode* node);
 
-    DB *database();
+    DB *node_database();
+    DB *link_database();
 
     ConfigManager* manager_;
     boost::scoped_ptr<IFMapDependencyTracker> tracker_;

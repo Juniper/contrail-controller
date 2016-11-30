@@ -42,9 +42,9 @@ IFMapExporter::~IFMapExporter() {
     Shutdown();
 }
 
-void IFMapExporter::Initialize(DB *db) {
-    for (DB::iterator iter = db->lower_bound("__ifmap__");
-         iter != db->end(); ++iter) {
+void IFMapExporter::Initialize(DB *node_db, DB *link_db) {
+    for (DB::iterator iter = node_db->lower_bound("__ifmap__");
+         iter != node_db->end(); ++iter) {
         DBTable *table = static_cast<DBTable *>(iter->second);
         if (table->name().find("__ifmap__") != 0) {
             break;
@@ -56,7 +56,7 @@ void IFMapExporter::Initialize(DB *db) {
     }
 
     link_table_ = static_cast<DBTable *>(
-        db->FindTable("__ifmap_metadata__.0"));
+        link_db->FindTable("__ifmap_metadata__.0"));
     assert(link_table_);
     DBTable::ListenerId id =
             link_table_->Register(
@@ -512,10 +512,10 @@ void IFMapExporter::LinkTableExport(DBTablePartBase *partition,
             MoveAdjacentNode(s_right);
         }
     } else if ((state != NULL) && state->IsValid()) {
-        IFMapNode *left = link->LeftNode(server_->database());
+        IFMapNode *left = link->LeftNode(server_->node_database());
         IFMapNodeState *s_left = state->left();
         assert((left != NULL) && (s_left != NULL));
-        IFMapNode *right = link->RightNode(server_->database());
+        IFMapNode *right = link->RightNode(server_->node_database());
         IFMapNodeState *s_right = state->right();
         assert((right != NULL) && (s_right != NULL));
         BitSet interest = s_left->interest() & s_right->interest();

@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/test/task_test_util.h"
+#include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "io/event_manager.h"
@@ -58,8 +59,8 @@ public:
 
 class IFMapServerTest : public IFMapServer {
 public:
-    IFMapServerTest(DB *db, DBGraph *graph, boost::asio::io_service *io_service)
-        : IFMapServer(db, graph, io_service), sequence_number_(0) {
+    IFMapServerTest(DB *node_db, DB *link_db, DBGraph *graph, EventManager *evm)
+        : IFMapServer(node_db, link_db, graph, evm), sequence_number_(0) {
     }
     void SetSender(IFMapUpdateSender *sender) {
         // sender_ accessible since we are friends with base class
@@ -80,24 +81,26 @@ private:
 class IFMapRestartTest : public ::testing::Test {
 protected:
     IFMapRestartTest()
-        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-          server_(&db_, &graph_, evm_.io_service()),
+        : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+          link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+          server_(&node_db_, &link_db_, &graph_, &evm_),
           exporter_(server_.exporter()) {
     }
 
     virtual void SetUp() {
-        IFMapLinkTable_Init(&db_, &graph_);
-        vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        exporter_->Initialize(&db_);
+        IFMapLinkTable_Init(&link_db_, &graph_);
+        vnc_cfg_Server_ModuleInit(&server_, &node_db_, &graph_);
+        exporter_->Initialize(&node_db_, &link_db_);
     }
 
     virtual void TearDown() {
         exporter_->Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
+        IFMapLinkTable_Clear(&link_db_);
+        IFMapTable::ClearTables(&node_db_);
         task_util::WaitForIdle();
-        db_.Clear();
+        node_db_.Clear();
+        link_db_.Clear();
         evm_.Shutdown();
     }
 
@@ -105,30 +108,30 @@ protected:
                       const string &lid, const string &rid,
                       uint64_t sequence_number) {
         string metadata = ltype + "-" + rtype;
-        ifmap_test_util::IFMapMsgLink(&db_, ltype, lid, rtype, rid, metadata,
+        ifmap_test_util::IFMapMsgLink(&node_db_, ltype, lid, rtype, rid, metadata,
                                       sequence_number);
     }
 
     void IFMapMsgUnlink(const string &ltype, const string &rtype,
                         const string &lid, const string &rid) {
         string metadata = ltype + "-" + rtype;
-        ifmap_test_util::IFMapMsgUnlink(&db_, ltype, lid, rtype, rid, metadata);
+        ifmap_test_util::IFMapMsgUnlink(&node_db_, ltype, lid, rtype, rid, metadata);
     }
 
     void IFMapMsgPropertyAdd(const string &type, const string &id,
                              const string &metadata, AutogenProperty *content,
                              uint64_t sequence_number) {
-        ifmap_test_util::IFMapMsgPropertyAdd(&db_, type, id, metadata, content,
+        ifmap_test_util::IFMapMsgPropertyAdd(&node_db_, type, id, metadata, content,
                                              sequence_number);
     }
 
     void IFMapMsgPropertyDelete(const string &type, const string &id,
                                 const string &metadata) {
-        ifmap_test_util::IFMapMsgPropertyDelete(&db_, type, id, metadata);
+        ifmap_test_util::IFMapMsgPropertyDelete(&node_db_, type, id, metadata);
     }
 
     IFMapNode *TableLookup(const string &type, const string &name) {
-        IFMapTable *tbl = IFMapTable::FindTable(&db_, type);
+        IFMapTable *tbl = IFMapTable::FindTable(&node_db_, type);
         if (tbl == NULL) {
             return NULL;
         }
@@ -138,7 +141,7 @@ protected:
     IFMapLink *LinkLookup(IFMapNode *lhs, IFMapNode *rhs,
                           const string &metadata) {
         IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
-                                     db_.FindTable("__ifmap_metadata__.0"));
+                                     link_db_.FindTable("__ifmap_metadata__.0"));
         IFMapLink *link =  link_table->FindLink(metadata, lhs, rhs);
         return (link ? (link->IsDeleted() ? NULL : link) : NULL);
     }
@@ -147,7 +150,8 @@ protected:
         server_.ProcessStaleEntriesTimeout();
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph graph_;
     EventManager evm_;
     IFMapServerTest server_;
@@ -720,6 +724,7 @@ TEST_F(IFMapRestartTest, MultipleAttrChangesWithSeqNumChange) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    ControlNode::SetDefaultSchedulingPolicy();
     bool success = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return success;

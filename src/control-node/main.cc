@@ -74,12 +74,12 @@ static string FileRead(const char *filename) {
 }
 
 static void IFMap_Initialize(IFMapServer *server) {
-    IFMapLinkTable_Init(server->database(), server->graph());
+    IFMapLinkTable_Init(server->link_database(), server->graph());
     IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
     vnc_cfg_ParserInit(parser);
-    vnc_cfg_Server_ModuleInit(server->database(), server->graph());
+    vnc_cfg_Server_ModuleInit(server, server->graph());
     bgp_schema_ParserInit(parser);
-    bgp_schema_Server_ModuleInit(server->database(), server->graph());
+    bgp_schema_Server_ModuleInit(server, server->graph());
     server->Initialize();
 }
 
@@ -381,9 +381,10 @@ int main(int argc, char *argv[]) {
     sandesh_context.bgp_server = bgp_server.get();
     bgp_server->set_gr_helper_disable(options.gr_helper_bgp_disable());
 
-    DB config_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
+    DB node_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable"));
+    DB link_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable"));
     DBGraph config_graph;
-    IFMapServer ifmap_server(&config_db, &config_graph, evm.io_service());
+    IFMapServer ifmap_server(&node_db, &link_db, &config_graph, &evm);
     IFMap_Initialize(&ifmap_server);
 
     BgpIfmapConfigManager *config_manager =

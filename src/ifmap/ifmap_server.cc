@@ -30,6 +30,7 @@
 #include "ifmap/ifmap_update_sender.h"
 #include "ifmap/ifmap_xmpp.h"
 #include "ifmap/ifmap_uuid_mapper.h"
+#include "io/event_manager.h"
 #include "schema/vnc_cfg_types.h"
 
 #include "sandesh/sandesh.h"
@@ -40,8 +41,8 @@ using std::make_pair;
 class IFMapServer::IFMapStaleEntriesCleaner : public Task {
 public:
     IFMapStaleEntriesCleaner(DB *db, DBGraph *graph, IFMapServer *server):
-        Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
-        db_(db), graph_(graph), ifmap_server_(server) {
+        Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable"), 0),
+        link_db_(db), graph_(graph), ifmap_server_(server) {
     }
 
     bool Run() {
@@ -66,7 +67,7 @@ public:
                 link->GetOriginInfo(IFMapOrigin::MAP_SERVER, &exists);
             if (exists && (origin_info.sequence_number < curr_seq_num)) {
                 IFMapLinkTable *ltable = static_cast<IFMapLinkTable *>(
-                    db_->FindTable("__ifmap_metadata__.0"));
+                    link_db_->FindTable("__ifmap_metadata__.0"));
                 // Cleanup the node and remove from the graph
                 link->RemoveOriginInfo(IFMapOrigin::MAP_SERVER);
                 if (link->is_origin_empty()) {
@@ -124,7 +125,7 @@ public:
     }
 
 private:
-    DB *db_;
+    DB *link_db_;
     DBGraph *graph_;
     IFMapServer *ifmap_server_;
 };
@@ -134,15 +135,15 @@ public:
     IFMapVmSubscribe(DB *db, DBGraph *graph, IFMapServer *server,
                      const std::string &vr_name, const std::string &vm_uuid,
                      bool subscribe, bool has_vms):
-            Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
-            db_(db), ifmap_server_(server), vr_name_(vr_name),
+            Task(TaskScheduler::GetInstance()->GetTaskId("ifmap::Config"), 0),
+            node_db_(db), ifmap_server_(server), vr_name_(vr_name),
             vm_uuid_(vm_uuid), subscribe_(subscribe), has_vms_(has_vms) {
     }
 
     bool Run() {
 
         IFMapServerTable *vm_table = static_cast<IFMapServerTable *>(
-            db_->FindTable("__ifmap__.virtual_machine.0"));
+            node_db_->FindTable("__ifmap__.virtual_machine.0"));
         assert(vm_table != NULL);
 
         // We are processing a VM-sub/unsub. If the client is gone by the time
@@ -160,7 +161,7 @@ public:
         IFMapNode *vm_node = ifmap_server_->GetVmNodeByUuid(vm_uuid_);
         if (vm_node && !vm_node->IsDeleted()) {
             IFMapServerTable *vr_table = static_cast<IFMapServerTable *>(
-                db_->FindTable("__ifmap__.virtual_router.0"));
+                node_db_->FindTable("__ifmap__.virtual_router.0"));
             assert(vr_table != NULL);
 
             std::string vm_name = vm_node->name();
@@ -179,7 +180,7 @@ public:
     std::string Description() const { return "IFMapServer::IFMapVmSubscribe"; }
 
 private:
-    DB *db_;
+    DB *node_db_;
     IFMapServer *ifmap_server_;
     std::string vr_name_;
     std::string vm_uuid_;
@@ -187,16 +188,16 @@ private:
     bool has_vms_;
 };
 
-IFMapServer::IFMapServer(DB *db, DBGraph *graph,
-                         boost::asio::io_service *io_service)
-        : db_(db), graph_(graph),
+IFMapServer::IFMapServer(DB *node_db, DB *link_db, DBGraph *graph,
+                         EventManager *evm)
+        : node_db_(node_db), link_db_(link_db), graph_(graph),
           queue_(new IFMapUpdateQueue(this)),
           exporter_(new IFMapExporter(this)),
           sender_(new IFMapUpdateSender(this, queue())),
-          vm_uuid_mapper_(new IFMapVmUuidMapper(db_, this)),
-          work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"),
+          vm_uuid_mapper_(new IFMapVmUuidMapper(node_db_, this)),
+          work_queue_(TaskScheduler::GetInstance()->GetTaskId("ifmap::Config"),
               0, boost::bind(&IFMapServer::ClientWorker, this, _1)),
-          io_service_(io_service), ifmap_manager_(NULL),
+          io_service_(evm->io_service()), ifmap_manager_(NULL),
           ifmap_channel_manager_(NULL) {
 }
 
@@ -204,7 +205,7 @@ IFMapServer::~IFMapServer() {
 }
 
 void IFMapServer::Initialize() {
-    exporter_->Initialize(db_);
+    exporter_->Initialize(node_db_, link_db_);
     vm_uuid_mapper_->Initialize();
 }
 
@@ -321,7 +322,7 @@ void IFMapServer::CleanupUuidMapper(IFMapClient *client) {
 
 void IFMapServer::RemoveSelfAddedLinksAndObjects(IFMapClient *client) {
     IFMapServerTable *vr_table = static_cast<IFMapServerTable *>(
-        db_->FindTable("__ifmap__.virtual_router.0"));
+        node_db_->FindTable("__ifmap__.virtual_router.0"));
     assert(vr_table != NULL);
 
     IFMapNode *node = vr_table->FindNode(client->identifier());
@@ -341,7 +342,7 @@ void IFMapServer::RemoveSelfAddedLinksAndObjects(IFMapClient *client) {
 }
 
 void IFMapServer::ClientGraphDownload(IFMapClient *client) {
-    IFMapTable *table = IFMapTable::FindTable(db_, "virtual-router");
+    IFMapTable *table = IFMapTable::FindTable(node_db_, "virtual-router");
     assert(table);
 
     IFMapNode *node = table->FindNode(client->identifier());
@@ -353,7 +354,7 @@ void IFMapServer::ClientGraphDownload(IFMapClient *client) {
                 continue;
             }
             DBTable *link_table = static_cast<DBTable *>(
-                db_->FindTable("__ifmap_metadata__.0"));
+                link_db_->FindTable("__ifmap_metadata__.0"));
             link_table->Change(link);
         }
     }
@@ -399,7 +400,7 @@ bool IFMapServer::ClientNameToIndex(const std::string &id, int *index) {
 
 bool IFMapServer::ProcessStaleEntriesTimeout() {
     IFMapStaleEntriesCleaner *cleaner =
-        new IFMapStaleEntriesCleaner(db_, graph_, this);
+        new IFMapStaleEntriesCleaner(link_db_, graph_, this);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(cleaner);
     return false;
@@ -407,7 +408,7 @@ bool IFMapServer::ProcessStaleEntriesTimeout() {
 
 void IFMapServer::ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
                                      bool subscribe, bool has_vms) {
-    IFMapVmSubscribe *vm_sub = new IFMapVmSubscribe(db_, graph_, this,
+    IFMapVmSubscribe *vm_sub = new IFMapVmSubscribe(node_db_, graph_, this,
                                                     vr_name, vm_uuid,
                                                     subscribe, has_vms);
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -419,7 +420,7 @@ void IFMapServer::ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
     IFMapClient *client = FindClient(vr_name);
     assert(client);
     IFMapVmSubscribe *vm_sub =
-        new IFMapVmSubscribe(db_, graph_, this, vr_name, vm_uuid, subscribe,
+        new IFMapVmSubscribe(node_db_, graph_, this, vr_name, vm_uuid, subscribe,
                              client->HasVms());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(vm_sub);

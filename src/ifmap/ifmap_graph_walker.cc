@@ -6,6 +6,7 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include "base/logging.h"
 #include "base/task_trigger.h"
@@ -24,6 +25,10 @@
 
 using boost::assign::list_of;
 using boost::assign::map_list_of;
+using std::set;
+using std::string;
+
+typedef boost::shared_ptr<DBGraph::VisitorFilter> IFMapVisitFilterRef;
 
 class GraphPropagateFilter : public DBGraph::VisitorFilter {
 public:
@@ -67,18 +72,46 @@ private:
     const BitSet &bset_;
 };
 
+class IFMapGraphWalker::GraphWalkRequest {
+public:
+    GraphWalkRequest(string type, string name, DBGraph::VertexVisitor vertex_visit,
+                     DBGraph::EdgeVisitor edge_visit, IFMapVisitFilterRef filter)
+        : node_type_(type),
+          node_name_(name),
+          vertex_visit_(vertex_visit),
+          edge_visit_(edge_visit),
+          filter_(filter) {
+    }
+
+
+    string node_type_;
+    string node_name_;
+    DBGraph::VertexVisitor vertex_visit_;
+    DBGraph::EdgeVisitor edge_visit_;
+    IFMapVisitFilterRef filter_;
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(GraphWalkRequest);
+};
+
 IFMapGraphWalker::IFMapGraphWalker(DBGraph *graph, IFMapExporter *exporter)
     : graph_(graph),
       exporter_(exporter),
-      link_delete_walk_trigger_(new TaskTrigger(
-          boost::bind(&IFMapGraphWalker::LinkDeleteWalk, this),
-          TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0)),
       walk_client_index_(BitSet::npos) {
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("ifmap::Config");
+    link_delete_walk_trigger_.reset(new TaskTrigger
+        (boost::bind(&IFMapGraphWalker::LinkDeleteWalk, this),
+        task_id, 0));
+
+    graph_walk_queue_.reset(new WorkQueue<GraphWalkRequest *>
+      (task_id, 0, bind(&IFMapGraphWalker::GraphWalkRequestHandler, this, _1)));
+
     traversal_white_list_.reset(new IFMapTypenameWhiteList());
     AddNodesToWhitelist();
 }
 
 IFMapGraphWalker::~IFMapGraphWalker() {
+    graph_walk_queue_->Shutdown();
 }
 
 void IFMapGraphWalker::NotifyEdge(DBGraphEdge *edge, const BitSet &bset) {
@@ -97,11 +130,15 @@ void IFMapGraphWalker::JoinVertex(DBGraphVertex *vertex, const BitSet &bset) {
 
 void IFMapGraphWalker::ProcessLinkAdd(IFMapNode *lnode, IFMapNode *rnode,
                                       const BitSet &bset) {
-    GraphPropagateFilter filter(exporter_, traversal_white_list_.get(), bset);
-    graph_->Visit(rnode,
-                  boost::bind(&IFMapGraphWalker::JoinVertex, this, _1, bset),
-                  boost::bind(&IFMapGraphWalker::NotifyEdge, this, _1, bset),
-                  filter);
+    IFMapVisitFilterRef filter = IFMapVisitFilterRef
+        (new GraphPropagateFilter(exporter_, traversal_white_list_.get(), bset));
+
+    GraphWalkRequest *req = 
+        new GraphWalkRequest(lnode->table()->Typename(), lnode->name(),
+                     boost::bind(&IFMapGraphWalker::JoinVertex, this, _1, bset),
+                     boost::bind(&IFMapGraphWalker::NotifyEdge, this, _1, bset),
+                     filter);
+    graph_walk_queue_->Enqueue(req);
 }
 
 void IFMapGraphWalker::LinkAdd(IFMapLink *link, IFMapNode *lnode, const BitSet &lhs,
@@ -145,6 +182,20 @@ void IFMapGraphWalker::RecomputeInterest(DBGraphVertex *vertex, int bit) {
     UpdateNewReachableNodesTracker(bit, state);
 }
 
+bool IFMapGraphWalker::GraphWalkRequestHandler(GraphWalkRequest *req) {
+    CHECK_CONCURRENCY("ifmap::Config");
+    DB *node_db = exporter_->server()->node_database();
+    IFMapTable *table = IFMapTable::FindTable(node_db, req->node_type_);
+    if (table) {
+        IFMapNode *node = table->FindNode(req->node_name_);
+        if (node) {
+            graph_->Visit(node, req->vertex_visit_, req->edge_visit_, *req->filter_.get());
+        }
+    }
+    delete req;
+    return true;
+}
+
 bool IFMapGraphWalker::LinkDeleteWalk() {
     if (link_delete_clients_.empty()) {
         walk_client_index_ = BitSet::npos;
@@ -168,7 +219,7 @@ bool IFMapGraphWalker::LinkDeleteWalk() {
         assert(client);
         AddNewReachableNodesTracker(client->index());
 
-        IFMapTable *table = IFMapTable::FindTable(server->database(),
+        IFMapTable *table = IFMapTable::FindTable(server->node_database(),
                                                   "virtual-router");
         IFMapNode *node = table->FindNode(client->identifier());
         if ((node != NULL) && node->IsVertexValid()) {
@@ -337,7 +388,7 @@ const IFMapTypenameWhiteList &IFMapGraphWalker::get_traversal_white_list()
 // IFMapGraphTraversalFilterCalculator::CreateNodeBlackList() are mutually 
 // exclusive
 void IFMapGraphWalker::AddNodesToWhitelist() {
-    traversal_white_list_->include_vertex = map_list_of<std::string, std::set<std::string> > 
+    traversal_white_list_->include_vertex = map_list_of<string, set<string> > 
         ("virtual-router",
          list_of("physical-router-virtual-router")
                 ("virtual-router-virtual-machine")
@@ -353,9 +404,9 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          list_of("global-system-config-global-vrouter-config")
                 ("global-system-config-global-qos-config")
                 ("qos-config-global-system-config"))
-        ("provider-attachment", std::set<std::string>())
+        ("provider-attachment", set<string>())
         ("service-instance", list_of("service-instance-service-template"))
-        ("global-vrouter-config", std::set<std::string>())
+        ("global-vrouter-config", set<string>())
         ("virtual-machine-interface",
          list_of("virtual-machine-virtual-machine-interface")
                 ("virtual-machine-interface-sub-interface")
@@ -388,7 +439,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
         ("floating-ip", list_of("floating-ip-pool-floating-ip")
          ("instance-ip-floating-ip"))
         ("alias-ip", list_of("alias-ip-pool-alias-ip"))
-        ("customer-attachment", std::set<std::string>())
+        ("customer-attachment", set<string>())
         ("virtual-machine-interface-routing-instance",
          list_of("virtual-machine-interface-routing-instance"))
         ("physical-interface", list_of("physical-interface-logical-interface"))
@@ -397,18 +448,18 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
         ("alias-ip-pool", list_of("virtual-network-alias-ip-pool"))
         ("logical-interface", list_of("logical-interface-virtual-machine-interface"))
         ("virtual-network-network-ipam", list_of("virtual-network-network-ipam"))
-        ("access-control-list", std::set<std::string>())
-        ("routing-instance", std::set<std::string>())
-        ("namespace", std::set<std::string>())
+        ("access-control-list", set<string>())
+        ("routing-instance", set<string>())
+        ("namespace", set<string>())
         ("virtual-DNS", list_of("virtual-DNS-virtual-DNS-record"))
         ("network-ipam", list_of("network-ipam-virtual-DNS"))
-        ("virtual-DNS-record", std::set<std::string>())
-        ("interface-route-table", std::set<std::string>())
-        ("subnet", std::set<std::string>())
-        ("service-health-check", std::set<std::string>())
+        ("virtual-DNS-record", set<string>())
+        ("interface-route-table", set<string>())
+        ("subnet", set<string>())
+        ("service-health-check", set<string>())
         ("bgp-as-a-service", list_of("bgpaas-bgp-router"))
-        ("qos-config", std::set<std::string>())
-        ("qos-queue", std::set<std::string>())
+        ("qos-config", set<string>())
+        ("qos-queue", set<string>())
         ("forwarding-class", list_of("forwarding-class-qos-queue"))
         ("global-qos-config",
          list_of("global-qos-config-forwarding-class")

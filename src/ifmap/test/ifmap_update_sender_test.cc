@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/test/task_test_util.h"
+#include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/db_table.h"
@@ -66,15 +67,16 @@ protected:
     typedef map<string, IFMapNode *> NodeMap;
 
     IFMapUpdateSenderTest()
-        : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-          server_(&db_, &graph_, evm_.io_service()), tbl_(NULL),
+        : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+          link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+          server_(&node_db_, &link_db_, &graph_, &evm_), tbl_(NULL),
           sender_(server_.sender()), queue_(server_.queue()) {
     }
 
     virtual void SetUp() {
-        IFMapLinkTable_Init(&db_, &graph_);
-        vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        tbl_ = IFMapTable::FindTable(&db_, "virtual-network");
+        IFMapLinkTable_Init(&link_db_, &graph_);
+        vnc_cfg_Server_ModuleInit(&server_, &node_db_, &graph_);
+        tbl_ = IFMapTable::FindTable(&node_db_, "virtual-network");
         ASSERT_TRUE(tbl_);
         server_.Initialize();
     }
@@ -113,7 +115,8 @@ protected:
         sender_->SetSendBlocked(client_index);
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph graph_;
     EventManager evm_;
     IFMapServer server_;
@@ -1233,6 +1236,7 @@ TEST_F(IFMapUpdateSenderTest, Bug228) {
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    ControlNode::SetDefaultSchedulingPolicy();
     bool success = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return success;

@@ -18,6 +18,7 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
+#include "ifmap/ifmap_server.h"
 
 using namespace std;
 
@@ -38,8 +39,8 @@ IFMapServerTable::RequestData::~RequestData() {
 }
 
 
-IFMapServerTable::IFMapServerTable(DB *db, const string &name, DBGraph *graph)
-        : IFMapTable(db, name, graph) {
+IFMapServerTable::IFMapServerTable(IFMapServer *server, DB *db, const string &name, DBGraph *graph)
+        : IFMapTable(db, name, graph), server_(server) {
 }
 
 auto_ptr<DBEntry> IFMapServerTable::AllocEntry(const DBRequestKey *key) const {
@@ -108,7 +109,7 @@ IFMapNode *IFMapServerTable::TableEntryLocate(IFMapServerTable *table,
 IFMapLink *IFMapServerTable::FindLinkNode(IFMapNode *first, IFMapNode *second,
                                    const string &metadata) {
     IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
-        database()->FindTable("__ifmap_metadata__.0"));
+        server()->link_database()->FindTable("__ifmap_metadata__.0"));
     assert(table != NULL);
     IFMapLink *link =  table->FindLink(metadata, first, second);
     return (link ? (link->IsDeleted() ? NULL : link) : NULL);
@@ -119,7 +120,7 @@ IFMapLink *IFMapServerTable::LinkNodeAdd(IFMapNode *first, IFMapNode *second,
                                    uint64_t sequence_number,
                                    const IFMapOrigin &origin) {
     IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
-        database()->FindTable("__ifmap_metadata__.0"));
+        server()->link_database()->FindTable("__ifmap_metadata__.0"));
     assert(table != NULL);
     return table->AddLink(first, second, metadata, sequence_number, origin);
 }
@@ -132,7 +133,7 @@ void IFMapServerTable::LinkNodeUpdate(IFMapLink *link, uint64_t sequence_number,
 
 void IFMapServerTable::LinkNodeDelete(IFMapLink *link, const IFMapOrigin &origin) {
     IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
-        database()->FindTable("__ifmap_metadata__.0"));
+        server()->link_database()->FindTable("__ifmap_metadata__.0"));
     assert(table != NULL);
     table->DeleteLink(link, origin);
 }

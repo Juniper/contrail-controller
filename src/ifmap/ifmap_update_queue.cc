@@ -448,7 +448,7 @@ void IFMapUpdateQueueShowReq::HandleRequest() const {
 
     // 2 stages - first: gather/read, second: send
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapNodeTable");
     s0.allocFn_ = ShowIFMapUpdateQueue::AllocBuffer;
     s0.cbFn_ = ShowIFMapUpdateQueue::BufferStage;
     s0.instances_.push_back(0);

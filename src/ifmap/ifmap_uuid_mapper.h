@@ -63,7 +63,7 @@ public:
     }
 
     DBTable::ListenerId vm_listener_id() { return vm_lid_; }
-    DB *db() { return db_; }
+    DB *db() { return node_db_; }
     IFMapServer *server() { return ifmap_server_; }
     bool is_registered() { return registered; }
 
@@ -96,7 +96,7 @@ private:
     friend class ShowIFMapNodeToUuidMapping;
     friend class ShowIFMapUuidToNodeMapping;
 
-    DB *db_;
+    DB *node_db_;
     IFMapServer *ifmap_server_;
     IFMapServerTable *vm_table_;
     DBTable::ListenerId vm_lid_;

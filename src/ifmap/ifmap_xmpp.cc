@@ -33,14 +33,14 @@ const std::string IFMapXmppChannel::NoFqnSet = "NoFqnSet";
 
 // There are 3 task interactions:
 // "xmpp::StateMachine" gives all the channel triggers.
-// "db::IFMapTable" does all the work related to those triggers - except Ready
+// "ifmap::Config" does all the work related to those triggers - except Ready
 // "bgp::Config" does the final channel-unregister
 //
 // "xmpp::StateMachine" task gives us 5 triggers:
 // 1. Ready/NotReady indicating the channel create/delete
 // 2. VR-subscribe indicating the existence of the agent
 // 3. VM-sub/unsub indicating the create/delete of a virtual-machine
-// Process all the triggers in the context of the db::IFMapTable task - except
+// Process all the triggers in the context of the ifmap::Config task - except
 // the 'ready' trigger that is processed right away.
 // #1 must be processed via the IFMapChannelManager.
 // #2/#3 must be processed via the IFMapXmppChannel since they are
@@ -54,14 +54,14 @@ public:
     // To be used for #1
     explicit ChannelEventProcTask(const ChannelEventInfo &ev,
                                   IFMapChannelManager *mgr)
-        : Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
+        : Task(TaskScheduler::GetInstance()->GetTaskId("ifmap::Config"), 0),
           event_info_(ev), ifmap_channel_manager_(mgr) {
     }
 
     // To be used for #2/#3
     explicit ChannelEventProcTask(const ChannelEventInfo &ev,
                                   IFMapXmppChannel *chnl)
-        : Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
+        : Task(TaskScheduler::GetInstance()->GetTaskId("ifmap::Config"), 0),
           event_info_(ev), ifmap_chnl_(chnl) {
     }
 
@@ -561,7 +561,7 @@ void IFMapXmppShowReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("ifmap::Config");
     s0.cbFn_ = IFMapXmppShowReqHandleRequest;
     s0.instances_.push_back(0);
 

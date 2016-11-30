@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/test/task_test_util.h"
+#include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "io/event_manager.h"
@@ -60,8 +61,9 @@ public:
 
 class IFMapServerTest : public IFMapServer {
 public:
-    IFMapServerTest(DB *db, DBGraph *graph, boost::asio::io_service *io_service)
-        : IFMapServer(db, graph, io_service) {
+    IFMapServerTest(DB *node_db, DB *link_db, DBGraph *graph,
+                    EventManager *evm)
+        : IFMapServer(node_db, link_db, graph, evm) {
     }
     void SetSender(IFMapUpdateSender *sender) {
         sender_.reset(sender);
@@ -71,16 +73,17 @@ public:
 class IFMapExporterTest : public ::testing::Test {
 protected:
     IFMapExporterTest()
-            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-              server_(&db_, &graph_, evm_.io_service()),
+            : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+              link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+              server_(&node_db_, &link_db_, &graph_, &evm_),
               exporter_(server_.exporter()), parser_(NULL) {
     }
 
     virtual void SetUp() {
-        IFMapLinkTable_Init(&db_, &graph_);
+        IFMapLinkTable_Init(&link_db_, &graph_);
         parser_ = IFMapServerParser::GetInstance("vnc_cfg");
         vnc_cfg_ParserInit(parser_);
-        vnc_cfg_Server_ModuleInit(&db_, &graph_);
+        vnc_cfg_Server_ModuleInit(&server_, &node_db_, &graph_);
         bgp_schema_ParserInit(parser_);
         server_.Initialize();
     }
@@ -88,10 +91,11 @@ protected:
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
+        IFMapLinkTable_Clear(&link_db_);
+        IFMapTable::ClearTables(&node_db_);
         task_util::WaitForIdle();
-        db_.Clear();
+        node_db_.Clear();
+        link_db_.Clear();
         parser_->MetadataClear("vnc_cfg");
         evm_.Shutdown();
     }
@@ -100,32 +104,32 @@ protected:
                   const string &lid, const string &rid, const string &metadata = "") {
         string meta = metadata;
         if (metadata == "") meta = ltype + "-" + rtype;
-        ifmap_test_util::IFMapMsgLink(&db_, ltype, lid, rtype, rid, meta);
+        ifmap_test_util::IFMapMsgLink(&node_db_, ltype, lid, rtype, rid, meta);
     }
 
     void IFMapMsgUnlink(const string &ltype, const string &rtype,
                   const string &lid, const string &rid, const string &metadata = "") {
         string meta = metadata;
         if (metadata == "") meta = ltype + "-" + rtype;
-        ifmap_test_util::IFMapMsgUnlink(&db_, ltype, lid, rtype, rid, meta);
+        ifmap_test_util::IFMapMsgUnlink(&node_db_, ltype, lid, rtype, rid, meta);
     }
 
     void IFMapMsgNodeAdd(const string &type, const string &id,
                          uint64_t sequence_number, const string &metadata,
                          AutogenProperty *content) {
-        ifmap_test_util::IFMapMsgNodeAdd(&db_, type, id, sequence_number,
+        ifmap_test_util::IFMapMsgNodeAdd(&node_db_, type, id, sequence_number,
                                          metadata, content);
     }
 
     void IFMapMsgNodeDelete(const string &type, const string &id,
                          uint64_t sequence_number, const string &metadata,
                          AutogenProperty *content) {
-        ifmap_test_util::IFMapMsgNodeDelete(&db_, type, id, sequence_number,
+        ifmap_test_util::IFMapMsgNodeDelete(&node_db_, type, id, sequence_number,
                                          metadata, content);
     }
 
     IFMapNode *TableLookup(const string &type, const string &name) {
-        IFMapTable *tbl = IFMapTable::FindTable(&db_, type);
+        IFMapTable *tbl = IFMapTable::FindTable(&node_db_, type);
         if (tbl == NULL) {
             return NULL;
         }
@@ -134,7 +138,7 @@ protected:
 
     IFMapLink *LinkTableLookup(const string &name) {
         IFMapLinkTable *table = static_cast<IFMapLinkTable *>
-            (db_.FindTable("__ifmap_metadata__.0"));
+            (link_db_.FindTable("__ifmap_metadata__.0"));
         if (table == NULL) {
             return NULL;
         }
@@ -143,7 +147,7 @@ protected:
 
     size_t LinkTableSize() {
         IFMapLinkTable *table = static_cast<IFMapLinkTable *>
-            (db_.FindTable("__ifmap_metadata__.0"));
+            (link_db_.FindTable("__ifmap_metadata__.0"));
         if (table == NULL) {
             return 0;
         }
@@ -197,7 +201,7 @@ protected:
         IFMapNode *rnode = TableLookup(rtype, rid);
         assert(lnode);
         IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>
-            (db_.FindTable("__ifmap_metadata__.0"));
+            (link_db_.FindTable("__ifmap_metadata__.0"));
         string metadata = ltype + "-" + rtype;
         string link_name = link_table->LinkKey(metadata, lnode, rnode);
         IFMapLink *link = NULL;
@@ -211,7 +215,8 @@ protected:
         return link;
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph graph_;
     EventManager evm_;
     IFMapServerTest server_;
@@ -619,7 +624,7 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     // Round 1 of reading config
     string content = FileRead("controller/src/ifmap/testdata/crc.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-router", "host1") != NULL);
@@ -682,7 +687,7 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     // Round 2 of reading config
     content = FileRead("controller/src/ifmap/testdata/crc1.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     idn = TableLookup("virtual-router", "host1");
@@ -747,7 +752,7 @@ TEST_F(IFMapExporterTest, CrcChecks) {
     // crc's calculated during round 1.
     content = FileRead("controller/src/ifmap/testdata/crc.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     idn = TableLookup("virtual-router", "host1");
@@ -985,9 +990,9 @@ TEST_F(IFMapExporterTest, PR1383393) {
     std::string name1 = "name1";
     std::string name2 = "name2";
 
-    IFMapTable *vn_tbl = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *vn_tbl = IFMapTable::FindTable(&node_db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(0, vn_tbl->Size());
-    IFMapTable *ni_tbl = IFMapTable::FindTable(&db_, "network-ipam");
+    IFMapTable *ni_tbl = IFMapTable::FindTable(&node_db_, "network-ipam");
     TASK_UTIL_EXPECT_EQ(0, ni_tbl->Size());
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", samename) == NULL);
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", samename) == NULL);
@@ -1031,7 +1036,7 @@ TEST_F(IFMapExporterTest, PR1454380) {
     task_util::WaitForIdle();
 
     IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>
-        (db_.FindTable("__ifmap_metadata__.0"));
+        (link_db_.FindTable("__ifmap_metadata__.0"));
     if (link_table == NULL) {
         assert(false);
     }
@@ -1250,6 +1255,7 @@ TEST_F(IFMapExporterTest, ConfigTracker) {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
+    ControlNode::SetDefaultSchedulingPolicy();
     bool success = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return success;

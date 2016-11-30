@@ -53,7 +53,7 @@ public:
     explicit IFMapExporter(IFMapServer *server);
     ~IFMapExporter();
 
-    void Initialize(DB *db);
+    void Initialize(DB *node_db, DB *link_db);
     void Shutdown();
 
     void StateUpdateOnDequeue(IFMapUpdate *update, const BitSet &dequeue_set,

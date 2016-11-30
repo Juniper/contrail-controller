@@ -32,17 +32,18 @@ using namespace std;
 class IFMapVmUuidMapperTest : public ::testing::Test {
 protected:
     IFMapVmUuidMapperTest() :
-        db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-        server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL) {
+        node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+        link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+        server_(&node_db_, &link_db_, &db_graph_, &evm_), parser_(NULL) {
     }
 
     virtual void SetUp() {
-        IFMapLinkTable_Init(&db_, &db_graph_);
+        IFMapLinkTable_Init(&link_db_, &db_graph_);
         parser_ = IFMapServerParser::GetInstance("vnc_cfg");
         vnc_cfg_ParserInit(parser_);
-        vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
+        vnc_cfg_Server_ModuleInit(&server_, &node_db_, &db_graph_);
         bgp_schema_ParserInit(parser_);
-        bgp_schema_Server_ModuleInit(&db_, &db_graph_);
+        bgp_schema_Server_ModuleInit(&server_, &node_db_, &db_graph_);
         server_.Initialize();
         vm_uuid_mapper_ = server_.vm_uuid_mapper();
     }
@@ -50,10 +51,11 @@ protected:
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
+        IFMapLinkTable_Clear(&link_db_);
+        IFMapTable::ClearTables(&node_db_);
         task_util::WaitForIdle();
-        db_.Clear();
+        node_db_.Clear();
+        link_db_.Clear();
         parser_->MetadataClear("vnc_cfg");
         evm_.Shutdown();
     }
@@ -76,7 +78,8 @@ protected:
         server_.SimulateDeleteClient(c1);
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph db_graph_;
     EventManager evm_;
     IFMapServer server_;
@@ -94,7 +97,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
     string filename = GetParam();
     string content = FileRead(filename);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -144,7 +147,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
     string filename = GetParam();
     string content = FileRead(filename);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -217,7 +220,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, DeletedNodeRevival) {
     string filename = GetParam();
     string content = FileRead(filename);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -284,7 +287,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigDeleteClientSubscribe) {
     string filename = GetParam();
     string content = FileRead(filename);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -373,7 +376,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeThenConfig) {
     string filename = GetParam();
     string content = FileRead(filename);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -426,7 +429,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeDeleteClientThenConfig) {
     string filename = GetParam();
     string content = FileRead(filename);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -445,7 +448,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, CfgSubUnsub) {
     string filename = GetParam();
     string content = FileRead(filename);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -552,7 +555,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeConfigUnsub) {
     string filename = GetParam();
     string content = FileRead(filename);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -659,7 +662,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddCfgdel) {
     ConfigFileNames config_files = GetParam();
     string content = FileRead(config_files.AddConfigFileName);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -685,7 +688,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddCfgdel) {
 
     content = FileRead(config_files.DeleteConfigFileName);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
@@ -729,7 +732,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
     ConfigFileNames config_files = GetParam();
     string content = FileRead(config_files.AddConfigFileName);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -750,7 +753,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
     // Config deletes
     content = FileRead(config_files.DeleteConfigFileName);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -807,7 +810,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
     ConfigFileNames config_files = GetParam();
     string content = FileRead(config_files.AddConfigFileName);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -924,7 +927,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
     // Config deletes
     content = FileRead(config_files.DeleteConfigFileName);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
@@ -954,7 +957,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
     ConfigFileNames config_files = GetParam();
     string content = FileRead(config_files.AddConfigFileName);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
@@ -1020,7 +1023,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
     // Config deletes
     content = FileRead(config_files.DeleteConfigFileName);
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(

@@ -11,7 +11,6 @@
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
-#include "io/event_manager.h"
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server.h"
@@ -20,6 +19,7 @@
 #include "ifmap/ifmap_util.h"
 #include "ifmap/test/ifmap_client_mock.h"
 #include "ifmap/test/ifmap_test_util.h"
+#include "io/event_manager.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
@@ -29,27 +29,29 @@ using namespace std;
 class IFMapGraphWalkerTest : public ::testing::Test {
 protected:
     IFMapGraphWalkerTest()
-            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-              server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL) {
+            : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+              link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+              server_(&node_db_, &link_db_, &db_graph_, &evm_), parser_(NULL) {
     }
 
     virtual void SetUp() {
-        IFMapLinkTable_Init(&db_, &db_graph_);
+        IFMapLinkTable_Init(&link_db_, &db_graph_);
         parser_ = IFMapServerParser::GetInstance("vnc_cfg");
         vnc_cfg_ParserInit(parser_);
-        vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
+        vnc_cfg_Server_ModuleInit(&server_, &node_db_, &db_graph_);
         bgp_schema_ParserInit(parser_);
-        bgp_schema_Server_ModuleInit(&db_, &db_graph_);
+        bgp_schema_Server_ModuleInit(&server_, &node_db_, &db_graph_);
         server_.Initialize();
     }
 
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
+        IFMapLinkTable_Clear(&link_db_);
+        IFMapTable::ClearTables(&node_db_);
         task_util::WaitForIdle();
-        db_.Clear();
+        node_db_.Clear();
+        link_db_.Clear();
         parser_->MetadataClear("vnc_cfg");
         evm_.Shutdown();
     }
@@ -61,7 +63,8 @@ protected:
         return content;
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph db_graph_;
     EventManager evm_;
     IFMapServer server_;
@@ -73,7 +76,7 @@ TEST_F(IFMapGraphWalkerTest, VNPropagation_1) {
     string content = 
         FileRead("controller/src/ifmap/testdata/vn_propagation_1.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     IFMapClientMock c1("user-X9SCL-X9SCM");
@@ -89,7 +92,7 @@ TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
     string content = 
         FileRead("controller/src/ifmap/testdata/vn_propagation_1.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     IFMapClientMock c1("user-X9SCL-X9SCM");
@@ -111,14 +114,14 @@ TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
     TASK_UTIL_EXPECT_NE(0, right.size());
     
     
-    ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-network", left,
+    ifmap_test_util::IFMapMsgUnlink(&node_db_, "virtual-network", left,
                                     "network-ipam", right,
                                     "virtual-network-network-ipam");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, c1.object_map().count("network-ipam"));
 
     int current = c1.count();
-    ifmap_test_util::IFMapMsgLink(&db_, "virtual-network", left,
+    ifmap_test_util::IFMapMsgLink(&node_db_, "virtual-network", left,
                                   "network-ipam", right,
                                   "virtual-network-network-ipam");
     
@@ -133,7 +136,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn1Vm3Add) {
     string content = 
         FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     IFMapClientMock 
@@ -176,7 +179,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Vm2Add) {
     string content = 
         FileRead("controller/src/ifmap/testdata/cli2_vn2_vm2_add.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     IFMapClientMock 
@@ -237,7 +240,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np2Add) {
     string content = 
         FileRead("controller/src/ifmap/testdata/cli1_vn2_np2_add.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     IFMapClientMock 
@@ -291,7 +294,7 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np1Add) {
     string content = 
         FileRead("controller/src/ifmap/testdata/cli1_vn2_np1_add.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     IFMapClientMock 
@@ -345,7 +348,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
     string content = 
         FileRead("controller/src/ifmap/testdata/cli2_vn2_np2_add.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     IFMapClientMock 
@@ -420,7 +423,7 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn3Vm6Np2Add) {
     string content = 
         FileRead("controller/src/ifmap/testdata/cli2_vn3_vm6_np2_add.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
 
     IFMapClientMock 
@@ -509,7 +512,7 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
     // Config
     string content(FileRead("controller/src/ifmap/testdata/vr_gsc_config.xml"));
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     usleep(5000);
 
     // VR-reg 
@@ -545,7 +548,7 @@ TEST_F(IFMapGraphWalkerTest, VrsubConfig) {
     // Config
     string content(FileRead("controller/src/ifmap/testdata/vr_gsc_config.xml"));
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     usleep(5000);
 
     TASK_UTIL_EXPECT_EQ(3, c1.count());
@@ -569,7 +572,7 @@ TEST_F(IFMapGraphWalkerTest, ConfignopropVrsub) {
     string content(FileRead(
         "controller/src/ifmap/testdata/vr_gsc_config_no_prop.xml"));
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     usleep(5000);
 
     // VR-reg 
@@ -592,7 +595,7 @@ TEST_F(IFMapGraphWalkerTest, ConfignopropVrsub) {
     // Client should receive 2 node updates but no link updates
     content = FileRead("controller/src/ifmap/testdata/vr_gsc_config.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.data(), content.size(), 0);
+    parser_->Receive(&node_db_, content.data(), content.size(), 0);
     usleep(5000);
     TASK_UTIL_EXPECT_EQ(5, c1.count());
     TASK_UTIL_EXPECT_EQ(4, c1.node_count());
@@ -623,7 +626,7 @@ TEST_F(IFMapGraphWalkerTest, VrsubConfignoprop) {
     string content(FileRead(
         "controller/src/ifmap/testdata/vr_gsc_config_no_prop.xml"));
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    parser_->Receive(&node_db_, content.c_str(), content.size(), 0);
     usleep(5000);
 
     TASK_UTIL_EXPECT_EQ(3, c1.count());
@@ -641,7 +644,7 @@ TEST_F(IFMapGraphWalkerTest, VrsubConfignoprop) {
     // Client should receive 2 node updates but no link updates
     content = FileRead("controller/src/ifmap/testdata/vr_gsc_config.xml");
     assert(content.size() != 0);
-    parser_->Receive(&db_, content.data(), content.size(), 0);
+    parser_->Receive(&node_db_, content.data(), content.size(), 0);
     usleep(5000);
     TASK_UTIL_EXPECT_EQ(5, c1.count());
     TASK_UTIL_EXPECT_EQ(4, c1.node_count());

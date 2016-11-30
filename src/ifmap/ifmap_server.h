@@ -23,6 +23,7 @@ class DB;
 class DBGraph;
 class DBGraphEdge;
 class DBGraphVertex;
+class EventManager;
 class IFMapChannelManager;
 class IFMapClient;
 class IFMapExporter;
@@ -60,7 +61,7 @@ public:
     typedef std::deque<ClientHistoryInfo> ClientHistory;
     typedef ClientMap::size_type CmSz_t;
     typedef IndexMap::size_type ImSz_t;
-    IFMapServer(DB *db, DBGraph *graph, boost::asio::io_service *io_service);
+    IFMapServer(DB *node_db, DB *link_db, DBGraph *graph, EventManager *evm);
     virtual ~IFMapServer();
 
     // Must be called after the __ifmap__ tables are registered with the
@@ -79,7 +80,8 @@ public:
     void DeleteClient(IFMapClient *client);
     void ClientExporterSetup(IFMapClient *client);
 
-    DB *database() { return db_; }
+    DB *node_database() const { return node_db_; }
+    DB *link_database() const { return link_db_; }
     DBGraph *graph() { return graph_; }
     IFMapUpdateQueue *queue() { return queue_.get(); }
     IFMapUpdateSender *sender() { return sender_.get(); }
@@ -151,7 +153,8 @@ private:
     void SimulateDeleteClient(IFMapClient *client);
     void SaveClientHistory(IFMapClient *client);
 
-    DB *db_;
+    DB *node_db_;
+    DB *link_db_;
     DBGraph *graph_;
     boost::scoped_ptr<IFMapUpdateQueue> queue_;
     boost::scoped_ptr<IFMapExporter> exporter_;

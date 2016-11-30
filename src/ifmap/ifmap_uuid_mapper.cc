@@ -72,7 +72,7 @@ void IFMapUuidMapper::PrintAllMappedEntries() {
 // Routines for class IFMapVmUuidMapper
 
 IFMapVmUuidMapper::IFMapVmUuidMapper(DB *db, IFMapServer *server)
-        : db_(db), ifmap_server_(server), vm_table_(NULL), registered(false) {
+        : node_db_(db), ifmap_server_(server), vm_table_(NULL), registered(false) {
 }
 
 IFMapVmUuidMapper::~IFMapVmUuidMapper() {
@@ -81,7 +81,7 @@ IFMapVmUuidMapper::~IFMapVmUuidMapper() {
 
 void IFMapVmUuidMapper::Initialize() {
     vm_table_ = static_cast<IFMapServerTable *>(
-        db_->FindTable("__ifmap__.virtual_machine.0"));
+        node_db_->FindTable("__ifmap__.virtual_machine.0"));
     assert(vm_table_ != NULL);
     vm_lid_ = vm_table_->Register(boost::bind(&IFMapVmUuidMapper::VmNodeProcess,
                                               this, _1, _2));

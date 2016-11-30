@@ -250,7 +250,8 @@ protected:
     void TimeToSleep(uint32_t count, uint32_t total = kNUM_EVENTS_BEFORE_SLEEP,
                      uint32_t usec_time = kSLEEP_TIME_USEC);
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph db_graph_;
     EventManager evm_;
     IFMapServer ifmap_server_;

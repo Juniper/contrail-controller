@@ -40,16 +40,17 @@ IFMapConfigListener::~IFMapConfigListener() {}
 // policy_map, which is then used to register listeners for specified tables.
 //
 void IFMapConfigListener::Initialize() {
-    DB *database = manager_->database();
+    DB *node_database = manager_->node_database();
+    DB *link_database = manager_->link_database();
 
     tracker_.reset(
         new IFMapDependencyTracker(
-            database, manager_->graph(),
+            node_database, manager_->graph(),
             boost::bind(&IFMapConfigListener::ChangeListAdd, this, _1)));
     DependencyTrackerInit();
 
     DBTable *link_table = static_cast<DBTable *>(
-        database->FindTable("__ifmap_metadata__.0"));
+        link_database->FindTable("__ifmap_metadata__.0"));
     assert(link_table != NULL);
 
     DBTable::ListenerId id = link_table->Register(
@@ -60,7 +61,7 @@ void IFMapConfigListener::Initialize() {
       const IFMapDependencyTracker::NodeEventPolicy::value_type &policy,
         *tracker_->policy_map()) {
         const char *schema_typename= policy.first.c_str();
-        IFMapTable *table = IFMapTable::FindTable(database, schema_typename);
+        IFMapTable *table = IFMapTable::FindTable(node_database, schema_typename);
         assert(table);
         DBTable::ListenerId id = table->Register(
                 boost::bind(&IFMapConfigListener::NodeObserver, this, _1, _2));
@@ -72,12 +73,19 @@ void IFMapConfigListener::Initialize() {
 // Unregister listeners for all the IFMapTables.
 //
 void IFMapConfigListener::Terminate() {
-    DB *database = manager_->database();
+    DB *node_database = manager_->node_database();
+    DB *link_database = manager_->link_database();
 
     for (TableMap::iterator iter = table_map_.begin();
          iter != table_map_.end(); ++iter) {
-        IFMapTable *table =
-            static_cast<IFMapTable *>(database->FindTable(iter->first));
+        IFMapTable *table = NULL;
+        if (iter->first == "__ifmap_metadata__.0") {
+            table =
+                static_cast<IFMapTable *>(link_database->FindTable(iter->first));
+        } else {
+            table =
+                static_cast<IFMapTable *>(node_database->FindTable(iter->first));
+        }
         assert(table);
         table->Unregister(iter->second);
     }
@@ -87,8 +95,12 @@ void IFMapConfigListener::Terminate() {
 //
 // Get the the DB in the ConfigManager.
 //
-DB *IFMapConfigListener::database() {
-    return manager_->database();
+DB *IFMapConfigListener::node_database() {
+    return manager_->node_database();
+}
+
+DB *IFMapConfigListener::link_database() {
+    return manager_->link_database();
 }
 
 //
@@ -112,7 +124,7 @@ IFMapDependencyTracker *IFMapConfigListener::get_dependency_tracker() {
 // We take references on the IFMapNode and the IFMapObject.
 //
 void IFMapConfigListener::ChangeListAdd(IFMapNode *node) {
-    CHECK_CONCURRENCY(kConcurrency_.c_str(), "db::DBTable", "db::IFMapTable");
+    CHECK_CONCURRENCY(kConcurrency_.c_str(), "db::DBTable", "db::IFMapNodeTable");
 
     IFMapTable *table = node->table();
     TableMap::const_iterator tid = table_map_.find(table->name());
@@ -140,7 +152,7 @@ void IFMapConfigListener::ChangeListAdd(IFMapNode *node) {
 //
 void IFMapConfigListener::NodeObserver(
     DBTablePartBase *root, DBEntryBase *db_entry) {
-    CHECK_CONCURRENCY("db::DBTable", "db::IFMapTable");
+    CHECK_CONCURRENCY("db::DBTable", "db::IFMapNodeTable");
 
     // Ignore deleted nodes for which the configuration code doesn't hold
     // state. This is the case with ie. BgpRouter objects other than the local
@@ -165,11 +177,11 @@ void IFMapConfigListener::NodeObserver(
 //
 void IFMapConfigListener::LinkObserver(
     DBTablePartBase *root, DBEntryBase *db_entry) {
-    CHECK_CONCURRENCY("db::DBTable", "db::IFMapTable");
+    CHECK_CONCURRENCY("db::DBTable", "db::IFMapLinkTable");
 
     IFMapLink *link = static_cast<IFMapLink *>(db_entry);
-    IFMapNode *left = link->LeftNode(database());
-    IFMapNode *right = link->RightNode(database());
+    IFMapNode *left = link->LeftNode(node_database());
+    IFMapNode *right = link->RightNode(node_database());
     if (tracker_->LinkEvent(link->metadata(), left, right)) {
         manager_->OnChange();
     }

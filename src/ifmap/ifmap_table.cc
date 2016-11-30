@@ -61,10 +61,6 @@ void IFMapTable::FillNodeTableList(DB *db,
     for (DB::const_iterator iter = db->const_lower_bound("__ifmap__");
          iter != db->end(); ++iter) {
         DBTable *table = static_cast<DBTable *>(iter->second);
-        if (table->name().compare("__ifmap_metadata__.0") == 0) {
-            // Ignore the link-table in this api
-            continue;
-        }
         // Create a name that can be passed to IFMapTable::FindTable()
         size_t first = table->name().find_first_of(".");
         size_t second = table->name().find_first_of(".", first + 1);

@@ -37,16 +37,17 @@ public:
 class IFMapServerTest : public ::testing::Test {
   protected:
     IFMapServerTest()
-            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-              server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL) {
+            : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+              link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+              server_(&node_db_, &link_db_, &db_graph_, &evm_), parser_(NULL) {
     }
 
     virtual void SetUp() {
         xmpp_server_ = new XmppServer(&evm_, "bgp.contrail.com");
-        IFMapLinkTable_Init(&db_, &db_graph_);
+        IFMapLinkTable_Init(&link_db_, &db_graph_);
         parser_ = IFMapServerParser::GetInstance("vnc_cfg");
         vnc_cfg_ParserInit(parser_);
-        vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
+        vnc_cfg_Server_ModuleInit(&server_, &node_db_, &db_graph_);
         server_.Initialize();
         ifmap_channel_mgr_.reset(new IFMapChannelManagerMock(xmpp_server_,
                                                              &server_));
@@ -56,10 +57,11 @@ class IFMapServerTest : public ::testing::Test {
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
+        IFMapLinkTable_Clear(&link_db_);
+        IFMapTable::ClearTables(&node_db_);
         task_util::WaitForIdle();
-        db_.Clear();
+        node_db_.Clear();
+        link_db_.Clear();
         parser_->MetadataClear("vnc_cfg");
         task_util::WaitForIdle();
         TcpServerManager::DeleteServer(xmpp_server_);
@@ -75,7 +77,8 @@ class IFMapServerTest : public ::testing::Test {
         return content;
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph db_graph_;
     EventManager evm_;
     IFMapServer server_;
@@ -88,15 +91,15 @@ TEST_F(IFMapServerTest, DeleteLink) {
     const char *project = "default-domain:878e80aab0c94284a1305e20e4c3f532";
     string vn1(project);
     vn1.append(":vn1");
-    ifmap_test_util::IFMapMsgLink(&db_, "project", project,
+    ifmap_test_util::IFMapMsgLink(&node_db_, "project", project,
                                   "virtual-network", vn1,
                                   "project-virtual-network");
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
     task_util::WaitForIdle();
     EXPECT_EQ(1, table->Size());
 
     string message(FileRead("controller/src/ifmap/testdata/vn_delete.xml"));
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(0, table->Size());
 }
@@ -130,8 +133,8 @@ TEST_F(IFMapServerTest, ClientUnregister) {
     server_.AddClient(c1);
     server_.AddClient(c2);
 
-    IFMapVRouterLink(&db_, "orange", "net0");
-    IFMapVRouterLink(&db_, "blue", "net0");
+    IFMapVRouterLink(&node_db_, "orange", "net0");
+    IFMapVRouterLink(&node_db_, "blue", "net0");
 
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(server_.queue()->empty());
@@ -140,7 +143,7 @@ TEST_F(IFMapServerTest, ClientUnregister) {
 
     server_.DeleteClient(c1);
 
-    ifmap_test_util::IFMapMsgUnlink(&db_, "virtual-router", "orange",
+    ifmap_test_util::IFMapMsgUnlink(&node_db_, "virtual-router", "orange",
                                     "virtual-machine", "aa01",
                                     "virtual-router-virtual-machine");
 
@@ -155,7 +158,7 @@ TEST_F(IFMapServerTest, ClientUnregister) {
     TASK_UTIL_EXPECT_TRUE(server_.queue()->empty());
     TASK_UTIL_EXPECT_EQ(0, c3->count());
 
-    ifmap_test_util::IFMapMsgLink(&db_, "virtual-router", "orange",
+    ifmap_test_util::IFMapMsgLink(&node_db_, "virtual-router", "orange",
                                   "virtual-machine", "aa01",
                                   "virtual-router-virtual-machine");
     task_util::WaitForIdle();

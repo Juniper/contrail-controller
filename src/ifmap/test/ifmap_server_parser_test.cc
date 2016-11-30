@@ -37,16 +37,17 @@ public:
 class IFMapServerParserTest : public ::testing::Test {
   protected:
     IFMapServerParserTest()
-            : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-              server_(&db_, &graph_, evm_.io_service()), parser_(NULL) {
+            : node_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapNodeTable")),
+              link_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapLinkTable")),
+              server_(&node_db_, &link_db_, &graph_, &evm_), parser_(NULL) {
     }
 
     virtual void SetUp() {
         xmpp_server_ = new XmppServer(&evm_, "bgp.contrail.com");
-        IFMapLinkTable_Init(&db_, &graph_);
+        IFMapLinkTable_Init(&link_db_, &graph_);
         parser_ = IFMapServerParser::GetInstance("vnc_cfg");
         vnc_cfg_ParserInit(parser_);
-        vnc_cfg_Server_ModuleInit(&db_, &graph_);
+        vnc_cfg_Server_ModuleInit(&server_, &node_db_, &graph_);
         server_.Initialize();
         ifmap_channel_mgr_.reset(new IFMapChannelManagerMock(xmpp_server_,
                                                              &server_));
@@ -56,10 +57,11 @@ class IFMapServerParserTest : public ::testing::Test {
     virtual void TearDown() {
         server_.Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
+        IFMapLinkTable_Clear(&link_db_);
+        IFMapTable::ClearTables(&node_db_);
         task_util::WaitForIdle();
-        db_.Clear();
+        node_db_.Clear();
+        link_db_.Clear();
         parser_->MetadataClear("vnc_cfg");
         task_util::WaitForIdle();
         TcpServerManager::DeleteServer(xmpp_server_);
@@ -76,18 +78,19 @@ class IFMapServerParserTest : public ::testing::Test {
     }
 
     IFMapNode *NodeLookup(const string &type, const string &name) {
-        return ifmap_test_util::IFMapNodeLookup(&db_, type, name);
+        return ifmap_test_util::IFMapNodeLookup(&node_db_, type, name);
     }
 
     IFMapLink *LinkLookup(IFMapNode *left, IFMapNode *right,
                           const string &metadata) {
         IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
-                                     db_.FindTable("__ifmap_metadata__.0"));
+                                     link_db_.FindTable("__ifmap_metadata__.0"));
         IFMapLink *link =  link_table->FindLink(metadata, left, right);
         return (link ? (link->IsDeleted() ? NULL : link) : NULL);
     }
 
-    DB db_;
+    DB node_db_;
+    DB link_db_;
     DBGraph graph_;
     EventManager evm_;
     IFMapServer server_;
@@ -99,12 +102,12 @@ class IFMapServerParserTest : public ::testing::Test {
 // In a single message, adds vn1, vn2, vn3, then deletes, vn3, then adds vn4,
 // vn5, then deletes vn5, vn4 and vn2. Only vn1 should remain.
 TEST_F(IFMapServerParserTest, ServerParser) {
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, table->Size());
 
@@ -128,12 +131,12 @@ TEST_F(IFMapServerParserTest, ServerParser) {
 // Same as ServerParser except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParserInParts) {
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
@@ -155,7 +158,7 @@ TEST_F(IFMapServerParserTest, ServerParserInParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, table->Size());
     IFMapNode *node = NodeLookup("virtual-network", "vn3");
@@ -164,7 +167,7 @@ TEST_F(IFMapServerParserTest, ServerParserInParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(4, table->Size());
 
@@ -181,7 +184,7 @@ TEST_F(IFMapServerParserTest, ServerParserInParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test_p4.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, table->Size());
 
@@ -200,12 +203,12 @@ TEST_F(IFMapServerParserTest, ServerParserInParts) {
 
 // In a single message, adds vn1, vn2, vn3 and then deletes all of them.
 TEST_F(IFMapServerParserTest, ServerParser1) {
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(0, table->Size());
 
@@ -221,12 +224,12 @@ TEST_F(IFMapServerParserTest, ServerParser1) {
 // Same as ServerParser1 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser1InParts) {
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test1_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
@@ -246,7 +249,7 @@ TEST_F(IFMapServerParserTest, ServerParser1InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test1_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, table->Size());
 
@@ -261,12 +264,12 @@ TEST_F(IFMapServerParserTest, ServerParser1InParts) {
 // In a single message, adds vn1, vn2, vn3 in separate updateResult stanza's
 // and then adds them again in a single stanza 
 TEST_F(IFMapServerParserTest, ServerParser2) {
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
@@ -291,12 +294,12 @@ TEST_F(IFMapServerParserTest, ServerParser2) {
 // Same as ServerParser2 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser2InParts) {
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test2_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, table->Size());
 
@@ -308,7 +311,7 @@ TEST_F(IFMapServerParserTest, ServerParser2InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test2_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, table->Size());
 
@@ -320,7 +323,7 @@ TEST_F(IFMapServerParserTest, ServerParser2InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test2_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
@@ -332,7 +335,7 @@ TEST_F(IFMapServerParserTest, ServerParser2InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test2_p4.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
@@ -347,13 +350,13 @@ TEST_F(IFMapServerParserTest, ServerParser2InParts) {
 // In a single message, deletes vn1, vn2, vn3 in a deleteResult stanza and then
 // deletes them again in a single stanza 
 TEST_F(IFMapServerParserTest, ServerParser3) {
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
     EXPECT_EQ(0, table->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(0, table->Size());
 
@@ -369,13 +372,13 @@ TEST_F(IFMapServerParserTest, ServerParser3) {
 // Same as ServerParser3 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser3InParts) {
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    IFMapTable *table = IFMapTable::FindTable(&node_db_, "virtual-network");
     EXPECT_EQ(0, table->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test3_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(0, table->Size());
 
@@ -389,7 +392,7 @@ TEST_F(IFMapServerParserTest, ServerParser3InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test3_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(0, table->Size());
 
@@ -406,15 +409,15 @@ TEST_F(IFMapServerParserTest, ServerParser3InParts) {
 // 2) delete link(vr,vm)
 // Both vr and vm nodes should continue to live
 TEST_F(IFMapServerParserTest, ServerParser4) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test4.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -439,15 +442,15 @@ TEST_F(IFMapServerParserTest, ServerParser4) {
 // Same as ServerParser4 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser4InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test4_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -468,7 +471,7 @@ TEST_F(IFMapServerParserTest, ServerParser4InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test4_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(1, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
@@ -489,15 +492,15 @@ TEST_F(IFMapServerParserTest, ServerParser4InParts) {
 // 1) create link(vr,vm)         2) delete link(vr,vm)
 // Both vr and vm nodes should get deleted since they dont have any properties
 TEST_F(IFMapServerParserTest, ServerParser5) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test5.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(0, vrtable->Size());
     EXPECT_EQ(0, vmtable->Size());
@@ -515,15 +518,15 @@ TEST_F(IFMapServerParserTest, ServerParser5) {
 // Same as ServerParser5 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser5InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test5_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -542,7 +545,7 @@ TEST_F(IFMapServerParserTest, ServerParser5InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test5_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
@@ -558,15 +561,15 @@ TEST_F(IFMapServerParserTest, ServerParser5InParts) {
 // 2) delete vr, then link(vr,vm)
 // The vr should disappear and vm should continue to live
 TEST_F(IFMapServerParserTest, ServerParser6) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test6.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -587,15 +590,15 @@ TEST_F(IFMapServerParserTest, ServerParser6) {
 // Same as ServerParser6 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser6InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message =
         FileRead("controller/src/ifmap/testdata/server_parser_test6_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -616,7 +619,7 @@ TEST_F(IFMapServerParserTest, ServerParser6InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test6_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -636,15 +639,15 @@ TEST_F(IFMapServerParserTest, ServerParser6InParts) {
 // 3) add vr-with-properties
 // Both vr and vm nodes should continue to live
 TEST_F(IFMapServerParserTest, ServerParser7) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test7.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -671,15 +674,15 @@ TEST_F(IFMapServerParserTest, ServerParser7) {
 // Same as ServerParser7 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser7InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test7_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -700,7 +703,7 @@ TEST_F(IFMapServerParserTest, ServerParser7InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test7_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
@@ -716,7 +719,7 @@ TEST_F(IFMapServerParserTest, ServerParser7InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test7_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
@@ -740,15 +743,15 @@ TEST_F(IFMapServerParserTest, ServerParser7InParts) {
 // Both vr and vm should exist but should not have any objects since we dont
 // get any node-config with properties for either of them
 TEST_F(IFMapServerParserTest, ServerParser8) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test8.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -774,15 +777,15 @@ TEST_F(IFMapServerParserTest, ServerParser8) {
 // Same as ServerParser8 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser8InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test8_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -803,7 +806,7 @@ TEST_F(IFMapServerParserTest, ServerParser8InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test8_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
@@ -816,7 +819,7 @@ TEST_F(IFMapServerParserTest, ServerParser8InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test8_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -841,15 +844,15 @@ TEST_F(IFMapServerParserTest, ServerParser8InParts) {
 // 3) add link(vr,vm)
 // Both vr and vm nodes should continue to live
 TEST_F(IFMapServerParserTest, ServerParser9) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test9.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -876,15 +879,15 @@ TEST_F(IFMapServerParserTest, ServerParser9) {
 // Same as ServerParser9 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser9InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test9_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -905,7 +908,7 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test9_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(1, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
@@ -924,7 +927,7 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test9_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(1, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
@@ -947,15 +950,15 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
 // The vr should disappear and vm should continue to live
 // Similar to ServerParser6, except that in step2, we delete link and then vr
 TEST_F(IFMapServerParserTest, ServerParser10) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test10.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -977,15 +980,15 @@ TEST_F(IFMapServerParserTest, ServerParser10) {
 // Same as ServerParser10 except that the various operations are happening in
 // separate messages.
 TEST_F(IFMapServerParserTest, ServerParser10InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message =
         FileRead("controller/src/ifmap/testdata/server_parser_test10_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1006,7 +1009,7 @@ TEST_F(IFMapServerParserTest, ServerParser10InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test10_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1024,15 +1027,15 @@ TEST_F(IFMapServerParserTest, ServerParser10InParts) {
 // 3) add link(vr,vm)
 // Both vr and vm nodes should continue to live but vr should have no object
 TEST_F(IFMapServerParserTest, ServerParser11) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test11.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1057,15 +1060,15 @@ TEST_F(IFMapServerParserTest, ServerParser11) {
 // 3) add link(vr,vm)
 // Both vr and vm nodes should continue to live but vr should have no object
 TEST_F(IFMapServerParserTest, ServerParser11InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test11_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1086,7 +1089,7 @@ TEST_F(IFMapServerParserTest, ServerParser11InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test11_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1102,7 +1105,7 @@ TEST_F(IFMapServerParserTest, ServerParser11InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test11_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1127,17 +1130,17 @@ TEST_F(IFMapServerParserTest, ServerParser11InParts) {
 // 2) delete link(vr,vm), then link(vr,gsc)
 // No nodes should exist.
 TEST_F(IFMapServerParserTest, ServerParser12) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     string message =
         FileRead("controller/src/ifmap/testdata/server_parser_test12.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
@@ -1156,17 +1159,17 @@ TEST_F(IFMapServerParserTest, ServerParser12) {
 // 1) create link(vr,vm), then link(vr,gsc)
 // 2) delete link(vr,vm), then link(vr,gsc)
 TEST_F(IFMapServerParserTest, ServerParser12InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test12_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1195,7 +1198,7 @@ TEST_F(IFMapServerParserTest, ServerParser12InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test12_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
@@ -1214,17 +1217,17 @@ TEST_F(IFMapServerParserTest, ServerParser12InParts) {
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete link(vr,vm), then link(vr,gsc)
 TEST_F(IFMapServerParserTest, ServerParser13) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1256,17 +1259,17 @@ TEST_F(IFMapServerParserTest, ServerParser13) {
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete link(vr,vm), then link(vm, gsc)
 TEST_F(IFMapServerParserTest, ServerParser13InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1290,7 +1293,7 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
     EXPECT_EQ(1, vrtable->Size());
@@ -1309,7 +1312,7 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1327,17 +1330,17 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete gsc, then link(vr,gsc)
 TEST_F(IFMapServerParserTest, ServerParser14) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test14.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1366,18 +1369,18 @@ TEST_F(IFMapServerParserTest, ServerParser14) {
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete gsc, then link(vr,gsc)
 TEST_F(IFMapServerParserTest, ServerParser14InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     // Using datafile from test13_p1
     string message =
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1402,7 +1405,7 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
     EXPECT_EQ(1, vrtable->Size());
@@ -1422,7 +1425,7 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test14_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1447,17 +1450,17 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete vr
 TEST_F(IFMapServerParserTest, ServerParser15) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test15.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1491,18 +1494,18 @@ TEST_F(IFMapServerParserTest, ServerParser15) {
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete vr
 TEST_F(IFMapServerParserTest, ServerParser15InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     // Using datafile from test13_p1
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1527,7 +1530,7 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
     EXPECT_EQ(1, vrtable->Size());
@@ -1547,7 +1550,7 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test15_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1579,17 +1582,17 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete link(vr,gsc), then delete gsc, then delete vr
 TEST_F(IFMapServerParserTest, ServerParser16) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     string message =
         FileRead("controller/src/ifmap/testdata/server_parser_test16.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1620,18 +1623,18 @@ TEST_F(IFMapServerParserTest, ServerParser16) {
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete link(vr,gsc), then delete gsc, then delete vr
 TEST_F(IFMapServerParserTest, ServerParser16InParts) {
-    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    IFMapTable *vrtable = IFMapTable::FindTable(&node_db_, "virtual-router");
     EXPECT_EQ(0, vrtable->Size());
-    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    IFMapTable *vmtable = IFMapTable::FindTable(&node_db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
-    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    IFMapTable *gsctable = IFMapTable::FindTable(&node_db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
     // Using datafile from test13_p1
     string message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
@@ -1656,7 +1659,7 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
     EXPECT_EQ(1, vrtable->Size());
@@ -1676,7 +1679,7 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
     message = 
         FileRead("controller/src/ifmap/testdata/server_parser_test16_p3.xml");
     assert(message.size() != 0);
-    parser_->Receive(&db_, message.data(), message.size(), 0);
+    parser_->Receive(&node_db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
