@@ -6,7 +6,7 @@ function issu_contrail_switch_compute_node {
     openstack-config --set /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent autostart true
     openstack-config --set /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent killasgroup true
     openstack-config --set /etc/contrail/contrail-vrouter-nodemgr.conf DISCOVERY server $1 
-    service supervisor-vrouter restart
+    service supervisor-vrouter stop; rmmod vrouter;modprobe vrouter;service supervisor-vrouter start
     contrail-status
     route -n
 }
@@ -58,7 +58,7 @@ function issu_contrail_post_new_control_node {
 }
 
 function issu_pre_sync {
-    contrail-issu-pre-sync --conf_file /etc/contrail/contrail-issu.conf
+    contrail-issu-pre-sync -c /etc/contrail/contrail-issu.conf
 }
 
 function issu_run_sync {
@@ -81,8 +81,8 @@ function issu_run_sync {
 function issu_post_sync {
     rm -f /etc/supervisor/conf.d/contrail-issu.conf
     service supervisor restart
-    contrail-issu-post-sync --conf_file /etc/contrail/contrail-issu.conf
-    contrail-issu-zk-sync --conf_file /etc/contrail/contrail-issu.conf
+    contrail-issu-post-sync -c /etc/contrail/contrail-issu.conf
+    contrail-issu-zk-sync -c /etc/contrail/contrail-issu.conf
 }
 
 function issu_contrail_generate_conf {
@@ -165,7 +165,7 @@ function issu_contrail_get_and_set_old_conf {
     then
         cmd="$get_old_cmd rabbit_server"
         val=$($cmd)
-        $set_cmd old_rabbit_server "$val"
+        $set_cmd old_rabbit_address_list "$val"
     fi
 
     cmd="$has_old_cmd reset_config"
@@ -252,7 +252,7 @@ function issu_contrail_get_and_set_new_conf {
     then
         cmd="$get_new_cmd rabbit_server"
         val=$($cmd)
-        $set_cmd new_rabbit_server "$val"
+        $set_cmd new_rabbit_address_list "$val"
     fi
 
     cmd="$has_new_cmd reset_config"
