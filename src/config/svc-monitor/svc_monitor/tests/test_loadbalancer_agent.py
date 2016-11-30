@@ -24,6 +24,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
             if id not in self._db:
                 self._db[id] = {}
             self._db[id]['config_info'] = data
+
         def put_db_driver(id, data):
             if id not in self._db:
                 self._db[id] = {}
@@ -50,12 +51,17 @@ class LoadbalancerAgentTest(unittest.TestCase):
             res_list = []
             return res_list
 
+        def list_health_monitors():
+            res_list = []
+            return res_list
+
         self.cassandra.loadbalancer_list = mock.Mock(side_effect=list_loadbalancers)
         self.cassandra.pool_list = mock.Mock(side_effect=list_pools)
         self.cassandra.pool_remove = mock.Mock(side_effect=remove_db)
         self.cassandra.pool_driver_info_get = mock.Mock(side_effect=read_db)
         self.cassandra.pool_driver_info_insert = mock.Mock(side_effect=put_db_driver)
         self.cassandra.pool_config_insert = mock.Mock(side_effect=put_db_config)
+        self.cassandra.health_monitor_list = mock.Mock(side_effect=list_health_monitors)
 
         mocked_gsc = mock.MagicMock()
         mocked_gsc.uuid = 'fake-gsc-uuid'

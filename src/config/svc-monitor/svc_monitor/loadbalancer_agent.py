@@ -7,7 +7,8 @@ from cfgm_common import svc_info
 from agent import Agent
 from config_db import ServiceApplianceSM, ServiceApplianceSetSM, \
     LoadbalancerPoolSM, InstanceIpSM, VirtualMachineInterfaceSM, \
-    VirtualIpSM, LoadbalancerSM, LoadbalancerListenerSM, LoadbalancerMemberSM
+    VirtualIpSM, LoadbalancerSM, LoadbalancerListenerSM, LoadbalancerMemberSM, \
+    HealthMonitorSM
 
 from sandesh.loadbalancer.ttypes import \
     LoadbalancerConfig, UveLoadbalancerConfig, UveLoadbalancerConfigTrace
@@ -117,6 +118,20 @@ class LoadbalancerAgent(Agent):
     # end load_drivers
 
     def audit_lb_pools(self):
+        for hm_id, config_data, driver_data in self._object_db.health_monitor_list():
+            if HealthMonitorSM.get(hm_id):
+                continue
+            hm = config_data
+            driver = self._get_driver_for_provider(hm['provider'])
+            pools = set()
+            for i in hm['pools'] or []:
+                pools.add(i['pool_id'])
+            try:
+                for pool in pools:
+                    driver.delete_health_monitor(hm, pool)
+            except Exception:
+                pass
+            self._object_db.healthmonitor_remove(hm_id)
         for lb_id, config_data, driver_data in self._object_db.loadbalancer_list():
             if LoadbalancerSM.get(lb_id):
                 continue
@@ -175,8 +190,7 @@ class LoadbalancerAgent(Agent):
             return self._pool_driver[pool_id]
         if not provider:
             pool = LoadbalancerPoolSM.get(pool_id)
-            if pool and pool.loadbalancer_version == 'v1':
-                provider = pool.provider
+            provider = pool.provider
         if provider:
             driver = self._get_driver_for_provider(provider)
             self._pool_driver[pool_id] = driver
@@ -214,11 +228,7 @@ class LoadbalancerAgent(Agent):
     # Loadbalancer
     def loadbalancer_pool_add(self, pool):
         p = self.loadbalancer_pool_get_reqdict(pool)
-        if p['loadbalancer_version'] == 'v1':
-            driver = self._get_driver_for_pool(p['id'], p['provider'])
-        else:
-            driver = self._get_driver_for_loadbalancer(p['loadbalancer_id'])
-            self._update_driver_for_pool(driver, p['id'])
+        driver = self._get_driver_for_pool(p['id'], p['provider'])
         try:
             if not pool.last_sent:
                 driver.create_pool(p)
@@ -283,6 +293,18 @@ class LoadbalancerAgent(Agent):
         self._object_db.loadbalancer_config_insert(lb['id'], lb)
         return lb
 
+    def suspend_loadbalancer(self, loadbalancer):
+        if loadbalancer.provider != 'native':
+            return
+        lb = self.loadbalancer_get_reqdict(loadbalancer)
+        driver = self._get_driver_for_loadbalancer(lb['id'], lb['provider'])
+        try:
+            driver.suspend_loadbalancer(lb)
+        except Exception:
+            pass
+        self._object_db.loadbalancer_remove(lb['id'])
+        self._delete_driver_for_loadbalancer(lb['id'])
+
     def delete_loadbalancer(self, loadbalancer):
         lb = self.loadbalancer_get_reqdict(loadbalancer)
         driver = self._get_driver_for_loadbalancer(lb['id'], lb['provider'])
@@ -325,24 +347,23 @@ class LoadbalancerAgent(Agent):
 
     def delete_loadbalancer_pool(self, obj):
         p = obj.last_sent
-        if p['loadbalancer_version'] == 'v2':
-            driver = self._get_driver_for_loadbalancer(p['loadbalancer_id'])
-        else:
-            driver = self._get_driver_for_pool(p['id'], p['provider'])
+        driver = self._get_driver_for_pool(p['id'], p['provider'])
         try:
             driver.delete_pool(p)
         except Exception:
             pass
-        self._object_db.pool_remove(p['id'])
+        if p['loadbalancer_version'] == 'v1':
+            self._object_db.pool_remove(p['id'])
         self._delete_driver_for_pool(p['id'])
     # end delete_loadbalancer_pool
 
-    def update_hm(self, obj):
+    def loadbalancer_health_monitor_add(self, obj):
         hm = self.hm_get_reqdict(obj)
         current_pools = hm['pools'] or []
         old_pools = []
         if obj.last_sent:
-            old_pools = hm['pools'] or []
+            old_hm = obj.last_sent
+            old_pools = old_hm['pools'] or []
 
         set_current_pools = set()
         set_old_pools = set()
@@ -354,19 +375,50 @@ class LoadbalancerAgent(Agent):
         delete_pools = set_old_pools - set_current_pools
         add_pools = set_current_pools - set_old_pools
         try:
+            driver = self._get_driver_for_provider(hm['provider'])
             for pool in add_pools:
-                driver = self._get_driver_for_pool(pool)
-                driver.create_pool_health_monitor(hm, pool)
+                driver.create_health_monitor(hm, pool)
             for pool in delete_pools:
-                driver = self._get_driver_for_pool(pool)
-                driver.delete_pool_health_monitor(hm, pool)
+                driver.delete_health_monitor(hm, pool)
             for pool in update_pools:
-                driver = self._get_driver_for_pool(pool)
-                driver.update_health_monitor(obj.last_sent,
-                                             hm, pool)
+                driver.update_health_monitor(old_hm, hm, pool)
         except Exception:
             pass
-    # end update_hm
+        self._object_db.health_monitor_config_insert(hm['id'], hm)
+        return hm
+    # end loadbalancer_health_monitor_add
+
+    def suspend_loadbalancer_health_monitor(self, obj):
+        hm = self._object_db.health_monitor_config_get(obj.uuid)
+        if hm is None or hm['provider'] != 'native':
+            return
+        pools = set()
+        for i in hm['pools'] or []:
+            pools.add(i['pool_id'])
+        try:
+            driver = self._get_driver_for_provider(hm['provider'])
+            for pool in pools:
+                driver.delete_health_monitor(hm, pool)
+        except Exception:
+            pass
+        self._object_db.healthmonitor_remove(hm['id'])
+    # end suspend_loadbalancer_health_monitor
+
+    def delete_loadbalancer_health_monitor(self, obj):
+        if obj.last_sent is None:
+            return
+        hm = obj.last_sent
+        pools = set()
+        for i in hm['pools'] or []:
+            pools.add(i['pool_id'])
+        try:
+            driver = self._get_driver_for_provider(hm['provider'])
+            for pool in pools:
+                driver.delete_health_monitor(hm, pool)
+        except Exception:
+            pass
+        self._object_db.healthmonitor_remove(hm['id'])
+    # end delete_loadbalancer_health_monitor
 
     def _get_vip_pool_id(self, vip):
         pool_refs = vip.loadbalancer_pool
@@ -481,6 +533,11 @@ class LoadbalancerAgent(Agent):
             pool_id['pool_id'] = pool_back_ref
             pool_ids.append(pool_id)
         res['pools'] = pool_ids
+
+        if pool_ids:
+            pool = LoadbalancerPoolSM.get(pool_ids[0]['pool_id'])
+            if pool:
+                res['provider'] = pool.provider
 
         return res
     # end hm_get_reqdict

@@ -52,6 +52,19 @@ class LoadbalancerSM(DBBaseSM):
             self._manager.loadbalancer_agent.loadbalancer_add(self)
     # end add
 
+    def suspend(self):
+        self._manager.loadbalancer_agent.suspend_loadbalancer(self)
+    # end suspend
+
+    def resume(self):
+        self.add()
+    # end resume
+
+    def sync(self):
+        self.suspend()
+        self.resume()
+    # end sync
+
     def evaluate(self):
         self.add()
     # end evaluate
@@ -98,6 +111,10 @@ class LoadbalancerListenerSM(DBBaseSM):
             self._manager.loadbalancer_agent.listener_add(self)
     # end add
 
+    def sync(self):
+        self.add()
+    # end sync
+
     def evaluate(self):
         self.add()
     # end evaluate
@@ -134,6 +151,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.lb_instance_ips = []
         self.lb_floating_ips = []
         self.listener_port = 0
+        self.service_health_check = None
         self.update(obj_dict)
     # end __init__
 
@@ -164,6 +182,7 @@ class LoadbalancerPoolSM(DBBaseSM):
             ll_obj = LoadbalancerListenerSM.get(self.loadbalancer_listener)
             self.listener_port = ll_obj.params['protocol_port']
             self.loadbalancer_id = ll_obj.loadbalancer
+            self.provider = LoadbalancerSM.get(self.loadbalancer_id).provider
             self.loadbalancer_version = "v2"
 
         self.last_sent = \
@@ -177,12 +196,24 @@ class LoadbalancerPoolSM(DBBaseSM):
                         self._manager.loadbalancer_agent.loadbalancer_member_add(
                             member_obj)
 
+        if len(self.loadbalancer_healthmonitors):
+            for hm in self.loadbalancer_healthmonitors:
+                hm_obj = HealthMonitorSM.get(hm)
+                if hm_obj:
+                    hm_obj.last_sent = \
+                        self._manager.loadbalancer_agent. \
+                             loadbalancer_health_monitor_add(hm_obj)
+
         if self.virtual_ip:
             vip_obj = VirtualIpSM.get(self.virtual_ip)
             if vip_obj:
                 vip_obj.last_sent = \
                     self._manager.loadbalancer_agent.virtual_ip_add(vip_obj)
     # end add
+
+    def sync(self):
+        self.add()
+    # end sync
 
     def evaluate(self):
         self.add()
@@ -211,6 +242,7 @@ class LoadbalancerMemberSM(DBBaseSM):
         self.uuid = uuid
         self.vmi = None
         self.loadbalancer_pool = {}
+        self.service_health_check = None
         self.last_sent = None
         self.update(obj_dict)
         if self.loadbalancer_pool:
@@ -298,6 +330,8 @@ class HealthMonitorSM(DBBaseSM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.loadbalancer_pools = set()
+        self.service_health_check_id = None
+        self.provider = None
         self.last_sent = None
         self.update(obj_dict)
     # end __init__
@@ -311,8 +345,23 @@ class HealthMonitorSM(DBBaseSM):
         self.id_perms = obj.get('id_perms', None)
         self.parent_uuid = obj['parent_uuid']
         self.display_name = obj.get('display_name', None)
-        self.last_sent = self._manager.loadbalancer_agent.update_hm(self)
     # end update
+
+    def suspend(self):
+        self._manager.loadbalancer_agent. \
+            suspend_loadbalancer_health_monitor(self)
+    # end suspend
+
+    def resume(self):
+        self.last_sent = \
+            self._manager.loadbalancer_agent. \
+                loadbalancer_health_monitor_add(self)
+    # end resume
+
+    def sync(self):
+        self.suspend()
+        self.resume()
+    # end sync
 
     def evaluate(self):
         pass
@@ -323,6 +372,7 @@ class HealthMonitorSM(DBBaseSM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        cls._manager.loadbalancer_agent.delete_loadbalancer_health_monitor(obj)
         obj.update_multiple_refs('loadbalancer_pool', {})
         del cls._dict[uuid]
     # end delete
