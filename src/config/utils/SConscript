@@ -51,6 +51,7 @@ utils_scripts = [
   'contrail_alarm.py',
   'contrail-diff-docs.py',
   'provision_issu.py',
+  'issu_process.sh',
 ]
 
 for utils in utils_scripts:
