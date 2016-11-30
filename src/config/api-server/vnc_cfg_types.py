@@ -53,9 +53,8 @@ class ResourceDbMixin(object):
 
         if 'project_refs' in obj_dict:
             proj_dict = obj_dict['project_refs'][0]
-            if 'uuid' in proj_dict:
-                proj_uuid = proj_dict['uuid']
-            else:
+            proj_uuid = proj_dict.get('uuid')
+            if not proj_uuid:
                 proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
         elif 'parent_type' in obj_dict and obj_dict['parent_type'] == 'project':
             proj_uuid = obj_dict['parent_uuid']
@@ -1095,9 +1094,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             # subnet uuid for all cidrs in flat-ipam
             for ipam in ipam_refs:
                 ipam_fq_name = ipam['to']
-                if 'uuid' in ipam:
-                    ipam_uuid = ipam['uuid']
-                else:
+                ipam_uuid = ipam.get('uuid')
+                if not ipam_uuid:
                     ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
                                                         ipam_fq_name)
                 (ok, ipam_dict) = db_conn.dbe_read(
