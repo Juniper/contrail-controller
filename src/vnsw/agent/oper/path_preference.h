@@ -28,8 +28,8 @@ do {                                                                      \
 class PathPreferenceSM:
     public sc::state_machine<PathPreferenceSM, Init> {
 public:
-    static const uint32_t kMinInterval = 5 * 1000;
-    static const uint32_t kMaxInterval = 100 * 1000;
+    static const uint32_t kMinInterval = 4 * 1000;
+    static const uint32_t kMaxInterval = 32 * 1000;
     static const uint32_t kMaxFlapCount = 5;
     PathPreferenceSM(Agent *agent, const Peer *peer,
                      AgentRoute *rt);
@@ -40,8 +40,8 @@ public:
     bool ecmp() const {return path_preference_.ecmp();}
     uint32_t timeout() const { return timeout_;}
 
-    uint64_t last_high_priority_change_at() const {
-        return last_high_priority_change_at_;
+    uint64_t last_stable_high_priority_change_at() const {
+        return last_stable_high_priority_change_at_;
     }
     uint32_t flap_count() const { return flap_count_;}
 
@@ -73,10 +73,11 @@ public:
         timeout_ = timeout;
     }
 
-    void set_last_high_priority_change_at(uint64_t timestamp) {
-        last_high_priority_change_at_ = timestamp;
+    void set_last_stable_high_priority_change_at(uint64_t timestamp) {
+        last_stable_high_priority_change_at_ = timestamp;
     }
 
+    bool IsFlap() const;
     bool seen() { return seen_; }
     uint32_t max_sequence() const { return max_sequence_;}
     void Process();
@@ -101,7 +102,8 @@ private:
     bool seen_;
     Timer *timer_;
     uint32_t timeout_;
-    uint64_t last_high_priority_change_at_;
+    uint64_t last_stable_high_priority_change_at_;
+    uint64_t backoff_timer_fired_time_;
     uint32_t flap_count_;
 };
 
