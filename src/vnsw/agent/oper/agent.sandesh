@@ -1036,6 +1036,7 @@ traceobject sandesh PathPreferenceTrace {
     5: string state;
     6: i32 retry_timeout;
     7: string dependent_ip;
+    8: i32 flap_count;
 }
 
 /**
