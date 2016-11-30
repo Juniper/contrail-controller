@@ -235,7 +235,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="address-mismatch-control")
+        self._verify(tests, alarm_name="system-defined-address-mismatch-control")
     # end test_alarm_address_mismatch_control
 
     def test_alarm_address_mismatch_compute(self):
@@ -376,7 +376,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="address-mismatch-compute")
+        self._verify(tests, alarm_name="system-defined-address-mismatch-compute")
     # end test_alarm_address_mismatch_compute
 
     def test_alarm_bgp_connectivity(self):
@@ -488,7 +488,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="bgp-connectivity")
+        self._verify(tests, alarm_name="system-defined-bgp-connectivity")
     # end test_alarm_bgp_connectivity
 
     def test_alarm_incorrect_config(self):
@@ -531,7 +531,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="conf-incorrect")
+        self._verify(tests, alarm_name="system-defined-conf-incorrect")
     # end test_alarm_incorrect_config
 
     def test_alarm_disk_usage_high(self):
@@ -655,7 +655,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(tests, alarm_name="disk-usage-high")
+        self._verify(tests, alarm_name="system-defined-disk-usage-high")
     # end test_alarm_disk_usage_high
 
     def test_alarm_disk_usage_critical(self):
@@ -753,7 +753,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(tests, alarm_name="disk-usage-critical")
+        self._verify(tests, alarm_name="system-defined-disk-usage-critical")
     # end test_alarm_disk_usage_critical
 
     def test_alarm_partial_sysinfo(self):
@@ -807,7 +807,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="partial-sysinfo-analytics")
+        self._verify(tests, alarm_name="system-defined-partial-sysinfo-analytics")
 
         tests = [
             TestCase(
@@ -859,7 +859,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="partial-sysinfo-config")
+        self._verify(tests, alarm_name="system-defined-partial-sysinfo-config")
 
         tests = [
             TestCase(
@@ -911,7 +911,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="partial-sysinfo-control")
+        self._verify(tests, alarm_name="system-defined-partial-sysinfo-control")
 
         tests = [
             TestCase(
@@ -965,7 +965,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="partial-sysinfo-compute")
+        self._verify(tests, alarm_name="system-defined-partial-sysinfo-compute")
     # end test_alarm_partial_sysinfo
 
     def test_alarm_process_connectivity(self):
@@ -1136,7 +1136,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             ),
         ]
-        self._verify(tests, alarm_name="process-connectivity")
+        self._verify(tests, alarm_name="system-defined-process-connectivity")
     # end test_alarm_process_connectivity
 
     def test_alarm_process_status(self):
@@ -1297,7 +1297,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(tests, alarm_name="process-status")
+        self._verify(tests, alarm_name="system-defined-process-status")
     # end test_alarm_process_status
 
     def test_alarm_prouter_connectivity(self):
@@ -1453,7 +1453,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="prouter-connectivity")
+        self._verify(tests, alarm_name="system-defined-prouter-connectivity")
     # end test_alarm_prouter_connectivity
 
     def test_alarm_prouter_tsn_connectivity(self):
@@ -1607,7 +1607,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="prouter-tsn-connectivity")
+        self._verify(tests, alarm_name="system-defined-prouter-tsn-connectivity")
     # end test_alarm_prouter_tsn_connectivity
         
     def test_alarm_storage(self):
@@ -1673,7 +1673,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             ),
         ]
-        self._verify(tests, alarm_name="storage-cluster-state")
+        self._verify(tests, alarm_name="system-defined-storage-cluster-state")
     # end test_alarm_storage
 
     def test_alarm_vrouter_interface(self):
@@ -1752,7 +1752,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(tests, alarm_name="vrouter-interface")
+        self._verify(tests, alarm_name="system-defined-vrouter-interface")
     # end test_alarm_vrouter_interface
 
     def test_alarm_xmpp_connectivity(self):
@@ -1864,7 +1864,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="xmpp-connectivity")
+        self._verify(tests, alarm_name="system-defined-xmpp-connectivity")
     # end test_alarm_xmpp_connectivity
 
     def test_alarm_phyif_bandwidth(self):
@@ -1990,7 +1990,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             ),
         ]
-        self._verify(tests, alarm_name="phyif-bandwidth")
+        self._verify(tests, alarm_name="system-defined-phyif-bandwidth")
     # end test_alarm_phyif_bandwidth
 
     def test_alarm_node_status(self):
@@ -2044,7 +2044,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="node-status")
+        self._verify(tests, alarm_name="system-defined-node-status")
     # end test_alarm_node_status
 
     def test_alarm_core_files(self):
@@ -2157,7 +2157,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(tests, alarm_name="core-files")
+        self._verify(tests, alarm_name="system-defined-core-files")
     # end test_alarm_core_files
 
     def test_alarm_pending_cassandra_compaction_tasks(self):
@@ -2268,7 +2268,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(tests, alarm_name="pending-cassandra-compaction-tasks")
+        self._verify(tests, alarm_name="system-defined-pending-cassandra-compaction-tasks")
     # end test_alarm_pending_cassandra_compaction_tasks
 
     def test_alarm_package_version(self):
@@ -2328,7 +2328,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             )
         ]
-        self._verify(tests, alarm_name="package-version-mismatch")
+        self._verify(tests, alarm_name="system-defined-package-version-mismatch")
     # end test_alarm_package_version
 
     def _verify(self, tests, plugin=None, alarm_name=None):
