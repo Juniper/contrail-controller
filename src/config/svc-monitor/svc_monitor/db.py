@@ -18,6 +18,7 @@ class ServiceMonitorDB(VncObjectDBClient):
     _SVC_SI_CF = 'service_instance_table'
     _POOL_CF = 'pool_table'
     _LB_CF = 'loadbalancer_table'
+    _HM_CF = 'healthmonitor_table'
 
     def __init__(self, args, logger):
         self._db_logger = logger
@@ -26,7 +27,8 @@ class ServiceMonitorDB(VncObjectDBClient):
             self._KEYSPACE: {
                 self._SVC_SI_CF: {},
                 self._POOL_CF: {},
-                self._LB_CF: {}
+                self._LB_CF: {},
+                self._HM_CF: {},
             }
         }
 
@@ -47,6 +49,7 @@ class ServiceMonitorDB(VncObjectDBClient):
         self._svc_si_cf = self._cf_dict[self._SVC_SI_CF]
         self._pool_cf = self._cf_dict[self._POOL_CF]
         self._lb_cf = self._cf_dict[self._LB_CF]
+        self._hm_cf = self._cf_dict[self._HM_CF]
 
     # db CRUD
     def _db_get(self, table, key, column):
@@ -129,6 +132,39 @@ class ServiceMonitorDB(VncObjectDBClient):
 
     def service_instance_list(self):
         return self._db_list(self._svc_si_cf)
+
+    def health_monitor_config_get(self, hm_id):
+        return self._db_get(self._hm_cf, hm_id, 'config_info')
+
+    def health_monitor_config_insert(self, hm_id, hm_obj):
+        entry = json.dumps(hm_obj)
+        return self._db_insert(self._hm_cf, hm_id, {'config_info': entry})
+
+    def health_monitor_config_remove(self, hm_id):
+        return self._db_remove(self._hm_cf, hm_id, 'config_info')
+
+    def health_monitor_driver_info_get(self, hm_id):
+        return self._db_get(self._hm_cf, hm_id, 'driver_info')
+
+    def health_monitor_driver_info_insert(self, hm_id, hm_obj):
+        entry = json.dumps(hm_obj)
+        return self._db_insert(self._hm_cf, hm_id, {'driver_info': entry})
+
+    def health_monitor_driver_info_remove(self, hm_id):
+        return self._db_remove(self._hm_cf, hm_id, 'driver_info')
+
+    def health_monitor_list(self):
+        ret_list = []
+        for each_entry_id, each_entry_data in self._db_list(self._hm_cf) or []:
+            config_info_obj_dict = json.loads(each_entry_data['config_info'])
+            driver_info_obj_dict = None
+            if 'driver_info' in each_entry_data:
+                driver_info_obj_dict = json.loads(each_entry_data['driver_info'])
+            ret_list.append((each_entry_id, config_info_obj_dict, driver_info_obj_dict))
+        return ret_list
+
+    def healthmonitor_remove(self, hm_id, columns=None):
+        return self._db_remove(self._hm_cf, hm_id, columns)
 
     def loadbalancer_config_get(self, lb_id):
         return self._db_get(self._lb_cf, lb_id, 'config_info')

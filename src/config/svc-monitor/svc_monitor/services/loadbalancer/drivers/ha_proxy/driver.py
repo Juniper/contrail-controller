@@ -375,27 +375,23 @@ class OpencontrailLoadbalancerDriver(
     def delete_member(self, member):
         pass
 
-    def update_pool_health_monitor(self,
-                                   old_health_monitor,
-                                   health_monitor,
-                                   pool_id):
-        pass
-
-    def create_pool_health_monitor(self,
-                                   health_monitor,
-                                   pool_id):
+    def create_health_monitor(self,
+                              health_monitor,
+                              pool_id):
         """Driver may call the code below in order to update the status.
-        self.plugin.update_pool_health_monitor(
-                                               health_monitor["id"],
-                                               pool_id,
-                                               constants.ACTIVE)
+        self.plugin.update_health_monitor(health_monitor["id"],
+                                          pool_id,
+                                          constants.ACTIVE)
         """
         pass
 
-    def delete_pool_health_monitor(self, health_monitor, pool_id):
+    def update_health_monitor(self,
+                              old_health_monitor,
+                              health_monitor,
+                              pool_id):
         pass
 
-    def update_health_monitor(self, id, health_monitor):
+    def delete_health_monitor(self, health_monitor, pool_id):
         pass
 
     def get_vip_port_v1(self, pool):

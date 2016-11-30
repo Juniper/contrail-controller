@@ -8,6 +8,7 @@ import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_dri
 from vnc_api.vnc_api import InstanceIp
 from vnc_api.vnc_api import FloatingIp
 from vnc_api.vnc_api import PortMap, PortMappings
+from vnc_api.vnc_api import ServiceHealthCheck, ServiceHealthCheckType
 
 from vnc_api.vnc_api import NoIdError, RefsExistError
 
@@ -79,6 +80,20 @@ class OpencontrailLoadbalancerDriver(
                     fip.floating_ip_port_mappings_enable = False
                 self._api.floating_ip_update(fip)
                 return portmap
+
+    def _add_service_health_check_ref(self, service_health_check, vmi_id):
+        vmi = self._api.virtual_machine_interface_read(id=vmi_id)
+        if vmi:
+            vmi.add_service_health_check(service_health_check)
+            self._api.virtual_machine_interface_update(vmi)
+        return vmi
+
+    def _delete_service_health_check_ref(self, service_health_check, vmi_id):
+        vmi = self._api.virtual_machine_interface_read(id=vmi_id)
+        if vmi:
+            vmi.del_service_health_check(service_health_check)
+            self._api.virtual_machine_interface_update(vmi)
+        return vmi
 
     def set_config_v2(self, lb_id):
         lb = LoadbalancerSM.get(lb_id)
@@ -212,7 +227,7 @@ class OpencontrailLoadbalancerDriver(
         for iip_id in lb_props['old_instance_ips'] or []:
             fip = self._get_floating_ip(vmi, iip_id=iip_id)
             if fip:
-                self._api.floating_ip_delete(id=fip['uuid'])
+                self._api.floating_ip_delete(id=fip.uuid)
 
         if instance_ips_changed == True:
             lb.instance_ips = new_instance_ips
@@ -238,7 +253,16 @@ class OpencontrailLoadbalancerDriver(
         for iip_id in lb.instance_ips or []:
             fip = self._get_floating_ip(iip_id=iip_id)
             if fip:
-                self._api.floating_ip_delete(id=fip['uuid'])
+                fip.set_virtual_machine_interface_list([])
+                self._api.floating_ip_update(fip)
+                self._api.floating_ip_delete(id=fip.uuid)
+
+        for fip_id in lb.floating_ips or []:
+            fip = self._get_floating_ip(fip_id=fip_id)
+            if fip:
+                fip.set_virtual_machine_interface_list([])
+                self._api.floating_ip_update(fip)
+                self._api.floating_ip_delete(id=fip.uuid)
 
         del lb.instance_ips[:]
         del lb.floating_ips[:]
@@ -357,6 +381,9 @@ class OpencontrailLoadbalancerDriver(
             fip.add_virtual_machine_interface(vmi)
             self._api.floating_ip_update(fip)
             self._add_port_map(fip, pool.listener_port, member.params['protocol_port'])
+        if pool.service_health_check:
+            self._add_service_health_check_ref(pool.service_health_check, member.vmi)
+            member.service_health_check = service_health_check
 
     def _clear_member_props(self, member_id):
         member = LoadbalancerMemberSM.get(member_id)
@@ -383,11 +410,119 @@ class OpencontrailLoadbalancerDriver(
                 continue
             self._delete_port_map(fip, pool.listener_port)
 
+        if member.service_health_check:
+            self._delete_service_health_check_ref(member.service_health_check, member.vmi)
+
+    def _update_health_monitor_props(self, hm_id, pool_id):
+        _service_health_check_type_mapping = {
+            'delay': 'delay',
+            'timeout': 'timeout',
+            'max_retries': 'max_retries',
+            'http_method': 'http_method',
+            'url_path': 'url_path',
+            'expected_codes': 'expected_codes',
+            'monitor_type': 'monitor_type',
+        }
+        pool = LoadbalancerPoolSM.get(pool_id)
+        if pool is None:
+            return
+
+        hm = HealthMonitorSM.get(hm_id)
+        if hm is None:
+            return
+
+        props = ServiceHealthCheckType()
+        setattr(props, 'health_check_type', 'link-local')
+
+        for key, mapping in _service_health_check_type_mapping.iteritems():
+            if mapping in hm.params:
+                setattr(props, key, hm.params[mapping])
+
+        if hm.params['monitor_type'] == 'PING' or \
+               hm.params['monitor_type'] == 'TCP':
+            setattr(props, 'monitor_type', 'PING')
+            setattr(props, 'url_path', 'local-ip')
+        elif hm.params['monitor_type'] == 'HTTP' or \
+               hm.params['monitor_type'] == 'HTTPS':
+            setattr(props, 'monitor_type', 'HTTP')
+
+        props.enabled = True
+
+        try:
+            if hm.service_health_check_id:
+                id = hm.service_health_check_id
+                service_health_check = self._api.service_health_check_read(id=id)
+                service_health_check.set_service_health_check_properties(props)
+                self._api.service_health_check_update(service_health_check)
+            else:
+                shc_uuid = str(uuid.uuid4())
+                fq_name = pool.name + '-' + shc_uuid
+                tenant_id = str(uuid.UUID(hm.parent_uuid.replace('-', '')))
+                project = self._api.project_read(id=tenant_id)
+                service_health_check = ServiceHealthCheck(
+                                              name=fq_name,
+                                              parent_obj=project,
+                                              service_health_check_properties=props)
+                service_health_check.uuid = shc_uuid
+                self._api.service_health_check_create(service_health_check)
+
+                for member_id in pool.members:
+                    member = LoadbalancerMemberSM.get(member_id)
+                    if member is None:
+                        continue
+                    self._add_service_health_check_ref(service_health_check, member.vmi)
+
+            pool.service_health_check = service_health_check
+            for member_id in pool.members:
+                member = LoadbalancerMemberSM.get(member_id)
+                if member:
+                    member.service_health_check = service_health_check
+            hm.service_health_check_id = service_health_check.uuid
+            hm.provider = pool.provider
+
+            driver_data = {}
+            driver_data['provider'] = hm.provider
+            driver_data['service_health_check_id'] = hm.service_health_check_id
+            driver_data['pool_id'] = pool_id
+            self.db.health_monitor_driver_info_insert(hm_id, driver_data)
+        except NoIdError:
+            return
+
+    def _clear_health_monitor_props(self, hm_id, pool_id):
+        driver_data = self.db.health_monitor_driver_info_get(hm_id)
+        if driver_data is None:
+            return
+
+        try:
+            id = driver_data['service_health_check_id']
+            service_health_check = self._api.service_health_check_read(id=id)
+            vmi_back_refs = service_health_check.get_virtual_machine_interface_back_refs()
+            for vmi in vmi_back_refs or []:
+                self._api.ref_update('virtual-machine-interface', vmi['uuid'], \
+                     'service-health-check', service_health_check.uuid, None, 'DELETE')
+            self._api.service_health_check_update(service_health_check)
+            self._api.service_health_check_delete(id=service_health_check.uuid)
+            if driver_data['pool_id']:
+                pool = LoadbalancerPoolSM.get(driver_data['pool_id'])
+                if pool is None:
+                    return
+                pool.service_health_check = None
+                for member_id in pool.members:
+                    member = LoadbalancerMemberSM.get(member_id)
+                    if member is None:
+                        continue
+                    member.service_health_check = None
+        except NoIdError:
+            return
+
     def create_loadbalancer(self, loadbalancer):
         self._update_loadbalancer_props(loadbalancer['id'])
 
     def update_loadbalancer(self, old_loadbalancer, loadbalancer):
         self._update_loadbalancer_props(loadbalancer['id'])
+
+    def suspend_loadbalancer(self, loadbalancer):
+        self._clear_loadbalancer_props(loadbalancer['id'])
 
     def delete_loadbalancer(self, loadbalancer):
         self._clear_loadbalancer_props(loadbalancer['id'])
@@ -419,6 +554,20 @@ class OpencontrailLoadbalancerDriver(
     def delete_member(self, member):
         self._clear_member_props(member['id'])
 
+    def create_health_monitor(self,
+                              health_monitor,
+                              pool_id):
+        self._update_health_monitor_props(health_monitor['id'], pool_id)
+
+    def update_health_monitor(self,
+                              old_health_monitor,
+                              health_monitor,
+                              pool_id):
+        self._update_health_monitor_props(health_monitor['id'], pool_id)
+
+    def delete_health_monitor(self, health_monitor, pool_id):
+        self._clear_health_monitor_props(health_monitor['id'], pool_id)
+
     def stats(self, pool_id):
         pass
 
@@ -431,19 +580,3 @@ class OpencontrailLoadbalancerDriver(
     def delete_vip(self, vip):
         pass
 
-    def create_pool_health_monitor(self,
-                                   health_monitor,
-                                   pool_id):
-        pass
-
-    def update_pool_health_monitor(self,
-                                   old_health_monitor,
-                                   health_monitor,
-                                   pool_id):
-        pass
-
-    def delete_pool_health_monitor(self, health_monitor, pool_id):
-        pass
-
-    def update_health_monitor(self, id, health_monitor):
-        pass

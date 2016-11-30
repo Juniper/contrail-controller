@@ -113,24 +113,23 @@ class ContrailLoadBalancerAbstractDriver(object):
         pass
 
     @abc.abstractmethod
-    def update_health_monitor(self, 
+    def create_health_monitor(self,
+                              health_monitor,
+                              pool_id):
+        """Driver may call the code below in order to update the status.
+        self.plugin.update_health_monitor(health_monitor["id"],
+                                          pool_id,
+                                          constants.ACTIVE)
+        """
+        pass
+
+    @abc.abstractmethod
+    def update_health_monitor(self,
                               old_health_monitor,
                               health_monitor,
                               pool_id):
         pass
 
     @abc.abstractmethod
-    def create_pool_health_monitor(self, 
-                                   health_monitor,
-                                   pool_id):
-        """Driver may call the code below in order to update the status.
-        self.plugin.update_pool_health_monitor(
-                                               health_monitor["id"],
-                                               pool_id,
-                                               constants.ACTIVE)
-        """
-        pass
-
-    @abc.abstractmethod
-    def delete_pool_health_monitor(self, health_monitor, pool_id):
+    def delete_health_monitor(self, health_monitor, pool_id):
         pass

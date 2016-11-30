@@ -1311,22 +1311,22 @@ class OpencontrailF5LoadbalancerDriver(
         pass
     # end  delete_member
 
-    def create_pool_health_monitor(self, 
-                                   health_monitor,
-                                   pool_id):
+    def create_health_monitor(self,
+                              health_monitor,
+                              pool_id):
         pass
-    # end  create_pool_health_monitor
+    # end  create_health_monitor
 
-    def delete_pool_health_monitor(self, health_monitor, pool_id):
-        pass
-    # end  delete_pool_health_monitor
-
-    def update_health_monitor(self, 
+    def update_health_monitor(self,
                               old_health_monitor,
                               health_monitor,
                               pool_id):
         pass
     # end  update_health_monitor
+
+    def delete_health_monitor(self, health_monitor, pool_id):
+        pass
+    # end  delete_health_monitor
 
     def set_config_v1(self, pool_id):
         pass
