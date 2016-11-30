@@ -627,6 +627,28 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     delete msg;
 }
 
+MATCHER_P(RowKeyEq, rowkey, "") {
+    bool match(arg.size() == rowkey.size());
+    if (!match) {
+        *result_listener << "Row key size: actual: " << arg.size() <<
+            ", expected: " << rowkey.size();
+        return match;
+    }
+    for (size_t i = 0; i < arg.size(); i++) {
+       // Don't compare the partition
+       if (i == 1) {
+           continue;
+       }
+       // boost::variant does not provide operator!=
+       if (!(arg[i] == rowkey[i])) {
+           *result_listener << "Row key element [" << i << "] actual:"
+               << arg[i] << ", expected: " << rowkey[i];
+           match = false;
+       }
+    }
+    return match;
+}
+
 TEST_F(DbHandlerTest, FlowTableInsertTest) {
     init_vizd_tables();
 
@@ -763,7 +785,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
 		Db_AddColumnProxy(
 		    Pointee(
 			AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
-			    Field(&GenDb::ColList::rowkey_, rowkey),_))))
+			    Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),_))))
 	    .Times(14)
 	    .WillRepeatedly(Return(true));
     }
@@ -778,7 +800,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
 		Db_AddColumnProxy(
 		    Pointee(
 			AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
-			    Field(&GenDb::ColList::rowkey_, rowkey),_))))
+			    Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),_))))
 	    .Times(14)
 	    .WillRepeatedly(Return(true));
     }
@@ -804,7 +826,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                         Pointee(
                             AllOf(Field(&GenDb::ColList::cfname_,
                                         g_viz_constants.FLOW_TABLE),
-                                Field(&GenDb::ColList::rowkey_, rowkey)))))
+                                Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey))))))
                     .Times(1)
                     .WillOnce(Return(true));
             }
@@ -871,7 +893,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                         Pointee(
                             AllOf(Field(&GenDb::ColList::cfname_,
                                         g_viz_constants.FLOW_TABLE_SVN_SIP),
-                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),
                                 Field(&GenDb::ColList::columns_,
                                       expected_vector)))))
                     .Times(1)
@@ -905,7 +927,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                         Pointee(
                             AllOf(Field(&GenDb::ColList::cfname_,
                                         g_viz_constants.FLOW_TABLE_DVN_DIP),
-                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),
                                 Field(&GenDb::ColList::columns_,
                                       expected_vector)))))
                     .Times(1)
@@ -939,7 +961,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                         Pointee(
                             AllOf(Field(&GenDb::ColList::cfname_,
                                         g_viz_constants.FLOW_TABLE_PROT_SP),
-                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),
                                 Field(&GenDb::ColList::columns_,
                                       expected_vector)))))
                     .Times(1)
@@ -973,7 +995,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                         Pointee(
                             AllOf(Field(&GenDb::ColList::cfname_,
                                         g_viz_constants.FLOW_TABLE_PROT_DP),
-                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),
                                 Field(&GenDb::ColList::columns_,
                                       expected_vector)))))
                     .Times(1)
@@ -1006,7 +1028,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
                         Pointee(
                             AllOf(Field(&GenDb::ColList::cfname_,
                                         g_viz_constants.FLOW_TABLE_VROUTER),
-                                Field(&GenDb::ColList::rowkey_, rowkey),
+                                Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),
                                 Field(&GenDb::ColList::columns_,
                                       expected_vector)))))
                     .Times(1)
