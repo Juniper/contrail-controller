@@ -465,8 +465,6 @@ public:
         return true;
     }
     void Close() { }
-    void CloseComplete() { }
-    bool IsCloseInProgress() const { return false; }
     int GetTaskInstance() const { return 0; }
     MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
     MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));

@@ -97,6 +97,7 @@
         "source_directories" : [
             "controller/src/ksync",
             "controller/src/vnsw",
+            "controller/src/xmpp",
             "vrouter"
         ],
         "scons_test_targets" : [
