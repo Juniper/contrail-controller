@@ -118,10 +118,38 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RouteKSyncObject);
 };
 
+class MacBindingInfo {
+public:
+    MacBindingInfo(const MacAddress &mac, bool wait_for_traffic):
+        mac_(mac), wait_for_traffic_(wait_for_traffic) {
+    }
+    MacBindingInfo() {}
+
+    bool wait_for_traffic() const {
+        return wait_for_traffic_;
+    }
+
+    const MacAddress& mac() const {
+        return mac_;
+    }
+
+    void set_mac(const MacAddress &mac) {
+        mac_ = mac;
+    }
+
+    void set_wait_for_traffic(bool val) {
+        wait_for_traffic_ = val;
+    }
+
+private:
+    MacAddress mac_;
+    bool wait_for_traffic_;
+};
+
 class VrfKSyncObject {
 public:
     // Table to maintain IP - MAC binding. Used to stitch MAC to inet routes
-    typedef std::map<IpAddress, MacAddress> IpToMacBinding;
+    typedef std::map<IpAddress, MacBindingInfo> IpToMacBinding;
 
     struct VrfState : DBState {
         VrfState() : DBState(), seen_(false),
@@ -148,10 +176,12 @@ public:
     void UnRegisterEvpnRouteTableListener(const VrfEntry *entry,
                                           VrfState *state);
     void AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
-                         const MacAddress &mac);
+                         const MacAddress &mac, bool wait_for_traffic);
     void DelIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac);
     MacAddress GetIpMacBinding(VrfEntry *vrf, const IpAddress &ip) const;
+    bool GetIpMacBindingWaitForTraffic(VrfEntry *vrf,
+                                       const IpAddress &ip) const;
     void NotifyUcRoute(VrfEntry *vrf, VrfState *state, const IpAddress &ip);
     bool RouteNeedsMacBinding(const InetUnicastRouteEntry *rt);
     DBTableBase::ListenerId vrf_listener_id() const {return vrf_listener_id_;}

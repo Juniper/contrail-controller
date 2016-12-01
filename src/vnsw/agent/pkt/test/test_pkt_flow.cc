@@ -591,6 +591,7 @@ private:
 };
 
 bool FlowTest::ksync_init_;
+
 //Ingress flow test (VMport to VMport - Same VN)
 //Flow creation using IP and TCP packets
 TEST_F(FlowTest, FlowAdd_1) {
@@ -3851,6 +3852,35 @@ TEST_F(FlowTest, AclRuleUpdate) {
     DelNode("security-group", "sg_e");
     FlowTeardown();
     client->WaitForIdle(5);
+}
+
+//Create a layer2 flow and verify that we dont add layer2 route
+//in prefix length manipulation
+TEST_F(FlowTest, WaitForTraffic) {
+    Ip4Address ip = Ip4Address::from_string(vm1_ip);
+    MacAddress mac(0, 0, 0, 1, 1, 1);
+
+    AgentRoute *ip_rt = RouteGet("vrf5", Ip4Address::from_string(vm1_ip), 32);
+    AgentRoute *evpn_Rt = EvpnRouteGet("vrf5", mac, ip, 0);
+
+    EXPECT_TRUE(ip_rt->WaitForTraffic() == true);
+    EXPECT_TRUE(evpn_Rt->WaitForTraffic() == true);
+
+    //Enqueue a flow with wrong mac address
+    TxL2Packet(flow0->id(),input[2].mac, input[1].mac,
+               input[0].addr, input[1].addr, 1);
+    client->WaitForIdle();
+    //Only IP route should goto wait for traffic
+    EXPECT_TRUE(ip_rt->WaitForTraffic() == false);
+    EXPECT_TRUE(evpn_Rt->WaitForTraffic() == true);
+
+    //Enqueue flow with right mac address
+    //EVPN route should also goto traffic seen state
+    TxL2Packet(flow0->id(),input[0].mac, input[1].mac,
+            input[0].addr, input[1].addr, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(ip_rt->WaitForTraffic() == false);
+    EXPECT_TRUE(evpn_Rt->WaitForTraffic() == false);
 }
 
 int main(int argc, char *argv[]) {

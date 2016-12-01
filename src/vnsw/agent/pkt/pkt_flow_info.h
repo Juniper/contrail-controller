@@ -96,6 +96,9 @@ public:
                      const IpAddress &addr, const MacAddress &mac,
                      FlowRouteRefMap &ref_map);
     uint8_t RouteToPrefixLen(const AgentRoute *route);
+    void EnqueueTrafficSeen(const PktInfo *pkt,
+                            PktControlInfo *in,
+                            PktControlInfo *out);
 
     bool                l3_flow;
     Address::Family     family;
