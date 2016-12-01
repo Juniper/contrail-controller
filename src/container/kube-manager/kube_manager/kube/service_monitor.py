@@ -4,19 +4,31 @@ from kube_monitor import KubeMonitor
 
 class ServiceMonitor(KubeMonitor):
 
-    def __init__(self, args=None, logger=None, q=None):
+    def __init__(self, args=None, logger=None, q=None, service_db=None):
         super(ServiceMonitor, self).__init__(args, logger, q)
         self.handle = self.register_monitor('services')
         self.logger.info("ServiceMonitor init done.");
+        self._service_db = service_db 
 
     def _process_service_event(self, event):
         service_data = event['object']
         event_type = event['type']
+        service_uuid = self._service_db.get_uuid(event['object'])
 
         service_name = service_data['metadata'].get('name')
         namespace = service_data['metadata'].get('namespace')
         if not service_name or not namespace:
             return
+
+        if self._service_db:
+            if event_type != 'DELETED':
+                # Update Service DB.
+                service = self._service_db.locate(service_uuid)
+                service.update(service_data)
+            else:
+                # Remove the entry from Service DB.
+                self._service_db.delete(service_uuid)
+
         print("Put %s %s %s:%s" % (event['type'],
             event['object'].get('kind'),
             event['object']['metadata'].get('namespace'),

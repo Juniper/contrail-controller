@@ -31,6 +31,8 @@ import kube.pod_monitor as pod_monitor
 import kube.service_monitor as service_monitor
 import kube.network_policy_monitor as network_policy_monitor
 import discoveryclient.client as client
+from common.kube_config_db import (NamespaceKM, ServiceKM,
+                                   PodKM, NetworkPolicyKM)
 
 def cgitb_error_log(monitor):
     string_buf = cStringIO.StringIO()
@@ -79,13 +81,17 @@ class KubeNetworkManager(object):
         while not kube_api_connected:
             try:
                 self.namespace = namespace_monitor.NamespaceMonitor(
-                    args=self.args, logger=self.logger, q=self.q)
+                    args=self.args, logger=self.logger, q=self.q,
+                        namespace_db=NamespaceKM)
                 self.pod = pod_monitor.PodMonitor(args=self.args,
-                    logger=self.logger, q=self.q)
+                    logger=self.logger, q=self.q, pod_db=PodKM)
                 self.service = service_monitor.ServiceMonitor(
-                    args=self.args, logger=self.logger, q=self.q)
-                self.network_policy = network_policy_monitor.NetworkPolicyMonitor(
-                    args=self.args, logger=self.logger, q=self.q)
+                    args=self.args, logger=self.logger, q=self.q,
+                        service_db=ServiceKM)
+                self.network_policy =\
+                    network_policy_monitor.NetworkPolicyMonitor(args=self.args,
+                        logger=self.logger, q=self.q,
+                            network_policy_db=NetworkPolicyKM)
                 kube_api_connected = True
             except Exception as e:
                 time.sleep(5)

@@ -1,0 +1,112 @@
+//
+// Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+//
+
+// kube_manager_introspect.sandesh
+//
+// Introspect datastructures for Kube Manager.
+//
+
+//
+// Pod DB Introspect datastructures.
+//
+struct PodInstance {
+    1: string uuid;
+    2: string name;
+    3: string name_space;
+    4: map<string,string> labels;
+    5: string nodename;
+    6: string ip;
+    7: string phase;
+}
+
+request sandesh PodDatabaseList {
+    1: string pod_uuid;
+}
+
+response sandesh PodDatabaseListResp {
+    1: list<PodInstance> pods;
+}
+
+//
+// Namespace DB Introspect datastructures.
+//
+struct NamespaceInstance {
+    1: string uuid;
+    2: string name;
+    3: string phase;
+}
+
+request sandesh NamespaceDatabaseList {
+    1: string namespace_uuid;
+}
+
+response sandesh NamespaceDatabaseListResp {
+    1: list<NamespaceInstance> namespaces;
+}
+
+//
+// Service DB Introspect datastructures.
+//
+struct ServiceInstance {
+    1: string uuid;
+    2: string name;
+    3: string name_space;
+    4: map<string,string> labels;
+    5: string cluster_ip;
+    6: string service_type;
+}
+
+request sandesh ServiceDatabaseList {
+    1: string service_uuid;
+}
+
+response sandesh ServiceDatabaseListResp {
+    1: list<ServiceInstance> services;
+}
+
+//
+// Network Policy DB Introspect datastructures.
+//
+struct NetworkPolicyLabels {
+    1: map<string, string> labels;
+}
+
+struct NetworkPolicyPodSelectors {
+    1: map<string, string> matchLabels;
+}
+
+struct NetworkPolicyFromRules {
+    1: NetworkPolicyPodSelectors podSelector;
+}
+
+struct NetworkPolicyPort {
+    1: string port;
+    2: string protocol;
+}
+
+struct NetworkPolicyIngressPolicy {
+    1: list<NetworkPolicyFromRules> fromPolicy;
+    2: list<NetworkPolicyPort> ports;
+}
+
+struct NetworkPolicySpec {
+    1: list<NetworkPolicyIngressPolicy> ingress;
+    2: NetworkPolicyPodSelectors podSelector;
+}
+
+struct NetworkPolicyInstance {
+    1: string uuid;
+    2: string name;
+    3: string name_space;
+    4: NetworkPolicySpec spec;
+    5: string spec_string;
+}
+
+request sandesh NetworkPolicyDatabaseList {
+    1: string network_policy_uuid;
+}
+
+response sandesh NetworkPolicyDatabaseListResp {
+    1: list<ServiceInstance> network_policies;
+}
