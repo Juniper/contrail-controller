@@ -49,62 +49,13 @@ PERMS_RX = 5
 PERMS_RW = 6
 PERMS_RWX = 7
 
+from test_perms2 import vnc_read_obj, vnc_aal_del_rule
+
 # create users specified as array of tuples (name, password, role)
 # assumes admin user and tenant exists
 
 def normalize_uuid(id):
     return id.replace('-','')
-
-class User(object):
-   def __init__(self, apis_ip, apis_port, kc, name, password, role, project):
-       self.name = name
-       self.password = password
-       self.role = role
-       self.project = project
-       self.project_uuid = None
-       self.project_obj = None
-
-       # create user/role/tenant in keystone as needed
-       kc_users = set([user.name for user in kc.users.list()])
-       kc_roles = set([user.name for user in kc.roles.list()])
-       kc_tenants = set([tenant.name for tenant in kc.tenants.list()])
-
-       if self.role not in kc_roles:
-           logger.info('role %s missing from keystone ... creating' % self.role)
-           kc.roles.create(self.role)
-
-       if self.project not in kc_tenants:
-           logger.info( 'tenant %s missing from keystone ... creating' % self.project)
-           kc.tenants.create(self.project)
-
-       for tenant in kc.tenants.list():
-           if tenant.name == self.project:
-                break
-       self.project_uuid = tenant.id
-       self.tenant = tenant
-
-       if self.name not in kc_users:
-           logger.info( 'user %s missing from keystone ... creating' % self.name)
-           kc.users.create(self.name, self.password, '', tenant_id=tenant.id)
-
-       role_dict = {role.name:role for role in kc.roles.list()}
-       user_dict = {user.name:user for user in kc.users.list()}
-       self.user = user_dict[self.name]
-
-       # update tenant ID (needed if user entry already existed in keystone)
-       self.user.tenant_id = tenant.id
-
-       logger.info( 'Adding user %s with role %s to tenant %s' \
-            % (name, role, project))
-       try:
-           kc.roles.add_user_role(user_dict[self.name], role_dict[self.role], tenant)
-       except kc_exceptions.Conflict:
-           pass
-
-       self.vnc_lib = MyVncApi(username = self.name, password = self.password,
-            tenant_name = self.project,
-            api_server_host = apis_ip, api_server_port = apis_port)
-   # end __init__
 
 def token_from_user_info(user_name, tenant_name, domain_name, role_name,
         tenant_id = None):
@@ -338,6 +289,21 @@ class TestRbac(test_case.ApiServerTestCase):
 
     def test_aaa_mode(self):
         self.assertRaises(HttpError, self._vnc_lib.set_aaa_mode, "invalid-aaa-mode")
+
+    def test_bug_1642464(self):
+        global_rg = vnc_read_obj(self._vnc_lib, 'api-access-list',
+            name = ['default-global-system-config', 'default-api-access-list'])
+        num_default_rules = len(global_rg.api_access_list_entries.rbac_rule)
+
+        vnc_aal_del_rule(self._vnc_lib, global_rg, "documentation *:R")
+        global_rg = vnc_read_obj(self._vnc_lib, 'api-access-list',
+            name = ['default-global-system-config', 'default-api-access-list'])
+        self.assertEquals(len(global_rg.api_access_list_entries.rbac_rule), num_default_rules-1)
+
+        self._api_server._create_default_rbac_rule()
+        global_rg = vnc_read_obj(self._vnc_lib, 'api-access-list',
+            name = ['default-global-system-config', 'default-api-access-list'])
+        self.assertEquals(len(global_rg.api_access_list_entries.rbac_rule), num_default_rules)
 
     def tearDown(self):
         super(TestRbac, self).tearDown()

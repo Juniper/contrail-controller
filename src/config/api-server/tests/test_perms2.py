@@ -195,6 +195,22 @@ def vnc_aal_add_rule(vnc, rg, rule_str):
     rg.set_api_access_list_entries(rge)
     vnc.api_access_list_update(rg)
 
+def vnc_aal_del_rule(vnc, rg, rule_str):
+    rule = build_rule(rule_str)
+    rg = vnc_read_obj(vnc, 'api-access-list', rg.get_fq_name())
+    rge = rg.get_api_access_list_entries()
+    match = find_rule(rge, rule)
+    if not match:
+        rge.add_rbac_rule(rule)
+    elif match[1]:
+        rge.rbac_rule.pop(match[0]-1)
+    else:
+        build_perms(rge.rbac_rule[match[0]-1], match[3])
+
+    rg.set_api_access_list_entries(rge)
+    vnc.api_access_list_update(rg)
+    return rg
+
 def token_from_user_info(user_name, tenant_name, domain_name, role_name,
         tenant_id = None, domain_id = None):
     token_dict = {
