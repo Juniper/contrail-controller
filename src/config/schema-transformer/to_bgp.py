@@ -3918,6 +3918,7 @@ def parse_args(args_str):
                          --use_syslog
                          --syslog_facility LOG_USER
                          --cluster_id <testbed-name>
+                         --zk_timeout 400
                          [--reset_config]
     '''
 
@@ -3953,6 +3954,7 @@ def parse_args(args_str):
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'cluster_id': '',
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
+        'zk_timeout': 400,
     }
     secopts = {
         'use_certs': False,
@@ -4051,6 +4053,8 @@ def parse_args(args_str):
                         help="Used for database keyspace separation")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
+    parser.add_argument("--zk_timeout",
+                        help="Timeout for ZookeeperClient")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
@@ -4112,8 +4116,9 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
-    _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip)
-    _zookeeper_client.master_election(zk_path_pfx+"/schema-transformer",
+    _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
+                                        zk_timeout =args.zk_timeout)
+    _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
                                       os.getpid(), run_schema_transformer,
                                       args)
 # end main
