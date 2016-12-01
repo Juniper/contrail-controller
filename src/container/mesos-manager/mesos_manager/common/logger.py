@@ -23,7 +23,7 @@ from sandesh_common.vns.ttypes import Module
 
 class MesosManagerLogger(object):
 
-    def __init__(self, module, args=None):
+    def __init__(self, args=None):
         self._args = args
 
         # Initialize module parameters.

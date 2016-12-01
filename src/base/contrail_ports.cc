@@ -66,8 +66,8 @@ const uint16_t ContrailPorts::HttpPortDns() {
     return VnsPorts().HttpPortDns;
 }
 
-const uint16_t ContrailPorts::HttpPortKubemgr() {
-    return VnsPorts().HttpPortKubemgr;
+const uint16_t ContrailPorts::HttpPortKubeManager() {
+    return VnsPorts().HttpPortKubeManager;
 }
 
 const uint16_t ContrailPorts::HttpPortMesosManager() {

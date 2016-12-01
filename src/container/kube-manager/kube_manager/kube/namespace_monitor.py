@@ -8,14 +8,14 @@ class NamespaceMonitor(KubeMonitor):
         super(NamespaceMonitor, self).__init__(args, logger, q)
         self.handle = self.register_monitor('namespaces')
         self.logger.info("NamespaceMonitor init done.");
-        self._namespace_db = namespace_db 
+        self._namespace_db = namespace_db
 
     def _process_namespace_event(self, event):
         namespce_data = event['object']
-        namespace_uuid = self._namespace_db.get_uuid(event['object'])
         event_type = event['type']
 
         if self._namespace_db:
+            namespace_uuid = self._namespace_db.get_uuid(event['object'])
             if event_type != 'DELETED':
                 # Update Namespace DB.
                 namespace = self._namespace_db.locate(namespace_uuid)
