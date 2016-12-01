@@ -160,6 +160,9 @@ public:
     ArpIterator FindUpperBoundArpEntry(const ArpKey &key);
     ArpIterator FindLowerBoundArpEntry(const ArpKey &key);
 
+    DBTableBase::ListenerId vrf_table_listener_id() const {
+        return vrf_table_listener_id_;
+    }
 private:
     void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
     void NextHopNotify(DBEntryBase *entry);
@@ -189,24 +192,141 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ArpProto);
 };
 
+//Stucture used to retry ARP queries when a particular route is in
+//backup state.
+class ArpPathPreferenceState {
+public:
+    static const uint32_t kMaxRetry = 30 * 5; //retries upto 5 minutes,
+                                              //30 tries/per minutes
+    static const uint32_t kTimeout = 2000;
+    typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
+    typedef std::set<uint32_t> ArpTransmittedIntfMap;
+
+    ArpPathPreferenceState(ArpVrfState *state, uint32_t vrf_id,
+                           const IpAddress &vm_ip, uint8_t plen);
+    ~ArpPathPreferenceState();
+
+    bool SendArpRequest();
+    bool SendArpRequest(WaitForTrafficIntfMap &wait_for_traffic_map,
+                        ArpTransmittedIntfMap &arp_transmitted_intf_map);
+    void SendArpRequestForAllIntf(const AgentRoute *route);
+    void StartTimer();
+
+    ArpVrfState* vrf_state() {
+        return vrf_state_;
+    }
+
+    const IpAddress& ip() const {
+        return vm_ip_;
+    }
+
+    bool IntfPresentInIpMap(uint32_t id) const {
+        if (l3_wait_for_traffic_map_.find(id) ==
+                l3_wait_for_traffic_map_.end()) {
+            return false;
+        }
+        return true;
+    }
+
+    bool IntfPresentInEvpnMap(uint32_t id) const {
+        if (evpn_wait_for_traffic_map_.find(id) ==
+                evpn_wait_for_traffic_map_.end()) {
+            return false;
+        }
+        return true;
+    }
+
+    uint32_t IntfRetryCountInIpMap(uint32_t id) const {
+        WaitForTrafficIntfMap::const_iterator it =
+            l3_wait_for_traffic_map_.find(id);
+        if (it == l3_wait_for_traffic_map_.end()) {
+            return 0;
+        }
+        return it->second;
+    }
+
+    uint32_t IntfRetryCountInEvpnMap(uint32_t id) const {
+        WaitForTrafficIntfMap::const_iterator it =
+            evpn_wait_for_traffic_map_.find(id);
+        if (it == evpn_wait_for_traffic_map_.end()) {
+            return 0;
+        }
+        return it->second;
+    }
+
+private:
+    friend void intrusive_ptr_add_ref(ArpPathPreferenceState *aps);
+    friend void intrusive_ptr_release(ArpPathPreferenceState *aps);
+    ArpVrfState *vrf_state_;
+    Timer *arp_req_timer_;
+    uint32_t vrf_id_;
+    IpAddress vm_ip_;
+    uint8_t plen_;
+    IpAddress gw_ip_;
+    WaitForTrafficIntfMap l3_wait_for_traffic_map_;
+    WaitForTrafficIntfMap evpn_wait_for_traffic_map_;
+    tbb::atomic<int> refcount_;
+};
+
+typedef boost::intrusive_ptr<ArpPathPreferenceState> ArpPathPreferenceStatePtr;
+
+void intrusive_ptr_add_ref(ArpPathPreferenceState *aps);
+void intrusive_ptr_release(ArpPathPreferenceState *aps);
+
 struct ArpVrfState : public DBState {
 public:
+    typedef std::map<const IpAddress,
+                     ArpPathPreferenceState*> ArpPathPreferenceStateMap;
+    typedef std::pair<const IpAddress,
+                      ArpPathPreferenceState*> ArpPathPreferenceStatePair;
+
     ArpVrfState(Agent *agent, ArpProto *proto, VrfEntry *vrf,
-                AgentRouteTable *table);
+                AgentRouteTable *table, AgentRouteTable *evpn_table);
+    ~ArpVrfState();
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
+    void EvpnRouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
     void ManagedDelete() { deleted = true;}
     void SendArpRequestForVm(InetUnicastRouteEntry *route);
     void Delete();
     bool DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry);
-    void WalkDone(DBTableBase *partition, ArpVrfState *state);
+    bool DeleteEvpnRouteState(DBTablePartBase *part, DBEntryBase *entry);
+    static void WalkDone(DBTableBase *partition, ArpVrfState *state);
+    bool PreWalkDone(DBTableBase *partition);
+    ArpPathPreferenceState* Locate(const IpAddress &ip);
+    void Erase(const IpAddress &ip);
+
+    const ArpPathPreferenceState* Get(const IpAddress ip) const {
+        ArpPathPreferenceStateMap::const_iterator it =
+            arp_path_preference_map_.find(ip);
+        if (it == arp_path_preference_map_.end()) {
+            return NULL;
+        }
+        return it->second;
+    }
+
+    bool l3_walk_completed() const {
+        return l3_walk_completed_;
+    }
+
+    bool evpn_walk_completed() const {
+        return evpn_walk_completed_;
+    }
 
     Agent *agent;
     ArpProto *arp_proto;
     VrfEntry *vrf;
     AgentRouteTable *rt_table;
+    AgentRouteTable *evpn_rt_table;
     DBTableBase::ListenerId route_table_listener_id;
+    DBTableBase::ListenerId evpn_route_table_listener_id;
     LifetimeRef<ArpVrfState> table_delete_ref;
+    LifetimeRef<ArpVrfState> evpn_table_delete_ref;
     bool deleted;
+    DBTableWalker::WalkId walk_id_;
+    DBTableWalker::WalkId evpn_walk_id_;
+    ArpPathPreferenceStateMap arp_path_preference_map_;
+    bool l3_walk_completed_;
+    bool evpn_walk_completed_;
     friend class ArpProto;
 };
 
@@ -219,23 +339,15 @@ public:
     ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id,
                IpAddress vm_ip_addr, uint8_t plen);
     ~ArpDBState();
-    bool SendArpRequest();
-    void SendArpRequestForAllIntf(const InetUnicastRouteEntry *route);
-    void StartTimer();
-    void Update(const InetUnicastRouteEntry *route);
+    void Update(const AgentRoute *route);
     void UpdateArpRoutes(const InetUnicastRouteEntry *route);
     void Delete(const InetUnicastRouteEntry *rt);
 private:
     ArpVrfState *vrf_state_;
-    Timer *arp_req_timer_;
-    uint32_t vrf_id_;
-    IpAddress vm_ip_;
-    uint8_t plen_;
-    IpAddress gw_ip_;
     SecurityGroupList sg_list_;
     bool policy_;
     bool resolve_route_;
     std::string vn_;
-    WaitForTrafficIntfMap wait_for_traffic_map_;
+    ArpPathPreferenceStatePtr arp_path_preference_state_;
 };
 #endif // vnsw_agent_arp_proto_hpp
