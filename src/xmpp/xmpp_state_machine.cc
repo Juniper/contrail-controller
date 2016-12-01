@@ -1381,14 +1381,14 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
     // check if older connection is under graceful-restart.
     if (endpoint && endpoint->connection()) {
         if (connection_ != endpoint->connection()) {
-            XmppChannel *channel = endpoint->connection()->ChannelMux();
+            XmppChannelMux *channel = endpoint->connection()->ChannelMux();
 
             // If GR is not supported, then close all new connections until old
             // one is completely deleted. Even if GR is supported, new 
             // connection cannot be accepted until old one is fully cleaned up.
             bool ready = channel->GetPeerState() == xmps::READY;
             if (!xmpp_server->IsPeerCloseGraceful() || ready ||
-                    channel->IsCloseInProgress()) {
+                    channel->ReceiverCount()) {
 
                 // Bring down old session if it is still in ESTABLISHED state.
                 // This is the scenario in which old session's TCP did not learn
