@@ -164,7 +164,7 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
     }
 
     // Compute L2/L3 forwarding mode for packet
-    pkt_info->l3_forwarding = ComputeForwardingMode(pkt_info);
+    pkt_info->l3_forwarding = ComputeForwardingMode(pkt_info, intf);
 
     pkt_info->vrf = pkt_info->agent_hdr.vrf;
 
@@ -297,9 +297,10 @@ void PktHandler::PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
 // Compute L2/L3 forwarding mode for pacekt.
 // Forwarding mode is L3 if,
 // - Packet uses L3 label
-// - DMAC in packet is VRRP Mac or VHOST MAC
+// - DMAC in packet is VRRP Mac or VHOST MAC or receiving physical interface MAC
 // Else forwarding mode is L2
-bool PktHandler::ComputeForwardingMode(PktInfo *pkt_info) const {
+bool PktHandler::ComputeForwardingMode(PktInfo *pkt_info,
+                                       const Interface *intf) const {
     if (pkt_info->tunnel.type.GetType() == TunnelType::MPLS_GRE ||
         pkt_info->tunnel.type.GetType() == TunnelType::MPLS_UDP) {
         return pkt_info->l3_label;
@@ -310,6 +311,11 @@ bool PktHandler::ComputeForwardingMode(PktInfo *pkt_info) const {
     }
 
     if (pkt_info->dmac == agent_->vhost_interface()->mac()) {
+        return true;
+    }
+
+    if (intf && intf->type() == Interface::PHYSICAL &&
+        pkt_info->dmac == intf->mac()) {
         return true;
     }
 
