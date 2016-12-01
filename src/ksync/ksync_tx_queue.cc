@@ -44,6 +44,7 @@ KSyncTxQueue::KSyncTxQueue(KSyncSock *sock) :
     measure_busy_time_(false) {
     queue_len_ = 0;
     shutdown_ = false;
+    ClearStats();
 }
 
 KSyncTxQueue::~KSyncTxQueue() {
