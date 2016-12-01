@@ -114,7 +114,7 @@ void BgpXmppPeerClose::CloseComplete() {
     channel_->set_peer_closed(false);
 
     // Indicate to Channel that GR Closure is now complete
-    channel_->channel()->CloseComplete();
+    channel_->channel()->UnRegisterReceive(xmps::BGP);
 }
 
 void BgpXmppPeerClose::Delete() {
@@ -128,7 +128,6 @@ void BgpXmppPeerClose::Delete() {
 void BgpXmppPeerClose::Close(bool graceful) {
     if (channel_) {
         assert(channel_->peer_deleted());
-        assert(channel_->channel()->IsCloseInProgress());
         if (!IsCloseGraceful())
             graceful = false;
         GetManager()->Close(graceful);

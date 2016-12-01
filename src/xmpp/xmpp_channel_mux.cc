@@ -15,7 +15,6 @@ using namespace xmsm;
 XmppChannelMux::XmppChannelMux(XmppConnection *connection) 
     : connection_(connection), rx_message_trace_cb_(NULL),
       tx_message_trace_cb_(NULL) {
-        closing_count_ = 0;
         last_received_ = 0;
         last_sent_ = 0;
 }
@@ -24,36 +23,7 @@ XmppChannelMux::~XmppChannelMux() {
 }
 
 void XmppChannelMux::Close() {
-    if (InitializeClosingCount())
-        connection_->Clear();
-}
-
-// Track clients who close gracefully. At the moment, only BGP cares about this.
-bool XmppChannelMux::InitializeClosingCount() {
-    if (closing_count_)
-        return false;
-
-    BOOST_FOREACH(const ReceiveCbMap::value_type &value, rxmap_) {
-        switch (value.first) {
-
-        // Currently, Only BgpXmppChannel client cares about GR.
-        case xmps::BGP:
-            closing_count_++;
-            break;
-
-        case xmps::CONFIG:
-        case xmps::DNS:
-        case xmps::OTHER:
-            break;
-        }
-    }
-
-    return true;
-}
-
-// Check if the channel is being closed (Graceful Restart)
-bool XmppChannelMux::IsCloseInProgress() const {
-    return closing_count_ != 0;
+    connection_->Clear();
 }
 
 bool XmppChannelMux::LastReceived(uint64_t durationMsec) const {
@@ -62,18 +32,6 @@ bool XmppChannelMux::LastReceived(uint64_t durationMsec) const {
 
 bool XmppChannelMux::LastSent(uint64_t durationMsec) const {
     return (UTCTimestampUsec() - last_sent_) <= durationMsec * 1000;
-}
-
-// API for the clients to indicate GR Closure is complete
-void XmppChannelMux::CloseComplete() {
-    assert(closing_count_);
-    closing_count_--;
-    if (closing_count_)
-        return;
-
-    // Restart state machine.
-    if (connection() && connection()->state_machine())
-        connection()->state_machine()->Initialize();
 }
 
 xmps::PeerState XmppChannelMux::GetPeerState() const {
@@ -122,6 +80,21 @@ void XmppChannelMux::UnRegisterReceive(xmps::PeerId id) {
     if (it != rxmap_.end()) {
         rxmap_.erase(it);
     }
+
+    if (ReceiverCount())
+        return;
+
+    XmppServerConnection *xmppServerConnection =
+        dynamic_cast<XmppServerConnection *>(connection_);
+
+    // If GracefulRestart helper mode close process is complete, restart the
+    // state machine to form new session with the client.
+    if (!connection_->IsDeleted() && xmppServerConnection &&
+            xmppServerConnection->server()->IsGRHelperModeEnabled()) {
+        xmppServerConnection->state_machine()->Initialize();
+        return;
+    }
+
     connection_->RetryDelete();
 }
 
@@ -217,8 +190,6 @@ void XmppChannelMux::HandleStateEvent(xmsm::XmState state) {
     } else {
         // Event to create the peer on server
         XmppServer *server = static_cast<XmppServer *>(connection_->server());
-        if (st == xmps::NOT_READY)
-            (void) InitializeClosingCount();
         server->NotifyConnectionEvent(this, st);
     }
 }
