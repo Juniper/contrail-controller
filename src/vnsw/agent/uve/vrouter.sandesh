@@ -155,6 +155,10 @@ struct AgentIfStats {
     5: u64 out_bytes; 
     6: i32 speed;
     7: i32 duplexity;
+    8: u64 drop_pkts;
+    9: optional map<string, u64> raw_drop_stats (metric="agg", hidden="yes")
+    /** @display_name:vhost Interface Packet drop Statistics*/
+   10: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:", tags=".__key")
 }
 
 struct PhyIfStats {
@@ -239,7 +243,11 @@ struct VrouterStatsAgent {  // Agent stats
     31: optional u64 packets_no_flow_dp; 
     32: optional u64 uptime;
     33: optional map<string, PhyIfInfo> phy_if_info
-    34: optional AgentIfStats vhost_stats;
+    /** Statistics for vhost interface */
+    76: optional AgentIfStats raw_vhost_stats (metric="agg", hidden="yes")
+    /** @display_name:Vrouter vhost Interface Traffic Statistics*/
+    77: optional AgentIfStats vhost_stats (stats="raw_vhost_stats:DSNon0:", tags="")
+    /** Bandwidth of physical interface in bps for last 5 minutes */
     36: optional list<AgentIfBandwidth> phy_if_5min_usage; 
     38: optional list<u32>   udp_sport_bitmap;
     39: optional list<u32>   udp_dport_bitmap;
