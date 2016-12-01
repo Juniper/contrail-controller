@@ -69,7 +69,7 @@ def build_rule(rule_str):
     perms = r[1].split(",")
 
     o = obj_field[0]
-    f = obj_field[1] if len(obj_field) > 1 else None
+    f = obj_field[1] if len(obj_field) > 1 else ''
     o_f = "%s.%s" % (o,f) if f else o
 
     # perms eg ['foo:CRU', 'bar:CR']
