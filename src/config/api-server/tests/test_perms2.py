@@ -195,6 +195,22 @@ def vnc_aal_add_rule(vnc, rg, rule_str):
     rg.set_api_access_list_entries(rge)
     vnc.api_access_list_update(rg)
 
+def vnc_aal_del_rule(vnc, rg, rule_str):
+    rule = build_rule(rule_str)
+    rg = vnc_read_obj(vnc, 'api-access-list', rg.get_fq_name())
+    rge = rg.get_api_access_list_entries()
+    match = find_rule(rge, rule)
+    if not match:
+        rge.add_rbac_rule(rule)
+    elif match[1]:
+        rge.rbac_rule.pop(match[0]-1)
+    else:
+        build_perms(rge.rbac_rule[match[0]-1], match[3])
+
+    rg.set_api_access_list_entries(rge)
+    vnc.api_access_list_update(rg)
+    return rg
+
 def token_from_user_info(user_name, tenant_name, domain_name, role_name,
         tenant_id = None, domain_id = None):
     token_dict = {
@@ -1387,6 +1403,28 @@ class TestPermissions(test_case.ApiServerTestCase):
         (ok, obj_dict) = self._api_server._db_conn.dbe_read(obj_type,
                              {'uuid':obj_uuid}, obj_fields=['perms2'])
         self.assertEquals(obj_dict['perms2']['owner'], 'cloud-admin')
+
+    def test_bug_1642464(self):
+        def fake_static_file(*args, **kwargs):
+            return
+
+        global_rg = vnc_read_obj(self.admin.vnc_lib, 'api-access-list',
+            name = ['default-global-system-config', 'default-api-access-list'])
+        num_default_rules = len(global_rg.api_access_list_entries.rbac_rule)
+
+        # delete a rule and verify permission is denied when accessing resource
+        vnc_aal_del_rule(self.admin.vnc_lib, global_rg, "documentation *:R")
+        with test_common.patch(bottle, 'static_file', fake_static_file):
+            status_code, result = self.alice.vnc_lib._http_get('/documentation/index.html')
+            self.assertThat(status_code, Equals(403))
+
+        # simulate API server restart - should add rule back
+        self._api_server._create_default_rbac_rule()
+
+        # verify permission no longer denied
+        with test_common.patch(bottle, 'static_file', fake_static_file):
+            status_code, result = self.alice.vnc_lib._http_get('/documentation/index.html')
+            self.assertThat(status_code, Equals(200))
 
     def tearDown(self):
         super(TestPermissions, self).tearDown()
