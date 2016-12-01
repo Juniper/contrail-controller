@@ -720,6 +720,8 @@ public:
 
     DBTableBase::ListenerId nh_listener_id();
     AgentRoute *GetL2Route(const VrfEntry *entry, const MacAddress &mac);
+    AgentRoute *GetEvpnRoute(const VrfEntry *entry, const MacAddress &mac,
+                             const IpAddress &addr, uint32_t ethernet_tag);
     AgentRoute *GetUcRoute(const VrfEntry *entry, const IpAddress &addr);
     static const SecurityGroupList &default_sg_list() {return default_sg_list_;}
     bool ValidFlowMove(const FlowEntry *new_flow,

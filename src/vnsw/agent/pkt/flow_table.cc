@@ -3369,6 +3369,16 @@ AgentRoute *FlowTable::GetL2Route(const VrfEntry *vrf,
     return table->FindRoute(mac);
 }
 
+//Find EVPN route
+AgentRoute* FlowTable::GetEvpnRoute(const VrfEntry *vrf,
+                                    const MacAddress &mac,
+                                    const IpAddress &ip,
+                                    uint32_t ethernet_tag) {
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>(
+            vrf->GetEvpnRouteTable());
+    return table->FindRoute(mac, ip, ethernet_tag);
+}
+
 AgentRoute *FlowTable::GetUcRoute(const VrfEntry *entry,
                                   const IpAddress &addr) {
     AgentRoute *rt = NULL;
