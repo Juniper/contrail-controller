@@ -11,6 +11,7 @@ struct IFMapOrigin {
         LOCAL,
         MAP_SERVER,
         XMPP,
+        CASSANDRA,
     };
     IFMapOrigin() : origin(UNKNOWN) { }
     IFMapOrigin(Origin in_origin) : origin(in_origin) { }
@@ -27,6 +28,8 @@ struct IFMapOrigin {
             return "MapServer";
         } else if (origin == XMPP) {
             return "Xmpp";
+        } else if (origin == CASSANDRA) {
+            return "Cassandra";
         } else {
             return "NotSet";
         }
