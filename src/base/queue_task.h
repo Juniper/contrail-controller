@@ -207,42 +207,42 @@ public:
 
     void SetHighWaterMark(const WaterMarkInfos &high_water) {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        wm_tuple.SetHighWaterMark(high_water);
+        watermarks_.SetHighWaterMark(high_water);
     }
 
     void SetHighWaterMark(const WaterMarkInfo& hwm_info) {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        wm_tuple.SetHighWaterMark(hwm_info);
+        watermarks_.SetHighWaterMark(hwm_info);
     }
 
     void ResetHighWaterMark() {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        wm_tuple.ResetHighWaterMark();
+        watermarks_.ResetHighWaterMark();
     }
 
     WaterMarkInfos GetHighWaterMark() const {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        return wm_tuple.GetHighWaterMark();
+        return watermarks_.GetHighWaterMark();
     }
 
     void SetLowWaterMark(const WaterMarkInfos &low_water) {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        wm_tuple.SetLowWaterMark(low_water);
+        watermarks_.SetLowWaterMark(low_water);
      }
 
     void SetLowWaterMark(const WaterMarkInfo& lwm_info) {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        wm_tuple.SetLowWaterMark(lwm_info);
+        watermarks_.SetLowWaterMark(lwm_info);
      }
 
     void ResetLowWaterMark() {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        wm_tuple.ResetLowWaterMark();
+        watermarks_.ResetLowWaterMark();
     }
 
     WaterMarkInfos GetLowWaterMark() const {
         tbb::mutex::scoped_lock lock(water_mutex_);
-        return wm_tuple.GetLowWaterMark();
+        return watermarks_.GetLowWaterMark();
     }
 
     bool Enqueue(QueueEntryT entry) {
@@ -404,7 +404,7 @@ private:
     }
 
     bool AreWaterMarksSet() const {
-        return wm_tuple.AreWaterMarksSet();
+        return watermarks_.AreWaterMarksSet();
     }
 
     void ShutdownLocked(bool delete_entries) {
@@ -437,11 +437,11 @@ private:
     }
 
     void ProcessHighWaterMarks(size_t count) {
-        wm_tuple.ProcessHighWaterMarks(count);
+        watermarks_.ProcessHighWaterMarks(count);
     }
 
     void ProcessLowWaterMarks(size_t count) {
-        wm_tuple.ProcessLowWaterMarks(count);
+        watermarks_.ProcessLowWaterMarks(count);
     }
 
     bool EnqueueInternal(QueueEntryT entry) {
@@ -511,11 +511,11 @@ private:
     }
 
     void GetWaterMarkIndexes(int *hwater_index, int *lwater_index) const {
-        wm_tuple.GetWaterMarkIndexes(hwater_index, lwater_index);
+        watermarks_.GetWaterMarkIndexes(hwater_index, lwater_index);
     }
 
     void SetWaterMarkIndexes(int hwater_index, int lwater_index) {
-        wm_tuple.SetWaterMarkIndexes(hwater_index, lwater_index);
+        watermarks_.SetWaterMarkIndexes(hwater_index, lwater_index);
     }
 
     Queue queue_;
@@ -541,7 +541,7 @@ private:
     bool bounded_;
     bool shutdown_scheduled_;
     bool delete_entries_on_shutdown_;
-    WaterMarkTuple wm_tuple;
+    WaterMarkTuple watermarks_;
     mutable tbb::mutex water_mutex_;
     mutable uint32_t task_starts_;
     mutable uint32_t max_queue_len_;
