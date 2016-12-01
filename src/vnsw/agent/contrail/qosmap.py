@@ -14,7 +14,7 @@ class QosmapProv(object):
         self.conf_file = conf_file
         self._parse_args()
         qos_cmd = '/usr/bin/qosmap --set-queue ' + self.ifname + ' --dcbx ' + self.dcbx
-        qos_cmd = qos_cmd + ' --bw ' + self.bandwidth + ' --strict ' + self.scheduling + ' --tc ' + self.traffic_class
+        qos_cmd = qos_cmd + ' --bw ' + self.bandwidth + ' --strict ' + self.scheduling
         self.execute_command(qos_cmd)
 
     # end __init__
@@ -27,7 +27,6 @@ class QosmapProv(object):
         self.priority_group = []
         self.bandwidth = []
         self.scheduling = []
-        self.traffic_class = []
         scheduling = ""
         bandwidth = ""
         config = ConfigParser.SafeConfigParser()
@@ -51,12 +50,11 @@ class QosmapProv(object):
                     bandwidth = config.get(section, 'bandwidth')
                     self.bandwidth[int(priority_id)] = bandwidth
 
-        self.priority_group = [elem for elem in self.priority_group if elem != '0']
-        self.traffic_class = ",".join(self.priority_group)
+        self.priority_group = [elem for elem in self.priority_group]
         self.bandwidth = ",".join(self.bandwidth)
         self.scheduling = "".join(self.scheduling)
-        if (self.traffic_class == ""):
-            print "Please configure qos parameters"
+        if (self.priority_group == ""):
+            print "Please configure priority groups"
 
     # end _parse_args
 
