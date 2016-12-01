@@ -14,6 +14,7 @@
 #include <database/gendb_constants.h>
 #include <database/gendb_if.h>
 #include <database/cassandra/cql/cql_if_impl.h>
+#include <database/cassandra/cql/test/mock_cql_lib_if.h>
 
 class CqlIfTest : public ::testing::Test {
  protected:
@@ -402,6 +403,15 @@ TEST_F(CqlIfTest, InsertIntoStaticTable) {
     EXPECT_EQ(expected_qstring, actual_qstring);
 }
 
+TEST_F(CqlIfTest, SelectFromTable) {
+    std::string table("SelectTable");
+    std::string actual_qstring(
+        cass::cql::impl::CassSelectFromTable(table));
+    std::string expected_qstring(
+        "SELECT * FROM SelectTable");
+    EXPECT_EQ(expected_qstring, actual_qstring);
+}
+
 TEST_F(CqlIfTest, SelectFromTablePartitionKey) {
     std::string table("PartitionKeySelectTable");
     std::string actual_qstring(
@@ -530,6 +540,200 @@ TEST_F(CqlIfTest, SelectFromTableSlice) {
         "key8=0x303132333435363738393031323334353637383930313233343536373839 "
         "LIMIT 5000");
     EXPECT_EQ(expected_qstring4, actual_string4);
+}
+
+using ::testing::_;
+using ::testing::Return;
+using ::testing::DoAll;
+using ::testing::SetArgPointee;
+using ::testing::ContainerEq;
+
+TEST_F(CqlIfTest, DynamicCfGetResultAllRows) {
+    cass::cql::test::MockCassLibrary mock_cci;
+    size_t rk_count(1);
+    size_t ck_count(1);
+    size_t ccount(rk_count + ck_count + 1);
+    size_t rows(3);
+    EXPECT_CALL(mock_cci, CassIteratorNext(_))
+        .Times(rows + 1)
+        .WillOnce(Return(cass_true))
+        .WillOnce(Return(cass_true))
+        .WillOnce(Return(cass_true))
+        .WillOnce(Return(cass_false));
+    EXPECT_CALL(mock_cci, CassResultColumnCount(_))
+        .Times(rows)
+        .WillRepeatedly(Return(ccount));
+    // Return dummy pointer to avoid assert
+    uint8_t dummy_cass_value;
+    EXPECT_CALL(mock_cci, CassRowGetColumn(_, _))
+        .Times(rows * ccount)
+        .WillRepeatedly(Return(
+            reinterpret_cast<const CassValue *>(&dummy_cass_value)));
+    EXPECT_CALL(mock_cci, GetCassValueType(_))
+        .Times(rows * ccount)
+        .WillRepeatedly(Return(CASS_VALUE_TYPE_TEXT));
+    EXPECT_CALL(mock_cci, CassValueGetString(_, _, _))
+        .Times(rows * ccount)
+        .WillOnce(DoAll(SetArgPointee<1>("key"),
+            SetArgPointee<2>(strlen("key")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column"),
+            SetArgPointee<2>(strlen("column")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("value"),
+            SetArgPointee<2>(strlen("value")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("key"),
+            SetArgPointee<2>(strlen("key")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column1"),
+            SetArgPointee<2>(strlen("column1")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("value1"),
+            SetArgPointee<2>(strlen("value1")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("key1"),
+            SetArgPointee<2>(strlen("key1")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column"),
+            SetArgPointee<2>(strlen("column")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("value"),
+            SetArgPointee<2>(strlen("value")), Return(CASS_OK)));
+    GenDb::ColList *col_list(new GenDb::ColList);
+    col_list->rowkey_.push_back("key");
+    GenDb::NewCol *column(new GenDb::NewCol(
+        new GenDb::DbDataValueVec(1, "column"),
+        new GenDb::DbDataValueVec(1, "value"), 0));
+    col_list->columns_.push_back(column);
+    GenDb::NewCol *column1(new GenDb::NewCol(
+        new GenDb::DbDataValueVec(1, "column1"),
+        new GenDb::DbDataValueVec(1, "value1"), 0));
+    col_list->columns_.push_back(column1);
+    GenDb::ColList *col_list1(new GenDb::ColList);
+    col_list1->rowkey_.push_back("key1");
+    GenDb::NewCol *column2(new GenDb::NewCol(
+        new GenDb::DbDataValueVec(1, "column"),
+        new GenDb::DbDataValueVec(1, "value"), 0));
+    col_list1->columns_.push_back(column2);
+    GenDb::ColListVec expected_v_col_list;
+    expected_v_col_list.push_back(col_list);
+    expected_v_col_list.push_back(col_list1);
+    GenDb::ColListVec actual_v_col_list;
+    cass::cql::impl::CassResultPtr result(NULL, &mock_cci);
+    cass::cql::impl::DynamicCfGetResult(&mock_cci, &result, rk_count,
+        ck_count, &actual_v_col_list);
+    EXPECT_THAT(actual_v_col_list, ContainerEq(expected_v_col_list));
+}
+
+TEST_F(CqlIfTest, StaticCfGetResultAllRows) {
+    cass::cql::test::MockCassLibrary mock_cci;
+    size_t rk_count(1);
+    size_t ccount(rk_count + 2);
+    size_t rows(3);
+    EXPECT_CALL(mock_cci, CassIteratorNext(_))
+        .Times(rows + 1)
+        .WillOnce(Return(cass_true))
+        .WillOnce(Return(cass_true))
+        .WillOnce(Return(cass_true))
+        .WillOnce(Return(cass_false));
+    EXPECT_CALL(mock_cci, CassResultColumnCount(_))
+        .Times(rows)
+        .WillRepeatedly(Return(ccount));
+    EXPECT_CALL(mock_cci, CassResultColumnName(_, _, _, _))
+        .Times(rows * ccount)
+        .WillOnce(DoAll(SetArgPointee<2>("KeyRow"),
+            SetArgPointee<3>(strlen("KeyRow")),
+            Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<2>("Column1"),
+            SetArgPointee<3>(strlen("Column1")),
+            Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<2>("Column2"),
+            SetArgPointee<3>(strlen("Column2")),
+            Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<2>("KeyRow"),
+            SetArgPointee<3>(strlen("KeyRow")),
+            Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<2>("Column1"),
+            SetArgPointee<3>(strlen("Column1")),
+            Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<2>("Column2"),
+            SetArgPointee<3>(strlen("Column2")),
+            Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<2>("KeyRow"),
+            SetArgPointee<3>(strlen("KeyRow")),
+            Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<2>("Column1"),
+            SetArgPointee<3>(strlen("Column1")),
+            Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<2>("Column2"),
+            SetArgPointee<3>(strlen("Column2")),
+            Return(CASS_OK)));
+    // Return dummy pointer to avoid assert
+    uint8_t dummy_cass_value;
+    EXPECT_CALL(mock_cci, CassRowGetColumn(_, _))
+        .Times(rows * (rk_count + ccount))
+        .WillRepeatedly(Return(
+            reinterpret_cast<const CassValue *>(&dummy_cass_value)));
+    EXPECT_CALL(mock_cci, GetCassValueType(_))
+        .Times(rows * (rk_count + ccount))
+        .WillRepeatedly(Return(CASS_VALUE_TYPE_TEXT));
+    EXPECT_CALL(mock_cci, CassValueGetString(_, _, _))
+        .Times(rows * (rk_count + ccount))
+        .WillOnce(DoAll(SetArgPointee<1>("key"),
+            SetArgPointee<2>(strlen("key")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("key"),
+            SetArgPointee<2>(strlen("key")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column1"),
+            SetArgPointee<2>(strlen("column1")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column2"),
+            SetArgPointee<2>(strlen("column2")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("key1"),
+            SetArgPointee<2>(strlen("key1")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("key1"),
+            SetArgPointee<2>(strlen("key1")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column11"),
+            SetArgPointee<2>(strlen("column11")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column21"),
+            SetArgPointee<2>(strlen("column21")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("key2"),
+            SetArgPointee<2>(strlen("key2")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("key2"),
+            SetArgPointee<2>(strlen("key2")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column12"),
+            SetArgPointee<2>(strlen("column12")), Return(CASS_OK)))
+        .WillOnce(DoAll(SetArgPointee<1>("column22"),
+            SetArgPointee<2>(strlen("column22")), Return(CASS_OK)));
+
+    GenDb::ColListVec expected_v_col_list;
+    // ColList
+    GenDb::ColList *col_list(new GenDb::ColList);
+    col_list->rowkey_.push_back("key");
+    GenDb::NewCol *rcolumn(new GenDb::NewCol("KeyRow", "key", 0));
+    col_list->columns_.push_back(rcolumn);
+    GenDb::NewCol *column1(new GenDb::NewCol("Column1", "column1", 0));
+    col_list->columns_.push_back(column1);
+    GenDb::NewCol *column2(new GenDb::NewCol("Column2", "column2", 0));
+    col_list->columns_.push_back(column2);
+    expected_v_col_list.push_back(col_list);
+    // ColList1
+    GenDb::ColList *col_list1(new GenDb::ColList);
+    col_list1->rowkey_.push_back("key1");
+    GenDb::NewCol *rcolumn1(new GenDb::NewCol("KeyRow", "key1", 0));
+    col_list1->columns_.push_back(rcolumn1);
+    GenDb::NewCol *column11(new GenDb::NewCol("Column1", "column11", 0));
+    col_list1->columns_.push_back(column11);
+    GenDb::NewCol *column21(new GenDb::NewCol("Column2", "column21", 0));
+    col_list1->columns_.push_back(column21);
+    expected_v_col_list.push_back(col_list1);
+    // ColList2
+    GenDb::ColList *col_list2(new GenDb::ColList);
+    col_list2->rowkey_.push_back("key2");
+    GenDb::NewCol *rcolumn2(new GenDb::NewCol("KeyRow", "key2", 0));
+    col_list2->columns_.push_back(rcolumn2);
+    GenDb::NewCol *column12(new GenDb::NewCol("Column1", "column12", 0));
+    col_list2->columns_.push_back(column12);
+    GenDb::NewCol *column22(new GenDb::NewCol("Column2", "column22", 0));
+    col_list2->columns_.push_back(column22);
+    expected_v_col_list.push_back(col_list2);
+
+    GenDb::ColListVec actual_v_col_list;
+    cass::cql::impl::CassResultPtr result(NULL, &mock_cci);
+    cass::cql::impl::StaticCfGetResult(&mock_cci, &result, rk_count,
+        &actual_v_col_list);
+    EXPECT_THAT(actual_v_col_list, ContainerEq(expected_v_col_list));
 }
 
 int main(int argc, char **argv) {

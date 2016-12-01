@@ -30,6 +30,7 @@ std::string StaticCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf);
 std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf);
+std::string CassSelectFromTable(const std::string &table);
 std::string PartitionKey2CassSelectFromTable(const std::string &table,
     const GenDb::DbDataValueVec &rkeys);
 std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
@@ -186,6 +187,13 @@ struct CassAsyncQueryContext {
     boost::scoped_ptr<CassQueryResultContext> result_ctx_;
 };
 
+void DynamicCfGetResult(interface::CassLibrary *cci,
+    CassResultPtr *result, size_t rk_count,
+    size_t ck_count, GenDb::ColListVec *v_col_list);
+void StaticCfGetResult(interface::CassLibrary *cci,
+    CassResultPtr *result, size_t rk_count,
+    GenDb::ColListVec *v_col_list);
+
 }  // namespace impl
 
 //
@@ -224,6 +232,8 @@ class CqlIfImpl {
     bool SelectFromTableSync(const std::string &cfname,
         const GenDb::DbDataValueVec &rkey, CassConsistency consistency,
         GenDb::NewColVec *out);
+    bool SelectFromTableSync(const std::string &cfname,
+        CassConsistency consistency, GenDb::ColListVec *out);
     bool SelectFromTableClusteringKeyRangeSync(const std::string &cfname,
         const GenDb::DbDataValueVec &rkey,
         const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
