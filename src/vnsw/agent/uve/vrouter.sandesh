@@ -155,10 +155,14 @@ struct AgentIfStats {
     5: u64 out_bytes; 
     6: i32 speed;
     7: i32 duplexity;
+    /** Drop packet count */
     8: u64 drop_pkts;
+    /** List of drop reasons with packet count for each drop reason */
     9: optional map<string, u64> raw_drop_stats (metric="agg", hidden="yes")
     /** @display_name:vhost Interface Packet drop Statistics*/
    10: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:", tags=".__key")
+   /** List of drop reasons with packet count for each drop reason for past 1 hour*/
+   11: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:3600")
 }
 
 struct PhyIfStats {
@@ -166,11 +170,14 @@ struct PhyIfStats {
     3: u64 in_bytes;
     4: u64 out_pkts;
     5: u64 out_bytes;
+    /** Drop packet count */
     6: u64 drop_pkts;
+    /** List of drop reasons with packet count for each drop reason */
     7: optional map<string, u64> raw_drop_stats (metric="agg", hidden="yes")
     /** @display_name:Physical Interface Packet drop Statistics*/
     8: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:", tags=".__key")
-    9: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:120")
+    /** List of drop reasons with packet count for each drop reason for past 1 hour*/
+    9: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:3600")
 }
 
 struct PhyIfInfo {
@@ -254,10 +261,12 @@ struct VrouterStatsAgent {  // Agent stats
     40: optional list<u32>   tcp_sport_bitmap;
     41: optional list<u32>   tcp_dport_bitmap;
 
+    /** List of drop reasons with packet count for each drop reason */
     42: optional map<string, u64> raw_drop_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter Packet drop Statistics*/
     60: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:", tags=".__key")
-    61: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:120")
+    /** List of drop reasons with packet count for each drop reason for past 1 hour*/
+    61: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:3600")
 
     43: optional double total_in_bandwidth_utilization;
     44: optional double total_out_bandwidth_utilization;
