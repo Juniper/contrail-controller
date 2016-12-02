@@ -293,6 +293,7 @@ class PhysicalRouterDM(DBBaseDM):
 
         for vn_subnet in create_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
+            vn = VirtualNetworkDM.get(vn_uuid)
             subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
             (sub, length) = subnet_prefix.split('/')
             ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
