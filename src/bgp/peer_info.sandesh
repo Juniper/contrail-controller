@@ -78,10 +78,21 @@ struct PeerStatsInfo {
 struct PeerStatsData {
     1: string name (key="");
     2: optional bool deleted;
-    3: optional PeerUpdateStats rx_update_stats(metric="agg",tags="");
-    4: optional PeerUpdateStats tx_update_stats(metric="agg",tags="");
-    5: optional derived_stats_results.AnomalyResult rx_update_stats_ewm (stats="rx_update_stats.total:DSAnomaly:EWM:0.2");
-    6: optional derived_stats_results.AnomalyResult tx_update_stats_ewm (stats="tx_update_stats.total:DSAnomaly:EWM:0.2");
+    3: optional PeerUpdateStats raw_rx_update_stats(metric="agg",hidden="yes");
+    4: optional PeerUpdateStats raw_tx_update_stats(metric="agg",hidden="yes”);
+
+    5: optional derived_stats_results.AnomalyResult rx_update_stats_ewm (stats="raw_rx_update_stats.total:DSAnomaly:EWM:0.2");
+    6: optional derived_stats_results.AnomalyResult tx_update_stats_ewm (stats="raw_tx_update_stats.total:DSAnomaly:EWM:0.2");
+
+      /** @display_name:BGP/XMPP Peer Receive Statistics */
+    7: optional PeerUpdateStats rx_update_stats(stats="raw_rx_update_stats:DSNon0:",tags="");
+
+      /** @display_name:BGP/XMPP Peer Transmit Statistics */
+    8: optional PeerUpdateStats tx_update_stats(stats="raw_tx_update_stats:DSNon0:",tags="");
+
+    9: optional PeerUpdateStats rx_update_stats_5m (stats="raw_rx_update_stats:DSSum:300");
+   10: optional PeerUpdateStats tx_update_stats_5m (stats="raw_tx_update_stats:DSSum:300");
+
 }
 
 uve sandesh PeerStatsUve {
