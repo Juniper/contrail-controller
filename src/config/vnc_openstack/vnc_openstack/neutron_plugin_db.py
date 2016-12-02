@@ -2239,10 +2239,7 @@ class DBInterface(object):
                     except NoIdError:
                         continue
 
-                if ip_obj.get_instance_ip_secondary():
-                    continue
-
-                if ip_obj.get_service_instance_ip():
+                if ip_obj.get_service_instance_ip() and ip_obj.get_instance_ip_secondary():
                     continue
 
                 if ip_obj.get_service_health_check_ip():
