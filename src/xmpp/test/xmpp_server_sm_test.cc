@@ -182,7 +182,7 @@ protected:
         sm_->OnSessionEvent(session_,TcpSession::CLOSE); 
     }
    
-    void EvXmppMessageReceive() {
+    void EvXmppMessageStanza() {
         XmppStanza::XmppMessage *msg_; 
         msg_ = new XmppStanza::XmppMessage(XmppStanza::MESSAGE_STANZA);
         msg_->type =  XmppStanza::MESSAGE_STANZA;
@@ -379,9 +379,9 @@ TEST_F(XmppStateMachineTest, Established_EvStop) {
 
 
 // Old State : Established 
-// Event     : EvXmppMessageReceive
+// Event     : EvXmppMessageStanza
 // New State : Established 
-TEST_F(XmppStateMachineTest, EvXmppMessageReceive) {
+TEST_F(XmppStateMachineTest, EvXmppMessageStanza) {
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -390,7 +390,7 @@ TEST_F(XmppStateMachineTest, EvXmppMessageReceive) {
     EvXmppOpen();
     VerifyState(xmsm::ESTABLISHED);
 
-    EvXmppMessageReceive();
+    EvXmppMessageStanza();
     VerifyState(xmsm::ESTABLISHED);
 
     EvTcpClose();

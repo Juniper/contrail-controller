@@ -133,8 +133,8 @@ struct EvXmppMessage : sc::event<EvXmppMessage> {
 };
 
 struct EvXmppOpen : public sc::event<EvXmppOpen> {
-    EvXmppOpen(XmppSession *session, const XmppStanza::XmppMessage *msg) : 
-        session(session), 
+    EvXmppOpen(XmppSession *session, const XmppStanza::XmppMessage *msg) :
+        session(session),
         msg(static_cast<const XmppStanza::XmppStreamMessage *>(msg)) {
     }
     static const char *Name() {
@@ -202,7 +202,7 @@ struct EvTlsHandShakeFailure : sc::event<EvTlsHandShakeFailure> {
 };
 
 struct EvXmppKeepalive : sc::event<EvXmppKeepalive> {
-    EvXmppKeepalive(XmppSession *session, 
+    EvXmppKeepalive(XmppSession *session,
                     const XmppStanza::XmppMessage *msg) :
         session(session), msg(msg) {
     }
@@ -213,25 +213,25 @@ struct EvXmppKeepalive : sc::event<EvXmppKeepalive> {
     boost::shared_ptr<const XmppStanza::XmppMessage> msg;
 };
 
-struct EvXmppMessageReceive : sc::event<EvXmppMessageReceive> {
-    EvXmppMessageReceive(XmppSession *session, 
+struct EvXmppMessageStanza : sc::event<EvXmppMessageStanza> {
+    EvXmppMessageStanza(XmppSession *session,
                          const XmppStanza::XmppMessage *msg) :
     session(session), msg(msg) {
     }
     static const char *Name() {
-        return "EvXmppMessageReceive";
+        return "EvXmppMessageStanza";
     }
     XmppSession *session;
     boost::shared_ptr<const XmppStanza::XmppMessage> msg;
 };
 
-struct EvXmppIqReceive : sc::event<EvXmppIqReceive> {
-    EvXmppIqReceive(XmppSession *session, 
-                    const XmppStanza::XmppMessage *msg) 
+struct EvXmppIqStanza : sc::event<EvXmppIqStanza> {
+    EvXmppIqStanza(XmppSession *session,
+                    const XmppStanza::XmppMessage *msg)
     : session(session), msg(msg) {
     }
     static const char *Name() {
-        return "EvXmppIqReceive";
+        return "EvXmppIqStanza";
     }
     XmppSession *session;
     boost::shared_ptr<const XmppStanza::XmppMessage> msg;
@@ -323,7 +323,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         event.session->AsyncReadStart();
         state_machine->set_session(event.session);
         event.session->set_observer(
-            boost::bind(&XmppStateMachine::OnSessionEvent, 
+            boost::bind(&XmppStateMachine::OnSessionEvent,
                         state_machine, _1, _2));
         state_machine->StartOpenTimer(XmppStateMachine::kOpenTime);
         XmppConnectionInfo info;
@@ -354,7 +354,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
             return discard_event();
         }
         SM_LOG(state_machine, "EvOpenTimerExpired in (Active) State");
-        // At this point session on connection is not set, hence SendClose 
+        // At this point session on connection is not set, hence SendClose
         // using session on the state_machine.
         XmppSession *session = state_machine->session();
         XmppConnection *connection = state_machine->connection();
@@ -385,7 +385,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         if (!connection->SendOpenConfirm(session)) {
             connection->SendClose(session);
             state_machine->ResetSession();
-            state_machine->SendConnectionInfo("Send Open Confirm Failed", 
+            state_machine->SendConnectionInfo("Send Open Confirm Failed",
                                               "Idle");
             return transit<Idle>();
         } else {
@@ -397,7 +397,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
                 return transit<OpenConfirm>();
             } else {
                 connection->StartKeepAliveTimer();
-                state_machine->SendConnectionInfo(&info, event.Name(), 
+                state_machine->SendConnectionInfo(&info, event.Name(),
                                                   "Established");
                 return transit<XmppStreamEstablished>();
             }
@@ -611,11 +611,11 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
         }
         SM_LOG(state_machine, "EvTcpClose in (OpenSent) State");
         state_machine->CancelHoldTimer();
-        if (event.session) { 
+        if (event.session) {
             state_machine->set_session(NULL);
             state_machine->SendConnectionInfo(event.Name(), "Active");
             return transit<Active>();
-        } 
+        }
         return discard_event();
     }
 
@@ -635,7 +635,7 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
                 connection->SendKeepAlive();
                 connection->StartKeepAliveTimer();
                 state_machine->StartHoldTimer();
-                state_machine->SendConnectionInfo(&info, event.Name(), 
+                state_machine->SendConnectionInfo(&info, event.Name(),
                                                   "Established");
                 return transit<XmppStreamEstablished>();
             }
@@ -649,7 +649,7 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
             SM_LOG(state_machine, "Discard EvHoldTimerExpired in (OpenSent) State");
             return discard_event();
         }
-        SM_LOG(state_machine, 
+        SM_LOG(state_machine,
                 "EvHoldTimerExpired in (OpenSent) State. Transit to IDLE");
         CloseSession(state_machine);
         XmppConnectionInfo info;
@@ -718,7 +718,7 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
                     info.set_close_reason("Send Stream Feature Request Failed");
                     state_machine->connection()->set_close_reason(
                         "Send Stream Feature Request Failed");
-                    state_machine->SendConnectionInfo(&info, 
+                    state_machine->SendConnectionInfo(&info,
                         "Send Stream Feature Request failed", "Idle");
                     // cannot transition state as this is the constructor
                     // of new state
@@ -750,7 +750,7 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
             SM_LOG(state_machine, "Discard EvHoldTimerExpired in (OpenConfirm) State");
             return discard_event();
         }
-        SM_LOG(state_machine, 
+        SM_LOG(state_machine,
                "EvHoldTimerExpired in (OpenConfirm) State.");
         XmppConnectionInfo info;
         info.set_close_reason("Hold timer expired");
@@ -951,14 +951,14 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
     }
 };
 
-struct XmppStreamEstablished : 
+struct XmppStreamEstablished :
         public sc::state<XmppStreamEstablished, XmppStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvAdminDown>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvXmppKeepalive>,
-        sc::custom_reaction<EvXmppMessageReceive>,
-        sc::custom_reaction<EvXmppIqReceive>,
+        sc::custom_reaction<EvXmppMessageStanza>,
+        sc::custom_reaction<EvXmppIqStanza>,
         sc::custom_reaction<EvHoldTimerExpired>,
         sc::custom_reaction<EvStop>
     > reactions;
@@ -1006,24 +1006,24 @@ struct XmppStreamEstablished :
         return discard_event();
     }
 
-    sc::result react(const EvXmppMessageReceive &event) {
+    sc::result react(const EvXmppMessageStanza &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        SM_LOG(state_machine, "EvXmppMessageReceive in (Established) State");
+        SM_LOG(state_machine, "EvXmppMessageStanza in (Established) State");
         state_machine->StartHoldTimer();
         state_machine->connection()->ProcessXmppChatMessage(
             static_cast<const XmppStanza::XmppChatMessage *>(event.msg.get()));
         return discard_event();
     }
 
-    sc::result react(const EvXmppIqReceive &event) {
+    sc::result react(const EvXmppIqStanza &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         if (event.session != state_machine->session()) {
             return discard_event();
         }
-        SM_LOG(state_machine, "EvXmppIqMessageReceive in (Established) State");
+        SM_LOG(state_machine, "EvXmppIqStanza in (Established) State");
         state_machine->StartHoldTimer();
         state_machine->connection()->ProcessXmppIqMessage(
             static_cast<const XmppStanza::XmppMessage *>(event.msg.get()));
@@ -1042,7 +1042,7 @@ struct XmppStreamEstablished :
         state_machine->AssertOnHoldTimeout();
         state_machine->ResetSession();
         if (state_machine->IsActiveChannel()) {
-            return transit<Active>(); 
+            return transit<Active>();
         } else {
             return transit<Idle>();
         }
@@ -1054,7 +1054,7 @@ struct XmppStreamEstablished :
         state_machine->SendConnectionInfo(event.Name());
         state_machine->ResetSession();
         if (state_machine->IsActiveChannel()) {
-            return transit<Active>(); 
+            return transit<Active>();
         } else {
             return transit<Idle>();
         }
@@ -1287,7 +1287,7 @@ void XmppStateMachine::OnStart(const xmsm::EvStart &event) {
 }
 
 bool XmppStateMachine::ConnectTimerExpired() {
-    XMPP_UTDEBUG(XmppStateMachineTimerExpire, this->ChannelType(), 
+    XMPP_UTDEBUG(XmppStateMachineTimerExpire, this->ChannelType(),
                 "Connect", StateName());
     Enqueue(xmsm::EvConnectTimerExpired());
     return false;
@@ -1297,7 +1297,7 @@ bool XmppStateMachine::OpenTimerExpired() {
     XMPP_NOTICE(XmppEventLog, this->ChannelType(),
                  "Event: OpenTimer Expired ",
                  connection()->endpoint().address().to_string(),
-                 connection()->GetTo()); 
+                 connection()->GetTo());
     Enqueue(xmsm::EvOpenTimerExpired());
     return false;
 }
@@ -1314,7 +1314,7 @@ bool XmppStateMachine::HoldTimerExpired() {
     XMPP_NOTICE(XmppEventLog, this->ChannelType(),
                  "Event: HoldTimer Expired ",
                  connection()->endpoint().address().to_string(),
-                 connection()->GetTo()); 
+                 connection()->GetTo());
     Enqueue(xmsm::EvHoldTimerExpired());
     return false;
 }
@@ -1325,14 +1325,14 @@ void XmppStateMachine::OnSessionEvent(
     case TcpSession::ACCEPT:
         break;
     case TcpSession::CONNECT_COMPLETE:
-        XMPP_NOTICE(XmppEventLog, this->ChannelType(), 
+        XMPP_NOTICE(XmppEventLog, this->ChannelType(),
                     "Event: Tcp Connected ",
                     connection()->endpoint().address().to_string(),
                     connection()->GetTo());
         Enqueue(xmsm::EvTcpConnected(static_cast<XmppSession *>(session)));
         break;
     case TcpSession::CONNECT_FAILED:
-        XMPP_NOTICE(XmppEventLog, this->ChannelType(), 
+        XMPP_NOTICE(XmppEventLog, this->ChannelType(),
                     "Event: Tcp Connect Fail ",
                     connection()->endpoint().address().to_string(),
                     connection()->GetTo());
@@ -1355,7 +1355,7 @@ void XmppStateMachine::OnSessionEvent(
 
 bool XmppStateMachine::PassiveOpen(XmppSession *session) {
     string state = "PassiveOpen in state: " + StateName();
-    XMPP_NOTICE(XmppEventLog, this->ChannelType(), state, 
+    XMPP_NOTICE(XmppEventLog, this->ChannelType(), state,
                 session->Connection()->endpoint().address().to_string(), "");
     return Enqueue(xmsm::EvTcpPassiveOpen(session));
 }
@@ -1384,7 +1384,7 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
             XmppChannel *channel = endpoint->connection()->ChannelMux();
 
             // If GR is not supported, then close all new connections until old
-            // one is completely deleted. Even if GR is supported, new 
+            // one is completely deleted. Even if GR is supported, new
             // connection cannot be accepted until old one is fully cleaned up.
             bool ready = channel->GetPeerState() == xmps::READY;
             if (!xmpp_server->IsPeerCloseGraceful() || ready ||
@@ -1460,14 +1460,14 @@ void XmppStateMachine::ProcessMessage(XmppSession *session,
             ProcessEvent(xmsm::EvXmppKeepalive(session, msg));
             break;
         case XmppStanza::IQ_STANZA:
-            ProcessEvent(xmsm::EvXmppIqReceive(session, msg));
+            ProcessEvent(xmsm::EvXmppIqStanza(session, msg));
             break;
         case XmppStanza::MESSAGE_STANZA:
-            ProcessEvent(xmsm::EvXmppIqReceive(session, msg));
+            ProcessEvent(xmsm::EvXmppMessageStanza(session, msg));
             break;
         default:
             if (!msg->IsValidType(msg->type)) {
-                XMPP_NOTICE(XmppStateMachineUnsupportedMessage, 
+                XMPP_NOTICE(XmppStateMachineUnsupportedMessage,
                             ChannelType(), (int)msg->type);
             }
             delete msg;
@@ -1504,8 +1504,8 @@ void  XmppStateMachine::OnEvent(SslSession *session,
     }
 }
 
-void XmppStateMachine::set_state(xmsm::XmState state) { 
-    last_state_ = state_; 
+void XmppStateMachine::set_state(xmsm::XmState state) {
+    last_state_ = state_;
     state_ = state;
     state_since_ = UTCTimestampUsec();
 
@@ -1526,7 +1526,7 @@ void XmppStateMachine::set_openconfirm_state(xmsm::XmOpenConfirmState state) {
     openconfirm_state_ = state;
 }
 
-static const char *state_names[] = { 
+static const char *state_names[] = {
     "Idle",
     "Active",
     "Connect",
@@ -1569,8 +1569,8 @@ bool XmppStateMachine::IsActiveChannel() {
     return is_active_;
 }
 
-bool XmppStateMachine::logUVE() { 
-    return connection()->logUVE(); 
+bool XmppStateMachine::logUVE() {
+    return connection()->logUVE();
 }
 
 const char *XmppStateMachine::ChannelType() {
@@ -1614,19 +1614,19 @@ void XmppStateMachine::ProcessEvent(const sc::event_base &event) {
 }
 
 void XmppStateMachine::unconsumed_event(const sc::event_base &event) {
-    XMPP_LOG(XmppUnconsumedEvent, ChannelType(), 
+    XMPP_LOG(XmppUnconsumedEvent, ChannelType(),
             TYPE_NAME(event), StateName());
 }
 
-void XmppStateMachine::set_last_event(const std::string &event) { 
-    last_event_ = event; 
+void XmppStateMachine::set_last_event(const std::string &event) {
+    last_event_ = event;
     last_event_at_ = UTCTimestampUsec();
 
     if (!logUVE()) return;
 
     // Skip iq and message events.
-    if (event == "xmsm::EvXmppIqReceive" ||
-        event == "xmsm::EvXmppMessageReceive") {
+    if (event == "xmsm::EvXmppIqStanza" ||
+        event == "xmsm::EvXmppMessageStanza") {
         return;
     }
 
@@ -1659,19 +1659,19 @@ bool XmppStateMachine::Enqueue(const sc::event_base &event) {
 }
 
 // Object trace routines.
-void XmppStateMachine::SendConnectionInfo(const string &event, 
+void XmppStateMachine::SendConnectionInfo(const string &event,
          const string &nextstate) {
     XmppConnectionInfo info;
     SendConnectionInfo(&info, event, nextstate);
     return;
 }
 
-void XmppStateMachine::SendConnectionInfo(XmppConnectionInfo *info, 
+void XmppStateMachine::SendConnectionInfo(XmppConnectionInfo *info,
         const string &event, const string &nextstate) {
 
     info->set_ip_address(this->connection()->endpoint().address().to_string());
     info->set_state(StateName());
-    info->set_event(event); 
+    info->set_event(event);
     if (!nextstate.empty()) {
          info->set_next_state(nextstate);
     }
