@@ -3,6 +3,7 @@
  */
 
 #include <fstream>
+#include <csignal>
 
 #include <pthread.h>
 #include <boost/program_options.hpp>
@@ -41,6 +42,7 @@ using namespace std;
 uint64_t start_time;
 TaskTrigger *dns_info_trigger;
 Timer *dns_info_log_timer;
+static Options options;
 
 bool DnsInfoLogTimer() {
     dns_info_trigger->Set();
@@ -111,16 +113,25 @@ static bool OptionsParse(Options &options, int argc, char *argv[]) {
     return false;
 }
 
+void ReConfigSignalHandler(int signum) {
+    options.ParseReConfig();
+}
+
+void InitializeSignalHandlers() {
+    srand(unsigned(time(NULL)));                                                                                                  
+    signal(SIGHUP, ReConfigSignalHandler);
+}
+
 int main(int argc, char *argv[]) {
     // Create DB table and event manager
     Dns::Init();
-
-    Options options;
 
     // Process options from command-line and configuration file.
     if (!OptionsParse(options, argc, argv)) {
         exit(-1);
     }
+
+    InitializeSignalHandlers();
 
     Dns::SetProgramName(argv[0]);
     Module::type module = Module::DNS;
@@ -162,7 +173,7 @@ int main(int argc, char *argv[]) {
                     g_vns_constants.INSTANCE_ID_DEFAULT,
                     Dns::GetEventManager(),
                     options.http_server_port(), 0,
-                    options.collector_server_list(),
+                    options.randomized_collector_server_list(),
                     NULL));
         if (!success) {
             LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");

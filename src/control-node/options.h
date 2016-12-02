@@ -17,6 +17,9 @@ public:
     std::vector<std::string> collector_server_list() const {
         return collector_server_list_;
     }
+    std::vector<std::string> randomized_collector_server_list() const {
+        return randomized_collector_server_list_;
+    }
     std::string config_file() const { return config_file_; };
     std::string discovery_server() const { return discovery_server_; }
     uint16_t discovery_port() const { return discovery_port_; }
@@ -82,6 +85,7 @@ public:
     const std::vector<std::string> cassandra_server_list() const {
         return cassandra_server_list_;
     }
+    void ParseReConfig();
 
 private:
 
@@ -100,10 +104,13 @@ private:
                  boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
                     boost::program_options::options_description &options);
+    uint32_t GenerateHash(std::vector<std::string> &);
 
     std::string bgp_config_file_;
     uint16_t bgp_port_;
     std::vector<std::string> collector_server_list_;
+    std::vector<std::string> randomized_collector_server_list_;
+    uint32_t collector_chksum_;
     std::string config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
