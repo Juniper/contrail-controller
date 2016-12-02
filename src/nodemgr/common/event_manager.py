@@ -56,8 +56,7 @@ class EventManager(object):
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr, sandesh_global,
-                 send_build_info = False):
+                 discovery_port, collector_addr, sandesh_global):
         self.stdin = sys.stdin
         self.stdout = sys.stdout
         self.stderr = sys.stderr
@@ -79,7 +78,6 @@ class EventManager(object):
         self.sandesh_global = sandesh_global
         self.curr_build_info = None
         self.new_build_info = None
-        self.send_build_info = send_build_info
         self.last_cpu = None
         self.last_time = 0
         self.installed_package_version = None
@@ -247,8 +245,6 @@ class EventManager(object):
             node_status.name = name
             node_status.deleted = delete_status
             node_status.process_info = process_infos
-            if (self.send_build_info):
-                node_status.build_info = self.get_build_info()
             node_status_uve = NodeStatusUVE(table=self.table,
                                             data=node_status)
 	    msg = 'send_process_state_db_base: Sending UVE:' + str(node_status_uve)
@@ -380,8 +376,6 @@ class EventManager(object):
             process_status_list.append(process_status)
             node_status = NodeStatus(name=socket.gethostname(),
                             process_status=process_status_list)
-            if (self.send_build_info):
-                node_status.build_info = self.get_build_info()
             node_status_uve = NodeStatusUVE(table=self.table,
                                             data=node_status)
             msg = 'send_nodemgr_process_status_base: Sending UVE:' + str(node_status_uve)
@@ -405,7 +399,8 @@ class EventManager(object):
                         name=socket.gethostname(),
                         system_cpu_info=sys_cpu,
                         installed_package_version=self.installed_package_version,
-                        running_package_version=self.installed_package_version)
+                        running_package_version=self.installed_package_version,
+                        build_info = self.get_build_info())
         node_status_uve = NodeStatusUVE(table=self.table,
                                         data=node_status)
         node_status_uve.send()
@@ -593,8 +588,6 @@ class EventManager(object):
         if (installed_package_version != self.installed_package_version):
             self.installed_package_version = installed_package_version
             node_status.installed_package_version = installed_package_version
-        if (self.send_build_info):
-            node_status.build_info = self.get_build_info()
         node_status_uve = NodeStatusUVE(table=self.table,
                                         data=node_status)
         node_status_uve.send()
