@@ -9,14 +9,17 @@ Contrail Kube Manager logger
 
 import logging
 
-from pysandesh.sandesh_base import Sandesh, SandeshSystem
-from pysandesh.sandesh_logger import SandeshLogger
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import (
-        ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT)
-from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from kube_manager.sandesh.kube_manager import ttypes as sandesh
+from kube_manager.sandesh.kube_introspect import ttypes as introspect
+from kube_manager.common.kube_config_db import (
+         PodKM, NamespaceKM, ServiceKM, NetworkPolicyKM)
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from pysandesh.sandesh_base import Sandesh, SandeshSystem
+from pysandesh.sandesh_logger import SandeshLogger
+from sandesh_common.vns.constants import (
+        ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT)
 
 class KubeManagerLoggerParams(object):
 
@@ -141,8 +144,26 @@ class KubeManagerLogger(object):
         # Log using the desired logging function.
         self.log(log_msg, level=log_level, fun=logging_fun)
 
-    def sandesh_init(self):
+    def _redefine_sandesh_handles(self):
+        """ Register custom introspect handlers. """
 
+        # Register Pod DB introspect handler.
+        introspect.PodDatabaseList.handle_request =\
+            PodKM.sandesh_handle_db_list_request
+
+        # Register Namespace DB introspect handler.
+        introspect.NamespaceDatabaseList.handle_request =\
+            NamespaceKM.sandesh_handle_db_list_request
+
+        # Register Service DB introspect handler.
+        introspect.ServiceDatabaseList.handle_request =\
+            ServiceKM.sandesh_handle_db_list_request
+
+        # Register NetworkPolicy DB introspect handler.
+        introspect.NetworkPolicyDatabaseList.handle_request =\
+            NetworkPolicyKM.sandesh_handle_db_list_request
+
+    def sandesh_init(self):
         """ Init Sandesh """
         self._sandesh = Sandesh()
 
@@ -151,6 +172,9 @@ class KubeManagerLogger(object):
             SandeshSystem.set_sandesh_send_rate_limit(
                                 self._args.sandesh_send_rate_limit)
 
+        # Register custom sandesh request handlers.
+        self._redefine_sandesh_handles()
+
         # Initialize Sandesh generator.
         self._sandesh.init_generator(
             self._module.name, self._module.hostname,
@@ -158,7 +182,7 @@ class KubeManagerLogger(object):
             self._args.collectors,
             'kube_manager_context',
             int(self._args.http_server_port),
-            ['cfgm_common', 'kube_manager.sandesh'],
+            ['cfgm_common', 'kube_manager.sandesh', 'kube_introspect.sandesh'],
             self._module.discovery,
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf)

@@ -28,6 +28,7 @@ local_sources = [
     'kube_manager/kube_manager.py',
     'kube_manager/common/__init__.py',
     'kube_manager/common/logger.py',
+    'kube_manager/common/kube_config_db.py',
     'kube_manager/kube/__init__.py',
     'kube_manager/kube/kube_monitor.py',
     'kube_manager/kube/namespace_monitor.py',
@@ -65,6 +66,8 @@ local_sources = [
 sandesh_sources = []
 sandesh_sources += env.SandeshGenPy('kube_manager.sandesh',
                                     'kube_manager/sandesh/', False)
+sandesh_sources += env.SandeshGenPy('kube_introspect.sandesh',
+                                    'kube_manager/sandesh/', False)
 
 local_sources_rules = []
 for file in local_sources:
@@ -75,7 +78,7 @@ for file in local_sources:
 # Documentation
 doc_files = []
 doc_files += env.SandeshGenDoc('kube_manager.sandesh')
-doc_files += env['CFGM_DOC_FILES']
+doc_files += env.SandeshGenDoc('kube_introspect.sandesh')
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []

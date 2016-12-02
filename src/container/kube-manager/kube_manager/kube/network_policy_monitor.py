@@ -4,16 +4,31 @@ from kube_monitor import KubeMonitor
 
 class NetworkPolicyMonitor(KubeMonitor):
 
-    def __init__(self, args=None, logger=None, q=None):
+    def __init__(self, args=None, logger=None, q=None, network_policy_db=None):
         super(NetworkPolicyMonitor, self).__init__(args, logger, q)
         self.handle = self.register_monitor('networkpolicies', beta=True)
         self.logger.info("NetworkPolicyMonitor init done.");
+        self._network_policy_db = network_policy_db
 
     def _process_network_policy_event(self, event):
         print("Put %s %s %s:%s" % (event['type'],
             event['object'].get('kind'),
             event['object']['metadata'].get('namespace'),
             event['object']['metadata'].get('name')))
+
+        np_data = event['object']
+        np_uuid = self._network_policy_db.get_uuid(np_data)
+        event_type = event['type']
+
+        if self._network_policy_db:
+            if event_type != 'DELETED':
+                # Update Network Policy DB.
+                np = self._network_policy_db.locate(np_uuid)
+                np.update(np_data)
+            else:
+                # Remove the entry from Network Policy DB.
+                self._network_policy_db.delete(np_uuid)
+
         self.q.put(event)
 
     def process(self):

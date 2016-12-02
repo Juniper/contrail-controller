@@ -4,12 +4,26 @@ from kube_monitor import KubeMonitor
 
 class NamespaceMonitor(KubeMonitor):
 
-    def __init__(self, args=None, logger=None, q=None):
+    def __init__(self, args=None, logger=None, q=None, namespace_db=None):
         super(NamespaceMonitor, self).__init__(args, logger, q)
         self.handle = self.register_monitor('namespaces')
         self.logger.info("NamespaceMonitor init done.");
+        self._namespace_db = namespace_db 
 
     def _process_namespace_event(self, event):
+        namespce_data = event['object']
+        namespace_uuid = self._namespace_db.get_uuid(event['object'])
+        event_type = event['type']
+
+        if self._namespace_db:
+            if event_type != 'DELETED':
+                # Update Namespace DB.
+                namespace = self._namespace_db.locate(namespace_uuid)
+                namespace.update(namespce_data)
+            else:
+                # Remove the entry from Namespace DB.
+                self._namespace_db.delete(namespace_uuid)
+
         print("Put %s %s %s" % (event['type'],
             event['object'].get('kind'),
             event['object']['metadata'].get('name')))
