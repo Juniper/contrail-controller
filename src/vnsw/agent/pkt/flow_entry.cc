@@ -88,7 +88,9 @@ const std::map<uint16_t, const char*>
         ((uint16_t)DROP_SG,                  "Flow drop SG")
         ((uint16_t)DROP_OUT_SG,              "Flow drop OUT SG")
         ((uint16_t)DROP_REVERSE_SG,          "Flow drop REVERSE SG")
-        ((uint16_t)DROP_REVERSE_OUT_SG,      "Flow drop REVERSE OUT SG");
+        ((uint16_t)DROP_REVERSE_OUT_SG,      "Flow drop REVERSE OUT SG")
+        ((uint16_t)SHORT_NO_SRC_ROUTE_L2RPF,
+         "Short flow No Source route for RPF NH");
 
 tbb::atomic<int> FlowEntry::alloc_count_;
 SecurityGroupList FlowEntry::default_sg_list_;
@@ -951,6 +953,11 @@ bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
         //agent uses layer 2 route entry
         InetUnicastRouteEntry *ip_rt = static_cast<InetUnicastRouteEntry *>(
                 FlowEntry::GetUcRoute(rt->vrf(), key().src_addr));
+        if (data_.vn_entry && data_.vn_entry->enable_rpf() && !ip_rt) {
+            set_flags(FlowEntry::ShortFlow);
+            short_flow_reason_ = SHORT_NO_SRC_ROUTE_L2RPF;
+            return ret;
+        }
         if (ip_rt &&
                 ip_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
             //L2 flow cant point to composite NH, set RPF NH based on
