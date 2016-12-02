@@ -3,6 +3,7 @@
  */
 
 #include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 #include <boost/scoped_ptr.hpp>
 
 #include "base/task_annotations.h"
@@ -15,6 +16,9 @@
 #include "bgp/bgp_peer_types.h"
 #include "bgp/peer_close_manager.h"
 
+using boost::assign::list_of;
+using std::back_inserter;
+using std::includes;
 using std::string;
 using std::vector;
 
@@ -267,6 +271,27 @@ bool BgpPeerClose::IsCloseGraceful() const {
     return true;
 }
 
+// LLGR families should be identical to GR families.
+bool BgpPeerClose::IsLlgrSupportedForFamilies() const {
+    // Keep a sorted list of unsupported families.
+    static vector<string> unsupported_families = list_of
+        (Address::FamilyToString(Address::EVPN))
+        (Address::FamilyToString(Address::ERMVPN));
+
+    if (gr_families_ == llgr_families_)
+        return true;
+
+    // Ignore families mis-match for certain families.
+    vector<string> differing_families;
+    std::set_symmetric_difference(gr_families_.begin(), gr_families_.end(),
+                                  llgr_families_.begin(), llgr_families_.end(),
+                                  back_inserter(differing_families));
+
+    // Ignore if differing families are only those which are unsupported.
+    return includes(unsupported_families.begin(), unsupported_families.end(),
+                    differing_families.begin(), differing_families.end());
+}
+
 // Check if we need to trigger Long Lived Graceful Restart. In addition to
 // normal GR checks, we also need to check LLGR capability was negotiated
 // and non-zero restart time was inferred.
@@ -286,8 +311,7 @@ bool BgpPeerClose::IsCloseLongLivedGraceful() const {
         return false;
     }
 
-    // LLGR families should be identical to GR families.
-    if (gr_families_ != llgr_families_) {
+    if (!IsLlgrSupportedForFamilies()) {
         BGP_LOG_PEER(Message, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
             BGP_PEER_DIR_IN, "No LLGR support due to dissimilar "
             "GR address families and LLGR address families");
@@ -298,10 +322,14 @@ bool BgpPeerClose::IsCloseLongLivedGraceful() const {
     // the restarting speaker.
     BOOST_FOREACH(BgpProto::OpenMessage::Capability::LLGR::Family family,
                   llgr_params_.families) {
+        // Ignore forwarding-state preservation check for certain families.
+        Address::Family addr_family =
+            BgpAf::AfiSafiToFamily(family.afi, family.safi);
+        if (addr_family == Address::EVPN || addr_family == Address::ERMVPN)
+            continue;
+
         if (!family.forwarding_state_preserved()) {
-            string family_str = Address::FamilyToString(BgpAf::AfiSafiToFamily(
-                                                            family.afi,
-                                                            family.safi));
+            string family_str = Address::FamilyToString(addr_family);
             BGP_LOG_PEER(Message, peer_, SandeshLevel::SYS_DEBUG,
                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN, "GR Helper mode is not "
                 "enabled because after restart, LLGR forwarding state is not "
