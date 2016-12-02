@@ -236,9 +236,12 @@ class ServiceLbListenerManager(object):
     def get_target_port_from_annotations(self, id):
         annotations = self._get_listener_annotations(id)
         if annotations:
-            for kvp in annotations['key_value_pair'] or []:
-                if kvp['key'] == 'targetPort':
-                    return kvp['value']
+            try: 
+                for kvp in annotations.key_value_pair or []:
+                    if kvp['key'] == 'targetPort':
+                        return kvp['value']
+            except AttributeError:
+                import pdb; pdb.set_trace()
 
         return None
 

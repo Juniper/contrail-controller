@@ -30,6 +30,7 @@ import kube.namespace_monitor as namespace_monitor
 import kube.pod_monitor as pod_monitor
 import kube.service_monitor as service_monitor
 import kube.network_policy_monitor as network_policy_monitor
+import kube.endpoint_monitor as endpoint_monitor
 import discoveryclient.client as client
 
 def cgitb_error_log(monitor):
@@ -86,6 +87,8 @@ class KubeNetworkManager(object):
                     args=self.args, logger=self.logger, q=self.q)
                 self.network_policy = network_policy_monitor.NetworkPolicyMonitor(
                     args=self.args, logger=self.logger, q=self.q)
+                self.endpoint = endpoint_monitor.EndPointMonitor(
+                    args=self.args, logger=self.logger, q=self.q)
                 kube_api_connected = True
             except Exception as e:
                 time.sleep(5)
@@ -99,7 +102,8 @@ class KubeNetworkManager(object):
             gevent.spawn(self.namespace.namespace_callback),
             gevent.spawn(self.service.service_callback),
             gevent.spawn(self.pod.pod_callback),
-            gevent.spawn(self.network_policy.network_policy_callback)
+            gevent.spawn(self.network_policy.network_policy_callback),
+            gevent.spawn(self.endpoint.endpoint_callback)
         ])
 
 def parse_args():
