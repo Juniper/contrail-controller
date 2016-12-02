@@ -203,9 +203,8 @@ void StatsManager::Shutdown(void) {
 
 StatsManager::InterfaceStats::InterfaceStats()
     : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
-    out_pkts(0), out_bytes(0), drop_pkts(0), prev_in_bytes(0),
-    prev_out_bytes(0), prev_in_pkts(0), prev_out_pkts(0), prev_drop_pkts(0),
-    prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0), flow_info(),
+    out_pkts(0), out_bytes(0), drop_pkts(0), prev_in_bytes(0), prev_out_bytes(0)
+    , prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0), flow_info(),
     added(), deleted(), drop_stats_received(false) {
 }
 
@@ -221,20 +220,13 @@ void StatsManager::InterfaceStats::UpdateStats
 
 void StatsManager::InterfaceStats::UpdatePrevStats() {
     prev_in_bytes = in_bytes;
-    prev_in_pkts = in_pkts;
     prev_out_bytes = out_bytes;
-    prev_out_pkts = out_pkts;
-    prev_drop_pkts = drop_pkts;
 }
 
-void StatsManager::InterfaceStats::GetDiffStats
-    (uint64_t *in_b, uint64_t *in_p, uint64_t *out_b, uint64_t *out_p,
-     uint64_t *drop_p) {
+void StatsManager::InterfaceStats::GetDiffStats(uint64_t *in_b,
+                                                uint64_t *out_b) const {
     *in_b = in_bytes - prev_in_bytes;
-    *in_p = in_pkts - prev_in_pkts;
     *out_b = out_bytes - prev_out_bytes;
-    *out_p = out_pkts - prev_out_pkts;
-    *drop_p = drop_pkts - prev_drop_pkts;
 }
 
 StatsManager::VrfStats::VrfStats()
