@@ -308,17 +308,21 @@ class SvcMonitor(object):
         # Load the loadbalancer driver
         self.loadbalancer_agent.load_drivers()
 
+        # Invoke the health monitors
+        for hm in HealthMonitorSM.values():
+            hm.sync()
+
         # Invoke the loadbalancers
         for lb in LoadbalancerSM.values():
-            lb.add()
+            lb.sync()
 
         # Invoke the loadbalancer listeners
         for lb_listener in LoadbalancerListenerSM.values():
-            lb_listener.add()
+            lb_listener.sync()
 
         # Invoke the loadbalancer pools
         for lb_pool in LoadbalancerPoolSM.values():
-            lb_pool.add()
+            lb_pool.sync()
 
         # Audit the lb pools
         self.loadbalancer_agent.audit_lb_pools()
