@@ -98,6 +98,8 @@ public:
 
     // Receive incoming message
     void OnMessage(XmppSession *session, const XmppStanza::XmppMessage *msg);
+    void ProcessMessage(XmppSession *session,
+                        const XmppStanza::XmppMessage *msg);
 
     // Receive incoming ssl events
     //void OnEvent(XmppSession *session, xmsm::SslHandShakeResponse);
@@ -185,7 +187,8 @@ private:
     bool OpenTimerExpired();
     bool Enqueue(const sc::event_base &ev);
     bool DequeueEvent(boost::intrusive_ptr<const sc::event_base> &event);
-    bool ProcessStreamHeaderMessage(XmppSession *session,
+    void ProcessEvent(const sc::event_base &event);
+    void ProcessStreamHeaderMessage(XmppSession *session,
                                     const XmppStanza::XmppMessage *msg);
 
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;
