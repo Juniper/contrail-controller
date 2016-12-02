@@ -46,14 +46,23 @@ class VncPod(object):
         VirtualMachineInterfaceKM.locate(vmi_obj.uuid)
         return vmi_obj
 
-    def check_pod_label_actions(self, labels, pod_id):
+    def associate_pod_to_services(self, labels, pod_id):
         for label in labels.items():
             key = self._label_cache._get_key(label)
             self._label_cache._locate_label(key,
                 self._label_cache.pod_label_cache, label, pod_id)
-            service_ids = self._label_cache.service_label_cache.get(key, [])
+            service_ids = self._label_cache.service_selector_cache.get(key, [])
             for service_id in service_ids:
-                self._service_mgr.update_service(service_id, [pod_id])
+                self._service_mgr.add_pod_to_service(service_id, pod_id)
+
+    def disassociate_pod_from_services(self, pod_id, labels):
+        for label in labels.items():
+            key = self._label_cache._get_key(label)
+            service_ids = self._label_cache.service_selector_cache.get(key, [])
+            for service_id in service_ids:
+                self._service_mgr.remove_pod_from_service(service_id, pod_id)
+            self._label_cache._remove_label(key,
+                self._label_cache.pod_label_cache, label, pod_id)
 
     def _create_vm(self, pod_id, pod_name, labels):
         vm_obj = VirtualMachine(name=pod_name)
@@ -64,7 +73,6 @@ class VncPod(object):
             vm_obj = self._vnc_lib.virtual_machine_read(id=pod_id)
         vm = VirtualMachineKM.locate(vm_obj.uuid)
         vm.pod_labels = labels
-        self.check_pod_label_actions(labels, pod_id)
         return vm_obj
 
     def _link_vm_to_node(self, vm_obj, pod_node):
@@ -86,7 +94,7 @@ class VncPod(object):
         vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
         self._create_iip(pod_name, vn_obj, vmi_obj)
         self._link_vm_to_node(vm_obj, pod_node)
-        self.check_pod_label_actions(labels, pod_id)
+        self.associate_pod_to_services(labels, pod_id)
 
     def vnc_port_delete(self, vmi_id):
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
@@ -103,7 +111,7 @@ class VncPod(object):
         except NoIdError:
             pass
 
-    def vnc_pod_delete(self, pod_id, pod_name):
+    def vnc_pod_delete(self, pod_id, pod_name, labels):
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             return
@@ -111,6 +119,8 @@ class VncPod(object):
         if vm.virtual_router:
             self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
                 'virtual-machine', vm.uuid, None, 'DELETE')
+
+        self.disassociate_pod_from_services(pod_id, labels)
 
         for vmi_id in list(vm.virtual_machine_interfaces):
             self.vnc_port_delete(vmi_id)
@@ -124,14 +134,14 @@ class VncPod(object):
         pod_id = event['object']['metadata'].get('uid')
         pod_name = event['object']['metadata'].get('name')
         pod_namespace = event['object']['metadata'].get('namespace')
+        labels = event['object']['metadata']['labels']
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             pod_node = event['object']['spec'].get('nodeName')
             host_network = event['object']['spec'].get('hostNetwork')
             if host_network:
                 return
-            labels = event['object']['metadata']['labels']
             self.vnc_pod_add(pod_id, pod_name, pod_namespace,
                 pod_node, labels)
         elif event['type'] == 'DELETED':
-            self.vnc_pod_delete(pod_id, pod_name)
+            self.vnc_pod_delete(pod_id, pod_name, labels)

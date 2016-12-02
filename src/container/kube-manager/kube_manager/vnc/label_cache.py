@@ -6,7 +6,7 @@ class LabelCache(object):
 
     def __init__(self):
         self.pod_label_cache = {}
-        self.service_label_cache = {}
+        self.service_selector_cache = {}
 
     def _get_key(self, label):
         key = label[0] + ':' + label[1]
