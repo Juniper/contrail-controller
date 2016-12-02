@@ -368,7 +368,7 @@ class PhysicalRouterDM(DBBaseDM):
     # end is_conf_sent
 
     def delete_config(self):
-        if not self.is_vnc_managed() and self.is_conf_sent():
+        if self.is_conf_sent() and (not self.is_vnc_managed() or not self.bgp_router):
             # user must have unset the vnc managed property
             self.config_manager.delete_bgp_config()
             if self.config_manager.retry():
