@@ -56,7 +56,7 @@ const u16 HttpPortAnalyticsNodemgr = 8104
 const u16 HttpPortStorageStatsmgr = 8105
 const u16 HttpPortIpmiStatsmgr = 8106
 const u16 HttpPortInventorymgr = 8107
-const u16 HttpPortKubemgr = 8108
+const u16 HttpPortKubeManager = 8108
 const u16 HttpPortMesosManager = 8109
 
 const u16 HttpPortControl = 8083
@@ -131,7 +131,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_SNMP_COLLECTOR : HttpPortSnmpCollector,
     SERVICE_TOPOLOGY : HttpPortTopology,
     SERVICE_DISCOVERY : HttpPortDiscovery
-    SERVICE_KUBE_MANAGER: HttpPortKubemgr,
+    SERVICE_KUBE_MANAGER: HttpPortKubeManager,
     SERVICE_MESOS_MANAGER: HttpPortMesosManager,
 }
 

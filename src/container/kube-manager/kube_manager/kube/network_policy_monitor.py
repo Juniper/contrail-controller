@@ -17,10 +17,10 @@ class NetworkPolicyMonitor(KubeMonitor):
             event['object']['metadata'].get('name')))
 
         np_data = event['object']
-        np_uuid = self._network_policy_db.get_uuid(np_data)
         event_type = event['type']
 
         if self._network_policy_db:
+            np_uuid = self._network_policy_db.get_uuid(np_data)
             if event_type != 'DELETED':
                 # Update Network Policy DB.
                 np = self._network_policy_db.locate(np_uuid)

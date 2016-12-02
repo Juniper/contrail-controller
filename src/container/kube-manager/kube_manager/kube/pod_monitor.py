@@ -14,7 +14,6 @@ class PodMonitor(KubeMonitor):
     def _process_pod_event(self, event):
         pod_data = event['object']
         event_type = event['type']
-        pod_uuid = self._pod_db.get_uuid(event['object'])
 
         if event_type != 'DELETED':
             if pod_data['spec'].get('hostNetwork'):
@@ -23,6 +22,7 @@ class PodMonitor(KubeMonitor):
                 return
 
         if self._pod_db:
+            pod_uuid = self._pod_db.get_uuid(event['object'])
             if event_type != 'DELETED':
                 # Update Pod DB.
                 pod = self._pod_db.locate(pod_uuid)
