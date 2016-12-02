@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+
+#include <csignal>
 #include <fstream>
 #include <iostream>
 
@@ -65,6 +67,7 @@ using process::ConnectionTypeName;
 using process::g_process_info_constants;
 
 static EventManager evm;
+static Options options;
 
 static string FileRead(const char *filename) {
     ifstream file(filename);
@@ -291,14 +294,24 @@ static bool ControlNodeReEvalPublishCb(const BgpServer *bgp_server,
     return true;
 }
 
+void ReConfigSignalHandler(int signum) {
+    options.ParseReConfig();
+}
+
+void InitializeSignalHandlers() {
+    srand(unsigned(time(NULL)));
+    signal(SIGHUP, ReConfigSignalHandler);
+}
+
 int main(int argc, char *argv[]) {
-    Options options;
     bool sandesh_generator_init = true;
 
     // Process options from command-line and configuration file.
     if (!options.Parse(evm, argc, argv)) {
         exit(-1);
     }
+
+    InitializeSignalHandlers();
 
     ControlNode::SetProgramName(argv[0]);
     Module::type module = Module::CONTROL_NODE;
@@ -320,52 +333,10 @@ int main(int argc, char *argv[]) {
     BgpServer::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
 
-    /* If Sandesh initialization is not being done via discovery we need to
-     * initialize here. We need to do sandesh initialization here for cases
-     * (i) When both Discovery and Collectors are configured.
-     * (ii) When both are not configured (to initialize introspect)
-     * (iii) When only collector is configured
-     */
-    if (!options.discovery_server().empty() &&
-        !options.collectors_configured()) {
-        sandesh_generator_init = false;
-    }
-
     BgpSandeshContext sandesh_context;
     RegisterSandeshShowIfmapHandlers(&sandesh_context);
     RegisterSandeshShowXmppExtensions(&sandesh_context);
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
-    if (sandesh_generator_init) {
-        NodeType::type node_type = 
-            g_vns_constants.Module2NodeType.find(module)->second;
-        bool success;
-        if (options.collectors_configured()) {
-            success = Sandesh::InitGenerator(
-                    module_name,
-                    options.hostname(),
-                    g_vns_constants.NodeTypeNames.find(node_type)->second,
-                    g_vns_constants.INSTANCE_ID_DEFAULT,
-                    &evm,
-                    options.http_server_port(), 0,
-                    options.collector_server_list(),
-                    &sandesh_context);
-        } else {
-            success = Sandesh::InitGenerator(
-                    g_vns_constants.ModuleNames.find(module)->second,
-                    options.hostname(),
-                    g_vns_constants.NodeTypeNames.find(node_type)->second,
-                    g_vns_constants.INSTANCE_ID_DEFAULT,
-                    &evm,
-                    options.http_server_port(),
-                    &sandesh_context);
-        }
-        if (!success) {
-            LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-            Sandesh::Uninit();
-            exit(1);
-        }
-    }
-
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
 
@@ -438,12 +409,20 @@ int main(int argc, char *argv[]) {
     // 3. Discovery Server subscribe Collector
     // 4. Discovery Server subscribe IfmapServer
     // 5. IFMap Server (irond)
-    std::vector<ConnectionTypeName> expected_connections = boost::assign::list_of
+    std::vector<ConnectionTypeName> expected_connections;
+    if (options.discovery_server().empty()) {
+        expected_connections = boost::assign::list_of
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::COLLECTOR)->second, "Collector"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::IFMAP)->second, "IFMapServer"));
+    } else {
+        expected_connections = boost::assign::list_of
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DISCOVERY)->second,
                              g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::COLLECTOR)->second, ""))
+                             ConnectionType::COLLECTOR)->second, "Collector"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DISCOVERY)->second,
                              g_vns_constants.IFMAP_SERVER_DISCOVERY_SERVICE_NAME))
@@ -452,6 +431,7 @@ int main(int argc, char *argv[]) {
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DISCOVERY)->second,
                              g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME));
+    }
     ConnectionStateManager::GetInstance()->Init(
         *evm.io_service(), options.hostname(),
         module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
@@ -522,11 +502,53 @@ int main(int argc, char *argv[]) {
                 exit(1);
             }
         }
+        ControlNode::SetDiscoveryServiceClient(ds_client);
     } else {
-        LOG(ERROR, "Invalid Discovery Server hostname or address " <<
+        LOG(ERROR, "No Discovery Server hostname or address " <<
             options.discovery_server());
+
+        /* If Sandesh initialization is not being done via discovery we need to
+         * initialize here. We need to do sandesh initialization here for cases
+         * (i) When both Discovery and Collectors are configured.
+         * (ii) When both are not configured (to initialize introspect)
+         * (iii) When only collector is configured
+         */
+        if (!options.discovery_server().empty() &&
+            !options.collectors_configured()) {
+            sandesh_generator_init = false;
+        }
+
+        if (sandesh_generator_init) {
+            NodeType::type node_type = 
+                g_vns_constants.Module2NodeType.find(module)->second;
+            bool success;
+            if (options.collectors_configured()) {
+                success = Sandesh::InitGenerator(
+                        module_name,
+                        options.hostname(),
+                        g_vns_constants.NodeTypeNames.find(node_type)->second,
+                        g_vns_constants.INSTANCE_ID_DEFAULT,
+                        &evm,
+                        options.http_server_port(), 0,
+                        options.randomized_collector_server_list(),
+                        &sandesh_context);
+            } else {
+                success = Sandesh::InitGenerator(
+                        g_vns_constants.ModuleNames.find(module)->second,
+                        options.hostname(),
+                        g_vns_constants.NodeTypeNames.find(node_type)->second,
+                        g_vns_constants.INSTANCE_ID_DEFAULT,
+                        &evm,
+                        options.http_server_port(),
+                        &sandesh_context);
+            }
+            if (!success) {
+                LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+                Sandesh::Uninit();
+                exit(1);
+            }
+        }
     }
-    ControlNode::SetDiscoveryServiceClient(ds_client);
 
     // Initialize discovery mechanism for IFMapManager.
     // Must happen after call to ConnectionStateManager::Init to ensure that
