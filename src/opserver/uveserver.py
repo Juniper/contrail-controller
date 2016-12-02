@@ -320,7 +320,12 @@ class UVEServer(object):
                                 continue
 
                         if value[0] == '<':
-                            snhdict = xmltodict.parse(value)
+                            try:
+                                snhdict = xmltodict.parse(value)
+                            except:
+                                self._logger.error("xml parsing failed key %s, struct %s: %s" \
+                                    % (key, typ, str(value)))
+                                continue
                             # TODO: This is a hack for separating external
                             # bgp routers from control-nodes
                             if snhdict[attr]['@type'] == 'map':
