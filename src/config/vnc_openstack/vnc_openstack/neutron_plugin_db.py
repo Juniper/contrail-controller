@@ -1470,11 +1470,14 @@ class DBInterface(object):
         sn_q_dict['network_id'] = net_obj.uuid
         sn_q_dict['ipv6_ra_mode'] = None
         sn_q_dict['ipv6_address_mode'] = None
-
-        cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
-                          subnet_vnc.subnet.get_ip_prefix_len())
-        sn_q_dict['cidr'] = cidr
-        sn_q_dict['ip_version'] = IPNetwork(cidr).version # 4 or 6
+        if subnet_vnc.subnet:
+            cidr = '%s/%s' % (subnet_vnc.subnet.get_ip_prefix(),
+                              subnet_vnc.subnet.get_ip_prefix_len())
+            sn_q_dict['cidr'] = cidr
+            sn_q_dict['ip_version'] = IPNetwork(cidr).version # 4 or 6
+        else:
+            sn_q_dict['cidr'] = '0.0.0.0/0'
+            sn_q_dict['ip_version'] = 4
 
         sn_id = subnet_vnc.subnet_uuid
         sn_q_dict['id'] = sn_id
@@ -1489,14 +1492,18 @@ class DBInterface(object):
             alloc_dict = {'first_ip':first_ip, 'last_ip':last_ip}
             allocation_pools.append(alloc_dict)
 
-        if allocation_pools is None or not allocation_pools:
-            if (int(IPNetwork(sn_q_dict['gateway_ip']).network) ==
-                int(IPNetwork(cidr).network+1)):
-                first_ip = str(IPNetwork(cidr).network + 2)
-            else:
-                first_ip = str(IPNetwork(cidr).network + 1)
-            last_ip = str(IPNetwork(cidr).broadcast - 1)
-            cidr_pool = {'first_ip':first_ip, 'last_ip':last_ip}
+        if subnet_vnc.subnet:
+            if allocation_pools is None or not allocation_pools:
+                if (int(IPNetwork(sn_q_dict['gateway_ip']).network) ==
+                    int(IPNetwork(cidr).network+1)):
+                    first_ip = str(IPNetwork(cidr).network + 2)
+                else:
+                    first_ip = str(IPNetwork(cidr).network + 1)
+                last_ip = str(IPNetwork(cidr).broadcast - 1)
+                cidr_pool = {'first_ip':first_ip, 'last_ip':last_ip}
+                allocation_pools.append(cidr_pool)
+        else:
+            cidr_pool = {'first_ip':'0.0.0.0', 'last_ip':'255.255.255.255'}
             allocation_pools.append(cidr_pool)
         sn_q_dict['allocation_pools'] = allocation_pools
 
