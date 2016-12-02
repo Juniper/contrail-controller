@@ -57,8 +57,8 @@ void PeerStats::FillPeerUpdateStats(const IPeerDebugStats *peer_stats,
     PeerUpdateStats stats_tx;
 
     FillPeerUpdateStats(peer_stats, &stats_rx, &stats_tx);
-    peer_stats_data->set_rx_update_stats(stats_rx);
-    peer_stats_data->set_tx_update_stats(stats_tx);
+    peer_stats_data->set_raw_rx_update_stats(stats_rx);
+    peer_stats_data->set_raw_tx_update_stats(stats_tx);
 }
 
 void PeerStats::FillPeerDebugStats(const IPeerDebugStats *peer_stats,
