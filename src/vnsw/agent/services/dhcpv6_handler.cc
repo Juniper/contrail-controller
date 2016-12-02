@@ -622,7 +622,10 @@ Ip6Address Dhcpv6Handler::GetNextV6Address(uint8_t addr[16]) {
 
 void Dhcpv6Handler::WriteIaOption(const Dhcpv6Ia &ia,
                                   uint16_t &optlen) {
-    uint32_t alloc_unit = vm_itf_->vn()->GetAllocUnitFromIpam(config_.ip_addr);
+    uint32_t alloc_unit = 1;
+    if (vm_itf_ && vm_itf_->vn()) {
+        alloc_unit = vm_itf_->vn()->GetAllocUnitFromIpam(config_.ip_addr);
+    }
     if (alloc_unit > 128) {
         DHCPV6_TRACE(Error, "Alloc-unit(" << alloc_unit << ") in Ipam is"
                      " higher than supported value(128), using max supported"
