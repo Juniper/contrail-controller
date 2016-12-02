@@ -281,7 +281,13 @@ class UVEServer(object):
                                 continue
 
                         if value[0] == '<':
-                            snhdict = xmltodict.parse(value)
+                            try:
+                                snhdict = xmltodict.parse(value)
+                            except:
+                                self._logger.error("xml parsing failed key %s, struct %s: %s" \
+                                    % (key, typ, str(value)))
+                                continue
+
                             if snhdict[attr]['@type'] == 'list':
                                 sname = ParallelAggregator.get_list_name(
                                         snhdict[attr])
