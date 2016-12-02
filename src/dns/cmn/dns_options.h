@@ -11,9 +11,13 @@ class Options {
 public:
     Options();
     bool Parse(EventManager &evm, int argc, char *argv[]);
+    void ParseReConfig();
 
     std::vector<std::string> collector_server_list() const {
         return collector_server_list_;
+    }
+    std::vector<std::string> randomized_collector_server_list() const {
+        return randomized_collector_server_list_;
     }
     std::string dns_config_file() const { return dns_config_file_; }
     std::string config_file() const { return config_file_; };
@@ -92,8 +96,11 @@ private:
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
                     boost::program_options::options_description &options);
+    uint32_t GenerateHash(std::vector<std::string> &);
 
     std::vector<std::string> collector_server_list_;
+    std::vector<std::string> randomized_collector_server_list_;
+    uint32_t collector_chksum_;
     std::string dns_config_file_;
     std::string config_file_;
     std::string discovery_server_;

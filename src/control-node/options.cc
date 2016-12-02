@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <boost/asio/ip/host_name.hpp>
+#include <boost/functional/hash.hpp>
 
 #include "control-node/buildinfo.h"
 #include "base/contrail_ports.h"
@@ -157,8 +158,7 @@ void Options::Initialize(EventManager &evm,
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
              "Port of Discovery Server")
-        ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
-             "IP address of Discovery Server")
+        ("DISCOVERY.server", "IP address of Discovery Server")
 
         ("IFMAP.certs_store",  opt::value<string>(),
              "Certificates store to use for communication with IFMAP server")
@@ -227,6 +227,16 @@ void Options::GetOptValueImpl(
     }
 }
 
+uint32_t Options::GenerateHash(std::vector<std::string> &list) {
+    std::string concat_servers;
+    std::vector<std::string>::iterator iter;
+    for (iter = list.begin(); iter != list.end(); iter++) {
+        concat_servers += *iter;
+    }
+    boost::hash<std::string> string_hash;
+    return(string_hash(concat_servers));
+}
+
 // Process command line options. They can come from a conf file as well. Options
 // from command line always overrides those that come from the config file.
 bool Options::Process(int argc, char *argv[],
@@ -275,6 +285,12 @@ bool Options::Process(int argc, char *argv[],
         !collector_server_list_[0].compare(default_collector_server_list_[0])) {
         collectors_configured_ = false;
     }
+
+    // Randomize Collector List
+    collector_chksum_ = GenerateHash(collector_server_list_);
+    randomized_collector_server_list_ = collector_server_list_;
+    std::random_shuffle(randomized_collector_server_list_.begin(),
+                        randomized_collector_server_list_.end());
 
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     if (!ValidateIPAddressString(host_ip_, &error_msg)) {
@@ -331,4 +347,31 @@ bool Options::Process(int argc, char *argv[],
                      "IFMAP.peer_response_wait_time");
 
     return true;
+}
+
+void Options::ParseReConfig() {
+    // ReParse the filtered config params
+    opt::variables_map var_map;
+    ifstream config_file_in;
+    config_file_in.open(config_file_.c_str());
+    if (config_file_in.good()) {
+        opt::store(opt::parse_config_file(config_file_in, config_file_options_),
+                   var_map);
+    }
+    config_file_in.close();
+
+    collector_server_list_.clear();
+    GetOptValue< vector<string> >(var_map, collector_server_list_,
+                                  "DEFAULT.collectors");
+
+    uint32_t new_chksum = GenerateHash(collector_server_list_);
+    if (collector_chksum_ != new_chksum) {
+        collector_chksum_ = new_chksum;
+        randomized_collector_server_list_.clear();
+        randomized_collector_server_list_ = collector_server_list_;
+        std::random_shuffle(randomized_collector_server_list_.begin(),
+                            randomized_collector_server_list_.end());
+        // ReConnect Collectors
+        Sandesh::ReConfigCollectors(randomized_collector_server_list_);
+    }
 }

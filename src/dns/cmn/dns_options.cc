@@ -3,8 +3,10 @@
  */
 
 #include <boost/asio/ip/host_name.hpp>
+#include <boost/functional/hash.hpp>
 #include <fstream>
 #include <iostream>
+#include <csignal>
 
 #include "base/contrail_ports.h"
 #include "base/logging.h"
@@ -217,6 +219,16 @@ void Options::GetOptValueImpl(
     }
 }
 
+uint32_t Options::GenerateHash(std::vector<std::string> &list) {
+    std::string concat_servers;
+    std::vector<std::string>::iterator iter;
+    for (iter = list.begin(); iter != list.end(); iter++) {
+        concat_servers += *iter;
+    }
+    boost::hash<std::string> string_hash;
+    return(string_hash(concat_servers));
+}
+
 // Process command line options. They can come from a conf file as well. Options
 // from command line always overrides those that come from the config file.
 void Options::Process(int argc, char *argv[],
@@ -258,6 +270,12 @@ void Options::Process(int argc, char *argv[],
         !collector_server_list_[0].compare(default_collector_server_list_[0])) {
         collectors_configured_ = false;
     }
+
+    // Randomize Collector List
+    collector_chksum_ = GenerateHash(collector_server_list_);
+    randomized_collector_server_list_ = collector_server_list_;
+    std::random_shuffle(randomized_collector_server_list_.begin(),
+                        randomized_collector_server_list_.end()); 
 
     GetOptValue<string>(var_map, named_config_file_,
                         "DEFAULT.named_config_file");
@@ -317,4 +335,33 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetOptValue<string>(var_map, xmpp_server_key_, "DEFAULT.xmpp_server_key");
     GetOptValue<string>(var_map, xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert");
+}
+
+void Options::ParseReConfig() {
+    // ReParse the filtered config params
+    opt::variables_map var_map;
+    ifstream config_file_in;
+    config_file_in.open(config_file_.c_str());
+    if (config_file_in.good()) {
+        opt::store(opt::parse_config_file(config_file_in, config_file_options_),
+                   var_map);
+    }
+    config_file_in.close();
+
+    collector_server_list_.clear();
+    GetOptValue< vector<string> >(var_map, collector_server_list_,
+                                  "DEFAULT.collectors");
+
+    uint32_t new_chksum = GenerateHash(collector_server_list_);
+    if (collector_chksum_ != new_chksum) { 
+        collector_chksum_ = new_chksum;
+
+        LOG(ERROR, "\n ReConfigCollectors() \n");
+        randomized_collector_server_list_.clear();
+        randomized_collector_server_list_ = collector_server_list_;
+        std::random_shuffle(randomized_collector_server_list_.begin(),
+                            randomized_collector_server_list_.end());
+        // ReConnect Collectors
+        Sandesh::ReConfigCollectors(randomized_collector_server_list_);
+    }
 }
