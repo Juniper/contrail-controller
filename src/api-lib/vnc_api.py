@@ -125,8 +125,8 @@ class VncApi(object):
     # ssl termination on port 8082(default contrail-api port)
     _DEFAULT_API_SERVER_CONNECT="http"
     _DEFAULT_API_SERVER_SSL_CONNECT="https"
-    _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
-    _DEFAULT_API_CERT_BUNDLE="/tmp/apiservercertbundle.pem"
+    _DEFAULT_KS_CERT_BUNDLE="keystonecertbundle.pem"
+    _DEFAULT_API_CERT_BUNDLE="apiservercertbundle.pem"
 
     # Connection to api-server through Quantum
     _DEFAULT_WEB_PORT = 8082
@@ -146,8 +146,9 @@ class VncApi(object):
                  auth_token=None, auth_host=None, auth_port=None,
                  auth_protocol = None, auth_url=None, auth_type=None,
                  wait_for_connect=False, api_server_use_ssl=False,
-                 domain_name=None, exclude_hrefs=None,
-                 auth_token_url=None):
+                 domain_name=None, exclude_hrefs=None, auth_token_url=None,
+                 apicertfile=None, apikeyfile=None, apicafile=None,
+                 kscertfile=None, kskeyfile=None, kscafile=None,):
         # TODO allow for username/password to be present in creds file
 
         self._obj_serializer = self._obj_serializer_diff
@@ -179,6 +180,12 @@ class VncApi(object):
            use_ssl = (api_server_use_ssl.lower() == 'true')
         if use_ssl:
              self._api_connect_protocol = VncApi._DEFAULT_API_SERVER_SSL_CONNECT
+
+        if not api_server_host:
+            self._web_host = _read_cfg(cfg_parser, 'global', 'WEB_SERVER',
+                                       self._DEFAULT_WEB_SERVER)
+        else:
+            self._web_host = api_server_host
 
         # keystone
         self._authn_type = auth_type or \
@@ -220,16 +227,23 @@ class VncApi(object):
                     ConfigParser.NoOptionError,
                     ConfigParser.NoSectionError):
                self._apiinsecure = False
-            apicertfile=_read_cfg(cfg_parser,'global','certfile','')
-            apikeyfile=_read_cfg(cfg_parser,'global','keyfile','')
-            apicafile=_read_cfg(cfg_parser,'global','cafile','')
+            apicertfile = (apicertfile or
+                           _read_cfg(cfg_parser,'global','certfile',''))
+            apikeyfile = (apikeyfile or
+                          _read_cfg(cfg_parser,'global','keyfile',''))
+            apicafile = (apicafile or
+                         _read_cfg(cfg_parser,'global','cafile',''))
 
             self._use_api_certs=False
             if apicafile and api_server_use_ssl:
                 certs=[apicafile]
                 if apikeyfile and apicertfile:
                     certs=[apicertfile, apikeyfile, apicafile]
-                self._apicertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_API_CERT_BUNDLE,certs)
+                apicertbundle = os.path.join(
+                    '/tmp', self._web_host.replace('.', '_'),
+                     VncApi._DEFAULT_API_CERT_BUNDLE)
+                self._apicertbundle=utils.getCertKeyCaBundle(apicertbundle,
+                                                             certs)
                 self._use_api_certs=True
 
             # keystone SSL support
@@ -239,16 +253,23 @@ class VncApi(object):
                     ConfigParser.NoOptionError,
                     ConfigParser.NoSectionError):
               self._ksinsecure = False
-            kscertfile=_read_cfg(cfg_parser,'auth','certfile','')
-            kskeyfile=_read_cfg(cfg_parser,'auth','keyfile','')
-            kscafile=_read_cfg(cfg_parser,'auth','cafile','')
+            kscertfile = (kscertfile or
+                          _read_cfg(cfg_parser,'auth','certfile',''))
+            kskeyfile = (kskeyfile or
+                         _read_cfg(cfg_parser,'auth','keyfile',''))
+            kscafile = (kscafile or
+                        _read_cfg(cfg_parser,'auth','cafile',''))
 
             self._use_ks_certs=False
             if kscafile and self._authn_protocol == 'https':
                 certs=[kscafile]
                 if kskeyfile and kscertfile:
                     certs=[kscertfile, kskeyfile, kscafile]
-                self._kscertbundle=utils.getCertKeyCaBundle(VncApi._DEFAULT_KS_CERT_BUNDLE,certs)
+                kscertbundle = os.path.join(
+                        '/tmp', self._web_host.replace('.', '_'),
+                        VncApi._DEFAULT_KS_CERT_BUNDLE)
+                self._kscertbundle=utils.getCertKeyCaBundle(kscertbundle,
+                                                            certs)
                 self._use_ks_certs=True
 
             if 'v2' in self._authn_url:
@@ -278,12 +299,6 @@ class VncApi(object):
                         '}' + \
                      '}'
             self._user_info = user_info
-
-        if not api_server_host:
-            self._web_host = _read_cfg(cfg_parser, 'global', 'WEB_SERVER',
-                                       self._DEFAULT_WEB_SERVER)
-        else:
-            self._web_host = api_server_host
 
         if not api_server_port:
             self._web_port = _read_cfg(cfg_parser, 'global', 'WEB_PORT',
