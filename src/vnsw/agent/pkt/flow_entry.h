@@ -422,6 +422,7 @@ class FlowEntry {
         SHORT_NO_MIRROR_ENTRY,
         SHORT_SAME_FLOW_RFLOW_KEY,
         SHORT_PORT_MAP_DROP,
+        SHORT_NO_SRC_ROUTE_L2RPF,
         SHORT_MAX
     };
 
