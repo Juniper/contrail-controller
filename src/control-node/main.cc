@@ -552,7 +552,7 @@ int main(int argc, char *argv[]) {
             boost::bind(&ControlNodeInfoLogger,
                         bgp_server.get(), bgp_peer_manager.get(),
                         &ifmap_server, node_info_log_timer.get()),
-            TaskScheduler::GetInstance()->GetTaskId("bgp::Uve"), 0));
+            TaskScheduler::GetInstance()->GetTaskId("bgp::ShowCommand"), 0));
 
     // Start periodic timer to send BGPRouterInfo UVE.
     node_info_log_timer->Start(

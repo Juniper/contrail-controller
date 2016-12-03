@@ -775,12 +775,12 @@ protected:
     }
 
     void VerifyStaticRouteCount(uint32_t count) {
-        ConcurrencyScope scope("bgp::Uve");
+        ConcurrencyScope scope("bgp::ShowCommand");
         TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_static_routes());
     }
 
     void VerifyDownStaticRouteCount(uint32_t count) {
-        ConcurrencyScope scope("bgp::Uve");
+        ConcurrencyScope scope("bgp::ShowCommand");
         TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_down_static_routes());
     }
 
