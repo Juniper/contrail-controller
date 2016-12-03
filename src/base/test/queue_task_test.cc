@@ -130,9 +130,13 @@ public:
         while (count++ < 10) {
             usleep(100000);
             if (high) {
-                EXPECT_EQ(vwm_size, work_queue_.high_water_.size());
+                WaterMarkInfos hwm_infos(
+                    work_queue_.watermarks_.GetHighWaterMark());
+                EXPECT_EQ(vwm_size, hwm_infos.size());
             } else {
-                EXPECT_EQ(vwm_size, work_queue_.low_water_.size());
+                WaterMarkInfos lwm_infos(
+                    work_queue_.watermarks_.GetLowWaterMark());
+                EXPECT_EQ(vwm_size, lwm_infos.size());
             }
         }
         wm_callback_running_ = false;
