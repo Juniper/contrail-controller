@@ -516,7 +516,7 @@ void IFMapServer::GetUIInfo(IFMapServerInfoUI *server_info) const {
 }
 
 bool IFMapServer::CollectStats(BgpRouterState *state, bool first) const {
-    CHECK_CONCURRENCY("bgp::Uve");
+    CHECK_CONCURRENCY("bgp::ShowCommand");
 
     IFMapPeerServerInfoUI peer_server_info;
     bool change = false;
