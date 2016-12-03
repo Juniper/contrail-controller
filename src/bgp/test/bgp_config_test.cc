@@ -2656,7 +2656,7 @@ TEST_F(BgpConfigTest, InstanceCreateUpdate11) {
         RoutingInstance *rtinstance = mgr->GetRoutingInstance(name);
         TASK_UTIL_EXPECT_EQ(idx, rtinstance->virtual_network_index());
         IStaticRouteMgr *srt_mgr = rtinstance->static_route_mgr(Address::INET);
-        ConcurrencyScope scope("bgp::Uve");
+        ConcurrencyScope scope("bgp::ShowCommand");
         TASK_UTIL_EXPECT_EQ(2, srt_mgr->GetRouteCount());
     }
 
