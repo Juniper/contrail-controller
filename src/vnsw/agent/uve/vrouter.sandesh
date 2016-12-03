@@ -312,8 +312,13 @@ struct VrouterStatsAgent {  // Agent stats
     67: optional derived_stats_results.AnomalyResult active_flows_ewm
                      (stats="flow_rate.active_flows:DSAnomaly:EWM:0.1")
 
-    50: optional map<string,u64> phy_band_in_bps
-    51: optional map<string,u64> phy_band_out_bps
+    /** @display_name:Physical Interface ingress bandwidth in bps*/
+    50: optional map<string,u64> phy_band_in_bps (tags="name:.__key")
+    /** @display_name:Physical Interface egress bandwidth in bps*/
+    51: optional map<string,u64> phy_band_out_bps (tags="name:.__key")
+    /** Anomaly Detection for ingress bandwidth of physical interface using
+     * Exponentially Weighed Mean
+     */
     52: optional map<string,derived_stats_results.AnomalyResult> in_bps_ewm
                      (mstats="phy_band_in_bps:DSAnomaly:EWM:0.1")
     53: optional map<string,derived_stats_results.AnomalyResult> out_bps_ewm
