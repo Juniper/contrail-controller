@@ -2691,6 +2691,9 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
             bgp_xmpp_channel = (*it).second;
             if (bgp_xmpp_channel->peer_deleted())
                 return;
+            channel->RegisterReceive(xmps::BGP,
+                boost::bind(&BgpXmppChannel::ReceiveUpdate, bgp_xmpp_channel,
+                            _1));
         }
 
         bgp_xmpp_channel->eor_sent_ = false;
