@@ -87,12 +87,12 @@ void BgpXmppPeerClose::ReceiveEndOfRIB(Address::Family family) {
     channel_->ReceiveEndOfRIB(family);
 }
 
-// Process any pending subscriptions if close manager is now no longer
+// Process any pending subscriptions as close manager is now no longer
 // using membership manager.
 void BgpXmppPeerClose::MembershipRequestCallbackComplete() {
     CHECK_CONCURRENCY("xmpp::StateMachine");
     if (channel_) {
-        assert(channel_->membership_unavailable());
+        assert(!GetManager()->IsMembershipInUse());
         channel_->ProcessPendingSubscriptions();
     }
 }
