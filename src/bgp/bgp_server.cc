@@ -765,7 +765,7 @@ void BgpServer::NotifyAllStaticRoutes() {
 }
 
 uint32_t BgpServer::GetStaticRouteCount() const {
-    CHECK_CONCURRENCY("bgp::Uve");
+    CHECK_CONCURRENCY("bgp::ShowCommand");
     uint32_t count = 0;
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
@@ -776,7 +776,7 @@ uint32_t BgpServer::GetStaticRouteCount() const {
 }
 
 uint32_t BgpServer::GetDownStaticRouteCount() const {
-    CHECK_CONCURRENCY("bgp::Uve");
+    CHECK_CONCURRENCY("bgp::ShowCommand");
     uint32_t count = 0;
     for (StaticRouteMgrList::iterator it = srt_manager_list_.begin();
          it != srt_manager_list_.end(); ++it) {
@@ -811,7 +811,7 @@ void BgpServer::FillPeerStats(const BgpPeer *peer) const {
 }
 
 bool BgpServer::CollectStats(BgpRouterState *state, bool first) const {
-    CHECK_CONCURRENCY("bgp::Uve");
+    CHECK_CONCURRENCY("bgp::ShowCommand");
 
     VisitBgpPeers(boost::bind(&BgpServer::FillPeerStats, this, _1));
     bool change = false;
