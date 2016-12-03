@@ -64,8 +64,6 @@ public:
     virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) = 0;
     virtual void UnRegisterWriteReady(xmps::PeerId id) = 0;
     virtual void Close() = 0;
-    virtual void CloseComplete() = 0;
-    virtual bool IsCloseInProgress() const = 0;
     virtual const std::string &ToString() const = 0;
     virtual const std::string &FromString() const = 0;
     virtual std::string StateName() const = 0;
