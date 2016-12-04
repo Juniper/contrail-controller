@@ -50,6 +50,7 @@ struct VmInterfaceStats {
     3: u64 out_pkts;
     /** Count of outgoing bytes */
     4: u64 out_bytes;
+    /** Drop packet count */
     5: u64 drop_pkts;
 }
 
@@ -156,7 +157,7 @@ struct UveVMInterfaceAgent {
    17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address")
 
     /** Statistics of VMI. Contains aggregate statistics */
-   18: optional VmInterfaceStats raw_if_stats (hidden="yes")
+   18: optional VmInterfaceStats raw_if_stats (metric="agg", hidden="yes")
     /** Contains statistics of VMI since previous send */
     /** @display_name:Virtual Machine Interface Statistics */
    30: optional VmInterfaceStats if_stats     (stats="raw_if_stats:DSNon0:", tags="vm_name,vm_uuid")
@@ -220,7 +221,7 @@ struct UveVMInterfaceAgent {
    33: optional map<string, u64> raw_drop_stats (metric="agg", hidden="yes")
    /** @display_name:Packet drop Statistics*/
    34: optional map<string, u64> drop_stats     (mstats="raw_drop_stats:DSNon0:", tags=".__key,virtual_network")
-   35: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:120")
+   35: optional map<string, u64> drop_stats_1h  (mstats="raw_drop_stats:DSSum:3600")
 }
 
 /**
