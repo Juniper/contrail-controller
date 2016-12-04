@@ -216,7 +216,7 @@ class PhysicalRouterDM(DBBaseDM):
             vn.set_uuid(vn_uuid)
             ip_addr = self._manager._vnc_lib.virtual_network_ip_alloc(
                 vn,
-                subnet_uuid=subnet_uuid)
+                subnet=subnet_uuid)
             if ip_addr:
                 return ip_addr[0]  # ip_alloc default ip count is 1
         except Exception as e:
@@ -286,6 +286,7 @@ class PhysicalRouterDM(DBBaseDM):
 
         for vn_subnet in create_set:
             (vn_uuid, subnet_prefix) = vn_subnet.split(':', 1)
+            vn = VirtualNetworkDM.get(vn_uuid)
             subnet_uuid = vn.gateways[subnet_prefix].get('subnet_uuid')
             (sub, length) = subnet_prefix.split('/')
             ip_addr = self.reserve_ip(vn_uuid, subnet_uuid)
