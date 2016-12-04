@@ -47,7 +47,7 @@ class OpencontrailLoadbalancerDriver(
             self._api.floating_ip_update(fip)
         return fip
 
-    def _add_port_map(self, fip, src_port, dst_port):
+    def _add_port_map(self, fip, protocol, src_port, dst_port):
         portmap_entry = False
         portmappings = fip.get_floating_ip_port_mappings()
         portmap_list = []
@@ -62,6 +62,7 @@ class OpencontrailLoadbalancerDriver(
                 break
         if portmap_entry == False:
             portmap = PortMap()
+            portmap.set_protocol(protocol)
             portmap.set_src_port(src_port)
             portmap.set_dst_port(dst_port)
             portmappings.add_port_mappings(portmap)
@@ -128,6 +129,10 @@ class OpencontrailLoadbalancerDriver(
             listener = LoadbalancerListenerSM.get(ll_id)
             if not listener:
                 continue
+            if listener.params['protocol'] == 'UDP':
+                protocol = 'UDP'
+            else:
+                protocol = 'TCP'
             src_port = listener.params['protocol_port']
             pool = LoadbalancerPoolSM.get(listener.loadbalancer_pool)
             if pool:
@@ -145,7 +150,7 @@ class OpencontrailLoadbalancerDriver(
                         self._delete_port_map(fip, src_port)
                     for iip_id in lb_props['new_instance_ips'] or []:
                         fip = self._add_vmi_ref(vmi, iip_id=iip_id)
-                        self._add_port_map(fip, src_port, dst_port)
+                        self._add_port_map(fip, protocol, src_port, dst_port)
                         if iip_id not in pool.lb_instance_ips:
                             pool.lb_instance_ips.append(iip_id)
                             pool.lb_fips.append(fip)
@@ -154,7 +159,7 @@ class OpencontrailLoadbalancerDriver(
                         self._delete_port_map(fip, src_port)
                     for fip_id in lb_props['new_floating_ips'] or []:
                         fip = self._add_vmi_ref(vmi, fip_id=fip_id)
-                        self._add_port_map(fip, src_port, dst_port)
+                        self._add_port_map(fip, protocol, src_port, dst_port)
                         if fip_id not in pool.lb_floating_ips:
                             pool.lb_floating_ips.append(fip_id)
                             pool.lb_fips.append(fip)
@@ -235,6 +240,7 @@ class OpencontrailLoadbalancerDriver(
             lb.floating_ips = new_floating_ips
 
         driver_data = {}
+        driver_data['vmi'] = vmi.uuid
         driver_data['lb_instance_ips'] = lb.instance_ips
         driver_data['lb_floating_ips'] = lb.floating_ips
 
@@ -257,16 +263,21 @@ class OpencontrailLoadbalancerDriver(
                 self._api.floating_ip_update(fip)
                 self._api.floating_ip_delete(id=fip.uuid)
 
+        vmi = self._api.virtual_machine_interface_read(id=driver_data['vmi'])
+        lb.floating_ips = driver_data['lb_floating_ips']
         for fip_id in lb.floating_ips or []:
             fip = self._get_floating_ip(fip_id=fip_id)
             if fip:
                 fip.set_virtual_machine_interface_list([])
+                fip.set_floating_ip_port_mappings([])
+                fip.floating_ip_port_mappings_enable = False
                 self._api.floating_ip_update(fip)
-                self._api.floating_ip_delete(id=fip.uuid)
+                fip = self._add_vmi_ref(vmi, fip_id=fip_id)
 
         del lb.instance_ips[:]
         del lb.floating_ips[:]
 
+        self.db.loadbalancer_remove(lb_id, ['vmi'])
         self.db.loadbalancer_remove(lb_id, ['lb_instance_ips'])
         self.db.loadbalancer_remove(lb_id, ['lb_floating_ips'])
 
@@ -285,8 +296,14 @@ class OpencontrailLoadbalancerDriver(
         if not old_listener:
             return
 
-        if old_listener.props['protocol_port'] == listener.props['protocol_port']:
+        if old_listener.props['protocol_port'] == listener.props['protocol_port'] and \
+           old_listener.props['protocol'] == listener.props['protocol']:
             return
+
+        if listener.params['protocol'] == 'UDP':
+            protocol = 'UDP'
+        else:
+            protocol = 'TCP'
 
         for iip_id in lb_instance_ips or []:
             fip = self._get_floating_ip(iip_id=iip_id)
@@ -295,7 +312,7 @@ class OpencontrailLoadbalancerDriver(
                 portmap = self._delete_port_map(fip, src_port)
                 src_port = listener['protocol_port']
                 dst_port = portmap.dst_port
-                self._add_port_map(fip, src_port, dst_port)
+                self._add_port_map(fip, protocol, src_port, dst_port)
         for fip_id in lb_floating_ips or []:
             fip = self._get_floating_ip(fip_id=fip_id)
             if fip:
@@ -303,7 +320,7 @@ class OpencontrailLoadbalancerDriver(
                 portmap = self._delete_port_map(fip, src_port)
                 src_port = listener['protocol_port']
                 dst_port = portmap.dst_port
-                self._add_port_map(fip, src_port, dst_port)
+                self._add_port_map(fip, protocol, src_port, dst_port)
 
     def _clear_listener_props(self, listener_id):
         listener = LoadbalancerListenerSM.get(listener_id)
@@ -377,10 +394,14 @@ class OpencontrailLoadbalancerDriver(
             vmi = self._api.virtual_machine_interface_read(id=member.vmi)
         except NoIdError:
             return
+
+        protocol = pool.listener_protocol
+        src_port = pool.listener_port
+        dst_port = member.params['protocol_port']
         for fip in pool.lb_fips or []:
             fip.add_virtual_machine_interface(vmi)
             self._api.floating_ip_update(fip)
-            self._add_port_map(fip, pool.listener_port, member.params['protocol_port'])
+            self._add_port_map(fip, protocol, src_port, dst_port)
         if pool.service_health_check:
             self._add_service_health_check_ref(pool.service_health_check, member.vmi)
             member.service_health_check = service_health_check

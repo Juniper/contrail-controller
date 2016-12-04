@@ -151,6 +151,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         self.lb_instance_ips = []
         self.lb_floating_ips = []
         self.listener_port = 0
+        self.listener_protocol = None
         self.service_health_check = None
         self.update(obj_dict)
     # end __init__
@@ -181,6 +182,7 @@ class LoadbalancerPoolSM(DBBaseSM):
         if self.loadbalancer_listener:
             ll_obj = LoadbalancerListenerSM.get(self.loadbalancer_listener)
             self.listener_port = ll_obj.params['protocol_port']
+            self.listener_protocol = ll_obj.params['protocol']
             self.loadbalancer_id = ll_obj.loadbalancer
             self.provider = LoadbalancerSM.get(self.loadbalancer_id).provider
             self.loadbalancer_version = "v2"
