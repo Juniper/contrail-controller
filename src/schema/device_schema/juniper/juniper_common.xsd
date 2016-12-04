@@ -440,13 +440,11 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
-<xsd:element name="config">
-    <xsd:complexType>
-       <xsd:attribute name="xmlns:xc" type="xsd:string" default="urn:ietf:params:xml:ns:netconf:base:1.0"/>
-       <xsd:all>
-          <xsd:element name="configuration" type="Configuration"/>
-       </xsd:all>
-    </xsd:complexType>
-</xsd:element>
+<xsd:complexType name="config">
+    <xsd:attribute name="xmlns:xc" type="xsd:string" default="urn:ietf:params:xml:ns:netconf:base:1.0"/>
+    <xsd:all>
+        <xsd:element name="configuration" type="Configuration"/>
+    </xsd:all>
+</xsd:complexType>
 
 </xsd:schema>
