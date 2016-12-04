@@ -37,8 +37,7 @@ class StatsManager {
         void UpdateStats(uint64_t in_b, uint64_t in_p, uint64_t out_b,
                          uint64_t out_p, uint64_t drop_p);
         void UpdatePrevStats();
-        void GetDiffStats(uint64_t *in_b, uint64_t *in_p, uint64_t *out_b,
-                          uint64_t *out_p, uint64_t *drop_p);
+        void GetDiffStats(uint64_t *in_b, uint64_t *out_b) const;
 
         std::string name;
         int32_t  speed;
@@ -50,9 +49,6 @@ class StatsManager {
         uint64_t drop_pkts;
         uint64_t prev_in_bytes;
         uint64_t prev_out_bytes;
-        uint64_t prev_in_pkts;  /* Required for sending diff stats */
-        uint64_t prev_out_pkts; /* Required for sending diff stats */
-        uint64_t prev_drop_pkts; /* Required for sending diff stats */
         uint64_t prev_5min_in_bytes;
         uint64_t prev_5min_out_bytes;
         uint64_t stats_time;
