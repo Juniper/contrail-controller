@@ -181,7 +181,7 @@ class StatsManager {
                        FlowRateComputeInfo &flow_info,
                        VrouterFlowRate &flow_rate) const;
     void BuildDropStats(const vr_drop_stats_req &r,
-                        AgentUve::DerivedStatsMap &ds) const;
+                        VrouterDropStats &ds) const;
     friend class AgentStatsCollectorTest;
 
  private:
