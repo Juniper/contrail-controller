@@ -119,8 +119,10 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     map<string, PhyIfStats> phy_if_list;
     map<string, PhyIfInfo> phy_if_info;
-    BuildPhysicalInterfaceList(phy_if_list, phy_if_info);
+    map<string, VrouterDropStats> phy_if_ds;
+    BuildPhysicalInterfaceList(phy_if_list, phy_if_info, phy_if_ds);
     stats.set_raw_phy_if_stats(phy_if_list);
+    stats.set_raw_phy_if_drop_stats(phy_if_ds);
 
     if (prev_stats_.get_phy_if_info() != phy_if_info) {
         stats.set_phy_if_info(phy_if_info);
@@ -171,7 +173,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         uve->stats_manager()->GetInterfaceStats(vhost);
     if (s != NULL) {
         AgentIfStats vhost_stats;
-        AgentUve::DerivedStatsMap vhost_ds;
+        VrouterDropStats vhost_ds;
         vhost_stats.set_name(agent_->vhost_interface_name());
         vhost_stats.set_in_pkts(s->in_pkts);
         vhost_stats.set_in_bytes(s->in_bytes);
@@ -181,8 +183,8 @@ bool VrouterUveEntry::SendVrouterMsg() {
         vhost_stats.set_duplexity(s->duplexity);
         vhost_stats.set_drop_pkts(s->drop_pkts);
         uve->stats_manager()->BuildDropStats(s->drop_stats, vhost_ds);
-        vhost_stats.set_raw_drop_stats(vhost_ds);
         stats.set_raw_vhost_stats(vhost_stats);
+        stats.set_raw_vhost_drop_stats(vhost_ds);
     }
 
     SetVrouterPortBitmap(stats);
@@ -271,7 +273,8 @@ uint64_t VrouterUveEntry::GetBandwidthUsage(StatsManager::InterfaceStats *s,
 }
 
 bool VrouterUveEntry::BuildPhysicalInterfaceList(map<string, PhyIfStats> &list,
-                                                 map<string, PhyIfInfo> info)
+                                                 map<string, PhyIfInfo> &info,
+                                                 map<string, VrouterDropStats> &dsmap)
                                                  const {
     bool changed = false;
     PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
@@ -285,20 +288,21 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(map<string, PhyIfStats> &list,
             continue;
         }
         PhyIfStats phy_stat_entry;
-        PhyIfInfo phy_if_info;
         phy_stat_entry.set_in_pkts(s->in_pkts);
         phy_stat_entry.set_in_bytes(s->in_bytes);
         phy_stat_entry.set_out_pkts(s->out_pkts);
         phy_stat_entry.set_out_bytes(s->out_bytes);
         phy_stat_entry.set_drop_pkts(s->drop_pkts);
+        list.insert(make_pair(intf->name(), phy_stat_entry));
 
-        AgentUve::DerivedStatsMap ds;
-        uve->stats_manager()->BuildDropStats(s->drop_stats, ds);
-        phy_stat_entry.set_raw_drop_stats(ds);
+        PhyIfInfo phy_if_info;
         phy_if_info.set_speed(s->speed);
         phy_if_info.set_duplexity(s->duplexity);
-        list.insert(make_pair(intf->name(), phy_stat_entry));
         info.insert(make_pair(intf->name(), phy_if_info));
+
+        VrouterDropStats ds;
+        uve->stats_manager()->BuildDropStats(s->drop_stats, ds);
+        dsmap.insert(make_pair(intf->name(), ds));
         changed = true;
     }
     return changed;
@@ -419,7 +423,7 @@ void VrouterUveEntry::InitPrevStats() const {
     }
 }
 
-void VrouterUveEntry::FetchDropStats(AgentUve::DerivedStatsMap &ds) const {
+void VrouterUveEntry::FetchDropStats(VrouterDropStats &ds) const {
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
     const vr_drop_stats_req &req = uve->stats_manager()->drop_stats();
     uve->stats_manager()->BuildDropStats(req, ds);
