@@ -341,21 +341,28 @@ protected:
         TASK_UTIL_EXPECT_EQ(expected, table->Size());
     }
 
-    void VerifyInetRoutePresence(BgpServer *server,
-                                 const std::string &prefix_str,
-                                 const std::string &nexthop_str) {
+    bool VerifyInetRoutePresenceActual(BgpServer *server,
+                                       const std::string &prefix_str,
+                                       const std::string &nexthop_str) {
         RoutingInstance *rtinstance = static_cast<RoutingInstance *>(
             server->routing_instance_mgr()->GetRoutingInstance(
                 BgpConfigManager::kMasterInstance));
         BgpTable *table = rtinstance->GetTable(Address::INET);
         Ip4Prefix prefix(Ip4Prefix::FromString(prefix_str));
         const InetTable::RequestKey key(prefix, NULL);
-        TASK_UTIL_EXPECT_NE(static_cast<const BgpRoute *>(NULL),
-                            table->Find(&key));
+        if (!table->Find(&key))
+            return false;
         const BgpRoute *rt = dynamic_cast<const BgpRoute *>(table->Find(&key));
         const BgpPath *path = rt->FindPath(BgpPath::BGP_XMPP);
         const IpAddress nexthop = path->GetAttr()->nexthop();
-        EXPECT_EQ(nexthop_str, nexthop.to_string());
+        return (nexthop_str == nexthop.to_string());
+    }
+
+    void VerifyInetRoutePresence(BgpServer *server,
+                                 const std::string &prefix_str,
+                                 const std::string &nexthop_str) {
+        TASK_UTIL_EXPECT_TRUE(VerifyInetRoutePresenceActual(
+            server, prefix_str, nexthop_str));
     }
 
     void VerifyInetRouteAbsence(BgpServer *server,
@@ -378,21 +385,28 @@ protected:
         TASK_UTIL_EXPECT_EQ(expected, table->Size());
     }
 
-    void VerifyInet6RoutePresence(BgpServer *server,
-                                  const std::string &prefix_str,
-                                  const std::string &nexthop_str) {
+    bool VerifyInet6RoutePresenceActual(BgpServer *server,
+                                        const std::string &prefix_str,
+                                        const std::string &nexthop_str) {
         RoutingInstance *rtinstance = static_cast<RoutingInstance *>(
             server->routing_instance_mgr()->GetRoutingInstance(
                 BgpConfigManager::kMasterInstance));
         BgpTable *table = rtinstance->GetTable(Address::INET6);
         Inet6Prefix prefix(Inet6Prefix::FromString(prefix_str));
         const Inet6Table::RequestKey key(prefix, NULL);
-        TASK_UTIL_EXPECT_NE(static_cast<const BgpRoute *>(NULL),
-                            table->Find(&key));
+        if (! table->Find(&key))
+            return false;
         const BgpRoute *rt = dynamic_cast<const BgpRoute *>(table->Find(&key));
         const BgpPath *path = rt->FindPath(BgpPath::BGP_XMPP);
         const IpAddress nexthop = path->GetAttr()->nexthop();
-        EXPECT_EQ(nexthop_str, nexthop.to_string());
+        return (nexthop_str == nexthop.to_string());
+    }
+
+    void VerifyInet6RoutePresence(BgpServer *server,
+                                  const std::string &prefix_str,
+                                  const std::string &nexthop_str) {
+        TASK_UTIL_EXPECT_TRUE(VerifyInet6RoutePresenceActual(
+            server, prefix_str, nexthop_str));
     }
 
     void VerifyInet6RouteAbsence(BgpServer *server,
@@ -407,34 +421,57 @@ protected:
                             table->Find(&key));
     }
 
-    void VerifyInetRoutePresence(test::NetworkAgentMock *agent,
+    bool VerifyInetRoutePresenceActual(test::NetworkAgentMock *agent,
                                  std::string prefix, std::string nexthop1,
                                  std::string nexthop2 = "") {
-        TASK_UTIL_EXPECT_NE(
-            static_cast<const test::NetworkAgentMock::RouteEntry *>(NULL),
-            agent->RouteLookup("test", prefix));
+        if (!agent->RouteLookup("test", prefix))
+            return false;
         const test::NetworkAgentMock::RouteEntry *item =
             agent->RouteLookup("test", prefix);
         size_t nexthop_count = nexthop2.empty() ? 1 : 2;
-        EXPECT_EQ(nexthop_count, item->entry.next_hops.next_hop.size());
-        EXPECT_EQ(nexthop1, item->entry.next_hops.next_hop[0].address);
-        if (!nexthop2.empty())
-            EXPECT_EQ(nexthop2, item->entry.next_hops.next_hop[1].address);
+        if (nexthop_count != item->entry.next_hops.next_hop.size())
+            return false;
+        if (nexthop1 != item->entry.next_hops.next_hop[0].address)
+            return false;
+        if (!nexthop2.empty()) {
+            if (nexthop2 != item->entry.next_hops.next_hop[1].address)
+                return false;
+        }
+        return true;
+    }
+
+    void VerifyInetRoutePresence(test::NetworkAgentMock *agent,
+                                 std::string prefix, std::string nexthop1,
+                                 std::string nexthop2 = "") {
+        TASK_UTIL_EXPECT_TRUE(VerifyInetRoutePresenceActual(agent, prefix,
+                                  nexthop1, nexthop2));
+    }
+
+    bool VerifyInet6RoutePresenceActual(test::NetworkAgentMock *agent,
+                                        std::string prefix,
+                                        std::string nexthop1,
+                                        std::string nexthop2 = "") {
+        if (! agent->Inet6RouteLookup("test", prefix))
+            return false;
+        const test::NetworkAgentMock::RouteEntry *item =
+            agent->Inet6RouteLookup("test", prefix);
+        size_t nexthop_count = nexthop2.empty() ? 1 : 2;
+        if ((nexthop_count != item->entry.next_hops.next_hop.size()))
+            return false;
+        if (nexthop1 != item->entry.next_hops.next_hop[0].address)
+            return false;
+        if (!nexthop2.empty()) {
+            if (nexthop2 != item->entry.next_hops.next_hop[1].address)
+                return false;
+        }
+        return true;
     }
 
     void VerifyInet6RoutePresence(test::NetworkAgentMock *agent,
                                   std::string prefix, std::string nexthop1,
                                   std::string nexthop2 = "") {
-        TASK_UTIL_EXPECT_NE(
-            static_cast<const test::NetworkAgentMock::RouteEntry *>(NULL),
-            agent->Inet6RouteLookup("test", prefix));
-        const test::NetworkAgentMock::RouteEntry *item =
-            agent->Inet6RouteLookup("test", prefix);
-        size_t nexthop_count = nexthop2.empty() ? 1 : 2;
-        EXPECT_EQ(nexthop_count, item->entry.next_hops.next_hop.size());
-        EXPECT_EQ(nexthop1, item->entry.next_hops.next_hop[0].address);
-        if (!nexthop2.empty())
-            EXPECT_EQ(nexthop2, item->entry.next_hops.next_hop[1].address);
+        TASK_UTIL_EXPECT_TRUE(VerifyInet6RoutePresenceActual(agent, prefix,
+                                   nexthop1, nexthop2));
     }
 
     void VerifyInetRouteAbsence(test::NetworkAgentMock *agent,
