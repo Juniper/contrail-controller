@@ -38,7 +38,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
         return false;
     }
 
-    AgentUve::DerivedStatsMap ds;
+    VrouterDropStats ds;
     agent_uve->stats_manager()->BuildDropStats(s->drop_stats, ds);
     uve->set_raw_drop_stats(ds);
 
