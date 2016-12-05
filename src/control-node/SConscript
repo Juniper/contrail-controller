@@ -19,6 +19,7 @@ env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
 env.Append(CPPPATH = [env['TOP'] + '/bgp'])
 env.Append(CPPPATH = [env['TOP'] + '/tools/sandesh/library/common'])
 ControlNodeSandeshGenFiles = env.SandeshGenCpp('sandesh/control_node.sandesh')
+ControlNodeSandeshGenFiles.append("control_node_uve.cc")
 ControlNodeSandeshGenSrcs = env.ExtractCpp(ControlNodeSandeshGenFiles)
 
 setup_sources = [
@@ -59,11 +60,8 @@ env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
 env.Alias("control-node:node_mgr", sdist_gen)
 
-control_node_sandesh_files_ = []
-for src in ControlNodeSandeshGenSrcs:
-    objname = src.replace('.cpp', '.o')
-    obj = env.Object(objname, src)
-    control_node_sandesh_files_.append(obj)
+libcontrail_control_sandesh = env.Library('contrail_control_sandesh',
+                                          ControlNodeSandeshGenSrcs);
 
 env.Prepend(LIBS=['bgp',
                   'bgp_ifmap_config',
@@ -74,6 +72,7 @@ env.Prepend(LIBS=['bgp',
                   'xmpp_multicast',
                   'xmpp_enet',
                   'control_node',
+                  'contrail_control_sandesh',
                   'peer_sandesh',
                   'origin_vn',
                   'routing_instance',
@@ -189,12 +188,15 @@ else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_nodeinfo.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_base.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_extend_community.path])
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_extend_community.path])
 
 buildinfo_dep_libs = ['../bgp/libbgp.a', 
                       '../bgp/libbgp_ifmap_config.a',
                       '../schema/libbgp_schema.a', '../schema/libxmpp_unicast.a', 
                       '../schema/libxmpp_multicast.a', '../schema/libxmpp_enet.a',
-                      '../control-node/libcontrol_node.a', '../bgp/routing-instance/librouting_instance.a', 
+                      '../control-node/libcontrol_node.a',
+                      '../control-node/libcontrail_control_sandesh.a',
+                      '../bgp/routing-instance/librouting_instance.a',
                       '../bgp/routing-policy/librouting_policy.a',
                       '../bgp/origin-vn/liborigin_vn.a',
                       '../bgp/extended-community/libextended_community.a',
@@ -217,8 +219,7 @@ ctrlnode = env.Program(target = 'contrail-control',
                                  'factory.cc',
                                  'main.cc',
                                  'options.cc',
-                                 'sandesh/control_node_sandesh.cc'] +
-                                 control_node_sandesh_files_)
+                                 'sandesh/control_node_sandesh.cc'])
 
 env.Default(ctrlnode)
 
