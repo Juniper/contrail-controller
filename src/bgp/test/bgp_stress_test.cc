@@ -27,6 +27,8 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
+#include "ifmap/ifmap_sandesh_context.h"
+#include "xmpp/xmpp_sandesh.h"
 
 
 #include "schema/bgp_schema_types.h"
@@ -179,6 +181,7 @@ static bool d_no_verify_routes_ = false;
 static bool d_no_agent_updates_processing_ = false;
 static bool d_no_agent_messages_processing_ = false;
 static float d_events_proportion_ = 0.0;
+static int d_uve_send_msecs_ = 10;
 
 static vector<int>  n_instances = boost::assign::list_of(d_instances_);
 static vector<int>  n_routes    = boost::assign::list_of(d_routes_);
@@ -543,11 +546,34 @@ void BgpStressTest::SetUp() {
 
     sandesh_context_->bgp_server = server_.get();
     sandesh_context_->xmpp_peer_manager = channel_manager_.get();
+    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
+    ifmap_manager_.reset(new IFMapManagerTest(ifmap_server_.get(),
+        IFMapConfigOptions(), boost::bind(&IFMapServerParser::Receive,
+                                          ifmap_parser, config_db_, _1, _2, _3),
+        evm_.io_service()));
+    ifmap_server_->set_ifmap_manager(ifmap_manager_.get());
+
+    XmppSandeshContext xmpp_sandesh_context;
+    xmpp_sandesh_context.xmpp_server = xmpp_server_test_;
+    Sandesh::set_module_context("XMPP", &xmpp_sandesh_context);
+
+    IFMapSandeshContext ifmap_sandesh_context(ifmap_server_.get());
+    Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
 
     thread_.Start();
+    WaitForIdle();
+
+    // Start uve timer to send UVE periodically
+    if (!d_external_mode_ && d_uve_send_msecs_) {
+        ControlNode::StartControlNodeInfoLogger(evm_, d_uve_send_msecs_,
+                                                server_.get(),
+                                                channel_manager_.get(),
+                                                ifmap_server_.get(), "1.0");
+    }
 }
 
 void BgpStressTest::TearDown() {
+    ControlNode::Shutdown();
     AgentCleanup();
     WaitForIdle();
     xmpp_server_test_->Shutdown();
@@ -2929,6 +2955,8 @@ static void process_command_line_args(int argc, const char **argv) {
              "Set SHOW_ALL_ROUTES event weight")
         ("test-id", value<int>()->default_value(d_test_id_),
               "set start xmpp agent id <0 - 15>")
+        ("uve-send-msecs", value<int>()->default_value(d_uve_send_msecs_),
+              "set periodic uve send time; Use 0 to disable")
         ("xmpp-nexthop", value<string>()->default_value(d_xmpp_rt_nexthop_),
               "set xmpp route nexthop IP address")
         ("xmpp-nexthop-vary", bool_switch(&d_xmpp_rt_nexthop_vary_),
@@ -3158,6 +3186,9 @@ static void process_command_line_args(int argc, const char **argv) {
             BgpStressTestEvent::CHANGE_SOCKET_BUFFER_SIZE-1] =
             vm["weight-change-socket-buffer-size"].as<float>();
     }
+
+    if (vm.count("uve-send-msecs"))
+        d_uve_send_msecs_ = vm["uve-send-msecs"].as<int>();
 
     // Make sure that parameters fall within the boundaries to avoid prefix
     // overlap and counting issues.

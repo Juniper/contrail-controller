@@ -120,6 +120,7 @@ env.Append(LIBS = [
     'bgp_l3vpn',
     'bgp_test_factory',
     'rtarget',
+    'control_node_uve',
 ])
 
 env.Append(LIBS = ['route', 'routing_instance', 'routing_policy', 'net'])

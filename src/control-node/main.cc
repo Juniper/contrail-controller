@@ -33,7 +33,6 @@
 #include "control-node/buildinfo.h"
 #include "control-node/control_node.h"
 #include "control-node/options.h"
-#include "control-node/sandesh/control_node_types.h"
 #include "db/db_graph.h"
 #include "ifmap/client/ifmap_manager.h"
 #include "ifmap/ifmap_link_table.h"
@@ -131,9 +130,7 @@ static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
 // Shutdown various server objects used in the control-node.
 static void ShutdownServers(
     boost::scoped_ptr<BgpXmppChannelManager> *channel_manager,
-    DiscoveryServiceClient *dsclient,
-    Timer *node_info_log_timer,
-    TaskTbbKeepAwake *tbb_awake_task) {
+    DiscoveryServiceClient *dsclient, TaskTbbKeepAwake *tbb_awake_task) {
 
     // Bring down bgp server, xmpp server, etc. in the right order.
     BgpServer *bgp_server = (*channel_manager)->bgp_server();
@@ -161,9 +158,8 @@ static void ShutdownServers(
 
     channel_manager->reset();
     TcpServerManager::DeleteServer(xmpp_server);
-    if (node_info_log_timer) {
-        TimerManager::DeleteTimer(node_info_log_timer);
-    }
+    ControlNode::Shutdown();
+
     // Shutdown Discovery Service Client
     ShutdownDiscoveryClient(dsclient);
 
@@ -177,66 +173,6 @@ static void ShutdownServers(
     WaitForIdle();
     SandeshHttp::Uninit();
     WaitForIdle();
-}
-
-static bool ControlNodeInfoLogTimer(TaskTrigger *node_info_trigger) {
-    node_info_trigger->Set();
-    // Periodic timer. Restart
-    return true;
-}
-
-static bool ControlNodeInfoLogger(BgpServer *server,
-                                  BgpXmppChannelManager *xmpp_channel_mgr,
-                                  IFMapServer *ifmap_server,
-                                  Timer *node_info_log_timer) {
-    static bool first = true;
-    static BgpRouterState state;
-    bool change = false;
-
-    state.set_name(server->localname());
-
-    // Send self information.
-    uint64_t start_time = UTCTimestampUsec();
-    if (first || start_time != state.get_uptime()) {
-        state.set_uptime(start_time);
-        change = true;
-    }
-
-    vector<string> ip_list;
-    ip_list.push_back(ControlNode::GetSelfIp());
-    if (first || state.get_bgp_router_ip_list() != ip_list) {
-        state.set_bgp_router_ip_list(ip_list);
-        change = true;
-    }
-
-    vector<string> list;
-    MiscUtils::GetCoreFileList(ControlNode::GetProgramName(), list);
-    if (first || state.get_core_files_list() != list) {
-        state.set_core_files_list(list);
-        change = true;
-    }
-
-    // Send Build information.
-    string build_info;
-    MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo, build_info);
-    if (first || build_info != state.get_build_info()) {
-        state.set_build_info(build_info);
-        change = true;
-    }
-
-    change |= server->CollectStats(&state, first);
-    change |= xmpp_channel_mgr->CollectStats(&state, first);
-    change |= ifmap_server->CollectStats(&state, first);
-
-    if (change) {
-        BGPRouterInfo::Send(state);
-
-        // Reset changed flags in the uve structure.
-        memset(&state.__isset, 0, sizeof(state.__isset));
-    }
-
-    first = false;
-    return true;
 }
 
 // Trigger graceful shutdown of control-node process.
@@ -517,8 +453,7 @@ int main(int argc, char *argv[]) {
                                    &sandesh_context));
             if (!success) {
                 LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-                ShutdownServers(&bgp_peer_manager, ds_client, NULL,
-                                &tbb_awake_task);
+                ShutdownServers(&bgp_peer_manager, ds_client, &tbb_awake_task);
                 exit(1);
             }
         }
@@ -534,28 +469,18 @@ int main(int argc, char *argv[]) {
     // initialized.
     ifmap_manager->InitializeDiscovery(ds_client, options.ifmap_server_url());
 
-    std::auto_ptr<Timer> node_info_log_timer(
-        TimerManager::CreateTimer(
-            *evm.io_service(), "ControlNode Info log timer"));
-
-    std::auto_ptr<TaskTrigger> node_info_trigger(
-        new TaskTrigger(
-            boost::bind(&ControlNodeInfoLogger,
-                        bgp_server.get(), bgp_peer_manager.get(),
-                        &ifmap_server, node_info_log_timer.get()),
-            TaskScheduler::GetInstance()->GetTaskId("bgp::ShowCommand"), 0));
-
-    // Start periodic timer to send BGPRouterInfo UVE.
-    node_info_log_timer->Start(
-        60 * 1000,
-        boost::bind(&ControlNodeInfoLogTimer, node_info_trigger.get()),
-        NULL);
+    // Set BuildInfo.
+    string build_info;
+    MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo, build_info);
+    ControlNode::StartControlNodeInfoLogger(evm, 60 * 1000,
+                                            bgp_server.get(),
+                                            bgp_peer_manager.get(),
+                                            &ifmap_server, build_info);
 
     // Event loop.
     evm.Run();
 
-    ShutdownServers(&bgp_peer_manager, ds_client, node_info_log_timer.get(),
-                    &tbb_awake_task);
+    ShutdownServers(&bgp_peer_manager, ds_client, &tbb_awake_task);
     BgpServer::Terminate();
     return 0;
 }
