@@ -12,19 +12,6 @@
 #include "discovery/client/discovery_client.h"
 #include "discovery_client_stats_types.h"
 
-void ShutdownControlNodeReq::HandleRequest() const {
-    BgpSandeshContext *bsc =
-        dynamic_cast<BgpSandeshContext *>(client_context());
-    ShutdownControlNodeResp *resp = new ShutdownControlNodeResp();
-    resp->set_more(false);
-    resp->set_success(bsc->test_mode());
-    resp->set_context(context());
-    resp->Response();
-    if (bsc->test_mode()) {
-        ControlNodeShutdown();
-    }
-}
-
 void DiscoveryClientSubscriberStatsReq::HandleRequest() const {
     DiscoveryClientSubscriberStatsResponse *resp =
         new DiscoveryClientSubscriberStatsResponse();

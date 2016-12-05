@@ -10,6 +10,12 @@
 #include "sandesh/sandesh_trace.h"
 #include "discovery/client/discovery_client.h"
 
+class EventManager;
+class BgpServer;
+class BgpXmppChannelManager;
+class IFMapServer;
+class TaskTrigger;
+
 class ControlNode {
 public:
     static void SetDefaultSchedulingPolicy();
@@ -27,8 +33,18 @@ public:
     }
     static void SetTestMode(const bool flag) { test_mode_ = flag; }
     static bool GetTestMode() { return test_mode_; }
+    static void StartControlNodeInfoLogger(
+        EventManager &evm, uint64_t period_msecs, const BgpServer *server,
+        const BgpXmppChannelManager *xmpp_channel_mgr,
+        const IFMapServer *ifmap_server, const string &build_info);
+    static void Shutdown();
 
 private:
+    static bool ControlNodeInfoLogger(const BgpServer *server,
+        const BgpXmppChannelManager *xmpp_channel_mgr,
+        const IFMapServer *ifmap_server, const std::string &build_info);
+    static bool ControlNodeInfoLogTimer(TaskTrigger *node_info_trigger);
+
     static std::string hostname_;
     static std::string prog_name_;
     static std::string self_ip_;
