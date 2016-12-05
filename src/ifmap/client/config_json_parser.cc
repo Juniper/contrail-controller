@@ -63,6 +63,30 @@ IFMapTable::RequestKey *ConfigJsonParser::CloneKey(
     return retkey;
 }
 
+bool ConfigJsonParser::ParseOneProperty(const Value &key_node,
+        const Value &value_node, bool add_change,
+        const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
+        RequestList *req_list) const {
+    string metaname = key_node.GetString();
+    MetadataParseMap::const_iterator loc = metadata_map_.find(metaname);
+    if (loc == metadata_map_.end()) {
+        return true;
+    }
+    cout << "Property: " << metaname << endl;
+    auto_ptr<AutogenProperty> pvalue;
+    bool success = (loc->second)(value_node, &pvalue);
+    if (!success) {
+        cout << "loc->second call failure\n";
+        return false;
+    }
+
+    std::replace(metaname.begin(), metaname.end(), '_', '-');
+    InsertRequestIntoQ(origin, "", "", metaname, pvalue, key, add_change,
+                       req_list);
+
+    return true;
+}
+
 bool ConfigJsonParser::ParseProperties(const Document &document,
         bool add_change, const IFMapTable::RequestKey &key,
         IFMapOrigin::Origin origin, RequestList *req_list) const {
@@ -71,38 +95,31 @@ bool ConfigJsonParser::ParseProperties(const Document &document,
     const Value &value_node = doc_itr->value;
     for (Value::ConstMemberIterator itr = value_node.MemberBegin();
          itr != value_node.MemberEnd(); ++itr) {
-        MetadataParseMap::const_iterator loc =
-            metadata_map_.find(itr->name.GetString());
-        if (loc == metadata_map_.end()) {
-            continue;
-        }
-        cout << "Property: " << itr->name.GetString() << endl;
-        auto_ptr<AutogenProperty> pvalue;
-        bool success = (loc->second)(itr->value, &pvalue);
-        if (!success) {
-            cout << "loc->second call failure\n";
-            return false;
-        }
-        // Empty id_type and id_name strings.
-        IFMapServerTable::RequestData *data =
-            new IFMapServerTable::RequestData(origin, "", "");
-
-        // For properties, the autogen-code is expecting dashes in the name.
-        string metaname = itr->name.GetString();
-        std::replace(metaname.begin(), metaname.end(), '_', '-');
-        data->metadata = metaname;
-        data->content.reset(pvalue.release());
-
-        DBRequest *db_request = new DBRequest();
-        db_request->oper = (add_change ? DBRequest::DB_ENTRY_ADD_CHANGE :
-                            DBRequest::DB_ENTRY_DELETE);
-        db_request->key.reset(CloneKey(key));
-        db_request->data.reset(data);
-
-        req_list->push_back(db_request);
+        ParseOneProperty(itr->name, itr->value, add_change, key, origin,
+                         req_list);
     }
 
     return true;
+}
+
+void ConfigJsonParser::InsertRequestIntoQ(IFMapOrigin::Origin origin,
+        const string &neigh_type, const string &neigh_name,
+        const string &metaname, auto_ptr<AutogenProperty > pvalue,
+        const IFMapTable::RequestKey &key, bool add_change,
+        RequestList *req_list) const {
+
+    IFMapServerTable::RequestData *data =
+        new IFMapServerTable::RequestData(origin, neigh_type, neigh_name);
+    data->metadata = metaname;
+    data->content.reset(pvalue.release());
+
+    DBRequest *db_request = new DBRequest();
+    db_request->oper = (add_change ? DBRequest::DB_ENTRY_ADD_CHANGE :
+                        DBRequest::DB_ENTRY_DELETE);
+    db_request->key.reset(CloneKey(key));
+    db_request->data.reset(data);
+
+    req_list->push_back(db_request);
 }
 
 bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
@@ -112,19 +129,8 @@ bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
     const Value& to_node = ref_entry["to"];
     assert(to_node.IsArray());
 
-    string neigh_name;
-    size_t i = 0;
-    for (; i < to_node.Size() - 1; ++i) {
-        neigh_name += to_node[i].GetString();
-        neigh_name += string(":");
-    }
-    neigh_name += to_node[i].GetString();
-    cout << "neigh type " << neigh_type
-         << " ----- neigh name is " << neigh_name << endl;
-
     string from_underscore = key.id_type;
     std::replace(from_underscore.begin(), from_underscore.end(), '-', '_');
-
     string metaname = from_underscore + "_" + to_underscore;
 
     MetadataParseMap::const_iterator loc = metadata_map_.find(metaname);
@@ -140,21 +146,20 @@ bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
         return false;
     }
 
-    IFMapServerTable::RequestData *data =
-        new IFMapServerTable::RequestData(origin, neigh_type, neigh_name);
+    string neigh_name;
+    size_t i = 0;
+    for (; i < to_node.Size() - 1; ++i) {
+        neigh_name += to_node[i].GetString();
+        neigh_name += string(":");
+    }
+    neigh_name += to_node[i].GetString();
+    cout << "neigh type " << neigh_type
+         << " ----- neigh name is " << neigh_name << endl;
+
     string metaname_dash = metaname;
     std::replace(metaname_dash.begin(), metaname_dash.end(), '_', '-');
-    cout << "metaname_dash " << metaname_dash << endl;
-    data->metadata = metaname_dash;
-    data->content.reset(pvalue.release());
-
-    DBRequest *db_request = new DBRequest();
-    db_request->oper = (add_change ? DBRequest::DB_ENTRY_ADD_CHANGE :
-                        DBRequest::DB_ENTRY_DELETE);
-    db_request->key.reset(CloneKey(key));
-    db_request->data.reset(data);
-
-    req_list->push_back(db_request);
+    InsertRequestIntoQ(origin, neigh_type, neigh_name, metaname_dash, pvalue,
+                       key, add_change, req_list);
 
     return true;
 }
@@ -187,31 +192,48 @@ bool ConfigJsonParser::ParseLinks(const Document &document, bool add_change,
                          key, req_list);
             }
         }
+        if (key_str.compare("parent_type") == 0) {
+            const Value& ptype_node = itr->value;
+            assert(ptype_node.IsString());
+            pos = key.id_name.find_last_of(":");
+            if (pos != string::npos) {
+                string parent_type = ptype_node.GetString();
+                // Get the parent name from our name.
+                string parent_name = key.id_name.substr(0, pos);
+                cout << "parent name is " << parent_name;
+                string metaname = parent_type + "-" + key.id_type;
+                cout << " metaname is " << metaname << endl;
+                auto_ptr<AutogenProperty > pvalue;
+                InsertRequestIntoQ(origin, parent_type, parent_name, metaname,
+                                   pvalue, key, add_change, req_list);
+            } else {
+                continue;
+            }
+        }
     }
 
     return true;
 }
 
 bool ConfigJsonParser::ParseDocument(const Document &document, bool add_change,
-        IFMapOrigin::Origin origin, RequestList *req_list) const {
-    auto_ptr<IFMapTable::RequestKey> key(new IFMapTable::RequestKey());
+        IFMapOrigin::Origin origin, RequestList *req_list,
+        IFMapTable::RequestKey *key) const {
 
     // Update the name and the type into 'key'.
-    if (!ParseNameType(document, key.get())) {
+    if (!ParseNameType(document, key)) {
         return false;
     }
 
     // For each property, we will clone 'key' to create our DBRequest's i.e.
     // 'key' will never become part of any DBRequest.
-    if (!ParseProperties(document, add_change, *(key.get()), origin, req_list)){
+    if (!ParseProperties(document, add_change, *key, origin, req_list)){
         return false;
     }
 
-    if (!ParseLinks(document, add_change, *(key.get()), origin, req_list)) {
+    if (!ParseLinks(document, add_change, *key, origin, req_list)) {
         return false;
     }
 
-    EnqueueListToTables(req_list);
     return true;
 }
 
@@ -245,12 +267,59 @@ bool ConfigJsonParser::Receive(const string &in_message, bool add_change,
         IFMAP_WARN(IFMapJsonLoadError,
                    "Error in parsing JSON message at position",
                    pos, "with error description", document.GetParseError());
+        return false;
     } else {
         cout << "No parse error\n";
-        ParseDocument(document, add_change, origin, &req_list);
+        auto_ptr<IFMapTable::RequestKey> key(new IFMapTable::RequestKey());
+        if (ParseDocument(document, add_change, origin, &req_list, key.get())) {
+            CompareOldAndNewDocuments(document, in_message, *(key.get()),
+                                      origin, &req_list);
+        } else {
+            return false;
+        }
+        EnqueueListToTables(&req_list);
         //TmpParseDocument(document);
     }
     return true;
+}
+
+void ConfigJsonParser::CompareOldAndNewDocuments(
+        const rapidjson::Document &document, const string &in_message,
+        const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
+        RequestList *req_list) {
+    Value::ConstMemberIterator itr = document.MemberBegin();
+    const Value &new_properties = itr->value;
+    assert(new_properties.HasMember("uuid"));
+    const Value &uuid_node = new_properties["uuid"];
+    assert(uuid_node.IsString());
+
+    string uuid_key = uuid_node.GetString();
+    Udmap_Iter iter = uuid_doc_map_.find(uuid_key);
+    if (iter == uuid_doc_map_.end()) {
+        std::pair<Udmap_Iter, bool> ret;
+        ret = uuid_doc_map_.insert(make_pair(uuid_key, in_message));
+        assert(ret.second);
+        return;
+    }
+
+    // This object already exists in our database. Compare the old and the new.
+    string old_message = iter->second;
+    Document old_document;
+    old_document.Parse<0>(old_message.c_str());
+
+    Value::ConstMemberIterator old_doc_itr = old_document.MemberBegin();
+    const Value &old_properties = old_doc_itr->value;
+    for (Value::ConstMemberIterator oitr = old_properties.MemberBegin();
+         oitr != old_properties.MemberEnd(); ++oitr) {
+        if (new_properties.HasMember(oitr->name.GetString())) {
+            continue;
+        } else {
+            // If the new update does not have a property that we had before,
+            // send a property-delete to the table.
+            ParseOneProperty(oitr->name, oitr->value, false, key, origin,
+                             req_list);
+        }
+    }
 }
 
 // For testing purposes only. Delete before release.

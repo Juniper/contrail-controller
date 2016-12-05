@@ -82,14 +82,18 @@ TEST_F(ConfigJsonParserTest, VirtualNetworkParse) {
     TASK_UTIL_EXPECT_EQ(1, table->Size());
 
     IFMapNode *vnn = NodeLookup("virtual-network", "dd:dp:vn1");
-    EXPECT_TRUE(vnn != NULL);
+    ASSERT_TRUE(vnn != NULL);
     IFMapObject *obj = vnn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
-    EXPECT_TRUE(obj != NULL);
+    ASSERT_TRUE(obj != NULL);
 
-    // No refs and hence no links.
+    // No refs but link to parent (project-virtual-network) exists
     IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
         db_.FindTable("__ifmap_metadata__.0"));
-    TASK_UTIL_EXPECT_EQ(0, link_table->Size());
+    TASK_UTIL_EXPECT_EQ(1, link_table->Size());
+    IFMapNode *projn = NodeLookup("project", "dd:dp");
+    ASSERT_TRUE(projn != NULL);
+    IFMapLink *link = LinkLookup(projn, vnn, "project-virtual-network");
+    EXPECT_TRUE(link != NULL);
 
     autogen::VirtualNetwork *vn = static_cast<autogen::VirtualNetwork *>(obj);
     TASK_UTIL_EXPECT_TRUE(vn->IsPropertySet(autogen::VirtualNetwork::ID_PERMS));
@@ -124,14 +128,18 @@ TEST_F(ConfigJsonParserTest, AclParse) {
     TASK_UTIL_EXPECT_EQ(1, table->Size());
 
     IFMapNode *acln = NodeLookup("access-control-list", "dd:acl1:iacl");
-    EXPECT_TRUE(acln != NULL);
+    ASSERT_TRUE(acln != NULL);
     IFMapObject *obj = acln->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
-    // No refs and hence no links.
+    // No refs but link to parent (security-group-access-control-list)
     IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
         db_.FindTable("__ifmap_metadata__.0"));
-    TASK_UTIL_EXPECT_EQ(0, link_table->Size());
+    TASK_UTIL_EXPECT_EQ(1, link_table->Size());
+    IFMapNode *sgn = NodeLookup("security-group", "dd:acl1");
+    ASSERT_TRUE(sgn != NULL);
+    IFMapLink *link = LinkLookup(sgn, acln, "security-group-access-control-list");
+    EXPECT_TRUE(link != NULL);
 
     autogen::AccessControlList *acl = static_cast<autogen::AccessControlList *>
                                           (obj);
@@ -149,7 +157,7 @@ TEST_F(ConfigJsonParserTest, AclParse) {
     TASK_UTIL_EXPECT_EQ(pt2.owner_access, 5);
 }
 
-TEST_F(ConfigJsonParserTest, VmiParse) {
+TEST_F(ConfigJsonParserTest, VmiParseAddDeleteProperty) {
     string message =
         FileRead("controller/src/ifmap/client/testdata/vmi.json");
     assert(message.size() != 0);
@@ -162,30 +170,35 @@ TEST_F(ConfigJsonParserTest, VmiParse) {
 
     IFMapNode *vmin = NodeLookup("virtual-machine-interface",
         "dd:VMI:42f6d841-d1c7-40b8-b1c4-ca2ab415c81d");
-    EXPECT_TRUE(vmin != NULL);
+    ASSERT_TRUE(vmin != NULL);
     IFMapObject *obj = vmin->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *rin = NodeLookup("routing-instance", "dd:vn1:vn1");
-    EXPECT_TRUE(rin != NULL);
+    ASSERT_TRUE(rin != NULL);
     table = IFMapTable::FindTable(&db_, "routing-instance");
     TASK_UTIL_EXPECT_EQ(1, table->Size());
 
     IFMapNode *sgn = NodeLookup("security-group", "dd:sg1:default");
-    EXPECT_TRUE(sgn != NULL);
+    ASSERT_TRUE(sgn != NULL);
     table = IFMapTable::FindTable(&db_, "security-group");
     TASK_UTIL_EXPECT_EQ(1, table->Size());
 
     IFMapNode *vnn = NodeLookup("virtual-network", "dd:vn1");
-    EXPECT_TRUE(vnn != NULL);
+    ASSERT_TRUE(vnn != NULL);
     table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(1, table->Size());
+
+    IFMapNode *projn = NodeLookup("project", "dd:VMI");
+    ASSERT_TRUE(projn);
+    table = IFMapTable::FindTable(&db_, "project");
     TASK_UTIL_EXPECT_EQ(1, table->Size());
 
     IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
         db_.FindTable("__ifmap_metadata__.0"));
-    // vmi-sg, vmi-vn, vmi-vmirn, vmirn-rn (vmi-rn has metadata)
-    TASK_UTIL_EXPECT_EQ(4, link_table->Size());
-
+    // refs: vmi-sg, vmi-vn, vmi-vmirn, vmirn-rn (vmi-rn has metadata)
+    // parent: project-virtual-machine-interface
+    TASK_UTIL_EXPECT_EQ(5, link_table->Size());
     IFMapLink *link = LinkLookup(vmin, sgn,
         "virtual-machine-interface-security-group");
     EXPECT_TRUE(link != NULL);
@@ -208,6 +221,24 @@ TEST_F(ConfigJsonParserTest, VmiParse) {
     cmp = pt2.owner.compare("6ca1f1de004d48f99cf4528539b20013");
     TASK_UTIL_EXPECT_EQ(cmp, 0);
     TASK_UTIL_EXPECT_EQ(pt2.owner_access, 7);
+
+    TASK_UTIL_EXPECT_TRUE(
+        vmi->IsPropertySet(autogen::VirtualMachineInterface::DISABLE_POLICY));
+    // vmi1.json does not have the DISABLE_POLICY property. After processing
+    // this message, the node should not have this property.
+    message = FileRead("controller/src/ifmap/client/testdata/vmi1.json");
+    assert(message.size() != 0);
+    parser_.Receive(message, add_change, IFMapOrigin::CASSANDRA);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(
+        vmi->IsPropertySet(autogen::VirtualMachineInterface::DISABLE_POLICY));
+    // All other properties should still be set/unset as before.
+    TASK_UTIL_EXPECT_TRUE(
+        vmi->IsPropertySet(autogen::VirtualMachineInterface::DISPLAY_NAME));
+    TASK_UTIL_EXPECT_TRUE(
+        vmi->IsPropertySet(autogen::VirtualMachineInterface::PERMS2));
+    TASK_UTIL_EXPECT_FALSE(
+        vmi->IsPropertySet(autogen::VirtualMachineInterface::ANNOTATIONS));
 }
 
 int main(int argc, char **argv) {
