@@ -88,11 +88,10 @@ class Collector(object):
            self.redis_password = str(self._redis_uve.password)
         if self._is_dup is True:
             self.hostname = self.hostname+'dup'
-        self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
-                            ':'+ModuleNames[Module.COLLECTOR]+':0'
         self.cassandra_user = analytics_fixture.cassandra_user
         self.cassandra_password = analytics_fixture.cassandra_password
         self.zk_port = zookeeper.port
+        self._generator_id = None
     # end __init__
 
     def get_addr(self):
@@ -175,6 +174,8 @@ class Collector(object):
                          self.analytics_fixture.start_with_ephemeral_ports(
                          "contrail-collector", ["http","collector"],
                          args, AnalyticsFixture.enable_core)
+        self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
+                            ':'+ModuleNames[Module.COLLECTOR]+':'+str(self._instance.pid)
         self.http_port = ports["http"]
         self.listen_port = ports["collector"]
         return self.verify_setup()

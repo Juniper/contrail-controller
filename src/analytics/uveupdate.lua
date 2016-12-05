@@ -3,6 +3,7 @@
 --
 
 local sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4]
+local ngen_sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[13]
 local typ = ARGV[5]
 local attr = ARGV[6]
 local key = ARGV[7]
@@ -21,10 +22,12 @@ local _values = KEYS[5]
 redis.log(redis.LOG_DEBUG,"UVEUpdate for "..sm.." key "..key.." type:attr "..typ..":"..attr)
 
 redis.call('select',db)
-local ism = redis.call('sismember', 'NGENERATORS', sm)
+local ism = redis.call('sismember', 'NGENERATORS', ngen_sm)
 if ism == 0 then
     return false
 end
+
+redis.call('expire', "NGENERATORS", 40)
 
 if is_alarm == 0 then
     redis.call('sadd',"PART2KEY:"..part, sm..":"..typ..":"..key)
