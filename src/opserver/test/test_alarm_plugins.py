@@ -759,16 +759,16 @@ class TestAlarmPlugins(unittest.TestCase):
     def test_alarm_partial_sysinfo(self):
         tests = [
             TestCase(
-                name='CollectorState == null',
+                name='NodeStatus == null',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={}),
                 output=TestOutput(or_list=None)
             ),
             TestCase(
-                name='CollectorState.build_info == null',
+                name='NodeStatus.build_info == null',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={
-                        'CollectorState': {
+                        'NodeStatus': {
                             'self_ip_list': ['10.10.10.1']
                         }
                     }
@@ -778,7 +778,7 @@ class TestAlarmPlugins(unittest.TestCase):
                         'and_list': [
                             {
                                 'condition': {
-                                    'operand1': 'CollectorState.build_info',
+                                    'operand1': 'NodeStatus.build_info',
                                     'operand2': {
                                         'json_value': 'null'
                                     },
@@ -795,10 +795,10 @@ class TestAlarmPlugins(unittest.TestCase):
                 ])
             ),
             TestCase(
-                name='CollectorState.build_info != null',
+                name='NodeStatus.build_info != null',
                 input=TestInput(uve_key='ObjectCollectorInfo:host1',
                     uve_data={
-                        'CollectorState': {
+                        'NodeStatus': {
                             'self_ip_list': ['10.10.10.1'],
                             'build_info': '"{"build-number":"100"}"'
                         }
@@ -807,165 +807,7 @@ class TestAlarmPlugins(unittest.TestCase):
                 output=TestOutput(or_list=None)
             )
         ]
-        self._verify(tests, alarm_name="system-defined-partial-sysinfo-analytics")
-
-        tests = [
-            TestCase(
-                name='ModuleCpuState == null',
-                input=TestInput(uve_key='ObjectConfigNode:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=None)
-            ),
-            TestCase(
-                name='ModuleCpuState.build_info == null',
-                input=TestInput(uve_key='ObjectConfigNode:host2',
-                    uve_data={
-                        'ModuleCpuState': {
-                            'config_node_ip': ['192.168.1.1']
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [
-                            {
-                                'condition': {
-                                    'operand1': 'ModuleCpuState.build_info',
-                                    'operand2': {
-                                        'json_value': 'null'
-                                    },
-                                    'operation': '=='
-                                },
-                                'match': [
-                                    {
-                                        'json_operand1_val': 'null'
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='ModuleCpuState.build_info != null',
-                input=TestInput(uve_key='ObjectConfigNode:host1',
-                    uve_data={
-                        'ModuleCpuState': {
-                            'config_node_ip': ['10.10.10.1'],
-                            'build_info': '"{"build-number":"2729"}"'
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(tests, alarm_name="system-defined-partial-sysinfo-config")
-
-        tests = [
-            TestCase(
-                name='BgpRouterState == null',
-                input=TestInput(uve_key='ObjectBgpRouter:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=None)
-            ),
-            TestCase(
-                name='BgpRouterState.build_info == null',
-                input=TestInput(uve_key='ObjectBgpRouter:host2',
-                    uve_data={
-                        'BgpRouterState': {
-                            'bgp_router_ip_list': ['192.168.1.1']
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [
-                            {
-                                'condition': {
-                                    'operand1': 'BgpRouterState.build_info',
-                                    'operand2': {
-                                        'json_value': 'null'
-                                    },
-                                    'operation': '=='
-                                },
-                                'match': [
-                                    {
-                                        'json_operand1_val': 'null'
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='BgpRouterState.build_info != null',
-                input=TestInput(uve_key='ObjectBgpRouter:host3',
-                    uve_data={
-                        'BgpRouterState': {
-                            'bgp_router_ip_list': ['10.10.10.1'],
-                            'build_info': '"{"build-number":"2121"}"'
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(tests, alarm_name="system-defined-partial-sysinfo-control")
-
-        tests = [
-            TestCase(
-                name='VrouterAgent == null',
-                input=TestInput(uve_key='ObjectVRouter:host1',
-                    uve_data={}),
-                output=TestOutput(or_list=None)
-            ),
-            TestCase(
-                name='VrouterAgent.build_info == null',
-                input=TestInput(uve_key='ObjectVRouter:host2',
-                    uve_data={
-                        'VrouterAgent': {
-                            'control_ip': '192.168.1.1'
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=[
-                    {
-                        'and_list': [
-                            {
-                                'condition': {
-                                    'operand1': 'VrouterAgent.build_info',
-                                    'operand2': {
-                                        'json_value': 'null'
-                                    },
-                                    'operation': '=='
-                                },
-                                'match': [
-                                    {
-                                        'json_operand1_val': 'null'
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ])
-            ),
-            TestCase(
-                name='VrouterAgent.build_info != null',
-                input=TestInput(uve_key='ObjectVRouter:host3',
-                    uve_data={
-                        'VrouterAgent': {
-                            'control_ip': '10.10.10.1',
-                            'build_info': '"{"build-number":"2829"}"'
-                        },
-                        'ContrailConfig': {
-                        }
-                    }
-                ),
-                output=TestOutput(or_list=None)
-            )
-        ]
-        self._verify(tests, alarm_name="system-defined-partial-sysinfo-compute")
+        self._verify(tests, alarm_name="system-defined-partial-sysinfo")
     # end test_alarm_partial_sysinfo
 
     def test_alarm_process_connectivity(self):
