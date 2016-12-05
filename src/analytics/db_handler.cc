@@ -162,11 +162,16 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     disable_statistics_writes_(false),
     disable_messages_writes_(false),
     disable_messages_keyword_writes_(false),
-    udc_(new UserDefinedCounters(0, 0)) {
+    udc_(new UserDefinedCounters(0, 0)),
+    udc_cfg_poll_timer_(NULL),
+    use_db_write_options_(false) {
 }
 
 DbHandler::~DbHandler() {
-    TimerManager::DeleteTimer(udc_cfg_poll_timer_);
+    if (udc_cfg_poll_timer_) {
+        TimerManager::DeleteTimer(udc_cfg_poll_timer_);
+        udc_cfg_poll_timer_ = NULL;
+    }
 }
 
 uint64_t DbHandler::GetTtlInHourFromMap(const TtlMap& ttl_map,
