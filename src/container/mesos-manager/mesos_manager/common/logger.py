@@ -1,4 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
@@ -8,10 +7,11 @@ Contrail Mesos Manager logger
 """
 
 import logging
+import socket
 
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 import discoveryclient.client as client
-from mesos_manager.sandesh.mesos_manager import ttypes as sandesh
+from sandesh.mesos_manager import ttypes as sandesh
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
@@ -155,12 +155,12 @@ class MesosManagerLogger(object):
 
         # Initialize Sandesh generator.
         self._sandesh.init_generator(
-            self.module.name, self.module.hostname,
-            self.module.node_type_name, self.module.instance_id,
+            self.module['name'], self.module['hostname'],
+            self.module['node_type_name'], self.module['instance_id'],
             self._args.collectors, 'mesos_manager_context',
             int(self._args.http_server_port),
             ['cfgm_common', 'mesos_manager.sandesh'],
-            self.module.discovery, logger_class=self._args.logger_class,
+            self.module['discovery'], logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf)
 
         # Set Sandesh logging params.
@@ -172,8 +172,8 @@ class MesosManagerLogger(object):
             syslog_facility=self._args.syslog_facility)
 
         # Connect to collector.
-        ConnectionState.init(self._sandesh, self.module.hostname,
-            self.module.name, self.module.instance_id,
+        ConnectionState.init(self._sandesh, self.module['hostname'],
+            self.module['name'], self.module['instance_id'],
             staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus, self.module.table)
+            NodeStatusUVE, NodeStatus, self.module['table'])
 

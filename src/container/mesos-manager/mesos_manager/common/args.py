@@ -3,9 +3,11 @@
 #
 
 import argparse
+import ConfigParser
 import sys
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
+import mesos_consts
 from sandesh_common.vns.constants import HttpPortMesosManager
 
 
@@ -16,6 +18,8 @@ def parse_args():
     args, remaining_argv = conf_parser.parse_known_args(sys.argv)
 
     defaults = {
+        'listen_ip_addr': mesos_consts._WEB_HOST,
+        'listen_port': mesos_consts._WEB_PORT,
         'http_server_port': HttpPortMesosManager,
         'worker_id': '0',
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
@@ -40,6 +44,10 @@ def parse_args():
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'cassandra_server_ip': mesos_consts._CASSANDRA_HOST,
+        'cassandra_server_port': mesos_consts._CASSANDRA_PORT,
+        'cassandra_max_retries': mesos_consts._CASSANDRA_MAX_RETRIES,
+        'cassandra_timeout': mesos_consts._CASSANDRA_TIMEOUT,
         'cassandra_user': None,
         'cassandra_password': None,
         'cluster_id': '',
