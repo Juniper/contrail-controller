@@ -59,7 +59,7 @@ TEST_F(OptionsTest, NoArguments) {
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
+    EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -102,7 +102,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
+    EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -148,7 +148,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
+    EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -189,7 +189,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
+    EXPECT_EQ(options_.discovery_server(), "");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
