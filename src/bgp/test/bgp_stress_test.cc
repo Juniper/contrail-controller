@@ -26,7 +26,9 @@
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
+#include "ifmap/ifmap_sandesh_context.h"
 #include "control-node/control_node.h"
+#include "xmpp/xmpp_sandesh.h"
 
 
 #include "schema/bgp_schema_types.h"
@@ -543,11 +545,31 @@ void BgpStressTest::SetUp() {
 
     sandesh_context_->bgp_server = server_.get();
     sandesh_context_->xmpp_peer_manager = channel_manager_.get();
+    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
+    ifmap_manager_.reset(new IFMapManagerTest(ifmap_server_.get(),
+        IFMapConfigOptions(), boost::bind(&IFMapServerParser::Receive,
+                                          ifmap_parser, config_db_, _1, _2, _3),
+        evm_.io_service()));
+    ifmap_server_->set_ifmap_manager(ifmap_manager_.get());
+
+    XmppSandeshContext xmpp_sandesh_context;
+    xmpp_sandesh_context.xmpp_server = xmpp_server_test_;
+    Sandesh::set_module_context("XMPP", &xmpp_sandesh_context);
+
+    IFMapSandeshContext ifmap_sandesh_context(ifmap_server_.get());
+    Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
 
     thread_.Start();
+    WaitForIdle();
+
+    // Start periodic uve timer to send UVE once every 10 milli seconds.
+    ControlNode::StartControlNodeInfoLogger(evm_, 10, server_.get(),
+                                            channel_manager_.get(),
+                                            ifmap_server_.get(), "1.0");
 }
 
 void BgpStressTest::TearDown() {
+    ControlNode::Shutdown();
     AgentCleanup();
     WaitForIdle();
     xmpp_server_test_->Shutdown();
