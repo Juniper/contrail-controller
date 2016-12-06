@@ -479,6 +479,33 @@ TEST_F(FlowTestV6, FlowAdd_5) {
     EXPECT_EQ(2U, out_count);
 }
 
+TEST_F(FlowTestV6, FlowAdd_6) {
+    Ip6Address ip = Ip6Address::from_string(ip6_vm1_ip);
+    MacAddress mac(0, 0, 0, 1, 1, 1);
+
+    AgentRoute *ip_rt = RouteGetV6("vrf5", ip, 128);
+    AgentRoute *evpn_Rt = EvpnRouteGet("vrf5", mac, ip, 0);
+
+    EXPECT_TRUE(ip_rt->WaitForTraffic() == true);
+    EXPECT_TRUE(evpn_Rt->WaitForTraffic() == true);
+
+    //Enqueue a flow with wrong mac address
+    TxL2Ip6Packet(flow0->id(),input[2].mac, input[1].mac,
+                  ip6_vm1_ip, ip6_vm2_ip, IPPROTO_ICMPV6);
+    client->WaitForIdle();
+    //Only IP route should goto wait for traffic
+    EXPECT_TRUE(ip_rt->WaitForTraffic() == false);
+    EXPECT_TRUE(evpn_Rt->WaitForTraffic() == true);
+
+    //Enqueue flow with right mac address
+    //EVPN route should also goto traffic seen state
+    TxL2Ip6Packet(flow0->id(),input[0].mac, input[1].mac,
+                  ip6_vm1_ip, ip6_vm2_ip, IPPROTO_ICMPV6);
+    client->WaitForIdle();
+    EXPECT_TRUE(ip_rt->WaitForTraffic() == false);
+    EXPECT_TRUE(evpn_Rt->WaitForTraffic() == false);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
