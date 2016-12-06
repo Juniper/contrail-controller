@@ -67,6 +67,9 @@ RESTServer::RESTServer(Agent *agent)
     : agent_(agent), http_server_(new HttpServer(agent->event_manager())) {
     http_server_->RegisterHandler(HTTP_WILDCARD_ENTRY,
         boost::bind(&RESTServer::HandleRequest, this, _1, _2));
+}
+
+void RESTServer::InitDone() {
     http_server_->Initialize(ContrailPorts::PortIpcVrouterAgentPort());
 }
 
