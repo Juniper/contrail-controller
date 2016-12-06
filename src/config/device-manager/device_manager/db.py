@@ -1039,7 +1039,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             self.params = obj['virtual_machine_interface_properties']
             self.service_interface_type = self.params.get(
                 'service_interface_type', None)
-        self.device_owner = obj.get("virtual_machine_interface_device_owner")
+        self.device_owner = obj.get("virtual_machine_interface_device_owner") or ''
         self.update_single_ref('logical_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('floating_ip', obj)
