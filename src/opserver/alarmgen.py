@@ -565,13 +565,36 @@ class AlarmStateMachine:
         self.uai = uai
 
     def is_new_alarm_same(self, new_uai):
-        uai2 = copy.deepcopy(self.uai)
-        uai2.timestamp = 0
-        uai2.token = ""
-        uai2.ack = False
-
-        if (uai2 == new_uai) and \
-                self.uas.state == UVEAlarmState.Active:
+        old_or_list = self.uai.alarm_rules.or_list
+        new_or_list = new_uai.alarm_rules.or_list
+        if (not old_or_list and new_or_list) or \
+            (old_or_list and not new_or_list):
+            return False
+        if old_or_list and new_or_list:
+            if len(old_or_list) != len(new_or_list):
+                return False
+            for i in range(len(old_or_list)):
+                old_or_term = old_or_list[i]
+                new_or_term = new_or_list[i]
+                if len(old_or_term.and_list) != len(new_or_term.and_list):
+                    return False
+                for j in range(len(old_or_term.and_list)):
+                    old_and_term = old_or_term.and_list[j]
+                    new_and_term = new_or_term.and_list[j]
+                    if old_and_term.condition != new_and_term.condition:
+                        return False
+                    if len(old_and_term.match) != len(new_and_term.match):
+                        return False
+                    if old_and_term.condition.operation in \
+                       ['<', '<=', '>', '>=', 'range']:
+                        for k in range(len(old_and_term.match)):
+                            if old_and_term.match[k].json_variables != \
+                               new_and_term.match[k].json_variables:
+                                return False
+                    else:
+                        if old_and_term.match != new_and_term.match:
+                            return False
+        if self.uas.state == UVEAlarmState.Active:
             return True
         return False
 
