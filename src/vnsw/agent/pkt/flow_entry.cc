@@ -739,6 +739,15 @@ AgentRoute *FlowEntry::GetUcRoute(const VrfEntry *entry,
     return rt;
 }
 
+AgentRoute *FlowEntry::GetEvpnRoute(const VrfEntry *vrf,
+                                    const MacAddress &mac,
+                                    const IpAddress &ip,
+                                    uint32_t ethernet_tag) {
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>(
+            vrf->GetEvpnRouteTable());
+    return table->FindRouteNoLock(mac, ip, ethernet_tag);
+}
+
 uint32_t FlowEntry::reverse_flow_fip() const {
     FlowEntry *rflow = reverse_flow_entry_.get();
     if (rflow) {
