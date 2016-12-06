@@ -73,7 +73,7 @@ function issu_run_sync {
     $cmd priority 440
     $cmd autostart true
     $cmd killasgroup false
-    $cmd s stopsignal KILL
+    $cmd stopsignal KILL
     $cmd exitcodes 0
     service supervisor restart
 }
@@ -141,22 +141,13 @@ function issu_contrail_get_and_set_old_conf {
         $set_cmd old_rabbit_ha_mode "$val"
     fi
 
-    cmd="$has_old_cmd reset_config"
-    val=$($cmd)
-    if [ $val == 1 ]
-    then
-        cmd="$get_old_cmd reset_config"
-        val=$($cmd)
-        $set_cmd reset_config "$val"
-    fi
-
     cmd="$has_old_cmd rabbit_port"
     val=$($cmd)
     if [ $val == 1 ]
     then
         cmd="$get_old_cmd rabbit_port"
         val=$($cmd)
-        $set_cmd rabbbit_port "$val"
+        $set_cmd old_rabbit_port "$val"
     fi
 
     cmd="$has_old_cmd rabbit_server"
@@ -168,14 +159,15 @@ function issu_contrail_get_and_set_old_conf {
         $set_cmd old_rabbit_server "$val"
     fi
 
-    cmd="$has_old_cmd reset_config"
+    cmd="$has_old_cmd cluster_id"
     val=$($cmd)
     if [ $val == 1 ]
     then
-        cmd="$get_old_cmd reset_config"
+        cmd="$get_old_cmd cluster_id"
         val=$($cmd)
-        $set_cmd old_rabbit_ha_mode "$val"
+        $set_cmd odb_prefix "$val"
     fi
+
 
 }
 
@@ -228,22 +220,13 @@ function issu_contrail_get_and_set_new_conf {
         $set_cmd new_rabbit_ha_mode "$val"
     fi
 
-    cmd="$has_new_cmd reset_config"
-    val=$($cmd)
-    if [ $val == 1 ]
-    then
-        cmd="$get_new_cmd reset_config"
-        val=$($cmd)
-        $set_cmd reset_config "$val"
-    fi
-
     cmd="$has_new_cmd rabbit_port"
     val=$($cmd)
     if [ $val == 1 ]
     then
         cmd="$get_new_cmd rabbit_port"
         val=$($cmd)
-        $set_cmd rabbbit_port "$val"
+        $set_cmd new_rabbit_port "$val"
     fi
 
     cmd="$has_new_cmd rabbit_server"
@@ -255,13 +238,12 @@ function issu_contrail_get_and_set_new_conf {
         $set_cmd new_rabbit_server "$val"
     fi
 
-    cmd="$has_new_cmd reset_config"
+    cmd="$has_new_cmd cluster_id"
     val=$($cmd)
     if [ $val == 1 ]
     then
-        cmd="$get_new_cmd reset_config"
+        cmd="$get_new_cmd cluster_id"
         val=$($cmd)
-        $set_cmd new_rabbit_ha_mode "$val"
+        $set_cmd ndb_prefix "$val"
     fi
-
 }
