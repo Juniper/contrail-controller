@@ -942,7 +942,7 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
             path_preference_sm = path_preference->GetSM(vm_intf->peer());
             if (path_preference_sm) {
                 EvTrafficSeen ev;
-                path_preference_sm->process_event(ev);
+                //path_preference_sm->process_event(ev);
             }
         }
     }
@@ -960,7 +960,7 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
             path_preference_sm = path_preference->GetSM(vm_intf->peer());
             if (path_preference_sm) {
                 EvTrafficSeen ev;
-                path_preference_sm->process_event(ev);
+                //path_preference_sm->process_event(ev);
             }
         }
     }
