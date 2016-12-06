@@ -59,9 +59,12 @@ systemlog sandesh QELog {
 
 /**
  * @description: sandesh request to enable a particular trace
+ * @cli_name: create trace enable
  */
 request sandesh TraceEnable {
+    /** to enable or disable this trace*/
     1: bool enable;
+    /** name of the trace type */
     2: string TraceType;
 }
 
@@ -75,6 +78,7 @@ response sandesh TraceEnableRes {
 
 /**
  * @description: sandesh request to dump trace status info per trace buffer
+ * @cli_name: read trace status
  */
 request sandesh TraceStatusReq {
 }
