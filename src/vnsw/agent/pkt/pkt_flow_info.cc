@@ -1353,6 +1353,48 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     return true;
 }
 
+void PktFlowInfo::EnqueueTrafficSeen(const PktInfo *pkt,
+                                     PktControlInfo *in,
+                                     PktControlInfo *out) {
+    if (pkt->family != Address::INET) {
+        return;
+    }
+
+    Ip4Address v4_src = pkt->ip_saddr.to_v4();
+    if (short_flow || linklocal_flow || !ingress) {
+        return;
+    }
+
+    const AgentRoute *rt = NULL;
+    bool enqueue_traffic_seen = false;
+    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(in->intf_);
+
+    if (l3_flow) {
+        rt = in->rt_;
+    } else if (in->vrf_) {
+        rt = flow_table->GetUcRoute(in->vrf_, v4_src);
+    }
+
+    if (rt && rt->WaitForTraffic()) {
+        enqueue_traffic_seen = true;
+    } else if (vm_intf) {
+        //L3 route is not in wait for traffic state
+        //EVPN route could be in wait for traffic, if yes
+        //enqueue traffic seen
+        rt = flow_table->GetEvpnRoute(in->vrf_, pkt->smac, v4_src,
+                                      vm_intf->ethernet_tag());
+        if (rt && rt->WaitForTraffic()) {
+            enqueue_traffic_seen = true;
+        }
+    }
+
+    if (enqueue_traffic_seen) {
+        flow_table->agent()->oper_db()->route_preference_module()->
+            EnqueueTrafficSeen(v4_src, 32, in->intf_->id(),
+                               pkt->vrf, pkt->smac);
+    }
+}
+
 void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr, pkt->ip_proto,
@@ -1365,24 +1407,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         Agent::GetInstance()->pkt()->flow_table()->DeleteFlowInfo(flow.get());
     }
 
-    if (pkt->family == Address::INET) {
-        Ip4Address v4_src = pkt->ip_saddr.to_v4();
-        if (ingress && !short_flow && !linklocal_flow) {
-            const AgentRoute *rt = NULL;
-            if (l3_flow) {
-                rt = in->rt_;
-            } else if (in->vrf_) {
-                rt = flow_table->GetUcRoute(in->vrf_, v4_src);
-            }
-            if (rt && rt->WaitForTraffic()) {
-                flow_table->agent()->oper_db()->route_preference_module()->
-                    EnqueueTrafficSeen(v4_src, 32, in->intf_->id(),
-                                       pkt->vrf, pkt->smac);
-            }
-        }
-    } else if (pkt->family == Address::INET6) {
-        //TODO:: Handle Ipv6 changes
-    }
+    EnqueueTrafficSeen(pkt, in, out);
 
     // Do not allow more than max flows
     if ((in->vm_ &&
