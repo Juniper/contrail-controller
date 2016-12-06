@@ -115,5 +115,8 @@ extern void TxTcp6MplsPacket(int ifindex, const char *out_sip,
                              const char *out_dip, uint32_t label,
                              const char *sip, const char *dip, uint16_t sport,
                              uint16_t dport, bool ack, int hash_id = 1);
-
+extern void TxL2Ip6Packet(int ifindex, const char *smac, const char *dmac,
+                          const char *sip, const char *dip, int proto,
+                          int hash_id = 1, int vrf = -1, uint16_t sport = 0,
+                          uint16_t dport = 0);
 #endif // __TEST_PKT_UTIL_H__

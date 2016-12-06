@@ -1540,6 +1540,9 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
 
     // TODO : No need for one more route lookup
     const AgentRoute *rt = NULL;
+    bool enqueue_traffic_seen = false;
+    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(in->intf_);
+
     IpAddress sip = pkt->ip_saddr;
     if (pkt->family == Address::INET ||
         pkt->family == Address::INET6) {
@@ -1551,16 +1554,28 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
     }
     // Generate event if route was waiting for traffic
     if (rt && rt->WaitForTraffic()) {
-        if (pkt->family == Address::INET) {
-            agent->oper_db()->route_preference_module()->EnqueueTrafficSeen
-                (sip, 32, in->intf_->id(), pkt->vrf, pkt->smac);
-        } else if (pkt->family == Address::INET6) {
-            agent->oper_db()->route_preference_module()->EnqueueTrafficSeen
-                (sip, 128, in->intf_->id(), pkt->vrf, pkt->smac);
+        enqueue_traffic_seen = true;
+    } else if (vm_intf) {
+        //L3 route is not in wait for traffic state
+        //EVPN route could be in wait for traffic, if yes
+        //enqueue traffic seen
+        rt = FlowEntry::GetEvpnRoute(in->vrf_, pkt->smac, sip,
+                vm_intf->ethernet_tag());
+        if (rt && rt->WaitForTraffic()) {
+            enqueue_traffic_seen = true;
         }
     }
-}
 
+    if (enqueue_traffic_seen) {
+        uint8_t plen = 32;
+        if (pkt->family == Address::INET6) {
+            plen = 128;
+        }
+        flow_table->agent()->oper_db()->route_preference_module()->
+            EnqueueTrafficSeen(sip, plen, in->intf_->id(),
+                               pkt->vrf, pkt->smac);
+    }
+}
 
 // Apply flow limits for in and out VMs
 void PktFlowInfo::ApplyFlowLimits(const PktControlInfo *in,
