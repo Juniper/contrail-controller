@@ -15,6 +15,10 @@ response sandesh ShowXmppServerResp {
     2: io.SocketIOStats tx_socket_stats;
 }
 
+/**
+ * @description: sandesh request to get XMPP server details
+ * @cli_name: read xmpp server
+ */
 request sandesh ShowXmppServerReq {
 }
 
@@ -35,6 +39,10 @@ response sandesh ShowXmppConnectionResp {
     1: list<ShowXmppConnection> connections;
 }
 
+/**
+ * @description: sandesh request to get XMPP connection details
+ * @cli_name: read xmpp connection
+ */
 request sandesh ShowXmppConnectionReq {
 }
 
@@ -42,6 +50,11 @@ response sandesh ClearXmppConnectionResp {
     1: bool success;
 }
 
+/**
+ * @description: sandesh request to clear XMPP connections
+ * @cli_name: delete xmpp connection
+ */
 request sandesh ClearXmppConnectionReq {
+    /* clear only hostname or all connections */
     1: string hostname_or_all;
 }
