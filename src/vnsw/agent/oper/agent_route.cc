@@ -781,6 +781,9 @@ bool AgentRoute::WaitForTraffic() const {
     for(Route::PathList::const_iterator it = GetPathList().begin();
         it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() && path->peer()->GetType() == Peer::INET_EVPN_PEER) {
+            continue;
+        }
         if (path->path_preference().wait_for_traffic() == true) {
             return true;
         }

@@ -105,6 +105,9 @@ public:
                        uint32_t ethernet_tag);
     EvpnRouteEntry *FindRoute(const MacAddress &mac, const IpAddress &ip_addr,
                               uint32_t ethernet_tag);
+    EvpnRouteEntry *FindRouteNoLock(const MacAddress &mac,
+                                    const IpAddress &ip_addr,
+                                    uint32_t ethernet_tag);
     static EvpnRouteEntry *FindRoute(const Agent *agent,
                                        const std::string &vrf_name,
                                        const MacAddress &mac,
