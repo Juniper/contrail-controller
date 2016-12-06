@@ -38,9 +38,17 @@ response sandesh SandeshTaskScheduler {
     4: list <SandeshTaskGroup> task_group_list;
 }
 
+/**
+ * @description: sandesh request to get sandesh task details
+ * @cli_name: read task detail
+ */
 request sandesh SandeshTaskRequest {
 }
 
+/**
+ * @description: sandesh request to get sandesh task summary
+ * @cli_name: read task summary
+ */
 request sandesh SandeshTaskSummaryRequest {
 }
 

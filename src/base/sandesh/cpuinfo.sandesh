@@ -7,6 +7,10 @@
  *  processes and the system
  */
 
+/**
+ * @description: sandesh request to get cpu load info
+ * @cli_name: read cpu load information
+ */
 request sandesh CpuLoadInfoReq {
 }
 
