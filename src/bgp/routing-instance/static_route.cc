@@ -911,13 +911,13 @@ void StaticRouteMgr<T>::EnableUnregisterTrigger() {
 
 template <typename T>
 uint32_t StaticRouteMgr<T>::GetRouteCount() const {
-    CHECK_CONCURRENCY("bgp::Uve");
+    CHECK_CONCURRENCY("bgp::ShowCommand");
     return static_route_map_.size();
 }
 
 template <typename T>
 uint32_t StaticRouteMgr<T>::GetDownRouteCount() const {
-    CHECK_CONCURRENCY("bgp::Uve");
+    CHECK_CONCURRENCY("bgp::ShowCommand");
     uint32_t count = 0;
     for (typename StaticRouteMap::const_iterator it = static_route_map_.begin();
          it != static_route_map_.end(); ++it) {
