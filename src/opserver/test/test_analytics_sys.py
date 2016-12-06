@@ -466,8 +466,30 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         line = 'football ' + chr(201) + chr(203) + chr(70) + ' and baseball'
         syslogger.critical(line)
         assert vizd_obj.verify_keyword_query(line, ['football', 'baseball'])
-
     # end test_11_verify_syslog_table_query
+
+    #@unittest.skip('verify message non ascii')
+    def test_12_verify_message_non_ascii(self):
+        '''
+        This test verifies message sent with non ascii character does not
+        crash vizd.
+        '''
+        logging.info('%%% test_12_verify_message_non_ascii %%%')
+        analytics = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.redis_port,
+                             self.__class__.cassandra_port))
+        assert analytics.verify_on_setup()
+        collectors = [analytics.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture('contrail-vrouter-agent-12', collectors,
+                             logging, None, node_type='Compute'))
+        assert generator_obj.verify_on_setup()
+        generator_obj.send_vrouterinfo(socket.gethostname(),
+            b_info = True, deleted = False, non_ascii=True)
+        # Verify vizd is still running
+        assert analytics.verify_collector_gen(analytics.collectors[0])
+    # end test_12_verify_message_non_ascii
 
     @staticmethod
     def get_free_port():
