@@ -55,7 +55,6 @@ public:
     static const std::string CoreFileDir;
     static const int MaxCoreFiles;
 
-    static void GetCoreFileList(std::string prog, std::vector<std::string> &list);
     static bool GetBuildInfo(BuildModule id, const std::string &build_info, std::string &result);
     static void GetHostIp(const std::string name, std::vector<std::string> &ip_list);
     static void LogVersionInfo(const std::string str, Category::type categ);
