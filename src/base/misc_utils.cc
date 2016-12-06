@@ -49,25 +49,35 @@ void MiscUtils::GetCoreFileList(string prog, vector<string> &list) {
         return;
     }
     FileMMap files_map;
-    
+
     string filename = "core." + BaseName(prog) + ".";
 
     fs::path dir_path(CoreFileDir.c_str());
     fs::directory_iterator end_itr;
-    for (fs::directory_iterator itr(dir_path); itr != end_itr; itr++) {
-        if (fs::is_regular_file(itr->status())) {
-            const string file = itr->path().filename().generic_string();
-            size_t pos = file.find(filename);
-            if (pos != 0) {
-                continue;
+
+    try {
+        for (fs::directory_iterator itr(dir_path); itr != end_itr; itr++) {
+    
+            if (fs::is_regular_file(itr->status())) {
+                const string file = itr->path().filename().generic_string();
+                size_t pos = file.find(filename);
+                if (pos != 0) {
+                    continue;
+                }
+                files_map.insert(FileMMap::value_type(fs::last_write_time
+                                                      (itr->path()), file));
             }
-            files_map.insert(FileMMap::value_type(fs::last_write_time
-                                                    (itr->path()), file));
         }
+    } catch (const std::exception & e) {
+        static std::string what = e.what();
+
+        LOG(ERROR, "!!!! ERROR !!!! Task caught fatal exception " << what);
+        return;
     }
+    
     FileMMap::reverse_iterator rit;
     int count = 0;
-    for (rit = files_map.rbegin(); rit != files_map.rend() && 
+    for (rit = files_map.rbegin(); rit != files_map.rend() &&
         count < MaxCoreFiles; ++rit) {
         count++;
         list.push_back(rit->second);
