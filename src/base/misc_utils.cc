@@ -4,14 +4,12 @@
 
 #include <fstream>
 #include <sstream>
-#include <stdlib.h> 
+#include <stdlib.h>
 #include <base/misc_utils.h>
 #include <base/logging.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "boost/filesystem/operations.hpp"
-#include "boost/filesystem/path.hpp"
 #include "base/sandesh/version_types.h"
 #include "base/logging.h"
 #include "rapidjson/document.h"
@@ -19,11 +17,8 @@
 #include "rapidjson/stringbuffer.h"
 
 using namespace std;
-namespace fs = boost::filesystem;
 const std::string MiscUtils::ContrailVersionCmd = "/usr/bin/contrail-version";
-const std::string MiscUtils::CoreFileDir = "/var/crashes/";
-const int MiscUtils::MaxCoreFiles = 5;
-const map<MiscUtils::BuildModule, string> MiscUtils::BuildModuleNames = 
+const map<MiscUtils::BuildModule, string> MiscUtils::BuildModuleNames =
     MiscUtils::MapInit();
 
 SandeshTraceBufferPtr VersionTraceBuf(SandeshTraceBufferCreate(
@@ -41,36 +36,6 @@ void MiscUtils::LogVersionInfo(const string build_info, Category::type categ) {
     VERSION_TRACE(VersionInfoTrace, build_info);
     if (!LoggingDisabled()) {
         VERSION_LOG(VersionInfoLog, categ, build_info);
-    }
-}
-
-void MiscUtils::GetCoreFileList(string prog, vector<string> &list) {
-    if (!fs::exists(CoreFileDir) || !fs::is_directory(CoreFileDir)) {
-        return;
-    }
-    FileMMap files_map;
-    
-    string filename = "core." + BaseName(prog) + ".";
-
-    fs::path dir_path(CoreFileDir.c_str());
-    fs::directory_iterator end_itr;
-    for (fs::directory_iterator itr(dir_path); itr != end_itr; itr++) {
-        if (fs::is_regular_file(itr->status())) {
-            const string file = itr->path().filename().generic_string();
-            size_t pos = file.find(filename);
-            if (pos != 0) {
-                continue;
-            }
-            files_map.insert(FileMMap::value_type(fs::last_write_time
-                                                    (itr->path()), file));
-        }
-    }
-    FileMMap::reverse_iterator rit;
-    int count = 0;
-    for (rit = files_map.rbegin(); rit != files_map.rend() && 
-        count < MaxCoreFiles; ++rit) {
-        count++;
-        list.push_back(rit->second);
     }
 }
 
