@@ -60,6 +60,9 @@ class VncKubernetes(object):
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
             self.vnc_lib, self.label_cache)
+        self.endpoints_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_endpoints.VncEndpoints',
+            self.vnc_lib, self.label_cache)
 
     def _vnc_connect(self):
         # Retry till API server connection is up
@@ -161,5 +164,7 @@ class VncKubernetes(object):
                     self.namespace_mgr.process(event)
                 elif event['object'].get('kind') == 'NetworkPolicy':
                     self.network_policy_mgr.process(event)
+                elif event['object'].get('kind') == 'Endpoints':
+                    self.endpoints_mgr.process(event)
             except Empty:
                 gevent.sleep(0)

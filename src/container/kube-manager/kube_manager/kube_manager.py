@@ -20,6 +20,7 @@ import kube.namespace_monitor as namespace_monitor
 import kube.pod_monitor as pod_monitor
 import kube.service_monitor as service_monitor
 import kube.network_policy_monitor as network_policy_monitor
+import kube.endpoint_monitor as endpoint_monitor
 
 class KubeNetworkManager(object):
     def __init__(self, args=None):
@@ -52,6 +53,10 @@ class KubeNetworkManager(object):
                         network_policy_db=(NetworkPolicyKM if\
                         self._kube_object_cache_enabled() == True else None))
 
+                self.endpoint = \
+                    endpoint_monitor.EndPointMonitor( args=self.args, 
+                        logger=self.logger, q=self.q)
+
                 kube_api_connected = True
 
             except Exception as e:
@@ -68,7 +73,8 @@ class KubeNetworkManager(object):
             gevent.spawn(self.namespace.namespace_callback),
             gevent.spawn(self.service.service_callback),
             gevent.spawn(self.pod.pod_callback),
-            gevent.spawn(self.network_policy.network_policy_callback)
+            gevent.spawn(self.network_policy.network_policy_callback),
+            gevent.spawn(self.endpoint.endpoint_callback)
         ])
 
 def main():

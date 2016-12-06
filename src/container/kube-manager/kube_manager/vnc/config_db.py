@@ -23,6 +23,7 @@ class LoadbalancerKM(DBBaseKM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
+        self.loadbalancer_listeners = set()
         self.selectors = None
         self.update(obj_dict)
 
@@ -32,6 +33,7 @@ class LoadbalancerKM(DBBaseKM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs('loadbalancer_listener', obj)
 
     @classmethod
     def delete(cls, uuid):
@@ -39,7 +41,160 @@ class LoadbalancerKM(DBBaseKM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs('loadbalancer_listener', {})
         del cls._dict[uuid]
+
+class LoadbalancerListenerKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'loadbalancer_listener'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.loadbalancer = None
+        self.loadbalancer_pool = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.display_name = obj.get('display_name', None)
+        self.parent_uuid = obj['parent_uuid']
+        self.id_perms = obj.get('id_perms', None)
+        self.params = obj.get('loadbalancer_listener_properties', None)
+        self.update_single_ref('loadbalancer', obj)
+        self.update_single_ref('loadbalancer_pool', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('loadbalancer', {})
+        obj.update_single_ref('loadbalancer_pool', {})
+        del cls._dict[uuid]
+    # end delete
+# end class LoadbalancerListenerKM
+
+class LoadbalancerPoolKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'loadbalancer_pool'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.members = set()
+        self.loadbalancer_healthmonitors = set()
+        self.virtual_machine_interface = None
+        self.loadbalancer_listener = None
+        self.custom_attributes = []
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.params = obj.get('loadbalancer_pool_properties', None)
+        self.provider = obj.get('loadbalancer_pool_provider', None)
+        kvpairs = obj.get('loadbalancer_pool_custom_attributes', None)
+        if kvpairs:
+            self.custom_attributes = kvpairs.get('key_value_pair', [])
+        self.members = set([lm['uuid']
+                            for lm in obj.get('loadbalancer_members', [])])
+        self.id_perms = obj.get('id_perms', None)
+        self.parent_uuid = obj['parent_uuid']
+        self.display_name = obj.get('display_name', None)
+        self.update_single_ref('loadbalancer_listener', obj)
+        self.update_multiple_refs('loadbalancer_healthmonitor', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('loadbalancer_listener', {})
+        obj.update_multiple_refs('loadbalancer_healthmonitor', {})
+        del cls._dict[uuid]
+    # end delete
+# end class LoadbalancerPoolKM
+
+class LoadbalancerMemberKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'loadbalancer_member'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.vmi = None
+        self.loadbalancer_pool = {}
+        self.update(obj_dict)
+        if self.loadbalancer_pool:
+            parent = LoadbalancerPoolKM.get(self.loadbalancer_pool)
+            if parent:
+                parent.members.add(self.uuid)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.params = obj.get('loadbalancer_member_properties', None)
+        self.loadbalancer_pool = self.get_parent_uuid(obj)
+        self.id_perms = obj.get('id_perms', None)
+        annotations = obj.get('annotations', None)
+        if annotations:
+            for kvp in annotations['key_value_pair'] or []:
+                if kvp['key'] == 'vmi':
+                    self.vmi = kvp['value']
+                    break
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        if obj.loadbalancer_pool:
+            parent = LoadbalancerPoolKM.get(obj.loadbalancer_pool)
+        if parent:
+            parent.members.discard(obj.uuid)
+        del cls._dict[uuid]
+    # end delete
+# end class LoadbalancerMemberKM
+
+class HealthMonitorKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'loadbalancer_healthmonitor'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.loadbalancer_pools = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.params = obj.get('loadbalancer_healthmonitor_properties', None)
+        self.update_multiple_refs('loadbalancer_pool', obj)
+        self.id_perms = obj.get('id_perms', None)
+        self.parent_uuid = obj['parent_uuid']
+        self.display_name = obj.get('display_name', None)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('loadbalancer_pool', {})
+        del cls._dict[uuid]
+    # end delete
+# end class HealthMonitorKM
 
 
 class VirtualMachineKM(DBBaseKM):
