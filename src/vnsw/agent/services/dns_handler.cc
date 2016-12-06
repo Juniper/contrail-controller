@@ -779,7 +779,7 @@ bool DnsHandler::UpdateAll() {
 
 void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel, 
                                 DnsUpdateData *xmpp_data) {
-    if (channel) {
+    if (channel && agent_->is_dns_xmpp_channel(channel)) {
         // Split the request in case we have more data items
         DnsItems done, store;
         DnsItems::iterator first, last;
