@@ -438,8 +438,17 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         const InetUnicastRouteEntry *uc_rt =
             static_cast<const InetUnicastRouteEntry *>(e);
         MacAddress mac = MacAddress::ZeroMac();
+        bool wait_for_traffic = false;
+
         if (obj->RouteNeedsMacBinding(uc_rt)) {
             mac = obj->GetIpMacBinding(uc_rt->vrf(), addr_);
+            wait_for_traffic = obj->GetIpMacWaitForTraffic(uc_rt->vrf(), addr_);
+        }
+
+        if (wait_for_traffic_ == false &&
+            wait_for_traffic_ != wait_for_traffic) {
+            wait_for_traffic_ = wait_for_traffic;
+            ret = true;
         }
 
         if (mac != mac_) {
@@ -840,7 +849,8 @@ void VrfKSyncObject::EvpnRouteTableNotify(DBTablePartBase *partition,
     } else {
         AddIpMacBinding(evpn_rt->vrf(), evpn_rt->ip_addr(),
                         evpn_rt->mac(),
-                        evpn_rt->GetActivePath()->path_preference().preference());
+                        evpn_rt->GetActivePath()->path_preference().preference(),
+                        evpn_rt->WaitForTraffic());
     }
     return;
 }
@@ -961,7 +971,8 @@ void VrfKSyncObject::NotifyUcRoute(VrfEntry *vrf, VrfState *state,
 
 void VrfKSyncObject::AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                                      const MacAddress &mac,
-                                     const PathPreference::Preference &pref) {
+                                     const PathPreference::Preference &pref,
+                                     bool wait_for_traffic) {
     VrfState *state = static_cast<VrfState *>
         (vrf->GetState(vrf->get_table(), vrf_listener_id_));
     if (state == NULL)
@@ -969,12 +980,13 @@ void VrfKSyncObject::AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
 
     IpToMacBinding::iterator it = state->ip_mac_binding_.find(ip);
 
+    PathPreference path_pref(0, pref, wait_for_traffic, false);
     if (it == state->ip_mac_binding_.end()) {
-        MacBinding mac_binding(mac, pref);
+        MacBinding mac_binding(mac, path_pref);
         state->ip_mac_binding_.insert(
                 std::pair<IpAddress, MacBinding>(ip, mac_binding));
     } else {
-        it->second.set_mac(pref, mac);
+        it->second.set_mac(path_pref, mac);
     }
 
     NotifyUcRoute(vrf, state, ip);
@@ -995,6 +1007,22 @@ void VrfKSyncObject::DelIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
         }
     }
     NotifyUcRoute(vrf, state, ip);
+}
+
+bool VrfKSyncObject::GetIpMacWaitForTraffic(VrfEntry *vrf,
+                                            const IpAddress &ip) const {
+    VrfState *state = static_cast<VrfState *>
+        (vrf->GetState(vrf->get_table(), vrf_listener_id_));
+    if (state == NULL) {
+        return false;
+    }
+
+    IpToMacBinding::const_iterator it = state->ip_mac_binding_.find(ip);
+    if (it == state->ip_mac_binding_.end()) {
+        return false;
+    }
+
+    return  it->second.WaitForTraffic();
 }
 
 MacAddress VrfKSyncObject::GetIpMacBinding(VrfEntry *vrf,

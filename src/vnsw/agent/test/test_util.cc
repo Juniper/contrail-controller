@@ -2770,7 +2770,7 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
         DelLink("virtual-network", vn_name, "virtual-machine-interface",
                 input[i].name);
         if (with_ip6) {
-            sprintf(instance_ip6, "instance6%d", input[i].vm_id);
+            sprintf(instance_ip6, "instance6%d", input[i].intf_id);
             DelLink("virtual-machine-interface", input[i].name, "instance-ip",
                     instance_ip6);
             DelInstanceIp(instance_ip6);
