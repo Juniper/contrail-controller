@@ -1,5 +1,3 @@
-# -*- mode: python; -*-
-
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -83,6 +81,11 @@ test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
 env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 
-env.Alias('test', test_cmd)
+env.Alias('flaky-test', test_cmd)
 env.Alias('coverage', cov_cmd)
-env.Alias('controller/src/config/contrail_issu:test', test_cmd)
+env.Alias('controller/src/config/contrail_issu:flaky-test', test_cmd)
+env.Alias('controller/src/config/contrail_issu/contrail_issu:flaky-test', test_cmd)
+
+# Local Variables:
+# mode: python
+# End:
