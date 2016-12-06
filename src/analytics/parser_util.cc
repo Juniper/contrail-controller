@@ -30,8 +30,8 @@ LineParser::GetAtrributes(const pugi::xml_node &node,
 {
      for (pugi::xml_attribute attr = node.first_attribute(); attr;
              attr = attr.next_attribute()) {
-         std::string s =  boost::algorithm::to_lower_copy(std::string(
-                     attr.value()));
+         std::string s =  MakeSane(boost::algorithm::to_lower_copy(std::string(
+                     attr.value())));
          if (!s.empty()) {
              LineParser::WordListType w = ParseDoc(s.begin(), s.end());
              words->insert(w.begin(), w.end());
@@ -49,8 +49,8 @@ LineParser::Travarse(const pugi::xml_node &node,
         if (check_attr)
             GetAtrributes(node, words);
     } else if (type == pugi::node_pcdata || type == pugi::node_cdata) {
-         std::string s =  boost::algorithm::to_lower_copy(std::string(
-                     node.value()));
+         std::string s =  MakeSane(boost::algorithm::to_lower_copy(std::string(
+                     node.value())));
          if (!s.empty()) {
              LineParser::WordListType w = ParseDoc(s.begin(), s.end());
              words->insert(w.begin(), w.end());
@@ -74,7 +74,7 @@ LineParser::ParseXML(const pugi::xml_node &node, bool check_attr)
 
 LineParser::WordListType
 LineParser::Parse(std::string s) {
-    std::string ls = boost::algorithm::to_lower_copy(s);
+    std::string ls = MakeSane(boost::algorithm::to_lower_copy(s));
     return ParseDoc(ls.begin(), ls.end());
 }
 
