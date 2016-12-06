@@ -68,11 +68,6 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
         vector<string> ip_list;
         ip_list.push_back(Collector::GetSelfIp());
         state.set_self_ip_list(ip_list);
-        vector<string> list;
-        MiscUtils::GetCoreFileList(Collector::GetProgramName(), list);
-        if (list.size()) {
-            state.set_core_files_list(list);
-        }
         first = false;
     }
     if (!build_info_set) {
