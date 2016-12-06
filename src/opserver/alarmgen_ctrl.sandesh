@@ -11,9 +11,12 @@ include "sandesh/library/common/sandesh_alarm_base.sandesh"
 
 /**
  * @description: sandesh request to get partition ownership info
+ * @cli_name: read partitions ownership information
  */
 request sandesh PartitionOwnershipReq {
+    /** partition number */
     1: u32                      partition
+    /** if owner of this partition */
     2: bool                     ownership
 }
 
@@ -26,8 +29,10 @@ response sandesh PartitionOwnershipResp {
 
 /**
  * @description: sandesh request to get partition ownership status
+ * @cli_name: read partitions ownership status
  */
 request sandesh PartitionStatusReq {
+    /** partition number */
     1: i32 partition
 }
 
@@ -64,8 +69,10 @@ response sandesh PartitionStatusResp {
 
 /**
  * @description: sandesh request to uve table info for a given partition
+ * @cli_name: read uve table information
  */
 request sandesh UVETableInfoReq {
+    /** partition number */
     1: u32                     partition
 }
 
@@ -95,8 +102,10 @@ response sandesh UVETableInfoResp {
 
 /**
  * @description: sandesh request to get UVE operation info for a given UVE table
+ * @cli_name: read uve table operational information
  */
 request sandesh UVETablePerfReq {
+    /** name of the uve table */
     1: string                      table
 }
 
@@ -142,8 +151,10 @@ trace sandesh AlarmStateChangeTrace {
 
 /**
  * @description: sandesh request to get alarms for a given UVE table
+ * @cli_name: read uve table alarms information
  */
 request sandesh UVETableAlarmReq {
+    /** name of the uve table */
     1: string                      table
 }
 
@@ -257,8 +268,10 @@ struct AlarmConfig {
 
 /**
  * @description: sandesh request to get alarm configuration
+ * @cli_name: read alarm config
  */
 request sandesh AlarmConfigRequest {
+    /** name of the alarm */
     1: optional string name
 }
 
