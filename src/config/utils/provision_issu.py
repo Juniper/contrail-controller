@@ -171,7 +171,7 @@ class ISSUContrailPostProvisioner(object):
                 print "created config"
                 self._vnc_lib.config_node_create(config_node_obj)
 
-        for k,v in self._args.db_host_info.items():
+        for k,v in self._args.analytics_host_info.items():
             analytics_node_obj = AnalyticsNode(
                 v, gsc_obj,
                 analytics_node_ip_address=k)
