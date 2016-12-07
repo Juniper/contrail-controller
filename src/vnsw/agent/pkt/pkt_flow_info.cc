@@ -216,8 +216,9 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             if (info->out_component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx ||
                 (comp_nh->GetNH(info->out_component_nh_idx) == NULL)) {
-                info->out_component_nh_idx = comp_nh->hash(pkt->
-                                             hash(ecmp_load_balance));
+                info->out_component_nh_idx = comp_nh->PickMember
+                    (pkt->hash(ecmp_load_balance),
+                     info->ecmp_component_affinity_nh);
             }
             nh = comp_nh->GetNH(info->out_component_nh_idx);
             // TODO: Should we re-hash here?
@@ -1317,9 +1318,9 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     if (out->rt_) {
         if (ecmp && out->rt_->GetActivePath()) {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-            out_component_nh_idx = comp_nh->hash(pkt->
-                                   hash(out->rt_->GetActivePath()->
-                                        ecmp_load_balance()));
+            out_component_nh_idx = comp_nh->PickMember
+                (pkt->hash(out->rt_->GetActivePath()->ecmp_load_balance()),
+                 ecmp_component_affinity_nh);
         }
         if (out->rt_->GetActiveNextHop()->GetType() == NextHop::ARP ||
             out->rt_->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
@@ -1616,6 +1617,32 @@ void PktFlowInfo::UpdateEvictedFlowStats(const PktInfo *pkt) {
     }
 }
 
+// We want to retain forward and reverse flow semantics when flows are
+// being processed due to revaluation or ECMP resolution
+//
+// If the flow corresponding to the request is already present as reverse flow,
+// swap the flows being processed
+static bool ShouldSwapFlows(const PktFlowInfo *info, const PktInfo *pkt,
+                            const FlowEntry *flow) {
+    if (flow == NULL)
+        return false;
+
+    if (info->short_flow) {
+        return false;
+    }
+
+    // If this is message processing, then retain forward and reverse flows
+    if (pkt->type == PktType::MESSAGE) {
+        return flow->IsReverseFlow();
+    }
+
+    if (pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) {
+        return flow->IsReverseFlow();
+    }
+
+    return false;
+}
+
 void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     bool update = false;
@@ -1674,9 +1701,9 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     }
 
     bool swap_flows = false;
-    // If this is message processing, then retain forward and reverse flows
-    if (pkt->type == PktType::MESSAGE && !short_flow &&
-        flow_entry->is_flags_set(FlowEntry::ReverseFlow)) {
+    // If this is message processing or ECMP resolution, then retain forward
+    // and reverse flows
+    if (ShouldSwapFlows(this, pkt, flow_entry)) {
         // for cases where we need to swap flows rflow should always
         // be Non-NULL
         assert(rflow != NULL);
@@ -1770,6 +1797,31 @@ void PktFlowInfo::UpdateFipStatsInfo
     }
 }
 
+void PktFlowInfo::GetEcmpCompositeAffinityNh() {
+    // Pick the first member in ECMP by default
+    out_component_nh_idx = 0;
+    FlowEntry *rev_flow = flow_entry->reverse_flow_entry();
+    if (rev_flow == NULL)
+        return;
+
+    // Affinity-nh is valid needed only when reverse-flow is l2-flow
+    if (rev_flow->l3_flow())
+        return;
+
+    // Reverse flow for an egress flow. Pick the ECMP member based on the
+    // tunnel-NH received in forward flow
+    if (rev_flow->is_flags_set(FlowEntry::IngressDir))
+        return;
+
+    Ip4Address tunnel_dest(rev_flow->data().tunnel_info.ip_saddr);
+    TunnelNHKey key(flow_table->agent()->fabric_vrf_name(),
+                    flow_table->agent()->router_id(), tunnel_dest,
+                    false, rev_flow->data().tunnel_info.type);
+    out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
+    ecmp_component_affinity_nh = dynamic_cast<NextHop *>
+        (flow_table->agent()->nexthop_table()->Find(&key, false));
+}
+
 //If a packet is trapped for ecmp resolve, dp might have already
 //overwritten original packet(NAT case), hence get actual packet by
 //overwritting packet with data in flow entry.
@@ -1789,8 +1841,8 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
         return;
     }
 
-    FlowEntry *flow = flow_table->Find(key);
-    if (!flow) {
+    flow_entry = flow_table->Find(key);
+    if (!flow_entry) {
         std::ostringstream ostr;  
         ostr << "ECMP Resolve: unable to find flow index " << flow_index;
         PKTFLOW_TRACE(Err,ostr.str());
@@ -1802,16 +1854,18 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     pkt->ip_proto = key.protocol;
     pkt->sport = key.src_port;
     pkt->dport = key.dst_port;
-    pkt->agent_hdr.vrf = flow->data().vrf;
-    pkt->vrf = flow->data().vrf;
+    pkt->agent_hdr.vrf = flow_entry->data().vrf;
+    pkt->vrf = flow_entry->data().vrf;
     pkt->agent_hdr.nh = key.nh;
     // If component_nh_idx is not set, assume that NH transitioned from 
-    // Non ECMP to ECMP. The old Non-ECMP NH would always be placed at index 0
-    // in this case. So, set ECMP index 0 in this case
-    if (flow->data().component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
-        out_component_nh_idx = 0;
+    // Non ECMP to ECMP. Set the ecmp_component_affinity_nh so that ECMP member
+    // computation is set to it
+    ecmp_component_affinity_nh = NULL;
+    if (flow_entry->data().component_nh_idx ==
+        CompositeNH::kInvalidComponentNHIdx) {
+        GetEcmpCompositeAffinityNh();
     } else {
-        out_component_nh_idx = flow->data().component_nh_idx;
+        out_component_nh_idx = flow_entry->data().component_nh_idx;
     }
     return;
 }

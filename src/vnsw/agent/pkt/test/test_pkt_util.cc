@@ -125,14 +125,21 @@ void TxTcpPacket(int ifindex, const char *sip, const char *dip,
 void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 		      const char *out_dip, uint32_t label,
 		      const char *sip, const char *dip, uint8_t proto,
-		      int hash_id) {
+		      int hash_id, const char *smac, const char *dmac,
+              bool ecmp_resolve) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
-                     label);
+    int cmd = AgentHdr::TRAP_FLOW_MISS;
+    if (ecmp_resolve)
+        cmd = AgentHdr::TRAP_ECMP_RESOLVE;
+
+    pkt->AddAgentHdr(ifindex, cmd, hash_id, MplsToVrfId(label), label);
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
+    if (smac != NULL && dmac != NULL) {
+        pkt->AddEthHdr(dmac, smac, 0x800);
+    }
     pkt->AddIpHdr(sip, dip, proto);
     if (proto == 1) {
         pkt->AddIcmpHdr();
@@ -142,10 +149,24 @@ void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 void TxIpMplsPacket(int ifindex, const char *out_sip,
                               const char *out_dip, uint32_t label,
                               const char *sip, const char *dip, uint8_t proto,
-                              int hash_id) {
+                              int hash_id, bool ecmp_resolve) {
     PktGen *pkt = new PktGen();
     MakeIpMplsPacket(pkt, ifindex, out_sip, out_dip, label, sip, dip, proto,
-                     hash_id);
+                     hash_id, NULL, NULL, ecmp_resolve);
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    delete pkt;
+}
+
+void TxL2IpMplsPacket(int ifindex, const char *out_sip, const char *out_dip,
+                      uint32_t label, const char *smac, const char *dmac,
+                      const char *sip, const char *dip, uint8_t proto,
+                      bool ecmp_resolve) {
+    PktGen *pkt = new PktGen();
+    MakeIpMplsPacket(pkt, ifindex, out_sip, out_dip, label, sip, dip, proto,
+                     0, smac, dmac, ecmp_resolve);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
