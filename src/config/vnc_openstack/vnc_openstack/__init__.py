@@ -955,9 +955,15 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
                     vnsn_data = ipam_ref['attr']
                     ipam_subnets = vnsn_data['ipam_subnets']
                     for ipam_subnet in ipam_subnets:
-                        subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
-                        prefix = subnet_dict['ip_prefix']
-                        prefix_len = subnet_dict['ip_prefix_len']
+                        if 'subnet' in ipam_subnet:
+                            subnet_dict = copy.deepcopy(ipam_subnet['subnet'])
+                            prefix = subnet_dict['ip_prefix']
+                            prefix_len = subnet_dict['ip_prefix_len']
+                        else:
+                            #flat subnet where, subnet-uuid is unique,
+                            #representing all subnets on ipam
+                            prefix = '0.0.0.0'
+                            prefix_len = 0
                         network = IPNetwork('%s/%s' % (prefix, prefix_len))
                         subnet_name = vn_uuid + ' ' + str(network)
                         subnet_uuid = ipam_subnet['subnet_uuid']

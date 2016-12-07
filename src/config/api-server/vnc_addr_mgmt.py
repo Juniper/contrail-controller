@@ -604,6 +604,8 @@ class AddrMgmt(object):
                     subnet['ip_prefix_len'])
                 subnet_obj = self._create_subnet_obj_for_ipam_subnet(
                                  ipam_subnet, ipam_fq_name_str, should_persist)
+                if ipam_uuid not in self._subnet_objs:
+                    self._subnet_objs[ipam_uuid] = {}
                 self._subnet_objs[ipam_uuid][subnet_name] = subnet_obj
             subnet_objs = self._subnet_objs[ipam_uuid]
 
