@@ -201,16 +201,6 @@ public:
         return mbr_list_.size();
     }
 
-    uint32_t hash(size_t hash) const {
-        for (uint32_t i = 0; i < mbr_list_.size(); i++) {
-            if (hash_table_[hash % hash_table_.size()] != 0xffff) {
-                return hash_table_[hash % hash_table_.size()];
-            }
-            hash++;
-        }
-        return 0;
-    }
-
     uint32_t count() const {
         int cnt = 0;
         for (uint32_t i = 0; i < mbr_list_.size(); i++) {
@@ -1427,12 +1417,21 @@ public:
     const VrfEntry* vrf() const {
         return vrf_.get();
     }
-   uint32_t hash(uint32_t seed) const {
+   uint32_t PickMember(uint32_t seed, const NextHop *affinity_nh) const {
+       uint32_t idx = kInvalidComponentNHIdx;
        size_t size = component_nh_list_.size();
        if (size == 0) {
-           return kInvalidComponentNHIdx;
+           return idx;
        }
-       uint32_t idx = seed % size;
+
+       if (affinity_nh != NULL) {
+           ComponentNH comp_nh(0, affinity_nh);
+           if (GetIndex(comp_nh, idx)) {
+               return idx;
+           }
+       }
+
+       idx = seed % size;
        while (component_nh_list_[idx].get() == NULL ||
               component_nh_list_[idx]->nh() == NULL ||
               component_nh_list_[idx]->nh()->IsActive() == false) {

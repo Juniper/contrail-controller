@@ -651,6 +651,8 @@ class FlowEntry {
     void set_flow_mgmt_info(FlowEntryInfo *info) {
         flow_mgmt_info_.reset(info);
     }
+    bool IsReverseFlow() const { return is_flags_set(FlowEntry::ReverseFlow); }
+    bool IsForwardFlow() const { return !is_flags_set(FlowEntry::ReverseFlow); }
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;

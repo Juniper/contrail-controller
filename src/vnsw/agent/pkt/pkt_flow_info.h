@@ -20,7 +20,7 @@ typedef map<int, int> FlowRouteRefMap;
 struct PktControlInfo {
     PktControlInfo() : 
         vrf_(NULL), intf_(NULL), rt_(NULL), vn_(NULL), vm_(NULL), 
-        vlan_nh_(false), vlan_tag_(0) { }
+        vlan_nh_(false), vlan_tag_(0), nh_(0) { }
     virtual ~PktControlInfo() { }
 
     const VrfEntry *vrf_;
@@ -53,7 +53,8 @@ public:
         ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
         trap_rev_flow(false), fip_snat(false), fip_dnat(false), snat_fip(),
         short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID),
-        flood_unknown_unicast(false), bgp_router_service_flow(false) {
+        flood_unknown_unicast(false), bgp_router_service_flow(false),
+        ecmp_component_affinity_nh(NULL) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -83,6 +84,7 @@ public:
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);
     void RewritePktInfo(uint32_t index);
+    void GetEcmpCompositeAffinityNh();
     bool VrfTranslate(const PktInfo *pkt, PktControlInfo *ctrl,
                       PktControlInfo *rev_flow, const IpAddress &src_ip,
                       bool nat_flow);
@@ -179,12 +181,19 @@ public:
     std::string         peer_vrouter;
     TunnelType          tunnel_type;
 
-    // flow entry obtained from flow IPC, which requires recomputation.
+    // flow entry being revaluated or trapped for ECMP resolution
     FlowEntry           *flow_entry;
     bool                 flood_unknown_unicast;
 
     //BGP router service info
     bool                 bgp_router_service_flow;
+
+    // Affinity to Ecmp component NH.
+    // When a packet is trapped for ECMP Resolution its possible that flow is
+    // transition from Non-ECMP to ECMP. In that case, the ECMP index must be
+    // be set to unicast-nh used when flow is non-ECMP. The affinity-nh
+    // is set in this case.
+    const NextHop        *ecmp_component_affinity_nh;
 };
 
 #endif // __agent_pkt_flow_info_h_
