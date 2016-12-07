@@ -183,27 +183,6 @@ class VncServerCassandraClient(VncCassandraClient):
             return False
     # end is_latest
 
-    # Insert new perms. Called on startup when walking DB
-    def update_perms2(self, obj_uuid):
-        bch = self._obj_uuid_cf.batch()
-        perms2 = copy.deepcopy(Provision.defaults.perms2)
-        perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
-                               for k, v in o.__dict__.iteritems()))
-        perms2 = json.loads(perms2_json)
-        self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
-        bch.send()
-        return perms2
-
-    def enable_domain_sharing(self, obj_uuid, perms2):
-        share_item = {
-            'tenant': 'domain:%s' % obj_uuid,
-            'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
-        }
-        perms2['share'].append(share_item)
-        bch = self._obj_uuid_cf.batch()
-        self._update_prop(bch, obj_uuid, 'perms2', {'perms2': perms2})
-        bch.send()
-
     def uuid_to_obj_dict(self, id):
         obj_cols = self.get(self._OBJ_UUID_CF_NAME, id)
         if not obj_cols:
@@ -923,10 +902,19 @@ class VncDbClient(object):
 
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
+                update_obj = False
                 if perms2 is None:
-                    perms2 = self._object_db.update_perms2(obj_uuid)
+                    perms2 = self.update_perms2(obj_uuid)
+                    update_obj = True
+                elif perms2['owner'] is None:
+                    perms2['owner'] = 'cloud-admin'
+                    update_obj = True
                 if obj_type == 'domain' and len(perms2['share']) == 0:
-                    self._object_db.enable_domain_sharing(obj_uuid, perms2)
+                    update_obj = True
+                    perms2 = self.enable_domain_sharing(obj_uuid, perms2)
+                if update_obj:
+                    obj_dict['perms2'] = perms2
+                    self._object_db.object_update(obj_type, obj_uuid, obj_dict)
 
                 if (obj_type == 'bgp_router' and
                         'bgp_router_parameters' in obj_dict and
@@ -1548,5 +1536,20 @@ class VncDbClient(object):
         global_asn = config[0]['autonomous_system']
         return global_asn
 
+    # Insert new perms. Called on startup when walking DB
+    def update_perms2(self, obj_uuid):
+        perms2 = copy.deepcopy(Provision.defaults.perms2)
+        perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
+                               for k, v in o.__dict__.iteritems()))
+        perms2 = json.loads(perms2_json)
+        return perms2
+
+    def enable_domain_sharing(self, obj_uuid, perms2):
+        share_item = {
+            'tenant': 'domain:%s' % obj_uuid,
+            'tenant_access': cfgm_common.DOMAIN_SHARING_PERMS
+        }
+        perms2['share'].append(share_item)
+        return perms2
 
 # end class VncDbClient
