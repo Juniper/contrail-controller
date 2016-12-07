@@ -27,7 +27,7 @@ class MesosNetworkManager(object):
             logger=self.logger, q=self.q)
 
         self.mserver = mserver.MesosServer(args=self.args,
-            logger=self.logger)
+            logger=self.logger, q=self.q)
     # end __init__
 
     def start_tasks(self):
