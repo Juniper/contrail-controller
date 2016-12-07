@@ -334,6 +334,32 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                      **config_dict['kwargs'])
     # end get_alarm_config_object
 
+    def get_alarm_object(self, alarm_dict):
+        or_list = []
+        for elt in alarm_dict['or_list']:
+            and_list = []
+            for and_elt in elt['and_list']:
+                cond = and_elt['condition']
+                match = and_elt['match']
+                and_list.append(AlarmConditionMatch(
+                    condition=AlarmCondition(
+                        operation=cond['operation'],
+                        operand1=cond['operand1'],
+                        operand2=SandeshAlarmOperand2(
+                            uve_attribute=cond['operand2'].get(
+                                'uve_attribute'),
+                            json_value=cond['operand2'].get(
+                                'json_value')),
+                        variables=cond.get('variables') or []),
+                    match=[AlarmMatch(
+                        json_operand1_value=m['json_operand1_val'],
+                        json_operand2_value=m.get('json_operand2_val'),
+                        json_variables=m.get('json_variables') or {}) \
+                            for m in match]))
+            or_list.append(SandeshAlarmAndList(and_list))
+        return UVEAlarmInfo(alarm_rules=AlarmRules(or_list))
+    # end get_alarm_object
+
     @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
@@ -2613,6 +2639,1555 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
             logging.info('or_list: %s' % (str(or_list)))
             self.assertEqual(exp_or_list, or_list)
     # end test_05_evaluate_uve_for_alarms
+
+    def test_06_is_new_alarm_same(self):
+        TestCase = namedtuple('TestCase', ['name', 'input', 'output'])
+        TestInput = namedtuple('TestInput', ['old_alarm', 'new_alarm', 'state'])
+        TestOutput = namedtuple('TestOutput', ['result'])
+
+        tests = [
+            TestCase(name='old alarm or_list == [] and new alarm or_list == []',
+                input=TestInput(
+                    old_alarm={
+                        'or_list': []
+                    },
+                    new_alarm={
+                        'or_list': []
+                    },
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=True)
+            ),
+            TestCase(name='old alarm or_list == [] and new alarm or_list != []',
+                input=TestInput(
+                    old_alarm={
+                        'or_list': []
+                    },
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"val1"',
+                                            'json_operand2_val': '"val2"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != [] and new alarm or_list == []',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"val1"',
+                                            'json_operand2_val': '"val2"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={
+                        'or_list': []
+                    },
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list == new alarm or_list; '
+                'single OR term and single AND term; '
+                'state == UVEAlarmState.Active',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"val1"',
+                                            'json_operand2_val': '"val2"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"val1"',
+                                            'json_operand2_val': '"val2"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=True)
+            ),
+            TestCase(name='old alarm or_list == new alarm or_list; '
+                'single OR term and single AND term; '
+                'state != UVEAlarmState.Active',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"val1"',
+                                            'json_operand2_val': '"val2"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"val1"',
+                                            'json_operand2_val': '"val2"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Soak_Idle
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list == new alarm or_list; '
+                'single OR term and multiple AND terms; '
+                'state == UVEAlarmState.Active',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "def", "D": "def"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.D'
+                                        },
+                                        'operation': '=='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"def"',
+                                            'json_operand2_val': '"def"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "def", "D": "def"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.D'
+                                        },
+                                        'operation': '=='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"def"',
+                                            'json_operand2_val': '"def"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=True)
+            ),
+            TestCase(name='old alarm or_list == new alarm or_list; '
+                'multiple OR terms and multiple AND terms; '
+                'state == UVEAlarmState.Active',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=True)
+            ),
+            TestCase(name='old alarm or_list == new alarm or_list; '
+                'AND terms with <=, <, >=, >, range; '
+                'state == UVEAlarmState.Active',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C.D'
+                                        },
+                                        'operation': '<=',
+                                        'variables': ['A.C.N']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '5',
+                                            'json_operand2_val': '7',
+                                            'json_variables': {
+                                                'A.C.N': '"test"'
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C.E'
+                                        },
+                                        'operation': '<',
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '5',
+                                            'json_operand2_val': '9',
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'P.Q',
+                                        'operand2': {
+                                            'uve_attribute': 'P.R.*.S'
+                                        },
+                                        'operation': '>=',
+                                        'variables':
+                                            ['P.R.__key', 'P.R.__value']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '100',
+                                            'json_operand2_val': '20',
+                                            'json_variables': {
+                                                'P.R.__key': '"xyz"',
+                                                'P.R.__value':
+                                                    '{"C": "qwe", "D": 10}'
+                                            }
+                                        },
+                                        {
+                                            'json_operand1_val': '3',
+                                            'json_operand2_val': '3',
+                                            'json_variables': {
+                                                'P.R.__key': '"lmo"',
+                                                'P.R.__value': '{"D": 5}'
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'json_value': '100'
+                                        },
+                                        'operation': '>'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '150'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'json_value': '[500, 1000]'
+                                        },
+                                        'operation': 'range'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '500'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C.D'
+                                        },
+                                        'operation': '<=',
+                                        'variables': ['A.C.N']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '7',
+                                            'json_operand2_val': '7',
+                                            'json_variables': {
+                                                'A.C.N': '"test"'
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C.E'
+                                        },
+                                        'operation': '<',
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '8',
+                                            'json_operand2_val': '9',
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'P.Q',
+                                        'operand2': {
+                                            'uve_attribute': 'P.R.*.S'
+                                        },
+                                        'operation': '>=',
+                                        'variables':
+                                            ['P.R.__key', 'P.R.__value']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '100',
+                                            'json_operand2_val': '90',
+                                            'json_variables': {
+                                                'P.R.__key': '"xyz"',
+                                                'P.R.__value':
+                                                    '{"C": "qwe", "D": 10}'
+                                            }
+                                        },
+                                        {
+                                            'json_operand1_val': '7',
+                                            'json_operand2_val': '7',
+                                            'json_variables': {
+                                                'P.R.__key': '"lmo"',
+                                                'P.R.__value': '{"D": 5}'
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'json_value': '100'
+                                        },
+                                        'operation': '>'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '250'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'json_value': '[500, 1000]'
+                                        },
+                                        'operation': 'range'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '502'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=True)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'or_list len mismatch',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'multiple OR terms and multiple AND terms; '
+                'mismatch in number of AND terms',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'single OR term and single AND term; condition mismatch',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'uve_attribute': 'X.Y'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"',
+                                            'json_operand2_val': 'null'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"val1"',
+                                            'json_operand2_val': '"val2"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'multiple OR terms and multiple AND terms; '
+                'condition mismatch',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': '5'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'multiple OR terms and multiple AND terms; '
+                'mismatch in the number of match terms',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'multiple OR terms and multiple AND terms; '
+                'mismatch in the match list',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "abc"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}',
+                                        }
+                                    ]
+                                },
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'json_value': '["abc", "def"]'
+                                        },
+                                        'operation': 'not in'
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '"xyz"'
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A',
+                                        'operand2': {
+                                            'json_value': 'null'
+                                        },
+                                        'operation': '!='
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "xyz", "D": "xyz"}'
+                                        },
+                                        {
+                                            'json_operand1_val':
+                                                '{"B": "abc", "D": "def"}'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'AND term with <=',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C.D'
+                                        },
+                                        'operation': '<=',
+                                        'variables': ['A.C.N']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '5',
+                                            'json_operand2_val': '7',
+                                            'json_variables': {
+                                                'A.C.N': '"test"'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C.D'
+                                        },
+                                        'operation': '<=',
+                                        'variables': ['A.C.N']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '5',
+                                            'json_operand2_val': '7',
+                                            'json_variables': {
+                                                'A.C.N': '"test1"'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'AND term with <',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C.E'
+                                        },
+                                        'operation': '<',
+                                        'variables': ['A.C.N', 'A.C.M']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '5',
+                                            'json_operand2_val': '9',
+                                            'json_variables': {
+                                                'A.C.N': '"test1"',
+                                                'A.C.M': '10'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B',
+                                        'operand2': {
+                                            'uve_attribute': 'A.C.E'
+                                        },
+                                        'operation': '<',
+                                        'variables': ['A.C.N', 'A.C.M']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '5',
+                                            'json_operand2_val': '9',
+                                            'json_variables': {
+                                                'A.C.N': '"test1"',
+                                                'A.C.M': '100'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'AND term with >=',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'P.Q',
+                                        'operand2': {
+                                            'uve_attribute': 'P.R.*.S'
+                                        },
+                                        'operation': '>=',
+                                        'variables':
+                                            ['P.R.__key', 'P.R.__value']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '100',
+                                            'json_operand2_val': '20',
+                                            'json_variables': {
+                                                'P.R.__key': '"xyz"',
+                                                'P.R.__value':
+                                                    '{"C": "qwe", "D": 10}'
+                                            }
+                                        },
+                                        {
+                                            'json_operand1_val': '3',
+                                            'json_operand2_val': '3',
+                                            'json_variables': {
+                                                'P.R.__key': '"lmo"',
+                                                'P.R.__value': '{"D": 5}'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'P.Q',
+                                        'operand2': {
+                                            'uve_attribute': 'P.R.*.S'
+                                        },
+                                        'operation': '>=',
+                                        'variables':
+                                            ['P.R.__key', 'P.R.__value']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '100',
+                                            'json_operand2_val': '20',
+                                            'json_variables': {
+                                                'P.R.__key': '"xyz"',
+                                                'P.R.__value':
+                                                    '{"C": "qwe", "D": 10}'
+                                            }
+                                        },
+                                        {
+                                            'json_operand1_val': '3',
+                                            'json_operand2_val': '3',
+                                            'json_variables': {
+                                                'P.R.__key': '"abc"',
+                                                'P.R.__value': '{"D": 5}'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'AND term with >',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'json_value': '100'
+                                        },
+                                        'operation': '>',
+                                        'variables': ['A.D']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '150',
+                                            'json_variables': {
+                                                'A.D': '"abc"'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'json_value': '100'
+                                        },
+                                        'operation': '>',
+                                        'variables': ['A.D']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '150',
+                                            'json_variables': {
+                                                'A.D': '"def"'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            ),
+            TestCase(name='old alarm or_list != new alarm or_list; '
+                'AND term with range',
+                input=TestInput(
+                    old_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'json_value': '[500, 1000]'
+                                        },
+                                        'operation': 'range',
+                                        'variables': ['A.B.D']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '500',
+                                            'json_variables': {
+                                                'A.B.D': 'null'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    new_alarm={'or_list': [
+                        {
+                            'and_list': [
+                                {
+                                    'condition': {
+                                        'operand1': 'A.B.C',
+                                        'operand2': {
+                                            'json_value': '[500, 1000]'
+                                        },
+                                        'operation': 'range',
+                                        'variables': ['A.B.D']
+                                    },
+                                    'match': [
+                                        {
+                                            'json_operand1_val': '500',
+                                            'json_variables': {
+                                                'A.B.D': '"test"'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]},
+                    state=UVEAlarmState.Active
+                ),
+                output=TestOutput(result=False)
+            )
+        ]
+
+        for test in tests:
+            logging.info('=== Test: %s ===' % (test.name))
+            old_alarm_obj = self.get_alarm_object(test.input.old_alarm)
+            new_alarm_obj = self.get_alarm_object(test.input.new_alarm)
+            asm = AlarmStateMachine(tab=None, uv=None, nm=None, activeTimer=0,
+                    idleTimer=None, freqCheck_Times=0, freqCheck_Seconds=0,
+                    freqExceededCheck=False, sandesh=self._ag._sandesh)
+            asm.set_uai(old_alarm_obj)
+            asm.uas.state = test.input.state
+            self.assertEqual(test.output.result,
+                asm.is_new_alarm_same(new_alarm_obj))
+    # end test_06_is_new_alarm_same
 
 
 # end class TestAlarmGen
