@@ -267,7 +267,12 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
     if (dresult == GenDb::DbOpResult::ERROR) {
        // Dont issue any more requests
        query_fetch_error = true;
+       ExternalProcIf<q_result> * rpi = NULL;
+       rpi = reinterpret_cast<ExternalProcIf<q_result> *>(privdata);
+       rpi->Response(q_result_ptr);
+       return;
     }
+
     GenDb::NewColVec::iterator i;
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
@@ -359,11 +364,9 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
         }
 
     }
-    ExternalProcIf<q_result> * rpi = NULL;
     if (privdata) {
+        ExternalProcIf<q_result> * rpi = NULL;
         rpi = reinterpret_cast<ExternalProcIf<q_result> *>(privdata);
-    }
-    if (rpi) {
         rpi->Response(q_result_ptr);
     }
 
