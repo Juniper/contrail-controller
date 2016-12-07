@@ -641,6 +641,7 @@ def parse_args(args_str):
                          --use_syslog
                          --syslog_facility LOG_USER
                          --cluster_id <testbed-name>
+                         --zk_timeout 400
                          [--reset_config]
     '''
 
@@ -687,6 +688,7 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'zk_timeout': 400,
     }
     secopts = {
         'use_certs': False,
@@ -803,6 +805,8 @@ def parse_args(args_str):
                         help="Start port for bgp-as-a-service proxy")
     parser.add_argument("--bgpaas_port_end", type=int,
                         help="End port for bgp-as-a-service proxy")
+    parser.add_argument("--zk_timeout",
+                        help="Timeout for ZookeeperClient")
 
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
@@ -862,7 +866,8 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
-    _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip)
+    _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
+                                        zk_timeout =args.zk_timeout)
     _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
                                       os.getpid(), run_schema_transformer,
                                       args)
