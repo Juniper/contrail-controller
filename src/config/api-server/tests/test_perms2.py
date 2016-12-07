@@ -1412,6 +1412,37 @@ class TestPermissions(test_case.ApiServerTestCase):
             rest.OP_GET, '/virtual-networks', data=json.dumps({'count':True}))
         self.assertEquals(len(result['virtual-networks']), 2)
 
+    def test_bug_1646200(self):
+        obj_type = 'virtual-network'
+
+        # create a VN
+        vn = VirtualNetwork('vn-%s' % self.id(), self.admin.project_obj)
+        vn_fq_name = vn.get_fq_name()
+        self.admin.vnc_lib.virtual_network_create(vn)
+        vn = vnc_read_obj(self.admin.vnc_lib, obj_type, name = vn_fq_name)
+        obj_uuid = vn.get_uuid()
+
+        # ensure perms2 owner is not empty
+        (ok, result_dict) = self._api_server._db_conn._object_db.object_read(obj_type, [obj_uuid])
+        obj_dict = result_dict[0]
+        self.assertNotEquals(obj_dict['perms2']['owner'], None)
+
+        # set perms2 owner empty
+        obj_dict['perms2']['owner'] = None
+        (ok, cassandra_result) = self._api_server._db_conn._object_db.object_update(
+            obj_type, obj_uuid, obj_dict)
+        (ok, result_dict) = self._api_server._db_conn._object_db.object_read(obj_type, [obj_uuid])
+        obj_dict = result_dict[0]
+        self.assertEquals(obj_dict['perms2']['owner'], None)
+
+        # simulate upgrade
+        self._api_server._db_conn.db_resync()
+
+        # ensure perms2 owner is not empty
+        (ok, result_dict) = self._api_server._db_conn._object_db.object_read(obj_type, [obj_uuid])
+        obj_dict = result_dict[0]
+        self.assertEquals(obj_dict['perms2']['owner'], 'cloud-admin')
+
     def tearDown(self):
         super(TestPermissions, self).tearDown()
     # end tearDown
