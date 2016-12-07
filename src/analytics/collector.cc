@@ -65,34 +65,14 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
         (Collector::kQSizeLowWaterMark, SandeshLevel::INVALID, false, true);
 
 Collector::Collector(EventManager *evm, short server_port,
-        DbHandlerPtr db_handler, OpServerProxy *osp, VizCallback cb,
-        std::vector<std::string> cassandra_ips,
-        std::vector<int> cassandra_ports, const TtlMap& ttl_map,
-        const std::string &cassandra_user,
-        const std::string &cassandra_password) :
+        DbHandlerPtr db_handler, OpServerProxy *osp, VizCallback cb) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(osp),
         evm_(evm),
         cb_(cb),
-        cassandra_ips_(cassandra_ips),
-        cassandra_ports_(cassandra_ports),
-        ttl_map_(ttl_map),
-        db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
-        cassandra_user_(cassandra_user),
-        cassandra_password_(cassandra_password),
         db_queue_wm_info_(kDbQueueWaterMarkInfo),
         sm_queue_wm_info_(kSmQueueWaterMarkInfo) {
-
-    dbConnStatus_ = ConnectionStatus::INIT;
-
-    if (!task_policy_set_) {
-        TaskPolicy db_task_policy = boost::assign::list_of
-                (TaskExclusion(lifetime_mgr_task_id()));
-        TaskScheduler::GetInstance()->SetPolicy(db_task_id_, db_task_policy);
-        task_policy_set_ = true;
-    }
-
     SandeshServer::Initialize(server_port);
 
     Module::type module = Module::COLLECTOR;
@@ -101,10 +81,6 @@ Collector::Collector(EventManager *evm, short server_port,
 }
 
 Collector::~Collector() {
-}
-
-int Collector::db_task_id() {
-    return db_task_id_;
 }
 
 void Collector::SessionShutdown() {

@@ -65,21 +65,22 @@ DbHandler::DbHandler(EventManager *evm,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
         std::string name, const TtlMap& ttl_map,
-        const std::string& cassandra_user,
-        const std::string& cassandra_password,
-        const std::string &cassandra_compaction_strategy,
+        const Options::Cassandra &cassandra_options,
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes,
         bool disable_statistics_writes, bool disable_messages_writes,
         bool disable_messages_keyword_writes, bool use_db_write_options,
         const DbWriteOptions &db_write_options) :
     dbif_(new cass::cql::CqlIf(evm, cassandra_ips,
-        cassandra_ports[0], cassandra_user, cassandra_password)),
+        cassandra_ports[0], cassandra_options.user_,
+        cassandra_options.password_)),
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(ttl_map),
     tablespace_(g_viz_constants.COLLECTOR_KEYSPACE_CQL),
-    compaction_strategy_(cassandra_compaction_strategy),
+    compaction_strategy_(cassandra_options.compaction_strategy_),
+    flow_tables_compaction_strategy_(
+        cassandra_options.flow_tables_compaction_strategy_),
     gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
         (uint8_t)g_viz_constants.PARTITION_MAX),
     zookeeper_server_list_(zookeeper_server_list),
@@ -328,7 +329,7 @@ bool DbHandler::CreateTables() {
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
+        if (!dbif_->Db_AddColumnfamily(*it, flow_tables_compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -1869,8 +1870,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     DbHandlerInitializer::InitializeDoneCb callback,
     const std::vector<std::string> &cassandra_ips,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
-    const std::string &cassandra_user, const std::string &cassandra_password,
-    const std::string &cassandra_compaction_strategy,
+    const Options::Cassandra &cassandra_options,
     const std::string &zookeeper_server_list,
     bool use_zookeeper, bool disable_all_db_writes,
     bool disable_db_stats_writes, bool disable_db_messages_writes,
@@ -1880,8 +1880,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
-        cassandra_user, cassandra_password, cassandra_compaction_strategy,
-        zookeeper_server_list, use_zookeeper,
+        cassandra_options, zookeeper_server_list, use_zookeeper,
         disable_all_db_writes, disable_db_stats_writes,
         disable_db_messages_writes, disable_db_messages_keyword_writes,
         true, db_write_options)),

@@ -92,9 +92,7 @@ public:
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
         std::string name, const TtlMap& ttl_map,
-        const std::string& cassandra_user,
-        const std::string& cassandra_password,
-        const std::string& cassandra_compaction_strategy,
+        const Options::Cassandra &cassandra_options,
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes, bool disable_stats_writes,
         bool disable_messages_writes, bool disable_messages_keyword_writes,
@@ -254,6 +252,7 @@ private:
     static tbb::mutex fmutex_;
     std::string tablespace_;
     std::string compaction_strategy_;
+    std::string flow_tables_compaction_strategy_;
     UniformInt8RandomGenerator gen_partition_no_;
     std::string zookeeper_server_list_;
     bool use_zookeeper_;
@@ -310,10 +309,7 @@ class DbHandlerInitializer {
         const std::string &timer_task_name, InitializeDoneCb callback,
         const std::vector<std::string> &cassandra_ips,
         const std::vector<int> &cassandra_ports,
-        const TtlMap& ttl_map,
-        const std::string& cassandra_user,
-        const std::string& cassandra_password,
-        const std::string &cassandra_compaction_strategy,
+        const TtlMap& ttl_map, const Options::Cassandra &cassandra_options,
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_db_writes,
         bool disable_db_stats_writes, bool disable_db_messages_writes,
