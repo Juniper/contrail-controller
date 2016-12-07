@@ -370,6 +370,7 @@ int main(int argc, char *argv[])
             ttl_map, options.cassandra_user(),
             options.cassandra_password(),
             options.cassandra_compaction_strategy(),
+            options.cassandra_flow_tables_compaction_strategy(),
             zookeeper_server_list,
             use_zookeeper, options.disable_all_db_writes(),
             options.disable_db_statistics_writes(),

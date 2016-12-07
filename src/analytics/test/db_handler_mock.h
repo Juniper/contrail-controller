@@ -15,7 +15,7 @@ class DbHandlerMock : public DbHandler {
         DbHandler(evm,  boost::bind(&DbHandlerMock::StartDbifReinit, this),
             std::vector<std::string>(1, "127.0.0.1"),
             std::vector<int>(1, 9160), "localhost", ttl_map, "", "",
-            "", "", false, false, false, false) {
+            "", "", "", false, false, false, false, false) {
     }
     void StartDbifReinit() {
         UnInit(-1);

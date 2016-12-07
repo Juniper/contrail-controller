@@ -68,6 +68,7 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string& cassandra_user,
         const std::string& cassandra_password,
         const std::string &cassandra_compaction_strategy,
+        const std::string &cassandra_flow_tables_compaction_strategy,
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes,
         bool disable_statistics_writes, bool disable_messages_writes,
@@ -79,6 +80,7 @@ DbHandler::DbHandler(EventManager *evm,
     ttl_map_(ttl_map),
     tablespace_(g_viz_constants.COLLECTOR_KEYSPACE_CQL),
     compaction_strategy_(cassandra_compaction_strategy),
+    flow_tables_compaction_strategy_(cassandra_flow_tables_compaction_strategy),
     gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
         (uint8_t)g_viz_constants.PARTITION_MAX),
     zookeeper_server_list_(zookeeper_server_list),
@@ -183,7 +185,7 @@ bool DbHandler::CreateTables() {
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
+        if (!dbif_->Db_AddColumnfamily(*it, flow_tables_compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -1717,6 +1719,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::vector<int> &cassandra_ports, const TtlMap& ttl_map,
     const std::string &cassandra_user, const std::string &cassandra_password,
     const std::string &cassandra_compaction_strategy,
+    const std::string &cassandra_flow_tables_compaction_strategy,
     const std::string &zookeeper_server_list,
     bool use_zookeeper, bool disable_all_db_writes,
     bool disable_db_stats_writes, bool disable_db_messages_writes,
@@ -1727,6 +1730,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         cassandra_ips, cassandra_ports, db_name, ttl_map,
         cassandra_user, cassandra_password, cassandra_compaction_strategy,
+        cassandra_flow_tables_compaction_strategy,
         zookeeper_server_list, use_zookeeper,
         disable_all_db_writes, disable_db_stats_writes,
         disable_db_messages_writes, disable_db_messages_keyword_writes)),

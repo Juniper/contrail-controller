@@ -43,6 +43,7 @@ public:
             const std::string& cassandra_user,
             const std::string& cassandra_password,
             const std::string &cassandra_compaction_strategy,
+            const std::string &cassandra_flow_tables_compaction_strategy,
             const std::string &zookeeper_server_list,
             bool use_zookeeper, bool disable_all_db_writes,
             bool disable_db_stats_writes, bool disable_db_messages_writes,
