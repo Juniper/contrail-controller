@@ -1,0 +1,14 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+_WEB_HOST = '127.0.0.1'
+_WEB_PORT = 6991
+_CASSANDRA_HOST = '127.0.0.1'
+_CASSANDRA_PORT = 9160
+_CASSANDRA_MAX_RETRIES = 5
+_CASSANDRA_TIMEOUT = 0.5
+_ZK_HOST = '127.0.0.1'
+_ZK_PORT = 2181
+DEFAULT_VERSION='1.0'
+
