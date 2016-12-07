@@ -2837,4 +2837,276 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Userdefined Counter Config -->
 <xsd:include schemaLocation='usr_def_cntr.xsd'/>
 
+<!-- PBB EVPN Configurations -->
+<xsd:simpleType name="MACLimitExceedActionType">
+    <xsd:annotation>
+        <xsd:documentation>
+            Action to be taken when one of the following exceptions occur:
+               * number of MACs learnt exceeds the configured limit
+               * number of MAC moves exceeds the configured limit
+            Possible actions can be
+            1. LOG
+            2. ALARM
+            3. SHUTDOWN
+            4. DROP
+            Currently only LOG option will be supported
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="log"/>
+        <xsd:enumeration value="alarm"/>
+        <xsd:enumeration value="shutdown"/>
+        <xsd:enumeration value="drop"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="MACLimitControlType">
+    <xsd:annotation>
+        <xsd:documentation>
+            This property defines the MAC limit and MAC limit exceed actions
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name='mac-limit' type='xsd:integer' required='true'
+        operations='CRUD' description='Number of MACs that can be learnt'/>
+    <xsd:element name='mac-limit-action' type='MACLimitExceedActionType'
+        required='optional' default='log' operations='CRUD'
+        description='Action to be taken when MAC limit exceeds'/>
+</xsd:complexType>
+
+<xsd:simpleType name="MACMoveTimeWindow">
+    <xsd:annotation>
+        <xsd:documentation>
+            MAC move limit is calculated based on number of MAC move in a given
+            time interval. This property defines the time interval
+            Default MAC move time window is set to 10 seconds
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="1"/>
+        <xsd:maxInclusive value="60"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+
+<xsd:complexType name="MACMoveLimitControlType">
+    <xsd:annotation>
+        <xsd:documentation>
+            This property defines the permitted MAC moves in a specified time
+            and actions to be taken when MAC move limit exceeds
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name='mac-move-limit' type='xsd:integer'
+        required='true' operations='CRUD'
+        description='Number of MAC moves permitted in mac move time window'/>
+    <xsd:element name='mac-move-time-window' type='MACMoveTimeWindow'
+        default='10' required='true' operations='CRUD'
+        description='MAC move time window'/>
+    <xsd:element name='mac-move-limit-action' type='MACLimitExceedActionType'
+        default='log' required='optional' operations='CRUD'
+        description='Action to be taken when MAC move limit exceeds'/>
+</xsd:complexType>
+
+<!-- MAC learning configurations on Virtual network -->
+<xsd:element name="mac-learning-enabled" type='xsd:boolean' default='false'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-learning-enabled', 'virtual-network', 'optional', 'CRUD',
+              'Enable MAC learning on the network') -->
+
+<xsd:element name="mac-limit-control" type='MACLimitControlType'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-limit-control', 'virtual-network', 'optional', 'CRUD',
+              'MAC limit control on the network') -->
+
+<xsd:element name="mac-move-control" type='MACMoveLimitControlType'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-move-control', 'virtual-network', 'optional', 'CRUD',
+              'MAC move control on the network') -->
+
+<xsd:simpleType name="MACAgingTime">
+    <xsd:annotation>
+        <xsd:documentation>
+            MAC aging time in seconds
+            MAC aging time ranges from 10 seconds to 1 day(86400 secs)
+            Special value of 0 means MAC aging is disabled
+            Default MAC aging time is set to 5 Minutes(300 seconds)
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="86400"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="mac-aging-time" type="MACAgingTime" default="300"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-aging-time', 'virtual-network', 'optional', 'CRUD',
+              'MAC aging time on the network') -->
+
+<!-- MAC learning configurations on global system config -->
+
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-limit-control', 'global-system-config', 'optional', 'CRUD',
+              'Global MAC limit control') -->
+    <xsd:annotation>
+        <xsd:documentation>
+            Following attribute will be configured on the global level
+                MAC learning control
+                MAC move control
+                MAC aging time
+            These configurations are applied on the Virtual Network
+            that has MAC learning enabled and above parameters are not
+            explicitly configured
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-move-control', 'global-system-config', 'optional', 'CRUD',
+              'Global MAC move control') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-aging-time', 'global-system-config', 'optional', 'CRUD',
+              'Global MAC age time') -->
+
+<!-- bridge domain configuration -->
+<xsd:element name="bridge-domain"  type="ifmap:IdentityType"/>
+<xsd:simpleType name="IsidType">
+    <xsd:annotation>
+        <xsd:documentation>
+            Instance Service Identifier or I-SID is a 24 bit number that
+            uniquely identifies an I-Component. It is unique across a service
+            provider's PBB network.
+        </xsd:documentation>
+    </xsd:annotation>
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="16777215"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="isid" type='IsidType'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('isid', 'bridge-domain', 'required', 'CRUD',
+              'i-sid value') -->
+
+<!-- MAC learning configurations on bridge-domain -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-learning-enabled', 'bridge-domain', 'optional', 'CRUD',
+              'Enable MAC learning on the bridge domain') -->
+    <xsd:annotation>
+        <xsd:documentation>
+            Following attribute will be configured on the bridge domain
+                MAC learning enabled
+                MAC learning control
+                MAC move control
+                MAC aging time
+            These configurations are derived from the Virtual Network to the
+            bridge domain if not explicitly configured.
+        </xsd:documentation>
+    </xsd:annotation>
+
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-limit-control', 'bridge-domain', 'optional', 'CRUD',
+              'MAC limit control on bridge domain') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-move-control', 'bridge-domain', 'optional', 'CRUD',
+              'MAC move control on bridge domain') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('mac-aging-time', 'bridge-domain', 'optional', 'CRUD',
+              'MAC age time on bridge domain') -->
+
+<xsd:element name="virtual-network-bridge-domain"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-bridge-domain',
+          'virtual-network', 'bridge-domain', ['ref'], 'optional', 'CRUD',
+          'Reference to bridge-domain of this virtual network.') -->
+
+<xsd:element name="vlan-tag-based-bridge-domain" type="xsd:boolean"
+    default="false"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            This flag enables vlan tag(dot1Q tag) based bridge domain
+            classification for virtual-machine-interface
+
+            In the current release, bridge domain classification based on vlan
+            tag will not be supported. Virtual machine interface will be mapped
+            to single bridge domain for tagged/priority-tagged/untagged traffic.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('vlan-tag-based-bridge-domain', 'virtual-machine-interface',
+     'optional', 'CRUD',
+     'Enable VLAN tag based bridge domain classification on the port') -->
+
+<xsd:simpleType name="Dot1QTagType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="4094"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="BridgeDomainMembershipType">
+    <xsd:annotation>
+        <xsd:documentation>
+            VLAN tag 0 means incoming packet is either untagged or
+            priority tagged
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name="vlan-tag" type="Dot1QTagType"
+        description='VLAN tag of the incoming packet that maps the
+                     virtual-machine-interface to bridge domain'/>
+</xsd:complexType>
+
+<xsd:element name="virtual-machine-interface-bridge-domain"
+             type="BridgeDomainMembershipType"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            Virtual machine interface is mapped to bridge domain based on the
+            incoming 802.1Q vlan tag.
+
+            This link attribute works along with vlan-tag-based-bridge-domain
+            flag on the virtual-machine-interface
+
+            1. if vlan-tag-based-bridge-domain is false
+               All traffic (tagged/priority tagged/untagged) will be assigned to
+               single bridge domain.
+
+            2. if vlan-tag-based-bridge-domain is true
+                Incoming traffic will be mapped to bridge domain based on vlan
+                tag of the incoming traffic.
+                Untagged/priority tagged traffic will be mapped to bridge domain
+                with link attribute where vlan-tag = 0.
+                Tagged traffic will be mapped to bridge domain with link
+                attribute where vlan-tag = incoming vlan tag.
+                For all tagged traffic where corresponding bridge domain mapping
+                is missing will be dropped.
+
+            In the current release, vlan-tag-based-bridge-domain will not be
+            supported and single bridge domain will be linked to virtual machine
+            interface. So all traffic (tagged/priority tagged/untagged) will be
+            assigned to this single bridge domain.
+        </xsd:documentation>
+    </xsd:annotation>
+
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-bridge-domain',
+          'virtual-machine-interface', 'bridge-domain', ['ref'], 'optional',
+          'CRUD', 'Virtual Machine interface maps to a bridge-domain by default'
+          'or based on in coming 802.1Q vlan tag') -->
+
+<!-- PBB configuration -->
+<xsd:element name="pbb-evpn-enable" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pbb-evpn-enable', 'virtual-network', 'optional', 'CRUD',
+              'Enable/Disable PBB EVPN tunneling on the network') -->
+
+<xsd:element name="pbb-etree-enable" type="xsd:boolean" default="false"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            This Boolean will allow/disallow L2 communication between two
+            endpoints connected to vRouters in a virtual network.
+            When it is disabled, endpoint communication happens via a L3 gateway
+            provisioned in the remote PE.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pbb-etree-enable', 'virtual-network', 'optional', 'CRUD',
+              'Enable/Disable PBB ETREE mode on the network') -->
 </xsd:schema>
