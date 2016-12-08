@@ -38,8 +38,6 @@ struct VmInterfaceStats {
     2: u64 in_bytes;
     3: u64 out_pkts;
     4: u64 out_bytes;
-    /** Drop packet count */
-    5: u64 drop_pkts;
 }
 
 struct VmHealthCheckInstance {
