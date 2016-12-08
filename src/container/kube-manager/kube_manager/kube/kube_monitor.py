@@ -5,10 +5,17 @@ import requests
 
 class KubeMonitor(object):
 
-    def __init__(self, args=None, logger=None, q=None):
+    def __init__(self, args=None, logger=None, q=None, db=None):
         self.args = args
         self.logger = logger
         self.q = q
+
+        # Use Kube DB if kube object caching is enabled in config.
+        if args.kube_object_cache == 'True':
+            self.db = db
+        else:
+            self.db = None
+
         self.url = "http://%s:%s/api/v1" % (self.args.kubernetes_api_server,
             self.args.kubernetes_api_port)
         self.beta_url = "http://%s:%s/apis/extensions/v1beta1" % (
