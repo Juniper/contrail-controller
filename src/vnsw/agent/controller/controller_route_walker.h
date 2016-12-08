@@ -33,15 +33,22 @@ public:
     //i.e. all VRF and all corresponding route walks are over.
     void Start(Type type, bool associate, 
                AgentRouteWalker::WalkDone walk_done_cb);
-    void Cancel();
+    void StartDelPeer(BgpPeer *peer,
+                      AgentRouteWalker::WalkDone walk_done_cb);
     //Callback for identifying walk complete of all route tables for given vrf
     void RouteWalkDoneForVrf(VrfEntry *vrf);
+    void RouteWalkDoneForVrfInternal(VrfEntry *vrf, BgpPeer *peer);
     void set_type(Type type) {type_ = type;}
 
     //Override vrf notification
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
     //Override route notification
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
+    virtual void StartRouteWalk(VrfEntry *vrf);
+
+    uint64_t running_sequence_number() const {return running_sequence_number_;}
+    void reset_running_sequence_number() {running_sequence_number_ = 0;}
+    Peer *peer() {return peer_;}
 
 private:
     //VRF notification handlers
@@ -57,11 +64,14 @@ private:
     bool RouteNotifyAll(DBTablePartBase *partition, DBEntryBase *e);
     bool RouteNotifyMulticast(DBTablePartBase *partition, DBEntryBase *e);
     bool RouteDelPeer(DBTablePartBase *partition, DBEntryBase *e);
+    bool RouteDelPeerInternal(DBTablePartBase *partition, DBEntryBase *e,
+                              BgpPeer *peer);
     bool RouteStaleMarker(DBTablePartBase *partition, DBEntryBase *e);
 
     Peer *peer_;
     bool associate_;
     Type type_;
+    uint64_t running_sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(ControllerRouteWalker);
 };
 

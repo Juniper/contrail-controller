@@ -13,6 +13,7 @@
 #include <controller/controller_peer.h>
 #include <controller/controller_vrf_export.h>
 #include <controller/controller_export.h>
+#include <controller/controller_init.h>
 
 Peer::Peer(Type type, const std::string &name, bool export_to_controller) :
     type_(type), name_(name), export_to_controller_(export_to_controller) {
@@ -99,10 +100,13 @@ const Ip4Address *Peer::NexthopIp(Agent *agent, const AgentPath *path) const {
 
 BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
                  Agent *agent, DBTableBase::ListenerId id,
-                 Peer::Type bgp_peer_type) :
+                 Peer::Type bgp_peer_type,
+                 uint64_t sequence_number,
+                 uint8_t server_index) :
     DynamicPeer(agent, bgp_peer_type, name, false),
     server_ip_(server_ip), id_(id),
-    route_walker_(new ControllerRouteWalker(agent, this)) {
+    route_walker_(new ControllerRouteWalker(agent, this)),
+    sequence_number_(sequence_number), server_index_(server_index) {
         is_disconnect_walk_ = false;
         setup_time_ = UTCTimestampUsec();
 }
@@ -113,10 +117,6 @@ BgpPeer::~BgpPeer() {
     if ((id_ != -1) && route_walker_->agent()->vrf_table()) {
         route_walker_->agent()->vrf_table()->Unregister(id_);
     }
-}
-
-void BgpPeer::DelPeerRoutes(DelPeerDone walk_done_cb) {
-    route_walker_->Start(ControllerRouteWalker::DELPEER, false, walk_done_cb);
 }
 
 void BgpPeer::PeerNotifyRoutes() {
@@ -221,4 +221,14 @@ AgentXmppChannel *BgpPeer::GetAgentXmppChannel() const {
         }
     }
     return NULL;
+}
+
+void BgpPeer::DelPeerRoutes() {
+    if (agent()->controller() == NULL)
+        return;
+
+    agent()->controller()->DelPeerRoutes(this,
+                                         boost::bind(
+           &VNController::ControllerPeerHeadlessAgentDelDoneEnqueue,
+           agent()->controller(), server_index_));
 }

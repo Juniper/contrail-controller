@@ -73,11 +73,11 @@ public:
     AgentRouteWalker(Agent *agent, WalkType type);
     virtual ~AgentRouteWalker();
 
-    void StartVrfWalk();
+    virtual void StartVrfWalk();
     void CancelVrfWalk();
 
     //Route table walk for specified VRF
-    void StartRouteWalk(VrfEntry *vrf);
+    virtual void StartRouteWalk(VrfEntry *vrf);
     void CancelRouteWalk(VrfEntry *vrf);
 
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);

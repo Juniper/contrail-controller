@@ -161,6 +161,7 @@ public:
                                    bool assisted_replication);
     void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
                       autogen::EnetItemType *item);
+
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
