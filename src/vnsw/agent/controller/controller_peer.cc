@@ -131,7 +131,9 @@ void AgentXmppChannel::CreateBgpPeer() {
     const string &addr = agent_->controller_ifmap_xmpp_server(xs_idx_);
     Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
     assert(ec.value() == 0);
-    bgp_peer_id_.reset(new BgpPeer(ip, addr, agent_, id, Peer::BGP_PEER));
+    bgp_peer_id_.reset(new BgpPeer(ip, addr, agent_, id, Peer::BGP_PEER,
+                                   agent_->controller()->sequence_number(xs_idx_),
+                                   GetXmppServerIdx()));
 }
 
 void AgentXmppChannel::DeCommissionBgpPeer() {
@@ -1253,9 +1255,10 @@ void AgentXmppChannel::CleanMulticastStale(AgentXmppChannel *agent_xmpp_channel)
 void AgentXmppChannel::UnicastPeerDown(AgentXmppChannel *peer,
                                        BgpPeer *peer_id) {
     Agent *agent = peer->agent();
+    VNController *vn_controller = agent->controller();
     uint32_t active_xmpp_count = agent->controller()->
         ActiveXmppConnectionCount();
-    VNController *vn_controller = agent->controller();
+    vn_controller->incr_sequence_number(peer->GetXmppServerIdx());
 
     // Cancel timer - when second peer comes up at say 4.5 mts and
     // immediately first peer does down then there is a interval of few seconds
@@ -1297,9 +1300,7 @@ void AgentXmppChannel::UnicastPeerDown(AgentXmppChannel *peer,
     // 2) Headless (active_xmpp present) - Delete peer path
     // Callback provided  for all walk done - this invokes cleanup in case
     // delete of peer is issued because of channel getting disconnected.
-    peer_id->DelPeerRoutes(boost::bind(
-                           &VNController::ControllerPeerHeadlessAgentDelDoneEnqueue,
-                           agent->controller(), peer_id));
+    peer_id->DelPeerRoutes();
     CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "None",
                      "Delete peer paths");
 }

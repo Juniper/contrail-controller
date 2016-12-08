@@ -39,6 +39,21 @@
 
 class ConfigManagerNodeList;
 class ConfigManagerDeviceVnList;
+class IFMapAgentLinkTable;
+
+class ConfigHelper {
+public:
+    ConfigHelper(const ConfigManager *mgr, const Agent *agent);
+    virtual ~ConfigHelper() { }
+
+    IFMapNode *FindLink(const char *type, IFMapNode *node);
+
+private:
+    const ConfigManager *mgr_;
+    IFMapAgentLinkTable *link_table_;
+    const Agent *agent_;
+    DISALLOW_COPY_AND_ASSIGN(ConfigHelper);
+};
 
 class ConfigManager {
 public:
@@ -90,6 +105,7 @@ public:
     IFMapNode * FindAdjacentIFMapNode(IFMapNode *node,
             const char *type);
     void NodeResync(IFMapNode *node);
+    ConfigHelper *helper() const {return helper_.get();}
     Agent *agent() { return agent_; }
 
 private:
@@ -113,6 +129,7 @@ private:
     std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
 
     uint64_t process_config_count_[kMaxTimeout + 1];
+    boost::scoped_ptr<ConfigHelper> helper_;
     DISALLOW_COPY_AND_ASSIGN(ConfigManager);
 };
 

@@ -23,9 +23,18 @@
 #include "controller/controller_export.h"
 #include "controller/controller_route_path.h"
 
+#define CANCEL_WALKS_FOR_DELETED_PEER(vrf) \
+    bool cancelled = false;                \
+    if (peer_->SkipAddChangeRequest() &&   \
+        (type_ != DELPEER)) {              \
+        CancelVrfWalk();                   \
+        if (vrf) CancelRouteWalk(vrf);     \
+        cancelled = true;                  \
+    }
+
 ControllerRouteWalker::ControllerRouteWalker(Agent *agent, Peer *peer) : 
     AgentRouteWalker(agent, AgentRouteWalker::ALL), peer_(peer), 
-    associate_(false), type_(NOTIFYALL) {
+    associate_(false), type_(NOTIFYALL), running_sequence_number_(0) {
 }
 
 // Takes action based on context of walk. These walks are not parallel.
@@ -33,6 +42,9 @@ ControllerRouteWalker::ControllerRouteWalker(Agent *agent, Peer *peer) :
 bool ControllerRouteWalker::VrfWalkNotify(DBTablePartBase *partition,
                                           DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
+    CANCEL_WALKS_FOR_DELETED_PEER(vrf);
+    if (cancelled) return false;
+
     // Notification from deleted VRF should have taken care of all operations
     // w.r.t. peer, see VrfExport::Notify
     // Exception is DelPeer walk. Reason being that this walk will start when
@@ -99,24 +111,21 @@ bool ControllerRouteWalker::VrfNotifyAll(DBTablePartBase *partition,
 bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
                                        DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    if (peer_->GetType() == Peer::BGP_PEER) {
-        // skip starting walk on route tables if all the the route tables
-        // are already delete, this also safe-gaurds that StartRouteWalk
-        // will not be the first reference on the deleted VRF which will
-        // end up taking reference and setting refcount state on deleted
-        // VRF which can cause Bug - 1495824
-        if (vrf->AllRouteTableDeleted()) return true;
-        // Register Callback for deletion of VRF state on completion of route
-        // walks 
-        RouteWalkDoneForVrfCallback(boost::bind(
-                                    &ControllerRouteWalker::RouteWalkDoneForVrf,
-                                    this, _1));
-        StartRouteWalk(vrf);
-        CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf DelPeer", vrf->GetName(), 
-                         peer_->GetName());
-        return true;
-    }
-    return false;
+    // skip starting walk on route tables if all the the route tables
+    // are already delete, this also safe-gaurds that StartRouteWalk
+    // will not be the first reference on the deleted VRF which will
+    // end up taking reference and setting refcount state on deleted
+    // VRF which can cause Bug - 1495824
+    if (vrf->AllRouteTableDeleted()) return true;
+    // Register Callback for deletion of VRF state on completion of route
+    // walks 
+    RouteWalkDoneForVrfCallback(boost::bind(
+                                            &ControllerRouteWalker::RouteWalkDoneForVrf,
+                                            this, _1));
+    StartRouteWalk(vrf);
+    CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf DelPeer", vrf->GetName(), 
+                                  peer_->GetName());
+    return true;
 }
 
 bool ControllerRouteWalker::VrfNotifyMulticast(DBTablePartBase *partition, 
@@ -158,6 +167,10 @@ bool ControllerRouteWalker::VrfNotifyInternal(DBTablePartBase *partition,
 // At a time peer can be only in one state. 
 bool ControllerRouteWalker::RouteWalkNotify(DBTablePartBase *partition,
                                       DBEntryBase *entry) {
+    AgentRoute *route = static_cast<AgentRoute *>(entry);
+    CANCEL_WALKS_FOR_DELETED_PEER(route->vrf());
+    if (cancelled) return false;
+
     switch (type_) {
     case NOTIFYALL:
         return RouteNotifyAll(partition, entry);
@@ -224,8 +237,26 @@ bool ControllerRouteWalker::RouteNotifyMulticast(DBTablePartBase *partition,
 // Deletes the peer and corresponding state in route
 bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
                                          DBEntryBase *entry) {
+    bool ret = true;
+    uint8_t server_index = static_cast<BgpPeer *>(peer_)->server_index();
+
+    for (VNController::BgpPeerIterator it  =
+         agent()->controller()->decommissioned_peer_list().begin();
+         it != agent()->controller()->decommissioned_peer_list().end(); ++it) {
+        BgpPeer *peer = static_cast<BgpPeer *>((*it).get());
+        //Skip peer not belonging to this channel walker.
+        if (peer->server_index() != server_index) continue;
+        if (peer->sequence_number() > running_sequence_number_)
+            return ret;
+        ret |= RouteDelPeerInternal(partition, entry, peer);
+    }
+    return ret;
+}
+
+bool ControllerRouteWalker::RouteDelPeerInternal(DBTablePartBase *partition,
+                                                 DBEntryBase *entry,
+                                                 BgpPeer *bgp_peer) {
     AgentRoute *route = static_cast<AgentRoute *>(entry);
-    BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
 
     if (!route)
         return true;
@@ -256,7 +287,7 @@ bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
     req.key.reset(key);
     req.data.reset();
     AgentRouteTable *table = static_cast<AgentRouteTable *>(route->get_table());
-    table->Enqueue(&req);
+    table->Process(req);
     return true;
 }
 
@@ -282,9 +313,27 @@ bool ControllerRouteWalker::RouteStaleMarker(DBTablePartBase *partition,
     return true;
 }
 
+void ControllerRouteWalker::RouteWalkDoneForVrf(VrfEntry *vrf) {
+    if (type_ != DELPEER)
+        return;
+
+    uint8_t server_index = static_cast<BgpPeer *>(peer_)->server_index();
+    for (VNController::BgpPeerIterator it  =
+         agent()->controller()->decommissioned_peer_list().begin();
+         it != agent()->controller()->decommissioned_peer_list().end(); ++it) {
+        BgpPeer *peer = static_cast<BgpPeer *>((*it).get());
+        //Skip peer not belonging to this channel walker.
+        if (peer->server_index() != server_index) continue;
+        if (peer->sequence_number() > running_sequence_number_)
+            break;
+        RouteWalkDoneForVrfInternal(vrf, peer);
+    }
+}
+
 // Called when for a VRF all route table walks are complete.
 // Deletes the VRF state of that peer.
-void ControllerRouteWalker::RouteWalkDoneForVrf(VrfEntry *vrf) {
+void ControllerRouteWalker::RouteWalkDoneForVrfInternal(VrfEntry *vrf,
+                                                        BgpPeer *bgp_peer) {
     // Currently used only for delete peer handling
     // Deletes the state and release the listener id
     if (type_ != DELPEER)
@@ -292,7 +341,6 @@ void ControllerRouteWalker::RouteWalkDoneForVrf(VrfEntry *vrf) {
 
     CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Route Walk done", vrf->GetName(), 
                      peer_->GetName());
-    BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
     DBEntryBase *entry = static_cast<DBEntryBase *>(vrf);
     DBTablePartBase *partition = agent()->vrf_table()->GetTablePartition(vrf);
     bgp_peer->DeleteVrfState(partition, entry);
@@ -301,6 +349,9 @@ void ControllerRouteWalker::RouteWalkDoneForVrf(VrfEntry *vrf) {
 // walk_done_cb - Called back when all walk i.e. VRF and route are done.
 void ControllerRouteWalker::Start(Type type, bool associate, 
                             AgentRouteWalker::WalkDone walk_done_cb) {
+    CANCEL_WALKS_FOR_DELETED_PEER(NULL);
+    if (cancelled) return;
+
     associate_ = associate;
     type_ = type;
     WalkDoneCallback(walk_done_cb);
@@ -308,7 +359,23 @@ void ControllerRouteWalker::Start(Type type, bool associate,
     StartVrfWalk(); 
 }
 
-void ControllerRouteWalker::Cancel() {
-    CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Cancel Vrf Walk", "", peer_->GetName());
-    CancelVrfWalk(); 
+void ControllerRouteWalker::StartRouteWalk(VrfEntry *vrf) {
+    CANCEL_WALKS_FOR_DELETED_PEER(vrf);
+    if (cancelled) return;
+
+    AgentRouteWalker::StartRouteWalk(vrf);
+}
+
+void ControllerRouteWalker::StartDelPeer(BgpPeer *peer,
+                                         AgentRouteWalker::WalkDone walk_done_cb) {
+    peer_ = peer;
+    associate_ = false;
+    type_ = DELPEER;
+    WalkDoneCallback(walk_done_cb);
+    if (running_sequence_number_ == 0) {
+        running_sequence_number_ = peer->sequence_number();
+        StartVrfWalk(); 
+    }
+    CANCEL_WALKS_FOR_DELETED_PEER(NULL);
+    if (cancelled) return;
 }
