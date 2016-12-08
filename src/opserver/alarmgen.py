@@ -203,23 +203,22 @@ class AlarmProcessor(object):
     def process_alarms(self, alarm_fqname, alarm, uv, local_uve):
         if not alarm.is_enabled():
             return
-        alarm_name = alarm_fqname.rsplit(':', 1)[1]
         sev = alarm.severity()
         if not uv in self.ActiveTimer:
             self.ActiveTimer[uv] = {}
-        self.ActiveTimer[uv][alarm_name] = alarm.ActiveTimer()
+        self.ActiveTimer[uv][alarm_fqname] = alarm.ActiveTimer()
         if not uv in self.IdleTimer:
             self.IdleTimer[uv] = {}
-        self.IdleTimer[uv][alarm_name] = alarm.IdleTimer()
+        self.IdleTimer[uv][alarm_fqname] = alarm.IdleTimer()
         if not uv in self.FreqExceededCheck:
             self.FreqExceededCheck[uv] = {}
-        self.FreqExceededCheck[uv][alarm_name] = alarm.FreqExceededCheck()
+        self.FreqExceededCheck[uv][alarm_fqname] = alarm.FreqExceededCheck()
         if not uv in self.FreqCheck_Times:
             self.FreqCheck_Times[uv] = {}
-        self.FreqCheck_Times[uv][alarm_name] = alarm.FreqCheck_Times()
+        self.FreqCheck_Times[uv][alarm_fqname] = alarm.FreqCheck_Times()
         if not uv in self.FreqCheck_Seconds:
             self.FreqCheck_Seconds[uv] = {}
-        self.FreqCheck_Seconds[uv][alarm_name] = alarm.FreqCheck_Seconds()
+        self.FreqCheck_Seconds[uv][alarm_fqname] = alarm.FreqCheck_Seconds()
 
         try:
             # __call__ method overrides the generic alarm processing code.
@@ -229,9 +228,9 @@ class AlarmProcessor(object):
                 or_list = self._evaluate_uve_for_alarms(
                     alarm.config(), uv, local_uve)
             self._logger.debug("Alarm[%s] %s: %s" %
-                (uv, alarm_name, str(or_list)))
+                (uv, alarm_fqname, str(or_list)))
             if or_list:
-                self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name,
+                self.uve_alarms[alarm_fqname] = UVEAlarmInfo(type=alarm_fqname,
                     severity=sev, timestamp=0, token="",
                     alarm_rules=AlarmRules(or_list),
                     description=alarm.description(), ack=False)
@@ -240,7 +239,7 @@ class AlarmProcessor(object):
 	    messag = template.format(type(ex).__name__, ex.args)
 	    self._logger.error("%s : traceback %s" % \
 			      (messag, traceback.format_exc()))
-            self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name,
+            self.uve_alarms[alarm_fqname] = UVEAlarmInfo(type=alarm_fqname,
                     severity=sev, timestamp=0, token="",
                     alarm_rules=AlarmRules(None),
                     description=alarm.description(), ack=False)
