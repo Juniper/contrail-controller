@@ -62,7 +62,7 @@ public:
     void ProcessEORMarkerReceived(Address::Family family);
     void MembershipRequest();
     void MembershipRequestCallback();
-    void FillCloseInfo(BgpNeighborResp *resp) const;
+    BgpNeighborResp *FillCloseInfo(BgpNeighborResp *resp) const;
     bool MembershipPathCallback(DBTablePartBase *root, BgpRoute *rt,
                                 BgpPath *path);
     void UpdateRouteStats(Address::Family family, const BgpPath *old_path,

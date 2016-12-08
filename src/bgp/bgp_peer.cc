@@ -419,7 +419,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           peer_type_((config->peer_as() == config->local_as()) ?
                          BgpProto::IBGP : BgpProto::EBGP),
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
-          peer_close_(new BgpPeerClose(this)),
+          peer_close_(BgpObjectFactory::Create<BgpPeerClose>(this)),
           close_manager_(BgpObjectFactory::Create<PeerCloseManager>(
                       peer_close_.get())),
           peer_stats_(new PeerStats(this)),

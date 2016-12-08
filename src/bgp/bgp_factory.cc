@@ -24,6 +24,9 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpMembershipManager,
 #include "bgp/bgp_peer.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpPeer, BgpPeer);
 
+#include "bgp/bgp_peer_close.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpPeerClose, BgpPeerClose);
+
 #include "bgp/bgp_session_manager.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpSessionManager, BgpSessionManager);
 

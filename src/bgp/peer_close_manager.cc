@@ -618,7 +618,7 @@ void PeerCloseManager::FillRouteCloseInfo(PeerCloseInfo *close_info) const {
         close_info->set_route_stats(route_stats);
 }
 
-void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
+BgpNeighborResp *PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
     PeerCloseInfo peer_close_info;
     peer_close_info.set_state(GetStateName(state_));
     peer_close_info.set_membership_state(
@@ -637,6 +637,8 @@ void PeerCloseManager::FillCloseInfo(BgpNeighborResp *resp) const {
     FillRouteCloseInfo(&peer_close_info);
 
     resp->set_peer_close_info(peer_close_info);
+
+    return resp;
 }
 
 void PeerCloseManager::UpdateRouteStats(Address::Family family,

@@ -21,6 +21,7 @@ class BgpMembershipManager;
 class BgpMessageBuilder;
 class BgpNeighborConfig;
 class BgpPeer;
+class BgpPeerClose;
 class BgpRoutingPolicyConfig;
 class BgpServer;
 class BgpSessionManager;
@@ -57,6 +58,7 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N1(BgpObjectFactory, RoutingPolicyMgr, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, RTargetGroupMgr, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, StateMachine, BgpPeer *);
+    FACTORY_TYPE_N1(BgpObjectFactory, BgpPeerClose, BgpPeer *);
     FACTORY_TYPE_N2(BgpObjectFactory, BgpLifetimeManager, BgpServer *, int);
     FACTORY_TYPE_N2(BgpObjectFactory, BgpSessionManager,
                     EventManager *, BgpServer *);
