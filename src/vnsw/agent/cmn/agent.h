@@ -603,6 +603,11 @@ public:
     void set_dns_xmpp_channel(AgentDnsXmppChannel *chnl, uint8_t idx) {
         dns_xmpp_channel_[idx] = chnl;
     }
+    bool is_dns_xmpp_channel(AgentDnsXmppChannel *channel) {
+        if (channel == dns_xmpp_channel_[0] || channel == dns_xmpp_channel_[1])
+            return true;;
+        return false;
+    }
 
     // DNS Server and port
     const std::string &dns_server(uint8_t idx) const {return dns_addr_[idx];}
