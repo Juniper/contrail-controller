@@ -351,15 +351,17 @@ TEST_F(FipCfg, Fip_PortMap_Add) {
     EXPECT_TRUE(it != fip_list.end());
 
     EXPECT_TRUE(it->port_map_enabled());
-    EXPECT_EQ(2, it->PortMappingSize());
+    EXPECT_EQ(4, it->PortMappingSize());
     EXPECT_EQ(1100, it->GetDstPortMap(IPPROTO_TCP, 100));
     EXPECT_EQ(1200, it->GetDstPortMap(IPPROTO_TCP, 200));
     EXPECT_EQ(100, it->GetSrcPortMap(IPPROTO_TCP, 1100));
     EXPECT_EQ(200, it->GetSrcPortMap(IPPROTO_TCP, 1200));
-    EXPECT_EQ(-1, it->GetDstPortMap(IPPROTO_UDP, 100));
-    EXPECT_EQ(-1, it->GetDstPortMap(IPPROTO_UDP, 200));
+    EXPECT_EQ(1100, it->GetDstPortMap(IPPROTO_UDP, 100));
+    EXPECT_EQ(1200, it->GetDstPortMap(IPPROTO_UDP, 200));
     EXPECT_EQ(-1, it->GetDstPortMap(IPPROTO_TCP, 101));
     EXPECT_EQ(-1, it->GetDstPortMap(IPPROTO_TCP, 201));
+    EXPECT_EQ(-1, it->GetDstPortMap(IPPROTO_UDP, 101));
+    EXPECT_EQ(-1, it->GetDstPortMap(IPPROTO_UDP, 201));
     DelFipIip(sequence);
 }
 

@@ -42,7 +42,7 @@ TEST_F(FlowTest, PortMap_Fabric_To_Fip_1) {
     fe = FlowGet(0, remote_vm3_ip, "14.1.1.100", IPPROTO_UDP, 1000, 80,
                  flow0->flow_key_nh()->id());
     EXPECT_TRUE(fe != NULL);
-    rfe = FlowGet(0, vm1_ip, remote_vm3_ip, IPPROTO_UDP, 0, 1000,
+    rfe = FlowGet(0, vm1_ip, remote_vm3_ip, IPPROTO_UDP, 1080, 1000,
                   flow0->flow_key_nh()->id());
     EXPECT_TRUE(rfe != NULL);
     DeleteRemoteRoute("vrf4", remote_vm3_ip);
@@ -114,7 +114,7 @@ TEST_F(FlowTest, PortMap_Fip_To_Fabric_1) {
                  flow0->flow_key_nh()->id());
     EXPECT_TRUE(fe != NULL);
 
-    rfe = FlowGet(0, remote_vm3_ip, "14.1.1.100", IPPROTO_UDP, 1000, 0,
+    rfe = FlowGet(0, remote_vm3_ip, "14.1.1.100", IPPROTO_UDP, 1000, 80,
                   flow0->flow_key_nh()->id());
     EXPECT_TRUE(rfe != NULL);
     DeleteRemoteRoute("vrf4", remote_vm3_ip);
