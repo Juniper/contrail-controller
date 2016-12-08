@@ -408,6 +408,19 @@ public:
                 Agent::GetInstance()->mpls_table()->FindMplsLabel(label);
             if (mpls_label) {
                 nh = mpls_label->nexthop()->id();
+#if 0
+                const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>
+                    (mpls_label->nexthop());
+                if (intf_nh) {
+                    const VmInterface *vmi = dynamic_cast<const VmInterface *>
+                        (intf_nh->GetInterface());
+                    if (vmi != NULL) {
+                        if (vmi->flow_key_nh()) {
+                            nh = vmi->flow_key_nh()->id();
+                        }
+                    }
+                }
+#endif
             }
         } else if (vxlan_id > 0) {
             VxLanId *vxlan =
