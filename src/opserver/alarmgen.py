@@ -32,6 +32,7 @@ from pysandesh.connection_info import ConnectionState
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh_alarm.ttypes import SandeshAlarmAckResponseCode
 import sandesh.viz.constants as viz_constants
+from sandesh.viz.constants import _OBJECT_TABLES
 from sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import AlarmTrace, \
     UVEAlarms, UVEAlarmInfo, UVEAlarmConfig, AlarmOperand2, AlarmCondition, \
     AlarmMatch, AlarmConditionMatch, AlarmAndList, AlarmRules
@@ -55,10 +56,10 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     AlarmgenStatus, AlarmgenStats, AlarmgenPartitionTrace, \
     AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate, \
     UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
-    UVETablePerfReq, UVETablePerfResp, UVETableInfo, UVETableCount, \
+    UVETablePerfReq, UVETablePerfResp, UVETableInfo, \
     UVEAlarmStateMachineInfo, UVEAlarmState, UVEAlarmOperState,\
     AlarmStateChangeTrace, UVEQTrace, AlarmConfig, AlarmConfigRequest, \
-    AlarmConfigResponse
+    AlarmConfigResponse, AlarmgenUVEStats, AlarmgenAlarmStats
 
 from sandesh.discovery.ttypes import CollectorTrace
 from opserver_util import ServicePoller
@@ -967,6 +968,7 @@ class Controller(object):
 
         self._workers = {}
         self._uvestats = {}
+        self._alarmstats = {}
         self._uveq = {}
         self._uveqf = {}
         self._alarm_config_change_map = {}
@@ -1482,7 +1484,7 @@ class Controller(object):
                 self._logger.info("UVE Process saturated")
                 gevent.sleep(0)
 
-    def examine_uve_for_alarms(self, uve_key, uve):
+    def examine_uve_for_alarms(self, part, uve_key, uve):
         table = uve_key.split(':', 1)[0]
         alarm_cfg = self._config_handler.alarm_config_db()
         prevt = UTCTimestampUsec()
@@ -1511,6 +1513,10 @@ class Controller(object):
                     if asm.is_new_alarm_same(new_uve_alarms[nm]):
                         del new_uve_alarms[nm]
 
+        if not self._alarmstats.has_key(part):
+            self._alarmstats[part] = {}
+        if not self._alarmstats[part].has_key(table):
+            self._alarmstats[part][table] = {}
         if len(del_types) != 0  or len(new_uve_alarms) != 0:
             self._logger.debug("Alarm[%s] Deleted %s" % \
                     (table, str(del_types)))
@@ -1535,11 +1541,21 @@ class Controller(object):
                             aproc.FreqExceededCheck[uve_key][nm])
                 asm = self.tab_alarms[table][uve_key][nm]
                 asm.set_uai(uai)
-                # go through alarm set statemachine code
+                # go through alarm set state machine code
                 asm.set_alarms()
+                # increment alarm set count here.
+                if not self._alarmstats[part][table].has_key(nm):
+                    self._alarmstats[part][table][nm] = \
+                                            AlarmgenAlarmStats(0, 0)
+                self._alarmstats[part][table][nm].set_count += 1
             # These alarm types are now gone
             for dnm in del_types:
                 if dnm in self.tab_alarms[table][uve_key]:
+                    # increment alarm reset count here.
+                    if not self._alarmstats[part][table].has_key(dnm):
+                        self._alarmstats[part][table][dnm] = \
+                                                AlarmgenAlarmStats(0, 0)
+                    self._alarmstats[part][table][dnm].reset_count += 1
                     delete_alarm = \
                         self.tab_alarms[table][uve_key][dnm].clear_alarms()
                     if delete_alarm:
@@ -1568,7 +1584,7 @@ class Controller(object):
                 else:
                     for name, data in uves.iteritems():
                         self._logger.debug('process alarm for uve %s' % (name))
-                        self.examine_uve_for_alarms(uve_type_name[0]+':'+name,
+                        self.examine_uve_for_alarms(partition, uve_type_name[0]+':'+name,
                             data.values())
                     gevent.sleep(0)
         except Exception as e:
@@ -1617,10 +1633,29 @@ class Controller(object):
         for ak,av in self.tab_alarms[tab][uv].iteritems():
             av.delete_timers()
 
+    def increment_uve_notif_count(self, part, tab, uve_type, oper):
+        """
+        This function increments operation counter for the uve_type
+        - add
+        - change
+        - remove
+        """
+        if uve_type not in self._uvestats[part][tab]:
+            self._uvestats[part][tab][uve_type] = AlarmgenUVEStats(0, 0, 0)
+        if (oper == "add"):
+            self._uvestats[part][tab][uve_type].add_count += 1
+        elif (oper == "change"):
+            self._uvestats[part][tab][uve_type].change_count += 1
+        elif (oper == "remove"):
+            self._uvestats[part][tab][uve_type].remove_count += 1
+        else:
+            self._logger.error("Invalid operation(%s) for [%s][%s][%s]" %
+                               (part, tab, uve_type))
+
     def handle_uve_notif(self, part, uves):
         """
         Call this function when a UVE has changed. This can also
-        happed when taking ownership of a partition, or when a
+        happen when taking ownership of a partition, or when a
         generator is deleted.
         Args:
             part   : Partition Number
@@ -1652,10 +1687,6 @@ class Controller(object):
                 # Record stats on UVE Keys being processed
                 if not tab in self._uvestats[part]:
                     self._uvestats[part][tab] = {}
-                if uv in self._uvestats[part][tab]:
-                    self._uvestats[part][tab][uv] += 1
-                else:
-                    self._uvestats[part][tab][uv] = 1
 
             uve_name = uv.split(':',1)[1]
             prevt = UTCTimestampUsec() 
@@ -1697,6 +1728,7 @@ class Controller(object):
 			    sandesh=self._sandesh)
                     for rems in self.ptab_info[part][tab][uve_name].removed():
                         output[uv][rems] = None
+                        self.increment_uve_notif_count(part, tab, rems, "remove")
                 if len(self.ptab_info[part][tab][uve_name].changed()):
                     touched = True
                     self._logger.debug("UVE %s changed structs %s" % (uv, \
@@ -1704,6 +1736,7 @@ class Controller(object):
                     for chgs in self.ptab_info[part][tab][uve_name].changed():
                         output[uv][chgs] = \
                                 self.ptab_info[part][tab][uve_name].values()[chgs]
+                        self.increment_uve_notif_count(part, tab, chgs, "change")
                 if len(self.ptab_info[part][tab][uve_name].added()):
                     touched = True
                     self._logger.debug("UVE %s added structs %s" % (uv, \
@@ -1711,6 +1744,7 @@ class Controller(object):
                     for adds in self.ptab_info[part][tab][uve_name].added():
                         output[uv][adds] = \
                                 self.ptab_info[part][tab][uve_name].values()[adds]
+                        self.increment_uve_notif_count(part, tab, adds, "add")
             else:
                 for typ in types:
                     val = None
@@ -1729,6 +1763,7 @@ class Controller(object):
 				sandesh=self._sandesh)
                         for rems in self.ptab_info[part][tab][uve_name].removed():
                             output[uv][rems] = None
+                            self.increment_uve_notif_count(part, tab, rems, "remove")
                     if len(self.ptab_info[part][tab][uve_name].changed()):
                         touched = True
                         self._logger.debug("UVE %s changed structs %s" % (uve_name, \
@@ -1736,6 +1771,7 @@ class Controller(object):
                         for chgs in self.ptab_info[part][tab][uve_name].changed():
                             output[uv][chgs] = \
                                     self.ptab_info[part][tab][uve_name].values()[chgs]
+                            self.increment_uve_notif_count(part, tab, chgs, "change")
                     if len(self.ptab_info[part][tab][uve_name].added()):
                         touched = True
                         self._logger.debug("UVE %s added structs %s" % (uve_name, \
@@ -1743,6 +1779,7 @@ class Controller(object):
                         for adds in self.ptab_info[part][tab][uve_name].added():
                             output[uv][adds] = \
                                     self.ptab_info[part][tab][uve_name].values()[adds]
+                            self.increment_uve_notif_count(part, tab, adds, "add")
             if not touched:
                 del output[uv]
             local_uve = self.ptab_info[part][tab][uve_name].values()
@@ -1785,7 +1822,7 @@ class Controller(object):
                         self.send_alarm_update(tab, uv)
                 continue
             # Examine UVE to check if alarm need to be raised/deleted
-            self.examine_uve_for_alarms(uv, local_uve)
+            self.examine_uve_for_alarms(part, uv, local_uve)
         if success:
 	    uveq_trace = UVEQTrace()
 	    uveq_trace.uves = output.keys()
@@ -2022,22 +2059,21 @@ class Controller(object):
             dout = copy.deepcopy(self._uvestats[pk])
             self._uvestats[pk] = {}
             for ktab,tab in dout.iteritems():
-                utct = UVETableCount()
-                utct.keys = 0
-                utct.count = 0
+                uve_stats = {}
                 for uk,uc in tab.iteritems():
-                    s_keys.add(uk)
-                    n_updates += uc
-                    utct.keys += 1
-                    utct.count += uc
+                    uve_stats[uk] = AlarmgenUVEStats(uc.add_count,
+                                                     uc.change_count,
+                                                     uc.remove_count)
+
                 au_obj = AlarmgenUpdate(name=self._sandesh._source + ':' + \
                         self._sandesh._node_type + ':' + \
                         self._sandesh._module + ':' + \
                         self._sandesh._instance_id,
                         partition = pk,
                         table = ktab,
-                        o = utct,
                         i = None,
+                        uve_stats = uve_stats,
+                        alarm_stats = None,
                         sandesh=self._sandesh)
                 self._logger.debug('send output stats: %s' % (au_obj.log()))
                 au_obj.send(sandesh=self._sandesh)
@@ -2059,10 +2095,29 @@ class Controller(object):
                         self._sandesh._instance_id,
                         partition = pk,
                         table = ktab,
-                        o = None,
                         i = au_notifs,
                         sandesh=self._sandesh)
                 self._logger.debug('send input stats: %s' % (au_obj.log()))
+                au_obj.send(sandesh=self._sandesh)
+
+            # alarm stats
+            for ktab,tab in self._alarmstats[pk].iteritems():
+                alarm_stats = {}
+                for uk,uc in tab.iteritems():
+                    alarm_stats[uk] = AlarmgenAlarmStats(uc.set_count,
+                                                         uc.reset_count)
+
+                au_obj = AlarmgenUpdate(name=self._sandesh._source + ':' + \
+                        self._sandesh._node_type + ':' + \
+                        self._sandesh._module + ':' + \
+                        self._sandesh._instance_id,
+                        partition = pk,
+                        table = ktab,
+                        i = None,
+                        uve_stats = None,
+                        alarm_stats = alarm_stats,
+                        sandesh=self._sandesh)
+                self._logger.debug('send alarm stats: %s' % (au_obj.log()))
                 au_obj.send(sandesh=self._sandesh)
 
         au = AlarmgenStatus()
