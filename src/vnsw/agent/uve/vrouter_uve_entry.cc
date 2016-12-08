@@ -181,7 +181,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         vhost_stats.set_out_bytes(s->out_bytes);
         vhost_stats.set_speed(s->speed);
         vhost_stats.set_duplexity(s->duplexity);
-        vhost_stats.set_drop_pkts(s->drop_pkts);
         uve->stats_manager()->BuildDropStats(s->drop_stats, vhost_ds);
         stats.set_raw_vhost_stats(vhost_stats);
         stats.set_raw_vhost_drop_stats(vhost_ds);
@@ -292,7 +291,6 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(map<string, PhyIfStats> &list,
         phy_stat_entry.set_in_bytes(s->in_bytes);
         phy_stat_entry.set_out_pkts(s->out_pkts);
         phy_stat_entry.set_out_bytes(s->out_bytes);
-        phy_stat_entry.set_drop_pkts(s->drop_pkts);
         list.insert(make_pair(intf->name(), phy_stat_entry));
 
         PhyIfInfo phy_if_info;
