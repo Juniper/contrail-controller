@@ -30,15 +30,15 @@ private:
 
 class ControllerDeletePeerData : public ControllerWorkQueueData {
 public:
-    ControllerDeletePeerData(BgpPeer *bgp_peer) :
+    ControllerDeletePeerData(uint8_t server_index) :
         ControllerWorkQueueData(),
-        bgp_peer_(bgp_peer) {}
+        server_index_(server_index) {}
     virtual ~ControllerDeletePeerData() {}
 
-    BgpPeer *bgp_peer() const {return bgp_peer_;}
+    uint8_t server_index() const {return server_index_;}
 
 private:
-    BgpPeer *bgp_peer_;
+    uint8_t server_index_;
     DISALLOW_COPY_AND_ASSIGN(ControllerDeletePeerData);
 };
 
@@ -79,6 +79,7 @@ public:
 
 class VNController {
 public:
+    typedef boost::function<void()> DelPeerDone;
     typedef boost::function<void(uint8_t)> XmppChannelDownCb;
     typedef boost::shared_ptr<ControllerXmppData> ControllerXmppDataType;
     typedef boost::shared_ptr<ControllerDeletePeerData> ControllerDeletePeerDataType;
@@ -127,7 +128,7 @@ public:
         return decommissioned_peer_list_.size();
     }
     void AddToDecommissionedPeerList(PeerPtr peer);
-    const BgpPeerList &decommissioned_peer_list() const {
+    BgpPeerList &decommissioned_peer_list() {
         return decommissioned_peer_list_;
     }
 
@@ -135,8 +136,8 @@ public:
     void StartUnicastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
     void UnicastCleanupTimerExpired();
     CleanupTimer &unicast_cleanup_timer() {return unicast_cleanup_timer_;}
-    void ControllerPeerHeadlessAgentDelDoneEnqueue(BgpPeer *peer);
-    bool ControllerPeerHeadlessAgentDelDone(BgpPeer *peer);
+    void ControllerPeerHeadlessAgentDelDoneEnqueue(uint8_t server_index);
+    bool ControllerPeerHeadlessAgentDelDone(uint8_t server_index);
 
     //Multicast timer
     void StartMulticastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
@@ -177,6 +178,11 @@ public:
                             int port, int size,
                             const std::string &msg,
                             const XmppStanza::XmppMessage *xmpp_msg);
+    void DelPeerRoutes(BgpPeer *peer, DelPeerDone walk_done_cb);
+    uint64_t sequence_number(uint8_t idx) {return sequence_number_[idx];}
+    void incr_sequence_number(uint8_t idx) {
+        sequence_number_[idx]++;
+    }
 
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
@@ -198,6 +204,8 @@ private:
     WorkQueue<ControllerWorkQueueDataType> work_queue_;
     FabricMulticastLabelRange fabric_multicast_label_range_[MAX_XMPP_SERVERS];
     XmppChannelDownCb xmpp_channel_down_cb_;
+    boost::scoped_ptr<ControllerRouteWalker> delete_peer_walker_[MAX_XMPP_SERVERS];
+    uint64_t sequence_number_[MAX_XMPP_SERVERS];
 };
 
 extern SandeshTraceBufferPtr ControllerInfoTraceBuf;

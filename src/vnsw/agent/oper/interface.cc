@@ -90,17 +90,28 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
 
 bool InterfaceTable::ProcessConfig(IFMapNode *node, DBRequest &req,
         const boost::uuids::uuid &u) {
+    uint64_t t = ClockMonotonicUsec();
+    uint64_t mt[3] = {0};
     if (strcmp(node->table()->Typename(), "physical-interface") == 0) {
         return PhysicalInterfaceProcessConfig(node, req, u);
     }
+    mt[0] = ClockMonotonicUsec() - t;
+    t = ClockMonotonicUsec();
 
     if (strcmp(node->table()->Typename(), "logical-interface") == 0) {
         return LogicalInterfaceProcessConfig(node, req, u);
     }
+    mt[1] = ClockMonotonicUsec() - t;
+    t = ClockMonotonicUsec();
 
     if (strcmp(node->table()->Typename(), "virtual-machine-interface") == 0) {
         return VmiProcessConfig(node, req, u);
     }
+    mt[2] = ClockMonotonicUsec() - t;
+    t = ClockMonotonicUsec();
+
+    if ((mt[0] > 1000) || (mt[1] > 1000) || (mt[2] > 1000))
+        t = 0;
 
     return false;
 }
