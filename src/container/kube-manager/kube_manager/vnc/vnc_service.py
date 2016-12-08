@@ -80,9 +80,9 @@ class VncService(object):
             if not ll.params['protocol_port']:
                 contine
 
-            # SAS: FIXME Add check for protocol as well once UDP is supported
             if port:
-                if ll.params['protocol_port'] != port['port']:
+                if ll.params['protocol_port'] != port['port'] or \
+                   ll.params['protocol'] != port['protocol']:
                     listener_found = False
 
             if not listener_found:
@@ -126,9 +126,9 @@ class VncService(object):
             if not ll.params['protocol_port']:
                 contine
 
-            # SAS: FIXME Add check for protocol as well once UDP is supported
             if port:
-                if ll.params['protocol_port'] != port['port']:
+                if ll.params['protocol_port'] != port['port'] or \
+                   ll.params['protocol'] != port['protocol']:
                     listener_found = False
 
             if not listener_found:
@@ -188,9 +188,11 @@ class VncService(object):
                     contine
                 if not ll.params['protocol_port']:
                     contine
+                if not ll.params['protocol']:
+                    contine
 
-                # SAS: FIXME Add check for protocol as well once UDP is supported
-                if ll.params['protocol_port'] == port['port']:
+                if ll.params['protocol_port'] == port['port'] and \
+                   ll.params['protocol'] == port['protocol']:
                     listener_found = True
                     break
 
