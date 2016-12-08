@@ -7,7 +7,9 @@ import sys
 import argparse
 from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
-from sandesh_common.vns.constants import HttpPortKubeManager
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from sandesh_common.vns.constants import (HttpPortKubeManager,ApiServerPort,\
+    DiscoveryServerPort)
 
 def parse_args():
     conf_parser = argparse.ArgumentParser(add_help=False)
@@ -27,6 +29,11 @@ def parse_args():
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'kube_object_cache': 'True',
+        'disc_server_ip': 'localhost',
+        'disc_server_port': DiscoveryServerPort,
+        'log_level': SandeshLevel.SYS_DEBUG,
+        'log_file': '/var/log/contrail/contrail-kube-manager.log',
+        'api_service_link_local' : 'True',
     }
 
     vnc_opts = {
@@ -43,9 +50,24 @@ def parse_args():
         'kombu_ssl_ca_certs': '',
         'cassandra_user': None,
         'cassandra_password': None,
+        'cassandra_server_list': '',
         'cluster_id': '',
+        'vnc_endpoint_ip': 'localhost',
+        'vnc_endpoint_port': ApiServerPort,
+        'admin_user' : '',
+        'admin_password' : '',
+        'admin_tenant' : '',
     }
-    k8s_opts = {}
+
+    k8s_opts = {
+        'kubernetes_api_server': 'localhost',
+        'kubernetes_api_port': '8080', 
+        'kubernetes_api_secure_port': None,
+        'kubernetes_api_secure_ip': None,
+        'kubernetes_service_name': 'kubernetes',
+        'service_subnets': '', 
+        'pod_subnets': '', 
+    }
 
     config = ConfigParser.SafeConfigParser()
     if args.config_file:

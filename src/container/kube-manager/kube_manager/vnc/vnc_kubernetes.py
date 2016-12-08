@@ -53,7 +53,7 @@ class VncKubernetes(object):
             'kube_manager.vnc.vnc_namespace.VncNamespace', self.vnc_lib)
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
-            self.label_cache)
+            self.label_cache, self.args, self.logger)
         self.pod_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
             self.label_cache, self.service_mgr)
