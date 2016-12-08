@@ -1,0 +1,2 @@
+recursive-include cni/uve *.html *.xml *.css
+recursive-include cni/sandesh *.html *.xml *.css

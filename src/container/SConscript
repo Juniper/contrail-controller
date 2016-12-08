@@ -26,7 +26,7 @@ subdirs=[
     'kube-manager',
     'mesos-manager',
     'kube-cni',
-    'mesos-cni',
+    'cni',
 ]
 
 CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
