@@ -1,15 +1,14 @@
 import json
 import gevent
 from kube_monitor import KubeMonitor
+from kube_manager.common.kube_config_db import PodKM
 
 class PodMonitor(KubeMonitor):
 
-    def __init__(self, args=None, logger=None, q=None,
-                 pod_db=None):
-        super(PodMonitor, self).__init__(args, logger, q)
+    def __init__(self, args=None, logger=None, q=None):
+        super(PodMonitor, self).__init__(args, logger, q, PodKM)
         self.handle = self.register_monitor('pods')
         self.logger.info("PodMonitor init done.");
-        self._pod_db = pod_db
 
     def _process_pod_event(self, event):
         pod_data = event['object']
@@ -21,15 +20,15 @@ class PodMonitor(KubeMonitor):
             if not pod_data['spec'].get('nodeName'):
                 return
 
-        if self._pod_db:
-            pod_uuid = self._pod_db.get_uuid(event['object'])
+        if self.db:
+            pod_uuid = self.db.get_uuid(event['object'])
             if event_type != 'DELETED':
                 # Update Pod DB.
-                pod = self._pod_db.locate(pod_uuid)
+                pod = self.db.locate(pod_uuid)
                 pod.update(pod_data)
             else:
                 # Remove the entry from Pod DB.
-                self._pod_db.delete(pod_uuid)
+                self.db.delete(pod_uuid)
 
         pod_name = pod_data['metadata'].get('name')
         namespace = pod_data['metadata'].get('namespace')

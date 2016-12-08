@@ -1,28 +1,28 @@
 import json
 import gevent
 from kube_monitor import KubeMonitor
+from kube_manager.common.kube_config_db import NamespaceKM
 
 class NamespaceMonitor(KubeMonitor):
 
-    def __init__(self, args=None, logger=None, q=None, namespace_db=None):
-        super(NamespaceMonitor, self).__init__(args, logger, q)
+    def __init__(self, args=None, logger=None, q=None):
+        super(NamespaceMonitor, self).__init__(args, logger, q, NamespaceKM)
         self.handle = self.register_monitor('namespaces')
         self.logger.info("NamespaceMonitor init done.");
-        self._namespace_db = namespace_db
 
     def _process_namespace_event(self, event):
         namespce_data = event['object']
         event_type = event['type']
 
-        if self._namespace_db:
-            namespace_uuid = self._namespace_db.get_uuid(event['object'])
+        if self.db:
+            namespace_uuid = self.db.get_uuid(event['object'])
             if event_type != 'DELETED':
                 # Update Namespace DB.
-                namespace = self._namespace_db.locate(namespace_uuid)
+                namespace = self.db.locate(namespace_uuid)
                 namespace.update(namespce_data)
             else:
                 # Remove the entry from Namespace DB.
-                self._namespace_db.delete(namespace_uuid)
+                self.db.delete(namespace_uuid)
 
         print("Put %s %s %s" % (event['type'],
             event['object'].get('kind'),
