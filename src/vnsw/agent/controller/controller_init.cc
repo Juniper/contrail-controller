@@ -24,6 +24,7 @@
 #include "controller/controller_ifmap.h"
 #include "controller/controller_dns.h"
 #include "controller/controller_export.h"
+#include "controller/controller_route_walker.h"
 
 using namespace boost::asio;
 
@@ -67,6 +68,10 @@ VNController::VNController(Agent *agent)
     fabric_multicast_label_range_(), xmpp_channel_down_cb_() {
     work_queue_.set_name("Controller Queue");
     decommissioned_peer_list_.clear();
+    for (uint8_t index = 0; index < MAX_XMPP_SERVERS; index++) {
+        delete_peer_walker_[index].reset(new ControllerRouteWalker(agent, NULL));
+        sequence_number_[index] = 0;
+    }
 }
 
 VNController::~VNController() {
@@ -691,8 +696,8 @@ void VNController::AddToDecommissionedPeerList(PeerPtr peer) {
     decommissioned_peer_list_.push_back(peer);
 }
 
-void VNController::ControllerPeerHeadlessAgentDelDoneEnqueue(BgpPeer *bgp_peer) {
-    ControllerDeletePeerDataType data(new ControllerDeletePeerData(bgp_peer));
+void VNController::ControllerPeerHeadlessAgentDelDoneEnqueue(uint8_t index) {
+    ControllerDeletePeerDataType data(new ControllerDeletePeerData(index));
     ControllerWorkQueueDataType base_data =
         boost::static_pointer_cast<ControllerWorkQueueData>(data);
     work_queue_.Enqueue(base_data);
@@ -704,21 +709,36 @@ void VNController::ControllerPeerHeadlessAgentDelDoneEnqueue(BgpPeer *bgp_peer) 
  * This results in zero referencing(shared_ptr) of BgpPeer object and 
  * destruction of same.
  */
-bool VNController::ControllerPeerHeadlessAgentDelDone(BgpPeer *bgp_peer) {
+bool VNController::ControllerPeerHeadlessAgentDelDone(uint8_t server_index) {
     // Retain the disconnect state for peer as bgp_peer will be freed
     // below.
-    bool is_disconnect_walk = bgp_peer->is_disconnect_walk();
+    bool is_disconnect_walk = false;
     for (BgpPeerIterator it  = decommissioned_peer_list_.begin(); 
-         it != decommissioned_peer_list_.end(); ++it) {
+         it != decommissioned_peer_list_.end();) {
+
         BgpPeer *peer = static_cast<BgpPeer *>((*it).get());
-        if (peer == bgp_peer) {
-            //Release BGP peer, ideally this should be the last reference being
-            //released for peer.
-            decommissioned_peer_list_.remove(*it);
-            DynamicPeer::ProcessDelete(bgp_peer);
-            break;
+        if (peer->server_index() != server_index) {
+            it++;
+            continue;
         }
+
+        is_disconnect_walk |= peer->is_disconnect_walk();
+        if (peer->sequence_number() >
+            delete_peer_walker_[server_index]->running_sequence_number()) {
+            delete_peer_walker_[peer->server_index()]->
+                reset_running_sequence_number();
+            static_cast<BgpPeer *>(delete_peer_walker_[peer->server_index()]->
+                                   peer())->DelPeerRoutes();
+            return true;
+        }
+        //Release BGP peer, ideally this should be the last reference being
+        //released for peer.
+        BgpPeerIterator del_it = it++;
+        decommissioned_peer_list_.remove(*del_it);
+        DynamicPeer::ProcessDelete(peer);
     }
+    //Reset the sequence numbers in walk
+    delete_peer_walker_[server_index]->reset_running_sequence_number();
 
     // Delete walk for peer was issued via shutdown of agentxmppchannel
     // If all bgp peers are gone(i.e. walk for delpeer for all decommissioned
@@ -738,9 +758,7 @@ void VNController::UnicastCleanupTimerExpired() {
     for (BgpPeerIterator it  = decommissioned_peer_list_.begin();
          it != decommissioned_peer_list_.end(); ++it) {
         BgpPeer *bgp_peer = static_cast<BgpPeer *>((*it).get());
-        bgp_peer->DelPeerRoutes(
-            boost::bind(&VNController::ControllerPeerHeadlessAgentDelDoneEnqueue,
-                        this, bgp_peer));
+        bgp_peer->DelPeerRoutes();
     }
 }
 
@@ -809,7 +827,7 @@ bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) 
         boost::dynamic_pointer_cast<ControllerDeletePeerData>(data);
     if (derived_walk_done_data) {
         return ControllerPeerHeadlessAgentDelDone(derived_walk_done_data->
-                                                  bgp_peer());
+                                                  server_index());
     }
     //Discovery response for servers
     ControllerDiscoveryDataType discovery_data =
@@ -870,6 +888,11 @@ bool VNController::XmppMessageProcess(ControllerXmppDataType data) {
 
 void VNController::Enqueue(ControllerWorkQueueDataType data) {
     work_queue_.Enqueue(data);
+}
+
+void VNController::DelPeerRoutes(BgpPeer *peer,
+                                 DelPeerDone walk_done_cb) {
+    delete_peer_walker_[peer->server_index()]->StartDelPeer(peer, walk_done_cb);
 }
 
 bool VNController::RxXmppMessageTrace(uint8_t peer_index,

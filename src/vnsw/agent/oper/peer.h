@@ -73,14 +73,11 @@ public:
     virtual bool export_to_controller() const {return export_to_controller_;}
     virtual const Ip4Address *NexthopIp(Agent *agent,
                                         const AgentPath *path) const;
+    virtual bool SkipAddChangeRequest() const { return false; }
+    virtual bool IsDeleted() const { return false; }
 
     const std::string &GetName() const { return name_; }
     const Type GetType() const { return type_; }
-
-    virtual bool SkipAddChangeRequest() const { return false; }
-
-    virtual bool IsDeleted() const { return false; }
-
     uint32_t refcount() const { return refcount_; }
 
 private:
@@ -141,10 +138,10 @@ private:
 // Peer used for BGP paths
 class BgpPeer : public DynamicPeer {
 public:
-    typedef boost::function<void()> DelPeerDone;
     BgpPeer(const Ip4Address &server_ip, const std::string &name,
             Agent *agent, DBTableBase::ListenerId id,
-            Peer::Type bgp_peer_type);
+            Peer::Type bgp_peer_type, uint64_t sequence_number,
+            uint8_t server_index);
     virtual ~BgpPeer();
 
     bool Compare(const Peer *rhs) const {
@@ -157,7 +154,6 @@ public:
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
 
     // Table Walkers
-    void DelPeerRoutes(DelPeerDone walk_done_cb);
     void PeerNotifyRoutes();
     void PeerNotifyMulticastRoutes(bool associate);
     void StalePeerRoutes();
@@ -180,6 +176,9 @@ public:
     uint32_t setup_time() const {return setup_time_;}
     Agent *agent() const;
     AgentXmppChannel *GetAgentXmppChannel() const;
+    uint64_t sequence_number() const {return sequence_number_;}
+    uint8_t server_index() const {return server_index_;}
+    void DelPeerRoutes();
 
 private: 
     Ip4Address server_ip_;
@@ -187,6 +186,8 @@ private:
     uint32_t setup_time_;
     tbb::atomic<bool> is_disconnect_walk_;
     boost::scoped_ptr<ControllerRouteWalker> route_walker_;
+    uint64_t sequence_number_;
+    uint8_t server_index_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
 
