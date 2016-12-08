@@ -1754,15 +1754,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="instance-ip" type="ifmap:IdentityType"/>
 <xsd:element name="instance-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('instance-ip-address', 'instance-ip', 'required', 'CRUD',
+     Property('instance-ip-address', 'instance-ip', 'required', 'CR',
               'Ip address value for instance ip.') -->
 <xsd:element name="instance-ip-family" type="IpAddressFamilyType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('instance-ip-family', 'instance-ip', 'optional', 'CRUD',
+     Property('instance-ip-family', 'instance-ip', 'optional', 'CR',
               'Ip address family for instance ip, IPv4(v4) or IPv6(v6).') -->
 <xsd:element name="instance-ip-mode" type="AddressMode"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('instance-ip-mode', 'instance-ip', 'optional', 'CRUD',
+     Property('instance-ip-mode', 'instance-ip', 'optional', 'CR',
               'Ip address HA mode in case this instance ip is used in more than one interface, active-Active or active-Standby.') -->
 <xsd:element name="secondary-ip-tracking-ip" type="SubnetType"/>
 <!--#IFMAP-SEMANTICS-IDL
