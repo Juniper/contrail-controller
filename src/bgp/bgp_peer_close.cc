@@ -340,11 +340,15 @@ bool BgpPeerClose::IsCloseLongLivedGraceful() const {
     return true;
 }
 
+void BgpPeerClose::RestartStateMachine() {
+    peer_->state_machine()->Initialize();
+}
+
 // Close process for this peer is complete. Restart the state machine and
 // attempt to bring up session with the neighbor
 void BgpPeerClose::CloseComplete() {
     if (!peer_->IsDeleted() && !peer_->IsAdminDown())
-        peer_->state_machine()->Initialize();
+        RestartStateMachine();
 }
 
 void BgpPeerClose::GetGracefulRestartFamilies(Families *families) const {
