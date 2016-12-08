@@ -2150,9 +2150,15 @@ void AddFloatingIp(const char *name, int id, const char *addr,
     for (int i = 0; i < 4; i++) {
         if (port_map[i]) {
             str << "    <port-mappings>" << endl;
-            str << "        <src-port> " << port_map[i] << "</src-port>"
+            str << "        <protocol>tcp</protocol>" << endl;
+            str << "        <src-port>" << port_map[i] << "</src-port>" << endl;
+            str << "        <dst-port>" << port_map[i] + 1000 << "</dst-port>"
                 << endl;
-            str << "        <dst-port> " << port_map[i] + 1000 << "</dst-port>"
+            str << "    </port-mappings>" << endl;
+            str << "    <port-mappings>" << endl;
+            str << "        <protocol>udp</protocol>" << endl;
+            str << "        <src-port>" << port_map[i] << "</src-port>" << endl;
+            str << "        <dst-port>" << port_map[i] + 1000 << "</dst-port>"
                 << endl;
             str << "    </port-mappings>" << endl;
         }
