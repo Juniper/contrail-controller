@@ -189,7 +189,7 @@ bool ArpPathPreferenceState::SendArpRequest() {
 //So that preference of route can be incremented if the VM replies to ARP
 void ArpPathPreferenceState::SendArpRequestForAllIntf(const AgentRoute *route) {
     WaitForTrafficIntfMap new_wait_for_traffic_map;
-    WaitForTrafficIntfMap &wait_for_traffic_map = evpn_wait_for_traffic_map_;
+    WaitForTrafficIntfMap wait_for_traffic_map = evpn_wait_for_traffic_map_;
     if (dynamic_cast<const InetUnicastRouteEntry *>(route)) {
         wait_for_traffic_map = l3_wait_for_traffic_map_;
     }
