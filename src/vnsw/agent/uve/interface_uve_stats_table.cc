@@ -47,7 +47,6 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     if_stats.set_in_bytes(s->in_bytes);
     if_stats.set_out_pkts(s->out_pkts);
     if_stats.set_out_bytes(s->out_bytes);
-    if_stats.set_drop_pkts(s->drop_pkts);
     uve->set_raw_if_stats(if_stats);
 
     /* Compute bandwidth only if there is change in statistics */

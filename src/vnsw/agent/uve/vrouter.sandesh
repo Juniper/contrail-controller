@@ -175,19 +175,25 @@ struct VrouterDropStats {
     25: optional u64 head_alloc_fail
     26: optional u64 pcow_fail
     27: optional u64 mcast_clone_fail
-    28: optional u64 rewrite_fail
-    29: optional u64 misc
-    30: optional u64 invalid_packet
-    31: optional u64 cksum_err
-    32: optional u64 no_fmd
-    33: optional u64 cloned_original
-    34: optional u64 invalid_vnid
-    35: optional u64 frag_err
-    36: optional u64 invalid_source
-    37: optional u64 mcast_df_bit
+    28: optional u64 mcast_df_bit
+    29: optional u64 no_memory
+    30: optional u64 rewrite_fail
+    31: optional u64 misc
+    32: optional u64 invalid_packet
+    33: optional u64 cksum_err
+    34: optional u64 no_fmd
+    35: optional u64 invalid_vnid
+    36: optional u64 frag_err
+    37: optional u64 invalid_source
     38: optional u64 l2_no_route
-    39: optional u64 vlan_fwd_tx
-    40: optional u64 vlan_fwd_enq
+    39: optional u64 fragment_queue_fail
+    40: optional u64 vlan_fwd_tx
+    41: optional u64 vlan_fwd_enq
+    42: optional u64 drop_new_flow
+    43: optional u64 flow_evict
+    44: optional u64 trap_original
+    /** Drop packet count */
+    45: optional u64 drop_pkts
 }
 
 /**
@@ -201,8 +207,6 @@ struct AgentIfStats {
     5: u64 out_bytes; 
     6: i32 speed;
     7: i32 duplexity;
-    /** Drop packet count */
-    8: u64 drop_pkts;
 }
 
 struct PhyIfStats {
@@ -210,8 +214,6 @@ struct PhyIfStats {
     3: u64 in_bytes;
     4: u64 out_pkts;
     5: u64 out_bytes;
-    /** Drop packet count */
-    6: u64 drop_pkts;
 }
 
 struct PhyIfInfo {
