@@ -170,7 +170,6 @@ if ui:
 vnc = VncApi(username, password, tenant_name,
              server[0], server[1], user_info=ui)
 
-url = '/aaa-mode'
 if vnc_op.args.aaa_mode:
     try:
         rv = vnc.set_aaa_mode(vnc_op.args.aaa_mode)
@@ -179,8 +178,7 @@ if vnc_op.args.aaa_mode:
         sys.exit(1)
 
 try:
-    rv_json = vnc._request_server(rest.OP_GET, url)
-    rv = json.loads(rv_json)
+    rv = vnc.get_aaa_mode()
     print 'AAA mode is %s' % rv['aaa-mode']
 except Exception as e:
     print str(e)

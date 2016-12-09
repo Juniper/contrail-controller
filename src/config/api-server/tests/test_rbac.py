@@ -175,7 +175,7 @@ class TestRbacMtDisabled(test_case.ApiServerTestCase):
                                api_server_port=self._api_server_port)
 
     def test_rbac_config(self):
-        rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
+        rv = self._vnc_lib.get_aaa_mode()
         self.assertNotEquals(rv["aaa-mode"], "rbac")
         self.assertEquals(rv["aaa-mode"], "no-auth")
 
@@ -204,7 +204,7 @@ class TestRbacMtEnabled(test_case.ApiServerTestCase):
                                api_server_port=self._api_server_port)
 
     def test_rbac_config(self):
-        rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
+        rv = self._vnc_lib.get_aaa_mode()
         self.assertNotEquals(rv["aaa-mode"], "rbac")
         self.assertEquals(rv["aaa-mode"], "cloud-admin")
 
@@ -232,7 +232,7 @@ class TestRbacAaaModeRbac(test_case.ApiServerTestCase):
                                api_server_port=self._api_server_port)
 
     def test_rbac_config(self):
-        rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
+        rv = self._vnc_lib.get_aaa_mode()
         self.assertEquals(rv["aaa-mode"], "rbac")
 
         rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
@@ -259,7 +259,7 @@ class TestRbacAaaModeAdminOnly(test_case.ApiServerTestCase):
                                api_server_port=self._api_server_port)
 
     def test_rbac_config(self):
-        rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
+        rv = self._vnc_lib.get_aaa_mode()
         self.assertEquals(rv["aaa-mode"], "cloud-admin")
 
         rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
@@ -286,7 +286,7 @@ class TestRbacAaaModeNoAuth(test_case.ApiServerTestCase):
                                api_server_port=self._api_server_port)
 
     def test_rbac_config(self):
-        rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
+        rv = self._vnc_lib.get_aaa_mode()
         self.assertEquals(rv["aaa-mode"], "no-auth")
 
         rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
@@ -312,7 +312,7 @@ class TestRbacAaaModeInvalid(test_case.ApiServerTestCase):
                                api_server_port=self._api_server_port)
 
     def test_rbac_config(self):
-        rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
+        rv = self._vnc_lib.get_aaa_mode()
         self.assertEquals(rv["aaa-mode"], "cloud-admin")
 
         rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')

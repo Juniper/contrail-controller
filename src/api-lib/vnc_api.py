@@ -1297,4 +1297,9 @@ class VncApi(object):
         content =  self._request_server(rest.OP_PUT, url, json.dumps(data))
         return json.loads(content)
 
+    def get_aaa_mode(self):
+        url = self._action_uri['aaa-mode']
+        rv =  self._request_server(rest.OP_GET, url)
+        return rv
+
 #end class VncApi
