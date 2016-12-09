@@ -1022,8 +1022,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             # NOP for addr-mgmt module
             return True,  ""
 
+        fields = ['network_ipam_refs', 'route_target_list',
+                  'import_route_target_list', 'export_route_target_list']
         ok, read_result = cls.dbe_read(db_conn, 'virtual-network', id,
-                                       obj_fields=['network_ipam_refs'])
+                                       obj_fields=fields)
         if not ok:
             return ok, read_result
 
