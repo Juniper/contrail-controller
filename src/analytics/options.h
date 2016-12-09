@@ -45,6 +45,9 @@ public:
     const std::string cassandra_compaction_strategy() const {
         return cassandra_compaction_strategy_;
     }
+    const std::string cassandra_flow_tables_compaction_strategy() const {
+        return cassandra_flow_tables_compaction_strategy_;
+    }
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
@@ -122,6 +125,7 @@ private:
     std::string cassandra_user_;
     std::string cassandra_password_;
     std::string cassandra_compaction_strategy_;
+    std::string cassandra_flow_tables_compaction_strategy_;
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;

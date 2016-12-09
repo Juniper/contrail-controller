@@ -89,8 +89,12 @@ void Options::Initialize(EventManager &evm,
               "Cassandra password")
         ("CASSANDRA.compaction_strategy",
             opt::value<string>()->default_value(
-                GenDb::g_gendb_constants.LEVELED_COMPACTION_STRATEGY),
-            "Cassandra compaction strategy");;
+                GenDb::g_gendb_constants.SIZE_TIERED_COMPACTION_STRATEGY),
+            "Cassandra compaction strategy")
+        ("CASSANDRA.flow_tables.compaction_strategy",
+            opt::value<string>()->default_value(
+                GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY),
+            "Cassandra compaction strategy for flow tables");
 
     // Command line and config file options.
     opt::options_description config("Configuration options");
@@ -295,6 +299,25 @@ void Options::GetOptValueImpl(
     }
 }
 
+static bool ValidateCompactionStrategyOption(
+    const std::string &compaction_strategy,
+    const std::string &option) {
+    if (!((compaction_strategy ==
+        GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY) ||
+        (compaction_strategy ==
+        GenDb::g_gendb_constants.LEVELED_COMPACTION_STRATEGY) ||
+        (compaction_strategy ==
+        GenDb::g_gendb_constants.SIZE_TIERED_COMPACTION_STRATEGY))) {
+        cout << "Invalid " << option <<  ", please select one of [" <<
+            GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY << ", " <<
+            GenDb::g_gendb_constants.LEVELED_COMPACTION_STRATEGY << ", " <<
+            GenDb::g_gendb_constants.SIZE_TIERED_COMPACTION_STRATEGY << "]" <<
+            endl;
+        return false;
+    }
+    return true;
+}
+
 // Process command line options. They can come from a conf file as well. Options
 // from command line always overrides those that come from the config file.
 void Options::Process(int argc, char *argv[],
@@ -397,18 +420,15 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, cassandra_password_, "CASSANDRA.cassandra_password");
     GetOptValue<string>(var_map, cassandra_compaction_strategy_,
         "CASSANDRA.compaction_strategy");
-    if (!((cassandra_compaction_strategy_ ==
-        GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY) ||
-        (cassandra_compaction_strategy_ ==
-        GenDb::g_gendb_constants.LEVELED_COMPACTION_STRATEGY) ||
-        (cassandra_compaction_strategy_ ==
-        GenDb::g_gendb_constants.SIZE_TIERED_COMPACTION_STRATEGY))) {
-        cout << "Invalid CASSANDRA.compaction_strategy," <<
-            " please select one of [" <<
-            GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY << ", " <<
-            GenDb::g_gendb_constants.LEVELED_COMPACTION_STRATEGY << ", " <<
-            GenDb::g_gendb_constants.SIZE_TIERED_COMPACTION_STRATEGY << "]" <<
-            endl;
+    if (!ValidateCompactionStrategyOption(cassandra_compaction_strategy_,
+        "CASSANDRA.compaction_strategy")) {
+        exit(-1);
+    }
+    GetOptValue<string>(var_map, cassandra_flow_tables_compaction_strategy_,
+        "CASSANDRA.flow_tables.compaction_strategy");
+    if (!ValidateCompactionStrategyOption(
+        cassandra_flow_tables_compaction_strategy_,
+        "CASSANDRA.flow_tables.compaction_strategy")) {
         exit(-1);
     }
     GetOptValue<uint16_t>(var_map, ks_port_, "KEYSTONE.auth_port");
