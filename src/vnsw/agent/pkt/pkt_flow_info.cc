@@ -274,40 +274,44 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         // have MPLS label. The MPLS label can point to
         // 1. In case of non-ECMP, label will points to local interface
         // 2. In case of ECMP, label will point to ECMP of local-composite members
+        // Setup the NH for reverse flow appropriately
     case NextHop::TUNNEL: {
-        if (pkt->l3_forwarding) {
-            const InetUnicastRouteEntry *rt =
-                static_cast<const InetUnicastRouteEntry *>(in->rt_);
-            if (rt != NULL && rt->GetLocalNextHop()) {
-                const NextHop *local_nh = rt->GetLocalNextHop();
-                out->nh_ = local_nh->id();
-                if (local_nh->GetType() == NextHop::INTERFACE) {
-                    const Interface *local_intf =
-                        static_cast<const InterfaceNH*>(local_nh)->GetInterface();
-                    //Get policy enabled nexthop only for
-                    //vm interface, in case of vgw or service interface in
-                    //transparent mode we should still
-                    //use policy disabled interface
-                    if (local_intf &&
-                            local_intf->type() == Interface::VM_INTERFACE) {
-                        if (local_nh->IsActive()) {
-                            out->nh_ = local_intf->flow_key_nh()->id();
-                        } else {
-                            LogError(pkt, "Invalid or Inactive ifindex");
-                            info->short_flow = true;
-                            info->short_flow_reason =
-                                FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
-                        }
-                    }
-                }
-            } else {
-                out->nh_ = in->nh_;
-            }
-        } else {
-            // Bridged flow. ECMP not supported for L2 flows
-            out->nh_ = in->nh_;
-        }
+        // out->intf_ is invalid for packets going out on tunnel. Reset it.
         out->intf_ = NULL;
+
+        // Packet came from a VM. Assume NH in reverse flow is same as that
+        // of forward flow. It can be over-written down if route for source-ip
+        // is ECMP
+        out->nh_ = in->nh_;
+
+        // The NH in reverse flow can change only if ECMP-NH is used. There is
+        // no ECMP for layer2 flows
+        if (pkt->l3_forwarding == false) {
+            break;
+        }
+
+        const InetUnicastRouteEntry *rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(in->rt_);
+        if (rt == NULL) {
+            break;
+        }
+
+        const NextHop *nh = rt->GetLocalNextHop();
+        if (nh->IsActive() == false) {
+            LogError(pkt, "Invalid or Inactive ifindex");
+            info->short_flow = true;
+            info->short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
+            break;
+        }
+
+        // Change NH in reverse flow if route points to composite-NH
+        const CompositeNH *comp_nh = dynamic_cast<const CompositeNH *>
+            (rt->GetLocalNextHop());
+        if (comp_nh == NULL) {
+            break;
+        }
+
+        out->nh_ = comp_nh->id();
         break;
     }
 
