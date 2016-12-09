@@ -179,8 +179,7 @@ if vnc_op.args.aaa_mode:
         sys.exit(1)
 
 try:
-    rv_json = vnc._request_server(rest.OP_GET, url)
-    rv = json.loads(rv_json)
+    rv = vnc._request_server(rest.OP_GET, url)
     print 'AAA mode is %s' % rv['aaa-mode']
 except Exception as e:
     print str(e)
