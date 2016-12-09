@@ -334,7 +334,7 @@ class VncApiServer(object):
             if not prop_value:
                 continue
 
-            if is_simple and (not is_list_prop) and (not is_map_prop):
+            if is_simple:
                 try:
                     obj_dict[prop_name] = self._validate_simple_type(prop_name,
                                               prop_type, simple_type,
@@ -354,20 +354,6 @@ class VncApiServer(object):
                         prop_name, prop_value)
                     err_msg += str(e)
                     return False, err_msg
-            elif isinstance(prop_value, list):
-                for elem in prop_value:
-                    try:
-                        if is_simple:
-                            self._validate_simple_type(prop_name, prop_type,
-                                                       simple_type, elem,
-                                                       restrictions)
-                        else:
-                            self._validate_complex_type(prop_cls, elem)
-                    except Exception as e:
-                        err_msg = 'Error validating property %s elem %s ' %(
-                            prop_name, elem)
-                        err_msg += str(e)
-                        return False, err_msg
             else: # complex-type + value isn't dict or wrapped in list or map
                 err_msg = 'Error in property %s type %s value of %s ' %(
                     prop_name, prop_cls, prop_value)
