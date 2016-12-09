@@ -52,6 +52,62 @@ class TestNetworkDM(TestCommonDM):
         return
     # end check_interface_ip_config
 
+
+    # test vn  flat subnet lo0 ip allocation
+    def test_dm_lo0_flat_subnet_ip_alloc(self):
+        vn1_name = 'vn1'
+        vn1_obj = VirtualNetwork(vn1_name, address_allocation_mode='flat-subnet-only')
+        vn1_obj_properties = VirtualNetworkType()
+        vn1_obj_properties.set_forwarding_mode('l3')
+        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
+
+        ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 28), alloc_unit=4)
+        ipam2_sn_v4 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 28), alloc_unit=4)
+
+        ipam_subnets = IpamSubnets([ipam1_sn_v4, ipam2_sn_v4])
+
+        ipam_obj = NetworkIpam('ipam-flat', ipam_subnet_method="flat-subnet", ipam_subnets=ipam_subnets)
+        self._vnc_lib.network_ipam_create(ipam_obj)
+
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
+        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+
+        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        pr.set_virtual_network(vn1_obj)
+        self._vnc_lib.physical_router_update(pr)
+        vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_uuid)
+        vrf_name_l3 = DMUtils.make_vrf_name(vn1_obj.fq_name[-1], vn1_obj.virtual_network_network_id, 'l3')
+
+        gevent.sleep(2)
+        self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id)
+
+        #set fwd mode l2 and check lo0 ip alloc, should not be allocated
+        vn1_obj_properties = VirtualNetworkType()
+        vn1_obj_properties.set_forwarding_mode('l2')
+        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+
+        gevent.sleep(2)
+        self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id, True)
+
+        #set fwd mode l2_l3 and check lo0 ip alloc
+        vn1_obj_properties = VirtualNetworkType()
+        vn1_obj_properties.set_forwarding_mode('l2_l3')
+        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+
+        gevent.sleep(2)
+        self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id, True)
+
+        #detach vn from PR and check
+        pr.del_virtual_network(vn1_obj)
+        self._vnc_lib.physical_router_update(pr)
+        gevent.sleep(2)
+
+        self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id, True)
+
+    #end test_flat_subnet
+
     # test vn  lo0 ip allocation
     def test_dm_lo0_ip_alloc(self):
         vn1_name = 'vn1'

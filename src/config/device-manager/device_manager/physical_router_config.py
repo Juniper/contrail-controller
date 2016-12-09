@@ -584,7 +584,7 @@ class PhysicalRouterConfig(object):
             intf_unit.set_family(family)
             inet = None
             inet6 = None
-            for (lo_ip, gateway) in gateways:
+            for (lo_ip, _) in gateways:
                 (ip, _) = lo_ip.split('/')
                 if ':' in lo_ip:
                     if not inet6:
