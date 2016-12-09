@@ -9,12 +9,14 @@ MESOS CNI Server
 import bottle
 import json
 from cfgm_common.rest import LinkObject
+from mesos_cni import MESOSCniDataObject
 from vnc_api.vnc_api import *
 
 class MesosServer(object):
 
     def __init__(self, args=None, logger=None, q=None):
         self._args = args
+        self._q = q
         self.logger = logger
 
         self._homepage_links = []
@@ -65,16 +67,20 @@ class MesosServer(object):
             self._pipe_start_app = bottle.app()
 
     def process_cni_data(self, container_id, data):
-        event = json.loads(data)
-        print event
-        self.q.put(event)
+        self.logger.info("Server: Got CNI data for Container Id: %d."
+            %(container_id))
+        print data
+        cni_data_obj = MESOSCniDataObject(data)
+        cni_conf = cni_data_obj.parse_cni_data()
+        self._q.put(cni_conf)
+        print cni_conf
         pass
 
     def create_cni_data(self, container_id, data):
         if not container_id in self._cni_data:
             self._cni_data[container_id] = {}
             self._cni_data[container_id] = data
-            self.process_cni_data(container_id, data)
+            self.process_cni_data(container_id, self._cni_data[container_id])
         return self._cni_data[container_id]
     # end
 
@@ -121,7 +127,6 @@ class MesosServer(object):
 
         for key, value in data.items():
             json_req[key] = value
-        print json_req
 
         cid = json_req['cid']
         self.create_cni_data(cid, json_req)
@@ -179,7 +184,8 @@ class MesosServer(object):
     # end homepage_http_get
 
     def start_server(self):
-        self.logger.info("Starting server.")
+        self.logger.info("Starting mesos-manager server @ %s:%s."
+        %(self.get_ip_addr(), self.get_port()))
 
         pipe_start_app = self.get_pipe_start_app()
 

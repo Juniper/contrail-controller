@@ -14,6 +14,7 @@ import requests
 from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
 from cfgm_common.vnc_amqp import VncAmqpHandle
+import mesos_consts
 from vnc_api.vnc_api import *
 from config_db import *
 import db
@@ -52,6 +53,8 @@ class VncMesos(object):
                     self.args.admin_password, self.args.admin_tenant,
                     self.args.vnc_endpoint_ip, self.args.vnc_endpoint_port)
                 connected = True
+		self.logger.info("Connected to API-server %s:%s."
+                    %(self.args.vnc_endpoint_ip, self.args.vnc_endpoint_port))
             except requests.exceptions.ConnectionError as e:
                 time.sleep(3)
             except ResourceExhaustionError:
@@ -68,9 +71,27 @@ class VncMesos(object):
         for cls in DBBaseMM.get_obj_type_map().values():
             cls.reset()
 
+    def process_q_event(self, event):
+        labels = event['labels']
+        #subnet = event['ipam']['subnet'] if event['ipam'] else None
+
+        for k,v in labels.items():
+            if k == mesos_consts.MESOS_LABEL_PRIVATE_NETWORK:
+                print v
+            elif k == mesos_consts.MESOS_LABEL_PUBLIC_NETWORK:
+                print v
+            elif k == mesos_consts.MESOS_LABEL_PUBLIC_SUBNET:
+                print v
+            else:
+                pass
+
     def vnc_process(self):
         while True:
             try:
                 event = self.q.get()
+                print event
+		self.logger.info("VNC: Handle CNI Data for ContainerId: %s."
+                    %(event['cid']))
+                self.process_q_event(event)
             except Empty:
                 gevent.sleep(0)
