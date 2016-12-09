@@ -98,6 +98,10 @@ public:
     uint8_t RouteToPrefixLen(const AgentRoute *route);
     void CalculatePort(const PktInfo *p, const Interface *intf);
     void SetPktInfo(boost::shared_ptr<PktInfo> info);
+    void EnqueueTrafficSeen(const PktInfo *pkt,
+                            PktControlInfo *in,
+                            PktControlInfo *out);
+
     bool                l3_flow;
     Address::Family     family;
     boost::shared_ptr<PktInfo> pkt;
