@@ -89,6 +89,7 @@ public:
         const std::string& cassandra_user,
         const std::string& cassandra_password,
         const std::string& cassandra_compaction_strategy,
+        const std::string& cassandra_flow_tables_compaction_strategy,
         bool use_cql, const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_writes, bool disable_stats_writes,
         bool disable_messages_writes, bool disable_messages_keyword_writes);
@@ -208,6 +209,7 @@ private:
     bool use_cql_;
     std::string tablespace_;
     std::string compaction_strategy_;
+    std::string flow_tables_compaction_strategy_;
     UniformInt8RandomGenerator gen_partition_no_;
     std::string zookeeper_server_list_;
     bool use_zookeeper_;
@@ -255,6 +257,7 @@ class DbHandlerInitializer {
         const std::string &cassandra_user,
         const std::string &cassandra_password,
         const std::string &cassandra_compaction_strategy,
+        const std::string &cassandra_flow_tables_compaction_strategy,
         bool use_cql,
         const std::string &zookeeper_server_list,
         bool use_zookeeper, bool disable_all_db_writes,
