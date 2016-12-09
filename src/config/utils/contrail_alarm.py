@@ -259,7 +259,7 @@ alarm_list = [
                 {
                     "and_list": [
                         {
-                            "operand1": "VrouterAgent.build_info",
+                            "operand1": "NodeStatus.build_info",
                             "operation": "==",
                             "operand2": {
                                 "json_value": "null"
@@ -272,7 +272,7 @@ alarm_list = [
         "alarm_severity": 1,
         "fq_name": [
             "default-global-system-config",
-            "system-defined-partial-sysinfo-compute"
+            "system-defined-partial-sysinfo"
         ],
         "id_perms": {
             "description": "System Info Incomplete."
@@ -280,100 +280,11 @@ alarm_list = [
         "parent_type": "global-system-config",
         "uve_keys": {
             "uve_key": [
+                "analytics-node",
+                "config-node",
+                "control-node",
+                "database-node",
                 "vrouter"
-            ]
-        }
-    },
-    {
-        "alarm_rules": {
-            "or_list": [
-                {
-                    "and_list": [
-                        {
-                            "operand1": "CollectorState.build_info",
-                            "operation": "==",
-                            "operand2": {
-                                "json_value": "null"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        "alarm_severity": 1,
-        "fq_name": [
-            "default-global-system-config",
-            "system-defined-partial-sysinfo-analytics"
-        ],
-        "id_perms": {
-            "description": "System Info Incomplete."
-        },
-        "parent_type": "global-system-config",
-        "uve_keys": {
-            "uve_key": [
-                "analytics-node"
-            ]
-        }
-    },
-    {
-        "alarm_rules": {
-            "or_list": [
-                {
-                    "and_list": [
-                        {
-                            "operand1": "ModuleCpuState.build_info",
-                            "operation": "==",
-                            "operand2": {
-                                "json_value": "null"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        "alarm_severity": 1,
-        "fq_name": [
-            "default-global-system-config",
-            "system-defined-partial-sysinfo-config"
-        ],
-        "id_perms": {
-            "description": "System Info Incomplete."
-        },
-        "parent_type": "global-system-config",
-        "uve_keys": {
-            "uve_key": [
-                "config-node"
-            ]
-        }
-    },
-    {
-        "alarm_rules": {
-            "or_list": [
-                {
-                    "and_list": [
-                        {
-                            "operand1": "BgpRouterState.build_info",
-                            "operation": "==",
-                            "operand2": {
-                                "json_value": "null"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        "alarm_severity": 1,
-        "fq_name": [
-            "default-global-system-config",
-            "system-defined-partial-sysinfo-control"
-        ],
-        "id_perms": {
-            "description": "System Info Incomplete."
-        },
-        "parent_type": "global-system-config",
-        "uve_keys": {
-            "uve_key": [
-                "control-node"
             ]
         }
     },
