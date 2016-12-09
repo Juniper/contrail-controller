@@ -2168,6 +2168,54 @@ class TestAlarmPlugins(unittest.TestCase):
                         ]
                     }
                 ])
+            ),
+            TestCase(
+                name='NodeStatus.installed_package_version == ' +\
+                     'package-version-unknown',
+                input=TestInput(uve_key='ObjectCollectorInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'running_package_version': '"3.1.0.0-2740"',
+                            'installed_package_version': '"package-version-unknown"'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'NodeStatus.running_package_version',
+                                    'operand2': {
+                                        'uve_attribute':
+                                            'NodeStatus.installed_package_version'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"3.1.0.0-2740"',
+                                        'json_operand2_val': '"package-version-unknown"'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='NodeStatus.running_package_version == ' +\
+                     'NodeStatus.installed_package_version' +\
+                     ' after package-version-unknown',
+                input=TestInput(uve_key='ObjectCollectorInfo:host1',
+                    uve_data={
+                        'NodeStatus': {
+                            'running_package_version': '"3.1.0.0-2740"',
+                            'installed_package_version': '"3.1.0.0-2740"'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
             )
         ]
         self._verify(tests, alarm_name="system-defined-package-version-mismatch")
