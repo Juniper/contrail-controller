@@ -303,7 +303,7 @@ const string BgpProto::OpenMessage::ToString() const {
 
         Capability::GR gr_params = Capability::GR();
         if (Capability::GR::Decode(&gr_params, param->capabilities)) {
-            os << ", GR_Flags 0x" << std::hex << gr_params.flags;
+            os << ", GR_Flags 0x" << integerToHexString(gr_params.flags);
             os << ", GR_Time " << gr_params.time;
             BOOST_FOREACH(Capability::GR::Family family, gr_params.families) {
                 os << ", GR_family " <<
