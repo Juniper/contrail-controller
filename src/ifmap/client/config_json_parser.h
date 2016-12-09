@@ -9,11 +9,13 @@
 #include <map>
 #include <string>
 
+#include "base/queue_task.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_origin.h"
 
-#include <boost/function.hpp>
 #include "rapidjson/document.h"
+
+#include <boost/function.hpp>
 
 struct AutogenProperty;
 class DB;
@@ -33,8 +35,6 @@ public:
     void MetadataClear(const std::string &module);
     bool Receive(const std::string &in_message, bool add_change,
                  IFMapOrigin::Origin origin);
-
-    void TmpParseDocument(const rapidjson::Document &document);
 
 private:
     bool ParseDocument(const rapidjson::Document &document, bool add_change,

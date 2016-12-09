@@ -8,6 +8,7 @@
 #include <boost/scoped_ptr.hpp>
 
 class ConfigDbClient;
+class ConfigJsonParser;
 class EventManager;
 class IFMapServer;
 struct IFMapConfigOptions;
@@ -24,6 +25,7 @@ public:
                         const IFMapConfigOptions& config_options);
     void Initialize();
     ConfigDbClient *config_db_client() const;
+    ConfigJsonParser *config_json_parser() const;
     bool GetEndOfRibComputed() const;
 
 private:
@@ -31,6 +33,7 @@ private:
 
     EventManager *evm_;
     IFMapServer *ifmap_server_;
+    boost::scoped_ptr<ConfigJsonParser> config_json_parser_;
     boost::scoped_ptr<ConfigDbClient> config_db_client_;
 };
 
