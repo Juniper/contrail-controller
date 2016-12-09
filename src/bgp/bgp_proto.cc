@@ -301,12 +301,12 @@ const string BgpProto::OpenMessage::ToString() const {
 
         Capability::GR gr_params = Capability::GR();
         if (Capability::GR::Decode(&gr_params, param->capabilities)) {
-            os << ", GR_Flags 0x" << std::hex << gr_params.flags;
+            os << ", GR_Flags 0x" << std::hex << int(gr_params.flags);
             os << ", GR_Time " << gr_params.time;
             BOOST_FOREACH(Capability::GR::Family family, gr_params.families) {
                 os << ", GR_family " <<
                     BgpAf::AfiSafiToFamily(family.afi, family.safi);
-                os << ", GR_family_flags 0x" << std::hex << family.flags;
+                os << ", GR_family_flags 0x" << std::hex << int(family.flags);
             }
         }
 
@@ -316,8 +316,8 @@ const string BgpProto::OpenMessage::ToString() const {
                           llgr_params.families) {
                 os << ", LLGR_family " <<
                     BgpAf::AfiSafiToFamily(family.afi, family.safi);
-                os << ", LLGR_family_flags 0x" << std::hex << family.flags;
-                os << ", LLGR_Time 0x" << std::hex << family.time << " Seconds";
+                os << ", LLGR_family_flags 0x" << std::hex << int(family.flags);
+                os << ", LLGR_Time " << family.time << " Seconds";
             }
         }
     }
