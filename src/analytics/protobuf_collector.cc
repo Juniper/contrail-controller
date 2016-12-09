@@ -24,8 +24,8 @@ ProtobufCollector::ProtobufCollector(EventManager *evm,
         db_initializer_.reset(new DbHandlerInitializer(evm, kDbName, kDbTaskInstance,
             kDbTaskName, boost::bind(&ProtobufCollector::DbInitializeCb, this),
             cassandra_ips, cassandra_ports, ttl_map, cassandra_user,
-            cassandra_password, std::string(), false, std::string(), false,
-            false, false, false, false));
+            cassandra_password, std::string(), std::string(), false,
+            std::string(), false, false, false, false, false));
         db_handler_ = db_initializer_->GetDbHandler();
     } else {
         db_handler_ = global_dbhandler;
