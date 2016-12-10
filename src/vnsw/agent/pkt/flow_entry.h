@@ -503,6 +503,8 @@ class FlowEntry {
 
     static AgentRoute *GetL2Route(const VrfEntry *entry, const MacAddress &mac);
     static AgentRoute *GetUcRoute(const VrfEntry *entry, const IpAddress &addr);
+    static AgentRoute *GetEvpnRoute(const VrfEntry *entry, const MacAddress &mac,
+                                    const IpAddress &addr, uint32_t ethernet_tag);
     static const SecurityGroupList &default_sg_list() {
         return default_sg_list_;
     }

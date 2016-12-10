@@ -121,14 +121,14 @@ private:
 
 struct MacBinding {
     typedef std::map<const MacAddress,
-                     PathPreference::Preference> MacPreferenceMap;
+                     PathPreference> MacPreferenceMap;
     typedef std::pair<const MacAddress,
-                      PathPreference::Preference> MacPreferencePair;
+                      PathPreference> MacPreferencePair;
 
     MacBinding(const MacBinding &mac_binding):
         mac_preference_map_(mac_binding.mac_preference_map_) {}
 
-    MacBinding(const MacAddress &mac, const PathPreference::Preference &pref) {
+    MacBinding(const MacAddress &mac, const PathPreference &pref) {
         mac_preference_map_[mac] = pref;
     }
 
@@ -137,9 +137,9 @@ struct MacBinding {
         PathPreference::Preference pref = PathPreference::INVALID;
         for (MacPreferenceMap::const_iterator it = mac_preference_map_.begin();
                 it != mac_preference_map_.end(); it++) {
-            if (*mac == MacAddress::ZeroMac() || pref < it->second) {
+            if (*mac == MacAddress::ZeroMac() || pref < it->second.preference()) {
                 mac = &(it->first);
-                pref = it->second;
+                pref = it->second.preference();
             }
         }
         return *mac;
@@ -156,9 +156,19 @@ struct MacBinding {
         return false;
     }
 
-    void set_mac(const PathPreference::Preference &pref,
+    void set_mac(const PathPreference &pref,
                  const MacAddress &mac) {
         mac_preference_map_[mac] = pref;
+    }
+
+    bool WaitForTraffic() const {
+        for (MacPreferenceMap::const_iterator it = mac_preference_map_.begin();
+                it != mac_preference_map_.end(); it++) {
+            if (it->second.wait_for_traffic() == true) {
+                return true;
+            }
+        }
+        return false;
     }
 
 private:
@@ -196,10 +206,13 @@ public:
                                           VrfState *state);
     void AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac,
-                         const PathPreference::Preference &pref);
+                         const PathPreference::Preference &pref,
+                         bool wait_for_traffic);
     void DelIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac);
     MacAddress GetIpMacBinding(VrfEntry *vrf, const IpAddress &ip) const;
+    bool GetIpMacWaitForTraffic(VrfEntry *vrf,
+                                const IpAddress &ip) const;
     void NotifyUcRoute(VrfEntry *vrf, VrfState *state, const IpAddress &ip);
     bool RouteNeedsMacBinding(const InetUnicastRouteEntry *rt);
     DBTableBase::ListenerId vrf_listener_id() const {return vrf_listener_id_;}
