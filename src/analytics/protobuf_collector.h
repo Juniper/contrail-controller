@@ -16,25 +16,13 @@ class DbHandlerInitializer;
 class ProtobufCollector {
  public:
     ProtobufCollector(EventManager *evm, uint16_t udp_server_port,
-        const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports, const TtlMap&,
-        const std::string& cassandra_user,
-        const std::string& cassandra_password,
-        DbHandlerPtr global_dbhandler);
+        DbHandlerPtr db_handler);
     virtual ~ProtobufCollector();
     bool Initialize();
     void Shutdown();
     void SendStatistics(const std::string &name);
 
  private:
-    void DbInitializeCb();
-
-    static const std::string kDbName;
-    static const int kDbTaskInstance;
-    static const std::string kDbTaskName;
-
-    boost::scoped_ptr<DbHandlerInitializer> db_initializer_;
-    DbHandlerPtr db_handler_;
     boost::scoped_ptr<protobuf::ProtobufServer> server_;
 };
 

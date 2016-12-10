@@ -33,20 +33,18 @@ protected:
         boost::system::error_code error;
         hostname_ = host_name(error);
         host_ip_ = GetHostIp(evm_.io_service(), hostname_);
-        default_cassandra_server_list_.push_back("127.0.0.1:9160");
-        default_conf_files_.push_back("/etc/contrail/contrail-collector.conf");
-        default_conf_files_.push_back("/etc/contrail/contrail-database.conf");
+        default_cassandra_server_list_.push_back("127.0.0.1:9042");
     }
 
     virtual void TearDown() {
         remove("./options_test_collector_config_file.conf");
+        remove ("./options_test_cassandra_config_file.conf");
     }
 
     EventManager evm_;
     std::string hostname_;
     std::string host_ip_;
     vector<string> default_cassandra_server_list_;
-    vector<string> default_conf_files_;
     Options options_;
 };
 
@@ -59,6 +57,7 @@ TEST_F(OptionsTest, NoArguments) {
     options_.Parse(evm_, argc, argv);
     vector<string> expected_conf_files_;
     expected_conf_files_.push_back("/etc/contrail/contrail-collector.conf");
+    expected_conf_files_.push_back("/etc/contrail/contrail-keystone-auth.conf");
     TASK_UTIL_EXPECT_VECTOR_EQ(default_cassandra_server_list_,
                      options_.cassandra_server_list());
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");
@@ -86,11 +85,12 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 0);
+    EXPECT_EQ(options_.sandesh_send_rate_limit(),
+        g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
     EXPECT_EQ(options_.disable_flow_collection(), false);
     EXPECT_EQ(options_.disable_db_messages_writes(), false);
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
-    EXPECT_EQ(options_.disable_db_stats_writes(), false);
+    EXPECT_EQ(options_.disable_db_statistics_writes(), false);
     EXPECT_EQ(options_.disable_all_db_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
@@ -139,7 +139,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.disable_flow_collection(), false);
     EXPECT_EQ(options_.disable_db_messages_writes(), false);
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
-    EXPECT_EQ(options_.disable_db_stats_writes(), false);
+    EXPECT_EQ(options_.disable_db_statistics_writes(), false);
     EXPECT_EQ(options_.disable_all_db_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
@@ -195,14 +195,14 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
-    int argc = 4;
+    int argc = 6;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     char argv_3[] = "--DEFAULT.disable_flow_collection";
-    char argv_4[] = "--DATABASE.disable_all_db_writes";
-    char argv_5[] = "--DATABASE.enable_db_messages_keyword_writes";
+    char argv_4[] = "--DATABASE.disable_all_writes";
+    char argv_5[] = "--DATABASE.enable_message_keyword_writes";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -292,7 +292,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
     string cassandra_config = ""
         "[CASSANDRA]\n"
         "cassandra_user=cassandra1\n"
-        "cassandra_password=cassandra1\n";
+        "cassandra_password=cassandra1\n"
+        "compaction_strategy=LeveledCompactionStrategy\n"
+        "flow_tables.compaction_strategy=SizeTieredCompactionStrategy\n";
 
     config_file.open("./options_test_cassandra_config_file.conf");
     config_file << cassandra_config;
@@ -350,8 +352,13 @@ TEST_F(OptionsTest, CustomConfigFile) {
     uint16_t protobuf_port(0);
     EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
     EXPECT_EQ(protobuf_port, 3333);
-    EXPECT_EQ(options_.cassandra_user(), "cassandra1");
-    EXPECT_EQ(options_.cassandra_password(), "cassandra1");
+    Options::Cassandra cassandra_options(options_.get_cassandra_options());
+    EXPECT_EQ(cassandra_options.user_, "cassandra1");
+    EXPECT_EQ(cassandra_options.password_, "cassandra1");
+    EXPECT_EQ(cassandra_options.compaction_strategy_,
+        "LeveledCompactionStrategy");
+    EXPECT_EQ(cassandra_options.flow_tables_compaction_strategy_,
+        "SizeTieredCompactionStrategy");
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 
@@ -455,8 +462,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
 
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
                                input_conf_files);
-    EXPECT_EQ(options_.cassandra_user(),"cassandra");
-    EXPECT_EQ(options_.cassandra_password(),"cassandra");
+    Options::Cassandra cassandra_options(options_.get_cassandra_options());
+    EXPECT_EQ(cassandra_options.user_,"cassandra");
+    EXPECT_EQ(cassandra_options.password_,"cassandra");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");

@@ -83,9 +83,26 @@ public:
 // Process command line/configuration file options for collector.
 class Options {
 public:
+    struct Cassandra {
+        Cassandra() :
+            user_(),
+            password_(),
+            compaction_strategy_(),
+            flow_tables_compaction_strategy_() {
+        }
+
+        std::string user_;
+        std::string password_;
+        std::string compaction_strategy_;
+        std::string flow_tables_compaction_strategy_;
+    };
+
     Options();
     bool Parse(EventManager &evm, int argc, char **argv);
 
+    const Cassandra get_cassandra_options() const {
+        return cassandra_options_;
+    }
     const std::vector<std::string> cassandra_server_list() const {
         return cassandra_server_list_;
     }
@@ -115,11 +132,6 @@ public:
     const std::string redis_server() const { return redis_server_; }
     const uint16_t redis_port() const { return redis_port_; }
     const std::string redis_password() const { return redis_password_; }
-    const std::string cassandra_user() const { return cassandra_user_; }
-    const std::string cassandra_password() const { return cassandra_password_; }
-    const std::string cassandra_compaction_strategy() const {
-        return cassandra_compaction_strategy_;
-    }
     const std::string hostname() const { return hostname_; }
     const std::string host_ip() const { return host_ip_; }
     const uint16_t http_server_port() const { return http_server_port_; }
@@ -194,9 +206,7 @@ private:
     std::string redis_server_;
     uint16_t redis_port_;
     std::string redis_password_;
-    std::string cassandra_user_;
-    std::string cassandra_password_;
-    std::string cassandra_compaction_strategy_;
+    Cassandra cassandra_options_;
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;
