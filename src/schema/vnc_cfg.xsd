@@ -1884,6 +1884,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
     ListProperty('floating-ip-port-mappings', 'floating-ip', 'optional', 'CRUD',
              'List of PortMaps for this floating-ip.') -->
+<xsd:element name="floating-ip-traffic-direction" type="TrafficDirectionType" default='both'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('floating-ip-traffic-direction',
+              'floating-ip', 'optional', 'CRUD',
+              'Specifies direction of traffic for the floating-ip') -->
 
 <xsd:element name="alias-ip-pool" type="ifmap:IdentityType"/>
 <xsd:element name="virtual-network-alias-ip-pool"/>
