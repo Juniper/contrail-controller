@@ -185,9 +185,9 @@ class VncService(object):
             for ll_id in lb.loadbalancer_listeners:
                 ll = LoadbalancerListenerKM.get(ll_id)
                 if not ll:
-                    contine
+                    continue
                 if not ll.params['protocol_port']:
-                    contine
+                    continue
 
                 # SAS: FIXME Add check for protocol as well once UDP is supported
                 if ll.params['protocol_port'] == port['port']:
