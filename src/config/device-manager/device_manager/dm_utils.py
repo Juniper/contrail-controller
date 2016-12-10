@@ -36,8 +36,11 @@ class DMUtils(object):
         gateways = {}
         for ipam_ref in ipam_refs or []:
             for subnet in ipam_ref['attr'].get('ipam_subnets', []):
-                prefix = subnet['subnet']['ip_prefix']
-                prefix_len = subnet['subnet']['ip_prefix_len']
+                prefix = '0.0.0.0'
+                prefix_len = 0
+                if 'subnet' in subnet:
+                    prefix = subnet['subnet']['ip_prefix']
+                    prefix_len = subnet['subnet']['ip_prefix_len']
                 gateways[prefix + '/' + str(prefix_len)] = \
                     {"default_gateway": subnet.get('default_gateway', ''),
                      "subnet_uuid": subnet.get('subnet_uuid')}
