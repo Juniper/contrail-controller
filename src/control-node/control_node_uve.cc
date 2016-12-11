@@ -47,13 +47,6 @@ bool ControlNode::ControlNodeInfoLogger(const BgpServer *server,
         change = true;
     }
 
-    vector<string> list;
-    MiscUtils::GetCoreFileList(ControlNode::GetProgramName(), list);
-    if (first || state.get_core_files_list() != list) {
-        state.set_core_files_list(list);
-        change = true;
-    }
-
     // Send Build information.
     if (first || build_info != state.get_build_info()) {
         state.set_build_info(build_info);
