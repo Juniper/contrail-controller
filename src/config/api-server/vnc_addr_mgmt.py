@@ -1471,8 +1471,6 @@ class AddrMgmt(object):
                 ip_addr = subnet_obj.ip_set_in_use(ipaddr=ip_addr)
                 return True
 
-        db_conn.config_log("Error: %s ip address not found" %(ip_addr),
-                           level=SandeshLevel.SYS_ERR)
         return False
     # end _ipam_ip_alloc_notify
 
@@ -1533,8 +1531,6 @@ class AddrMgmt(object):
                 if subnet_obj.ip_belongs(ip_addr):
                     subnet_obj.ip_free(IPAddress(ip_addr))
                     return True
-        db_conn.config_log("Error: %s ip address not found" %(ip_addr),
-                           level=SandeshLevel.SYS_ERR)
         return False
     # end _ipam_ip_free_req
 
@@ -1633,8 +1629,6 @@ class AddrMgmt(object):
                     subnet_obj.ip_reset_in_use(ip_addr)
                     return True
 
-        db_conn.config_log("Error: %s ip address not found" %(ip_addr),
-                           level=SandeshLevel.SYS_ERR)
         return False
     # end _ipam_ip_free_notify
 
