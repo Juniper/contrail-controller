@@ -1174,8 +1174,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (409, error))
 
-        fields = ['network_ipam_refs', 'virtual_network_network_id',
-                  'address_allocation_mode']
+        fields = ['network_ipam_refs', 'virtual_network_network_id', 'address_allocation_mode',
+                  'route_target_list', 'import_route_target_list', 'export_route_target_list',
+                  'multi_policy_service_chains_enabled']
         ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id,
                                        obj_fields=fields)
         if not ok:
