@@ -194,7 +194,7 @@ class ServiceLbListenerManager(object):
     def create(self, lb_obj, proj_obj, port):
 
         obj_uuid = str(uuid.uuid1())
-        name = lb_obj.name + "-TCP-" + str(port['port'])
+        name = lb_obj.name + "-" + port['protocol'] + "-" + str(port['port'])
 
         id_perms = IdPermsType(enable=True)
         ll_obj = LoadbalancerListener(name, proj_obj, id_perms=id_perms,
@@ -209,7 +209,7 @@ class ServiceLbListenerManager(object):
             if port['protocol'] == "TCP":
                 props.set_protocol("TCP")
             else:
-                props.set_protocol("TCP") # SAS FIXME : UDP
+                props.set_protocol("UDP")
 
         if port and port['port']:
             props.set_protocol_port(port['port'])
@@ -269,7 +269,10 @@ class ServiceLbPoolManager(object):
         """
         pool_uuid = str(uuid.uuid1())
         props = LoadbalancerPoolType()
-        props.set_protocol("TCP")
+        if port['protocol'] == "TCP":
+            props.set_protocol("TCP")
+        else:
+            props.set_protocol("UDP")
         id_perms = IdPermsType(enable=True)
         pool_obj = LoadbalancerPool(ll_obj.name, proj_obj, uuid=pool_uuid,
                                 loadbalancer_pool_properties=props,
@@ -282,8 +285,6 @@ class ServiceLbPoolManager(object):
                                      listener_id=p['listener_id'],
                                      pool_id=pool_exists[0]['uuid'])
             pool_obj.set_loadbalancer_listener(ll_obj)
-
-        # Custom attributes ?
 
         try:
             self._vnc_lib.loadbalancer_pool_create(pool_obj)
