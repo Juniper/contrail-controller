@@ -48,6 +48,29 @@ Details of Implementation of Distributed Resource Allocation
 * Each daemon will randomize the service list independently and re-allocate the
   resources.
 
+In addition, there are additional use-cases in ContrailAnalytics that were
+utilizing discovery
+
+* All collectors publish themselves. contrail-alarm-gens and contrail-analytics-apis 
+  use this to dectect when collectors go up and down, and resync and re-aggregate UVEs.
+    * contrail-collector keeps updating the NGENERATORS set in redis to indicate 
+      the list of generator-ids connected to it. Now, it will use a TTL, so the key
+      expires if the collector crashes or hangs. It will also write its PID in its
+      own generator-id instead of instance id. (which is always 0 for collector)
+    * contrail-alarm-gens and contrail-analytics-api instances will accept static
+      list of redis instances. They will use the NGENERATORS key in each of these
+      redis instances to detect if the collector has failed or restarted
+
+* All alarm-gens publish the list of partitions they own. contrail-analytics-apis use
+  this to track which partition is owned by which alarm-gen instance so that they
+  can build up the per-partition UVE local cache. contrail-alarm-gens also use
+  this information to learn who thier peers are and run a consistent hashing
+  algorithm to divide up the partitions amongst themselves
+    * contrail-alarm-gen will use zookeeper to create ephermeral nodes and store
+      their partition ownership information
+    * both contrail-alarm-gens and contrail-analytics-api will monitor there
+      ephemeral nodes in zookeeper
+ 
 ##3.1      Alternatives Considered
 None
 
@@ -118,10 +141,13 @@ None
 ================================================================================
 [DISCOVERY].server         Deprecate Discovery Server Parameter
 
-[DEFAULT].collectors       Provision list of Collector service providers in
+[DEFAULTS].collectors      Provision list of Collector service providers in
                            ip-address:port format
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
-```
+
+[REDIS].redis_uve_list     Provision list of redis instances
+                           Eg: 192.168.0.29:6379 192.168.0.30:6379
+``
 
 ###3.2.5 Provisioning Changes for contrail-analytics-api(contrail-analytics-api.conf)
 
@@ -132,10 +158,15 @@ None
 [DISCOVERY].disc_server_ip      Deprecate Discovery Server Parameter
 [DISCOVERY].disc_server_port
 
-[DEFAULT].collectors            Provision list of Collector service providers in
+[DEFAULTS].collectors           Provision list of Collector service providers in
                                 ip-address:port format
                                 Eg: 10.1.1.1:8086 10.1.1.2:8086
 
+[REDIS].redis_uve_list          Provision list of redis instances
+                                Eg: 192.168.0.29:6379 192.168.0.30:6379
+
+[DEFAULTS].zk_list              List of zookeeper instances
+                                Eg: 192.168.0.30:2181 192.168.0.29:2181
 ```
 
 ###3.2.6  Provisioning Changes for contrail-api (contrail-api.conf)
