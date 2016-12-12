@@ -78,6 +78,7 @@ struct PeerStatsInfo {
 struct PeerStatsData {
     1: string name (key="");
     2: optional bool deleted;
+    11: string encoding;
     3: optional PeerUpdateStats raw_rx_update_stats(metric="agg",hidden="yes");
     4: optional PeerUpdateStats raw_tx_update_stats(metric="agg",hidden="yes");
 
@@ -109,6 +110,7 @@ struct flap_u64_P_ {
 struct PeerFlapData {
      1: string name (key=""); // Control-node-ip:Agent-ip
      2: optional bool deleted;
+     6: string encoding;
      3: optional PeerFlapInfo flap_info (metric="agg");
      4: optional flap_u64_P_ flap_10m
             (stats="1-flap_info.flap_count:DSSum:");

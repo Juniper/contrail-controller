@@ -797,6 +797,7 @@ void BgpServer::FillPeerStats(const BgpPeer *peer) const {
 
     PeerStatsData peer_stats_data;
     peer_stats_data.set_name(peer->ToUVEKey());
+    peer_stats_data.set_encoding("BGP");
     PeerStats::FillPeerUpdateStats(peer->peer_stats(), &peer_stats_data);
     PeerStatsUve::Send(peer_stats_data, "ObjectBgpPeer");
 
@@ -806,6 +807,7 @@ void BgpServer::FillPeerStats(const BgpPeer *peer) const {
 
     PeerFlapData peer_flap_data;
     peer_flap_data.set_name(peer->ToUVEKey());
+    peer_flap_data.set_encoding("BGP");
     peer_flap_data.set_flap_info(flap_info);
     PeerFlap::Send(peer_flap_data, "ObjectBgpPeer");
 }
