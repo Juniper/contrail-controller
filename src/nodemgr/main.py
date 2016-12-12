@@ -42,6 +42,9 @@ import argparse
 import socket
 import gevent
 import ConfigParser
+import signal
+import random
+import hashlib
 from nodemgr.analytics_nodemgr.analytics_event_manager import AnalyticsEventManager
 from nodemgr.control_nodemgr.control_event_manager import ControlEventManager
 from nodemgr.config_nodemgr.config_event_manager import ConfigEventManager
@@ -52,7 +55,6 @@ from pysandesh.sandesh_base import SandeshSystem
 def usage():
     print doc
     sys.exit(255)
-
 
 def main(args_str=' '.join(sys.argv[1:])):
     # Parse Arguments
@@ -149,6 +151,17 @@ def main(args_str=' '.join(sys.argv[1:])):
     sys.stderr.write("Discovery port: " + str(discovery_port) + "\n")
     collector_addr = _args.collectors
     sys.stderr.write("Collector address: " + str(collector_addr) + "\n")
+
+    # randomize collector list
+    _args.chksum = ""
+    if _args.collectors:
+        _args.chksum = hashlib.md5("".join(_args.collectors)).hexdigest()
+        _args.random_collectors = random.sample(_args.collectors, len(_args.collectors))
+        _args.collectors = _args.random_collectors
+
+    collector_addr = _args.collectors
+    sys.stderr.write("Random Collector address: " + str(collector_addr) + "\n")
+
     if _args.sandesh_send_rate_limit is not None:
         SandeshSystem.set_sandesh_send_rate_limit(_args.sandesh_send_rate_limit)
     # done parsing arguments
@@ -192,9 +205,18 @@ def main(args_str=' '.join(sys.argv[1:])):
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
         return
+
     prog.process()
     prog.send_nodemgr_process_status()
     prog.send_process_state_db(prog.group_names)
+    prog.config_file = config_file
+    prog.collector_chksum = _args.chksum
+
+    """ @sighup
+    Reconfig of collector list
+    """
+    gevent.signal(signal.SIGHUP, prog.nodemgr_sighup_handler)
+
     gevent.joinall([gevent.spawn(prog.runforever)])
 
 if __name__ == '__main__':
