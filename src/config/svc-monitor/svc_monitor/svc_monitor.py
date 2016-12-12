@@ -11,6 +11,7 @@ reload(sys)
 sys.setdefaultencoding('UTF8')
 import gevent
 from gevent import monkey
+from gevent import hub
 monkey.patch_all(thread=not 'unittest' in sys.modules)
 
 from cfgm_common.zkclient import ZookeeperClient
@@ -18,6 +19,9 @@ import requests
 import ConfigParser
 import cStringIO
 import argparse
+import signal
+import random
+import hashlib
 
 import os
 
@@ -522,6 +526,16 @@ class SvcMonitor(object):
         for cls in DBBaseSM.get_obj_type_map().values():
             cls.reset()
 
+    def sighup_handler(self):
+        # reparse config
+        args = parse_args(self._args_list)
+        if args.collectors:
+            new_chksum = hashlib.md5(''.join(args.collectors)).hexdigest()
+            if new_chksum != self._chksum:
+                self._chksum = new_chksum
+                args.random_collectors = random.sample(args.collectors, len(args.collectors))
+                self.logger.sandesh_reconfig_collectors(args)
+    # end sighup_handler
 
 def skip_check_service(si):
     # wait for first launch
@@ -839,9 +853,23 @@ def parse_args(args_str):
 
 
 def run_svc_monitor(args=None):
+
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors, len(args.collectors))
+
     monitor = SvcMonitor(args)
 
-    monitor._zookeeper_client = _zookeeper_client
+    monitor._args_list = args._args_list
+    if args.collectors:
+        monitor._collectors = args.collectors
+        monitor._chksum = hashlib.md5("".join(args.collectors)).hexdigest()
+
+    """ @sighup
+    SIGHUP handler to indicate configuration changes
+    """
+    hub.signal(signal.SIGHUP, monitor.sighup_handler)
 
     # Retry till API server is up
     connected = False
@@ -872,6 +900,7 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
+    args._args_list = args_str
     if args.cluster_id:
         client_pfx = args.cluster_id + '-'
         zk_path_pfx = args.cluster_id + '/'

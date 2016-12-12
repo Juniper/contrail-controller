@@ -117,7 +117,7 @@ class ConfigServiceLogger(object):
         self.redefine_sandesh_handles()
         self._sandesh.init_generator(
             self._module_name, self._hostname, self._node_type_name,
-            self._instance_id, self._args.collectors,
+            self._instance_id, self._args.random_collectors,
             '%s_context' % self.context, int(self._args.http_server_port),
             ['cfgm_common', '%s.sandesh' % self.module_pkg], self.discovery,
             logger_class=self._args.logger_class,
