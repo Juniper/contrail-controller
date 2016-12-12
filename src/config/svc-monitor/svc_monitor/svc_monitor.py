@@ -18,6 +18,9 @@ import requests
 import ConfigParser
 import cStringIO
 import argparse
+import signal
+import random
+import hashlib
 
 import os
 
@@ -522,7 +525,24 @@ class SvcMonitor(object):
         for cls in DBBaseSM.get_obj_type_map().values():
             cls.reset()
 
-
+    def sighup_handler(self):
+        if self._conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._conf_file)
+            if 'DEFAULTS' in config.sections():
+                try:
+                    collectors = config.get('DEFAULTS', 'collectors')
+                    if type(collectors) is str:
+                        collectors = collectors.split()
+                        new_chksum = hashlib.md5("".join(collectors)).hexdigest()
+                        if new_chksum != self._chksum:
+                            self._chksum = new_chksum 
+                            config.random_collectors = random.sample(collectors, len(collectors))
+                            self.logger.sandesh_reconfig_collectors(config)
+                except ConfigParser.NoOptionError as e:
+                     pass 
+    # end sighup_handler
+                        
 def skip_check_service(si):
     # wait for first launch
     if not si.launch_count:
@@ -727,6 +747,7 @@ def parse_args(args_str):
         'cassandra_password': None,
     }
 
+    saved_conf_file = args.conf_file
     config = ConfigParser.SafeConfigParser()
     if args.conf_file:
         config.read(args.conf_file)
@@ -823,6 +844,7 @@ def parse_args(args_str):
                         help="Check service interval")
 
     args = parser.parse_args(remaining_argv)
+    args._conf_file = saved_conf_file
     args.config_sections = config
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
@@ -839,9 +861,23 @@ def parse_args(args_str):
 
 
 def run_svc_monitor(args=None):
-    monitor = SvcMonitor(args)
 
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors, len(args.collectors))
+
+    monitor = SvcMonitor(args)
     monitor._zookeeper_client = _zookeeper_client
+    monitor._conf_file = args._conf_file
+    monitor._chksum = ""
+    if args.collectors:
+        monitor._chksum = hashlib.md5("".join(args.collectors)).hexdigest()
+
+    """ @sighup
+    SIGHUP handler to indicate configuration changes
+    """
+    gevent.signal(signal.SIGHUP, monitor.sighup_handler)
 
     # Retry till API server is up
     connected = False
