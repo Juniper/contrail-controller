@@ -124,3 +124,7 @@ class SchemaTransformerLogger(ConfigServiceLogger):
                     st_resp.objects.append(obj.handle_st_object_req())
         st_resp.response(req.context())
     # end sandesh_st_object_handle_request
+
+    def sandesh_reconfig_collectors(self, args):
+        self._sandesh.reconfig_collectors(args.random_collectors)
+    #end sandesh_reconfig_collectors
