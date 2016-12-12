@@ -12,13 +12,16 @@ import gevent
 # Import kazoo.client before monkey patching
 from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
+from gevent import hub
 monkey.patch_all()
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
 import requests
 import ConfigParser
-
+import signal
+import random
+import hashlib
 import argparse
 
 from cfgm_common import vnc_cgitb
@@ -336,6 +339,17 @@ class SchemaTransformer(object):
             cls.reset()
         self._vnc_amqp.close()
     # end reset
+
+    def sighup_handler(self):
+        # reparse config
+        args = parse_args(self._args_list)
+        new_chksum = hashlib.md5(''.join(args.collectors)).hexdigest()
+        if new_chksum != self._chksum:
+            self._chksum = new_chksum
+            args.random_collectors = random.sample(args.collectors, len(args.collectors))
+            self.logger.sandesh_reconfig_collectors(args)
+    # end sighup_handler
+
 # end class SchemaTransformer
 
 
@@ -539,6 +553,8 @@ def parse_args(args_str):
     return args
 # end parse_args
 
+
+
 transformer = None
 
 
@@ -572,8 +588,22 @@ def run_schema_transformer(args):
             # auth failure or haproxy throws 503
             time.sleep(3)
 
+    #randomize collector list
+    args.random_collectors = random.sample(args.collectors, len(args.collectors))
+
     global transformer
     transformer = SchemaTransformer(args)
+
+    transformer._args_list = args._args_list
+    # checksum of collector list
+    transformer._collectors = args.collectors
+    transformer._chksum = hashlib.md5("".join(args.collectors)).hexdigest()
+
+    """ @sighup
+    SIGHUP handler to indicate configuration changes
+    """
+    hub.signal(signal.SIGHUP, transformer.sighup_handler)
+
     gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
 # end run_schema_transformer
 
@@ -582,7 +612,9 @@ def main(args_str=None):
     global _zookeeper_client
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
+
     args = parse_args(args_str)
+    args._args_list = args_str
     if args.cluster_id:
         client_pfx = args.cluster_id + '-'
         zk_path_pfx = args.cluster_id + '/'
