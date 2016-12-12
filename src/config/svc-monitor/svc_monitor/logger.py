@@ -135,3 +135,7 @@ class ServiceMonitorLogger(ConfigServiceLogger):
         svc_log = UveSvcInstanceConfigTrace(
             data=svc_uve, sandesh=self._sandesh)
         svc_log.send(sandesh=self._sandesh)
+
+    def sandesh_reconfig_collectors(self, args):
+        self._sandesh.reconfig_collectors(args.random_collectors)
+    #end sandesh_reconfig_collectors 

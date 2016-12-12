@@ -19,11 +19,13 @@ import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
 import functools
+import hashlib
 import logging
 import logging.config
 import signal
 import os
 import re
+import random
 import socket
 from cfgm_common import jsonutils as json
 from provision_defaults import *
@@ -1343,6 +1345,7 @@ class VncApiServer(object):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
+        self._args_list = args_str
 
         # aaa-mode is ignored if multi_tenancy is configured by user
         if self._args.multi_tenancy is None:
@@ -1437,6 +1440,14 @@ class VncApiServer(object):
         self.route('/aaa-mode',      'GET', self.aaa_mode_http_get)
         self.route('/aaa-mode',      'PUT', self.aaa_mode_http_put)
 
+        # randomize the collector list
+        self._random_collectors = self._args.collectors
+        self._chksum = "";
+        if self._args.collectors:
+            self._chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
+            self._random_collectors = random.sample(self._args.collectors, \
+                                                    len(self._args.collectors)) 
+
         # Initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
@@ -1465,7 +1476,7 @@ class VncApiServer(object):
         hostname = socket.gethostname()
         self._sandesh.init_generator(module_name, hostname,
                                      node_type_name, instance_id,
-                                     self._args.collectors,
+                                     self._random_collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
                                      ['cfgm_common', 'vnc_cfg_api_server.sandesh'], self._disc,
@@ -2655,6 +2666,18 @@ class VncApiServer(object):
     def sigterm_handler(self):
         exit()
 
+    # sighup handler for applying new configs
+    def sighup_handler(self):
+        self._parse_args(self._args_list)
+        if self._args.collectors:
+            new_chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
+            if new_chksum != self._chksum:
+                self._chksum = new_chksum
+                self._random_collectors = \
+                    random.sample(self._args.collectors, len(self._args.collectors))
+                self._sandesh.reconfig_collectors(self._random_collectors)
+    # end sighup_handler
+
     def _load_extensions(self):
         try:
             conf_sections = self._args.config_sections
@@ -3657,6 +3680,7 @@ def main(args_str=None, server=None):
     """
     #hub.signal(signal.SIGCHLD, vnc_api_server.sigchld_handler)
     hub.signal(signal.SIGTERM, vnc_api_server.sigterm_handler)
+    hub.signal(signal.SIGHUP, vnc_api_server.sighup_handler)
     if pipe_start_app is None:
         pipe_start_app = vnc_api_server.api_bottle
     try:
