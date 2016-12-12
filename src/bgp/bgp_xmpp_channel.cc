@@ -464,10 +464,8 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel,
       bgp_server_(bgp_server),
       peer_(new XmppPeer(bgp_server, this)),
       peer_close_(new BgpXmppPeerClose(this)),
-      close_manager_(BgpObjectFactory::Create<PeerCloseManager>(
-                         peer_close_.get())),
       peer_stats_(new PeerStats(this)),
-      bgp_policy_(peer_->PeerType(), RibExportPolicy::XMPP, -1, 0),
+      bgp_policy_(BgpProto::XMPP, RibExportPolicy::XMPP, -1, 0),
       manager_(manager),
       delete_in_progress_(false),
       deleted_(false),
@@ -484,6 +482,8 @@ BgpXmppChannel::BgpXmppChannel(XmppChannel *channel,
             channel->GetTaskInstance(),
             boost::bind(&BgpXmppChannel::MembershipResponseHandler, this, _1)),
       lb_mgr_(new LabelBlockManager()) {
+    close_manager_.reset(
+        BgpObjectFactory::Create<PeerCloseManager>(peer_close_.get()));
     if (bgp_server) {
         eor_receive_timer_ =
             TimerManager::CreateTimer(*bgp_server->ioservice(),
