@@ -2727,6 +2727,7 @@ void BgpXmppChannelManager::FillPeerInfo(const BgpXmppChannel *channel) const {
 
     PeerStatsData peer_stats_data;
     peer_stats_data.set_name(channel->Peer()->ToUVEKey());
+    peer_stats_data.set_encoding("XMPP");
     PeerStats::FillPeerUpdateStats(channel->Peer()->peer_stats(),
                                    &peer_stats_data);
     PeerStatsUve::Send(peer_stats_data, "ObjectXmppPeerInfo");
