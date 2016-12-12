@@ -16,6 +16,9 @@ import requests
 import ConfigParser
 import socket
 import time
+import hashlib
+import signal
+import random
 from pprint import pformat
 
 from pysandesh.sandesh_base import *
@@ -150,7 +153,15 @@ class DeviceManager(object):
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
         PushConfigState.set_push_delay_max(int(self._args.push_delay_max))
         PushConfigState.set_push_delay_enable(bool(self._args.push_delay_enable))
-
+  
+        # randomize collector list
+        self._args.random_collectors = self._args.collectors
+        self._chksum = "";
+        if self._args.collectors:
+            self._chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
+            self._args.random_collectors = random.sample(self._args.collectors, \
+                                                      len(self._args.collectors))
+    
         # Initialize logger
         module = Module.DEVICE_MANAGER
         module_pkg = "device_manager"
@@ -174,6 +185,11 @@ class DeviceManager(object):
                 time.sleep(3)
             except ResourceExhaustionError:  # haproxy throws 503
                 time.sleep(3)
+
+        """ @sighup
+        Handle of SIGHUP for collector list config change
+        """
+        hub.signal(signal.SIGHUP, self.sighup_handler)
 
         # Initialize amqp
         self._vnc_amqp = DMAmqpHandle(self.logger,
@@ -253,6 +269,18 @@ class DeviceManager(object):
             server_addrs=['%s:%s' % (self._args.api_server_ip,
                                      self._args.api_server_port)])
     # end connection_state_update
+
+    # sighup handler for applying new configs
+    def sighup_handler(self):
+        args = parse_args(self._args_list)
+        if args.collectors:
+            new_chksum = hashlib.md5(''.join(args.collectors)).hexdigest()
+            if new_chksum != self._chksum:
+                self._chksum = new_chksum
+                args.random_collectors = \
+                    random.sample(args.collectors, len(args.collectors))
+                self.logger.sandesh_reconfig_collectors(args)
+    # end sighup_handler
 
 def parse_args(args_str):
     '''
@@ -458,6 +486,7 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
+    args._args_list = args_str
     if args.cluster_id:
         client_pfx = args.cluster_id + '-'
         zk_path_pfx = args.cluster_id + '/'
