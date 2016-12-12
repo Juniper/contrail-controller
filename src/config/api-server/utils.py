@@ -144,6 +144,7 @@ def parse_args(args_str):
     }
 
     config = None
+    saved_conf_file = args.conf_file
     if args.conf_file:
         config = ConfigParser.SafeConfigParser({'admin_token': None})
         config.read(args.conf_file)
@@ -372,6 +373,7 @@ def parse_args(args_str):
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
 
+    args_obj.conf_file = saved_conf_file
     return args_obj, remaining_argv
 # end parse_args
 
