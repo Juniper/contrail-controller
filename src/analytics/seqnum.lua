@@ -16,6 +16,7 @@ for k,v in pairs(typ) do
 		redis.log(redis.LOG_NOTICE,"GetSeq no seq for "..v)
 	end
 end
-redis.call('sadd', "NGENERATORS", ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4])
+redis.call('sadd', "NGENERATORS", ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[6])
+redis.call('expire', "NGENERATORS", 40)
 redis.log(redis.LOG_NOTICE,"GetSeq for "..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4].." done")
 return res

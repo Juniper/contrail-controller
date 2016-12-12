@@ -16,6 +16,8 @@
 #include "uveupdate_lua.cpp"
 #include "uvedelete_lua.cpp"
 #include "flushuves_lua.cpp"
+#include <sandesh/common/vns_types.h>
+#include <sandesh/common/vns_constants.h>
 
 using std::string;
 using std::vector;
@@ -44,7 +46,12 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     tsstr << "{\"ts\":" << ts << "}";
     const std::string table_index(is_alarm ? "ALARM_TABLE:" : "TABLE:");
     const std::string origin_index(is_alarm ? "ALARM_ORIGINS:" : "ORIGINS:");
-
+    string ngen_inst = instance_id;
+    if (strcmp(module.c_str(), g_vns_constants.SERVICE_COLLECTOR.c_str())==0) {
+        std::ostringstream ngenstr;
+        ngenstr << getpid();
+        ngen_inst = ngenstr.str();
+    }
     {
         string lua_scr(reinterpret_cast<char *>(uveupdate_lua), uveupdate_lua_len);
         ret = rac->RedisAsyncArgCmd(rpi,
@@ -58,7 +65,8 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                 ":" + module + ":" + instance_id + ":" + type)(
                 source)(node_type)(module)(instance_id)(type)(attr)(key)
                 (seqstr.str())(msg)(integerToString(REDIS_DB_UVE))
-                (integerToString(part))(integerToString(is_alarm)));
+                (integerToString(part))(integerToString(is_alarm))(
+                ngen_inst));
     }
     return ret;
 }
@@ -77,21 +85,25 @@ RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     seqstr << seq;
     const std::string table_index(is_alarm ? "ALARM_TABLE:" : "TABLE:");
     const std::string origin_index(is_alarm ? "ALARM_ORIGINS:" : "ORIGINS:");
+    std::string ngen_inst = instance_id;
+    if (strcmp(module.c_str(), g_vns_constants.SERVICE_COLLECTOR.c_str())==0) {
+        std::ostringstream ngenstr;
+        ngenstr << getpid();
+        ngen_inst = ngenstr.str();
+    }
 
     string lua_scr(reinterpret_cast<char *>(uvedelete_lua), uvedelete_lua_len);
     return rac->RedisAsyncArgCmd(rpi,
-        list_of(string("EVAL"))(lua_scr)("6")(
-            string("DEL:") + key + ":" + source + ":" + node_type + ":" +
-            module + ":" + instance_id + ":" + type + ":" + seqstr.str())(
+        list_of(string("EVAL"))(lua_scr)("4")(
             string("VALUES:") + key + ":" + source + ":" + node_type + ":" + 
             module + ":" + instance_id + ":" + type)(
             string("UVES:") + source + ":" + node_type + ":" + module + ":" +
             instance_id + ":" + type)(
             origin_index + key)(
             table_index + table)(
-            string("DELETED"))(
             source)(node_type)(module)(instance_id)(type)(key)(
-            integerToString(REDIS_DB_UVE))(integerToString(is_alarm)));
+            integerToString(REDIS_DB_UVE))(integerToString(is_alarm))(
+            ngen_inst));
 
 }
 
@@ -124,14 +136,20 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
         }
         freeReplyObject(reply);
     }
- 
+    std::string ngen_inst = instance_id;
+    if (strcmp(module.c_str(), g_vns_constants.SERVICE_COLLECTOR.c_str())==0) {
+        std::ostringstream ngenstr;
+        ngenstr << getpid();
+        ngen_inst = ngenstr.str();
+    }
 
     string lua_scr(reinterpret_cast<char *>(seqnum_lua), seqnum_lua_len);
 
     redisReply * reply = (redisReply *) redisCommand(c, 
-            "EVAL %s 0 %s %s %s %s %s",
+            "EVAL %s 0 %s %s %s %s %s %s",
             lua_scr.c_str(), source.c_str(), node_type.c_str(),
-            module.c_str(), instance_id.c_str(), integerToString(REDIS_DB_UVE).c_str());
+            module.c_str(), instance_id.c_str(),
+            integerToString(REDIS_DB_UVE).c_str(), ngen_inst.c_str());
 
     if (!reply) {
         LOG(INFO, "SeqQuery Error : " << c->errstr);
@@ -191,13 +209,20 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
         }
         freeReplyObject(reply);
     }
+    string ngen_inst = instance_id;
+    if (strcmp(module.c_str(), g_vns_constants.SERVICE_COLLECTOR.c_str())==0) {
+        std::ostringstream ngenstr;
+        ngenstr << getpid();
+        ngen_inst = ngenstr.str();
+    }
  
     string lua_scr(reinterpret_cast<char *>(delrequest_lua), delrequest_lua_len);
 
     redisReply * reply = (redisReply *) redisCommand(c, 
-            "EVAL %s 0 %s %s %s %s %s",
+            "EVAL %s 0 %s %s %s %s %s %s",
             lua_scr.c_str(), source.c_str(), node_type.c_str(),
-            module.c_str(), instance_id.c_str(), integerToString(REDIS_DB_UVE).c_str());
+            module.c_str(), instance_id.c_str(),
+            integerToString(REDIS_DB_UVE).c_str(), ngen_inst.c_str());
 
     if (!reply) {
         LOG(ERROR, "SyncDeleteUVEs failed for " << generator << " : " <<

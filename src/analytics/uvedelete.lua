@@ -23,19 +23,24 @@ local function sub_del(_values)
 end
 
 local sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4]
+local ngen_sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[9]
 local typ = ARGV[5]
 local key = ARGV[6]
 local db = tonumber(ARGV[7])
 local is_alarm = tonumber(ARGV[8])
 
-local _del = KEYS[1]
-local _values = KEYS[2]
-local _uves = KEYS[3]
-local _origins = KEYS[4]
-local _table = KEYS[5]
-local _deleted = KEYS[6]
+local _values = KEYS[1]
+local _uves = KEYS[2]
+local _origins = KEYS[3]
+local _table = KEYS[4]
 
 redis.call('select',db)
+
+local ism = redis.call('sismember', 'NGENERATORS', ngen_sm)
+if ism == 0 then
+    return false
+end
+redis.call('expire', "NGENERATORS", 40)
 
 if is_alarm == 1 then
     redis.log(redis.LOG_NOTICE,"DelAlarm on "..sm.." for "..key)
@@ -58,7 +63,6 @@ redis.call('srem', _table, key..":"..sm..":"..typ)
 
 local lttt = redis.call('exists', _values)
 if lttt == 1 then
-    redis.call('rename', _values, _del)
-    redis.call('lpush',_deleted, _del)
+    redis.call('del', _values)
 end
 return true
