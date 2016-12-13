@@ -107,8 +107,8 @@ class IDPool(Base):
 
     start = Column(BINARY(16), primary_key=True)
     end = Column(BINARY(16))
-    path = Column(String(1024), primary_key=True)
-    value = Column(String(1024))
+    path = Column(String(750), primary_key=True)
+    value = Column(String(750))
     used = Column(Boolean, default=False)
 
     def __repr__(self):
@@ -183,10 +183,13 @@ def use_session(func):
         else:
             created_session = True
             self.session_ctx = self.Session()
+            self.need_commit = False
         try:
             return func(self, *args, **kwargs)
         finally:
             if created_session and self.session_ctx:
+                if self.need_commit:
+                    self.session_ctx.commit()
                 self.session_ctx.close()
                 self.session_ctx = None
     # end wrapper
@@ -235,7 +238,7 @@ class RDBMSIndexAllocator(object):
             if self.check_overlap(allocation):
                 id_pool = self._new_allocation(allocation)
                 self.session_ctx.add(id_pool)
-        self.session_ctx.commit()
+        self.need_commit = True
 
     @use_session
     def check_overlap(self, allocation):
@@ -266,7 +269,7 @@ class RDBMSIndexAllocator(object):
             if unpack(pool.end) != idx:
                 newAllocation = self._new_allocation({"start": idx + 1, "end": unpack(pool.end)})
                 session.add(newAllocation)
-            session.commit()
+            self.need_commit = True
             return idx
 
     @use_session
@@ -280,7 +283,7 @@ class RDBMSIndexAllocator(object):
         if pool:
             pool.used = False
             session.add(pool)
-            session.commit()
+            self.need_commit = True
 
     @use_session
     def get_alloc_count(self):
@@ -319,7 +322,7 @@ class RDBMSIndexAllocator(object):
             pool.used = True
             pool.value = value
             session.add(pool)
-            session.commit()
+            self.need_commit = True
             return unpack(pool.start)
 
         session.delete(pool)
@@ -337,7 +340,7 @@ class RDBMSIndexAllocator(object):
             session.add(allocated)
             newAllocation = self._new_allocation({"start": unpack(pool.start) + 1, "end": unpack(pool.end)})
             session.add(newAllocation)
-        session.commit()
+        self.need_commit = True
         return unpack(allocated.start)
 
     def reserve(self, idx, value=None):
@@ -364,7 +367,7 @@ class RDBMSIndexAllocator(object):
     def delete_all(cls, db, path):
        session = sessionmaker(bind=db)()
        session.query(IDPool).filter(IDPool.path == path).delete()
-       session.commit()
+       self.need_commit = True
 
 init_done = False
 
@@ -384,10 +387,10 @@ def _foreign_key_cascade(obj_type):
     return ForeignKey('%s.obj_uuid' %(obj_type), ondelete="CASCADE")
 
 def to_list_type(obj_type, property):
-    return 'ref_list_%s_%s' %(obj_type, property)
+    return ('ref_l_%s_%s' %(obj_type, property))[0:50]
 
 def to_map_type(obj_type, property):
-    return 'ref_map_%s_%s' %(obj_type, property)
+    return ('ref_m_%s_%s' %(obj_type, property))[0:50]
 
 class VncRDBMSClient(object):
     sqa_classes = {}
@@ -516,7 +519,7 @@ class VncRDBMSClient(object):
             for prop_field in obj_class.prop_fields:
                 if not table.get(prop_field):
                     session.execute("alter table %s add %s varchar(1024)" % (obj_type, prop_field))
-        session.commit()
+        self.need_commit = True
         # We don't expect adding column for ref table because basically it is json type field.
 
     def __init__(self, server_list=None, db_prefix=None,
@@ -714,7 +717,7 @@ class VncRDBMSClient(object):
                 # TODO update epoch on parent and refs
         # end handled refs
 
-        session.commit()
+        self.need_commit = True
 
         return (True, '')
     # end object_create
@@ -1054,8 +1057,7 @@ class VncRDBMSClient(object):
 
         # TODO update epoch on refs
 
-        session.commit()
-
+        self.need_commit = True
         return (True, '')
     # end object_update
     @use_session
@@ -1241,7 +1243,7 @@ class VncRDBMSClient(object):
         object_metadata = session.query(ObjectMetadata).filter_by(
                        obj_uuid=obj_uuid).one()
         session.delete(object_metadata)
-        session.commit()
+        self.need_commit = True
 
         return (True, '')
     # end object_delete
@@ -1270,7 +1272,7 @@ class VncRDBMSClient(object):
             pass
 
         self.update_last_modified(obj_type, obj_uuid)
-        session.commit()
+        self.need_commit = True
     # end ref_update
 
     @use_session
@@ -1284,7 +1286,7 @@ class VncRDBMSClient(object):
                          from_obj_uuid=obj_uuid,
                          to_obj_uuid=ref_uuid).one()
         sqa_ref_obj.is_relaxed_ref = True
-        session.commit()
+        self.need_commit = True
     # end ref_relax_for_delete
 
     @use_session
@@ -1492,7 +1494,7 @@ class VncRDBMSClient(object):
                                   key=key,
                                   value=value)
         session.add(ua_kv_entry)
-        session.commit()
+        self.need_commit = True
     # end useragent_kv_store
 
     @use_session
@@ -1536,7 +1538,7 @@ class VncRDBMSClient(object):
             ua_kv_entry = session.query(UseragentKV).filter_by(
                 useragent=useragent, key=key).one()
             session.delete(ua_kv_entry)
-            session.commit()
+            self.need_commit = True
         except NoResultFound:
             pass
     # end useragent_kv_delete
@@ -1699,7 +1701,7 @@ class VncRDBMSClient(object):
                     key = oper_param['position']
                     self._delete_from_prop_map(sqa_class, obj_uuid, key)
         self.update_last_modified(obj_type, obj_uuid)
-        session.commit()
+        self.need_commit = True
 
     def _add_to_prop_list(self, sqa_class, obj_uuid, value):
         session = self.session_ctx
@@ -1796,7 +1798,7 @@ class VncRDBMSClient(object):
         session.add(ServiceChainVlan(ServiceChainVlan.service_vm == service_vm,
                                      ServiceChainVlan.service_chain == service_chain,
                                      ServiceChainVlan.vlan == vlan))
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def remove_service_chain_vlan(self, service_vm, service_chain):
@@ -1804,7 +1806,7 @@ class VncRDBMSClient(object):
         session.query(ServiceChainVlan).filter(
             and_(ServiceChainVlan.service_vm == service_vm,
                  ServiceChainVlan.service_chain == service_chain)).delete()
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def get_route_target(self, ri_fq_name):
@@ -1829,14 +1831,14 @@ class VncRDBMSClient(object):
         session = self.session_ctx
         session.add(RIRouteTarget(ri_fq_name=ri_fq_name,
                                   rtgt_num=rtgt_num))
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def remove_route_target(self, ri_fq_name):
         session = self.session_ctx
         session.query(RIRouteTarget).filter(
                 RIRouteTarget.ri_fq_name == ri_fq_name).delete()
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def get_service_chain_ip(self, service_chain):
@@ -1855,14 +1857,14 @@ class VncRDBMSClient(object):
         session.add(ServiceChainIP(ServiceChainIP.service_chain == service_chain,
                                    ServiceChainIP.ip_address == ip_address,
                                    ServiceChainIP.ipv6_address == ipv6_address))
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def remove_service_chain_ip(self, service_chain):
         session = self.session_ctx
         session.query(ServiceChainIP).filter(
             ServiceChainIP.service_chain == service_chain).delete()
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def list_service_chain_uuid(self):
@@ -1875,13 +1877,13 @@ class VncRDBMSClient(object):
         session = self.session_ctx
         session.add(ServiceChainUUID(name=name,
                                      value=value))
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def remove_service_chain_uuid(self, name):
         session = self.session_ctx
         session.query(ServiceChainUUID).filter(ServiceChainUUID.name == name).delete()
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def loadbalancer_driver_info_get(self, id):
@@ -1904,7 +1906,7 @@ class VncRDBMSClient(object):
         except:
             loadbalancer = Loadbalaner(id == id)
         loadbalancer.config_info = json.dumps(config_info)
-        session.commit()
+        self.need_commit = True
         return True
 
     @use_session
@@ -1917,7 +1919,7 @@ class VncRDBMSClient(object):
         except:
             loadbalancer = Loadbalaner(id=id)
         loadbalancer.driver_info = json.dumps(driver_info)
-        session.commit()
+        self.need_commit = True
         return True
 
     @use_session
@@ -1935,7 +1937,7 @@ class VncRDBMSClient(object):
             session.add(loadbalancer)
         else:
             session.query(Loadbalancer).filter(id == id).delete()
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def loadbalancer_list(self):
@@ -1969,7 +1971,7 @@ class VncRDBMSClient(object):
         except:
             pool = Pool(id=id)
         pool.config_info = json.dumps(config_info)
-        session.commit()
+        self.need_commit = True
         return True
 
     @use_session
@@ -1982,7 +1984,7 @@ class VncRDBMSClient(object):
         except:
             pool = Pool(id=id)
         pool.driver_info = json.dumps(driver_info)
-        session.commit()
+        self.need_commit = True
         return True
 
     @use_session
@@ -2000,7 +2002,7 @@ class VncRDBMSClient(object):
             session.add(pool)
         else:
             session.query(Pool).filter(Pool.id == id).delete()
-        session.commit()
+        self.need_commit = True
 
     @use_session
     def pool_list(self):
@@ -2034,7 +2036,7 @@ class VncRDBMSClient(object):
         except:
             health_monitor = HealthMonitor(id=id)
         health_monitor.config_info = json.dumps(config_info)
-        session.commit()
+        self.need_commit = True
         return True
 
     def health_monitor_config_remove(self, id):
@@ -2061,7 +2063,7 @@ class VncRDBMSClient(object):
         except:
             health_monitor = HealthMonitor(id=id)
         health_monitor.driver_info = json.dumps(driver_info)
-        session.commit()
+        self.need_commit = True
         return True
 
     def health_monitor_driver_info_remove(self, hm_id):
@@ -2098,7 +2100,7 @@ class VncRDBMSClient(object):
             session.add(healthmonitor)
         else:
             session.query(HealthMonitor).filter(HealthMonitor.id == id).delete()
-        session.commit()
+        self.need_commit = True
 
 def migrate_from_cassandra(mysql_server='127.0.0.1', mysql_username='root', mysql_password='b2618966b123426b0d3d'):
     # TODO remove default creds
