@@ -29,6 +29,8 @@ AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
          table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
         route_walkid_[table_type].clear();
+        if (table_type == Agent::INET4_MULTICAST)
+            continue;
         walkable_route_tables_ |= (1 << table_type);
     }
 
