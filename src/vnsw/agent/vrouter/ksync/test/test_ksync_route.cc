@@ -491,6 +491,34 @@ TEST_F(TestKSyncRoute, ecmp_mac_stitching_2) {
                 mac1);
 }
 
+TEST_F(TestKSyncRoute, evpn_wait_for_traffic) {
+    //Send traffic for inet route only
+    //such that EVPN route is wait_for_traffic state
+    //and verify ...ip route would be still in wait for traffic state
+    InetUnicastRouteEntry *rt = vrf1_uc_table_->FindLPM(vnet1_->primary_ip_addr());
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(vrf1_obj_->GetIpMacWaitForTraffic(vrf1_,
+                                      vnet1_->primary_ip_addr()));
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+               EnqueueTrafficSeen(vnet1_->primary_ip_addr(), 32,
+                                  vnet1_->id(), vnet1_->vrf()->vrf_id(),
+                                  MacAddress::ZeroMac());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vrf1_obj_->GetIpMacWaitForTraffic(vrf1_,
+                                   vnet1_->primary_ip_addr()));
+
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+               EnqueueTrafficSeen(vnet1_->primary_ip_addr(), 32,
+                                  vnet1_->id(), vnet1_->vrf()->vrf_id(),
+                                  vnet1_->vm_mac());
+    client->WaitForIdle();
+
+    EXPECT_FALSE(vrf1_obj_->GetIpMacWaitForTraffic(vrf1_,
+                                   vnet1_->primary_ip_addr()));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

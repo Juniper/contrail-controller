@@ -87,6 +87,15 @@ EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const MacAddress &mac,
     return route;
 }
 
+EvpnRouteEntry *EvpnAgentRouteTable::FindRouteNoLock(const MacAddress &mac,
+                                                     const IpAddress &ip_addr,
+                                                     uint32_t ethernet_tag) {
+    EvpnRouteKey key(NULL, vrf_name(), mac, ip_addr, ethernet_tag);
+    EvpnRouteEntry *route =
+        static_cast<EvpnRouteEntry *>(FindActiveEntryNoLock(&key));
+    return route;
+}
+
 EvpnRouteEntry *EvpnAgentRouteTable::FindRoute(const Agent *agent,
                                                    const string &vrf_name,
                                                    const MacAddress &mac,
