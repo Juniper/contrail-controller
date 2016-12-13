@@ -251,6 +251,18 @@ vector<string> BgpNeighborConfig::AuthKeysToString() const {
     return auth_data_.KeysToString();
 }
 
+static int CompareTo(const StaticRouteConfig &lhs,
+                     const StaticRouteConfig &rhs) {
+    KEY_COMPARE(lhs.address, rhs.address);
+    KEY_COMPARE(lhs.prefix_length, rhs.prefix_length);
+    return 0;
+}
+
+bool StaticRouteConfig::operator<(const StaticRouteConfig &rhs) const {
+    int cmp = CompareTo(*this, rhs);
+    return cmp < 0;
+}
+
 BgpProtocolConfig::BgpProtocolConfig(const string &instance_name)
     : instance_name_(instance_name),
       admin_down_(false),
