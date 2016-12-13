@@ -2081,7 +2081,6 @@ class RoutingInstanceST(DBBaseST):
         ri2.connections.add(self.name)
 
         conn_data = ConnectionType()
-        self.obj.add_routing_instance(ri2.obj, conn_data)
         self._vnc_lib.ref_update('routing-instance', self.obj.uuid,
                                  'routing-instance', ri2.obj.uuid,
                                  None, 'ADD', conn_data)
