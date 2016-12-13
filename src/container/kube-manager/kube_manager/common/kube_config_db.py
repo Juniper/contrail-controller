@@ -91,7 +91,7 @@ class PodKM(KubeDBBase):
                 labels=pod.labels, nodename=pod.nodename, ip=pod.ip,
                 phase=pod.phase)
 
-            # Append the constructed element info to the response. 
+            # Append the constructed element info to the response.
             pod_resp.pods.append(pod_instance)
 
         # Send the reply out.
@@ -113,6 +113,10 @@ class NamespaceKM(KubeDBBase):
         # Status.
         self.phase = None
 
+        # Config cache.
+        self.isolated = False
+        self.vn_fq_name = None
+
         # If an object is provided, update self with contents of object.
         if obj:
             self.update(obj)
@@ -128,10 +132,30 @@ class NamespaceKM(KubeDBBase):
             return
         self.name = md.get('name')
 
+        # Parse annotations on this namespace.
+        annotations = md.get('annotations')
+
+        if annotations:
+            # Cache isolated namespace directive.
+            if annotations["isolated"] and annotations["isolated"] == "true":
+                # Namespace is configured as isolated.
+                self.isolated = True
+            else:
+                self.isolated = False
+
     def _update_status(self, status):
         if status is None:
             return
         self.phase = status.get('phase')
+
+    def is_isolated(self):
+        return self.isolated
+
+    def set_network_fq_name(self, fq_name):
+        self.vn_fq_name = fq_name
+
+    def get_network_fq_name(self):
+        return self.vn_fq_name
 
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):
@@ -145,11 +169,11 @@ class NamespaceKM(KubeDBBase):
             if req.namespace_uuid and req.namespace_uuid != ns.uuid:
                 continue
 
-            # Construct response for an element.
+            # Construct response for a namespace element.
             ns_instance = introspect.NamespaceInstance(uuid=ns.uuid,
-                name=ns.name, phase=ns.phase)
+                            name=ns.name, phase=ns.phase, isolated=ns.isolated)
 
-            # Append the constructed element info to the response. 
+            # Append the constructed element info to the response.
             ns_resp.namespaces.append(ns_instance)
 
         # Send the reply out.
@@ -203,7 +227,7 @@ class ServiceKM(KubeDBBase):
 
     def get_service_ports(self):
         return self.ports
-        
+
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):
         """ Reply to Service DB lookup/introspect request. """
@@ -221,7 +245,7 @@ class ServiceKM(KubeDBBase):
                 name=svc.name, name_space=svc.namespace, labels=svc.labels,
                 cluster_ip=svc.cluster_ip, service_type=svc.service_type)
 
-            # Append the constructed element info to the response. 
+            # Append the constructed element info to the response.
             svc_resp.services.append(svc_instance)
 
         # Send the reply out.
@@ -330,7 +354,7 @@ class NetworkPolicyKM(KubeDBBase):
                 name=np.name, name_space=np.namespace,
                     spec_string=np.spec.__str__(), spec=np_spec)
 
-            # Append the constructed element info to the response. 
+            # Append the constructed element info to the response.
             np_resp.network_policies.append(np_instance)
 
         # Send the reply out.

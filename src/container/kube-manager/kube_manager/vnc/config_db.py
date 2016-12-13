@@ -301,6 +301,7 @@ class VirtualNetworkKM(DBBaseKM):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.instance_ips = set()
+        self.network_ipams = set()
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
 
@@ -311,6 +312,7 @@ class VirtualNetworkKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('instance_ip', obj)
+        self.update_multiple_refs('network_ipam', obj)
         return obj
 
     @classmethod
@@ -320,9 +322,9 @@ class VirtualNetworkKM(DBBaseKM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('instance_ip', {})
+        obj.update_multiple_refs('network_ipam', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
-
 
 class FloatingIpKM(DBBaseKM):
     _dict = {}
@@ -349,7 +351,7 @@ class FloatingIpKM(DBBaseKM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
-
+# end class FloatingIpKM
 
 class InstanceIpKM(DBBaseKM):
     _dict = {}
@@ -381,7 +383,7 @@ class InstanceIpKM(DBBaseKM):
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
-
+# end class InstanceIpKM
 
 class ProjectKM(DBBaseKM):
     _dict = {}
@@ -454,3 +456,81 @@ class SecurityGroupKM(DBBaseKM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
+
+class FloatingIpPoolKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'floating_ip_pool'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_network = None
+        self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref('virtual_network', obj)
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        self.update_single_ref('virtual_network', None)
+        del cls._dict[uuid]
+
+class FloatingIpSM(DBBaseKM):
+    _dict = {}
+    obj_type = 'floating_ip'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.address = None
+        self.virtual_machine_interfaces = set()
+        self.virtual_ip = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.address = obj['floating_ip_address']
+        self.update_multiple_refs('virtual_machine_interface', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        del cls._dict[uuid]
+    # end delete
+# end class FloatingIpSM
+
+class NetworkIpamSM(DBBaseKM):
+    _dict = {}
+    obj_type = 'network_ipam'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        del cls._dict[uuid]
+# end class NetworkIpamSM

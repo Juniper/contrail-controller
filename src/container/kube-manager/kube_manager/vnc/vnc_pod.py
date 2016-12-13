@@ -8,18 +8,40 @@ VNC pod management for kubernetes
 
 from vnc_api.vnc_api import *
 from config_db import *
+from kube_manager.common.kube_config_db import NamespaceKM
 
 class VncPod(object):
 
-    def __init__(self, vnc_lib=None, label_cache=None, service_mgr=None):
+    def __init__(self, vnc_lib=None, label_cache=None, service_mgr=None,
+                     svc_fip_pool = None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self._service_mgr = service_mgr
+        self._service_fip_pool = svc_fip_pool
 
     def _get_network(self, pod_id, pod_namespace):
-        vn_fq_name = ['default-domain', 'default', 'cluster-network']
+        """
+        Get network corresponding to this namesapce.
+        """
+        vn_fq_name = None
+        if self._is_pod_network_isolated(pod_namespace) == True:
+            ns = self._get_namespace(pod_namespace)
+            if ns:
+                vn_fq_name = ns.get_network_fq_name()
+
+        # If no network was found on the namesapce, default to the cluster
+        # pod network.
+        if not vn_fq_name:
+            vn_fq_name = ['default-domain', 'default', 'cluster-network']
+
         vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         return vn_obj
+
+    def _get_namespace(self, pod_namespace):
+        return NamespaceKM.find_by_name_or_uuid(pod_namespace)
+
+    def _is_pod_network_isolated(self, pod_namespace):
+        return self._get_namespace(pod_namespace).is_isolated()
 
     def _create_iip(self, pod_name, vn_obj, vmi_obj):
         iip_obj = InstanceIp(name=pod_name)
@@ -31,6 +53,36 @@ class VncPod(object):
             self._vnc_lib.instance_ip_update(iip_obj)
         InstanceIpKM.locate(iip_obj.uuid)
         return iip_obj
+
+    def _create_cluster_service_fip(self, pod_name, vmi_obj):
+        """
+        Isolated Pods in the cluster will be allocated a floating ip
+        from the cluster service network, so that the pods can talk
+        to cluster services.
+        """
+        if not self._service_fip_pool:
+            return
+
+        # Construct parent ref.
+        fip_pool_obj = FloatingIpPool()
+        fip_pool_obj.uuid = self._service_fip_pool.uuid
+        fip_pool_obj.fq_name = self._service_fip_pool.fq_name
+        fip_pool_obj.name = self._service_fip_pool.name
+
+        # Create Floating-Ip object.
+        fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (pod_name),
+                             parent_obj=fip_pool_obj)
+        fip_obj.set_virtual_machine_interface(vmi_obj)
+
+        try:
+            fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+        except RefsExistError:
+            fip_uuid = self._vnc_lib.floating_ip_update(fip_obj)
+
+        # Cached service floating ip.
+        FloatingIpKM.locate(fip_uuid)
+
+        return
 
     def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj):
         proj_fq_name = ['default-domain', pod_namespace]
@@ -93,6 +145,10 @@ class VncPod(object):
         vm_obj = self._create_vm(pod_id, pod_name, labels)
         vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
         self._create_iip(pod_name, vn_obj, vmi_obj)
+
+        if self._is_pod_network_isolated(pod_namespace):
+            self._create_cluster_service_fip(pod_name, vmi_obj)
+
         self._link_vm_to_node(vm_obj, pod_node)
         self.associate_pod_to_services(labels, pod_id)
 
@@ -103,6 +159,13 @@ class VncPod(object):
         for iip_id in list(vmi.instance_ips):
             try:
                 self._vnc_lib.instance_ip_delete(id=iip_id)
+            except NoIdError:
+                pass
+
+        # Cleanup floating ip's on this interface.
+        for fip_id in list(vmi.floating_ips):
+            try:
+                self._vnc_lib.floating_ip_delete(id=fip_id)
             except NoIdError:
                 pass
 
