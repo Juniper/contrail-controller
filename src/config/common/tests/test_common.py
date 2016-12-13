@@ -15,6 +15,7 @@ from testtools import content
 from flexmock import flexmock
 from webtest import TestApp
 import contextlib
+from lxml import etree
 
 from vnc_api.vnc_api import *
 import kombu
@@ -178,10 +179,15 @@ def create_api_server_instance(test_id, config_knobs):
     ret_server_info['admin_port'] = get_free_port(allocated_sockets)
     ret_server_info['ifmap_port'] = get_free_port(allocated_sockets)
     ret_server_info['allocated_sockets'] = allocated_sockets
+    with_irond = [conf for conf in config_knobs
+                  if (conf[0] == 'DEFAULTS' and conf[1] == 'ifmap_server_ip')]
+    if with_irond:
+        ret_server_info['ifmap_server_ip'] = with_irond[0][2]
     ret_server_info['greenlet'] = gevent.spawn(launch_api_server,
         test_id, ret_server_info['ip'], ret_server_info['service_port'],
         ret_server_info['introspect_port'], ret_server_info['admin_port'],
-        ret_server_info['ifmap_port'], config_knobs)
+        ret_server_info['ifmap_port'], config_knobs,
+        ret_server_info.get('ifmap_server_ip'))
     block_till_port_listened(ret_server_info['ip'],
         ret_server_info['service_port'])
     extra_env = {'HTTP_HOST': ret_server_info['ip'],
@@ -211,7 +217,10 @@ def destroy_api_server_instance(server_info):
     vhost_url = server_info['api_server']._db_conn._msgbus._urls
     FakeKombu.reset(vhost_url)
     FakeNovaClient.reset()
-    vnc_cfg_api_server.VncIfmapServer.reset_graph()
+    if server_info.get('ifmap_server_ip') is not None:
+        FakeIfmapClient.reset(server_info['ifmap_port'])
+    else:
+        vnc_cfg_api_server.VncIfmapServer.reset_graph()
     CassandraCFs.reset()
     FakeKazooClient.reset()
     FakeExtensionManager.reset()
@@ -228,14 +237,19 @@ def destroy_api_server_instance_issu(server_info):
 # end destroy_api_server_instance
 
 def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
-                      admin_port, ifmap_port, conf_sections):
+                      admin_port, ifmap_port, conf_sections,
+                      ifmap_server_ip=None):
     args_str = ""
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
     args_str = args_str + "--http_server_port %s " % (http_server_port)
     args_str = args_str + "--admin_port %s " % (admin_port)
-    args_str = args_str + "--ifmap_listen_ip %s " % (listen_ip)
-    args_str = args_str + "--ifmap_listen_port %s " % (ifmap_port)
+    if ifmap_server_ip is not None:
+        args_str = args_str + "--ifmap_server_ip %s " % ifmap_server_ip
+        args_str = args_str + "--ifmap_server_port %s " % ifmap_port
+    else:
+        args_str = args_str + "--ifmap_listen_ip %s " % listen_ip
+        args_str = args_str + "--ifmap_listen_port %s " % ifmap_port
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
@@ -526,10 +540,33 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             _fq_name = type_fq_name[1]
 
         ifmap_id = imid.get_ifmap_id_from_fq_name(_type, _fq_name)
-        if ifmap_id in vnc_cfg_api_server.VncIfmapServer._graph:
-            return vnc_cfg_api_server.VncIfmapServer._graph[ifmap_id]
+        if self._ifmap_server_ip is not None:
+            port = str(self._api_ifmap_port)
+            if ifmap_id in FakeIfmapClient._graph[port]:
+                # Old ifmap fake client store identity and link in lxml object
+                # in memory, we need to convert them in string
+                return self._xml_to_string(
+                    FakeIfmapClient._graph[port][ifmap_id])
+        else:
+            if ifmap_id in vnc_cfg_api_server.VncIfmapServer._graph:
+                return vnc_cfg_api_server.VncIfmapServer._graph[ifmap_id]
 
         return None
+
+    @staticmethod
+    def _xml_to_string(xml_ifmap_dict):
+        string_ifmap_dict = {}
+        if 'ident' in xml_ifmap_dict:
+            string_ifmap_dict['ident'] = etree.tostring(xml_ifmap_dict['ident'])
+        if 'links' in xml_ifmap_dict:
+            string_ifmap_dict['links'] = dict()
+            for meta_name, meta in xml_ifmap_dict['links'].items():
+                string_ifmap_dict['links'][meta_name] = dict()
+                if 'meta' in meta:
+                    string_ifmap_dict['links'][meta_name]['meta'] = etree.tostring(meta['meta'])
+                if 'other' in meta:
+                    string_ifmap_dict['links'][meta_name]['other'] = etree.tostring(meta['other'])
+        return string_ifmap_dict
 
     def ifmap_ident_has_link(self, obj=None, id=None, type_fq_name=None,
                              link_name=None):
@@ -597,6 +634,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             cls._vnc_lib = cls._server_info['api_conn']
             cls._api_server_session = cls._server_info['api_session']
             cls._api_server = cls._server_info['api_server']
+            cls._ifmap_server_ip = cls._server_info.get('ifmap_server_ip')
         except Exception as e:
             cls.tearDownClass()
             raise
@@ -626,7 +664,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         vhost_url = self._api_server._db_conn._msgbus._urls
         while not FakeKombu.is_empty(vhost_url, 'vnc_config'):
             gevent.sleep(0.001)
-
+        if self._ifmap_server_ip is not None:
+            while self._api_server._db_conn._ifmap_db._queue.qsize() > 0:
+                gevent.sleep(0.001)
     # wait_till_api_server_idle
 
     def get_obj_imid(self, obj):

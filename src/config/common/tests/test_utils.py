@@ -532,6 +532,328 @@ class FakeNovaClient(object):
 # end class FakeNovaClient
 
 
+class FakeIfmapClient(object):
+    # _graph is dict of ident_names where val for each key is
+    # dict with keys 'ident' and 'links'
+    # 'ident' has ident xml element
+    # 'links' is a dict with keys of concat(<meta-name>' '<ident-name>')
+    # and vals of dict with 'meta' which has meta xml element and
+    #                       'other' which has other ident xml element
+    # eg. cls._graph['contrail:network-ipam:default-domain:default-project:
+    # ipam2'] =
+    # 'ident': <Element identity at 0x2b3e280>,
+    # 'links': {'contrail:id-perms': {'meta': <Element metadata at 0x2b3eb40>},
+    #           'contrail:project-network-ipam
+    #            contrail:project:default-domain:default-project':
+    #               {'other': <Element identity at 0x2b3eaa0>,
+    #                'meta': <Element metadata at 0x2b3ea50>},
+    #                'contrail:virtual-network-network-ipam contrail:
+    #                virtual-network:default-domain:default-project:vn2':
+    #                {'other': <Element identity at 0x2b3ee10>,
+    #                 'meta': <Element metadata at 0x2b3e410>}}}
+    _graph = defaultdict(dict)
+    _published_messages = defaultdict(list) # all messages published so far
+    _subscribe_lists = defaultdict(list) # list of all subscribers indexed by session-id
+    _PUBLISH_ENVELOPE = \
+        """<?xml version="1.0" encoding="UTF-8"?> """\
+        """<env:Envelope xmlns:"""\
+        """env="http://www.w3.org/2003/05/soap-envelope" xmlns:"""\
+        """ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" """\
+        """xmlns:contrail="http://www.contrailsystems.com/"""\
+        """vnc_cfg.xsd" """\
+        """xmlns:meta="http://www.trustedcomputinggroup.org"""\
+        """/2010/IFMAP-METADATA/2"> """\
+        """<env:Body> %(body)s </env:Body> </env:Envelope>"""
+
+    _RSP_ENVELOPE = \
+        """<?xml version="1.0" encoding="UTF-8" standalone="yes"?> """\
+        """<env:Envelope xmlns:ifmap="http://www.trustedcomputinggroup.org"""\
+        """/2010/IFMAP/2" """\
+        """xmlns:env="http://www.w3.org/2003/05/soap-envelope" """\
+        """xmlns:meta="http://www.trustedcomputinggroup.org"""\
+        """/2010/IFMAP-METADATA/2" """\
+        """xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd"> """\
+        """<env:Body><ifmap:response> %(result)s """\
+        """</ifmap:response></env:Body></env:Envelope>"""
+
+    @classmethod
+    def reset(cls, port):
+        cls._graph[port].clear()
+        cls._published_messages[port] = [] # all messages published so far
+        cls._subscribe_lists[port] = [] # list of all subscribers indexed by session-id
+    # end reset
+
+    @staticmethod
+    def initialize(self, *args, **kwargs):
+        self.port = args[0][1]
+        self._client__url = args[0]
+    # end initialize
+
+    @classmethod
+    def _update_publish(cls, port, upd_root):
+        subscribe_item = etree.Element('resultItem')
+        subscribe_item.extend(deepcopy(upd_root))
+        from_name = escape(upd_root[0].attrib['name'])
+        to_name = None
+        if not from_name in cls._graph[port]:
+            cls._graph[port][from_name] = {'ident': upd_root[0], 'links': {}}
+
+        if len(upd_root) == 2:
+            meta_name = re.sub("{.*}", "contrail:", upd_root[1][0].tag)
+            link_key = meta_name
+            link_info = {'meta': upd_root[1]}
+            cls._graph[port][from_name]['links'][link_key] = link_info
+        elif len(upd_root) == 3:
+            meta_name = re.sub("{.*}", "contrail:", upd_root[2][0].tag)
+            to_name = escape(upd_root[1].attrib['name'])
+            link_key = '%s %s' % (meta_name, to_name)
+            link_info = {'meta': upd_root[2], 'other': upd_root[1]}
+            cls._graph[port][from_name]['links'][link_key] = link_info
+
+            if not to_name in cls._graph[port]:
+                cls._graph[port][to_name] = {'ident': upd_root[1], 'links': {}}
+            link_key = '%s %s' % (meta_name, from_name)
+            link_info = {'meta': upd_root[2], 'other': upd_root[0]}
+            cls._graph[port][to_name]['links'][link_key] = link_info
+        else:
+            raise Exception("Unknown ifmap update: %s" %
+                            (etree.tostring(upd_root)))
+
+        subscribe_result = etree.Element('updateResult')
+        subscribe_result.append(subscribe_item)
+        return subscribe_result, (from_name, to_name)
+    # end _update_publish
+
+    @classmethod
+    def _delete_publish(cls, port, del_root):
+        from_name = escape(del_root[0].attrib['name'])
+        to_name = None
+        if from_name not in cls._graph[port]:
+            link_keys = []
+        elif 'filter' in del_root.attrib:
+            meta_name = del_root.attrib['filter']
+            if len(del_root) == 1:
+                link_key = meta_name
+            elif len(del_root) == 2:
+                to_name = escape(del_root[1].attrib['name'])
+                link_key = '%s %s' % (meta_name, to_name)
+            else:
+                raise Exception("Unknown ifmap delete: %s" %
+                                (etree.tostring(del_root)))
+
+            link_keys = [link_key]
+
+        else:  # delete all metadata on this ident or between pair of idents
+            if len(del_root) == 1:
+                link_keys = cls._graph[port][from_name]['links'].keys()
+            elif len(del_root) == 2:
+                to_name = escape(del_root[1].attrib['name'])
+                link_keys = []
+                for link_key in cls._graph[port][from_name]['links']:
+                    link_info = cls._graph[port][from_name]['links'][link_key]
+                    if 'other' in link_info:
+                        if link_key.split()[1] == to_name:
+                            link_keys.append(link_key)
+            else:
+                raise Exception("Unknown ifmap delete: %s" %
+                                (etree.tostring(del_root)))
+
+        subscribe_result = etree.Element('deleteResult')
+        for link_key in link_keys:
+            subscribe_item = etree.Element('resultItem')
+            subscribe_item.extend(deepcopy(del_root))
+            link_info = cls._graph[port][from_name]['links'][link_key]
+            # generate id1, id2, meta for poll for the case where
+            # del of ident for all metas requested but we have a
+            # ref meta to another ident
+            if len(del_root) == 1 and 'other' in link_info:
+                to_ident_elem = link_info['other']
+                subscribe_item.append(to_ident_elem)
+            subscribe_item.append(deepcopy(link_info['meta']))
+            subscribe_result.append(subscribe_item)
+            meta_name = re.sub(
+                "{.*}", "contrail:", link_info['meta'][0].tag)
+            if 'other' in link_info:
+                other_name = escape(link_info['other'].attrib['name'])
+                rev_link_key = '%s %s' % (meta_name, from_name)
+                if other_name in cls._graph[port]:
+                    del cls._graph[port][other_name]['links'][rev_link_key]
+                    if not cls._graph[port][other_name]['links']:
+                        del cls._graph[port][other_name]
+            del cls._graph[port][from_name]['links'][link_key]
+
+        # delete ident if no links left
+        if from_name in cls._graph[port] and not cls._graph[port][from_name]['links']:
+            del cls._graph[port][from_name]
+
+        if len(subscribe_result) == 0:
+            subscribe_item = etree.Element('resultItem')
+            subscribe_item.extend(deepcopy(del_root))
+            subscribe_result.append(subscribe_item)
+
+        return subscribe_result, (from_name, to_name)
+    # end _delete_publish
+
+    @classmethod
+    def _validate_session_id(cls, port, method, body):
+        if method == 'newSession':
+            return
+
+        session_id = getattr(body,
+                             '_%sRequest__session_id' % method.capitalize(),
+                             'False session id')
+        if (not session_id.isdigit() or
+                int(session_id) > (len(cls._subscribe_lists[port]) - 1)):
+            result = etree.Element('errorResult', errorCode='InvalidSessionID')
+            err_str = etree.SubElement(result, 'errorString')
+            err_str.text = "Session not found."
+            result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
+            return result_env
+
+    @staticmethod
+    def call(client, method, body):
+        cls = FakeIfmapClient
+        port = client.port
+
+        valide_session_response = cls._validate_session_id(port, method, body)
+        if valide_session_response is not None:
+            return valide_session_response
+
+        if method == 'publish':
+            pub_env = cls._PUBLISH_ENVELOPE % {
+                'body': body._PublishRequest__operations}
+            pub_env = pub_env.encode('utf-8')
+            env_root = etree.fromstring(pub_env)
+            poll_result = etree.Element('pollResult')
+            _items = []
+            for pub_root in env_root[0]:
+                #            pub_root = env_root[0][0]
+                if pub_root.tag == 'update':
+                    subscribe_result, info = cls._update_publish(port, pub_root)
+                    _items.append(('update', subscribe_result, info))
+                elif pub_root.tag == 'delete':
+                    subscribe_result, info = cls._delete_publish(port, pub_root)
+                    _items.append(('delete', subscribe_result, info))
+                else:
+                    raise Exception(
+                        "Unknown ifmap publish: %s"
+                        % (etree.tostring(pub_root)))
+                poll_result.append(subscribe_result)
+
+            for sl in cls._subscribe_lists[port]:
+                if sl is not None:
+                    sl.put(poll_result)
+
+            for (oper, result, info) in _items:
+                if oper == 'update':
+                    search_result = deepcopy(result)
+                    search_result.tag = 'searchResult'
+                    cls._published_messages[port].append((search_result, info))
+                else:
+                    cls._published_messages[port] = [
+                        (r,i) for (r, i) in cls._published_messages[port]
+                        if (i != info and i != info [::-1])]
+            result = etree.Element('publishReceived')
+            result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
+            return result_env
+        elif method == 'search':
+            # grab ident string; lookup graph with match meta and return
+            srch_id_str = body._SearchRequest__identifier
+            mch = re.match('<identity name="(.*)" type', srch_id_str)
+            start_name = mch.group(1)
+            match_links = body._SearchRequest__parameters.get(
+                'match-links', 'all')
+            if match_links != 'all':
+                match_links = set(match_links.split(' or '))
+
+            result_filter = body._SearchRequest__parameters.get(
+                'result-filter', 'all')
+            if result_filter != 'all':
+                result_filter = set(result_filter.split(' or '))
+
+            visited_nodes = set([])
+            result_items = []
+            def visit_node(ident_name):
+                if ident_name in visited_nodes:
+                    return
+                visited_nodes.add(ident_name)
+                # add all metas on current to result, visit further nodes
+                to_visit_nodes = set([])
+                for link_key in cls._graph[port][ident_name]['links']:
+                    meta_name = link_key.split()[0]
+                    r_item = etree.Element('resultItem')
+                    link_info = cls._graph[port][ident_name]['links'][link_key]
+                    if 'other' in link_info:
+                        r_item.append(cls._graph[port][ident_name]['ident'])
+                        r_item.append(link_info['other'])
+                        r_item.append(link_info['meta'])
+                        to_visit_nodes.add(link_info['other'].attrib['name'])
+                    else:
+                        r_item.append(cls._graph[port][ident_name]['ident'])
+                        r_item.append(link_info['meta'])
+
+                    if (result_filter != 'all' and
+                        meta_name not in result_filter):
+                        continue
+                    result_items.append(copy.deepcopy(r_item))
+
+                # all metas on ident walked
+                for new_node in to_visit_nodes:
+                    visit_node(new_node)
+            # end visit_node
+
+            visit_node(start_name)
+            search_result = etree.Element('searchResult')
+            search_result.extend(result_items)
+            search_str = etree.tostring(search_result)
+            search_env = cls._RSP_ENVELOPE % {'result': search_str}
+
+            return search_env
+
+            #ifmap_cf = CassandraCFs.get_cf('ifmap_id_table')
+            #srch_uuid = ifmap_cf.get(ifmap_id)['uuid']
+            #uuid_cf = CassandraCFs.get_cf('uuid_table')
+            #obj_json = uuid_cf.get(srch_uuid)['obj_json']
+        elif method == 'poll':
+            session_id = int(body._PollRequest__session_id)
+            item = cls._subscribe_lists[port][session_id].get(True)
+            poll_str = etree.tostring(item)
+            poll_env = cls._RSP_ENVELOPE % {'result': poll_str}
+            return poll_env
+        elif method == 'newSession':
+            result = etree.Element('newSessionResult')
+            result.set("session-id", str(len(cls._subscribe_lists[port])))
+            result.set("ifmap-publisher-id", "111")
+            result.set("max-poll-result-size", "7500000")
+            result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
+            cls._subscribe_lists[port].append(None)
+            return result_env
+        elif method == 'subscribe':
+            session_id = int(body._SubscribeRequest__session_id)
+            subscriber_queue = Queue.Queue()
+            poll_result = etree.Element('pollResult')
+            for result_item,_ in cls._published_messages[port]:
+                poll_result.append(result_item)
+            subscriber_queue.put(poll_result)
+            cls._subscribe_lists[port][session_id] = subscriber_queue
+            result = etree.Element('subscribeReceived')
+            result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
+            return result_env
+        elif method == 'purge':
+            cls._graph[port].clear()
+            result = etree.Element('purgePublisherReceived')
+            return cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
+        else:
+            print "%s: do not know IF-MAP '%s' request. Ignore it." %\
+                  (cls.__name__, method)
+    # end call
+
+    @staticmethod
+    def call_async_result(client, method, body):
+        return FakeIfmapClient.call(client, method, body)
+# end class FakeIfmapClient
+
+
 class FakeKombu(object):
     _exchange = defaultdict(dict)
 
