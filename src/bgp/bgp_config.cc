@@ -251,6 +251,13 @@ vector<string> BgpNeighborConfig::AuthKeysToString() const {
     return auth_data_.KeysToString();
 }
 
+
+bool StaticRouteConfig::operator<(const StaticRouteConfig &rhs) const {
+    BOOL_KEY_COMPARE(address, rhs.address);
+    BOOL_KEY_COMPARE(prefix_length, rhs.prefix_length);
+    return false;
+}
+
 BgpProtocolConfig::BgpProtocolConfig(const string &instance_name)
     : instance_name_(instance_name),
       admin_down_(false),
