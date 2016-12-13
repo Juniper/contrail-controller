@@ -256,7 +256,7 @@ bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
     req.key.reset(key);
     req.data.reset();
     AgentRouteTable *table = static_cast<AgentRouteTable *>(route->get_table());
-    table->Enqueue(&req);
+    table->Process(req);
     return true;
 }
 
