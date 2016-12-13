@@ -3,11 +3,14 @@
  */
 
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <vnc_cfg_types.h>
 #include <base/util.h>
 #include <db/db_partition.h>
 
 #include <ifmap/ifmap_node.h>
+#include <ifmap/ifmap_link.h>
+#include <ifmap/ifmap_agent_table.h>
 #include <cmn/agent_cmn.h>
 #include <oper/operdb_init.h>
 #include <oper/ifmap_dependency_manager.h>
@@ -30,6 +33,42 @@
 #include <string>
 
 using std::string;
+
+ConfigHelper::ConfigHelper(const ConfigManager *mgr,
+                           const Agent *agent) :
+    mgr_(mgr), link_table_(NULL), agent_(agent) {
+}
+
+IFMapNode *ConfigHelper::GetOtherAdjacentNode(IFMapLink *link,
+                                              IFMapNode *node) {
+    if (link->left() == node) return link->right();
+    if (link->right() == node) return link->left();
+    return NULL;
+}
+
+//Note: FindLink here checks for many-to-one node.
+IFMapNode *ConfigHelper::FindLink(const char *type,
+                                  IFMapNode *node) {
+    IFMapLink *link = NULL;
+    if (!link_table_) {
+        link_table_ = static_cast<IFMapAgentLinkTable *>(agent_->db()->
+                                  FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    }
+
+    std::ostringstream key_with_node_in_right;
+    key_with_node_in_right << type << ",," << node->ToString();
+    link = link_table_->FindNextLink(key_with_node_in_right.str());
+    if (link && (strcmp(link->metadata().c_str(), type) == 0))
+        return GetOtherAdjacentNode(link, node);
+
+    std::ostringstream key_with_node_in_left;
+    key_with_node_in_left << type << "," << node->ToString() << ",";
+    link = link_table_->FindNextLink(key_with_node_in_left.str());
+    if (link && (strcmp(link->metadata().c_str(), type) == 0))
+        return GetOtherAdjacentNode(link, node);
+
+    return NULL;
+}
 
 class ConfigManagerNodeList {
 public:
@@ -194,6 +233,7 @@ ConfigManager::ConfigManager(Agent *agent) :
     for (uint32_t i = 0; i < kMaxTimeout; i++) {
         process_config_count_[i] = 0;
     }
+    helper_.reset(new ConfigHelper(this, agent_));
 }
 
 ConfigManager::~ConfigManager() {

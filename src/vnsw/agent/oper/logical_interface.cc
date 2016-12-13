@@ -248,14 +248,16 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
     boost::uuids::uuid dev_uuid = nil_uuid();
     adj_node = agent->config_manager()->FindAdjacentIFMapNode(node,
             "physical-interface");
+    IFMapNode *prouter_node = NULL;
+
     if (adj_node) {
         physical_interface = adj_node->name();
         autogen::PhysicalInterface *port =
             static_cast <autogen::PhysicalInterface *>(adj_node->GetObject());
         assert(port);
         phy_intf_display_name = port->display_name();
-        IFMapNode *prouter_node = agent->config_manager()->FindAdjacentIFMapNode
-            (adj_node, "physical-router");
+        prouter_node = agent->config_manager()->helper()->
+            FindLink("physical-router-physical-interface", adj_node);
         if (prouter_node) {
             autogen::PhysicalRouter *router =
                 static_cast<autogen::PhysicalRouter *>(prouter_node->GetObject());
