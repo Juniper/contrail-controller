@@ -32,6 +32,7 @@ class LoadbalancerKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.parent_uuid = obj['parent_uuid']
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('loadbalancer_listener', obj)
 
