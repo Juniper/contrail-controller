@@ -115,67 +115,6 @@ class IDPool(Base):
        return "<IDPool(start='%s', end='%s', path='%s', value='%s', used='%s')>" % (
                             unpack(self.start), unpack(self.end), self.path, self.value, self.used)
 
-class ServiceChainVlan(Base):
-    __tablename__ = 'service_chain_vlan'
-    service_vm = Column(String(255), primary_key=True)
-    service_chain = Column(String(255), primary_key=True)
-    vlan = Column(Integer())
-
-    def __repr__(self):
-       return "<ServiceChainVlan(service_vm='%s', service_chain='%s', vlan='%d')>" % (
-                self.service_vm, self.service_chain, self.vlan)
-
-class ServiceChainIP(Base):
-    __tablename__ = 'service_chain_ip'
-    service_chain = Column(String(255), primary_key=True)
-    ip_address = String(15)
-    ipv6_address = String(45)
-
-    def __repr__(self):
-       return "<ServiceChainIP(service_chain='%s', ip_address='%s', ipv6_address='%s')>" % (
-                self.service_chain, self.ip_address, self.ipv6_address)
-
-class ServiceChainUUID(Base):
-    __tablename__ = 'service_chain_uuid'
-    name = Column(String(255), primary_key=True)
-    value = String(255)
-
-    def __repr__(self):
-       return "<ServiceChainUUID(name='%s', value='%s')>" % (
-                self.name, self.value)
-
-class RIRouteTarget(Base):
-    __tablename__ = 'ri_route_target'
-    ri_fq_name = Column(String(255), primary_key=True)
-    rtgt_num = Column(Integer())
-
-    def __repr__(self):
-       return "<RIRouteTarget(ri_fq_name='%s', rtgt_num='%d')>" % (
-                self.ri_fq_name, self.rtgt_num)
-
-class ServiceInstance(Base):
-    __tablename__ = 'svcmon_service_instance'
-    fq_name = Column(String(255), primary_key=True)
-    entry = Text()
-
-class Loadbalancer(Base):
-    __tablename__ = 'svcmon_loadbalancer'
-    id = Column(String(255), primary_key=True)
-    config_info = Text()
-    driver_info = Text()
-
-class Pool(Base):
-    __tablename__ = 'svcmon_pool'
-    id = Column(String(255), primary_key=True)
-    config_info = Text()
-    driver_info = Text()
-
-class HealthMonitor(Base):
-    __tablename__ = 'svcmon_healthmonitor'
-    id = Column(String(255), primary_key=True)
-    config_info = Text()
-    driver_info = Text()
-
 def use_session(func):
     def wrapper(self, *args, **kwargs):
         if self.session_ctx:
@@ -802,13 +741,10 @@ class VncRDBMSClient(object):
                                                backref_type, backref_uuid)
                     backref_info['uuid'] = backref_uuid
 
-                    back_ref_property = '%s_back_refs' % (backref_type)
-                    if res_type == backref_type:
-                        back_ref_property = '%s_refs' % (backref_type)
                     try:
-                        obj_dict[back_ref_property].append(backref_info)
+                        obj_dict['%s_back_refs' %(backref_type)].append(backref_info)
                     except KeyError:
-                        obj_dict[back_ref_property] = [backref_info]
+                        obj_dict['%s_back_refs' %(backref_type)] = [backref_info]
                 elif hasattr(extra_obj, 'key') and extra_obj.owner == obj_uuid: # map
                     prop_name = extra_obj.property
                     if obj_class.prop_map_field_has_wrappers[prop_name]:
@@ -843,9 +779,6 @@ class VncRDBMSClient(object):
         req_map_fields = set([])
         req_list_fields = set([])
 
-        object_type_back_ref = '%s_back_refs' % obj_type
-        object_type_ref = '%s_refs' % obj_type
-
         if not field_names_set:
             req_prop_fields = obj_class.prop_fields
             req_ref_fields = obj_class.ref_fields
@@ -858,8 +791,6 @@ class VncRDBMSClient(object):
             req_prop_fields = obj_class.prop_fields
             req_ref_fields = obj_class.ref_fields
             req_backref_fields = field_names_set & obj_class.backref_fields
-            if object_type_ref in req_ref_fields and object_type_back_ref in obj_class.backref_fields:
-                req_backref_fields.add(object_type_back_ref)
             req_children_fields = field_names_set & obj_class.children_fields
             req_map_fields = field_names_set & obj_class.prop_map_fields
             req_list_fields = field_names_set & obj_class.prop_list_fields
@@ -869,12 +800,9 @@ class VncRDBMSClient(object):
             req_ref_fields = (field_names_set &
                               obj_class.ref_fields)
             req_backref_fields = field_names_set & obj_class.backref_fields
-            if object_type_ref in req_ref_fields and object_type_back_ref in obj_class.backref_fields:
-                req_backref_fields.add(object_type_back_ref)
             req_children_fields = field_names_set & obj_class.children_fields
             req_map_fields = field_names_set & obj_class.prop_map_fields
             req_list_fields = field_names_set & obj_class.prop_list_fields
-
         session = self.session_ctx
 
         sqa_ref_classes = [aliased(self.sqa_classes['ref_%s_%s' %(
@@ -927,7 +855,8 @@ class VncRDBMSClient(object):
                obj_dict['%ss' % (child_type)].append(child_info)
            except KeyError:
                obj_dict['%ss' % (child_type)] = [child_info]
-        return (len(objs_dict.values()) > 0, objs_dict.values())
+
+        return (True, objs_dict.values())
     # end object_read
 
     @use_session
@@ -1039,8 +968,8 @@ class VncRDBMSClient(object):
                     pass
 
         for ref_type in new_ref_infos:
-            sqa_ref_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
-            for new_ref_uuid, ref_info in new_ref_infos[ref_type].items():
+            sqa_ref_class = self.sqa_classes[ref_type(obj_type, ref_type)]
+            for new_ref_uuid, ref_info in new_ref_infos[ref_type]:
                 new_ref_value = {'is_weakref': False}
                 try:
                     new_ref_value['attr'] = ref_info['attr']
@@ -1069,8 +998,7 @@ class VncRDBMSClient(object):
         resource_type = obj_class.resource_type
         session = self.session_ctx
         field_names_set = set(field_names or [])
-        if not field_names_set:
-            field_names_set = obj_class.backref_fields | obj_class.children_fields | obj_class.prop_list_fields | obj_class.prop_map_fields
+
         req_prop_fields = obj_class.prop_fields
         req_ref_fields = obj_class.ref_fields
         req_backref_fields = field_names_set & obj_class.backref_fields
@@ -1078,11 +1006,11 @@ class VncRDBMSClient(object):
         req_map_fields = field_names_set & obj_class.prop_map_fields
         req_list_fields = field_names_set & obj_class.prop_list_fields
         if is_detail or back_ref_uuids or field_names_set:
-            sqa_ref_classes = [aliased(self.sqa_classes['ref_%s_%s' %(
-                                obj_type, ref_field[:-5])])
+            sqa_ref_classes = [self.sqa_classes['ref_%s_%s' %(
+                                obj_type, ref_field[:-5])]
                                 for ref_field in req_ref_fields]
-            sqa_backref_classes = [aliased(self.sqa_classes['ref_%s_%s' %(
-                backref_field[:-10], obj_type)])
+            sqa_backref_classes = [self.sqa_classes['ref_%s_%s' %(
+                backref_field[:-10], obj_type)]
                 for backref_field in req_backref_fields]
             sqa_list_classes = [aliased(self.sqa_classes[to_list_type(obj_type, prop_field)])
                  for prop_field in req_list_fields]
@@ -1101,7 +1029,7 @@ class VncRDBMSClient(object):
 
             if tenant_id or domain:
                 extra_sqa_classes.append(sqa_share_class)
-                extra_join_clauses.append((sqa_share_class, sqa_class.obj_uuid == sqa_share_class.owner))
+                extra_join_clauses.append((sqa_shared_class, sqa_class.obj_uuid == sqa_share_class.owner))
 
             sqa_objs = session.query(sqa_class, *extra_sqa_classes).outerjoin(
                             *extra_join_clauses)
@@ -1112,9 +1040,12 @@ class VncRDBMSClient(object):
                 sqa_class.obj_fq_name,
                 sqa_class.id_perms)
 
+
         if back_ref_uuids:
             ref_query = []
-            for sqa_ref_class in sqa_ref_classes:
+            for ref_field in obj_class.ref_fields:
+                ref_type = ref_field[:-5] # string trailing _refs
+                sqa_ref_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
                 ref_query.append(sqa_ref_class.to_obj_uuid.in_(back_ref_uuids))
 
             sqa_objs = sqa_objs.filter(or_(f for f in ref_query))
@@ -1168,9 +1099,7 @@ class VncRDBMSClient(object):
                 child_uuid = sqa_child_obj.obj_uuid
                 child_type = sqa_child_obj.obj_type
                 obj_uuid = sqa_child_obj.obj_parent_uuid
-                obj_dict = objs_dict.get(obj_uuid)
-                if not obj_dict:
-                    continue
+                obj_dict = objs_dict[obj_uuid]
                 child_info = {
                     'to': self.uuid_to_fq_name(child_uuid),
                     'href': self._generate_url(child_type, child_uuid),
@@ -1218,16 +1147,12 @@ class VncRDBMSClient(object):
         sqa_class = self.sqa_classes[obj_type]
 
         session = self.session_ctx
-
         for ref_field in obj_class.ref_fields:
             ref_type = ref_field[:-5] # string trailing _refs
             sqa_ref_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
-            session.query(sqa_ref_class).filter_by(from_obj_uuid=obj_uuid).delete()
-
-        for ref_field in obj_class.backref_fields:
-            ref_type = ref_field[:-10] # string trailing back_refs
-            sqa_ref_class = self.sqa_classes[to_ref_type(ref_type, obj_type)]
-            session.query(sqa_ref_class).filter_by(to_obj_uuid=obj_uuid).delete()
+            for sqa_ref_obj in session.query(sqa_ref_class).filter_by(
+                               from_obj_uuid=obj_uuid).all():
+                session.delete(sqa_ref_obj)
 
         sqa_share_class = self.sqa_classes[to_share_type(obj_type)]
         session.query(sqa_share_class).filter_by(owner=obj_uuid).delete()
@@ -1372,8 +1297,7 @@ class VncRDBMSClient(object):
         session = self.session_ctx
         if not children_fields:
             return []
-        if not obj_uuids:
-            return []
+
         child_types = [c[:-1] for c in children_fields] # strip plural
         sqa_child_objs = []
         for child_type in child_types:
@@ -1777,328 +1701,6 @@ class VncRDBMSClient(object):
                 raw_objects.append(raw_object[0])
 
         return raw_objects
-
-    @use_session
-    def get_service_chain_vlan(self, service_vm, service_chain):
-        session = self.session_ctx
-        try:
-            vlan_info = session.query(ServiceChainVlan).filter(
-                and_(ServiceChainVlan.service_vm == service_vm,
-                    ServiceChainVlan.service_chain == service_chain)).one()
-            return vlan_info.vlan
-        except:
-            pass
-        return 0
-
-    @use_session
-    def set_service_chain_vlan(self, service_vm, service_chain, vlan):
-        session = self.session_ctx
-        session.add(ServiceChainVlan(ServiceChainVlan.service_vm == service_vm,
-                                     ServiceChainVlan.service_chain == service_chain,
-                                     ServiceChainVlan.vlan == vlan))
-        session.commit()
-
-    @use_session
-    def remove_service_chain_vlan(self, service_vm, service_chain):
-        session = self.session_ctx
-        session.query(ServiceChainVlan).filter(
-            and_(ServiceChainVlan.service_vm == service_vm,
-                 ServiceChainVlan.service_chain == service_chain)).delete()
-        session.commit()
-
-    @use_session
-    def get_route_target(self, ri_fq_name):
-        session = self.session_ctx
-        try:
-            ri_route_target = session.query(RIRouteTarget).filter(
-                RIRouteTarget.ri_fq_name == ri_fq_name).one()
-            return ri_route_target.rtgt_num
-        except:
-            pass
-        return 0
-
-    @use_session
-    def list_route_target(self):
-        session = self.session_ctx
-        route_targets = session.query(RIRouteTarget).filter().all()
-        return [(route_target.ri_fq_name, {'rtgt_num': route_target.rtgt_num})
-                for route_target in route_targets]
-
-    @use_session
-    def set_route_target(self, ri_fq_name, rtgt_num):
-        session = self.session_ctx
-        session.add(RIRouteTarget(ri_fq_name=ri_fq_name,
-                                  rtgt_num=rtgt_num))
-        session.commit()
-
-    @use_session
-    def remove_route_target(self, ri_fq_name):
-        session = self.session_ctx
-        session.query(RIRouteTarget).filter(
-                RIRouteTarget.ri_fq_name == ri_fq_name).delete()
-        session.commit()
-
-    @use_session
-    def get_service_chain_ip(self, service_chain):
-        session = self.session_ctx
-        try:
-            service_chain_ip = session.query(ServiceChainIP).filter(
-                ServiceChainIP.service_chain == service_chain).one()
-            return service_chain_ip.ip_address, service_chain_ip.ipv6_address
-        except:
-            pass
-        return None, None
-
-    @use_session
-    def add_service_chain_ip(self, service_chain, ip_address, ipv6_address):
-        session = self.session_ctx
-        session.add(ServiceChainIP(ServiceChainIP.service_chain == service_chain,
-                                   ServiceChainIP.ip_address == ip_address,
-                                   ServiceChainIP.ipv6_address == ipv6_address))
-        session.commit()
-
-    @use_session
-    def remove_service_chain_ip(self, service_chain):
-        session = self.session_ctx
-        session.query(ServiceChainIP).filter(
-            ServiceChainIP.service_chain == service_chain).delete()
-        session.commit()
-
-    @use_session
-    def list_service_chain_uuid(self):
-        session = self.session_ctx
-        chains = session.query(ServiceChainUUID).all()
-        return [(chain.name, {'value': chain.value}) for chain in chains]
-
-    @use_session
-    def add_service_chain_uuid(self, name, value):
-        session = self.session_ctx
-        session.add(ServiceChainUUID(name=name,
-                                     value=value))
-        session.commit()
-
-    @use_session
-    def remove_service_chain_uuid(self, name):
-        session = self.session_ctx
-        session.query(ServiceChainUUID).filter(ServiceChainUUID.name == name).delete()
-        session.commit()
-
-    @use_session
-    def loadbalancer_driver_info_get(self, id):
-        session = self.session_ctx
-        try:
-            loadbalancer = session.query(Loadbalancer).filter(
-                Loadbalancer.id == id).one()
-            return json.loads(loadbalancer.driver_info)
-        except:
-            pass
-        return None
-
-    @use_session
-    def loadbalancer_config_insert(self, id, config_info):
-        session = self.session_ctx
-        loadbalaner = None
-        try:
-            loadbalancer = session.query(Loadbalancer).filter(
-                Loadbalancer.id == id).one()
-        except:
-            loadbalancer = Loadbalaner(id == id)
-        loadbalancer.config_info = json.dumps(config_info)
-        session.commit()
-        return True
-
-    @use_session
-    def loadbalancer_driver_info_insert(self, id, driver_info):
-        session = self.session_ctx
-        loadbalaner = None
-        try:
-            loadbalancer = session.query(Loadbalancer).filter(
-                Loadbalancer.id == id).one()
-        except:
-            loadbalancer = Loadbalaner(id=id)
-        loadbalancer.driver_info = json.dumps(driver_info)
-        session.commit()
-        return True
-
-    @use_session
-    def loadbalancer_remove(self, id, columns=None):
-        session = self.session_ctx
-        if columns:
-            loadbalancer = session.query(Loadbalancer).filter(Loadbalancer.id == id)
-            driver_info = json.loads(loadbalancer.driver_info)
-            for column in columns:
-                if column == "driver_info":
-                    driver_info = {}
-                    break
-                del driver_info, column
-            loadbalancer.driver_info = json.dumps(driver_info)
-            session.add(loadbalancer)
-        else:
-            session.query(Loadbalancer).filter(id == id).delete()
-        session.commit()
-
-    @use_session
-    def loadbalancer_list(self):
-        ret_list = []
-        session = self.session_ctx
-        loadbalancers = session.query(Loadbalancer).all()
-        for loadbalancer in loadbalancers:
-            config_info_obj_dict = json.loads(loadbalancer.config_info)
-            driver_info_obj_dict = json.loads(loadbalancer.driver_info)
-            ret_list.append((loadbalancer.id, config_info_obj_dict, driver_info_obj_dict))
-        return ret_list
-
-    @use_session
-    def pool_driver_info_get(self, id):
-        session = self.session_ctx
-        try:
-            pool = session.query(Pool).filter(
-                Pool.id == id).one()
-            return json.loads(pool.driver_info)
-        except:
-            pass
-        return None
-
-    @use_session
-    def pool_config_insert(self, id, config_info):
-        session = self.session_ctx
-        pool = None
-        try:
-            pool = session.query(Pool).filter(
-                Pool.id == id).one()
-        except:
-            pool = Pool(id=id)
-        pool.config_info = json.dumps(config_info)
-        session.commit()
-        return True
-
-    @use_session
-    def pool_driver_info_insert(self, id, driver_info):
-        session = self.session_ctx
-        pool = None
-        try:
-            pool = session.query(Pool).filter(
-                Pool.id == id).one()
-        except:
-            pool = Pool(id=id)
-        pool.driver_info = json.dumps(driver_info)
-        session.commit()
-        return True
-
-    @use_session
-    def pool_remove(self, id, columns=None):
-        session = self.session_ctx
-        if columns:
-            pool = session.query(Pool).filter(Pool.id == id)
-            driver_info = json.loads(pool.driver_info)
-            for column in columns:
-                if column == "driver_info":
-                    driver_info = {}
-                    break
-                del driver_info, column
-            pool.driver_info = json.dumps(driver_info)
-            session.add(pool)
-        else:
-            session.query(Pool).filter(Pool.id == id).delete()
-        session.commit()
-
-    @use_session
-    def pool_list(self):
-        ret_list = []
-        session = self.session_ctx
-        pools = session.query(Pool).all()
-        for pool in pools:
-            config_info_obj_dict = json.loads(pool.config_info)
-            driver_info_obj_dict = json.loads(pool.driver_info)
-            ret_list.append((pool.id, config_info_obj_dict, driver_info_obj_dict))
-        return ret_list
-
-    @use_session
-    def health_monitor_config_get(self, id):
-        session = self.session_ctx
-        try:
-            pool = session.query(HealthMonitor).filter(
-                HealthMonitor.id == id).one()
-            return json.loads(healthMonitor.config_info)
-        except:
-            pass
-        return None
-
-    @use_session
-    def health_monitor_config_insert(self, id, config_info):
-        session = self.session_ctx
-        health_monitor = None
-        try:
-            health_monitor = session.query(HealthMonitor).filter(
-                HealthMonitor.id == id).one()
-        except:
-            health_monitor = HealthMonitor(id=id)
-        health_monitor.config_info = json.dumps(config_info)
-        session.commit()
-        return True
-
-    def health_monitor_config_remove(self, id):
-        return self.health_monitor_remove(id, ['config_info'])
-
-    @use_session
-    def health_monitor_driver_info_get(self, id):
-        session = self.session_ctx
-        try:
-            pool = session.query(HealthMonitor).filter(
-                HealthMonitor.id == id).one()
-            return json.loads(healthMonitor.driver_info)
-        except:
-            pass
-        return None
-
-    @use_session
-    def health_monitor_driver_info_insert(self, id, driver_info):
-        session = self.session_ctx
-        health_monitor = None
-        try:
-            health_monitor = session.query(HealthMonitor).filter(
-                HealthMonitor.id == id).one()
-        except:
-            health_monitor = HealthMonitor(id=id)
-        health_monitor.driver_info = json.dumps(driver_info)
-        session.commit()
-        return True
-
-    def health_monitor_driver_info_remove(self, hm_id):
-        return self.health_monitor_remove(id, ['driver_info'])
-
-    @use_session
-    def health_monitor_list(self):
-        ret_list = []
-        session = self.session_ctx
-        health_monitors = session.query(HealthMonitor).all()
-        for health_monitor in health_monitors:
-            config_info_obj_dict = json.loads(health_monitor.config_info)
-            driver_info_obj_dict = json.loads(health_monitor.driver_info)
-            ret_list.append((health_monitor.id, config_info_obj_dict, driver_info_obj_dict))
-        return ret_list
-
-    @use_session
-    def healthmonitor_remove(self, id, columns=None):
-        session = self.session_ctx
-        if columns:
-            healthmonitor = session.query(HealthMonitor).filter(HealthMonitor.id == id)
-            driver_info = json.loads(healthmonitor.driver_info)
-            config_info = json.loads(healthmonitor.config_info)
-            for column in columns:
-                if column == "driver_info":
-                    driver_info = {}
-                    break
-                if column == "config_info":
-                    config_info = {}
-                    breaks
-                del driver_info, column
-            healthmonitor.driver_info = json.dumps(driver_info)
-            healthmonitor.config_info = json.dumps(config_info)
-            session.add(healthmonitor)
-        else:
-            session.query(HealthMonitor).filter(HealthMonitor.id == id).delete()
-        session.commit()
 
 def migrate_from_cassandra(mysql_server='127.0.0.1', mysql_username='root', mysql_password='b2618966b123426b0d3d'):
     # TODO remove default creds

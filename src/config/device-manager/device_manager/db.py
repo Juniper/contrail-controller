@@ -20,6 +20,7 @@ import gevent
 from gevent import queue
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from netaddr import IPAddress
+from cfgm_common.zkclient import IndexAllocator
 from cfgm_common import vnc_greenlets
 from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
 
@@ -1344,7 +1345,7 @@ class DMCassandraDB(VncObjectDBClient):
 
         self.pnf_vlan_allocator_map = {}
         self.pnf_unit_allocator_map = {}
-        self.pnf_network_allocator = self.create_index_allocator(
+        self.pnf_network_allocator = IndexAllocator(
             zkclient, self._zk_path_pfx+self._PNF_NETWORK_ALLOC_PATH,
             self._PNF_MAX_NETWORK_ID)
 
@@ -1367,7 +1368,7 @@ class DMCassandraDB(VncObjectDBClient):
     def get_pnf_vlan_allocator(self, pr_id):
         return self.pnf_vlan_allocator_map.setdefault(
             pr_id,
-            self.self.create_index_allocator(
+            IndexAllocator(
                 self._zkclient,
                 self._zk_path_pfx+self._PNF_VLAN_ALLOC_PATH+pr_id+'/',
                 self._PNF_MAX_VLAN)
@@ -1376,7 +1377,7 @@ class DMCassandraDB(VncObjectDBClient):
     def get_pnf_unit_allocator(self, pi_id):
         return self.pnf_unit_allocator_map.setdefault(
             pi_id,
-            self.self.create_index_allocator(
+            IndexAllocator(
                 self._zkclient,
                 self._zk_path_pfx+self._PNF_UNIT_ALLOC_PATH+pi_id+'/',
                 self._PNF_MAX_UNIT)

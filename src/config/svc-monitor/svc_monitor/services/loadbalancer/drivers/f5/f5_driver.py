@@ -7,6 +7,7 @@ import netaddr
 
 import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_driver
 
+from cfgm_common.zkclient import IndexAllocator
 from cfgm_common import exceptions as vnc_exc
 from cfgm_common.utils import cgitb_hook
 from vnc_api.vnc_api import *
@@ -94,7 +95,7 @@ class OpencontrailF5LoadbalancerDriver(
 
     def allocate_vlan(self, net_id):
         if not self._vlan_allocator:
-            self._vlan_allocator = self.db.create_index_allocator(
+            self._vlan_allocator = IndexAllocator(
                 self._svc_mon._zookeeper_client,
                 '/id/f5-lb/vlan/',
                 4093)
@@ -107,7 +108,7 @@ class OpencontrailF5LoadbalancerDriver(
     def free_vlan(self, vlan):
         vlan = vlan - 1
         if not self._vlan_allocator:
-            self._vlan_allocator = self.db.create_index_allocator(
+            self._vlan_allocator = IndexAllocator(
                 self._svc_mon._zookeeper_client,
                 '/id/f5-lb/vlan/',
                 4093)
@@ -123,7 +124,7 @@ class OpencontrailF5LoadbalancerDriver(
         try:
             mx_logical_interface = self._api.logical_interface_read(fq_name_str=interface_name)
         except vnc_exc.NoIdError:
-            mx_logical_interface = LogicalInterface(interface_name.split(':')[-1],
+            mx_logical_interface = LogicalInterface(interface_name.split(':')[-1], 
                                     physical_interface, vlan_tag)
             mx_logical_interface.uuid = str(uuid.uuid4())
             mx_logical_interface_id = self._api.logical_interface_create(mx_logical_interface)
@@ -252,7 +253,7 @@ class OpencontrailF5LoadbalancerDriver(
                                                  send_text=None,
                                                  recv_text=None,
                                                  folder=new_pool_info['tenant_id'])
-                            self._update_monitor(bigip, new_pool_info['tenant_id'], hm,
+                            self._update_monitor(bigip, new_pool_info['tenant_id'], hm, 
                                                  new_pool_info['health_monitors'][hm], set_times=False)
 
                             bigip.pool.add_monitor(name=new_pool_info['id'], monitor_name=hm,
@@ -268,12 +269,12 @@ class OpencontrailF5LoadbalancerDriver(
                                                      folder=new_pool_info['tenant_id'])
                             except:
                                 pass
-
+ 
                     if len(common_hms):
                         for hm in common_hms:
                             if new_pool_info['health_monitors'][hm] == old_pool_info['health_monitors'][hm]:
                                 continue
-                            self._update_monitor(bigip, new_pool_info['tenant_id'], hm,
+                            self._update_monitor(bigip, new_pool_info['tenant_id'], hm, 
                                                  new_pool_info['health_monitors'][hm], set_times=True)
 
                 if key == 'members':
@@ -322,7 +323,7 @@ class OpencontrailF5LoadbalancerDriver(
                                   ip_address=ip_address,
                                   port=int(old_pool_info['members'][member]['protocol_port']),
                                   folder=new_pool_info['tenant_id'])
-
+ 
                     if len(common_members):
                         for member in common_members:
                             # Update the members
@@ -370,7 +371,7 @@ class OpencontrailF5LoadbalancerDriver(
                                         # Update the vip params
                                         if vip_property == 'admin_state':
                                             if new_pool_info['vip']['params']['admin_state']:
-                                                bigip_vs.enable_virtual_server(name=new_pool_info['virtual_ip'],
+                                                bigip_vs.enable_virtual_server(name=new_pool_info['virtual_ip'], 
                                                                         folder=new_pool_info['tenant_id'])
                                             else:
                                                 bigip_vs.disable_virtual_server(name=new_pool_info['virtual_ip'],
@@ -413,7 +414,7 @@ class OpencontrailF5LoadbalancerDriver(
                 cgitb_hook(format="text",)
         self.release_resource(pool_info)
     # end delete_service
-
+ 
     def update_service_on_device(self, bigip, old_pool_info, pool_info):
         update_pool_info = self.calculate_delta(bigip, old_pool_info, pool_info)
         return update_pool_info
@@ -493,7 +494,7 @@ class OpencontrailF5LoadbalancerDriver(
 
             # create SNAT for vip subnet
             for snat_ip in pool_info['vip']['snat_vmi'].keys() or []:
-                self.create_snat(bigip, pool_info['tenant_id'], pool_info['tenant_id'],
+                self.create_snat(bigip, pool_info['tenant_id'], pool_info['tenant_id'], 
                              pool_info['vip']['snat_vmi'][snat_ip][0], snat_ip)
 
 
@@ -530,7 +531,7 @@ class OpencontrailF5LoadbalancerDriver(
                           pool_name=pool_info['id'],
                           folder=pool_info['tenant_id'])
         if pool_info['vip']['params']['admin_state']:
-            bigip_vs.enable_virtual_server(name=pool_info['virtual_ip'],
+            bigip_vs.enable_virtual_server(name=pool_info['virtual_ip'], 
                                     folder=pool_info['tenant_id'])
         else:
             bigip_vs.disable_virtual_server(name=pool_info['virtual_ip'],
@@ -574,7 +575,7 @@ class OpencontrailF5LoadbalancerDriver(
                                 profile_name='/Common/http',
                                 folder=pool_info['tenant_id'])
                 # make sure they gave us a cookie_name
-                if pool_info['vip']['params']['persistence_cookie_name']:
+                if pool_info['vip']['params']['persistence_cookie_name']: 
                     cookie_name = pool_info['vip']['params']['persistence_cookie_name']
                     # create and add irule to capture cookie
                     # from the service response.
@@ -604,7 +605,7 @@ class OpencontrailF5LoadbalancerDriver(
                         bigip_vs.set_fallback_persist_profile(name=pool_info['virtual_ip'],
                             profile_name='/Common/source_addr', folder=pool_info['tenant_id'])
         else:
-            bigip_vs.remove_all_persist_profiles(name=pool_info['virtual_ip'],
+            bigip_vs.remove_all_persist_profiles(name=pool_info['virtual_ip'], 
                     folder=pool_info['tenant_id'])
     # end _update_session_persistance
 
@@ -689,7 +690,7 @@ class OpencontrailF5LoadbalancerDriver(
         bigip.vlan.delete(name=vlan_name, folder=tenant_id)
     # end delete_vlan_interface
 
-    def create_vlan_interface(self, bigip, pool_id, tenant_id, vlan_name,
+    def create_vlan_interface(self, bigip, pool_id, tenant_id, vlan_name, 
                               vlan_tag, subnet, self_ip_name, self_ip_address):
         # Create VLAN and self ip for Pool subnet/network
         bigip.vlan.create(name=vlan_name,
@@ -731,14 +732,14 @@ class OpencontrailF5LoadbalancerDriver(
         if not self.global_routed_mode:
             # create IRB for pool subnet
             self.create_vlan_interface(bigip, pool_info['id'], pool_info['tenant_id'],
-                                   str(pool_info['vlan_tag']),
-                                   pool_info['vlan_tag'],
+                                   str(pool_info['vlan_tag']), 
+                                   pool_info['vlan_tag'], 
                                    pool_info['cidr'],
                                    pool_info['self_ip'][0],
                                    pool_info['self_ip'][1])
             # create SNAT for pool subnet
             for snat_ip in pool_info['snat_vmi'].keys() or []:
-                self.create_snat(bigip, pool_info['tenant_id'], pool_info['tenant_id'],
+                self.create_snat(bigip, pool_info['tenant_id'], pool_info['tenant_id'], 
                              pool_info['snat_vmi'][snat_ip][0], snat_ip)
 
        # create pool on device
@@ -791,7 +792,7 @@ class OpencontrailF5LoadbalancerDriver(
                                  send_text=None,
                                  recv_text=None,
                                  folder=pool_info['tenant_id'])
-            self._update_monitor(bigip, pool_info['tenant_id'], health_monitor,
+            self._update_monitor(bigip, pool_info['tenant_id'], health_monitor, 
                                  pool_info['health_monitors'][health_monitor], set_times=False)
 
             bigip.pool.add_monitor(name=pool_info['id'], monitor_name=health_monitor,
@@ -871,10 +872,10 @@ class OpencontrailF5LoadbalancerDriver(
             bigips = self.__bigips.values()
             for set_bigip in bigips:
                 # Delete POOL selfip
-                self.delete_vlan_interface(set_bigip, pool_info['tenant_id'],
-                                   str(pool_info['vlan_tag']),
+                self.delete_vlan_interface(set_bigip, pool_info['tenant_id'], 
+                                   str(pool_info['vlan_tag']), 
                                    pool_info['self_ip'][0])
-            # Release the VLAN
+            # Release the VLAN 
             self.free_vlan(pool_info['vlan_tag'])
 
             # delete the IFL
@@ -899,7 +900,7 @@ class OpencontrailF5LoadbalancerDriver(
                 self._api.virtual_machine_interface_delete(id=pool_info['snat_vmi'][snat_ip][1])
                 bigips = self.__bigips.values()
                 for set_bigip in bigips:
-                    self.delete_snat(set_bigip, pool_info['tenant_id'], pool_info['tenant_id'],
+                    self.delete_snat(set_bigip, pool_info['tenant_id'], pool_info['tenant_id'], 
                              pool_info['snat_vmi'][snat_ip][0])
 
     # end release_pool_resource
@@ -915,10 +916,10 @@ class OpencontrailF5LoadbalancerDriver(
             bigips = self.__bigips.values()
             for set_bigip in bigips:
                 # Delete VIP selfip
-                self.delete_vlan_interface(set_bigip, pool_info['tenant_id'],
-                                   str(pool_info['vip']['vlan_tag']),
+                self.delete_vlan_interface(set_bigip, pool_info['tenant_id'], 
+                                   str(pool_info['vip']['vlan_tag']), 
                                    pool_info['vip']['self_ip'][0])
-            # Release the VLAN
+            # Release the VLAN 
             self.free_vlan(pool_info['vip']['vlan_tag'])
 
             # delete the IFL
@@ -944,7 +945,7 @@ class OpencontrailF5LoadbalancerDriver(
                 self._api.virtual_machine_interface_delete(id=pool_info['vip']['snat_vmi'][snat_ip][1])
                 bigips = self.__bigips.values()
                 for set_bigip in bigips:
-                    self.delete_snat(set_bigip, pool_info['tenant_id'], pool_info['tenant_id'],
+                    self.delete_snat(set_bigip, pool_info['tenant_id'], pool_info['tenant_id'], 
                              pool_info['vip']['snat_vmi'][snat_ip][0])
     # end release_vip_resource
 
@@ -1075,7 +1076,7 @@ class OpencontrailF5LoadbalancerDriver(
         else:
             new_pool_info[u'mx_ifl'] = pool_in_db[u'mx_ifl']
             ifl_uuid = pool_in_db[u'mx_ifl']
-            new_pool_info[u'vlan_tag'] = pool_in_db[u'vlan_tag']
+            new_pool_info[u'vlan_tag'] = pool_in_db[u'vlan_tag'] 
             new_pool_info[u'snat_vmi'] = pool_in_db[u'snat_vmi']
             new_pool_info[u'self_ip'] = pool_in_db[u'self_ip']
 
@@ -1131,7 +1132,7 @@ class OpencontrailF5LoadbalancerDriver(
         else:
             vip_info[u'mx_ifl'] = pool_in_db[u'vip'][u'mx_ifl']
             ifl_uuid =  pool_in_db[u'vip'][u'mx_ifl']
-            vip_info[u'vlan_tag'] = pool_in_db[u'vip'][u'vlan_tag']
+            vip_info[u'vlan_tag'] = pool_in_db[u'vip'][u'vlan_tag'] 
             vip_info[u'snat_vmi'] = pool_in_db[u'vip'][u'snat_vmi']
             vip_info[u'self_ip'] = pool_in_db[u'vip'][u'self_ip']
 
@@ -1313,15 +1314,6 @@ class OpencontrailF5LoadbalancerDriver(
     def create_health_monitor(self,
                               health_monitor,
                               pool_id):
-        pass
-
-    def create_pool_health_monitor(self,
-                                   health_monitor,
-                                   pool_id):
-        pass
-    # end  create_pool_health_monitor
-
-    def delete_pool_health_monitor(self, health_monitor, pool_id):
         pass
     # end  create_health_monitor
 

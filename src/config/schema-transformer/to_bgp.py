@@ -142,7 +142,6 @@ class SchemaTransformer(object):
 
     def __init__(self, args=None):
         self._args = args
-
         self._fabric_rt_inst_obj = None
 
         # Initialize discovery client
@@ -346,12 +345,7 @@ def parse_args(args_str):
                          --rabbit_port 5672
                          --rabbit_user guest
                          --rabbit_password guest
-                         --db_engine cassandra
                          --cassandra_server_list 10.1.2.3:9160
-                         # for RDBMS backend
-                         --db_engine rdbms
-                         --rdbms_server_list 127.0.0.1:3306
-                         --rdbms_connection_config sqlite:///.test.db
                          --api_server_ip 10.1.2.3
                          --api_server_port 8082
                          --api_server_use_ssl False
@@ -388,10 +382,7 @@ def parse_args(args_str):
         'rabbit_password': 'guest',
         'rabbit_vhost': None,
         'rabbit_ha_mode': False,
-        'db_engine': 'cassandra',
         'cassandra_server_list': '127.0.0.1:9160',
-        'rdbms_server_list': "127.0.0.1:3306",
-        'rdbms_connection_config': "",
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
         'api_server_use_ssl': False,
@@ -437,13 +428,6 @@ def parse_args(args_str):
         'cassandra_password': None,
     }
 
-    # rdbms options
-    rdbmsopts = {
-        'rdbms_user'     : None,
-        'rdbms_password' : None,
-        'rdbms_connection': None
-    }
-
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
         config.read(args.conf_file)
@@ -457,8 +441,7 @@ def parse_args(args_str):
 
         if 'CASSANDRA' in config.sections():
                 cassandraopts.update(dict(config.items('CASSANDRA')))
-        if 'RDBMS' in config.sections():
-                rdbmsopts.update(dict(config.items('RDBMS')))
+
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -473,20 +456,12 @@ def parse_args(args_str):
     defaults.update(secopts)
     defaults.update(ksopts)
     defaults.update(cassandraopts)
-    defaults.update(rdbmsopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
         "--cassandra_server_list",
         help="List of cassandra servers in IP Address:Port format",
         nargs='+')
-    parser.add_argument(
-        "--rdbms_server_list",
-        help="List of cassandra servers in IP Address:Port format",
-        nargs='+')
-    parser.add_argument(
-        "--rdbms_connection",
-        help="DB Connection string")
     parser.add_argument(
         "--reset_config", action="store_true",
         help="Warning! Destroy previous configuration and start clean")
@@ -554,17 +529,12 @@ def parse_args(args_str):
                         help="End port for bgp-as-a-service proxy")
     parser.add_argument("--zk_timeout",
                         help="Timeout for ZookeeperClient")
-    parser.add_argument("--db_engine",
-        help="Database engine to use, default cassandra")
 
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
-    if type(args.rdbms_server_list) is str:
-        args.rdbms_server_list =\
-            args.rdbms_server_list.split()
 
     return args
 # end parse_args
