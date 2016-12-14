@@ -172,9 +172,9 @@ class STTestCase(test_common.TestCase):
             service_list = self.get_service_list(rule)
             mirror_service = self.get_mirror_service(rule)
             #src_port = rule["src-port"]
-            src_port = PortType(-1, 0)
+            src_port = rule.get("src-port", PortType(-1, 0))
             #dst_port = rule["dst-port"]
-            dst_port = PortType(-1, 0)
+            dst_port = rule.get("dst-port", PortType(-1, 0))
             action_list = ActionListType()
             if mirror_service:
                 mirror = MirrorActionType(analyzer_name=mirror_service)

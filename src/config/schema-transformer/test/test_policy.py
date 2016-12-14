@@ -278,18 +278,18 @@ class TestPolicy(STTestCase, VerifyPolicy):
         rules = []
         rule1 = {"protocol": "icmp",
                  "direction": "<>",
-                 "src-port": "any",
+                 #"src-port": "any",
                  "src": {"type": "vn", "value": vn1},
                  "dst": {"type": "cidr", "value": "10.2.1.1/32"},
-                 "dst-port": "any",
+                 #"dst-port": "any",
                  "action": "deny"
                  }
         rule2 = {"protocol": "icmp",
                  "direction": "<>",
-                 "src-port": "any",
+                 #"src-port": "any",
                  "src": {"type": "vn", "value": vn1},
                  "dst": {"type": "cidr", "value": "10.2.1.2/32"},
-                 "dst-port": "any",
+                 #"dst-port": "any",
                  "action": "deny"
                  }
         rules.append(rule1)
@@ -328,11 +328,11 @@ class TestPolicy(STTestCase, VerifyPolicy):
         rules = []
         rule1 = {"protocol": "icmp",
                  "direction": "<>",
-                 "src-port": "any",
+                 #"src-port": "any",
                  "src": {"type": "vn", "value": vn1},
                  "dst": [{"type": "cidr_list", "value": ["10.2.1.0/24"]},
                          {"type": "vn", "value": vn2}],
-                 "dst-port": "any",
+                 #"dst-port": "any",
                  "action": "pass"
                  }
         rules.append(rule1)
