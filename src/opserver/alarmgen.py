@@ -535,7 +535,7 @@ class AlarmStateMachine:
                     [timeout_val]:
                 self._logger.error("Timer error for (%s,%s,%s)" % \
                     (tab, uv, nm))
-                raise SystemExit
+                raise SystemExit(1)
             AlarmStateMachine.tab_alarms_timer[timeout_val].add\
                         ((asm.tab, asm.uv, asm.nm))
 
@@ -703,7 +703,7 @@ class Controller(object):
             self._logger.error('Partition Del : %s' % str(oldset-newset))
             if not self.partition_change(oldset-newset, False):
                 self._logger.error('Partition Del : %s failed!' % str(oldset-newset))
-                raise SystemExit
+                raise SystemExit(1)
 
 	    self._logger.error('Partition Del done: %s' % str(oldset-newset))
 
@@ -715,7 +715,7 @@ class Controller(object):
             self._logger.error('Partition List failed %s %s' % \
                 (str(newset),str(oldset)))
         except SystemExit:
-            raise SystemExit
+            raise SystemExit(1)
 
         self._logger.error('Partition List done : new %s old %s' % \
             (str(newset),str(oldset)))
@@ -866,7 +866,7 @@ class Controller(object):
         """
         if not redish:
             self._logger.error("No redis handle")
-            raise SystemExit
+            raise SystemExit(1)
         old_acq_time = redish.hget("AGPARTS:%s" % inst, part)
         if old_acq_time is None:
             self._logger.error("Agg %s part %d new" % (inst, part))
@@ -931,7 +931,7 @@ class Controller(object):
 
         if retry:
             self._logger.error("Agg unexpected rows %s" % str(rows))
-            raise SystemExit
+            raise SystemExit(1)
         
     def send_alarm_update(self, tab, uk):
         ustruct = None
@@ -1126,7 +1126,7 @@ class Controller(object):
                 messag = template.format(type(ex).__name__, ex.args)
                 self._logger.error("%s : traceback %s" % \
                                   (messag, traceback.format_exc()))
-                raise SystemExit
+                raise SystemExit(1)
             if (curr - prev) < 1:
                 gevent.sleep(1 - (curr - prev))
                 self._logger.info("UVE Done")
