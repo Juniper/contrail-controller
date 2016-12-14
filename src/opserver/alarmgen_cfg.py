@@ -60,6 +60,11 @@ class CfgParser(object):
             'rabbitmq_password' : 'guest',
             'rabbitmq_vhost'    : None,
             'rabbitmq_ha_mode'  : False,
+            'rabbitmq_use_ssl'  : False,
+            'kombu_ssl_version': '',
+            'kombu_ssl_keyfile': '',
+            'kombu_ssl_certfile': '',
+            'kombu_ssl_ca_certs': '',
             'redis_uve_list'    : ['127.0.0.1:6379'],
             'alarmgen_list'     : ['127.0.0.1:0'],
             'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
@@ -278,7 +283,12 @@ class CfgParser(object):
                 'user': self._args.rabbitmq_user,
                 'password': self._args.rabbitmq_password,
                 'vhost': self._args.rabbitmq_vhost,
-                'ha_mode': self._args.rabbitmq_ha_mode}
+                'ha_mode': self._args.rabbitmq_ha_mode,
+                'use_ssl': self._args.rabbitmq_use_ssl,
+                'ssl_version': self._args.kombu_ssl_version,
+                'ssl_keyfile': self._args.kombu_ssl_keyfile,
+                'ssl_certfile': self._args.kombu_ssl_certfile,
+                'ssl_ca_certs': self._args.kombu_ssl_ca_certs}
 
     def keystone_params(self):
         return {'auth_host': self._args.auth_host,
