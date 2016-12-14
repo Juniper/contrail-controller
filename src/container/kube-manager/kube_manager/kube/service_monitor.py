@@ -1,14 +1,14 @@
 import json
 import gevent
 from kube_monitor import KubeMonitor
+from kube_manager.common.kube_config_db import ServiceKM
 
 class ServiceMonitor(KubeMonitor):
 
-    def __init__(self, args=None, logger=None, q=None, service_db=None):
-        super(ServiceMonitor, self).__init__(args, logger, q)
+    def __init__(self, args=None, logger=None, q=None):
+        super(ServiceMonitor, self).__init__(args, logger, q, ServiceKM)
         self.handle = self.register_monitor('services')
         self.logger.info("ServiceMonitor init done.");
-        self._service_db = service_db
 
     def _process_service_event(self, event):
         service_data = event['object']
@@ -19,15 +19,15 @@ class ServiceMonitor(KubeMonitor):
         if not service_name or not namespace:
             return
 
-        if self._service_db:
-            service_uuid = self._service_db.get_uuid(event['object'])
+        if self.db:
+            service_uuid = self.db.get_uuid(event['object'])
             if event_type != 'DELETED':
                 # Update Service DB.
-                service = self._service_db.locate(service_uuid)
+                service = self.db.locate(service_uuid)
                 service.update(service_data)
             else:
                 # Remove the entry from Service DB.
-                self._service_db.delete(service_uuid)
+                self.db.delete(service_uuid)
 
         print("Put %s %s %s:%s" % (event['type'],
             event['object'].get('kind'),

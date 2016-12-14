@@ -1,14 +1,15 @@
 import json
 import gevent
 from kube_monitor import KubeMonitor
+from kube_manager.common.kube_config_db import NetworkPolicyKM
 
 class NetworkPolicyMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None, network_policy_db=None):
-        super(NetworkPolicyMonitor, self).__init__(args, logger, q)
+        super(NetworkPolicyMonitor, self).__init__(args, logger, q,
+            NetworkPolicyKM)
         self.handle = self.register_monitor('networkpolicies', beta=True)
         self.logger.info("NetworkPolicyMonitor init done.");
-        self._network_policy_db = network_policy_db
 
     def _process_network_policy_event(self, event):
         print("Put %s %s %s:%s" % (event['type'],
@@ -19,15 +20,15 @@ class NetworkPolicyMonitor(KubeMonitor):
         np_data = event['object']
         event_type = event['type']
 
-        if self._network_policy_db:
-            np_uuid = self._network_policy_db.get_uuid(np_data)
+        if self.db:
+            np_uuid = self.db.get_uuid(np_data)
             if event_type != 'DELETED':
                 # Update Network Policy DB.
-                np = self._network_policy_db.locate(np_uuid)
+                np = self.db.locate(np_uuid)
                 np.update(np_data)
             else:
                 # Remove the entry from Network Policy DB.
-                self._network_policy_db.delete(np_uuid)
+                self.db.delete(np_uuid)
 
         self.q.put(event)
 

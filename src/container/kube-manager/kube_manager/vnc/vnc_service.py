@@ -10,13 +10,36 @@ from vnc_api.vnc_api import *
 from config_db import *
 from loadbalancer import *
 from cfgm_common import importutils
+import link_local_manager as ll_mgr
 
 class VncService(object):
 
-    def __init__(self, vnc_lib=None, label_cache=None):
+    def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
+        self.logger = logger
 
+        # Cache kubernetes API server params.
+        self._kubernetes_api_secure_ip = args.kubernetes_api_secure_ip
+        self._kubernetes_api_secure_port = int(args.kubernetes_api_secure_port)
+
+        # Cache kuberneter service name.
+        self._kubernetes_service_name = args.kubernetes_service_name
+
+        # Config knob to control enable/disable of link local service.
+        if args.api_service_link_local == 'True':
+            api_service_ll_enable = True
+        else:
+            api_service_ll_enable = False
+
+        # If Kubernetes API server info is incomplete, disable link-local
+        # create, as create is not possible.
+        if not self._kubernetes_api_secure_ip or\
+            not self._kubernetes_api_secure_ip:
+            self._create_linklocal = False
+        else:
+            self._create_linklocal = api_service_ll_enable
+                                        
         self.service_lb_mgr = importutils.import_object(
             'kube_manager.vnc.loadbalancer.ServiceLbManager', vnc_lib)
         self.service_ll_mgr = importutils.import_object(
@@ -216,11 +239,40 @@ class VncService(object):
                 pool_obj = self._vnc_create_pool(namespace, ll, port)
                 LoadbalancerPoolKM.locate(pool_obj._uuid)
 
+    def _create_link_local_service(self, svc_name, svc_ip, ports):
+        # Create link local service only if enabled.
+        if self._create_linklocal:
+            # Create link local service, one for each port.
+            for port in ports:
+                try:
+                    ll_mgr.create_link_local_service_entry(self._vnc_lib,
+                        name=svc_name + '-' + port['port'].__str__(),
+                        service_ip=svc_ip, service_port=port['port'],
+                        fabric_ip=self._kubernetes_api_secure_ip,
+                        fabric_port=self._kubernetes_api_secure_port)
+                except:
+                    self.logger.error("Create link-local service failed for"
+                        " service " + svc_name + " port " +
+                        port['port'].__str__())
+
+    def _delete_link_local_service(self, svc_name, svc_ip, ports):
+        # Delete link local service only if enabled.
+        if self._create_linklocal:
+            # Delete link local service, one for each port.
+            for port in ports:
+                try:
+                    ll_mgr.delete_link_local_service_entry(vnc_lib,
+                        name=svc_name + '-' + port['port'].__str__())
+                except:
+                    self.logger.error("Delete link local service failed for"
+                        " service " + svc_name + " port " +
+                        port['port'].__str__())
+
     def _vnc_create_lb(self, service_id, service_name,
                        service_namespace, service_ip, selectors):
         proj_obj = self._get_project(service_namespace)
         vn_obj = self._get_network()
-        lb_obj = self.service_lb_mgr.create(vn_obj, service_id, service_name, 
+        lb_obj = self.service_lb_mgr.create(vn_obj, service_id, service_name,
                                         proj_obj, service_ip, selectors)
         return lb_obj
 
@@ -228,7 +280,7 @@ class VncService(object):
             service_namespace, service_ip, selectors, ports):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
-            lb_obj = self._vnc_create_lb( service_id, service_name, 
+            lb_obj = self._vnc_create_lb( service_id, service_name,
                                         service_namespace, service_ip, selectors)
             lb = LoadbalancerKM.locate(service_id)
 
@@ -331,6 +383,13 @@ class VncService(object):
         self._lb_create(service_id, service_name, service_namespace, service_ip,
                         selectors, ports)
 
+        # Kubernetes service needs a link-local service to be created.
+        # This link-local service will steer traffic, orginating from
+        # compute node to be sent to kubernetes api server, by forwarding them
+        # to kubernetes api server pod on the control node.
+        if service_name == self._kubernetes_service_name:
+            self._create_link_local_service(service_name, service_ip, ports)
+
         if selectors:
             self.check_service_selectors_actions(selectors, service_id, ports)
 
@@ -380,11 +439,17 @@ class VncService(object):
         self._vnc_delete_lb(service_id)
         LoadbalancerKM.delete(service_id)
 
-    def vnc_service_delete(self, service_id, service_name, 
+    def vnc_service_delete(self, service_id, service_name,
                            service_namespace, service_ip, selectors, ports):
         self._deallocate_floating_ip(service_id)
         self._lb_delete(service_id, service_name, service_namespace, service_ip,
                         selectors, ports)
+
+        # Delete link local service that would have been allocated for
+        # kubernetes service.
+        if service_name == self._kubernetes_service_name:
+            _delete_link_local_service(service_name, svc_ip, ports)
+
         if selectors:
             self.remove_service_selectors_from_cache(selectors, service_id, ports)
 

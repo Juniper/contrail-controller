@@ -196,7 +196,14 @@ class ServiceKM(KubeDBBase):
             return
         self.service_type= spec.get('type')
         self.cluster_ip = spec.get('clusterIP')
+        self.ports = spec.get('ports')
 
+    def get_service_ip(self):
+        return self.cluster_ip
+
+    def get_service_ports(self):
+        return self.ports
+        
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):
         """ Reply to Service DB lookup/introspect request. """

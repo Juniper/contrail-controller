@@ -13,8 +13,6 @@ from vnc_api.vnc_api import *
 
 import common.logger as logger
 import common.args as kube_args
-from common.kube_config_db import (NamespaceKM, ServiceKM, PodKM,
-         NetworkPolicyKM)
 import vnc.vnc_kubernetes as vnc_kubernetes
 import kube.namespace_monitor as namespace_monitor
 import kube.pod_monitor as pod_monitor
@@ -34,27 +32,20 @@ class KubeNetworkManager(object):
         while not kube_api_connected:
             try:
                 self.namespace = namespace_monitor.NamespaceMonitor(
-                    args=self.args, logger=self.logger, q=self.q,
-                    namespace_db=(NamespaceKM if\
-                    self._kube_object_cache_enabled() == True else None))
+                    args=self.args, logger=self.logger, q=self.q)
 
                 self.pod = pod_monitor.PodMonitor(args=self.args,
-                    logger=self.logger, q=self.q, pod_db=(PodKM if\
-                    self._kube_object_cache_enabled() == True else None))
+                    logger=self.logger, q=self.q)
 
                 self.service = service_monitor.ServiceMonitor(
-                    args=self.args, logger=self.logger, q=self.q,
-                    service_db=(ServiceKM if\
-                    self._kube_object_cache_enabled() == True else None))
+                    args=self.args, logger=self.logger, q=self.q)
 
                 self.network_policy =\
                     network_policy_monitor.NetworkPolicyMonitor(args=self.args,
-                        logger=self.logger, q=self.q,
-                        network_policy_db=(NetworkPolicyKM if\
-                        self._kube_object_cache_enabled() == True else None))
+                        logger=self.logger, q=self.q)
 
                 self.endpoint = \
-                    endpoint_monitor.EndPointMonitor( args=self.args, 
+                    endpoint_monitor.EndPointMonitor( args=self.args,
                         logger=self.logger, q=self.q)
 
                 kube_api_connected = True
