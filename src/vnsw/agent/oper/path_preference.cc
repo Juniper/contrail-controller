@@ -664,6 +664,7 @@ PathPreferenceState::~PathPreferenceState() {
 //Given a VRF table the table listener id for given route
 bool
 PathPreferenceState::GetRouteListenerId(const VrfEntry* vrf,
+                                        const Agent::RouteTableType &table_type,
                                         DBTableBase::ListenerId &rt_id) const {
     if (vrf == NULL) {
         return false;
@@ -679,11 +680,11 @@ PathPreferenceState::GetRouteListenerId(const VrfEntry* vrf,
     }
 
     rt_id = DBTableBase::kInvalidId;
-    if (rt_->GetTableType() == Agent::EVPN) {
+    if (table_type == Agent::EVPN) {
         rt_id = vrf_state->evpn_rt_id_;
-    } else if (rt_->GetTableType() == Agent::INET4_UNICAST) {
+    } else if (table_type == Agent::INET4_UNICAST) {
         rt_id = vrf_state->uc_rt_id_;
-    } else if (rt_->GetTableType() == Agent::INET6_UNICAST) {
+    } else if (table_type == Agent::INET6_UNICAST) {
         rt_id = vrf_state->uc6_rt_id_;
     } else {
         return false;
@@ -712,12 +713,14 @@ PathPreferenceState::GetDependentPath(const AgentPath *path) const {
     }
 
     AgentRouteTable *table = NULL;
+    Agent::RouteTableType table_type = Agent::INET4_UNICAST;
     if (path->path_preference().dependent_ip().is_v4()) {
         table = static_cast<AgentRouteTable *>(
                                  vrf->GetInet4UnicastRouteTable());
     } else if (path->path_preference().dependent_ip().is_v6()) {
         table = static_cast<AgentRouteTable *>(
                                  vrf->GetInet6UnicastRouteTable());
+        table_type = Agent::INET6_UNICAST;
     }
     AgentRoute *rt = static_cast<AgentRoute *>(table->Find(&key));
     if (rt == NULL) {
@@ -725,7 +728,7 @@ PathPreferenceState::GetDependentPath(const AgentPath *path) const {
     }
 
     DBTableBase::ListenerId rt_id = DBTableBase::kInvalidId;
-    GetRouteListenerId(vrf, rt_id);
+    GetRouteListenerId(vrf, table_type, rt_id);
 
     PathPreferenceState *state = static_cast<PathPreferenceState *>(
             rt->GetState(table, rt_id));
