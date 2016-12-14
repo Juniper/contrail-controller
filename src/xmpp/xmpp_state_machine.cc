@@ -1427,6 +1427,9 @@ void XmppStateMachine::OnMessage(XmppSession *session,
 
 void XmppStateMachine::ProcessMessage(XmppSession *session,
                                       const XmppStanza::XmppMessage *msg) {
+    // Bail if session is already reset and disassociated from the connection.
+    if (!session->Connection())
+        return;
     const XmppStanza::XmppStreamMessage *stream_msg =
         static_cast<const XmppStanza::XmppStreamMessage *>(msg);
 
