@@ -522,4 +522,20 @@ private:
     std::string name_;
     std::string id_;
 };
+
+class BridgeDomainSandesh : public AgentSandesh {
+public:
+   BridgeDomainSandesh(const std::string &context, const std::string &u,
+                       const std::string &name);
+    ~BridgeDomainSandesh() {}
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    std::string uuid_str_;
+    std::string name_;
+    boost::uuids::uuid uuid_;
+};
 #endif // vnsw_agent_sandesh_h_

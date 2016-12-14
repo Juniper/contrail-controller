@@ -303,6 +303,14 @@ public:
         is_health_check_service_ = val;
     }
 
+    bool etree_leaf() const {
+        return etree_leaf_;
+    }
+
+    void set_etree_leaf(bool leaf) {
+        etree_leaf_ = leaf;
+    }
+
     void UpdateEcmpHashFields(const Agent *agent,
                               const EcmpLoadBalance &ecmp_load_balance,
                               DBRequest &nh_req);
@@ -383,6 +391,8 @@ private:
     // These Ecmp fields will hold the corresponding composite nh ecmp fields reference
     // if the path's ecmp load balance field is not set
     EcmpHashFields ecmp_hash_fields_;
+    //Is the path an etree leaf or root
+    bool etree_leaf_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -490,7 +500,8 @@ public:
                  const PathPreference &path_preference,
                  const IpAddress &subnet_service_ip,
                  const EcmpLoadBalance &ecmp_load_balance, bool is_local,
-                 bool is_health_check_service) :
+                 bool is_health_check_service,
+                 bool etree_leaf) :
         AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_list_(vn_list), proxy_arp_(false), sync_route_(false),
@@ -499,7 +510,8 @@ public:
         path_preference_(path_preference),
         subnet_service_ip_(subnet_service_ip),
         ecmp_load_balance_(ecmp_load_balance), is_local_(is_local),
-        is_health_check_service_(is_health_check_service) {
+        is_health_check_service_(is_health_check_service),
+        etree_leaf_(etree_leaf) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -516,7 +528,7 @@ public:
     uint32_t vxlan_id() const {return vxlan_id_;}
     uint32_t tunnel_bmap() const {return tunnel_bmap_;}
     bool proxy_arp() const {return proxy_arp_;}
-
+    bool etree_leaf() const { return etree_leaf_;}
 private:
     VmInterfaceKey intf_;
     uint32_t mpls_label_;
@@ -534,7 +546,35 @@ private:
     EcmpLoadBalance ecmp_load_balance_;
     bool is_local_;
     bool is_health_check_service_;
+    bool etree_leaf_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
+};
+
+class PBBRoute : public AgentRouteData {
+public:
+    PBBRoute(const VrfKey &vrf_key, const MacAddress &mac, uint32_t isid,
+             const VnListType &vn_list, const SecurityGroupList &sg_list,
+             const CommunityList &communities):
+        AgentRouteData(false), vrf_key_(vrf_key), dmac_(mac), isid_(isid),
+        dest_vn_list_(vn_list), sg_list_(sg_list), communities_(communities) {
+    }
+
+    virtual ~PBBRoute() { }
+    virtual std::string ToString() const {return "PBB route";}
+    virtual bool AddChangePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt);
+    const CommunityList &communities() const {return communities_;}
+    const SecurityGroupList &sg_list() const {return sg_list_;}
+
+private:
+    VrfKey vrf_key_;
+    MacAddress dmac_;
+    uint32_t isid_;
+    VnListType dest_vn_list_;
+    SecurityGroupList sg_list_;
+    CommunityList communities_;
+    PathPreference path_preference_;
+    DISALLOW_COPY_AND_ASSIGN(PBBRoute);
 };
 
 class InetInterfaceRoute : public AgentRouteData {

@@ -155,7 +155,7 @@ void AgentQosConfig::HandleVhostQosConfig(const Agent *agent,
     key->sub_op_ = AgentKey::RESYNC;
     boost::uuids::uuid qos_config_uuid = table->GetActiveVhostQosConfig();
     InterfaceQosConfigData *qos_data =
-        new InterfaceQosConfigData(agent, NULL, qos_config_uuid);
+        new InterfaceQosConfigData(agent, NULL, qos_config_uuid, nil_uuid());
     req.key.reset(key);
     req.data.reset(qos_data);
     agent->interface_table()->Enqueue(&req);
@@ -187,7 +187,7 @@ void AgentQosConfig::HandleFabricQosConfig(const Agent *agent,
 
     boost::uuids::uuid qos_config_uuid = table->GetActiveFabricQosConfig();
     InterfaceQosConfigData *qos_data =
-        new InterfaceQosConfigData(agent, NULL, qos_config_uuid);
+        new InterfaceQosConfigData(agent, NULL, qos_config_uuid, nil_uuid());
     req.key.reset(key);
     req.data.reset(qos_data);
     agent->interface_table()->Enqueue(&req);

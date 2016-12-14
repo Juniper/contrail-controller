@@ -20,7 +20,7 @@ class KSyncFlowMemory;
  */
 class KSyncSandeshContext : public AgentSandeshContext {
 public:
-    KSyncSandeshContext(KSyncFlowMemory *obj) : flow_ksync_(obj) {
+    KSyncSandeshContext(KSync *obj) : ksync_(obj) {
         Reset(); 
     }
 
@@ -58,6 +58,7 @@ public:
 
     virtual int VrResponseMsgHandler(vr_response *r);
     virtual void FlowTableInfoHandler(vr_flow_table_data *r);
+    virtual void BridgeTableInfoHandler(vr_bridge_table_data *r);
     virtual void FlowMsgHandler(vr_flow_req *r);
     virtual void FlowResponseHandler(vr_flow_response *r);
     virtual void VrouterOpsMsgHandler(vrouter_ops *r);
@@ -69,7 +70,7 @@ public:
         context_marker_ = -1;
     }
 private:
-    KSyncFlowMemory *flow_ksync_;
+    KSync *ksync_;
     int response_code_;
     int context_marker_;
     DISALLOW_COPY_AND_ASSIGN(KSyncSandeshContext);

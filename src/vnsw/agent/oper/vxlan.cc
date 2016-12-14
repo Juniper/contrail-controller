@@ -79,7 +79,8 @@ void VxLanTable::VmInterfaceNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
     if (composite_nh_modified) {
         Create(vm_itf->vxlan_id(), vm_itf->vrf()->GetName(),
-               vn->flood_unknown_unicast(), vn->mirror_destination());
+               vn->flood_unknown_unicast(), vn->mirror_destination(),
+               vm_itf->learning_enabled());
     }
     return;
 }
@@ -220,7 +221,7 @@ void VxLanTable::OnZeroRefcount(AgentDBEntry *e) {
 //    - NULL if "vn" is "inactive"
 VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
                             const std::string &vrf, bool flood_unknown_unicast,
-                            bool mirror_destination){
+                            bool mirror_destination, bool learning_enabled){
     // Treat a request without VRF as delete of config entry
     if (vrf.empty()) {
         Delete(vxlan_id, vn);
@@ -236,7 +237,8 @@ VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
         config_tree_.insert(make_pair(ConfigKey(vxlan_id, vn),
                                       ConfigEntry(vrf, flood_unknown_unicast,
                                                   true, mirror_destination)));
-        Create(vxlan_id, vrf, flood_unknown_unicast, mirror_destination);
+        Create(vxlan_id, vrf, flood_unknown_unicast, mirror_destination,
+               learning_enabled);
         return Find(vxlan_id);
     }
 
@@ -246,10 +248,12 @@ VxLanId *VxLanTable::Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
         it->second.vrf_ = vrf;
         it->second.flood_unknown_unicast_ = flood_unknown_unicast;
         it->second.mirror_destination_ = mirror_destination;
+        it->second.learning_enabled_ = learning_enabled;
 
         // If entry is active, update vxlan dbentry with new information
         if (it->second.active_) {
-            Create(vxlan_id, vrf, flood_unknown_unicast, mirror_destination);
+            Create(vxlan_id, vrf, flood_unknown_unicast, mirror_destination,
+                   learning_enabled);
             return Find(vxlan_id);
         }
         // If entry inactive, return NULL
@@ -284,7 +288,7 @@ VxLanId *VxLanTable::Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn) {
 
     it->second.active_ = true;
     Create(vxlan_id, it->second.vrf_, it->second.flood_unknown_unicast_,
-           it->second.mirror_destination_);
+           it->second.mirror_destination_, it->second.learning_enabled_);
     agent()->vn_table()->ResyncVxlan(it->first.vn_);
     return NULL;
 }
@@ -296,7 +300,8 @@ DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
 }
 
 void VxLanTable::Create(uint32_t vxlan_id, const string &vrf_name,
-                        bool flood_unknown_unicast, bool mirror_destination) {
+                        bool flood_unknown_unicast, bool mirror_destination,
+                        bool learning_enable) {
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     if (mirror_destination) {
         VxlanCompositeNHList::iterator it =
@@ -315,7 +320,7 @@ void VxLanTable::Create(uint32_t vxlan_id, const string &vrf_name,
         nh_req.data.reset(new CompositeNHData());
     } else {
         nh_req.key.reset(new VrfNHKey(vrf_name, false, true));
-        nh_req.data.reset(new VrfNHData(flood_unknown_unicast));
+        nh_req.data.reset(new VrfNHData(flood_unknown_unicast, learning_enable));
     }
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VxLanIdKey(vxlan_id));

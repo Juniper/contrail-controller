@@ -45,6 +45,7 @@
 #include <oper/qos_config.h>
 #include <oper/qos_queue.h>
 #include <oper/global_qos_config.h>
+#include <oper/bridge_domain.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -98,6 +99,9 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.qos_config.0",
                         boost::bind(&AgentQosConfigTable::CreateTable,
                         agent_, _1, _2));
+    DB::RegisterFactory("db.bridge_domain.0",
+                        boost::bind(&BridgeDomainTable::CreateTable,
+                                    agent_, _1, _2));
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -196,6 +200,12 @@ void OperDB::CreateDBTables(DB *db) {
     qos_config_table =
         static_cast<AgentQosConfigTable *>(db->CreateTable("db.qos_config.0"));
     agent_->set_qos_config_table(qos_config_table);
+
+    BridgeDomainTable *bd_table;
+    bd_table =
+        static_cast<BridgeDomainTable *>(db->CreateTable("db.bridge_domain.0"));
+    assert(bd_table);
+    agent_->set_bridge_domain_table(bd_table);
 
     acl_table->ListenerInit();
 

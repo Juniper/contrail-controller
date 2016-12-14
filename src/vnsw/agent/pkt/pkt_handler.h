@@ -46,6 +46,10 @@
 
 #define ICMP_UNREACH_HDR_LEN 8
 
+#define ETHERTYPE_QINQ    0x88A8
+#define ETHERTYPE_PBB     0x88E7
+#define PBB_HEADER_LEN    4
+
 struct PktInfo;
 struct agent_hdr;
 class PacketBuffer;
@@ -124,9 +128,10 @@ struct AgentHdr {
         TRAP_TOR_CONTROL_PKT = AGENT_TRAP_TOR_CONTROL_PKT,
         TRAP_ZERO_TTL = AGENT_TRAP_ZERO_TTL,
         TRAP_ICMP_ERROR = AGENT_TRAP_ICMP_ERROR,
-        TRAP_HOLD_ACTION = AGENT_TRAP_FLOW_ACTION_HOLD,
         TRAP_FLOW_ACTION_HOLD = AGENT_TRAP_FLOW_ACTION_HOLD,
         TRAP_ROUTER_ALERT = AGENT_TRAP_ROUTER_ALERT,
+        TRAP_MAC_LEARN = AGENT_TRAP_MAC_LEARN,
+        TRAP_MAC_MOVE = AGENT_TRAP_MAC_MOVE,
         INVALID = MAX_AGENT_HDR_COMMANDS
     };
 
@@ -204,6 +209,8 @@ public:
     typedef boost::function<bool(boost::shared_ptr<PktInfo>)> RcvQueueFunc;
     typedef boost::function<void(PktTrace::Pkt &)> PktTraceCallback;
 
+    static const uint32_t kMulticastControlWord = 0;
+    static const uint32_t kMulticastControlWordSize = 4;
     enum PktModuleName {
         INVALID,
         FLOW,
@@ -217,6 +224,7 @@ public:
         ICMP_ERROR,
         ICMPV6_ERROR,
         RX_PACKET,
+        MAC_LEARNING,
         MAX_MODULES
     };
 
@@ -353,14 +361,20 @@ struct PktInfo {
     uint32_t            dport;
     uint32_t            ttl;
 
+    MacAddress          b_smac;
+    MacAddress          b_dmac;
+    uint32_t            i_sid;
+
     bool                tcp_ack;
     TunnelInfo          tunnel;
     // Forwarding mode for packet - l3/l2
     mutable bool        l3_forwarding;
     bool                l3_label;
+    bool                multicast_label;
 
     // Pointer to different headers in user packet
     struct ether_header *eth;
+    uint32_t            *pbb_header;
     struct ether_arp    *arp;
     struct ip           *ip;
     struct ip6_hdr      *ip6;

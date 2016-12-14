@@ -21,6 +21,7 @@ do {                                                                            
 
 #define IS_BCAST_MCAST(grp)    ((grp.to_ulong() == 0xFFFFFFFF) || \
                                ((grp.to_ulong() & 0xF0000000) == 0xE0000000))
+class BgpPeer;
 
 struct OlistTunnelEntry {
     OlistTunnelEntry(const boost::uuids::uuid &device_uuid,
@@ -41,32 +42,47 @@ struct OlistTunnelEntry {
 
 struct MulticastDBState : DBState {
     MulticastDBState(const std::string &vrf_name, const uint32_t vxlan_id) :
-        vrf_name_(vrf_name), vxlan_id_(vxlan_id) { }
+        vrf_name_(vrf_name), vxlan_id_(vxlan_id), learning_enabled_(false),
+        pbb_etree_enabled_(false) { }
 
     std::string vrf_name_;
     uint32_t vxlan_id_;
+    bool learning_enabled_;
+    bool pbb_etree_enabled_;
+};
+
+struct MulticastIntfDBState : DBState {
+    MulticastIntfDBState() {}
+    std::set<std::string> vrf_list_;
 };
 
 typedef std::vector<OlistTunnelEntry> TunnelOlist;
 
 class MulticastGroupObject {
 public:
+    typedef DependencyList<MulticastGroupObject, MulticastGroupObject> MGList;
     MulticastGroupObject(const std::string &vrf_name, 
                          const Ip4Address &grp_addr,
                          const std::string &vn_name) :
         vrf_name_(vrf_name), grp_address_(grp_addr), vn_name_(vn_name),
-        vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL) {
+        vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL),
+        dependent_mg_(this, NULL) , pbb_vrf_(false), pbb_vrf_name_(""),
+        peer_(NULL), fabric_label_(0), learning_enabled_(false),
+        pbb_etree_enabled_(false) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
     };     
-    MulticastGroupObject(const std::string &vrf_name, 
+    MulticastGroupObject(const std::string &vrf_name,
                          const Ip4Address &grp_addr,
                          const Ip4Address &src_addr) : 
         vrf_name_(vrf_name), grp_address_(grp_addr), src_address_(src_addr),
-        vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL) {
+        vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL),
+        dependent_mg_(this, NULL), pbb_vrf_(false), pbb_vrf_name_(""),
+        peer_(NULL), fabric_label_(0), learning_enabled_(false),
+        pbb_etree_enabled_(false) {
         local_olist_.clear();
-    };     
+    };
     virtual ~MulticastGroupObject() { };
 
     bool CanBeDeleted() const;
@@ -99,7 +115,7 @@ public:
                           uint64_t peer_identifier);
 
     //Gets
-    const std::string &vrf_name() { return vrf_name_; };
+    const std::string &vrf_name() const { return vrf_name_; };
     const Ip4Address &GetGroupAddress() { return grp_address_; };
     const Ip4Address &GetSourceAddress() { return src_address_; };
     const std::list<boost::uuids::uuid> &GetLocalOlist() {
@@ -116,8 +132,79 @@ public:
     void reset_vn();
     const VnEntry *vn() const {return vn_.get();}
 
-private:
+    void set_pbb_vrf(bool is_pbb_vrf) {
+        pbb_vrf_ = is_pbb_vrf;
+    }
+    bool pbb_vrf() const {
+        return pbb_vrf_;
+    }
 
+    MGList::iterator mg_list_begin() {
+        return mg_list_.begin();
+    }
+
+    MGList::iterator mg_list_end() {
+        return mg_list_.end();
+    }
+
+    void set_dependent_mg(MulticastGroupObject *obj) {
+        dependent_mg_.reset(obj);
+    }
+
+    MulticastGroupObject* dependent_mg() {
+        return dependent_mg_.get();
+    }
+
+    void set_fabric_olist(const TunnelOlist &olist) {
+        fabric_olist_ = olist;
+    }
+
+    const TunnelOlist& fabric_olist() const {
+        return fabric_olist_;
+    }
+
+    void set_pbb_vrf_name(std::string name) {
+        pbb_vrf_name_ = name;
+    }
+
+    const std::string& pbb_vrf_name() {
+        return pbb_vrf_name_;
+    }
+
+    const Peer *peer() {
+        return peer_;
+    }
+
+    void set_peer(const Peer *peer) {
+        peer_ = peer;
+    }
+
+    uint32_t fabric_label() const {
+        return fabric_label_;
+    }
+
+    void set_fabric_label(uint32_t label) {
+        fabric_label_ = label;
+    }
+
+    bool learning_enabled() const {
+        return learning_enabled_;
+    }
+
+    void set_learning_enabled(bool learning_enabled) {
+        learning_enabled_ = learning_enabled;
+    }
+
+    bool pbb_etree_enabled() const {
+        return pbb_etree_enabled_;
+    }
+
+    void set_pbb_etree_enabled(bool pbb_etree_enabled) {
+        pbb_etree_enabled_ = pbb_etree_enabled;
+    }
+
+private:
+    friend class MulticastHandler;
     std::string vrf_name_;
     Ip4Address grp_address_;
     std::string vn_name_;
@@ -128,7 +215,16 @@ private:
     std::list<boost::uuids::uuid> local_olist_; /* UUID of local i/f */
     VnEntryConstRef vn_;
 
-    friend class MulticastHandler;
+    DependencyRef<MulticastGroupObject, MulticastGroupObject> dependent_mg_;
+    DEPENDENCY_LIST(MulticastGroupObject, MulticastGroupObject, mg_list_);
+
+    bool pbb_vrf_;
+    std::string pbb_vrf_name_;
+    TunnelOlist fabric_olist_;
+    const Peer *peer_;
+    uint32_t fabric_label_;
+    bool learning_enabled_;
+    bool pbb_etree_enabled_;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
 };
 
@@ -136,6 +232,9 @@ private:
 class MulticastHandler {
 public:
     static const uint32_t kMulticastTimeout = 5 * 60 * 1000;
+    static const Ip4Address kBroadcast;
+    typedef std::list<MulticastGroupObject *> MulticastGroupObjectList;
+    typedef std::map<uuid, MulticastGroupObjectList> VmMulticastGroupObjectList;
 
     MulticastHandler(Agent *agent);
     virtual ~MulticastHandler() { }
@@ -216,6 +315,8 @@ public:
 
     const Agent *agent() const {return agent_;}
     void Terminate();
+    void AddBridgeDomain(DBTablePartBase *paritition,
+                         DBEntryBase *e);
 
 private:
     //operations on list of all objectas per group/source/vrf
@@ -223,8 +324,15 @@ private:
         multicast_obj_list_.insert(obj);
     };
     //VM intf add-delete
-    void DeleteVmInterface(const Interface *intf);
-    void AddVmInterfaceInFloodGroup(const VmInterface *vm_itf);
+    void DeleteVmInterface(const VmInterface *intf,
+                           const std::string &vrf_name);
+    void DeleteVmInterface(const VmInterface *intf,
+                           MulticastIntfDBState *state);
+    void AddVmInterfaceInFloodGroup(const VmInterface *vm_itf,
+                                    MulticastIntfDBState *state);
+    void AddVmInterfaceInFloodGroup(const VmInterface *vm_itf,
+                                    const std::string &vrf_name);
+    void Resync(MulticastGroupObject *obj);
 
     //broadcast rt add /delete
     void AddL2BroadcastRoute(MulticastGroupObject *obj,
@@ -234,19 +342,35 @@ private:
                              uint32_t label,
                              int vxlan_id,
                              uint32_t ethernet_tag);
+    void ChangeLearningMode(MulticastGroupObject *obj,
+                            bool learning_enabled);
+    void ChangePbbEtreeMode(MulticastGroupObject *obj,
+                            bool pbb_etree_enabled);
 
     //VM itf to multicast ob
     void AddVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid, 
                                 MulticastGroupObject *obj) {
         this->vm_to_mcobj_list_[vm_itf_uuid].push_back(obj);
     };
-    void DeleteVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid) { 
-        if (this->vm_to_mcobj_list_[vm_itf_uuid].size() == 0) {
-            std::map<uuid, std::list<MulticastGroupObject *> >::iterator it =
-                this->vm_to_mcobj_list_.find(vm_itf_uuid);
-            if (it != this->vm_to_mcobj_list_.end()) {
-                this->vm_to_mcobj_list_.erase(it);
+
+    void DeleteVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
+                                   const MulticastGroupObject *obj) {
+        VmMulticastGroupObjectList::iterator vmi_it =
+            vm_to_mcobj_list_.find(vm_itf_uuid);
+        if (vmi_it == vm_to_mcobj_list_.end()) {
+            return;
+        }
+
+        MulticastGroupObjectList::iterator mc_it = vmi_it->second.begin();
+        for (;mc_it != vmi_it->second.end(); mc_it++) {
+            if (*mc_it == obj) {
+                vmi_it->second.erase(mc_it);
+                break;
             }
+        }
+
+        if (vmi_it->second.size() == 0) {
+            vm_to_mcobj_list_.erase(vmi_it);
         }
     };
 
@@ -256,6 +380,10 @@ private:
         return this->vm_to_mcobj_list_[uuid];
     };
 
+    MulticastDBState*
+    CreateBridgeDomainMG(DBTablePartBase *p, BridgeDomainEntry *bd);
+    void ResyncDependentVrf(MulticastGroupObject *obj);
+    void UpdateReference(MulticastGroupObject *obj);
     static MulticastHandler *obj_;
 
     Agent *agent_;
@@ -266,10 +394,11 @@ private:
     //List of all multicast objects(VRF/G/S)
     std::set<MulticastGroupObject *> multicast_obj_list_;
     //Reference mapping of VM to participating multicast object list
-    std::map<uuid, std::list<MulticastGroupObject *> > vm_to_mcobj_list_;
+    VmMulticastGroupObjectList vm_to_mcobj_list_;
 
     DBTable::ListenerId vn_listener_id_;
     DBTable::ListenerId interface_listener_id_;
+    DBTable::ListenerId bridge_domain_id_;
     DISALLOW_COPY_AND_ASSIGN(MulticastHandler);
 };
 

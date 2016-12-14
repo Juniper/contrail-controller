@@ -76,7 +76,10 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     display_name_(entry->display_name_),
     transport_(entry->transport_),
     flood_unknown_unicast_ (entry->flood_unknown_unicast_),
-    qos_config_(entry->qos_config_){
+    qos_config_(entry->qos_config_),
+    learning_enabled_(entry->learning_enabled_),
+    isid_(entry->isid_), pbb_cmac_vrf_(entry->pbb_cmac_vrf_),
+    etree_leaf_(entry->etree_leaf_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
@@ -117,7 +120,9 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     no_arp_(false),
     encap_type_(PhysicalInterface::ETHERNET),
     transport_(Interface::TRANSPORT_INVALID),
-    flood_unknown_unicast_(false), qos_config_(NULL) {
+    flood_unknown_unicast_(false), qos_config_(NULL),
+    learning_enabled_(false), isid_(VmInterface::kInvalidIsid),
+    pbb_cmac_vrf_(VrfEntry::kInvalidIndex), etree_leaf_(false) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -286,6 +291,28 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
                 vm_port->metadata_ip_active();
             ret = true;
         }
+
+        if (learning_enabled_ != vm_port->learning_enabled()) {
+            learning_enabled_ = vm_port->learning_enabled();
+            ret = true;
+        }
+
+        if (l2_active_ &&
+            vmi_type_ == VmInterface::PBB && isid_ != vm_port->GetIsid()) {
+            isid_ = vm_port->GetIsid();
+            ret = true;
+        }
+
+        if (l2_active_ && vmi_type_ == VmInterface::PBB &&
+            pbb_cmac_vrf_ != vm_port->GetPbbVrf()) {
+            pbb_cmac_vrf_ = vm_port->GetPbbVrf();
+            ret = true;
+        }
+
+        if (etree_leaf_ != vm_port->etree_leaf()) {
+            etree_leaf_ = vm_port->etree_leaf();
+            ret = true;
+        }
     }
 
     uint32_t vrf_id = VIF_VRF_INVALID;
@@ -383,6 +410,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             fat_flow_list_ = vm_intf->fat_flow_list();
             ret = true;
         }
+        pbb_mac_ = vm_intf->vm_mac();
     }
     case Interface::PACKET:
         dmac = table->agent()->vrrp_mac();
@@ -528,6 +556,7 @@ bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id,
 int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_interface_req encoder;
     int encode_len;
+    uint32_t vrf_id = vrf_id_;
 
     uint32_t flags = 0;
     encoder.set_h_op(op);
@@ -546,6 +575,10 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         encoder.set_vifr_qos_map_index(qos_config->id());
     } else {
         encoder.set_vifr_qos_map_index(-1);
+    }
+
+    if (etree_leaf_ == false) {
+        flags |= VIF_FLAG_ETREE_ROOT;
     }
 
     switch (type_) {
@@ -567,6 +600,10 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         if (flood_unknown_unicast_) {
             flags |= VIF_FLAG_UNKNOWN_UC_FLOOD;
         }
+        if (learning_enabled_) {
+            flags |= VIF_FLAG_MAC_LEARN;
+        }
+
         MacAddress mac;
         if (parent_.get() != NULL) {
             encoder.set_vifr_type(VIF_TYPE_VIRTUAL_VLAN);
@@ -608,6 +645,16 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 fat_flow_list.push_back(it->protocol << 16 | it->port);
             }
             encoder.set_vifr_fat_flow_protocol_port(fat_flow_list);
+        }
+
+        if (vmi_type_ == VmInterface::PBB) {
+            std::vector<int8_t> pbb_mac((int8_t *)pbb_mac_,
+                                        (int8_t *)pbb_mac_ + mac.size());
+            encoder.set_vifr_pbb_evpn_mac(pbb_mac);
+            encoder.set_vifr_isid(isid_);
+            if (pbb_cmac_vrf_ != VrfEntry::kInvalidIndex) {
+                vrf_id = pbb_cmac_vrf_;
+            }
         }
         break;
     }
@@ -739,7 +786,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     encoder.set_vifr_flags(flags);
 
-    encoder.set_vifr_vrf(vrf_id_);
+    encoder.set_vifr_vrf(vrf_id);
     encoder.set_vifr_idx(interface_id_);
     encoder.set_vifr_rid(0);
     encoder.set_vifr_os_idx(os_index_);
