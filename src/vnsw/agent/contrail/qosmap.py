@@ -20,9 +20,9 @@ class QosmapProv(object):
         self._parse_args(args_str)
         self.conf_file = conf_file
         self._parse_agent_conf()
-        self.set_xps_cpu(self.ifname_list)
-        if (self.priority_group != ""):
+        if (self.qos_scheduling_config):
             self.execute_qosmap_cmd()
+        self.set_xps_cpu(self.ifname_list)
 
     # end __init__
 
@@ -38,7 +38,7 @@ class QosmapProv(object):
         # Use agent config file /etc/contrail/contrail-vrouter-agent.conf
         self.ifname_list = []
         self.dcbx = "ieee"
-        self.priority_group = []
+        self.qos_scheduling_config = False
         self.bandwidth = []
         self.scheduling = []
         scheduling = ""
@@ -51,7 +51,6 @@ class QosmapProv(object):
             self.ifname_list.append(config.get('VIRTUAL-HOST-INTERFACE', 'physical_interface'))
 
         for i in range(8):
-            self.priority_group.append('0')
             self.bandwidth.append('0')
             self.scheduling.append('0')
 
@@ -59,8 +58,8 @@ class QosmapProv(object):
 
             if "PG-" in section:
                 # For one to one mapping priority group is same as traffic class
+                self.qos_scheduling_config = True
                 priority_id = section.strip('[]').split('-')[1]
-                self.priority_group[int(priority_id)] = priority_id
                 scheduling = config.get(section, 'scheduling')
                 if scheduling == 'strict':
                     self.scheduling[int(priority_id)] = '1'
@@ -68,10 +67,9 @@ class QosmapProv(object):
                     bandwidth = config.get(section, 'bandwidth')
                     self.bandwidth[int(priority_id)] = bandwidth
 
-        self.priority_group = [elem for elem in self.priority_group if elem != '0']
         self.bandwidth = ",".join(self.bandwidth)
         self.scheduling = "".join(self.scheduling)
-        if (self.priority_group == ""):
+        if (not self.qos_scheduling_config):
             print "Priority group configuration not found"
 
     # end _parse_args
@@ -80,6 +78,7 @@ class QosmapProv(object):
         print cmd
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         (out, err) = proc.communicate()
+        print out
         outwithoutreturn = out.rstrip('\n')
         if err:
             print "Error executing : " + cmd + "\n Cmd output " + out
@@ -105,7 +104,6 @@ class QosmapProv(object):
         #Remove original file
         os.remove(file_path)
         move(abs_path, file_path)
-        #Restore permissions
         os.chmod(file_path, mode)
         os.chown(file_path, uid, gid)
 
