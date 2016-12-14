@@ -975,6 +975,10 @@ LifetimeActor *BgpPeer::deleter() {
 // Check if the given address family has been negotiated with the peer.
 //
 bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
+    // Bail if session is not established.
+    if (!IsReady())
+        return false;
+
     // Bail if the family is not configured locally.
     if (!LookupFamily(family))
         return false;
