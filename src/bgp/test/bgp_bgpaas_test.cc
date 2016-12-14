@@ -10,6 +10,7 @@
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_membership.h"
+#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -22,9 +23,34 @@
 
 using namespace std;
 
+class BgpPeerCloseTest : public BgpPeerClose {
+public:
+    explicit BgpPeerCloseTest(BgpPeer *peer) :
+            BgpPeerClose(peer), state_machine_restart_(true) { }
+    virtual void RestartStateMachine() {
+        if (state_machine_restart_)
+            BgpPeerClose::RestartStateMachine();
+    }
+
+    void set_state_machine_restart(bool flag) { state_machine_restart_ = flag; }
+
+private:
+    bool state_machine_restart_;
+};
+
 static string clientsConfigStr =
 "<?xml version='1.0' encoding='utf-8'?> \n"
 "<config> \n"
+"   <global-system-config>\n"
+"      <graceful-restart-parameters>\n"
+"         <enable>true</enable>\n"
+"         <restart-time>1</restart-time>\n"
+"         <long-lived-restart-time>5</long-lived-restart-time>\n"
+"         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
+"         <bgp-helper-enable>true</bgp-helper-enable>\n"
+"         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
+"      </graceful-restart-parameters>\n"
+"   </global-system-config>\n"
 "   <bgp-router name='bgpaas-server'> \n"
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>64512</autonomous-system> \n"
@@ -81,6 +107,16 @@ static string clientsConfigStr =
 static string serverConfigStr =
 "<?xml version='1.0' encoding='utf-8'?> \n"
 "<config> \n"
+"   <global-system-config>\n"
+"      <graceful-restart-parameters>\n"
+"         <enable>true</enable>\n"
+"         <restart-time>1</restart-time>\n"
+"         <long-lived-restart-time>5</long-lived-restart-time>\n"
+"         <end-of-rib-timeout>1</end-of-rib-timeout>\n"
+"         <bgp-helper-enable>true</bgp-helper-enable>\n"
+"         <xmpp-helper-enable>true</xmpp-helper-enable>\n"
+"      </graceful-restart-parameters>\n"
+"   </global-system-config>\n"
 "   <bgp-router name='local'> \n"
 "       <address>127.0.0.1</address> \n"
 "       <autonomous-system>64512</autonomous-system> \n"
@@ -239,14 +275,22 @@ protected:
         xmpp_server_ = NULL;
     }
 
-    BgpPeerTest *WaitForPeerToComeUp(BgpServerTest *server,
-                                     const string &peerName) {
-        string u = BgpConfigParser::session_uuid("bgpaas-server", peerName, 1);
+    BgpPeerTest *FindPeer(BgpServerTest *server, const char *instance_name,
+                          const string &uuid) {
         TASK_UTIL_EXPECT_NE(static_cast<BgpPeerTest *>(NULL),
-            dynamic_cast<BgpPeerTest *>(
-                server->FindPeerByUuid(BgpConfigManager::kMasterInstance, u)));
+            dynamic_cast<BgpPeerTest *>(server->FindPeerByUuid(instance_name,
+                                                               uuid)));
         BgpPeerTest *peer = dynamic_cast<BgpPeerTest *>(
-                server->FindPeerByUuid(BgpConfigManager::kMasterInstance, u));
+                server->FindPeerByUuid(instance_name, uuid));
+        return peer;
+    }
+
+    BgpPeerTest *WaitForPeerToComeUp(BgpServerTest *server,
+                                     const string &peer_name) {
+        string uuid =
+            BgpConfigParser::session_uuid("bgpaas-server", peer_name, 1);
+        BgpPeerTest *peer = FindPeer(server, BgpConfigManager::kMasterInstance,
+                                     uuid);
         BGP_WAIT_FOR_PEER_STATE(peer, StateMachine::ESTABLISHED);
         return peer;
     }
@@ -642,6 +686,62 @@ TEST_F(BGPaaSTest, Basic) {
     VerifyInet6RouteCount(vm1_.get(), 3);
     VerifyInet6RoutePresence(vm1_.get(), "feed:1::feed/128", "100.0.0.2");
 
+    // Close dut === vm1 session gracefully and verify that vm2 and agent still
+    // have all the routes because routes are retained as 'stale' in dut even
+    // when the session to BGPaaS client vm1 is closed
+    BgpPeerTest *peer_vm1 = FindPeer(server_.get(), "test",
+            BgpConfigParser::session_uuid("bgpaas-server", "vm1", 1));
+    static_cast<BgpPeerCloseTest *>(peer_vm1->peer_close())->
+        set_state_machine_restart(false);
+
+    BgpNeighborResp resp;
+    TASK_UTIL_EXPECT_EQ(0, peer_vm1->close_manager()->FillCloseInfo(&resp)->
+            get_peer_close_info().get_stale());
+    TASK_UTIL_EXPECT_EQ(0, peer_vm1->close_manager()->FillCloseInfo(&resp)->
+            get_peer_close_info().get_gr_timer());
+    TASK_UTIL_EXPECT_EQ(0, peer_vm1->close_manager()->FillCloseInfo(&resp)->
+            get_peer_close_info().get_llgr_timer());
+    TASK_UTIL_EXPECT_EQ(0, peer_vm1->close_manager()->FillCloseInfo(&resp)->
+            get_peer_close_info().get_sweep());
+
+    // Trigger graceful session closure bby faking HoldTimerExpiry.
+    peer_vm1->state_machine()->HoldTimerExpired();
+    TASK_UTIL_EXPECT_EQ(5, agent_->route_mgr_->Count());
+    VerifyInetRouteCount(vm2_.get(), 5);
+    TASK_UTIL_EXPECT_EQ(3, agent_->inet6_route_mgr_->Count());
+    VerifyInet6RouteCount(vm2_.get(), 3);
+
+    // Wait until peer enters LLGR state.
+    TASK_UTIL_EXPECT_EQ(1, peer_vm1->close_manager()->FillCloseInfo(&resp)->
+            get_peer_close_info().get_stale());
+    TASK_UTIL_EXPECT_EQ(1, peer_vm1->close_manager()->FillCloseInfo(&resp)->
+            get_peer_close_info().get_gr_timer());
+    TASK_UTIL_EXPECT_EQ(1, peer_vm1->close_manager()->FillCloseInfo(&resp)->
+            get_peer_close_info().get_llgr_timer());
+
+    // Restart BGP state machine.
+    static_cast<BgpPeerCloseTest *>(peer_vm1->peer_close())->
+        set_state_machine_restart(true);
+    static_cast<BgpPeerCloseTest *>(peer_vm1->peer_close())->
+        RestartStateMachine();
+    BGP_WAIT_FOR_PEER_STATE(peer_vm1, StateMachine::ESTABLISHED);
+
+    // GR session would have either got refreshed or delted, based on the timer
+    // expiry and when the session comes up. Most of time time, we expect the
+    // session to be swept. But add delete check to make test more stable.
+    TASK_UTIL_EXPECT_TRUE(peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                              get_peer_close_info().get_sweep() ||
+                          peer_vm1->close_manager()->FillCloseInfo(&resp)->
+                              get_peer_close_info().get_deletes());
+
+    // Verify that all routes remain or get re-advertised.
+    TASK_UTIL_EXPECT_EQ(5, agent_->route_mgr_->Count());
+    VerifyInetRouteCount(vm2_.get(), 5);
+    TASK_UTIL_EXPECT_EQ(3, agent_->inet6_route_mgr_->Count());
+    VerifyInet6RouteCount(vm2_.get(), 3);
+    VerifyInetRouteCount(vm1_.get(), 5);
+    VerifyInet6RouteCount(vm1_.get(), 3);
+
     // Delete the route just added above and verify their absence.
     DeleteBgpInet6Route(vm2_.get(), "feed:1::feed/128");
     VerifyInet6RouteCount(vm2_.get(), 2);
@@ -786,6 +886,8 @@ static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
         boost::factory<BgpXmppMessageBuilder *>());
+    BgpObjectFactory::Register<BgpPeerClose>(
+        boost::factory<BgpPeerCloseTest *>());
     BgpServerTest::GlobalSetUp();
 }
 
