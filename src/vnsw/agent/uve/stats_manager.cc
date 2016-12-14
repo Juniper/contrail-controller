@@ -393,137 +393,137 @@ void StatsManager::InitDone() {
 }
 
 void StatsManager::BuildDropStats(const vr_drop_stats_req &req,
-                                  VrouterDropStats &ds) const {
-    ds.set_discard(req.get_vds_discard());
-    uint64_t drop_pkts = ds.get_discard();
+                                  AgentDropStats &ds) const {
+    ds.set_ds_discard(req.get_vds_discard());
+    uint64_t drop_pkts = ds.get_ds_discard();
 
-    ds.set_pull(req.get_vds_pull());
-    drop_pkts += ds.get_pull();
+    ds.set_ds_pull(req.get_vds_pull());
+    drop_pkts += ds.get_ds_pull();
 
-    ds.set_invalid_if(req.get_vds_invalid_if());
-    drop_pkts += ds.get_invalid_if();
+    ds.set_ds_invalid_if(req.get_vds_invalid_if());
+    drop_pkts += ds.get_ds_invalid_if();
 
-    ds.set_invalid_arp(req.get_vds_invalid_arp());
-    drop_pkts += ds.get_invalid_arp();
+    ds.set_ds_invalid_arp(req.get_vds_invalid_arp());
+    drop_pkts += ds.get_ds_invalid_arp();
 
-    ds.set_trap_no_if(req.get_vds_trap_no_if());
-    drop_pkts += ds.get_trap_no_if();
+    ds.set_ds_trap_no_if(req.get_vds_trap_no_if());
+    drop_pkts += ds.get_ds_trap_no_if();
 
-    ds.set_nowhere_to_go(req.get_vds_nowhere_to_go());
-    drop_pkts += ds.get_nowhere_to_go();
+    ds.set_ds_nowhere_to_go(req.get_vds_nowhere_to_go());
+    drop_pkts += ds.get_ds_nowhere_to_go();
 
-    ds.set_flow_queue_limit_exceeded(req.get_vds_flow_queue_limit_exceeded());
-    drop_pkts += ds.get_flow_queue_limit_exceeded();
+    ds.set_ds_flow_queue_limit_exceeded(req.get_vds_flow_queue_limit_exceeded());
+    drop_pkts += ds.get_ds_flow_queue_limit_exceeded();
 
-    ds.set_flow_no_memory(req.get_vds_flow_no_memory());
-    drop_pkts += ds.get_flow_no_memory();
+    ds.set_ds_flow_no_memory(req.get_vds_flow_no_memory());
+    drop_pkts += ds.get_ds_flow_no_memory();
 
-    ds.set_flow_invalid_protocol(req.get_vds_flow_invalid_protocol());
-    drop_pkts += ds.get_flow_invalid_protocol();
+    ds.set_ds_flow_invalid_protocol(req.get_vds_flow_invalid_protocol());
+    drop_pkts += ds.get_ds_flow_invalid_protocol();
 
-    ds.set_flow_nat_no_rflow(req.get_vds_flow_nat_no_rflow());
-    drop_pkts += ds.get_flow_nat_no_rflow();
+    ds.set_ds_flow_nat_no_rflow(req.get_vds_flow_nat_no_rflow());
+    drop_pkts += ds.get_ds_flow_nat_no_rflow();
 
-    ds.set_flow_action_drop(req.get_vds_flow_action_drop());
-    drop_pkts += ds.get_flow_action_drop();
+    ds.set_ds_flow_action_drop(req.get_vds_flow_action_drop());
+    drop_pkts += ds.get_ds_flow_action_drop();
 
-    ds.set_flow_action_invalid(req.get_vds_flow_action_invalid());
-    drop_pkts += ds.get_flow_action_invalid();
+    ds.set_ds_flow_action_invalid(req.get_vds_flow_action_invalid());
+    drop_pkts += ds.get_ds_flow_action_invalid();
 
-    ds.set_flow_unusable(req.get_vds_flow_unusable());
-    drop_pkts += ds.get_flow_unusable();
+    ds.set_ds_flow_unusable(req.get_vds_flow_unusable());
+    drop_pkts += ds.get_ds_flow_unusable();
 
-    ds.set_flow_table_full(req.get_vds_flow_table_full());
-    drop_pkts += ds.get_flow_table_full();
+    ds.set_ds_flow_table_full(req.get_vds_flow_table_full());
+    drop_pkts += ds.get_ds_flow_table_full();
 
-    ds.set_interface_tx_discard(req.get_vds_interface_tx_discard());
-    drop_pkts += ds.get_interface_tx_discard();
+    ds.set_ds_interface_tx_discard(req.get_vds_interface_tx_discard());
+    drop_pkts += ds.get_ds_interface_tx_discard();
 
-    ds.set_interface_drop(req.get_vds_interface_drop());
-    drop_pkts += ds.get_interface_drop();
+    ds.set_ds_interface_drop(req.get_vds_interface_drop());
+    drop_pkts += ds.get_ds_interface_drop();
 
-    ds.set_duplicated(req.get_vds_duplicated());
-    drop_pkts += ds.get_duplicated();
+    ds.set_ds_duplicated(req.get_vds_duplicated());
+    drop_pkts += ds.get_ds_duplicated();
 
-    ds.set_push(req.get_vds_push());
-    drop_pkts += ds.get_push();
+    ds.set_ds_push(req.get_vds_push());
+    drop_pkts += ds.get_ds_push();
 
-    ds.set_ttl_exceeded(req.get_vds_ttl_exceeded());
-    drop_pkts += ds.get_ttl_exceeded();
+    ds.set_ds_ttl_exceeded(req.get_vds_ttl_exceeded());
+    drop_pkts += ds.get_ds_ttl_exceeded();
 
-    ds.set_invalid_nh(req.get_vds_invalid_nh());
-    drop_pkts += ds.get_invalid_nh();
+    ds.set_ds_invalid_nh(req.get_vds_invalid_nh());
+    drop_pkts += ds.get_ds_invalid_nh();
 
-    ds.set_invalid_label(req.get_vds_invalid_label());
-    drop_pkts += ds.get_invalid_label();
+    ds.set_ds_invalid_label(req.get_vds_invalid_label());
+    drop_pkts += ds.get_ds_invalid_label();
 
-    ds.set_invalid_protocol(req.get_vds_invalid_protocol());
-    drop_pkts += ds.get_invalid_protocol();
+    ds.set_ds_invalid_protocol(req.get_vds_invalid_protocol());
+    drop_pkts += ds.get_ds_invalid_protocol();
 
-    ds.set_interface_rx_discard(req.get_vds_interface_rx_discard());
-    drop_pkts += ds.get_interface_rx_discard();
+    ds.set_ds_interface_rx_discard(req.get_vds_interface_rx_discard());
+    drop_pkts += ds.get_ds_interface_rx_discard();
 
-    ds.set_invalid_mcast_source(req.get_vds_invalid_mcast_source());
-    drop_pkts += ds.get_invalid_mcast_source();
+    ds.set_ds_invalid_mcast_source(req.get_vds_invalid_mcast_source());
+    drop_pkts += ds.get_ds_invalid_mcast_source();
 
-    ds.set_head_alloc_fail(req.get_vds_head_alloc_fail());
-    drop_pkts += ds.get_head_alloc_fail();
+    ds.set_ds_head_alloc_fail(req.get_vds_head_alloc_fail());
+    drop_pkts += ds.get_ds_head_alloc_fail();
 
-    ds.set_pcow_fail(req.get_vds_pcow_fail());
-    drop_pkts += ds.get_pcow_fail();
+    ds.set_ds_pcow_fail(req.get_vds_pcow_fail());
+    drop_pkts += ds.get_ds_pcow_fail();
 
-    ds.set_mcast_clone_fail(req.get_vds_mcast_clone_fail());
-    drop_pkts += ds.get_mcast_clone_fail();
+    ds.set_ds_mcast_clone_fail(req.get_vds_mcast_clone_fail());
+    drop_pkts += ds.get_ds_mcast_clone_fail();
 
-    ds.set_mcast_df_bit(req.get_vds_mcast_df_bit());
-    drop_pkts += ds.get_mcast_df_bit();
+    ds.set_ds_mcast_df_bit(req.get_vds_mcast_df_bit());
+    drop_pkts += ds.get_ds_mcast_df_bit();
 
-    ds.set_no_memory(req.get_vds_no_memory());
-    drop_pkts += ds.get_no_memory();
+    ds.set_ds_no_memory(req.get_vds_no_memory());
+    drop_pkts += ds.get_ds_no_memory();
 
-    ds.set_rewrite_fail(req.get_vds_rewrite_fail());
-    drop_pkts += ds.get_rewrite_fail();
+    ds.set_ds_rewrite_fail(req.get_vds_rewrite_fail());
+    drop_pkts += ds.get_ds_rewrite_fail();
 
-    ds.set_misc(req.get_vds_misc());
-    drop_pkts += ds.get_misc();
+    ds.set_ds_misc(req.get_vds_misc());
+    drop_pkts += ds.get_ds_misc();
 
-    ds.set_invalid_packet(req.get_vds_invalid_packet());
-    drop_pkts += ds.get_invalid_packet();
+    ds.set_ds_invalid_packet(req.get_vds_invalid_packet());
+    drop_pkts += ds.get_ds_invalid_packet();
 
-    ds.set_cksum_err(req.get_vds_cksum_err());
-    drop_pkts += ds.get_cksum_err();
+    ds.set_ds_cksum_err(req.get_vds_cksum_err());
+    drop_pkts += ds.get_ds_cksum_err();
 
-    ds.set_no_fmd(req.get_vds_no_fmd());
-    drop_pkts += ds.get_no_fmd();
+    ds.set_ds_no_fmd(req.get_vds_no_fmd());
+    drop_pkts += ds.get_ds_no_fmd();
 
-    ds.set_invalid_vnid(req.get_vds_invalid_vnid());
-    drop_pkts += ds.get_invalid_vnid();
+    ds.set_ds_invalid_vnid(req.get_vds_invalid_vnid());
+    drop_pkts += ds.get_ds_invalid_vnid();
 
-    ds.set_frag_err(req.get_vds_frag_err());
-    drop_pkts += ds.get_frag_err();
+    ds.set_ds_frag_err(req.get_vds_frag_err());
+    drop_pkts += ds.get_ds_frag_err();
 
-    ds.set_invalid_source(req.get_vds_invalid_source());
-    drop_pkts += ds.get_invalid_source();
+    ds.set_ds_invalid_source(req.get_vds_invalid_source());
+    drop_pkts += ds.get_ds_invalid_source();
 
-    ds.set_l2_no_route(req.get_vds_l2_no_route());
-    drop_pkts += ds.get_l2_no_route();
+    ds.set_ds_l2_no_route(req.get_vds_l2_no_route());
+    drop_pkts += ds.get_ds_l2_no_route();
 
-    ds.set_fragment_queue_fail(req.get_vds_fragment_queue_fail());
-    drop_pkts += ds.get_fragment_queue_fail();
+    ds.set_ds_fragment_queue_fail(req.get_vds_fragment_queue_fail());
+    drop_pkts += ds.get_ds_fragment_queue_fail();
 
-    ds.set_vlan_fwd_tx(req.get_vds_vlan_fwd_tx());
-    drop_pkts += ds.get_vlan_fwd_tx();
+    ds.set_ds_vlan_fwd_tx(req.get_vds_vlan_fwd_tx());
+    drop_pkts += ds.get_ds_vlan_fwd_tx();
 
-    ds.set_vlan_fwd_enq(req.get_vds_vlan_fwd_enq());
-    drop_pkts += ds.get_vlan_fwd_enq();
+    ds.set_ds_vlan_fwd_enq(req.get_vds_vlan_fwd_enq());
+    drop_pkts += ds.get_ds_vlan_fwd_enq();
 
-    ds.set_drop_new_flow(req.get_vds_drop_new_flow());
-    drop_pkts += ds.get_drop_new_flow();
+    ds.set_ds_drop_new_flow(req.get_vds_drop_new_flow());
+    drop_pkts += ds.get_ds_drop_new_flow();
 
-    ds.set_flow_evict(req.get_vds_flow_evict());
-    drop_pkts += ds.get_flow_evict();
+    ds.set_ds_flow_evict(req.get_vds_flow_evict());
+    drop_pkts += ds.get_ds_flow_evict();
 
-    ds.set_trap_original(req.get_vds_trap_original());
-    drop_pkts += ds.get_trap_original();
-    ds.set_drop_pkts(drop_pkts);
+    ds.set_ds_trap_original(req.get_vds_trap_original());
+    drop_pkts += ds.get_ds_trap_original();
+    ds.set_ds_drop_pkts(drop_pkts);
 }
