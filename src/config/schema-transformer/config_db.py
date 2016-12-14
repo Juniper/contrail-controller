@@ -1154,38 +1154,49 @@ class VirtualNetworkST(DBBaseST):
             acl = AclRuleType(match, action)
             acl_list.append(acl)
 
-            for rule in static_acl_entries.get_acl_rule():
-                src_address = copy.deepcopy(rule.match_condition.src_address)
-                dst_address = copy.deepcopy(rule.match_condition.dst_address)
-                if src_address.virtual_network:
-                    src_address.subnet = None
-                    src_address.subnet_list = []
-                if dst_address.virtual_network:
-                    dst_address.subnet = None
-                    dst_address.subnet_list = []
-                match = MatchConditionType("any", src_address, PortType(),
-                                           dst_address, PortType())
+            if self._manager._args.logical_routers_enabled:
+                for rule in static_acl_entries.get_acl_rule():
+                    src_address = copy.deepcopy(rule.match_condition.src_address)
+                    dst_address = copy.deepcopy(rule.match_condition.dst_address)
+                    if src_address.virtual_network:
+                        src_address.subnet = None
+                        src_address.subnet_list = []
+                    if dst_address.virtual_network:
+                        dst_address.subnet = None
+                        dst_address.subnet_list = []
+                    match = MatchConditionType("any", src_address, PortType(),
+                                               dst_address, PortType())
 
-                acl = AclRuleType(match, ActionListType("deny"),
-                                  rule.get_rule_uuid())
+                    acl = AclRuleType(match, ActionListType("deny"),
+                                      rule.get_rule_uuid())
+                    acl_list.append(acl)
+
+                    match = MatchConditionType("any", dst_address, PortType(),
+                                               src_address, PortType())
+
+                    acl = AclRuleType(match, ActionListType("deny"),
+                                      rule.get_rule_uuid())
+                    acl_list.append(acl)
+                # end for rule
+
+                # Create any-vn to any-vn allow
+                match = MatchConditionType(
+                    "any", AddressType(virtual_network="any"), PortType(),
+                    AddressType(virtual_network="any"), PortType())
+                action = ActionListType("pass")
+                acl = AclRuleType(match, action)
                 acl_list.append(acl)
-
-                match = MatchConditionType("any", dst_address, PortType(),
-                                           src_address, PortType())
-
-                acl = AclRuleType(match, ActionListType("deny"),
-                                  rule.get_rule_uuid())
+                acl_list.update_acl_entries(static_acl_entries)
+            else:
+                # Create any-vn to any-vn deny
+                match = MatchConditionType(
+                    "any", AddressType(virtual_network="any"), PortType(),
+                    AddressType(virtual_network="any"), PortType())
+                action = ActionListType("deny")
+                acl = AclRuleType(match, action)
                 acl_list.append(acl)
-            # end for rule
+                acl_list.update_acl_entries(static_acl_entries)
 
-            # Create any-vn to any-vn allow
-            match = MatchConditionType(
-                "any", AddressType(virtual_network="any"), PortType(),
-                AddressType(virtual_network="any"), PortType())
-            action = ActionListType("pass")
-            acl = AclRuleType(match, action)
-            acl_list.append(acl)
-            acl_list.update_acl_entries(static_acl_entries)
 
         self.acl = _access_control_list_update(self.acl, self.obj.name,
                                                self.obj, static_acl_entries)

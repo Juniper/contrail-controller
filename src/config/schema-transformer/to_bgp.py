@@ -605,34 +605,6 @@ class SchemaTransformer(object):
 
 
 def parse_args(args_str):
-    '''
-    Eg. python to_bgp.py --rabbit_server localhost
-                         --rabbit_port 5672
-                         --rabbit_user guest
-                         --rabbit_password guest
-                         --cassandra_server_list 10.1.2.3:9160
-                         --api_server_ip 10.1.2.3
-                         --api_server_port 8082
-                         --api_server_use_ssl False
-                         --zk_server_ip 10.1.2.3
-                         --zk_server_port 2181
-                         --collectors 127.0.0.1:8086
-                         --disc_server_ip 127.0.0.1
-                         --disc_server_port 5998
-                         --http_server_port 8090
-                         --log_local
-                         --log_level SYS_DEBUG
-                         --log_category test
-                         --log_file <stdout>
-                         --trace_file /var/log/contrail/schema.err
-                         --use_syslog
-                         --syslog_facility LOG_USER
-                         --cluster_id <testbed-name>
-                         --zk_timeout 400
-                         [--reset_config]
-    '''
-
-    # Source any specified config/ini file
     # Turn off help, so we      all options in response to -h
     conf_parser = argparse.ArgumentParser(add_help=False)
 
@@ -676,6 +648,7 @@ def parse_args(args_str):
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
         'zk_timeout': 400,
+        'logical_routers_enabled': True,
     }
     secopts = {
         'use_certs': False,
@@ -722,6 +695,11 @@ def parse_args(args_str):
     defaults.update(ksopts)
     defaults.update(cassandraopts)
     parser.set_defaults(**defaults)
+    def _bool(s):
+        """Convert string to bool (in argparse context)."""
+        if s.lower() not in ['true', 'false']:
+            raise ValueError('Need bool; got %r' % s)
+        return {'true': True, 'false': False}[s.lower()]
 
     parser.add_argument(
         "--cassandra_server_list",
@@ -794,6 +772,8 @@ def parse_args(args_str):
                         help="End port for bgp-as-a-service proxy")
     parser.add_argument("--zk_timeout",
                         help="Timeout for ZookeeperClient")
+    parser.add_argument("--logical_routers_enabled", type=_bool,
+                        help="Enabled logical routers")
 
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
