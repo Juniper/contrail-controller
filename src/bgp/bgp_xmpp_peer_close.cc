@@ -90,7 +90,7 @@ void BgpXmppPeerClose::ReceiveEndOfRIB(Address::Family family) {
 // Process any pending subscriptions as close manager is now no longer
 // using membership manager.
 void BgpXmppPeerClose::MembershipRequestCallbackComplete() {
-    CHECK_CONCURRENCY("xmpp::StateMachine");
+    CHECK_CONCURRENCY(GetTaskName());
     if (channel_) {
         assert(!GetManager()->IsMembershipInUse());
         channel_->ProcessPendingSubscriptions();
@@ -98,11 +98,11 @@ void BgpXmppPeerClose::MembershipRequestCallbackComplete() {
 }
 
 const char *BgpXmppPeerClose::GetTaskName() const {
-    return "xmpp::StateMachine";
+    return "bgp::Config";
 }
 
 int BgpXmppPeerClose::GetTaskInstance() const {
-    return channel_->channel()->GetTaskInstance();
+    return 0;
 }
 
 void BgpXmppPeerClose::CustomClose() {

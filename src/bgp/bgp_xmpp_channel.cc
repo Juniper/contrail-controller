@@ -1882,7 +1882,7 @@ void BgpXmppChannel::FlushDeferQ(string vrf_name) {
 // Mark all current subscriptions as 'stale'. This is called when peer close
 // process is initiated by BgpXmppChannel via PeerCloseManager.
 void BgpXmppChannel::StaleCurrentSubscriptions() {
-    CHECK_CONCURRENCY("xmpp::StateMachine");
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
     BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
                   routing_instances_) {
         entry.second.SetGrStale();
@@ -1893,7 +1893,7 @@ void BgpXmppChannel::StaleCurrentSubscriptions() {
 
 // Mark all current subscriptions as 'llgr_stale'.
 void BgpXmppChannel::LlgrStaleCurrentSubscriptions() {
-    CHECK_CONCURRENCY("xmpp::StateMachine");
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
     BOOST_FOREACH(SubscribedRoutingInstanceList::value_type &entry,
                   routing_instances_) {
         assert(entry.second.IsGrStale());
@@ -1905,7 +1905,7 @@ void BgpXmppChannel::LlgrStaleCurrentSubscriptions() {
 
 // Sweep all current subscriptions which are still marked as 'stale'.
 void BgpXmppChannel::SweepCurrentSubscriptions() {
-    CHECK_CONCURRENCY("xmpp::StateMachine");
+    CHECK_CONCURRENCY(peer_close_->GetTaskName());
     for (SubscribedRoutingInstanceList::iterator i = routing_instances_.begin();
             i != routing_instances_.end();) {
         if (i->second.IsGrStale()) {
