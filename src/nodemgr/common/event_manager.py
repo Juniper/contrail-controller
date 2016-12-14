@@ -245,6 +245,7 @@ class EventManager(object):
             node_status.name = name
             node_status.deleted = delete_status
             node_status.process_info = process_infos
+            node_status.build_info = self.get_build_info()
             node_status_uve = NodeStatusUVE(table=self.table,
                                             data=node_status)
 	    msg = 'send_process_state_db_base: Sending UVE:' + str(node_status_uve)
