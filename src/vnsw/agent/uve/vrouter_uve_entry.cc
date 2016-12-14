@@ -119,7 +119,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     map<string, PhyIfStats> phy_if_list;
     map<string, PhyIfInfo> phy_if_info;
-    map<string, VrouterDropStats> phy_if_ds;
+    map<string, AgentDropStats> phy_if_ds;
     BuildPhysicalInterfaceList(phy_if_list, phy_if_info, phy_if_ds);
     stats.set_raw_phy_if_stats(phy_if_list);
     stats.set_raw_phy_if_drop_stats(phy_if_ds);
@@ -173,7 +173,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
         uve->stats_manager()->GetInterfaceStats(vhost);
     if (s != NULL) {
         AgentIfStats vhost_stats;
-        VrouterDropStats vhost_ds;
+        AgentDropStats vhost_ds;
         vhost_stats.set_name(agent_->vhost_interface_name());
         vhost_stats.set_in_pkts(s->in_pkts);
         vhost_stats.set_in_bytes(s->in_bytes);
@@ -188,7 +188,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     SetVrouterPortBitmap(stats);
 
-    VrouterDropStats ds;
+    AgentDropStats ds;
     FetchDropStats(ds);
     stats.set_raw_drop_stats(ds);
 
@@ -273,7 +273,7 @@ uint64_t VrouterUveEntry::GetBandwidthUsage(StatsManager::InterfaceStats *s,
 
 bool VrouterUveEntry::BuildPhysicalInterfaceList(map<string, PhyIfStats> &list,
                                                  map<string, PhyIfInfo> &info,
-                                                 map<string, VrouterDropStats> &dsmap)
+                                                 map<string, AgentDropStats> &dsmap)
                                                  const {
     bool changed = false;
     PhysicalInterfaceSet::const_iterator it = phy_intf_set_.begin();
@@ -298,7 +298,7 @@ bool VrouterUveEntry::BuildPhysicalInterfaceList(map<string, PhyIfStats> &list,
         phy_if_info.set_duplexity(s->duplexity);
         info.insert(make_pair(intf->name(), phy_if_info));
 
-        VrouterDropStats ds;
+        AgentDropStats ds;
         uve->stats_manager()->BuildDropStats(s->drop_stats, ds);
         dsmap.insert(make_pair(intf->name(), ds));
         changed = true;
@@ -421,7 +421,7 @@ void VrouterUveEntry::InitPrevStats() const {
     }
 }
 
-void VrouterUveEntry::FetchDropStats(VrouterDropStats &ds) const {
+void VrouterUveEntry::FetchDropStats(AgentDropStats &ds) const {
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
     const vr_drop_stats_req &req = uve->stats_manager()->drop_stats();
     uve->stats_manager()->BuildDropStats(req, ds);

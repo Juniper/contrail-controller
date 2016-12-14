@@ -113,10 +113,10 @@ struct UveVMInterfaceAgent {
    28: optional list<string> fixed_ip4_list;
    29: optional list<string> fixed_ip6_list;
 
-   33: optional vrouter.VrouterDropStats raw_drop_stats (metric="agg", hidden="yes")
+   33: optional vrouter.AgentDropStats raw_drop_stats (metric="agg", hidden="yes")
    /** @display_name:VMI Packet drop Statistics*/
-   34: optional vrouter.VrouterDropStats drop_stats (stats="raw_drop_stats:DSNon0:", tags="virtual_network")
-   35: optional vrouter.VrouterDropStats drop_stats_1h (stats="raw_drop_stats:DSSum:3600")
+   34: optional vrouter.AgentDropStats drop_stats (stats="raw_drop_stats:DSNon0:", tags="virtual_network")
+   35: optional vrouter.AgentDropStats drop_stats_1h (stats="raw_drop_stats:DSSum:3600")
 }
 
 /**
