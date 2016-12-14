@@ -1306,7 +1306,7 @@ class RouteTargetST(DBBaseST):
                 cls.locate(obj.get_fq_name_str(), obj)
             else:
                 cls._vnc_lib.route_target_delete(id=obj.uuid)
-        for ri, val in cls._object_db.list_route_target():
+        for ri, val in cls._object_db._rt_cf.get_range():
             rt = val['rtgt_num']
             asn = GlobalSystemConfigST.get_autonomous_system()
             rt_key = "target:%s:%s" % (
@@ -2254,6 +2254,7 @@ class RoutingInstanceST(DBBaseST):
             ri2 = RoutingInstanceST.get(ri2_name)
             if ri2:
                 ri2.connections.discard(self.name)
+
         rtgt_list = self.obj.get_route_target_refs()
         self._object_db.free_route_target(self.name)
 

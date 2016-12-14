@@ -10,12 +10,18 @@ from pycassa import NotFoundException
 
 import cfgm_common as common
 from cfgm_common.exceptions import VncError, NoIdError
+from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME
 import uuid
 
 class SchemaTransformerDB(VncObjectDBClient):
 
+    _KEYSPACE = SCHEMA_KEYSPACE_NAME
+    _RT_CF = 'route_target_table'
+    _SC_IP_CF = 'service_chain_ip_address_table'
+    _SERVICE_CHAIN_CF = 'service_chain_table'
+    _SERVICE_CHAIN_UUID_CF = 'service_chain_uuid_table'
     _zk_path_prefix = ''
 
     _BGP_RTGT_MAX_ID = 1 << 24
@@ -43,60 +49,55 @@ class SchemaTransformerDB(VncObjectDBClient):
     def __init__(self, manager, zkclient):
         self._manager = manager
         self._args = manager._args
-        self._db_engine = self._args.db_engine
-        db_engine = self._db_engine
+        self._zkclient = zkclient
+
         if self._args.cluster_id:
             self._zk_path_pfx = self._args.cluster_id + '/'
         else:
             self._zk_path_pfx = ''
 
+        keyspaces = {
+            self._KEYSPACE: {self._RT_CF: {},
+                             self._SC_IP_CF: {},
+                             self._SERVICE_CHAIN_CF: {},
+                             self._SERVICE_CHAIN_UUID_CF: {}}}
+        cass_server_list = self._args.cassandra_server_list
+
         cred = None
-        if db_engine == 'cassandra':
-            self._db = zkclient
-            cass_server_list = self._args.cassandra_server_list
+        if (self._args.cassandra_user is not None and
+            self._args.cassandra_password is not None):
+            cred={'username':self._args.cassandra_user,
+                  'password':self._args.cassandra_password}
 
-            if (self._args.cassandra_user is not None and
-                self._args.cassandra_password is not None):
-                cred={'username':self._args.cassandra_user,
-                    'password':self._args.cassandra_password}
+        super(SchemaTransformerDB, self).__init__(
+            cass_server_list, self._args.cluster_id, keyspaces, None,
+            manager.logger.log, reset_config=self._args.reset_config,
+            credential=cred)
 
-            super(SchemaTransformerDB, self).__init__(
-                cass_server_list, self._args.cluster_id, None, None,
-                manager.logger.log, reset_config=self._args.reset_config,
-                credential=cred, db_engine=db_engine)
+        SchemaTransformerDB._rt_cf = self._cf_dict[self._RT_CF]
+        SchemaTransformerDB._sc_ip_cf = self._cf_dict[self._SC_IP_CF]
+        SchemaTransformerDB._service_chain_cf = self._cf_dict[
+            self._SERVICE_CHAIN_CF]
+        SchemaTransformerDB._service_chain_uuid_cf = self._cf_dict[
+            self._SERVICE_CHAIN_UUID_CF]
 
-            # reset zookeeper config
-            if self._args.reset_config:
-                zkclient.delete_node(
-                    self._zk_path_pfx + self._BGP_RTGT_ALLOC_PATH, True)
-                zkclient.delete_node(
-                    self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH, True)
-                zkclient.delete_node(
-                    self._zk_path_pfx + self._SERVICE_CHAIN_VLAN_ALLOC_PATH, True)
-
-            self._upgrade_vlan_alloc_path()
-        elif db_engine == 'rdbms':
-            db_server_list = self._args.rdbms_server_list
-
-            if self._args.rdbms_user is not None and self._args.rdbms_password is not None:
-                cred = {'username': self._args.rdbms_user,
-                        'password': self._args.rdbms_password}
-
-            super(SchemaTransformerDB, self).__init__(
-                db_server_list, self._args.cluster_id, None, None,
-                manager.logger.log, reset_config=self._args.reset_config,
-                credential=cred, connection=self._args.rdbms_connection,
-                db_engine=db_engine)
-            self._db = self._object_db.db
+        # reset zookeeper config
+        if self._args.reset_config:
+            zkclient.delete_node(
+                self._zk_path_pfx + self._BGP_RTGT_ALLOC_PATH, True)
+            zkclient.delete_node(
+                 self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH, True)
+            zkclient.delete_node(
+                self._zk_path_pfx + self._SERVICE_CHAIN_VLAN_ALLOC_PATH, True)
 
         # TODO(ethuleau): We keep the virtual network and security group ID
         #                 allocation in schema and in the vnc API for one
         #                 release overlap to prevent any upgrade issue. So the
         #                 following code need to be remove in release (3.2 + 1)
-        self._vn_id_allocator = self.create_index_allocator(
-            self._db, self._zk_path_pfx+self._VN_ID_ALLOC_PATH, self._VN_MAX_ID)
-        self._sg_id_allocator = self.create_index_allocator(
-            self._db, self._zk_path_pfx+self._SECURITY_GROUP_ID_ALLOC_PATH,
+        self._vn_id_allocator = IndexAllocator(
+            zkclient, self._zk_path_pfx+self._VN_ID_ALLOC_PATH, self._VN_MAX_ID)
+        self._sg_id_allocator = IndexAllocator(
+            zkclient, self._zk_path_pfx+self._SECURITY_GROUP_ID_ALLOC_PATH,
             self._SECURITY_GROUP_MAX_ID)
 
         # 0 is not a valid sg id any more. So, if it was previously allocated,
@@ -105,16 +106,17 @@ class SchemaTransformerDB(VncObjectDBClient):
             self._sg_id_allocator.delete(0)
         self._sg_id_allocator.reserve(0, '__reserved__')
 
-        self._rt_allocator = self.create_index_allocator(
-            self._db, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
+        self._rt_allocator = IndexAllocator(
+            zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
             self._BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
 
-        self._bgpaas_port_allocator = self.create_index_allocator(
-            self._db, self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH,
+        self._bgpaas_port_allocator = IndexAllocator(
+            zkclient, self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH,
             self._args.bgpaas_port_end - self._args.bgpaas_port_start,
             self._args.bgpaas_port_start)
 
         self._sc_vlan_allocator_dict = {}
+        self._upgrade_vlan_alloc_path()
     # end __init__
 
     def _upgrade_vlan_alloc_path(self):
@@ -126,7 +128,7 @@ class SchemaTransformerDB(VncObjectDBClient):
         # new format.
         vlan_alloc_path = (self._zk_path_prefix +
                            self._SERVICE_CHAIN_VLAN_ALLOC_PATH)
-        for item in self._db.get_children(vlan_alloc_path):
+        for item in self._zkclient.get_children(vlan_alloc_path):
             try:
                 # in the old format, item was vm id followed by 10 digit vlan
                 # id allocated. Try to parse it to determine if it is still in
@@ -135,18 +137,17 @@ class SchemaTransformerDB(VncObjectDBClient):
                 vlan_id = int(item[-10:])
             except ValueError:
                 continue
-            sc_id = self._db.read_node(vlan_alloc_path+item)
-            self._db.delete_node(vlan_alloc_path+item)
-            self._db.create_node(
+            sc_id = self._zkclient.read_node(vlan_alloc_path+item)
+            self._zkclient.delete_node(vlan_alloc_path+item)
+            self._zkclient.create_node(
                 vlan_alloc_path+item[:-10]+'/'+item[-10:], sc_id)
         # end for item
-
 
     def allocate_service_chain_vlan(self, service_vm, service_chain):
         alloc_new = False
         if service_vm not in self._sc_vlan_allocator_dict:
-            self._sc_vlan_allocator_dict[service_vm] = self.create_index_allocator(
-                self._db,
+            self._sc_vlan_allocator_dict[service_vm] = IndexAllocator(
+                self._zkclient,
                 (self._zk_path_prefix + self._SERVICE_CHAIN_VLAN_ALLOC_PATH +
                  service_vm + '/'),
                 self._SERVICE_CHAIN_MAX_VLAN)
@@ -154,7 +155,8 @@ class SchemaTransformerDB(VncObjectDBClient):
         vlan_ia = self._sc_vlan_allocator_dict[service_vm]
 
         try:
-            vlan = self.get_service_chain_vlan(service_vm, service_chain)
+            vlan = int(self.get_one_col(self._SERVICE_CHAIN_CF,
+                                        service_vm, service_chain))
             db_sc = vlan_ia.read(vlan)
             if (db_sc is None) or (db_sc != service_chain):
                 alloc_new = True
@@ -166,7 +168,8 @@ class SchemaTransformerDB(VncObjectDBClient):
 
         if alloc_new:
             vlan = vlan_ia.alloc(service_chain)
-            self.set_service_chain_vlan(service_vm, service_chain, vlan)
+            self._service_chain_cf.insert(service_vm,
+                                          {service_chain: str(vlan)})
 
         # Since vlan tag 0 is not valid, increment before returning
         return vlan + 1
@@ -175,8 +178,9 @@ class SchemaTransformerDB(VncObjectDBClient):
     def free_service_chain_vlan(self, service_vm, service_chain):
         try:
             vlan_ia = self._sc_vlan_allocator_dict[service_vm]
-            vlan = self.get_service_chain_vlan(service_vm, service_chain)
-            self.remove_service_chain_vlan(service_vm, service_chain)
+            vlan = int(self.get_one_col(self._SERVICE_CHAIN_CF,
+                                        service_vm, service_chain))
+            self._service_chain_cf.remove(service_vm, [service_chain])
             vlan_ia.delete(vlan)
             if vlan_ia.empty():
                 del self._sc_vlan_allocator_dict[service_vm]
@@ -186,6 +190,15 @@ class SchemaTransformerDB(VncObjectDBClient):
             #                 Probably need to be cleaned
             pass
     # end free_service_chain_vlan
+
+    def get_route_target(self, ri_fq_name):
+        try:
+            return int(self.get_one_col(self._RT_CF, ri_fq_name, 'rtgt_num'))
+        except (VncError, NoIdError):
+            # TODO(ethuleau): VncError is raised if more than one row was
+            #                 fetched from db with get_one_col method.
+            #                 Probably need to be cleaned
+            return 0
 
     def alloc_route_target(self, ri_fq_name, zk_only=False):
         alloc_new = False
@@ -203,7 +216,7 @@ class SchemaTransformerDB(VncObjectDBClient):
 
         if (alloc_new):
             rtgt_num = self._rt_allocator.alloc(ri_fq_name)
-            self.set_route_target(ri_fq_name, rtgt_num)
+            self._rt_cf.insert(ri_fq_name, {'rtgt_num': str(rtgt_num)})
 
         return rtgt_num
     # end alloc_route_target
@@ -214,10 +227,47 @@ class SchemaTransformerDB(VncObjectDBClient):
     def free_route_target(self, ri_fq_name):
         try:
             rtgt = self.get_route_target(ri_fq_name)
-            self.remove_route_target(ri_fq_name)
+            self._rt_cf.remove(ri_fq_name)
         except NotFoundException:
             pass
         self._rt_allocator.delete(rtgt)
+    # end free_route_target
+
+    def get_service_chain_ip(self, sc_name):
+        addresses = self.get(self._SC_IP_CF, sc_name)
+        if addresses:
+            return addresses.get('ip_address'), addresses.get('ipv6_address')
+        else:
+            return None, None
+
+    def add_service_chain_ip(self, sc_name, ip, ipv6):
+        val = {}
+        if ip:
+            val['ip_address'] = ip
+        if ipv6:
+            val['ipv6_address'] = ipv6
+        self._sc_ip_cf.insert(sc_name, val)
+
+    def remove_service_chain_ip(self, sc_name):
+        try:
+            self._sc_ip_cf.remove(sc_name)
+        except NotFoundException:
+            pass
+
+    def list_service_chain_uuid(self):
+        try:
+            return self._service_chain_uuid_cf.get_range()
+        except NotFoundException:
+            return []
+
+    def add_service_chain_uuid(self, name, value):
+        self._service_chain_uuid_cf.insert(name, {'value': value})
+
+    def remove_service_chain_uuid(self, name):
+        try:
+            self._service_chain_uuid_cf.remove(name)
+        except NotFoundException:
+            pass
 
     # TODO(ethuleau): We keep the virtual network and security group ID
     #                 allocation in schema and in the vnc API for one

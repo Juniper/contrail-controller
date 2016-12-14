@@ -138,6 +138,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
     # test_add_delete_static_route
 
     def test_public_snat_routes(self):
+
         #create private vn
         vn_private_name = 'vn1'
         vn_private = self.create_virtual_network(vn_private_name, "1.0.0.0/24")
@@ -169,30 +170,27 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         lr.add_virtual_network(vn_public)
         self._vnc_lib.logical_router_create(lr)
 
-        @retries(30)
+        @retries(5)
         def _match_route_table(rtgt_list, ri_name):
             lri = self._vnc_lib.routing_instance_read(
                 fq_name_str=ri_name)
             sr = lri.get_static_route_entries()
             if sr is None:
                 raise Exception("sr is None")
-            if len(sr.route) == 0:
-                raise Exception("No route in sr")
-
             route = sr.route[0]
             self.assertEqual(route.prefix, "0.0.0.0/0")
             self.assertEqual(route.next_hop, "100.64.0.4")
             for rtgt in rtgt_list:
                 self.assertIn(rtgt, route.route_target)
 
-        @retries(30)
+        @retries(5)
         def _wait_to_get_si():
             si_list = self._vnc_lib.service_instances_list()
             si = si_list.get("service-instances")[0]
             si = self._vnc_lib.service_instance_read(id=si.get("uuid"))
             return si
 
-        @retries(30)
+        @retries(5)
         def _wait_to_delete_si():
             si_list = self._vnc_lib.service_instances_list()
             try:
@@ -202,12 +200,12 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
             except:
                 pass
 
-        @retries(30)
+        @retries(5)
         def _wait_to_delete_ip(vn_fq_name):
             vn = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
             ip_refs = vn.get_instance_ip_back_refs()
             if ip_refs:
-                raise Exception("ip refs still exist")
+                raise
             return
         # end
 
