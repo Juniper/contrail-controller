@@ -42,6 +42,14 @@ class VncService(object):
             return None
         return vn_obj
 
+    def _get_public_fip_pool(self):
+        fip_pool_fq_name = ['default-domain', 'default', '__public__', '__fip_pool_public__']
+        try:
+            fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
+        except NoIdError:
+            return None
+        return fip_pool_obj
+
     def _get_virtualmachine(self, id):
         try:
             vm_obj = self._vnc_lib.virtual_machine_read(id=id)
@@ -73,7 +81,7 @@ class VncService(object):
             return
 
         listener_found = True
-        for ll_id in lb.loadbalancer_listeners:
+        for ll_id in list(lb.loadbalancer_listeners):
             ll = LoadbalancerListenerKM.get(ll_id)
             if not ll:
                 contine
@@ -86,13 +94,13 @@ class VncService(object):
                     listener_found = False
 
             if not listener_found:
-                contine
+                continue
             pool_id = ll.loadbalancer_pool
             if not pool_id:
-                contine
+                continue
             pool = LoadbalancerPoolKM.get(pool_id)
             if not pool:
-                contine
+                continue
             vm = VirtualMachineKM.get(pod_id)
             if not vm: 
                 continue
@@ -119,7 +127,7 @@ class VncService(object):
             return
 
         listener_found = True
-        for ll_id in lb.loadbalancer_listeners:
+        for ll_id in list(lb.loadbalancer_listeners):
             ll = LoadbalancerListenerKM.get(ll_id)
             if not ll:
                 contine
@@ -226,13 +234,108 @@ class VncService(object):
 
         self._create_listeners(service_namespace, lb, ports)
 
+    def _get_floating_ip(self, service_id):
+        lb = LoadbalancerKM.get(service_id)
+        if not lb:
+            return
+        vmi_ids = lb.virtual_machine_interfaces
+        if vmi_ids is None:
+            return None
+        interface_found=False
+        for vmi_id in vmi_ids:
+            vmi = VirtualMachineInterfaceKM.get(vmi_id)
+            if vmi is not None:
+                interface_found=True
+                break
+        if interface_found is False:
+            return
+
+        fip_ids = vmi.floating_ips
+        if fip_ids is None:
+            return None
+        for fip_id in list(fip_ids):
+            fip = FloatingIpKM.get(fip_id)
+            if fip is not None:
+                return fip.address
+
+        return None
+
+    def _allocate_floating_ip(self, service_id, external_ip):
+        lb = LoadbalancerKM.get(service_id)
+        if not lb:
+            return
+        vmi_ids = lb.virtual_machine_interfaces
+        if vmi_ids is None:
+            return None
+        interface_found=False
+        for vmi_id in vmi_ids:
+            vmi = VirtualMachineInterfaceKM.get(vmi_id)
+            if vmi is not None:
+                interface_found=True
+                break
+        if interface_found is False:
+            return
+
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
+        if vmi_obj is None:
+            return
+        fip_pool = self._get_public_fip_pool()
+        if fip_pool is None:
+            return
+        fip_obj = FloatingIp(lb.name + "-externalIP", fip_pool)
+        fip_obj.set_virtual_machine_interface(vmi_obj)
+        if external_ip is None:
+            fip_obj.set_floating_ip_address(external_ip)
+        project = self._vnc_lib.project_read(id=lb.parent_uuid)
+        fip_obj.set_project(project)
+        self._vnc_lib.floating_ip_create(fip_obj)
+
+    def _deallocate_floating_ip(self, service_id):
+        lb = LoadbalancerKM.get(service_id)
+        if not lb:
+            return
+        vmi_ids = lb.virtual_machine_interfaces
+        if vmi_ids is None:
+            return None
+        interface_found=False
+        for vmi_id in vmi_ids:
+            vmi = VirtualMachineInterfaceKM.get(vmi_id)
+            if vmi is not None:
+                interface_found=True
+                break
+        if interface_found is False:
+            return
+
+        fip_ids = vmi.floating_ips.copy()
+        for fip_id in fip_ids:
+            self._vnc_lib.floating_ip_delete(id=fip_id)
+
+    def _update_service_external_ip(self, service_id, external_ip):
+        pass
+
+    def _update_service_public_ip(self, service_id, service_name,
+                        service_namespace, service_type, external_ip):
+        public_ip = self._get_floating_ip(service_id)
+        if service_type in ["LoadBalancer"]:
+            if public_ip is None:
+                public_ip = self._allocate_floating_ip(service_id, external_ip)
+                if external_ip is None:
+                    self._update_service_external_ip(service_id, public_ip)
+        elif service_type in ["ClusterIP"]:
+            if public_ip is not None:
+                public_ip = self._deallocate_floating_ip(service_id)
+
     def vnc_service_add(self, service_id, service_name,
-            service_namespace, service_ip, selectors, ports):
+                        service_namespace, service_ip, selectors, ports,
+                        service_type, externalIp):
         self._lb_create(service_id, service_name, service_namespace, service_ip,
                         selectors, ports)
 
         if selectors:
             self.check_service_selectors_actions(selectors, service_id, ports)
+
+        self._update_service_public_ip(service_id, service_name,
+                        service_namespace, service_type, externalIp)
 
     def _vnc_delete_member(self, member_id):
         self.service_lb_member_mgr.delete(member_id)
@@ -279,6 +382,7 @@ class VncService(object):
 
     def vnc_service_delete(self, service_id, service_name, 
                            service_namespace, service_ip, selectors, ports):
+        self._deallocate_floating_ip(service_id)
         self._lb_delete(service_id, service_name, service_namespace, service_ip,
                         selectors, ports)
         if selectors:
@@ -291,10 +395,13 @@ class VncService(object):
         service_ip = event['object']['spec'].get('clusterIP')
         selectors = event['object']['spec'].get('selector', None)
         ports = event['object']['spec'].get('ports')
+        service_type  = event['object']['spec'].get('type')
+        externalIp  = event['object']['spec'].get('externalIPs', None)
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_service_add(service_id, service_name,
-                service_namespace, service_ip, selectors, ports)
+                service_namespace, service_ip, selectors, ports,
+                service_type, externalIp)
         elif event['type'] == 'DELETED':
             self.vnc_service_delete(service_id, service_name, service_namespace,
                                     service_ip, selectors, ports)

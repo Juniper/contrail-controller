@@ -29,8 +29,11 @@ class EndPointMonitor(KubeMonitor):
         self.q.put(event)
 
     def process(self):
-        line = next(self.handle)
-        if not line:
+        try:
+            line = next(self.handle)
+            if not line:
+                return
+        except StopIteration:
             return
 
         try:
