@@ -46,14 +46,20 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
      <xsd:element name="security-group" type="xsd:integer" maxOccurs="unbounded"/>
 </xsd:complexType> 
 
+<xsd:complexType name="EnetMobilityType">
+    <xsd:attribute name="sticky" type="xsd:boolean"/>
+    <xsd:attribute name="seqno" type="xsd:integer"/>
+</xsd:complexType>
+
 <xsd:complexType name="EnetEntryType">
     <xsd:all>
         <xsd:element name="nlri" type="EnetAddressType"/>
         <xsd:element name="next-hops" type="EnetNextHopListType"/>
         <xsd:element name="olist" type="EnetOlistType"/>
         <xsd:element name="virtual-network" type="xsd:string"/>
+        <xsd:element name="mobility" type="EnetMobilityType"/>
+        <!-- sequence-number is deprecated in favor of mobility -->
         <xsd:element name="sequence-number" type="xsd:integer"/>
-        <xsd:element name="sticky" type="xsd:boolean" default="false"/>
         <xsd:element name="security-group-list" type="EnetSecurityGroupListType"/>
         <xsd:element name="local-preference" type="xsd:integer"/>
         <xsd:element name="med" type="xsd:integer"/>

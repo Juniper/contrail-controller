@@ -55,10 +55,39 @@ TEST_F(QueryTest, Decode) {
     xdoc_.reset();
 }
 
+TEST_F(QueryTest, Decode_1) {
+    pugi::xml_parse_result result =
+            xdoc_.load_file("controller/src/schema/testdata/bgp_l3vpn_unicast_3.xml");
+    EXPECT_TRUE(result);
+
+    pugi::xml_node node = xdoc_.first_child();
+    if (node.type() != pugi::node_null) {
+        EntryType::XmlParseProperty(node, &xparser_);
+
+        EntryType *entryp_;
+        entryp_ = (static_cast<EntryType *>(xparser_.get()));
+
+        EXPECT_EQ(entryp_->nlri.af, 1);
+        ASSERT_STREQ(entryp_->nlri.address.c_str(), "10.1.2.1/32");
+
+        EXPECT_EQ(entryp_->next_hops.next_hop[0].af, 1);
+        ASSERT_STREQ(entryp_->next_hops.next_hop[0].address.c_str(),
+                     "infrastructure-ip-address");
+        EXPECT_EQ(entryp_->next_hops.next_hop[0].label, 10000);
+        EXPECT_EQ(entryp_->version, 1);
+        EXPECT_EQ(entryp_->mobility.seqno, 5);
+        EXPECT_EQ(entryp_->mobility.sticky, false);
+    }
+    xdoc_.reset();
+}
+
+
 TEST_F(QueryTest, Encode) {
     EntryType entryp_;
 
     entryp_.version = 2;
+    entryp_.mobility.seqno = 2;
+    entryp_.mobility.sticky = true;
     entryp_.nlri.af = 1;
     entryp_.nlri.address = "10.2.2.2";
 
@@ -72,7 +101,6 @@ TEST_F(QueryTest, Encode) {
     pugi::xml_node node = xdoc_.root();
     pugi::xml_node node_p = node.append_child("entry");
     entryp_.Encode(&node_p);
-
     node = xdoc_.first_child();
     if (node.type() != pugi::node_null) {
         EntryType::XmlParseProperty(node, &xparser_);
@@ -86,6 +114,8 @@ TEST_F(QueryTest, Encode) {
         ASSERT_STREQ(entryp2_->next_hops.next_hop[0].address.c_str(),
                      "20.2.2.2");
         EXPECT_EQ(entryp2_->version, 2);
+        EXPECT_EQ(entryp2_->mobility.seqno, 2);
+        EXPECT_EQ(entryp2_->mobility.sticky, true);
         EXPECT_EQ(entryp2_->next_hops.next_hop[0].label, 1000);
     }
     xdoc_.reset();

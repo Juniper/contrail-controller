@@ -71,14 +71,20 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
     <xsd:element name="load-balance-decision" type="LoadBalanceDecisionType" default="field-hash"/>
 </xsd:complexType>
 
+<xsd:complexType name="MobilityType">
+    <xsd:attribute name="sticky" type="xsd:boolean"/>
+    <xsd:attribute name="seqno" type="xsd:integer"/>
+</xsd:complexType>
+
 <xsd:complexType name="EntryType">
     <xsd:all>
         <xsd:element name="nlri" type="IPAddressType"/>
         <xsd:element name="next-hops" type="NextHopListType"/>
         <xsd:element name="version" type="xsd:integer"/>
         <xsd:element name="virtual-network" type="xsd:string"/>
+        <xsd:element name="mobility" type="MobilityType"/>
+        <!-- sequence-number is deprecated in favor of mobility -->
         <xsd:element name="sequence-number" type="xsd:integer"/>
-        <xsd:element name="sticky" type="xsd:boolean" default="false"/>
         <xsd:element name="security-group-list" type="SecurityGroupListType"/>
         <xsd:element name="community-tag-list" type="CommunityTagListType"/>
         <xsd:element name="local-preference" type="xsd:integer"/>
