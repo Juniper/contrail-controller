@@ -145,57 +145,57 @@ struct AgentXmppStats {
 }
 
 /**
- * Structure definition for Drop Statistics at phy-if, vhost or VMI level
+ * Structure definition for Drop Statistics at vrouter, phy-if, vhost or
+ * VMI level
  */
-struct VrouterDropStats {
-    1:  optional u64 discard
-    2:  optional u64 pull
-    3:  optional u64 invalid_if
-    4:  optional u64 invalid_arp
-    5:  optional u64 trap_no_if
-    6:  optional u64 nowhere_to_go
-    7:  optional u64 flow_queue_limit_exceeded
-    8:  optional u64 flow_no_memory
-    9:  optional u64 flow_invalid_protocol
-    10: optional u64 flow_nat_no_rflow
-    11: optional u64 flow_action_drop
-    12: optional u64 flow_action_invalid
-    13: optional u64 flow_unusable
-    14: optional u64 flow_table_full
-    15: optional u64 interface_tx_discard
-    16: optional u64 interface_drop
-    17: optional u64 duplicated
-    18: optional u64 push
-    19: optional u64 ttl_exceeded
-    20: optional u64 invalid_nh
-    21: optional u64 invalid_label
-    22: optional u64 invalid_protocol
-    23: optional u64 interface_rx_discard
-    24: optional u64 invalid_mcast_source
-    25: optional u64 head_alloc_fail
-    26: optional u64 pcow_fail
-    27: optional u64 mcast_clone_fail
-    28: optional u64 mcast_df_bit
-    29: optional u64 no_memory
-    30: optional u64 rewrite_fail
-    31: optional u64 misc
-    32: optional u64 invalid_packet
-    33: optional u64 cksum_err
-    34: optional u64 no_fmd
-    35: optional u64 invalid_vnid
-    36: optional u64 frag_err
-    37: optional u64 invalid_source
-    38: optional u64 l2_no_route
-    39: optional u64 fragment_queue_fail
-    40: optional u64 vlan_fwd_tx
-    41: optional u64 vlan_fwd_enq
-    42: optional u64 drop_new_flow
-    43: optional u64 flow_evict
-    44: optional u64 trap_original
+struct AgentDropStats {
+    1:  optional u64   ds_discard;
+    2:  optional u64   ds_pull;
+    3:  optional u64   ds_invalid_if;
+    6:  optional u64   ds_invalid_arp;
+    7:  optional u64   ds_trap_no_if;
+    8:  optional u64   ds_nowhere_to_go;
+    9:  optional u64   ds_flow_queue_limit_exceeded;
+    10: optional u64   ds_flow_no_memory;
+    11: optional u64   ds_flow_invalid_protocol;
+    12: optional u64   ds_flow_nat_no_rflow;
+    13: optional u64   ds_flow_action_drop;
+    14: optional u64   ds_flow_action_invalid;
+    15: optional u64   ds_flow_unusable;
+    16: optional u64   ds_flow_table_full;
+    17: optional u64   ds_interface_tx_discard;
+    18: optional u64   ds_interface_drop;
+    19: optional u64   ds_duplicated;
+    20: optional u64   ds_push;
+    21: optional u64   ds_ttl_exceeded;
+    22: optional u64   ds_invalid_nh;
+    23: optional u64   ds_invalid_label;
+    24: optional u64   ds_invalid_protocol;
+    25: optional u64   ds_interface_rx_discard;
+    26: optional u64   ds_invalid_mcast_source;
+    27: optional u64   ds_head_alloc_fail;
+    29: optional u64   ds_pcow_fail;
+    31: optional u64   ds_mcast_clone_fail;
+    33: optional u64   ds_rewrite_fail;
+    34: optional u64   ds_misc;
+    35: optional u64   ds_invalid_packet;
+    36: optional u64   ds_cksum_err;
+    38: optional u64   ds_no_fmd;
+    40: optional u64   ds_invalid_vnid;
+    41: optional u64   ds_frag_err;
+    42: optional u64   ds_invalid_source;
+    43: optional u64   ds_mcast_df_bit;
+    46: optional u64   ds_l2_no_route;
+    48: optional u64   ds_vlan_fwd_tx;
+    49: optional u64   ds_vlan_fwd_enq;
+    50: optional u64   ds_drop_new_flow
+    51: optional u64   ds_flow_evict
+    52: optional u64   ds_trap_original
+    53: optional u64   ds_no_memory
+    54: optional u64   ds_fragment_queue_fail
     /** Drop packet count */
-    45: optional u64 drop_pkts
+    55: optional u64   ds_drop_pkts
 }
-
 /**
  * Structure definition for vrouter host interface statistics
  */
@@ -292,10 +292,10 @@ struct VrouterStatsAgent {  // Agent stats
     /** @display_name:Vrouter vhost Interface Traffic Statistics*/
     77: optional AgentIfStats vhost_stats (stats="raw_vhost_stats:DSNon0:", tags="")
 
-    78: optional VrouterDropStats raw_vhost_drop_stats (metric="agg", hidden="yes")
+    78: optional AgentDropStats raw_vhost_drop_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter vhost Interface Drop Statistics*/
-    79: optional VrouterDropStats vhost_drop_stats (stats="raw_vhost_drop_stats:DSNon0:", tags="")
-    80: optional VrouterDropStats vhost_drop_stats_1h (stats="raw_vhost_drop_stats:DSSum:3600")
+    79: optional AgentDropStats vhost_drop_stats (stats="raw_vhost_drop_stats:DSNon0:", tags="")
+    80: optional AgentDropStats vhost_drop_stats_1h (stats="raw_vhost_drop_stats:DSSum:3600")
 
     /** Bandwidth of physical interface in bps for last 5 minutes */
     36: optional list<AgentIfBandwidth> phy_if_5min_usage; 
@@ -305,11 +305,11 @@ struct VrouterStatsAgent {  // Agent stats
     41: optional list<u32>   tcp_dport_bitmap;
 
     /** List of drop reasons with packet count for each drop reason */
-    42: optional VrouterDropStats raw_drop_stats (metric="agg", hidden="yes")
+    42: optional AgentDropStats raw_drop_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter Packet drop Statistics*/
-    60: optional VrouterDropStats drop_stats (stats="raw_drop_stats:DSNon0:", tags="")
+    60: optional AgentDropStats drop_stats (stats="raw_drop_stats:DSNon0:", tags="")
     /** List of drop reasons with packet count for each drop reason for past 1 hour*/
-    61: optional VrouterDropStats drop_stats_1h  (stats="raw_drop_stats:DSSum:3600")
+    61: optional AgentDropStats drop_stats_1h  (stats="raw_drop_stats:DSSum:3600")
 
     43: optional double total_in_bandwidth_utilization;
     44: optional double total_out_bandwidth_utilization;
@@ -352,10 +352,10 @@ struct VrouterStatsAgent {  // Agent stats
     75: optional map<string, derived_stats_results.AnomalyResult> out_pkts_ewm
                      (mstats="raw_phy_if_stats.out_pkts:DSAnomaly:EWM:0.1")
 
-    81: optional map<string, VrouterDropStats> raw_phy_if_drop_stats (metric="agg", hidden="yes")
+    81: optional map<string, AgentDropStats> raw_phy_if_drop_stats (metric="agg", hidden="yes")
     /** @display_name:Vrouter Physical Interface Drop Statistics*/
-    82: optional map<string, VrouterDropStats> phy_if_drop_stats (mstats="raw_phy_if_drop_stats:DSNon0:", tags="")
-    83: optional map<string, VrouterDropStats> phy_if_drop_stats_1h (mstats="raw_phy_if_drop_stats:DSSum:3600")
+    82: optional map<string, AgentDropStats> phy_if_drop_stats (mstats="raw_phy_if_drop_stats:DSNon0:", tags="")
+    83: optional map<string, AgentDropStats> phy_if_drop_stats_1h (mstats="raw_phy_if_drop_stats:DSSum:3600")
 }
 
 /**
