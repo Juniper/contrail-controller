@@ -145,6 +145,21 @@ void RESTServer::VmVnPortGetHandler(const struct RESTData& data) {
     }
 }
 
+void RESTServer::VmVnPortCfgGetHandler(const struct RESTData& data) {
+    const std::string &vm_uuid = (*data.match)[1];
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        std::string info;
+        if (pih->GetVmVnCfgPort(vm_uuid, info)) {
+            REST::SendResponse(data.session, info);
+        } else {
+            REST::SendErrorResponse(data.session, "{ Not Found }", 404);
+        }
+    } else {
+        REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
 const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
     boost::assign::list_of
     (HandlerSpecifier(
@@ -186,7 +201,12 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         boost::regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
                      "[0-9a-f]{12})"),
         HTTP_GET,
-        &RESTServer::VmVnPortGetHandler));
+        &RESTServer::VmVnPortGetHandler))
+    (HandlerSpecifier(
+        boost::regex("/vm-cfg/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                     "[0-9a-f]{12})"),
+        HTTP_GET,
+        &RESTServer::VmVnPortCfgGetHandler));
 
 RESTServer::RESTServer(Agent *agent)
     : agent_(agent), http_server_(new HttpServer(agent->event_manager())) {
