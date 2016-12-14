@@ -42,15 +42,24 @@ struct VrfData : public AgentOperDBData {
         ConfigVrf = 1 << 0,     // vrf is received from config
         GwVrf     = 1 << 1,     // GW configured for this VRF
         MirrorVrf = 1 << 2,     // internally Created VRF
+        PbbVrf    = 1 << 3,     // Per ISID VRF
     };
 
     VrfData(Agent *agent, IFMapNode *node, uint32_t flags,
-            const boost::uuids::uuid &vn_uuid) :
-        AgentOperDBData(agent, node), flags_(flags), vn_uuid_(vn_uuid) {}
+            const boost::uuids::uuid &vn_uuid, uint32_t isid,
+            const std::string bmac_vrf_name,
+            uint32_t mac_aging_time, bool learning_enabled) :
+        AgentOperDBData(agent, node), flags_(flags), vn_uuid_(vn_uuid),
+        isid_(isid), bmac_vrf_name_(bmac_vrf_name),
+        mac_aging_time_(mac_aging_time), learning_enabled_(learning_enabled) {}
     virtual ~VrfData() {}
 
     uint32_t flags_;
     boost::uuids::uuid vn_uuid_;
+    uint32_t isid_;
+    std::string bmac_vrf_name_;
+    uint32_t mac_aging_time_;
+    bool learning_enabled_;
 };
 
 class VrfEntry : AgentRefCount<VrfEntry>, public AgentOperDBEntry {
@@ -87,6 +96,24 @@ public:
         return table_label_;
     }
 
+    const std::string& GetExportName() {
+        if (are_flags_set(VrfData::PbbVrf)) {
+            return bmac_vrf_name_;
+        }
+        return name_;
+    }
+
+    bool learning_enabled() const {
+        return learning_enabled_;
+    }
+
+    bool ShouldExportRoute() const {
+        if (are_flags_set(VrfData::PbbVrf)) {
+            return false;
+        }
+        return true;
+    }
+
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
     InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key)const;
@@ -116,7 +143,8 @@ public:
     AgentRouteTable *GetBridgeRouteTable() const;
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
-    void CreateTableLabel();
+    void CreateTableLabel(bool learning_enabled, bool l2,
+                          bool flod_unknown_unicast);
     bool AllRouteTableDeleted() const;
     bool RouteTableDeleted(uint8_t table_type) const;
     void SetRouteTableDeleted(uint8_t table_type);
@@ -132,9 +160,25 @@ public:
     }
     InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr) const;
 
+    uint32_t isid() const {
+        return isid_;
+    }
+
+    const std::string bmac_vrf_name() const {
+        return bmac_vrf_name_;
+    }
+
+    bool IsPbbVrf() const {
+        return are_flags_set(VrfData::PbbVrf);
+    }
+
+    uint32_t mac_aging_time() const {
+        return mac_aging_time_;
+    }
 private:
     friend class VrfTable;
     void CreateRouteTables();
+    void SetNotify();
 
     class DeleteActor;
     string name_;
@@ -151,11 +195,16 @@ private:
     IFMapDependencyManager::IFMapNodePtr vrf_node_ptr_;
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
     bool allow_route_add_on_deleted_vrf_;
+    string bmac_vrf_name_;
+    uint32_t isid_;
+    tbb::atomic<uint32_t> mac_aging_time_;
+    bool learning_enabled_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
 class VrfTable : public AgentOperDBTable {
 public:
+    const static uint32_t kDefaultMacAgingTime = 300;
     // Map from VRF Name to VRF Entry
     typedef map<string, VrfEntry *> VrfNameTree;
     typedef pair<string, VrfEntry *> VrfNamePair;
@@ -189,7 +238,12 @@ public:
                                             const std::string &context);
 
     // Create a VRF entry with given name
-    void CreateVrf(const string &name, uint32_t flags = VrfData::ConfigVrf);
+    void CreateVrf(const string &name,
+                   const boost::uuids::uuid &vn_uuid, uint32_t flags);
+    void CreateVrf(const string &name,
+                   const boost::uuids::uuid &vn_uuid, uint32_t flags,
+                   uint32_t isid, const std::string& bmac_vrf_name,
+                   uint32_t mac_aging_time, bool learning_enabled);
     void DeleteVrf(const string &name, uint32_t flags = VrfData::ConfigVrf);
     void CreateVrfReq(const string &name, uint32_t flags = VrfData::ConfigVrf);
     void CreateVrfReq(const string &name, const boost::uuids::uuid &vn_uuid,

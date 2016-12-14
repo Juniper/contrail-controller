@@ -153,7 +153,8 @@ void Agent::SetAgentTaskPolicy() {
         AGENT_INIT_TASKNAME,
         AGENT_SANDESH_TASKNAME,
         kTaskConfigManager,
-        INSTANCE_MANAGER_TASK_NAME
+        INSTANCE_MANAGER_TASK_NAME,
+        kTaskMacLearning
     };
     SetTaskPolicyOne("db::DBTable", db_exclude_list, 
                      sizeof(db_exclude_list) / sizeof(char *));
@@ -638,6 +639,9 @@ void Agent::InitPeers() {
                                           false));
     mac_vm_binding_peer_.reset(new Peer(Peer::MAC_VM_BINDING_PEER,
                               MAC_VM_BINDING_PEER_NAME, false));
+    mac_learning_peer_.reset(new Peer(Peer::MAC_LEARNING_PEER,
+                                      MAC_LEARNING_PEER_NAME,
+                                      false));
 }
 
 void Agent::ReconfigSignalHandler(boost::system::error_code ec, int signum) {
@@ -685,6 +689,7 @@ Agent::Agent() :
     pkt_interface_name_("pkt0"), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),
     dhcpv6_proto_(NULL), icmpv6_proto_(NULL), flow_proto_(NULL),
+    mac_learning_proto_(NULL), mac_learning_module_(NULL),
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ecmp_peer_(NULL), vgw_peer_(NULL), evpn_peer_(NULL), multicast_peer_(NULL),
     multicast_tor_peer_(NULL), multicast_tree_builder_peer_(NULL),
@@ -820,6 +825,14 @@ HealthCheckTable *Agent::health_check_table() const {
 
 void Agent::set_health_check_table(HealthCheckTable *table) {
     health_check_table_ = table;
+}
+
+BridgeDomainTable* Agent::bridge_domain_table() const {
+    return bridge_domain_table_;
+}
+
+void Agent::set_bridge_domain_table(BridgeDomainTable *table) {
+    bridge_domain_table_ = table;
 }
 
 MetaDataIpAllocator *Agent::metadata_ip_allocator() const {

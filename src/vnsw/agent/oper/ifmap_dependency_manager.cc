@@ -23,6 +23,7 @@
 #include "oper/vrouter.h"
 #include "oper/global_qos_config.h"
 #include "oper/global_vrouter.h"
+#include "oper/bridge_domain.h"
 #include "cfg/cfg_init.h"
 
 #include <boost/assign/list_of.hpp>
@@ -109,7 +110,9 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "virtual-DNS",
         "global-vrouter-config",
         "virtual-router",
-        "interface-route-table"
+        "interface-route-table",
+        "bridge-domain",
+        "virtual-machine-interface-bridge-domain"
     };
 
     // Link table
@@ -694,7 +697,14 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "routing-instance", true));
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-qos-config",
-                               "qos-config", true));
+                          "qos-config", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-bridge-domain",
+                               "virtual-machine-interface-bridge-domain",
+                               true,
+                               "virtual-machine-interface-bridge-domain",
+                               "bridge-domain", true));
+
     RegisterConfigHandler(this, "virtual-machine-interface",
                           agent ? agent->interface_table() : NULL);
     ////////////////////////////////////////////////////////////////////////
@@ -768,6 +778,13 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                           agent->oper_db()->virtual_dns());
     RegisterConfigHandler(this, "global-vrouter-config",
                           agent->oper_db()->global_vrouter());
+    AddDependencyPath("bridge-domain",
+                      MakePath("virtual-network-bridge-domain",
+                               "virtual-network", true,
+                               "virtual-network-routing-instance",
+                               "routing-instance", true));
+    RegisterConfigHandler(this, "bridge-domain",
+                          agent ? agent->bridge_domain_table() : NULL);
 }
 
 void IFMapNodePolicyReq::HandleRequest() const {

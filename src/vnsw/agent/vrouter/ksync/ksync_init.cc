@@ -59,11 +59,12 @@ KSync::KSync(Agent *agent)
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
       interface_scanner_(new InterfaceKScan(agent)),
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
-      ksync_flow_memory_(new KSyncFlowMemory(this)),
+      ksync_flow_memory_(new KSyncFlowMemory(this, 0)),
       ksync_flow_index_manager_(new KSyncFlowIndexManager(this)),
       qos_queue_ksync_obj_(new QosQueueKSyncObject(this)),
       forwarding_class_ksync_obj_(new ForwardingClassKSyncObject(this)),
-      qos_config_ksync_obj_(new QosConfigKSyncObject(this)) {
+      qos_config_ksync_obj_(new QosConfigKSyncObject(this)),
+      ksync_bridge_memory_(new KSyncBridgeMemory(this, 1)) {
       for (uint16_t i = 0; i < agent->flow_thread_count(); i++) {
           FlowTableKSyncObject *obj = new FlowTableKSyncObject(this);
           flow_table_ksync_obj_list_.push_back(obj);
@@ -121,7 +122,8 @@ void KSync::InitDone() {
 }
 
 void KSync::InitFlowMem() {
-    ksync_flow_memory_.get()->InitFlowMem();
+    ksync_flow_memory_.get()->InitMem();
+    ksync_bridge_memory_.get()->InitMem();
 }
 
 void KSync::NetlinkInit() {
@@ -134,7 +136,7 @@ void KSync::NetlinkInit() {
                            agent_->params()->ksync_thread_cpu_pin_policy());
     for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
         KSyncSock::SetAgentSandeshContext
-            (new KSyncSandeshContext(ksync_flow_memory_.get()), i);
+            (new KSyncSandeshContext(this), i);
     }
     GenericNetlinkInit();
 }
@@ -344,6 +346,7 @@ void KSync::Shutdown() {
     nh_ksync_obj_.reset(NULL);
     mpls_ksync_obj_.reset(NULL);
     ksync_flow_memory_.reset(NULL);
+    ksync_bridge_memory_.reset(NULL);
     mirror_ksync_obj_.reset(NULL);
     vrf_assign_ksync_obj_.reset(NULL);
     vxlan_ksync_obj_.reset(NULL);
@@ -375,6 +378,7 @@ KSyncTcp::KSyncTcp(Agent *agent): KSync(agent) {
 
 void KSyncTcp::InitFlowMem() {
     ksync_flow_memory_.get()->MapSharedMemory();
+    ksync_bridge_memory_.get()->MapSharedMemory();
 }
 
 void KSyncTcp::TcpInit() {
@@ -390,7 +394,7 @@ void KSyncTcp::TcpInit() {
 
     for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
         KSyncSock::SetAgentSandeshContext
-            (new KSyncSandeshContext(ksync_flow_memory_.get()), i);
+            (new KSyncSandeshContext(this), i);
     }
     KSyncSockTcp *sock = static_cast<KSyncSockTcp *>(KSyncSock::Get(0));
     while (sock->connect_complete() == false) {

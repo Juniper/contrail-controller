@@ -243,7 +243,8 @@ bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf_nam
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
-                          const IpAddress &vm_addr, uint8_t plen);
+                          const IpAddress &vm_addr, uint8_t plen,
+                          bool leaf = false);
 bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                          const Ip4Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
@@ -253,7 +254,7 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
-                          const char *vm_addr, uint8_t plen);
+                          const char *vm_addr, uint8_t plen, bool leaf = false);
 bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
@@ -638,4 +639,9 @@ void VerifyForwardingClass(Agent *agent, struct TestForwardingClassData *data,
 void VerifyQosConfig(Agent *agent, struct TestQosConfigData *data);
 void AddQosConfig(struct TestQosConfigData &data);
 void AddQosQueue(const char *name, uint32_t id, uint32_t qos_queue_id);
+void AddBridgeDomain(const char *name, uint32_t id, uint32_t isid,
+                     bool mac_learning = true);
+void AddVmportBridgeDomain(const char *name, uint32_t vlan_tag);
+bool BridgeDomainFind(int id);
+BridgeDomainEntry* BridgeDomainGet(int id);
 #endif // vnsw_agent_test_cmn_util_h

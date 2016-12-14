@@ -69,12 +69,18 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
 VrfEntry::~VrfEntry() {
     if (id_ != kInvalidIndex) {
         VrfTable *table = static_cast<VrfTable *>(get_table());
+        SetNotify();
 
-        if (vrf_node_ptr_) {
-            IFMapDependencyManager *dep = table->agent()->
-                               oper_db()->dependency_manager();
-            IFMapNodeState *state = vrf_node_ptr_.get();
-            dep->SetNotify(state->node(), true);
+        //In case of PBB VRF is implictly created, hence upon
+        //delete get the bmac VRF and trigger a notify,
+        //so that if bridge domain is reused it can be recreated
+        if (are_flags_set(VrfData::PbbVrf)) {
+            VrfKey key(bmac_vrf_name_);
+            VrfEntry *bmac_vrf =
+                static_cast<VrfEntry *>(table->FindActiveEntry(&key));
+            if (bmac_vrf) {
+                bmac_vrf->SetNotify();
+            }
         }
 
         table->FreeVrfId(id_);
@@ -105,13 +111,17 @@ bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
     return ret;
 }
 
-void VrfEntry::CreateTableLabel() {
+void VrfEntry::CreateTableLabel(bool learning_enabled, bool l2,
+                                bool flood_unknown_unicast) {
+    VrfTable *table = static_cast<VrfTable *>(get_table());
+    Agent *agent = table->agent();
+
     if (table_label_ == MplsTable::kInvalidLabel) {
-        VrfTable *table = static_cast<VrfTable *>(get_table());
-        Agent *agent = table->agent();
         set_table_label(agent->mpls_table()->AllocLabel());
-        MplsTable::CreateTableLabel(agent, table_label(), name_, false);
     }
+
+    MplsTable::CreateTableLabel(agent, table_label(), name_, false,
+                                learning_enabled, l2, flood_unknown_unicast);
 }
 
 void VrfEntry::CreateRouteTables() {
@@ -302,6 +312,7 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         std::vector<VrfSandeshData> &list = 
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());
         data.set_vxlan_id(vxlan_id_);
+        data.set_mac_aging_time(mac_aging_time_);
         list.push_back(data);
         return true;
     }
@@ -398,6 +409,15 @@ VrfEntry::GetInetUnicastRouteTable(const IpAddress &addr) const {
         (GetInet6UnicastRouteTable());
 }
 
+void VrfEntry::SetNotify() {
+    VrfTable *table = static_cast<VrfTable *>(get_table());
+    if (vrf_node_ptr_) {
+        IFMapDependencyManager *dep = table->agent()->
+            oper_db()->dependency_manager();
+        IFMapNodeState *state = vrf_node_ptr_.get();
+        dep->SetNotify(state->node(), true);
+    }
+}
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
     VrfEntry *vrf = new VrfEntry(key->name_, 0, agent());
@@ -426,6 +446,10 @@ DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
     name_tree_.insert( VrfNamePair(key->name_, vrf));
 
     vrf->vn_.reset(agent()->vn_table()->Find(data->vn_uuid_));
+    vrf->isid_ = data->isid_;
+    vrf->bmac_vrf_name_ = data->bmac_vrf_name_;
+
+    vrf->mac_aging_time_ = data->mac_aging_time_;
     return vrf;
 }
 
@@ -435,10 +459,21 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     VrfData *data = static_cast<VrfData *>(req->data.get());
     vrf->set_flags(data->flags_);
 
+    if (vrf->are_flags_set(VrfData::PbbVrf)) {
+        if (FindVrfFromName(vrf->bmac_vrf_name_) == NULL) {
+            assert(0);
+        }
+    }
+
     VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
     if (vn != vrf->vn_.get()) {
         vrf->vn_.reset(vn);
         vrf->ResyncRoutes();
+        ret = true;
+    }
+
+    if (vrf->learning_enabled_ != data->learning_enabled_) {
+        vrf->learning_enabled_ = data->learning_enabled_;
         ret = true;
     }
 
@@ -447,6 +482,14 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
         vxlan_id = vn->GetVxLanId();
     }
     vrf->UpdateVxlanId(agent(), vxlan_id);
+
+    if (data && vrf->mac_aging_time_ != data->mac_aging_time_) {
+        vrf->mac_aging_time_ = data->mac_aging_time_;
+        if (vrf->mac_aging_time_ == 0) {
+            //Reset to default
+            vrf->mac_aging_time_ = VrfTable::kDefaultMacAgingTime;
+        }
+    }
     return ret;
 }
 
@@ -594,42 +637,62 @@ AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
 void VrfTable::CreateVrfReq(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid()));
+    req.data.reset(new VrfData(agent(), NULL, flags,
+                               nil_uuid(), 0, "", 0, false));
     Enqueue(&req);
 }
 
 void VrfTable::CreateVrfReq(const string &name,
-                            const boost::uuids::uuid &vn_uuid, uint32_t flags) {
+                            const boost::uuids::uuid &vn_uuid,
+                            uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(agent(), NULL, flags, vn_uuid));
+    req.data.reset(new VrfData(agent(), NULL, flags, vn_uuid,
+                               0, "", 0, false));
     Enqueue(&req);
 }
 
-void VrfTable::CreateVrf(const string &name, uint32_t flags) {
+void VrfTable::CreateVrf(const string &name, const boost::uuids::uuid &vn_uuid,
+                         uint32_t flags, uint32_t isid,
+                         const std::string &bmac_vrf_name,
+                         uint32_t aging_timeout,
+                         bool learning_enabled) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid()));
+    req.data.reset(new VrfData(agent(), NULL, flags, vn_uuid, isid,
+                               bmac_vrf_name, aging_timeout,
+                               learning_enabled));
     Process(req);
 }
 
+void VrfTable::CreateVrf(const string &name,
+                         const boost::uuids::uuid &vn_uuid,
+                         uint32_t flags) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VrfKey(name));
+    req.data.reset(new VrfData(agent(), NULL, flags, vn_uuid, 0,
+                               "", 0, false));
+    Process(req);
+}
 void VrfTable::DeleteVrfReq(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid()));
+    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid(),
+                               0, "", 0, false));
     Enqueue(&req);
 }
 
 void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new VrfKey(name));
-    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid()));
+    req.data.reset(new VrfData(agent(), NULL, flags, nil_uuid(),
+                               0, "", 0, false));
     Process(req);
 }
 
 void VrfTable::CreateStaticVrf(const string &name) {
     static_vrf_set_.insert(name);
-    CreateVrf(name);
+    CreateVrf(name, nil_uuid(), VrfData::ConfigVrf);
 }
 
 void VrfTable::DeleteStaticVrf(const string &name) {
@@ -680,7 +743,9 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
     boost::uuids::uuid vn_uuid = nil_uuid();
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
+    bool learning_enabled = false;
 
+    uint32_t aging_timeout = 0;
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *adj_node =
@@ -701,11 +766,13 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
             autogen::IdPermsType id_perms = cfg->id_perms();
             CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                        vn_uuid);
+            aging_timeout = cfg->mac_aging_time();
             break;
         }
     }
 
-    return new VrfData(agent, node, VrfData::ConfigVrf, vn_uuid);
+    return new VrfData(agent, node, VrfData::ConfigVrf, vn_uuid, 0, "",
+                       aging_timeout, learning_enabled);
 }
 
 bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
@@ -721,7 +788,7 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
             req.oper = DBRequest::DB_ENTRY_DELETE;
         }
         req.data.reset(new VrfData(agent(), node, VrfData::ConfigVrf,
-                                   nil_uuid()));
+                                   nil_uuid(), 0, "", 0, false));
         Enqueue(&req);
         return false;
     }
@@ -744,7 +811,7 @@ bool VrfTable::ProcessConfig(IFMapNode *node, DBRequest &req,
             req.oper = DBRequest::DB_ENTRY_DELETE;
         }
         req.data.reset(new VrfData(agent(), node, VrfData::ConfigVrf,
-                                   nil_uuid()));
+                                   nil_uuid(), 0, "", 0, false));
     } else {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.data.reset(BuildData(agent(), node));

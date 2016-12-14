@@ -1,0 +1,34 @@
+#
+# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# Mac Learning directory
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+SandeshGenFiles = env.SandeshGenCpp('mac_learning.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
+
+lib_mac_learning = env.Library('mac_learning',
+                     sandesh_objs +
+                     [
+                      'mac_aging.cc',
+                      'mac_learning.cc',
+                      'mac_learning_db_client.cc',
+                      'mac_learning_init.cc',
+                      'mac_learning_mgmt.cc',
+                      'mac_learning_proto.cc',
+                      'mac_learning_proto_handler.cc'
+                     ]
+                      )
+
+subdirs = ['test']
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)

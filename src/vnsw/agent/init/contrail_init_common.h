@@ -69,6 +69,7 @@ private:
     std::auto_ptr<ServicesModule> services_;
     std::auto_ptr<PktModule> pkt_;
     std::auto_ptr<VirtualGateway> vgw_;
+    std::auto_ptr<MacLearningModule> mac_learning_module_;
     DISALLOW_COPY_AND_ASSIGN(ContrailInitCommon);
 };
 

@@ -31,7 +31,7 @@
 #include <oper/global_vrouter.h>
 #include <oper/forwarding_class.h>
 #include<oper/qos_queue.h>
-
+#include <oper/bridge_domain.h>
 #include <vector>
 #include <string>
 
@@ -272,6 +272,8 @@ void ConfigManager::Init() {
     vm_list_.reset(new ConfigManagerNodeList(agent_->vm_table()));
     hc_list_.reset(new ConfigManagerNodeList
                        (agent_->health_check_table()));
+    bridge_domain_list_.reset(new ConfigManagerNodeList(
+                                  agent_->bridge_domain_table()));
     qos_config_list_.reset(new ConfigManagerNodeList(agent_->qos_config_table()));
     device_vn_list_.reset(new ConfigManagerDeviceVnList
                           (agent_->physical_device_vn_table()));
@@ -308,7 +310,8 @@ uint32_t ConfigManager::Size() const {
         vm_list_->Size() +
         hc_list_->Size() +
         device_vn_list_->Size() +
-        qos_config_list_->Size();
+        qos_config_list_->Size() +
+        bridge_domain_list_->Size();
 }
 
 uint32_t ConfigManager::ProcessCount() const {
@@ -387,6 +390,7 @@ int ConfigManager::Run() {
     count += vn_list_->Process(max_count - count);
     count += vm_list_->Process(max_count - count);
     count += vrf_list_->Process(max_count - count);
+    count += bridge_domain_list_->Process(max_count - count);
     count += logical_interface_list_->Process(max_count - count);
     count += vmi_list_->Process(max_count - count);
     count += device_list_->Process(max_count - count);
@@ -417,6 +421,10 @@ void ConfigManager::AddPhysicalDeviceNode(IFMapNode *node) {
 
 void ConfigManager::AddHealthCheckServiceNode(IFMapNode *node) {
     hc_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddBridgeDomainNode(IFMapNode *node) {
+    bridge_domain_list_->Add(agent_, this, node);
 }
 
 void ConfigManager::AddSgNode(IFMapNode *node) {
