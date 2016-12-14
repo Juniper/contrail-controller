@@ -32,13 +32,3 @@ sdist_gen = env.Command('dist/alarm_partial_sysinfo-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
-OpEnv['ALARM_PARTIAL_SYSINFO_PKG'] = sdist_gen
-
-if 'install' in BUILD_TARGETS:
-    install_cmd = env.Command(None,
-                      'setup.py',
-                      cd_cmd + 'python setup.py install %s' %
-                      env['PYTHON_INSTALL_OPT'])
-    env.Depends(install_cmd, sdist_depends)
-    env.Alias('install', install_cmd)
-
