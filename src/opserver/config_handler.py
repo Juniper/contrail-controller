@@ -48,7 +48,12 @@ class ConfigHandler(object):
             self._rabbitmq_info['port'], self._rabbitmq_info['user'],
             self._rabbitmq_info['password'], self._rabbitmq_info['vhost'],
             self._rabbitmq_info['ha_mode'], rabbitmq_qname,
-            self._rabbitmq_subscribe_callback, self._logger)
+            self._rabbitmq_subscribe_callback, self._logger,
+            rabbit_use_ssl=self._rabbitmq_info['use_ssl'],
+            kombu_ssl_version=self._rabbitmq_info['ssl_version'],
+            kombu_ssl_keyfile=self._rabbitmq_info['ssl_keyfile'],
+            kombu_ssl_certfile=self._rabbitmq_info['ssl_certfile'],
+            kombu_ssl_ca_certs=self._rabbitmq_info['ssl_ca_certs'])
     # end start
 
     def stop(self):
