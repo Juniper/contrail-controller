@@ -1420,7 +1420,8 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                     vn_list, InterfaceNHFlags::INET4, sg_list,
                                     communities, path_preference,
                                     subnet_service_ip, ecmp_load_balance,
-                                    is_local, is_health_check_service);
+                                    is_local, is_health_check_service,
+                                    false);
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1466,7 +1467,7 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                     InterfaceNHFlags::INET4, sg_list, communities,
                                     path_preference, subnet_service_ip,
                                     ecmp_load_balance, is_local,
-                                    is_health_check_service));
+                                    is_health_check_service, false));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 
