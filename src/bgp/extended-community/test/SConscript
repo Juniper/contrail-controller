@@ -47,10 +47,15 @@ load_balance_test = env.UnitTest('load_balance_test',
                                    ['load_balance_test.cc'])
 env.Alias('src/bgp/extended-community:load_balance_test', load_balance_test)
 
+etree_test = env.UnitTest('etree_test',
+                                   ['etree_test.cc'])
+env.Alias('src/bgp/extended-community:etree_test', etree_test)
+
 test_suite = [
     default_gateway_test,
     es_import_test,
     esi_label_test,
+    etree_test,
     load_balance_test,
     mac_mobility_test,
     router_mac_test,
