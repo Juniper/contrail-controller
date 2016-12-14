@@ -207,8 +207,8 @@ public:
                     VxLanTable::kInvalidvxlan_id, false, vn_list,
                     InterfaceNHFlags::INET4, SecurityGroupList(),
                     CommunityList(),
-                    PathPreference(),
-                    EcmpLoadBalance());
+                    PathPreference(), Ip4Address(0),
+                    EcmpLoadBalance(), false, false, false);
         InetUnicastAgentRouteTable *rt_table =
             agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 
@@ -227,7 +227,8 @@ public:
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr, TunnelType::GREType(), 16,
                                vn_list, SecurityGroupList(),
-                               PathPreference(), false, EcmpLoadBalance());
+                               PathPreference(), false, EcmpLoadBalance(),
+                               false);
         InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer,
             vrf_name, addr, plen, data);
     }

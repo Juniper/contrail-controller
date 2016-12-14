@@ -122,8 +122,8 @@ public:
         component_nh_key_list, vrf_name)) {
     }
 
-    MplsLabelData(const std::string vrf_name, bool policy) :
-        AgentData(), nh_key(new VrfNHKey(vrf_name, policy, false)) {
+    MplsLabelData(const std::string vrf_name, bool policy, bool l2) :
+        AgentData(), nh_key(new VrfNHKey(vrf_name, policy, l2)) {
     }
     virtual ~MplsLabelData() { 
         if (nh_key) {
@@ -189,7 +189,8 @@ public:
 
     static void CreateTableLabel(const Agent *agent, uint32_t label,
                                  const std::string &vrf_name,
-                                 bool policy);
+                                 bool policy, bool learning_enabled,
+                                 bool l2);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     void Process(DBRequest &req);

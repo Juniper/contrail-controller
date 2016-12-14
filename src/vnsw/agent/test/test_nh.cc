@@ -353,14 +353,14 @@ TEST_F(CfgTest, CreateVrfNh_1) {
     NextHopKey *key = new VrfNHKey("test_vrf", false, false);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
-    req.data.reset(new VrfNHData(false));
+    req.data.reset(new VrfNHData(false, false));
     agent_->nexthop_table()->Enqueue(&req);
     client->WaitForIdle();
 
     key = new VrfNHKey("test_vrf", false, false);
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(key);
-    req.data.reset(new VrfNHData(false));
+    req.data.reset(new VrfNHData(false, false));
     agent_->nexthop_table()->Enqueue(&req);
 
     VrfDelReq("test_vrf");
@@ -830,7 +830,7 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     DBRequest vrf_nh_req;
     vrf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     vrf_nh_req.key.reset(new VrfNHKey("vrf11", true, false));
-    vrf_nh_req.data.reset(new VrfNHData(false));
+    vrf_nh_req.data.reset(new VrfNHData(false, false));
     agent_->nexthop_table()->Enqueue(&vrf_nh_req);
     client->WaitForIdle();
     VrfNHKey find_vrf_nh_key("vrf11", true, false);

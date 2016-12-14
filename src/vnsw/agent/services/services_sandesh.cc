@@ -143,6 +143,7 @@ void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
     resp->set_dns_rcvd(stats.received[PktHandler::DNS]);
     resp->set_icmp_rcvd(stats.received[PktHandler::ICMP]);
     resp->set_flow_rcvd(stats.received[PktHandler::FLOW]);
+    resp->set_mac_learning_msg_rcvd(stats.received[PktHandler::MAC_LEARNING]);
     resp->set_dropped(stats.dropped);
     resp->set_total_sent(total_sent);
     resp->set_dhcp_sent(stats.sent[PktHandler::DHCP]);
@@ -305,7 +306,9 @@ uint16_t ServicesSandesh::FillVrouterHdr(PktTrace::Pkt &pkt, VrouterHdr &resp) {
            { { "switch", "route", "arp", "l2-protocol", "trap-nexthop",
                "trap-resolve", "trap-flow-miss", "trap-l3-protocol",
                "trap-diag", "trap-ecmp-resolve", "trap_source_mismatch",
-               "trap-dont-fragment", "tor-control" } };
+               "trap-dont-fragment", "trap-zero-ttl",  "tor-control",
+               "trap-icmp-error", "trap-flow-hold-action",
+               "trap-route-alert", "trap-mac-learn", "trap-mac-move" } };
     uint8_t *ptr = pkt.pkt;
     AgentHdr *hdr = reinterpret_cast<AgentHdr *>(ptr);
     resp.ifindex = hdr->ifindex;
@@ -783,7 +786,8 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
     boost::function<void(PktTrace::Pkt &)> cb;
     boost::array<std::string, PktHandler::MAX_MODULES> names =
         { { "Invalid", "Flow", "Arp", "Dhcp", "Dhcpv6", "Dns",
-            "Icmp", "Icmpv6", "Diagnostics", "IcmpError" } };
+            "Icmp", "Icmpv6", "Diagnostics", "IcmpError", "RxPacket",
+            "MacLearning" } };
 
     switch (mod) {
         case PktHandler::ARP:
@@ -837,6 +841,7 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
         case PktHandler::FLOW:
         case PktHandler::DIAG:
         case PktHandler::INVALID:
+        case PktHandler::MAC_LEARNING:
             resp = new PktSandesh();
             static_cast<PktSandesh *>(resp)->set_type(names.at(mod));
             cb = boost::bind(&ServicesSandesh::OtherPktTrace, this, _1,
@@ -905,6 +910,11 @@ void MetadataInfo::HandleRequest() const {
     ssandesh.MetadataHandleRequest(context());
 }
 
+void MacLearningInfo::HandleRequest() const {
+    ServicesSandesh ssandesh;
+    ssandesh.HandleRequest(PktHandler::MAC_LEARNING, context());
+}
+
 void ShowAllInfo::HandleRequest() const {
     ServicesSandesh ssandesh;
     ssandesh.PktStatsSandesh(context(), true);
@@ -915,6 +925,7 @@ void ShowAllInfo::HandleRequest() const {
     ssandesh.HandleRequest(PktHandler::FLOW, context(), true);
     ssandesh.HandleRequest(PktHandler::DIAG, context(), true);
     ssandesh.HandleRequest(PktHandler::INVALID, context(), true);
+    ssandesh.HandleRequest(PktHandler::MAC_LEARNING, context(), true);
     ssandesh.MetadataHandleRequest(context(), false);
 }
 
@@ -930,6 +941,7 @@ void ClearAllInfo::HandleRequest() const {
     pkt_handler->PktTraceClear(PktHandler::FLOW);
     pkt_handler->PktTraceClear(PktHandler::DIAG);
     pkt_handler->PktTraceClear(PktHandler::INVALID);
+    pkt_handler->PktTraceClear(PktHandler::MAC_LEARNING);
     pkt_handler->ClearStats();
     agent->GetDhcpProto()->ClearStats();
     agent->dhcpv6_proto()->ClearStats();

@@ -107,6 +107,12 @@ private:
     bool vxlan_nh_;
     bool flood_unknown_unicast_;
     EcmpHashFields ecmp_hash_fieds_;
+    KSyncEntryPtr pbb_child_nh_;
+    uint32_t isid_;
+    uint32_t pbb_label_;
+    bool learning_enabled_;
+    bool need_pbb_tunnel_;
+    bool etree_leaf_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 

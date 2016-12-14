@@ -133,6 +133,9 @@ static void BuildLinkToMetadata() {
                       "virtual-machine-interface-routing-instance");
     AddLinkToMetadata("virtual-machine-interface", "interface-route-table",
                       "virtual-machine-interface-route-table");
+    AddLinkToMetadata("virtual-machine-interface",
+                      "virtual-machine-interface-bridge-domain",
+                      "virtual-machine-interface-bridge-domain");
     AddLinkToMetadata("instance-ip", "virtual-machine-interface");
     AddLinkToMetadata("instance-ip", "virtual-network");
     AddLinkToMetadata("instance-ip", "floating-ip");
@@ -176,6 +179,11 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("forwarding-class", "qos-queue");
     AddLinkToMetadata("network-ipam", "virtual-DNS");
     AddLinkToMetadata("virtual-machine-interface", "service-health-check", "service-port-health-check");
+
+    AddLinkToMetadata("bridge-domain",
+                      "virtual-machine-interface-bridge-domain",
+                      "virtual-machine-interface-bridge-domain");
+    AddLinkToMetadata("virtual-network", "bridge-domain");
 }
 
 string GetMetadata(const char *node1, const char *node2,
@@ -1116,7 +1124,8 @@ void VnAddReq(int id, const char *name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               name, ipam, vn_ipam_data, id,
-                                              (id + 100), true, true, false);
+                                              (id + 100), true, true, false,
+                                              false, false);
     usleep(1000);
 }
 
@@ -1126,7 +1135,8 @@ void VnAddReq(int id, const char *name, int acl_id) {
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id),
                                               name, ipam, vn_ipam_data, id,
-                                              (id + 100), true, true, false);
+                                              (id + 100), true, true, false,
+                                              false, false);
     usleep(1000);
 }
 
@@ -1136,7 +1146,8 @@ void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name,
                                               MakeUuid(acl_id), vrf_name, ipam,
                                               vn_ipam_data, id, (id + 100),
-                                              true, true, false);
+                                              true, true, false,
+                                              false, false);
     usleep(1000);
 }
 
@@ -1145,7 +1156,8 @@ void VnAddReq(int id, const char *name, const char *vrf_name) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               vrf_name, ipam, vn_ipam_data, id,
-                                              (id + 100), true, true, false);
+                                              (id + 100), true, true, false,
+                                              false, false);
     usleep(1000);
 }
 
@@ -1154,8 +1166,8 @@ void VnVxlanAddReq(int id, const char *name, uint32_t vxlan_id) {
     VnData::VnIpamDataMap vn_ipam_data;
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               name, ipam, vn_ipam_data, id,
-                                              vxlan_id, true, true, false);
-    usleep(1000);
+                                              vxlan_id, true, true, false,
+                                              false, false);
 }
 
 void VnDelReq(int id) {
@@ -1517,7 +1529,7 @@ bool VlanNhFind(int id, uint16_t tag) {
 bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
-                          const IpAddress &vm_addr, uint8_t plen) {
+                          const IpAddress &vm_addr, uint8_t plen, bool leaf) {
     VnListType vn_list;
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(peer,
@@ -1525,7 +1537,8 @@ bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
                               bmap, label, vn_list, SecurityGroupList(),
-                              PathPreference(), false, EcmpLoadBalance());
+                              PathPreference(), false, EcmpLoadBalance(),
+                              leaf);
     EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
                                         vm_addr, 0, data);
     return true;
@@ -1534,11 +1547,11 @@ bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
 bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
-                          const char *vm_addr, uint8_t plen) {
+                          const char *vm_addr, uint8_t plen, bool leaf) {
     boost::system::error_code ec;
     BridgeTunnelRouteAdd(peer, vm_vrf, bmap,
                         Ip4Address::from_string(server_ip, ec), label, remote_vm_mac,
-                        IpAddress::from_string(vm_addr, ec), plen);
+                        IpAddress::from_string(vm_addr, ec), plen, leaf);
 }
 
 bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
@@ -1599,7 +1612,8 @@ bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Addres
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
                               bmap, label, vn_list, sg,
-                              path_preference, false, EcmpLoadBalance());
+                              path_preference, false, EcmpLoadBalance(),
+                              false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
                                         vm_addr, plen, data);
     return true;
@@ -1647,7 +1661,8 @@ bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Addres
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
                               bmap, label, vn_list, sg,
-                              path_preference, false, EcmpLoadBalance());
+                              path_preference, false, EcmpLoadBalance(),
+                              false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
                                         vm_addr, plen, data);
     return true;
@@ -1676,7 +1691,7 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                               vm_vrf, Ip4Address::from_string(server, ec),
                               TunnelType::AllType(), label, vn_list,
                               SecurityGroupList(), PathPreference(), false,
-                              EcmpLoadBalance());
+                              EcmpLoadBalance(), false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
                                         32, data);
@@ -1742,6 +1757,20 @@ void AddVrf(const char *name, int id, bool default_ri) {
 
 void DelVrf(const char *name) {
     DelNode("routing-instance", name);
+}
+
+void AddBridgeDomain(const char *name, uint32_t id, uint32_t isid,
+                     bool mac_learning) {
+    std::stringstream str;
+    str << "<isid>" << isid << "</isid>" << endl;
+    str<< "<mac-learning-enabled>" << mac_learning << "</mac-learning-enabled>";
+
+    char buff[10240];
+    int len = 0;
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, "bridge-domain", name, id, str.str().c_str());
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
 }
 
 void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode) {
@@ -2328,6 +2357,14 @@ void AddVmPortVrf(const char *name, const string &ip, uint16_t tag,
 
 void DelVmPortVrf(const char *name) {
     DelNode("virtual-machine-interface-routing-instance", name);
+}
+
+void AddVmportBridgeDomain(const char *name, uint32_t vlan_tag) {
+    std::stringstream str;
+    str << "<vlan-tag>" << vlan_tag << "</vlan-tag>";
+
+    AddLinkNode("virtual-machine-interface-bridge-domain", name,
+                str.str().c_str());
 }
 
 void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_attr,
@@ -4556,4 +4593,19 @@ void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip,
     AddNode("virtual-machine-interface", intf_name.c_str(),
             intf_id, cbuf);
     client->WaitForIdle();
+}
+
+bool BridgeDomainFind(int id) {
+    BridgeDomainEntry *bridge_domain;
+    BridgeDomainKey key(MakeUuid(id));
+    bridge_domain =
+        static_cast<BridgeDomainEntry *>(Agent::GetInstance()->
+                bridge_domain_table()->FindActiveEntry(&key));
+    return (bridge_domain != NULL);
+}
+
+BridgeDomainEntry* BridgeDomainGet(int id) {
+    BridgeDomainKey key(MakeUuid(id));
+    return static_cast<BridgeDomainEntry *>(Agent::GetInstance()->
+                           bridge_domain_table()->FindActiveEntry(&key));
 }

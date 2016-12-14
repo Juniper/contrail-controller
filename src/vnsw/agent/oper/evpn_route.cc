@@ -231,7 +231,8 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           const string &vn_name,
                                           const SecurityGroupList &sg_id_list,
                                           const PathPreference &path_pref,
-                                          uint32_t ethernet_tag) {
+                                          uint32_t ethernet_tag,
+                                          bool etree_leaf) {
     assert(peer);
 
     Agent *agent = static_cast<AgentDBTable *>(intf->get_table())->agent();
@@ -245,14 +246,48 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           sg_id_list, CommunityList(),
                                           path_pref,
                                           IpAddress(),
-                                          EcmpLoadBalance(), false, false);
+                                          EcmpLoadBalance(), false, false,
+                                          etree_leaf);
     data->set_tunnel_bmap(TunnelType::AllType());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip, ethernet_tag));
     req.data.reset(data);
     EvpnTableProcess(agent, vrf_name, req);
+}
 
+void EvpnAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
+                                          const string &vrf_name,
+                                          const MacAddress &mac,
+                                          const VmInterface *intf,
+                                          const IpAddress &ip,
+                                          uint32_t label,
+                                          const string &vn_name,
+                                          const SecurityGroupList &sg_id_list,
+                                          const PathPreference &path_pref,
+                                          uint32_t ethernet_tag,
+                                          bool etree_leaf) {
+    assert(peer);
+
+    Agent *agent = static_cast<AgentDBTable *>(intf->get_table())->agent();
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf->GetUuid(), "");
+    VnListType vn_list;
+    vn_list.insert(vn_name);
+    LocalVmRoute *data = new LocalVmRoute(intf_key, label,
+                                          intf->vxlan_id(), false,
+                                          vn_list,
+                                          InterfaceNHFlags::BRIDGE,
+                                          sg_id_list, CommunityList(),
+                                          path_pref,
+                                          IpAddress(),
+                                          EcmpLoadBalance(), false, false,
+                                          etree_leaf);
+    data->set_tunnel_bmap(TunnelType::AllType());
+
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip, ethernet_tag));
+    req.data.reset(data);
+    EvpnTableEnqueue(agent, &req);
 }
 
 void EvpnAgentRouteTable::DeleteOvsPeerMulticastRouteInternal(const Peer *peer,

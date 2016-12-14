@@ -153,6 +153,14 @@ struct VmIntfSgUuid {
 }
 
 /**
+ * Structure definition for bridge domain list on interface
+ */
+struct VmIntfBridgeDomainUuid {
+    /** Uuid of Bridge Domain associated to vm interface */
+    1: string bridge_domain_uuid (link="BridgeDomainSandeshReq");
+}
+
+/**
  * Structure definition for interface in oper db
  */
 struct ItfSandeshData {
@@ -284,6 +292,8 @@ struct ItfSandeshData {
    57: list<AliasIpSandeshList> alias_ip_list;
    /** Boolean value which indicates to drop new flows for interface */
    58: bool drop_new_flows;
+   /** List of bridge domain entries configured on this interface */
+   59: list<VmIntfBridgeDomainUuid> bridge_domain_list;
 }
 
 /**
@@ -364,6 +374,8 @@ struct VnSandeshData {
      * is enabled on virtual network
      */
     17: bool flood_unknown_unicast;
+    /** Etree mode enabled or disabled for PBB Backbone VN */
+    18: bool pbb_etree_enabled;
 }
 
 /**
@@ -562,6 +574,12 @@ struct NhSandeshData {
    24: optional bool vxlan_flag;
    /** Boolean value which indicates to flood unknown unicast packets for nh */
    25: optional bool flood_unknown_unicast;
+   /** I-SID identifier for bridge domain */
+   26: i32 isid;
+   /** Is learning enabled on this nexthop */
+   27: bool learning_enabled;
+   /** Is the nexthop root or leaf for etree mode */
+   28: bool etree_leaf;
 }
 
 /**
@@ -642,6 +660,8 @@ struct PathSandeshData {
    20: optional string ecmp_hashing_fields;
    /** Communities associated with path */
    21: optional list<string> communities;
+   /** PBB etree leaf configuration */
+   22: bool etree_leaf;
 }
 
 /**
@@ -730,6 +750,8 @@ struct VrfSandeshData {
    11: i32 brindex  (link="BridgeRouteReq");
    /** Route distinguisher associated with vrf */
    12: string RD;
+   /** MAC aging timeout */
+   13: i32 mac_aging_time;
 }
 
 /**
@@ -2931,6 +2953,35 @@ request sandesh AgentQosConfigSandeshReq {
 response sandesh AgentQosConfigSandeshResp {
     /** List of qos config instance information */
     1: list<AgentQosConfigSandeshData> qc_list;
+}
+
+struct BridgeDomainSandeshData {
+    /** UUID of bridge domain instance */
+    1: string uuid;
+    /** Name of the bridge domain instance */
+    2: string name;
+    /** ISID configured on bridge domain */
+    3: i32 isid;
+    /** VN bridge domain belong to */
+    4: string vn (link="VnListReq");
+    /** VRF correspoding to this bridge domain */
+    5: string vrf (link="VrfListReq");
+    /** Learning enabled on this bridge */
+    6: string learning_enabled;
+    /** PBB etree mode enabled */
+    7: string pbb_etree_enabled;
+}
+
+request sandesh BridgeDomainSandeshReq {
+    /** UUID of bridge domain to query for */
+    1: string uuid;
+    /** Name for bridge domain to query for */
+    2: string name;
+}
+
+response sandesh BridgeDomainSandeshResp {
+    /** List of bridge domain */
+    1: list<BridgeDomainSandeshData> bd_list;
 }
 
 /**

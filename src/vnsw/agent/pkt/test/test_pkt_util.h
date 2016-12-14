@@ -119,4 +119,9 @@ extern void TxL2Ip6Packet(int ifindex, const char *smac, const char *dmac,
                           const char *sip, const char *dip, int proto,
                           int hash_id = 1, int vrf = -1, uint16_t sport = 0,
                           uint16_t dport = 0);
+extern void TxIpPBBPacket(int ifindex, const char *out_sip, const char *out_dip,
+                          uint32_t label, const MacAddress &b_smac,
+                          const MacAddress &b_dmac, uint32_t isid,
+                          const MacAddress &c_smac, MacAddress &c_dmac,
+                          const char *sip, const char *dip, int hash_id = 1);
 #endif // __TEST_PKT_UTIL_H__
