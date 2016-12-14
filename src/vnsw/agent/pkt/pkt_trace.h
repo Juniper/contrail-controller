@@ -12,7 +12,7 @@ class AgentHdr;
 class PktTrace {
 public:
     static const std::size_t kPktMaxTraceSize = 512;  // number of bytes stored
-    static const std::size_t kPktNumBuffers = 16;     // number of buffers stored
+    static const std::size_t kPktNumBuffers = 100;     // number of buffers stored
     static const std::size_t kPktMaxNumBuffers = 512000;
 
     enum Direction {

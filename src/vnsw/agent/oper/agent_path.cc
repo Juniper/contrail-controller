@@ -39,7 +39,8 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
-    ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false) {
+    ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
+    etree_leaf_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -467,6 +468,11 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    if (evpn_path->etree_leaf() != reference_path_->etree_leaf()) {
+        evpn_path->set_etree_leaf(reference_path_->etree_leaf());
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -768,6 +774,57 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
 
     if (is_health_check_service_ != path->is_health_check_service()) {
         path->set_is_health_check_service(is_health_check_service_);
+        ret = true;
+    }
+
+    if (etree_leaf_ != path->etree_leaf()) {
+        path->set_etree_leaf(etree_leaf_);
+        ret = true;
+    }
+
+    return ret;
+}
+
+bool PBBRoute::AddChangePath(Agent *agent, AgentPath *path,
+                                 const AgentRoute *rt) {
+    bool ret = false;
+    NextHop *nh = NULL;
+    SecurityGroupList path_sg_list;
+    CommunityList path_communities;
+
+    VrfEntry *vrf = static_cast<VrfEntry *>
+        (agent->vrf_table()->FindActiveEntry(&vrf_key_));
+
+    if (vrf != NULL) {
+        //Create PBB NH
+        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        nh_req.key.reset(new PBBNHKey(vrf_key_.name_, dmac_, isid_));
+        nh_req.data.reset(new PBBNHData());
+        agent->nexthop_table()->Process(nh_req);
+
+        PBBNHKey pbb_nh_key(vrf_key_.name_, dmac_, isid_);
+        nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                    FindActiveEntry(&pbb_nh_key));
+    }
+
+    if (path->dest_vn_list() != dest_vn_list_) {
+        path->set_dest_vn_list(dest_vn_list_);
+        ret = true;
+    }
+
+    path_sg_list = path->sg_list();
+    if (path_sg_list != sg_list_) {
+        path->set_sg_list(sg_list_);
+        ret = true;
+    }
+
+    path_communities = path->communities();
+    if (path_communities != communities_) {
+        path->set_communities(communities_);
+        ret = true;
+    }
+
+    if (path->ChangeNH(agent, nh) == true) {
         ret = true;
     }
 
@@ -1185,7 +1242,17 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
             rt_info.set_nh_type("L2_RECEIVE");
             break;
         }
-  
+
+        case NextHop::PBB: {
+            const PBBNH *pbb_nh = static_cast<const PBBNH *>(nh);
+            rt_info.set_nh_type("PBB");
+            rt_info.set_mac(pbb_nh->dmac().ToString());
+            if (pbb_nh->vrf()) {
+                rt_info.set_dest_server_vrf(pbb_nh->vrf()->GetName());
+            }
+            break;
+        }
+
         default:
             assert(0);
             break;
@@ -1263,6 +1330,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
         string_vector_iter++;
     }
     pdata.set_ecmp_hashing_fields(ss.str());
+    pdata.set_etree_leaf(etree_leaf());
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {

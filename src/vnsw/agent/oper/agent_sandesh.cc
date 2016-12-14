@@ -26,6 +26,7 @@
 #include <oper/forwarding_class.h>
 #include <oper/qos_config.h>
 #include <oper/qos_queue.h>
+#include <oper/bridge_domain.h>
 #include <filter/acl.h>
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1215,5 +1216,43 @@ bool QosQueueSandesh::FilterToArgs(AgentSandeshArguments *args) {
     args->Add("uuid", uuid_);
     args->Add("name", name_);
     args->Add("id", id_);
+    return true;
+}
+
+BridgeDomainSandesh::BridgeDomainSandesh(const std::string &context,
+                                         const std::string &u,
+                                         const std::string &name) :
+    AgentSandesh(context, ""), name_(name) {
+    boost::system::error_code ec;
+    uuid_ = StringToUuid(u);
+}
+
+DBTable *BridgeDomainSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->bridge_domain_table());
+}
+
+void BridgeDomainSandesh::Alloc() {
+    resp_ = new BridgeDomainSandeshResp();
+}
+
+bool BridgeDomainSandesh::Filter(const DBEntryBase *entry) {
+    const BridgeDomainEntry *bd =
+        dynamic_cast<const BridgeDomainEntry *>(entry);
+    assert(bd);
+
+    if (MatchUuid(uuid_str_ , uuid_,  bd->uuid()) == false)
+        return false;
+
+    if (name_.empty() == false &&
+        bd->name() != name_) {
+        return false;
+    }
+
+    return true;
+}
+
+bool BridgeDomainSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("uuid", uuid_str_);
+    args->Add("name", name_);
     return true;
 }

@@ -322,7 +322,7 @@ void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
     if (mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
         VrfEntry *vrf = agent->vrf_table()->FindVrfFromName(vrf_name);
         if (vrf == NULL) {
-            agent->vrf_table()->CreateVrfReq(vrf_name, VrfData::MirrorVrf);
+            agent->vrf_table()->CreateVrfReq(vrf_name, VrfData::MirrorVrf, 0);
             createdvrf = true;
         }
     }

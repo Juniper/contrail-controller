@@ -39,7 +39,7 @@
 #include "vr_interface.h"
 #include <vector>
 
-KSyncSockTypeMap *KSyncSockTypeMap::singleton_; 
+KSyncSockTypeMap *KSyncSockTypeMap::singleton_;
 vr_flow_entry *KSyncSockTypeMap::flow_table_;
 int KSyncSockTypeMap::error_code_;
 using namespace boost::asio;
@@ -698,6 +698,36 @@ void KSyncSockTypeMap::SetOFlowStats(int idx, uint8_t pkts, uint16_t bytes) {
     }
 }
 
+vr_bridge_entry *KSyncSockTypeMap::BridgeMmapAlloc(int size) {
+    bridge_table_ = (vr_bridge_entry *)malloc(size);
+    bzero(bridge_table_, size);
+    return bridge_table_;
+}
+
+void KSyncSockTypeMap::BridgeMmapFree() {
+    if (bridge_table_) {
+        free(bridge_table_);
+        bridge_table_ = NULL;
+    }
+}
+
+vr_bridge_entry *KSyncSockTypeMap::GetBridgeEntry(int idx) {
+    return &bridge_table_[idx];
+}
+
+void KSyncSockTypeMap::SetBridgeEntry(vr_route_req *req, bool set) {
+    uint32_t idx = 0;
+    vr_bridge_entry *be = &bridge_table_[idx];
+    if (!set) {
+        be->be_packets = 0;
+        return;
+    }
+
+    if (be->be_packets == 0) {
+        be->be_packets = 1;
+    }
+}
+
 //init ksync map
 void KSyncSockTypeMap::Init(boost::asio::io_service &ios) {
     assert(singleton_ == NULL);
@@ -909,6 +939,7 @@ void KSyncUserSockRouteContext::Process() {
         sock->rt_tree.erase(*req_);
     } else if (req_->get_h_op() == sandesh_op::DUMP) {
         RouteDumpHandler dump;
+        sock->SetBridgeEntry(req_, false);
         dump.SendDumpResponse(GetSeqNum(), req_);
         return;
     } else {
@@ -922,6 +953,9 @@ void KSyncUserSockRouteContext::Process() {
             assert(del_count);
             ret = sock->rt_tree.insert(*req_);
             assert(ret.second == true);
+            if (req_->get_rtr_family() == AF_BRIDGE) {
+                sock->SetBridgeEntry(req_, true);
+            }
         }
     }
     KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 

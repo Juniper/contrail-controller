@@ -29,10 +29,17 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
 
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->bgp_peer_id());
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
+    bool send_subscribe  = true;
+
+    if (vrf->should_export_route() == false) {
+        send_subscribe = false;
+    }
 
     if (vrf->IsDeleted()) {
-        agent->controller()->
-            DeleteVrfStateOfDecommisionedPeers(partition, e);
+        if (send_subscribe) {
+            agent->controller()->
+                DeleteVrfStateOfDecommisionedPeers(partition, e);
+        }
         if (!AgentXmppChannel::IsXmppChannelActive(agent, bgp_xmpp_peer)) {
             return;
         }
@@ -73,7 +80,12 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
         }
     }
 
-    if ((state->exported_ == false) || (state->force_chg_ == true)) {
+    if (send_subscribe == false) {
+        state->force_chg_ = false;
+    }
+
+    if (send_subscribe && ((state->exported_ == false) ||
+                          (state->force_chg_ == true))) {
         if (AgentXmppChannel::ControllerSendSubscribe(bgp_xmpp_peer, vrf, 
                                                       true)) {
             CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),

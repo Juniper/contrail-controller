@@ -82,6 +82,7 @@ env.Append(LIBPATH = MapBuildDir([
     'vnsw/agent/filter',
     'vnsw/agent/init',
     'vnsw/agent/kstate', 
+    'vnsw/agent/mac_learning',
     'vnsw/agent/port_ipc',
     'vnsw/agent/oper',
     'vnsw/agent/pkt',
@@ -159,6 +160,7 @@ env.Prepend(LIBS = [
     'uve',
     'vgw',
     'vnswnhserver',
+    'mac_learning'
 ])
 
 ##########################################################################
@@ -305,6 +307,7 @@ subdirs = [
     'filter',
     'init',
     'kstate',
+    'mac_learning',
     'oper',
     'ovs_tor_agent',
     'pkt',
