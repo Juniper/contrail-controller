@@ -94,7 +94,8 @@ struct VnData : public AgentOperDBData {
            int vxlan_id, int vnid, bool bridging,
            bool layer3_forwarding, bool admin_state, bool enable_rpf,
            bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode,
-           const boost::uuids::uuid &qos_config_uuid, bool mirror_destination) :
+           const boost::uuids::uuid &qos_config_uuid, bool mirror_destination,
+           bool pbb_etree_enable, bool pbb_evpn_enable) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -103,7 +104,8 @@ struct VnData : public AgentOperDBData {
         enable_rpf_(enable_rpf),
         flood_unknown_unicast_(flood_unknown_unicast),
         forwarding_mode_(forwarding_mode), qos_config_uuid_(qos_config_uuid),
-        mirror_destination_(mirror_destination){
+        mirror_destination_(mirror_destination),
+        pbb_etree_enable_(pbb_etree_enable), pbb_evpn_enable_(pbb_evpn_enable) {
     };
     virtual ~VnData() { }
 
@@ -124,6 +126,8 @@ struct VnData : public AgentOperDBData {
     Agent::ForwardingMode forwarding_mode_;
     boost::uuids::uuid qos_config_uuid_;
     bool mirror_destination_;
+    bool pbb_etree_enable_;
+    bool pbb_evpn_enable_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -198,6 +202,14 @@ public:
         return mirror_destination_;
     }
 
+    bool pbb_etree_enable() const {
+        return pbb_etree_enable_;
+    }
+
+    bool pbb_evpn_enable() const {
+        return pbb_evpn_enable_;
+    }
+
 private:
     friend class VnTable;
 
@@ -224,6 +236,8 @@ private:
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
     AgentQosConfigConstRef qos_config_;
     bool mirror_destination_;
+    bool pbb_etree_enable_;
+    bool pbb_evpn_enable_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -264,7 +278,8 @@ public:
                const string &vrf_name, const std::vector<VnIpam> &ipam,
                const VnData::VnIpamDataMap &vn_ipam_data, int vn_id,
                int vxlan_id, bool admin_state, bool enable_rpf,
-               bool flood_unknown_unicast);
+               bool flood_unknown_unicast, bool pbb_etree_enable,
+               bool pbb_evpn_enable);
     void DelVn(const uuid &vn_uuid);
     void ResyncVxlan(const boost::uuids::uuid &vn);
     VnEntry *Find(const uuid &vn_uuid);

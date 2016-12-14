@@ -4140,6 +4140,194 @@ TEST_F(IntfTest, IntfAddDel) {
     client->Reset();
 }
 
+TEST_F(IntfTest, BridgeDomain) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    AddBridgeDomain("bridge1", 1, 1);
+    client->WaitForIdle();
+    AddVmportBridgeDomain(input[0].name, 0);
+    AddLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "bridge-domain", "bridge1",
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "virtual-machine-interface", input[0].name,
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    client->WaitForIdle();
+
+    VmInterface *vintf = static_cast<VmInterface*>(VmPortGet(1));
+    EXPECT_TRUE(VrfFind("vrf1:1"));
+    EXPECT_TRUE(vintf->bridge_domain_list().list_.size() == 1);
+
+    DelLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "bridge-domain", "bridge1");
+    DelLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "virtual-machine-interface", input[0].name);
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    DelNode("virtual-machine-interface-bridge-domain", input[0].name);
+    client->WaitForIdle();
+    EXPECT_TRUE(vintf->bridge_domain_list().list_.size() == 0);
+
+    DelNode("bridge-domain", "bridge1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1:1"));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+TEST_F(IntfTest, BridgeDomain1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    AddBridgeDomain("bridge1", 1, 1);
+    AddBridgeDomain("bridge2", 2, 2);
+    client->WaitForIdle();
+    AddVmportBridgeDomain("bridge1", 0);
+    AddVmportBridgeDomain("bridge2", 1);
+
+    AddLink("virtual-machine-interface-bridge-domain", "bridge1",
+            "bridge-domain", "bridge1",
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-machine-interface-bridge-domain", "bridge1",
+            "virtual-machine-interface", "vnet1",
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    client->WaitForIdle();
+
+    VmInterface *vintf = static_cast<VmInterface*>(VmPortGet(1));
+    EXPECT_TRUE(VrfFind("vrf1:1"));
+    EXPECT_TRUE(vintf->bridge_domain_list().list_.size() == 1);
+
+    AddLink("virtual-machine-interface-bridge-domain", "bridge2",
+            "bridge-domain", "bridge2",
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-machine-interface-bridge-domain", "bridge2",
+            "virtual-machine-interface", "vnet1",
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-network", "vn1", "bridge-domain", "bridge2");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VrfFind("vrf1:2"));
+    EXPECT_TRUE(vintf->bridge_domain_list().list_.size() == 2);
+
+    DelLink("virtual-machine-interface-bridge-domain", "bridge2",
+            "bridge-domain", "bridge2");
+    DelLink("virtual-machine-interface-bridge-domain", "bridge2",
+            "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge2");
+    DelNode("virtual-machine-interface-bridge-domain", "bridge2");
+    client->WaitForIdle();
+    EXPECT_TRUE(vintf->bridge_domain_list().list_.size() == 1);
+
+    DelLink("virtual-machine-interface-bridge-domain", "bridge1",
+            "bridge-domain", "bridge1");
+    DelLink("virtual-machine-interface-bridge-domain", "bridge1",
+            "virtual-machine-interface", "vnet1");
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    DelNode("virtual-machine-interface-bridge-domain", "bridge1");
+    client->WaitForIdle();
+    EXPECT_TRUE(vintf->bridge_domain_list().list_.size() == 0);
+
+    DelNode("bridge-domain", "bridge1");
+    DelNode("bridge-domain", "bridge2");
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1:1", true));
+    EXPECT_FALSE(VrfFind("vrf1:2", true));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+TEST_F(IntfTest, BridgeDomain_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+
+    AddBridgeDomain("bridge1", 1, 1);
+    client->WaitForIdle();
+    AddVmportBridgeDomain(input[0].name, 0);
+    AddLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "bridge-domain", "bridge1",
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "virtual-machine-interface", input[0].name,
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    client->WaitForIdle();
+
+    VmInterface *vintf = static_cast<VmInterface*>(VmPortGet(1));
+    EXPECT_FALSE(VrfFind("vrf1:1"));
+    EXPECT_TRUE(vintf->bridge_domain_list().list_.size() == 0);
+    EXPECT_TRUE(vintf->pbb_interface() == false);
+
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfFind("vrf1:1"));
+    EXPECT_TRUE(vintf->pbb_interface());
+
+    DelLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "bridge-domain", "bridge1");
+    DelLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "virtual-machine-interface", input[0].name);
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    DelNode("virtual-machine-interface-bridge-domain", input[0].name);
+    client->WaitForIdle();
+    EXPECT_TRUE(vintf->bridge_domain_list().list_.size() == 0);
+
+    DelNode("bridge-domain", "bridge1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1:1"));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

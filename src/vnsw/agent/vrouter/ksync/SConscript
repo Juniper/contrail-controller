@@ -27,12 +27,14 @@ libksync = env.Library('vnswksync',
                        sandesh_objs +
                        except_objs +
                        [
+                        'ksync_bridge_table.cc',
                         'flowtable_ksync.cc',
                         'forwarding_class_ksync.cc',
                         'interface_ksync.cc',
                         'interface_scan.cc',
                         'ksync_flow_index_manager.cc',
                         'ksync_flow_memory.cc',
+                        'ksync_memory.cc',
                         'ksync_init.cc',
                         'mirror_ksync.cc',
                         'mpls_ksync.cc',

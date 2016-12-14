@@ -51,6 +51,7 @@
 #include <oper/route_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/sg.h>
+#include <oper/bridge_domain.h>
 #include <oper/ecmp_load_balance.h>
 #include <uve/stats_collector.h>
 #include <uve/agent_uve.h>

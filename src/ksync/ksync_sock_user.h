@@ -17,6 +17,7 @@
 #include "nl_util.h"
 #include "vr_types.h"
 #include "vr_flow.h"
+#include "vr_bridge.h"
 
 using boost::asio::ip::udp;
 
@@ -185,6 +186,10 @@ public:
     static void ResetEvictedFlag(int idx);
     static void FlowNatResponse(uint32_t seq_num, vr_flow_req *req);
     static void SetUnderlaySourcePort(int idx, int port);
+    vr_bridge_entry* BridgeMmapAlloc(int size);
+    void BridgeMmapFree();
+    vr_bridge_entry* GetBridgeEntry(int idx);
+    void SetBridgeEntry(vr_route_req *req, bool set);
     friend class MockDumpHandlerBase;
     friend class RouteDumpHandler;
     friend class VrfAssignDumpHandler;
@@ -221,6 +226,7 @@ private:
     bool is_incremental_index_;
     static KSyncSockTypeMap *singleton_;
     static vr_flow_entry *flow_table_;
+    vr_bridge_entry *bridge_table_;
     static int error_code_;
     // List of nl_client messages to be sent. In case of bulk message, all
     // responses are initially put into this list and finally NL_MULTI

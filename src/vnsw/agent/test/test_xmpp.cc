@@ -731,7 +731,8 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                               Agent::GetInstance()->router_id(), "vrf10",
                               addr, TunnelType::ComputeType(TunnelType::MplsType()),
                               100, vn_list, SecurityGroupList(),
-                              PathPreference(), false, EcmpLoadBalance());
+                              PathPreference(), false, EcmpLoadBalance(),
+                              false);
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     InetUnicastRouteKey *key =
         new InetUnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
@@ -758,7 +759,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                                    SecurityGroupList(),
                                    CommunityList(),
                                    PathPreference(),
-                                   EcmpLoadBalance(), false, false, 0);
+                                   EcmpLoadBalance(), false, false, 0, false);
     DBRequest localvm_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     key = new InetUnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
     key->sub_op_ = AgentKey::RESYNC;
@@ -888,8 +889,13 @@ TEST_F(AgentXmppUnitTest, Add_db_inetinterface_req_by_deleted_peer_non_hv) {
                                    InterfaceNHFlags::INET4,
                                    SecurityGroupList(),
                                    CommunityList(),
+<<<<<<< HEAD
                                    PathPreference(),
                                    EcmpLoadBalance(), false, false, 0);
+=======
+                                   PathPreference(), Ip4Address(0),
+                                   EcmpLoadBalance(), false, false, false);
+>>>>>>> 996b840... * Changes to support mac learning and PBB EVPN
     agent->fabric_inet4_unicast_table()->AddLocalVmRouteReq(old_bgp_peer, "vrf1",
                                   addr, 32,
                                   static_cast<LocalVmRoute *>(local_vm_route));

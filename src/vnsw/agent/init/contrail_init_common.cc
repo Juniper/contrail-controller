@@ -18,6 +18,7 @@
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <vrouter/ksync/ksync_init.h>
+#include <mac_learning/mac_learning_init.h>
 #include <uve/agent_uve.h>
 #include <pkt/proto_handler.h>
 #include <diag/diag.h>
@@ -39,6 +40,7 @@ ContrailInitCommon::~ContrailInitCommon() {
     diag_table_.reset();
     services_.reset();
     pkt_.reset();
+    mac_learning_module_.reset();
 }
 
 void ContrailInitCommon::ProcessOptions
@@ -66,6 +68,9 @@ void ContrailInitCommon::CreateModules() {
         vgw_.reset(new VirtualGateway(agent()));
         agent()->set_vgw(vgw_.get());
     }
+
+    mac_learning_module_.reset(new MacLearningModule(agent()));
+    agent()->set_mac_learning_module(mac_learning_module_.get());
 }
 
 void ContrailInitCommon::RegisterDBClients() {
@@ -99,6 +104,9 @@ void ContrailInitCommon::InitModules() {
         agent()->ksync()->Init(create_vhost_);
     }
 
+    if (agent()->mac_learning_module()) {
+        agent()->mac_learning_module()->Init();
+    }
 }
 
 void ContrailInitCommon::CreateVrf() {
@@ -283,6 +291,10 @@ void ContrailInitCommon::FlushFlows() {
 void ContrailInitCommon::ServicesShutdown() {
     if (agent()->services())
         agent()->services()->Shutdown();
+
+    if (agent()->mac_learning_module()) {
+        agent()->mac_learning_module()->Shutdown();
+    }
 }
 
 void ContrailInitCommon::PktShutdown() {

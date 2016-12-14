@@ -100,12 +100,15 @@ bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
 void MplsTable::CreateTableLabel(const Agent *agent,
                                  uint32_t label,
                                  const std::string &vrf_name,
-                                 bool policy) {
+                                 bool policy,
+                                 bool learning_enabled,
+                                 bool l2,
+                                 bool flood_unknown_unicast) {
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false, false);
+    VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false, l2);
     nh_req.key.reset(vrf_nh_key);
-    nh_req.data.reset(new VrfNHData(false));
+    nh_req.data.reset(new VrfNHData(flood_unknown_unicast, learning_enabled));
     agent->nexthop_table()->Process(nh_req);
 
     DBRequest req;
@@ -114,7 +117,7 @@ void MplsTable::CreateTableLabel(const Agent *agent,
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(vrf_name, policy);
+    MplsLabelData *data = new MplsLabelData(vrf_name, policy, l2);
     req.data.reset(data);
 
     agent->mpls_table()->Process(req);

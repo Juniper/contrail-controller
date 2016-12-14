@@ -68,7 +68,18 @@ public:
                          const std::string &vn_name,
                          const SecurityGroupList &sg_id_list,
                          const PathPreference &path_pref,
-                         uint32_t ethernet_tag);
+                         uint32_t ethernet_tag,
+                         bool etree_leaf);
+
+    void AddLocalVmRouteReq(const Peer *peer, const std::string &vrf_name,
+                         const MacAddress &mac, const VmInterface *intf,
+                         const IpAddress &ip, uint32_t label,
+                         const std::string &vn_name,
+                         const SecurityGroupList &sg_id_list,
+                         const PathPreference &path_pref,
+                         uint32_t ethernet_tag,
+                         bool etree_leaf);
+
     static void ResyncVmRoute(const Peer *peer,
                               const string &vrf_name,
                               const MacAddress &mac,

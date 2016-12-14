@@ -211,7 +211,6 @@ bool InterfaceTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
             intf->qos_config_ = qos_config;
             return true;
         }
-        return false;
     }
 
     if (key->type_ != Interface::VM_INTERFACE)
@@ -1104,6 +1103,16 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 vintf->service_health_check_ip().to_string());
         data.set_drop_new_flows(vintf->drop_new_flows());
 
+        VmInterface::BridgeDomainEntrySet::const_iterator bd_it;
+        std::vector<VmIntfBridgeDomainUuid> intf_bd_uuid_l;
+        const VmInterface::BridgeDomainList &bd_list =
+            vintf->bridge_domain_list();
+        for (bd_it = bd_list.list_.begin(); bd_it != bd_list.list_.end(); ++bd_it) {
+            VmIntfBridgeDomainUuid bd_id;
+            bd_id.set_bridge_domain_uuid(UuidToString(bd_it->uuid_));
+            intf_bd_uuid_l.push_back(bd_id);
+        }
+        data.set_bridge_domain_list(intf_bd_uuid_l);
         break;
     }
     case Interface::INET: {

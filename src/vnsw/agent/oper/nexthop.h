@@ -334,13 +334,16 @@ public:
         TUNNEL,
         MIRROR,
         COMPOSITE,
-        VLAN
+        VLAN,
+        PBB
     };
 
     NextHop(Type type, bool policy) : 
-        type_(type), valid_(true), policy_(policy), id_(kInvalidIndex) {}
+        type_(type), valid_(true), policy_(policy), id_(kInvalidIndex),
+        learning_enabled_(false), etree_leaf_(false) {}
     NextHop(Type type, bool valid, bool policy) : 
-        type_(type), valid_(valid), policy_(policy), id_(kInvalidIndex) {}
+        type_(type), valid_(valid), policy_(policy), id_(kInvalidIndex),
+        learning_enabled_(false), etree_leaf_(false) {}
     virtual ~NextHop();
 
     virtual std::string ToString() const { return "NH";}
@@ -375,6 +378,22 @@ public:
     uint32_t id() const { return id_;}
     void set_id(uint32_t index) { id_ = index;}
 
+    void set_etree_leaf(bool val) {
+        etree_leaf_ = val;
+    }
+
+    bool etree_leaf() const {
+        return etree_leaf_;
+    }
+
+    void set_learning_flag(bool val) {
+        learning_enabled_ = val;
+    }
+
+    bool learning_enabled() const {
+        return learning_enabled_;
+    }
+
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SetNHSandeshData(NhSandeshData &data) const;
     static void FillObjectLogIntf(const Interface *intf,
@@ -391,15 +410,21 @@ protected:
     bool valid_;
     bool policy_;
     uint32_t id_;
+    bool learning_enabled_;
+    bool etree_leaf_;
 private:
     DISALLOW_COPY_AND_ASSIGN(NextHop);
 };
 
 class NextHopData : public AgentData {
 public:
-    NextHopData() : AgentData() {};
+    NextHopData() : AgentData(), learning_enabled_(false), etree_leaf_(false) {};
+    NextHopData(bool learning_enabled, bool etree_leaf):
+        learning_enabled_(learning_enabled), etree_leaf_(etree_leaf) {}
     virtual ~NextHopData() {};
-private:
+protected:
+    bool learning_enabled_;
+    bool etree_leaf_;
     DISALLOW_COPY_AND_ASSIGN(NextHopData);
 };
 
@@ -828,6 +853,104 @@ private:
     DISALLOW_COPY_AND_ASSIGN(TunnelNHData);
 };
 
+class PBBNHKey : public NextHopKey {
+public:
+    PBBNHKey(const string &vrf_name, const MacAddress &dest_bmac, uint32_t isid):
+        NextHopKey(NextHop::PBB, false), vrf_key_(vrf_name),
+        dest_bmac_(dest_bmac), isid_(isid) {
+    };
+    virtual ~PBBNHKey() { };
+
+    virtual NextHop *AllocEntry() const;
+    virtual NextHopKey *Clone() const {
+        return new PBBNHKey(vrf_key_.name_, dest_bmac_, isid_);
+    }
+
+    virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
+        const PBBNHKey &key = static_cast<const PBBNHKey &>(rhs);
+        if (vrf_key_.IsEqual(key.vrf_key_) == false) {
+            return vrf_key_.IsLess(key.vrf_key_);
+        }
+
+        if (dest_bmac_ != key.dest_bmac_) {
+            return dest_bmac_ < key.dest_bmac_;
+        }
+
+        return isid_ < key.isid_;
+    }
+
+    const MacAddress dest_bmac() const {
+        return dest_bmac_;
+    }
+private:
+    friend class PBBNH;
+    VrfKey vrf_key_;
+    MacAddress dest_bmac_;
+    uint32_t isid_;
+    uint32_t label_;
+    NextHopConstRef nh_;
+    DISALLOW_COPY_AND_ASSIGN(PBBNHKey);
+};
+
+class PBBNHData : public NextHopData {
+public:
+    PBBNHData() : NextHopData() {};
+    virtual ~PBBNHData() { };
+private:
+    friend class PBBNH;
+    DISALLOW_COPY_AND_ASSIGN(PBBNHData);
+};
+
+class PBBNH : public NextHop {
+public:
+    PBBNH(VrfEntry *vrf, const MacAddress &dmac, uint32_t isid);
+    virtual ~PBBNH();
+
+    virtual std::string ToString() const {
+        return "PBB to " + dest_bmac_.ToString();
+    }
+    virtual bool NextHopIsLess(const DBEntry &rhs) const;
+    virtual void SetKey(const DBRequestKey *key);
+    virtual bool Change(const DBRequest *req);
+    virtual void Delete(const DBRequest *req);
+    virtual KeyPtr GetDBRequestKey() const;
+    virtual bool CanAdd() const;
+
+    const uint32_t vrf_id() const;
+    const VrfEntry *vrf() const {return vrf_.get();};
+    const MacAddress dest_bmac() const {return dest_bmac_;};
+    const uint32_t isid() const { return isid_;};
+    virtual void SendObjectLog(const NextHopTable *table,
+                               AgentLogEvent::type event) const;
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
+
+    virtual bool MatchEgressData(const NextHop *nh) const {
+        const PBBNH *pbb_nh = dynamic_cast<const PBBNH *>(nh);
+        if (pbb_nh && vrf_ == pbb_nh->vrf_ && dest_bmac_ == pbb_nh->dest_bmac_) {
+            return true;
+        }
+        return false;
+    }
+
+    uint32_t label() const {
+        return label_;
+    }
+
+    const NextHop *child_nh() const {
+        return child_nh_.get();
+    }
+private:
+    VrfEntryRef vrf_;
+    MacAddress dest_bmac_;
+    uint32_t isid_;
+    uint32_t label_;
+    NextHopConstRef child_nh_;
+    DISALLOW_COPY_AND_ASSIGN(PBBNH);
+};
+
+
 /////////////////////////////////////////////////////////////////////////////
 // Interface NH definition
 /////////////////////////////////////////////////////////////////////////////
@@ -899,6 +1022,9 @@ public:
         NextHopData(), vrf_key_(vrf_name), relaxed_policy_(false) { }
     InterfaceNHData(const string vrf_name, bool relaxed_policy) :
         NextHopData(), vrf_key_(vrf_name), relaxed_policy_(relaxed_policy) { }
+    InterfaceNHData(const string vrf_name, bool learning_enabled, bool etree_leaf):
+        NextHopData(learning_enabled, etree_leaf), vrf_key_(vrf_name),
+        relaxed_policy_(false) {}
     virtual ~InterfaceNHData() { }
 
 private:
@@ -947,12 +1073,15 @@ public:
     static void DeleteMulticastVmInterfaceNH(const uuid &intf_uuid);
     static void CreateL2VmInterfaceNH(const uuid &intf_uuid,
                                       const MacAddress &dmac,
-                                      const string &vrf_name);
+                                      const string &vrf_name,
+                                      bool learning_enabled,
+                                      bool etree_leaf);
     static void DeleteL2InterfaceNH(const uuid &intf_uuid,
                                     const MacAddress &mac);
     static void CreateL3VmInterfaceNH(const uuid &intf_uuid,
                                       const MacAddress &dmac,
-                                      const string &vrf_name);
+                                      const string &vrf_name,
+                                      bool learning_enabled);
     static void DeleteL3InterfaceNH(const uuid &intf_uuid,
                                     const MacAddress &mac);
     static void DeleteNH(const uuid &intf_uuid, bool policy, uint8_t flags,
@@ -1029,8 +1158,9 @@ private:
 
 class VrfNHData : public NextHopData {
 public:
-    VrfNHData(bool flood_unknown_unicast) : NextHopData(),
-    flood_unknown_unicast_(flood_unknown_unicast) {}
+    VrfNHData(bool flood_unknown_unicast, bool learning_enabled):
+              NextHopData(learning_enabled, true),
+              flood_unknown_unicast_(flood_unknown_unicast) {}
     virtual ~VrfNHData() { }
 private:
     friend class VrfNH;
@@ -1334,8 +1464,12 @@ private:
 
 class CompositeNHData : public NextHopData {
 public:
-    CompositeNHData() : NextHopData() { }
+    CompositeNHData() : NextHopData(), pbb_nh_(false) {}
+    CompositeNHData(bool pbb_nh, bool learning_enabled) :
+        NextHopData(learning_enabled, true), pbb_nh_(pbb_nh) {}
 private:
+    friend class CompositeNH;
+    bool pbb_nh_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNHData);
 };
 
@@ -1356,7 +1490,8 @@ public:
     CompositeNH(COMPOSITETYPE type, bool policy,
         const ComponentNHKeyList &component_nh_key_list, VrfEntry *vrf):
         NextHop(COMPOSITE, policy), composite_nh_type_(type),
-        component_nh_key_list_(component_nh_key_list), vrf_(vrf, this) {
+        component_nh_key_list_(component_nh_key_list), vrf_(vrf, this),
+        pbb_nh_(false) {
         comp_ecmp_hash_fields_.AllocateEcmpFields();
     }
 
@@ -1465,6 +1600,9 @@ public:
    }
    EcmpHashFields& CompEcmpHashFields() { return comp_ecmp_hash_fields_; }
    void UpdateEcmpHashFieldsUponRouteDelete(Agent *agent, const string &vrf_name);
+   bool pbb_nh() const {
+       return pbb_nh_;
+   }
 private:
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
@@ -1474,6 +1612,7 @@ private:
     ComponentNHList component_nh_list_;
     VrfEntryRef vrf_;
     EcmpHashFields comp_ecmp_hash_fields_;
+    bool pbb_nh_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNH);
 };
 
