@@ -63,6 +63,12 @@ request sandesh MetadataInfo {
 }
 
 /**
+ * Request message to get mac learning info from agent
+ */
+request sandesh MacLearningInfo {
+}
+
+/**
  * Request message to get all services info from agent along with packet stats
  */
 request sandesh ShowAllInfo {
@@ -127,6 +133,7 @@ response sandesh PktStats {
     15: i32 dns_q_threshold_exceeded;
     16: i32 icmp_q_threshold_exceeded;
     17: i32 flow_q_threshold_exceeded;
+    18: i32 mac_learning_msg_rcvd;
 }
 
 /**

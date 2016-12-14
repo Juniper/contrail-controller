@@ -18,6 +18,7 @@
 #include <vrouter/ksync/qos_queue_ksync.h>
 #include <vrouter/ksync/forwarding_class_ksync.h>
 #include <vrouter/ksync/qos_config_ksync.h>
+#include <vrouter/ksync/ksync_bridge_table.h>
 #include "vnswif_listener.h"
 
 class KSyncFlowMemory;
@@ -76,6 +77,10 @@ public:
     QosConfigKSyncObject* qos_config_ksync_obj() const {
         return qos_config_ksync_obj_.get();
     }
+
+    KSyncBridgeMemory* ksync_bridge_memory() const {
+        return ksync_bridge_memory_.get();
+    }
 protected:
     Agent *agent_;
     boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
@@ -93,6 +98,7 @@ protected:
     boost::scoped_ptr<QosQueueKSyncObject> qos_queue_ksync_obj_;
     boost::scoped_ptr<ForwardingClassKSyncObject> forwarding_class_ksync_obj_;
     boost::scoped_ptr<QosConfigKSyncObject> qos_config_ksync_obj_;
+    boost::scoped_ptr<KSyncBridgeMemory> ksync_bridge_memory_;
     virtual void InitFlowMem();
     void VRouterInterfaceSnapshot();
     void ResetVRouter(bool run_sync_mode);

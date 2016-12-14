@@ -110,7 +110,7 @@ void VirtualGateway::CreateVrf() {
 }
 
 void VirtualGateway::CreateVrf(const std::string &vrf_name) {
-    agent_->vrf_table()->CreateVrf(vrf_name, VrfData::GwVrf);
+    agent_->vrf_table()->CreateVrf(vrf_name, nil_uuid(), VrfData::GwVrf);
 }
 
 void VirtualGateway::DeleteVrf(const std::string &vrf_name) {

@@ -1,0 +1,14 @@
+traceobject sandesh MacLearning {
+    1: string vrf;
+    2: string mac;
+    3: string intf;
+    4: string msg;
+}
+
+traceobject sandesh MacAging {
+    1: string vrf;
+    2: string mac;
+    3: i32    index;
+    4: u64    packets;
+    5: string msg;
+}

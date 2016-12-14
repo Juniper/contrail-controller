@@ -198,6 +198,17 @@ void AgentConfig::RegisterDBClients(DB *db) {
                             (IFMapTable::FindTable(agent_->db(),
                                                    "forwarding-class")));
     assert(cfg_forwarding_class_table_);
+
+    cfg_bridge_domain_table_ = (static_cast<IFMapAgentTable *>
+                               (IFMapTable::FindTable(agent_->db(),
+                                                      "bridge-domain")));
+    assert(cfg_bridge_domain_table_);
+
+    cfg_vm_port_bridge_domain_table_ = (static_cast<IFMapAgentTable *>
+                             (IFMapTable::FindTable(agent_->db(),
+                                   "virtual-machine-interface-bridge-domain")));
+    assert(cfg_vm_port_bridge_domain_table_);
+
 }
 
 void AgentConfig::Init() {

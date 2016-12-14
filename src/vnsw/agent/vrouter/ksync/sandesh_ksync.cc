@@ -50,13 +50,26 @@ int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     return 0;
 }
 
+void KSyncSandeshContext::BridgeTableInfoHandler(vr_bridge_table_data *r) {
+    assert(r->get_btable_op() == sandesh_op::GET);
+    ksync_->ksync_bridge_memory()->set_major_devid(r->get_btable_dev());
+    ksync_->ksync_bridge_memory()->set_table_size(r->get_btable_size());
+    if (r->get_btable_file_path() != Agent::NullString()) {
+        ksync_->ksync_bridge_memory()->
+            set_table_path(r->get_btable_file_path());
+    }
+    LOG(DEBUG, "Flow table size : " << r->get_btable_size());
+    return;
+}
+
 void KSyncSandeshContext::FlowTableInfoHandler(vr_flow_table_data *r) {
     assert(r->get_ftable_op() == flow_op::FLOW_TABLE_GET);
-    flow_ksync_->set_major_devid(r->get_ftable_dev());
-    flow_ksync_->set_flow_table_size(r->get_ftable_size());
-    flow_ksync_->set_flow_table_path(r->get_ftable_file_path());
+    ksync_->ksync_flow_memory()->set_major_devid(r->get_ftable_dev());
+    ksync_->ksync_flow_memory()->set_table_size(r->get_ftable_size());
+    if (r->get_ftable_file_path() != Agent::NullString()) {
+        ksync_->ksync_flow_memory()->set_table_path(r->get_ftable_file_path());
+    }
     LOG(DEBUG, "Flow table size : " << r->get_ftable_size());
-    return;
 }
 
 static void LogFlowError(vr_flow_response *r, int err) {
@@ -112,12 +125,12 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 }
 
 void KSyncSandeshContext::IfMsgHandler(vr_interface_req *r) {
-    flow_ksync_->ksync()->interface_scanner()->KernelInterfaceData(r); 
+    ksync_->interface_scanner()->KernelInterfaceData(r);
     context_marker_ = r->get_vifr_idx();
 }
 
 void KSyncSandeshContext::VrouterOpsMsgHandler(vrouter_ops *r) {
-    Agent *agent = flow_ksync_->ksync()->agent();
+    Agent *agent = ksync_->agent();
     agent->set_vrouter_max_labels(r->get_vo_mpls_labels());
     agent->set_vrouter_max_nexthops(r->get_vo_nexthops());
     agent->set_vrouter_max_bridge_entries(r->get_vo_bridge_entries());

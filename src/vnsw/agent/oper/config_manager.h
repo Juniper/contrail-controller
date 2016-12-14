@@ -99,6 +99,7 @@ public:
     void DelPhysicalDeviceVn(const boost::uuids::uuid &dev,
                              const boost::uuids::uuid &vn);
     void AddHealthCheckServiceNode(IFMapNode *node);
+    void AddBridgeDomainNode(IFMapNode *node);
     uint32_t PhysicalDeviceVnCount() const;
     bool CanUseNode(IFMapNode *node);
     bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
@@ -129,6 +130,7 @@ private:
     std::auto_ptr<ConfigManagerNodeList> qos_queue_list_;
     std::auto_ptr<ConfigManagerNodeList> forwarding_class_list_;
     std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
+    std::auto_ptr<ConfigManagerNodeList> bridge_domain_list_;
 
     uint64_t process_config_count_[kMaxTimeout + 1];
     boost::scoped_ptr<ConfigHelper> helper_;

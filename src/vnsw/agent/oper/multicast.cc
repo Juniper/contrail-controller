@@ -16,6 +16,7 @@
 #include <oper/multicast.h>
 #include <oper/mirror_table.h>
 #include <oper/mpls.h>
+#include <oper/bridge_domain.h>
 #include <controller/controller_init.h>
 #include <controller/controller_route_path.h>
 
@@ -32,7 +33,7 @@ using namespace boost::uuids;
 MulticastHandler *MulticastHandler::obj_;
 SandeshTraceBufferPtr MulticastTraceBuf(SandeshTraceBufferCreate("Multicast",
                                                                      1000));
-
+const Ip4Address MulticastHandler::kBroadcast = Ip4Address(0xFFFFFFFF);
 /*
  * Registeration for notification
  * VM - Looking for local VM added 
@@ -44,6 +45,8 @@ void MulticastHandler::Register() {
         boost::bind(&MulticastHandler::ModifyVN, this, _1, _2));
     interface_listener_id_ = agent_->interface_table()->Register(
         boost::bind(&MulticastHandler::ModifyVmInterface, this, _1, _2));
+    bridge_domain_id_ = agent_->bridge_domain_table()->Register(
+            boost::bind(&MulticastHandler::AddBridgeDomain, this, _1, _2));
 
     GetMulticastObjList().clear();
 }
@@ -61,6 +64,10 @@ void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
                                            int vxlan_id,
                                            uint32_t ethernet_tag)
 {
+    if (obj->pbb_vrf() && obj->dependent_mg() == NULL) {
+        return;
+    }
+
     boost::system::error_code ec;
     MCTRACE(Log, "add L2 bcast route ", vrf_name, addr.to_string(), 0);
     //Add Bridge FF:FF:FF:FF:FF:FF
@@ -76,7 +83,9 @@ void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
                                                    vxlan_id,
                                                    route_tunnel_bmap,
                                                    Composite::L2INTERFACE,
-                                                   component_nh_key_list);
+                                                   component_nh_key_list,
+                                                   obj->pbb_vrf(),
+                                                   obj->learning_enabled());
     BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_vm_peer(),
                                                    vrf_name,
                                                    ethernet_tag,
@@ -172,7 +181,10 @@ void MulticastHandler::HandleVnParametersChange(DBTablePartBase *partition,
                                                        state->vxlan_id_,
                                                        TunnelType::VxlanType(),
                                                        Composite::L2COMP,
-                                                       component_nh_key_list);
+                                                       component_nh_key_list,
+                                                       all_broadcast->pbb_vrf(),
+                                                       all_broadcast->
+                                                       learning_enabled());
         BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_peer(),
                                                        state->vrf_name_,
                                                        state->vxlan_id_,
@@ -215,19 +227,99 @@ void MulticastHandler::ModifyVN(DBTablePartBase *partition, DBEntryBase *e)
     HandleVnParametersChange(partition, e);
 }
 
+MulticastDBState*
+MulticastHandler::CreateBridgeDomainMG(DBTablePartBase *partition,
+                                            BridgeDomainEntry *bd) {
+    MulticastDBState *state = new MulticastDBState(bd->vrf()->GetName(),
+                                                   0);
+
+    MulticastGroupObject *obj = FindFloodGroupObject(bd->vrf()->GetName());
+    if (obj == NULL) {
+        obj = CreateMulticastGroupObject(state->vrf_name_, kBroadcast,
+                                         bd->vn(), state->vxlan_id_);
+        //Add a mutlicast route point to empty composite list
+        AddL2BroadcastRoute(obj, state->vrf_name_,
+                            bd->vn()->GetName(), kBroadcast,
+                            MplsTable::kInvalidLabel, 0,
+                            state->vxlan_id_);
+    }
+
+    bd->SetState(partition->parent(), bridge_domain_id_, state);
+    return state;
+}
+
+void MulticastHandler::AddBridgeDomain(DBTablePartBase *partition,
+                                       DBEntryBase *e) {
+    BridgeDomainEntry *bd = static_cast<BridgeDomainEntry *>(e);
+
+    MulticastDBState *state = static_cast<MulticastDBState *>(
+        bd->GetState(partition->parent(), bridge_domain_id_));
+
+    if (e->IsDeleted() || bd->vrf() == NULL || bd->vn() == NULL) {
+        if (state) {
+            bd->ClearState(partition->parent(), bridge_domain_id_);
+            DeleteBroadcast(agent_->local_vm_peer(),
+                            state->vrf_name_, 0, Composite::L2INTERFACE);
+            DeleteMulticastObject(state->vrf_name_, kBroadcast);
+            delete state;
+        }
+        return;
+    }
+
+    if (state == NULL) {
+        state = CreateBridgeDomainMG(partition, bd);
+    }
+
+    MulticastGroupObject *obj = FindFloodGroupObject(bd->vrf()->GetName());
+    if (state->learning_enabled_ != bd->learning_enabled()) {
+        state->learning_enabled_ = bd->learning_enabled();
+        ChangeLearningMode(obj, state->learning_enabled_);
+    }
+
+    if (state->pbb_etree_enabled_ != bd->pbb_etree_enabled()) {
+        state->pbb_etree_enabled_ = bd->pbb_etree_enabled();
+        ChangePbbEtreeMode(obj, state->pbb_etree_enabled_);
+    }
+}
+
+void MulticastHandler::ChangeLearningMode(MulticastGroupObject *obj,
+                                          bool learning_enabled) {
+    if (obj->learning_enabled_ == learning_enabled) {
+        return;
+    }
+
+    obj->set_learning_enabled(learning_enabled);
+    Resync(obj);
+}
+
+void MulticastHandler::ChangePbbEtreeMode(MulticastGroupObject *obj,
+                                          bool pbb_etree_enabled) {
+    if (obj->pbb_etree_enabled_ == pbb_etree_enabled) {
+        return;
+    }
+
+    obj->set_pbb_etree_enabled(pbb_etree_enabled);
+    Resync(obj);
+}
+
 bool MulticastGroupObject::CanBeDeleted() const {
     if ((local_olist_.size() == 0) && (vn_.get() == NULL))
         return true;
     return false;
 }
 
-MulticastGroupObject *MulticastHandler::CreateMulticastGroupObject
-(const string &vrf_name, const Ip4Address &ip_addr, const VnEntry *vn,
- uint32_t vxlan_id) {
+MulticastGroupObject*
+MulticastHandler::CreateMulticastGroupObject(const string &vrf_name,
+                                             const Ip4Address &ip_addr,
+                                             const VnEntry *vn,
+                                             uint32_t vxlan_id) {
+
     MulticastGroupObject *obj =
         new MulticastGroupObject(vrf_name, ip_addr, vn->GetName());
     obj->set_vxlan_id(vxlan_id);
     AddToMulticastObjList(obj);
+
+    UpdateReference(obj);
     return obj;
 }
 
@@ -269,29 +361,82 @@ void MulticastHandler::HandleIpam(const VnEntry *vn) {
 void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition, 
                                          DBEntryBase *e)
 {
-    const Interface *intf = static_cast<const Interface *>(e);
-    const VmInterface *vm_itf;
+    Interface *intf = static_cast<Interface *>(e);
+    VmInterface *vm_itf;
 
     if (intf->type() != Interface::VM_INTERFACE) {
         return;
     }
 
-    vm_itf = static_cast<const VmInterface *>(intf);
+    vm_itf = static_cast<VmInterface *>(intf);
     if (vm_itf->device_type() == VmInterface::TOR) {
         //Ignore TOR VMI, they are not active VMI.
         return;
     }
 
+    MulticastIntfDBState *state = static_cast<MulticastIntfDBState *>(
+        vm_itf->GetState(partition->parent(), interface_listener_id_));
+
     if (intf->IsDeleted() || ((vm_itf->l2_active() == false) &&
                               (vm_itf->ipv4_active() == false) &&
                               (vm_itf->ipv6_active() == false))) {
-        DeleteVmInterface(intf);
+        if (state) {
+            DeleteVmInterface(vm_itf, state);
+            if (intf->IsDeleted()) {
+                vm_itf->ClearState(partition->parent(),
+                                   interface_listener_id_);
+                delete state;
+            }
+        }
         return;
     }
     assert(vm_itf->vn() != NULL);
 
-    AddVmInterfaceInFloodGroup(vm_itf);
+    if (state == NULL) {
+        state = new MulticastIntfDBState();
+        vm_itf->SetState(partition->parent(), interface_listener_id_, state);
+    }
+
+    //Build all the VRF group interface belong to
+    AddVmInterfaceInFloodGroup(vm_itf, state);
     return;
+}
+
+void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_intf,
+                                                  MulticastIntfDBState *state) {
+    std::set<std::string> new_vrf_list;
+    new_vrf_list.insert(vm_intf->vrf()->GetName());
+
+    //Build all PBB VRF
+    VmInterface::BridgeDomainEntrySet::const_iterator it =
+        vm_intf->bridge_domain_list().list_.begin();
+    for (;it != vm_intf->bridge_domain_list().list_.end(); it++) {
+        if (it->bridge_domain_.get() && it->bridge_domain_->vrf()) {
+            new_vrf_list.insert(it->bridge_domain_->vrf()->GetName());
+        }
+    }
+
+    //Delete interface multicast group, if bridge domain is deleted
+    for (std::set<std::string>::const_iterator it = new_vrf_list.begin();
+         it != new_vrf_list.end(); it++) {
+        AddVmInterfaceInFloodGroup(vm_intf, *it);
+        state->vrf_list_.erase(*it);
+    }
+
+    for (std::set<std::string>::const_iterator it = state->vrf_list_.begin();
+         it != state->vrf_list_.end(); it++) {
+        DeleteVmInterface(vm_intf, *it);
+    }
+
+    state->vrf_list_ = new_vrf_list;
+}
+
+void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
+                                         MulticastIntfDBState *state) {
+    for (std::set<std::string>::const_iterator it = state->vrf_list_.begin();
+         it != state->vrf_list_.end(); it++) {
+        DeleteVmInterface(intf, *it);
+    }
 }
 
 /*
@@ -300,13 +445,16 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
  * Delete the VM from them and check if local VM list size is zero.
  * If it is zero then delete the route and mpls.
  */
-void MulticastHandler::DeleteVmInterface(const Interface *intf)
-{
+void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
+                                         const std::string &vrf_name) {
     const VmInterface *vm_itf = static_cast<const VmInterface *>(intf);
     std::list<MulticastGroupObject *> &obj_list = this->GetVmToMulticastObjMap(
                                                           vm_itf->GetUuid());
     for (std::list<MulticastGroupObject *>::iterator it = obj_list.begin(); 
          it != obj_list.end(); it++) {
+        if ((*it)->vrf_name() != vrf_name) {
+            continue;
+        }
         // When IPAM/VN goes off first than VM then it marks mc obj 
         // for deletion. Cleanup of related data structures like vm-mcobj
         // happens when VM goes off. So dont trigger any notify at same time.
@@ -331,9 +479,9 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
             // TODO : delete only when all creators are gone
             DeleteMulticastObject((*it)->vrf_name_, (*it)->grp_address_);
         }
+        DeleteVmToMulticastObjMap(vm_itf->GetUuid(), *it);
+        break;
     }
-    vm_to_mcobj_list_[vm_itf->GetUuid()].clear();
-    DeleteVmToMulticastObjMap(vm_itf->GetUuid());
     MCTRACE(Info, "Del vm notify done ", vm_itf->primary_ip_addr().to_string());
 }
 
@@ -346,8 +494,21 @@ void MulticastHandler::DeleteMulticastObject(const std::string &vrf_name,
 
         if (((*it)->vrf_name() == vrf_name) &&
             ((*it)->GetGroupAddress() == grp_addr)) {
-            if (!((*it)->CanBeDeleted()))
+            if (!((*it)->CanBeDeleted())) {
                 return;
+            }
+
+            if ((*it)->dependent_mg() != NULL) {
+                MulticastGroupObject *dp_obj = (*it)->dependent_mg();
+                (*it)->set_dependent_mg(NULL);
+                ModifyFabricMembers(dp_obj->peer(), dp_obj->vrf_name(),
+                                    dp_obj->GetGroupAddress(),
+                                    dp_obj->GetSourceAddress(),
+                                    dp_obj->fabric_label(),
+                                    dp_obj->fabric_olist(),
+                                    dp_obj->peer_identifier());
+            }
+
             MCTRACE(Log, "delete obj  vrf/grp/size ", vrf_name,
                     grp_addr.to_string(),
                     this->GetMulticastObjList().size());
@@ -421,8 +582,13 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
     DBRequest req;
     ComponentNHKeyList component_nh_key_list;
 
+    if (obj->pbb_vrf() && obj->dependent_mg() == NULL) {
+        return;
+    }
+
     component_nh_key_list =
         GetInterfaceComponentNHKeyList(obj, InterfaceNHFlags::BRIDGE);
+
     MCTRACE(Log, "enqueue route change with local peer",
             obj->vrf_name(),
             obj->GetGroupAddress().to_string(),
@@ -436,7 +602,9 @@ void MulticastHandler::TriggerLocalRouteChange(MulticastGroupObject *obj,
                                                    obj->vxlan_id(),
                                                    route_tunnel_bmap,
                                                    Composite::L2INTERFACE,
-                                                   component_nh_key_list);
+                                                   component_nh_key_list,
+                                                   obj->pbb_vrf(),
+                                                   obj->learning_enabled());
     BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                                    obj->vrf_name(),
                                                    0,
@@ -534,6 +702,15 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
             obj->GetGroupAddress().to_string(),
             component_nh_key_list.size());
 
+    //Delete fabric path, so that only PBB route points
+    //to MPLS route
+    if (comp_type == Composite::FABRIC &&
+        ((obj->mg_list_.empty() == false || obj->pbb_etree_enabled() == true))) {
+        BridgeAgentRouteTable::DeleteBroadcastReq(peer, vrf_name,
+                                                  ethernet_tag, comp_type);
+        return;
+    }
+
     //Add Bridge FF:FF:FF:FF:FF:FF$
     if (comp_type == Composite::TOR)
         route_tunnel_bmap = TunnelType::VxlanType();
@@ -548,7 +725,9 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                        ethernet_tag,
                                                        route_tunnel_bmap,
                                                        comp_type,
-                                                       component_nh_key_list);
+                                                       component_nh_key_list,
+                                                       obj->pbb_vrf(),
+                                                       obj->learning_enabled());
     } else {
         data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
                                                           obj->GetVnName(),
@@ -556,7 +735,9 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                           obj->vxlan_id(),
                                                           route_tunnel_bmap,
                                                           comp_type,
-                                                          component_nh_key_list);
+                                                          component_nh_key_list,
+                                                          obj->pbb_vrf(),
+                                                          obj->learning_enabled());
     }
     BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                                    obj->vrf_name(),
@@ -566,8 +747,8 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
             "255.255.255.255", comp_type);
 }
 
-void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_itf) {
-    const string vrf_name = vm_itf->vrf()->GetName();
+void MulticastHandler::AddVmInterfaceInFloodGroup(const VmInterface *vm_itf,
+                                                  const std::string &vrf_name) {
     const uuid intf_uuid = vm_itf->GetUuid();
     const VnEntry *vn = vm_itf->vn();
     MulticastGroupObject *all_broadcast = NULL;
@@ -629,10 +810,42 @@ void MulticastHandler::ModifyFabricMembers(const Peer *peer,
         return;
     }
 
-    TriggerRemoteRouteChange(obj, peer,
-                             vrf_name, olist, peer_identifier,
+    if (peer == NULL) {
+        return;
+    }
+
+    if (obj) {
+        if (delete_op) {
+            obj->set_peer(NULL);
+            TunnelOlist empty_list;
+            obj->set_fabric_olist(empty_list);
+            obj->set_fabric_label(label);
+        } else {
+            obj->set_peer(peer);
+            obj->set_fabric_olist(olist);
+            obj->set_fabric_label(label);
+        }
+    }
+
+    TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
+                             peer_identifier,
                              delete_op, Composite::FABRIC,
                              label, true, 0);
+
+    if (obj == NULL) {
+        return;
+    }
+
+    for (MulticastGroupObject::MGList::iterator iter = obj->mg_list_begin();
+         iter != obj->mg_list_end(); iter++) {
+        MulticastGroupObject *mg =
+            static_cast<MulticastGroupObject *>(iter.operator->());
+        TriggerRemoteRouteChange(mg, peer,
+                                 iter->vrf_name(), olist, peer_identifier,
+                                 delete_op, Composite::FABRIC,
+                                 label, true, 0);
+    }
+
     MCTRACE(Log, "Add fabric grp label ", vrf_name, grp.to_string(), label);
 }
 
@@ -653,7 +866,22 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
     boost::system::error_code ec;
     Ip4Address grp = Ip4Address::from_string("255.255.255.255", ec);
     MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
-    MCTRACE(Log, "XMPP call(EVPN) multicast handler ", vrf_name,
+    std::string derived_vrf_name = vrf_name;
+
+    if (ethernet_tag) {
+        std::stringstream str;
+        str << vrf_name << ":" << ethernet_tag;
+
+        VrfKey key(str.str());
+        VrfEntry *vrf = static_cast<VrfEntry *>(agent_->vrf_table()->
+                                           Find(&key, true));
+        if (vrf && vrf->isid() == ethernet_tag) {
+            derived_vrf_name = str.str();
+            obj = FindActiveGroupObject(derived_vrf_name, grp);
+        }
+    }
+
+    MCTRACE(Log, "XMPP call(EVPN) multicast handler ", derived_vrf_name,
             grp.to_string(), 0);
 
     bool delete_op = false;
@@ -663,7 +891,7 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
         return;
     }
 
-    TriggerRemoteRouteChange(obj, peer, vrf_name, olist,
+    TriggerRemoteRouteChange(obj, peer, derived_vrf_name, olist,
                              peer_identifier, delete_op, Composite::EVPN,
                              MplsTable::kInvalidLabel, false, ethernet_tag);
     MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
@@ -758,3 +986,56 @@ void MulticastHandler::Shutdown() {
     }
 }
 
+void MulticastHandler::ResyncDependentVrf(MulticastGroupObject *obj) {
+    std::set<MulticastGroupObject *>::iterator it =
+        multicast_obj_list_.begin();
+    for (; it != multicast_obj_list_.end(); it++) {
+        MulticastGroupObject *mg =
+            static_cast<MulticastGroupObject *>(*it);
+        if (mg->pbb_vrf() && mg->pbb_vrf_name() == obj->vrf_name()) {
+            //Since reference is getting added on
+            //addition, any eventual fabric notification
+            //will result in ISID VRF also getting updated
+            mg->set_dependent_mg(obj);
+            TriggerLocalRouteChange(mg, agent_->local_vm_peer());
+        }
+    }
+}
+
+void MulticastHandler::UpdateReference(MulticastGroupObject *obj) {
+    VrfKey key(obj->vrf_name());
+    VrfEntry *vrf =
+        static_cast<VrfEntry *>(agent_->vrf_table()->FindActiveEntry(&key));
+    if (vrf && vrf->IsPbbVrf()) {
+        //ISID VRF are dependent on BMAC VRF to build egde replication
+        //tree, take a reference on BMAC VRF so that every time
+        //BMAC VRF fabric list changes, ISID VRF can also be updated
+        obj->set_pbb_vrf(true);
+        obj->set_pbb_vrf_name(vrf->bmac_vrf_name());
+
+        //Set dependent VRF
+        MulticastGroupObject *dependent_mg =
+            FindFloodGroupObject(vrf->bmac_vrf_name());
+        obj->set_dependent_mg(dependent_mg);
+        Resync(obj);
+    } else {
+        //If this a BMAC VRF, there may be ISID VRF dependent
+        //on this new BMAC VRF
+        //Evaulate them
+        ResyncDependentVrf(obj);
+    }
+}
+
+void MulticastHandler::Resync(MulticastGroupObject *obj) {
+    MulticastGroupObject *dependent_mg = obj->dependent_mg();
+    if (dependent_mg && dependent_mg->peer()) {
+        ModifyFabricMembers(dependent_mg->peer(),
+                            dependent_mg->vrf_name(),
+                            dependent_mg->GetGroupAddress(),
+                            dependent_mg->GetSourceAddress(),
+                            dependent_mg->fabric_label(),
+                            dependent_mg->fabric_olist(),
+                            dependent_mg->peer_identifier());
+    }
+    TriggerLocalRouteChange(obj, agent_->local_vm_peer());
+}

@@ -99,6 +99,14 @@ public:
         return cfg_forwarding_class_table_;
     }
 
+    IFMapAgentTable *cfg_bridge_domain_table() const {
+        return cfg_bridge_domain_table_;
+    }
+
+    IFMapAgentTable *cfg_vm_port_bridge_domain_table() const {
+        return cfg_vm_port_bridge_domain_table_;
+    }
+
     Agent *agent() const { return agent_; }
     CfgFilter *cfg_filter() const { return cfg_filter_.get(); }
     IFMapAgentParser *cfg_parser() const { return cfg_parser_.get(); }
@@ -161,6 +169,8 @@ private:
     IFMapAgentTable *cfg_global_qos_table_;
     IFMapAgentTable *cfg_qos_queue_table_;
     IFMapAgentTable *cfg_forwarding_class_table_;
+    IFMapAgentTable *cfg_bridge_domain_table_;
+    IFMapAgentTable *cfg_vm_port_bridge_domain_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };

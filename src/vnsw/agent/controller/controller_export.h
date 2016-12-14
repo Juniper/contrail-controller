@@ -34,6 +34,7 @@ public:
         std::string destination_;
         std::string source_;
         EcmpLoadBalance ecmp_load_balance_;
+        bool etree_leaf_;
 
         bool Changed(const AgentRoute *route, const AgentPath *path) const;
         void Update(const AgentRoute *route, const AgentPath *path);
