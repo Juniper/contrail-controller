@@ -142,6 +142,7 @@ public:
     PathPreferenceSM* GetDependentPath(const AgentPath *path) const;
 private:
     bool GetRouteListenerId(const VrfEntry *vrf,
+                            const Agent::RouteTableType &table,
                             DBTableBase::ListenerId &rt_id) const;
     Agent *agent_;
     AgentRoute *rt_;
