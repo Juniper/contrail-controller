@@ -125,6 +125,7 @@ public:
         bool flood_unknown_unicast_;
         bool active_;
         bool mirror_destination_;
+        bool learning_enabled_;
     };
     typedef std::map<ConfigKey, ConfigEntry, ConfigKey> ConfigTree;
     typedef std::map<uint32_t, ComponentNHKeyList>VxlanCompositeNHList;
@@ -147,14 +148,15 @@ public:
     void Process(DBRequest &req);
 
     void Create(uint32_t vxlan_id, const std::string &vrf_name,
-                bool flood_unknown_unicast, bool mirror_destination);
+                bool flood_unknown_unicast, bool mirror_destination,
+                bool learning_enabled);
     void Delete(uint32_t vxlan_id);
 
     VxLanId *Find(uint32_t vxlan_id);
     VxLanId *FindNoLock(uint32_t vxlan_id);
     VxLanId *Locate(uint32_t vxlan_id, const boost::uuids::uuid &vn,
                     const std::string &vrf, bool flood_unknown_unicast,
-                    bool mirror_destination);
+                    bool mirror_destination, bool learning_enabled);
     VxLanId *Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn);
     const ConfigTree &config_tree() const { return config_tree_; }
     static DBTableBase *CreateTable(DB *db, const std::string &name);

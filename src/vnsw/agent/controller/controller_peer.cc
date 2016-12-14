@@ -867,7 +867,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                                      item->entry.security_group_list.security_group,
                                                      path_preference,
                                                      (item->entry.next_hops.next_hop.size() > 1),
-                                                     EcmpLoadBalance());
+                                                     EcmpLoadBalance(),
+                                                     item->entry.etree_leaf);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag, data);
         return;
@@ -938,7 +939,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                              InterfaceNHFlags::BRIDGE,
                              sg_list, CommunityList(), path_preference,
                              Ip4Address(0), ecmp_load_balance, false, false,
-                             sequence_number());
+                             sequence_number(), item->entry.etree_leaf);
     } else {
         local_vm_route =
             new LocalVmRoute(intf_key,
@@ -948,7 +949,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                              InterfaceNHFlags::BRIDGE,
                              sg_list, CommunityList(), path_preference,
                              Ip4Address(0), ecmp_load_balance, false, false,
-                             sequence_number());
+                             sequence_number(), item->entry.etree_leaf);
     }
     rt_table->AddLocalVmRouteReq(bgp_peer_id(), vrf_name, mac,
                                  ip_addr, item->entry.nlri.ethernet_tag,
@@ -1001,7 +1002,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr.to_v4(), encap, label, vn_list,
                                item->entry.security_group_list.security_group,
-                               path_preference, false, ecmp_load_balance);
+                               path_preference, false, ecmp_load_balance,
+                               false);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, prefix_addr,
                                       prefix_len, data);
         return;
@@ -1034,7 +1036,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                              path_preference,
                              Ip4Address(0),
                              ecmp_load_balance, false, false,
-                             sequence_number());
+                             sequence_number(), false);
                 rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
                                              prefix_addr, prefix_len,
                                              static_cast<LocalVmRoute *>(local_vm_route));
@@ -1939,16 +1941,19 @@ bool AgentXmppChannel::BuildEvpnMulticastMessage(EnetItemType &item,
     }
     item.entry.nlri.mac = route->ToString();
 
-    item.entry.nlri.ethernet_tag = 0;
-    if (associate == false)
-        item.entry.nlri.ethernet_tag = label;
-
     autogen::EnetNextHopType nh;
     nh.af = Address::INET;
     nh.address = nh_ip->to_string();
     nh.label = label;
 
     TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
+    item.entry.nlri.ethernet_tag = route->vrf()->isid();
+    if (associate == false && tunnel_type == TunnelType::VXLAN) {
+        //In case of VXLAN ethernet tag is set to vxlan ID.
+        //Upon withdraw or encap change label holds the VN ID
+        //which is used to withdraw route
+        item.entry.nlri.ethernet_tag = label;
+    }
 
     if (path) {
         tunnel_type = path->tunnel_type();
@@ -2021,6 +2026,11 @@ bool AgentXmppChannel::BuildEvpnUnicastMessage(EnetItemType &item,
 
     item.entry.nlri.address = rstr.str();
     assert(item.entry.nlri.address != "0.0.0.0");
+
+    item.entry.etree_leaf = true;
+    if (active_path) {
+        item.entry.etree_leaf = active_path->etree_leaf();
+    }
 
     autogen::EnetNextHopType nh;
     nh.af = Address::INET;
@@ -2114,7 +2124,7 @@ bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
     pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
     pugi->AddChildNode("collection", "");
 
-    pugi->AddAttribute("node", route->vrf()->GetName());
+    pugi->AddAttribute("node", route->vrf()->GetExportName());
     if (associate) {
         pugi->AddChildNode("associate", "");
     } else {
@@ -2191,7 +2201,6 @@ bool AgentXmppChannel::ControllerSendEvpnRouteCommon(AgentRoute *route,
 
 bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
                                                       bool add_route) {
-
     static int id = 0;
     autogen::McastItemType item;
     uint8_t data_[4096];
@@ -2247,7 +2256,7 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     stringstream ss_node;
     ss_node << item.entry.nlri.af << "/"
             << item.entry.nlri.safi << "/"
-            << route->vrf()->GetName() << "/"
+            << route->vrf()->GetExportName() << "/"
             << route->GetAddressString();
     std::string node_id(ss_node.str());
     pugi->AddAttribute("node", node_id);

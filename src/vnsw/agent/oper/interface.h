@@ -250,7 +250,7 @@ struct InterfaceData : public AgentOperDBData {
 
 struct InterfaceQosConfigData : public AgentOperDBData {
     InterfaceQosConfigData(const Agent *agent, IFMapNode *node,
-                           boost::uuids::uuid qos_config_uuid):
+                           const boost::uuids::uuid &qos_config_uuid):
         AgentOperDBData(agent, node), qos_config_uuid_(qos_config_uuid) {}
 
     boost::uuids::uuid qos_config_uuid_;

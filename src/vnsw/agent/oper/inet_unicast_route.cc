@@ -1421,7 +1421,8 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                     communities, path_preference,
                                     subnet_service_ip, ecmp_load_balance,
                                     is_local, is_health_check_service,
-                                    peer->sequence_number());
+                                    peer->sequence_number(),
+                                    false);
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1468,7 +1469,7 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                     path_preference, subnet_service_ip,
                                     ecmp_load_balance, is_local,
                                     is_health_check_service,
-                                    peer->sequence_number()));
+                                    peer->sequence_number(), false));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 

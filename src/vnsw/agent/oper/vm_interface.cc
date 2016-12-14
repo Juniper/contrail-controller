@@ -42,6 +42,7 @@
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>
 #include <resource_manager/mpls_index.h>
+#include <oper/bridge_domain.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -79,7 +80,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
     logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
-    ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false) {
+    ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false),
+    learning_enabled_(false), etree_leaf_(false) {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -117,7 +119,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()),
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
-    hc_instance_set_(), service_health_check_ip_(), is_vn_qos_config_(false) {
+    hc_instance_set_(), service_health_check_ip_(), is_vn_qos_config_(false),
+    learning_enabled_(false), etree_leaf_(false) {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -716,6 +719,105 @@ static void BuildSgList(VmInterfaceConfigData *data, IFMapNode *node) {
     }
 }
 
+static bool BuildBridgeDomainVrfTable(Agent *agent,
+                                      IFMapNode *vn_node) {
+
+    ConfigManager *cfg_manager= agent->config_manager();
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(vn_node->table());
+    DBGraph *graph = table->GetGraph();
+
+    // Iterate thru links for virtual-network looking for routing-instance
+    for (DBGraphVertex::adjacency_iterator iter = vn_node->begin(graph);
+            iter != vn_node->end(graph); ++iter) {
+
+        IFMapNode *vrf_node = static_cast<IFMapNode *>(iter.operator->());
+        if (cfg_manager->SkipNode(vrf_node, agent->cfg()->cfg_vrf_table())) {
+            continue;
+        }
+
+        // We are interested only in default-vrf
+        RoutingInstance *ri = static_cast<RoutingInstance *>
+            (vrf_node->GetObject());
+        if(ri->is_default()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool BuildBridgeDomainVnTable(Agent *agent,
+                                     IFMapNode *bridge_domain_node) {
+
+    ConfigManager *cfg_manager= agent->config_manager();
+    IFMapAgentTable *table =
+        static_cast<IFMapAgentTable *>(bridge_domain_node->table());
+    DBGraph *graph = table->GetGraph();
+
+    // Iterate thru links for virtual-network fron bridge domain
+    for (DBGraphVertex::adjacency_iterator iter = bridge_domain_node->begin(graph);
+         iter != bridge_domain_node->end(graph); ++iter) {
+
+        IFMapNode *vn_node = static_cast<IFMapNode *>(iter.operator->());
+        if (cfg_manager->SkipNode(vn_node, agent->cfg()->cfg_vn_table())) {
+            continue;
+        }
+
+        if (BuildBridgeDomainVrfTable(agent, vn_node) == true) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Build VM Interface bridge domain link
+static void BuildBridgeDomainTable(Agent *agent,
+                                   VmInterfaceConfigData *data,
+                                   IFMapNode *node) {
+
+    ConfigManager *cfg_manager= agent->config_manager();
+    VirtualMachineInterfaceBridgeDomain *entry =
+        static_cast<VirtualMachineInterfaceBridgeDomain*>(node->GetObject());
+    assert(entry);
+
+    const BridgeDomainMembershipType &vlan = entry->data();
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+
+        IFMapNode *bridge_domain_node = static_cast<IFMapNode *>(iter.operator->());
+        if (cfg_manager->SkipNode
+            (bridge_domain_node, agent->cfg()->cfg_bridge_domain_table())) {
+            continue;
+        }
+
+        //Verify that bridge domain has link to VN and VRF
+        //then insert in config node list
+        if (BuildBridgeDomainVnTable(agent, bridge_domain_node) == false) {
+            continue;
+        }
+        autogen::BridgeDomain *bd_cfg = static_cast<autogen::BridgeDomain *>
+            (bridge_domain_node->GetObject());
+        if (bd_cfg->isid() == 0) {
+            continue;
+        }
+        autogen::IdPermsType id_perms = bd_cfg->id_perms();
+        uuid bd_uuid = nil_uuid();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                   bd_uuid);
+        data->bridge_domain_list_.list_.insert(
+                VmInterface::BridgeDomain(bd_uuid, vlan.vlan_tag));
+
+        if (bd_cfg->mac_learning_enabled()) {
+            data->learning_enabled_ = true;
+        }
+        break;
+    }
+    return;
+}
+
 static void CompareVnVm(const uuid &vmi_uuid, VmInterfaceConfigData *data,
                         const PortSubscribeEntry *entry) {
     if (entry && (entry->MatchVn(data->vn_uuid_) == false)) {
@@ -1278,6 +1380,10 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         if (strcmp(adj_node->table()->Typename(), BGP_AS_SERVICE_CONFIG_NAME) == 0) {
             bgp_as_a_service_node_list.push_back(adj_node);
         }
+
+        if (adj_node->table() == agent_->cfg()->cfg_vm_port_bridge_domain_table()) {
+            BuildBridgeDomainTable(agent_, data, adj_node);
+        }
     }
 
     agent_->oper_db()->bgp_as_a_service()->ProcessConfig(data->vrf_name_,
@@ -1776,9 +1882,11 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
     if (IsActive()) {
         UpdateSecurityGroup();
         UpdateFatFlow();
+        UpdateBridgeDomain();
     } else {
         DeleteSecurityGroup();
         DeleteFatFlow();
+        DeleteBridgeDomain();
     }
 }
 
@@ -1800,8 +1908,8 @@ void VmInterface::ApplyConfigCommon(const VrfEntry *old_vrf,
  * then flow_key in vmi will return null because l3 config is set and interface
  * nh not created yet.
  */
-void VmInterface::UpdateCommonNextHop() {
-    UpdateL2NextHop();
+void VmInterface::UpdateCommonNextHop(bool force_update) {
+    UpdateL2NextHop(force_update);
     UpdateL3NextHop();
 }
 
@@ -1868,12 +1976,12 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     bool policy_change = (policy_enabled_ != old_policy);
 
     if (vrf_ && vmi_type() == GATEWAY) {
-        vrf_->CreateTableLabel();
+        vrf_->CreateTableLabel(false, false, false);
     }
 
     //Update common prameters
     if (IsActive()) {
-        UpdateCommonNextHop();
+        UpdateCommonNextHop(force_update);
     }
     // Add/Update L3 Metadata
     if (metadata_ip_active_) {
@@ -2001,6 +2109,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     mirror_direction_(Interface::UNKNOWN), sg_list_(),
     floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
+    bridge_domain_list_(),
     device_type_(VmInterface::DEVICE_TYPE_INVALID),
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
     physical_interface_(""), parent_vmi_(), subnet_(0), subnet_plen_(0),
@@ -2009,7 +2118,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     logical_interface_(nil_uuid()), ecmp_load_balance_(),
     service_health_check_ip_(), service_ip_(0),
     service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false), 
-    qos_config_uuid_(){
+    qos_config_uuid_(), learning_enabled_(false) {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -2064,13 +2173,16 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
     bool local_pref_changed = false;
     bool ecmp_load_balance_changed = false;
     bool static_route_config_changed = false;
+    bool etree_leaf_mode_changed = false;
     bool ret = false;
 
     ret = vmi->CopyConfig(table, this, &sg_changed, &ecmp_changed,
                           &local_pref_changed, &ecmp_load_balance_changed,
-                          &static_route_config_changed);
+                          &static_route_config_changed,
+                          &etree_leaf_mode_changed);
     if (sg_changed || ecmp_changed || local_pref_changed ||
-        ecmp_load_balance_changed || static_route_config_changed)
+        ecmp_load_balance_changed || static_route_config_changed
+        || etree_leaf_mode_changed)
         *force_update = true;
 
     vmi->SetConfigurer(VmInterface::CONFIG);
@@ -2085,7 +2197,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
                              bool *ecmp_changed,
                              bool *local_pref_changed,
                              bool *ecmp_load_balance_changed,
-                             bool *static_route_config_changed) {
+                             bool *static_route_config_changed,
+                             bool *etree_leaf_mode_changed) {
     bool ret = false;
     if (table) {
         VmEntry *vm = table->FindVmRef(data->vm_uuid_);
@@ -2112,6 +2225,12 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             mirror_entry_ = mirror;
             ret = true;
         }
+    }
+
+    if (vmi_type_ != data->vmi_type_) {
+        *etree_leaf_mode_changed = true;
+        vmi_type_ = data->vmi_type_;
+        ret = true;
     }
 
     MirrorDirection mirror_direction = data->mirror_direction_;
@@ -2149,6 +2268,17 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         int vxlan_id = vn ? vn->GetVxLanId() : 0;
         if (vxlan_id_ != vxlan_id) {
             vxlan_id_ = vxlan_id;
+            ret = true;
+        }
+
+        bool is_etree_leaf = false;
+        if (vn) {
+            is_etree_leaf = vn->pbb_etree_enable();
+        }
+
+        if (etree_leaf_ != is_etree_leaf) {
+            etree_leaf_ = is_etree_leaf;
+            *etree_leaf_mode_changed = true;
             ret = true;
         }
 
@@ -2268,6 +2398,12 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         subnet_plen_ = data->subnet_plen_;
     }
 
+    if (learning_enabled_ != data->learning_enabled_) {
+        learning_enabled_ = data->learning_enabled_;
+        *etree_leaf_mode_changed = true;
+        ret = true;
+    }
+
     // Copy DHCP options; ret is not modified as there is no dependent action
     oper_dhcp_options_ = data->oper_dhcp_options_;
 
@@ -2383,6 +2519,21 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
         (instance_ipv6_list_, old_ipv6_list.begin(), old_ipv6_list.end(),
          new_ipv6_list.begin(), new_ipv6_list.end())) {
+        ret = true;
+    }
+
+    BridgeDomainEntrySet &old_bd_list = bridge_domain_list_.list_;
+    const BridgeDomainEntrySet &new_bd_list = data->bridge_domain_list_.list_;
+    if (AuditList<BridgeDomainList, BridgeDomainEntrySet::iterator>
+            (bridge_domain_list_, old_bd_list.begin(), old_bd_list.end(),
+             new_bd_list.begin(), new_bd_list.end())) {
+        ret = true;
+    }
+
+    bool pbb_interface = new_bd_list.size() ? true: false;
+    if (pbb_interface_ != pbb_interface) {
+        pbb_interface_ = pbb_interface;
+        *etree_leaf_mode_changed = true;
         ret = true;
     }
 
@@ -3167,7 +3318,8 @@ void VmInterface::UpdateL3NextHop() {
 
     InterfaceNH::CreateL3VmInterfaceNH(GetUuid(),
                                        vm_mac_,
-                                       vrf_->GetName());
+                                       vrf_->GetName(),
+                                       learning_enabled_);
     InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                            GetUuid(), ""),
                         true, InterfaceNHFlags::INET4,
@@ -3189,20 +3341,21 @@ void VmInterface::DeleteL3NextHop() {
 }
 
 //Create these NH irrespective of mode, as multicast uses l2 NH.
-void VmInterface::UpdateL2NextHop() {
+void VmInterface::UpdateL2NextHop(bool force_update) {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
-    if (l2_interface_nh_policy_.get() == NULL) {
+    if (l2_interface_nh_policy_.get() == NULL || force_update) {
         InterfaceNH::CreateL2VmInterfaceNH(GetUuid(),
                                            vm_mac_,
-                                           vrf_->GetName());
+                                           vrf_->GetName(),
+                                           learning_enabled_, etree_leaf_);
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
                            true, InterfaceNHFlags::BRIDGE, vm_mac_);
         l2_interface_nh_policy_ = static_cast<NextHop *>(agent->
                                   nexthop_table()->FindActiveEntry(&key));
     }
-    if (l2_interface_nh_no_policy_.get() == NULL) {
+    if (l2_interface_nh_no_policy_.get() == NULL || force_update) {
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
                            false, InterfaceNHFlags::BRIDGE, vm_mac_);
@@ -3700,6 +3853,32 @@ void VmInterface::DeleteFatFlow() {
     }
 }
 
+void VmInterface::UpdateBridgeDomain() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    BridgeDomainEntrySet::iterator it = bridge_domain_list_.list_.begin();
+    while (it != bridge_domain_list_.list_.end()) {
+        if (it->del_pending_ == false) {
+            BridgeDomainKey key(it->uuid_);
+            it->bridge_domain_ = static_cast<const BridgeDomainEntry *>(
+                  table->agent()->bridge_domain_table()->FindActiveEntry(&key));
+            assert(it->bridge_domain_->vrf());
+        }
+        it++;
+    }
+
+    DeleteBridgeDomain();
+}
+
+void VmInterface::DeleteBridgeDomain() {
+    BridgeDomainEntrySet::iterator it = bridge_domain_list_.list_.begin();
+    while (it != bridge_domain_list_.list_.end()) {
+        BridgeDomainEntrySet::iterator prev = it++;
+        if (prev->del_pending_) {
+            bridge_domain_list_.list_.erase(prev);
+        }
+    }
+}
+
 void VmInterface::UpdateL2TunnelId(bool force_update, bool policy_change) {
     AllocL2MplsLabel(force_update, policy_change);
 }
@@ -3772,18 +3951,23 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_bridging, bool force_update,
     if (old_bridging && force_update == false)
         return;
 
+    uint32_t label = l2_label_;
+    if (pbb_interface()) {
+        label = GetPbbLabel();
+    }
+
     if (new_ip_addr.is_unspecified() || layer3_forwarding_ == true) {
         table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
                 mac, this, new_ip_addr,
-                l2_label_, vn_->GetName(), sg_id_list,
-                path_preference, ethernet_tag_);
+                label, vn_->GetName(), sg_id_list,
+                path_preference, ethernet_tag_, etree_leaf_);
     }
 
     if (new_ip6_addr.is_unspecified() == false && layer3_forwarding_ == true) {
         table->AddLocalVmRoute(peer_.get(), vrf_->GetName(),
                 mac, this, new_ip6_addr,
-                l2_label_, vn_->GetName(), sg_id_list,
-                path_preference, ethernet_tag_);
+                label, vn_->GetName(), sg_id_list,
+                path_preference, ethernet_tag_, etree_leaf_);
     }
 }
 
@@ -4878,7 +5062,8 @@ void VmInterface::AllowedAddressPair::CreateLabelAndNH(Agent *agent,
     }
 
     InterfaceNH::CreateL3VmInterfaceNH(interface->GetUuid(), mac_,
-                                       interface->vrf_->GetName());
+                                       interface->vrf_->GetName(),
+                                       interface->learning_enabled_);
 
     VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, interface->GetUuid(),
                            interface->name());
@@ -5279,6 +5464,18 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
     }
     entry.installed_ = false;
     return;
+}
+
+void VmInterface::BridgeDomainList::Insert(const BridgeDomain *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::BridgeDomainList::Update(const BridgeDomain *lhs,
+                                           const BridgeDomain *rhs) {
+}
+
+void VmInterface::BridgeDomainList::Remove(BridgeDomainEntrySet::iterator &it) {
+    it->set_del_pending(true);
 }
 
 bool VmInterface::HasFloatingIp(Address::Family family) const {
@@ -5769,4 +5966,31 @@ void VmInterface::DeleteIfNameReq(InterfaceTable *table, const uuid &uuid) {
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid, ""));
     req.data.reset(new VmInterfaceIfNameData());
     table->Enqueue(&req);
+}
+
+uint32_t VmInterface::GetIsid() const {
+    BridgeDomainEntrySet::const_iterator it = bridge_domain_list_.list_.begin();
+    for (; it != bridge_domain_list_.list_.end(); it++) {
+        return it->bridge_domain_->isid();
+    }
+    assert(0);
+    return kInvalidIsid;
+}
+
+uint32_t VmInterface::GetPbbVrf() const {
+    BridgeDomainEntrySet::const_iterator it = bridge_domain_list_.list_.begin();
+    for (; it != bridge_domain_list_.list_.end(); it++) {
+        return it->bridge_domain_->vrf()->vrf_id();
+    }
+    assert(0);
+    return VrfEntry::kInvalidIndex;
+}
+
+uint32_t VmInterface::GetPbbLabel() const {
+    BridgeDomainEntrySet::const_iterator it = bridge_domain_list_.list_.begin();
+    for (; it != bridge_domain_list_.list_.end(); it++) {
+        return it->bridge_domain_->vrf()->table_label();
+    }
+    assert(0);
+    return MplsTable::kInvalidLabel;
 }
