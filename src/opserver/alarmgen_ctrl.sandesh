@@ -162,9 +162,15 @@ struct UVETypeInfo {
     4: u32                        count
 }
 
-struct UVETableCount {
-    1: u32                      keys
-    2: u32                      count
+struct AlarmgenUVEStats {
+    1: u32                      add_count
+    2: u32                      change_count
+    3: u32                      remove_count
+}
+
+struct AlarmgenAlarmStats {
+    1: u32                      set_count
+    2: u32                      reset_count
 }
 
 /**
@@ -175,10 +181,12 @@ objectlog sandesh AlarmgenUpdate {
     1: string             name (key="ObjectGeneratorInfo")
     3: u32                partition
     4: string             table
-    /** @display_name:Alarmgen UVE Key Stats */
-    5: UVETableCount      o    (tags="partition,table")
     /** @display_name:Alarmgen Input Stats */
     6: list<UVETypeInfo>  i    (tags="partition,table,.collector,.generator,.type")
+    /** @display_name:Alarmgen UVE Stats */
+    7: map<string,AlarmgenUVEStats>    uve_stats   (tags="partition,table,.__key")
+    /** @display_name:Alarmgen Alarm Stats */
+    8: map<string,AlarmgenAlarmStats>  alarm_stats (tags="partition,table,.__key")
 }
 
 struct AlarmgenStats {
