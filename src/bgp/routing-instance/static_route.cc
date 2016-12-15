@@ -820,19 +820,11 @@ StaticRouteMgr<T>::~StaticRouteMgr() {
         delete static_route_queue_;
 }
 
-bool CompareStaticRouteConfig(const StaticRouteConfig &lhs,
-                              const StaticRouteConfig &rhs) {
-    BOOL_KEY_COMPARE(lhs.address, rhs.address);
-    BOOL_KEY_COMPARE(lhs.prefix_length, rhs.prefix_length);
-    return false;
-}
-
 template <typename T>
 void StaticRouteMgr<T>::UpdateStaticRouteConfig() {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     StaticRouteConfigList config_list =
         routing_instance()->config()->static_routes(GetFamily());
-    sort(config_list.begin(), config_list.end(), CompareStaticRouteConfig);
 
     map_difference(&static_route_map_,
         config_list.begin(), config_list.end(),
