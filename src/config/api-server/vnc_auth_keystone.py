@@ -263,6 +263,7 @@ class AuthServiceKeystone(object):
         conf_info['delay_auth_decision'] = True
 
         def token_to_headers(env, start_response):
+            start_response('200 OK', [('Content-type', 'text/plain')])
             status = env.get('HTTP_X_IDENTITY_STATUS')
             if status and status.lower() == 'invalid':
                 return {}
@@ -273,7 +274,6 @@ class AuthServiceKeystone(object):
                 hdr_val = env.get(hdr_name)
                 if hdr_val:
                     ret_headers_dict[hdr_name] = hdr_val
-            start_response('200 OK', [('Content-type', 'text/plain')])
             return ret_headers_dict
 
         auth_middleware = auth_token.AuthProtocol(token_to_headers, conf_info)
