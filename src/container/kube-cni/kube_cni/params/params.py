@@ -13,13 +13,12 @@ Parameters are defined in 3 different classes
 """
 
 import inspect
-import json
 import os
 import sys
 
 # set parent directory in sys.path
-current_file = os.path.abspath(inspect.getfile(inspect.currentframe()))
-sys.path.append(os.path.dirname(os.path.dirname(current_file)))
+current_file = os.path.abspath(inspect.getfile(inspect.currentframe()))  # nopep8
+sys.path.append(os.path.dirname(os.path.dirname(current_file)))  # nopep8
 from common import logger as Logger
 
 # Logger for the file
@@ -29,7 +28,8 @@ logger = None
 PARAMS_ERR_ENV = 101
 PARAMS_ERR_DOCKER_CONNECTION = 102
 PARAMS_ERR_GET_UUID = 103
-PARAMS_ERR_INVALID_CMD = 104
+PARAMS_ERR_GET_PID = 104
+PARAMS_ERR_INVALID_CMD = 105
 
 # Default VRouter related values
 VROUTER_AGENT_IP = '127.0.0.1'
@@ -38,7 +38,9 @@ VROUTER_POLL_TIMEOUT = 3
 VROUTER_POLL_RETRIES = 20
 
 # Container mode. Can only be k8s
-CONTRAIL_CONTAINER_MODE = "k8s"
+CONTRAIL_CNI_MODE_K8S = "k8s"
+CONTRAIL_CNI_MODE_CONTRAIL_K8S = "contrail-k8s"
+CONTRAIL_PARENT_INTERFACE = "eth0"
 CONTRAIL_CONTAINER_MTU = 1500
 CONTRAIL_CONFIG_DIR = '/var/lib/contrail/ports/vm'
 
@@ -55,7 +57,7 @@ def get_env(key):
     Helper function to get environment variable
     '''
     val = os.environ.get(key)
-    if val == None:
+    if val is None:
         raise ParamsError(PARAMS_ERR_ENV,
                           'Missing environment variable ' + key)
     return val
@@ -79,7 +81,15 @@ class ParamsError(RuntimeError):
 class ContrailParams():
     '''
     Contrail specific parameters
-    - mode      : Only kubenrnetes supported for now (k8s)
+    - mode      : CNI mode. Can take following values,
+                  - k8s : Kubernetes running on baremetal
+                  - nested-k8s : Kubernetes running on a VM. The container
+                                 interfaces are managed by VRouter running
+                                 on orchestrator of VM
+    - parent_interface : Field valid only when mode is "nested-k8s".
+                         Specifies name of interface inside the VM.
+                         Container interfaces are created as sub-interface over
+                         this interface
     - conf_dir  : Plugin will store the Pod configuration in this directory.
                   The VRouter agent will scan this directore on restart
     - vrouter_ip : IP address where VRouter agent is running
@@ -89,7 +99,8 @@ class ContrailParams():
     '''
 
     def __init__(self):
-        self.mode = CONTRAIL_CONTAINER_MODE
+        self.mode = CONTRAIL_CNI_MODE_K8S
+        self.parent_interface = CONTRAIL_PARENT_INTERFACE
         self.directory = CONTRAIL_CONFIG_DIR
         self.vrouter_ip = VROUTER_AGENT_IP
         self.vrouter_port = VROUTER_AGENT_PORT
@@ -99,8 +110,16 @@ class ContrailParams():
         self.log_level = LOG_LEVEL
         return
 
+    @staticmethod
+    def parse_mode(mode):
+        if mode.lower() == CONTRAIL_CNI_MODE_K8S:
+            return CONTRAIL_CNI_MODE_K8S
+        if mode.lower() == CONTRAIL_CNI_MODE_CONTRAIL_K8S:
+            return CONTRAIL_CNI_MODE_CONTRAIL_K8S
+        return CONTRAIL_CNI_MODE_K8S
+
     def get_params(self, json_input=None):
-        if json_input == None:
+        if json_input is None:
             return
         if json_input.get('config-dir') != None:
             self.directory = json_input['config-dir']
@@ -112,10 +131,14 @@ class ContrailParams():
             self.poll_timeout = json_input['poll-timeout']
         if json_input.get('poll-retries') != None:
             self.poll_retries = json_input['poll-retries']
+        if json_input.get('mode') != None:
+            self.mode = self.parse_mode(json_input['mode'])
+        if json_input.get('parent-interface') != None:
+            self.parent_interface = json_input['parent-interface']
         return
 
     def get_loggin_params(self, json_input):
-        if json_input == None:
+        if json_input is None:
             return
         if json_input.get('log-file') != None:
             self.log_file = json_input['log-file']
@@ -124,7 +147,8 @@ class ContrailParams():
         return
 
     def log(self):
-        logger.debug('mode = ' + self.mode + ' config-dir = ' + self.directory)
+        logger.debug('mode = ' + self.mode + ' config-dir = ' + self.directory +
+                     ' parent-interface = ' + self.parent_interface)
         logger.debug('vrouter-ip = ' + self.vrouter_ip +
                      ' vrouter-port = ' + str(self.vrouter_port) +
                      ' poll-timeout = ' + str(self.poll_timeout) +
@@ -152,6 +176,10 @@ class K8SParams():
         self.pod_uuid = pod_uuid
         return
 
+    def set_pod_pid(self, pod_pid):
+        self.pod_pid = pod_pid
+        return
+
     def get_pod_info(self, container_id, pod_uuid=None):
         '''
         Get UUID and PID for POD using "docker inspect" equivalent API
@@ -160,19 +188,23 @@ class K8SParams():
         os.environ['DOCKER_API_VERSION'] = '1.22'
         try:
             docker_client = client.Client()
-            if docker_client == None:
+            if docker_client is None:
                 raise ParamsError(PARAMS_ERR_DOCKER_CONNECTION,
                                   'Error creating docker client')
             container = docker_client.inspect_container(container_id)
             self.pod_pid = container['State']['Pid']
-            self.pod_uuid = container['Config']['Labels']\
-                ['io.kubernetes.pod.uid']
+            self.pod_uuid = \
+                container['Config']['Labels']['io.kubernetes.pod.uid']
         except:
             # Dont report exception if pod_uuid set from argument already
             # pod-uuid will be specified in argument in case of UT
-            if self.pod_uuid == None:
+            if self.pod_uuid is None:
                 raise ParamsError(PARAMS_ERR_GET_UUID,
-                                  'Error finding UUID/PID for pod ' +
+                                  'Error finding UUID for pod ' +
+                                  container_id)
+            if self.pod_pid is None:
+                raise ParamsError(PARAMS_ERR_GET_PID,
+                                  'Error finding PID for pod ' +
                                   container_id)
         return
 
@@ -188,7 +220,7 @@ class K8SParams():
         args_list = args.split(";")
         for x in args_list:
             vars_list = x.split('=')
-            if vars_list == None:
+            if vars_list is None:
                 continue
 
             if len(vars_list) >= 2:
@@ -196,11 +228,11 @@ class K8SParams():
                     self.pod_namespace = vars_list[1]
                 if vars_list[0] == 'K8S_POD_NAME':
                     self.pod_name = vars_list[1]
-        if self.pod_namespace == None:
+        if self.pod_namespace is None:
             raise ParamsError(CNI_INVALID_ARGS,
                               'K8S_POD_NAMESPACE not set in CNI_ARGS')
 
-        if self.pod_name == None:
+        if self.pod_name is None:
             raise ParamsError(CNI_INVALID_ARGS,
                               'K8S_POD_NAME not set in CNI_ARGS')
 
@@ -244,7 +276,7 @@ class Params():
 
     def get_params(self, json_input=None):
         self.command = get_env('CNI_COMMAND')
-        arg_cmds = ['get', 'poll', 'add', 'delete']
+        arg_cmds = ['get', 'poll', 'add', 'delete', 'del']
 
         if self.command.lower() == 'version':
             return
@@ -257,8 +289,8 @@ class Params():
             self.k8s_params.get_params(self.container_id, json_input.get('k8s'))
             return
         else:
-            raise ParamsError(PARAMS_ERR_INVALID_CMD,
-                          'Invalid command : ' + self.command)
+            raise ParamsError(PARAMS_ERR_INVALID_CMD, 'Invalid command : ' +
+                              self.command)
         return
 
     def log(self):

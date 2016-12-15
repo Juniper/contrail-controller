@@ -50,6 +50,7 @@ def parse_args():
     parser.add_argument('-v', '--version', action='version', version='0.1')
     parser.add_argument('-f', '--file', help='Contrail CNI config file')
     parser.add_argument('-u', '--uuid', help='Container UUID')
+    parser.add_argument('-p', '--pid', type=int, help='Container PID')
     args = parser.parse_args()
     return args
 
@@ -67,12 +68,18 @@ def main():
 
     try:
         # Set command from argument if specified
-        if args.command != None:
+        if args.command is not None:
             os.environ['CNI_COMMAND'] = args.command
         # Set UUID from argument. If valid-uuid is found, it will overwritten
         # later. Useful in case of UT where valid uuid for pod cannot be found
-        if args.uuid != None:
+        if args.uuid is not None:
             params.k8s_params.set_pod_uuid(args.uuid)
+
+        # Set PID from argument. If valid pid is found, it will overwritten
+        # later. Useful in case of UT where valid pid for pod cannot be found
+        if args.pid is not None:
+            params.k8s_params.set_pod_pid(args.pid)
+
         # Update parameters from environement and input-string
         params.get_params(input_json)
     except Params.ParamsError as params_err:
@@ -96,11 +103,11 @@ def main():
     except Cni.CniError as cni_err:
         cni_err.log()
         Cni.ErrorExit(logger, cni_err.code, cni_err.msg)
-        sys.exit(cno_err.code)
+        sys.exit(cni_err.code)
     except VRouter.VRouterError as vr_err:
         vr_err.log()
         Cni.ErrorExit(logger, vr_err.code, vr_err.msg)
-        sys.exit(cno_err.code)
+        sys.exit(cni_err.code)
     return
 
 if __name__ == "__main__":

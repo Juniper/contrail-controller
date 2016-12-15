@@ -13,10 +13,9 @@ import time
 
 
 # set parent directory in sys.path
-current_file = os.path.abspath(inspect.getfile(inspect.currentframe()))
-sys.path.append(os.path.dirname(os.path.dirname(current_file)))
+current_file = os.path.abspath(inspect.getfile(inspect.currentframe()))  # nopep8
+sys.path.append(os.path.dirname(os.path.dirname(current_file)))  # nopep8
 from common import logger as Logger
-from requests.exceptions import ConnectionError
 
 """
 VRouter interface module for CNI plugin
@@ -70,26 +69,26 @@ class VRouter():
 
     def make_filename(self, vm, nw=None):
         fname = self.directory + '/' + vm
-        if nw != None:
+        if nw is not None:
             fname += '/' + nw
         return fname
 
-    def make_url(self, vm, nw=None):
-        url = "http://" + self.ip + ":" + str(self.port) + '/vm'
-        if vm != None:
+    def make_url(self, vm, nw, page):
+        url = "http://" + self.ip + ":" + str(self.port) + page
+        if vm is not None:
             url += "/" + vm
 
-        if nw != None:
+        if nw is not None:
             url += "/" + nw
 
         headers = {'content-type': 'application/json'}
         return url, headers
 
-    def get_cmd(self, vm, nw=None):
+    def get_cmd(self, vm, nw=None, page='/vm'):
         '''
         Get container info from VRouter
         '''
-        url, headers = self.make_url(vm, nw)
+        url, headers = self.make_url(vm, nw, page)
         try:
             r = requests.get(url)
             r.raise_for_status()
@@ -108,7 +107,7 @@ class VRouter():
                                'Unknown error in GET ' + url)
         return
 
-    def poll_cmd(self, vm, nw=None):
+    def poll_cmd(self, vm, nw=None, page='/vm'):
         '''
         Poll for container info from VRouter
         '''
@@ -116,13 +115,19 @@ class VRouter():
         while i < self.poll_retries:
             i = i + 1
             try:
-                return self.get_cmd(vm, nw)
+                return self.get_cmd(vm, nw, page)
             except VRouterError as vr_err:
                 time.sleep(self.poll_timeout)
                 # Pass the last exception got at end of polling
                 if i == self.poll_retries:
                     raise vr_err
         return
+
+    def get_cfg_cmd(self, vm, nw=None):
+        return self.get_cmd(vm, nw, '/vm-cfg')
+
+    def poll_cfg_cmd(self, vm, nw=None):
+        return self.poll_cmd(vm, nw, '/vm-cfg')
 
     def delete_file(self, vm, nw=None):
         '''
@@ -142,19 +147,19 @@ class VRouter():
         '''
         Send request to VRouter to delete a container
         '''
-        url, headers = self.make_url(vm, nw)
+        url, headers = self.make_url(vm, nw, '/vm')
         try:
             # Delete needs vm + nw in request data
             data = {}
             data['vm'] = vm
-            if nw != None:
+            if nw is not None:
                 data['nw'] = nw
             data_str = json.dumps(data, indent=4)
             r = requests.delete(url, data=data_str, headers=headers)
             r.raise_for_status()
         except requests.exceptions.HTTPError as e:
             raise VRouterError(VROUTER_CONN_ERROR,
-                               'Error in DELETE ' + url + 
+                               'Error in DELETE ' + url +
                                ' HTTP Response <' + str(r.status_code) +
                                '> Data : ' + r.text)
         except requests.exceptions.RequestException as e:
@@ -198,7 +203,8 @@ class VRouter():
                 pass
                 return
             raise VRouterError(VROUTER_INVALID_DIR,
-                               'Error creating config directory :' + self.directory +
+                               'Error creating config directory :' +
+                               self.directory +
                                '. Error : ' + os.strerror(e.errno))
         return
 
@@ -237,7 +243,7 @@ class VRouter():
         '''
         Send ADD message to VRouter
         '''
-        url, headers = self.make_url(None, None)
+        url, headers = self.make_url(None, None, '/vm')
         try:
             r = requests.post(url, data=data, headers=headers)
             r.raise_for_status()
