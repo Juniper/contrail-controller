@@ -1,12 +1,22 @@
+#
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+#
+
 import sys
 import argparse
 import inspect
 
 from cliff.app import App
+import logging
+logging.basicConfig()
 from .contrailCli import ContrailCli
 from .help import HelpAction
 from .commandmanager import CommandManager
 from sandesh_common.vns.constants import ServiceHttpPortMap
+from collections import namedtuple
+cli_mapping = namedtuple("cli_mapping", ("struct_name", "cli_name",
+    "cli_help", "cli_params"))
+cli_params = namedtuple("cli_params", ("param_name", "param_help"))
 
 class ContrailCliApp(App):
 
@@ -17,9 +27,20 @@ class ContrailCliApp(App):
             command_manager=CommandManager(self.NAME),
             deferred_help=True,
             )
-        self.cmd_list = commands_list
+        self.cmd_list = []
+        for command in commands_list:
+            cps_list = []
+            for fields in command[1].values()[0].values():
+                for args in fields:
+                    cps = cli_params(param_name=args[0], param_help=args[1])
+                    cps_list.append(cps)
+            scm = cli_mapping(struct_name=command[0],
+                    cli_name=command[1].keys()[0],
+                    cli_help=command[1].values()[0].keys()[0],
+                    cli_params=cps_list)
+            self.cmd_list.append(scm)
         for command in self.cmd_list:
-            self.command_manager.add_command(command[1].keys()[0], None)
+            self.command_manager.add_command(command.cli_name, None)
         self.command_manager.del_command('help')
         self.port = None
         self.mod_name = self.NAME
@@ -30,7 +51,7 @@ class ContrailCliApp(App):
                 self.port = ServiceHttpPortMap[self.mod_name]
         if self.port == None:
             print "No port specified, exiting"
-            exit(0)
+            exit(-1)
 
     def run_subcommand(self, argv):
         try:
@@ -58,7 +79,6 @@ class ContrailCliApp(App):
             cmd.set_http_port(self.port if self.options.http_server_port is
                     None else self.options.http_server_port, self.options.http_server_ip)
             cmd.set_cmd_list(self.cmd_list)
-        result = 1
         self.prepare_to_run_command(cmd)
         full_name = (cmd_name
                          if self.interactive_mode
@@ -100,7 +120,7 @@ class ContrailCliApp(App):
         """
         all_cmds = []
         for command in self.cmd_list:
-            all_cmds.append(command[1].keys()[0])
+            all_cmds.append(command.cli_name)
         dist = []
         for candidate in sorted(all_cmds):
             if candidate.startswith(cmd):
@@ -109,8 +129,9 @@ class ContrailCliApp(App):
         return dist
 
     def clean_up(self, cmd, result, err):
-        if err:
-            self.LOG.debug('got an error: %s', err)
+        if result:
+            self.LOG.error('got an error: %s while executing cmd %s, \
+                    exception %s', result, cmd.cmd_name, err)
 
     def build_option_parser(self, description, version,
                             argparse_kwargs=None):

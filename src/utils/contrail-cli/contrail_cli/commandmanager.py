@@ -15,14 +15,10 @@
 
 """Modify cliff.CommandManager"""
 
-import logging
 import pkg_resources
 
 import cliff.commandmanager
 from cliff.commandmanager import EntryPointWrapper
-
-LOG = logging.getLogger(__name__)
-
 
 class CommandManager(cliff.commandmanager.CommandManager):
     """Add additional functionality to cliff.CommandManager

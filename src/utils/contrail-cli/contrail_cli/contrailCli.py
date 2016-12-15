@@ -1,9 +1,12 @@
+#
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+#
+
 import sys
 if 'threading' in sys.modules:
     del sys.modules['threading']
 from opserver.opserver_util import OpServerUtils
 import json
-import subprocess
 from cliff.command import Command
 import xmltodict
 import requests
@@ -29,23 +32,23 @@ class ContrailCli(Command):
         if cmd_name == None:
             return
         for command in self.cmd_list:
-            if cmd_name in command[1].keys():
-                return command[1].values()[0].keys()[0]
+            if cmd_name == command.cli_name:
+                return command.cli_help
         return
     #end get_description
+
+    def _add_fields_to_parser(self, parser, command):
+        for fields in command.cli_params:
+            parser.add_argument("--"+fields.param_name, nargs=1, help=fields.param_help, metavar='\b')
+    #end _add_fields_to_parser
 
     def get_parser(self, prog_name):
         self.prog_name = prog_name
         parser = super(ContrailCli, self).get_parser(prog_name)
-        cmd_name = None
-        if self.cmd_name:
-            cmd_name = '_'.join(self.cmd_name.split(' '))
         cmd_name = self.cmd_name
         for command in self.cmd_list:
-            if cmd_name in command[1].keys():
-                for fields in command[1].values()[0].values():
-                    for args in fields:
-                        parser.add_argument("--"+args[0], nargs=1, help=args[1], metavar='\b')
+            if cmd_name == command.cli_name:
+                self._add_fields_to_parser(parser, command)
         return parser
 
     def set_http_port(self, port, http_ip):
@@ -55,29 +58,31 @@ class ContrailCli(Command):
     def set_cmd_list(self, cmd_list):
         self.cmd_list = cmd_list
 
-    def take_action(self, parsed_args):
+    def _prepare_query_url(self, parsed_args, command):
         ip_addr = self.http_ip
         http_port = self.http_port
+        url = "http://" + ip_addr + ":" + http_port + "/Snh_" + command.struct_name
+        arg_count = 0
+        for params in command.cli_params:
+            if arg_count > 0:
+                url = url + "&"
+            else:
+                url = url + "?"
+            url = url + params.param_name + "="
+            if hasattr(parsed_args, params.param_name) == True:
+                if getattr(parsed_args, params.param_name) != None:
+                    url = url + getattr(parsed_args, params.param_name)[0]
+            arg_count = arg_count + 1
+        return url
+    #end _prepare_query_url
+
+    def take_action(self, parsed_args):
         cmd_name = self.cmd_name
         for command in self.cmd_list:
-            if cmd_name in command[1].keys():
-                tab_url = "http://" + ip_addr + ":" +\
-                       http_port + "/Snh_" + command[0].encode("utf-8")
-                arg_count = 0
-                if len(command[1].values()[0].values()):
-                    tab_url = tab_url + "?"
-                for params in command[1].values()[0].values():
-                    for args in params:
-                        args[0] = args[0].encode("utf-8")
-                        if arg_count > 0:
-                            tab_url = tab_url + "&"
-                        tab_url = tab_url + args[0] + "="
-                        if hasattr(parsed_args, args[0]) == True:
-                            if getattr(parsed_args, args[0]) != None:
-                                tab_url = tab_url + getattr(parsed_args, args[0])[0]
-                        arg_count = arg_count + 1
-                tables = self.web_invoke(tab_url)
-                if tables:
-                    doc = xmltodict.parse(tables)
-                    OpServerUtils.messages_dict_scrub(doc)
-                    print json.dumps(doc, indent=4)
+            if cmd_name == command.cli_name:
+                url = self._prepare_query_url(parsed_args, command)
+                result = self.web_invoke(url)
+                if result:
+                    output = xmltodict.parse(result)
+                    OpServerUtils.messages_dict_scrub(output)
+                    print json.dumps(output, indent=4)
