@@ -299,9 +299,6 @@ public:
         if (d1.get_ds_no_fmd() != (uint64_t)d2.get_vds_no_fmd()) {
             return false;
         }
-        if (d1.get_ds_cloned_original() != (uint64_t)d2.get_vds_cloned_original()) {
-            return false;
-        }
         if (d1.get_ds_invalid_vnid() != (uint64_t)d2.get_vds_invalid_vnid()) {
             return false;
         }

@@ -139,52 +139,58 @@ uve sandesh UveVrouterAgent {
  * Sandesh definition for agent drop stats
  */
 struct AgentDropStats {
-    1:  u64   ds_discard;
-    2:  u64   ds_pull;
-    3:  u64   ds_invalid_if;
-    5:  u64   ds_garp_from_vm;
-    6:  u64   ds_invalid_arp;
-    7:  u64   ds_trap_no_if;
-    8:  u64   ds_nowhere_to_go;
-    9:  u64   ds_flow_queue_limit_exceeded;
-    10: u64   ds_flow_no_memory;
-    11: u64   ds_flow_invalid_protocol;
-    12: u64   ds_flow_nat_no_rflow;
-    13: u64   ds_flow_action_drop;
-    14: u64   ds_flow_action_invalid;
-    15: u64   ds_flow_unusable;
-    16: u64   ds_flow_table_full;
-    17: u64   ds_interface_tx_discard;
-    18: u64   ds_interface_drop;
-    19: u64   ds_duplicated;
-    20: u64   ds_push;
-    21: u64   ds_ttl_exceeded;
-    22: u64   ds_invalid_nh;
-    23: u64   ds_invalid_label;
-    24: u64   ds_invalid_protocol;
-    25: u64   ds_interface_rx_discard;
-    26: u64   ds_invalid_mcast_source;
-    27: u64   ds_head_alloc_fail;
-    28: u64   ds_head_space_reserve_fail;
-    29: u64   ds_pcow_fail;
-    30: u64   ds_flood;
-    31: u64   ds_mcast_clone_fail;
-    33: u64   ds_rewrite_fail;
-    34: u64   ds_misc;
-    35: u64   ds_invalid_packet;
-    36: u64   ds_cksum_err;
-    37: u64   ds_clone_fail;
-    38: u64   ds_no_fmd;
-    39: u64   ds_cloned_original;
-    40: u64   ds_invalid_vnid;
-    41: u64   ds_frag_err;
-    42: u64   ds_invalid_source;
-    43: u64   ds_mcast_df_bit;
-    44: u64   ds_arp_no_where_to_go;
-    45: u64   ds_arp_no_route;
-    46: u64   ds_l2_no_route;
-    48: u64   ds_vlan_fwd_tx;
-    49: u64   ds_vlan_fwd_enq;
+    1:  optional u64   ds_discard;
+    2:  optional u64   ds_pull;
+    3:  optional u64   ds_invalid_if;
+    5:  optional u64   ds_garp_from_vm;
+    6:  optional u64   ds_invalid_arp;
+    7:  optional u64   ds_trap_no_if;
+    8:  optional u64   ds_nowhere_to_go;
+    9:  optional u64   ds_flow_queue_limit_exceeded;
+    10: optional u64   ds_flow_no_memory;
+    11: optional u64   ds_flow_invalid_protocol;
+    12: optional u64   ds_flow_nat_no_rflow;
+    13: optional u64   ds_flow_action_drop;
+    14: optional u64   ds_flow_action_invalid;
+    15: optional u64   ds_flow_unusable;
+    16: optional u64   ds_flow_table_full;
+    17: optional u64   ds_interface_tx_discard;
+    18: optional u64   ds_interface_drop;
+    19: optional u64   ds_duplicated;
+    20: optional u64   ds_push;
+    21: optional u64   ds_ttl_exceeded;
+    22: optional u64   ds_invalid_nh;
+    23: optional u64   ds_invalid_label;
+    24: optional u64   ds_invalid_protocol;
+    25: optional u64   ds_interface_rx_discard;
+    26: optional u64   ds_invalid_mcast_source;
+    27: optional u64   ds_head_alloc_fail;
+    28: optional u64   ds_head_space_reserve_fail;
+    29: optional u64   ds_pcow_fail;
+    30: optional u64   ds_flood;
+    31: optional u64   ds_mcast_clone_fail;
+    33: optional u64   ds_rewrite_fail;
+    34: optional u64   ds_misc;
+    35: optional u64   ds_invalid_packet;
+    36: optional u64   ds_cksum_err;
+    37: optional u64   ds_clone_fail;
+    38: optional u64   ds_no_fmd;
+    40: optional u64   ds_invalid_vnid;
+    41: optional u64   ds_frag_err;
+    42: optional u64   ds_invalid_source;
+    43: optional u64   ds_mcast_df_bit;
+    44: optional u64   ds_arp_no_where_to_go;
+    45: optional u64   ds_arp_no_route;
+    46: optional u64   ds_l2_no_route;
+    48: optional u64   ds_vlan_fwd_tx;
+    49: optional u64   ds_vlan_fwd_enq;
+    50: optional u64   ds_drop_new_flow
+    51: optional u64   ds_flow_evict
+    52: optional u64   ds_trap_original
+    53: optional u64   ds_no_memory
+    54: optional u64   ds_fragment_queue_fail
+    /** Drop packet count */
+    55: optional u64   ds_drop_pkts
 }
 
 /**
