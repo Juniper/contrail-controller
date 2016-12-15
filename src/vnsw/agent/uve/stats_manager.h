@@ -180,7 +180,7 @@ class StatsManager {
                        FlowRateComputeInfo &flow_info,
                        VrouterFlowRate &flow_rate) const;
     void BuildDropStats(const vr_drop_stats_req &r,
-                        VrouterDropStats &ds) const;
+                        AgentDropStats &ds) const;
     friend class AgentStatsCollectorTest;
 
  private:

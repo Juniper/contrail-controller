@@ -31,7 +31,7 @@ protected:
 private:
     void DispatchVrouterControlStats(const VrouterControlStats &uve) const;
     void InitPrevStats() const;
-    void FetchDropStats(VrouterDropStats &ds) const;
+    void FetchDropStats(AgentDropStats &ds) const;
     bool SetVrouterPortBitmap(VrouterStatsAgent &vr_stats);
     uint64_t CalculateBandwitdh(uint64_t bytes, int speed_mbps,
                                int diff_seconds, double *utilization_bps) const;
@@ -47,7 +47,7 @@ private:
                                         VrouterFlowRate> *rate) const;
     bool BuildPhysicalInterfaceList(std::map<std::string, PhyIfStats> &list,
                                     std::map<std::string, PhyIfInfo> &info,
-                                    std::map<std::string, VrouterDropStats> &dsmap) const;
+                                    std::map<std::string, AgentDropStats> &dsmap) const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::map<std::string, AgentXmppStats> *stats) const;
     void FetchIFMapStats(AgentUve::DerivedStatsMap *ds) const;
