@@ -71,15 +71,15 @@ void BgpPeerClose::ReceiveEndOfRIB(Address::Family family) {
 }
 
 const char *BgpPeerClose::GetTaskName() const {
-    return "bgp::StateMachine";
+    return "bgp::Config";
 }
 
 int BgpPeerClose::GetTaskInstance() const {
-    return peer_->GetTaskInstance();
+    return 0;
 }
 
 void BgpPeerClose::MembershipRequestCallbackComplete() {
-    CHECK_CONCURRENCY("bgp::StateMachine");
+    CHECK_CONCURRENCY(GetTaskName());
 }
 
 bool BgpPeerClose::IsGRHelperModeEnabled() const {
