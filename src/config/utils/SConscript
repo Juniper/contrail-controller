@@ -52,6 +52,7 @@ utils_scripts = [
   'contrail-diff-docs.py',
   'provision_issu.py',
   'issu_process.sh',
+  'qosmap.py',
 ]
 
 for utils in utils_scripts:
