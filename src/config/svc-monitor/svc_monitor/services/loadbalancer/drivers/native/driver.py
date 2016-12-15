@@ -199,15 +199,6 @@ class OpencontrailLoadbalancerDriver(
                 if iip_id not in lb.instance_ips:
                     new_instance_ips.append(iip_id)
 
-        if len(new_instance_ips):
-            for iip_id in new_instance_ips:
-                iip = self._api.instance_ip_read(id=iip_id)
-                fq_name = str(uuid.uuid4())
-                fip = FloatingIp(name=fq_name, parent_obj=iip,
-                             floating_ip_address=iip.instance_ip_address)
-                fip.uuid = fq_name
-                self._api.floating_ip_create(fip)
-
         old_floating_ips = []
         new_floating_ips = []
         floating_ips_changed = False
@@ -221,6 +212,38 @@ class OpencontrailLoadbalancerDriver(
                 if fip_id not in lb.floating_ips:
                     new_floating_ips.append(fip_id)
 
+        for iip_id in old_instance_ips or []:
+            fip = self._get_floating_ip(vmi, iip_id=iip_id)
+            if fip:
+                fip.set_virtual_machine_interface_list([])
+                self._api.floating_ip_update(fip)
+                self._api.floating_ip_delete(id=fip.uuid)
+
+        for fip_id in old_floating_ips or []:
+            fip = self._get_floating_ip(fip_id=fip_id)
+            if fip:
+                fip.set_virtual_machine_interface_list([])
+                fip.set_floating_ip_port_mappings([])
+                fip.floating_ip_port_mappings_enable = False
+                fip.floating_ip_traffic_direction = "both"
+                self._api.floating_ip_update(fip)
+
+        if len(new_instance_ips):
+            for iip_id in new_instance_ips:
+                iip = self._api.instance_ip_read(id=iip_id)
+                fq_name = str(uuid.uuid4())
+                fip = FloatingIp(name=fq_name, parent_obj=iip,
+                             floating_ip_address=iip.instance_ip_address)
+                fip.uuid = fq_name
+                fip.floating_ip_traffic_direction = "ingress"
+                self._api.floating_ip_create(fip)
+
+        if len(new_floating_ips):
+            for fip_id in new_floating_ips:
+                fip = self._get_floating_ip(fip_id=fip_id)
+                fip.floating_ip_traffic_direction = "ingress"
+                self._api.floating_ip_update(fip)
+
         lb_props = {}
         lb_props['old_instance_ips'] = old_instance_ips
         lb_props['new_instance_ips'] = new_instance_ips
@@ -228,11 +251,6 @@ class OpencontrailLoadbalancerDriver(
         lb_props['new_floating_ips'] = new_floating_ips
 
         self._update_pool_member_props(lb, lb_props)
-
-        for iip_id in lb_props['old_instance_ips'] or []:
-            fip = self._get_floating_ip(vmi, iip_id=iip_id)
-            if fip:
-                self._api.floating_ip_delete(id=fip.uuid)
 
         if instance_ips_changed == True:
             lb.instance_ips = new_instance_ips
@@ -271,6 +289,7 @@ class OpencontrailLoadbalancerDriver(
                 fip.set_virtual_machine_interface_list([])
                 fip.set_floating_ip_port_mappings([])
                 fip.floating_ip_port_mappings_enable = False
+                fip.floating_ip_traffic_direction = "both"
                 self._api.floating_ip_update(fip)
                 fip = self._add_vmi_ref(vmi, fip_id=fip_id)
 
