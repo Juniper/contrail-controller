@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import os
 import logging
 import requests
 from requests.exceptions import ConnectionError
