@@ -975,6 +975,11 @@ bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
             //happened from non-ecmp to ECMP.
         } else if (is_flags_set(FlowEntry::IngressDir) ||
                 (ip_rt && ip_rt->IsHostRoute())) {
+            if (data_.vn_entry && data_.vn_entry->enable_rpf() && !ip_rt) {
+                set_flags(FlowEntry::ShortFlow);
+                short_flow_reason_ = SHORT_NO_SRC_ROUTE_L2RPF;
+                return ret;
+            }
             rt = ip_rt;
             if (rt) {
                 data_.l2_rpf_plen = rt->plen();
