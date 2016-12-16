@@ -1597,6 +1597,15 @@ class DBInterface(object):
         else:  # READ/UPDATE/DELETE
             policy_obj = self._vnc_lib.network_policy_read(id=policy_q['id'])
 
+        policy_rule = policy_q.get('entries')
+        if policy_rule:
+            if isinstance(policy_rule, dict):
+                policy_obj.set_network_policy_entries(
+                    PolicyEntriesType.factory(**policy_q['entries']))
+            else:
+                msg = 'entries must be a dict'
+                self._raise_contrail_exception('BadRequest',
+                                               resource="policy", msg=msg)
         policy_obj.set_network_policy_entries(
             PolicyEntriesType.factory(**policy_q['entries']))
 
@@ -3102,7 +3111,7 @@ class DBInterface(object):
         policy_obj = self._policy_neutron_to_vnc(policy_q, CREATE)
         try:
             policy_uuid = self._vnc_lib.network_policy_create(policy_obj)
-        except RefsExistError as e:
+        except (RefsExistError, BadRequest) as e:
             self._raise_contrail_exception('BadRequest',
                 resource='policy', msg=str(e))
         return self._policy_vnc_to_neutron(policy_obj)
