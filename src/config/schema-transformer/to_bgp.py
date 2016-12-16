@@ -364,6 +364,7 @@ def parse_args(args_str):
                          --syslog_facility LOG_USER
                          --cluster_id <testbed-name>
                          --zk_timeout 400
+                         --acl_direction_comp <True/False>
                          [--reset_config]
     '''
 
@@ -411,6 +412,7 @@ def parse_args(args_str):
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
         'zk_timeout': 400,
+        'acl_direction_comp': 'False'
     }
     secopts = {
         'use_certs': False,
@@ -529,6 +531,8 @@ def parse_args(args_str):
                         help="End port for bgp-as-a-service proxy")
     parser.add_argument("--zk_timeout",
                         help="Timeout for ZookeeperClient")
+    parser.add_argument("--acl_direction_comp",
+                        help="Acl direction compression")
 
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
