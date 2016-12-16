@@ -294,3 +294,39 @@
   private:\
     boost::function<_T *(A0, A1, A2, A3, A4, A5, A6)> make_ ## _T ## _ ## _P ## _\
 
+#define FACTORY_TYPE_N8(_Module, _T, A0, A1, A2, A3, A4, A5, A6, A7)\
+  public:\
+    template <class U>\
+    static typename boost::enable_if<boost::is_same<U, _T>, void>::type\
+        Register(boost::function<_T *(A0, A1, A2, A3, A4, A5, A6, A7)> function) {\
+        _Module *obj = GetInstance();\
+        obj->make_ ## _T ## _ = function;\
+    }\
+    template <class U>\
+    static typename boost::enable_if<boost::is_same<U, _T>, _T *>::type\
+        Create(A0 a0, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6, A7 a7) {\
+        _Module *obj = GetInstance();\
+        return obj->make_ ## _T ## _(a0, a1, a2, a3, a4, a5, a6, a7);\
+    }\
+  private:\
+    boost::function<_T *(A0, A1, A2, A3, A4, A5, A6, A7)> make_ ## _T ##_\
+
+#define FACTORY_PARAM_TYPE_N8(_Module, _T, _P, A0, A1, A2, A3, A4, A5, A6, A7)\
+  public:\
+    template <class U, int UP>\
+    static typename boost::enable_if_c<\
+        boost::is_same<U, _T>::value && (UP == (_P)), void>::type\
+        Register(boost::function<_T *(A0, A1, A2, A3, A4, A5, A6, A7)> function) {\
+        _Module *obj = GetInstance();\
+        obj->make_ ## _T ## _ ## _P ## _ = function;\
+    }\
+    template <class U, int UP>\
+    static typename boost::enable_if_c<\
+        boost::is_same<U, _T>::value && (UP == (_P)), _T *>::type\
+        Create(A0 a0, A1 a1, A2 a2, A3 a3, A4 a4, A5 a5, A6 a6, A7 a7) {\
+        _Module *obj = GetInstance();\
+        return obj->make_ ## _T ## _ ## _P ##_(a0, a1, a2, a3, a4, a5, a6, a7);\
+    }\
+  private:\
+    boost::function<_T *(A0, A1, A2, A3, A4, A5, A6, A7)> make_ ## _T ## _ ## _P ## _\
+

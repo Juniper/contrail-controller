@@ -16,7 +16,8 @@ public:
                            AgentUveBase *uve,
                            uint32_t instance_id,
                            FlowAgingTableKey *key,
-                           FlowStatsManager *aging_module);
+                           FlowStatsManager *aging_module,
+                           FlowStatsCollectorObject *obj);
     virtual ~FlowStatsCollectorTest();
     void DispatchFlowMsg(const std::vector<FlowLogData> &msg_list);
     FlowLogData last_sent_flow_log() const;
