@@ -11,6 +11,7 @@
 #include "bgp/ipeer.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
+#include "bgp/extended-community/etree.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/evpn/evpn_route.h"
@@ -70,7 +71,8 @@ BgpXmppMessage::BgpXmppMessage()
       is_reachable_(false),
       cache_routes_(false),
       repr_valid_(false),
-      sequence_number_(0) {
+      mobility_(0, false),
+      etree_leaf_(false) {
     msg_begin_.reserve(kMaxFromToLength);
 }
 
@@ -191,7 +193,9 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
     item.entry.virtual_network = GetVirtualNetwork(route, roattr);
     item.entry.local_preference = roattr->attr()->local_pref();
     item.entry.med = roattr->attr()->med();
-    item.entry.sequence_number = sequence_number_;
+    item.entry.sequence_number = mobility_.sequence_number;
+    item.entry.mobility.seqno = mobility_.sequence_number;
+    item.entry.mobility.sticky = mobility_.sticky;
 
     assert(!roattr->nexthop_list().empty());
 
@@ -299,7 +303,10 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
     item.entry.virtual_network = GetVirtualNetwork(route, roattr);
     item.entry.local_preference = roattr->attr()->local_pref();
     item.entry.med = roattr->attr()->med();
-    item.entry.sequence_number = sequence_number_;
+    item.entry.sequence_number = mobility_.sequence_number;
+    item.entry.mobility.seqno = mobility_.sequence_number;
+    item.entry.mobility.sticky = mobility_.sticky;
+    item.entry.etree_leaf = etree_leaf_;
 
     for (vector<int>::const_iterator it = security_group_list_.begin();
          it != security_group_list_.end(); ++it) {
@@ -477,7 +484,9 @@ void BgpXmppMessage::ProcessCommunity(const Community *community) {
 }
 
 void BgpXmppMessage::ProcessExtCommunity(const ExtCommunity *ext_community) {
-    sequence_number_ = 0;
+    mobility_.sequence_number = 0;
+    mobility_.sticky = false;
+    etree_leaf_ = false;
     security_group_list_.clear();
     load_balance_attribute_ = LoadBalance::LoadBalanceAttribute();
     if (ext_community == NULL)
@@ -494,10 +503,14 @@ void BgpXmppMessage::ProcessExtCommunity(const ExtCommunity *ext_community) {
             security_group_list_.push_back(sg.security_group_id());
         } else if (ExtCommunity::is_mac_mobility(*iter)) {
             MacMobility mm(*iter);
-            sequence_number_ = mm.sequence_number();
+            mobility_.sequence_number = mm.sequence_number();
+            mobility_.sticky = mm.sticky();
         } else if (ExtCommunity::is_load_balance(*iter)) {
             LoadBalance load_balance(*iter);
             load_balance.FillAttribute(&load_balance_attribute_);
+        } else if (ExtCommunity::is_etree(*iter)) {
+            ETree etree(*iter);
+            etree_leaf_ = etree.leaf();
         }
     }
 }

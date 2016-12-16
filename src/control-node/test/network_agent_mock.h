@@ -56,70 +56,110 @@ public:
     static const int kDefaultLocalPref = 100;
     static const int kDefaultMed = 200;
     static const int kDefaultSequence = 0;
+    static const int kDefaultSticky = false;
+    static const int kDefaultETreeLeaf = false;
+
+    struct MobilityInfo {
+        MobilityInfo() : seqno (kDefaultSequence), sticky(kDefaultSticky) {
+        }
+
+        MobilityInfo(uint32_t seq, bool sbit) : seqno (seq), sticky(sbit) {
+        }
+        uint32_t seqno;
+        bool sticky;
+    };
+
     RouteAttributes()
         : local_pref(kDefaultLocalPref),
           med(kDefaultMed),
-          sequence(kDefaultSequence),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(kDefaultSequence, kDefaultSticky),
           sgids(std::vector<int>()),
           communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref, uint32_t seq, const std::vector<int> &sg)
         : local_pref(lpref),
           med(0),
-          sequence(seq),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(seq, kDefaultSticky),
           sgids(sg),
           communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref, uint32_t seq)
         : local_pref(lpref),
           med(0),
-          sequence(seq),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(seq, kDefaultSticky),
           sgids(std::vector<int>()),
           communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref, uint32_t med, uint32_t seq)
         : local_pref(lpref),
           med(med),
-          sequence(seq),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(seq, kDefaultSticky),
+          sgids(std::vector<int>()),
+          communities(std::vector<std::string>()) {
+    }
+    RouteAttributes(uint32_t lpref, uint32_t med, uint32_t seq, bool sticky)
+        : local_pref(lpref),
+          med(kDefaultMed),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(seq, sticky),
+          sgids(std::vector<int>()),
+          communities(std::vector<std::string>()) {
+    }
+    RouteAttributes(uint32_t lpref, uint32_t med, uint32_t seq, bool sticky, bool leaf)
+        : local_pref(lpref),
+          med(kDefaultMed),
+          etree_leaf(leaf),
+          mobility(seq, sticky),
           sgids(std::vector<int>()),
           communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref)
         : local_pref(lpref),
           med(0),
-          sequence(kDefaultSequence),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(kDefaultSequence, kDefaultSticky),
           sgids(std::vector<int>()),
           communities(std::vector<std::string>()) {
     }
     RouteAttributes(uint32_t lpref, const std::vector<int> &sg)
         : local_pref(lpref),
           med(0),
-          sequence(kDefaultSequence),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(kDefaultSequence, kDefaultSticky),
           sgids(sg),
           communities(std::vector<std::string>()) {
     }
     RouteAttributes(const std::vector<int> &sg)
         : local_pref(kDefaultLocalPref),
           med(0),
-          sequence(kDefaultSequence),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(kDefaultSequence, kDefaultSticky),
           sgids(sg),
           communities(std::vector<std::string>()) {
     }
     RouteAttributes(const std::vector<std::string> &community)
         : local_pref(kDefaultLocalPref),
           med(0),
-          sequence(kDefaultSequence),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(kDefaultSequence, kDefaultSticky),
           sgids(std::vector<int>()),
           communities(community) {
     }
     RouteAttributes(const LoadBalance::LoadBalanceAttribute &lba)
-        : local_pref(kDefaultLocalPref), med(0), sequence(kDefaultSequence),
+        : local_pref(kDefaultLocalPref), med(0), etree_leaf(kDefaultETreeLeaf),
+          mobility(kDefaultSequence, kDefaultSticky),
           loadBalanceAttribute(lba) {
     }
+
     RouteAttributes(const RouteParams &params)
         : local_pref(kDefaultLocalPref),
           med(kDefaultMed),
-          sequence(kDefaultSequence),
+          etree_leaf(kDefaultETreeLeaf),
+          mobility(kDefaultSequence, kDefaultSticky),
           params(params) {
     }
     void SetSg(const std::vector<int> &sg) {
@@ -134,7 +174,8 @@ public:
 
     uint32_t local_pref;
     uint32_t med;
-    uint32_t sequence;
+    bool etree_leaf;
+    MobilityInfo mobility;
     std::vector<int> sgids;
     std::vector<std::string> communities;
     LoadBalance::LoadBalanceAttribute loadBalanceAttribute;

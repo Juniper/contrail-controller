@@ -1426,9 +1426,9 @@ protected:
         return true;
     }
 
-    bool CheckRouteLocalPrefSequence(test::NetworkAgentMockPtr agent,
+    bool CheckRouteLocalPrefMobilityETreeLeaf(test::NetworkAgentMockPtr agent,
         const string &network, const string &prefix,
-        int local_pref, int sequence) {
+        int local_pref, int sequence, bool sticky, bool leaf) {
         task_util::TaskSchedulerLock lock;
         const autogen::EnetItemType *rt =
             agent->EnetRouteLookup(network, prefix);
@@ -1436,7 +1436,11 @@ protected:
             return false;
         if (rt->entry.local_preference != local_pref)
             return false;
-        if (rt->entry.sequence_number != sequence)
+        if (rt->entry.mobility.seqno != sequence)
+            return false;
+        if (rt->entry.mobility.sticky != sticky)
+            return false;
+        if (rt->entry.etree_leaf != leaf)
             return false;
         return true;
     }
@@ -1455,9 +1459,19 @@ protected:
     void VerifyRouteLocalPrefSequence(test::NetworkAgentMockPtr agent,
         const string &network, const string &prefix,
         int local_pref, uint32_t sequence) {
-        TASK_UTIL_EXPECT_TRUE(CheckRouteLocalPrefSequence(
-            agent, network, prefix, local_pref, sequence));
+        TASK_UTIL_EXPECT_TRUE(CheckRouteLocalPrefMobilityETreeLeaf(
+            agent, network, prefix, local_pref, sequence,
+            test::RouteAttributes::kDefaultSticky,
+            test::RouteAttributes::kDefaultETreeLeaf));
     }
+
+    void VerifyRouteLocalPrefMobilityETreeLeaf(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix,
+        int local_pref, uint32_t sequence, bool sticky, bool etree_leaf) {
+        TASK_UTIL_EXPECT_TRUE(CheckRouteLocalPrefMobilityETreeLeaf(
+            agent, network, prefix, local_pref, sequence, sticky, etree_leaf));
+    }
+
 
     EventManager evm_;
     ServerThread thread_;
@@ -1746,6 +1760,155 @@ TEST_F(BgpXmppEvpnTest2, RouteAddWithLocalPrefSequence) {
     // Verify local pref and sequence on B.
     VerifyRouteLocalPrefSequence(agent_b_, "blue", eroute_a.str(), 101, 1001);
     VerifyRouteLocalPrefSequence(agent_b_, "blue", eroute_b.str(), 202, 2002);
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Routes with mobility info from 2 agents are advertised to each other.
+//
+TEST_F(BgpXmppEvpnTest2, RouteAddWithStickyBit) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add route from agent A with sticky bit and ETree Leaf mode
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
+    test::NextHop nexthop1("192.168.1.1");
+    test::RouteAttributes attr1(100, 100, 99, true);
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), nexthop1, attr1);
+    task_util::WaitForIdle();
+
+    // Add route from agent B with non-sticky bit and ETree Root mode
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
+    test::NextHop nexthop2("192.168.1.2");
+    test::RouteAttributes attr2(100, 100, 88, false);
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), nexthop2, attr2);
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Verify local pref and sequence on A.
+    VerifyRouteLocalPrefMobilityETreeLeaf(agent_a_, "blue", eroute_a.str(),
+                     100, 99, true, test::RouteAttributes::kDefaultETreeLeaf);
+    VerifyRouteLocalPrefMobilityETreeLeaf(agent_a_, "blue", eroute_b.str(),
+                     100, 88, false, test::RouteAttributes::kDefaultETreeLeaf);
+
+    // Verify local pref and sequence on B.
+    VerifyRouteLocalPrefMobilityETreeLeaf(agent_b_, "blue", eroute_a.str(),
+                  100, 99, true, test::RouteAttributes::kDefaultETreeLeaf);
+    VerifyRouteLocalPrefMobilityETreeLeaf(agent_b_, "blue", eroute_b.str(),
+                  100, 88, false, test::RouteAttributes::kDefaultETreeLeaf);
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Routes with mobility info and etree-leaf info from 2 agents are
+// advertised to each other.
+//
+TEST_F(BgpXmppEvpnTest2, RouteAddWithETreeLeaf) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+
+    // Add route from agent A with sticky bit and ETree Leaf mode
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
+    test::NextHop nexthop1("192.168.1.1");
+    test::RouteAttributes attr1(202, 202, 2002, true, true);
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), nexthop1, attr1);
+    task_util::WaitForIdle();
+
+    // Add route from agent B with non-sticky bit and ETree Root mode
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
+    test::NextHop nexthop2("192.168.1.2");
+    test::RouteAttributes attr2(202, 202, 2002, false, false);
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), nexthop2, attr2);
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Verify local pref and sequence on A.
+    VerifyRouteLocalPrefMobilityETreeLeaf(agent_a_, "blue", eroute_a.str(), 202, 2002, true, true);
+    VerifyRouteLocalPrefMobilityETreeLeaf(agent_a_, "blue", eroute_b.str(), 202, 2002, false, false);
+
+    // Verify local pref and sequence on B.
+    VerifyRouteLocalPrefMobilityETreeLeaf(agent_b_, "blue", eroute_a.str(), 202, 2002, true, true);
+    VerifyRouteLocalPrefMobilityETreeLeaf(agent_b_, "blue", eroute_b.str(), 202, 2002, false, false);
 
     // Delete route from agent A.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());

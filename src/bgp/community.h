@@ -217,6 +217,16 @@ public:
                (val[1] == BgpExtendedCommunityEvpnSubType::MacMobility);
     }
 
+
+    static bool is_etree(const ExtCommunityValue &val) {
+        //
+        // ETree extended community
+        //
+        return (val[0] == BgpExtendedCommunityType::Evpn) &&
+               (val[1] == BgpExtendedCommunityEvpnSubType::ETree);
+    }
+
+
     static bool is_router_mac(const ExtCommunityValue &val) {
         //
         // Router MAC extended community
