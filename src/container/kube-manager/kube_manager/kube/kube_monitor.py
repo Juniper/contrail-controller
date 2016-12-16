@@ -2,6 +2,7 @@ import eventlet
 import json
 import sys
 import requests
+import os
 
 class KubeMonitor(object):
 
@@ -9,6 +10,8 @@ class KubeMonitor(object):
         self.args = args
         self.logger = logger
         self.q = q
+        self.cloud_orchestrator = os.getenv("CLOUD_ORCHESTRATOR")
+        self.token = os.getenv("TOKEN") # valid only for OpenShift
 
         # Use Kube DB if kube object caching is enabled in config.
         if args.kube_object_cache == 'True':
@@ -16,10 +19,18 @@ class KubeMonitor(object):
         else:
             self.db = None
 
-        self.url = "http://%s:%s/api/v1" % (self.args.kubernetes_api_server,
-            self.args.kubernetes_api_port)
-        self.beta_url = "http://%s:%s/apis/extensions/v1beta1" % (
-            self.args.kubernetes_api_server, self.args.kubernetes_api_port)
+        if self.cloud_orchestrator == "openshift":
+            protocol = "https"
+        else: # kubernetes
+            protocol = "http"
+
+        self.url = "%s://%s:%s/api/v1" % (protocol,
+                                          self.args.kubernetes_api_server,
+                                          self.args.kubernetes_api_port)
+        self.beta_url = "%s://%s:%s/apis/extensions/v1beta1" % (
+                                          protocol,
+                                          self.args.kubernetes_api_server, 
+                                          self.args.kubernetes_api_port)
 
         self.logger.info("KubeMonitor init done.");
 
@@ -28,7 +39,12 @@ class KubeMonitor(object):
             url = "%s/%s" % (self.beta_url, resource_type)
         else:
             url = "%s/%s" % (self.url, resource_type)
-        resp = requests.get(url, params={'watch': 'true'}, stream=True)
+        if self.cloud_orchestrator == "openshift":
+            headers = {'Authorization': "Bearer " + self.token}
+            resp = requests.get(url, params={'watch': 'true'}, stream=True, headers=headers, verify=False)
+        else: # kubernetes
+            resp = requests.get(url, params={'watch': 'true'}, stream=True)
+
         if resp.status_code != 200:
             return
         return resp.iter_lines(chunk_size=10, delimiter='\n')
