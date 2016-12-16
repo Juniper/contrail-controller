@@ -92,7 +92,8 @@ public:
                        uint32_t flow_cache_timeout,
                        AgentUveBase *uve, uint32_t instance_id,
                        FlowAgingTableKey *key,
-                       FlowStatsManager *aging_module);
+                       FlowStatsManager *aging_module,
+                       FlowStatsCollectorObject *obj);
     virtual ~FlowStatsCollector();
 
     uint64_t flow_age_time_intvl() { return flow_age_time_intvl_; }
@@ -275,6 +276,7 @@ private:
     FlowAgingTableKey flow_aging_key_;
     uint32_t instance_id_;
     FlowStatsManager *flow_stats_manager_;
+    FlowStatsCollectorObject *parent_;
     AgeingTask *ageing_task_;
     // Number of timer fires needed to scan the flow-table once
     // This is based on ageing timer

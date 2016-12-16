@@ -41,7 +41,8 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                        AgentUveBase *uve,
                                        uint32_t instance_id,
                                        FlowAgingTableKey *key,
-                                       FlowStatsManager *aging_module) :
+                                       FlowStatsManager *aging_module,
+                                       FlowStatsCollectorObject *obj) :
         StatsCollector(TaskScheduler::GetInstance()->GetTaskId
                        (kTaskFlowStatsCollector), instance_id,
                        io, kFlowStatsTimerInterval, "Flow stats collector"),
@@ -60,7 +61,7 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                                    this, _1)),
         msg_list_(kMaxFlowMsgsPerSend, FlowLogData()), msg_index_(0),
         flow_aging_key_(*key), instance_id_(instance_id),
-        flow_stats_manager_(aging_module), ageing_task_(NULL),
+        flow_stats_manager_(aging_module), parent_(obj), ageing_task_(NULL),
         current_time_(GetCurrentTime()), ageing_task_starts_(0) {
         if (flow_cache_timeout) {
             // Convert to usec
@@ -1162,8 +1163,7 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
          assert(0);
     }
 
-    if (deleted_ && flow_tree_.size() == 0 &&
-        request_queue_.IsQueueEmpty() == true) {
+    if (deleted_ && parent_->CanDelete()) {
         flow_stats_manager_->Free(flow_aging_key_);
     }
 
@@ -1437,7 +1437,7 @@ FlowStatsCollectorObject::FlowStatsCollectorObject(Agent *agent,
             AgentObjectFactory::Create<FlowStatsCollector>(
                 *(agent->event_manager()->io_service()),
                 req->flow_stats_interval, req->flow_cache_timeout,
-                agent->uve(), instance_id, key, mgr));
+                agent->uve(), instance_id, key, mgr, this));
     }
 }
 
