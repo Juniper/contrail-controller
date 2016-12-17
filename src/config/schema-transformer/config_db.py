@@ -54,8 +54,8 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             return acl_obj
         except (NoIdError, BadRequest) as e:
             DBBaseST._logger.error(
-                "Error while creating acl %s for %s: %s",
-                name, obj.get_fq_name_str(), str(e))
+                "Error while creating acl %s for %s: %s"%(
+                name, obj.get_fq_name_str(), str(e)))
         return None
     else:
         if entries is None:
@@ -75,11 +75,11 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             DBBaseST._vnc_lib.access_control_list_update(acl_obj)
         except HttpError as he:
             DBBaseST._logger.error(
-                "HTTP error while updating acl %s for %s: %d, %s",
-                name, obj.get_fq_name_str(), he.status_code, he.content)
+                "HTTP error while updating acl %s for %s: %d, %s"%(
+                name, obj.get_fq_name_str(), he.status_code, he.content))
         except NoIdError:
-            DBBaseST._logger.error("NoIdError while updating acl %s for %s",
-                                   name, obj.get_fq_name_str())
+            DBBaseST._logger.error("NoIdError while updating acl %s for %s"%(
+                                   name, obj.get_fq_name_str()))
     return acl_obj
 # end _access_control_list_update
 
@@ -3049,7 +3049,7 @@ class BgpRouterST(DBBaseST):
             obj = self.read_vnc_obj(fq_name=self.name)
         except NoIdError as e:
             self._logger.error("NoIdError while reading bgp router "
-                                   "%s: %s", self.name, str(e))
+                                   "%s: %s"%(self.name, str(e)))
             return
 
         peerings = [ref['to'] for ref in (obj.get_bgp_router_refs() or [])]
@@ -3077,7 +3077,7 @@ class BgpRouterST(DBBaseST):
                 self._vnc_lib.bgp_router_update(obj)
             except NoIdError as e:
                 self._logger.error("NoIdError while updating bgp router "
-                                   "%s: %s", self.name, str(e))
+                                   "%s: %s"%(self.name, str(e)))
     # end update_peering
 
     def handle_st_object_req(self):
@@ -3934,7 +3934,7 @@ class ServiceInstanceST(DBBaseST):
         if (not self.left_vn_str or not self.right_vn_str):
             self._logger.error(
                 "%s: route table next hop service instance must "
-                "have left and right virtual networks", self.name)
+                "have left and right virtual networks"% self.name)
             return self.delete_properties()
 
         policy_name = "_internal_" + self.name
