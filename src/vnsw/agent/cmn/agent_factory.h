@@ -17,16 +17,17 @@ class DBGraph;
 class IFMapDependencyManager;
 class InstanceManager;
 class FlowStatsCollector;
+class FlowStatsCollectorObject;
 class NexthopManager;
 class FlowStatsManager;
 class FlowAgingTableKey;
 
 class AgentObjectFactory : public Factory<AgentObjectFactory> {
     FACTORY_TYPE_N1(AgentObjectFactory, KSync, Agent *);
-    FACTORY_TYPE_N7(AgentObjectFactory, FlowStatsCollector,
+    FACTORY_TYPE_N8(AgentObjectFactory, FlowStatsCollector,
                     boost::asio::io_service &, int, uint32_t, AgentUveBase *,
                     uint32_t , FlowAgingTableKey *,
-                    FlowStatsManager *);
+                    FlowStatsManager *, FlowStatsCollectorObject *);
     FACTORY_TYPE_N4(AgentObjectFactory, AgentUveBase, Agent *, uint64_t,
                     uint32_t, uint32_t);
     FACTORY_TYPE_N1(AgentObjectFactory, AgentSignal, EventManager *);
