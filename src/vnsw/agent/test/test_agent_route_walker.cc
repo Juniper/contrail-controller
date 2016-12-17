@@ -73,6 +73,11 @@ public:
         walk_task_context_mismatch_ = false;
         route_table_walk_started_ = false;
         is_vrf_walk_done_ = false;
+        set_walkable_route_tables((1 << Agent::INET4_UNICAST) |
+                                  (1 << Agent::INET6_UNICAST) |
+                                  (1 << Agent::INET4_MULTICAST) |
+                                  (1 << Agent::EVPN) |
+                                  (1 << Agent::BRIDGE));
     };
     ~AgentRouteWalkerTest() { 
     }
