@@ -3114,4 +3114,19 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('pbb-etree-enable', 'virtual-network', 'optional', 'CRUD',
               'Enable/Disable PBB ETREE mode on the network') -->
+
+<xsd:element name="layer2-control-word" type="xsd:boolean" default="false"/>
+<xsd:annotation>
+    <xsd:documentation>
+        This configuration knob controls the insertion of 4-octet control word
+        between bottom of MPLS label stack and L2 payload.
+        Control word should be used with the value 0 (e.g., a 4-octet field
+        with a value of zero) when sending EVPN-encapsulated packets over
+        an MP2P LSP.
+    </xsd:documentation>
+</xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('layer2-control-word', 'virtual-network', 'optional', 'CRUD',
+              'Enable/Disable adding control word to the Layer 2 encapsulation') -->
+
 </xsd:schema>
