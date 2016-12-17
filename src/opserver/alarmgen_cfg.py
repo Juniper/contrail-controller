@@ -24,6 +24,7 @@ class CfgParser(object):
                     --worker_id 0
                     --partitions 5
                     --redis_password
+                    --redis_uve_list
                     --http_server_port 5995
                     --redis_server_port 6379
                     --redis_uve_list 127.0.0.1:6379
@@ -60,7 +61,6 @@ class CfgParser(object):
             'rabbitmq_password' : 'guest',
             'rabbitmq_vhost'    : None,
             'rabbitmq_ha_mode'  : False,
-            'redis_uve_list'    : ['127.0.0.1:6379'],
             'alarmgen_list'     : ['127.0.0.1:0'],
             'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
             'kafka_prefix'     :'',
@@ -69,6 +69,7 @@ class CfgParser(object):
         redis_opts = {
             'redis_server_port'  : 6379,
             'redis_password'     : None,
+            'redis_uve_list'     : ['127.0.0.1:6379'],
         }
 
         disc_opts = {
