@@ -251,6 +251,12 @@ int main(int argc, char *argv[])
     if (protobuf_server_enabled) {
         LOG(INFO, "COLLECTOR PROTOBUF LISTEN PORT: " << protobuf_port);
     }
+    uint16_t structured_syslog_port(0);
+    bool structured_syslog_server_enabled =
+        options.collector_structured_syslog_port(&structured_syslog_port);
+    if (structured_syslog_server_enabled) {
+        LOG(INFO, "COLLECTOR STRUCTURED SYSLOG LISTEN PORT: " << structured_syslog_port);
+    }
     string kstr("");
     vector<string> kbl = options.kafka_broker_list();
     for (vector<string>::const_iterator st = kbl.begin();
@@ -323,6 +329,8 @@ int main(int argc, char *argv[])
             options.collector_port(),
             protobuf_server_enabled,
             protobuf_port,
+            structured_syslog_server_enabled,
+            structured_syslog_port,
             cassandra_ips,
             cassandra_ports,
             string("127.0.0.1"),

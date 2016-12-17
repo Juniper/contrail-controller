@@ -121,6 +121,12 @@ public:
         }
         return collector_protobuf_port_configured_;
     }
+    bool collector_structured_syslog_port(uint16_t *collector_structured_syslog_port) const {
+        if (collector_structured_syslog_port_configured_) {
+            *collector_structured_syslog_port = collector_structured_syslog_port_;
+        }
+        return collector_structured_syslog_port_configured_;
+    }
     const std::vector<std::string> config_file() const {
         return config_file_;
     }
@@ -200,6 +206,8 @@ private:
     uint16_t collector_port_;
     uint16_t collector_protobuf_port_;
     bool collector_protobuf_port_configured_;
+    uint16_t collector_structured_syslog_port_;
+    bool collector_structured_syslog_port_configured_;
     std::vector<std::string> config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
