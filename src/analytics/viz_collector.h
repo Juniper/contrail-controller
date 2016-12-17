@@ -23,6 +23,7 @@
 
 class Ruleeng;
 class ProtobufCollector;
+class StructuredSyslogCollector;
 class SFlowCollector;
 class IpfixCollector;
 class Options;
@@ -33,6 +34,8 @@ public:
     VizCollector(EventManager *evm, unsigned short listen_port,
             bool protobuf_collector_enabled,
             unsigned short protobuf_listen_port,
+            bool structured_syslog_collector_enabled,
+            unsigned short structured_syslog_listen_port,
             const std::vector<std::string> &cassandra_ips,
             const std::vector<int> &cassandra_ports,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
@@ -144,6 +147,7 @@ private:
     SFlowCollector *sflow_collector_;
     IpfixCollector *ipfix_collector_;
     boost::scoped_ptr<ProtobufCollector> protobuf_collector_;
+    boost::scoped_ptr<StructuredSyslogCollector> structured_syslog_collector_;
     std::string name_;
     unsigned short listen_port_;
     uint32_t redis_gen_;

@@ -109,6 +109,29 @@ env.Requires(protobuf_test, [env['TOP'] + '/analytics/test/test_message.desc',
                              env['TOP'] + '/analytics/test/test_message_extensions.desc'])
 protobufEnv.Alias('src/analytics:protobuf_test', protobuf_test)
 
+structured_syslogEnv = env.Clone()
+structured_syslog_test = structured_syslogEnv.UnitTest('structured_syslog_test',
+                                  [
+                                  'structured_syslog_test.cc',
+                                  '../structured_syslog_server.o',
+                                  '../syslog_collector.o',
+                                  '../generator.o',
+                                  '../collector.o',
+                                  '../vizd_table_desc.o',
+                                  '../viz_message.o',
+                                  '../ruleeng.o',
+                                  '../stat_walker.o',
+                                  '../db_handler.o',
+                                  '../usrdef_counters.o',
+                                  '../analytics_types.o',
+                                  '../analytics_html.o',
+                                  '../parser_util.o',
+                                  '../viz_constants.o',
+                                  '../collector_uve_types.o',
+                                  '../collector_uve_html.o',
+                                  '../collector_uve_constants.o'])
+structured_syslogEnv.Alias('src/analytics:structured_syslog_test', structured_syslog_test)
+
 sflow_parser_test_obj = env_noWerror_excep.Object('sflow_parser_test.o',
                                                   'sflow_parser_test.cc')
 sflow_parser_test = env.UnitTest('sflow_parser_test',
@@ -121,6 +144,7 @@ test_suite = [
                viz_message_test,
                stat_walker_test,
                protobuf_test,
+               structured_syslog_test,
                syslog_test,
                sflow_parser_test,
                db_handler_test,

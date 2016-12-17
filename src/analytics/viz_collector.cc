@@ -22,6 +22,7 @@
 
 #include "ruleeng.h"
 #include "protobuf_collector.h"
+#include "structured_syslog_collector.h"
 #include "sflow_collector.h"
 #include "ipfix_collector.h"
 #include "viz_sandesh.h"
@@ -35,6 +36,8 @@ using boost::system::error_code;
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             bool protobuf_collector_enabled,
             unsigned short protobuf_listen_port,
+            bool structured_syslog_collector_enabled,
+            unsigned short structured_syslog_listen_port,
             const std::vector<std::string> &cassandra_ips,
             const std::vector<int> &cassandra_ports,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
@@ -79,6 +82,10 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
     if (protobuf_collector_enabled) {
         protobuf_collector_.reset(new ProtobufCollector(evm,
             protobuf_listen_port, db_initializer_->GetDbHandler()));
+    }
+    if (structured_syslog_collector_enabled) {
+        structured_syslog_collector_.reset(new StructuredSyslogCollector(evm,
+            structured_syslog_listen_port, db_initializer_->GetDbHandler()));
     }
     CollectorPublish();
 }
@@ -186,6 +193,10 @@ void VizCollector::Shutdown() {
         protobuf_collector_->Shutdown();
         WaitForIdle();
     }
+    if (structured_syslog_collector_) {
+        structured_syslog_collector_->Shutdown();
+        WaitForIdle();
+    }
     if (sflow_collector_) {
         sflow_collector_->Shutdown();
         WaitForIdle();
@@ -209,6 +220,9 @@ void VizCollector::DbInitializeCb() {
     }
     if (protobuf_collector_) {
         protobuf_collector_->Initialize();
+    }
+    if (structured_syslog_collector_) {
+        structured_syslog_collector_->Initialize();
     }
     if (sflow_collector_) {
         sflow_collector_->Start();
