@@ -94,6 +94,8 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.disable_all_db_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
+    uint16_t structured_syslog_port(0);
+    EXPECT_FALSE(options_.collector_structured_syslog_port(&structured_syslog_port));
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -143,6 +145,8 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.disable_all_db_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
+    uint16_t structured_syslog_port(0);
+    EXPECT_FALSE(options_.collector_structured_syslog_port(&structured_syslog_port));
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -192,6 +196,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.disable_flow_collection(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
+    uint16_t structured_syslog_port(0);
+    EXPECT_FALSE(options_.collector_structured_syslog_port(&structured_syslog_port));
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
@@ -246,6 +252,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), true); // Overriden from command line.
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
+    uint16_t structured_syslog_port(0);
+    EXPECT_FALSE(options_.collector_structured_syslog_port(&structured_syslog_port));
 }
 
 TEST_F(OptionsTest, CustomConfigFile) {
@@ -274,6 +282,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "port=100\n"
         "server=3.4.5.6\n"
         "protobuf_port=3333\n"
+        "structured_syslog_port=3514\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -352,6 +361,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
     uint16_t protobuf_port(0);
     EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
     EXPECT_EQ(protobuf_port, 3333);
+    uint16_t structured_syslog_port(0);
+    EXPECT_TRUE(options_.collector_structured_syslog_port(&structured_syslog_port));
+    EXPECT_EQ(structured_syslog_port, 3514);
     Options::Cassandra cassandra_options(options_.get_cassandra_options());
     EXPECT_EQ(cassandra_options.user_, "cassandra1");
     EXPECT_EQ(cassandra_options.password_, "cassandra1");
@@ -388,6 +400,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "port=100\n"
         "server=3.4.5.6\n"
         "protobuf_port=3333\n"
+        "structured_syslog_port=3514\n"
         "\n"
         "[DISCOVERY]\n"
         "port=100\n"
@@ -398,7 +411,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "\n"
     ;
 
-    int argc = 13;
+    int argc = 14;
 
     ofstream config_file;
     config_file.open("./options_test_collector_config_file.conf");
@@ -429,6 +442,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_10[] = "--CASSANDRA.cassandra_password=cassandra";
     char argv_11[] = "--conf_file=./options_test_cassandra_config_file.conf";
     char argv_12[] = "--DEFAULT.sandesh_send_rate_limit=7";
+    char argv_13[] = "--COLLECTOR.structured_syslog_port=3515";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -442,6 +456,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[10] = argv_10;
     argv[11] = argv_11;
     argv[12] = argv_12;
+    argv[13] = argv_13;
 
     options_.Parse(evm_, argc, argv);
 
@@ -487,6 +502,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     uint16_t protobuf_port(0);
     EXPECT_TRUE(options_.collector_protobuf_port(&protobuf_port));
     EXPECT_EQ(protobuf_port, 3334);
+    uint16_t structured_syslog_port(0);
+    EXPECT_TRUE(options_.collector_structured_syslog_port(&structured_syslog_port));
+    EXPECT_EQ(structured_syslog_port, 3515);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
 }
 

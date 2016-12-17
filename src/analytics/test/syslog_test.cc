@@ -27,11 +27,11 @@ class SyslogParserTestHelper : public SyslogParser
                 v_.insert(std::pair<std::string, Holder>(i->first,
                     i->second));
             }
-            ip_ = GetMapVals(v, "ip");
-            ts_ = GetMapVal(v, "timestamp");
+            ip_ = GetMapVals(v, "ip", "");
+            ts_ = GetMapVal(v, "timestamp", 0);
             module_ = GetModule(v);
             hostname_ = GetMapVals(v, "hostname", ip_);
-            severity_ = GetMapVal(v, "severity");
+            severity_ = GetMapVal(v, "severity", 0);
             facility_ = GetFacility(v);
             pid_ = GetPID(v);
             body_ = "<Syslog>" + GetMsgBody (v) + "</Syslog>";

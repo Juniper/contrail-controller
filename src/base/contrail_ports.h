@@ -51,6 +51,7 @@ public:
     static const uint16_t ApiServer();
     static const uint16_t CollectorPort();
     static const uint16_t CollectorProtobufPort();
+    static const uint16_t CollectorStructuredSyslogPort();
     static const uint16_t DnsXmpp();
     static const uint16_t DnsRndc();
     static const uint16_t ApiServerOpen();
