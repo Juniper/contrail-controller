@@ -329,11 +329,6 @@ bool ControlNodeInfoLogger(BgpServer *server,
         vector<string> ip_list;
         ip_list.push_back(ControlNode::GetSelfIp());
         state.set_bgp_router_ip_list(ip_list);
-        vector<string> list;
-        MiscUtils::GetCoreFileList(ControlNode::GetProgramName(), list);
-        if (list.size()) {
-            state.set_core_files_list(list);
-        }
     }
     if (!build_info_set) {
         string build_info;
