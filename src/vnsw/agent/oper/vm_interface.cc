@@ -186,10 +186,11 @@ static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
             VmInterface::FloatingIp::PortMap dst_port_map;
             for (PortMappings::const_iterator it = fip->port_mappings().begin();
                  it != fip->port_mappings().end(); it++) {
-                VmInterface::FloatingIp::PortMapKey dst(IPPROTO_TCP,
+                uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
+                VmInterface::FloatingIp::PortMapKey dst(protocol,
                                                         it->src_port);
                 dst_port_map.insert(std::make_pair(dst, it->dst_port));
-                VmInterface::FloatingIp::PortMapKey src(IPPROTO_TCP,
+                VmInterface::FloatingIp::PortMapKey src(protocol,
                                                         it->dst_port);
                 src_port_map.insert(std::make_pair(src, it->src_port));
             }
