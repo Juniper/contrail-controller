@@ -73,8 +73,9 @@ class AddrMgmtSubnetExhausted(AddrMgmtError):
     # end __init__
 
     def __str__(self):
+        vn_fq_name_str = str([str(a) for a in self.vn_fq_name])
         return "Virtual-Network(%s) has exhausted subnet(%s)" %\
-            (self.vn_fq_name, self.subnet_val)
+            (vn_fq_name_str, self.subnet_val)
     # end __str__
 # end AddrMgmtSubnetExhausted
 
