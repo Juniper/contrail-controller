@@ -210,8 +210,8 @@ class SchemaTransformer(object):
                     pass
                 except Exception as e:
                     self.logger.error(
-                            "Error while deleting routing instance %s: %s",
-                            ri.get_fq_name_str(), str(e))
+                            "Error while deleting routing instance %s: %s"%(
+                            ri.get_fq_name_str(), str(e)))
 
         # end for ri
 
@@ -241,8 +241,8 @@ class SchemaTransformer(object):
                     pass
                 except Exception as e:
                     self.logger.error(
-                            "Error while deleting acl %s: %s",
-                            acl.uuid, str(e))
+                            "Error while deleting acl %s: %s"%(
+                            acl.uuid, str(e)))
         # end for acl
 
         gevent.sleep(0.001)
