@@ -347,39 +347,58 @@ IFMapNode *PortSubscribeTable::UuidToIFNode(const uuid &u) const {
     return it->second;
 }
 
+const PortSubscribeTable::VmiEntry *PortSubscribeTable::VmiToEntry
+(const boost::uuids::uuid &vmi_uuid) const {
+    VmiToVmVnTree::const_iterator it = vmi_to_vmvn_tree_.find(vmi_uuid);
+    if (it == vmi_to_vmvn_tree_.end())
+        return NULL;
+
+    return &it->second;
+}
+
+static void CopyVmiConfigToInfo(PortSubscribeTable::VmiEntry *entry,
+                                const VmInterfaceConfigData *data) {
+    entry->vm_uuid_ = data->vm_uuid_;
+    entry->vn_uuid_ = data->vn_uuid_;
+    entry->sub_interface_ = (entry->parent_vmi_.is_nil() == false);
+    entry->parent_vmi_ = data->parent_vmi_;
+    entry->vlan_tag_ = data->rx_vlan_id_;
+    entry->mac_ = data->vm_mac_;
+}
+
 /*
  * Update config tables built from VMI IFnode
  * - Adds entry into vmi_to_vmvn_tree_
  * - Adds entry to vmvn_to_vmi_tree_
  */
-void PortSubscribeTable::UpdateVmiIfnodeInfo(const boost::uuids::uuid &vmi_uuid,
-                                             const boost::uuids::uuid &vm_uuid,
-                                             const boost::uuids::uuid &vn_uuid){
+void PortSubscribeTable::UpdateVmiIfnodeInfo
+(const boost::uuids::uuid &vmi_uuid, const VmInterfaceConfigData *data) {
     // Find entry from vmi to vm-vn tree first
     VmiToVmVnTree::iterator it;
     it = vmi_to_vmvn_tree_.find(vmi_uuid);
 
     if (it != vmi_to_vmvn_tree_.end()) {
         // Nothing to do if entry already present and vm/vn match
-        if (it->second.vm_uuid_ == vm_uuid &&
-            it->second.vn_uuid_ == vn_uuid) {
-            return;
+        if (it->second.vm_uuid_ != data->vm_uuid_ ||
+            it->second.vn_uuid_ != data->vn_uuid_) {
+            // If an entry already present and VM/VN are different, remove the
+            // reverse entry first and then update with new entry
+            vmvn_to_vmi_tree_.erase(VmVnUuidEntry(it->second.vm_uuid_,
+                                                  it->second.vn_uuid_));
+            VmVnUuidEntry entry(data->vm_uuid_, data->vn_uuid_);
+            vmvn_to_vmi_tree_.insert(std::make_pair(entry, vmi_uuid));
         }
 
-        // If an entry already present and VM/VN are different, remove the
-        // reverse entry first and then update with new entry
-        vmvn_to_vmi_tree_.erase(it->second);
-        it->second.vm_uuid_ = vm_uuid;
-        it->second.vn_uuid_ = vn_uuid;
-        VmVnUuidEntry entry(vm_uuid, vn_uuid);
-        vmvn_to_vmi_tree_.insert(std::make_pair(entry, vmi_uuid));
+        // Update data fields
+        CopyVmiConfigToInfo(&it->second, data);
     } else {
         // Entry not present add to vmi_to_vmvn_tree_ and vmvn_to_vmi_tree_
-        VmVnUuidEntry entry(vm_uuid, vn_uuid);
-        vmi_to_vmvn_tree_.insert(std::make_pair(vmi_uuid, entry));
+        VmVnUuidEntry entry(data->vm_uuid_, data->vn_uuid_);
         vmvn_to_vmi_tree_.insert(std::make_pair(entry, vmi_uuid));
+        VmiEntry vmi_entry;
+        CopyVmiConfigToInfo(&vmi_entry, data);
+        vmi_to_vmvn_tree_.insert(std::make_pair(vmi_uuid, vmi_entry));
     }
-
 }
 
 /*
@@ -393,7 +412,7 @@ void PortSubscribeTable::UpdateVmiIfnodeInfo(const boost::uuids::uuid &vmi_uuid,
 void PortSubscribeTable::HandleVmiIfnodeAdd(const boost::uuids::uuid &vmi_uuid,
                                             const VmInterfaceConfigData *data) {
     tbb::mutex::scoped_lock lock(mutex_);
-    UpdateVmiIfnodeInfo(vmi_uuid, data->vm_uuid_, data->vn_uuid_);
+    UpdateVmiIfnodeInfo(vmi_uuid, data);
     // Add vm-interface if possible
     PortSubscribeEntryPtr entry_ref = GetVmVnPortNoLock(data->vm_uuid_);
     if (entry_ref.get() == NULL)
@@ -431,7 +450,8 @@ void PortSubscribeTable::DeleteVmiIfnodeInfo
 
     // If an entry already present in vm-vn entry, delete entries from
     // vmi_to_vmvn_tree_ and vmvn_to_vmi_tree_
-    vmvn_to_vmi_tree_.erase(it->second);
+    vmvn_to_vmi_tree_.erase(VmVnUuidEntry(it->second.vm_uuid_,
+                                          it->second.vn_uuid_));
     vmi_to_vmvn_tree_.erase(it);
 }
 
@@ -707,8 +727,9 @@ bool SandeshVmiToVmVnTask::Run() {
     std::vector<SandeshVmiToVmVnInfo> port_list;
     while (it != table_->vmi_to_vmvn_tree_.end()) {
         boost::uuids::uuid vmi_uuid = it->first;
-        boost::uuids::uuid vm_uuid = it->second.vm_uuid_;
-        boost::uuids::uuid vn_uuid = it->second.vn_uuid_;
+        const PortSubscribeTable::VmiEntry *vmi_entry = &it->second;
+        boost::uuids::uuid vm_uuid = vmi_entry->vm_uuid_;
+        boost::uuids::uuid vn_uuid = vmi_entry->vn_uuid_;
         it++;
 
         if (vmi_uuid_.is_nil() == false && vmi_uuid != vmi_uuid_) {
@@ -719,6 +740,13 @@ bool SandeshVmiToVmVnTask::Run() {
         info.set_vmi_uuid(UuidToString(vmi_uuid));
         info.set_vm_uuid(UuidToString(vm_uuid));
         info.set_vn_uuid(UuidToString(vn_uuid));
+        if (vmi_entry->sub_interface_)
+            info.set_sub_interface("True");
+        else
+            info.set_sub_interface("False");
+        info.set_vlan_tag(vmi_entry->vlan_tag_);
+        info.set_parent_uuid(UuidToString(vmi_entry->parent_vmi_));
+        info.set_mac(vmi_entry->mac_);
         port_list.push_back(info);
     }
     resp->set_port_list(port_list);

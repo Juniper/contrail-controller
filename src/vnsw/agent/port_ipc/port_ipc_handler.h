@@ -59,11 +59,14 @@ class PortIpcHandler {
     bool DeleteVmVnPort(const std::string &json, const std::string &vm,
                         string &err_msg);
     bool GetVmVnPort(const std::string &vm_uuid, std::string &info) const;
+    bool GetVmVnCfgPort(const string &vm, string &info) const;
 
 
     boost::uuids::uuid VmVnToVmi(const boost::uuids::uuid &vm_uuid) const;
     bool MakeJsonFromVmi(const boost::uuids::uuid &vmi_uuid,
                          std::string &resp) const;
+    bool MakeJsonFromVmiConfig(const boost::uuids::uuid &vmi_uuid,
+                               string &resp) const;
     PortSubscribeTable *port_subscribe_table() const {
         return port_subscribe_table_.get();
     }

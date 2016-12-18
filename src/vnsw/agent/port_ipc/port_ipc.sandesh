@@ -179,6 +179,10 @@ struct SandeshVmiToVmVnInfo {
     1:  string vmi_uuid;
     2:  string vm_uuid;
     3:  string vn_uuid;
+    4:  string sub_interface;
+    5:  u16 vlan_tag;
+    6:  string parent_uuid;
+    7:  string mac;
 }
 
 /**

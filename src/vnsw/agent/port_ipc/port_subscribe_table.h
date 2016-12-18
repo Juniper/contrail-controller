@@ -196,7 +196,21 @@ public:
         }
     };
 
-    typedef std::map<boost::uuids::uuid, VmVnUuidEntry> VmiToVmVnTree;
+    struct VmiEntry {
+        boost::uuids::uuid vm_uuid_;
+        boost::uuids::uuid vn_uuid_;
+        bool sub_interface_;
+        boost::uuids::uuid parent_vmi_;
+        uint16_t vlan_tag_;
+        std::string mac_;
+
+        VmiEntry() :
+            vm_uuid_(), vn_uuid_(), sub_interface_(), parent_vmi_(),
+            vlan_tag_(), mac_() {
+        }
+    };
+
+    typedef std::map<boost::uuids::uuid, VmiEntry> VmiToVmVnTree;
     typedef std::map<VmVnUuidEntry, boost::uuids::uuid, VmVnUuidEntry>
         VmVnToVmiTree;
     typedef std::map<VmVnUuidEntry, PortSubscribeEntryPtr, VmVnUuidEntry>
@@ -228,11 +242,11 @@ public:
 
     boost::uuids::uuid VmVnToVmi(const boost::uuids::uuid &vm_uuid) const;
     boost::uuids::uuid VmVnToVmiNoLock(const boost::uuids::uuid &vm_uuid) const;
+    const VmiEntry *VmiToEntry(const boost::uuids::uuid &vmi_uuid) const;
 
 private:
     void UpdateVmiIfnodeInfo(const boost::uuids::uuid &vmi_uuid,
-                             const boost::uuids::uuid &vm_uuid,
-                             const boost::uuids::uuid &vn_uuid);
+                             const VmInterfaceConfigData *data);
     void DeleteVmiIfnodeInfo(const boost::uuids::uuid &vmi_uuid);
 private:
     friend class SandeshVmiPortSubscribeTask;

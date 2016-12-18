@@ -859,6 +859,50 @@ bool PortIpcHandler::DeleteVmVnPort(const string &json, const string &vm,
     return true;
 }
 
+bool PortIpcHandler::GetVmVnCfgPort(const string &vm, string &info) const {
+    uuid vm_uuid = StringToUuid(vm);
+    if (vm_uuid == nil_uuid()) {
+        return false;
+    }
+
+    uuid vmi_uuid = port_subscribe_table_->VmVnToVmi(vm_uuid);
+    return MakeJsonFromVmiConfig(vmi_uuid, info);
+}
+
+bool PortIpcHandler::MakeJsonFromVmiConfig(const uuid &vmi_uuid,
+                                           string &resp) const {
+    const PortSubscribeTable::VmiEntry *vmi_entry =
+        port_subscribe_table_->VmiToEntry(vmi_uuid);
+
+    if (vmi_entry == NULL) {
+        resp += "Interface not found for request. Retry";
+        return false;
+    }
+
+    rapidjson::Document doc;
+    doc.SetObject();
+    rapidjson::Document::AllocatorType &a = doc.GetAllocator();
+
+    string str1 = UuidToString(vmi_uuid);
+    doc.AddMember("id", str1.c_str(), a);
+
+    string str2 = UuidToString(vmi_entry->vm_uuid_);
+    doc.AddMember("instance-id", str2.c_str(), a);
+
+    string str5 = UuidToString(vmi_entry->vn_uuid_);
+    doc.AddMember("vn-id", str5.c_str(), a);
+
+    doc.AddMember("mac-address", vmi_entry->mac_.c_str(), a);
+    doc.AddMember("sub-interface", (bool)vmi_entry->sub_interface_, a);
+    doc.AddMember("vlan-id", (int)vmi_entry->vlan_tag_, a);
+
+    rapidjson::StringBuffer buffer;
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+    resp = buffer.GetString();
+    return true;
+}
+
 bool PortIpcHandler::GetVmVnPort(const string &vm, string &info) const {
     uuid vm_uuid = StringToUuid(vm);
     if (vm_uuid == nil_uuid()) {

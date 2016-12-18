@@ -59,6 +59,7 @@ class RESTServer {
     void VmVnPortPostHandler(const struct RESTData&);
     void VmVnPortGetHandler(const struct RESTData&);
     void VmVnPortDeleteHandler(const struct RESTData&);
+    void VmVnPortCfgGetHandler(const struct RESTData& data);
 
  private:
     Agent *agent_;
