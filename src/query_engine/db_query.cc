@@ -249,7 +249,13 @@ void DbQueryUnit::WPCompleteCb(QEPipeT *wp, bool ret_code) {
     } else {
         query_status = QUERY_FAILURE;
     }
-    parent_query->subquery_processed(this);
+    // If status_details is 1, then one of the
+    // sub queries belonging to the parent has already failed and we
+    // have indicated the outer pipeline about it, so no further
+    // processing is needed
+    if (!parent_query->status_details) {
+        parent_query->subquery_processed(this);
+    }
 }
 
 void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,

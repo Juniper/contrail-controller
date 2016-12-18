@@ -1081,6 +1081,9 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
         m_query->qperf_.chunk_where_time =
             static_cast<uint32_t>((UTCTimestampUsec() - m_query->where_start_)
             /1000);
+        // outer pipeline, checks if the queries it issued succeeded or not
+        // using this qperf_.error so we set it and return
+        m_query->qperf_.error = 1;
         where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
         return;
     }

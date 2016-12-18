@@ -100,6 +100,7 @@ TEST_F(DbQueryUnitTest, ProcessQuery) {
     AnalyticsQueryMock parent;
     analytics_query_mock.parallel_batch_num = 1;
     analytics_query_mock.query_id = "abcd";
+    analytics_query_mock.status_details = 0;
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
     EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()), Db_GetRowAsync(_,_,_,_)).Times(AnyNumber()).WillRepeatedly(Invoke(this, &DbQueryUnitTest::GetRowAsyncSuccess));
@@ -123,7 +124,6 @@ TEST_F(DbQueryUnitTest, ProcessQueryFailure) {
     EXPECT_CALL(analytics_query_mock, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
     EXPECT_CALL(analytics_query_mock, end_time()).Times(AnyNumber()).WillRepeatedly(Return(1473385977637609));
     EXPECT_CALL(analytics_query_mock, from_time()).Times(AnyNumber()).WillRepeatedly(Return(1473384977637609));
-    EXPECT_CALL(analytics_query_mock, subquery_processed(_)).Times(1).WillOnce(Return());
     bool status = dbq->process_query();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(QUERY_IN_PROGRESS, status);
@@ -151,8 +151,6 @@ TEST_F(DbQueryUnitTest, QueryFailureCallback) {
         WillRepeatedly(Return(1473385977637609));
     EXPECT_CALL(analytics_query_mock, from_time()).Times(AnyNumber()).
         WillRepeatedly(Return(1473384977637609));
-    EXPECT_CALL(analytics_query_mock, subquery_processed(_)).Times(1).
-        WillOnce(Return());
     bool status = dbq->process_query();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(QUERY_IN_PROGRESS, status);
