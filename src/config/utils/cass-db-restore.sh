@@ -17,6 +17,18 @@ function join_path()
     printf '/%s' "${parts[@]%/}"
 }
 
+function find_target_table_name()
+{
+    dest_path=$1
+    keyspace_name=$2
+    src_table_name=$3
+    find_in_dir_parts=($dest_path $keyspace_name)
+    find_in_dir=$( join_path find_in_dir_parts[@] )
+    tname_without_uuid=$(echo $src_table_name | cut -d '-' -f 1)
+    dest_table_name=$(ls -td -- $find_in_dir/$tname_without_uuid* | head -n 1 | rev | cut -d'/' -f1 | rev)
+    printf $dest_table_name
+}
+
 function print_usage()
 {
 	echo "NAME"
@@ -159,12 +171,16 @@ for i in ${dirs_to_be_restored[@]}
 do
     src_path_parts=($ss_dir $i $ss $ss_name)
     src_path=$( join_path src_path_parts[@] )
-    dest_path_parts=($base_db_dir $i)
+    # Find the destination
+    keyspace_name=$(echo $i | cut -d '/' -f 1)
+    table_name=$(echo $i | cut -d '/' -f 2)
+    dest_table=$(find_target_table_name $base_db_dir $keyspace_name $table_name)
+    dest_path_parts=($base_db_dir $keyspace_name $dest_table)
     dest_path=$( join_path dest_path_parts[@] )
-    # Create keyspace/table diectory if not exists
-    if [ ! -d "$dest_path" ]; then
-        mkdir -p $dest_path
-    fi
+    # Create keyspace/table directory if not exists
+    #if [ ! -d "$dest_path" ]; then
+    #    mkdir -p $dest_path
+    #fi
     db_files=$(ls $src_path/*.db 2> /dev/null | wc -l)
     if [ $db_files -ne 0 ]
     then
