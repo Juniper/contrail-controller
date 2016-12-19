@@ -14,8 +14,8 @@ class MESOSCniDataObject:
     def parse_cni_data(self):
         data = self._data
         self._conf['cid'] = data['cid']
-        net_info = data['args']['org.apache.mesos']['network_info']
-        if net_info:
+        net_info = data['network_info']
+        if net_info and 'labels' in net_info:
             cni_labels = net_info['labels']
             if cni_labels:
                 lbl_dict = {}
@@ -23,9 +23,6 @@ class MESOSCniDataObject:
                     lbl_dict[item['key']] = item['value']
                 self._conf['labels'] = lbl_dict
 
-        ipam_info = data['ipam']
-        if ipam_info:
-            self._conf['subnet'] = ipam_info['subnet']
-
         return self._conf
+
 
