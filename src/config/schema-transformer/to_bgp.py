@@ -405,6 +405,7 @@ def parse_args(args_str):
         'kombu_ssl_ca_certs': '',
         'zk_timeout': 400,
         'logical_routers_enabled': True,
+        'acl_direction_comp': False,
     }
     secopts = {
         'use_certs': False,
@@ -540,6 +541,8 @@ def parse_args(args_str):
                         help="Timeout for ZookeeperClient")
     parser.add_argument("--logical_routers_enabled", type=_bool,
                         help="Enabled logical routers")
+    parser.add_argument("--acl_direction_comp", type=_bool,
+                        help="Acl direction compression")
 
     args = parser.parse_args(remaining_argv)
     args.conf_file = saved_conf_file
