@@ -42,6 +42,7 @@ local_sources = [
                   'ssl_adapter.py',
                   'vnc_greenlets.py',
                   'vnc_cgitb.py',
+                  'db_json_exim.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
