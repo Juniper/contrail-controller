@@ -378,7 +378,7 @@ def kill_schema_transformer(glet):
 def kill_disc_server(glet):
     glet.kill()
 
-def launch_schema_transformer(test_id, api_server_ip, api_server_port):
+def launch_schema_transformer(test_id, api_server_ip, api_server_port, extra_args=None):
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
@@ -387,6 +387,7 @@ def launch_schema_transformer(test_id, api_server_ip, api_server_port):
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file schema_transformer_%s.log " %(test_id)
     args_str = args_str + "--trace_file schema_transformer_%s.err " %(test_id)
+    args_str = args_str + (extra_args or [])
     to_bgp.main(args_str)
 # end launch_schema_transformer
 
