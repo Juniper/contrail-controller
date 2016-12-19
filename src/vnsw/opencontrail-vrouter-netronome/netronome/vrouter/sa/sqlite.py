@@ -33,3 +33,13 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
+
+
+def set_sqlite_synchronous_off(engine):
+    @event.listens_for(engine, 'connect')
+    def send_pragma_synchronous_off(dbapi_connection, connection_record):
+        if type(dbapi_connection) is not sqlite3.Connection:
+            return
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA synchronous = OFF")
+        cursor.close()

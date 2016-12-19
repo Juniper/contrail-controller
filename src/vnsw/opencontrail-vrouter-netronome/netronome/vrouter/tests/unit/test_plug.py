@@ -50,6 +50,7 @@ from netronome.vrouter import (
     config, database, fallback, pci, plug, plug_modes as PM, port, vf
 )
 from netronome.vrouter.sa.helpers import one_or_none
+from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import _random_pci_address
 from netronome.vrouter.tests.randmac import RandMac
 from netronome.vrouter.tests.unit import *
@@ -177,6 +178,7 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -278,6 +280,7 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -375,6 +378,7 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -486,6 +490,7 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -597,6 +602,7 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -644,6 +650,7 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -684,6 +691,7 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
 class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
     def test_PlugUnaccelerated_DPDK(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -762,6 +770,7 @@ class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
         self, port_post_handler, expected_log_messages
     ):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -852,6 +861,7 @@ class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
         """
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1030,6 +1040,7 @@ class TestExceptionDuringPlug(unittest.TestCase):
     def test_exception_during_plug(self):
         """(what happens when a plug step raises an exception?)"""
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1078,6 +1089,7 @@ class TestExceptionDuringPlug(unittest.TestCase):
     def test_exception_during_unwind(self):
         """(what happens when an error recovery step raises an exception?)"""
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1129,6 +1141,7 @@ class TestExceptionDuringUnplug(unittest.TestCase):
         """(what happens when plugging succeeds, but unplugging fails?)"""
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1182,6 +1195,7 @@ class TestExceptionDuringUnplug(unittest.TestCase):
 class TestAgentFileWrite(unittest.TestCase):
     def test_AgentFileWrite(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1212,6 +1226,7 @@ class TestAgentFileWrite(unittest.TestCase):
 
     def test_AgentFileWrite_undo_obstruction_raises(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1291,6 +1306,7 @@ class TestAgentPost(
         step.configure(base_url=agent_config.base_url)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1328,6 +1344,7 @@ class TestAgentPost(
         step.configure(base_url=_UNREACHABLE_AGENT_URL)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1410,6 +1427,7 @@ class TestAgentPost(
         step.configure(base_url=agent_config.base_url)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1517,6 +1535,7 @@ class TestAgentPost(
         step.configure(base_url=agent_config.base_url)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1559,6 +1578,7 @@ class TestAllocateVF(unittest.TestCase):
             step.configure()
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1589,6 +1609,7 @@ class TestAllocateVF(unittest.TestCase):
             step.configure()
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1638,6 +1659,7 @@ class TestBringUpFallback(unittest.TestCase):
         bring_up_step.configure(execute=cr.record_cmd)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1712,6 +1734,7 @@ class TestPlugSRIOV(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1873,6 +1896,7 @@ class TestWaitForFirmwareVIFTable(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1951,6 +1975,7 @@ class TestWaitForFirmwareVIFTable(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -2133,6 +2158,7 @@ class TestAttachDriver(unittest.TestCase):
          stub_driver_dir) = _create_driver_tree(step)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -2251,6 +2277,7 @@ class TestAttachDriver(unittest.TestCase):
          stub_driver_dir) = _create_driver_tree(step)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -2358,6 +2385,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
         step.configure(ep=zmq_ep, rcvtimeo_ms=5000)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -2546,6 +2574,7 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -2790,6 +2819,7 @@ class TestPlugAPI(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -2980,6 +3010,7 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
         self.maxDiff = None
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -3107,6 +3138,7 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
         vf_pool = vf.Pool(fallback_map)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -3195,6 +3227,7 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
         vf_pool = vf.Pool(fallback_map)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)

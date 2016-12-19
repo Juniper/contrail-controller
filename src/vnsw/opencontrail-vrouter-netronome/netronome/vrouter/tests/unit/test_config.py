@@ -31,6 +31,7 @@ from netronome.vrouter import (
 )
 from netronome.vrouter.config import AccelerationModeConflict
 from netronome.vrouter.sa.helpers import one_or_none
+from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import (
     _random_pci_address, _select_plug_mode_for_port, FakeSysfs, _TMP_PREFIX
 )
@@ -360,6 +361,7 @@ class TestMixedModeSelectionAPIs(unittest.TestCase):
 class TestPlugMode(unittest.TestCase):
     def test_plug_nonexistent_port(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -408,6 +410,7 @@ class TestPlugMode(unittest.TestCase):
 
     def test_select_plug_mode_for_port(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -700,6 +703,7 @@ class TestPlugMode(unittest.TestCase):
 
     def test_select_plug_mode_for_port_with_nfp_error_status(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -760,6 +764,7 @@ class TestPlugMode(unittest.TestCase):
         """
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1144,6 +1149,7 @@ class TestSetConfigForPort(unittest.TestCase):
             sysfs = FakeSysfs(physical_vif_count=1, nfp_status=1)
 
             engine = database.create_engine('tmp')[0]
+            set_sqlite_synchronous_off(engine)
             port.create_metadata(engine)
             vf.create_metadata(engine)
             Session = sessionmaker(bind=engine)
@@ -1217,6 +1223,7 @@ class TestSetConfigForPort(unittest.TestCase):
             sysfs = FakeSysfs(physical_vif_count=1, nfp_status=1)
 
             engine = database.create_engine('tmp')[0]
+            set_sqlite_synchronous_off(engine)
             port.create_metadata(engine)
             vf.create_metadata(engine)
             Session = sessionmaker(bind=engine)
@@ -1299,6 +1306,7 @@ class TestSetConfigForPort(unittest.TestCase):
         sysfs = FakeSysfs(physical_vif_count=1, nfp_status=1)
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)

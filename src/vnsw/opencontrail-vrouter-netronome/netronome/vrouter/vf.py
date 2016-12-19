@@ -30,6 +30,7 @@ import random
 from datetime import datetime
 
 import sqlalchemy as db
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.expression import or_
 from sqlalchemy.types import DateTime
 
@@ -199,6 +200,8 @@ class Pool(object):
         Return the PCIe address of the VF allocated, or None if no VF was
         available. If `raise_on_failure` is True, raises AllocationError on
         failure instead.
+
+        This function may commit `session` one or more times.
         """
 
         # format the expiration timestamp for logging
@@ -246,19 +249,9 @@ class Pool(object):
         # more deterministic, and also keeps the database in a cleaner state in
         # the case of a crash+port leak. See VRT-604.)
         reclaimed = self.gc(session, _now=now, logger=logger)
+        session.commit()
 
-        # Perform the allocation.
-        q = session.query(VF)
-
-        # Find available VFs.
-        avail = set(self._vfset)
-        for vf in q:
-            if not self._check_if_addr_in_vfset(vf):
-                continue
-
-            avail.discard(vf.addr)
-
-        if not avail:
+        def _not_avail():
             msg = (
                 'no VF resources available for port {}'
                 .format(neutron_port)
@@ -270,9 +263,43 @@ class Pool(object):
             else:
                 return None
 
-        # Choose one.
-        addr = self.choose_vf(avail)
-        session.add(VF(addr, neutron_port, expires))
+        # Perform the allocation. Retry on concurrent allocation conflict
+        # (VRT-755).
+        RETRIES = 10
+        for retries in xrange(RETRIES):
+            q = session.query(VF)
+
+            # Find available VFs.
+            avail = set(self._vfset)
+            for vf in q:
+                if not self._check_if_addr_in_vfset(vf):
+                    continue
+
+                avail.discard(vf.addr)
+
+            if not avail:
+                return _not_avail()
+
+            # Choose one.
+            addr = self.choose_vf(avail)
+            try:
+                session.add(VF(addr, neutron_port, expires))
+                session.commit()
+                break
+
+            except IntegrityError as e:
+                logger.debug(
+                    'port {}: concurrent allocation conflict on VF {}'.
+                    format(neutron_port, addr)
+                )
+                session.rollback()
+
+        else:
+            logger.error(
+                'port {}: too many concurrent allocation conflicts; '
+                'giving up'.format(neutron_port)
+            )
+            return _not_avail()
 
         # Log the result.
         log = logger.info
@@ -294,6 +321,8 @@ class Pool(object):
     def deallocate_vf(self, session, addr):
         """
         Deallocate a VF. Perform GC as needed.
+
+        This function does NOT commit `session`.
         """
 
         # NOTE: deallocate_vf() is allowed to perform garbage collection if

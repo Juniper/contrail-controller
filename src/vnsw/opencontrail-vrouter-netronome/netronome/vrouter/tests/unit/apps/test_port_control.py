@@ -33,6 +33,7 @@ from netronome.vrouter import (
     plug_modes as PM, port, vf
 )
 from netronome.vrouter.apps import port_control
+from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import FakeSysfs
 from netronome.vrouter.tests.helpers.plug import (
     _DisableGC, _enable_fake_intel_iommu, FakeAgent
@@ -222,6 +223,7 @@ def _disable_sriov(image_metadata):
 
 def _get_plug_mode(db_fname, neutron_port):
     engine = database.create_engine(db_fname)[0]
+    set_sqlite_synchronous_off(engine)
     Session = sessionmaker(bind=engine)
 
     s = Session()
@@ -237,6 +239,7 @@ class TestConfigCmd_AppTest(unittest.TestCase):
     @contextlib.contextmanager
     def _session(db_fname):
         engine = database.create_engine(db_fname)[0]
+        set_sqlite_synchronous_off(engine)
         Session = sessionmaker(bind=engine)
         yield Session()
 
@@ -1101,6 +1104,7 @@ class TestAddCmd_AppTest(_DisableGC, unittest.TestCase):
 
     def _pre_populate_database_with_plug_mode(self, db_fname, uuid, mode):
         engine = database.create_engine(db_fname)[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)

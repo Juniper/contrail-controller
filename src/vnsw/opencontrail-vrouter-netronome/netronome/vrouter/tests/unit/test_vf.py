@@ -28,6 +28,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from netronome.vrouter import (database, fallback, pci, vf)
+from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import _random_pci_address
 from netronome.vrouter.tests.helpers.vf import *
 from netronome.vrouter.tests.unit import *
@@ -55,6 +56,7 @@ class TestVF(unittest.TestCase):
 
     def test_create_metadata(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
 
     def test_calculate_expiration_datetime(self):
@@ -89,6 +91,7 @@ class TestPool(unittest.TestCase):
             self.assertEqual(lmc.count, {_VF_LOGGER.name: {'WARNING': 1}})
 
             engine = database.create_engine('tmp')[0]
+            set_sqlite_synchronous_off(engine)
             vf.create_metadata(engine)
             Session = sessionmaker(bind=engine)
 
@@ -108,6 +111,7 @@ class TestPool(unittest.TestCase):
             self.assertEqual(lmc.count, {})
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -148,6 +152,7 @@ class TestPool(unittest.TestCase):
             self.assertEqual(lmc.count, {})
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -180,6 +185,7 @@ class TestPool(unittest.TestCase):
             self.assertEqual(lmc.count, {})
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -211,6 +217,7 @@ class TestPool(unittest.TestCase):
         N_POOL = p.fallback_map_len()
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
