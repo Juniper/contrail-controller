@@ -585,7 +585,6 @@ int BindUtil::BuildDnsQuery(uint8_t *buf, uint16_t xid,
     dnshdr *dns = (dnshdr *) buf;
     BuildDnsHeader(dns, xid, DNS_QUERY_REQUEST, DNS_OPCODE_QUERY, 
                    1, 0, 0, items.size());
-    dns->add_rrcount = htons(1);
 
     // TODO : can be optimised to reuse any names using offsets
     uint16_t len = sizeof(dnshdr);
@@ -595,9 +594,12 @@ int BindUtil::BuildDnsQuery(uint8_t *buf, uint16_t xid,
                                   (*it).eclass, len);
     }
 
-    std::string view = "view=" + domain;
-    ques = AddAdditionalSection(ques, "view", DNS_TXT_RECORD, DNS_CLASS_IN, 
-                                0, view, len);
+    if (!domain.empty()) {
+        dns->add_rrcount = htons(1);
+        std::string view = "view=" + domain;
+        ques = AddAdditionalSection(ques, "view", DNS_TXT_RECORD, DNS_CLASS_IN,
+                                    0, view, len);
+    }
 
     return len;
 }
