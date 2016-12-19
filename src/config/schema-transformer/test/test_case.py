@@ -55,22 +55,24 @@ class VerifyCommon(object):
 class STTestCase(test_common.TestCase):
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls, extra_config_knobs=None):
         extra_config = [
             ('DEFAULTS', 'multi_tenancy', 'False'),
             ('DEFAULTS', 'aaa_mode', 'no-auth'),
         ]
+        if extra_config_knobs:
+            extra_config.append(extra_config_knobs)
         super(STTestCase, cls).setUpClass(extra_config_knobs=extra_config)
 
     def _class_str(self):
         return str(self.__class__).strip('<class ').strip('>').strip("'")
 
-    def setUp(self):
-        super(STTestCase, self).setUp()
+    def setUp(self, extra_config_knobs=None):
+        super(STTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
         self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
             self.id(), self._api_server_ip, self._api_server_port)
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self.id(), self._api_server_ip, self._api_server_port)
+            self.id(), self._api_server_ip, self._api_server_port, extra_config_knobs)
 
     def tearDown(self):
         self.check_ri_is_deleted(fq_name=['default-domain', 'default-project', 'svc-vn-left', 'svc-vn-left'])
@@ -171,10 +173,8 @@ class STTestCase(test_common.TestCase):
             addr2 = self.frame_rule_addresses(rule["dst"])
             service_list = self.get_service_list(rule)
             mirror_service = self.get_mirror_service(rule)
-            #src_port = rule["src-port"]
-            src_port = PortType(-1, 0)
-            #dst_port = rule["dst-port"]
-            dst_port = PortType(-1, 0)
+            src_port = rule.get("src-port", PortType(-1, -1))
+            dst_port = rule.get("dst-port", PortType(-1, -1))
             action_list = ActionListType()
             if mirror_service:
                 mirror = MirrorActionType(analyzer_name=mirror_service)
