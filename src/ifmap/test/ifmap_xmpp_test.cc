@@ -1461,12 +1461,12 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
     EXPECT_TRUE(client != NULL);
 
     // Allow sender to run and send all the config
-    TASK_UTIL_EXPECT_EQ(29, vnsw_client->Count());
+    TASK_UTIL_EXPECT_EQ(32, vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
     size_t cli_index = static_cast<size_t>(client->index());
     int walk_count = ClientGraphWalkVerify(client_name, cli_index, true, true);
     EXPECT_EQ(InterestConfigTrackerSize(client->index()), walk_count);
-    EXPECT_EQ(InterestConfigTrackerSize(client->index()), 29);
+    EXPECT_EQ(InterestConfigTrackerSize(client->index()), 32);
 
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
     // client close generates a TcpClose event on server
@@ -1544,7 +1544,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np1Add) {
     EXPECT_TRUE(client != NULL);
 
     // Allow sender to run and send all the config
-    TASK_UTIL_EXPECT_EQ(30, vnsw_client->Count());
+    TASK_UTIL_EXPECT_EQ(32, vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
 
     size_t cli_index = static_cast<size_t>(client->index());
@@ -1625,7 +1625,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np2Add) {
     EXPECT_TRUE(client != NULL);
 
     // Allow sender to run and send all the config
-    TASK_UTIL_EXPECT_EQ(30, vnsw_client->Count());
+    TASK_UTIL_EXPECT_EQ(32, vnsw_client->Count());
     TASK_UTIL_EXPECT_EQ(client->msgs_sent(), vnsw_client->Count());
 
     size_t cli_index = static_cast<size_t>(client->index());
@@ -1726,9 +1726,9 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
     EXPECT_TRUE(cli2 != NULL);
 
     // Allow senders to run and send all the config.
-    TASK_UTIL_EXPECT_EQ(17, vnsw_cli1->Count());
+    TASK_UTIL_EXPECT_EQ(18, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
-    TASK_UTIL_EXPECT_EQ(17, vnsw_cli2->Count());
+    TASK_UTIL_EXPECT_EQ(18, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
 
     size_t cli_index1 = static_cast<size_t>(cli1->index());
@@ -1848,9 +1848,9 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
     EXPECT_TRUE(cli2 != NULL);
 
     // Allow senders to run and send all the config
-    TASK_UTIL_EXPECT_EQ(17, vnsw_cli1->Count());
+    TASK_UTIL_EXPECT_EQ(18, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
-    TASK_UTIL_EXPECT_EQ(17, vnsw_cli2->Count());
+    TASK_UTIL_EXPECT_EQ(18, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
 
     size_t cli_index1 = static_cast<size_t>(cli1->index());
@@ -1988,9 +1988,9 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
     EXPECT_TRUE(cli2 != NULL);
 
     // Allow senders to run and send all the config. GSC and NwIpam dups to cli1
-    TASK_UTIL_EXPECT_EQ(44, vnsw_cli1->Count());
+    TASK_UTIL_EXPECT_EQ(48, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
-    TASK_UTIL_EXPECT_EQ(24, vnsw_cli2->Count());
+    TASK_UTIL_EXPECT_EQ(26, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
 
     size_t cli_index1 = static_cast<size_t>(cli1->index());
