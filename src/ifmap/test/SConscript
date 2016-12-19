@@ -96,16 +96,13 @@ BuildTest(env, 'ifmap_update_queue_test', ['ifmap_update_queue_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 BuildTest(env, 'ifmap_update_sender_test', ['ifmap_update_sender_test.cc'],
-          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [],
-          flaky_test_suite)
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 BuildTest(env, 'ifmap_xmpp_test', ['ifmap_xmpp_test.cc'],
-          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [], 
-          flaky_test_suite)
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 BuildTest(env, 'ifmap_stress_test', ['ifmap_stress_test.cc'],
-          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [], 
-          flaky_test_suite)
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 test = env.TestSuite('ifmap-test', test_suite)
 flaky_test = env.TestSuite('ifmap-flaky-test', flaky_test_suite)
