@@ -2,6 +2,8 @@
 # Copyright (c) 2013,2014 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import gevent.monkey
+gevent.monkey.patch_all()
 import os
 import sys
 import socket
@@ -2093,14 +2095,14 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                 self._invoked = 0
             # end __init__
 
-            def __call__(self, *args, **kwargs):
+            def __call__(self, _, *args, **kwargs):
                 if self._invoked >= 1:
                     raise Exception(
                         "Instance IP was persisted more than once")
 
-                if args[1].startswith('/api-server/subnets'):
+                if args[0].startswith('/api-server/subnets'):
                     self._invoked += 1
-                return self._orig_method(args, kwargs)
+                return self._orig_method(*args, **kwargs)
         # end SpyCreateNode
 
         orig_object = self._api_server._db_conn._zk_db._zk_client
