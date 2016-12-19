@@ -424,30 +424,51 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
     uint32_t id = 1;
     for(ir = entrs.begin(); ir != entrs.end(); ++ir) {
         // ACE clean up
-        AclEntrySpec ace_spec;
-        ace_spec.id = id++;
+        MatchConditionType rmatch_condition;
+        MatchConditionType *match_condition = NULL;
+        bool rmatch_done = false;
 
-        if (ace_spec.Populate(&(ir->match_condition)) == false) {
-            continue;
+        match_condition = ((MatchConditionType *)&(ir->match_condition));
+        while(match_condition) {
+            AclEntrySpec ace_spec;
+            ace_spec.id = id++;
+
+            if (ace_spec.Populate(match_condition) == false) {
+                continue;
+            }
+            // Make default as terminal rule,
+            // all the dynamic acl have non-terminal rules
+            if (cfg_acl->entries().dynamic) {
+                ace_spec.terminal = false;
+            } else {
+                ace_spec.terminal = true;
+            }
+
+            ace_spec.PopulateAction(this, ir->action_list);
+            ace_spec.rule_uuid = ir->rule_uuid;
+            // Add the Ace to the acl
+            acl_spec.acl_entry_specs_.push_back(ace_spec);
+
+
+            // Trace acl entry object
+            AclEntrySandeshData ae_spec;
+            AclEntryObjectTrace(ae_spec, ace_spec);
+            ACL_TRACE(EntryTrace, ae_spec);
+
+            //Add reverse rule if needed
+            if ((ir->direction.compare("<>") == 0) && rmatch_done == false) {
+                rmatch_condition = ir->match_condition;
+                rmatch_condition.src_address = ir->match_condition.dst_address;
+                rmatch_condition.dst_address = ir->match_condition.src_address;
+                rmatch_condition.src_port = ir->match_condition.dst_port;
+                rmatch_condition.dst_port = ir->match_condition.src_port;
+                match_condition = &rmatch_condition;
+                rmatch_done = true;
+            } else {
+                // no reverse rule or done adding reverse rule.
+                match_condition = NULL;
+            }
         }
-        // Make default as terminal rule, 
-        // all the dynamic acl have non-terminal rules
-        if (cfg_acl->entries().dynamic) {
-            ace_spec.terminal = false;
-        } else {
-            ace_spec.terminal = true;
-        }
-
-        ace_spec.PopulateAction(this, ir->action_list);
-        ace_spec.rule_uuid = ir->rule_uuid;
-        // Add the Ace to the acl
-        acl_spec.acl_entry_specs_.push_back(ace_spec);
-
-
-        // Trace acl entry object
-        AclEntrySandeshData ae_spec;
-        AclEntryObjectTrace(ae_spec, ace_spec);
-        ACL_TRACE(EntryTrace, ae_spec);
     }
 
     AclKey *key = new AclKey(acl_spec.acl_id);
