@@ -13,6 +13,7 @@ None
 
 ##3.2 API schema changes
 2 new structures have been added to display alarm and UVE stats.
+```
 struct AlarmgenUVEStats {
     1: u32                      add_count
     2: u32                      change_count
@@ -28,6 +29,7 @@ objectlog sandesh AlarmgenUpdate {
     /** @display_name:Alarmgen Alarm Stats */
     8: map<string,AlarmgenAlarmStats>  alarm_stats (tags="partition,table,.__key")
 }
+```
 
 ##3.3 User workflow impact
 ####Describe how users will use the feature.
@@ -42,13 +44,13 @@ UVE history display for UI is not planned for this release, but it will be avail
 None
 
 #4. Implementation
-4.1 Analytics
+##4.1 Analytics
 Alarmgen process in analytics package collects set/reset (for alarms) and add/update/remove (for UVE) counters. These are pushed to database for storage. The counters are collected with following dimensions.
 - alarm-stats[partition][table][alarm-name]
 - uve-stats[partition][table][uve-type]
 So contrail-stats queries can be done per table (node-type) and uve/alarm-type.
 
-4.2 UI
+##4.2 UI
 Add support for alarms history display. 
 
 
@@ -67,6 +69,10 @@ struct UVETableCount is removed.
 
 #8. Dependencies
 None
+
+#9. Testing
+##9.1 Unit tests
+```
 contrail-stats --table AlarmgenUpdate.uve_stats
                --select Source uve_stats.__key table T=30 "SUM(uve_stats.add_count)" "SUM(uve_stats.change_count)" "SUM(uve_stats.remove_count)"
                --where "uve_stats.__key=NodeStatus"
@@ -79,9 +85,7 @@ contrail-stats --table AlarmgenUpdate.alarm_stats
 contrail-stats --table AlarmgenUpdate.alarm_stats
                --select Source alarm_stats.__key table alarm_stats.set_count alarm_stats.reset_count
                --where "alarm_stats.__key=process-connectivity"
-
-#9. Testing
-##9.1 Unit tests
+```
 ##9.2 Dev tests
 ##9.3 System tests
 
