@@ -41,6 +41,7 @@ local_sources = [
                   'vnc_api_stats.py',
                   'ssl_adapter.py',
                   'vnc_cgitb.py',
+                  'db_json_exim.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
