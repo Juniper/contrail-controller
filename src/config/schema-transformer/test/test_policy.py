@@ -278,18 +278,14 @@ class TestPolicy(STTestCase, VerifyPolicy):
         rules = []
         rule1 = {"protocol": "icmp",
                  "direction": "<>",
-                 "src-port": "any",
                  "src": {"type": "vn", "value": vn1},
                  "dst": {"type": "cidr", "value": "10.2.1.1/32"},
-                 "dst-port": "any",
                  "action": "deny"
                  }
         rule2 = {"protocol": "icmp",
                  "direction": "<>",
-                 "src-port": "any",
                  "src": {"type": "vn", "value": vn1},
                  "dst": {"type": "cidr", "value": "10.2.1.2/32"},
-                 "dst-port": "any",
                  "action": "deny"
                  }
         rules.append(rule1)
@@ -328,11 +324,9 @@ class TestPolicy(STTestCase, VerifyPolicy):
         rules = []
         rule1 = {"protocol": "icmp",
                  "direction": "<>",
-                 "src-port": "any",
                  "src": {"type": "vn", "value": vn1},
                  "dst": [{"type": "cidr_list", "value": ["10.2.1.0/24"]},
                          {"type": "vn", "value": vn2}],
-                 "dst-port": "any",
                  "action": "pass"
                  }
         rules.append(rule1)
@@ -389,4 +383,109 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # check if ri is deleted
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn))
     # test_vn_delete
+
+class TestCompressPolicy(TestPolicy):
+
+    def setUp(self):
+         extra_config_knobs = ("--acl_direction_comp True ")
+         super(TestCompressPolicy, self).setUp(extra_config_knobs=extra_config_knobs)
+
+    @retries(5)
+    def check_compress_acl_match_condition(self, condition, fq_name):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        if (len(acl.access_control_list_entries.acl_rule) != 3):
+            raise Exception('Incorrect number of acls in the rule')
+        for rule in acl.access_control_list_entries.acl_rule:
+            subnets = []
+            if rule.match_condition.src_address == condition:
+                raise Exception('acl not compressed')
+        return
+
+
+    def test_compressed_policy(self):
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+        vn2 = self.create_virtual_network(vn2_name, "10.2.1.0/24")
+        rules = []
+        rule = {"protocol": "any",
+                 "direction": "<>",
+                 "src": {"type": "vn", "value": vn1},
+                 "dst": {"type": "vn", "value": vn2},
+                 "action": "pass"
+                 }
+        rules.append(rule)
+        np = self.create_network_policy_with_multiple_rules(rules)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1.set_network_policy(np, vnp)
+        vn2.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1)
+        self._vnc_lib.virtual_network_update(vn2)
+
+        self.assertTill(self.ifmap_has_ident, obj=vn1)
+        self.assertTill(self.ifmap_has_ident, obj=vn2)
+
+        self.check_vn_ri_state(fq_name=self.get_ri_name(vn1))
+        self.check_vn_ri_state(fq_name=self.get_ri_name(vn2))
+
+        self.check_compress_acl_match_condition(np._network_policy_entries.policy_rule[0].dst_addresses,
+                                                fq_name=self.get_ri_name(vn1))
+        self.check_compress_acl_match_condition(np._network_policy_entries.policy_rule[0].src_addresses,
+                                                fq_name=self.get_ri_name(vn2))
+
+        # cleanup
+        self.delete_network_policy(np, auto_policy=True)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2.get_fq_name())
+
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
+        self.check_vn_is_deleted(uuid=vn2.uuid)
+    # end test_compressed_policy
+
+    def test_compressed_policy_with_cidr(self):
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+        vn2 = self.create_virtual_network(vn2_name, "10.2.1.0/24")
+        rules = []
+
+        rule = {"protocol": "any",
+                 "direction": "<>",
+                 "src": {"type": "cidr", "value": "10.1.1.1/32"},
+                 "dst": {"type": "cidr", "value": "10.2.1.1/32"},
+                 "action": "deny"
+                 }
+        rules.append(rule)
+        np = self.create_network_policy_with_multiple_rules(rules)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1.set_network_policy(np, vnp)
+        vn2.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1)
+        self._vnc_lib.virtual_network_update(vn2)
+
+        self.assertTill(self.ifmap_has_ident, obj=vn1)
+        self.assertTill(self.ifmap_has_ident, obj=vn2)
+
+        self.check_vn_ri_state(fq_name=self.get_ri_name(vn1))
+        self.check_vn_ri_state(fq_name=self.get_ri_name(vn2))
+
+        self.check_compress_acl_match_condition(np._network_policy_entries.policy_rule[0].dst_addresses,
+                                                fq_name=self.get_ri_name(vn1))
+        self.check_compress_acl_match_condition(np._network_policy_entries.policy_rule[0].src_addresses,
+                                                fq_name=self.get_ri_name(vn2))
+
+        # cleanup
+        self.delete_network_policy(np, auto_policy=True)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2.get_fq_name())
+
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
+        self.check_vn_is_deleted(uuid=vn2.uuid)
+    # end test_compressed_policy_with_cidr
+
+
 # end TestPolicy

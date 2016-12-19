@@ -260,6 +260,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Actions to be performed if packets match condition'/>
         <xsd:element name="rule-uuid" type="xsd:string"               required='optional'
              description='Rule UUID is identifier used in flow records to identify rule'/>
+        <xsd:element name="direction" type="DirectionType"               required='optional'
+             description='Direction in the rule'/>
     </xsd:all>
 </xsd:complexType>
 
