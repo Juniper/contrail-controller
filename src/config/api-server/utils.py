@@ -374,6 +374,7 @@ def parse_args(args_str):
                         help="List of user and password: <username:password>",
                         type=user_password, nargs='*')
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
+    args_obj.conf_file = args.conf_file
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:
         args_obj.cassandra_server_list =\

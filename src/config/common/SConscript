@@ -45,6 +45,7 @@ local_sources = [
                   'vnc_amqp.py',
                   'vnc_logger.py',
                   'vnc_cgitb.py',
+                  'db_json_exim.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
