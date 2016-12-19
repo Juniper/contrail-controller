@@ -300,7 +300,9 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
     vnc_cgitb.enable(format='text')
 
-    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+    with tempfile.NamedTemporaryFile() as conf, \
+         tempfile.NamedTemporaryFile() as logconf, \
+         tempfile.NamedTemporaryFile() as certpath:
         cfg_parser = generate_conf_file_contents(conf_sections)
         cfg_parser.write(conf)
         conf.flush()
@@ -311,6 +313,9 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
         args_str = args_str + "--conf_file %s " %(conf.name)
         args_str = args_str + "--logging_conf %s " %(logconf.name)
+        args_str = args_str + "--ifmap_key_path %s " %(certpath.name)
+        args_str = args_str + "--ifmap_key_path %s " %(certpath.name)
+        args_str = args_str + "--ifmap_cert_path %s " %(certpath.name)
         server = vnc_cfg_api_server.VncApiServer(args_str)
         gevent.getcurrent().api_server = server
         vnc_cfg_api_server.main(args_str, server)
