@@ -1754,7 +1754,7 @@ class TestPlugSRIOV(_DisableGC, unittest.TestCase):
                 'contrail-vrouter-agent': {
                     'base_url': agent_config.base_url,
                     'vif_sync': {
-                        'timeout_ms': 6000,
+                        'timeout_ms': 10000,
                     },
                 },
                 'fallback': {'execute': cr.record_cmd},
@@ -2646,7 +2646,7 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
                 'contrail-vrouter-agent': {
                     'base_url': agent_config.base_url,
                     'vif_sync': {
-                        'timeout_ms': 2000,
+                        'timeout_ms': 10000,
                     },
                 },
                 'fallback': {'execute': cr.record_cmd},
@@ -3026,7 +3026,7 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
         conf_agent.api_ep = agent_config.base_url
         if include_vif_sync_options:
             setattr(conf_agent, 'vif-sync-options', {
-                'timeout_ms': 2000,
+                'timeout_ms': 10000,
             })
 
         conf.iproute2 = Mock()

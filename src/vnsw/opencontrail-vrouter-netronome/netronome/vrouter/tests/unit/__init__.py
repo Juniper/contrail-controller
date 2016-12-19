@@ -122,6 +122,13 @@ class ForbiddenLogHandler(logging.Handler):
         import traceback
 
         t = tempfile.NamedTemporaryFile(delete=False)
+
+        print >>t, '[[['
+        s = logging.StreamHandler(stream=t)
+        s.setFormatter(logging.Formatter(fmt=logging.BASIC_FORMAT))
+        s.emit(record)
+        print >>t, ']]]\n'
+
         frames = sys._current_frames()
         for k, f in frames.iteritems():
             print >>t, '~~~ {} ~~~'.format(k)
@@ -140,4 +147,4 @@ def _forbid(name):
     logger.addHandler(ForbiddenLogHandler())
     # logger.setLevel(logging.DEBUG)
 
-# _forbid('sqlalchemy.pool.NullPool')
+# _forbid('tornado.application')

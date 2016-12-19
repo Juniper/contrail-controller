@@ -323,6 +323,7 @@ class FakeAgent(object):
         self.loop.close()
 
     def stop(self):
+        self.sync()
         self.loop.add_callback(self.loop.stop)
 
     def sync(self):
