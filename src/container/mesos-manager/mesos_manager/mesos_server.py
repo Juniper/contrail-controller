@@ -22,8 +22,8 @@ class MesosServer(object):
         self._homepage_links = []
         self._cni_data = {}
 
-        self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
-                                           self._args.listen_port)
+        self._base_url = "http://%s:%s" % (self._args.mesos_api_server,
+                                           self._args.mesos_api_port)
         self._pipe_start_app = None
         bottle.route('/', 'GET', self.homepage_http_get)
 
@@ -67,7 +67,7 @@ class MesosServer(object):
             self._pipe_start_app = bottle.app()
 
     def process_cni_data(self, container_id, data):
-        self.logger.info("Server: Got CNI data for Container Id: %d."
+        self.logger.info("Server: Got CNI data for Container Id: %s."
             %(container_id))
         print data
         cni_data_obj = MESOSCniDataObject(data)
@@ -101,11 +101,11 @@ class MesosServer(object):
     # end get_args
 
     def get_ip_addr(self):
-        return self._args.listen_ip_addr
+        return self._args.mesos_api_server
     # end get_ip_addr
 
     def get_port(self):
-        return self._args.listen_port
+        return self._args.mesos_api_port
     # end get_port
 
     def get_pipe_start_app(self):
