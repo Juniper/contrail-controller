@@ -6,13 +6,6 @@
 #include <string>
 #include <vector>
 #include <boost/asio/buffer.hpp>
-#include <boost/foreach.hpp>
-#include <boost/spirit/include/qi.hpp>
-#include <boost/spirit/include/phoenix.hpp>
-#include <boost/spirit/include/phoenix_core.hpp>
-#include <boost/spirit/include/phoenix_operator.hpp>
-#include <boost/spirit/include/phoenix_stl.hpp>
-#include <boost/spirit/home/phoenix/object/construct.hpp>
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -31,10 +24,6 @@
 
 using std::make_pair;
 
-namespace qi = boost::spirit::qi;
-namespace ascii = boost::spirit::ascii;
-namespace bt = boost::posix_time;
-namespace phx = boost::phoenix;
 namespace structured_syslog {
 
 namespace impl {
@@ -101,14 +90,27 @@ private:
 
             tagged_fields = boost::assign::list_of ("tenant") ("source-address") ("geo")
                  ("service-name") ("application") ("nested-application") ("destination-zone-name")
-                 ("username") ("roles") ("hostname");
-
+                 ("source-zone-name") ("username") ("roles") ("hostname") ("location") ("session-id-32");
+            int_fields = boost::assign::list_of ("packets-from-client") ("bytes-from-client")
+                 ("packets-from-server") ("bytes-from-server") ("session-id-32") ("source-port")
+                 ("destination-port") ("nat-source-port") ("nat-destination-port")
+                 ("protocol-id") ("elapsed-time");
             StartReceive();
             return true;
         }
 
 
         void StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v) {
+          /*
+          syslog format: <14>Dec 10 00:18:07 csp-ucpe-bglr51 RT_FLOW: APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26
+          reason="TCP RST" source-address="4.0.0.3" source-port="13175" destination-address="5.0.0.7"
+          destination-port="48334" service-name="None" application="MTV" nested-application="None"
+          nat-source-address="10.110.110.10" nat-source-port="13175" destination-address="96.9.139.213"
+          nat-destination-port="48334" src-nat-rule-name="None" dst-nat-rule-name="None" protocol-id="6"
+          policy-name="dmz-out" source-zone-name="DMZ" destination-zone-name="Internet" session-id-32="44292"
+          packets-from-client="7" bytes-from-client="1421" packets-from-server="6" bytes-from-server="1133"
+          elapsed-time="4" username="Frank" roles="Engineering"]
+          */
           const std::string body(SyslogParser::GetMapVals(v, "body", ""));
           std::size_t start = 0, end = 0;
 
@@ -149,9 +151,15 @@ private:
             const std::string val = structured_part.substr(start, end - start);
             LOG(DEBUG, "structured_syslog - " << key << " : " << val);
             start = end + 2;
-            /* TODO: typecast ints as needed */
-            v.insert(std::pair<std::string, SyslogParser::Holder>(key,
-                  SyslogParser::Holder(key, val)));
+            if (std::find(int_fields.begin(), int_fields.end(), key) != int_fields.end()) {
+                int ival = atoi(val.c_str());
+                v.insert(std::pair<std::string, SyslogParser::Holder>(key,
+                      SyslogParser::Holder(key, ival)));
+            } else {
+                v.insert(std::pair<std::string, SyslogParser::Holder>(key,
+                      SyslogParser::Holder(key, val)));
+            }
+
           }
 
           /*
@@ -308,6 +316,7 @@ private:
         uint16_t port_;
         StatWalker::StatTableInsertFn stat_db_callback_;
         std::vector<std::string> tagged_fields;
+        std::vector<std::string> int_fields;
     };
 
     StructuredSyslogUdpServer *udp_server_;
