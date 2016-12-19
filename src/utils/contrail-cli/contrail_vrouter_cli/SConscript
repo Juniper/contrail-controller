@@ -35,3 +35,10 @@ cli_sdist_gen = env.Command('dist/contrail_vrouter_cli-0.1dev.tar.gz',
 env.Depends(cli_sdist_gen, cli_sdist_depends)
 
 env.Default(cli_sdist_gen)
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None,
+                                'setup.py',
+                                cd_cmd + 'python setup.py install %s' %
+                                env['PYTHON_INSTALL_OPT'])
+    env.Depends(install_cmd, cli_sdist_depends)
+    env.Alias('install', install_cmd)
