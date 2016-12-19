@@ -194,13 +194,14 @@ public:
     void CheckSandeshResponse(Sandesh *sandesh) {
     }
 
-    int SendDnsQuery(dnshdr *dns, int numItems, DnsItem *items, dns_flags flags) {
+    int SendDnsQuery(dnshdr *dns, int numItems, DnsItem *items, dns_flags flags,
+                     bool def = false) {
         DnsItems questions;
         for (int i = 0; i < numItems; i++) {
             questions.push_back(items[i]);
         }
         int len = BindUtil::BuildDnsQuery((uint8_t *)dns, 0x0102,
-                                          "default-vdns", questions);
+                                          (def)? "" : "default-vdns", questions);
         dns->flags = flags;
         return len;
     }
@@ -217,7 +218,7 @@ public:
 
     void SendDnsReq(int type, short itf_index, int numItems,
                     DnsItem *items, dns_flags flags = default_flags,
-                    bool update = false) {
+                    bool update = false, bool def = false) {
         int len = 1024;
         uint8_t *buf  = new uint8_t[len];
         memset(buf, 0, len);
@@ -256,7 +257,7 @@ public:
 
         dnshdr *dns = (dnshdr *) (udp + 1);
         if (type == DNS_OPCODE_QUERY) {
-            len = SendDnsQuery(dns, numItems, items, flags);
+            len = SendDnsQuery(dns, numItems, items, flags, def);
         } else if (type == DNS_OPCODE_UPDATE) {
             BindUtil::Operation op =
                 update ? BindUtil::ADD_UPDATE : BindUtil::DELETE_UPDATE;
@@ -1080,20 +1081,17 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
     WaitForItfUpdate(1);
 
     DnsItem query_items[MAX_ITEMS] = a_items;
-    query_items[0].name     = "localhost";
-    query_items[1].name     = "localhost";
+    query_items[0].name     = "localhost.juniper.net";
 
-    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 2, query_items);
-    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 2, query_items);
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, query_items);
     usleep(1000);
     client->WaitForIdle();
     DnsProto::DnsStats stats;
     int count = 0;
     usleep(1000);
     CHECK_CONDITION(stats.resolved < 1);
-    EXPECT_EQ(2U, stats.requests);
-    EXPECT_TRUE(stats.resolved == 1 || stats.resolved == 2);
-    EXPECT_TRUE(stats.retransmit_reqs == 1 || stats.resolved == 2);
+    EXPECT_EQ(1U, stats.requests);
+    EXPECT_TRUE(stats.resolved == 1);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     DnsItem ptr_query_items[MAX_ITEMS] = ptr_items;
@@ -1106,16 +1104,14 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
     EXPECT_EQ(1U, stats.resolved);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
-#if 0
     // Failure response
     query_items[0].name     = "test.non-existent.domain";
-    query_items[1].name     = "onemore.non-existent.domain";
-    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 2, query_items);
+    SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, query_items);
     usleep(1000);
     client->WaitForIdle();
     CHECK_CONDITION(stats.fail < 1);
     CHECK_STATS(stats, 1, 0, 0, 0, 1, 0);
-#endif
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 2, query_items, default_flags, true);
     client->WaitForIdle();
@@ -1123,11 +1119,11 @@ TEST_F(DnsTest, DefaultDnsReqTest) {
     CHECK_STATS(stats, 1, 0, 0, 1, 0, 0);
 
     client->Reset();
-    DelIPAM("vn1", "vdns1"); 
+    DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0); 
+    DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
 
     IntfCfgDel(input, 0);
@@ -1173,20 +1169,19 @@ TEST_F(DnsTest, DefaultDnsLinklocalReqTest) {
     query_items[2].name     = "test_service3";
     query_items[3].name     = "test_service4";
 
+    int count = 0;
+    DnsProto::DnsStats stats;
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 4, query_items);
     usleep(1000);
     client->WaitForIdle();
-    DnsProto::DnsStats stats;
-    int count = 0;
     usleep(1000);
     CHECK_CONDITION(stats.resolved < 1);
-    EXPECT_EQ(1U, stats.requests);
-    EXPECT_TRUE(stats.resolved == 1);
-    EXPECT_TRUE(stats.retransmit_reqs == 0);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     DnsItem query_items_2[MAX_ITEMS] = a_items;
-    query_items_2[0].name     = "test_service1";
-    query_items_2[1].name     = "localhost";
+    // keep the 0th element as it is
+    query_items_2[1].name     = "test_service1";
     query_items_2[2].name     = "test_service3";
     query_items_2[3].name     = "test_service4";
 
@@ -1195,10 +1190,8 @@ TEST_F(DnsTest, DefaultDnsLinklocalReqTest) {
     client->WaitForIdle();
     count = 0;
     usleep(1000);
-    CHECK_CONDITION(stats.resolved < 2);
-    EXPECT_EQ(2U, stats.requests);
-    EXPECT_TRUE(stats.resolved == 2);
-    EXPECT_TRUE(stats.retransmit_reqs == 0);
+    CHECK_CONDITION(stats.resolved < 1);
+    CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
     Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     DnsItem ptr_query_items[MAX_ITEMS] = ptr_items;
