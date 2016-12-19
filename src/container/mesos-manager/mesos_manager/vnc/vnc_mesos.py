@@ -43,7 +43,6 @@ class VncMesos(object):
         self._sync_sm()
         self.rabbit._db_resync_done.set()
 
-
     def _vnc_connect(self):
         # Retry till API server connection is up
         connected = False
@@ -71,13 +70,56 @@ class VncMesos(object):
         for cls in DBBaseMM.get_obj_type_map().values():
             cls.reset()
 
+    def _create_project(self, project_name):
+        proj_fq_name = ['default-domain', project_name]
+        proj_obj = Project(name=project_name, fq_name=proj_fq_name)
+        try:
+            self.vnc_lib.project_create(proj_obj)
+        except RefsExistError:
+            proj_obj = self.vnc_lib.project_read(
+                fq_name=proj_fq_name)
+        ProjectMM.locate(proj_obj.uuid)
+        return proj_obj
+
+    def _create_ipam(self, ipam_name, subnet, proj_obj):
+        ipam_subnets = []
+        pfx, pfx_len = subnet.split('/')
+        ipam_subnet = IpamSubnetType(subnet=SubnetType(pfx, int(pfx_len)))
+        ipam_subnets.append(ipam_subnet)
+        ipam_obj = NetworkIpam(name=ipam_name, parent_obj=proj_obj)
+        try:
+            self.vnc_lib.network_ipam_create(ipam_obj)
+        except RefsExistError:
+            vn_obj = self.vnc_lib.network_ipam_read(
+                fq_name=ipam_obj.get_fq_name())
+        return ipam_obj, ipam_subnets
+
+    def _create_network(self,labels, mesos_proj_obj):
+        vn_obj = VirtualNetwork(name=labels['network'],
+            parent_obj=mesos_proj_obj,
+            address_allocation_mode='user-defined-subnet-only')
+        ipam_obj, ipam_subnets = self._create_ipam(labels['public'],
+            labels['public_subnet'],mesos_proj_obj)
+        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam_subnets))
+        vn_obj.set_virtual_network_properties(
+             VirtualNetworkType(forwarding_mode='l3'))
+        try:
+            self.vnc_lib.virtual_network_create(vn_obj)
+        except RefsExistError:
+            vn_obj = self.vnc_lib.virtual_network_read(
+                fq_name=vn_obj.get_fq_name())
+
+    def _setup_all(self, labels):
+        mesos_proj_obj = self._create_project('meso-system')
+        self._create_network(labels, mesos_proj_obj)
+
     def process_q_event(self, event):
         labels = event['labels']
         #subnet = event['ipam']['subnet'] if event['ipam'] else None
-
         for k,v in labels.items():
             if k == mesos_consts.MESOS_LABEL_PRIVATE_NETWORK:
                 print v
+                self._setup_all(labels)
             elif k == mesos_consts.MESOS_LABEL_PUBLIC_NETWORK:
                 print v
             elif k == mesos_consts.MESOS_LABEL_PUBLIC_SUBNET:
