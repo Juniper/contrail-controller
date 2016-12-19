@@ -394,6 +394,38 @@ bool AclTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
     return true;
 }
 
+static void AddAceToAcl(AclSpec *acl_spec, const AclTable *acl_table,
+                        AccessControlList *cfg_acl,
+                        const MatchConditionType *match_condition,
+                        const ActionListType action_list,
+                        const string rule_uuid, uint32_t id) {
+    // ACE clean up
+    AclEntrySpec ace_spec;
+    ace_spec.id = id;
+
+    if (ace_spec.Populate(match_condition) == false) {
+        return;
+    }
+    // Make default as terminal rule,
+    // all the dynamic acl have non-terminal rules
+    if (cfg_acl->entries().dynamic) {
+        ace_spec.terminal = false;
+    } else {
+        ace_spec.terminal = true;
+    }
+
+    ace_spec.PopulateAction(acl_table, action_list);
+    ace_spec.rule_uuid = rule_uuid;
+    // Add the Ace to the acl
+    acl_spec->acl_entry_specs_.push_back(ace_spec);
+
+
+    // Trace acl entry object
+    AclEntrySandeshData ae_spec;
+    AclEntryObjectTrace(ae_spec, ace_spec);
+    ACL_TRACE(EntryTrace, ae_spec);
+}
+
 bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
         const boost::uuids::uuid &u) {
 
@@ -423,31 +455,19 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
     std::vector<AclRuleType>::const_iterator ir;
     uint32_t id = 1;
     for(ir = entrs.begin(); ir != entrs.end(); ++ir) {
-        // ACE clean up
-        AclEntrySpec ace_spec;
-        ace_spec.id = id++;
-
-        if (ace_spec.Populate(&(ir->match_condition)) == false) {
-            continue;
+        AddAceToAcl(&acl_spec, this, cfg_acl, &(ir->match_condition),
+                        ir->action_list, ir->rule_uuid, id++);
+        //Add reverse rule if needed
+        if ((ir->direction.compare("<>") == 0)) {
+            MatchConditionType rmatch_condition;
+            rmatch_condition = ir->match_condition;
+            rmatch_condition.src_address = ir->match_condition.dst_address;
+            rmatch_condition.dst_address = ir->match_condition.src_address;
+            rmatch_condition.src_port = ir->match_condition.dst_port;
+            rmatch_condition.dst_port = ir->match_condition.src_port;
+            AddAceToAcl(&acl_spec, this, cfg_acl, &rmatch_condition,
+                        ir->action_list, ir->rule_uuid, id++);
         }
-        // Make default as terminal rule, 
-        // all the dynamic acl have non-terminal rules
-        if (cfg_acl->entries().dynamic) {
-            ace_spec.terminal = false;
-        } else {
-            ace_spec.terminal = true;
-        }
-
-        ace_spec.PopulateAction(this, ir->action_list);
-        ace_spec.rule_uuid = ir->rule_uuid;
-        // Add the Ace to the acl
-        acl_spec.acl_entry_specs_.push_back(ace_spec);
-
-
-        // Trace acl entry object
-        AclEntrySandeshData ae_spec;
-        AclEntryObjectTrace(ae_spec, ace_spec);
-        ACL_TRACE(EntryTrace, ae_spec);
     }
 
     AclKey *key = new AclKey(acl_spec.acl_id);
