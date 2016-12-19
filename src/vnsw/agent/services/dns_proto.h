@@ -143,6 +143,7 @@ public:
     // Map of transaction id and BindServer Index
     typedef std::map<uint32_t, int16_t> DnsBindQueryIndexMap;
     typedef std::pair<uint32_t, int16_t> DnsBindQueryIndexPair;
+    typedef std::vector<IpAddress> DefaultServerList;
 
     void ConfigInit();
     void Shutdown();
@@ -190,6 +191,8 @@ public:
     bool IsDnsQueryInProgress(uint16_t xid);
     bool IsDnsHandlerInUse(DnsHandler *handler);
     DnsHandler *GetDnsQueryHandler(uint16_t xid);
+    void BuildDefaultServerList();
+    DefaultServerList GetDefaultServerList();
 
     void AddDnsQueryIndex(uint16_t xid, int16_t srv_idx);
     void DelDnsQueryIndex(uint16_t xid);
@@ -249,6 +252,7 @@ private:
     DnsBindQueryMap dns_query_map_;
     DnsVmRequestSet curr_vm_requests_;
     DnsBindQueryIndexMap dns_query_index_map_;
+    DefaultServerList def_server_list_;
     DnsStats stats_;
     uint32_t timeout_;   // milli seconds
     uint32_t max_retries_;

@@ -74,7 +74,6 @@ private:
     void ParseQuery();
     void Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
                  DnsItems &auth, DnsItems &add);
-    bool SendDnsQuery(int8_t idx, uint16_t xid);
     void SendDnsResponse();
     void UpdateQueryNames();
     void UpdateOffsets(DnsItem &item, bool name_update_required);
@@ -87,6 +86,7 @@ private:
                                std::string *domain_name) const;
     void GetBaseName(const std::string &name, std::string *base) const;
     std::string DnsItemsToString(DnsItems &items) const;
+    bool DefaultMethodInUse() { return default_method_; }
 
     dnshdr  *dns_;
     uint8_t *resp_ptr_;
@@ -100,6 +100,7 @@ private:
         Timer *timer_;
     };
     std::vector<DnsResolverInfo *> dns_resolvers_;
+    std::vector<DnsResolverInfo *> def_dns_resolvers_;
     std::string ipam_name_;
     std::string domain_name_;
     autogen::IpamType ipam_type_;
@@ -112,6 +113,8 @@ private:
     uint16_t pend_req_;
     ResolvList resolv_list_;
     tbb::mutex mutex_;
+    bool default_method_;
+    bool SendDnsQuery(DnsResolverInfo *resolver, uint16_t xid);
 
     DISALLOW_COPY_AND_ASSIGN(DnsHandler);
 };
