@@ -16,6 +16,7 @@
 #include "controller/controller_dns.h"
 #include "oper/vn.h"
 #include "oper/route_common.h"
+#include <fstream>
 
 void DnsProto::IoShutdown() {
     BindResolver::Shutdown();
@@ -34,12 +35,19 @@ void DnsProto::IoShutdown() {
 }
 
 void DnsProto::ConfigInit() {
+    BuildDefaultServerList();
     std::vector<BindResolver::DnsServer> dns_servers;
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
         std::string server = agent()->dns_server(i);
         if (server != "")
             dns_servers.push_back(BindResolver::DnsServer(
                                   server, agent()->dns_server_port(i)));
+    }
+    for (std::vector<IpAddress>::iterator it = def_server_list_.begin();
+         it != def_server_list_.end(); ++it) {
+        std::string server = it->to_string();
+        if (server != "")
+            dns_servers.push_back(BindResolver::DnsServer(server, 53));
     }
     BindResolver::Init(*agent()->event_manager()->io_service(), dns_servers,
                        agent()->params()->dns_client_port(),
@@ -84,6 +92,32 @@ void DnsProto::Shutdown() {
     if (agent_->tsn_enabled()) {
         agent_->vrf_table()->Unregister(vrf_table_listener_id_);
     }
+}
+
+void DnsProto::BuildDefaultServerList() {
+    def_server_list_.clear();
+    std::ifstream fd;
+    fd.open("/etc/resolv.conf");
+    if (!fd.is_open()) {
+        return;
+    }
+
+    std::string line;
+    while (getline(fd, line)) {
+        if (line.find("nameserver") != std::string::npos) {
+            size_t i = line.find(" ");
+            boost::system::error_code ec;
+            IpAddress ip = IpAddress::from_string(line.substr(i+1), ec);
+            def_server_list_.push_back(ip);
+        }
+    }
+
+    fd.close();
+    return;
+}
+
+std::vector<IpAddress> DnsProto::GetDefaultServerList() {
+    return def_server_list_;
 }
 
 ProtoHandler *DnsProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
