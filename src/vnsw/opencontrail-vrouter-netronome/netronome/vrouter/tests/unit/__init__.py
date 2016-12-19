@@ -25,6 +25,7 @@ from netronome.vrouter import pci
 
 __all__ = (
     'LogMessageCounter',
+    'SetLogLevel',
     'attachLogHandler',
     'make_vfset',
     'make_getLogger',
@@ -60,6 +61,38 @@ class LogMessageCounter(logging.Handler):
 
     def __str__(self):
         return json.dumps(self.logs, indent=4)
+
+
+class SetLogLevel(object):
+    """
+    Sets the log level for a set of loggers, typically at file scope.
+
+    This is originally intended for urllib3 and/or "requests" library logging.
+    The DEBUG and INFO messages for these loggers are radically different
+    between different releases of OpenStack Kilo and OpenStack Mitaka (the
+    loggers have different names, etc). We have no interest in checking these.
+
+    We do leave warnings, errors, etc. enabled however, as we aren't expecting
+    any of these.
+    """
+
+    def __init__(self, loggers, level, **kwds):
+        super(SetLogLevel, self).__init__(**kwds)
+        self.loggers = loggers
+        self.level = level
+        self.old = {}
+
+    def setUp(self):
+        assert not self.old, 'setUp called multiple times'
+        for k in self.loggers:
+            logger = logging.getLogger(k)
+            self.old[k] = logger.level
+            logger.setLevel(self.level)
+
+    def tearDown(self):
+        old, self.old = self.old, {}
+        for k, v in old.iteritems():
+            logging.getLogger(k).setLevel(v)
 
 
 @contextlib.contextmanager

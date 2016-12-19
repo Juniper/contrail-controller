@@ -43,6 +43,16 @@ from netronome.vrouter import (fallback, plug, rest as vrouter_rest)
 from netronome.vrouter.tests.unit import *
 from netronome.vrouter.tests.helpers.config import _random_pci_address
 
+# urllib3 log messages can appear under various names depending on the versions
+# of the requests and/or urllib3 libraries (e.g., as they may change between
+# different releases of Ubuntu OpenStack).
+URLLIB3_LOGGERS = frozenset((
+    'urllib3.connectionpool',
+    'urllib3.util.retry',
+    'requests.packages.urllib3.connectionpool',
+    'requests.packages.urllib3.util.retry',
+))
+
 
 def _enable_fake_intel_iommu(root_dir, pt=False):
     """Fakes out netronome.iommu_check to believe that the IOMMU is on."""
