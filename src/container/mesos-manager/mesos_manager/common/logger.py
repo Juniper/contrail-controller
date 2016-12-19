@@ -11,7 +11,7 @@ import socket
 
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 import discoveryclient.client as client
-from sandesh.mesos_manager import ttypes as sandesh
+from mesos_manager.sandesh.mesos_manager import ttypes as sandesh
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
