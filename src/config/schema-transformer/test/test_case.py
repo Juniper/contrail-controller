@@ -55,11 +55,14 @@ class VerifyCommon(object):
 class STTestCase(test_common.TestCase):
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls, extra_config_knobs=None):
         extra_config = [
             ('DEFAULTS', 'multi_tenancy', 'False'),
             ('DEFAULTS', 'aaa_mode', 'no-auth'),
         ]
+        if extra_config_knobs:
+            extra_config.append(extra_config_knobs)
+
         super(STTestCase, cls).setUpClass(extra_config_knobs=extra_config)
 
     def _class_str(self):
