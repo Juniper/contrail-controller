@@ -51,8 +51,8 @@
          We create 3 flow with below behaviour
          Flow 1 - Layer 2 flow with no corresponding
                   layer 3 route present. In this
-                  case RPF and SG evaluation has to
-                  happen based on layer 2 route.
+                  case, flow should be marked as short-flow
+                  and action should be deny.
          Flow 2 - Layer 2 flow with corresponding layer3 route
                   present. In this scenario RPF evaluation
                   has to happen on layer 3 route and
@@ -78,7 +78,7 @@
     <validate name="validate-1">
         <flow name="l2-udp-from-vm" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="2"/>
+         dvn="vn1" action="deny" rpf_nh="2"/>
         <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="13"/>
@@ -118,7 +118,7 @@
     <validate name="validate-2">
         <flow name="l2-udp-from-vm-flow1" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.1"
          dip="1.1.1.2" proto="udp" sport="1" dport="11" svn="vn1"
-         dvn="vn1" action="pass" rpf_nh="2"/>
+         dvn="vn1" action="deny" rpf_nh="2"/>
         <flow name="l2-udp-from-vm-flow2" uuid="1" vrf="vrf1" nh="13" sip="1.1.1.4"
          dip="1.1.1.5" proto="udp" sport="1" dport="12" svn="vn1"
          dvn="vn1" action="pass" rpf_nh="13"/>
