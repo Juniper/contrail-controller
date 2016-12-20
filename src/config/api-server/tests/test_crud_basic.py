@@ -13,9 +13,6 @@ import random
 import netaddr
 import tempfile
 
-import cgitb
-cgitb.enable(format='text')
-
 import fixtures
 import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains, LessThan
@@ -41,6 +38,8 @@ from vnc_api.gen.resource_test import *
 import cfgm_common
 from cfgm_common import vnc_plugin_base
 from cfgm_common import imid
+from cfgm_common import vnc_cgitb
+vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
 from test_utils import *
