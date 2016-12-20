@@ -50,13 +50,15 @@ class VncKubernetes(object):
         # handle events
         self.label_cache = label_cache.LabelCache()
         self.namespace_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_namespace.VncNamespace', self.vnc_lib)
+            'kube_manager.vnc.vnc_namespace.VncNamespace',vnc_lib=self.vnc_lib,
+            cluster_pod_subnets = self.args.pod_subnets)
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
             self.label_cache, self.args, self.logger)
         self.pod_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
-            self.label_cache, self.service_mgr)
+            self.label_cache, self.service_mgr,
+            svc_fip_pool = self._get_cluster_service_fip_pool())
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
             self.vnc_lib, self.label_cache, self.logger)
@@ -139,14 +141,59 @@ class VncKubernetes(object):
         except RefsExistError:
             vn_obj = self.vnc_lib.virtual_network_read(
                 fq_name=vn_obj.get_fq_name())
+
         VirtualNetworkKM.locate(vn_obj.uuid)
 
+        # Create service floating ip pool.
+        self._create_cluster_service_fip_pool(vn_obj)
+
         return vn_obj.uuid
+
+    def _get_cluster_service_fip_pool_name(self, vn_name):
+        """
+        Return fip pool name of cluster service network.
+        """
+        return 'svc-fip-pool-%s' %(vn_name)
+
+    def _get_cluster_service_fip_pool(self):
+        """
+        Get floating ip pool of cluster service network.
+        """
+        vn_obj = self._get_cluster_network()
+        return FloatingIpPoolKM.find_by_name_or_uuid(
+            self._get_cluster_service_fip_pool_name(vn_obj.name))
+
+    def _create_cluster_service_fip_pool(self, vn_obj):
+        # Create a floating IP pool in cluster service network.
+        #
+        # Service IP's in the cluster are allocated from service
+        # IPAM in the cluster network. All pods spawned in isolated
+        # virtual networks will be allocated an IP from this floating IP
+        # pool. These pods in those isolated virtual networks will use this
+        # floating IP for traffic to services in the cluster.
+        fip_pool_obj = FloatingIpPool(
+            self._get_cluster_service_fip_pool_name(vn_obj.name),
+            parent_obj=vn_obj)
+        try:
+            # Create floating ip pool for cluster service network.
+            self.vnc_lib.floating_ip_pool_create(fip_pool_obj)
+        except:
+            self.logger.error("Service floating-IP-pool create failed for "
+                              "Virtual Network[%s] " % vn_obj.name)
+            return None
+        else:
+            # Update local cache.
+            FloatingIpPoolKM.locate(fip_pool_obj.uuid)
+
+        return
 
     def _provision_cluster(self):
         self._create_project('kube-system')
         proj_obj = self._create_project('default')
         self._create_cluster_network('cluster-network', proj_obj)
+
+    def _get_cluster_network(self):
+        return VirtualNetworkKM.find_by_name_or_uuid('cluster-network')
 
     def vnc_process(self):
         while True:
