@@ -144,8 +144,7 @@ public:
     static const uint32_t kStartLabel = 16;
     static const uint32_t kDpdkShiftBits = 4;
 
-    MplsTable(DB *db, const std::string &name) : AgentDBTable(db, name),
-        mpls_shift_bits_(0) { }
+    MplsTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
     virtual ~MplsTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -163,30 +162,6 @@ public:
                           const std::string vrf_name);
     void DeleteMcastLabel(uint32_t src_label);
 
-    // Allocate and Free label from the label_table
-    uint32_t AllocLabel() {
-        uint32_t index = label_table_.Insert(NULL);
-        return index << mpls_shift_bits_;
-    }
-
-    uint32_t InsertAtIndex(uint32_t label, MplsLabel *entry) {
-        uint32_t index = label_table_.InsertAtIndex(label, entry);
-        return index << mpls_shift_bits_;
-    }
-
-    void UpdateLabel(uint32_t label, MplsLabel *entry) {
-        uint32_t index = label >> mpls_shift_bits_;
-        return label_table_.Update(index, entry);
-    }
-    void FreeLabel(uint32_t label) {
-        uint32_t index = label >> mpls_shift_bits_;
-        label_table_.Remove(index);
-    }
-    MplsLabel *FindMplsLabel(size_t label) {
-        uint32_t index = label >> mpls_shift_bits_;
-        return label_table_.At(index);
-    }
-
     static void CreateTableLabel(const Agent *agent, uint32_t label,
                                  const std::string &vrf_name,
                                  bool policy);
@@ -195,9 +170,6 @@ public:
     void Process(DBRequest &req);
     bool ChangeNH(MplsLabel *mpls, NextHop *nh);
 
-    void set_mpls_shift_bits(uint32_t shift) {
-        mpls_shift_bits_ = shift;
-    }
     void ReserveLabel(uint32_t start, uint32_t end);
     void ReserveMulticastLabel(uint32_t start, uint32_t end, uint8_t idx);
     bool IsFabricMulticastLabel(uint32_t label) const;

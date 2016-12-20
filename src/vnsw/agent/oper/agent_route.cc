@@ -803,6 +803,24 @@ bool AgentRoute::ProcessPath(Agent *agent, DBTablePartition *part,
     return ret;
 }
 
+uint32_t AgentRoute::AllocateMplsLabel() {
+    Agent *agent = 
+        (static_cast<InetUnicastAgentRouteTable *>(get_table()))->agent();
+    return ((static_cast<IndexResourceData *>(agent->resource_manager()->
+                         Allocate(new RouteMplsResourceKey(agent->
+                               resource_manager(), vrf()->GetName(),
+                               ToString()))))->GetIndex());
+}
+
+void AgentRoute::FreeMplsLabel(uint32_t label) {
+    Agent *agent = 
+        (static_cast<InetUnicastAgentRouteTable *>(get_table()))->agent();
+    MplsLabel::Delete(agent, label);
+    agent->resource_manager()->Release(new RouteMplsResourceKey(agent->
+                                       resource_manager(), vrf()->GetName(),
+                                       ToString()));
+}
+
 AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,
                                            AgentRoute *rt) const {
     return (new AgentPath(peer, rt));

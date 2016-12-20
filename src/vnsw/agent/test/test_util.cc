@@ -4545,3 +4545,17 @@ void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip,
             intf_id, cbuf);
     client->WaitForIdle();
 }
+
+uint32_t AllocLabel(const char *str) {
+    Agent *agent = Agent::GetInstance();
+    return((static_cast<IndexResourceData *>(agent->resource_manager()->
+                    Allocate(new TestMplsResourceKey(agent->
+                                 resource_manager(), name_)).get()))->
+                    GetIndex());
+}
+
+void FreeLabel(const char *str) {
+    Agent *agent = Agent::GetInstance();
+    agent->resource_manager()->Release(new TestMplsResourceKey(agent->
+                                           resource_manager(), name_));
+}

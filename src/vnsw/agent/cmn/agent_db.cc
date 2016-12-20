@@ -28,6 +28,12 @@ bool AgentDBEntry::IsActive() const {
     return !IsDeleted();
 }
 
+void AgentDBEntry::AllocateResources() {
+}
+
+void AgentDBEntry::FreeResources() {
+}
+
 void AgentDBEntry::PostAdd() {
 }
 
@@ -96,6 +102,7 @@ AgentDBEntry *AgentDBTable::Find(const DBRequestKey *key) {
 
 void AgentDBTablePartition::Add(DBEntry *entry) {
     entry->set_table_partition(static_cast<DBTablePartBase *>(this));
+    entry->AllocResources();
     DBTablePartition::Add(entry);
     static_cast<AgentDBEntry *>(entry)->PostAdd();
 }
@@ -107,6 +114,7 @@ void AgentDBTablePartition::Remove(DBEntryBase *entry) {
         return;
     }
     DBTablePartition::Remove(entry);
+    entry->FreeResources();
 }
 
 bool AgentDBTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &id) {

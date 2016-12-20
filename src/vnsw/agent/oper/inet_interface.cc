@@ -102,15 +102,12 @@ void InetInterface::ActivateSimpleGateway() {
     InterfaceNH::CreateInetInterfaceNextHop(name(), vrf()->GetName(),
                                             agent->pkt_interface_mac());
 
-    if (label_ == MplsTable::kInvalidLabel) {
-        // Allocate MPLS Label 
-        label_ = agent->mpls_table()->AllocLabel();
-        // Create MPLS entry pointing to virtual host interface-nh
-        MplsLabel::CreateInetInterfaceLabel(agent, label_, name(), false,
-                                            InterfaceNHFlags::INET4,
-                                            agent->pkt_interface_mac());
+    assert(label_ != MplsTable::kInvalidLabel);
+    // Create MPLS entry pointing to virtual host interface-nh
+    MplsLabel::CreateInetInterfaceLabel(agent, label_, name(), false,
+                                        InterfaceNHFlags::INET4,
+                                        agent->pkt_interface_mac());
 
-    }
 
     //There is no policy enabled nexthop created for VGW interface,
     //hence use interface nexthop without policy as flow key index
@@ -392,6 +389,20 @@ bool InetInterface::Delete(const DBRequest *req) {
 // in DB Table PartitionInterface. So, Activate an interface in PostAdd
 void InetInterface::PostAdd() {
     Activate();
+}
+
+void VmInterface::AllocateResources() {
+    label_ = static_cast<IndexResourceData *>(
+           (agent->resource_manager()->Allocate(
+                   new InterfaceIndexResourceKey(agent->resource_manager(),
+                                                 GetUuid())).get()))->
+        GetIndex();
+}
+
+void VmInterface::FreeResources() {
+    agent->resource_manager()->Release(
+           new InterfaceIndexResourceKey(agent->resource_manager(),
+                                         GetUuid()));
 }
 
 bool InetInterface::OnChange(InetInterfaceData *data) {
