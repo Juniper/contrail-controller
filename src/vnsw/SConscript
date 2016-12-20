@@ -44,6 +44,7 @@ env.Alias('controller/src/agent:test', [
     'controller/src/vnsw/agent:test',
     'controller/src/vnsw/agent/uve:test',
     'controller/src/vnsw/agent/vgw:test',
+    'controller/src/vnsw/agent/resource_manager:test',
 ])
 
 #Commented flaky-test are not having any flaky-test.

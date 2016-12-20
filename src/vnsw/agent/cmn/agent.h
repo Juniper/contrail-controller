@@ -218,7 +218,7 @@ class ServiceInstanceTable;
 class Agent;
 class RESTServer;
 class PortIpcHandler;
-
+class ResourceManagerFactory;
 extern void RouterIdDepInit(Agent *agent);
 
 #define MULTICAST_LABEL_RANGE_START 1024
@@ -895,7 +895,8 @@ public:
 
     DiagTable *diag_table() const;
     void set_diag_table(DiagTable *table);
-
+    ResourceManagerFactory *resource_manager_factory() const ;
+    void set_resource_manager_factory(ResourceManagerFactory *resource_manager_factory); 
     uint16_t mirror_port() const {return mirror_src_udp_port_;}
     void set_mirror_port(uint16_t mirr_port) {
         mirror_src_udp_port_ = mirr_port;
@@ -1128,7 +1129,7 @@ private:
     OperDB *oper_db_;
     DiagTable *diag_table_;
     VNController *controller_;
-
+    ResourceManagerFactory *resource_manager_factory_;
     EventManager *event_mgr_;
     TaskTbbKeepAwake *tbb_awake_task_;
     boost::shared_ptr<AgentXmppChannel> agent_xmpp_channel_[MAX_XMPP_SERVERS];
