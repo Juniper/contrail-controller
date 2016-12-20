@@ -1999,6 +1999,7 @@ class Controller(object):
                     ph.start()
                     self._workers[partno] = ph
                     self._uvestats[partno] = {}
+                    self._alarmstats[partno] = {}
 
                 tout = 1200
                 idx = 0
@@ -2035,6 +2036,7 @@ class Controller(object):
                     self._uveqf[partno] = self._workers[partno].acq_time()
                     del self._workers[partno]
                     del self._uvestats[partno]
+                    del self._alarmstats[partno]
 
                 tout = 1200
                 idx = 0
@@ -2088,6 +2090,8 @@ class Controller(object):
             din = pc.stats()
             dout = copy.deepcopy(self._uvestats[pk])
             self._uvestats[pk] = {}
+            alarm_stats_pk = copy.deepcopy(self._alarmstats[pk])
+            self._alarmstats[pk] = {}
             for ktab,tab in dout.iteritems():
                 uve_stats = {}
                 for uk,uc in tab.iteritems():
@@ -2131,7 +2135,7 @@ class Controller(object):
                 au_obj.send(sandesh=self._sandesh)
 
             # alarm stats
-            for ktab,tab in self._alarmstats[pk].iteritems():
+            for ktab,tab in alarm_stats_pk.iteritems():
                 alarm_stats = {}
                 for uk,uc in tab.iteritems():
                     alarm_stats[uk] = AlarmgenAlarmStats(uc.set_count,
