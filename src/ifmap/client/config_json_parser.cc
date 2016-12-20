@@ -11,7 +11,6 @@ using namespace rapidjson;
 using namespace std;
 
 ConfigJsonParser::ConfigJsonParser(DB *db) : db_(db) {
-
 }
 
 void ConfigJsonParser::MetadataRegister(const string &metadata,
@@ -248,20 +247,7 @@ bool ConfigJsonParser::Receive(const string &in_message, bool add_change,
     } else {
         cout << "No parse error\n";
         ParseDocument(document, add_change, origin, &req_list);
-        //TmpParseDocument(document);
     }
     return true;
-}
-
-// For testing purposes only. Delete before release.
-void ConfigJsonParser::TmpParseDocument(const rapidjson::Document &document) {
-    for (Value::ConstMemberIterator itr = document.MemberBegin();
-         itr != document.MemberEnd(); ++itr) {
-        cout << "Key:" << itr->name.GetString();
-        if (itr->value.IsNull()) cout << endl;
-        else {
-            cout << "Value" << endl;
-        }
-    }
 }
 
