@@ -381,7 +381,8 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
     if (add) {
         rt_entry.entry.local_preference = attributes.local_pref;
         rt_entry.entry.med = attributes.med;
-        rt_entry.entry.sequence_number = attributes.sequence;
+        rt_entry.entry.mobility.seqno = attributes.mobility.seqno;
+        rt_entry.entry.mobility.sticky = attributes.mobility.sticky;
         if (attributes.sgids.size()) {
             rt_entry.entry.security_group_list.security_group =
                 attributes.sgids;
@@ -449,7 +450,8 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
 
     if (oper == ADD || oper == CHANGE) {
         rt_entry.entry.local_preference = attributes.local_pref;
-        rt_entry.entry.sequence_number = attributes.sequence;
+        rt_entry.entry.mobility.seqno = attributes.mobility.seqno;
+        rt_entry.entry.mobility.sticky = attributes.mobility.sticky;
         if (attributes.sgids.size()) {
             rt_entry.entry.security_group_list.security_group =
                 attributes.sgids;
@@ -617,7 +619,9 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
 
     if (add) {
         rt_entry.entry.local_preference = attributes.local_pref;
-        rt_entry.entry.sequence_number = attributes.sequence;
+        rt_entry.entry.etree_leaf = attributes.etree_leaf;
+        rt_entry.entry.mobility.seqno = attributes.mobility.seqno;
+        rt_entry.entry.mobility.sticky = attributes.mobility.sticky;
         if (attributes.sgids.size()) {
             rt_entry.entry.security_group_list.security_group =
                 attributes.sgids;

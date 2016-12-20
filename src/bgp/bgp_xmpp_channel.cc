@@ -22,6 +22,7 @@
 #include "bgp/bgp_xmpp_peer_close.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inet6/inet6_table.h"
+#include "bgp/extended-community/etree.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
@@ -1107,7 +1108,11 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                 ext.communities.push_back(sg.GetExtCommunityValue());
             }
 
-            if (item.entry.sequence_number) {
+            if (item.entry.mobility.seqno) {
+                MacMobility mm(item.entry.mobility.seqno,
+                               item.entry.mobility.sticky);
+                ext.communities.push_back(mm.GetExtCommunityValue());
+            } else if (item.entry.sequence_number) {
                 MacMobility mm(item.entry.sequence_number);
                 ext.communities.push_back(mm.GetExtCommunityValue());
             }
@@ -1386,7 +1391,11 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
                 ext.communities.push_back(sg.GetExtCommunityValue());
             }
 
-            if (item.entry.sequence_number) {
+            if (item.entry.mobility.seqno) {
+                MacMobility mm(item.entry.mobility.seqno,
+                               item.entry.mobility.sticky);
+                ext.communities.push_back(mm.GetExtCommunityValue());
+            } else if (item.entry.sequence_number) {
                 MacMobility mm(item.entry.sequence_number);
                 ext.communities.push_back(mm.GetExtCommunityValue());
             }
@@ -1646,10 +1655,17 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             ext.communities.push_back(sg.GetExtCommunityValue());
         }
 
-        if (item.entry.sequence_number) {
+        if (item.entry.mobility.seqno) {
+            MacMobility mm(item.entry.mobility.seqno,
+                           item.entry.mobility.sticky);
+            ext.communities.push_back(mm.GetExtCommunityValue());
+        } else if (item.entry.sequence_number) {
             MacMobility mm(item.entry.sequence_number);
             ext.communities.push_back(mm.GetExtCommunityValue());
         }
+
+        ETree etree(item.entry.etree_leaf);
+        ext.communities.push_back(etree.GetExtCommunityValue());
 
         if (!ext.communities.empty())
             attrs.push_back(&ext);

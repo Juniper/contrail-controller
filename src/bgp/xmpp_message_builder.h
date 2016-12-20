@@ -58,6 +58,15 @@ private:
         std::string *repr_;
     };
 
+    struct MobilityInfo {
+    public:
+        MobilityInfo(uint32_t seqno, bool sticky)
+            : sequence_number(seqno), sticky(sticky) {
+        }
+        uint32_t sequence_number;
+        bool sticky;
+    };
+
     virtual void Reset();
     void EncodeNextHop(const BgpRoute *route,
                        const RibOutAttr::NextHop &nexthop,
@@ -93,7 +102,9 @@ private:
     std::string msg_begin_;
     std::string repr_;
     pugi::xml_document doc_;
-    uint32_t sequence_number_;
+    MobilityInfo mobility_;
+    bool etree_leaf_;
+
     std::vector<int> security_group_list_;
     std::vector<std::string> community_list_;
     LoadBalance::LoadBalanceAttribute load_balance_attribute_;
