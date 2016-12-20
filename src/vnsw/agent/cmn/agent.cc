@@ -655,8 +655,8 @@ Agent::Agent() :
     params_(NULL), cfg_(NULL), stats_(NULL), ksync_(NULL), uve_(NULL),
     stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
     services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
-    diag_table_(NULL), controller_(NULL), event_mgr_(NULL),
-    tbb_awake_task_(NULL), agent_xmpp_channel_(), ifmap_channel_(),
+    diag_table_(NULL), controller_(NULL),resource_mgr_factory_(NULL),
+    event_mgr_(NULL), tbb_awake_task_(NULL), agent_xmpp_channel_(), ifmap_channel_(),
     xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(), dns_xmpp_client_(),
     dns_xmpp_init_(), agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL),
     ds_client_(NULL), metadata_server_port_(0), host_name_(""), agent_name_(""),
@@ -767,6 +767,14 @@ DiagTable *Agent::diag_table() const {
 
 void Agent::set_diag_table(DiagTable *table) {
     diag_table_ = table;
+}
+
+ResourceMgrFactory *Agent::resource_mgr_factory() const {
+    return resource_mgr_factory_;
+}
+
+void Agent::set_resource_mgr_factory(ResourceMgrFactory *resource_mgr_factory) {
+    resource_mgr_factory_ = resource_mgr_factory; 
 }
 
 AgentStats *Agent::stats() const {
