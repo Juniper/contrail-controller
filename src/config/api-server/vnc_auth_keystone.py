@@ -82,17 +82,14 @@ class LocalAuth(object):
 
 class AuthPreKeystone(object):
 
-    def __init__(self, app, conf, multi_tenancy, server_mgr):
+    def __init__(self, app, conf, server_mgr):
         self.app = app
         self.conf = conf
-        self.mt = multi_tenancy
         self.server_mgr = server_mgr
 
-    def get_mt(self):
-        return self.mt
-
-    def set_mt(self, value):
-        self.mt = value
+    @property
+    def mt(self):
+        return self.server_mgr.is_multi_tenancy_set()
 
     def path_in_white_list(self, path):
         for pattern in self.server_mgr.white_list:
@@ -217,7 +214,6 @@ class AuthServiceKeystone(object):
         app = AuthPreKeystone(
             auth_middleware,
             None,
-            self._multi_tenancy,
             self._server_mgr)
 
         return app
