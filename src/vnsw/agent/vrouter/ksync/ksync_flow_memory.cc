@@ -126,7 +126,7 @@ void KSyncFlowMemory::InitFlowMem() {
         assert(0);
     }
 
-    while ((ret = nl_recvmsg(cl)) > 0) {
+    while ((ret = nl_recvmsg(cl, false)) > 0) {
         KSyncSockNetlink::NetlinkDecoder(cl->cl_buf,
                                          KSyncSock::GetAgentSandeshContext(0));
     }

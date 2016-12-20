@@ -262,7 +262,7 @@ void KSync::CreateVhostIntf() {
 
     assert(nl_build_if_create_msg(cl, &ifm, 1) == 0);
     assert(nl_sendmsg(cl) > 0);
-    assert(nl_recvmsg(cl) > 0);
+    assert(nl_recvmsg(cl, false) > 0);
     assert((resp = nl_parse_reply(cl)) != NULL);
     assert(resp->nl_type == NL_MSG_TYPE_ERROR);
     nl_free_client(cl);
@@ -306,7 +306,7 @@ void KSync::UpdateVhostMac() {
     eth->mac().ToArray((u_int8_t *)ifm.if_mac, sizeof(ifm.if_mac));
     assert(nl_build_if_create_msg(cl, &ifm, 1) == 0);
     assert(nl_sendmsg(cl) > 0);
-    assert(nl_recvmsg(cl) > 0);
+    assert(nl_recvmsg(cl, false) > 0);
     assert((resp = nl_parse_reply(cl)) != NULL);
     assert(resp->nl_type == NL_MSG_TYPE_ERROR);
     nl_free_client(cl);
