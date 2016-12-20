@@ -672,7 +672,7 @@ class PhysicalRouterConfig(object):
         static_config = Static()
         if ':' in prefix:
             rib_config_v6 = RIB(name='inet6.0')
-            rib_config_v6.add_static(static_config)
+            rib_config_v6.set_static(static_config)
             self.global_routing_options_config.add_rib(rib_config_v6)
         else:
             self.global_routing_options_config.add_static(static_config)
