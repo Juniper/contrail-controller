@@ -1863,7 +1863,7 @@ class VncApiServer(object):
                 'token_info': None,
                 'is_cloud_admin_role': False,
                 'is_global_read_only_role': False,
-                'permissions': PERMS_RWX
+                'permissions': 'RWX'
             }
             return result
 
@@ -3495,17 +3495,9 @@ class VncApiServer(object):
         return result
     # end vn_subnet_ip_count_http_post
 
-    def set_mt(self, multi_tenancy):
-        pipe_start_app = self.get_pipe_start_app()
-        try:
-            pipe_start_app.set_mt(multi_tenancy)
-        except AttributeError:
-            pass
-        self._args.multi_tenancy = multi_tenancy
-    # end
-
+    # check if token validatation needed
     def is_multi_tenancy_set(self):
-        return self._args.multi_tenancy or self.aaa_mode != 'no-auth'
+        return self.aaa_mode != 'no-auth'
 
     def is_rbac_enabled(self):
         return self.aaa_mode == 'rbac'
@@ -3530,7 +3522,7 @@ class VncApiServer(object):
         if data is None:
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
-        self.set_mt(multi_tenancy)
+        self.aaa_mode = "cloud-admin" if multi_tenancy else "no-auth"
         return {'enabled': self.is_multi_tenancy_set()}
     # end
 
