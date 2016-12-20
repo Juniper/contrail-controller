@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+/*
+ * mpls_resource_data.sandesh 
+ *
+ * Sandesh definitions for mpls resource data
+ */
+struct  MplsResourceData {
+    1: u64                           key;
+    2: u32                           mpls_label;
+    3: string                        data;
+}
+
+buffer sandesh  MplsResourceDataList {
+    1: list<MplsResourceData>     mpls_list;
+}
