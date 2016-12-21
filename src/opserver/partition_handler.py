@@ -45,7 +45,6 @@ class UveCacheProcessor(object):
     def get_cache_list(self, tables, filters, patterns, keysonly):
         if not tables:
             tables = self._uvedb.keys()
-
         filters = filters or {}
         tfilter = filters.get('cfilt')
         ackfilter = filters.get('ackfilt')

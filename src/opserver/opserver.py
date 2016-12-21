@@ -65,7 +65,6 @@ from sandesh.nodeinfo.process_info.ttypes import *
 from sandesh.discovery.ttypes import CollectorTrace
 import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
-from opserver_util import ServicePoller
 from opserver_util import AnalyticsDiscovery
 from sandesh_req_impl import OpserverSandeshReqImpl
 from sandesh.analytics_database.ttypes import *
@@ -80,6 +79,7 @@ from partition_handler import PartInfo, UveStreamer, UveCacheProcessor
 from functools import wraps
 from vnc_cfg_api_client import VncCfgApiClient
 from opserver_local import LocalApp
+from opserver_util import AnalyticsDiscovery
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -326,12 +326,6 @@ class OpStateServer(object):
             try:
                 redis_inst.publish('analytics', redis_msg)
             except redis.exceptions.ConnectionError:
-                # Update connection info
-                ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                    name = 'UVE', status = ConnectionStatus.DOWN,
-                    message = 'Connection Error',
-                    server_addrs = ['%s:%d' % (redis_server[0], \
-                        redis_server[1])])
                 self._logger.error('No Connection to Redis [%s:%d].'
                                    'Failed to publish message.' \
                                    % (redis_server[0], redis_server[1]))
@@ -411,7 +405,7 @@ class OpServer(object):
                 (self._args.disc_server_ip,
                 self._args.disc_server_port, str(data)))
             self.disc.publish(ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, data)
-        if self._ad:
+        if self._ad is not None:
             self._ad.publish(json.dumps(data))
     # end disc_publish
 
@@ -539,12 +533,6 @@ class OpServer(object):
         else:
             self._logger.error("Initializing UVE Cache")
 
-        self._uve_server = UVEServer(('127.0.0.1',
-                                  self._args.redis_server_port),
-                                 self._logger,
-                                 self._args.redis_password,
-                                 self._uvedbstream, self._usecache)
-
         self._LEVEL_LIST = []
         for k in SandeshLevel._VALUES_TO_NAMES:
             if (k < SandeshLevel.UT_START):
@@ -565,44 +553,43 @@ class OpServer(object):
                 name = 'UVE-Aggregation', status = ConnectionStatus.UP)
             self._uvepartitions_state = ConnectionStatus.UP
 
+        self.redis_uve_list = []
+        if type(self._args.redis_uve_list) is str:
+            self._args.redis_uve_list = self._args.redis_uve_list.split()
+        for redis_uve in self._args.redis_uve_list:
+            redis_ip_port = redis_uve.split(':')
+            redis_elem = (redis_ip_port[0], int(redis_ip_port[1]))
+            self.redis_uve_list.append(redis_elem)
+
         if self._args.zk_list:
             self._ad = AnalyticsDiscovery(self._logger,
                 ','.join(self._args.zk_list),
                 ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME,
                 self._hostname + "-" + self._instance_id,
-                # TODO: Use this callback instead of  DiscoveryClient
-                {ALARM_GENERATOR_SERVICE_NAME:None},
+                {ALARM_GENERATOR_SERVICE_NAME:self.disc_agp},
                 self._args.zk_prefix)
-            self._ad.start()
         else:
             self._ad = None
+            if self._args.partitions != 0:
+                # Assume all partitions are on the 1st redis server
+                # and there is only one redis server
+                redis_ip_port = self._args.redis_uve_list[0].split(':')
+                assert(len(self._args.redis_uve_list) == 1)
+                for part in range(0,self._args.partitions):
+                    pi = PartInfo(ip_address = redis_ip_port[0],
+                                  acq_time = UTCTimestampUsec(),
+                                  instance_id = "0",
+                                  port = int(redis_ip_port[1]))
+                    self.agp[part] = pi
 
         self.disc_publish()
 
-        if not self._args.disc_server_ip:
-            for part in range(0,self._args.partitions):
-                pi = PartInfo(ip_address = self._args.host_ip,
-                              acq_time = UTCTimestampUsec(),
-                              instance_id = "0",
-                              port = self._args.redis_server_port)
-                self.agp[part] = pi
-            self.redis_uve_list = []
-            try:
-                if type(self._args.redis_uve_list) is str:
-                    self._args.redis_uve_list = self._args.redis_uve_list.split()
-                for redis_uve in self._args.redis_uve_list:
-                    redis_ip_port = redis_uve.split(':')
-                    redis_elem = (redis_ip_port[0], int(redis_ip_port[1]),0)
-                    self.redis_uve_list.append(redis_elem)
-            except Exception as e:
-                self._logger.error('Failed to parse redis_uve_list: %s' % e)
-            else:
-                self._state_server.update_redis_list(self.redis_uve_list)
-                self._uve_server.update_redis_uve_list(self.redis_uve_list)
-            ConnectionState.update(conn_type = ConnectionType.UVEPARTITIONS,
-                name = 'UVE-Aggregation', status = ConnectionStatus.UP,
-                message = 'Partitions:%d' % self._args.partitions)
-            self._uvepartitions_state = ConnectionStatus.UP
+
+        self._uve_server = UVEServer(self.redis_uve_list,
+                                 self._logger,
+                                 self._args.redis_password,
+                                 self._uvedbstream, self._usecache)
+        self._state_server.update_redis_list(self.redis_uve_list)
 
         self._analytics_links = ['uves', 'uve-types', 'tables',
             'queries', 'alarms', 'uve-stream', 'alarm-stream']
@@ -784,7 +771,6 @@ class OpServer(object):
     def _parse_args(self, args_str=' '.join(sys.argv[1:])):
         '''
         Eg. python opserver.py --host_ip 127.0.0.1
-                               --redis_server_port 6379
                                --redis_query_port 6379
                                --redis_password
                                --collectors 127.0.0.1:8086
@@ -803,6 +789,7 @@ class OpServer(object):
                                --zk_list 127.0.0.1:2181
                                --redis_uve_list 127.0.0.1:6379
                                --auto_db_purge
+                               --zk_list 127.0.0.1:2181
         '''
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
@@ -826,7 +813,6 @@ class OpServer(object):
             'use_syslog'         : False,
             'syslog_facility'    : Sandesh._DEFAULT_SYSLOG_FACILITY,
             'dup'                : False,
-            'redis_uve_list'     : ['127.0.0.1:6379'],
             'auto_db_purge'      : True,
             'db_purge_threshold' : 70,
             'db_purge_level'     : 40,
@@ -848,9 +834,9 @@ class OpServer(object):
             'api_server_use_ssl': False,
         }
         redis_opts = {
-            'redis_server_port'  : 6379,
             'redis_query_port'   : 6379,
             'redis_password'       : None,
+            'redis_uve_list'     : ['127.0.0.1:6379'],
         }
         disc_opts = {
             'disc_server_ip'     : None,
@@ -1674,6 +1660,7 @@ class OpServer(object):
 
         stats = AnalyticsApiStatistics(self._sandesh, table)
 
+      
         uve_name = uve_tbl + ':' + name
         if name.find('*') != -1:
             flat = True
@@ -2342,10 +2329,7 @@ class OpServer(object):
         if ((column == MODULE) or (column == SOURCE)):
             sources = []
             moduleids = []
-            if self.disc:
-                ulist = self._uve_server._redis_uve_map
-            else:
-                ulist = self.redis_uve_list
+            ulist = self.redis_uve_list
             
             for redis_uve in ulist:
                 redish = redis.StrictRedis(
@@ -2429,23 +2413,6 @@ class OpServer(object):
             sys.exit()
     # end start_webserver
 
-    def disc_cb(self, clist):
-        '''
-        Analytics node may be brought up/down any time. For UVE aggregation,
-        Opserver needs to know the list of all Analytics nodes (redis-uves).
-        Periodically poll the Collector list [in lieu of 
-        redi-uve nodes] from the discovery. 
-        '''
-        newlist = []
-        for elem in clist:
-            ipaddr = elem["ip-address"]
-            cpid = 0
-            if "pid" in elem:
-                cpid = int(elem["pid"])
-            newlist.append((ipaddr, self._args.redis_server_port, cpid))
-        self._uve_server.update_redis_uve_list(newlist)
-        self._state_server.update_redis_list(newlist)
-
     def disc_agp(self, clist):
         new_agp = {}
         for elem in clist:
@@ -2489,18 +2456,8 @@ class OpServer(object):
             gevent.spawn(self.start_uve_server),
             ]
 
-        if self.disc:
-            sp = ServicePoller(self._logger, CollectorTrace, self.disc,\
-                               COLLECTOR_DISCOVERY_SERVICE_NAME, \
-                               self.disc_cb, self._sandesh)
-            sp.start()
-            self.gevs.append(sp)
-
-            sp2 = ServicePoller(self._logger, CollectorTrace, \
-                                self.disc, ALARM_GENERATOR_SERVICE_NAME, \
-                                self.disc_agp, self._sandesh)
-            sp2.start()
-            self.gevs.append(sp2)
+        if self._ad is not None:
+            self._ad.start()
 
         if self._vnc_api_client:
             self.gevs.append(gevent.spawn(self._vnc_api_client.connect))
@@ -2523,6 +2480,8 @@ class OpServer(object):
         self._sandesh._client._connection.set_admin_state(down=True)
         self._sandesh.uninit()
         self.stop_webserver()
+        if self._ad is not None:
+            self._ad.kill()
         l = len(self.gevs)
         for idx in range(0,l):
             self._logger.error('killing %d of %d' % (idx+1, l))

@@ -65,7 +65,6 @@ class CfgParser(object):
             'kombu_ssl_keyfile': '',
             'kombu_ssl_certfile': '',
             'kombu_ssl_ca_certs': '',
-            'redis_uve_list'    : ['127.0.0.1:6379'],
             'alarmgen_list'     : ['127.0.0.1:0'],
             'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
             'kafka_prefix'     :'',
@@ -74,6 +73,7 @@ class CfgParser(object):
         redis_opts = {
             'redis_server_port'  : 6379,
             'redis_password'     : None,
+            'redis_uve_list'    : ['127.0.0.1:6379'],
         }
 
         disc_opts = {
@@ -205,7 +205,7 @@ class CfgParser(object):
             self._args.zk_list= self._args.zk_list.split()
         if type(self._args.redis_uve_list) is str:
             self._args.redis_uve_list = self._args.redis_uve_list.split()
-        if type(self._args.redis_uve_list) is str:
+        if type(self._args.alarmgen_list) is str:
             self._args.alarmgen_list = self._args.alarmgen_list.split()
 
     def _pat(self):

@@ -126,7 +126,8 @@ class Collector(object):
 
     def start(self):
         assert(self._instance == None)
-        self._log_file = '/tmp/vizd.messages.' + str(self._redis_uve.port)
+        self._log_file = '/tmp/vizd.messages.%s.%d' % \
+                (os.getenv('USER', 'None'), self._redis_uve.port)
         subprocess.call(['rm', '-rf', self._log_file])
         if (self.ipfix_port == 0):
             self.ipfix_port = AnalyticsFixture.get_free_udp_port()
@@ -204,13 +205,13 @@ class Collector(object):
 
 class AlarmGen(object):
     def __init__(self, primary_collector, secondary_collector, kafka_port,
-                 analytics_fixture, logger, partitions, is_dup=False):
+                 analytics_fixture, logger, zoo, is_dup=False):
         self.primary_collector = primary_collector
         self.secondary_collector = secondary_collector
         self.analytics_fixture = analytics_fixture
         self.http_port = 0
         self.kafka_port = kafka_port
-        self.partitions = partitions
+        self._zoo = zoo
         self.hostname = socket.gethostname()
         self._instance = None
         self._logger = logger
@@ -241,7 +242,8 @@ class AlarmGen(object):
 
     def start(self):
         assert(self._instance == None)
-        self._log_file = '/tmp/alarmgen.messages.' + str(os.getpid())
+        self._log_file = '/tmp/alarmgen.messages.%s.%d' % \
+                (os.getenv('USER', 'None'), os.getpid())
         subprocess.call(['rm', '-rf', self._log_file])
         args = ['contrail-alarm-gen',
                 '--http_server_port', str(self.http_port),
@@ -262,6 +264,13 @@ class AlarmGen(object):
         if self.redis_password is not None:
             args.append('--redis_password')
             args.append(self.redis_password)
+        part = "0"
+        if self._zoo is not None:
+            part = "4"
+            args.append('--zk_list')
+            args.append('127.0.0.1:'+str(self._zoo))
+        args.append('--partitions')
+        args.append(part)
 
         self._logger.info('Setting up AlarmGen: %s' % ' '.join(args))
         ports, self._instance = \
@@ -269,24 +278,21 @@ class AlarmGen(object):
                          "contrail-alarm-gen", ["http"],
                          args, None, False)
         self.http_port = ports["http"]
-        if self.http_port: 
-            for part in range(0,self.partitions):
-                self.analytics_fixture.set_alarmgen_partition(part,1)
         return self.verify_setup()
     # end start
 
     def verify_setup(self):
         if not self.http_port:
             return False
-        for part in range(0,self.partitions):
-           if not self.analytics_fixture.verify_alarmgen_partition(part,'true'):
-               return False
+        if self._zoo is not None:
+            for part in range(0,4):
+                if not self.analytics_fixture.verify_alarmgen_partition(\
+                        part,'true'):
+                    return False
         return True
 
     def stop(self):
         if self._instance is not None:
-            for part in range(0,self.partitions):
-                self.analytics_fixture.set_alarmgen_partition(part,0)
             rcode = self.analytics_fixture.process_stop(
                 "contrail-alarm-gen:%s" % str(self.http_port),
                 self._instance, self._log_file, is_py=False, del_log=False)
@@ -300,13 +306,13 @@ class AlarmGen(object):
 class OpServer(object):
     def __init__(self, primary_collector, secondary_collector, redis_port,
                  analytics_fixture, logger, admin_user, admin_password,
-                 kafka=False, is_dup=False):
+                 zoo=None, is_dup=False):
         self.primary_collector = primary_collector
         self.secondary_collector = secondary_collector
         self.analytics_fixture = analytics_fixture
         self.http_port = 0
         self.hostname = socket.gethostname()
-        self._kafka = kafka
+        self._zoo = zoo
         self._redis_port = redis_port
         self._instance = None
         self._logger = logger
@@ -338,13 +344,10 @@ class OpServer(object):
 
     def start(self):
         assert(self._instance == None)
-        self._log_file = '/tmp/opserver.messages.' + str(self.admin_port)
-        part = "0"
-        if self._kafka:
-            part = "4"
+        self._log_file = '/tmp/opserver.messages.%s.%d' % \
+                (os.getenv('USER', 'None'), self.admin_port)
         subprocess.call(['rm', '-rf', self._log_file])
         args = ['contrail-analytics-api',
-                '--redis_server_port', str(self._redis_port),
                 '--redis_query_port',
                 str(self.analytics_fixture.redis_uves[0].port),
                 '--cassandra_server_list', '127.0.0.1:' +
@@ -352,11 +355,17 @@ class OpServer(object):
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--log_level', "SYS_INFO",
-                '--partitions', part,
                 '--rest_api_port', str(self.rest_api_port),
                 '--admin_port', str(self.admin_port),
                 '--admin_user', self.admin_user,
                 '--admin_password', self.admin_password]
+        part = "0"
+        if self._zoo is not None:
+            part = "4"
+            args.append('--zk_list')
+            args.append('127.0.0.1:'+str(self._zoo))
+        args.append('--partitions')
+        args.append(part)
         if self.analytics_fixture.redis_uves[0].password:
             args.append('--redis_password')
             args.append(self.analytics_fixture.redis_uves[0].password)
@@ -443,7 +452,8 @@ class QueryEngine(object):
 
     def start(self, analytics_start_time=None):
         assert(self._instance == None)
-        self._log_file = '/tmp/qed.messages.' + str(self.listen_port)
+        self._log_file = '/tmp/qed.messages.%s.%d' % \
+                (os.getenv('USER', 'None'), self.listen_port)
         subprocess.call(['rm', '-rf', self._log_file])
         args = [self.analytics_fixture.builddir + '/query_engine/qedt',
                 '--REDIS.port', str(self.analytics_fixture.redis_uves[0].port),
@@ -610,8 +620,10 @@ class AnalyticsFixture(fixtures.Fixture):
         self.zookeeper = Zookeeper()
         self.zookeeper.start()
 
+        zkport = None
         if self.start_kafka:
-            self.kafka = Kafka(self.zookeeper.port)
+            zkport = self.zookeeper.port
+            self.kafka = Kafka(zkport)
             self.kafka.start()
 
         self.collectors = [Collector(self, self.redis_uves[0], self.logger,
@@ -644,20 +656,17 @@ class AnalyticsFixture(fixtures.Fixture):
                 self.logger.error("Secondary Collector did NOT start")
             secondary_collector = self.collectors[1].get_addr()
 
-        opkafka = False
-        if self.kafka:
-            opkafka = True
         self.opserver = OpServer(primary_collector, secondary_collector, 
                                  self.redis_uves[0].port, 
                                  self, self.logger, self.admin_user,
-                                 self.admin_password, opkafka)
+                                 self.admin_password, zkport)
         if not self.opserver.start():
             self.logger.error("OpServer did NOT start")
         self.opserver_port = self.get_opserver_port()
         
         if self.kafka is not None: 
             self.alarmgen = AlarmGen(primary_collector, secondary_collector,
-                                     self.kafka.port, self, self.logger, 4)
+                                     self.kafka.port, self, self.logger, zkport)
             if not self.alarmgen.start():
                 self.logger.error("AlarmGen did NOT start")
 
@@ -861,6 +870,7 @@ class AnalyticsFixture(fixtures.Fixture):
         # get generator list
         gen_list = vns.uve_query('generators',
             {'cfilt':'ModuleClientState:client_info'})
+        self.logger.info('Anish genlist %s' % str(gen_list))
         try:
             actual_gen_list = [gen['name'] for gen in gen_list]
             self.logger.info('generators: %s' % str(actual_gen_list))

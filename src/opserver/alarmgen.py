@@ -62,7 +62,6 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     AlarmConfigResponse, AlarmgenUVEStats, AlarmgenAlarmStats
 
 from sandesh.discovery.ttypes import CollectorTrace
-from opserver_util import ServicePoller
 from opserver_util import AnalyticsDiscovery
 from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
@@ -871,13 +870,13 @@ class Controller(object):
         self.table = "ObjectCollectorInfo"
         self._hostname = socket.gethostname()
         self._instance_id = self._conf.worker_id()
+        self._disable_cb = False
 
         self.disc = None
         self._libpart_name = self._conf.host_ip() + ":" + self._instance_id
         self._libpart = None
         self._partset = set()
         if self._conf.discovery()['server']:
-            self._max_out_rows = 20
             self.disc = client.DiscoveryClient(
                 self._conf.discovery()['server'],
                 self._conf.discovery()['port'],
@@ -955,24 +954,12 @@ class Controller(object):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus, self.table)
 
-        self._us = UVEServer(None, self._logger, self._conf.redis_password())
-
-        if not self.disc:
-            self._max_out_rows = 2
-            # If there is no discovery service, use fixed redis_uve list
-            redis_uve_list = []
-            try:
-                for redis_uve in self._conf.redis_uve_list():
-                    redis_ip_port = redis_uve.split(':')
-                    redis_elem = (redis_ip_port[0], int(redis_ip_port[1]),0)
-                    redis_uve_list.append(redis_elem)
-            except Exception as e:
-                print('Failed to parse redis_uve_list: %s' % e)
-            else:
-                self._us.update_redis_uve_list(redis_uve_list)
-
-            # If there is no discovery service, use fixed alarmgen list
-            self._libpart = self.start_libpart(self._conf.alarmgen_list())
+        redis_uve_list = []
+        for redis_uve in self._conf.redis_uve_list():
+            redis_ip_port = redis_uve.split(':')
+            redis_elem = (redis_ip_port[0], int(redis_ip_port[1]))
+            redis_uve_list.append(redis_elem)
+        self._us = UVEServer(redis_uve_list, self._logger, self._conf.redis_password())
 
         # Start AnalyticsDiscovery to monitor AlarmGen instances
         if self._conf.zk_list():
@@ -980,12 +967,13 @@ class Controller(object):
                 ','.join(self._conf.zk_list()),
                 ALARM_GENERATOR_SERVICE_NAME,
                 self._hostname + "-" + self._instance_id,
-                # TODO: Use this callback instead of  DiscoveryClient
-                {ALARM_GENERATOR_SERVICE_NAME:None},
+                {ALARM_GENERATOR_SERVICE_NAME:self.disc_cb_ag},
                 self._conf.kafka_prefix())
-
-            self._ad.start()
+            self._max_out_rows = 20
         else:
+            self._max_out_rows = 2
+            # If there is no discovery service, use fixed alarmgen list
+            self._libpart = self.start_libpart(self._conf.alarmgen_list())
             self._ad = None
 
         self._workers = {}
@@ -1363,11 +1351,7 @@ class Controller(object):
                     'redis-port': str(self._conf.redis_server_port()),
                     'partitions': json.dumps(workerset)
                 }
-                if self.disc:
-                    self._logger.error("Disc Publish to %s : %s"
-                                  % (str(self._conf.discovery()), str(data)))
-                    self.disc.publish(ALARM_GENERATOR_SERVICE_NAME, data)
-                if self._ad:
+                if self._ad is not None:
                     self._ad.publish(json.dumps(data))
                 oldworkerset = copy.deepcopy(workerset)
              
@@ -2058,12 +2042,13 @@ class Controller(object):
                     self._logger.error("Unable to stop partitions %s" % \
                             str(parts.intersection(set(self._uveq.keys()))))
             else:
-                self._logger.info("No partition %d" % partno)
+                self._logger.error("Partitions absent in %s" % str(parts))
 
         return status
     
     def handle_PartitionOwnershipReq(self, req):
         self._logger.info("Got PartitionOwnershipReq: %s" % str(req))
+        self._disable_cb = True
         status = self.partition_change(req.partition, req.ownership)
 
         resp = PartitionOwnershipResp()
@@ -2265,29 +2250,15 @@ class Controller(object):
             return SandeshAlarmAckResponseCode.SUCCESS
     # end alarm_ack_callback
 
-    def disc_cb_coll(self, clist):
-        '''
-        Analytics node may be brought up/down any time. For UVE aggregation,
-        alarmgen needs to know the list of all Analytics nodes (redis-uves).
-        Periodically poll the Collector list [in lieu of 
-        redi-uve nodes] from the discovery. 
-        '''
-        self._logger.error("Discovery Collector callback : %s" % str(clist))
-        newlist = []
-        for elem in clist:
-            ipaddr = elem["ip-address"]
-            cpid = 0
-            if "pid" in elem:
-                cpid = int(elem["pid"])
-            newlist.append((ipaddr, self._conf.redis_server_port(), cpid))
-        self._us.update_redis_uve_list(newlist)
-
     def disc_cb_ag(self, alist):
         '''
         Analytics node may be brought up/down any time. For partitioning,
         alarmgen needs to know the list of all Analytics nodes (alarmgens).
         Periodically poll the alarmgen list from the discovery service
         '''
+        if self._disable_cb:
+            self._logger.error("Discovery AG callback IGNORED: %s" % str(alist))
+            return
         self._logger.error("Discovery AG callback : %s" % str(alist))
         newlist = []
         for elem in alist:
@@ -2318,22 +2289,10 @@ class Controller(object):
 
     def run(self):
         self.gevs = [ gevent.spawn(self.run_process_stats),
-                      gevent.spawn(self.run_uve_processing)]
-
-        if self.disc:
-            sp1 = ServicePoller(self._logger, CollectorTrace,
-                                self.disc,
-                                COLLECTOR_DISCOVERY_SERVICE_NAME,
-                                self.disc_cb_coll, self._sandesh)
-
-            sp1.start()
-            self.gevs.append(sp1)
-
-            sp2 = ServicePoller(self._logger, AlarmgenTrace,
-                                self.disc, ALARM_GENERATOR_SERVICE_NAME,
-                                self.disc_cb_ag, self._sandesh)
-            sp2.start()
-            self.gevs.append(sp2)
+                      gevent.spawn(self.run_uve_processing),
+                      gevent.spawn(self._us.run)]
+        if self._ad is not None:
+            self._ad.start()
 
         try:
             gevent.joinall(self.gevs)
@@ -2353,6 +2312,9 @@ class Controller(object):
         self._sandesh.uninit()
         if self._config_handler:
             self._config_handler.stop()
+        if self._ad is not None:
+            self._ad.kill()
+
         l = len(self.gevs)
         for idx in range(0,l):
             self._logger.error('AlarmGen killing %d of %d' % (idx+1, l))
