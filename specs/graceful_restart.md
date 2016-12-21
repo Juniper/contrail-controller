@@ -1,4 +1,4 @@
-#1. Introduction
+#1. [Introduction](https://github.com/Juniper/contrail-controller/blob/master/specs/graceful_restart.md)
 
 In Release 3.2, limited support to Graceful Restart (GR) and Long Lived
 Graceful Restart (LLGR) helper modes to contrail-controller was provided.
