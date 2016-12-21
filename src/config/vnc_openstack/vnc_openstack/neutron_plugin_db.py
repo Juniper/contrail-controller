@@ -17,7 +17,10 @@ from netaddr import IPNetwork, IPSet, IPAddress
 import gevent
 import bottle
 
-from neutron.common import constants
+try:
+    from neutron_lib import constants
+except ImportError:
+    from neutron.common import constants
 
 from cfgm_common import exceptions as vnc_exc
 from vnc_api.vnc_api import *
@@ -129,7 +132,7 @@ class DBInterface(object):
     Q_URL_PREFIX = '/extensions/ct'
 
     def __init__(self, manager, admin_name, admin_password, admin_tenant_name,
-                 api_srvr_ip, api_srvr_port, 
+                 api_srvr_ip, api_srvr_port,
                  api_server_obj=None, user_info=None,
                  contrail_extensions_enabled=True,
                  list_optimization_enabled=False,
