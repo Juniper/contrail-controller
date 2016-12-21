@@ -98,20 +98,25 @@ class AnalyticsDiscovery(gevent.Greenlet):
             if self._conn_state == ConnectionStatus.UP:
                 self._sandesh_connection_info_update(status='DOWN', message='')
 
-    def _zk_datawatch(self, watcher, child, data, stat, event):
+    def _zk_datawatch(self, watcher, child, data, stat, event="unknown"):
         self._logger.error(\
                 "Analytics Discovery %s ChildData : child %s, data %s, event %s" % \
                 (watcher, child, data, event))
-        self._wchildren[watcher][child] = data
+        if data:
+            data_dict = json.loads(data)
+            self._wchildren[watcher][child] = OrderedDict(sorted(data_dict.items()))
+        else:
+            if child in self._wchildren[watcher]:
+                del self._wchildren[watcher][child]
         if self._watchers[watcher]:
-            self._watchers[watcher](self._wchildren[watcher])
+            self._watchers[watcher](sorted(self._wchildren[watcher].values()))
 
     def _zk_watcher(self, watcher, children):
         self._logger.error("Analytics Discovery Children %s" % children)
         self._reconnect = True
 
     def __init__(self, logger, zkservers, svc_name, inst,
-                watchers={}, zpostfix=""):
+                watchers={}, zpostfix="", freq=10):
         gevent.Greenlet.__init__(self)
         self._svc_name = svc_name
         self._inst = inst
@@ -131,6 +136,7 @@ class AnalyticsDiscovery(gevent.Greenlet):
         self._zpostfix = zpostfix
         self._basepath = "/analytics-discovery-" + self._zpostfix
         self._reconnect = None
+        self._freq = freq
 
     def publish(self, pubinfo):
         self._pubinfo = pubinfo
@@ -199,8 +205,6 @@ class AnalyticsDiscovery(gevent.Greenlet):
 
             while True:
                 try:
-                    gevent.sleep(10)
-
                     # If a reconnect happens during processing, don't lose it
                     while self._reconnect:
                         self._reconnect = False
@@ -226,14 +230,20 @@ class AnalyticsDiscovery(gevent.Greenlet):
                                     self._zk.DataWatch(self._basepath + "/" + \
                                             wk + "/" + elem,
                                             partial(self._zk_datawatch, wk, elem))
-                                self._wchildren[wk][elem], _ = \
-                                        self._zk.get(self._basepath + "/" + wk + "/" + elem)
+
+                                data_str, _ = self._zk.get(\
+                                        self._basepath + "/" + wk + "/" + elem)
+                                data_dict = json.loads(data_str)
+                                self._wchildren[wk][elem] = \
+                                        OrderedDict(sorted(data_dict.items()))
+
                                 self._logger.error(\
                                     "Analytics Discovery %s ChildData : child %s, data %s, event %s" % \
                                     (wk, elem, self._wchildren[wk][elem], "GET"))
                             if self._watchers[wk]:
-                                self._watchers[wk](self._wchildren[wk])
+                                self._watchers[wk](sorted(self._wchildren[wk].values()))
 
+                    gevent.sleep(self._freq)
                 except gevent.GreenletExit:
                     self._logger.error("Exiting AnalyticsDiscovery for %s" % \
                             self._svc_name)
@@ -254,43 +264,6 @@ class AnalyticsDiscovery(gevent.Greenlet):
                     (messag, traceback.format_exc(), self._svc_name, str(self._pubinfo)))
             raise SystemExit
 
-
-class ServicePoller(gevent.Greenlet):
-    def __init__(self, logger, trace_cls, disc, svc_name, callbk, snh):
-        gevent.Greenlet.__init__(self)
-        self.disc = disc
-        self.svc_name = svc_name
-        self.logger = logger
-        self.trace_cls = trace_cls
-        self.callbk = callbk
-        self.snh = snh
-
-    def _run(self):
-        old_list = []
-        while True:
-            svc_list = []
-            try:
-                sub_obj = \
-                    self.disc.subscribe(self.svc_name, 0)
-                slist= sub_obj.info 
-            except Exception as ex:
-                self.logger.error('Failed to get svc list %s from ' \
-                                   'discovery server : %s %s' % \
-                    (self.svc_name, str(ex.args), traceback.format_exc()))
-            else:
-                if isinstance(slist,list):
-                    disc_trace = self.trace_cls()
-                    disc_trace.publishers = []
-                    for svc in slist:
-                        selem = OrderedDict(sorted(svc.items()))
-                        svc_list.append(selem)
-                        disc_trace.publishers.append(str(selem))
-                    disc_trace.trace_msg(name='DiscoveryMsg', sandesh = self.snh)
-                    if old_list != sorted(svc_list):
-                        self.callbk(svc_list)
-                    old_list = copy.deepcopy(sorted(svc_list))
-         
-            gevent.sleep(10)
 
 class OpServerUtils(object):
 

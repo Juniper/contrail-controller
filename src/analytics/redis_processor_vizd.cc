@@ -47,7 +47,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     const std::string table_index(is_alarm ? "ALARM_TABLE:" : "TABLE:");
     const std::string origin_index(is_alarm ? "ALARM_ORIGINS:" : "ORIGINS:");
     string ngen_inst = instance_id;
-    if (strcmp(module.c_str(), g_vns_constants.SERVICE_COLLECTOR.c_str())==0) {
+    if (module == g_vns_constants.SERVICE_COLLECTOR) {
         std::ostringstream ngenstr;
         ngenstr << getpid();
         ngen_inst = ngenstr.str();
@@ -86,7 +86,7 @@ RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     const std::string table_index(is_alarm ? "ALARM_TABLE:" : "TABLE:");
     const std::string origin_index(is_alarm ? "ALARM_ORIGINS:" : "ORIGINS:");
     std::string ngen_inst = instance_id;
-    if (strcmp(module.c_str(), g_vns_constants.SERVICE_COLLECTOR.c_str())==0) {
+    if (module == g_vns_constants.SERVICE_COLLECTOR) {
         std::ostringstream ngenstr;
         ngenstr << getpid();
         ngen_inst = ngenstr.str();
@@ -137,7 +137,7 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
         freeReplyObject(reply);
     }
     std::string ngen_inst = instance_id;
-    if (strcmp(module.c_str(), g_vns_constants.SERVICE_COLLECTOR.c_str())==0) {
+    if (module == g_vns_constants.SERVICE_COLLECTOR) {
         std::ostringstream ngenstr;
         ngenstr << getpid();
         ngen_inst = ngenstr.str();
@@ -210,7 +210,7 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
         freeReplyObject(reply);
     }
     string ngen_inst = instance_id;
-    if (strcmp(module.c_str(), g_vns_constants.SERVICE_COLLECTOR.c_str())==0) {
+    if (module == g_vns_constants.SERVICE_COLLECTOR) {
         std::ostringstream ngenstr;
         ngenstr << getpid();
         ngen_inst = ngenstr.str();
