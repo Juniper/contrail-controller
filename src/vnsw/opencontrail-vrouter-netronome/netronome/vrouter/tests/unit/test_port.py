@@ -29,6 +29,7 @@ import uuid
 
 from netronome.vrouter import (database, pci, plug_modes as PM, port, vf)
 from netronome.vrouter.sa.helpers import one_or_none
+from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import _random_pci_address
 from netronome.vrouter.tests.helpers.vf import *
 from netronome.vrouter.tests.randmac import RandMac
@@ -226,11 +227,13 @@ def _create_Port_with_VF(test, session):
 class TestPortDB(unittest.TestCase):
     def test_create_metadata(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
 
     def test_Port_db(self):
         """Basic test that Port objects can be stored in databases."""
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -254,6 +257,7 @@ class TestPortDB(unittest.TestCase):
 
     def test_Port_VF_interaction(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -350,6 +354,7 @@ class TestPortDB(unittest.TestCase):
     def test_create_standalone_PlugMode(self):
         # test that we can create a PlugMode for a port that doesn't exist yet.
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -384,6 +389,7 @@ class TestPortDB(unittest.TestCase):
 
     def test_Port_PlugMode_interaction(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -484,6 +490,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
             vfset.add(_random_pci_address())
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -627,6 +634,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
         p = vf.Pool(fake_FallbackMap(VFSET1))
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -648,6 +656,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
         p = vf.Pool(fake_FallbackMap(VFSET1))
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -735,6 +744,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
         p = vf.Pool(fake_FallbackMap(VFSET1))
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -823,6 +833,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
             self.assertEqual(lmc.count, {})
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -877,6 +888,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
             self.assertEqual(lmc.count, {})
 
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -932,6 +944,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
 
     def test_vf_identity(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -959,6 +972,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
 
     def test_vf_log_fuzzer(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
 
@@ -1009,6 +1023,7 @@ class Test_VRT_604_gc(unittest.TestCase):
 
     def test_Port_PlugMode_gc(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1055,6 +1070,7 @@ class Test_VRT_604_gc(unittest.TestCase):
 
     def test_Port_gc(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1097,6 +1113,7 @@ class Test_VRT_604_gc(unittest.TestCase):
 
     def test_VF_PlugMode_gc(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
@@ -1143,6 +1160,7 @@ class Test_VRT_604_gc(unittest.TestCase):
 
     def test_PlugMode_gc(self):
         engine = database.create_engine('tmp')[0]
+        set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
