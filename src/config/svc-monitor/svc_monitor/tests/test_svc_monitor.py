@@ -769,21 +769,21 @@ class SvcMonitorTest(unittest.TestCase):
         self.assertEqual(driver_vip['pool_id'], config_vip.loadbalancer_pool)
     #end
 
-    def object_db_vn_read(self, obj_type, uuids):
+    def object_db_vn_read(self, obj_type, uuids, **kwargs):
         obj = {}
         obj['uuid'] = uuids[0]
         obj['fq_name'] = ['fake-domain', 'fake-project', uuids[0]]
         obj['parent_type'] = 'project'
         return True, [obj]
 
-    def object_db_vmi_read(self, obj_type, uuids):
+    def object_db_vmi_read(self, obj_type, uuids, **kwargs):
         obj = {}
         obj['uuid'] = 'left-vmi'
         obj['fq_name'] = ['fake-domain', 'fake-project',
                           'fake-domain__fake-project__fake-instance__1__left__0']
         return True, [obj]
 
-    def db_read(self, obj_type, uuids):
+    def db_read(self, obj_type, uuids, **kwargs):
         if obj_type == 'domain':
             obj = {}
             obj['fq_name'] = 'default-domain'
@@ -845,7 +845,7 @@ class SvcMonitorTest(unittest.TestCase):
         ServiceMonitorLogger.error.assert_not_called()
 
     def test_svc_monitor_sas(self):
-        def db_read(obj_type, uuids):
+        def db_read(obj_type, uuids, **kwargs):
             return (True, [self._return_obj[obj_type]])
         config_db.DBBaseSM._object_db.reset()
         config_db.DBBaseSM._object_db.object_read = db_read
@@ -870,7 +870,7 @@ class SvcMonitorTest(unittest.TestCase):
         self.assertEqual(len(config_db.ServiceApplianceSetSM._dict), 0)
 
     def test_svc_monitor_pool_add(self):
-        def db_read(obj_type, uuids):
+        def db_read(obj_type, uuids, **kwargs):
             return (True, [self._return_obj[obj_type]])
 
         proj_obj = self.add_project('fakeproject', 'fakeproject')
@@ -928,7 +928,7 @@ class SvcMonitorTest(unittest.TestCase):
 
 
     def test_svc_monitor_pool_update(self):
-        def db_read(obj_type, uuids):
+        def db_read(obj_type, uuids, **kwargs):
             return (True, [self._return_obj[obj_type]])
 
         proj_obj = self.add_project('fakeproject', 'fakeproject')
@@ -1191,7 +1191,7 @@ class SvcMonitorTest(unittest.TestCase):
         ServiceMonitorLogger.info.assert_any_call(test_utils.AnyStringWith('Deleting vn'))
 
     def test_svc_monitor_restart_vm_create(self):
-        def db_read(obj_type, uuids):
+        def db_read(obj_type, uuids, **kwargs):
             obj = {}
             obj['uuid'] = uuids[0]
             if obj_type == 'service_template':
