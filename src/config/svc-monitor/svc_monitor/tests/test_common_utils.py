@@ -275,7 +275,7 @@ def test_get_instance_name(si, inst_count):
     instance_name = "__".join(si.fq_name[:-1] + [name])
     return instance_name
 
-def vm_db_read(obj_type, vm_id):
+def vm_db_read(obj_type, vm_id, **kwargs):
     class SI(object):
         def __init__(self, name, fq_name):
             self.name = name
@@ -291,13 +291,13 @@ def vm_db_read(obj_type, vm_id):
     vm_obj['display_name'] = instance_name + '__' + 'vrouter-instance'
     return True, [vm_obj]
 
-def vr_db_read(obj_type, vr_id):
+def vr_db_read(obj_type, vr_id, **kwargs):
     vr_obj = {}
     vr_obj['uuid'] = 'fake-vr-uuid'
     vr_obj['fq_name'] = ['fake-vr-uuid']
     return True, [vr_obj]
 
-def vmi_db_read(obj_type, vmi_id):
+def vmi_db_read(obj_type, vmi_id, **kwargs):
     vmi_obj = {}
     vmi_obj['uuid'] = vmi_id
     vmi_obj['fq_name'] = ['fake-vmi-uuid']
@@ -305,13 +305,13 @@ def vmi_db_read(obj_type, vmi_id):
     vmi_obj['parent_uuid'] = 'fake-project'
     return True, [vmi_obj]
 
-def iip_db_read(obj_type, iip_id):
+def iip_db_read(obj_type, iip_id, **kwargs):
     iip_obj = {}
     iip_obj['uuid'] = iip_id
     iip_obj['fq_name'] = ['fake-iip-uuid']
     return True, [iip_obj]
 
-def si_db_read(obj_type, si_id):
+def si_db_read(obj_type, si_id, **kwargs):
     name = si_id[0]
     si = ServiceInstanceSM.get(name)
     si_obj = {}
@@ -328,13 +328,13 @@ def si_db_read(obj_type, si_id):
     si_obj['parent_type'] = 'project'
     return True, [si_obj]
 
-def vn_db_read(obj_type, vn_id):
+def vn_db_read(obj_type, vn_id, **kwargs):
     vn_obj = {}
     vn_obj['uuid'] = 'fake-vn-uuid'
     vn_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-vn-uuid']
     return True, [vn_obj]
 
-def irt_db_read(obj_type, irt_id):
+def irt_db_read(obj_type, irt_id, **kwargs):
     irt_obj = {}
     irt_obj['uuid'] = 'fake-irt-uuid'
     irt_obj['fq_name'] = ['fake-domain', 'fake-project', 'fake-irt-uuid']

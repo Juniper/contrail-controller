@@ -195,7 +195,7 @@ class SnatAgentTest(unittest.TestCase):
         rt_obj.parent_type = 'project'
         self.vnc_lib.route_table_read = mock.Mock(return_value=rt_obj)
 
-        def db_read_side_effect(obj_type, uuids):
+        def db_read_side_effect(obj_type, uuids, **kwargs):
             if obj_type != 'virtual_network' and obj_type != 'route_table':
                 return (False, None)
 
@@ -263,7 +263,7 @@ class SnatAgentTest(unittest.TestCase):
 
         # will return the private virtual network, and will return
         # an error when trying to read the service snat VN
-        def db_read_side_effect(obj_type, uuids):
+        def db_read_side_effect(obj_type, uuids, **kwargs):
             if obj_type != 'virtual_network':
                 return (False, None)
             if 'private1-uuid' in uuids:
@@ -374,7 +374,7 @@ class SnatAgentTest(unittest.TestCase):
         rt_dict = self.obj_to_dict(rt_obj)
         rt_dict['logical_router_back_refs'] = [{'uuid': '8e9b4859-d4c2-4ed5-9468-4809b1a926f3'}]
 
-        def db_read_side_effect(obj_type, uuids):
+        def db_read_side_effect(obj_type, uuids, **kwargs):
             if obj_type == 'route_table':
                 return (True, [rt_dict])
             if 'private1-uuid' in uuids:
@@ -436,7 +436,7 @@ class SnatAgentTest(unittest.TestCase):
         rt_obj = self.vnc_lib.route_table_create.mock_calls[0][1][0]
         rt_dict = self.obj_to_dict(rt_obj)
 
-        def db_read_side_effect(obj_type, uuids):
+        def db_read_side_effect(obj_type, uuids, **kwargs):
             if obj_type == 'route_table':
                 return (True, [rt_dict])
             if 'private2-uuid' in uuids:
@@ -524,7 +524,7 @@ class SnatAgentTest(unittest.TestCase):
         # reads from database.
         #
         # Return failure/false for all other reads.
-        def db_read_side_effect(obj_type, uuids):
+        def db_read_side_effect(obj_type, uuids, **kwargs):
             if obj_type != 'virtual_network':
                 return (False, None)
             if 'private1-uuid' in uuids:
