@@ -103,7 +103,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
     EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
     EXPECT_EQ(options_.rndc_config_file(), "contrail-rndc.conf");
-    EXPECT_EQ(options_.rndc_secret(), "secret==$");
+    EXPECT_EQ(options_.rndc_secret(), "xvysmOR8lnUQRBcunkC6vg==");
     EXPECT_EQ(options_.named_max_cache_size(), "25K");
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
