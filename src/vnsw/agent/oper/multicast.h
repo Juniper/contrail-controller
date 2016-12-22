@@ -304,6 +304,15 @@ public:
     void HandleVxLanChange(const VnEntry *vn);
     void HandleVnParametersChange(DBTablePartBase *partition,
                                   DBEntryBase *e);
+    void CreateMulticastParameters(DBTablePartBase *partition,
+                                   DBEntryBase *e,
+                                   MulticastDBState *state,
+                                   MulticastGroupObject *all_broadcast,
+                                   uint32_t vn_vxlan_id);
+    void DeleteMulticastParameters(DBTablePartBase *partition,
+                                   DBEntryBase *e,
+                                   MulticastDBState *state,
+                                   uint32_t old_vxlan_id);
     //For test routines to clear all routes and mpls label
     void Shutdown();
     //Multicast obj list addition deletion

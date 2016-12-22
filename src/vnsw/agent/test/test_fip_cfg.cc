@@ -95,6 +95,16 @@ TEST_F(CfgTest, FloatingIp_1) {
         {"vnet2", 2, "2.2.2.2", "00:00:00:01:01:01", 2, 2},
     };
 
+    IpamInfo ipam_info1[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+    IpamInfo ipam_info2[] = {
+        {"2.2.2.0", 24, "2.2.2.200"},
+    };
+
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
     client->WaitForIdle();
     client->Reset();
     AddVm("vm1", 1);
@@ -136,12 +146,14 @@ TEST_F(CfgTest, FloatingIp_1) {
             "routing-instance", "vrf1");
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
         "virtual-machine-interface", "vnet1");
+    AddIPAM("vn1", ipam_info1, 1);
 
     AddVmPortVrf("vmvrf2", "", 0);
     AddLink("virtual-machine-interface-routing-instance", "vmvrf2",
             "routing-instance", "default-project:vn2:vn2");
     AddLink("virtual-machine-interface-routing-instance", "vmvrf2",
         "virtual-machine-interface", "vnet2");
+    AddIPAM("default-project:vn2", ipam_info2, 1);
     client->WaitForIdle();
     // Create floating-ip on default-project:vn2
     client->Reset();
@@ -280,6 +292,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_FALSE(VnFind(1));
     EXPECT_FALSE(VnFind(2));
     EXPECT_FALSE(VmFind(1));
+    DeleteBgpPeer(bgp_peer_);
 }
 
 TEST_F(CfgTest, FloatingIpDefaultVrf) {
@@ -287,7 +300,14 @@ TEST_F(CfgTest, FloatingIpDefaultVrf) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
     CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     AddVn("default-project:vn2", 2);
@@ -361,6 +381,10 @@ TEST_F(FipCfg, FloatingIp_CfgOrder_1) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
     IntfCfgAdd(input, 0);
     client->WaitForIdle();
 
@@ -370,6 +394,7 @@ TEST_F(FipCfg, FloatingIp_CfgOrder_1) {
     AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
     AddLink("virtual-machine-interface", input[0].name,
             "instance-ip", "instance0");
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
@@ -405,12 +430,17 @@ TEST_F(FipCfg, FloatingIp_CfgOrder_2) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
     AddPort(input[0].name, input[0].intf_id);
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
     AddLink("virtual-machine-interface", input[0].name,
             "instance-ip", "instance0");
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
@@ -450,6 +480,10 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_3) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
     AddFloatingIpPool("fip-pool2", 1);
     AddPort(input[0].name, input[0].intf_id);
     AddFloatingIp("fip2", 2, "2.2.2.100");
@@ -460,6 +494,7 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_3) {
     AddVrf("vrf1");
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip2");
+    AddIPAM("vn1", ipam_info, 1);
     AddVrf("default-project:vn2:vn2");
     AddVn("default-project:vn2", 2);
     AddLink("floating-ip-pool", "fip-pool2", "virtual-network", "default-project:vn2");
@@ -524,6 +559,10 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_4) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
     IntfCfgAdd(input, 0);
     AddFloatingIpPool("fip-pool2", 1);
     AddPort(input[0].name, input[0].intf_id);
@@ -535,6 +574,7 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_4) {
     AddVrf("vrf1");
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip2");
+    AddIPAM("vn1", ipam_info, 1);
     AddVrf("default-project:vn2:vn2");
     AddVn("default-project:vn2", 2);
     // Add vm-port interface to vrf link
@@ -603,12 +643,17 @@ TEST_F(FipCfg, FloatingIp_Add_1) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
     AddPort(input[0].name, input[0].intf_id);
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
     AddLink("virtual-machine-interface", input[0].name,
             "instance-ip", "instance0");
+    AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
 
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");

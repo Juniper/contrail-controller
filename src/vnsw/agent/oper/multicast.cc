@@ -129,6 +129,85 @@ void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
     }
 }
 
+void MulticastHandler::CreateMulticastParameters(DBTablePartBase *partition,
+                                            DBEntryBase *e,
+                                            MulticastDBState *state,
+                                            MulticastGroupObject *all_broadcast,
+                                            uint32_t vn_vxlan_id) {
+    VnEntry *vn = static_cast<VnEntry *>(e);
+    boost::system::error_code ec;
+    Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
+                                                   ec).to_v4();
+
+    if (!state) {
+        state = new MulticastDBState(vn->GetVrf()->GetName(),
+                                     vn_vxlan_id);
+        vn->SetState(partition->parent(),
+                     vn_listener_id_,
+                     state);
+
+        //Also create multicast object
+        if (all_broadcast == NULL) {
+            all_broadcast = CreateMulticastGroupObject(state->vrf_name_, broadcast,
+                                                       vn, state->vxlan_id_);
+        }
+        all_broadcast->set_vn(vn);
+    } else {
+        if (state->vxlan_id_ != vn_vxlan_id) {
+            state->vxlan_id_ = vn_vxlan_id;
+            if (all_broadcast) {
+                all_broadcast->set_vxlan_id(state->vxlan_id_);
+            }
+        }
+    }
+
+    ComponentNHKeyList component_nh_key_list;
+    AgentRouteData *data =
+        BridgeAgentRouteTable::BuildNonBgpPeerData(state->vrf_name_,
+                                                   vn->GetName(),
+                                                   0,
+                                                   state->vxlan_id_,
+                                                   TunnelType::VxlanType(),
+                                                   Composite::L2COMP,
+                                                   component_nh_key_list,
+                                                   all_broadcast->pbb_vrf(),
+                                                   all_broadcast->
+                                                   learning_enabled());
+    BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_peer(),
+                                                   state->vrf_name_,
+                                                   state->vxlan_id_,
+                                                   data);
+    AddL2BroadcastRoute(all_broadcast, state->vrf_name_, vn->GetName(),
+                        broadcast, MplsTable::kInvalidLabel,
+                        state->vxlan_id_, 0);
+}
+
+void MulticastHandler::DeleteMulticastParameters(DBTablePartBase *partition,
+                                            DBEntryBase *e,
+                                            MulticastDBState *state,
+                                            uint32_t old_vxlan_id) {
+    VnEntry *vn = static_cast<VnEntry *>(e);
+    boost::system::error_code ec;
+    Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
+                                                   ec).to_v4();
+    if (!state)
+        return;
+
+    MulticastGroupObject *all_broadcast =
+        FindFloodGroupObject(state->vrf_name_);
+    if (all_broadcast) {
+        all_broadcast->reset_vn();
+    }
+
+    DeleteMulticastObject(state->vrf_name_, broadcast);
+    BridgeAgentRouteTable::DeleteBroadcastReq(agent_->local_peer(),
+            state->vrf_name_,
+            old_vxlan_id,
+            Composite::L2COMP);
+    vn->ClearState(partition->parent(), vn_listener_id_);
+    delete state;
+}
+
 void MulticastHandler::HandleVnParametersChange(DBTablePartBase *partition,
                                              DBEntryBase *e) {
     VnEntry *vn = static_cast<VnEntry *>(e);
@@ -145,76 +224,32 @@ void MulticastHandler::HandleVnParametersChange(DBTablePartBase *partition,
     //Extract old parameters from state
     uint32_t old_vxlan_id = state ? state->vxlan_id_ : 0;
 
-    boost::system::error_code ec;
-    Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
-                                                   ec).to_v4();
     //Add operation
     if (!deleted) {
         MulticastGroupObject *all_broadcast =
             FindFloodGroupObject(vn->GetVrf()->GetName());
 
         if (!state) {
-            state = new MulticastDBState(vn->GetVrf()->GetName(),
-                                         vn_vxlan_id);
-            vn->SetState(partition->parent(),
-                         vn_listener_id_,
-                         state);
-            //Also create multicast object
-            if (all_broadcast == NULL) {
-                all_broadcast = CreateMulticastGroupObject(state->vrf_name_, broadcast,
-                                                           vn, state->vxlan_id_);
-            }
-            all_broadcast->set_vn(vn);
+            CreateMulticastParameters(partition, e, state,
+                                      all_broadcast, vn_vxlan_id);
         } else {
-            if (old_vxlan_id != vn_vxlan_id) {
-                state->vxlan_id_ = vn_vxlan_id;
-                if (all_broadcast) {
-                    all_broadcast->set_vxlan_id(state->vxlan_id_);
-                }
+            // If  MulticastGroupObject is NULL and the 
+            // MulticastDBState is valid then there is a change in VN's VRF
+            if (all_broadcast == NULL) {
+                DeleteMulticastParameters(partition, e, state,
+                                          old_vxlan_id);
+                state=NULL;
             }
+            CreateMulticastParameters(partition, e, state,
+                                      all_broadcast, vn_vxlan_id);
+
         }
-        ComponentNHKeyList component_nh_key_list;
-        AgentRouteData *data =
-            BridgeAgentRouteTable::BuildNonBgpPeerData(state->vrf_name_,
-                                                       vn->GetName(),
-                                                       0,
-                                                       state->vxlan_id_,
-                                                       TunnelType::VxlanType(),
-                                                       Composite::L2COMP,
-                                                       component_nh_key_list,
-                                                       all_broadcast->pbb_vrf(),
-                                                       all_broadcast->
-                                                       learning_enabled());
-        BridgeAgentRouteTable::AddBridgeBroadcastRoute(agent_->local_peer(),
-                                                       state->vrf_name_,
-                                                       state->vxlan_id_,
-                                                       data);
-        Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
-                                                       ec).to_v4();
-        AddL2BroadcastRoute(all_broadcast, state->vrf_name_, vn->GetName(),
-                            broadcast, MplsTable::kInvalidLabel,
-                            state->vxlan_id_, 0);
     }
 
     //Delete or withdraw old vxlan id
     if (deleted) {
-        if (!state)
-            return;
-
-        MulticastGroupObject *all_broadcast =
-            FindFloodGroupObject(state->vrf_name_);
-        if (all_broadcast) {
-            all_broadcast->reset_vn();
-        }
-
-        DeleteMulticastObject(state->vrf_name_, broadcast);
-        BridgeAgentRouteTable::DeleteBroadcastReq(agent_->local_peer(),
-                                                  state->vrf_name_,
-                                                  old_vxlan_id,
-                                                  Composite::L2COMP);
-
-        vn->ClearState(partition->parent(), vn_listener_id_);
-        delete state;
+        DeleteMulticastParameters(partition, e, state,
+                                  old_vxlan_id);
     }
 }
 
