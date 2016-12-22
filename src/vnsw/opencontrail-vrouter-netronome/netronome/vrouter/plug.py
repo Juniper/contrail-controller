@@ -29,9 +29,9 @@ import stat
 import sys
 import time
 import urlparse
-import zmq
 
 try:
+    import zmq
     import netronome.virtiorelayd.virtiorelayd_pb2 as relay
 except ImportError:
     relay = None
@@ -1223,6 +1223,10 @@ class _SetupVirtIO(_Step):
         return _StepStatus.OK
 
     def forward_action(self, session, port, journal):
+        # Do a second (unconditional) import of virtiorelayd_pb2 here to make
+        # the error messages clearer if it is not installed. (VRT-747)
+        import netronome.virtiorelayd.virtiorelayd_pb2 as relay
+
         vf_addr = port.vf.addr
         return _Action(
             lambda: self._send_request(vf_addr, relay.PortControlRequest.ADD),
@@ -1230,6 +1234,10 @@ class _SetupVirtIO(_Step):
         )
 
     def reverse_action(self, session, port, journal):
+        # Do a second (unconditional) import of virtiorelayd_pb2 here to make
+        # the error messages clearer if it is not installed. (VRT-747)
+        import netronome.virtiorelayd.virtiorelayd_pb2 as relay
+
         vf_addr = port.vf.addr
         return _Action(
             lambda: self._send_request(
