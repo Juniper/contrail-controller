@@ -65,12 +65,14 @@ def _access_control_list_update(acl_obj, name, obj, entries):
                 pass
             return None
 
+        entries_hash = hash(entries)
         # if entries did not change, just return the object
-        if acl_obj.get_access_control_list_entries() == entries:
+        if acl_obj.get_access_control_list_hash() == entries_hash:
             return acl_obj
 
         # Set new value of entries on the ACL
         acl_obj.set_access_control_list_entries(entries)
+        acl_obj.set_access_control_list_hash(entries_hash)
         try:
             DBBaseST._vnc_lib.access_control_list_update(acl_obj)
         except HttpError as he:
@@ -250,7 +252,8 @@ class VirtualNetworkST(DBBaseST):
                 acl_obj = acl_dict[acl['uuid']]
             else:
                 acl_obj = self.read_vnc_obj(acl['uuid'],
-                                            obj_type='access_control_list')
+                                            obj_type='access_control_list',
+                                            fields=['access_control_list_hash'])
             if acl_obj.name == self.obj.name:
                 self.acl = acl_obj
             elif acl_obj.name == 'dynamic':
