@@ -69,7 +69,7 @@ class LoadbalancerAgentTest(unittest.TestCase):
         self._args, remaining_argv = conf_parser.parse_known_args()
         self._args.config_sections = config
 
-        def sas_read_side_effect(obj_type, uuids):
+        def sas_read_side_effect(obj_type, uuids, **kwargs):
             if obj_type == 'service_appliance_set':
                 return (True, [{
                    'fq_name': ['default-global-system-config', 'opencontrail'],

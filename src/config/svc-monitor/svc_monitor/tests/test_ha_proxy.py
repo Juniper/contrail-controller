@@ -30,7 +30,7 @@ class HAProxyTest(unittest.TestCase):
             mock.Mock(side_effect=no_id_side_effect)
 
         self._store_si = {}
-        def read_si(obj_type, uuid):
+        def read_si(obj_type, uuid, **kwargs):
             return (True, [self.obj_to_dict(self._store_si[uuid[0]])])
 
         def store_si_create(obj):
@@ -50,7 +50,7 @@ class HAProxyTest(unittest.TestCase):
             mock.Mock(side_effect=update_si_side_effect)
 
         self._db = {}
-        def read_db(id):
+        def read_db(id, **kwargs):
             if id in self._db:
                 return self._db[id]
 
@@ -92,7 +92,7 @@ class HAProxyTest(unittest.TestCase):
         self._args, remaining_argv = conf_parser.parse_known_args()
         self._args.config_sections = config
 
-        def sas_read_side_effect(obj_type, uuids):
+        def sas_read_side_effect(obj_type, uuids, **kwargs):
             if obj_type == 'service_appliance_set':
                 return (True, [{
                  'fq_name': ['default-global-system-config', 'opencontrail'],

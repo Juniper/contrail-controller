@@ -263,8 +263,9 @@ class DBBase(object):
     # end update_multiple_refs
 
     @classmethod
-    def read_obj(cls, uuid, obj_type=None):
-        ok, objs = cls._cassandra.object_read(obj_type or cls.obj_type, [uuid])
+    def read_obj(cls, uuid, obj_type=None, fields=None):
+        ok, objs = cls._cassandra.object_read(obj_type or cls.obj_type, [uuid],
+                                              field_names=fields)
         if not ok:
             cls._logger.error(
                 'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
@@ -278,7 +279,7 @@ class DBBase(object):
         return cls.from_dict(**obj_dict)
 
     @classmethod
-    def read_vnc_obj(cls, uuid=None, fq_name=None, obj_type=None):
+    def read_vnc_obj(cls, uuid=None, fq_name=None, obj_type=None, fields=None):
         if uuid is None and fq_name is None:
             raise NoIdError('')
         obj_type = obj_type or cls.obj_type
@@ -286,29 +287,30 @@ class DBBase(object):
             if isinstance(fq_name, basestring):
                 fq_name = fq_name.split(':')
             uuid = cls._cassandra.fq_name_to_uuid(obj_type, fq_name)
-        obj_dict = cls.read_obj(uuid, obj_type)
+        obj_dict = cls.read_obj(uuid, obj_type, fields)
         obj = cls.vnc_obj_from_dict(obj_type, obj_dict)
         obj.clear_pending_updates()
         return obj
     # end read_vnc_obj
 
     @classmethod
-    def list_obj(cls, obj_type=None):
+    def list_obj(cls, obj_type=None, fields=None):
         obj_type = obj_type or cls.obj_type
         ok, result = cls._cassandra.object_list(obj_type)
         if not ok:
             return []
         uuids = [uuid for _, uuid in result]
-        ok, objs = cls._cassandra.object_read(obj_type, uuids)
+        ok, objs = cls._cassandra.object_read(obj_type, uuids,
+                                              field_names=fields)
         if not ok:
             return []
         return objs
 
     @classmethod
-    def list_vnc_obj(cls, obj_type=None):
+    def list_vnc_obj(cls, obj_type=None, fields=None):
         obj_type = obj_type or cls.obj_type
         vnc_cls = obj_type_to_vnc_class(obj_type, __name__)
-        obj_dicts = cls.list_obj(obj_type)
+        obj_dicts = cls.list_obj(obj_type, fields)
         for obj_dict in obj_dicts:
             obj = vnc_cls.from_dict(**obj_dict)
             obj.clear_pending_updates()

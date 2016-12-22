@@ -174,7 +174,7 @@ DBBase._OBJ_TYPE_MAP = {
 
 
 class DepTrackTester(unittest.TestCase):
-    def green_read(self, obj_type, uuid):
+    def green_read(self, obj_type, uuid, **kwargs):
         green_obj = {}
         green_obj['uuid'] = uuid[0]
         green_obj['fq_name'] = ['fake-green-' + uuid[0]]
@@ -183,7 +183,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [green_obj]
     # end green_read
 
-    def white_read(self, obj_type, uuid):
+    def white_read(self, obj_type, uuid, **kwargs):
         white_obj = {}
         white_obj['uuid'] = uuid[0]
         white_obj['fq_name'] = ['fake-white-' + uuid[0]]
@@ -192,7 +192,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [white_obj]
     # end white_read
 
-    def purple_read(self, obj_type, uuid):
+    def purple_read(self, obj_type, uuid, **kwargs):
         purple_obj = {}
         purple_obj['uuid'] = uuid[0]
         purple_obj['fq_name'] = ['fake-purple-' + uuid[0]]
@@ -201,7 +201,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [purple_obj]
     # end purple_read
 
-    def green_read_with_refs(self, obj_type, uuid):
+    def green_read_with_refs(self, obj_type, uuid, **kwargs):
         green_obj = {}
         green_obj['uuid'] = 'fake-green-uuid'
         green_obj['fq_name'] = ['fake-green-uuid']
@@ -211,7 +211,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [green_obj]
     # end green_read_with_refs
 
-    def green_read_with_update_refs(self, obj_type, uuid):
+    def green_read_with_update_refs(self, obj_type, uuid, **kwargs):
         green_obj = {}
         green_obj['uuid'] = 'fake-green-uuid'
         green_obj['fq_name'] = ['fake-green-uuid']
@@ -221,7 +221,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [green_obj]
     # end green_read_with_update_refs
 
-    def white_read_with_refs(self, obj_type, uuid):
+    def white_read_with_refs(self, obj_type, uuid, **kwargs):
         white_obj = {}
         white_obj['uuid'] = 'fake-white-uuid'
         white_obj['fq_name'] = ['fake-white-uuid']
@@ -232,14 +232,14 @@ class DepTrackTester(unittest.TestCase):
     # end white_read_with_refs
 
 
-    def red_read(self, obj_type, uuid):
+    def red_read(self, obj_type, uuid, **kwargs):
         red_obj = {}
         red_obj['uuid'] = 'fake-red-uuid'
         red_obj['fq_name'] = ['fake-red-uuid']
         return True, [red_obj]
     # end red_read
 
-    def red_read_with_child(self, obj_type, uuid):
+    def red_read_with_child(self, obj_type, uuid, **kwargs):
         red_obj = {}
         red_obj['uuid'] = 'fake-red-uuid'
         red_obj['fq_name'] = ['fake-red-uuid']
@@ -248,7 +248,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [red_obj]
     # end red_read_with_child
 
-    def blue_read(self, obj_type, uuid):
+    def blue_read(self, obj_type, uuid, **kwargs):
         blue_obj = {}
         blue_obj['uuid'] = uuid[0]
         blue_obj['fq_name'] = ['fake-blue-' + uuid[0]]
@@ -257,7 +257,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [blue_obj]
     # end blue_read
 
-    def blue_read_with_refs(self, obj_type, uuid):
+    def blue_read_with_refs(self, obj_type, uuid, **kwargs):
         blue_obj = {}
         blue_obj['uuid'] = 'fake-blue-uuid'
         blue_obj['fq_name'] = ['fake-blue-uuid']
@@ -267,7 +267,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [blue_obj]
     # end blue_read_with_refs
 
-    def blue_read_with_multi_refs(self, obj_type, uuid):
+    def blue_read_with_multi_refs(self, obj_type, uuid, **kwargs):
         blue_obj = {}
         blue_obj['uuid'] = 'fake-blue-uuid'
         blue_obj['fq_name'] = ['fake-blue-uuid']
@@ -277,7 +277,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [blue_obj]
     # end blue_read_with_multi_refs
 
-    def blue_read_with_new_refs(self, obj_type, uuid):
+    def blue_read_with_new_refs(self, obj_type, uuid, **kwargs):
         blue_obj = {}
         blue_obj['uuid'] = 'fake-blue-uuid'
         blue_obj['fq_name'] = ['fake-blue-uuid']
@@ -287,7 +287,7 @@ class DepTrackTester(unittest.TestCase):
         return True, [blue_obj]
     # end blue_read_with_new_refs
 
-    def purple_read_with_multi_refs(self, obj_type, uuid):
+    def purple_read_with_multi_refs(self, obj_type, uuid, **kwargs):
         purple_obj = {}
         purple_obj['uuid'] = 'fake-purple-uuid'
         purple_obj['fq_name'] = ['fake-purple-uuid']

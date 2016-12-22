@@ -68,12 +68,14 @@ def _access_control_list_update(acl_obj, name, obj, entries):
                 pass
             return None
 
+        entries_hash = hash(entries)
         # if entries did not change, just return the object
-        if acl_obj.get_access_control_list_entries() == entries:
+        if acl_obj.get_access_control_list_hash() == entries_hash:
             return acl_obj
 
         # Set new value of entries on the ACL
         acl_obj.set_access_control_list_entries(entries)
+        acl_obj.set_access_control_list_hash(entries_hash)
         try:
             DBBaseST._vnc_lib.access_control_list_update(acl_obj)
         except HttpError as he:
@@ -255,13 +257,15 @@ class VirtualNetworkST(DBBaseST):
         self.routing_instances = set()
         self.acl = None
         self.dynamic_acl = None
+        self.acl_rule_count = 0
         self.multi_policy_service_chains_enabled = None
         for acl in self.obj.get_access_control_lists() or []:
             if acl_dict:
                 acl_obj = acl_dict[acl['uuid']]
             else:
                 acl_obj = self.read_vnc_obj(acl['uuid'],
-                                            obj_type='access_control_list')
+                                            obj_type='access_control_list',
+                                            fields=['access_control_list_hash'])
             if acl_obj.name == self.obj.name:
                 self.acl = acl_obj
             elif acl_obj.name == 'dynamic':
@@ -817,9 +821,7 @@ class VirtualNetworkST(DBBaseST):
             vn_msg.send(sandesh=self._sandesh)
             return
 
-        if self.acl:
-            vn_trace.total_acl_rules += len(
-                self.acl.get_access_control_list_entries().get_acl_rule())
+        vn_trace.total_acl_rules = self.acl_rule_count
         for ri_name in self.routing_instances:
             vn_trace.routing_instance_list.append(ri_name)
         for rhs in self.expand_connections():
@@ -1193,6 +1195,7 @@ class VirtualNetworkST(DBBaseST):
                 acl = AclRuleType(match, action)
                 acl_list.append(acl)
                 acl_list.update_acl_entries(static_acl_entries)
+            self.acl_rule_count = len(static_acl_entries.get_acl_rule())
 
 
         self.acl = _access_control_list_update(self.acl, self.obj.name,
