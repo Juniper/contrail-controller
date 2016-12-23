@@ -2,8 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "Thrift.h"
-
 #include <string>
 
 #include "io/event_manager.h"
@@ -24,8 +22,6 @@ void EventManager::Shutdown() {
 }
 
 void EventManager::Run() {
-    using apache::thrift::TException;
-
     assert(mutex_.try_lock());
     io_service::work work(io_service_);
     do {
@@ -38,11 +34,6 @@ void EventManager::Run() {
                                         ec.message());
                 break;
             }
-        } catch (const TException &except) {
-            // ignore thrift exceptions
-            EVENT_MANAGER_LOG_ERROR("Thrift exception caught : " <<
-                                    except.what() << "; ignoring");
-            continue;
         } catch (std::exception &except) {
             static std::string what = except.what();
             EVENT_MANAGER_LOG_ERROR("Exception caught in io_service run : " <<

@@ -39,7 +39,6 @@ env.Alias('controller/flaky-test', [
     'controller/src/db:flaky-test',
     'controller/src/dns:flaky-test',
     'controller/src/database/gendb:flaky-test',
-    'controller/src/database/cassandra/thrift:flaky-test',
     'controller/src/ifmap:flaky-test',
     'controller/src/io:flaky-test',
     'controller/src/xmpp:flaky-test',

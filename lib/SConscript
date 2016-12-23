@@ -9,7 +9,6 @@ subdirs = [
     'http_parser',
     'pugixml',
     'rapidjson',
-    'thrift',
     'openvswitch',
 ]
 
