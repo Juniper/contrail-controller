@@ -171,6 +171,16 @@ extern SandeshTraceBufferPtr QeTraceBuf;
     { this->status_details = EIO; return ret_val;}
 #define QE_NOENT_ERROR_RETURN(cond, ret_val) if (!(cond)) \
     { this->status_details = ENOENT; return ret_val;}
+#define QE_QUERY_FETCH_ERROR() {\
+     this->status_details = EIO; \
+     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query; \
+     if (m_query) { \
+         m_query->qperf_.error = status_details; \
+         m_query->status_details = status_details; \
+         m_query->query_status = QUERY_FAILURE; \
+     } \
+     QE_LOG(ERROR,  "QUERY failed to get rows " << QUERY_FAILURE); \
+}
 
 typedef boost::shared_ptr<GenDb::GenDbIf> GenDbIfPtr;
 

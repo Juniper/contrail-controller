@@ -1069,27 +1069,24 @@ WhereQuery::WhereQuery(QueryUnit *mq): QueryUnit(mq, mq){
 
 void WhereQuery::subquery_processed(QueryUnit *subquery) {
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    if (subquery->query_status == QUERY_FAILURE) {
-        //sub query failed so mark the parent query as failed
-        // and return
-        QE_LOG(INFO,  "QUERY failed to get rows");
-        QE_TRACE_NOQID(DEBUG, "where processing failed with error:"  <<
-            subquery->query_status);
-        m_query->query_status = subquery->query_status;
-        status_details = 1;
-        m_query->status_details = status_details;
-        m_query->qperf_.chunk_where_time =
-            static_cast<uint32_t>((UTCTimestampUsec() - m_query->where_start_)
-            /1000);
-        where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
-        return;
-    }
     {
         tbb::mutex::scoped_lock lock(vector_push_mutex_);
         int sub_query_id = ((DbQueryUnit *)subquery)->sub_query_id;
         inp.push_back((sub_queries[sub_query_id]->query_result.get()));
+        if (subquery->query_status == QUERY_FAILURE) {
+            QE_QUERY_FETCH_ERROR();
+        }
     }
+
     if (sub_queries.size() == inp.size()) {
+        // Handle if any of the sub query has failed.
+        if (m_query->qperf_.error) {
+            m_query->qperf_.chunk_where_time =
+            static_cast<uint32_t>((UTCTimestampUsec() - m_query->where_start_)
+            /1000);
+            where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
+            return;
+        }
         SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
             *where_result_, inp);
         m_query->query_status = query_status;
