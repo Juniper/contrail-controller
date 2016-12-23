@@ -332,7 +332,7 @@ void Options::Process(int argc, char *argv[],
     for(std::vector<int>::size_type i = 0; i != config_file_.size(); i++) {
         config_file_in.open(config_file_[i].c_str());
         if (config_file_in.good()) {
-           opt::store(opt::parse_config_file(config_file_in, config_file_options_),
+           opt::store(opt::parse_config_file(config_file_in, config_file_options_, true),
                    var_map);
         }
         config_file_in.close();
