@@ -18,6 +18,7 @@ from __future__ import absolute_import
 
 import argparse
 import contextlib
+import copy
 import json
 import logging
 import os
@@ -36,7 +37,7 @@ from netronome.vrouter.apps import port_control
 from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import FakeSysfs
 from netronome.vrouter.tests.helpers.plug import (
-    _DisableGC, _enable_fake_intel_iommu, FakeAgent
+    _DisableGC, _enable_fake_intel_iommu, FakeAgent, URLLIB3_LOGGERS
 )
 from netronome.vrouter.tests.randmac import RandMac
 from netronome.vrouter.tests.unit import *
@@ -70,11 +71,680 @@ if 'NS_VROUTER_SHORT_TMP_PREFIXES' in os.environ:
 else:
     _TMP_PREFIX = 'netronome.vrouter.tests.unit.apps.test_port_control.'
 
+urllib3_logging = SetLogLevel(loggers=URLLIB3_LOGGERS, level=logging.WARNING)
+
 
 def setUpModule():
     e = re.split(r'\s+', os.environ.get('NS_VROUTER_TESTS_ENABLE_LOGGING', ''))
     if 'port_control' in e:
         logging.basicConfig(level=logging.DEBUG)
+
+    urllib3_logging.setUp()
+
+
+def tearDownModule():
+    urllib3_logging.tearDown()
+
+
+_IMAGE_METADATA_JSON_KILO_1 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "status": "active",
+        "created_at": "2016-12-05T19:22:22.270042",
+        "name": "UbuntuCloudVF-virtio",
+        "deleted": false,
+        "container_format": "bare",
+        "min_ram": 0,
+        "disk_format": "qcow2",
+        "updated_at": "2016-12-05T19:22:41.704354",
+        "properties": {
+            "architecture": "x86_64"
+        },
+        "owner": "52ad9bf691e046abb9628008ede2bc7a",
+        "checksum": "2122e9d388ba080cf3a2bb5f98868a48",
+        "min_disk": 0,
+        "is_public": true,
+        "deleted_at": null,
+        "id": "5f38cce2-dcb5-4843-908a-a2a0e6a114db",
+        "size": 2973171712
+    }
+}'''
+
+# Missing properties
+_IMAGE_METADATA_JSON_KILO_2 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "status": "active",
+        "created_at": "2016-12-05T19:22:22.270042",
+        "name": "UbuntuCloudVF-virtio",
+        "deleted": false,
+        "container_format": "bare",
+        "min_ram": 0,
+        "disk_format": "qcow2",
+        "updated_at": "2016-12-05T19:22:41.704354",
+        "owner": "52ad9bf691e046abb9628008ede2bc7a",
+        "checksum": "2122e9d388ba080cf3a2bb5f98868a48",
+        "min_disk": 0,
+        "is_public": true,
+        "deleted_at": null,
+        "id": "5f38cce2-dcb5-4843-908a-a2a0e6a114db",
+        "size": 2973171712
+    }
+}'''
+
+# Missing disk_format, decode should fail
+_IMAGE_METADATA_JSON_KILO_3 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "status": "active",
+        "created_at": "2016-12-05T19:22:22.270042",
+        "deleted": false,
+        "container_format": "bare",
+        "min_ram": 0,
+        "updated_at": "2016-12-05T19:22:41.704354",
+        "properties": {
+            "architecture": "x86_64"
+        },
+        "owner": "52ad9bf691e046abb9628008ede2bc7a",
+        "checksum": "2122e9d388ba080cf3a2bb5f98868a48",
+        "min_disk": 0,
+        "is_public": true,
+        "deleted_at": null,
+        "id": "5f38cce2-dcb5-4843-908a-a2a0e6a114db",
+        "size": 2973171712
+    }
+}'''
+
+# Enable SR-IOV
+_IMAGE_METADATA_JSON_KILO_4 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "status": "active",
+        "created_at": "2016-12-05T19:22:22.270042",
+        "name": "UbuntuCloudVF-virtio",
+        "deleted": false,
+        "container_format": "bare",
+        "min_ram": 0,
+        "disk_format": "qcow2",
+        "updated_at": "2016-12-05T19:22:41.704354",
+        "properties": {
+            "architecture": "x86_64",
+            "agilio.hw_acceleration_features": "SR-IOV"
+        },
+        "owner": "52ad9bf691e046abb9628008ede2bc7a",
+        "checksum": "2122e9d388ba080cf3a2bb5f98868a48",
+        "min_disk": 0,
+        "is_public": true,
+        "deleted_at": null,
+        "id": "5f38cce2-dcb5-4843-908a-a2a0e6a114db",
+        "size": 2973171712
+    }
+}'''
+
+# Case from Jon Hickman, 2016-12-15
+_IMAGE_METADATA_JSON_KILO_5 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "min_disk": "40",
+        "container_format": "bare",
+        "min_ram": "0",
+        "disk_format": "qcow2",
+        "properties": {
+            "base_image_ref": "e40c60a1-ff62-4428-8745-b644d62d76ac"
+        }
+    }
+}'''
+
+_IMAGE_METADATA_JSON_MITAKA_1 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.8",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "ImageMeta",
+        "nova_object.data": {
+            "status": "active",
+            "properties": {
+                "nova_object.version": "1.12",
+                "nova_object.name": "ImageMetaProps",
+                "nova_object.namespace": "nova",
+                "nova_object.data": {}
+            },
+            "name": "ubuntu",
+            "container_format": "bare",
+            "created_at": "2016-12-08T16:41:10Z",
+            "disk_format": "vmdk",
+            "updated_at": "2016-12-08T16:41:35Z",
+            "id": "d09d4ae2-2718-46dc-b953-4e924d0543ae",
+            "owner": "admin",
+            "checksum": "5067be9171570fb0f587ca018e1c43b6",
+            "min_disk": 0,
+            "min_ram": 0,
+            "size": 913637376
+        },
+        "nova_object.changes": [
+            "status",
+            "name",
+            "container_format",
+            "created_at",
+            "disk_format",
+            "updated_at",
+            "properties",
+            "min_disk",
+            "min_ram",
+            "checksum",
+            "owner",
+            "id",
+            "size"
+        ]
+    }
+}'''
+
+# Missing name and id (like _IMAGE_METADATA_JSON_KILO_5).
+_IMAGE_METADATA_JSON_MITAKA_2 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.8",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "ImageMeta",
+        "nova_object.data": {
+            "status": "active",
+            "properties": {
+                "nova_object.version": "1.12",
+                "nova_object.name": "ImageMetaProps",
+                "nova_object.namespace": "nova",
+                "nova_object.data": {}
+            },
+            "container_format": "bare",
+            "created_at": "2016-12-08T16:41:10Z",
+            "disk_format": "vmdk",
+            "updated_at": "2016-12-08T16:41:35Z",
+            "owner": "admin",
+            "checksum": "5067be9171570fb0f587ca018e1c43b6",
+            "min_disk": 0,
+            "min_ram": 0,
+            "size": 913637376
+        },
+        "nova_object.changes": [
+            "status",
+            "name",
+            "container_format",
+            "created_at",
+            "disk_format",
+            "updated_at",
+            "properties",
+            "min_disk",
+            "min_ram",
+            "checksum",
+            "owner",
+            "id",
+            "size"
+        ]
+    }
+}'''
+
+# Missing properties
+_IMAGE_METADATA_JSON_MITAKA_3 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.8",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "ImageMeta",
+        "nova_object.data": {
+            "status": "active",
+            "name": "ubuntu",
+            "container_format": "bare",
+            "created_at": "2016-12-08T16:41:10Z",
+            "disk_format": "vmdk",
+            "updated_at": "2016-12-08T16:41:35Z",
+            "id": "d09d4ae2-2718-46dc-b953-4e924d0543ae",
+            "owner": "admin",
+            "checksum": "5067be9171570fb0f587ca018e1c43b6",
+            "min_disk": 0,
+            "min_ram": 0,
+            "size": 913637376
+        },
+        "nova_object.changes": [
+            "status",
+            "name",
+            "container_format",
+            "created_at",
+            "disk_format",
+            "updated_at",
+            "properties",
+            "min_disk",
+            "min_ram",
+            "checksum",
+            "owner",
+            "id",
+            "size"
+        ]
+    }
+}'''
+
+# Properties wrong type
+_IMAGE_METADATA_JSON_MITAKA_4 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.8",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "ImageMeta",
+        "nova_object.data": {
+            "status": "active",
+            "properties": {
+                "nova_object.version": "1.12",
+                "nova_object.name": "MageMetaProps",
+                "nova_object.namespace": "nova",
+                "nova_object.data": {}
+            },
+            "name": "ubuntu",
+            "container_format": "bare",
+            "created_at": "2016-12-08T16:41:10Z",
+            "disk_format": "vmdk",
+            "updated_at": "2016-12-08T16:41:35Z",
+            "id": "d09d4ae2-2718-46dc-b953-4e924d0543ae",
+            "owner": "admin",
+            "checksum": "5067be9171570fb0f587ca018e1c43b6",
+            "min_disk": 0,
+            "min_ram": 0,
+            "size": 913637376
+        },
+        "nova_object.changes": [
+            "status",
+            "name",
+            "container_format",
+            "created_at",
+            "disk_format",
+            "updated_at",
+            "properties",
+            "min_disk",
+            "min_ram",
+            "checksum",
+            "owner",
+            "id",
+            "size"
+        ]
+    }
+}'''
+
+# Enable SR-IOV
+_IMAGE_METADATA_JSON_MITAKA_5 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.8",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "ImageMeta",
+        "nova_object.data": {
+            "status": "active",
+            "properties": {
+                "nova_object.version": "1.12",
+                "nova_object.name": "ImageMetaProps",
+                "nova_object.namespace": "nova",
+                "nova_object.data": {
+                    "agilio.hw_acceleration_features": "SR-IOV"
+                }
+            },
+            "name": "ubuntu",
+            "container_format": "bare",
+            "created_at": "2016-12-08T16:41:10Z",
+            "disk_format": "vmdk",
+            "updated_at": "2016-12-08T16:41:35Z",
+            "id": "d09d4ae2-2718-46dc-b953-4e924d0543ae",
+            "owner": "admin",
+            "checksum": "5067be9171570fb0f587ca018e1c43b6",
+            "min_disk": 0,
+            "min_ram": 0,
+            "size": 913637376
+        },
+        "nova_object.changes": [
+            "status",
+            "name",
+            "container_format",
+            "created_at",
+            "disk_format",
+            "updated_at",
+            "properties",
+            "min_disk",
+            "min_ram",
+            "checksum",
+            "owner",
+            "id",
+            "size"
+        ]
+    }
+}'''
+
+# Missing container_format.
+_IMAGE_METADATA_JSON_MITAKA_6 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.8",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "ImageMeta",
+        "nova_object.data": {
+            "status": "active",
+            "properties": {
+                "nova_object.version": "1.12",
+                "nova_object.name": "ImageMetaProps",
+                "nova_object.namespace": "nova",
+                "nova_object.data": {
+                    "agilio.hw_acceleration_features": "SR-IOV"
+                }
+            },
+            "name": "ubuntu",
+            "created_at": "2016-12-08T16:41:10Z",
+            "disk_format": "vmdk",
+            "updated_at": "2016-12-08T16:41:35Z",
+            "id": "d09d4ae2-2718-46dc-b953-4e924d0543ae",
+            "owner": "admin",
+            "checksum": "5067be9171570fb0f587ca018e1c43b6",
+            "min_disk": 0,
+            "min_ram": 0,
+            "size": 913637376
+        },
+        "nova_object.changes": [
+            "status",
+            "name",
+            "container_format",
+            "created_at",
+            "disk_format",
+            "updated_at",
+            "properties",
+            "min_disk",
+            "min_ram",
+            "checksum",
+            "owner",
+            "id",
+            "size"
+        ]
+    }
+}'''
+
+
+class TestImageMetadataToAllowedModes(unittest.TestCase):
+    def test_kilo(self):
+        logger = logging.getLogger('29fd9be2-f0b8-4d33-a514-fb5bed544227')
+        logger.disabled = True
+
+        UV = (PM.unaccelerated, PM.VirtIO)
+        SUV = (PM.SRIOV, PM.unaccelerated, PM.VirtIO)
+
+        good = (
+            (_IMAGE_METADATA_JSON_KILO_1, UV),
+            (_IMAGE_METADATA_JSON_KILO_2, UV),
+            (_IMAGE_METADATA_JSON_KILO_4, SUV),
+            (_IMAGE_METADATA_JSON_KILO_5, UV),
+        )
+        for g in good:
+            allowed_modes = port_control._image_metadata_to_allowed_modes(
+                logger=logger, image_metadata=g[0]
+            )
+            self.assertEqual(frozenset(allowed_modes), frozenset(g[1]))
+
+        bad = (
+            _IMAGE_METADATA_JSON_KILO_3,
+        )
+        for b in bad:
+            with self.assertRaises(ValueError):
+                port_control._image_metadata_to_allowed_modes(
+                    logger=logger, image_metadata=b
+                )
+
+    def test_mitaka(self):
+        logger = logging.getLogger('ee1c8395-0620-4332-8fc7-3933b9b1297a')
+        logger.disabled = True
+
+        UV = (PM.unaccelerated, PM.VirtIO)
+        SUV = (PM.SRIOV, PM.unaccelerated, PM.VirtIO)
+
+        good = (
+            (_IMAGE_METADATA_JSON_MITAKA_1, UV),
+            (_IMAGE_METADATA_JSON_MITAKA_5, SUV),
+            (_IMAGE_METADATA_JSON_MITAKA_2, UV),
+            (_IMAGE_METADATA_JSON_MITAKA_3, UV),
+        )
+        for g in good:
+            allowed_modes = port_control._image_metadata_to_allowed_modes(
+                logger=logger, image_metadata=g[0]
+            )
+            self.assertEqual(frozenset(allowed_modes), frozenset(g[1]))
+
+        bad = (
+            _IMAGE_METADATA_JSON_MITAKA_4,
+            _IMAGE_METADATA_JSON_MITAKA_6,
+        )
+        for b in bad:
+            with self.assertRaises(ValueError):
+                port_control._image_metadata_to_allowed_modes(
+                    logger=logger, image_metadata=b
+                )
+
+_FLAVOR_METADATA_JSON_KILO_1 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.1",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "Flavor",
+        "nova_object.data": {
+            "memory_mb": 4096,
+            "root_gb": 40,
+            "deleted_at": null,
+            "name": "m1.medium.virtio_1G",
+            "deleted": false,
+            "created_at": "2016-12-01T20:48:10Z",
+            "ephemeral_gb": 0,
+            "updated_at": null,
+            "disabled": false,
+            "vcpus": 2,
+            "extra_specs": {
+                "hw:mem_page_size": "1048576"
+            },
+            "swap": 0,
+            "rxtx_factor": 1.0,
+            "is_public": true,
+            "flavorid": "2aaabc78-4db1-11e6-9721-b083fed41633",
+            "vcpu_weight": 0,
+            "id": 12
+        },
+        "nova_object.changes": [
+            "extra_specs"
+        ]
+    }
+}'''
+
+# Allowed modes fixed to SR-IOV.
+_FLAVOR_METADATA_JSON_KILO_2 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.1",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "Flavor",
+        "nova_object.data": {
+            "memory_mb": 4096,
+            "root_gb": 40,
+            "deleted_at": null,
+            "name": "m1.medium.virtio_1G",
+            "deleted": false,
+            "created_at": "2016-12-01T20:48:10Z",
+            "ephemeral_gb": 0,
+            "updated_at": null,
+            "disabled": false,
+            "vcpus": 2,
+            "extra_specs": {
+                "agilio:hw_acceleration": "SR-IOV"
+            },
+            "swap": 0,
+            "rxtx_factor": 1.0,
+            "is_public": true,
+            "flavorid": "2aaabc78-4db1-11e6-9721-b083fed41633",
+            "vcpu_weight": 0,
+            "id": 12
+        },
+        "nova_object.changes": [
+            "extra_specs"
+        ]
+    }
+}'''
+
+# Missing extra_specs
+_FLAVOR_METADATA_JSON_KILO_3 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.1",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "Flavor",
+        "nova_object.data": {
+            "memory_mb": 4096,
+            "root_gb": 40,
+            "deleted_at": null,
+            "name": "m1.medium.virtio_1G",
+            "deleted": false,
+            "created_at": "2016-12-01T20:48:10Z",
+            "ephemeral_gb": 0,
+            "updated_at": null,
+            "disabled": false,
+            "vcpus": 2,
+            "swap": 0,
+            "rxtx_factor": 1.0,
+            "is_public": true,
+            "flavorid": "2aaabc78-4db1-11e6-9721-b083fed41633",
+            "vcpu_weight": 0,
+            "id": 12
+        },
+        "nova_object.changes": [
+            "extra_specs"
+        ]
+    }
+}'''
+
+# extra_specs wrong type
+_FLAVOR_METADATA_JSON_KILO_4 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.1",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "Flavor",
+        "nova_object.data": {
+            "memory_mb": 4096,
+            "root_gb": 40,
+            "deleted_at": null,
+            "name": "m1.medium.virtio_1G",
+            "deleted": false,
+            "created_at": "2016-12-01T20:48:10Z",
+            "extra_specs": [
+                "agilio:hw_acceleration", "SR-IOV"
+            ],
+            "ephemeral_gb": 0,
+            "updated_at": null,
+            "disabled": false,
+            "vcpus": 2,
+            "swap": 0,
+            "rxtx_factor": 1.0,
+            "is_public": true,
+            "flavorid": "2aaabc78-4db1-11e6-9721-b083fed41633",
+            "vcpu_weight": 0,
+            "id": 12
+        },
+        "nova_object.changes": [
+            "extra_specs"
+        ]
+    }
+}'''
+
+_FLAVOR_METADATA_JSON_MITAKA_1 = r'''
+{
+    "type": "dict",
+    "vars": {
+        "nova_object.version": "1.1",
+        "nova_object.namespace": "nova",
+        "nova_object.name": "Flavor",
+        "nova_object.data": {
+            "memory_mb": 4096,
+            "root_gb": 40,
+            "deleted_at": null,
+            "name": "m1.medium.virtio_1G",
+            "deleted": false,
+            "created_at": "2016-12-08T16:44:41Z",
+            "ephemeral_gb": 0,
+            "updated_at": null,
+            "disabled": false,
+            "vcpus": 2,
+            "extra_specs": {
+                "hw:mem_page_size": "1048576"
+            },
+            "swap": 0,
+            "rxtx_factor": 1.0,
+            "is_public": true,
+            "flavorid": "2aaabc78-4db1-11e6-9721-b083fed41633",
+            "vcpu_weight": 0,
+            "id": 12
+        },
+        "nova_object.changes": [
+            "extra_specs"
+        ]
+    }
+}'''
+
+
+class TestFlavorMetadataToAllowedModes(unittest.TestCase):
+    def test_kilo(self):
+        logger = logging.getLogger('c1732b72-db81-4614-9f65-5864b12891e7')
+        logger.disabled = True
+
+        SUV = (PM.SRIOV, PM.unaccelerated, PM.VirtIO)
+
+        good = (
+            (_FLAVOR_METADATA_JSON_KILO_1, SUV),
+            (_FLAVOR_METADATA_JSON_KILO_2, (PM.SRIOV,)),
+        )
+        for g in good:
+            allowed_modes = port_control._flavor_metadata_to_allowed_modes(
+                logger=logger, flavor_metadata=g[0]
+            )
+            self.assertEqual(frozenset(allowed_modes), frozenset(g[1]))
+
+        bad = (
+            _FLAVOR_METADATA_JSON_KILO_3,
+            _FLAVOR_METADATA_JSON_KILO_4,
+        )
+        for b in bad:
+            with self.assertRaises(ValueError):
+                port_control._image_metadata_to_allowed_modes(
+                    logger=logger, image_metadata=b
+                )
+
+    def test_mitaka(self):
+        logger = logging.getLogger('149960ef-f8ec-49c7-9119-629745ff9ba7')
+        logger.disabled = True
+
+        SUV = (PM.SRIOV, PM.unaccelerated, PM.VirtIO)
+
+        good = (
+            (_FLAVOR_METADATA_JSON_MITAKA_1, SUV),
+        )
+        for g in good:
+            allowed_modes = port_control._flavor_metadata_to_allowed_modes(
+                logger=logger, flavor_metadata=g[0]
+            )
+            self.assertEqual(frozenset(allowed_modes), frozenset(g[1]))
+
+        # Kilo and Mitaka use the same decoder function and the flavor data has
+        # the same format so this test is really just a sanity check, hence
+        # only one test case for Mitaka.
 
 
 class TestApp(unittest.TestCase):
@@ -148,31 +818,35 @@ def _make_config_file(**kwds):
 
 
 def _make_flavor(tweak=None):
+    # Based on a Mitaka flavor.
     ans = {
-        'type': 'Flavor',
-        'vars': {
-            '_changed_fields': None,
-            '_deleted_at': None,
-            '_vcpus': 1,
-            '_context': None,
-            '_deleted': False,
-            '_created_at': None,
-            '_flavorid': '1',
-            '_disabled': False,
-            '_orig_extra_specs': {},
-            '_vcpu_weight': 0,
-            '_updated_at': None,
-            '_memory_mb': 512,
-            'VERSION': '1.1',
-            '_root_gb': 1,
-            '_is_public': True,
-            '_rxtx_factor': 1.0,
-            '_extra_specs': {},
-            '_orig_projects': [],
-            '_name': 'm1.tiny',
-            '_swap': 0,
-            '_id': 2,
-            '_ephemeral_gb': 0
+        "type": "dict",
+        "vars": {
+            "nova_object.version": "1.1",
+            "nova_object.namespace": "nova",
+            "nova_object.name": "Flavor",
+            "nova_object.data": {
+                "memory_mb": 4096,
+                "root_gb": 40,
+                "deleted_at": None,
+                "name": "m1.medium.virtio_1G",
+                "deleted": False,
+                "created_at": None,
+                "ephemeral_gb": 0,
+                "updated_at": None,
+                "disabled": False,
+                "vcpus": 2,
+                "extra_specs": {},
+                "swap": 0,
+                "rxtx_factor": 1.0,
+                "is_public": True,
+                "flavorid": "2aaabc78-4db1-11e6-9721-b083fed41633",
+                "vcpu_weight": 0,
+                "id": 12
+            },
+            "nova_object.changes": [
+                "extra_specs"
+            ]
         }
     }
 
@@ -382,7 +1056,7 @@ class TestConfigCmd_AppTest(unittest.TestCase):
         """
 
         good_flavor = _make_flavor()
-        good_flavor['vars']['_extra_specs'].setdefault(
+        good_flavor['vars']['nova_object.data']['extra_specs'].setdefault(
             'hw:mem_page_size', '1G'
         )
 
@@ -1089,6 +1763,51 @@ class TestAddCmd_BasicTest(unittest.TestCase):
             # driver's constructor.
             d = t[0](config=c, **t[1])
 
+    def test_translate_conf_multiqueue(self):
+        cmd = port_control.AddCmd(logger=subcmd._LOGGER)
+        self.assertIsNone(cmd.conf)
+
+        port_uuid = uuid.uuid1()
+        instance_uuid = uuid.uuid1()
+        vm_project_uuid = uuid.uuid1()
+        vn_uuid = uuid.uuid1()
+        mac1 = RandMac().generate()
+
+        standard_args = (
+            '--uuid', str(port_uuid),
+            '--instance_uuid', str(instance_uuid),
+            '--vm_project_uuid', str(vm_project_uuid),
+            '--vif_type', 'Vrouter',
+            '--mac', mac1,
+            '--port_type', 'NovaVMPort',
+            '--tap_name', config.default_devname('tap', port_uuid),
+            '--vn_uuid', str(vn_uuid),
+        )
+
+        m = lambda s: ('--multiqueue={}'.format(s),)
+        test_data = (
+            ((), False),
+            (m('false'), False),
+            (m('False'), False),
+            (m('true'), True),
+            (m('True'), True),
+        )
+
+        for td in test_data:
+            rc = cmd.parse_args(
+                prog=subcmd._PROG, command='xx', args=standard_args + td[0],
+                default_config_files=()
+            )
+            self.assertIsNone(rc)
+            self.assertIsInstance(cmd.conf, cfg.ConfigOpts)
+
+            step = plug._CreateTAP()
+            c = step.translate_conf(copy.copy(cmd.conf))
+            self.assertIsInstance(c, dict)
+            step.configure(**c[step.configure.section])
+
+            self.assertEqual(step._multiqueue, td[1])
+
 
 def randip4():
     addr = ((1, 223), (0, 255), (0, 255), (0, 254))
@@ -1237,8 +1956,6 @@ class TestAddCmd_AppTest(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 7 + have_iommu_check, 'INFO': 2},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
     def test_configure_then_multiplug(self):
@@ -1259,8 +1976,6 @@ class TestAddCmd_AppTest(_DisableGC, unittest.TestCase):
                 },
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 2},
-                'urllib3.connectionpool': {'DEBUG': 2, 'INFO': 2},
-                'urllib3.util.retry': {'DEBUG': 2},
             })
 
     def test_configure_then_plug_mandatory(self):
@@ -1277,8 +1992,6 @@ class TestAddCmd_AppTest(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 7 + have_iommu_check, 'INFO': 2},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
     def test_configure_then_plug_mandatory_with_conflict(self):
@@ -1307,8 +2020,6 @@ class TestAddCmd_AppTest(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 7 + have_iommu_check, 'INFO': 2},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
     def test_plug_straightaway_without_mandatory(self):

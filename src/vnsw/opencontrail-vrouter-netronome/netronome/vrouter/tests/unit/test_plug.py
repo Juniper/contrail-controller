@@ -59,7 +59,7 @@ from netronome.vrouter.tests.helpers.config import (
 )
 from netronome.vrouter.tests.helpers.plug import (
     _enable_fake_intel_iommu, _make_fake_sysfs_fallback_map, _DisableGC,
-    FakeAgent, FakeVirtIOServer
+    FakeAgent, FakeVirtIOServer, URLLIB3_LOGGERS
 )
 from netronome.vrouter.tests.helpers.vf import (fake_FallbackMap)
 from netronome.vrouter.tests.unit.rest import test_rest
@@ -84,11 +84,19 @@ VFSET1 = make_vfset('''
 # FreeBSD (regardless of target port).
 _UNREACHABLE_AGENT_URL = 'http://127.255.255.255:49151'
 
+urllib3_logging = SetLogLevel(loggers=URLLIB3_LOGGERS, level=logging.WARNING)
+
 
 def setUpModule():
     e = re.split(r'\s+', os.environ.get('NS_VROUTER_TESTS_ENABLE_LOGGING', ''))
     if 'plug' in e:
         logging.basicConfig(level=logging.DEBUG)
+
+    urllib3_logging.setUp()
+
+
+def tearDownModule():
+    urllib3_logging.tearDown()
 
 
 def _test_data(tweak=None):
@@ -233,8 +241,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         with attachLogHandler(logging.root, LogMessageCounter()) as lmc:
@@ -253,8 +259,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         agent.stop()
@@ -337,8 +341,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
 
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3, 'ERROR': 1},
-                'urllib3.connectionpool': {'INFO': 2, 'WARNING': 1},
-                'urllib3.util.retry': {'DEBUG': 2},
             })
 
         with attachLogHandler(logging.root, LogMessageCounter()) as lmc:
@@ -368,8 +370,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
 
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3, 'ERROR': 1},
-                'urllib3.connectionpool': {'INFO': 2, 'WARNING': 1},
-                'urllib3.util.retry': {'DEBUG': 2},
             })
 
         s.commit()
@@ -443,8 +443,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3, 'ERROR': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         # need to get rid of the obstruction since _AgentFileWrite.undo()
@@ -468,8 +466,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         agent.stop()
@@ -550,8 +546,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 2},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         with attachLogHandler(logging.root, LogMessageCounter()) as lmc:
@@ -578,8 +572,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 2},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         agent.stop()
@@ -638,8 +630,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
             # check log messages
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'CRITICAL': 2, 'DEBUG': 6, 'ERROR': 3},
-                'urllib3.connectionpool': {'INFO': 4, 'WARNING': 2},
-                'urllib3.util.retry': {'DEBUG': 4},
             })
 
             # no need to unplug, plug exception handler already unwound for us
@@ -679,8 +669,6 @@ class TestPlugUnaccelerated(_DisableGC, unittest.TestCase):
             # check log messages
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'CRITICAL': 1, 'DEBUG': 4, 'ERROR': 2},
-                'urllib3.connectionpool': {'INFO': 4, 'WARNING': 2},
-                'urllib3.util.retry': {'DEBUG': 4},
             })
 
             # no need to unplug, plug exception handler already unwound for us
@@ -738,8 +726,6 @@ class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 5},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         with attachLogHandler(logging.root, LogMessageCounter()) as lmc:
@@ -756,8 +742,6 @@ class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         agent.stop()
@@ -833,8 +817,6 @@ class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
             expected_log_messages={
                 _PLUG_LOGGER.name: {'DEBUG': 7, 'CRITICAL': 1},
                 'tornado.access': {'INFO': 2},
-                'urllib3.connectionpool': {'DEBUG': 2, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 2}
             }
         )
 
@@ -849,8 +831,6 @@ class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
             expected_log_messages={
                 _PLUG_LOGGER.name: {'DEBUG': 7, 'CRITICAL': 1},
                 'tornado.access': {'INFO': 2},
-                'urllib3.connectionpool': {'DEBUG': 2, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 2}
             }
         )
 
@@ -929,8 +909,6 @@ class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
 
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3, 'ERROR': 1},
-                'urllib3.connectionpool': {'INFO': 2, 'WARNING': 1},
-                'urllib3.util.retry': {'DEBUG': 2}
             })
 
         with attachLogHandler(logging.root, LogMessageCounter()) as lmc:
@@ -957,8 +935,6 @@ class TestPlugUnacceleratedDPDK(_DisableGC, unittest.TestCase):
 
             self.assertEqual(lmc.count, {
                 _PLUG_LOGGER.name: {'DEBUG': 3, 'ERROR': 1},
-                'urllib3.connectionpool': {'INFO': 2, 'WARNING': 1},
-                'urllib3.util.retry': {'DEBUG': 2}
             })
 
         s.commit()
@@ -1366,8 +1342,6 @@ class TestAgentPost(
             self.assertTrue(do_ok.is_negative())
             self.assertEqual(log_message_counter.count, {
                 _PLUG_LOGGER.name: {'ERROR': 1},
-                'urllib3.connectionpool': {'INFO': 2, 'WARNING': 1},
-                'urllib3.util.retry': {'DEBUG': 2},
             })
 
         log_message_counter = LogMessageCounter()
@@ -1381,8 +1355,6 @@ class TestAgentPost(
             self.assertTrue(undo_ok.is_negative())
             self.assertEqual(log_message_counter.count, {
                 _PLUG_LOGGER.name: {'ERROR': 1},
-                'urllib3.connectionpool': {'INFO': 2, 'WARNING': 1},
-                'urllib3.util.retry': {'DEBUG': 2},
             })
 
         s.commit()
@@ -1846,8 +1818,6 @@ class TestPlugSRIOV(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 6},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         agent.stop()
@@ -1872,8 +1842,6 @@ class TestPlugSRIOV(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 6 + have_iommu_check},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             }
         )
 
@@ -1885,8 +1853,6 @@ class TestPlugSRIOV(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 6 + have_iommu_check},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             }
         )
 
@@ -1961,8 +1927,6 @@ class TestWaitForFirmwareVIFTable(_DisableGC, unittest.TestCase):
                 },
                 _VF_LOGGER.name: {'INFO': 2},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         agent.stop()
@@ -2048,8 +2012,6 @@ class TestWaitForFirmwareVIFTable(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 6 + have_iommu_check},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         # Now do the actual unplug. This should log a timeout error, but NOT
@@ -2072,8 +2034,6 @@ class TestWaitForFirmwareVIFTable(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 5, 'ERROR': 1},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         agent.stop()
@@ -2734,8 +2694,6 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 11, 'INFO': 3, 'WARNING': 1},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             })
 
         JOIN_TIMEOUT_SEC = 9
@@ -2771,8 +2729,6 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 12, 'INFO': 3, 'WARNING': 1},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             }
         )
 
@@ -2783,8 +2739,6 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 12, 'INFO': 3, 'WARNING': 1},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             },
         )
 
@@ -2806,8 +2760,6 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
                     },
                     _VF_LOGGER.name: {'INFO': 1},
                     'tornado.access': {'INFO': 1},
-                    'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                    'urllib3.util.retry': {'DEBUG': 1},
                 },
             )
 
@@ -2914,8 +2866,6 @@ class TestPlugAPI(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 4, 'INFO': 2},
                 _VF_LOGGER.name: {'WARNING': 2},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             },
         )
 
@@ -2939,8 +2889,6 @@ class TestPlugAPI(_DisableGC, unittest.TestCase):
                 },
                 _VF_LOGGER.name: {'WARNING': 2},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             },
             _d_customize=chmod_0,
         )
@@ -2958,8 +2906,6 @@ class TestPlugAPI(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 4, 'INFO': 2},
                 _VF_LOGGER.name: {'WARNING': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             },
             _pm_customize=precreate_unaccel_pm,
         )
@@ -3099,8 +3045,6 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
             expected_logs={
                 _PLUG_LOGGER.name: {'DEBUG': 3, 'INFO': 4},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             },
             nfp_status=1,
             physical_vif_count=1,
@@ -3115,8 +3059,6 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
                 _PLUG_LOGGER.name: {'DEBUG': 6, 'INFO': 5},
                 _VF_LOGGER.name: {'INFO': 1},
                 'tornado.access': {'INFO': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             },
             nfp_status=1,
             physical_vif_count=1,
@@ -3191,8 +3133,6 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
             expected_logs={
                 _PLUG_LOGGER.name: {'INFO': 3, 'WARNING': 1, 'DEBUG': 2},
                 'tornado.access': {'WARNING': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             }
         )
 
@@ -3207,8 +3147,6 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
             expected_logs={
                 _PLUG_LOGGER.name: {'INFO': 4, 'WARNING': 1, 'DEBUG': 2},
                 'tornado.access': {'WARNING': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             },
             _d_customize=enable_acceleration,
         )
@@ -3304,8 +3242,6 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
             expected_logs={
                 _PLUG_LOGGER.name: {'INFO': 3, 'WARNING': 1, 'DEBUG': 2},
                 'tornado.access': {'WARNING': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             }
         )
 
@@ -3318,8 +3254,6 @@ class TestUnplugAPI(_DisableGC, unittest.TestCase):
             expected_logs={
                 _PLUG_LOGGER.name: {'DEBUG': 3, 'INFO': 2},
                 'tornado.access': {'WARNING': 1},
-                'urllib3.connectionpool': {'DEBUG': 1, 'INFO': 1},
-                'urllib3.util.retry': {'DEBUG': 1},
             }
         )
 

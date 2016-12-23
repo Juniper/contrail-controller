@@ -102,16 +102,136 @@ def _init_Session(conf, logger):
     return sessionmaker(bind=engine)
 
 
+def _get_nova_object_data(v, namespace, name):
+    """
+    Check for an acceptable value of nova_object.namespace and
+    nova_object.name (i.e., the type name sent over from Nova). If the check
+    passes, return nova_object.data, else None.
+
+    For now, we only allow one expected type (namespace.name) at a time (unlike
+    config_editor.deserialize()).
+    """
+
+    if 'nova_object.version' not in v:
+        # Note that we currently check only check that nova_object.version is
+        # present; we don't check its value.
+        return
+
+    ns, n = v['nova_object.namespace'], v['nova_object.name']
+    if ns != namespace or n != name:
+        raise ValueError(
+            'nova_object type {}.{} is not allowed; expected type {}.{}'.
+            format(ns, n, namespace, name)
+        )
+
+    return v['nova_object.data']
+
+
+def _decode_nova_object(value, decoders, error_msg):
+    """
+    Attempt to decode `value` using each of a sequence of `decoders`.
+    Raise ValueError(error_msg) if no decoder succeeds.
+    """
+
+    for d in decoders:
+        decoded = d(value)
+        if decoded is not None:
+            return decoded
+
+    raise ValueError(error_msg)
+
+
+def _decode_image_metadata_mitaka(v):
+    try:
+        d = _get_nova_object_data(v, 'nova', 'ImageMeta')
+        if d is None:
+            return
+
+        # All of name, id, properties are optional. Let's attempt to sanity
+        # check # the data by making sure that it has a disk_format and
+        # container_format.
+        if 'disk_format' not in d or 'container_format' not in d:
+            return
+
+        if 'properties' in d:
+            props = _get_nova_object_data(
+                d['properties'], 'nova', 'ImageMetaProps'
+            )
+        else:
+            props = {}
+
+        return {
+            'name': d.get('name'),
+            'id': d.get('id'),
+            'properties': props,
+        }
+
+    except KeyError:
+        pass  # decode failed
+
+
+def _decode_image_metadata_kilo(v):
+    # All of name, id, properties are optional. Let's attempt to sanity check
+    # the data by making sure that it has a disk_format and container_format.
+    if 'disk_format' not in v or 'container_format' not in v:
+        return
+
+    return {
+        'name': v.get('name'),
+        'id': v.get('id'),
+        'properties': v.get('properties', {}),
+    }
+
+
+def _decode_image_metadata(v):
+    return _decode_nova_object(
+        value=v,
+        decoders=(
+            _decode_image_metadata_mitaka,
+            _decode_image_metadata_kilo,
+        ),
+        error_msg='unable to decode image metadata',
+    )
+
+
 def _image_metadata_to_allowed_modes(image_metadata, logger):
     if image_metadata is None:
         return
 
     logger.debug('image metadata: %s', image_metadata)
     t, v = config_editor.deserialize(image_metadata, allowed_types=('dict',))
+    decoded = _decode_image_metadata(v)
 
     return glance.allowed_hw_acceleration_modes(
-        image_properties=v.get('properties', '{}'), name=v.get('name'),
-        id=v.get('id')
+        name=decoded['name'],
+        id=decoded['id'],
+        image_properties=decoded['properties'],
+    )
+
+
+def _decode_flavor_metadata_kilo(v):
+    if 'nova_object.version' not in v:
+        return
+
+    try:
+        d = _get_nova_object_data(v, 'nova', 'Flavor')
+
+        return {
+            'name': d['name'],
+            'extra_specs': d['extra_specs'],
+        }
+
+    except KeyError:
+        pass  # decode failed
+
+
+def _decode_flavor_metadata(v):
+    return _decode_nova_object(
+        value=v,
+        decoders=(
+            _decode_flavor_metadata_kilo,
+        ),
+        error_msg='unable to decode flavor metadata',
     )
 
 
@@ -121,10 +241,12 @@ def _flavor_metadata_to_allowed_modes(flavor_metadata, logger):
 
     logger.debug('flavor information: %s', flavor_metadata)
     t, v = config_editor.deserialize(
-        flavor_metadata, allowed_types=('Flavor',)
+        flavor_metadata, allowed_types=('dict',)
     )
+    decoded = _decode_flavor_metadata(v)
+
     return flavor.allowed_hw_acceleration_modes(
-        extra_specs=v.get('_extra_specs', {}), name=v.get('_name')
+        extra_specs=decoded['extra_specs'], name=decoded['name']
     )
 
 
@@ -134,10 +256,12 @@ def _assert_flavor_supports_mode(flavor_metadata, mode):
 
     if mode == PM.VirtIO:
         t, v = config_editor.deserialize(
-            flavor_metadata, allowed_types=('Flavor',)
+            flavor_metadata, allowed_types=('dict',)
         )
+        decoded = _decode_flavor_metadata(v)
+
         flavor.assert_flavor_supports_virtio(
-            extra_specs=v.get('_extra_specs', {}), name=v.get('_name')
+            extra_specs=decoded['extra_specs'], name=decoded['name']
         )
 
 
@@ -650,6 +774,13 @@ class AddCmd(OsloConfigSubcmd):
         help='System name of TAP device for this Neutron port',
     )
 
+    MultiqueueOpt = cfg.Opt(
+        'multiqueue',
+        type=types.Boolean(),
+        default=False,
+        help=default_help('Configure TAP devices in multiqueue mode', False)
+    )
+
     PortTypeOpt_choices = ('NovaVMPort', 'NameSpacePort')
     PortTypeOpt = cfg.Opt(
         'port_type',
@@ -722,6 +853,7 @@ class AddCmd(OsloConfigSubcmd):
         VmNameOpt,
         MacOpt,
         TapNameOpt,
+        MultiqueueOpt,
         PortTypeOpt,
         TxVlanIdOpt,
         RxVlanIdOpt,

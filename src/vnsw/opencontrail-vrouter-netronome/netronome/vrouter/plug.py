@@ -23,11 +23,11 @@ import json
 import logging
 import os
 import re
+import requests
 import six
 import stat
 import sys
 import time
-import urllib3
 import urlparse
 import zmq
 
@@ -197,16 +197,21 @@ def apply_root_dir(o, root_dir):
 
 class _CreateTAP(_Step):
     @config_section('linux_net')
-    def configure(self, dry_run=False):
+    def configure(self, dry_run=False, multiqueue=False):
         self._dry_run = dry_run
+        self._multiqueue = multiqueue
 
     @staticmethod
     def translate_conf(conf):
         ans = _Step.translate_conf(conf)
 
+        section = ans.setdefault('linux_net', {})
+
         g = getattr(conf, 'iproute2', None)
         if g is not None and g.dry_run:
-            ans.update({'linux_net': {'dry_run': True}})
+            section['dry_run'] = True
+        if getattr(conf, 'multiqueue', False):
+            section['multiqueue'] = True
 
         return ans
 
@@ -215,9 +220,13 @@ class _CreateTAP(_Step):
             # VRT-604 garbage collection
             return _NullAction
 
+        if self._multiqueue:
+            fmt = 'Create multiqueue TAP interface: {}'
+        else:
+            fmt = 'Create standard TAP interface: {}'
+
         return _Action(
-            lambda: self._do(session, port, journal),
-            'Create TAP interface: {}'.format(port.tap_name)
+            lambda: self._do(session, port, journal), fmt.format(port.tap_name)
         )
 
     def reverse_action(self, session, port, journal):
@@ -231,8 +240,9 @@ class _CreateTAP(_Step):
         )
 
     def _do(self, session, port, journal):
+        kwds = {'multiqueue': True} if self._multiqueue else {}
         if not self._dry_run:
-            linux_net.create_tap_dev(port.tap_name)
+            linux_net.create_tap_dev(port.tap_name, **kwds)
 
         return _StepStatus.OK
 
@@ -365,7 +375,6 @@ class _AgentPost(_Step):
 
         self.get_vif_devname = get_vif_devname
         self.vif_sync = vif_sync
-        self.http = urllib3.PoolManager(timeout=5, retries=1)
 
     @config_section('contrail-vrouter-agent')
     def configure(self, base_url=DEFAULT_AGENT_API_EP, vif_sync=None):
@@ -423,20 +432,19 @@ class _AgentPost(_Step):
         body = json.dumps(port.dump(tap_name=tap_name))
 
         try:
-            r = self.http.urlopen(
-                'POST', ep, body=body,
+            r = requests.post(
+                ep, data=body,
                 headers={'Content-Type': 'application/json'},
-                retries=None
             )
 
-        except urllib3.exceptions.HTTPError as e:
+        except requests.exceptions.RequestException as e:
             logger.error('POST error: %s', _exception_msg(e))
             return _StepStatus.ERROR
 
         try:
             log_content_type = True
             tc = vrouter_rest.HTTPSuccessTc()
-            tc.assert_valid(r.status)
+            tc.assert_valid(r.status_code)
 
             log_content_type = False
             tc = vrouter_rest.ContentTypeTc('application/json')
@@ -444,7 +452,8 @@ class _AgentPost(_Step):
 
         except ValueError as e:
             _log_error_response(
-                'POST', e, r.headers, r.data, log_content_type=log_content_type
+                'POST', e, r.headers, r.content,
+                log_content_type=log_content_type
             )
 
             # vrouter-port-control also masks this error. Since it represents
@@ -461,18 +470,18 @@ class _AgentPost(_Step):
         ep = urlparse.urljoin(self.base_url, 'port/{}'.format(port.uuid))
 
         try:
-            r = self.http.urlopen('DELETE', ep, retries=None)
+            r = requests.delete(ep)
 
-        except urllib3.exceptions.HTTPError as e:
+        except requests.exceptions.RequestException as e:
             logger.error('DELETE error: %s', _exception_msg(e))
             return _StepStatus.ERROR
 
         try:
             tc = vrouter_rest.HTTPSuccessTc()
-            tc.assert_valid(r.status)
+            tc.assert_valid(r.status_code)
 
         except ValueError as e:
-            if port.tap_name is None and r.status == 404:
+            if port.tap_name is None and r.status_code == 404:
                 # VRT-604 garbage collection
                 pass
 
@@ -482,9 +491,9 @@ class _AgentPost(_Step):
                 # original vrouter-port-control script from Contrail masked all
                 # HTTP DELETE errors.
 
-                _log_error_response('DELETE', e, r.headers, r.data)
+                _log_error_response('DELETE', e, r.headers, r.content)
 
-                if r.status == 404:
+                if r.status_code == 404:
                     return _StepStatus.ERROR
                 else:
                     raise
