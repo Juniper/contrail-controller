@@ -537,7 +537,8 @@ void SendBgpServiceConfig(const std::string &ip,
 void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
                             const char *sip, const char *dip, int proto,
                             int sport_start, int sport_end, int dport_start,
-                            int dport_end, const char *vrf, const char *ignore_acl);
+                            int dport_end, const char *vrf, const char *ignore_acl,
+                            const char *svc_intf_type = NULL);
 void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip,
                         const std::string &mac);
 #endif // vnsw_agent_test_cmn_util_h
