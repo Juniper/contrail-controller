@@ -127,4 +127,6 @@ extern void TxL2Ip6Packet(int ifindex, const char *smac, const char *dmac,
                           const char *sip, const char *dip, int proto,
                           int hash_id = 1, int vrf = -1, uint16_t sport = 0,
                           uint16_t dport = 0);
+
+void FlowStatsTimerStartStop(Agent *agent, bool stop);
 #endif // __TEST_PKT_UTIL_H__
