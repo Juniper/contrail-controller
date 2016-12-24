@@ -66,8 +66,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     primary_ip6_addr_(), vm_mac_(MacAddress::kZeroMac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), drop_new_flows_(false),
-    dhcp_enable_(true), do_dhcp_relay_(false), vm_name_(),
-    vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(false),
+    dhcp_enable_(true), do_dhcp_relay_(false), proxy_arp_mode_(PROXY_ARP_NONE),
+    vm_name_(), vm_project_uuid_(nil_uuid()), vxlan_id_(0), bridging_(false),
     layer3_forwarding_(true), flood_unknown_unicast_(false),
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL, this),
@@ -106,8 +106,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     primary_ip6_addr_(a6), vm_mac_(mac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), drop_new_flows_(false),
-    dhcp_enable_(true), do_dhcp_relay_(false), vm_name_(vm_name),
-    vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
+    dhcp_enable_(true), do_dhcp_relay_(false), proxy_arp_mode_(PROXY_ARP_NONE),
+    vm_name_(vm_name), vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
     bridging_(false), layer3_forwarding_(true),
     flood_unknown_unicast_(false), mac_set_(false),
     ecmp_(false), ecmp6_(false), disable_policy_(false),
@@ -588,6 +588,33 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
     }
 
     return;
+}
+
+// Build proxy-arp flag on VMI
+// In future, we expect a proxy-arp flag on VMI. In the meanwhile, we want
+// to enable proxy-arp on following,
+// 1. Left and right interface of transparent service-chain
+// 2. Left and right interface of in-network service-chain
+// 3. Left interface of in-network-nat service-chain
+//
+// The common attribute for all these interface are,
+// - They have vrf-assign rules
+// - They have service-interface-type attribute
+//
+// Note: Right interface of in-network-nat will not have vrf-assign
+static void BuildProxyArpFlags(Agent *agent, VmInterfaceConfigData *data,
+                               VirtualMachineInterface *cfg) {
+    data->proxy_arp_mode_ = VmInterface::PROXY_ARP_NONE;
+    if (cfg->vrf_assign_table().size() == 0)
+        return;
+
+    // Proxy-mode valid only on left or right interface os SI
+    if (cfg->properties().service_interface_type != "left" &&
+        cfg->properties().service_interface_type != "right") {
+        return;
+    }
+
+    data->proxy_arp_mode_ = VmInterface::PROXY_ARP_UNRESTRICTED;
 }
 
 static void BuildFatFlowTable(Agent *agent, VmInterfaceConfigData *data,
@@ -1136,6 +1163,7 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
         data->vm_mac_ = cfg->mac_addresses().at(0);
     }
     data->disable_policy_ = cfg->disable_policy();
+    BuildProxyArpFlags(agent, data, cfg);
 }
 
 static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
@@ -2111,7 +2139,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     cfg_name_(""), vm_uuid_(), vm_name_(), vn_uuid_(), vrf_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), bridging_(true),
     layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
-    ecmp6_(false), dhcp_enable_(true), admin_state_(true),
+    ecmp6_(false), dhcp_enable_(true),
+    proxy_arp_mode_(VmInterface::PROXY_ARP_NONE), admin_state_(true),
     disable_policy_(false), analyzer_name_(""),
     local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
     mirror_direction_(Interface::UNKNOWN), sg_list_(),
@@ -2378,6 +2407,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (dhcp_enable_ != data->dhcp_enable_) {
         dhcp_enable_ = data->dhcp_enable_;
+        ret = true;
+    }
+
+    if (proxy_arp_mode_ != data->proxy_arp_mode_) {
+        proxy_arp_mode_ = data->proxy_arp_mode_;
         ret = true;
     }
 
