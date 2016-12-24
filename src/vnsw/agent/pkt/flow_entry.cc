@@ -928,32 +928,39 @@ static bool ShouldDrop(uint32_t action) {
 //    The RPF-NH is computed in this method.
 /////////////////////////////////////////////////////////////////////////////
 
+static void SetRpfFieldsInternal(FlowEntry *flow, const AgentRoute *rt) {
+    // If there is no route, we should track default route
+    if (rt == NULL) {
+        flow->data().rpf_vrf = flow->data().vrf;
+        flow->data().rpf_plen = 0;
+        return;
+    }
+
+    if (dynamic_cast<const InetUnicastRouteEntry *>(rt)) {
+        flow->data().rpf_vrf = rt->vrf()->vrf_id();
+        flow->data().rpf_plen = rt->plen();
+        return;
+    }
+
+    // Route is not INET. Dont track any route
+    flow->data().rpf_vrf = VrfEntry::kInvalidIndex;
+    flow->data().rpf_plen = 0;
+    return;
+}
+
 // Utility method to set src_ip_nh fields
 void FlowEntry::RpfSetSrcIpNhFields(const AgentRoute *rt,
-                                    const NextHop *src_ip_nh, bool rpf_src_l3) {
-    data_.rpf_src_l3 = rpf_src_l3;
+                                    const NextHop *src_ip_nh) {
     data_.src_ip_nh.reset(src_ip_nh);
-    if (rt) {
-        data_.rpf_vrf = rt->vrf()->vrf_id();
-        data_.rpf_plen = rt->plen();
-    } else {
-        data_.rpf_vrf = VrfEntry::kInvalidIndex;
-        data_.rpf_plen = Address::kMaxV4PrefixLen;
-    }
+    SetRpfFieldsInternal(this, rt);
+    return;
 }
 
 // Utility method to set rpf_nh fields
-void FlowEntry::RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh,
-                                  bool rpf_src_l3) {
-    data_.rpf_src_l3 = rpf_src_l3;
+void FlowEntry::RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh) {
     data_.rpf_nh.reset(rpf_nh);
-    if (rt) {
-        data_.rpf_vrf = rt->vrf()->vrf_id();
-        data_.rpf_plen = rt->plen();
-    } else {
-        data_.rpf_vrf = VrfEntry::kInvalidIndex;
-        data_.rpf_plen = Address::kMaxV4PrefixLen;
-    }
+    SetRpfFieldsInternal(this, rt);
+    return;
 }
 
 // This method is called when flow is initialized. The RPF-NH cannot be
@@ -964,47 +971,56 @@ void FlowEntry::RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh,
 // In case of layer-3 flow "rt" is inet route for source-ip in source-vrf
 // In case of layer-2 flow "rt" is l2 route for smac in source-vrf
 void FlowEntry::RpfInit(const AgentRoute *rt) {
-    RpfSetSrcIpNhFields(NULL, NULL, true);
+    // Set src_ip_nh based on rt first
+    RpfSetSrcIpNhFields(rt, rt->GetActiveNextHop());
 
     // RPF enabled?
+    bool rpf_enable = true;
     if (data_.vn_entry && data_.vn_entry->enable_rpf() == false)
+        rpf_enable = false;
+
+    // The src_ip_nh can change below only for l2 flows
+    // For l3-flow, rt will already be a INET route
+    if (l3_flow())
         return;
 
-    bool is_rt_l3 = true;
-    bool src_rt_l3 = true;
-    const AgentRoute *rpf_rt = rt;
-    const InetUnicastRouteEntry *ip_rt =
-        dynamic_cast<const InetUnicastRouteEntry *>(rpf_rt);
+    // For layer-2 flows, we use l2-route for RPF in following cases
+    // 1. Interface is of type BAREMETAL (ToR/TSN only)
+    //
+    // 2. ECMP is not supported for l2-flows. If src-ip lookup resulted in
+    //    ECMP-NH fallback to the original l2-route
+    //
+    // 3. In case of OVS, ToR will export layer-2 route and MX will export a
+    //    layer-3 subnet route covering all the ToRs. In this case, when ToR
+    //    send layer-2 packet the layer-3 route will point to MX and RPF fails.
+    //    Assuming MX only gives subnet-route, use inet-route only if its
+    //    host-route
+    const VmInterface *vmi =
+        dynamic_cast<const VmInterface *>(intf_entry());
+    if (vmi && vmi->vmi_type() == VmInterface::BAREMETAL) {
+        return;
+    }
 
-    if (ip_rt == NULL) {
-        is_rt_l3 = false;
-        // Get inet route for non-baremetal cases
-        const VmInterface *vmi =
-            dynamic_cast<const VmInterface *>(intf_entry());
-        if (vmi && vmi->vmi_type() != VmInterface::BAREMETAL) {
-            rpf_rt = static_cast<AgentRoute *>
-                (FlowEntry::GetUcRoute(rt->vrf(), key().src_addr));
-        } else {
-            src_rt_l3 = false;
+    const InetUnicastRouteEntry *src_ip_rt =
+        static_cast<InetUnicastRouteEntry *>
+        (FlowEntry::GetUcRoute(rt->vrf(), key().src_addr));
+
+    if (src_ip_rt == NULL) {
+        if (rpf_enable) {
+            set_flags(FlowEntry::ShortFlow);
+            short_flow_reason_ = SHORT_NO_SRC_ROUTE_L2RPF;
         }
-    }
-
-    if (rpf_rt == NULL) {
-        set_flags(FlowEntry::ShortFlow);
-        short_flow_reason_ = SHORT_NO_SRC_ROUTE_L2RPF;
         return;
     }
 
-    const NextHop *src_ip_nh = rpf_rt->GetActiveNextHop();
-    // Dont support ECMP on l2-flows. So, if l2-flow and src_ip_nh is ECMP,
-    // fallback to the original l2-route
-    if (l3_flow() == false && src_ip_nh->GetType() == NextHop::COMPOSITE) {
-        rpf_rt = rt;
-        src_ip_nh = rt->GetActiveNextHop();
-        src_rt_l3 = is_rt_l3;
-    }
+    if (src_ip_rt->IsHostRoute() == false)
+        return;
 
-    RpfSetSrcIpNhFields(rpf_rt, src_ip_nh, src_rt_l3);
+    const NextHop *src_ip_nh = src_ip_rt->GetActiveNextHop();
+    if (src_ip_nh->GetType() == NextHop::COMPOSITE)
+        return;
+
+    RpfSetSrcIpNhFields(src_ip_rt, src_ip_nh);
     return;
 }
 
@@ -1073,7 +1089,7 @@ void FlowEntry::RpfCompute() {
         }
     }
 
-    RpfSetRpfNhFields(rt, nh, true);
+    RpfSetRpfNhFields(rt, nh);
 }
 
 // Computes RPF-NH for flow based on ip_src_nh
@@ -1311,6 +1327,10 @@ void FlowEntry::GetPolicy(const VnEntry *vn, const FlowEntry *rflow) {
 }
 
 void FlowEntry::GetVrfAssignAcl() {
+    // VRF-Assign rules valid only for routed packets
+    if (l3_flow() == false)
+        return;
+
     if (data_.intf_entry == NULL) {
         return;
     }

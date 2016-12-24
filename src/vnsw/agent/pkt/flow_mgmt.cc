@@ -1549,18 +1549,10 @@ void InetRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow,
                                         FlowMgmtKeyTree *tree) {
 
     if (flow->l3_flow() == false) {
-        if (flow->data().rpf_src_l3) {
-            if (flow->data().rpf_vrf == VrfEntry::kInvalidIndex) {
-                return;
-            }
+        // For l2-flows Track INET route for RPF only
+        if (flow->data().rpf_vrf != VrfEntry::kInvalidIndex) {
             ExtractKeys(flow, tree, flow->data().rpf_vrf,
                         flow->key().src_addr, flow->data().rpf_plen);
-        } else {
-            if (flow->data().flow_source_vrf == VrfEntry::kInvalidIndex) {
-                return;
-            }
-            ExtractKeys(flow, tree, flow->data().flow_source_vrf,
-                        flow->key().src_addr, 0);
         }
         return;
     }

@@ -17,15 +17,6 @@ struct PortInfo input[] = {
 };
 VmInterface *vmi0;
 
-static bool FlowStatsTimerStartStopTrigger(FlowStatsCollectorObject *obj,
-                                           bool stop) {
-    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
-        FlowStatsCollector *fsc = obj->GetCollector(i);
-        fsc->TestStartStopTimer(stop);
-    }
-    return true;
-}
-
 class FlowAuditTest : public ::testing::Test {
 public:
     FlowAuditTest() : agent_(Agent::GetInstance()) {
@@ -43,7 +34,7 @@ public:
 
         vmi0 = VmInterfaceGet(input[0].intf_id);
         assert(vmi0);
-        FlowStatsTimerStartStop(true);
+        FlowStatsTimerStartStop(agent_, true);
         KFlowPurgeHold();
     }
 
@@ -53,19 +44,8 @@ public:
 
         DeleteVmportEnv(input, 1, true, 1);
         client->WaitForIdle();
-        FlowStatsTimerStartStop(false);
+        FlowStatsTimerStartStop(agent_, false);
         KFlowPurgeHold();
-    }
-
-    void FlowStatsTimerStartStop (bool stop) {
-        int task_id =
-            agent_->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
-        std::auto_ptr<TaskTrigger> trigger_
-            (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger,
-                                         flow_stats_collector_, stop),
-                             task_id, 0));
-        trigger_->Set();
-        client->WaitForIdle();
     }
 
     bool FlowTableWait(size_t count) {

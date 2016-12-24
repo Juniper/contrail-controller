@@ -47,6 +47,11 @@ extern void TxIpMplsPacket(int ifindex, const char *out_sip,
                               const char *out_dip, uint32_t label,
                               const char *sip, const char *dip, uint8_t proto,
                               int hash_id = 1);
+extern void TxL2IpMplsPacket(int ifindex, const char *out_sip,
+                             const char *out_dip, uint32_t label,
+                             const char *smac, const char *dmac,
+                             const char *sip, const char *dip, uint8_t proto,
+                             int hash_id = 1);
 extern void MakeUdpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 			      const char *out_dip, uint32_t label,
 			      const char *sip, const char *dip, uint16_t sport,
@@ -119,4 +124,7 @@ extern void TxIpPBBPacket(int ifindex, const char *out_sip, const char *out_dip,
                           const MacAddress &b_dmac, uint32_t isid,
                           const MacAddress &c_smac, MacAddress &c_dmac,
                           const char *sip, const char *dip, int hash_id = 1);
+
+void FlowStatsTimerStartStop(Agent *agent, bool stop);
+
 #endif // __TEST_PKT_UTIL_H__

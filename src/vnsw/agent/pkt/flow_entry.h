@@ -299,11 +299,11 @@ struct FlowData {
     bool enable_rpf;
     // RPF NH for the flow
     NextHopConstRef rpf_nh;
-    // When RPF is derived from a route, flow-management uses VRF and plen
+    // When RPF is derived from a INET route, flow-management uses VRF and plen
     // below to track the route for any NH change
+    // rpf_vrf will be VrfEntry::kInvalidIndex if flow uses l2-route for RPF
     uint32_t rpf_vrf;
     uint8_t rpf_plen;
-    bool rpf_src_l3;
 
     std::string vm_cfg_name;
     uint32_t acl_assigned_vrf_index_;
@@ -678,10 +678,8 @@ private:
     friend void intrusive_ptr_release(FlowEntry *fe);
 
     void RpfInit(const AgentRoute *rt);
-    void RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh,
-                           bool rpf_src_l3);
-    void RpfSetSrcIpNhFields(const AgentRoute *rt, const NextHop *src_ip_nh,
-                             bool rpf_src_l3);
+    void RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh);
+    void RpfSetSrcIpNhFields(const AgentRoute *rt, const NextHop *src_ip_nh);
     bool RpfFromSrcIpNh() const;
     void RpfCompute();
 

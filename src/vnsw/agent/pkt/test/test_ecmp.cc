@@ -40,24 +40,6 @@ IpamInfo ipam_info_4[] = {
     {"4.1.1.0", 24, "4.1.1.254"},
 };
 
-static bool FlowStatsTimerStartStopTrigger (bool stop) {
-    FlowStatsCollectorObject *obj = Agent::GetInstance()->flow_stats_manager()->
-        default_flow_stats_collector_obj();
-    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
-        FlowStatsCollector *fsc = obj->GetCollector(i);
-        fsc->TestStartStopTimer(stop);
-    }
-    return true;
-}
-
-static void FlowStatsTimerStartStop (bool stop) {
-    int task_id = TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsCollector);
-    std::auto_ptr<TaskTrigger> trigger_
-        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, stop), task_id, 0));
-    trigger_->Set();
-    client->WaitForIdle();
-}
-
 class EcmpTest : public ::testing::Test {
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
@@ -147,7 +129,7 @@ class EcmpTest : public ::testing::Test {
                             30, "default-project:vn4", SecurityGroupList(),
                             PathPreference());
         client->WaitForIdle();
-        FlowStatsTimerStartStop(true);
+        FlowStatsTimerStartStop(agent_, true);
     }
 
     void FlushFlowTable() {
@@ -194,7 +176,7 @@ class EcmpTest : public ::testing::Test {
         EXPECT_FALSE(VrfFind("vrf2", true));
         EXPECT_FALSE(VrfFind("default-project:vn3:vn3", true));
         EXPECT_FALSE(VrfFind("default-project:vn4:vn4", true));
-        FlowStatsTimerStartStop(false);
+        FlowStatsTimerStartStop(agent_, false);
 
         WAIT_FOR(1000, 1000, (agent_->vrf_table()->Size() == 1));
     }
