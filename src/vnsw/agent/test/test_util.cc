@@ -637,6 +637,16 @@ VrfEntry *VrfGet(const char *name, bool ret_del) {
     return vrf;
 }
 
+uint32_t GetVrfId(const char *name) {
+    VrfEntry *vrf = VrfGet(name, false);
+    return vrf->vrf_id();
+}
+
+VrfEntry *VrfGet(size_t index) {
+    return static_cast<VrfEntry *>
+        (Agent::GetInstance()->vrf_table()->FindVrfFromId(index));
+}
+
 bool VnFind(int id) {
     VnEntry *vn;
     VnKey key(MakeUuid(id));
@@ -4109,6 +4119,7 @@ void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
                             const char *sip, const char *dip, int proto,
                             int sport_start, int sport_end, int dport_start,
                             int dport_end, const char *vrf, const char *ignore_acl) {
+
     char buf[3000];
     sprintf(buf,
             "    <vrf-assign-table>\n"

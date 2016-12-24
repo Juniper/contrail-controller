@@ -88,8 +88,11 @@ using boost::system::error_code;
     data.set_fip_vm_interface_idx(fip_intf_id);                             \
     SetAclInfo(data, fe);                                                   \
     data.set_nh(fe->key().nh);                                              \
-    if (fe->data().nh.get() != NULL) {                                      \
-        data.set_rpf_nh(fe->data().nh.get()->id());                         \
+    if (fe->data().src_ip_nh.get() != NULL) {                                      \
+        data.set_src_ip_nh(fe->data().src_ip_nh.get()->id());                         \
+    }                                                                       \
+    if (fe->data().rpf_nh.get() != NULL) {                                      \
+        data.set_rpf_nh(fe->data().rpf_nh.get()->id());                         \
     }                                                                       \
     data.set_peer_vrouter(fe->peer_vrouter());                            \
     data.set_tunnel_type(fe->tunnel_type().ToString());                     \
