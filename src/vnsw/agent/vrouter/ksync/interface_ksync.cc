@@ -54,6 +54,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     metadata_l2_active_(entry->metadata_l2_active_),
     metadata_ip_active_(entry->metadata_ip_active_),
     bridging_(entry->bridging_),
+    proxy_arp_mode_(VmInterface::PROXY_ARP_NONE),
     mac_(entry->mac_),
     smac_(entry->smac_),
     mirror_direction_(entry->mirror_direction_),
@@ -99,6 +100,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     metadata_l2_active_(false),
     metadata_ip_active_(false),
     bridging_(true),
+    proxy_arp_mode_(VmInterface::PROXY_ARP_NONE),
     mac_(),
     smac_(),
     mirror_direction_(Interface::UNKNOWN),
@@ -255,6 +257,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
         if (bridging_ != vm_port->bridging()) {
             bridging_ = vm_port->bridging();
+            ret = true;
+        }
+
+        if (proxy_arp_mode_ != vm_port->proxy_arp_mode()) {
+            proxy_arp_mode_ = vm_port->proxy_arp_mode();
             ret = true;
         }
 
@@ -572,6 +579,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         if (flood_unknown_unicast_) {
             flags |= VIF_FLAG_UNKNOWN_UC_FLOOD;
+        }
+        if (proxy_arp_mode_ == VmInterface::PROXY_ARP_UNRESTRICTED) {
+            flags |= VIF_FLAG_MAC_PROXY;
         }
         MacAddress mac;
         if (parent_.get() != NULL) {
