@@ -1311,6 +1311,10 @@ void FlowEntry::GetPolicy(const VnEntry *vn, const FlowEntry *rflow) {
 }
 
 void FlowEntry::GetVrfAssignAcl() {
+    // VRF-Assign rules valid only for routed packets
+    if (l3_flow() == false)
+        return;
+
     if (data_.intf_entry == NULL) {
         return;
     }
