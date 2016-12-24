@@ -1394,6 +1394,7 @@ public:
         return active_count;
     }
 
+    uint32_t PickMember(uint32_t seed, uint32_t affinity_index) const;
     const NextHop* GetNH(uint32_t idx) const {
         if (idx >= component_nh_list_.size()) {
             return NULL;
@@ -1450,6 +1451,7 @@ public:
        }
        return idx;
    }
+   bool HasVmInterface(const VmInterface *vmi) const;
    bool GetIndex(ComponentNH &nh, uint32_t &idx) const;
    const ComponentNH* Get(uint32_t idx) const {
        return component_nh_list_[idx].get();
@@ -1482,7 +1484,9 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class NextHopTable : public AgentDBTable {
 public:
+    static const uint32_t kRpfDisableIndex = 0;
     static const uint32_t kRpfDiscardIndex = 2;
+
     NextHopTable(DB *db, const std::string &name);
     virtual ~NextHopTable();
 

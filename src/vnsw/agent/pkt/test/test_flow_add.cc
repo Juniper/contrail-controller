@@ -428,7 +428,7 @@ TEST_F(FlowTest, Flow_On_PktIntf) {
 
 
 // Validate short flows
-TEST_F(FlowTest, ShortFlow_1) {
+TEST_F(FlowTest, DISABLED_ShortFlow_1) {
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5
         {

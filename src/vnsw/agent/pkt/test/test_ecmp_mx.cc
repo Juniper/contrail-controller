@@ -130,7 +130,7 @@ TEST_F(EcmpTest, EcmpTest_1) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
@@ -139,10 +139,9 @@ TEST_F(EcmpTest, EcmpTest_1) {
 
 //Send packet from ECMP MX to VM
 //Verify:
-//    Forward flow is ecmp
-//    Reverse flow ecmp index is not set
-//    Reverse flow rpf next is composite NH
-//    and the index matches originating MX
+//    Forward flow is non-ECMP
+//    Reverse flow is ECMP. ECMP Index is not set
+//    Reverse flow rpf next is Composite NH
 TEST_F(EcmpTest, EcmpTest_2) {
     AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
 
@@ -151,16 +150,21 @@ TEST_F(EcmpTest, EcmpTest_2) {
     client->WaitForIdle();
 
     AgentRoute *rt = RouteGet("vrf1", Ip4Address::from_string("0.0.0.0"), 0);
-    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
-            "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 2);
 
-    //Reverse flow is no ECMP
+    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+            "8.8.8.8", "1.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->IsEcmpFlow());
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetActiveNextHop());
+
+    //Reverse flow is ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->IsEcmpFlow());
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().rpf_nh->id() == GetFlowKeyNH(1));
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
@@ -178,15 +182,19 @@ TEST_F(EcmpTest, EcmpTest_3) {
 
     AgentRoute *rt = RouteGet("vrf1", Ip4Address::from_string("0.0.0.0"), 0);
     FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
-            "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
+            "8.8.8.8", "1.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 3);
+    EXPECT_TRUE(entry->IsEcmpFlow());
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
-    //Reverse flow is no ECMP
+    //Reverse flow is ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->IsEcmpFlow());
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().rpf_nh->id() == GetFlowKeyNH(1));
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
@@ -194,7 +202,7 @@ TEST_F(EcmpTest, EcmpTest_3) {
 }
 
 //Send packet from MX1 to VM
-//Trap a ecmp resolve packet from MX2 to VM
+//Send one more flow setup message from MX2 to VM
 //verify that component index gets update
 TEST_F(EcmpTest, EcmpTest_4) {
     AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
@@ -204,21 +212,30 @@ TEST_F(EcmpTest, EcmpTest_4) {
     client->WaitForIdle();
 
     AgentRoute *rt = RouteGet("vrf1", Ip4Address::from_string("0.0.0.0"), 0);
-    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
-            "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 0);
 
+    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+            "8.8.8.8", "1.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->IsEcmpFlow());
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetActiveNextHop());
+
+
+    //Reverse flow is ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->IsEcmpFlow());
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().rpf_nh->id() == GetFlowKeyNH(1));
 
     TxIpMplsPacket(eth_intf_id, MX_2, router_id, vm1_label,
                    "8.8.8.8", "1.1.1.1", 1, 10);
     client->WaitForIdle(); 
-    EXPECT_TRUE(entry->data().component_nh_idx == 2);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+
+    EXPECT_EQ(2, flow_proto_->FlowCount());
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().rpf_nh->id() == GetFlowKeyNH(1));
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     client->WaitForIdle();
@@ -228,7 +245,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
 //Send packet from MX to VM
 //  Fwd flow has no vrf assign ACL
 //  Reverese flow has vrf assign ACL
-//  hence component index has to set based on vrf2 
+//  RPF NH must be based on reverse-flow
 TEST_F(EcmpTest, EcmpTest_5) {
     AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn2", 4);
     //Reverse all the nexthop in vrf2
@@ -254,18 +271,19 @@ TEST_F(EcmpTest, EcmpTest_5) {
     client->WaitForIdle();
 
     AgentRoute *rt = RouteGet("vrf2", Ip4Address::from_string("0.0.0.0"), 0);
-    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
-            "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
+    // RPF-NH in forward flow is based on translated VRF in reverse flow
+    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(), "8.8.8.8", "1.1.1.1",
+                               1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
-    //MX 3 would be placed at index 0 because of nexthop
-    //order reversal
-    EXPECT_TRUE(entry->data().component_nh_idx == 0);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().rpf_nh.get() == vmi->flow_key_nh());
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     DeleteRoute("vrf2", "0.0.0.0", 0, bgp_peer);
@@ -303,13 +321,14 @@ TEST_F(EcmpTest, EcmpTest_6) {
     FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
             "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 3);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     //Clean up
     DeleteRoute("fip:fip", "0.0.0.0", 0, bgp_peer);
@@ -359,13 +378,14 @@ TEST_F(EcmpTest, EcmpTest_7) {
     FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
             "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 0);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     //Clean up
     DeleteRoute("fip:fip", "0.0.0.0", 0, bgp_peer);

@@ -37,7 +37,6 @@ public:
         vr_cmd_list_[AGENT_TRAP_FLOW_MISS] = AgentHdr::TRAP_FLOW_MISS;
         vr_cmd_list_[AGENT_TRAP_L3_PROTOCOLS] = AgentHdr::TRAP_L3_PROTOCOLS;
         vr_cmd_list_[AGENT_TRAP_DIAG] = AgentHdr::TRAP_DIAG;
-        vr_cmd_list_[AGENT_TRAP_ECMP_RESOLVE] = AgentHdr::TRAP_ECMP_RESOLVE;
         vr_cmd_list_[AGENT_TRAP_SOURCE_MISMATCH] =
             AgentHdr::TRAP_SOURCE_MISMATCH;
         vr_cmd_list_[AGENT_TRAP_HANDLE_DF] = AgentHdr::TRAP_HANDLE_DF;

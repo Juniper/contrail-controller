@@ -60,25 +60,6 @@ VmInterface *vmi_2;
 VmInterface *vmi_3;
 std::string eth_itf;
 
-static bool FlowStatsTimerStartStopTrigger (Agent *agent, bool stop) {
-    FlowStatsCollectorObject *obj = agent->flow_stats_manager()->
-        default_flow_stats_collector_obj();
-    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
-        FlowStatsCollector *fsc = obj->GetCollector(i);
-        fsc->TestStartStopTimer(stop);
-    }
-    return true;
-}
-
-static void FlowStatsTimerStartStop (Agent *agent, bool stop) {
-    int task_id = agent->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
-    std::auto_ptr<TaskTrigger> trigger_
-        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, agent,
-                                     stop), task_id, 0));
-    trigger_->Set();
-    client->WaitForIdle();
-}
-
 class FlowTest : public ::testing::Test {
 public:
     FlowTest() : agent_(Agent::GetInstance()) {
@@ -646,7 +627,7 @@ TEST_F(FlowTest, FlowLimit_1) {
 }
 
 // Check that flow limit per VM includes short flows in the system
-TEST_F(FlowTest, FlowLimit_2) {
+TEST_F(FlowTest, DISABLED_FlowLimit_2) {
     uint32_t vm_flows = agent_->max_vm_flows();
     agent_->set_max_vm_flows(3);
 

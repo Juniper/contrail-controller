@@ -9,6 +9,11 @@
 
 using namespace std;
 
+#define EXPECT_TRUE_RET(a) \
+    do { EXPECT_TRUE((a)); if ((a) == false) ret = false; } while(0);
+#define EXPECT_FALSE_RET(a) \
+    do { EXPECT_FALSE((a)); if ((a) == true) ret = false; }  while(0);
+
 static const int kProjectUuid = 101;
 
 struct TestLinkLocalService {
@@ -110,7 +115,9 @@ NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
 NextHop *ReceiveNHGet(NextHopTable *table, const char *ifname, bool policy);
 bool VrfFind(const char *name);
 bool VrfFind(const char *name, bool ret_del);
+VrfEntry *VrfGet(size_t index);
 VrfEntry *VrfGet(const char *name, bool ret_del=false);
+uint32_t GetVrfId(const char *name);
 bool VnFind(int id);
 VnEntry *VnGet(int id);
 bool VxlanFind(int id);

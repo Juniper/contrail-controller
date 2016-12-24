@@ -8,6 +8,7 @@
 #include "test-xml/test_xml_oper.h"
 #include "oper/test/test_xml_physical_device.h"
 #include "test_xml_flow_agent_init.h"
+#include "test_pkt_util.h"
 
 using namespace std;
 namespace opt = boost::program_options;
@@ -32,15 +33,6 @@ static void GetArgs(char *test_file, int argc, char *argv[]) {
     return;
 }
 
-static bool FlowStatsTimerStartStopTrigger(FlowStatsCollectorObject *obj,
-                                           bool stop) {
-    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
-        FlowStatsCollector *fsc = obj->GetCollector(i);
-        fsc->TestStartStopTimer(stop);
-    }
-    return true;
-}
-
 class TestPkt : public ::testing::Test {
 public:
     virtual void SetUp() {
@@ -49,7 +41,7 @@ public:
         interface_count_ = agent_->interface_table()->Size();
         flow_stats_collector_ = agent_->flow_stats_manager()->
             default_flow_stats_collector_obj();
-        FlowStatsTimerStartStop(true);
+        FlowStatsTimerStartStop(agent_, true);
         AddIPAM("vn1", ipam_info, 1);
         client->WaitForIdle();
     }
@@ -59,19 +51,8 @@ public:
         EXPECT_EQ(agent_->vn_table()->Size(), 0);
         EXPECT_EQ(agent_->interface_table()->Size(), interface_count_);
         agent_->flow_stats_manager()->set_flow_export_count(0);
-        FlowStatsTimerStartStop(false);
+        FlowStatsTimerStartStop(agent_, false);
         DelIPAM("vn1");
-        client->WaitForIdle();
-    }
-
-    void FlowStatsTimerStartStop(bool stop) {
-        int task_id =
-            agent_->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
-        std::auto_ptr<TaskTrigger> trigger_
-            (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger,
-                                         flow_stats_collector_, stop),
-                             task_id, 0));
-        trigger_->Set();
         client->WaitForIdle();
     }
 
@@ -94,7 +75,7 @@ TEST_F(TestPkt, parse_1) {
     }
 }
 
-TEST_F(TestPkt, ingress_flow_1) {
+TEST_F(TestPkt, DISABLED_ingress_flow_1) {
     AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/ingress-flow.xml");
     AgentUtXmlOperInit(&test);
     if (test.Load() == true) {
@@ -107,7 +88,7 @@ TEST_F(TestPkt, ingress_flow_1) {
     }
 }
 
-TEST_F(TestPkt, egress_flow_1) {
+TEST_F(TestPkt, DISABLED_egress_flow_1) {
     AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/egress-flow.xml");
     AgentUtXmlOperInit(&test);
     if (test.Load() == true) {
@@ -120,7 +101,7 @@ TEST_F(TestPkt, egress_flow_1) {
     }
 }
 
-TEST_F(TestPkt, l2_sg_flow_1) {
+TEST_F(TestPkt, DISABLED_l2_sg_flow_1) {
     AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/l2-sg-flow.xml");
     AgentUtXmlOperInit(&test);
     if (test.Load() == true) {
@@ -133,7 +114,7 @@ TEST_F(TestPkt, l2_sg_flow_1) {
     }
 }
 
-TEST_F(TestPkt, rpf_flow) {
+TEST_F(TestPkt, DISABLED_rpf_flow) {
     AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/rpf-flow.xml");
     AgentUtXmlOperInit(&test);
     if (test.Load() == true) {
