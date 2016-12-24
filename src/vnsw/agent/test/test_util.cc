@@ -4053,9 +4053,17 @@ void SendBgpServiceConfig(const std::string &ip,
 void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
                             const char *sip, const char *dip, int proto,
                             int sport_start, int sport_end, int dport_start,
-                            int dport_end, const char *vrf, const char *ignore_acl) {
+                            int dport_end, const char *vrf,
+                            const char *ignore_acl, const char *svc_intf_type) {
+
+    if (svc_intf_type == NULL)
+        svc_intf_type = "management";
+
     char buf[3000];
     sprintf(buf,
+            "    <virtual-machine-interface-properties>\n"
+            "       <service-interface-type>%s</service-interface-type>\n"
+            "    </virtual-machine-interface-properties>\n"
             "    <vrf-assign-table>\n"
             "        <vrf-assign-rule>\n"
             "            <match-condition>\n"
@@ -4104,8 +4112,8 @@ void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
             "             <ignore-acl>%s</ignore-acl>\n"
             "         </vrf-assign-rule>\n"
             "    </vrf-assign-table>\n",
-        proto, sip, sport_start, sport_end, dip, dport_start, dport_end, vrf,
-        ignore_acl);
+        svc_intf_type, proto, sip, sport_start, sport_end, dip, dport_start,
+        dport_end, vrf, ignore_acl);
     AddNode("virtual-machine-interface", intf_name, intf_id, buf);
     client->WaitForIdle();
 }
