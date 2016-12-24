@@ -124,4 +124,5 @@ extern void TxTcp6MplsPacket(int ifindex, const char *out_sip,
                              const char *sip, const char *dip, uint16_t sport,
                              uint16_t dport, bool ack, int hash_id = 1);
 
+void FlowStatsTimerStartStop(Agent *agent, bool stop);
 #endif // __TEST_PKT_UTIL_H__

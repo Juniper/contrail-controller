@@ -403,3 +403,19 @@ void TxTcp6MplsPacket(int ifindex, const char *out_sip,
                                                     pkt->GetBuffLen());
     delete pkt;
 }
+
+static bool FlowStatsTimerStartStopTrigger (Agent *agent, bool stop) {
+    FlowStatsCollector *stats =
+        agent->flow_stats_manager()->default_flow_stats_collector();
+    stats->TestStartStopTimer(stop);
+    return true;
+}
+
+void FlowStatsTimerStartStop(Agent *agent, bool stop) {
+    int task_id = agent->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
+    std::auto_ptr<TaskTrigger> trigger_
+        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, agent,
+                                     stop), task_id, 0));
+    trigger_->Set();
+    client->WaitForIdle();
+}

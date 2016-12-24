@@ -57,6 +57,7 @@ public:
         ecmp_component_affinity_nh(NULL) {
     }
 
+    FlowTable *get_flow_table() const { return flow_table; }
     static bool ComputeDirection(const Interface *intf);
     void CheckLinkLocal(const PktInfo *pkt);
     void LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,

@@ -270,7 +270,8 @@ public:
         ctrl.vn_ = vn;
         ctrl.intf_ = intf;
 
-        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl, NULL, Agent::GetInstance());
+        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl, NULL, Agent::GetInstance(),
+                          info.l3_flow);
     }
     void NewFlow(FlowEntry *f) {
         Agent *agent = Agent::GetInstance();
