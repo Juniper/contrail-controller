@@ -165,8 +165,10 @@ class VrouterProvisioner(object):
             vrouter_obj.set_virtual_router_dpdk_enabled(False)
         if vrouter_exists:
             self._vnc_lib.virtual_router_update(vrouter_obj)
+            print ("Updated UUID : " + vrouter_obj.uuid)
         else:
             self._vnc_lib.virtual_router_create(vrouter_obj)
+            print ("Created UUID : " + vrouter_obj.uuid)
 
     # end add_vrouter
 

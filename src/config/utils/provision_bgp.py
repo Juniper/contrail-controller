@@ -119,6 +119,7 @@ class BgpProvisioner(object):
                 continue
 
             cur_obj.add_bgp_router(other_obj, bgp_peering_attrs)
+        print ("Created UUID: " + cur_obj.uuid)
         if md5:
             md5 = {'key_items': [ { 'key': md5 ,"key_id":0 } ], "key_type":"md5"}
             rparams = cur_obj.bgp_router_parameters
@@ -150,8 +151,8 @@ class BgpProvisioner(object):
                 continue
 
             other_obj.del_bgp_router(cur_obj)
-
         vnc_lib.bgp_router_delete(id=cur_obj.uuid)
+        print ("Deleted UUID:" + cur_obj.uuid)
     # end del_bgp_router
 
     def add_route_target(self, rt_inst_fq_name, router_asn,
