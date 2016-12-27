@@ -189,6 +189,7 @@ objectlog sandesh ProtobufCollectorStats {
 
 /**
  * @description: sandesh request to get collector info through introspect
+ * @cli_name: read collector server
  */
 request sandesh ShowCollectorServerReq {
 }
@@ -273,42 +274,54 @@ trace sandesh generator_deluves {
 
 /**
  * @description: sandesh request to set Database Queue params
+ * @cli_name: create database queue parameters
  */
 request sandesh DbQueueParamsSet {
+    /** for high watermark or low watermark */
     1: optional bool high;
+    /** queue count for this level */
     2: optional u32 queue_count;
+    /** highest message level for this watermark */
     3: optional string drop_level;
 }    
 
 /**
  * @description: sandesh request to reset Database Queue params
+ * @cli_name: update database queue parameters
  */
 request sandesh DbQueueParamsReset {
 }
 
 /**
  * @description: sandesh request to get Database Queue params
+ * @cli_name: read database queue parameters
  */
 request sandesh DbQueueParamsStatus {
 }
 
 /**
  * @description: sandesh request to set State Machine Queue params
+ * @cli_name: create state machine queue parameters
  */
 request sandesh SmQueueParamsSet {
+    /** for high watermark or low watermark */
     1: optional bool high;
+    /** queue count for this level */
     2: optional u32 queue_count;
+    /** highest message level for this watermark */
     3: optional string drop_level;
 }    
 
 /**
  * @description: sandesh request to reset State Machine Queue params
+ * @cli_name: update state machine queue params
  */
 request sandesh SmQueueParamsReset {
 }
 
 /**
  * @description: sandesh request to get State Machine Queue params
+ * @cli_name: read state machine queue parameters
  */
 request sandesh SmQueueParamsStatus {
 }
@@ -348,10 +361,19 @@ objectlog sandesh SandeshMessageStat {
     2: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")
 }
 
+/**
+ * @description: sandesh request to get State Machine Queue params
+ * @cli_name: update flow collection
+ */
 request sandesh DisableFlowCollectionRequest {
+    /** To enable or disable the flow collection */
     1: optional bool disable
 }
 
+/**
+ * @description: sandesh request to get State Machine Queue params
+ * @cli_name: read flow collection
+ */
 request sandesh FlowCollectionStatusRequest {
 }
 
@@ -363,14 +385,27 @@ response sandesh CollectorError {
     1: string error
 }
 
+/**
+ * @description: sandesh request to configure database writes
+ * @cli_name: update database write disable parameters
+ */
 request sandesh DisableDatabaseWritesRequest {
+    /** whether to disable all writes */
     1: optional bool disable_all
+    /** whether to disable statistics only */
     2: optional bool disable_statistics
+    /** whether to disable messages only */
     3: optional bool disable_messages
+    /** whether to disable flows only */
     4: optional bool disable_flows
+    /** whether to disable messages keyword only */
     5: optional bool disable_messages_keyword
 }
 
+/**
+ * @description: sandesh request to get database writes
+ * @cli_name: read database write disable parameters
+ */
 request sandesh DatabaseWritesStatusRequest {
 }
 
