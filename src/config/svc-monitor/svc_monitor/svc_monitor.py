@@ -185,7 +185,7 @@ class SvcMonitor(object):
 
         self._db_resync_done = gevent.event.Event()
 
-        q_name = 'svc_mon.%s' % (socket.gethostname())
+        q_name = 'svc_mon'
         self._vnc_kombu = VncKombuClient(rabbit_server, rabbit_port,
                                          rabbit_user, rabbit_password,
                                          rabbit_vhost, rabbit_ha_mode,
