@@ -76,6 +76,7 @@ class DiscoveryServer():
             'cur_pend_sb':0,
             'cur_pend_hb':0,
             'throttle_subs':0,
+            'restarting':0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
@@ -384,6 +385,9 @@ class DiscoveryServer():
         self._debug['cur_pend_hb'] += 1
         if self._debug['cur_pend_hb'] > self._debug['max_pend_hb']:
             self._debug['max_pend_hb'] = self._debug['cur_pend_hb']
+        if self._db_conn.is_restarting():
+            self._debug['restarting'] += 1
+            bottle.abort(503, 'Service Unavailable')
         ctype = bottle.request.headers['content-type']
         json_req = {}
         try:
@@ -404,6 +408,9 @@ class DiscoveryServer():
         self._debug['cur_pend_pb'] += 1
         if self._debug['cur_pend_pb'] > self._debug['max_pend_pb']:
             self._debug['max_pend_pb'] = self._debug['cur_pend_pb']
+        if self._db_conn.is_restarting():
+            self._debug['restarting'] += 1
+            bottle.abort(503, 'Service Unavailable')
         self._debug['msg_pubs'] += 1
         ctype = bottle.request.headers['content-type']
         json_req = {}
@@ -500,6 +507,9 @@ class DiscoveryServer():
 
     def api_subscribe(self):
         self._debug['msg_subs'] += 1
+        if self._db_conn.is_restarting():
+            self._debug['restarting'] += 1
+            bottle.abort(503, 'Service Unavailable')
         ctype = bottle.request.headers['content-type']
         if ctype == 'application/json':
             json_req = bottle.request.json
@@ -629,6 +639,9 @@ class DiscoveryServer():
 
     def api_query(self):
         self._debug['msg_query'] += 1
+        if self._db_conn.is_restarting():
+            self._debug['restarting'] += 1
+            bottle.abort(503, 'Service Unavailable')
         ctype = bottle.request.headers['content-type']
         if ctype == 'application/json':
             json_req = bottle.request.json

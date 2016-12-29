@@ -3,33 +3,52 @@
 #
 
 import re
+import sys
 import gevent
 import kazoo.client
 import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
 
+import logging
 import json
 import time
 import disc_consts
 
 from gevent.coros import BoundedSemaphore
-from cfgm_common.zkclient import ZookeeperClient
 
 
-class DiscoveryZkClient(ZookeeperClient):
+class DiscoveryZkClient(object):
 
-    def __init__(self, module, zk_srv_ip='127.0.0.1',
+    def __init__(self, discServer, zk_srv_ip='127.0.0.1',
                  zk_srv_port='2181', reset_config=False):
         self._reset_config = reset_config
-        self._ds = None
+        self._service_id_to_type = {}
+        self._ds = discServer
+        self._zk_sem = BoundedSemaphore(1)
+        self._election = None
+        self._restarting = False
 
         zk_endpts = []
         for ip in zk_srv_ip.split(','):
             zk_endpts.append('%s:%s' %(ip, zk_srv_port))
 
-        ZookeeperClient.__init__(self, module, ','.join(zk_endpts))
-        self._zk = self._zk_client
+        # logging
+        logger = logging.getLogger('discovery-service')
+        logger.setLevel(logging.WARNING)
+        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/discovery_zk.log', maxBytes=1024*1024, backupCount=10)
+        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+        handler.setFormatter(log_format)
+        logger.addHandler(handler)
+
+        self._zk = kazoo.client.KazooClient(
+            hosts=','.join(zk_endpts),
+            handler=kazoo.handlers.gevent.SequentialGeventHandler(),
+            logger=logger)
+        self._logger = logger
+
+        # connect
+        self.connect()
 
         if reset_config:
             self.delete_node("/services", recursive=True)
@@ -53,6 +72,46 @@ class DiscoveryZkClient(ZookeeperClient):
         self._ds = discServer
     # end set_ds
 
+    def is_restarting(self):
+        return self._restarting
+    # end is_restarting
+
+    # restart
+    def restart(self):
+        self._zk_sem.acquire()
+        self._restarting = True
+        self.syslog("restart: acquired lock; state %s " % self._zk.state)
+        # initiate restart if our state is suspended or lost
+        if self._zk.state != "CONNECTED":
+            self.syslog("restart: starting ...")
+            try:
+                self._zk.stop() 
+                self._zk.close() 
+                self._zk.start() 
+                self.syslog("restart: done")
+            except:
+                e = sys.exc_info()[0]
+                self.syslog('restart: exception %s' % str(e))
+        self._restarting = False
+        self._zk_sem.release()
+
+    # start 
+    def connect(self):
+        while True:
+            try:
+                self._zk.start()
+                break
+            except gevent.event.Timeout as e:
+                self.syslog(
+                    'Failed to connect with Zookeeper -will retry in a second')
+                gevent.sleep(1)
+            # Zookeeper is also throwing exception due to delay in master election
+            except Exception as e:
+                self.syslog('%s -will retry in a second' % (str(e)))
+                gevent.sleep(1)
+        self.syslog('Connected to ZooKeeper!')
+    # end
+
     def start_background_tasks(self):
         # spawn loop to expire subscriptions
         gevent.Greenlet.spawn(self.inuse_loop)
@@ -61,43 +120,89 @@ class DiscoveryZkClient(ZookeeperClient):
         gevent.Greenlet.spawn(self.service_oos_loop)
     # end
 
+    def syslog(self, log_msg):
+        if self._logger is None:
+            return
+        self._logger.info(log_msg)
+    # end
+
     def get_debug_stats(self):
         return self._debug
     # end
 
+    def _zk_listener(self, state):
+        if state == "CONNECTED":
+            self._election.cancel()
+    # end
+
+    def _zk_election_callback(self, func, *args, **kwargs):
+        self._zk.remove_listener(self._zk_listener)
+        func(*args, **kwargs)
+    # end
+
+    def master_election(self, path, identifier, func, *args, **kwargs):
+        self._zk.add_listener(self._zk_listener)
+        while True:
+            self._election = self._zk.Election(path, identifier)
+            self._election.run(self._zk_election_callback, func, *args, **kwargs)
+    # end master_election
+
     def create_node(self, path, value='', makepath=True, sequence=False):
         value = str(value)
-        try:
-            self._zk.set(path, value)
-        except kazoo.exceptions.NoNodeException:
-            self.syslog('create %s' % (path))
-            return self._zk.create(path, value, makepath=makepath, sequence=sequence)
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.reconnect()
-            return self.create_node(path, value, makepath, sequence)
+        while True:
+            try:
+                return self._zk.set(path, value)
+            except kazoo.exceptions.NoNodeException:
+                self.syslog('create %s' % (path))
+                return self._zk.create(path, value, makepath=makepath, sequence=sequence)
+            except (kazoo.exceptions.SessionExpiredError,
+                    kazoo.exceptions.ConnectionLoss):
+                self.restart()
     # end create_node
 
+    def get_children(self, path):
+        while True:
+            try:
+                return self._zk.get_children(path)
+            except (kazoo.exceptions.SessionExpiredError,
+                    kazoo.exceptions.ConnectionLoss):
+                self.restart()
+            except Exception:
+                return []
+    # end get_children
+
     def read_node(self, path):
-        try:
-            data, stat = self._zk.get(path)
-            return data,stat
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.reconnect()
-            return self.read_node(path)
-        except kazoo.exceptions.NoNodeException:
-            self.syslog('exc read: node %s does not exist' % path)
-            return (None, None)
+        while True:
+            try:
+                data, stat = self._zk.get(path)
+                return data,stat
+            except (kazoo.exceptions.SessionExpiredError,
+                    kazoo.exceptions.ConnectionLoss):
+                self.restart()
+            except kazoo.exceptions.NoNodeException:
+                self.syslog('exc read: node %s does not exist' % path)
+                return (None, None)
     # end read_node
 
+    def delete_node(self, path, recursive=False):
+        while True:
+            try:
+                return self._zk.delete(path, recursive=recursive)
+            except (kazoo.exceptions.SessionExpiredError,
+                    kazoo.exceptions.ConnectionLoss):
+                self.restart()
+            except kazoo.exceptions.NoNodeException:
+                self.syslog('exc delete: node %s does not exist' % path)
+                return None
+    # end delete_node
+
     def exists_node(self, path):
-        try:
-            return self._zk.exists(path)
-        except (kazoo.exceptions.SessionExpiredError,
-                kazoo.exceptions.ConnectionLoss):
-            self.reconnect()
-            return self.exists_node(path)
+        while True:
+            try:
+                return self._zk.exists(path)
+            except (kazoo.exceptions.SessionExpiredError,
+                    kazoo.exceptions.ConnectionLoss):
+                self.restart()
     # end exists_node
 
     def service_entries(self):
@@ -155,21 +260,12 @@ class DiscoveryZkClient(ZookeeperClient):
     # end insert_service
 
     # forget service and subscribers
-    def delete_service(self, entry):
-        service_type = entry['service_type']
-        service_id = entry['service_id']
-        sequence = entry['sequence']
-        self.syslog('Deleting service %s:%s, seq %s' %
-                (service_type, service_id, sequence))
+    def delete_service(self, service_type, service_id, recursive = False):
         #if self.lookup_subscribers(service_type, service_id):
         #    return
 
-        if sequence != -1:
-            path = '/election/%s/node-%s' % (service_type, sequence)
-            self.delete_node(path)
-
         path = '/services/%s/%s' %(service_type, service_id)
-        self.delete_node(path, recursive = True)
+        self.delete_node(path, recursive = recursive)
 
         # delete service node if all services gone
         path = '/services/%s' %(service_type)

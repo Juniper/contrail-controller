@@ -15,6 +15,7 @@ import pkg_resources
 import xmltodict
 import json
 import gevent
+import socket, struct
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
 except:
@@ -337,9 +338,11 @@ class OpServerUtils(object):
                 value_dict = value
             else:
                 continue
-
-            # Handle struct, list
+            # Handle struct, list, ipv4 type
             if '@type' in value_dict:
+                if value_dict['@type'] == 'ipv4':
+                    elem = int(value_dict['#text'])
+                    value_dict['#text'] = socket.inet_ntoa(struct.pack('!L',elem))
                 if value_dict['@type'] == 'struct':
                     for vdict_key, vdict_value in value_dict.iteritems():
                         if isinstance(vdict_value, dict):
@@ -365,8 +368,13 @@ class OpServerUtils(object):
                         else:
                             velem_list = vlist_dict['element']
                         data_str += '[' + key + ':'
-                        for velem in velem_list:
-                            data_str += ' ' + str(velem)
+                        if vlist_dict['@type'] == 'ipv4':
+                            for velem in velem_list:
+                                velem = socket.inet_ntoa(struct.pack('!L',int(velem)))
+                                data_str += ' ' + velem
+                        else:
+                            for velem in velem_list:
+                                data_str += ' ' + str(velem)
                         data_str += ']'
                     # Handle list of complex types
                     else:
