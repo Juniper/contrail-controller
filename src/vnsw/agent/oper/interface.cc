@@ -897,6 +897,40 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 entry.set_installed("N");
             }
             entry.set_fixed_ip(ip.fixed_ip_.to_string());
+
+            string dir = "";
+            switch (it->direction()) {
+            case VmInterface::FloatingIp::DIRECTION_BOTH:
+                dir = "both";
+                break;
+
+            case VmInterface::FloatingIp::DIRECTION_INGRESS:
+                dir = "ingress";
+                break;
+
+            case VmInterface::FloatingIp::DIRECTION_EGRESS:
+                dir = "egress";
+                break;
+
+            default:
+                dir = "INVALID";
+                break;
+            }
+            entry.set_direction(dir);
+
+            entry.set_port_map_enabled(it->port_map_enabled());
+            std::vector<SandeshPortMapping> pmap_list;
+            VmInterface::FloatingIp::PortMapIterator pmap_it =
+                it->src_port_map_.begin();
+            while (pmap_it != it->src_port_map_.end()) {
+                SandeshPortMapping pmap;
+                pmap.set_protocol(pmap_it->first.protocol_);
+                pmap.set_port(pmap_it->first.port_);
+                pmap.set_nat_port(pmap_it->second);
+                pmap_list.push_back(pmap);
+            }
+            entry.set_port_map(pmap_list);
+
             fip_list.push_back(entry);
             it++;
         }

@@ -84,6 +84,18 @@ struct ServiceVlanSandeshList {
 }
 
 /**
+ * Port mapping definition
+ */
+struct SandeshPortMapping {
+   /** IP protocol */
+   1: u16 protocol;
+   /** Port number of packet */
+   2: u16 port;
+   /** Translated port number */
+   3: u16 nat_port;
+}
+
+/**
  * Structure definition for floating ip entry in oper db
  */
 struct FloatingIpSandeshList {
@@ -95,6 +107,12 @@ struct FloatingIpSandeshList {
    3: string installed;
    /** Fixed ip address associated to floating ip */
    4: string fixed_ip;
+   /** floating-ip direction */
+   5: string direction;
+   /** port-map enabled */
+   6: bool port_map_enabled;
+   /** port-mapping array */
+   7: list<SandeshPortMapping> port_map;
 }
 
 /**

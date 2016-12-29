@@ -341,7 +341,7 @@ TEST_F(FipCfg, Fip_PortMap_Add) {
     client->WaitForIdle();
     WAIT_FOR(100, 100, (vmi1_->FloatingIpCount() == 0));
 
-    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", true, 100, 200);
+    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", NULL, true, 100, 200);
     client->WaitForIdle();
     WAIT_FOR(100, 100, (vmi1_->FloatingIpCount() == 1));
 
@@ -368,7 +368,7 @@ TEST_F(FipCfg, Fip_PortMap_Add) {
 TEST_F(FipCfg, Fip_PortMap_Change_1) {
     uint8_t sequence[]  = {1, 0, 2, 3};
     AddFipIip(sequence);
-    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", true, 100, 200);
+    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", NULL, true, 100, 200);
     client->WaitForIdle();
 
     const VmInterface::FloatingIpSet &fip_list =
@@ -383,7 +383,7 @@ TEST_F(FipCfg, Fip_PortMap_Change_1) {
 TEST_F(FipCfg, Fip_PortMap_Change_2) {
     uint8_t sequence[]  = {1, 0, 2, 3};
     AddFipIip(sequence);
-    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", true, 100, 200);
+    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", NULL, true, 100, 200);
     client->WaitForIdle();
     const VmInterface::FloatingIpSet &fip_list =
         vmi1_->floating_ip_list().list_;
@@ -391,7 +391,7 @@ TEST_F(FipCfg, Fip_PortMap_Change_2) {
     EXPECT_TRUE(it != fip_list.end());
     EXPECT_TRUE(it->port_map_enabled());
 
-    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", true, 300, 400);
+    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", NULL, true, 300, 400);
     client->WaitForIdle();
 
     it = fip_list.begin();
@@ -404,6 +404,35 @@ TEST_F(FipCfg, Fip_PortMap_Change_2) {
 
     EXPECT_EQ(300, it->GetSrcPortMap(IPPROTO_TCP, 1300));
     EXPECT_EQ(400, it->GetSrcPortMap(IPPROTO_TCP, 1400));
+    DelFipIip(sequence);
+}
+
+TEST_F(FipCfg, Fip_Direction_1) {
+    uint8_t sequence[]  = {0, 1, 2, 3};
+    AddFipIip(sequence);
+    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1");
+    client->WaitForIdle();
+    const VmInterface::FloatingIpSet &fip_list =
+        vmi1_->floating_ip_list().list_;
+    VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
+    EXPECT_TRUE(it != fip_list.end());
+    EXPECT_TRUE(it->port_map_enabled() == false);
+    EXPECT_EQ(it->direction(), VmInterface::FloatingIp::DIRECTION_BOTH);
+    EXPECT_TRUE(it->AllowDNat());
+    EXPECT_TRUE(it->AllowSNat());
+
+    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", "INGRESS");
+    client->WaitForIdle();
+    EXPECT_EQ(it->direction(), VmInterface::FloatingIp::DIRECTION_INGRESS);
+    EXPECT_TRUE(it->AllowDNat());
+    EXPECT_FALSE(it->AllowSNat());
+
+    AddFloatingIp("fip1", 1, "2.2.2.1", "1.1.1.1", "EGRESS");
+    client->WaitForIdle();
+    EXPECT_EQ(it->direction(), VmInterface::FloatingIp::DIRECTION_EGRESS);
+    EXPECT_FALSE(it->AllowDNat());
+    EXPECT_TRUE(it->AllowSNat());
+
     DelFipIip(sequence);
 }
 
