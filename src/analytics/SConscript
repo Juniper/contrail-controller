@@ -58,12 +58,14 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'protobuf',
         'zookeeper_client',
         'zookeeper_mt',
+        'ssl',
+        'crypto',
         'boost_filesystem',
         'boost_program_options'])
 
 (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 if PLATFORM.lower() != 'ubuntu' or (PLATFORM.lower() == 'ubuntu' and VERSION.find('16.') == 0):
-    AnalyticsEnv.Prepend(LIBS=['ssl', 'crypto', 'sasl2'])
+    AnalyticsEnv.Prepend(LIBS=['sasl2'])
 
 database_libs = ['cassandra_cql', 'cassandra']
 
