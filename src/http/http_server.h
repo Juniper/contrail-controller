@@ -10,7 +10,7 @@
 
 #include <boost/function.hpp>
 
-#include "io/tcp_server.h"
+#include "io/ssl_server.h"
 #include "base/util.h"
 
 #define HTTP_WILDCARD_ENTRY "_match_any_"
@@ -18,15 +18,23 @@
 class EventManager;
 class HttpRequest;
 class HttpSession;
+struct SslConfig {
+    bool ssl_enabled;
+    std::string path_to_server_cert;
+    std::string path_to_server_priv_key;
+    std::string path_to_ca_cert;
+};
 
-class HttpServer : public TcpServer {
+class HttpServer : public SslServer {
 public:
     typedef boost::function<void(HttpSession *session, const HttpRequest *)>
 	HttpHandlerFn;
+    HttpServer(EventManager *evm, const struct SslConfig *config);
     explicit HttpServer(EventManager *evm);
     virtual ~HttpServer();
 
     virtual TcpSession *AllocSession(Socket *socket);
+    virtual SslSession *AllocSession(SslSocket *socket);
     virtual bool AcceptSession(TcpSession *session);
 
     void RegisterHandler(const std::string &path, HttpHandlerFn handler);

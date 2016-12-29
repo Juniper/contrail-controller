@@ -10,16 +10,17 @@
 #include <tbb/atomic.h>
 
 #include "base/util.h"
-#include "io/tcp_session.h"
+#include "io/ssl_session.h"
 
 class HttpRequest;
 class HttpServer;
 
-class HttpSession: public TcpSession {
+class HttpSession: public SslSession {
   public:
     typedef boost::function<void(HttpSession *session,
                                  enum TcpSession::Event event)> SessionEventCb;
 
+    HttpSession(HttpServer *server, SslSocket *sock, bool async_ready = true);
     explicit HttpSession(HttpServer *server, Socket *socket);
     virtual ~HttpSession();
     const std::string get_context() { return context_str_; }

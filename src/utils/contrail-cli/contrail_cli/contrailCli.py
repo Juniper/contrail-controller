@@ -10,6 +10,9 @@ import json
 from cliff.command import Command
 import xmltodict
 import requests
+from urllib3.exceptions import InsecureRequestWarning
+import warnings
+warnings.simplefilter('ignore', InsecureRequestWarning)
 
 class ContrailCli(Command):
     def __init__(self, app, app_args, cmd_name=None):
@@ -19,10 +22,14 @@ class ContrailCli(Command):
 
     def web_invoke(self, url):
         output = None
-        resp = requests.get(url, timeout=2)
+        try:
+            http_url = "http" + url
+            resp = requests.get(http_url, timeout=2)
+        except requests.ConnectionError:
+            http_url = "https" + url
+            resp = requests.get(http_url, timeout=2, verify=False)
         if resp.status_code == requests.codes.ok:
             output = resp.text
-
         return output
     # end web_invoke
 
@@ -61,7 +68,7 @@ class ContrailCli(Command):
     def _prepare_query_url(self, parsed_args, command):
         ip_addr = self.http_ip
         http_port = self.http_port
-        url = "http://" + ip_addr + ":" + http_port + "/Snh_" + command.struct_name
+        url = "://" + ip_addr + ":" + http_port + "/Snh_" + command.struct_name
         arg_count = 0
         for params in command.cli_params:
             if arg_count > 0:
