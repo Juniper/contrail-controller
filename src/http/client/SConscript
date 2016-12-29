@@ -44,7 +44,7 @@ httpcd = env.Program(target = 'httpcd',
                    source = ['main.cc'])
 env.Requires(httpcd, '#/build/include/curl/curl.h')
 env.AppendUnique(LINKFLAGS='-Wl,--no-as-needed')
-env.Append(LIBS = ['vncapi', 'json-c', 'httpc'])
+env.Append(LIBS = ['vncapi', 'ssl', 'crypto', 'json-c', 'httpc'])
 vncapitest = env.Program(target = 'vncapitest',
                    source = ['vncapi_test.cc'])
 env.Requires(libvncapi, '#/build/include/curl/curl.h')

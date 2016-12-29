@@ -22,8 +22,8 @@ env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/bfd')
 env.Append(LIBPATH = env['TOP'] + '/bfd/rest_api')
 
-env.Prepend(LIBS = ['bfd_rest_api', 'bfd', 'gunit', 'task_test', 'io', 'sandesh', 'io', 'sandeshvns', 'base', 'http', 'httpc',
-                    'http_parser', 'curl', 'pugixml', 'boost_program_options', 'boost_thread', 'boost_regex', 'connection_info',
+env.Prepend(LIBS = ['bfd_rest_api', 'bfd', 'gunit', 'task_test', 'io', 'sandesh', 'sandeshvns', 'base', 'http', 'httpc', 'io',
+                    'ssl', 'crypto', 'http_parser', 'curl', 'pugixml', 'boost_program_options', 'boost_thread', 'boost_regex',
                     'process_info'])
 
 if sys.platform != 'darwin':
