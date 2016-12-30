@@ -11,8 +11,9 @@ LOG = logging.getLogger(__name__)
 
 class ServiceLbManager(object):
 
-    def __init__(self, vnc_lib=None):
+    def __init__(self, vnc_lib=None, logger=None):
         self._vnc_lib = vnc_lib
+        self.logger = logger
 
     def read(self, id):
         try:
@@ -21,23 +22,16 @@ class ServiceLbManager(object):
             return None
         return lb_obj
 
-    def list(self, project_id=None):
-        if project_id:
-            project_id = str(uuid.UUID(project_id))
-        else:
-            project_id = None
-        return self._vnc_lib.loadbalancers_list(parent_id=project_id)
-
-    def update(self, obj):
-        return self._vnc_lib.loadbalancer_update(obj)
-
-    def get_loadbalancer_listener_back_refs(self, id):
+    def delete(self, id):
         try:
-            obj = self._vnc_lib.loadbalancer_read(id=id, fields = ['loadbalancer_listener_back_refs'])
+            lb = self._vnc_lib.loadbalancer_read(id=id)
         except NoIdError:
-            return None
-        back_refs = getattr(obj, 'loadbalancer_listener_back_refs', None)
-        return back_refs
+            loadbalancerv2.EntityNotFound(name=self.resource_name, id=id)
+
+        lb_vmi_refs = lb.get_virtual_machine_interface_refs()
+
+        self._vnc_lib.loadbalancer_delete(id=id)
+        self._delete_virtual_interface(lb_vmi_refs)
 
     def _get_instance_ip_back_refs(self, id):
         obj = self._vnc_lib.virtual_machine_interface_read(id = id, fields = ['instance_ip_back_refs'])
@@ -149,44 +143,14 @@ class ServiceLbManager(object):
             self._vnc_lib.loadbalancer_update(lb_obj)
         return lb_obj
 
-    def delete(self, id):
-        try:
-            lb = self._vnc_lib.loadbalancer_read(id=id)
-        except NoIdError:
-            loadbalancerv2.EntityNotFound(name=self.resource_name, id=id)
-
-        lb_vmi_refs = lb.get_virtual_machine_interface_refs()
-
-        self._vnc_lib.loadbalancer_delete(id=id)
-        self._delete_virtual_interface(lb_vmi_refs)
-
 class ServiceLbListenerManager(object):
 
-    def __init__(self, vnc_lib=None):
+    def __init__(self, vnc_lib=None, logger=None):
         self._vnc_lib = vnc_lib
-
-    def _get_loadbalancers(self, ll):
-        loadbalancers = []
-        lb = {}
-        lb_refs = ll.get_loadbalancer_refs()
-        if lb_refs is None:
-            return None
-        lb['id'] = lb_refs[0]['uuid']
-        loadbalancers.append(lb)
-        return loadbalancers
+        self.logger = logger
 
     def read(self, id):
         return self._vnc_lib.loadbalancer_listener_read(id=id)
-
-    def list(self, tenant_id=None):
-        if tenant_id:
-            parent_id = str(uuid.UUID(tenant_id))
-        else:
-            parent_id = None
-        return self._vnc_lib.loadbalancer_listeners_list(parent_id=parent_id)
-
-    def update(self, obj):
-        return self._vnc_lib.loadbalancer_listener_update(obj)
 
     def delete(self, id):
         return self._vnc_lib.loadbalancer_listener_delete(id=id)
@@ -223,42 +187,15 @@ class ServiceLbListenerManager(object):
             self._vnc_lib.loadbalancer_listener_update(ll_obj)
 
         return ll_obj
-        #return self.make_dict(ll_obj)
-
-    def _get_listener_annotations(self, id):
-        try:
-            obj = self._vnc_lib.loadbalancer_listener_read(id=id, fields = ['annotations'])
-        except NoIdError:
-            return None
-        annotations = getattr(obj, 'annotations', None)
-        return annotations
-
-    def get_target_port_from_annotations(self, id):
-        annotations = self._get_listener_annotations(id)
-        if annotations:
-            try: 
-                for kvp in annotations.key_value_pair or []:
-                    if kvp['key'] == 'targetPort':
-                        return kvp['value']
-            except AttributeError:
-                pass
-
-        return None
 
 class ServiceLbPoolManager(object):
 
-    def __init__(self, vnc_lib=None):
+    def __init__(self, vnc_lib=None, logger=None):
         self._vnc_lib = vnc_lib
+        self.logger = logger
 
     def read(self, id):
         return self._vnc_lib.loadbalancer_pool_read(id=id)
-
-    def list(self, tenant_id=None):
-        if tenant_id:
-            parent_id = str(uuid.UUID(tenant_id))
-        else:
-            parent_id = None
-        return self._vnc_lib.loadbalancer_pools_list(parent_id=parent_id)
 
     def delete(self, id):
         return self._vnc_lib.loadbalancer_pool_delete(id=id)
@@ -295,39 +232,12 @@ class ServiceLbPoolManager(object):
 
 class ServiceLbMemberManager(object):
 
-    def __init__(self, vnc_lib=None):
+    def __init__(self, vnc_lib=None, logger=None):
         self._vnc_lib = vnc_lib
-
-    def _get_member_pool_id(self, member):
-        pool_uuid = member.parent_uuid
-        return pool_uuid
+        self.logger = logger
 
     def read(self, id):
         return self._vnc_lib.loadbalancer_member_read(id=id)
-
-    def list(self, tenant_id=None):
-        """ In order to retrive all the members for a specific tenant
-        the code iterates through all the pools.
-        """
-        if tenant_id is None:
-            return self._vnc_lib.loadbalancer_members_list()
-
-        pool_list = self._vnc_lib.loadbalancer_pools_list(tenant_id)
-        if 'loadbalancer-pools' not in pool_list:
-            return {}
-
-        member_list = []
-        for pool in pool_list['loadbalancer-pools']:
-            pool_members = self._vnc_lib.loadbalancer_members_list(
-                parent_id=pool['uuid'])
-            if 'loadbalancer-members' in pool_members:
-                member_list.extend(pool_members['loadbalancer-members'])
-
-        response = {'loadbalancer-members': member_list}
-        return response
-
-    def update(self, obj):
-        return self._vnc_lib.loadbalancer_member_update(obj)
 
     def delete(self, id):
         return self._vnc_lib.loadbalancer_member_delete(id=id)
@@ -347,14 +257,4 @@ class ServiceLbMemberManager(object):
 
         member_obj.add_annotations(KeyValuePair(key='vmi', value=vmi_uuid))
         self._vnc_lib.loadbalancer_member_create(member_obj)
-        #return self.make_dict(member_obj)
         return member_obj
-
-    def get_member_annotations(self, id):
-        try:
-            obj = self._vnc_lib.loadbalancer_member_read(id=id, fields = ['annotations'])
-        except NoIdError:
-            return None
-        annotations = getattr(obj, 'annotations', None)
-        return annotations
-

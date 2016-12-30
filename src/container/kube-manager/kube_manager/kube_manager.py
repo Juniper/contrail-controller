@@ -25,8 +25,6 @@ class KubeNetworkManager(object):
         self.args = args
         self.logger = logger.KubeManagerLogger(args)
         self.q = Queue()
-        self.vnc = vnc_kubernetes.VncKubernetes(args=self.args,
-            logger=self.logger, q=self.q)
 
         kube_api_connected = False
         while not kube_api_connected:
@@ -52,6 +50,9 @@ class KubeNetworkManager(object):
 
             except Exception as e:
                 time.sleep(5)
+
+        self.vnc = vnc_kubernetes.VncKubernetes(args=self.args,
+            logger=self.logger, q=self.q, service=self.service)
 
     def _kube_object_cache_enabled(self):
         return True if self.args.kube_object_cache == 'True' else False;
