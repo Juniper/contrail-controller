@@ -24,10 +24,6 @@ env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/schema')
 env.Append(LIBPATH = env['TOP'] + '/discovery/client')
 
-env.Library('ifmap_test_util', ['ifmap_test_util.cc'])
-env.Library('ifmap_test_util_server', ['ifmap_test_util_server.cc'])
-env.Prepend(LIBS = ['ifmap_test_util', 'ifmap_test_util_server'])
-
 libboostssltest = env.Library('boostssl',
                          [
                           'boost_ssl_client.cc',

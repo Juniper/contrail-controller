@@ -57,6 +57,7 @@ env.Prepend(LIBS = [
                     'tunnel_encap',
                     'ifmap_vnc',
                     'bgp_schema',
+                    'ifmapio',
                     'sandesh',
                     'http',
                     'http_parser',
