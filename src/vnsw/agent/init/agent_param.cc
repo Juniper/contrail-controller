@@ -776,6 +776,17 @@ void AgentParam::ParseQueue() {
     }
 }
 
+void AgentParam::ParseRestart() {
+    GetValueFromTree<bool>(restart_backup_enable_, "RESTART.backup_enable");
+    GetValueFromTree<uint64_t>(restart_backup_idle_timeout_,
+                               "RESTART.backup_idle_timeout");
+    GetValueFromTree<string>(restart_backup_dir_, "RESTART.backup_dir");
+    GetValueFromTree<uint16_t>(restart_backup_count_, "RESTART.backup_count");
+    GetValueFromTree<bool>(restart_restore_enable_, "RESTART.restore_enable");
+    GetValueFromTree<uint64_t>(restart_restore_audit_timeout_,
+                               "RESTART.restore_audit_timeout");
+}
+
 void AgentParam::ParseCollectorDSArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue< vector<string> >(var_map, collector_server_list_,
@@ -1051,6 +1062,19 @@ void AgentParam::ParseServicesArguments
     GetOptValue<uint32_t>(v, services_queue_limit_, "SERVICES.queue_limit");
 }
 
+void AgentParam::ParseRestartArguments
+    (const boost::program_options::variables_map &v) {
+    GetOptValue<bool>(v, restart_backup_enable_, "RESTART.backup_enable");
+    GetOptValue<uint64_t>(v, restart_backup_idle_timeout_,
+                          "RESTART.backup_idle_timeout");
+    GetOptValue<string>(v, restart_backup_dir_, "RESTART.backup_dir");
+    GetOptValue<uint16_t>(v, restart_backup_count_, "RESTART.backup_count");
+
+    GetOptValue<bool>(v, restart_restore_enable_, "RESTART.restore_enable");
+    GetOptValue<uint64_t>(v, restart_restore_audit_timeout_,
+                          "RESTART.restore_audit_timeout");
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -1105,6 +1129,7 @@ void AgentParam::InitFromConfig() {
     ParsePlatform();
     ParseServices();
     ParseQueue();
+    ParseRestart();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -1129,6 +1154,7 @@ void AgentParam::InitFromArguments() {
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
     ParseServicesArguments(var_map_);
+    ParseRestartArguments(var_map_);
     return;
 }
 
@@ -1570,6 +1596,12 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         subnet_hosts_resolvable_(true),
         services_queue_limit_(1024),
+        restart_backup_enable_(true),
+        restart_backup_idle_timeout_(CFG_BACKUP_IDLE_TIMEOUT),
+        restart_backup_dir_(CFG_BACKUP_DIR),
+        restart_backup_count_(CFG_BACKUP_COUNT),
+        restart_restore_enable_(true),
+        restart_restore_audit_timeout_(CFG_RESTORE_AUDIT_TIMEOUT),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
@@ -1674,6 +1706,22 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Number of tx-buffers for pkt0 interface")
         ;
     options_.add(generic);
+
+    opt::options_description restart("Restart options");
+    restart.add_options()
+        ("RESTART.backup_enable", opt::value<bool>(),
+         "Enable backup of config and resources into a file")
+        ("RESTART.backup_idle_timeout", opt::value<uint64_t>(),
+         "Generate backup if no change detected in configured time (in msec)")
+        ("RESTART.backup_dir", opt::value<string>(),
+         "Directory storing backup files for configuraion or resource")
+        ("RESTART.backup_count", opt::value<uint16_t>(),
+         "Number of backup files")
+        ("RESTART.restore_enable", opt::value<bool>(),
+         "Enable restore of config and resources from backup files")
+        ("RESTART.restore_audit_timeout", opt::value<uint64_t>(),
+         "Audit time for config/resource read from file (in milli-sec)");
+    options_.add(restart);
 
     opt::options_description log("Logging options");
     log.add_options()

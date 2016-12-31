@@ -294,6 +294,10 @@ uint32_t ConfigManager::ProcessCount() const {
 }
 
 void ConfigManager::Start() {
+    if (agent_->ResourceManagerReady() == false) {
+        return;
+    }
+
     if (agent_->test_mode()) {
         trigger_->Set();
     } else {

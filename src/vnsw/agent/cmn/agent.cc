@@ -694,7 +694,8 @@ Agent::Agent() :
     vhost_interface_(NULL),
     connection_state_(NULL), test_mode_(false),
     xmpp_dns_test_mode_(false),
-    init_done_(false), simulate_evpn_tor_(false), tsn_enabled_(false),
+    init_done_(false), resource_manager_ready_(false),
+    simulate_evpn_tor_(false), tsn_enabled_(false),
     tor_agent_enabled_(false), server_gateway_mode_(false),
     flow_table_size_(0), flow_thread_count_(0), flow_trace_enable_(true),
     max_vm_flows_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
@@ -1010,4 +1011,9 @@ VrouterObjectLimits Agent::GetVrouterObjectLimits() {
    vr_limits.set_vrouter_max_flow_entries(vrouter_max_flow_entries());
    vr_limits.set_vrouter_max_oflow_entries(vrouter_max_oflow_entries());
    return vr_limits;
+}
+
+void Agent::SetResourceManagerReady() {
+    resource_manager_ready_ = true;
+    config_manager_->Start();
 }
