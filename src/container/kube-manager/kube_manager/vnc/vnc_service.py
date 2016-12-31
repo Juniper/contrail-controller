@@ -14,10 +14,12 @@ import link_local_manager as ll_mgr
 
 class VncService(object):
 
-    def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None):
+    def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None,
+                 service=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self.logger = logger
+        self.service = service
 
         # Cache kubernetes API server params.
         self._kubernetes_api_secure_ip = args.kubernetes_api_secure_ip
@@ -32,8 +34,8 @@ class VncService(object):
         else:
             api_service_ll_enable = False
 
-        # If Kubernetes API server info is incomplete, disable link-local
-        # create, as create is not possible.
+        # If Kubernetes API server info is incomplete, disable link-local create,
+        # as create is not possible.
         if not self._kubernetes_api_secure_ip or\
             not self._kubernetes_api_secure_ip:
             self._create_linklocal = False
@@ -41,13 +43,13 @@ class VncService(object):
             self._create_linklocal = api_service_ll_enable
                                         
         self.service_lb_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbManager', vnc_lib)
+            'kube_manager.vnc.loadbalancer.ServiceLbManager', vnc_lib, logger)
         self.service_ll_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbListenerManager', vnc_lib)
+            'kube_manager.vnc.loadbalancer.ServiceLbListenerManager', vnc_lib, logger)
         self.service_lb_pool_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbPoolManager', vnc_lib)
+            'kube_manager.vnc.loadbalancer.ServiceLbPoolManager', vnc_lib, logger)
         self.service_lb_member_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbMemberManager', vnc_lib)
+            'kube_manager.vnc.loadbalancer.ServiceLbMemberManager', vnc_lib, logger)
 
     def _get_project(self, service_namespace):
         proj_fq_name = ['default-domain', service_namespace]
@@ -315,7 +317,7 @@ class VncService(object):
     def _allocate_floating_ip(self, service_id, external_ip):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
-            return
+            return None
         vmi_ids = lb.virtual_machine_interfaces
         if vmi_ids is None:
             return None
@@ -330,17 +332,24 @@ class VncService(object):
 
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
         if vmi_obj is None:
-            return
+            return None
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
-            return
+            return None
         fip_obj = FloatingIp(lb.name + "-externalIP", fip_pool)
         fip_obj.set_virtual_machine_interface(vmi_obj)
-        if external_ip is None:
+        if external_ip:
             fip_obj.set_floating_ip_address(external_ip)
         project = self._vnc_lib.project_read(id=lb.parent_uuid)
         fip_obj.set_project(project)
-        self._vnc_lib.floating_ip_create(fip_obj)
+        try:
+            self._vnc_lib.floating_ip_create(fip_obj)
+        except RefsExistError as e:
+            err_msg = cfgm_common.utils.detailed_traceback()
+            self.logger.error(err_msg)
+            return None
+        fip = FloatingIpKM.locate(fip_obj.uuid)
+        return fip.address
 
     def _deallocate_floating_ip(self, service_id):
         lb = LoadbalancerKM.get(service_id)
@@ -362,8 +371,10 @@ class VncService(object):
         for fip_id in fip_ids:
             self._vnc_lib.floating_ip_delete(id=fip_id)
 
-    def _update_service_external_ip(self, service_id, external_ip):
-        pass
+    def _update_service_external_ip(self, service_namespace, service_name, external_ip):
+        merge_patch = {'spec': {'externalIPs': [external_ip]}}
+        self.service.patch(resource_type="services", resource_name=service_name, 
+                           namespace=service_namespace, merge_patch=merge_patch)
 
     def _update_service_public_ip(self, service_id, service_name,
                         service_namespace, service_type, external_ip):
@@ -372,7 +383,7 @@ class VncService(object):
             if public_ip is None:
                 public_ip = self._allocate_floating_ip(service_id, external_ip)
                 if external_ip is None:
-                    self._update_service_external_ip(service_id, public_ip)
+                    self._update_service_external_ip(service_namespace, service_name, public_ip)
         elif service_type in ["ClusterIP"]:
             if public_ip is not None:
                 public_ip = self._deallocate_floating_ip(service_id)
@@ -383,10 +394,10 @@ class VncService(object):
         self._lb_create(service_id, service_name, service_namespace, service_ip,
                         selectors, ports)
 
-        # Kubernetes service needs a link-local service to be created.
-        # This link-local service will steer traffic, orginating from
-        # compute node to be sent to kubernetes api server, by forwarding them
-        # to kubernetes api server pod on the control node.
+        # "kubernetes" service needs a link-local service to be created.
+        # This link-local service will steer traffic destined for
+        # "kubernetes" service from slave (compute) nodes to kube-api server 
+        # running on master (control) node.
         if service_name == self._kubernetes_service_name:
             self._create_link_local_service(service_name, service_ip, ports)
 

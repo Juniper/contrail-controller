@@ -23,10 +23,11 @@ from reaction_map import REACTION_MAP
 
 class VncKubernetes(object):
 
-    def __init__(self, args=None, logger=None, q=None):
+    def __init__(self, args=None, logger=None, q=None, service=None):
         self.args = args
         self.logger = logger
         self.q = q
+        self.service = service
 
         # init vnc connection
         self.vnc_lib = self._vnc_connect()
@@ -54,7 +55,7 @@ class VncKubernetes(object):
             cluster_pod_subnets = self.args.pod_subnets)
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
-            self.label_cache, self.args, self.logger)
+            self.label_cache, self.args, self.logger, self.service)
         self.pod_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
             self.label_cache, self.service_mgr,

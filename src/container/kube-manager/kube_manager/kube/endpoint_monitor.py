@@ -6,7 +6,7 @@ class EndPointMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
         super(EndPointMonitor, self).__init__(args, logger, q)
-        self.handle = self.register_monitor('endpoints', beta=False)
+        self.handle = self.register_monitor('endpoints')
         self.logger.info("EndPointyMonitor init done.");
 
     def _process_endpoint_event(self, event):
