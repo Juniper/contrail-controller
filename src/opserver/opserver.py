@@ -639,7 +639,7 @@ class OpServer(object):
             stat_tables.append(new_table)
 
         # read all the _stats_tables.json files for remaining stat table schema
-        topdir = '/usr/share/doc/contrail-docs/html/messages/'
+        topdir = './stats_schema/'
         extn = '_stats_tables.json'
         stat_schema_files = []
         for dirpath, dirnames, files in os.walk(topdir):
