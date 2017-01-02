@@ -482,7 +482,7 @@ class FloatingIpPoolKM(DBBaseKM):
         self.update_single_ref('virtual_network', None)
         del cls._dict[uuid]
 
-class FloatingIpSM(DBBaseKM):
+class FloatingIpKM(DBBaseKM):
     _dict = {}
     obj_type = 'floating_ip'
 
@@ -511,9 +511,9 @@ class FloatingIpSM(DBBaseKM):
         obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
     # end delete
-# end class FloatingIpSM
+# end class FloatingIpKM
 
-class NetworkIpamSM(DBBaseKM):
+class NetworkIpamKM(DBBaseKM):
     _dict = {}
     obj_type = 'network_ipam'
 
@@ -534,4 +534,4 @@ class NetworkIpamSM(DBBaseKM):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
-# end class NetworkIpamSM
+# end class NetworkIpamKM

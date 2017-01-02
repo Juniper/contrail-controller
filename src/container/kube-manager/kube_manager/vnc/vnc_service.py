@@ -472,7 +472,11 @@ class VncService(object):
         selectors = event['object']['spec'].get('selector', None)
         ports = event['object']['spec'].get('ports')
         service_type  = event['object']['spec'].get('type')
-        externalIp  = event['object']['spec'].get('externalIPs', None)
+        externalIps  = event['object']['spec'].get('externalIPs', None)
+        if externalIps is not None:
+            externalIp = externalIps[0]
+        else:
+            externalIp = None
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_service_add(service_id, service_name,
