@@ -1844,6 +1844,22 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         finally:
             os.removedirs(bundle_dir)
     # end test_cert_bundle_refresh
+
+    def test_name_attribute_in_detail_list_resource(self):
+        vn = self.create_virtual_network('%s-vn' % self.id(), '1.1.1.0/24')
+        query_params = {
+            'obj_uuids': vn.uuid,
+            'detail': True,
+        }
+        results = self._vnc_lib._request_server(
+            rest.OP_GET,
+            '/virtual-networks',
+            data=query_params)['virtual-networks']
+        self.assertEqual(len(results), 1)
+        vn_dict = results[0]['virtual-network']
+        self.assertIn('name', vn_dict)
+        self.assertEqual(vn_dict['name'], vn.fq_name[-1])
+
 # end class TestVncCfgApiServer
 
 
