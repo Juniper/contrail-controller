@@ -276,7 +276,7 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
                          GetFlowKeyNH(input[0].intf_id)));
     EXPECT_TRUE(FlowTableWait(0));
 
-    DelLinkLocalConfig();
+    DeleteGlobalVrouterConfig();
     client->WaitForIdle();
 }
 
@@ -321,6 +321,7 @@ TEST_F(FlowTest, LinkLocalFlow_loopback_1) {
     EXPECT_TRUE(FlowTableWait(0));
 
     DelLinkLocalConfig();
+    DeleteGlobalVrouterConfig();
     client->WaitForIdle();
 }
 
@@ -357,6 +358,7 @@ TEST_F(FlowTest, linklocal_l2) {
     client->WaitForIdle();
 
     DelLinkLocalConfig();
+    DeleteGlobalVrouterConfig();
     client->WaitForIdle();
 }
 
@@ -452,6 +454,8 @@ TEST_F(FlowTest, LinkLocalFlow_Fail1) {
     EXPECT_TRUE(FlowTableWait(0));
 
     DelLinkLocalConfig();
+    DeleteGlobalVrouterConfig();
+    AddLinkLocalConfig(services, 3);
     client->WaitForIdle();
 }
 
@@ -569,6 +573,7 @@ TEST_F(FlowTest, LinkLocalFlow_Fail2) {
     EXPECT_TRUE(FlowTableWait(0));
 
     DelLinkLocalConfig();
+    DeleteGlobalVrouterConfig();
     client->WaitForIdle();
 }
 

@@ -29,6 +29,7 @@
 
     <link name="link-4" uuid="1" left="virtual-network" left-name="vn-1"
           right="routing-instance" right-name="vrf1" del="1"/>
+    <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic" del="1" />
 
 </test>
 </test_suite>

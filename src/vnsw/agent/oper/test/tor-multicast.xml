@@ -89,5 +89,6 @@
     />
     <vmi-vrf delete="1" uuid="1" name="tap1-vm1" />
     <vrf uuid="1" name="vrf1" del="1"/>
+    <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic" del="1"/>
 </test>
 </test_suite>

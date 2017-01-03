@@ -80,6 +80,8 @@ public:
     }
 
     static void TestTearDown() {
+        DelNode("global-vrouter-config", "vrouter-config");
+        client->WaitForIdle();
         if (ksync_init_) {
             DeleteTapIntf(fd_table, MAX_VNET);
             client->WaitForIdle(2);

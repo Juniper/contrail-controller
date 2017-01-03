@@ -58,6 +58,7 @@
     <validate name="validate-uc-remote-1">
         <ovs-uc-remote name="uc-1" uuid="1" vn-uuid="1" mac="00:11:22:33:44:55"/>
     </validate>
+    <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic" del="1" />
 </test>
 
 <test name="tor-route-add">

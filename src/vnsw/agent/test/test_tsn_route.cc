@@ -143,6 +143,7 @@ TEST_F(TsnRoute, vxlan_id_changed) {
               Find(MakeUuid(1)) == NULL));
     VrfDelReq("vrf1");
     VnDelReq(1);
+    DelEncapList();
     WAIT_FOR(1000, 10000, (VrfGet("vrf1", true) == NULL));
     WAIT_FOR(1000, 10000, (VnGet(1) == NULL));
 }
