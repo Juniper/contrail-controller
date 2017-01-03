@@ -24,6 +24,7 @@
 #include <oper/mpls.h>
 #include <oper/route_common.h>
 #include <oper/ecmp_load_balance.h>
+#include <oper/config_manager.h>
 
 #include <oper/agent_route_walker.h>
 #include <oper/agent_route_resync.h>
@@ -58,7 +59,7 @@ static int ProtocolToString(const std::string proto) {
 }
 
 void GlobalVrouter::UpdateFlowAging(autogen::GlobalVrouterConfig *cfg) {
-    if (oper_->agent()->flow_stats_req_handler() == NULL) {
+    if (agent()->flow_stats_req_handler() == NULL) {
         return;
     }
 
@@ -73,9 +74,8 @@ void GlobalVrouter::UpdateFlowAging(autogen::GlobalVrouterConfig *cfg) {
             continue;
         }
         FlowAgingTimeoutKey key(proto, new_list_it->port);
-        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
-                proto, new_list_it->port,
-                new_list_it->timeout_in_seconds);
+        agent()->flow_stats_req_handler()(agent(), proto, new_list_it->port,
+                                          new_list_it->timeout_in_seconds);
 
         flow_aging_timeout_map_.erase(key);
         new_flow_aging_timeout_map.insert(
@@ -86,10 +86,8 @@ void GlobalVrouter::UpdateFlowAging(autogen::GlobalVrouterConfig *cfg) {
     FlowAgingTimeoutMap::const_iterator old_list_it =
         flow_aging_timeout_map_.begin();
     while (old_list_it != flow_aging_timeout_map_.end()) {
-        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
-                                                 old_list_it->first.protocol,
-                                                 old_list_it->first.port,
-                                                 0);
+        agent()->flow_stats_req_handler()(agent(), old_list_it->first.protocol,
+                                          old_list_it->first.port, 0);
         old_list_it++;
     }
     flow_aging_timeout_map_ = new_flow_aging_timeout_map;
@@ -97,17 +95,15 @@ void GlobalVrouter::UpdateFlowAging(autogen::GlobalVrouterConfig *cfg) {
 
 void GlobalVrouter::DeleteFlowAging() {
 
-    if (oper_->agent()->flow_stats_req_handler() == NULL) {
+    if (agent()->flow_stats_req_handler() == NULL) {
         return;
     }
 
     FlowAgingTimeoutMap::const_iterator old_list_it =
         flow_aging_timeout_map_.begin();
     while (old_list_it != flow_aging_timeout_map_.end()) {
-        oper_->agent()->flow_stats_req_handler()(oper_->agent(),
-                                                 old_list_it->first.protocol,
-                                                 old_list_it->first.port,
-                                                 0);
+        agent()->flow_stats_req_handler()(agent(), old_list_it->first.protocol,
+                                          old_list_it->first.port, 0);
         old_list_it++;
     }
     flow_aging_timeout_map_.clear();
@@ -198,7 +194,7 @@ public:
             int index = rand() % it->second.size();
             *address = it->second[index];
             if (*address == kLoopBackIp) {
-                *address = global_vrouter_->oper_db()->agent()->router_id();
+                *address = global_vrouter_->agent()->router_id();
             }
             return true;
         }
@@ -312,13 +308,13 @@ private:
 };
 
 void GlobalVrouter::LinkLocalRouteManager::CreateDBClients() {
-    vn_id_ = global_vrouter_->oper_db()->agent()->vn_table()->Register(
+    vn_id_ = global_vrouter_->agent()->vn_table()->Register(
              boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnNotify,
                          this, _1, _2));
 }
 
 void GlobalVrouter::LinkLocalRouteManager::DeleteDBClients() {
-    global_vrouter_->oper_db()->agent()->vn_table()->Unregister(vn_id_);
+    global_vrouter_->agent()->vn_table()->Unregister(vn_id_);
 }
 
 void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
@@ -330,7 +326,7 @@ void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
         return;
     }
 
-    Agent *agent = global_vrouter_->oper_db()->agent();
+    Agent *agent = global_vrouter_->agent();
     VnListType vn_list;
     vn_list.insert(agent->fabric_vn_name());
     InetUnicastAgentRouteTable::CheckAndAddArpReq(agent->fabric_vrf_name(),
@@ -349,7 +345,7 @@ void GlobalVrouter::LinkLocalRouteManager::UpdateAllVns(
             return;
     }
 
-    Agent *agent = global_vrouter_->oper_db()->agent();
+    Agent *agent = global_vrouter_->agent();
     DBTableWalker *walker = agent->db()->GetWalker();
     walker->WalkTable(VnTable::GetInstance(), NULL,
       boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk,
@@ -372,7 +368,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
         return true;
     }
 
-    Agent *agent = global_vrouter_->oper_db()->agent();
+    Agent *agent = global_vrouter_->agent();
     // Do not create the routes for the default VRF
     if (agent->fabric_vrf_name() == vrf_entry->GetName()) {
         return true;
@@ -413,7 +409,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                                                     DBEntryBase *entry) {
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     VrfEntry *vrf_entry = vn_entry->GetVrf();
-    Agent *agent = global_vrouter_->oper_db()->agent();
+    Agent *agent = global_vrouter_->agent();
     if (vn_entry->IsDeleted() || !vn_entry->layer3_forwarding() || !vrf_entry) {
         LinkLocalDBState *state = static_cast<LinkLocalDBState *> 
             (vn_entry->GetState(partition->parent(), vn_id_));
@@ -462,28 +458,17 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-GlobalVrouter::GlobalVrouter(OperDB *oper)
-    : oper_(oper), linklocal_services_map_(),
-      linklocal_route_mgr_(new LinkLocalRouteManager(this)),
-      fabric_dns_resolver_(new FabricDnsResolver(this,
-                           *(oper->agent()->event_manager()->io_service()))),
-      agent_route_resync_walker_(new AgentRouteResync(oper->agent())),
-      forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
-      ecmp_load_balance_() {
-
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
-              "global-vrouter-config");
-    assert(cfg_db);
-
-    global_vrouter_listener_id_ = cfg_db->Register(boost::bind(
-                &GlobalVrouter::GlobalVrouterConfig, this, _1, _2));
+GlobalVrouter::GlobalVrouter(Agent *agent) :
+    OperIFMapTable(agent), linklocal_services_map_(),
+    linklocal_route_mgr_(new LinkLocalRouteManager(this)),
+    fabric_dns_resolver_(new FabricDnsResolver
+                         (this, *(agent->event_manager()->io_service()))),
+    agent_route_resync_walker_(new AgentRouteResync(agent)),
+    forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
+    ecmp_load_balance_() {
 }
 
 GlobalVrouter::~GlobalVrouter() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper_->agent()->db(),
-              "global-vrouter-config");
-    if (cfg_db)
-        cfg_db->Unregister(global_vrouter_listener_id_);
 }
 
 
@@ -495,10 +480,22 @@ void GlobalVrouter::CreateDBClients() {
     linklocal_route_mgr_->CreateDBClients();
 }
 
+void GlobalVrouter::ConfigDelete(IFMapNode *node) {
+    GlobalVrouterConfig(node);
+    return;
+}
+
+void GlobalVrouter::ConfigAddChange(IFMapNode *node) {
+    GlobalVrouterConfig(node);
+    return;
+}
+
+void GlobalVrouter::ConfigManagerEnqueue(IFMapNode *node) {
+    agent()->config_manager()->AddGlobalVrouterNode(node);
+}
+
 // Handle incoming global vrouter configuration
-void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
-        DBEntryBase *dbe) {
-    IFMapNode *node = static_cast <IFMapNode *> (dbe);
+void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
     bool resync_vn = false; //resync_vn walks internally calls VMI walk.
@@ -516,7 +513,7 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
 
         //Take the forwarding mode if its set, else fallback to l2_l3.
         Agent::ForwardingMode new_forwarding_mode =
-            oper_->agent()->TranslateForwardingMode(cfg->forwarding_mode());
+            agent()->TranslateForwardingMode(cfg->forwarding_mode());
         if (new_forwarding_mode != forwarding_mode_) {
             forwarding_mode_ = new_forwarding_mode;
             resync_route = true;
@@ -547,9 +544,9 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
     }
 
     if (cfg_vxlan_network_identifier_mode !=                             
-        oper_->agent()->vxlan_network_identifier_mode()) {
-        oper_->agent()->
-            set_vxlan_network_identifier_mode(cfg_vxlan_network_identifier_mode);
+        agent()->vxlan_network_identifier_mode()) {
+        agent()->set_vxlan_network_identifier_mode
+            (cfg_vxlan_network_identifier_mode);
         resync_vn = true;
     }
 
@@ -565,7 +562,7 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
 
     //Rebakes VN and then all interfaces.
     if (resync_vn)
-        oper_->agent()->vn_table()->GlobalVrouterConfigChanged();
+        agent()->vn_table()->GlobalVrouterConfigChanged();
 }
 
 // Get link local service configuration info, for a given service name
@@ -588,7 +585,7 @@ bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
                 int index = rand() % it->second.ipfabric_service_ip.size();
                 *fabric_ip = it->second.ipfabric_service_ip[index];
                 if (*fabric_ip == kLoopBackIp) {
-                    *fabric_ip = oper_->agent()->router_id();
+                    *fabric_ip = agent()->router_id();
                 }
                 return true;
             } else if (!it->second.ipfabric_dns_service_name.empty()) {
@@ -621,8 +618,8 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
                                      &metadata_fabric_ip,
                                      &metadata_fabric_port) &&
                 service_ip == metadata_service_ip) {
-                *fabric_port = oper_->agent()->metadata_server_port();
-                *fabric_ip = oper_->agent()->router_id();
+                *fabric_port = agent()->metadata_server_port();
+                *fabric_ip = agent()->router_id();
                 return true;
             }
         }
@@ -633,8 +630,8 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
     *service_name = it->second.linklocal_service_name;
     if (*service_name == GlobalVrouter::kMetadataService) {
         // for metadata, return vhost0 ip and HTTP proxy port
-        *fabric_port = oper_->agent()->metadata_server_port();
-        *fabric_ip = oper_->agent()->router_id();
+        *fabric_port = agent()->metadata_server_port();
+        *fabric_ip = agent()->router_id();
         return true;
     }
 
@@ -644,7 +641,7 @@ bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
         int index = rand() % it->second.ipfabric_service_ip.size();
         *fabric_ip = it->second.ipfabric_service_ip[index];
         if (*fabric_ip == kLoopBackIp) {
-            *fabric_ip = oper_->agent()->router_id();
+            *fabric_ip = agent()->router_id();
         }
         return true;
     } else if (!it->second.ipfabric_dns_service_name.empty()) {

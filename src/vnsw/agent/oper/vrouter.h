@@ -6,19 +6,22 @@
 #define vnsw_agent_vrouter_h_
 
 #include <cmn/agent_cmn.h>
+#include <oper/oper_db.h>
 
 class IFMapNode;
 
 // Handle VRouter configuration
-class VRouter {
+class VRouter : public OperIFMapTable {
 public:
 
-    VRouter(OperDB *oper);
-    ~VRouter();
-    void VRouterConfig(DBTablePartBase *partition, DBEntryBase *dbe);
+    VRouter(Agent *agent);
+    virtual ~VRouter();
+
+    void ConfigDelete(IFMapNode *node);
+    void ConfigAddChange(IFMapNode *node);
+    void ConfigManagerEnqueue(IFMapNode *node);
 private:
-    OperDB *oper_;
-    DBTableBase::ListenerId vrouter_listener_id_;
+    DISALLOW_COPY_AND_ASSIGN(VRouter);
 };
 
 #endif // vnsw_agent_vrouter_h_

@@ -229,4 +229,53 @@ private:
     DISALLOW_COPY_AND_ASSIGN(AgentOperDBTable);
 };
 
+// Oper-DB works on few IFMap tables which do not have corresponding
+// oper DBTable.
+// Example : virtual-router, network-ipam etc...
+// The IFMap nodes are registered with ifmap-dependency-manager. The class
+// OperIFMapTable is responsible to manage notifications of such IFMap tables
+class OperIFMapTable {
+public:
+    typedef std::map<IFMapNode *, IFMapDependencyManager::IFMapNodePtr> Tree;
+    OperIFMapTable(Agent *agent) : agent_(agent), oper_(agent->oper_db()) { }
+    virtual ~OperIFMapTable() {
+        assert(tree_.size() == 0);
+    }
+
+    Agent *agent() const { return agent_; }
+    OperDB *oper() const { return oper_; }
+    uint32_t Size() const { return tree_.size(); }
+
+    // Callback from ifmap-dependnecy-manager
+    void ConfigEventHandler(IFMapNode *node, DBEntry *entry) {
+        if (node->IsDeleted()) {
+            ConfigDelete(node);
+            tree_.erase(node);
+            return;
+        }
+
+        ConfigManagerEnqueue(node);
+        return;
+    }
+
+    // Callback from config-manager
+    void ProcessConfig(IFMapNode *node) {
+        if (node->IsDeleted()) {
+            return;
+        }
+
+        IFMapDependencyManager *dep = agent_->oper_db()->dependency_manager();
+        tree_.insert(std::make_pair(node, dep->SetState(node)));
+        ConfigAddChange(node);
+    }
+
+    virtual void ConfigDelete(IFMapNode *node) = 0;
+    virtual void ConfigAddChange(IFMapNode *node) = 0;
+    virtual void ConfigManagerEnqueue(IFMapNode *node) = 0;
+private:
+    Agent *agent_;
+    OperDB *oper_;
+    Tree tree_;
+    DISALLOW_COPY_AND_ASSIGN(OperIFMapTable);
+};
 #endif  // SRC_VNSW_AGENT_OPER_OPER_DB_H_

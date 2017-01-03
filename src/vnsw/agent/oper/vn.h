@@ -311,6 +311,34 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VnTable);
 };
 
+class OperNetworkIpam : public OperIFMapTable {
+public:
+
+    OperNetworkIpam(Agent *agent, DomainConfig *domain_config);
+    virtual ~OperNetworkIpam();
+
+    void ConfigDelete(IFMapNode *node);
+    void ConfigAddChange(IFMapNode *node);
+    void ConfigManagerEnqueue(IFMapNode *node);
+private:
+    DomainConfig *domain_config_;
+    DISALLOW_COPY_AND_ASSIGN(OperNetworkIpam);
+};
+
+class OperVirtualDns : public OperIFMapTable {
+public:
+
+    OperVirtualDns(Agent *agent, DomainConfig *domain_config);
+    virtual ~OperVirtualDns();
+
+    void ConfigDelete(IFMapNode *node);
+    void ConfigAddChange(IFMapNode *node);
+    void ConfigManagerEnqueue(IFMapNode *node);
+private:
+    DomainConfig *domain_config_;
+    DISALLOW_COPY_AND_ASSIGN(OperVirtualDns);
+};
+
 class DomainConfig {
 public:
     typedef std::map<std::string, autogen::IpamType> IpamDomainConfigMap;
@@ -325,8 +353,10 @@ public:
     void Terminate();
     void RegisterIpamCb(Callback cb);
     void RegisterVdnsCb(Callback cb);
-    void IpamSync(DBTablePartBase *partition, DBEntryBase *dbe);
-    void VDnsSync(DBTablePartBase *partition, DBEntryBase *dbe);
+    void IpamDelete(IFMapNode *node);
+    void IpamAddChange(IFMapNode *node);
+    void VDnsDelete(IFMapNode *node);
+    void VDnsAddChange(IFMapNode *node);
     bool GetIpam(const std::string &name, autogen::IpamType *ipam);
     bool GetVDns(const std::string &vdns, autogen::VirtualDnsType *vdns_type);
 
@@ -340,10 +370,6 @@ private:
     VdnsDomainConfigMap vdns_config_;
     std::vector<Callback> ipam_callback_;
     std::vector<Callback> vdns_callback_;
-    Agent *agent_;
-    DBTableBase::ListenerId network_ipam_listener_id_;
-    DBTableBase::ListenerId vdns_listener_id_;
-
 
     DISALLOW_COPY_AND_ASSIGN(DomainConfig);
 };

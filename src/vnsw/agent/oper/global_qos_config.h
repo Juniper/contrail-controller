@@ -6,18 +6,18 @@
 #define __AGENT_OPER_GLOBAL_QOS_CONFIG_H
 
 #include <cmn/agent_cmn.h>
+#include <oper/oper_db.h>
 
-class GlobalQosConfig {
+class IFMapNode;
+class GlobalQosConfig : public OperIFMapTable {
 public:
-    GlobalQosConfig(OperDB *oper_db);
-    ~GlobalQosConfig();
-    void ConfigHandler(DBTablePartBase *partition,
-                       DBEntryBase *dbe);
-    OperDB* oper_db() const {
-        return oper_db_;
-    }
+    GlobalQosConfig(Agent *agent);
+    virtual ~GlobalQosConfig();
+
+    void ConfigDelete(IFMapNode *node);
+    void ConfigAddChange(IFMapNode *node);
+    void ConfigManagerEnqueue(IFMapNode *node);
 private:
-    DBTableBase::ListenerId global_qos_config_listener_id_;
-    OperDB *oper_db_;
+    DISALLOW_COPY_AND_ASSIGN(GlobalQosConfig);
 };
 #endif

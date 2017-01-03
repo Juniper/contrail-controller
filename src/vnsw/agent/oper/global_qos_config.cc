@@ -7,26 +7,20 @@
 #include <oper_db.h>
 #include <forwarding_class.h>
 #include <global_qos_config.h>
+#include <config_manager.h>
 
-GlobalQosConfig::GlobalQosConfig(OperDB *oper) :
-    oper_db_(oper) {
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper_db_->agent()->db(),
-                                                "global-qos-config");
-    global_qos_config_listener_id_ =
-        cfg_db->Register(boost::bind(&GlobalQosConfig::ConfigHandler, this, _1, _2));
-};
-
-GlobalQosConfig::~GlobalQosConfig() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(oper_db_->agent()->db(),
-                                                "global-qos-config");
-    cfg_db->Unregister(global_qos_config_listener_id_);
+GlobalQosConfig::GlobalQosConfig(Agent *agent) : OperIFMapTable(agent) {
 }
 
-void GlobalQosConfig::ConfigHandler(DBTablePartBase *partition,
-                                    DBEntryBase *dbe) {
-    IFMapNode *node = static_cast <IFMapNode *> (dbe);
+GlobalQosConfig::~GlobalQosConfig() {
+}
 
-    if (node->IsDeleted() == true) {
-        return;
-    }
+void GlobalQosConfig::ConfigDelete(IFMapNode *node) {
+}
+
+void GlobalQosConfig::ConfigAddChange(IFMapNode *node) {
+}
+
+void GlobalQosConfig::ConfigManagerEnqueue(IFMapNode *node) {
+    agent()->config_manager()->AddGlobalQosConfigNode(node);
 }

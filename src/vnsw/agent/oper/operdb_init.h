@@ -23,6 +23,8 @@ class AgentProfile;
 class VRouter;
 class BgpAsAService;
 class GlobalQosConfig;
+class OperNetworkIpam;
+class OperVirtualDns;
 
 class OperDB {
 public:
@@ -68,22 +70,29 @@ public:
     GlobalQosConfig* global_qos_config() const {
         return global_qos_config_.get();
     }
+
+    OperNetworkIpam *network_ipam() const { return network_ipam_.get(); }
+    OperVirtualDns *virtual_dns() const { return virtual_dns_.get(); }
 private:
     OperDB();
 
     Agent *agent_;
     std::auto_ptr<MulticastHandler> multicast_;
-    std::auto_ptr<GlobalVrouter> global_vrouter_;
     std::auto_ptr<PathPreferenceModule> route_preference_module_;
     std::auto_ptr<IFMapDependencyManager> dependency_manager_;
     std::auto_ptr<InstanceManager> instance_manager_;
-    std::auto_ptr<DomainConfig> domain_config_;
     std::auto_ptr<NexthopManager> nexthop_manager_;
     std::auto_ptr<AgentSandeshManager> agent_sandesh_manager_;
     std::auto_ptr<AgentProfile> profile_;
-    std::auto_ptr<VRouter> vrouter_;
     std::auto_ptr<BgpAsAService> bgp_as_a_service_;
+    std::auto_ptr<DomainConfig> domain_config_;
+
+    std::auto_ptr<VRouter> vrouter_;
+    std::auto_ptr<GlobalVrouter> global_vrouter_;
+    std::auto_ptr<OperNetworkIpam> network_ipam_;
+    std::auto_ptr<OperVirtualDns> virtual_dns_;
     std::auto_ptr<GlobalQosConfig> global_qos_config_;
+
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

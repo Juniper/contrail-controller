@@ -162,11 +162,6 @@ public:
     void enable_trigger() {trigger_->set_enable();}
     void disable_trigger() {trigger_->set_disable();}
 
-    // Dependency rules manage only IFMap entries that have corresponding
-    // oper-db table. For IFMap entries without oper-db table, we must
-    // explicitly generate triggers
-    void InterfaceRouteTableNotify(DBTablePartBase *partition, DBEntryBase *e);
-
 private:
     /*
      * IFMapNodeState (DBState) should exist:
@@ -196,8 +191,6 @@ private:
     TableMap table_map_;
     EventMap event_map_;
     ChangeList change_list_;
-
-    DBTableBase::ListenerId interface_route_table_listener_id_;
 };
 
 #endif
