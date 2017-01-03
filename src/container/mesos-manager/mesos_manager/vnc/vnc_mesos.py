@@ -108,10 +108,54 @@ class VncMesos(object):
         except RefsExistError:
             vn_obj = self.vnc_lib.virtual_network_read(
                 fq_name=vn_obj.get_fq_name())
+        return vn_obj
 
-    def _setup_all(self, labels):
-        mesos_proj_obj = self._create_project('meso-system')
-        self._create_network(labels, mesos_proj_obj)
+    def _create_vm(self, pod_id, pod_name):
+        vm_obj = VirtualMachine(name=pod_name)
+        vm_obj.uuid = pod_id
+        try:
+            self.vnc_lib.virtual_machine_create(vm_obj)
+        except RefsExistError:
+            vm_obj = self.vnc_lib.virtual_machine_read(id=pod_id)
+        vm = VirtualMachineMM.locate(vm_obj.uuid)
+        return vm_obj
+
+    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj):
+        proj_fq_name = ['default-domain', pod_namespace]
+        proj_obj = self.vnc_lib.project_read(fq_name=proj_fq_name)
+
+        vmi_obj = VirtualMachineInterface(name=pod_name, parent_obj=proj_obj)
+        vmi_obj.set_virtual_network(vn_obj)
+        vmi_obj.set_virtual_machine(vm_obj)
+        try:
+            self.vnc_lib.virtual_machine_interface_create(vmi_obj)
+        except RefsExistError:
+            self.vnc_lib.virtual_machine_interface_update(vmi_obj)
+        VirtualMachineInterfaceMM.locate(vmi_obj.uuid)
+        return vmi_obj
+
+    def _create_iip(self, pod_name, vn_obj, vmi_obj):
+        iip_obj = InstanceIp(name=pod_name)
+        iip_obj.add_virtual_network(vn_obj)
+        iip_obj.add_virtual_machine_interface(vmi_obj)
+        try:
+            self.vnc_lib.instance_ip_create(iip_obj)
+        except RefsExistError:
+            self.vnc_lib.instance_ip_update(iip_obj)
+        InstanceIpMM.locate(iip_obj.uuid)
+        return iip_obj
+
+    def _setup_all(self, labels, pod_name, pod_id):
+        pod_namespace = 'meso-system'
+        pod_name = "meso_pod"
+        mesos_proj_obj = self._create_project(pod_namespace)
+        vn_obj = self._create_network(labels, mesos_proj_obj)
+        vm_obj = self._create_vm(pod_id, pod_name)
+        vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
+        self._create_iip(pod_name, vn_obj, vmi_obj)
+
+
+
 
     def process_q_event(self, event):
         labels = event['labels']
@@ -119,7 +163,8 @@ class VncMesos(object):
         for k,v in labels.items():
             if k == mesos_consts.MESOS_LABEL_PRIVATE_NETWORK:
                 print v
-                self._setup_all(labels)
+                print "Cid for this is %s" %event['cid']
+                self._setup_all(labels, str(event['cid']), event['cid'])
             elif k == mesos_consts.MESOS_LABEL_PUBLIC_NETWORK:
                 print v
             elif k == mesos_consts.MESOS_LABEL_PUBLIC_SUBNET:
