@@ -337,15 +337,6 @@ void PktHandler::SetOuterMac(PktInfo *pkt_info) {
 }
 
 
-static bool InterestedIPv6Protocol(uint8_t proto) {
-    if (proto == IPPROTO_UDP || proto == IPPROTO_TCP ||
-        proto == IPPROTO_ICMPV6) {
-        return true;
-    }
-
-    return false;
-}
-
 int PktHandler::ParseEthernetHeader(PktInfo *pkt_info, uint8_t *pkt) {
     int len = 0;
     pkt_info->eth = (struct ether_header *) (pkt + len);
@@ -392,23 +383,8 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         pkt_info->ip_daddr = IpAddress(Ip6Address(addr));
         pkt_info->ttl      = ip->ip6_hlim;
 
-        // Look for known transport headers. Fallback to the last header if
-        // no known header is found
         uint8_t proto = ip->ip6_ctlun.ip6_un1.ip6_un1_nxt;
         len += sizeof(ip6_hdr);
-        while (InterestedIPv6Protocol(proto) == false) {
-            struct ip6_ext *ext = (ip6_ext *)(pkt + len);
-            proto = ext->ip6e_nxt;
-            len += (ext->ip6e_len * 8);
-            if (ext->ip6e_len == 0) {
-                proto = 0;
-                break;
-            }
-            if (len >= pkt_info->len) {
-                proto = 0;
-                break;
-            }
-        }
         pkt_info->ip_proto = proto;
     } else {
         assert(0);
