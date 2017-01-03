@@ -67,7 +67,7 @@ class MesosServer(object):
             self._pipe_start_app = bottle.app()
 
     def process_cni_data(self, container_id, data):
-        self.logger.info("Server: Got CNI data for Container Id: %d."
+        self.logger.info("Server: Got CNI data for Container Id: %s."
             %(container_id))
         print data
         cni_data_obj = MESOSCniDataObject(data)
