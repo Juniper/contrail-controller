@@ -38,6 +38,9 @@
 #include <oper/global_vrouter.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <oper/qos_config.h>
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_type.h>
+#include <resource_manager/mpls_index.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -75,7 +78,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
     logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
-    ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false) {
+    ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false),
+    mpls_labels_() {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -1423,6 +1427,27 @@ const Peer *VmInterface::peer() const {
 bool VmInterface::OnChange(VmInterfaceData *data) {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     return Resync(table, data);
+}
+
+void VmInterface::AllocateResources() {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    for (uint8_t type = (uint8_t)(MplsLabels::MIN + 1);
+         type < (uint8_t)MplsLabels::MAX; type++) {
+        ResourceManager::KeyPtr key(new InterfaceIndexResourceKey(agent->
+                                        resource_manager(), GetUuid(), type));
+        mpls_labels_.labels_[type] = agent->mpls_table()->AllocLabel(key);
+    }
+}
+
+void VmInterface::FreeResources() {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    for (uint8_t type = (uint8_t)(MplsLabels::MIN + 1);
+         type < (uint8_t)MplsLabels::MAX; type++) {
+        ResourceManager::KeyPtr key(new InterfaceIndexResourceKey(agent->
+                                        resource_manager(), GetUuid(), type));
+        agent->mpls_table()->FreeLabel(key);
+        mpls_labels_.labels_[type] = MplsTable::kInvalidLabel;
+    }
 }
 
 // When VMInterface is added from Config (sub-interface, gateway interface etc.)
@@ -2914,23 +2939,24 @@ bool VmInterface::IsVxlanMode() const {
 }
 
 // Allocate MPLS Label for Layer3 routes
-void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change,
-                                   uint32_t new_label) {
+void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change) {
     if (fabric_port_)
         return;
 
     bool new_entry = false;
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    if (policy_change && (label_ != MplsTable::kInvalidLabel)) {
+        DeleteL3MplsLabel(policy_enabled_ ?
+                          mpls_labels_.labels_[MplsLabels::L3_NO_POLICY] :
+                          mpls_labels_.labels_[MplsLabels::L3_POLICY]);
+    }
+
     if (label_ == MplsTable::kInvalidLabel) {
-        if (new_label == MplsTable::kInvalidLabel) {
-            label_ = agent->mpls_table()->AllocLabel();
-        } else {
-            label_ = new_label;
-        }
+        label_ = policy_enabled_ ? mpls_labels_.labels_[MplsLabels::L3_POLICY] :
+            mpls_labels_.labels_[MplsLabels::L3_NO_POLICY];
         new_entry = true;
         UpdateMetaDataIpInfo();
     }
-
     if (force_update || policy_change || new_entry)
         MplsLabel::CreateVPortLabel(agent, label_, GetUuid(), policy_enabled_,
                                     InterfaceNHFlags::INET4,
@@ -2938,14 +2964,14 @@ void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change,
 }
 
 // Delete MPLS Label for Layer3 routes
-void VmInterface::DeleteL3MplsLabel() {
-    if (label_ == MplsTable::kInvalidLabel) {
+void VmInterface::DeleteL3MplsLabel(uint32_t label) {
+    if (label == MplsTable::kInvalidLabel) {
         return;
     }
+    label_ = MplsTable::kInvalidLabel;
 
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    MplsLabel::Delete(agent, label_);
-    label_ = MplsTable::kInvalidLabel;
+    MplsLabel::Delete(agent, label);
     UpdateMetaDataIpInfo();
 }
 
@@ -2954,8 +2980,7 @@ void VmInterface::AllocL2MplsLabel(bool force_update,
                                    bool policy_change) {
     bool new_entry = false;
     if (l2_label_ == MplsTable::kInvalidLabel) {
-        Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-        l2_label_ = agent->mpls_table()->AllocLabel();
+        l2_label_ = mpls_labels_.labels_[MplsLabels::L2];
         new_entry = true;
     }
 
@@ -2980,26 +3005,20 @@ void VmInterface::DeleteL2MplsLabel() {
 void VmInterface::UpdateL3TunnelId(bool force_update, bool policy_change) {
     //Currently only MPLS encap ind no VXLAN is supported for L3.
     //Unconditionally create a label
-    if (policy_change && (label_ != MplsTable::kInvalidLabel)) {
-        /* We delete the existing label and add new one whenever policy changes
-         * to ensure that leaked routes point to NH with correct policy
-         * status. This is to handle the case when after leaking the route, if
-         * policy is disabled on VMI, the leaked route was still pointing to
-         * policy enabled NH */
+    /* We delete the existing label and add new one whenever policy changes
+     * to ensure that leaked routes point to NH with correct policy
+     * status. This is to handle the case when after leaking the route, if
+     * policy is disabled on VMI, the leaked route was still pointing to
+     * policy enabled NH */
 
-        /* Fetch new label before we delete the existing label */
-        Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-        uint32_t new_label = agent->mpls_table()->AllocLabel();
-        DeleteL3MplsLabel();
-        AllocL3MplsLabel(force_update, policy_change, new_label);
-    } else {
-        AllocL3MplsLabel(force_update, policy_change, MplsTable::kInvalidLabel);
-    }
+    /* Fetch new label before we delete the existing label */
+    AllocL3MplsLabel(force_update, policy_change);
 }
 
 void VmInterface::DeleteL3TunnelId() {
     if (!metadata_ip_active_) {
-        DeleteL3MplsLabel();
+        DeleteL3MplsLabel(mpls_labels_.labels_[MplsLabels::L3_POLICY]);
+        DeleteL3MplsLabel(mpls_labels_.labels_[MplsLabels::L3_NO_POLICY]);
     }
 }
 
@@ -4802,13 +4821,14 @@ void VmInterface::AllowedAddressPair::CreateLabelAndNH(Agent *agent,
     uint32_t old_label = MplsTable::kInvalidLabel;
     //Allocate a new L3 label with proper layer 2
     //rewrite information
-    if (label_ == MplsTable::kInvalidLabel) {
-        label_ = agent->mpls_table()->AllocLabel();
-    } else if (policy_change) {
+    uint32_t new_label = interface->policy_enabled() ?
+        interface->mpls_labels().labels_[MplsLabels::AAP_POLICY] :
+        interface->mpls_labels().labels_[MplsLabels::AAP_NO_POLICY];
+    if (policy_change) {
         old_label = label_;
-        label_ = agent->mpls_table()->AllocLabel();
-        MplsLabel::Delete(interface->agent(), old_label);
     }
+    label_ = new_label;
+    MplsLabel::Delete(interface->agent(), old_label);
 
     InterfaceNH::CreateL3VmInterfaceNH(interface->GetUuid(), mac_,
                                        interface->vrf_->GetName());
@@ -5018,7 +5038,7 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
 
     if (label_ == MplsTable::kInvalidLabel) {
         VlanNH::Create(interface->GetUuid(), tag_, vrf_name_, smac_, dmac_);
-        label_ = table->agent()->mpls_table()->AllocLabel();
+        label_ = interface->mpls_labels().labels_[MplsLabels::SERVICE_VLAN];
         MplsLabel::CreateVlanNh(table->agent(), label_,
                                 interface->GetUuid(), tag_);
         VrfAssignTable::CreateVlan(interface->GetUuid(), vrf_name_, tag_);
@@ -5692,4 +5712,11 @@ void VmInterface::DeleteIfNameReq(InterfaceTable *table, const uuid &uuid) {
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid, ""));
     req.data.reset(new VmInterfaceIfNameData());
     table->Enqueue(&req);
+}
+
+VmInterface::MplsLabels::MplsLabels() {
+    for (uint8_t type = (uint8_t)(MplsLabels::MIN + 1);
+         type < (uint8_t)MplsLabels::MAX; type++) {
+        labels_[type] = MplsTable::kInvalidLabel;
+    }
 }

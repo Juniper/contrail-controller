@@ -13,6 +13,7 @@ class AgentParam;
 class DiagTable;
 class ServicesModule;
 class PktModule;
+class ResourceManager;
 
 // The class to drive agent initialization. Does init of basic modules
 // Daemons should derive from AgentInit class and tune / implement virtual
@@ -177,6 +178,7 @@ private:
 
     bool enable_controller_;
     std::auto_ptr<VNController> controller_;
+    std::auto_ptr<ResourceManager> resource_manager_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentInit);
 };

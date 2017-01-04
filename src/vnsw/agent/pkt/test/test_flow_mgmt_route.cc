@@ -83,13 +83,14 @@ protected:
     }
 
     int CreateMpls(int tag) {
-        int label = agent_->mpls_table()->AllocLabel();
+        int label = AllocLabel("test_flow_mgmt_route");
         MplsLabel::CreateVlanNh(agent_, label, MakeUuid(100), tag);
         return label;
     }
 
     void DeleteMpls(unsigned long label) {
         MplsLabel::DeleteReq(agent_, label);
+        FreeLabel("test_flow_mgmt_route");
     }
 
     void CreateTunnelNH(unsigned long addr) {

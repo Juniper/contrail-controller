@@ -25,6 +25,9 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_constants.h>
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_type.h>
+#include <resource_manager/mpls_index.h>
 
 using namespace std;
 using namespace boost::asio;
@@ -801,6 +804,25 @@ bool AgentRoute::ProcessPath(Agent *agent, DBTablePartition *part,
         ret = true;
     }
     return ret;
+}
+
+uint32_t AgentRoute::AllocateMplsLabel() {
+    Agent *agent = 
+        (static_cast<InetUnicastAgentRouteTable *>(get_table()))->agent();
+    ResourceManager::KeyPtr key(new RouteMplsResourceKey(agent->
+                                resource_manager(), vrf()->GetName(),
+                                ToString()));
+    return (agent->mpls_table()->AllocLabel(key));
+}
+
+void AgentRoute::FreeMplsLabel(uint32_t label) {
+    Agent *agent = 
+        (static_cast<InetUnicastAgentRouteTable *>(get_table()))->agent();
+    MplsLabel::Delete(agent, label);
+    ResourceManager::KeyPtr key(new RouteMplsResourceKey(agent->
+                                resource_manager(), vrf()->GetName(),
+                                ToString()));
+    agent->mpls_table()->FreeLabel(key);
 }
 
 AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,

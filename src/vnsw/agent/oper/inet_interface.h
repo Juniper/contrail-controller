@@ -41,6 +41,8 @@ public:
     Interface *xconnect() const { return xconnect_.get(); }
 
     void PostAdd();
+    void AllocateResources();
+    void FreeResources();
     bool OnChange(InetInterfaceData *data);
     bool Delete(const DBRequest *req);
     void Activate();

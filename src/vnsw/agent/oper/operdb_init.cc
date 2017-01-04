@@ -289,6 +289,7 @@ OperDB::~OperDB() {
 }
 
 void OperDB::Shutdown() {
+    agent_->mpls_table()->FreeReserveLabel(0, MplsTable::kStartLabel);
     instance_manager_->Terminate();
     if (nexthop_manager_.get()) {
         nexthop_manager_->Terminate();

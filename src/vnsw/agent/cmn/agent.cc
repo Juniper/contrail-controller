@@ -655,7 +655,7 @@ Agent::Agent() :
     params_(NULL), cfg_(NULL), stats_(NULL), ksync_(NULL), uve_(NULL),
     stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
     services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
-    diag_table_(NULL), controller_(NULL), event_mgr_(NULL),
+    diag_table_(NULL), controller_(NULL), resource_manager_(), event_mgr_(NULL),
     tbb_awake_task_(NULL), agent_xmpp_channel_(), ifmap_channel_(),
     xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(), dns_xmpp_client_(),
     dns_xmpp_init_(), agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL),
@@ -883,6 +883,14 @@ OperDB *Agent::oper_db() const {
 
 void Agent::set_oper_db(OperDB *oper_db) {
     oper_db_ = oper_db;
+}
+
+ResourceManager *Agent::resource_manager() const {
+    return resource_manager_;
+}
+
+void Agent::set_resource_manager(ResourceManager *val) {
+    resource_manager_ = val;
 }
 
 DomainConfig *Agent::domain_config_table() const {

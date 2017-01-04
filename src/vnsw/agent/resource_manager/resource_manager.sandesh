@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct  InterfaceIndexResource {
+    1: string uuid;
+    2: i16    type;
+}
+
+struct  VrfMplsResource {
+    1: string name;
+}
+
+struct  RouteMplsResource {
+    1: string vrf_name;
+    2: string route_prefix;
+}
+
+buffer sandesh InterfaceIndexResourceMapSandesh {
+    1: map<u32, InterfaceIndexResource> index_map;
+}
+
+buffer sandesh VrfMplsResourceMapSandesh {
+    1: map<u32, VrfMplsResource> index_map;
+}
+
+buffer sandesh RouteMplsResourceMapSandesh {
+    1: map<u32, RouteMplsResource> index_map;
+}

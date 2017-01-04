@@ -34,6 +34,9 @@
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_type.h>
+#include <resource_manager/mpls_index.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -102,15 +105,12 @@ void InetInterface::ActivateSimpleGateway() {
     InterfaceNH::CreateInetInterfaceNextHop(name(), vrf()->GetName(),
                                             agent->pkt_interface_mac());
 
-    if (label_ == MplsTable::kInvalidLabel) {
-        // Allocate MPLS Label 
-        label_ = agent->mpls_table()->AllocLabel();
-        // Create MPLS entry pointing to virtual host interface-nh
-        MplsLabel::CreateInetInterfaceLabel(agent, label_, name(), false,
-                                            InterfaceNHFlags::INET4,
-                                            agent->pkt_interface_mac());
+    assert(label_ != MplsTable::kInvalidLabel);
+    // Create MPLS entry pointing to virtual host interface-nh
+    MplsLabel::CreateInetInterfaceLabel(agent, label_, name(), false,
+                                        InterfaceNHFlags::INET4,
+                                        agent->pkt_interface_mac());
 
-    }
 
     //There is no policy enabled nexthop created for VGW interface,
     //hence use interface nexthop without policy as flow key index
@@ -392,6 +392,22 @@ bool InetInterface::Delete(const DBRequest *req) {
 // in DB Table PartitionInterface. So, Activate an interface in PostAdd
 void InetInterface::PostAdd() {
     Activate();
+}
+
+void InetInterface::AllocateResources() {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    ResourceManager::KeyPtr key(new InterfaceIndexResourceKey(agent->
+                                                              resource_manager(),
+                                                          GetUuid(), 0));
+    label_ = agent->mpls_table()->AllocLabel(key);
+}
+
+void InetInterface::FreeResources() {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    ResourceManager::KeyPtr key(new InterfaceIndexResourceKey(agent->
+                                                              resource_manager(),
+                                                          GetUuid(), 0));
+    agent->mpls_table()->FreeLabel(key);
 }
 
 bool InetInterface::OnChange(InetInterfaceData *data) {
