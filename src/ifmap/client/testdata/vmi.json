@@ -30,9 +30,7 @@
             {
                 "attr": null,
                 "href": "http://localhost:8095/instance-ip/2c61a390-88bf-4cc9-b564-d00f0b1fb731",
-                "to": [
-                    "2c61a390-88bf-4cc9-b564-d00f0b1fb731"
-                ],
+                "to": "2c61a390-88bf-4cc9-b564-d00f0b1fb731",
                 "uuid": "2c61a390-88bf-4cc9-b564-d00f0b1fb731"
             }
         ],
@@ -59,11 +57,7 @@
                     "vlan_tag": null
                 },
                 "href": "http://localhost:8095/routing-instance/4144eb4a-5704-4817-b824-346aaae8a860",
-                "to": [
-                    "dd",
-                    "vn1",
-                    "vn1"
-                ],
+                "to": "dd:vn1:vn1",
                 "uuid": "4144eb4a-5704-4817-b824-346aaae8a860"
             }
         ],
@@ -71,11 +65,7 @@
             {
                 "attr": null,
                 "href": "http://localhost:8095/security-group/fcfdacf5-8723-4766-bf59-4cd6cead9fdf",
-                "to": [
-                    "dd",
-                    "sg1",
-                    "default"
-                ],
+                "to": "dd:sg1:default",
                 "uuid": "fcfdacf5-8723-4766-bf59-4cd6cead9fdf"
             }
         ],
@@ -103,10 +93,7 @@
             {
                 "attr": null,
                 "href": "http://localhost:8095/virtual-network/78514573-163b-4182-a1ae-8c2350235623",
-                "to": [
-                    "dd",
-                    "vn1"
-                ],
+                "to": "dd:vn1",
                 "uuid": "78514573-163b-4182-a1ae-8c2350235623"
             }
         ]
