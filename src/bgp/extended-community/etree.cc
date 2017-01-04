@@ -27,13 +27,7 @@ ETree::ETree(const bytes_type &data) {
 }
 
 bool ETree::leaf() const {
-    uint8_t data[ETree::kSize];
-    copy(data_.begin(), data_.end(), &data[0]);
-    if (data[0] == BgpExtendedCommunityType::Evpn &&
-        data[1] == BgpExtendedCommunityEvpnSubType::ETree) {
-        return (data[2] & 0x1);
-    }
-    return false;
+    return (data_[2] & 0x1);
 }
 
 int ETree::label() const {

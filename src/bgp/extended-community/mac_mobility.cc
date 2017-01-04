@@ -26,13 +26,7 @@ MacMobility::MacMobility(const bytes_type &data) {
 }
 
 bool MacMobility::sticky() const {
-    uint8_t data[MacMobility::kSize];
-    copy(data_.begin(), data_.end(), &data[0]);
-    if (data[0] == BgpExtendedCommunityType::Evpn &&
-        data[1] == BgpExtendedCommunityEvpnSubType::MacMobility) {
-        return (data[2] & 0x1);
-    }
-    return false;
+    return (data_[2] & 0x1);
 }
 
 uint32_t MacMobility::sequence_number() const {
