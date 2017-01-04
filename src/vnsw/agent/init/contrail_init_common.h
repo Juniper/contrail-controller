@@ -45,7 +45,7 @@ public:
     bool uve_enable() const { return uve_enable_; }
     bool vgw_enable() const { return vgw_enable_; }
     bool router_id_dep_enable() const { return router_id_dep_enable_; }
-
+    bool resource_manager_enable () const { return resource_manager_enable_; }
     void set_ksync_enable(bool flag) { ksync_enable_ = flag; }
     void set_services_enable(bool flag) { services_enable_ = flag; }
     void set_packet_enable(bool flag) { packet_enable_ = flag; }
@@ -53,6 +53,7 @@ public:
     void set_uve_enable(bool flag) { uve_enable_ = flag; }
     void set_vgw_enable(bool flag) { vgw_enable_ = flag; }
     void set_router_id_dep_enable(bool flag) { router_id_dep_enable_ = flag; }
+    void set_resource_manager_enable(bool flag) {resource_manager_enable_ = flag; }
 private:
     bool create_vhost_;
     bool ksync_enable_;
@@ -61,6 +62,7 @@ private:
     bool uve_enable_;
     bool vgw_enable_;
     bool router_id_dep_enable_;
+    bool resource_manager_enable_;
 
     std::auto_ptr<KSync> ksync_;
     std::auto_ptr<AgentUveBase> uve_;
@@ -69,6 +71,7 @@ private:
     std::auto_ptr<ServicesModule> services_;
     std::auto_ptr<PktModule> pkt_;
     std::auto_ptr<VirtualGateway> vgw_;
+    std::auto_ptr<ResourceManagerFactory> resource_manager_factory_;
     DISALLOW_COPY_AND_ASSIGN(ContrailInitCommon);
 };
 
