@@ -7,10 +7,29 @@
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
 
+#include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
+
 using namespace rapidjson;
 using namespace std;
 
-ConfigJsonParser::ConfigJsonParser(DB *db) : db_(db) {
+ConfigJsonParser::ConfigJsonParser(DB *db)
+    : db_(db) {
+    vnc_cfg_FilterInfo vnc_filter_info;
+    bgp_schema_FilterInfo bgp_schema_filter_info;
+
+    bgp_schema_Server_GenerateGraphFilter(&bgp_schema_filter_info);
+    vnc_cfg_Server_GenerateGraphFilter(&vnc_filter_info);
+
+    for (vnc_cfg_FilterInfo::iterator it = vnc_filter_info.begin();
+         it != vnc_filter_info.end(); it++) {
+        link_name_map_.insert(make_pair(make_pair(it->left_, it->right_), it->metadata_));
+    }
+
+    for (bgp_schema_FilterInfo::iterator it = bgp_schema_filter_info.begin();
+         it != bgp_schema_filter_info.end(); it++) {
+        link_name_map_.insert(make_pair(make_pair(it->left_, it->right_), it->metadata_));
+    }
 }
 
 void ConfigJsonParser::MetadataRegister(const string &metadata,
@@ -46,8 +65,6 @@ bool ConfigJsonParser::ParseNameType(const Document &document,
     }
     key->id_name += fq_name_node[i].GetString();
 
-    //cout << "fq-name is " << key->id_name << endl;
-    //cout << "type is " << key->id_type << endl;
 
     return true;
 }
@@ -123,10 +140,8 @@ void ConfigJsonParser::InsertRequestIntoQ(IFMapOrigin::Origin origin,
 
 bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
         IFMapOrigin::Origin origin, const string &to_underscore,
-        const string &neigh_type, const IFMapTable::RequestKey &key,
-        RequestList *req_list) const {
+        const IFMapTable::RequestKey &key, RequestList *req_list) const {
     const Value& to_node = ref_entry["to"];
-    assert(to_node.IsArray());
 
     string from_underscore = key.id_type;
     std::replace(from_underscore.begin(), from_underscore.end(), '-', '_');
@@ -146,18 +161,12 @@ bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
     }
 
     string neigh_name;
-    size_t i = 0;
-    for (; i < to_node.Size() - 1; ++i) {
-        neigh_name += to_node[i].GetString();
-        neigh_name += string(":");
-    }
-    neigh_name += to_node[i].GetString();
-    cout << "neigh type " << neigh_type
+    neigh_name += to_node.GetString();
+    cout << "neigh type " << to_underscore
          << " ----- neigh name is " << neigh_name << endl;
 
-    string metaname_dash = metaname;
-    std::replace(metaname_dash.begin(), metaname_dash.end(), '_', '-');
-    InsertRequestIntoQ(origin, neigh_type, neigh_name, metaname_dash, pvalue,
+    string link_name = GetLinkName(from_underscore, to_underscore);
+    InsertRequestIntoQ(origin, to_underscore, neigh_name, link_name, pvalue,
                        key, add_change, req_list);
 
     return true;
@@ -179,15 +188,10 @@ bool ConfigJsonParser::ParseLinks(const Document &document, bool add_change,
         size_t pos = key_str.find("_refs");
         if (pos != string::npos) {
             string to_underscore = key_str.substr(0, pos);
-            string neigh_type = to_underscore;
-            std::replace(neigh_type.begin(), neigh_type.end(), '_', '-');
-            //cout << "found ref " << key_str << " type " << neigh_type;
             const Value& arr = itr->value;
             assert(arr.IsArray());
-            //cout << " size is " << arr.Size() << endl;
             for (size_t i = 0; i < arr.Size(); ++i) {
-                //const Value& ref_entry = arr[i];
-                ParseRef(arr[i], add_change, origin, to_underscore, neigh_type,
+                ParseRef(arr[i], add_change, origin, to_underscore,
                          key, req_list);
             }
         }
@@ -318,5 +322,13 @@ void ConfigJsonParser::CompareOldAndNewDocuments(
                              req_list);
         }
     }
+}
+
+string ConfigJsonParser::GetLinkName(const string &left,
+                                          const string &right) const {
+    LinkNameMap::const_iterator it =
+        link_name_map_.find(make_pair(left, right));
+    assert(it != link_name_map_.end());
+    return it->second;
 }
 

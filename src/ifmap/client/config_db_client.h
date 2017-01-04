@@ -25,6 +25,8 @@ public:
     std::vector<std::string> config_db_ips() const;
     int GetFirstConfigDbPort() const;
     virtual void InitDatabase() = 0;
+    virtual void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
+                                    std::string oper) = 0;
     void set_end_of_rib_computed(bool value) {
         end_of_rib_computed_ = value;
     }

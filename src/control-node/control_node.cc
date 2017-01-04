@@ -216,4 +216,16 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")));
     scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
+
+    // Policy for cassandra::ObjectProcessor Task.
+    TaskPolicy cassadra_obj_process_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("cassandra::ObjectProcessor")));
+    scheduler->SetPolicy(scheduler->GetTaskId("cassandra::Reader"),
+        cassadra_obj_process_policy);
+
+    // Policy for cassandra::Reader Task.
+    TaskPolicy cassadra_reader_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("cassandra::Reader")));
+    scheduler->SetPolicy(scheduler->GetTaskId("cassandra::ObjectProcessor"),
+        cassadra_reader_policy);
 }

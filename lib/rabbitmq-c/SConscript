@@ -1,0 +1,33 @@
+# -*- mode: python; -*-
+import os
+vpath = '#/third_party/rabbitmq-c'
+
+env = DefaultEnvironment()
+
+librabbit = 'librabbitmq.a'
+
+output_dir = Dir('.').abspath
+
+product_lib = Dir('#build/lib/').abspath + '/' + librabbit
+
+include_dir = output_dir + '/include/'
+product_include_dir = Dir('#build/include').abspath
+
+make_flags = '-DBUILD_SHARED_LIBS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_STATIC_LIBS=ON ' +\
+             '-DENABLE_SSL_SUPPORT=ON -DCMAKE_INSTALL_PREFIX=' + output_dir +\
+             ' -DCMAKE_INSTALL_LIBDIR=' + output_dir
+
+cmd = ('(cd ' + output_dir + ';' +
+         'cmake ' + make_flags + ' ' + Dir(vpath).abspath + ';' +
+         'cmake --build . --target install;' +
+         ' cp ' + output_dir + '/' + librabbit + ' ' + product_lib + ';' +
+         ' cp ' + include_dir + 'amqp.h ' + ' ' + product_include_dir + ';' +
+         ' cp ' + include_dir + 'amqp_framing.h ' + ' ' + product_include_dir + ';' +
+         ' cp ' + include_dir + 'amqp_tcp_socket.h ' + ' ' + product_include_dir + ';' +
+         ' cp ' + include_dir + 'amqp_ssl_socket.h ' + ' ' + product_include_dir + ';' + ')')
+
+products = [product_lib]
+
+librabbitmq = env.Command('Makefile', str(Dir(vpath)), cmd)
+
+env.SideEffect(products, librabbitmq)

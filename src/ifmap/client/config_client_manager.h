@@ -7,6 +7,7 @@
 
 #include <boost/scoped_ptr.hpp>
 
+class ConfigAmqpClient;
 class ConfigDbClient;
 class ConfigJsonParser;
 class EventManager;
@@ -22,19 +23,23 @@ struct IFMapConfigOptions;
 class ConfigClientManager {
 public:
     ConfigClientManager(EventManager *evm, IFMapServer *ifmap_server,
+                        std::string hostname,
                         const IFMapConfigOptions& config_options);
     void Initialize();
+    ConfigAmqpClient *config_amqp_client() const;
     ConfigDbClient *config_db_client() const;
     ConfigJsonParser *config_json_parser() const;
     bool GetEndOfRibComputed() const;
+    void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
+                            std::string oper);
 
 private:
-    static int thread_count_;
-
     EventManager *evm_;
     IFMapServer *ifmap_server_;
     boost::scoped_ptr<ConfigJsonParser> config_json_parser_;
     boost::scoped_ptr<ConfigDbClient> config_db_client_;
+    boost::scoped_ptr<ConfigAmqpClient> config_amqp_client_;
+    int thread_count_;
 };
 
 #endif // ctrlplane_config_client_manager_h

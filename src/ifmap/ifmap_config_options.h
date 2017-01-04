@@ -34,6 +34,7 @@ struct IFMapConfigOptions {
           config_db_username(cfg_db_user), config_db_password(cfg_db_password),
           config_db_server_list(cfg_db_server_list) {
     }
+
     std::string server_url;
     std::string password;
     std::string user;
@@ -44,6 +45,16 @@ struct IFMapConfigOptions {
     std::string config_db_username;
     std::string config_db_password;
     std::vector<std::string> config_db_server_list;
+    std::string rabbitmq_ip;
+    std::string rabbitmq_port;
+    std::string rabbitmq_user;
+    std::string rabbitmq_password;
+    std::string rabbitmq_vhost;
+    bool rabbitmq_use_ssl;
+    std::string rabbitmq_ssl_version;
+    std::string rabbitmq_ssl_keyfile;
+    std::string rabbitmq_ssl_certfile;
+    std::string rabbitmq_ssl_ca_certs;
 };
 
 #endif /* defined(__IFMAP_CONFIG_OPTIONS_H__) */
