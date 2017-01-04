@@ -96,6 +96,7 @@ env.Append(LIBPATH = MapBuildDir([
     'xmpp',
     'third_party/bind-9.10.4-P2/lib/isc',
     'vnsw/agent/nexthop_server',
+    'vnsw/agent/resource_manager',
 ]))
 
 ##########################################################################
@@ -201,6 +202,7 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'kstate',
     'vrutil',
     'isc',
+    'resourcemanager',
 ])
 
 # Common libraries for agent test code
@@ -314,6 +316,7 @@ subdirs = [
     'vgw',
     'vrouter',
     'nexthop_server',
+    'resource_manager',
 ]
 
 AgentUveDocFiles = []
@@ -349,6 +352,7 @@ AgentCommonDocFiles += AgentEnv.SandeshGenDoc('oper/multicast.sandesh')
 AgentCommonDocFiles += AgentEnv.SandeshGenDoc('oper/agent.sandesh')
 AgentCommonDocFiles += AgentEnv.SandeshGenDoc('services/services.sandesh')
 AgentCommonDocFiles += AgentEnv.SandeshGenDoc('pkt/pkt.sandesh')
+AgentCommonDocFiles += AgentEnv.SandeshGenDoc('resource_manager/mpls_resource_data.sandesh')
 AgentCommonDocFiles += AgentEnv['BASE_DOC_FILES']
 AgentCommonDocFiles += AgentEnv['IO_DOC_FILES']
 AgentCommonDocFiles += AgentEnv['DB_DOC_FILES']

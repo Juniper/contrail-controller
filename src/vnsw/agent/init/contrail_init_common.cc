@@ -23,12 +23,13 @@
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
-
+#include <resource_manager/resource_manager_factory.h>
 #include "contrail_init_common.h"
 
 ContrailInitCommon::ContrailInitCommon() : AgentInit(), create_vhost_(true),
     ksync_enable_(true), services_enable_(true), packet_enable_(true),
-    uve_enable_(true), vgw_enable_(true), router_id_dep_enable_(true) {
+    uve_enable_(true), vgw_enable_(true), router_id_dep_enable_(true),
+    resource_manager_enable_(true) {
 }
 
 ContrailInitCommon::~ContrailInitCommon() {
@@ -39,7 +40,9 @@ ContrailInitCommon::~ContrailInitCommon() {
     diag_table_.reset();
     services_.reset();
     pkt_.reset();
+    resource_manager_factory_.reset();
 }
+
 
 void ContrailInitCommon::ProcessOptions
     (const std::string &config_file, const std::string &program_name) {
@@ -65,6 +68,11 @@ void ContrailInitCommon::CreateModules() {
     if (vgw_enable_) {
         vgw_.reset(new VirtualGateway(agent()));
         agent()->set_vgw(vgw_.get());
+    }
+
+    if (resource_manager_enable_) {
+        resource_manager_factory_.reset(new ResourceManagerFactory(agent()));
+        agent()->set_resource_manager_factory(resource_manager_factory_.get());
     }
 }
 
@@ -294,5 +302,9 @@ void ContrailInitCommon::PktShutdown() {
 void ContrailInitCommon::ModulesShutdown() {
     if (agent()->diag_table()) {
         agent()->diag_table()->Shutdown();
+    }
+
+    if (agent()->resource_manager_factory()) {
+        agent()->resource_manager_factory()->Shutdown();
     }
 }
