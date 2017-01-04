@@ -37,6 +37,7 @@
 #include "control-node/options.h"
 #include "db/db_graph.h"
 #include "ifmap/client/ifmap_manager.h"
+#include "ifmap/client/config_client_manager.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
@@ -75,12 +76,15 @@ static string FileRead(const char *filename) {
     return content;
 }
 
+//static void IFMap_Initialize(IFMapServer *server, ConfigClientManager *mgr) {
 static void IFMap_Initialize(IFMapServer *server) {
     IFMapLinkTable_Init(server->database(), server->graph());
     IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
     vnc_cfg_ParserInit(parser);
+    //vnc_cfg_JsonParserInit(mgr->config_json_parser());
     vnc_cfg_Server_ModuleInit(server->database(), server->graph());
     bgp_schema_ParserInit(parser);
+    //bgp_schema_JsonParserInit(mgr->config_json_parser());
     bgp_schema_Server_ModuleInit(server->database(), server->graph());
     server->Initialize();
 }
@@ -291,6 +295,13 @@ int main(int argc, char *argv[]) {
     DB config_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
     DBGraph config_graph;
     IFMapServer ifmap_server(&config_db, &config_graph, evm.io_service());
+
+    // TODO Coming Soon
+    //ConfigClientManager *config_mgr =
+    //    new ConfigClientManager(&evm, &ifmap_server, options.hostname(),
+    //                            options.ifmap_config_options());
+    //config_mgr->Initialize();
+    //IFMap_Initialize(&ifmap_server, config_mgr);
     IFMap_Initialize(&ifmap_server);
 
     BgpIfmapConfigManager *config_manager =

@@ -38,7 +38,12 @@ public:
     bool Receive(const std::string &in_message, bool add_change,
                  IFMapOrigin::Origin origin);
 
+    std::string GetLinkName(const std::string &left,
+                            const std::string &right) const;
+
 private:
+    typedef std::pair<std::string, std::string> LinkMemberPair;
+    typedef std::map<LinkMemberPair, std::string> LinkNameMap;
     bool ParseDocument(const rapidjson::Document &document, bool add_change,
         IFMapOrigin::Origin origin, RequestList *req_list,
         IFMapTable::RequestKey *key) const;
@@ -56,8 +61,7 @@ private:
         RequestList *req_list) const;
     bool ParseRef(const rapidjson::Value &ref_entry, bool add_change,
         IFMapOrigin::Origin origin, const std::string &to_underscore,
-        const std::string &neigh_type, const IFMapTable::RequestKey &key,
-        RequestList *req_list) const;
+        const IFMapTable::RequestKey &key, RequestList *req_list) const;
     void InsertRequestIntoQ(IFMapOrigin::Origin origin,
         const std::string &neigh_type, const std::string &neigh_name,
         const std::string &metaname, std::auto_ptr<AutogenProperty > pvalue,
@@ -72,6 +76,7 @@ private:
     DB *db_;
     MetadataParseMap metadata_map_;
     UuidRecordMap uuid_doc_map_;
+    LinkNameMap link_name_map_;
 };
 
 #endif // ctrlplane_config_json_parser_h

@@ -9,6 +9,8 @@ subdirs = [
     'http_parser',
     'pugixml',
     'rapidjson',
+    'rabbitmq-c',
+    'SimpleAmqpClient',
     'thrift',
     'openvswitch',
 ]
