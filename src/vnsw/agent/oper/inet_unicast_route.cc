@@ -447,7 +447,7 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
     InsertPath(path);
 
     // Allocate a new label for the ECMP path
-    uint32_t label = agent->mpls_table()->AllocLabel();
+    uint32_t label = AllocateMplsLabel();
 
     const NextHop* path1_nh = path1->ComputeNextHop(agent);
     bool composite_nh_policy = path1_nh->NexthopToInterfacePolicy();
@@ -550,7 +550,7 @@ bool InetUnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
         // There is single path of type LOCAL_VM_PORT_PEER. Delete the ECMP path
         remove(ecmp);
         //Enqueue MPLS label delete request
-        MplsLabel::Delete(agent, ecmp->label());
+        FreeMplsLabel(ecmp->label());
         delete ecmp;
     } else if (count > 1) {
         // Remove Component-NH for the path being deleted

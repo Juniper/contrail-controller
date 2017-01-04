@@ -28,6 +28,12 @@ bool AgentDBEntry::IsActive() const {
     return !IsDeleted();
 }
 
+void AgentDBEntry::AllocateResources() {
+}
+
+void AgentDBEntry::FreeResources() {
+}
+
 void AgentDBEntry::PostAdd() {
 }
 
@@ -96,6 +102,7 @@ AgentDBEntry *AgentDBTable::Find(const DBRequestKey *key) {
 
 void AgentDBTablePartition::Add(DBEntry *entry) {
     entry->set_table_partition(static_cast<DBTablePartBase *>(this));
+    (static_cast<AgentDBEntry *>(entry))->AllocateResources();
     DBTablePartition::Add(entry);
     static_cast<AgentDBEntry *>(entry)->PostAdd();
 }
@@ -106,6 +113,7 @@ void AgentDBTablePartition::Remove(DBEntryBase *entry) {
         agent->ClearOnRemoveQ();
         return;
     }
+    (static_cast<AgentDBEntry *>(entry))->FreeResources();
     DBTablePartition::Remove(entry);
 }
 

@@ -65,6 +65,8 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
     virtual string ToString() const;
+    virtual void AllocateResources();
+    virtual void FreeResources();
 
     const uint32_t vrf_id() const {return id_;};
     const string &GetName() const {return name_;};

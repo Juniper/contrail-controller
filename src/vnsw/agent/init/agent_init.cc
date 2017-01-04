@@ -22,6 +22,7 @@
 #include <oper/agent_profile.h>
 #include <filter/acl.h>
 #include <controller/controller_init.h>
+#include <resource_manager/resource_manager.h>
 
 #include "agent_init.h"
 
@@ -37,6 +38,7 @@ AgentInit::~AgentInit() {
     controller_.reset();
     cfg_.reset();
     oper_.reset();
+    resource_manager_.reset();
     agent_->db()->ClearFactoryRegistry();
     agent_.reset();
 
@@ -199,6 +201,9 @@ void AgentInit::CreateModulesBase() {
     stats_.reset(new AgentStats(agent()));
     agent()->set_stats(stats_.get());
 
+    //TODO ResourceManager backup value to be picked from agent.conf
+    resource_manager_.reset(new ResourceManager(agent(), true));
+    agent()->set_resource_manager(resource_manager_.get());
     CreateModules();
 }
 

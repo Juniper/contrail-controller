@@ -500,6 +500,24 @@ public:
         FatFlowEntrySet list_;
     };
 
+    struct MplsLabels {
+        MplsLabels();
+        virtual ~MplsLabels() {}
+
+        enum Type {
+            MIN = 0,
+            L2,
+            L3_NO_POLICY,
+            L3_POLICY,
+            AAP_NO_POLICY,
+            AAP_POLICY,
+            SERVICE_VLAN,
+            MAX,
+        };
+
+        uint32_t labels_[MAX];
+    };
+
     enum Trace {
         ADD,
         DELETE,
@@ -538,6 +556,8 @@ public:
     bool Resync(const InterfaceTable *table, const VmInterfaceData *data);
     bool OnChange(VmInterfaceData *data);
     void PostAdd();
+    void AllocateResources();
+    void FreeResources();
 
     // Accessor functions
     const VmEntry *vm() const { return vm_.get(); }
@@ -654,7 +674,6 @@ public:
     void SetServiceVlanPathPreference(PathPreference *pref,
                                       const IpAddress &service_ip) const;
     void CopySgIdList(SecurityGroupList *sg_id_list) const;
-    bool NeedMplsLabel() const;
     bool IsVxlanMode() const;
     bool SgExists(const boost::uuids::uuid &id, const SgList &sg_l);
     bool IsMirrorEnabled() const { return mirror_entry_.get() != NULL; }
@@ -754,6 +773,7 @@ public:
     const NextHop* l3_interface_nh_no_policy() const {
         return l3_interface_nh_no_policy_.get();
     }
+    MplsLabels &mpls_labels() {return mpls_labels_;}
 
 private:
     friend struct VmInterfaceConfigData;
@@ -838,9 +858,8 @@ private:
     void UpdateL2(bool old_l2_active, bool policy_change);
     void DeleteL2(bool old_l2_active);
 
-    void AllocL3MplsLabel(bool force_update, bool policy_change,
-                          uint32_t new_label);
-    void DeleteL3MplsLabel();
+    void AllocL3MplsLabel(bool force_update, bool policy_change);
+    void DeleteL3MplsLabel(uint32_t label);
     void UpdateL3TunnelId(bool force_update, bool policy_change);
     void DeleteL3TunnelId();
     void UpdateMacVmBinding();
@@ -1006,6 +1025,7 @@ private:
     NextHopRef l3_interface_nh_no_policy_;
     NextHopRef l2_interface_nh_no_policy_;
     bool is_vn_qos_config_;
+    MplsLabels mpls_labels_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
