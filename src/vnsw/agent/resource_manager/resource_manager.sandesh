@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+   
+  /**
+   *  Message definitions for resource manager module.
+   *
+   *
+   */
+
+/**
+ * @description: Trace message for ResourceManager 
+ * @type: Trace
+ * @severity: DEBUG
+ */
+/*
+ * 1 file Operation state
+ * 2 File name.
+*/
+trace sandesh ResourceManagerTrace {
+    1: string op;
+    2: string filename;
+}
