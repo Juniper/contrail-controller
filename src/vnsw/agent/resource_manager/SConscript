@@ -1,0 +1,19 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+SandeshGenFiles = env.SandeshGenCpp('mpls_resource_data.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
+
+libresourcemgr = env.Library('resourcemanager', sandesh_objs + 
+                                                ['mpls_resource_manager.cc', 
+                                                 'resource_manager_factory.cc'])
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

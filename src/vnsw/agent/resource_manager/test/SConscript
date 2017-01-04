@@ -1,0 +1,25 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+import re
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+AgentEnv.MakeTestEnv(env)
+
+resource_test_suite = []
+test_resource_mgr = AgentEnv.MakeTestCmd(env, 'test_resource_manager', resource_test_suite)
+env.Alias('agent:test_resource_manager', test_resource_mgr)
+
+
+test = env.TestSuite('agent-test', resource_test_suite)
+env.Alias('agent:test', test)
+env.Alias('controller/src/vnsw/agent/resource_mgr:test', test)
+
+diag_flaky_test_suite = []
+flaky_test = env.TestSuite('agent-flaky-test', diag_flaky_test_suite)
+env.Alias('controller/src/vnsw/agent/resource_mgr:flaky_test', flaky_test)
+
+Return('resource_test_suite')
