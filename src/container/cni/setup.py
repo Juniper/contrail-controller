@@ -31,7 +31,7 @@ class RunTestsCommand(setuptools.Command):
                 os._exit(1)
 
 setuptools.setup(
-    name='kube_cni',
+    name='cni',
     version='0.1dev',
     packages=setuptools.find_packages(),
     package_data={'': ['*.html', '*.css', '*.xml', '*.yml']},
@@ -42,7 +42,7 @@ setuptools.setup(
     license="Apache Software License",
     url="http://www.opencontrail.org/",
 
-    long_description="Kubernetes/Mesos CNI Plugin",
+    long_description="Common Kubernetes/Mesos CNI Plugin",
 
     test_suite='cni.tests',
 
