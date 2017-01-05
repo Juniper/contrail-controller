@@ -249,7 +249,13 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
             // Where query specified a suffix. Check that it is valid
             if (cdesc.suffixes.find(sname)==cdesc.suffixes.end()) return false;
 
-            StatsQuery::column_t cdesc2 = m_query->stats().get_column_desc(sname);
+            // The suffix attribute MUST exist in the schema
+            StatsQuery::column_t cdesc2;
+            if (m_query->stats().is_stat_table_static()) {
+                cdesc2 = m_query->stats().get_column_desc(sname);
+            } else {
+                cdesc2 = get_column_desc(table_schema, sname);;
+            }
             QE_ASSERT ((cdesc2.datatype == QEOpServerProxy::STRING) ||
             (cdesc2.datatype == QEOpServerProxy::UINT64));
 
