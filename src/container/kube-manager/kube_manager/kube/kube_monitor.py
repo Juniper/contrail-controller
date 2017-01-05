@@ -59,10 +59,10 @@ class KubeMonitor(object):
                                               resource_type, resource_name)
 
         if self.cloud_orchestrator == "openshift":
-            resp = requests.get(url, params={'watch': 'true'}, stream=True,
+            resp = requests.get(url, stream=True,
                                 headers=self.headers, verify=False)
         else: # kubernetes
-            resp = requests.get(url, params={'watch': 'true'}, stream=True)
+            resp = requests.get(url, stream=True)
 
         if resp.status_code != 200:
             return
