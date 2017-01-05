@@ -383,3 +383,25 @@ void TxTcp6MplsPacket(int ifindex, const char *out_sip,
                                                     pkt->GetBuffLen());
     delete pkt;
 }
+
+void TxL2Ip6Packet(int ifindex, const char *smac, const char *dmac,
+                const char *sip, const char *dip,
+		        int proto, int hash_id, int vrf,
+                uint16_t sport, uint16_t dport) {
+    PktGen *pkt = new PktGen();
+
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, vrf) ;
+    pkt->AddEthHdr(dmac, smac, ETHERTYPE_IPV6);
+    pkt->AddIp6Hdr(sip, dip, proto);
+    if (proto == IPPROTO_ICMPV6) {
+        pkt->AddIcmp6Hdr();
+    } else {
+        pkt->AddUdpHdr(sport, dport, 64);
+    }
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    delete pkt;
+}

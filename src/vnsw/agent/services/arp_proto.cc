@@ -77,32 +77,64 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
 
     if (!state){
         state = new ArpVrfState(agent_, this, vrf,
-                                vrf->GetInet4UnicastRouteTable());
+                                vrf->GetInet4UnicastRouteTable(),
+                                vrf->GetEvpnRouteTable());
         state->route_table_listener_id = vrf->
             GetInet4UnicastRouteTable()->
             Register(boost::bind(&ArpVrfState::RouteUpdate, state,  _1, _2));
+        state->evpn_route_table_listener_id = vrf->GetEvpnRouteTable()->
+            Register(boost::bind(&ArpVrfState::EvpnRouteUpdate, state,  _1, _2));
         entry->SetState(part->parent(), vrf_table_listener_id_, state);
     }
 }
 
-ArpDBState::ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id, IpAddress ip,
-                       uint8_t plen) : vrf_state_(vrf_state),
-    arp_req_timer_(NULL), vrf_id_(vrf_id), vm_ip_(ip), plen_(plen),
-    sg_list_(0), policy_(false), resolve_route_(false) {
+void intrusive_ptr_add_ref(ArpPathPreferenceState *aps) {
+    aps->refcount_.fetch_and_increment();
 }
 
-ArpDBState::~ArpDBState() {
+void intrusive_ptr_release(ArpPathPreferenceState *aps) {
+    ArpVrfState *state = aps->vrf_state();
+    int prev = aps->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        state->Erase(aps->ip());
+        delete aps;
+    }
+}
+
+ArpPathPreferenceState::ArpPathPreferenceState(ArpVrfState *state,
+                                               uint32_t vrf_id,
+                                               const IpAddress &ip,
+                                               uint8_t plen):
+    vrf_state_(state), arp_req_timer_(NULL), vrf_id_(vrf_id),
+    vm_ip_(ip), plen_(plen) {
+    refcount_ = 0;
+}
+
+ArpPathPreferenceState::~ArpPathPreferenceState() {
     if (arp_req_timer_) {
         arp_req_timer_->Cancel();
         TimerManager::DeleteTimer(arp_req_timer_);
     }
+    assert(refcount_ == 0);
 }
 
-bool ArpDBState::SendArpRequest() {
-    if (wait_for_traffic_map_.size() == 0) {
-        return false;
+void ArpPathPreferenceState::StartTimer() {
+    if (arp_req_timer_ == NULL) {
+        arp_req_timer_ = TimerManager::CreateTimer(
+                *(vrf_state_->agent->event_manager()->io_service()),
+                "Arp Entry timer for VM",
+                TaskScheduler::GetInstance()->
+                GetTaskId("Agent::Services"), PktHandler::ARP);
     }
+    arp_req_timer_->Start(kTimeout,
+                          boost::bind(&ArpPathPreferenceState::SendArpRequest,
+                                      this));
+}
 
+bool ArpPathPreferenceState::SendArpRequest(WaitForTrafficIntfMap
+                                            &wait_for_traffic_map,
+                                            ArpTransmittedIntfMap
+                                            &arp_transmitted_map) {
     bool ret = false;
     boost::shared_ptr<PktInfo> pkt(new PktInfo(vrf_state_->agent,
                                                ARP_TX_BUFF_LEN,
@@ -110,14 +142,15 @@ bool ArpDBState::SendArpRequest() {
     ArpHandler arp_handler(vrf_state_->agent, pkt,
             *(vrf_state_->agent->event_manager()->io_service()));
 
-    WaitForTrafficIntfMap::iterator it = wait_for_traffic_map_.begin();
-    for (;it != wait_for_traffic_map_.end(); it++) {
+    WaitForTrafficIntfMap::iterator it = wait_for_traffic_map.begin();
+    for (;it != wait_for_traffic_map.end(); it++) {
         const VmInterface *vm_intf = static_cast<const VmInterface *>(
                 vrf_state_->agent->interface_table()->FindInterface(it->first));
         if (!vm_intf) {
             continue;
         }
 
+        bool inserted = arp_transmitted_map.insert(it->first).second;
         if (it->second >= kMaxRetry) {
             // In gateway mode with remote VMIs, send regular ARP requests
             if (vm_intf->vmi_type() != VmInterface::REMOTE_VM)
@@ -126,6 +159,10 @@ bool ArpDBState::SendArpRequest() {
 
         MacAddress smac = vm_intf->GetVifMac(vrf_state_->agent);
         it->second++;
+        if (inserted == false) {
+            //ARP request already sent due to IP route
+            continue;
+        }
         arp_handler.SendArp(ARPOP_REQUEST, smac,
                             gw_ip_.to_v4().to_ulong(),
                             MacAddress(), vm_ip_.to_v4().to_ulong(),
@@ -136,30 +173,40 @@ bool ArpDBState::SendArpRequest() {
     return ret;
 }
 
-void ArpDBState::StartTimer() {
-    if (arp_req_timer_ == NULL) {
-        arp_req_timer_ = TimerManager::CreateTimer(
-                *(vrf_state_->agent->event_manager()->io_service()),
-                "Arp Entry timer for VM",
-                TaskScheduler::GetInstance()->
-                GetTaskId("Agent::Services"), PktHandler::ARP);
+bool ArpPathPreferenceState::SendArpRequest() {
+    if (l3_wait_for_traffic_map_.size() == 0 &&
+        evpn_wait_for_traffic_map_.size() == 0) {
+        return false;
     }
-    arp_req_timer_->Start(kTimeout, boost::bind(&ArpDBState::SendArpRequest,
-                                                this));
+
+    bool ret = false;
+    ArpTransmittedIntfMap arp_transmitted_map;
+    if (SendArpRequest(l3_wait_for_traffic_map_, arp_transmitted_map)) {
+        ret = true;
+    }
+
+    if (SendArpRequest(evpn_wait_for_traffic_map_, arp_transmitted_map)) {
+        ret = true;
+    }
+
+    return ret;
 }
 
 //Send ARP request on interface in Active-BackUp mode
 //So that preference of route can be incremented if the VM replies to ARP
-void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
+void ArpPathPreferenceState::SendArpRequestForAllIntf(const
+                                                      AgentRoute *route) {
     WaitForTrafficIntfMap new_wait_for_traffic_map;
+    WaitForTrafficIntfMap wait_for_traffic_map = evpn_wait_for_traffic_map_;
+    if (dynamic_cast<const InetUnicastRouteEntry *>(route)) {
+        wait_for_traffic_map = l3_wait_for_traffic_map_;
+    }
+
     for (Route::PathList::const_iterator it = route->GetPathList().begin();
             it != route->GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path->peer() &&
             path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
-            if (path->subnet_service_ip() == Ip4Address(0)) {
-                return;
-            }
             const NextHop *nh = path->ComputeNextHop(vrf_state_->agent);
             if (nh->GetType() != NextHop::INTERFACE) {
                 continue;
@@ -176,7 +223,9 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
             if (path->subnet_service_ip().is_v4() == false) {
                 continue;
             }
-            gw_ip_ = path->subnet_service_ip();
+            if (dynamic_cast<const InetUnicastRouteEntry *>(route)) {
+                gw_ip_ = path->subnet_service_ip();
+            }
             uint32_t intf_id = intf->id();
             const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
             bool wait_for_traffic = path->path_preference().wait_for_traffic();
@@ -184,8 +233,8 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
             if (wait_for_traffic == true ||
                 vm_intf->vmi_type() == VmInterface::REMOTE_VM) {
                 WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
-                    wait_for_traffic_map_.find(intf_id);
-                if (wait_for_traffic_it == wait_for_traffic_map_.end()) {
+                    wait_for_traffic_map.find(intf_id);
+                if (wait_for_traffic_it == wait_for_traffic_map.end()) {
                     new_wait_for_traffic_map.insert(std::make_pair(intf_id, 0));
                 } else {
                     new_wait_for_traffic_map.insert(std::make_pair(intf_id,
@@ -195,12 +244,26 @@ void ArpDBState::SendArpRequestForAllIntf(const InetUnicastRouteEntry *route) {
         }
     }
 
-
-    wait_for_traffic_map_ = new_wait_for_traffic_map;
-    if (wait_for_traffic_map_.size() > 0) {
+    if (dynamic_cast<const InetUnicastRouteEntry *>(route)) {
+        l3_wait_for_traffic_map_ = new_wait_for_traffic_map;
+    } else {
+        evpn_wait_for_traffic_map_ = new_wait_for_traffic_map;
+    }
+    if (new_wait_for_traffic_map.size() > 0) {
         SendArpRequest();
         StartTimer();
     }
+}
+
+ArpDBState::ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id, IpAddress ip,
+                       uint8_t plen) : vrf_state_(vrf_state),
+    sg_list_(0), policy_(false), resolve_route_(false) {
+    if (plen == Address::kMaxV4PrefixLen && ip != Ip4Address(0)) {
+       arp_path_preference_state_.reset(vrf_state->Locate(ip));
+    }
+}
+
+ArpDBState::~ArpDBState() {
 }
 
 void ArpDBState::UpdateArpRoutes(const InetUnicastRouteEntry *rt) {
@@ -241,24 +304,57 @@ void ArpDBState::Delete(const InetUnicastRouteEntry *rt) {
     }
 }
 
-void ArpDBState::Update(const InetUnicastRouteEntry *rt) {
-    if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
+void ArpDBState::Update(const AgentRoute *rt) {
+    if (arp_path_preference_state_) {
+        arp_path_preference_state_->SendArpRequestForAllIntf(rt);
+    }
+
+    const InetUnicastRouteEntry *ip_rt =
+        dynamic_cast<const InetUnicastRouteEntry *>(rt);
+    if (ip_rt == NULL) {
+        return;
+    }
+
+    if (ip_rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
         resolve_route_ = true;
     }
 
-    bool policy = rt->GetActiveNextHop()->PolicyEnabled();
-    const SecurityGroupList sg = rt->GetActivePath()->sg_list();
+    bool policy = ip_rt->GetActiveNextHop()->PolicyEnabled();
+    const SecurityGroupList sg = ip_rt->GetActivePath()->sg_list();
     
 
     if (policy_ != policy || sg != sg_list_ ||
-        vn_list_ != rt->GetActivePath()->dest_vn_list()) {
+        vn_list_ != ip_rt->GetActivePath()->dest_vn_list()) {
         policy_ = policy;
         sg_list_ = sg;
-        vn_list_ = rt->GetActivePath()->dest_vn_list();
+        vn_list_ = ip_rt->GetActivePath()->dest_vn_list();
         if (resolve_route_) {
-            UpdateArpRoutes(rt);
+            UpdateArpRoutes(ip_rt);
         }
     }
+}
+
+void ArpVrfState::EvpnRouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
+    EvpnRouteEntry *route = static_cast<EvpnRouteEntry *>(entry);
+
+    ArpDBState *state = static_cast<ArpDBState *>(entry->GetState(part->parent(),
+                                                  evpn_route_table_listener_id));
+
+    if (entry->IsDeleted() || deleted) {
+        if (state) {
+            entry->ClearState(part->parent(), evpn_route_table_listener_id);
+            delete state;
+        }
+        return;
+    }
+
+    if (state == NULL) {
+        state = new ArpDBState(this, route->vrf_id(), route->ip_addr(),
+                               route->GetVmIpPlen());
+        entry->SetState(part->parent(), evpn_route_table_listener_id, state);
+    }
+
+    state->Update(route);
 }
 
 void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
@@ -301,7 +397,6 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     //ARP request, to trigger route preference state machine
     if (state && route->vrf()->GetName() != agent->fabric_vrf_name()) {
         state->Update(route);
-        state->SendArpRequestForAllIntf(route);
     }
 }
 
@@ -309,6 +404,13 @@ bool ArpVrfState::DeleteRouteState(DBTablePartBase *part, DBEntryBase *entry) {
     RouteUpdate(part, entry);
     return true;
 }
+
+bool ArpVrfState::DeleteEvpnRouteState(DBTablePartBase *part,
+                                       DBEntryBase *entry) {
+    EvpnRouteUpdate(part, entry);
+    return true;
+}
+
 
 void ArpVrfState::Delete() {
     if (walk_id_ != DBTableWalker::kInvalidWalkerId)
@@ -318,26 +420,67 @@ void ArpVrfState::Delete() {
     walk_id_ = walker->WalkTable(rt_table, NULL,
             boost::bind(&ArpVrfState::DeleteRouteState, this, _1, _2),
             boost::bind(&ArpVrfState::WalkDone, _1, this));
+    evpn_walk_id_ = walker->WalkTable(evpn_rt_table, NULL,
+            boost::bind(&ArpVrfState::DeleteEvpnRouteState, this, _1, _2),
+            boost::bind(&ArpVrfState::WalkDone, _1, this));
 }
 
 void ArpVrfState::WalkDone(DBTableBase *partition, ArpVrfState *state) {
-    state->PreWalkDone(partition);
-    delete state;
+    if (partition == state->rt_table) {
+        state->walk_id_ = DBTableWalker::kInvalidWalkerId;
+        state->l3_walk_completed_ = true;
+    } else {
+        state->evpn_walk_id_ = DBTableWalker::kInvalidWalkerId;
+        state->evpn_walk_completed_ = true;
+    }
+
+    if (state->PreWalkDone(partition)) {
+        delete state;
+    }
 }
 
-void ArpVrfState::PreWalkDone(DBTableBase *partition) {
-    if (arp_proto->ValidateAndClearVrfState(vrf, this) == false)
-        return;
+bool ArpVrfState::PreWalkDone(DBTableBase *partition) {
+    if (arp_proto->ValidateAndClearVrfState(vrf, this) == false) {
+        return false;
+    }
+
     rt_table->Unregister(route_table_listener_id);
     table_delete_ref.Reset(NULL);
+
+    evpn_rt_table->Unregister(evpn_route_table_listener_id);
+    evpn_table_delete_ref.Reset(NULL);
+    return true;
+}
+
+ArpPathPreferenceState* ArpVrfState::Locate(const IpAddress &ip) {
+    ArpPathPreferenceState* ptr = arp_path_preference_map_[ip];
+
+    if (ptr == NULL) {
+        ptr = new ArpPathPreferenceState(this, vrf->vrf_id(), ip, 32);
+        arp_path_preference_map_[ip] = ptr;
+    }
+    return ptr;
+}
+
+void ArpVrfState::Erase(const IpAddress &ip) {
+    arp_path_preference_map_.erase(ip);
 }
 
 ArpVrfState::ArpVrfState(Agent *agent_ptr, ArpProto *proto, VrfEntry *vrf_entry,
-                         AgentRouteTable *table):
+                         AgentRouteTable *table, AgentRouteTable *evpn_table):
     agent(agent_ptr), arp_proto(proto), vrf(vrf_entry), rt_table(table),
-    route_table_listener_id(DBTableBase::kInvalidId),
-    table_delete_ref(this, table->deleter()), deleted(false),
-    walk_id_(DBTableWalker::kInvalidWalkerId) {
+    evpn_rt_table(evpn_table), route_table_listener_id(DBTableBase::kInvalidId),
+    evpn_route_table_listener_id(DBTableBase::kInvalidId),
+    table_delete_ref(this, table->deleter()),
+    evpn_table_delete_ref(this, evpn_table->deleter()),
+    deleted(false),
+    walk_id_(DBTableWalker::kInvalidWalkerId),
+    evpn_walk_id_(DBTableWalker::kInvalidWalkerId),
+    l3_walk_completed_(false), evpn_walk_completed_(false) {
+}
+
+ArpVrfState::~ArpVrfState() {
+    assert(arp_path_preference_map_.size() == 0);
 }
 
 void ArpProto::InterfaceNotify(DBEntryBase *entry) {
@@ -540,6 +683,21 @@ bool ArpProto::ValidateAndClearVrfState(VrfEntry *vrf,
                                         const ArpVrfState *vrf_state) {
     if (!vrf_state->deleted) {
         ARP_TRACE(Trace, "ARP state not cleared - VRF is not delete marked",
+                  "", vrf->GetName(), "");
+        return false;
+    }
+
+    if (vrf_state->l3_walk_completed() == false) {
+        return false;
+    }
+
+    if (vrf_state->evpn_walk_completed() == false) {
+        return false;
+    }
+
+    if (vrf_state->walk_id_ != DBTableWalker::kInvalidWalkerId ||
+        vrf_state->evpn_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+        ARP_TRACE(Trace, "ARP state not cleared - Route table walk not complete",
                   "", vrf->GetName(), "");
         return false;
     }
