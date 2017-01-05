@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <net/ethernet.h>
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "base/logging.h"
 #include "db/db.h"
@@ -181,6 +182,14 @@ static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
                 fixed_ip_addr = IpAddress();
             }
 
+            VmInterface::FloatingIp::Direction dir =
+                VmInterface::FloatingIp::DIRECTION_BOTH;
+            // Get direction
+            if (boost::iequals(fip->traffic_direction(), "ingress"))
+                dir = VmInterface::FloatingIp::DIRECTION_INGRESS;
+            else if (boost::iequals(fip->traffic_direction(), "egress"))
+                dir = VmInterface::FloatingIp::DIRECTION_EGRESS;
+
             // Make port-map
             VmInterface::FloatingIp::PortMap src_port_map;
             VmInterface::FloatingIp::PortMap dst_port_map;
@@ -196,7 +205,7 @@ static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
             }
             data->floating_ip_list_.list_.insert
                 (VmInterface::FloatingIp (addr, vrf_node->name(), vn_uuid,
-                                          fixed_ip_addr,
+                                          fixed_ip_addr, dir,
                                           fip->port_mappings_enable(),
                                           src_port_map,
                                           dst_port_map));
@@ -4209,6 +4218,7 @@ VmInterface::FloatingIp::FloatingIp() :
     ListEntry(), floating_ip_(), vn_(NULL),
     vrf_(NULL, this), vrf_name_(""), vn_uuid_(), l2_installed_(false),
     fixed_ip_(), force_l3_update_(false), force_l2_update_(false),
+    direction_(DIRECTION_BOTH),
     port_map_enabled_(false), src_port_map_(), dst_port_map_() {
 }
 
@@ -4219,6 +4229,7 @@ VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
     l2_installed_(rhs.l2_installed_), fixed_ip_(rhs.fixed_ip_),
     force_l3_update_(rhs.force_l3_update_),
     force_l2_update_(rhs.force_l2_update_),
+    direction_(rhs.direction_),
     port_map_enabled_(rhs.port_map_enabled_), src_port_map_(rhs.src_port_map_),
     dst_port_map_(rhs.dst_port_map_) {
 }
@@ -4227,12 +4238,14 @@ VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
                                     const std::string &vrf,
                                     const boost::uuids::uuid &vn_uuid,
                                     const IpAddress &fixed_ip,
+                                    Direction direction,
                                     bool port_map_enabled,
                                     const PortMap &src_port_map,
                                     const PortMap &dst_port_map) :
     ListEntry(), floating_ip_(addr), vn_(NULL), vrf_(NULL, this),
     vrf_name_(vrf), vn_uuid_(vn_uuid), l2_installed_(false),
     fixed_ip_(fixed_ip), force_l3_update_(false), force_l2_update_(false),
+    direction_(direction),
     port_map_enabled_(port_map_enabled), src_port_map_(src_port_map),
     dst_port_map_(dst_port_map) {
 }
@@ -4446,6 +4459,7 @@ void VmInterface::FloatingIpList::Update(const FloatingIp *lhs,
         lhs->force_l2_update_ = true;
     }
 
+    lhs->direction_ = rhs->direction_;
     lhs->port_map_enabled_ = rhs->port_map_enabled_;
     lhs->src_port_map_ = rhs->src_port_map_;
     lhs->dst_port_map_ = rhs->dst_port_map_;

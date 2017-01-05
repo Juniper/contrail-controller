@@ -873,9 +873,16 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
             continue;
         }
 
-        if (pkt->ip_daddr.to_v4() == it->floating_ip_) {
-            break;
+        if (pkt->ip_daddr.to_v4() != it->floating_ip_) {
+            continue;
         }
+
+        // Check if floating-ip direction matches
+        if (it->AllowDNat() == false) {
+            continue;
+        }
+
+        break;
     }
 
     if (it == fip_list.end()) {
@@ -960,6 +967,11 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         }
 
         if (pkt->ip_saddr != it->fixed_ip_) {
+            continue;
+        }
+
+        // Check if floating-ip direction matches
+        if (it->AllowSNat() == false) {
             continue;
         }
 

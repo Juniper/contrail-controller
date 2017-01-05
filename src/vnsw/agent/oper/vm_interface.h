@@ -111,6 +111,13 @@ public:
     // A unified structure for storing FloatingIp information for both
     // operational and config elements
     struct FloatingIp : public ListEntry {
+        enum Direction {
+            DIRECTION_BOTH,
+            DIRECTION_INGRESS,
+            DIRECTION_EGRESS,
+            DIRECTION_INVALID
+        };
+
         struct PortMapKey {
             uint8_t protocol_;
             uint16_t port_;
@@ -132,7 +139,7 @@ public:
         FloatingIp(const FloatingIp &rhs);
         FloatingIp(const IpAddress &addr, const std::string &vrf,
                    const boost::uuids::uuid &vn_uuid, const IpAddress &ip,
-                   bool port_mappng_enabled,
+                   Direction direction, bool port_mappng_enabled,
                    const PortMap &src_port_map, const PortMap &dst_port_map);
         virtual ~FloatingIp();
 
@@ -153,6 +160,20 @@ public:
         uint32_t PortMappingSize() const;
         int32_t GetSrcPortMap(uint8_t protocol, uint16_t src_port) const;
         int32_t GetDstPortMap(uint8_t protocol, uint16_t dst_port) const;
+        Direction direction() const { return direction_; }
+        // direction_ is based on packet direction. Allow DNAT if direction is
+        // "both or ingress"
+        bool AllowDNat() const {
+            return (direction_ == DIRECTION_BOTH ||
+                    direction_ == DIRECTION_INGRESS);
+        }
+        // direction_ is based on packet direction. Allow SNAT if direction is
+        // "both or egress"
+        bool AllowSNat() const {
+            return (direction_ == DIRECTION_BOTH ||
+                    direction_ == DIRECTION_EGRESS);
+        }
+
 
         IpAddress floating_ip_;
         mutable VnEntryRef vn_;
@@ -163,6 +184,7 @@ public:
         mutable IpAddress fixed_ip_;
         mutable bool force_l3_update_;
         mutable bool force_l2_update_;
+        mutable Direction direction_;
         mutable bool port_map_enabled_;
         mutable PortMap src_port_map_;
         mutable PortMap dst_port_map_;

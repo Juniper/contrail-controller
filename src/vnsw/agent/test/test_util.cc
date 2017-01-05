@@ -2132,7 +2132,8 @@ void AddSg(const char *name, int id, int sg_id) {
 }
 
 void AddFloatingIp(const char *name, int id, const char *addr,
-                   const char *fixed_ip, bool port_map_enable,
+                   const char *fixed_ip, const char *direction,
+                   bool port_map_enable,
                    uint16_t port_map1, uint16_t port_map2, uint16_t port_map3,
                    uint16_t port_map4) {
     uint16_t port_map[4] = { port_map1, port_map2, port_map3, port_map4 };
@@ -2140,6 +2141,11 @@ void AddFloatingIp(const char *name, int id, const char *addr,
     str << "<floating-ip-address>" << addr << "</floating-ip-address>" << endl;
     str << "<floating-ip-fixed-ip-address>" << fixed_ip <<
            "</floating-ip-fixed-ip-address>" << endl;
+    if (direction != NULL) {
+        str << "<floating-ip-traffic-direction>" << direction
+            << "</floating-ip-traffic-direction>" << endl;
+    }
+
     str << "<floating-ip-port-mappings-enable>";
     if (port_map_enable)
         str << "true";
