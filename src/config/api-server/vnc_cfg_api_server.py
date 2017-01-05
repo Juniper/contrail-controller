@@ -3016,18 +3016,18 @@ class VncApiServer(object):
         if req_fields:
             allowed_fields.extend(req_fields)
 
+        obj_dicts = []
         if self.is_admin_request():
-            obj_dicts = []
             for obj_result in result:
                 if not exclude_hrefs:
                     obj_result['href'] = self.generate_url(
                         resource_type, obj_result['uuid'])
                 if is_detail:
+                    obj_result['name'] = obj_result['fq_name'][-1]
                     obj_dicts.append({resource_type: obj_result})
                 else:
                     obj_dicts.append(obj_result)
         else:
-            obj_dicts = []
             for obj_result in result:
                 # TODO(nati) we should do this using sql query
                 id_perms = obj_result.get('id_perms')
@@ -3052,6 +3052,7 @@ class VncApiServer(object):
 
                 if is_detail:
                     obj_result = self.obj_view(resource_type, obj_result)
+                    obj_result['name'] = obj_result['fq_name'][-1]
                     obj_dict.update(obj_result)
                     obj_dicts.append({resource_type: obj_dict})
                 else:
