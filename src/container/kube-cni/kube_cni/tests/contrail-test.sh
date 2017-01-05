@@ -1,6 +1,6 @@
 export LANG="en_US.UTF-8"
 export CNI_IFNAME="eth1"
-export CNI_NETNS="/proc/24127/ns/net"
+export CNI_NETNS="/proc/2240/ns/net"
 export CNI_PATH="/opt/cni/bin:/opt/bridge/bin"
 export KUBELET_DNS_ARGS="--cluster-dns=100.64.0.10 --cluster-domain=cluster.local"
 export CNI_ARGS="IgnoreUnknown=1;K8S_POD_NAMESPACE=default;K8S_POD_NAME=helloworld-2136270121-6snjw;K8S_POD_INFRA_CONTAINER_ID=aeb9778a0e5da13d7468312e37a85211e5141f1332aefa177b5506364ca39824"
