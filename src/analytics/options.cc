@@ -67,6 +67,8 @@ void Options::Initialize(EventManager &evm,
     uint16_t default_collector_port = ContrailPorts::CollectorPort();
     uint16_t default_collector_protobuf_port =
         ContrailPorts::CollectorProtobufPort();
+    uint16_t default_collector_structured_syslog_port =
+        ContrailPorts::CollectorStructuredSyslogPort();
     uint16_t default_partitions = 15;
     uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
@@ -201,6 +203,11 @@ void Options::Initialize(EventManager &evm,
             opt::value<string>()->default_value(
                 default_low_watermark2_message_severity_level),
             "Low Watermark 2 Message severity level")
+
+        ("COLLECTOR.structured_syslog_port",
+            opt::value<uint16_t>()->default_value(
+                default_collector_structured_syslog_port),
+         "Listener port of Structured Syslog collector server")
 
         ("DEFAULT.analytics_data_ttl",
              opt::value<uint64_t>()->default_value(g_viz_constants.TtlValuesDefault.find(TtlType::GLOBAL_TTL)->second),
@@ -508,6 +515,13 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(
         var_map, db_write_options_.low_watermark2_message_severity_level_,
         "DATABASE.low_watermark2.message_severity_level");
+
+    if (GetOptValueIfNotDefaulted<uint16_t>(var_map, collector_structured_syslog_port_,
+            "COLLECTOR.structured_syslog_port")) {
+        collector_structured_syslog_port_configured_ = true;
+    } else {
+        collector_structured_syslog_port_configured_ = false;
+    }
 
     GetOptValue<uint64_t>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");

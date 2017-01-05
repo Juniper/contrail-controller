@@ -14,6 +14,8 @@
 typedef boost::function<bool(const VizMsg*, bool,
     DbHandler *, GenDb::GenDbIf::DbAddColumnCb)> VizCallback;
 
+class SyslogParser;
+class SyslogGenerator;
 class SyslogQueueEntry
 {
   public:
@@ -63,8 +65,6 @@ class SyslogUDPListener: public UdpServer
       SyslogMsgReadFn read_cb_;
 };
 
-class SyslogParser;
-
 class SyslogListeners
 {
     public:
@@ -93,5 +93,105 @@ class SyslogListeners
       DbHandlerPtr    db_handler_;
       SandeshMessageBuilder *builder_;
 };
+
+class SyslogParser
+{
+
+    public:
+        SyslogParser (SyslogListeners *syslog);
+        virtual ~SyslogParser ();
+        void Parse (SyslogQueueEntry *sqe);
+
+        void Shutdown ();
+
+        SyslogParser ();
+
+        void Init();
+        void WaitForIdle (int max_wait);
+
+        enum dtype {
+            int_type = 42,
+            str_type
+        };
+        struct Holder {
+            std::string       key;
+            dtype             type;
+            int64_t           i_val;
+            std::string       s_val;
+
+            Holder (std::string k, std::string v):
+                key(k), type(str_type), s_val(v)
+            { }
+            Holder (std::string k, int64_t v):
+                key(k), type(int_type), i_val(v)
+            { }
+
+            std::string repr()
+            {
+                std::ostringstream s;
+                s << "{ \"" << key << "\": ";
+                if (type == int_type)
+                    s << i_val << "}";
+                else if (type == str_type)
+                    s << "\"" << s_val << "\"}";
+                else
+                    s << "**bad type**}";
+                return s.str();
+            }
+
+            void print ()
+            {
+                LOG(DEBUG, "{ \"" << key << "\": ");
+                if (type == int_type)
+                    LOG(DEBUG, i_val << "}");
+                else if (type == str_type)
+                    LOG(DEBUG, "\"" << s_val << "\"}");
+                else
+                    LOG(DEBUG, "**bad type**}");
+            }
+        };
+
+        typedef std::map<std::string, Holder>  syslog_m_t;
+
+        template <typename Iterator>
+        static bool parse_syslog (Iterator start, Iterator end, syslog_m_t &v);
+
+        static std::string GetMapVals (syslog_m_t v, std::string key, std::string def);
+
+        static int64_t GetMapVal (syslog_m_t v, std::string key, int def);
+
+        static void GetFacilitySeverity (syslog_m_t v, int& facility, int& severity);
+
+        static void GetTimestamp (syslog_m_t v, time_t& timestamp);
+
+        static void PostParsing (syslog_m_t &v);
+
+        SyslogGenerator *GetGenerator (std::string ip);
+
+        std::string GetSyslogFacilityName (uint64_t f);
+
+        std::string EscapeXmlTags (std::string text);
+
+        std::string GetMsgBody (syslog_m_t v);
+
+        std::string GetModule(syslog_m_t v);
+
+        std::string GetFacility(syslog_m_t v);
+
+        int GetPID(syslog_m_t v);
+
+    protected:
+        virtual void MakeSandesh (syslog_m_t v);
+
+        bool ClientParse (SyslogQueueEntry *sqe);
+    private:
+        WorkQueue<SyslogQueueEntry*>                 work_queue_;
+        boost::uuids::random_generator               umn_gen_;
+        boost::ptr_map<std::string, SyslogGenerator> genarators_;
+        SyslogListeners                             *syslog_;
+        std::vector<std::string>                     facilitynames_;
+};
+
+
 
 #endif // __SYSLOG_COLLECTOR_H__
