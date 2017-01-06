@@ -28,16 +28,40 @@ void KInterfaceReq::HandleRequest() const {
 
 void KRouteReq::HandleRequest() const {
     vr_route_req req;
-    int arr_marker[4] = {0, 0, 0, 0};
-    std::vector<int8_t> marker(arr_marker, arr_marker + sizeof(arr_marker) / sizeof(arr_marker[0]));
+    int arr_size, family_id;
+    std::string family = get_family();
 
+    if(family == "inet6") {
+        arr_size = 8;
+        family_id = AF_INET6;
+    } else if(family == "bridge") {
+        arr_size = 6;
+        family_id = AF_BRIDGE;
+    } else if(family == "inet") {
+        arr_size = 4;
+        family_id = AF_INET;
+    } else {
+        std::string msg("Allowed options for family are inet, inet6, bridge");
+        ErrResp *resp = new ErrResp();
+        resp->set_resp(msg);
+        resp->set_context(context());
+        resp->Response();
+        return;
+    }
+
+    std::vector<int8_t> marker(arr_size, 0);
+    if(family_id == AF_BRIDGE) {
+        req.set_rtr_mac(marker);
+    } else {
+        // rtr_prefix needs to be initialized
+        req.set_rtr_prefix(marker);
+        req.set_rtr_marker_plen(0);
+    }
     req.set_rtr_marker(marker);
-    req.set_rtr_marker_plen(0);
-    req.set_rtr_prefix(marker);
     KRouteResp *resp = new KRouteResp();
     resp->set_context(context());
 
-    RouteKState *kstate = new RouteKState(resp, context(), req, get_vrf_id());
+    RouteKState *kstate = new RouteKState(resp, context(), req, get_vrf_id(), family_id, arr_size);
     kstate->EncodeAndSend(req);
 }
 

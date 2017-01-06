@@ -10,13 +10,13 @@
 using namespace std;
 
 RouteKState::RouteKState(KRouteResp *obj, const std::string &resp_ctx, 
-                         vr_route_req &req, int id) :
-                         KState(resp_ctx, obj) {
+                         vr_route_req &req, int id, int family_id, int marker_size) :
+                         KState(resp_ctx, obj), family_id_(family_id), marker_(marker_size, 0) {
     InitEncoder(req, id);
 }
 
 void RouteKState::InitEncoder(vr_route_req &req, int id) const {
-    req.set_rtr_family(AF_INET);
+    req.set_rtr_family(family_id_);
     req.set_rtr_vrf_id(id);
     req.set_rtr_rid(0);
     req.set_rtr_prefix_len(0);
@@ -53,9 +53,11 @@ void RouteKState::SendNextRequest() {
     req.set_rtr_marker(rctx->marker);
     req.set_rtr_marker_plen(rctx->marker_plen);
     // rtr_prefix needs to be initialized
-    int arr_prefix[4] = {0, 0, 0, 0};
-    std::vector<int8_t> prefix(arr_prefix, arr_prefix + sizeof(arr_prefix) / sizeof(arr_prefix[0]));
-    req.set_rtr_prefix(prefix);
+    if(family_id_ == AF_BRIDGE) {
+        req.set_rtr_mac(marker_);
+    } else {
+        req.set_rtr_prefix(marker_);
+    }
     EncodeAndSend(req);
 }
 
@@ -74,6 +76,10 @@ const string RouteKState::FamilyToString(int nh_family) const {
     switch(family) {
         case AF_INET:
             return "AF_INET";
+        case AF_INET6:
+            return "AF_INET6";
+        case AF_BRIDGE:
+            return "AF_BRIDGE";
         default:
             return "INVALID";
     }

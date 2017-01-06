@@ -269,6 +269,10 @@ void KState::RouteMsgHandler(vr_route_req *r) {
         data.set_label(0);
     }
     data.set_nh_id(r->get_rtr_nh_id());
+    if(rst->FamilyToString(r->get_rtr_family()) == "AF_BRIDGE") {
+        data.set_rtr_mac(MacToString(r->get_rtr_mac()));
+        data.set_index(r->get_rtr_index());
+    }
     
     list.push_back(data);
 
