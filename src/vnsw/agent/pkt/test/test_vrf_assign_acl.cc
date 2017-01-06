@@ -548,6 +548,28 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror2) {
     client->WaitForIdle();
 }
 
+TEST_F(TestVrfAssignAclFlow, Vmi_Proxy_Arp_1) {
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "true");
+    const VmInterface *vmi = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_EQ(vmi->proxy_arp_mode(), VmInterface::PROXY_ARP_NONE);
+
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "true", "left");
+    EXPECT_EQ(vmi->proxy_arp_mode(), VmInterface::PROXY_ARP_UNRESTRICTED);
+
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "true", "right");
+    EXPECT_EQ(vmi->proxy_arp_mode(), VmInterface::PROXY_ARP_UNRESTRICTED);
+
+    AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
+                           1, 65535, "default-project:vn2:vn2", "true", "management");
+    EXPECT_EQ(vmi->proxy_arp_mode(), VmInterface::PROXY_ARP_NONE);
+
+    CreateVmportFIpEnv(input, 2);
+    EXPECT_EQ(vmi->proxy_arp_mode(), VmInterface::PROXY_ARP_NONE);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

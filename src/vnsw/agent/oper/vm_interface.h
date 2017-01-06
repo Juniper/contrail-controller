@@ -93,6 +93,12 @@ public:
         SRIOV
     };
 
+    enum ProxyArpMode {
+        PROXY_ARP_NONE,
+        PROXY_ARP_UNRESTRICTED,
+        PROXY_ARP_INVALID
+    };
+
     struct ListEntry {
         ListEntry() : installed_(false), del_pending_(false) { }
         ListEntry(bool installed, bool del_pending) :
@@ -528,6 +534,10 @@ public:
         dhcp_enable_= dhcp_enable;
     }
     bool do_dhcp_relay() const { return do_dhcp_relay_; }
+    ProxyArpMode proxy_arp_mode() const { return proxy_arp_mode_; }
+    bool IsUnrestrictedProxyArp() const {
+        return proxy_arp_mode_ == PROXY_ARP_UNRESTRICTED;
+    }
     int vxlan_id() const { return vxlan_id_; }
     bool bridging() const { return bridging_; }
     bool layer3_forwarding() const { return layer3_forwarding_; }
@@ -907,6 +917,8 @@ private:
     bool dhcp_enable_;
     // true if IP is to be obtained from DHCP Relay and not learnt from fabric
     bool do_dhcp_relay_; 
+    // Proxy ARP mode for interface
+    ProxyArpMode proxy_arp_mode_;
     // VM-Name. Used by DNS
     std::string vm_name_;
     // project uuid of the vm to which the interface belongs
@@ -1103,6 +1115,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool ecmp_;
     bool ecmp6_;
     bool dhcp_enable_; // is DHCP enabled for the interface (from subnet config)
+    VmInterface::ProxyArpMode proxy_arp_mode_;
     bool admin_state_;
     bool disable_policy_;
     std::string analyzer_name_;
