@@ -109,6 +109,7 @@ public:
 
     void TearDown() {
         DelIPAM("vn1");
+        DeleteGlobalVrouterConfig();
         client->WaitForIdle();
     }
 

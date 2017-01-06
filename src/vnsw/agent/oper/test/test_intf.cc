@@ -1279,6 +1279,7 @@ TEST_F(IntfTest, VmPortFloatingIpEvpn_1) {
     DelVrf("default-project:vn2:vn2");
     DelVn("default-project:vn2");
     DeleteVmportEnv(input, 1, true);
+    DelEncapList();
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf1"));
     EXPECT_FALSE(VrfFind("default-project:vn2:vn2", true));
@@ -3095,6 +3096,7 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
 
     //Cleanup
     DeleteVmportEnv(input, 1, true);
+    DelEncapList();
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
 }
@@ -3848,6 +3850,9 @@ TEST_F(IntfTest, MultipleIp3) {
         {"1.1.1.0", 24, "1.1.1.100"},
     };
 
+    AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
+    client->WaitForIdle();
+
     client->Reset();
     CreateVmportEnv(input1, 1, 1);
     client->WaitForIdle();
@@ -3927,6 +3932,7 @@ TEST_F(IntfTest, MultipleIp3) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
     WAIT_FOR(100, 1000, (Agent::GetInstance()->interface_table()->Find(&key, true)
                 == NULL));
+    DelEncapList();
     client->Reset();
 }
 

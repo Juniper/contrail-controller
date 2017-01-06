@@ -21,6 +21,7 @@
 #include <oper/vm.h>
 #include <oper/vxlan.h>
 #include <oper/interface_common.h>
+#include <oper/global_vrouter.h>
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
@@ -64,6 +65,19 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 }
 
 class CfgTest : public ::testing::Test {
+public:
+    virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+    }
+
+    virtual void TearDown() {
+        DelNode("global-vrouter-config", "vrouter-config");
+        client->WaitForIdle();
+    }
+
+private:
+    Agent *agent_;
+
 };
 
 #if 0

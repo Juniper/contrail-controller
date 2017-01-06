@@ -159,7 +159,7 @@ protected:
         FlowTable *table = flow_proto_->GetTable(0);
         EXPECT_EQ(table->linklocal_flow_info_map().size(), 0);
 
-        DelLinkLocalConfig();
+        DeleteGlobalVrouterConfig();
         client->WaitForIdle();
     }
 
