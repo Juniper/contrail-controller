@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+// Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 //
 
 #include <utility>
@@ -21,6 +21,7 @@
 #include "analytics/structured_syslog_server_impl.h"
 #include "generator.h"
 #include "analytics/syslog_collector.h"
+#include "analytics/csoconfig.h"
 
 //#define STRUCTURED_SYSLOG_DEBUG 1
 
@@ -32,7 +33,7 @@ namespace impl {
 
 void StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, std::vector<std::string> int_fields) {
   /*
-  syslog format: <14>Dec 10 00:18:07 csp-ucpe-bglr51 RT_FLOW: APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26
+  syslog format: <14>1 2016-12-06T11:38:19.818+02:00 csp-ucpe-bglr51 RT_FLOW: APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26
   reason="TCP RST" source-address="4.0.0.3" source-port="13175" destination-address="5.0.0.7"
   destination-port="48334" service-name="None" application="MTV" nested-application="None"
   nat-source-address="10.110.110.10" nat-source-port="13175" destination-address="96.9.139.213"
@@ -89,7 +90,7 @@ void StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, std::vector<std::
   }
   const std::string hardware = body.substr(start+1, end-start-1);
   start = end + 1;
-  LOG(DEBUG, "structured_syslog - hardware: " << hardware );
+  LOG(DEBUG, "structured_syslog - hardware: " << hardware);
   v.insert(std::pair<std::string, SyslogParser::Holder>("hardware",
         SyslogParser::Holder("hardware", hardware)));
 
@@ -215,6 +216,27 @@ void StructuredSyslogPush(SyslogParser::syslog_m_t v, StatWalker::StatTableInser
     PushStructuredSyslogStats(v, std::string(), &stat_walker, tagged_fields);
 }
 
+void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj) {
+    if (config_obj->cso_config_ != NULL) {
+        boost::shared_ptr<CsoHostnameRecord> hr =
+                config_obj->cso_config_->GetCsoHostnameRecord(SyslogParser::GetMapVals(v, "hostname", ""));
+        if (hr != NULL) {
+            const std::string cso_tenant = hr->cso_tenant();
+            v.insert(std::pair<std::string, SyslogParser::Holder>("cso_tenant",
+            SyslogParser::Holder("cso-tenant", cso_tenant)));
+            const std::string cso_site = hr->cso_site();
+            v.insert(std::pair<std::string, SyslogParser::Holder>("cso_site",
+            SyslogParser::Holder("cso-site", cso_site)));
+            const std::string cso_device = hr->cso_device();
+            v.insert(std::pair<std::string, SyslogParser::Holder>("cso_device",
+            SyslogParser::Holder("cso-device", cso_device)));
+        }
+        else {
+            LOG(DEBUG, "StructuredSyslogDecorate: NULL");
+        }
+    }
+}
+
 bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
     const boost::asio::ip::address remote_address,
     StatWalker::StatTableInsertFn stat_db_callback, StructuredSyslogConfig *config_obj) {
@@ -235,6 +257,7 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
             SyslogParser::Holder("ip", ip)));
       SyslogParser::PostParsing(v);
       StructuredSyslogPostParsing(v, config_obj->int_fields);
+      StructuredSyslogDecorate(v, config_obj);
       StructuredSyslogPush(v, stat_db_callback, config_obj->tagged_fields);
   }
 
@@ -246,14 +269,43 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
 class StructuredSyslogServer::StructuredSyslogServerImpl {
 public:
     StructuredSyslogServerImpl(EventManager *evm, uint16_t port,
+        boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
         StatWalker::StatTableInsertFn stat_db_callback) :
         udp_server_(new StructuredSyslogUdpServer(evm, port,
             stat_db_callback)),
-         tcp_server_(new StructuredSyslogTcpServer(evm, port,
-            stat_db_callback)){
+        tcp_server_(new StructuredSyslogTcpServer(evm, port,
+            stat_db_callback)),
+        cso_config_(new CsoConfig(cfgdb_connection)),
+        cso_config_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
+            "cso_config poll timer",
+        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client")))
+    {
+        cso_config_poll_timer_->Start(kCsoConfigPollInterval,
+        boost::bind(&StructuredSyslogServerImpl::PollCsoConfig, this),
+        boost::bind(&StructuredSyslogServerImpl::PollCsoConfigErrorHandler, this, _1, _2));
     }
 
-    bool Initialize(StructuredSyslogConfig *config_obj) {
+    ~StructuredSyslogServerImpl() {
+        if (cso_config_poll_timer_) {
+            TimerManager::DeleteTimer(cso_config_poll_timer_);
+            cso_config_poll_timer_ = NULL;
+        }
+    }
+
+    void PollCsoConfigErrorHandler(string error_name,
+        string error_message) {
+        LOG(ERROR, "CsoConfig poll Timer Err: " << error_name << " " << error_message);
+    }
+
+    bool PollCsoConfig() { if(cso_config_) cso_config_->PollCsoConfig(); return true; }
+
+
+    CsoConfig *GetCsoConfig() {
+        return cso_config_;
+    }
+
+    bool Initialize() {
+        StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(GetCsoConfig());
         if (udp_server_->Initialize(config_obj)) {
             return tcp_server_->Initialize(config_obj);
         } else {
@@ -396,12 +448,17 @@ private:
     };
     StructuredSyslogUdpServer *udp_server_;
     StructuredSyslogTcpServer *tcp_server_;
+    CsoConfig * cso_config_;
+    Timer *cso_config_poll_timer_;
+    static const int kCsoConfigPollInterval = 120 * 1000; // in ms
+
 };
 
 
 StructuredSyslogServer::StructuredSyslogServer(EventManager *evm,
-    uint16_t port, StatWalker::StatTableInsertFn stat_db_fn) {
-    impl_ = new StructuredSyslogServerImpl(evm, port, stat_db_fn);
+    uint16_t port, boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
+    StatWalker::StatTableInsertFn stat_db_fn) {
+    impl_ = new StructuredSyslogServerImpl(evm, port, cfgdb_connection, stat_db_fn);
 }
 
 StructuredSyslogServer::~StructuredSyslogServer() {
@@ -412,8 +469,7 @@ StructuredSyslogServer::~StructuredSyslogServer() {
 }
 
 bool StructuredSyslogServer::Initialize() {
-    StructuredSyslogConfig *config_obj = new StructuredSyslogConfig();
-    return impl_->Initialize(config_obj);
+    return impl_->Initialize();
 }
 
 void StructuredSyslogServer::Shutdown() {
@@ -425,7 +481,8 @@ boost::asio::ip::udp::endpoint StructuredSyslogServer::GetLocalEndpoint(
     return impl_->GetLocalEndpoint(ec);
 }
 
-StructuredSyslogConfig::StructuredSyslogConfig() {
+StructuredSyslogConfig::StructuredSyslogConfig(CsoConfig *cso_config):
+    cso_config_(cso_config) {
     Init();
 }
 
@@ -437,14 +494,14 @@ StructuredSyslogConfig::~StructuredSyslogConfig() {
 
 void StructuredSyslogConfig::Init() {
     messages_handled = boost::assign::list_of ("APPTRACK_SESSION_CLOSE") ("APPTRACK_SESSION_CREATE");
-    tagged_fields = boost::assign::list_of ("tenant") ("source-address") ("geo") ("tag") ("prog")
+    tagged_fields = boost::assign::list_of ("cso-tenant") ("source-address") ("geo") ("tag") ("prog")
                  ("service-name") ("application") ("nested-application") ("destination-zone-name")
-                 ("source-zone-name") ("username") ("roles") ("hostname") ("location") ("session-id-32");
+                 ("source-zone-name") ("username") ("roles") ("hostname") ("location") ("session-id-32")
+                 ("cso-site");
     int_fields = boost::assign::list_of ("packets-from-client") ("bytes-from-client")
                  ("packets-from-server") ("bytes-from-server") ("session-id-32") ("source-port")
                  ("destination-port") ("nat-source-port") ("nat-destination-port")
-                 ("protocol-id") ("elapsed-time");
+                 ("protocol-id") ("elapsed-time") ("total-bytes");
 }
 
 }  // namespace structured_syslog
-
