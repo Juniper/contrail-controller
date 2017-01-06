@@ -200,7 +200,7 @@ void OperDB::CreateDBTables(DB *db) {
     acl_table->ListenerInit();
 
     multicast_ = std::auto_ptr<MulticastHandler>(new MulticastHandler(agent_));
-    global_vrouter_ = std::auto_ptr<GlobalVrouter> (new GlobalVrouter(this));
+    global_vrouter_ = std::auto_ptr<GlobalVrouter> (new GlobalVrouter(agent_));
     route_preference_module_ =
         std::auto_ptr<PathPreferenceModule>(new PathPreferenceModule(agent_));
     route_preference_module_->Init();
@@ -222,9 +222,15 @@ void OperDB::CreateDBTables(DB *db) {
                                              "db.physical_device_vn.0");
     agent_->set_physical_device_vn_table(dev_vn_table);
     profile_.reset(new AgentProfile(agent_, true));
-    vrouter_ = std::auto_ptr<VRouter> (new VRouter(this));
     bgp_as_a_service_ = std::auto_ptr<BgpAsAService>(new BgpAsAService(agent_));
-    global_qos_config_ = std::auto_ptr<GlobalQosConfig>(new GlobalQosConfig(this));
+
+    vrouter_ = std::auto_ptr<VRouter> (new VRouter(agent_));
+    global_qos_config_ =
+        std::auto_ptr<GlobalQosConfig>(new GlobalQosConfig(agent_));
+    network_ipam_ = std::auto_ptr<OperNetworkIpam>
+        (new OperNetworkIpam(agent_, domain_config_.get()));
+    virtual_dns_ = std::auto_ptr<OperVirtualDns>
+        (new OperVirtualDns(agent_, domain_config_.get()));
 }
 
 void OperDB::Init() {

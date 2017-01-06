@@ -34,7 +34,7 @@ struct LinkLocalDBState : DBState {
 };
 
 // Handle Global Vrouter configuration
-class GlobalVrouter {
+class GlobalVrouter : public OperIFMapTable {
 public:
     static const std::string kMetadataService;
     static const Ip4Address kLoopBackIp;
@@ -89,17 +89,20 @@ public:
     typedef std::map<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutMap;
     typedef std::pair<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutPair;
 
-    GlobalVrouter(OperDB *oper);
+    GlobalVrouter(Agent *agent);
     virtual ~GlobalVrouter();
     void CreateDBClients();
 
-    const OperDB *oper_db() const { return oper_; }
     const LinkLocalServicesMap &linklocal_services_map() const {
         return linklocal_services_map_;
     }
     int32_t flow_export_rate() const { return flow_export_rate_; }
 
-    void GlobalVrouterConfig(DBTablePartBase *partition, DBEntryBase *dbe);
+    void ConfigDelete(IFMapNode *node);
+    void ConfigAddChange(IFMapNode *node);
+    void ConfigManagerEnqueue(IFMapNode *node);
+
+    void GlobalVrouterConfig(IFMapNode *node);
     bool FindLinkLocalService(const std::string &service_name,
                               Ip4Address *service_ip, uint16_t *service_port,
                               Ip4Address *fabric_ip, uint16_t *fabric_port) const;
@@ -137,8 +140,6 @@ private:
     void UpdateFlowAging(autogen::GlobalVrouterConfig *cfg);
     void DeleteFlowAging();
 
-    OperDB *oper_;
-    DBTableBase::ListenerId global_vrouter_listener_id_;
     LinkLocalServicesMap linklocal_services_map_;
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;

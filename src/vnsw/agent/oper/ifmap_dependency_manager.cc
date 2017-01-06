@@ -20,6 +20,9 @@
 #include "oper/forwarding_class.h"
 #include "oper/qos_config.h"
 #include "oper/config_manager.h"
+#include "oper/vrouter.h"
+#include "oper/global_qos_config.h"
+#include "oper/global_vrouter.h"
 #include "cfg/cfg_init.h"
 
 #include <boost/assign/list_of.hpp>
@@ -103,6 +106,10 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "virtual-machine-interface-routing-instance",
         "virtual-network",
         "virtual-network-network-ipam",
+        "virtual-DNS",
+        "global-vrouter-config",
+        "virtual-router",
+        "interface-route-table"
     };
 
     // Link table
@@ -170,12 +177,6 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     policy->insert(make_pair("network-ipam", react_ipam));
 
     InitializeDependencyRules(agent);
-
-    IFMapTable *table = IFMapTable::FindTable(database_,
-                                              "interface-route-table");
-    interface_route_table_listener_id_ = table->Register
-        (boost::bind(&IFMapDependencyManager::InterfaceRouteTableNotify, this,
-                     _1, _2));
 }
 
 void IFMapDependencyManager::RegisterReactionMap
@@ -200,10 +201,6 @@ void IFMapDependencyManager::Terminate() {
     }
     table_map_.clear();
     event_map_.clear();
-
-    IFMapTable *table = IFMapTable::FindTable(database_,
-                                              "interface-route-table");
-    table->Unregister(interface_route_table_listener_id_);
 }
 
 bool IFMapDependencyManager::ProcessChangeList() {
@@ -556,6 +553,14 @@ void IFMapDependencyManager::AddDependencyPath(const std::string &node,
     return;
 }
 
+// Register callback for ifmap node not having corresponding oper-dbtable
+static void RegisterConfigHandler(IFMapDependencyManager *dep,
+                                  const char *name, OperIFMapTable *table) {
+    if (table)
+        dep->Register(name, boost::bind(&OperIFMapTable::ConfigEventHandler,
+                                        table, _1, _2));
+}
+
 static void RegisterConfigHandler(IFMapDependencyManager *dep,
                                   const char *name, AgentOperDBTable *table) {
     if (table)
@@ -752,6 +757,17 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                 "qos-queue", true));
     RegisterConfigHandler(this, "forwarding-class",
                           agent ? agent->forwarding_class_table() : NULL);
+
+    // Register callback for ifmap node not having corresponding oper-dbtable
+    RegisterConfigHandler(this, "virtual-router", agent->oper_db()->vrouter());
+    RegisterConfigHandler(this, "global-qos-config",
+                          agent->oper_db()->global_qos_config());
+    RegisterConfigHandler(this, "network-ipam",
+                          agent->oper_db()->network_ipam());
+    RegisterConfigHandler(this, "virtual-DNS",
+                          agent->oper_db()->virtual_dns());
+    RegisterConfigHandler(this, "global-vrouter-config",
+                          agent->oper_db()->global_vrouter());
 }
 
 void IFMapNodePolicyReq::HandleRequest() const {
@@ -796,39 +812,4 @@ void IFMapNodePolicyReq::HandleRequest() const {
     resp->set_more(false);
     resp->Response();
     return;
-}
-
-////////////////////////////////////////////////////////////////////////
-// Dependency update for interface-route-table
-////////////////////////////////////////////////////////////////////////
-void IFMapDependencyManager::InterfaceRouteTableNotify
-(DBTablePartBase *partition, DBEntryBase *e) {
-    IFMapNode *node = static_cast<IFMapNode *>(e);
-    if (node->IsDeleted()) {
-       return;
-    }
-
-    //Trigger change on all linked interface entries
-    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
-    for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph());
-         iter != node->end(table->GetGraph()); ++iter) {
-        if (iter->IsDeleted()) {
-            continue;
-        }
-        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (agent_->config_manager()->SkipNode(adj_node)) {
-            continue;
-        }
-
-        if (adj_node->table() ==
-            agent_->cfg()->cfg_vm_interface_table()) {
-            DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-            boost::uuids::uuid id;
-            agent_->interface_table()->IFNodeToUuid(adj_node, id);
-            if (agent_->interface_table()->IFNodeToReq(adj_node, req, id)) {
-                agent_->interface_table()->Enqueue(&req);
-            }
-        }
-    }
 }

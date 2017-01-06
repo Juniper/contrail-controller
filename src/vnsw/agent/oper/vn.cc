@@ -1290,30 +1290,16 @@ AgentSandeshPtr VnTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                               args->GetString("vxlan_id"), args->GetString("ipam_name")));
 }
 
-DomainConfig::DomainConfig(Agent *agent) : agent_(agent) {
+DomainConfig::DomainConfig(Agent *agent) {
 }
 
 DomainConfig::~DomainConfig() {
 }
 
 void DomainConfig::Init() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->db(), "network-ipam");
-    assert(cfg_db);
-    network_ipam_listener_id_ = cfg_db->Register
-                (boost::bind(&DomainConfig::IpamSync, this, _1, _2));
-
-    cfg_db = IFMapTable::FindTable(agent_->db(), "virtual-DNS");
-    assert(cfg_db);
-    vdns_listener_id_ =
-        cfg_db->Register(boost::bind(&DomainConfig::VDnsSync, this, _1, _2));
 }
 
 void DomainConfig::Terminate() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(agent_->db(), "network-ipam");
-    cfg_db->Unregister(network_ipam_listener_id_);
-
-    cfg_db = IFMapTable::FindTable(agent_->db(), "virtual-DNS");
-    cfg_db->Unregister(vdns_listener_id_);
 }
 
 void DomainConfig::RegisterIpamCb(Callback cb) {
@@ -1326,53 +1312,52 @@ void DomainConfig::RegisterVdnsCb(Callback cb) {
 
 // Callback is invoked only if there is change in IPAM properties.
 // In case of change in a link with IPAM, callback is not invoked.
-void DomainConfig::IpamSync(DBTablePartBase *partition, DBEntryBase *dbe) {
-    IFMapNode *node = static_cast <IFMapNode *> (dbe);
-    autogen::NetworkIpam *network_ipam =
-            static_cast <autogen::NetworkIpam *> (node->GetObject());
-    assert(network_ipam);
-
-    if (!node->IsDeleted()) {
-        bool change = false;
-        IpamDomainConfigMap::iterator it = ipam_config_.find(node->name());
-        if (it != ipam_config_.end()) {
-            if (IpamChanged(it->second, network_ipam->mgmt())) {
-                it->second = network_ipam->mgmt();
-                change = true;
-            }
-        } else {
-            ipam_config_.insert(IpamDomainConfigPair(node->name(),
-                                                     network_ipam->mgmt()));
-            change = true;
-        }
-        if (change)
-            CallIpamCb(node);
-    } else {
-        CallIpamCb(node);
-        ipam_config_.erase(node->name());
-    }
-
+void DomainConfig::IpamDelete(IFMapNode *node) {
+    CallIpamCb(node);
+    ipam_config_.erase(node->name());
+    return;
 }
 
-void DomainConfig::VDnsSync(DBTablePartBase *partition, DBEntryBase *dbe) {
-    IFMapNode *node = static_cast <IFMapNode *> (dbe);
+void DomainConfig::IpamAddChange(IFMapNode *node) {
+    autogen::NetworkIpam *network_ipam =
+        static_cast <autogen::NetworkIpam *> (node->GetObject());
+    assert(network_ipam);
+
+    bool change = false;
+    IpamDomainConfigMap::iterator it = ipam_config_.find(node->name());
+    if (it != ipam_config_.end()) {
+        if (IpamChanged(it->second, network_ipam->mgmt())) {
+            it->second = network_ipam->mgmt();
+            change = true;
+        }
+    } else {
+        ipam_config_.insert(IpamDomainConfigPair(node->name(),
+                                                 network_ipam->mgmt()));
+        change = true;
+    }
+    if (change)
+        CallIpamCb(node);
+}
+
+void DomainConfig::VDnsDelete(IFMapNode *node) {
+    CallVdnsCb(node);
+    vdns_config_.erase(node->name());
+    return;
+}
+
+void DomainConfig::VDnsAddChange(IFMapNode *node) {
     autogen::VirtualDns *virtual_dns =
-            static_cast <autogen::VirtualDns *> (node->GetObject());
+        static_cast <autogen::VirtualDns *> (node->GetObject());
     assert(virtual_dns);
 
-    if (!node->IsDeleted()) {
-        VdnsDomainConfigMap::iterator it = vdns_config_.find(node->name());
-        if (it != vdns_config_.end()) {
-            it->second = virtual_dns->data();
-        } else {
-            vdns_config_.insert(VdnsDomainConfigPair(node->name(),
-                                                     virtual_dns->data()));
-        }
-        CallVdnsCb(node);
+    VdnsDomainConfigMap::iterator it = vdns_config_.find(node->name());
+    if (it != vdns_config_.end()) {
+        it->second = virtual_dns->data();
     } else {
-        CallVdnsCb(node);
-        vdns_config_.erase(node->name());
+        vdns_config_.insert(VdnsDomainConfigPair(node->name(),
+                                                 virtual_dns->data()));
     }
+    CallVdnsCb(node);
 }
 
 void DomainConfig::CallIpamCb(IFMapNode *node) {
@@ -1450,4 +1435,42 @@ bool DomainConfig::GetVDns(const std::string &vdns,
         return false;
     *vdns_type = it->second;
     return true;
+}
+
+OperNetworkIpam::OperNetworkIpam(Agent *agent, DomainConfig *domain_config) :
+    OperIFMapTable(agent), domain_config_(domain_config) {
+}
+
+OperNetworkIpam::~OperNetworkIpam() {
+}
+
+void OperNetworkIpam::ConfigDelete(IFMapNode *node) {
+    domain_config_->IpamDelete(node);
+}
+
+void OperNetworkIpam::ConfigAddChange(IFMapNode *node) {
+    domain_config_->IpamAddChange(node);
+}
+
+void OperNetworkIpam::ConfigManagerEnqueue(IFMapNode *node) {
+    agent()->config_manager()->AddNetworkIpamNode(node);
+}
+
+OperVirtualDns::OperVirtualDns(Agent *agent, DomainConfig *domain_config) :
+    OperIFMapTable(agent), domain_config_(domain_config) {
+}
+
+OperVirtualDns::~OperVirtualDns() {
+}
+
+void OperVirtualDns::ConfigDelete(IFMapNode *node) {
+    domain_config_->VDnsDelete(node);
+}
+
+void OperVirtualDns::ConfigAddChange(IFMapNode *node) {
+    domain_config_->VDnsAddChange(node);
+}
+
+void OperVirtualDns::ConfigManagerEnqueue(IFMapNode *node) {
+    agent()->config_manager()->AddVirtualDnsNode(node);
 }
