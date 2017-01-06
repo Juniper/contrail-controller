@@ -242,6 +242,17 @@ extern void RouterIdDepInit(Agent *agent);
 
 #define VROUTER_SERVER_PORT 20914
 
+/****************************************************************************
+ * Definitions related to config/resource backup/restore
+ ****************************************************************************/
+#define CFG_BACKUP_DIR "/var/lib/contrail/backup"
+#define CFG_BACKUP_COUNT 2
+#define CFG_BACKUP_IDLE_TIMEOUT (10*1000)
+#define CFG_RESTORE_AUDIT_TIMEOUT (15*1000)
+
+/****************************************************************************
+ * Task names
+ ****************************************************************************/
 #define kTaskFlowEvent "Agent::FlowEvent"
 #define kTaskFlowKSync "Agent::FlowKSync"
 #define kTaskFlowUpdate "Agent::FlowUpdate"
@@ -1003,6 +1014,9 @@ public:
     const std::string BuildDiscoveryClientName(std::string mod_name,
                                                std::string id);
 
+    bool ResourceManagerReady() const { return resource_manager_ready_; }
+    void SetResourceManagerReady();
+
     void Init(AgentParam *param);
     void InitPeers();
     void InitDone();
@@ -1266,6 +1280,7 @@ private:
     bool test_mode_;
     bool xmpp_dns_test_mode_;
     bool init_done_;
+    bool resource_manager_ready_;
     bool simulate_evpn_tor_;
     bool tsn_enabled_;
     bool tor_agent_enabled_;

@@ -5,11 +5,11 @@ env = AgentEnv.Clone()
 
 AgentEnv.MakeTestEnv(env)
 
-init_test_suite = []
-test_agent_init = AgentEnv.MakeTestCmd(env, 'test_agent_init', init_test_suite)
+nhs_test_suite = []
+test_nexthop_server = AgentEnv.MakeTestCmd(env, 'test_nexthop_server', nhs_test_suite)
 
-test = env.TestSuite('agent-nhs-test', init_test_suite)
+test = env.TestSuite('agent-nhs-test', nhs_test_suite)
 env.Alias('agent:nhs', test)
 env.Alias('controller/src/vnsw/agent/nexthop_server:test', test)
 
-Return('init_test_suite')
+Return('nhs_test_suite')

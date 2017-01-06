@@ -300,6 +300,20 @@ public:
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
     uint32_t tbb_keepawake_timeout() const { return tbb_keepawake_timeout_; }
 
+    // Restart parameters
+    bool restart_backup_enable() const { return restart_backup_enable_; }
+    uint64_t restart_backup_idle_timeout() const {
+        return restart_backup_idle_timeout_;
+    }
+    const std::string &restart_backup_dir() const {
+        return restart_backup_dir_;
+    }
+    uint16_t restart_backup_count() const { return restart_backup_count_; }
+    bool restart_restore_enable() const { return restart_restore_enable_; }
+    uint64_t restart_restore_audit_timeout() const {
+        return restart_restore_audit_timeout_;
+    }
+
     // pkt0 tx buffer
     uint32_t pkt0_tx_buffer_count() const { return pkt0_tx_buffer_count_; }
     void set_pkt0_tx_buffer_count(uint32_t val) { pkt0_tx_buffer_count_ = val; }
@@ -404,6 +418,7 @@ private:
     void ParsePlatform();
     void ParseServices();
     void ParseQueue();
+    void ParseRestart();
     void set_agent_mode(const std::string &mode);
     void set_gateway_mode(const std::string &mode);
 
@@ -440,6 +455,8 @@ private:
     void ParsePlatformArguments
         (const boost::program_options::variables_map &v);
     void ParseServicesArguments
+        (const boost::program_options::variables_map &v);
+    void ParseRestartArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -557,6 +574,20 @@ private:
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;
     uint32_t services_queue_limit_;
+
+    // Agent config backup options
+    bool restart_backup_enable_;
+    // Config backup idle timeout in msec
+    // Backup is trigerred if there is no config change in this time
+    uint64_t restart_backup_idle_timeout_;
+    // Config backup directory
+    std::string restart_backup_dir_;
+    // Number of config backup files
+    uint16_t restart_backup_count_;
+    // Config restore options
+    bool restart_restore_enable_;
+    // Config restore audit timeout in msec
+    uint64_t restart_restore_audit_timeout_;
 
     // TBB related
     uint32_t tbb_thread_count_;

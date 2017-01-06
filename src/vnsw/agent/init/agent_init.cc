@@ -155,6 +155,7 @@ bool AgentInit::InitBase() {
 
     bool ret = Init();
     agent_->set_init_done(true);
+    agent_->SetResourceManagerReady();
     ConnectToControllerBase();
 
     return ret;
