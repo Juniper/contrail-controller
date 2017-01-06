@@ -404,7 +404,7 @@ int main(int argc, char *argv[])
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
         ds_client = new DiscoveryServiceClient(a_evm, dss_ep, client_name);
         ds_client->Init();
-        analytics.UpdateUdc(&options, ds_client);
+        analytics.UpdateConfigDBConnection(&options, ds_client);
     } else {
         LOG (ERROR, "Invalid Discovery Server hostname or ip " <<
                      options.discovery_server());

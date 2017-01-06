@@ -1,10 +1,10 @@
 <!--
- Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  -->
 <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2"
     xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2">
- 
+
     <xsd:element name="cso-config" type="ifmap:IdentityType"
                                 description="cso config related data"/>
     <xsd:element name="global-system-config-cso-config"
@@ -29,22 +29,22 @@
     <xsd:element name="cso-tenant" type="xsd:string" />
     <!--#IFMAP-SEMANTICS-IDL Property('cso-tenant', 'cso-hostname-record',
                                     'required', 'CRUD', 'The tenant id') -->
-    <xsd:element name="cso-site" type="xsd:string" />
-    <!--#IFMAP-SEMANTICS-IDL Property('cso-site', 'cso-hostname-record',
-                                    'required', 'CRUD', 'The site id') -->
+    <xsd:element name="cso-location" type="xsd:string" />
+    <!--#IFMAP-SEMANTICS-IDL Property('cso-location', 'cso-hostname-record',
+                                    'required', 'CRUD', 'location details') -->
     <xsd:element name="cso-device" type="xsd:string" />
     <!--#IFMAP-SEMANTICS-IDL Property('cso-device', 'cso-hostname-record',
                                     'optional', 'CRUD', 'The device id') -->
- 
+
     <xsd:element name="cso-application-record" type="ifmap:IdentityType"
                         description="mapping App name to other entities"/>
-    <xsd:element name="project-cso-application-record"
+    <xsd:element name="cso-config-cso-application-record"
                         description="mapping App name to other entities"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Link('project-cso-application-record',
-          'project', 'cso-application-record', ['has'], 'optional', 'CRUD',
+     Link('cso-config-cso-application-record',
+          'cso-config', 'cso-application-record', ['has'], 'optional', 'CRUD',
           'List of cso-application-record that are applicable to objects
-           anchored under project.')-->
+           anchored under cso-config.')-->
     <xsd:element name="cso-app-category" type="xsd:string" />
     <!--#IFMAP-SEMANTICS-IDL Property('cso-app-category',
                             'cso-application-record', 'required', 'CRUD',
@@ -53,13 +53,49 @@
     <!--#IFMAP-SEMANTICS-IDL Property('cso-app-subcategory',
                             'cso-application-record', 'optional', 'CRUD',
                             'The application sub category') -->
-    <xsd:element name="cso-app-group" type="xsd:string" />
-    <!--#IFMAP-SEMANTICS-IDL Property('cso-app-group',
+
+    <xsd:element name="cso-default-app-groups" type="xsd:string" />
+    <!--#IFMAP-SEMANTICS-IDL Property('cso-default-app-groups',
                             'cso-application-record', 'optional', 'CRUD',
-                            'The application group') -->
+                            'Default app groups comma separated') -->
     <xsd:element name="cso-app-risk" type="xsd:string" />
     <!--#IFMAP-SEMANTICS-IDL Property('cso-app-risk',
                             'cso-application-record', 'optional', 'CRUD',
                             'The application risk profile') -->
+
+    <xsd:element name="cso-tenant-application-record" type="ifmap:IdentityType"
+                        description="mapping tenant/app combo to other
+                        entities"/>
+    <xsd:element name="cso-config-cso-tenant-application-record"
+                        description="mapping tenant/app combo to other
+                        entities"/>
+    <!--#IFMAP-SEMANTICS-IDL
+         Link('cso-config-cso-tenant-application-record',
+              'cso-config', 'cso-tenant-application-record', ['has'],
+              'optional', 'CRUD', 'List of cso-tenant-application-record that
+              are applicable to objects anchored under cso-config.')-->
+    <xsd:element name="cso-tenant-app-groups" type="xsd:string" />
+    <!--#IFMAP-SEMANTICS-IDL Property('cso-tenant-app-groups',
+                            'cso-tenant-application-record', 'optional', 'CRUD',
+                            'App groups comma separated') -->
+
+    <xsd:element name="cso-tenant-app-service-tags" type="xsd:string" />
+    <!--#IFMAP-SEMANTICS-IDL Property('cso-tenant-app-service-tags',
+                            'cso-tenant-application-record', 'optional', 'CRUD',
+                            'service-tags corresponding to cso applications') -->
+
+    <xsd:element name="cso-tenant-app-category" type="xsd:string" />
+    <!--#IFMAP-SEMANTICS-IDL Property('cso-tenant-app-category',
+                            'cso-tenant-application-record', 'optional', 'CRUD',
+                            'Application category') -->
+    <xsd:element name="cso-tenant-app-subcategory" type="xsd:string" />
+    <!--#IFMAP-SEMANTICS-IDL Property('cso-tenant-app-subcategory',
+                            'cso-tenant-application-record', 'optional', 'CRUD',
+                            'Application sub category') -->
+    <xsd:element name="cso-tenant-app-risk" type="xsd:string" />
+    <!--#IFMAP-SEMANTICS-IDL Property('cso-tenant-app-risk',
+                            'cso-tenant-application-record', 'optional', 'CRUD',
+                            'Application risk') -->
+
 </xsd:schema>
 

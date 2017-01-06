@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+// Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 //
 
 #ifndef ANALYTICS_STRUCTURED_SYSLOG_COLLECTOR_H_
@@ -10,8 +10,6 @@
 #include <boost/scoped_ptr.hpp>
 
 #include "analytics/structured_syslog_server.h"
-
-class DbHandlerInitializer;
 
 class StructuredSyslogCollector {
  public:
