@@ -206,6 +206,7 @@ class VncKubernetes(object):
                     event['object']['metadata'].get('name')))
                 if event['object'].get('kind') == 'Pod':
                     self.pod_mgr.process(event)
+                    self.network_policy_mgr.process(event)
                 elif event['object'].get('kind') == 'Service':
                     self.service_mgr.process(event)
                 elif event['object'].get('kind') == 'Namespace':

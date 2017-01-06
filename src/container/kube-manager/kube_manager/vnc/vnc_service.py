@@ -218,11 +218,11 @@ class VncService(object):
             for ll_id in lb.loadbalancer_listeners:
                 ll = LoadbalancerListenerKM.get(ll_id)
                 if not ll:
-                    contine
+                    continue
                 if not ll.params['protocol_port']:
-                    contine
+                    continue
                 if not ll.params['protocol']:
-                    contine
+                    continue
 
                 if ll.params['protocol_port'] == port['port'] and \
                    ll.params['protocol'] == port['protocol']:
