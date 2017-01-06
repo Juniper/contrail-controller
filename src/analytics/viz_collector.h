@@ -128,8 +128,8 @@ public:
         }
         return std::make_pair(bpart, npart);
     }
-    void UpdateUdc(Options *o, DiscoveryServiceClient *c) {
-        GetDbHandler()->UpdateUdc(o, c);
+    void UpdateConfigDBConnection(Options *o, DiscoveryServiceClient *c) {
+        GetDbHandler()->UpdateConfigDBConnection(o, c);
     }
 private:
     std::string DbGlobalName(bool dup=false);
