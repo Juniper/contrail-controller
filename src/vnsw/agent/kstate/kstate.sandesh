@@ -192,7 +192,8 @@ response sandesh KInterfaceResp {
  * Request message to get route list from kernel in agent introspect
  */
 request sandesh KRouteReq {
-    1: i32 vrf_id = 0            // Send routes of vrf 0 if not specified
+    1: u32 vrf_id = 0;            // Send routes of vrf 0 if not specified
+    2: string family = "inet";
 }
 
 /**
@@ -200,6 +201,15 @@ request sandesh KRouteReq {
  */
 response sandesh KRouteResp {
     1: list<KRouteInfo> rt_list;
+}
+
+/**
+ * Request message to get route details from kernel in agent introspect
+ */
+request sandesh KRouteGetReq {
+    1:  u32 vrf_id = 0;           // Send routes of vrf 0 if not specified
+    2:  string prefix;
+    3:  u16 prefix_len;
 }
 
 /**

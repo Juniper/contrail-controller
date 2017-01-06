@@ -316,8 +316,8 @@ private:
 class TestRouteKState: public RouteKState, public TestKStateBase {
 public:
     TestRouteKState(bool vrfy, int count, KRouteResp *obj, std::string resp_ctx,
-                    vr_route_req &encoder, int id): RouteKState(obj, resp_ctx, 
-                    encoder, id), TestKStateBase(vrfy, count, id) {}
+                    vr_route_req &encoder, int id, int family_id, sandesh_op::type op_code, int prefix_size): RouteKState(obj, resp_ctx,
+                    encoder, id, family_id, op_code, prefix_size), TestKStateBase(vrfy, count, id) {}
     virtual void SendResponse() {
         UpdateFetchCount();
         //Update the response_object_ with empty list
@@ -354,7 +354,7 @@ public:
             /* Send the next request to Kernel to query for next set of routes */
             if ((vr_response_code_ > 0) && rctx) {
                 vr_route_req req;
-                InitEncoder(req, rctx->vrf_id);
+                InitEncoder(req, rctx->vrf_id, sandesh_op::DUMP);
                 req.set_rtr_marker(rctx->marker);
                 req.set_rtr_marker_plen(rctx->marker_plen);
                 EncodeAndSend(req);
@@ -369,10 +369,10 @@ public:
         req.set_rtr_marker(marker);
         KRouteResp *resp = new KRouteResp();
 
-        // The following object is deleted in KStateIoContext::Handler() 
+        // The following object is deleted in KStateIoContext::Handler()
         // after the Handler is invoked.
-        singleton_ = new TestRouteKState(verify, count, resp, "dummy", req, 
-                                         0);
+        singleton_ = new TestRouteKState(verify, count, resp, "dummy", req,
+                                         0, AF_INET, sandesh_op::DUMP, 4);
         singleton_->EncodeAndSend(req);
     }
     ~TestRouteKState() {
