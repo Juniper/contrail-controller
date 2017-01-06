@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+// Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 //
 
 #ifndef ANALYTICS_STRUCTURED_SYSLOG_SERVER_H_
@@ -11,6 +11,7 @@
 #include <boost/asio/ip/udp.hpp>
 
 #include <analytics/stat_walker.h>
+#include <analytics/structured_syslog_config.h>
 
 namespace structured_syslog {
 
@@ -20,6 +21,7 @@ namespace structured_syslog {
 class StructuredSyslogServer {
  public:
     StructuredSyslogServer(EventManager *evm, uint16_t port,
+        boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
         StatWalker::StatTableInsertFn stat_db_cb);
     virtual ~StructuredSyslogServer();
     bool Initialize();
@@ -33,16 +35,17 @@ class StructuredSyslogServer {
 };
 
 //
-// StructuredSyslog Config
+// StructuredSyslogServer Config
 //
-class StructuredSyslogConfig {
+class StructuredSyslogServerConfig {
  public:
-    StructuredSyslogConfig();
-    virtual ~StructuredSyslogConfig();
+    StructuredSyslogServerConfig(StructuredSyslogConfig *structured_syslog_config);
+    virtual ~StructuredSyslogServerConfig();
     void Init();
     std::vector<std::string> messages_handled;
     std::vector<std::string> tagged_fields;
     std::vector<std::string> int_fields;
+    StructuredSyslogConfig *structured_syslog_config_;
 };
 
 }  // namespace structured_syslog
