@@ -82,6 +82,10 @@ struct PortInfo input4[] = {
     {"vnet10", 10, LOCAL_NON_ECMP_IP_4, LOCAL_MAC_10, 1, 10},
 };
 
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.1"},
+};
+
 class EcmpTest : public ::testing::Test {
 public:
     virtual void SetUp() {
@@ -98,6 +102,9 @@ public:
         strcpy(remote_mac_[1], REMOTE_MAC_2);
         strcpy(remote_mac_[2], REMOTE_MAC_3);
         strcpy(remote_mac_[3], REMOTE_MAC_4);
+
+        AddIPAM("vn1", ipam_info, 1);
+        client->WaitForIdle();
 
         /******************************************************************
          * Create following interfaces
@@ -169,6 +176,9 @@ public:
         DeleteRemoteEvpnRoute("vrf1", REMOTE_MAC_3);
         DeleteRemoteEvpnRoute("vrf1", REMOTE_MAC_4);
         DeleteRemoteEvpnRoute("vrf1", REMOTE_MAC_5);
+        client->WaitForIdle();
+
+        DelIPAM("vn1");
         client->WaitForIdle();
 
         DeleteBgpPeer(bgp_peer_);

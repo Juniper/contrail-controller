@@ -422,6 +422,7 @@ class FlowEntry {
         SHORT_NO_MIRROR_ENTRY,
         SHORT_SAME_FLOW_RFLOW_KEY,
         SHORT_NO_SRC_ROUTE_L2RPF,
+        SHORT_INACTIVE_NH,
         SHORT_MAX
     };
 
@@ -485,6 +486,7 @@ class FlowEntry {
 
     void Reset(const FlowKey &k);
     void Reset();
+    void SetKey(const FlowKey &k);
 
     // Copy data fields from rhs
     void Copy(FlowEntry *rhs, bool update);
@@ -492,11 +494,11 @@ class FlowEntry {
     void InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                      const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl, FlowEntry *rflow,
-                     Agent *agent);
+                     Agent *agent, bool l3_flow);
     void InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
                      const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl, FlowEntry *rflow,
-                     Agent *agent);
+                     Agent *agent, bool l3_flow);
     void InitAuditFlow(uint32_t flow_idx, uint8_t gen_id);
     static void Init();
 
@@ -670,7 +672,8 @@ private:
     bool SetEcmpRpfNH(FlowTable*, uint32_t);
     bool SetRpfNHState(FlowTable*, const NextHop*);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
-                     const PktControlInfo *rev_ctrl, FlowEntry *rflow);
+                     const PktControlInfo *rev_ctrl, FlowEntry *rflow,
+                     bool l3_flow);
     void GetSourceRouteInfo(const AgentRoute *rt);
     void GetDestRouteInfo(const AgentRoute *rt);
     void UpdateRpf();

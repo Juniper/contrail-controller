@@ -83,6 +83,7 @@ const std::map<uint16_t, const char*>
         ((uint16_t)SHORT_FLOW_ON_TSN,        "Short flow TSN flow")
         ((uint16_t)SHORT_NO_MIRROR_ENTRY,     "Short flow No mirror entry ")
         ((uint16_t)SHORT_SAME_FLOW_RFLOW_KEY,"Short flow same flow and rflow")
+        ((uint16_t)SHORT_INACTIVE_NH,        "Shot flow - Inactive Nexthop")
         ((uint16_t)DROP_POLICY,              "Flow drop Policy")
         ((uint16_t)DROP_OUT_POLICY,          "Flow drop Out Policy")
         ((uint16_t)DROP_SG,                  "Flow drop SG")
@@ -415,6 +416,12 @@ void FlowEntry::Reset(const FlowKey &k) {
     key_ = k;
 }
 
+// Change key for a flow-table. Caller must ensure that flow-entry is not
+// in tree
+void FlowEntry::SetKey(const FlowKey &k) {
+    key_ = k;
+}
+
 void FlowEntry::Init() {
     alloc_count_ = 0;
 }
@@ -500,7 +507,7 @@ void intrusive_ptr_release(FlowEntry *fe) {
 
 bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl,
-                            FlowEntry *rflow) {
+                            FlowEntry *rflow, bool l3_flow) {
     reverse_flow_entry_ = rflow;
     reset_flags(FlowEntry::ReverseFlow);
     peer_vrouter_ = info->peer_vrouter;
@@ -552,7 +559,7 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
     data_.in_vm_entry.SetVm(ctrl->vm_);
     data_.out_vm_entry.SetVm(rev_ctrl->vm_);
-    l3_flow_ = info->l3_flow;
+    l3_flow_ = l3_flow;
     data_.ecmp_rpf_nh_ = 0;
     data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
     return true;
@@ -561,10 +568,10 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
 void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
                             const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl,
-                            FlowEntry *rflow, Agent *agent) {
+                            FlowEntry *rflow, Agent *agent, bool l3_flow) {
     gen_id_ = pkt->GetAgentHdr().cmd_param_5;
     flow_handle_ = pkt->GetAgentHdr().cmd_param;
-    if (InitFlowCmn(info, ctrl, rev_ctrl, rflow) == false) {
+    if (InitFlowCmn(info, ctrl, rev_ctrl, rflow, l3_flow) == false) {
         return;
     }
     if (info->linklocal_bind_local_port) {
@@ -634,9 +641,9 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
 void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
                             const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl,
-                            FlowEntry *rflow, Agent *agent) {
+                            FlowEntry *rflow, Agent *agent, bool l3_flow) {
     uint32_t intf_in;
-    if (InitFlowCmn(info, ctrl, rev_ctrl, rflow) == false) {
+    if (InitFlowCmn(info, ctrl, rev_ctrl, rflow, l3_flow) == false) {
         return;
     }
     set_flags(FlowEntry::ReverseFlow);
@@ -1163,6 +1170,11 @@ void FlowEntry::GetPolicy(const VnEntry *vn, const FlowEntry *rflow) {
 
 void FlowEntry::GetVrfAssignAcl() {
     if (data_.intf_entry == NULL) {
+        return;
+    }
+
+    // Skip VrfTranslate rules for l2-flows
+    if (l3_flow() == false) {
         return;
     }
 

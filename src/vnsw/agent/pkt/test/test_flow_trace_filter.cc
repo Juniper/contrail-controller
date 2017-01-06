@@ -17,21 +17,6 @@ struct PortInfo input[] = {
     {"vnet3", 3, "1.1.1.13", "00:00:01:01:01:03", 1, 1},
 };
 
-static bool FlowStatsTimerStartStopTrigger (Agent *agent, bool stop) {
-    agent->flow_stats_manager()->
-        default_flow_stats_collector()->TestStartStopTimer(stop);
-    return true;
-}
-
-static void FlowStatsTimerStartStop (Agent *agent, bool stop) {
-    int task_id = agent->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
-    std::auto_ptr<TaskTrigger> trigger_
-        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, agent,
-                                     stop), task_id, 0));
-    trigger_->Set();
-    client->WaitForIdle();
-}
-
 class FlowTraceFilterTest : public ::testing::Test {
 public:
     virtual void SetUp() {
