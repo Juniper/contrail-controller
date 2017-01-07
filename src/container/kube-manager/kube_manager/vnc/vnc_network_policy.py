@@ -33,8 +33,8 @@ class VncNetworkPolicy(object):
                 if sg_rule == sgr_copy:
                     self.logger.info("SecurityGroupRuleExists %s" % sgr.rule_uuid)
                     return
+            rules.add_policy_rule(sg_rule)
 
-        rules.add_policy_rule(sg_rule)
         sg_obj.set_security_group_entries(rules)
 
     def _remove_sg_rule_by_id(self, sg_obj, rule_uuid):
@@ -62,14 +62,18 @@ class VncNetworkPolicy(object):
             self.logger.error("No SecurityGroupRules matching src_addr %s, no rules found" % src_address)
             return
 
+        update_needed = False
         for sgr in rules.get_policy_rule() or []:
-            if sgr.src_addresses == src_address:
-                self.logger.info("Deleting SecurityGroupRule %s matching src_addr %s: " %
-                                 sgr.rule_uuid, src_address)
-                rules.delete_policy_rule(sgr)
-                update_needed = True
+            for src in sgr.src_addresses:
+                if src.subnet.ip_prefix == src_address:
+                    self.logger.info("Deleting SecurityGroupRule %s matching src_addr %s: " %
+                                     (sgr.rule_uuid, src_address))
+                    rules.delete_policy_rule(sgr)
+                    update_needed = True
+                    break
         if update_needed:
             sg_obj.set_security_group_entries(rules)
+            self._vnc_lib.security_group_update(sg_obj)
         else:
             self.logger.error("No SecurityGroupRule matching src_addr %s found" % src_address)
 
@@ -123,7 +127,6 @@ class VncNetworkPolicy(object):
                 src_pods = self._select_pods(src_labels)
                 for src_pod in src_pods:
                     self._set_sg_rule(sg, src_pod, ports)
-
         self._vnc_lib.security_group_update(sg)
 
     def _apply_sg_2_pod(self, sg, pod):
@@ -247,6 +250,7 @@ class VncNetworkPolicy(object):
         for rule in rules:
             ports = rule.get('ports')
             self._set_sg_rule(sg, pod_id, ports)
+        self._vnc_lib.security_group_update(sg)
 
     def _add_dest_pod_2_policy(self, pod_id, policy_id):
         try:
@@ -293,21 +297,7 @@ class VncNetworkPolicy(object):
         if not ip_addr:
             return
 
-        sgr_uuid = str(uuid.uuid4())
-        src_addr = AddressType(subnet=SubnetType(ip_addr, 32))
-        dst_addr = AddressType(security_group='local')
-        for port in ports:
-            proto = port['protocol'].lower()
-            rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                  protocol=proto,
-                                  src_addresses=[src_addr],
-                                  src_ports=[PortType(0, 65535)],
-                                  dst_addresses=[dst_addr],
-                                  dst_ports=[PortType(0, int(port['port']))],
-                                  ethertype='IPv4')
-            self._append_sg_rule(sg, rule)
-
-
+        self._remove_sg_rule_by_src_address(sg, ip_addr)
 
     def _delete_dest_pod_from_policy(self, pod_id, policy_id):
         try:
