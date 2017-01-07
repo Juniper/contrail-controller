@@ -30,7 +30,7 @@ from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
     AlarmConditionMatch, AlarmOperand2 as SandeshAlarmOperand2
 from opserver.sandesh.alarmgen_ctrl.ttypes import UVEAlarmOperState, \
     UVEAlarmStateMachineInfo, UVEAlarmState
-from opserver.uveserver import UVEServer
+from opserver.uveserver import UVEServer, RedisInfo
 from opserver.partition_handler import PartitionHandler, UveStreamProc, \
     UveStreamer, UveStreamPart, PartInfo
 from opserver.alarmgen import Controller, AlarmStateMachine, AlarmProcessor
@@ -94,6 +94,17 @@ class Mock_base(collections.Callable,collections.MutableMapping):
 
     def __len__(self):
         return len(self.store)
+
+class Mock_redis_instances(Mock_base):
+    def __init__(self, *args, **kwargs):
+        Mock_base.__init__(self, *args, **kwargs)
+
+    def __call__(self):
+        ret = []
+        for k,v in self.store.iteritems():
+            ipaddr,rport = k
+            ret.append(RedisInfo(ip=ipaddr, port=rport, pid=v))
+        return set(ret)
 
 class Mock_get_part(Mock_base):
     def __init__(self, *args, **kwargs):
@@ -268,6 +279,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     def setUp(self):
         config = CfgParser('--http_server_port 0 '
                            '--zk_list 127.0.0.1:0 '
+                           '--redis_uve_list 127.0.0.1:0 '
                            '--disc_server_ip 127.0.0.1 '
                            '--redis_server_port 0')
         config.parse()
@@ -363,6 +375,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
+    @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
     @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
@@ -370,7 +383,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     # Test partition shutdown as well
     def test_00_init(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part,
+            mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
         m_get_part = Mock_get_part() 
@@ -383,11 +396,14 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         m_get_uve["ObjectXX:uve1"] = {"type1": {"xx": 0}}
         mock_get_uve.side_effect = m_get_uve
 
+        m_redis_instances = Mock_redis_instances()
+        m_redis_instances[("127.0.0.1",0)] = 0
+        mock_redis_instances.side_effect = m_redis_instances
+
         m_get_messages = Mock_get_messages()
         mock_SimpleConsumer.return_value.get_messages.side_effect = \
             m_get_messages
 
-        self._ag.disc_cb_coll([{"ip-address":"127.0.0.1","pid":0}])
         self._ag.libpart_cb([1])
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info))
         self.assertTrue(self.checker_exact(\
@@ -402,6 +418,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
+    @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
     @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
@@ -409,7 +426,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     # Also test for deletetion of a boot-straped UVE
     def test_01_rxmsg(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part,
+            mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
         m_get_part = Mock_get_part() 
@@ -423,6 +440,10 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         m_get_uve["ObjectYY:uve2"] = {"type2": {"yy": 1}}
         mock_get_uve.side_effect = m_get_uve
 
+        m_redis_instances = Mock_redis_instances()
+        m_redis_instances[("127.0.0.1",0)] = 0
+        mock_redis_instances.side_effect = m_redis_instances
+
         m_get_messages = Mock_get_messages()
         m_get_messages["ObjectYY:uve2"] = OffsetAndMessage(offset=0,
                     message=Message(magic=0, attributes=0,
@@ -431,7 +452,6 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         mock_SimpleConsumer.return_value.get_messages.side_effect = \
             m_get_messages
 
-        self._ag.disc_cb_coll([{"ip-address":"127.0.0.1","pid":0}])
         self._ag.libpart_cb([1])
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info, False))
         self.assertTrue(self.checker_dict([1, "ObjectYY", "uve2"], self._ag.ptab_info))
@@ -441,6 +461,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.send_agg_uve')
+    @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
     @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
@@ -448,7 +469,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     # Also test collector shutdown
     def test_02_collectorha(self,
             mock_SimpleConsumer,
-            mock_get_uve, mock_get_part,
+            mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
         m_get_part = Mock_get_part() 
@@ -466,6 +487,10 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         m_get_uve["ObjectZZ:uve3"] = {"type3": {"zz": 2}}
         mock_get_uve.side_effect = m_get_uve
 
+        m_redis_instances = Mock_redis_instances()
+        m_redis_instances[("127.0.0.1",0)] = 0
+        mock_redis_instances.side_effect = m_redis_instances
+
         # When this message is read, 127.0.0.5 will not be present
         m_get_messages = Mock_get_messages()
         m_get_messages["ObjectYY:uve2"] = OffsetAndMessage(offset=0,
@@ -475,12 +500,11 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         mock_SimpleConsumer.return_value.get_messages.side_effect = \
             m_get_messages
 
-        self._ag.disc_cb_coll([{"ip-address":"127.0.0.1","pid":0}])
         self._ag.libpart_cb([1])
 
         # Now bringup collector 127.0.0.5
         self.assertTrue(self.checker_dict([1, "ObjectZZ", "uve3"], self._ag.ptab_info, False))
-        self._ag.disc_cb_coll([{"ip-address":"127.0.0.1","pid":0}, {"ip-address":"127.0.0.5","pid":0}])
+        m_redis_instances[("127.0.0.5",0)] = 0
         self.assertTrue(self.checker_dict([1, "ObjectZZ", "uve3"], self._ag.ptab_info))
 
         self.assertTrue(self.checker_dict([1, "ObjectYY", "uve2"], self._ag.ptab_info, False))
@@ -495,7 +519,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         # Withdraw collector 127.0.0.1
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info))
         del m_get_uve["ObjectXX:uve1"]
-        self._ag.disc_cb_coll([{"ip-address":"127.0.0.5","pid":0}])
+        del m_redis_instances[("127.0.0.1",0)]
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info, False))
 
     @mock.patch('opserver.alarmgen.AlarmTrace', autospec=True)

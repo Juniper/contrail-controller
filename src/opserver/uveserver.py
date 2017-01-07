@@ -24,110 +24,109 @@ from sandesh.viz.constants import UVE_MAP
 from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
      ConnectionStatus
 import traceback
+from collections import namedtuple
+
+RedisInfo = namedtuple("RedisInfo",["ip","port","pid"])
+
+RedisInstKey = namedtuple("RedisInstKey",["ip","port"])
+class RedisInst(object):
+    def __init__(self):
+        self.redis_handle = None
+        self.collector_pid = None
 
 class UVEServer(object):
 
-    def __init__(self, redis_uve_server, logger, redis_password=None, \
-            uvedbcache=None, usecache=False):
-        self._local_redis_uve = redis_uve_server
-        self._redis_uve_map = {}
+    def __init__(self, redis_uve_list, logger,
+            redis_password=None, \
+            uvedbcache=None, usecache=False, freq=5):
         self._logger = logger
         self._redis = None
         self._uvedbcache = uvedbcache
         self._usecache = usecache
         self._redis_password = redis_password
         self._uve_reverse_map = {}
+        self._freq = freq
+
         for h,m in UVE_MAP.iteritems():
             self._uve_reverse_map[m] = h
 
+        # Fill in redis/collector instances
+        self._redis_uve_map = {}
+        for new_elem in redis_uve_list:
+            test_elem = RedisInstKey(ip=new_elem[0], port=new_elem[1])
+            self._redis_uve_map[test_elem] = RedisInst()
+            ConnectionState.update(ConnectionType.REDIS_UVE,\
+                test_elem.ip+":"+str(test_elem.port), ConnectionStatus.INIT)
     #end __init__
-    def redis_instances(self):
-        return set(self._redis_uve_map.keys())
-
-    def update_redis_uve_list(self, redis_uve_list):
-        newlist = set(redis_uve_list)
-        chg = False
-        # if some redis instances are gone, remove them from our map
-        for test_elem in self._redis_uve_map.keys():
-            if test_elem not in newlist:
-                chg = True
-                r_ip = test_elem[0]
-                r_port = test_elem[1]
-                del self._redis_uve_map[test_elem]
-                ConnectionState.delete(ConnectionType.REDIS_UVE,\
-                    r_ip+":"+str(r_port)) 
-        
-        # new redis instances need to be inserted into the map
-        for test_elem in newlist:
-            if test_elem not in self._redis_uve_map:
-                chg = True
-                r_ip = test_elem[0]
-                r_port = test_elem[1]
-                self._redis_uve_map[test_elem] = None
-                ConnectionState.update(ConnectionType.REDIS_UVE,\
-                    r_ip+":"+str(r_port), ConnectionStatus.INIT)
-        if chg:
-            self._logger.error("updated redis_uve_list %s" % str(self._redis_uve_map)) 
-
-        # Exercise redis connections to update health
-        if len(newlist):
-            self.get_uve("ObjectCollectorInfo:__NONE__", False, None)
-
-    # end update_redis_uve_list
 
     def fill_redis_uve_info(self, redis_uve_info):
-        redis_uve_info.ip = self._local_redis_uve[0]
-        redis_uve_info.port = self._local_redis_uve[1]
-        redish =  redis.StrictRedis(self._local_redis_uve[0],
-                                    self._local_redis_uve[1],
-                                    password=self._redis_password,
-                                    db=1)
+        # TODO: Verify known collector pids
         try:
-            redish.ping()
-        except redis.exceptions.ConnectionError:
+            for rkey,rinst in self._redis_uve_map.iteritems():
+                rinst.redis_handle.ping()
+                #redish = redis.StrictRedis(
+                #            host=rkey.ip, port=rkey.port,
+                #            password=self._redis_password, db=1, socket_timeout=30)
+                #redish.ping()
+        except:
             redis_uve_info.status = 'DisConnected'
         else:
             redis_uve_info.status = 'Connected'
     #end fill_redis_uve_info
 
-    def run(self):
-	ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-            name = 'LOCAL', status = ConnectionStatus.INIT)
-        while True:
-            if self._redis:
-                redish = self._redis
-            else: 
+    def redis_instances(self):
+        ril = []
+        for rkey,rinst in self._redis_uve_map.iteritems():
+            # A redis instance is only valid if we also know the collector pid
+            if rinst.redis_handle is not None and \
+                    rinst.collector_pid is not None:
+                cpid = rinst.collector_pid.split(':')[3]
+                ril.append(RedisInfo(ip=rkey.ip, port=rkey.port, pid=cpid))
+        return set(ril)
 
-                redish =  redis.StrictRedis(self._local_redis_uve[0],
-                                            self._local_redis_uve[1],
-                                            password=self._redis_password,
-                                            db=1)
-            try:
-                if not self._redis:
-                    value = ""
-                    redish.ping()
-                else:
-                    k, value = redish.brpop("DELETED")
-                    self._logger.debug("%s del received for " % value)
-                    # value is of the format: 
-                    # DEL:<key>:<src>:<node-type>:<module>:<instance-id>:<message-type>:<seqno>
-                    redish.delete(value)
-            except gevent.GreenletExit:
-                self._logger.error('UVEServer Exiting on gevent-kill')
-                break
-            except:
-                if self._redis:
-                    #send redis connection down msg. Coule be bcos of authentication
-                    ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                        name = 'LOCAL', status = ConnectionStatus.DOWN)
-                    self._redis = None
-                gevent.sleep(5)
-            else:
-                self._logger.debug("Deleted %s" % value)
-                if not self._redis:
-                    self._redis = redish
-                    ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                        name = 'LOCAL', status = ConnectionStatus.UP)
+    def run(self):
+        exitrun = False
+        while not exitrun:
+            for rkey,rinst in self._redis_uve_map.iteritems():
+                old_pid = rinst.collector_pid
+                try:
+                    if rinst.redis_handle is None:
+                        rinst.redis_handle = redis.StrictRedis(
+                            host=rkey.ip, port=rkey.port,
+                            password=self._redis_password, db=1, socket_timeout=90)
+                        rinst.collector_pid = None
+
+                    # check for known collector pid string
+                    # if there's a mismatch, we must read it again
+                    if rinst.collector_pid is not None:
+                        if not rinst.redis_handle.sismember("NGENERATORS", rinst.collector_pid):
+                            rinst.collector_pid = None
+
+                    # read the collector pid string
+                    if rinst.collector_pid is None:
+                        for gen in rinst.redis_handle.smembers("NGENERATORS"):
+                            module = gen.split(':')[2]
+                            if module == "contrail-collector":
+                                rinst.collector_pid = gen
+                except gevent.GreenletExit:
+                    self._logger.error('UVEServer Exiting on gevent-kill')
+                    exitrun = True
+                    break
+                except Exception as e:
+                    self._logger.error("redis/collector healthcheck failed %s for %s" \
+                                   % (str(e), str(rkey)))
+                    rinst.redis_handle = None
+                    rinst.collector_pid = None
+                finally:
+                    # Update redis/collector health
+                    if old_pid is None and rinst.collector_pid is not None:
+	                ConnectionState.update(ConnectionType.REDIS_UVE,\
+		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.UP)
+                    if old_pid is not None and rinst.collector_pid is None:
+	                ConnectionState.update(ConnectionType.REDIS_UVE,\
+		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.DOWN)
+                if not exitrun:
+                    gevent.sleep(self._freq)
 
     @staticmethod
     def _is_agg_list(attr):
@@ -144,7 +143,8 @@ class UVEServer(object):
         try:
             r_ip = r_inst[0]
             r_port = r_inst[1]
-            redish = self._redis_inst_get(r_inst)
+            rik = RedisInstKey(ip=r_ip,port=r_port)
+            redish = self._redis_uve_map[rik].redis_handle
             gen_uves = {}
             for elems in redish.smembers("PART2KEY:" + str(part)): 
                 info = elems.split(":", 5)
@@ -159,50 +159,22 @@ class UVEServer(object):
         except Exception as e:
             self._logger.error("get_part failed %s for : %s:%d tb %s" \
                                % (str(e), r_ip, r_port, traceback.format_exc()))
-            self._redis_inst_down(r_inst)
-        else:
-            self._redis_inst_up(r_inst, redish)
         return r_ip + ":" + str(r_port) , gen_uves
 
-    def _redis_inst_get(self, r_inst):
-        r_ip = r_inst[0]
-        r_port = r_inst[1]
-	if not self._redis_uve_map[r_inst]:
-	    return redis.StrictRedis(
-		    host=r_ip, port=r_port,
-		    password=self._redis_password, db=1, socket_timeout=90)
-	else:
-	    return self._redis_uve_map[r_inst]
-
-    def _redis_inst_up(self, r_inst, redish):
-	if not self._redis_uve_map[r_inst]:
-            r_ip = r_inst[0]
-            r_port = r_inst[1]
-	    self._redis_uve_map[r_inst] = redish
-	    ConnectionState.update(ConnectionType.REDIS_UVE,
-		r_ip + ":" + str(r_port), ConnectionStatus.UP)
-
-    def _redis_inst_down(self, r_inst):
-	if self._redis_uve_map[r_inst]:
-            r_ip = r_inst[0]
-            r_port = r_inst[1]
-	    self._redis_uve_map[r_inst] = None
-	    ConnectionState.update(ConnectionType.REDIS_UVE,
-		r_ip + ":" + str(r_port), ConnectionStatus.DOWN)
- 
     def get_tables(self):
         tables = set() 
-        for r_inst in self._redis_uve_map.keys():
+        for r_key, r_inst in self._redis_uve_map.iteritems():
+            if  r_inst.redis_handle is None or r_inst.collector_pid is None:
+                continue
+            else:
+                redish = r_inst.redis_handle
             try:
-                redish = self._redis_inst_get(r_inst)
                 tbs = [elem.split(":",1)[1] for elem in redish.keys("TABLE:*")]
                 tables.update(set(tbs))
             except Exception as e:
-                self._logger.error("get_tables failed %s for : %s tb %s" \
-                               % (str(e), str(r_inst), traceback.format_exc()))
-                self._redis_inst_down(r_inst)
-            else:
-                self._redis_inst_up(r_inst, redish)
+                self._logger.error("get_tables failed %s for : (%s,%s) tb %s" \
+                               % (str(e), str(r_key), str(r_inst.collector_pid),\
+                                  traceback.format_exc()))
 
         return tables
 
@@ -213,7 +185,6 @@ class UVEServer(object):
         mfilter = filters.get('mfilt')
         tfilter = filters.get('cfilt')
         ackfilter = filters.get('ackfilt')
-
         if flat and not sfilter and not mfilter and self._usecache:
             return self._uvedbcache.get_uve(key, filters)
 
@@ -227,10 +198,13 @@ class UVEServer(object):
         failures = False
 
         tab = key.split(":",1)[0]
- 
-        for r_inst in self._redis_uve_map.keys():
+
+        for r_key, r_inst in self._redis_uve_map.iteritems():
+            if r_inst.redis_handle is None or r_inst.collector_pid is None:
+                continue
+            else:
+                redish = r_inst.redis_handle
             try:
-                redish = self._redis_inst_get(r_inst)
                 qmap = {}
 
                 ppe = redish.pipeline()
@@ -332,12 +306,11 @@ class UVEServer(object):
                 pa = ParallelAggregator(state, self._uve_reverse_map)
                 rsp = pa.aggregate(key, flat, base_url)
             except Exception as e:
-                self._logger.error("redis-uve failed %s for key %s: %s tb %s" \
-                               % (str(e), key, str(r_inst), traceback.format_exc()))
-                self._redis_inst_down(r_inst)
+                self._logger.error("redis-uve failed %s for key %s: (%s,%s) tb %s" \
+                               % (str(e), key, str(r_key), str(r_inst.collector_pid),\
+                                  traceback.format_exc()))
                 failures = True
             else:
-                self._redis_inst_up(r_inst, redish)
                 self._logger.debug("Computed %s as %s" % (key,rsp.keys()))
 
         return failures, rsp
@@ -422,10 +395,12 @@ class UVEServer(object):
                 uve_list = rsp[table]
             return uve_list
 
-        for r_inst in self._redis_uve_map.keys():
+        for r_key, r_inst in self._redis_uve_map.iteritems():
+            if  r_inst.redis_handle is None or r_inst.collector_pid is None:
+                continue
+            else:
+                redish = r_inst.redis_handle
             try:
-                redish = self._redis_inst_get(r_inst)
-
                 # For UVE queries, we wanna read both UVE and Alarm table
                 entries = redish.smembers('ALARM_TABLE:' + table)
                 if not is_alarm:
@@ -464,12 +439,11 @@ class UVEServer(object):
                             if attrval is None:
                                 continue
                     uve_list.add(uve_key)
+
             except Exception as e:
-                self._logger.error("get_uve_list failed %s for : %s tb %s" \
-                               % (str(e), str(r_inst), traceback.format_exc()))
-                self._redis_inst_down(r_inst)
-            else:
-                self._redis_inst_up(r_inst, redish)
+                self._logger.error("get_uve_list failed %s for : (%s,%s) tb %s" \
+                               % (str(e), str(r_key), str(r_inst.collector_pid),\
+                                  traceback.format_exc()))
         return uve_list
     # end get_uve_list
 

@@ -210,7 +210,7 @@ def MakeUVEVirtualNetwork(
 class UVEServerTest(unittest.TestCase):
 
     def setUp(self):
-        self._oss = UVEServer(None, None)
+        self._oss = UVEServer([], None)
 
     def tearDown(self):
         del self._oss
