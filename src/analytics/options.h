@@ -10,6 +10,7 @@
 #include "io/event_manager.h"
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
+#include "viz_types.h"
 
 #define ANALYTICS_DATA_TTL_DEFAULT 48 // g_viz_constants.AnalyticsTTL
 
@@ -88,13 +89,25 @@ public:
             user_(),
             password_(),
             compaction_strategy_(),
-            flow_tables_compaction_strategy_() {
+            flow_tables_compaction_strategy_(),
+            disable_all_db_writes_(false),
+            disable_db_stats_writes_(false),
+            disable_db_messages_writes_(false),
+            disable_db_messages_keyword_writes_(true)
+        {
         }
 
+        vector<string> cassandra_ips_;
+        vector<int> cassandra_ports_;
+        TtlMap ttlmap_;
         std::string user_;
         std::string password_;
         std::string compaction_strategy_;
         std::string flow_tables_compaction_strategy_;
+        bool disable_all_db_writes_;
+        bool disable_db_stats_writes_;
+        bool disable_db_messages_writes_;
+        bool disable_db_messages_keyword_writes_;
     };
 
     Options();
@@ -103,6 +116,22 @@ public:
     const Cassandra get_cassandra_options() const {
         return cassandra_options_;
     }
+
+    void add_cassandra_ip(std::string cassandra_ip) {
+        cassandra_options_.cassandra_ips_.push_back(cassandra_ip);
+    }
+    void add_cassandra_port(int cassandra_port) {
+        cassandra_options_.cassandra_ports_.push_back(cassandra_port);
+    }
+
+    void set_ttl_map(TtlMap &ttlmap) {
+        cassandra_options_.ttlmap_ = ttlmap;
+    }
+
+    const TtlMap get_ttl_map() const {
+        return cassandra_options_.ttlmap_;
+    }
+
     const std::vector<std::string> cassandra_server_list() const {
         return cassandra_server_list_;
     }
@@ -163,11 +192,14 @@ public:
     const bool test_mode() const { return test_mode_; }
     const uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
     const bool disable_flow_collection() const { return disable_flow_collection_; }
-    const bool disable_all_db_writes() const { return disable_all_db_writes_; }
-    const bool disable_db_statistics_writes() const { return disable_db_stats_writes_; }
-    const bool disable_db_messages_writes() const { return disable_db_messages_writes_; }
+    const bool disable_all_db_writes() const { return cassandra_options_.disable_all_db_writes_; }
+    const bool disable_db_statistics_writes() const { return cassandra_options_.disable_db_stats_writes_; }
+    const bool disable_db_messages_writes() const { return cassandra_options_.disable_db_messages_writes_; }
     const bool enable_db_messages_keyword_writes() const {
         return enable_db_messages_keyword_writes_;
+    }
+    void disable_db_messages_keyword_writes() {
+        cassandra_options_.disable_db_messages_keyword_writes_ = !enable_db_messages_keyword_writes_;
     }
     const std::string auth_host() const { return ks_server_; }
     const uint16_t auth_port() const { return ks_port_; }
@@ -244,9 +276,6 @@ private:
     uint16_t partitions_;
     uint32_t sandesh_ratelimit_;
     bool disable_flow_collection_;
-    bool disable_all_db_writes_;
-    bool disable_db_stats_writes_;
-    bool disable_db_messages_writes_;
     bool enable_db_messages_keyword_writes_;
     std::string ks_server_;
     uint16_t    ks_port_;

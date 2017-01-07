@@ -119,7 +119,11 @@ class SyslogCollectorTest : public ::testing::Test
     protected:
     virtual void SetUp() {
         evm_.reset(new EventManager());
-        db_handler_.reset(new DbHandlerMock(evm_.get(), ttl_map));
+        Options::Cassandra cassandra_options;
+        cassandra_options.cassandra_ips_.push_back("127.0.0.1");
+        cassandra_options.cassandra_ports_.push_back(9160);
+        cassandra_options.ttlmap_ = ttl_map;
+        db_handler_.reset(new DbHandlerMock(evm_.get(), cassandra_options));
         listener_.reset(new SyslogListeners(evm_.get(),
             boost::bind(&SyslogCollectorTest::myTestCb, this, _1, _2, _3),
             db_handler_, 0));

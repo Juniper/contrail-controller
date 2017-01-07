@@ -11,13 +11,13 @@
 
 class DbHandlerMock : public DbHandler {
   public:
-    DbHandlerMock(EventManager *evm, const TtlMap& ttl_map) :
+    DbHandlerMock(EventManager *evm, const Options::Cassandra cassandra_options) :
         DbHandler(evm,  boost::bind(&DbHandlerMock::StartDbifReinit, this),
-            std::vector<std::string>(1, "127.0.0.1"),
-            std::vector<int>(1, 9160), "localhost", ttl_map,
-            Options::Cassandra(), "",
-            false, false, false, false, false, false,
+            "localhost",
+            cassandra_options, "",
+            false, false,
             DbWriteOptions()) {
+
     }
     void StartDbifReinit() {
         UnInit();

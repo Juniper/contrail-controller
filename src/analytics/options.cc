@@ -285,13 +285,13 @@ void Options::Initialize(EventManager &evm,
             opt::bool_switch(&disable_flow_collection_),
             "Disable flow message collection")
         ("DATABASE.disable_all_writes",
-            opt::bool_switch(&disable_all_db_writes_),
+            opt::bool_switch(&cassandra_options_.disable_all_db_writes_),
             "Disable all writes to the database")
         ("DATABASE.disable_statistics_writes",
-            opt::bool_switch(&disable_db_stats_writes_),
+            opt::bool_switch(&cassandra_options_.disable_db_stats_writes_),
             "Disable statistics writes to the database")
         ("DATABASE.disable_message_writes",
-            opt::bool_switch(&disable_db_messages_writes_),
+            opt::bool_switch(&cassandra_options_.disable_db_messages_writes_),
             "Disable message writes to the database")
         ("DATABASE.enable_message_keyword_writes",
             opt::bool_switch(&enable_db_messages_keyword_writes_)->
