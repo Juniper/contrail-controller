@@ -89,13 +89,10 @@ public:
     typedef std::multimap<std::string, std::pair<Var, AttribMap> > TagMap;
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
-        const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports,
-        std::string name, const TtlMap& ttl_map,
+        std::string name,
         const Options::Cassandra &cassandra_options,
         const std::string &zookeeper_server_list,
-        bool use_zookeeper, bool disable_all_writes, bool disable_stats_writes,
-        bool disable_messages_writes, bool disable_messages_keyword_writes,
+        bool use_zookeeper,
         bool use_db_write_options,
         const DbWriteOptions &db_write_options);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
@@ -307,13 +304,9 @@ class DbHandlerInitializer {
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name,
         const std::string &timer_task_name, InitializeDoneCb callback,
-        const std::vector<std::string> &cassandra_ips,
-        const std::vector<int> &cassandra_ports,
-        const TtlMap& ttl_map, const Options::Cassandra &cassandra_options,
+        const Options::Cassandra &cassandra_options,
         const std::string &zookeeper_server_list,
-        bool use_zookeeper, bool disable_all_db_writes,
-        bool disable_db_stats_writes, bool disable_db_messages_writes,
-        bool disable_db_messages_keyword_writes,
+        bool use_zookeeper,
         const DbWriteOptions &db_write_options);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name,

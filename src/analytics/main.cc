@@ -216,8 +216,6 @@ int main(int argc, char *argv[])
                         Sandesh::StringToLevel(options.log_level())));
     }
     vector<string> cassandra_servers(options.cassandra_server_list());
-    vector<string> cassandra_ips;
-    vector<int> cassandra_ports;
     for (vector<string>::const_iterator it = cassandra_servers.begin();
          it != cassandra_servers.end(); it++) {
         string cassandra_server(*it);
@@ -226,13 +224,20 @@ int main(int argc, char *argv[])
         tokenizer tokens(cassandra_server, sep);
         tokenizer::iterator tit = tokens.begin();
         string cassandra_ip(*tit);
-        cassandra_ips.push_back(cassandra_ip);
+        options.add_cassandra_ip(cassandra_ip);
         ++tit;
         string port(*tit);
         int cassandra_port;
         stringToInteger(port, cassandra_port);
-        cassandra_ports.push_back(cassandra_port);
+        options.add_cassandra_port(cassandra_port);
     }
+
+    /*
+     * the option is enable_db_messages_keyword_writes, but the variable
+     * passed along is options.disable_db_messages_keyword_writes
+     * so we need to update it in the options.cassandra_options_
+     */
+    options.disable_db_messages_keyword_writes();
 
     LOG(INFO, "COLLECTOR LISTEN PORT: " << options.collector_port());
     LOG(INFO, "COLLECTOR REDIS UVE PORT: " << options.redis_port());
@@ -322,6 +327,7 @@ int main(int argc, char *argv[])
                 options.analytics_config_audit_ttl()));
     ttl_map.insert(std::make_pair(TtlType::GLOBAL_TTL,
                 options.analytics_data_ttl()));
+    options.set_ttl_map(ttl_map);
 
     std::string zookeeper_server_list(options.zookeeper_server_list());
     bool use_zookeeper = !zookeeper_server_list.empty();
@@ -331,8 +337,6 @@ int main(int argc, char *argv[])
             protobuf_port,
             structured_syslog_server_enabled,
             structured_syslog_port,
-            cassandra_ips,
-            cassandra_ports,
             string("127.0.0.1"),
             options.redis_port(),
             options.redis_password(),
@@ -343,12 +347,9 @@ int main(int argc, char *argv[])
             options.partitions(),
             options.dup(),
             options.kafka_prefix(),
-            ttl_map, options.get_cassandra_options(),
+            options.get_cassandra_options(),
             zookeeper_server_list,
-            use_zookeeper, options.disable_all_db_writes(),
-            options.disable_db_statistics_writes(),
-            options.disable_db_messages_writes(),
-            !options.enable_db_messages_keyword_writes(),
+            use_zookeeper,
             options.get_db_write_options());
 #if 0
     // initialize python/c++ API
