@@ -185,6 +185,36 @@ void Options::Initialize(EventManager &evm,
              "IFMAP end of rib timeout")
         ("IFMAP.peer_response_wait_time", opt::value<int>()->default_value(60),
              "IFMAP peer response wait time")
+        ("IFMAP.rabbitmq_ip",
+             opt::value<string>()->default_value("127.0.0.1"),
+             "RabbitMQ server ip")
+        ("IFMAP.rabbitmq_port",
+             opt::value<string>()->default_value("5672"),
+             "RabbitMQ port")
+        ("IFMAP.rabbitmq_user",
+             opt::value<string>()->default_value("guest"),
+             "RabbitMQ user")
+        ("IFMAP.rabbitmq_password",
+             opt::value<string>()->default_value("guest"),
+             "RabbitMQ password")
+        ("IFMAP.rabbitmq_vhost",
+             opt::value<string>()->default_value(""),
+             "RabbitMQ vhost")
+        ("IFMAP.rabbitmq_use_ssl",
+             opt::value<bool>()->default_value(false),
+             "Use SSL for RabbitMQ connection")
+        ("IFMAP.rabbitmq_ssl_version",
+             opt::value<string>()->default_value(""),
+             "SSL version for RabbitMQ connection")
+        ("IFMAP.rabbitmq_ssl_keyfile",
+             opt::value<string>()->default_value(""),
+             "Keyfile for SSL RabbitMQ connection")
+        ("IFMAP.rabbitmq_ssl_certfile",
+             opt::value<string>()->default_value(""),
+             "Certificate file for SSL RabbitMQ connection")
+        ("IFMAP.rabbitmq_ssl_ca_certs",
+             opt::value<string>()->default_value(""),
+             "CA Certificate file for SSL RabbitMQ connection")
         ;
 
     config_file_options_.add(config);
@@ -345,7 +375,36 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map,
                      ifmap_config_options_.peer_response_wait_time,
                      "IFMAP.peer_response_wait_time");
-
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ip,
+                     "IFMAP.rabbitmq_ip");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_port,
+                     "IFMAP.rabbitmq_port");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_user,
+                     "IFMAP.rabbitmq_user");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_password,
+                     "IFMAP.rabbitmq_password");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_vhost,
+                     "IFMAP.rabbitmq_vhost");
+    GetOptValue<bool>(var_map,
+                     ifmap_config_options_.rabbitmq_use_ssl,
+                     "IFMAP.rabbitmq_use_ssl");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ssl_version,
+                     "IFMAP.rabbitmq_ssl_version");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ssl_keyfile,
+                     "IFMAP.rabbitmq_ssl_keyfile");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ssl_certfile,
+                     "IFMAP.rabbitmq_ssl_certfile");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ssl_ca_certs,
+                     "IFMAP.rabbitmq_ssl_ca_certs");
     return true;
 }
 
