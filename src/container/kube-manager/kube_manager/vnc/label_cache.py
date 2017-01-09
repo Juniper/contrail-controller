@@ -27,3 +27,6 @@ class LabelCache(object):
                 pass
 
         cache[key] = set()
+
+    def _remove_value(self, cache, uuid):
+        return {k:v for k, v in cache.items() if v.remove(uuid)}
