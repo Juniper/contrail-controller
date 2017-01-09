@@ -8,6 +8,7 @@
 
 #include "base/task.h"
 #include "ifmap/ifmap_config_options.h"
+#include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_server.h"
 #include "io/event_manager.h"
 
@@ -18,9 +19,11 @@ ConfigClientManager::ConfigClientManager(EventManager *evm,
         : evm_(evm), ifmap_server_(ifmap_server) {
     config_json_parser_.reset(new ConfigJsonParser(ifmap_server_->database()));
     thread_count_ = TaskScheduler::GetInstance()->HardwareThreadCount();
-    config_db_client_.reset(new ConfigCassandraClient(this, evm, config_options,
-                                    config_json_parser_.get(), thread_count_));
-    config_amqp_client_.reset(new ConfigAmqpClient(this, hostname, config_options));
+    config_db_client_.reset(
+            IFMapFactory::Create<ConfigCassandraClient>(this, evm,
+                config_options, config_json_parser_.get(), thread_count_));
+    config_amqp_client_.reset(new ConfigAmqpClient(this, hostname,
+                                                   config_options));
 }
 
 void ConfigClientManager::Initialize() {

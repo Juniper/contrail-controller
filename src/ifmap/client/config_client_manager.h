@@ -32,6 +32,7 @@ public:
     bool GetEndOfRibComputed() const;
     void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
                             std::string oper);
+    ConfigAmqpClient *config_amqp_client() { return config_amqp_client_.get(); }
 
 private:
     EventManager *evm_;
