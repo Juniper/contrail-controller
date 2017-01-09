@@ -38,6 +38,7 @@ env.Prepend(LIBS = [
                     'sandesh', 'http', 'http_parser', 'httpc',
                     'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
                     'ifmap_common', 'bgp_schema', 'ifmap_vnc', 
+                    'ifmap_test_util', 'ifmap_test_util_agent',
                     'pugixml', 'xml', 'task_test', 'db', 'curl',
                     'base', 'gunit', 'crypto', 'ssl', 'boost_regex'
                    ])
