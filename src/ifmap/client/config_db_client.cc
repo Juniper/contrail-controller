@@ -51,6 +51,6 @@ vector<string> ConfigDbClient::config_db_ips() const {
 }
 
 int ConfigDbClient::GetFirstConfigDbPort() const {
-    return config_db_ports_[0];
+    return !config_db_ports_.empty() ? config_db_ports_[0] : 0;
 }
 

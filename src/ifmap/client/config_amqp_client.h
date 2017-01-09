@@ -68,6 +68,8 @@ public:
 
     void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
                        std::string oper);
+    bool ProcessMessage(const std::string &json_message);
+    static void set_disable(bool disable) { disable_ = disable; }
 
 private:
     // A Job for reading the rabbitmq
@@ -88,6 +90,7 @@ private:
     std::string rabbitmq_ssl_keyfile_;
     std::string rabbitmq_ssl_certfile_;
     std::string rabbitmq_ssl_ca_certs_;
+    static bool disable_;
 };
 
 #endif // ctrlplane_config_amqp_client_h
