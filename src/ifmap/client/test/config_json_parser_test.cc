@@ -2,7 +2,11 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "ifmap/client/config_amqp_client.h"
+#include "ifmap/client/config_cassandra_client.h"
+#include "ifmap/client/config_client_manager.h"
 #include "ifmap/client/config_json_parser.h"
+#include "ifmap/ifmap_factory.h"
 #include <fstream>
 #include <string>
 
@@ -16,19 +20,70 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_origin.h"
+#include "ifmap/ifmap_server.h"
 #include "ifmap/test/ifmap_test_util.h"
 
+#include "rapidjson/document.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
 using namespace std;
+using namespace rapidjson;
+
+static Document events_;
+
+class ConfigCassandraClientTest : public ConfigCassandraClient {
+public:
+    ConfigCassandraClientTest(ConfigClientManager *mgr, EventManager *evm,
+        const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
+        int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
+            num_workers) {
+    }
+
+    virtual bool ReadUuidTableRow(const std::string &uuid_key) {
+        return ParseRowAndEnqueueToParser(uuid_key, GenDb::ColList());
+    }
+
+    bool ParseUuidTableRowResponse(const string &uuid,
+            const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec) {
+        // Retrieve event index prepended to uuid, to get to the correct db.
+        vector<string> tokens;
+        boost::split(tokens, uuid, boost::is_any_of(":"));
+        int index = atoi(tokens[0].c_str());
+        string u = tokens[1];
+        assert(events_[index].IsObject());
+        for (Value::ConstMemberIterator i = events_[index].MemberBegin();
+                i != events_[index].MemberEnd(); ++i) {
+            if (string(i->name.GetString()) == "db") {
+                assert(i->value.IsObject());
+                for (Value::ConstMemberIterator j = i->value.MemberBegin();
+                    j != i->value.MemberEnd(); ++j) {
+                    if (string(j->name.GetString()) == u) {
+                        for (Value::ConstMemberIterator k =
+                                j->value.MemberBegin();
+                                k != j->value.MemberEnd(); ++k) {
+                            ParseUuidTableRowJson(u, k->name.GetString(),
+                                    k->value.GetString(), cass_data_vec);
+                        }
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return true;
+    }
+};
 
 class ConfigJsonParserTest : public ::testing::Test {
 protected:
     ConfigJsonParserTest() :
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-        parser_(&db_) {
+        parser_(&db_),
+        ifmap_server_(new IFMapServer(&db_, new DBGraph(), evm_.io_service())),
+        config_client_manager_(new ConfigClientManager(&evm_,
+                    ifmap_server_.get(), "localhost", config_options_)) {
     }
 
     virtual void SetUp() {
@@ -44,6 +99,30 @@ protected:
         IFMapTable::ClearTables(&db_);
         parser_.MetadataClear("vnc_cfg");
         task_util::WaitForIdle();
+    }
+
+    void ParseEventsJson (string eventsFile) {
+        string json_message = FileRead(eventsFile);
+        assert(json_message.size() != 0);
+        events_.Parse<0>(json_message.c_str());
+        if (events_.HasParseError()) {
+            size_t pos = events_.GetErrorOffset();
+            // GetParseError returns const char *
+            std::cout << "Error in parsing JSON message from rabbitMQ at "
+                << pos << "with error description"
+                << events_.GetParseError() << std::endl;
+            exit(-1);
+        }
+        for (SizeType index = 0; index < events_.Size(); index++) {
+            for (Value::ConstMemberIterator i = events_[index].MemberBegin();
+                i != events_[index].MemberEnd(); ++i) {
+                if (string(i->name.GetString()) == "rabbit_message") {
+                    config_client_manager_->config_amqp_client()->
+                        ProcessMessage(i->value.GetString());
+                    task_util::WaitForIdle();
+                }
+            }
+        }
     }
 
     string FileRead(const string &filename) {
@@ -67,7 +146,11 @@ protected:
 
     DB db_;
     DBGraph graph_;
+    EventManager evm_;
     ConfigJsonParser parser_;
+    const IFMapConfigOptions config_options_;
+    boost::scoped_ptr<IFMapServer> ifmap_server_;
+    boost::scoped_ptr<ConfigClientManager> config_client_manager_;
 };
 
 TEST_F(ConfigJsonParserTest, VirtualNetworkParse) {
@@ -241,10 +324,51 @@ TEST_F(ConfigJsonParserTest, VmiParseAddDeleteProperty) {
         vmi->IsPropertySet(autogen::VirtualMachineInterface::ANNOTATIONS));
 }
 
+// In a single message, adds vn1, vn2, vn3.
+TEST_F(ConfigJsonParserTest, DISABLED_ServerParser1) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test1.json");
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    IFMapNode *vn1 = NodeLookup("virtual-network", "vn1");
+    EXPECT_TRUE(vn1 != NULL);
+    IFMapNode *vn = NodeLookup("virtual-network", "vn2");
+    EXPECT_TRUE(vn != NULL);
+    vn = NodeLookup("virtual-network", "vn3");
+    EXPECT_TRUE(vn != NULL);
+}
+
+// In a single message, adds vn1, vn2, vn3, then deletes, vn3, then adds vn4,
+// vn5, then deletes vn5, vn4 and vn2. Only vn1 should remain.
+TEST_F(ConfigJsonParserTest, DISABLED_ServerParser2) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test.json");
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(1, table->Size());
+
+    IFMapNode *vn1 = NodeLookup("virtual-network", "vn1");
+    EXPECT_TRUE(vn1 != NULL);
+    IFMapObject *obj = vn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    EXPECT_TRUE(obj != NULL);
+
+    IFMapNode *vn = NodeLookup("virtual-network", "vn2");
+    EXPECT_TRUE(vn == NULL);
+    vn = NodeLookup("virtual-network", "vn3");
+    EXPECT_TRUE(vn == NULL);
+    vn = NodeLookup("virtual-network", "vn4");
+    EXPECT_TRUE(vn == NULL);
+    vn = NodeLookup("virtual-network", "vn5");
+    EXPECT_TRUE(vn == NULL);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
     ControlNode::SetDefaultSchedulingPolicy();
+    ConfigAmqpClient::set_disable(true);
+    IFMapFactory::Register<ConfigCassandraClient>(
+        boost::factory<ConfigCassandraClientTest *>());
     int status = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return status;

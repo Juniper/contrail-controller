@@ -99,11 +99,21 @@ void ConfigCassandraClient::AddUUIDToRequestList(const string &uuid_str) {
     }
 }
 
+void ConfigCassandraClient::ParseUuidTableRowJson(const string &uuid,
+        const string &key, const string &value,
+        CassColumnKVVec *cass_data_vec) {
+    if (cass_data_vec->empty()) {
+        string uuid_as_str(string("\"" + uuid + "\""));
+        cass_data_vec->push_back(JsonAdapterDataType("uuid", uuid_as_str));
+    }
+    cout << "key is " << key;
+    cout << " and value is " << value << endl;
+    cass_data_vec->push_back(JsonAdapterDataType(key, value));
+}
+
 bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
         const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec) {
 
-    string uuid_as_str(string("\"" + uuid + "\""));
-    cass_data_vec->push_back(JsonAdapterDataType("uuid", uuid_as_str));
     BOOST_FOREACH(const GenDb::NewCol &ncol, col_list.columns_) {
         assert(ncol.name->size() == 1);
         assert(ncol.value->size() == 1);
@@ -113,14 +123,11 @@ bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
         GenDb::Blob dname_blob(boost::get<GenDb::Blob>(dname));
         string key(reinterpret_cast<const char *>(dname_blob.data()),
                    dname_blob.size());
-        cout << "key is " << key;
 
         const GenDb::DbDataValue &dvalue(ncol.value->at(0));
         assert(dvalue.which() == GenDb::DB_VALUE_STRING);
         string value(boost::get<string>(dvalue));
-        cout << " and value is " << value << endl;
-
-        cass_data_vec->push_back(JsonAdapterDataType(key, value));
+        ParseUuidTableRowJson(uuid, key, value, cass_data_vec);
     }
 
     cout << "Filled in " << cass_data_vec->size() << " entries\n";
