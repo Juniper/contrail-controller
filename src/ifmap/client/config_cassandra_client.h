@@ -65,6 +65,11 @@ public:
     virtual void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
                                     std::string oper);
 
+protected:
+    void ParseUuidTableRowJson(const string &uuid, const string &key,
+                               const string &value,
+                               CassColumnKVVec *cass_data_vec);
+
 private:
     class ConfigReader;
 
@@ -74,8 +79,8 @@ private:
     // UUID to FQName mapping
     typedef std::map<std::string, std::string> FQNameCacheMap;
     void InitRetry();
-    bool ParseUuidTableRowResponse(const std::string &uuid,
-                const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec);
+    virtual bool ParseUuidTableRowResponse(const std::string &uuid,
+        const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec);
     void AddUuidEntry(const string &uuid);
     bool BulkDataSync();
     bool ReadAllUuidTableRows();

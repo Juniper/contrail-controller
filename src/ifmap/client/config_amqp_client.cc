@@ -16,9 +16,11 @@
 using namespace std;
 using namespace rapidjson;
 
+bool ConfigAmqpClient::disable_;
+
 class ConfigAmqpClient::RabbitMQReader : public Task {
 public:
-    RabbitMQReader(ConfigAmqpClient *amqpclient) 
+    RabbitMQReader(ConfigAmqpClient *amqpclient)
         : Task(amqpclient->reader_task_id()), amqpclient_(amqpclient) {
     }
 
@@ -44,6 +46,9 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
     rabbitmq_ssl_keyfile_(options.rabbitmq_ssl_keyfile),
     rabbitmq_ssl_certfile_(options.rabbitmq_ssl_certfile),
     rabbitmq_ssl_ca_certs_(options.rabbitmq_ssl_ca_certs) {
+
+    if (disable_)
+        return;
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     reader_task_id_ = scheduler->GetTaskId("amqp::RabbitMQReader");
@@ -87,6 +92,42 @@ bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ() {
     return true;
 }
 
+bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
+    std::cout << "Rxed Message : " << json_message << std::endl;
+    Document document;
+    document.Parse<0>(json_message.c_str());
+
+    if (document.HasParseError()) {
+        size_t pos = document.GetErrorOffset();
+        // GetParseError returns const char *
+        std::cout << "Error in parsing JSON message from rabbitMQ at "
+            << pos << "with error description"
+            << document.GetParseError() << std::endl;
+        return false;
+    } else {
+        std::cout << "Success " << std::endl;
+        string oper = "";
+        string uuid_str = "";
+        string obj_type = "";
+        for (Value::ConstMemberIterator itr = document.MemberBegin();
+             itr != document.MemberEnd(); ++itr) {
+            string key(itr->name.GetString());
+            if (key == "oper") {
+                oper = itr->value.GetString();
+            } else if (key == "type") {
+                obj_type = itr->value.GetString();
+            } else if (key == "uuid") {
+                uuid_str = itr->value.GetString();
+            }
+        }
+        if ((oper == "") || (uuid_str == "") || (obj_type == "")) {
+            assert(0);
+        }
+        EnqueueUUIDRequest(uuid_str, obj_type, oper);
+    }
+    return true;
+}
+
 bool ConfigAmqpClient::RabbitMQReader::Run() {
     while (true) {
         if (ConnectToRabbitMQ()) {
@@ -95,37 +136,7 @@ bool ConfigAmqpClient::RabbitMQReader::Run() {
     }
     AmqpClient::Envelope::ptr_t envelope;
     while (envelope = channel_->BasicConsumeMessage(consumer_tag_)) {
-        std::cout << "Rxed Message : " << envelope->Message()->Body() << std::endl;
-        Document document;
-        document.Parse<0>(envelope->Message()->Body().c_str());
-
-        if (document.HasParseError()) {
-            size_t pos = document.GetErrorOffset();
-            // GetParseError returns const char *
-            std::cout << "Error in parsing JSON message from rabbitMQ at "
-                << pos << "with error description"
-                << document.GetParseError() << std::endl;
-        } else {
-            std::cout << "Success " << std::endl;
-            string oper = "";
-            string uuid_str = "";
-            string obj_type = "";
-            for (Value::ConstMemberIterator itr = document.MemberBegin();
-                 itr != document.MemberEnd(); ++itr) {
-                string key(itr->name.GetString());
-                if (key == "oper") {
-                    oper = itr->value.GetString();
-                } else if (key == "type") {
-                    obj_type = itr->value.GetString();
-                } else if (key == "uuid") {
-                    uuid_str = itr->value.GetString();
-                }
-            }
-            if ((oper == "") || (uuid_str == "") || (obj_type == "")) {
-                assert(0);
-            }
-            amqpclient_->EnqueueUUIDRequest(uuid_str, obj_type, oper);
-        }
+        amqpclient_->ProcessMessage(envelope->Message()->Body());
     }
     return true;
 }
