@@ -335,7 +335,7 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
     ShowRoutePath *show_path) {
     const RoutingInstance *ri = table->routing_instance();
     const RoutingInstanceMgr *ri_mgr = ri->manager();
-    vector<string> communities = vector<string>();
+    vector<string> &communities = const_cast<vector<string>&>(show_path->get_communities());
     vector<string> tunnel_encap = vector<string>();
 
     const ExtCommunity::ExtCommunityList &v = extcomm->communities();
@@ -393,7 +393,6 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
             communities.push_back(string(temp));
         }
     }
-    show_path->set_communities(communities);
     show_path->set_tunnel_encap(tunnel_encap);
 }
 
