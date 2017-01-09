@@ -55,7 +55,6 @@ public:
                           ConfigJsonParser *in_parser, int num_workers);
     virtual ~ConfigCassandraClient();
     virtual void InitDatabase();
-    bool ReadUuidTableRow(const std::string &uuid);
     std::string UUIDToFQName(const std::string &uuid_str) const;
 
     std::string GetWrapperFieldName(const std::string &type_name,
@@ -64,6 +63,14 @@ public:
 
     virtual void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
                                     std::string oper);
+
+protected:
+    virtual bool ReadUuidTableRow(const std::string &uuid);
+    void ParseUuidTableRowJson(const string &uuid, const string &key,
+                               const string &value,
+                               CassColumnKVVec *cass_data_vec);
+    bool ParseRowAndEnqueueToParser(const string &uuid_key,
+                                    const GenDb::ColList &col_list);
 
 private:
     class ConfigReader;
@@ -74,13 +81,11 @@ private:
     // UUID to FQName mapping
     typedef std::map<std::string, std::string> FQNameCacheMap;
     void InitRetry();
-    bool ParseUuidTableRowResponse(const std::string &uuid,
-                const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec);
+    virtual bool ParseUuidTableRowResponse(const std::string &uuid,
+        const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec);
     void AddUuidEntry(const string &uuid);
     bool BulkDataSync();
     bool ReadAllUuidTableRows();
-    bool ParseRowAndEnqueueToParser(const string &uuid_key,
-                                    const GenDb::ColList &col_list);
     bool ParseFQNameRowGetUUIDList(const GenDb::ColList &col_list,
                                    std::list<std::string> &uuid_list);
     const ConfigClientManager *mgr() const;

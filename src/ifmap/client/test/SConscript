@@ -40,7 +40,11 @@ env.Prepend(LIBS = [
                     'ifmap_common', 'bgp_schema', 'ifmap_vnc', 
                     'ifmap_test_util', 'ifmap_test_util_agent',
                     'pugixml', 'xml', 'task_test', 'db', 'curl',
-                    'base', 'gunit', 'crypto', 'ssl', 'boost_regex'
+                    'base', 'gunit', 'crypto', 'ssl', 'boost_regex',
+                    'SimpleAmqpClient', 'rabbitmq',
+                    'ifmapio', 'libbgp_schema',
+                    'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
+                    'cassandra', 'gendb'
                    ])
 
 if sys.platform != 'darwin':
