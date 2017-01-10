@@ -1,7 +1,6 @@
-
 [
   {
-    "rabbit_message": "{\"oper\":\"createResult\",\"fq_name\":[\"vn1\"],\"type\":\"virtual_network\",\"uuid\":\"0:634ae160-d3ef-4e81-b58d-d196211eb4d9\"}",
+    "rabbit_message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn1\"],\"type\":\"virtual_network\",\"uuid\":\"0:634ae160-d3ef-4e81-b58d-d196211eb4d9\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -39,7 +38,7 @@
     }
   },
   {
-    "rabbit_message": "{\"oper\":\"createResult\",\"fq_name\":[\"vn2\"],\"type\":\"virtual_network\",\"uuid\":\"1:634ae160-d3ef-4e82-b58d-d196211eb4da\"}",
+    "rabbit_message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn2\"],\"type\":\"virtual_network\",\"uuid\":\"1:634ae160-d3ef-4e82-b58d-d196211eb4da\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -75,7 +74,7 @@
     }
   },
   {
-    "rabbit_message": "{\"oper\":\"createResult\",\"fq_name\":[\"vn3\"],\"type\":\"virtual_network\",\"uuid\":\"2:634ae160-d3ef-4e83-b58d-d196211eb4db\"}",
+    "rabbit_message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn3\"],\"type\":\"virtual_network\",\"uuid\":\"2:634ae160-d3ef-4e83-b58d-d196211eb4db\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",

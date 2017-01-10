@@ -40,10 +40,13 @@ public:
 
     std::string GetLinkName(const std::string &left,
                             const std::string &right) const;
+    bool IsLinkWithAttr(const std::string &left,
+                        const std::string &right) const;
 
 private:
     typedef std::pair<std::string, std::string> LinkMemberPair;
-    typedef std::map<LinkMemberPair, std::string> LinkNameMap;
+    typedef std::pair<std::string, bool> LinkDataPair;
+    typedef std::map<LinkMemberPair, LinkDataPair> LinkNameMap;
     bool ParseDocument(const rapidjson::Document &document, bool add_change,
         IFMapOrigin::Origin origin, RequestList *req_list,
         IFMapTable::RequestKey *key) const;
