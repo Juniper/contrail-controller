@@ -869,11 +869,6 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
         return;
     }
 
-    /* Compute diff stats by adding the previous diff stats of sample that
-     * was dropped */
-    diff_bytes += info->prev_diff_bytes();
-    diff_pkts += info->prev_diff_packets();
-
     /* Subject a flow to sampling algorithm only when all of below is met:-
      * a. if Log is not configured as action for flow
      * b. actual flow-export-rate is >= 80% of configured flow-export-rate. This
@@ -901,8 +896,6 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
             /* Do not export the flow, if the random number generated is more
              * than the diff_bytes */
             flow_stats_manager_->flow_export_sampling_drops_++;
-            info->set_prev_diff_bytes(diff_bytes);
-            info->set_prev_diff_packets(diff_pkts);
             /* The second part of the if condition below is not required but
              * added for better readability. It is not required because
              * exported_atleast_once() will always be false if teardown time is
@@ -922,10 +915,6 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
             diff_pkts = diff_pkts/probability;
         }
     }
-    /* Reset diff stats since flow will be exported now */
-    info->set_prev_diff_bytes(0);
-    info->set_prev_diff_packets(0);
-
     /* Mark the flow as exported */
     info->set_exported_atleast_once(true);
 
@@ -1064,7 +1053,7 @@ bool FlowStatsManager::UpdateFlowThreshold() {
         (cfg_rate == prev_cfg_flow_export_rate_)) {
         return true;
     }
-    uint32_t cur_t = threshold(), new_t = 0;
+    uint64_t cur_t = threshold(), new_t = 0;
     // Update sampling threshold based on flow_export_rate_
     if (flow_export_rate_ < ((double)cfg_rate) * 0.8) {
         /* There are two reasons why we can be here.
@@ -1075,20 +1064,20 @@ bool FlowStatsManager::UpdateFlowThreshold() {
          * Threshold should be updated here depending on which of the above two
          * situations we are in. */
         if (!flows_sampled_atleast_once_) {
-            UpdateThreshold(kDefaultFlowSamplingThreshold);
+            UpdateThreshold(kDefaultFlowSamplingThreshold, false);
         } else {
             if (flow_export_rate_ < ((double)cfg_rate) * 0.5) {
-                UpdateThreshold((threshold_ / 4));
+                UpdateThreshold((threshold_ / 4), false);
             } else {
-                UpdateThreshold((threshold_ / 2));
+                UpdateThreshold((threshold_ / 2), false);
             }
         }
     } else if (flow_export_rate_ > (cfg_rate * 3)) {
-        UpdateThreshold((threshold_ * 4));
+        UpdateThreshold((threshold_ * 4), true);
     } else if (flow_export_rate_ > (cfg_rate * 2)) {
-        UpdateThreshold((threshold_ * 3));
+        UpdateThreshold((threshold_ * 3), true);
     } else if (flow_export_rate_ > ((double)cfg_rate) * 1.25) {
-        UpdateThreshold((threshold_ * 2));
+        UpdateThreshold((threshold_ * 2), true);
     }
     prev_cfg_flow_export_rate_ = cfg_rate;
     new_t = threshold();
@@ -1097,7 +1086,7 @@ bool FlowStatsManager::UpdateFlowThreshold() {
     return true;
 }
 
-uint32_t FlowStatsCollector::threshold() const {
+uint64_t FlowStatsCollector::threshold() const {
     return flow_stats_manager_->threshold();
 }
 
