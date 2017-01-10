@@ -41,8 +41,9 @@ public:
             num_workers) {
     }
 
-    virtual bool ReadUuidTableRow(const std::string &uuid_key) {
-        return ParseRowAndEnqueueToParser(uuid_key, GenDb::ColList());
+    virtual bool ReadUuidTableRow(const string &obj_type,
+                                  const std::string &uuid_key) {
+        return ParseRowAndEnqueueToParser(obj_type, uuid_key, GenDb::ColList());
     }
 
     bool ParseUuidTableRowResponse(const string &uuid,
@@ -80,24 +81,23 @@ class ConfigJsonParserTest : public ::testing::Test {
 protected:
     ConfigJsonParserTest() :
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-        parser_(&db_),
-        ifmap_server_(new IFMapServer(&db_, new DBGraph(), evm_.io_service())),
+        ifmap_server_(new IFMapServer(&db_, &graph_, evm_.io_service())),
         config_client_manager_(new ConfigClientManager(&evm_,
                     ifmap_server_.get(), "localhost", config_options_)) {
     }
 
     virtual void SetUp() {
         IFMapLinkTable_Init(&db_, &graph_);
-        vnc_cfg_JsonParserInit(&parser_);
+        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
         vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        bgp_schema_JsonParserInit(&parser_);
+        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
         bgp_schema_Server_ModuleInit(&db_, &graph_);
     }
 
     virtual void TearDown() {
         IFMapLinkTable_Clear(&db_);
         IFMapTable::ClearTables(&db_);
-        parser_.MetadataClear("vnc_cfg");
+        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
         task_util::WaitForIdle();
     }
 
@@ -147,7 +147,6 @@ protected:
     DB db_;
     DBGraph graph_;
     EventManager evm_;
-    ConfigJsonParser parser_;
     const IFMapConfigOptions config_options_;
     boost::scoped_ptr<IFMapServer> ifmap_server_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
@@ -158,7 +157,7 @@ TEST_F(ConfigJsonParserTest, VirtualNetworkParse) {
         FileRead("controller/src/ifmap/client/testdata/vn.json");
     assert(message.size() != 0);
     bool add_change = true;
-    parser_.Receive(message, add_change, IFMapOrigin::CASSANDRA);
+    config_client_manager_->config_json_parser()->Receive(message, add_change, IFMapOrigin::CASSANDRA);
     task_util::WaitForIdle();
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
@@ -204,7 +203,7 @@ TEST_F(ConfigJsonParserTest, AclParse) {
         FileRead("controller/src/ifmap/client/testdata/acl.json");
     assert(message.size() != 0);
     bool add_change = true;
-    parser_.Receive(message, add_change, IFMapOrigin::CASSANDRA);
+    config_client_manager_->config_json_parser()->Receive(message, add_change, IFMapOrigin::CASSANDRA);
     task_util::WaitForIdle();
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "access-control-list");
@@ -245,7 +244,7 @@ TEST_F(ConfigJsonParserTest, VmiParseAddDeleteProperty) {
         FileRead("controller/src/ifmap/client/testdata/vmi.json");
     assert(message.size() != 0);
     bool add_change = true;
-    parser_.Receive(message, add_change, IFMapOrigin::CASSANDRA);
+    config_client_manager_->config_json_parser()->Receive(message, add_change, IFMapOrigin::CASSANDRA);
     task_util::WaitForIdle();
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-machine-interface");
@@ -311,7 +310,7 @@ TEST_F(ConfigJsonParserTest, VmiParseAddDeleteProperty) {
     // this message, the node should not have this property.
     message = FileRead("controller/src/ifmap/client/testdata/vmi1.json");
     assert(message.size() != 0);
-    parser_.Receive(message, add_change, IFMapOrigin::CASSANDRA);
+    config_client_manager_->config_json_parser()->Receive(message, add_change, IFMapOrigin::CASSANDRA);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(
         vmi->IsPropertySet(autogen::VirtualMachineInterface::DISABLE_POLICY));
@@ -325,7 +324,7 @@ TEST_F(ConfigJsonParserTest, VmiParseAddDeleteProperty) {
 }
 
 // In a single message, adds vn1, vn2, vn3.
-TEST_F(ConfigJsonParserTest, DISABLED_ServerParser1) {
+TEST_F(ConfigJsonParserTest, ServerParser1) {
     ParseEventsJson("controller/src/ifmap/testdata/server_parser_test1.json");
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
