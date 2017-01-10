@@ -495,8 +495,10 @@ TEST_F(EcmpTest, Egress_Non_Ecmp_To_Non_Ecmp_1) {
 // Egress Flow
 // Source : Non-ECMP
 // Destination : ECMP
+//
+// DISABLED since we dont support multiple instances on a compute node
 /////////////////////////////////////////////////////////////////////////////
-TEST_F(EcmpTest, Egress_Non_Ecmp_To_Ecmp_1) {
+TEST_F(EcmpTest, DISABLED_Egress_Non_Ecmp_To_Ecmp_1) {
     // Inner iteration for all 4 members of destination
     for (int i = 0; i < 4; i++) {
         char sip[64];
@@ -561,8 +563,10 @@ TEST_F(EcmpTest, Egress_Ecmp_To_Non_Ecmp_1) {
 // Egress Flow
 // Source : ECMP
 // Destination : ECMP
+//
+// DISABLED since we dont support multiple instances on a compute node
 /////////////////////////////////////////////////////////////////////////////
-TEST_F(EcmpTest, Egress_Ecmp_To_Ecmp_1) {
+TEST_F(EcmpTest, DISABLED_Egress_Ecmp_To_Ecmp_1) {
     // Outer iteration for all 4 members of source
     for (int i = 0; i < 4; i++) {
         // Inner iteration for all 4 members of destination
@@ -661,8 +665,9 @@ TEST_F(EcmpTest, Ingress_Non_Ecmp_To_Ecmp_1) {
 // Ingress Flow
 // Source : ECMP
 // Destination : Non-ECMP
+// DISABLED since we dont support multiple instances on a compute node
 /////////////////////////////////////////////////////////////////////////////
-TEST_F(EcmpTest, Ingress_Ecmp_To_Non_Ecmp_1) {
+TEST_F(EcmpTest, DISABLED_Ingress_Ecmp_To_Non_Ecmp_1) {
     for (uint32_t i = 0; i < 4; i++) {
         char sip[64];
         VmInterface *vmi = static_cast<VmInterface *>(VmPortGet(i + 1));
@@ -693,8 +698,9 @@ TEST_F(EcmpTest, Ingress_Ecmp_To_Non_Ecmp_1) {
 // Ingress Flow
 // Source : ECMP
 // Destination : ECMP
+// DISABLED since we dont support multiple instances on a compute node
 /////////////////////////////////////////////////////////////////////////////
-TEST_F(EcmpTest, Ingress_Ecmp_To_Ecmp_1) {
+TEST_F(EcmpTest, DISABLED_Ingress_Ecmp_To_Ecmp_1) {
     for (uint32_t i = 0; i < 4; i++) {
         for (uint32_t j = 0; j < 4; j++) {
             char sip[64];
