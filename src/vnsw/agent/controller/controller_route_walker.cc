@@ -25,7 +25,7 @@
 
 ControllerRouteWalker::ControllerRouteWalker(Agent *agent, Peer *peer) : 
     AgentRouteWalker(agent, AgentRouteWalker::ALL), peer_(peer), 
-    associate_(false), type_(NOTIFYALL) {
+    associate_(false), type_(NOTIFYALL), sequence_number_(0) {
 }
 
 // Takes action based on context of walk. These walks are not parallel.
@@ -51,9 +51,8 @@ bool ControllerRouteWalker::VrfWalkNotify(DBTablePartBase *partition,
     case NOTIFYMULTICAST:
         return VrfNotifyMulticast(partition, entry);
     case DELPEER:
+    case DELSTALE:
         return VrfDelPeer(partition, entry);
-    case STALE:
-        return VrfNotifyStale(partition, entry);
     default:
         return false;
     }
@@ -86,6 +85,9 @@ bool ControllerRouteWalker::VrfNotifyAll(DBTablePartBase *partition,
         //walk if required on this VRF. Also it adds state if none is found.
         VrfExport::Notify(agent(), bgp_peer->GetAgentXmppChannel(),
                           partition, entry);
+        RouteWalkDoneForVrfCallback(boost::bind(
+                                    &AgentXmppChannel::SendEndOfRib,
+                                    bgp_peer->GetAgentXmppChannel()));
         CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf Notify all", vrf->GetName(),
                          bgp_peer->GetName());
         return true;
@@ -108,12 +110,12 @@ bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
         if (vrf->AllRouteTableDeleted()) return true;
         // Register Callback for deletion of VRF state on completion of route
         // walks 
-        RouteWalkDoneForVrfCallback(boost::bind(
-                                    &ControllerRouteWalker::RouteWalkDoneForVrf,
-                                    this, _1));
+        if (type_ == ControllerRouteWalker::DELPEER) {
+            RouteWalkDoneForVrfCallback(boost::bind(
+                               &ControllerRouteWalker::RouteWalkDoneForVrf,
+                               this, _1));
+        }
         StartRouteWalk(vrf);
-        CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf DelPeer", vrf->GetName(), 
-                         peer_->GetName());
         return true;
     }
     return false;
@@ -122,14 +124,8 @@ bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
 bool ControllerRouteWalker::VrfNotifyMulticast(DBTablePartBase *partition, 
                                                DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf Multicast", vrf->GetName(), peer_->GetName());
-    return VrfNotifyInternal(partition, entry);
-}
-
-bool ControllerRouteWalker::VrfNotifyStale(DBTablePartBase *partition, 
-                                           DBEntryBase *entry) {
-    VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf Stale", vrf->GetName(), peer_->GetName());
+    CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf Multicast", vrf->GetName(),
+                                  peer_->GetName());
     return VrfNotifyInternal(partition, entry);
 }
 
@@ -165,8 +161,8 @@ bool ControllerRouteWalker::RouteWalkNotify(DBTablePartBase *partition,
         return RouteNotifyMulticast(partition, entry);
     case DELPEER:
         return RouteDelPeer(partition, entry);
-    case STALE:
-        return RouteStaleMarker(partition, entry);
+    case DELSTALE:
+        return RouteDelStale(partition, entry);
     default:
         return false;
     }
@@ -221,6 +217,24 @@ bool ControllerRouteWalker::RouteNotifyMulticast(DBTablePartBase *partition,
     return RouteNotifyInternal(partition, entry);
 }
 
+bool ControllerRouteWalker::RouteDelStale(DBTablePartBase *partition,
+                                              DBEntryBase *entry) {
+    AgentRoute *route = static_cast<AgentRoute *>(entry);
+    if (!route)
+        return true;
+
+    //Enqueue path delete.
+    AgentRouteKey *key = (static_cast<AgentRouteKey *>(route->
+                                      GetDBRequestKey().get()))->Clone();
+    key->set_peer(peer_);
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(key);
+    req.data.reset(new StalePathData(sequence_number_));
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(route->get_table());
+    table->Process(req);
+    return true;
+}
+
 // Deletes the peer and corresponding state in route
 bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
                                          DBEntryBase *entry) {
@@ -257,28 +271,6 @@ bool ControllerRouteWalker::RouteDelPeer(DBTablePartBase *partition,
     req.data.reset();
     AgentRouteTable *table = static_cast<AgentRouteTable *>(route->get_table());
     table->Process(req);
-    return true;
-}
-
-bool ControllerRouteWalker::RouteStaleMarker(DBTablePartBase *partition, 
-                                             DBEntryBase *entry) {
-    AgentRoute *route = static_cast<AgentRoute *>(entry);
-    //Enqueue path to be marked as stale.
-    if (route) {
-        AgentRouteKey *key = (static_cast<AgentRouteKey *>(route->
-                             GetDBRequestKey().get()))->Clone();
-        key->set_peer(peer_);
-        key->sub_op_ = AgentKey::RESYNC;
-        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-        req.key.reset(key);
-        req.data.reset(new StalePathData());
-        AgentRouteTable *table = static_cast<AgentRouteTable *>(route->
-                                                                get_table());
-        table->Enqueue(&req);
-    }
-
-    CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Route Stale", route->ToString(), 
-                     peer_->GetName());
     return true;
 }
 

@@ -28,6 +28,29 @@ struct ControllerProtoStats {
     4: u32 close;
 }
 
+struct ControllerEndOfConfigStats {
+    1: bool end_of_config;
+    /** End of config time */
+    2: string end_of_config_time;
+    /** config update receive */
+    3: string update_receive_time;
+    /** cofig enqueued for process */
+    4: string config_enqueued_time;
+}
+
+struct ControllerEndOfRibStats {
+    /** End of rib seen */
+    1: bool end_of_rib_seen;
+    /** End of rib seen time */
+    2: string end_of_rib_seen_time;
+    /** End of rib sent */
+    3: bool end_of_rib_sent;
+    /** End of rib sent time */
+    4: string end_of_rib_sent_time;
+    /** route publish time */
+    5: string route_published_time;   
+}
+
 /**
  * Sandesh definition for xmpp channel between agent and controller
  */
@@ -60,6 +83,14 @@ struct AgentXmppData {
     13: ControllerProtoStats tx_proto_stats;
     /** Xmpp authentication type */
     14: string xmpp_auth_type;
+    /** Unicast sequence number */
+    15: u64 sequence_number;
+    /** channel ready state time */
+    16: string last_ready_time;
+    /** End of rib */
+    17: ControllerEndOfRibStats end_of_rib_stats;
+    /** End of config */
+    18: ControllerEndOfConfigStats end_of_config_stats;
 }
 
 /**

@@ -26,6 +26,9 @@ class XmlPugi;
 class PathPreference;
 class AgentPath;
 class EcmpLoadBalance;
+class ControllerTimer;
+class EndOfRibTimer;
+class StalePathTimer;
 
 class AgentXmppChannel {
 public:
@@ -50,11 +53,6 @@ public:
     static void SetMulticastPeer(AgentXmppChannel *old_peer, 
                                  AgentXmppChannel *new_peer);
     static void CleanConfigStale(AgentXmppChannel *agent_xmpp_channel);
-    static void CleanUnicastStale(AgentXmppChannel *agent_xmpp_channel);
-    static void CleanMulticastStale(AgentXmppChannel *agent_xmpp_channel);
-    static void UnicastPeerDown(AgentXmppChannel *peer, BgpPeer *peer_id);
-    static void MulticastPeerDown(AgentXmppChannel *old_channel, 
-                                  AgentXmppChannel *new_channel);
     static void XmppClientChannelEvent(AgentXmppChannel *peer,
                                        xmps::PeerState state);
     static void HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
@@ -109,6 +107,8 @@ public:
                                               uint32_t tunnel_bmap);
     static bool ControllerSendMcastRouteDelete(AgentXmppChannel *peer,
                                                AgentRoute *route);
+    void SendEndOfRib();
+    void ReceiveEndOfRib();
 
     // Routines for BGP peer manipulations, lifecycle of bgp peer in xmpp
     // channel is as follows:
@@ -120,7 +120,6 @@ public:
     // timers are started, expiration of which triggers removal of
     // decommissioned peer and eventually gets destroyed.
     void CreateBgpPeer();
-    void DeCommissionBgpPeer();
     void RegisterXmppChannel(XmppChannel *channel);
 
     std::string GetXmppServer() { return xmpp_server_; }
@@ -161,10 +160,31 @@ public:
                                    bool assisted_replication);
     void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
                       autogen::EnetItemType *item);
+    void NotifyRoutes();
+    uint64_t route_published_time() const {return route_published_time_;}
+    ControllerTimer *end_of_rib_timer();
+    ControllerTimer *stale_path_timer();
+    uint64_t sequence_number() const {return sequence_number_;}
+    void incr_sequence_number() {sequence_number_++;}
+
+    bool end_of_rib_seen() const {return end_of_rib_seen_;}
+    void set_end_of_rib_seen(bool eor) {end_of_rib_seen_ = eor;}
+    bool end_of_rib_sent() const {return end_of_rib_sent_;}
+    void set_end_of_rib_sent(bool val) {end_of_rib_sent_ = val;}
+    bool end_of_config() const {return end_of_config_;}
+    void set_end_of_config(bool val) {end_of_config_ = val;}
+    uint64_t end_of_rib_seen_time() const {return end_of_rib_seen_time_;}
+    void set_end_of_rib_seen_time(uint64_t val) {end_of_rib_seen_time_ = val;}
+    uint64_t end_of_rib_sent_time() const {return end_of_rib_sent_time_;}
+    void set_end_of_rib_sent_time(uint64_t val) {end_of_rib_sent_time_ = val;}
+    uint64_t end_of_config_time() const {return end_of_config_time_;}
+    void set_end_of_config_time(uint64_t val) {end_of_config_time_ = val;}
+
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
 private:
+    void AllConfigPeersGone();
     InetUnicastAgentRouteTable *PrefixToRouteTable(const std::string &vrf_name,
                                                    const IpAddress &prefix_addr);
     void ReceiveInternal(const XmppStanza::XmppMessage *msg);
@@ -226,6 +246,16 @@ private:
     std::string label_range_;
     uint8_t xs_idx_;
     PeerPtr bgp_peer_id_;
+    uint64_t route_published_time_;
+    boost::scoped_ptr<EndOfRibTimer> end_of_rib_timer_;
+    boost::scoped_ptr<StalePathTimer> stale_path_timer_;
+    uint64_t sequence_number_;
+    bool end_of_rib_seen_;
+    bool end_of_rib_sent_;
+    bool end_of_config_;
+    uint64_t end_of_rib_seen_time_;
+    uint64_t end_of_rib_sent_time_;
+    uint64_t end_of_config_time_;
     Agent *agent_;
 };
 

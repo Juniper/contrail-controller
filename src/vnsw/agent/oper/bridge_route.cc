@@ -216,9 +216,11 @@ AgentRouteData *BridgeAgentRouteTable::BuildBgpPeerData(const Peer *peer,
     nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
                                         vrf_name));
     nh_req.data.reset(new CompositeNHData());
-    return (new MulticastRoute(vn_name, label,
+    return (new ControllerMulticastRoute(vn_name, label,
                                          ethernet_tag, tunnel_type,
-                                         nh_req, type));
+                                         nh_req, type,
+                                     bgp_peer->GetAgentXmppChannel()->
+                                         sequence_number()));
 }
 
 void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
@@ -244,9 +246,18 @@ void BridgeAgentRouteTable::DeleteBroadcastReq(const Peer *peer,
     //For same BGP peer type comp type helps in identifying if its a delete
     //for TOR or EVPN path.
     //Only ethernet tag is required, rest are dummy.
-    req.data.reset(new MulticastRoute("", 0, ethernet_tag,
-                                      TunnelType::AllType(),
-                                      nh_req, type));
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    if (bgp_peer) {
+        req.data.reset(new ControllerMulticastRoute("", 0,
+                                     ethernet_tag, TunnelType::AllType(),
+                                     nh_req, type,
+                                     bgp_peer->GetAgentXmppChannel()->
+                                         sequence_number()));
+    } else {
+        req.data.reset(new MulticastRoute("", 0, ethernet_tag,
+                                          TunnelType::AllType(),
+                                          nh_req, type));
+    }
 
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
@@ -857,8 +868,6 @@ bool BridgeRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
-            if (stale && !path->is_stale())
-                continue;
             PathSandeshData pdata;
             path->SetSandeshData(pdata);
             if (is_multicast()) {

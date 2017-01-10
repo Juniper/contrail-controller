@@ -129,8 +129,6 @@ bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
                 static_cast<AgentPath *>(it.operator->());
             const Peer *peer = path->peer();
             it++;
-            if (path->is_stale()) continue;
-
             if (peer && peer->GetType() == Peer::BGP_PEER) {
                 to_be_deleted_path_list.push_back(path);
             }
@@ -147,7 +145,6 @@ bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
             DeletePathFromPeer(part, route, path);
             to_be_deleted_path_list_it++;
         }
-        SquashStalePaths(route, NULL);
     }
     return true;
 }
@@ -168,12 +165,6 @@ bool AgentRouteTable::DelExplicitRouteWalkerCb(DBTablePartBase *part,
 bool AgentRouteTable::PathSelection(const Path &path1, const Path &path2) {
     const AgentPath &l_path = dynamic_cast<const AgentPath &> (path1);
     const AgentPath &r_path = dynamic_cast<const AgentPath &> (path2);
-
-    // Stale path should take last precedence
-    if (l_path.is_stale() != r_path.is_stale()) {
-        return (l_path.is_stale() < r_path.is_stale());
-    }
-
     return l_path.IsLess(r_path);
 }
 
@@ -247,7 +238,6 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
         return;
     }
 
-    const Peer *peer = path->peer();
     CompositeNH *cnh = dynamic_cast<CompositeNH *>(path->nexthop());
     //Recompute paths since one is going off before deleting.
     rt->ReComputePathDeletion(path);
@@ -255,15 +245,6 @@ void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
     rt->RemovePath(path);
     if (cnh) {
         cnh->UpdateEcmpHashFieldsUponRouteDelete(agent_, vrf_name());
-    }
-    // Local path(non BGP type) is going away and so will route.
-    // For active peers reflector will remove the route but for 
-    // non active peers explicitly squash the paths.
-    if (peer && (peer->GetType() != Peer::BGP_PEER)) {
-        path = rt->FindStalePath();
-        if (path) {
-            rt->RemovePath(path);
-        }
     }
 
     // Delete route if no more paths 
@@ -425,8 +406,6 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 rt->FillTrace(rt_info, AgentRoute::ADD_PATH, path);
                 OPER_TRACE_ROUTE_ENTRY(Route, this, rt_info);
             } else {
-                // Let path know of route change and update itself
-                path->set_is_stale(false);
                 bool ecmp = path->path_preference().is_ecmp();
                 notify = rt->ProcessPath(agent_, part, path, data);
                 //If a path transition from ECMP to non ECMP
@@ -562,23 +541,6 @@ void AgentRouteTable::NotifyEntry(AgentRoute *e) {
     tpart->Notify(e);
 }
 
-void AgentRouteTable::SquashStalePaths(AgentRoute *route,
-                                       const AgentPath *exception_path) {
-    Route::PathList::iterator it = route->GetPathList().begin();
-    AgentPath *path = NULL;
-    while (it != route->GetPathList().end()) {
-        path = static_cast<AgentPath *>(it.operator->());
-        // Delete all stale path except for the path sent(exception_path)
-        if (path->is_stale() && (path != exception_path)) {
-            // Since we squash stales, at any point of time there should be only
-            // one stale other than exception_path in list
-            DeletePathFromPeer(route->get_table_partition(), route, path);
-            return;
-        }
-        it++;
-    }
-}
-
 uint32_t AgentRoute::GetActiveLabel() const {
     return GetActivePath()->label();
 };
@@ -642,18 +604,6 @@ AgentPath *AgentRoute::FindLocalVmPortPath() const {
     return NULL;
 }
 
-AgentPath *AgentRoute::FindStalePath() const {
-    Route::PathList::const_iterator it = GetPathList().begin();
-    while (it != GetPathList().end()) {
-        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
-        if (path->is_stale()) {
-            return const_cast<AgentPath *>(path);
-        }
-        it++;
-    }
-    return NULL;
-}
-
 void AgentRoute::DeletePathInternal(AgentPath *path) {
     AgentRouteTable *table = static_cast<AgentRouteTable *>(get_table());
     table->DeletePathFromPeer(get_table_partition(), this, path);
@@ -670,7 +620,14 @@ void AgentRoute::DeletePathUsingKeyData(const AgentRouteKey *key,
                                         const AgentRouteData *data,
                                         bool force_delete) {
     AgentPath *peer_path = FindPathUsingKeyData(key, data);
-    DeletePathInternal(peer_path);
+    bool delete_path = true;
+    if (data) {
+        delete_path = data->
+            DeletePath(static_cast<AgentRouteTable *>(get_table())->
+                       agent(), peer_path, this);
+    }
+    if (delete_path)
+        DeletePathInternal(peer_path);
 }
 
 AgentPath *AgentRoute::FindPathUsingKeyData(const AgentRouteKey *key,

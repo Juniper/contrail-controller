@@ -12,6 +12,50 @@
 class Agent;
 class VirtualGatewayConfigTable;
 
+struct LlgrParams {
+public:    
+    //In seconds
+    static const int kConfigCleanupTime = 100;
+    static const int kEocTime = 5; 
+    static const int kEocInactivityTime = 30;
+    static const int kEocFallbackTimeOut = 900;
+    static const int kEorTimeOut = 5;
+    static const int kEorFallbackTimeOut = 60;
+    static const int kEorInactivityTime = 30;
+
+    LlgrParams();
+    virtual ~LlgrParams() { }
+
+    uint16_t stale_time() const {return stale_time_;}
+    uint16_t config_cleanup_time() const {return config_cleanup_time_;}
+    uint16_t end_of_config_time() const {return end_of_config_time_;}
+    uint16_t end_of_config_inactivity_time() const {
+        return end_of_config_inactivity_time_;
+    } 
+    uint16_t end_of_config_fallback_time() const {
+        return end_of_config_fallback_time_;
+    } 
+    uint16_t end_of_rib_time() const {return end_of_rib_time_;}
+    uint16_t end_of_rib_fallback_time() const {
+        return end_of_rib_fallback_time_;
+    }
+    uint16_t end_of_rib_inactivity_time() const {
+        return end_of_rib_inactivity_time_;
+    }
+
+private:    
+    friend class AgentParam;
+
+    uint16_t stale_time_;
+    uint16_t config_cleanup_time_; 
+    uint16_t end_of_config_time_; 
+    uint16_t end_of_config_inactivity_time_; 
+    uint16_t end_of_config_fallback_time_; 
+    uint16_t end_of_rib_time_; 
+    uint16_t end_of_rib_fallback_time_; 
+    uint16_t end_of_rib_inactivity_time_; 
+};
+
 // Class handling agent configuration parameters from config file and 
 // arguments
 class AgentParam  {
@@ -153,7 +197,6 @@ public:
     uint32_t stale_interface_cleanup_timeout() const {
         return stale_interface_cleanup_timeout_;
     }
-    bool headless_mode() const {return headless_mode_;}
     bool dhcp_relay_mode() const {return dhcp_relay_mode_;}
     bool xmpp_auth_enabled() const {return xmpp_auth_enable_;}
     std::string xmpp_server_cert() const { return xmpp_server_cert_;}
@@ -334,6 +377,7 @@ public:
     void add_nic_queue(uint16_t queue, uint16_t nic_queue) {
         qos_queue_map_[queue] = nic_queue;
     }
+    const LlgrParams &llgr_params() const {return llgr_params_;}
 
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
@@ -409,7 +453,6 @@ private:
     void ParseTaskSection();
     void ParseMetadataProxy();
     void ParseFlows();
-    void ParseHeadlessMode();
     void ParseDhcpRelayMode();
     void ParseSimulateEvpnTor();
     void ParseServiceInstance();
@@ -419,6 +462,7 @@ private:
     void ParseServices();
     void ParseQueue();
     void ParseRestart();
+    void ParseLlgr();
     void set_agent_mode(const std::string &mode);
     void set_gateway_mode(const std::string &mode);
 
@@ -442,8 +486,6 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseFlowArguments
         (const boost::program_options::variables_map &v);
-    void ParseHeadlessModeArguments
-        (const boost::program_options::variables_map &v);
     void ParseDhcpRelayModeArguments
         (const boost::program_options::variables_map &var_map);
     void ParseServiceInstanceArguments
@@ -457,6 +499,8 @@ private:
     void ParseServicesArguments
         (const boost::program_options::variables_map &v);
     void ParseRestartArguments
+        (const boost::program_options::variables_map &v);
+    void ParseLlgrArguments
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -538,7 +582,6 @@ private:
     bool test_mode_;
     boost::property_tree::ptree tree_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
-    bool headless_mode_;
     bool dhcp_relay_mode_;
     bool xmpp_auth_enable_;
     std::string xmpp_server_cert_;
@@ -596,6 +639,7 @@ private:
     uint32_t tbb_keepawake_timeout_;
     std::map<uint16_t, uint16_t> qos_queue_map_;
     uint16_t default_nic_queue_;
+    LlgrParams llgr_params_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
