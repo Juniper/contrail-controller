@@ -121,6 +121,11 @@ env.Append(LIBS = [
     'bgp_test_factory',
     'rtarget',
     'control_node_uve',
+    'cassandra_cql',
+    'cassandra',
+    'gendb',
+    'ds',
+    'httpc'
 ])
 
 env.Append(LIBS = ['route', 'routing_instance', 'routing_policy', 'net'])
