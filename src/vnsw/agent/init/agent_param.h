@@ -153,7 +153,6 @@ public:
     uint32_t stale_interface_cleanup_timeout() const {
         return stale_interface_cleanup_timeout_;
     }
-    bool headless_mode() const {return headless_mode_;}
     bool dhcp_relay_mode() const {return dhcp_relay_mode_;}
     bool xmpp_auth_enabled() const {return xmpp_auth_enable_;}
     std::string xmpp_server_cert() const { return xmpp_server_cert_;}
@@ -409,7 +408,6 @@ private:
     void ParseTaskSection();
     void ParseMetadataProxy();
     void ParseFlows();
-    void ParseHeadlessMode();
     void ParseDhcpRelayMode();
     void ParseSimulateEvpnTor();
     void ParseServiceInstance();
@@ -441,8 +439,6 @@ private:
     void ParseMetadataProxyArguments
         (const boost::program_options::variables_map &v);
     void ParseFlowArguments
-        (const boost::program_options::variables_map &v);
-    void ParseHeadlessModeArguments
         (const boost::program_options::variables_map &v);
     void ParseDhcpRelayModeArguments
         (const boost::program_options::variables_map &var_map);
@@ -538,7 +534,6 @@ private:
     bool test_mode_;
     boost::property_tree::ptree tree_;
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
-    bool headless_mode_;
     bool dhcp_relay_mode_;
     bool xmpp_auth_enable_;
     std::string xmpp_server_cert_;

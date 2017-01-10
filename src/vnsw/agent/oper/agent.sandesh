@@ -624,8 +624,6 @@ struct PathSandeshData {
    11: string supported_tunnel_type;
    /** Active tunnel encap associated with path */
    12: string active_tunnel_type;
-   /** Boolean value which indicates if path is stale */
-   13: bool stale;
    /** Path preference information for path */
    14: optional PathPreferenceSandeshData path_preference_data;
    /** Parent information for path */
@@ -642,6 +640,8 @@ struct PathSandeshData {
    20: optional string ecmp_hashing_fields;
    /** Communities associated with path */
    21: optional list<string> communities;
+   /** path sequence number */
+   22: optional u64 peer_sequence_number;
 }
 
 /**

@@ -41,9 +41,11 @@ public:
     ~ControllerPeerPath() { }
 
     virtual bool UpdateRoute(AgentRoute *route) {return false;}
+    uint64_t sequence_number() const {return sequence_number_;}
 
 private:
     const Peer *peer_;
+    uint64_t sequence_number_;
 };
 
 /*
@@ -149,9 +151,11 @@ private:
 class ClonedLocalPath : public AgentRouteData {
 public:
     ClonedLocalPath(uint32_t label, const VnListType &vn_list,
-                    const SecurityGroupList &sg_list):
+                    const SecurityGroupList &sg_list,
+                    uint64_t sequence_number):
         AgentRouteData(false), mpls_label_(label),
-        vn_list_(vn_list), sg_list_(sg_list) {}
+        vn_list_(vn_list), sg_list_(sg_list),
+        sequence_number_(sequence_number) {}
     virtual ~ClonedLocalPath() {}
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
@@ -162,11 +166,12 @@ private:
     uint32_t mpls_label_;
     const VnListType vn_list_;
     const SecurityGroupList sg_list_;
+    uint64_t sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(ClonedLocalPath);
 };
 
 /*
- * In headless mode stale path is created when no CN server is present.
+ * stale path is created when no CN server is present.
  * Last peer going down marks its path as stale and keep route alive, till
  * anothe CN takes over.
  * There can be only one stale path as multiple does not make any sense.
@@ -174,15 +179,19 @@ private:
  */
 class StalePathData : public AgentRouteData {
 public:
-    StalePathData() : AgentRouteData(false) { }
+    StalePathData(uint64_t sequence_number) : AgentRouteData(false),
+    sequence_number_(sequence_number) { }
     virtual ~StalePathData() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
+    virtual bool DeletePath(Agent *agent, AgentPath *path,
+                            const AgentRoute *rt) const;
     virtual std::string ToString() const {
         return "Stale path marking(healdess mode)";
     }
 
 private:
+    uint64_t sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(StalePathData);
 };
 #endif //controller_route_path_hpp

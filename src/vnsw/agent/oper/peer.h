@@ -157,15 +157,14 @@ public:
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
 
     // Table Walkers
-    void DelPeerRoutes(DelPeerDone walk_done_cb);
+    void DelPeerRoutes(DelPeerDone walk_done_cb,
+                       uint64_t sequence_number);
     void PeerNotifyRoutes();
+    void StopPeerNotifyRoutes();
     void PeerNotifyMulticastRoutes(bool associate);
-    void StalePeerRoutes();
+    void DeleteStale();
+    void StopDeleteStale();
 
-    bool is_disconnect_walk() const {return is_disconnect_walk_;}
-    void set_is_disconnect_walk(bool is_disconnect_walk) {
-        is_disconnect_walk_ = is_disconnect_walk;
-    }
     ControllerRouteWalker *route_walker() const {
         return route_walker_.get(); 
     }
@@ -185,7 +184,6 @@ private:
     Ip4Address server_ip_;
     DBTableBase::ListenerId id_;
     uint32_t setup_time_;
-    tbb::atomic<bool> is_disconnect_walk_;
     boost::scoped_ptr<ControllerRouteWalker> route_walker_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };

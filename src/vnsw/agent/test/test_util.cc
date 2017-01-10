@@ -3885,22 +3885,23 @@ void DeleteBgpPeer(Peer *peer) {
     AgentXmppChannel *channel = NULL;
     XmppChannelMock *xmpp_channel = NULL;
 
+    Agent::GetInstance()->controller()->end_of_config_timer().controller_timer_->Fire();
     if (bgp_peer) {
         channel = bgp_peer->GetAgentXmppChannel();
+        channel->ReceiveEndOfRib();
         AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
                                                             xmps::NOT_READY);
     }
     if (channel) {
         xmpp_channel = static_cast<XmppChannelMock *>
             (channel->GetXmppChannel());
+        channel->end_of_rib_timer()->controller_timer_->Fire();
     }
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Stop();
-    Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->
-        Fire();
-    Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->
-        Fire();
-    Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->
+    Agent::GetInstance()->controller()->
+        end_of_config_timer().controller_timer_->Fire();
+    Agent::GetInstance()->controller()->config_cleanup_timer().controller_timer_->
         Fire();
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
