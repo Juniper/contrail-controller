@@ -140,10 +140,6 @@ bool ArpPathPreferenceState::SendArpRequest(WaitForTrafficIntfMap
 
     WaitForTrafficIntfMap::iterator it = wait_for_traffic_map.begin();
     for (;it != wait_for_traffic_map.end(); it++) {
-        if (it->second >= kMaxRetry) {
-            continue;
-        }
-
         const VmInterface *vm_intf = static_cast<const VmInterface *>(
                 vrf_state_->agent->interface_table()->FindInterface(it->first));
         if (!vm_intf) {
