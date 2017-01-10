@@ -50,13 +50,15 @@ PeerIFMapServerFinder::PeerIFMapServerFinder(IFMapManager *ifmap_manager,
 }
 
 void PeerIFMapServerFinder::PeerIFMapDSSubscribe() {
-
+/*
+ * TODO Clean this up.
     if (DSExists()) {
         service_name_ = g_vns_constants.IFMAP_SERVER_DISCOVERY_SERVICE_NAME;
         uint8_t num_instances = 2;
         ds_client_->Subscribe(service_name_, num_instances,
             boost::bind(&PeerIFMapServerFinder::ProcPeerIFMapDSResp, this, _1));
     }
+ */
 }
 
 // 'index' gives the next available peer only if return value is true
