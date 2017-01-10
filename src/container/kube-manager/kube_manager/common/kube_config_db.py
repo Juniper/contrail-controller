@@ -137,7 +137,7 @@ class NamespaceKM(KubeDBBase):
 
         if annotations:
             # Cache isolated namespace directive.
-            if annotations["isolated"] and annotations["isolated"] == "true":
+            if 'isolated' in annotations and annotations['isolated'] == "true":
                 # Namespace is configured as isolated.
                 self.isolated = True
             else:
