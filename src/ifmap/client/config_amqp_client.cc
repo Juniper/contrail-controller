@@ -18,7 +18,7 @@ using namespace rapidjson;
 
 class ConfigAmqpClient::RabbitMQReader : public Task {
 public:
-    RabbitMQReader(ConfigAmqpClient *amqpclient) 
+    RabbitMQReader(ConfigAmqpClient *amqpclient)
         : Task(amqpclient->reader_task_id()), amqpclient_(amqpclient) {
     }
 
@@ -29,7 +29,7 @@ private:
     ConfigAmqpClient *amqpclient_;
     AmqpClient::Channel::ptr_t channel_;
     string consumer_tag_;
-    bool ConnectToRabbitMQ();
+    bool ConnectToRabbitMQ(bool queue_delete = true);
 };
 
 ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
@@ -61,21 +61,33 @@ void ConfigAmqpClient::EnqueueUUIDRequest(string uuid_str, string obj_type,
 }
 
 string ConfigAmqpClient::FormAmqpUri() const {
-    return string("amqp://" + rabbitmq_user() + ":" + rabbitmq_password() +
-                  "@" + rabbitmq_ip() + ":" +  rabbitmq_port());
+    string uri = string("amqp://" + rabbitmq_user() + ":" + rabbitmq_password() +
+      "@" + rabbitmq_ip() + ":" +  rabbitmq_port());
+    if (rabbitmq_vhost() != "") {
+        uri += "/" + rabbitmq_vhost();
+    }
+    return uri;
 }
 
-bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ() {
+bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
     string uri = amqpclient_->FormAmqpUri();
     try {
         channel_ = AmqpClient::Channel::CreateFromUri(uri);
-        // passive = false, durable = false
+        // passive = false, durable = false, auto_delete = false
         channel_->DeclareExchange("vnc_config.object-update",
-                                  AmqpClient::Channel::EXCHANGE_TYPE_FANOUT);
+              AmqpClient::Channel::EXCHANGE_TYPE_FANOUT, false, false, false);
         string queue_name = string("control-node.") + amqpclient_->hostname();
+
+        if (queue_delete) {
+            channel_->DeleteQueue(queue_name, true, true);
+        }
+
         string queue = channel_->DeclareQueue(queue_name);
         channel_->BindQueue(queue, "vnc_config.object-update");
-        consumer_tag_ = channel_->BasicConsume(queue);
+        // no_local = true, no_ack = false,
+        // exclusive = true, message_prefetch_count = 0
+        consumer_tag_ = channel_->BasicConsume(queue, queue_name,
+                                               true, false, true, 0);
     } catch (std::exception &e) {
         static std::string what = e.what();
         std::cout << "Caught fatal exception while connecting to RabbitMQ: " << what << std::endl;
@@ -126,6 +138,7 @@ bool ConfigAmqpClient::RabbitMQReader::Run() {
             }
             amqpclient_->EnqueueUUIDRequest(uuid_str, obj_type, oper);
         }
+        channel_->BasicAck(envelope);
     }
     return true;
 }

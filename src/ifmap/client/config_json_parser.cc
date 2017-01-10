@@ -23,12 +23,14 @@ ConfigJsonParser::ConfigJsonParser(DB *db)
 
     for (vnc_cfg_FilterInfo::iterator it = vnc_filter_info.begin();
          it != vnc_filter_info.end(); it++) {
-        link_name_map_.insert(make_pair(make_pair(it->left_, it->right_), it->metadata_));
+        link_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
+                                        make_pair(it->metadata_, it->linkattr_)));
     }
 
     for (bgp_schema_FilterInfo::iterator it = bgp_schema_filter_info.begin();
          it != bgp_schema_filter_info.end(); it++) {
-        link_name_map_.insert(make_pair(make_pair(it->left_, it->right_), it->metadata_));
+        link_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
+                                        make_pair(it->metadata_, it->linkattr_)));
     }
 }
 
@@ -145,7 +147,9 @@ bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
 
     string from_underscore = key.id_type;
     std::replace(from_underscore.begin(), from_underscore.end(), '-', '_');
-    string metaname = from_underscore + "_" + to_underscore;
+    string link_name = GetLinkName(from_underscore, to_underscore);
+    string metaname = link_name;
+    std::replace(metaname.begin(), metaname.end(), '-', '_');
 
     MetadataParseMap::const_iterator loc = metadata_map_.find(metaname);
     if (loc == metadata_map_.end()) {
@@ -165,7 +169,6 @@ bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
     cout << "neigh type " << to_underscore
          << " ----- neigh name is " << neigh_name << endl;
 
-    string link_name = GetLinkName(from_underscore, to_underscore);
     InsertRequestIntoQ(origin, to_underscore, neigh_name, link_name, pvalue,
                        key, add_change, req_list);
 
@@ -204,7 +207,7 @@ bool ConfigJsonParser::ParseLinks(const Document &document, bool add_change,
                 // Get the parent name from our name.
                 string parent_name = key.id_name.substr(0, pos);
                 cout << "parent name is " << parent_name;
-                string metaname = parent_type + "-" + key.id_type;
+                string metaname = GetLinkName(parent_type, key.id_type);
                 cout << " metaname is " << metaname << endl;
                 auto_ptr<AutogenProperty > pvalue;
                 InsertRequestIntoQ(origin, parent_type, parent_name, metaname,
@@ -325,10 +328,18 @@ void ConfigJsonParser::CompareOldAndNewDocuments(
 }
 
 string ConfigJsonParser::GetLinkName(const string &left,
-                                          const string &right) const {
+                                     const string &right) const {
     LinkNameMap::const_iterator it =
         link_name_map_.find(make_pair(left, right));
     assert(it != link_name_map_.end());
-    return it->second;
+    return it->second.first;
+}
+
+bool ConfigJsonParser::IsLinkWithAttr(const string &left,
+                                      const string &right) const {
+    LinkNameMap::const_iterator it =
+        link_name_map_.find(make_pair(left, right));
+    assert(it != link_name_map_.end());
+    return it->second.second;
 }
 

@@ -55,7 +55,7 @@ public:
                           ConfigJsonParser *in_parser, int num_workers);
     virtual ~ConfigCassandraClient();
     virtual void InitDatabase();
-    bool ReadUuidTableRow(const std::string &uuid);
+    bool ReadUuidTableRow(const std::string &obj_type, const std::string &uuid);
     std::string UUIDToFQName(const std::string &uuid_str) const;
 
     std::string GetWrapperFieldName(const std::string &type_name,
@@ -65,28 +65,32 @@ public:
     virtual void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
                                     std::string oper);
 
+    ConfigJsonParser *json_parser() const { return parser_; }
 private:
     class ConfigReader;
 
-    typedef std::set<std::string> UUIDReadSet;
-    typedef std::list<std::string> UUIDReadList;
     typedef std::map<std::string, std::string> WrapperFieldMap;
     // UUID to FQName mapping
     typedef std::map<std::string, std::string> FQNameCacheMap;
+    typedef std::pair<string, string> ObjTypeUUIDType;
+    typedef std::list<ObjTypeUUIDType> ObjTypeUUIDList;
+    typedef std::set<std::string> UUIDReadSet;
+    typedef std::list<ObjTypeUUIDType> UUIDReadList;
+
     void InitRetry();
     bool ParseUuidTableRowResponse(const std::string &uuid,
                 const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec);
     void AddUuidEntry(const string &uuid);
     bool BulkDataSync();
     bool ReadAllUuidTableRows();
-    bool ParseRowAndEnqueueToParser(const string &uuid_key,
-                                    const GenDb::ColList &col_list);
+    bool ParseRowAndEnqueueToParser(const string &obj_type,
+                        const string &uuid_key, const GenDb::ColList &col_list);
     bool ParseFQNameRowGetUUIDList(const GenDb::ColList &col_list,
-                                   std::list<std::string> &uuid_list);
+                                   ObjTypeUUIDList &uuid_list);
     const ConfigClientManager *mgr() const;
     int HashUUID(const string &uuid_str) const;
     bool ConfigReader(int worker_id);
-    void AddUUIDToRequestList(const string &uuid_str);
+    void AddUUIDToRequestList(const string &obj_type, const string &uuid_str);
     bool RequestHandler(ObjectProcessReq *req);
 
     ConfigClientManager *mgr_;
