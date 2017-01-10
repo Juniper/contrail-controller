@@ -123,13 +123,21 @@ void BgpPeer::PeerNotifyRoutes() {
     route_walker_->Start(ControllerRouteWalker::NOTIFYALL, true, NULL);
 }
 
+void BgpPeer::StopPeerNotifyRoutes() {
+    route_walker_->Cancel();
+}
+
 void BgpPeer::PeerNotifyMulticastRoutes(bool associate) {
     route_walker_->Start(ControllerRouteWalker::NOTIFYMULTICAST, associate, 
                          NULL);
 }
 
-void BgpPeer::StalePeerRoutes() {
-    route_walker_->Start(ControllerRouteWalker::STALE, true, NULL);
+void BgpPeer::DeleteStale() {
+    route_walker_->Start(ControllerRouteWalker::DELSTALE, false, NULL);
+}
+
+void BgpPeer::StopDeleteStale() {
+    route_walker_->Cancel();
 }
 
 /*

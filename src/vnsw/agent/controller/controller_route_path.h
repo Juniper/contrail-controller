@@ -41,9 +41,11 @@ public:
     ~ControllerPeerPath() { }
 
     virtual bool UpdateRoute(AgentRoute *route) {return false;}
+    void sequence_number() const {return sequence_number_;}
 
 private:
     const Peer *peer_;
+    uint64_t sequence_number_;
 };
 
 /*
@@ -166,7 +168,7 @@ private:
 };
 
 /*
- * In headless mode stale path is created when no CN server is present.
+ * stale path is created when no CN server is present.
  * Last peer going down marks its path as stale and keep route alive, till
  * anothe CN takes over.
  * There can be only one stale path as multiple does not make any sense.
@@ -174,15 +176,19 @@ private:
  */
 class StalePathData : public AgentRouteData {
 public:
-    StalePathData() : AgentRouteData(false) { }
+    StalePathData(uint64_t sequence_number) : AgentRouteData(false),
+    sequence_number_(sequence_number) { }
     virtual ~StalePathData() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
+    virtual bool DeletePath(Agent *agent, AgentPath *path,
+                            const AgentRoute *rt);
     virtual std::string ToString() const {
         return "Stale path marking(healdess mode)";
     }
 
 private:
+    uint64_t sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(StalePathData);
 };
 #endif //controller_route_path_hpp

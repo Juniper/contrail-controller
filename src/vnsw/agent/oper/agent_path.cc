@@ -35,11 +35,12 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     sync_(false), force_policy_(false), sg_list_(),
     tunnel_dest_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
-    vrf_name_(""), gw_ip_(), unresolved_(true), is_stale_(false),
+    vrf_name_(""), gw_ip_(), unresolved_(true),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
-    ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false) {
+    ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
+    peer_sequence_number_(0) {
 }
 
 AgentPath::~AgentPath() {
@@ -1230,7 +1231,6 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
             TunnelType(tunnel_type()).ToString());
     pdata.set_supported_tunnel_type(
             TunnelType::GetString(tunnel_bmap()));
-    pdata.set_stale(is_stale());
     PathPreferenceSandeshData path_preference_data;
     path_preference_data.set_sequence(path_preference_.sequence());
     path_preference_data.set_preference(path_preference_.preference());
@@ -1263,6 +1263,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
         string_vector_iter++;
     }
     pdata.set_ecmp_hashing_fields(ss.str());
+    pdata.set_peer_sequence_number(peer_sequence_number());
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {

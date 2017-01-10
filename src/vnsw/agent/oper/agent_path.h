@@ -243,8 +243,6 @@ public:
     bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route);
     virtual std::string ToString() const { return "AgentPath"; }
     void SetSandeshData(PathSandeshData &data) const;
-    bool is_stale() const {return is_stale_;}
-    void set_is_stale(bool is_stale) {is_stale_ = is_stale;}
     uint32_t preference() const { return path_preference_.preference();}
     uint32_t sequence() const { return path_preference_.sequence();}
     const PathPreference& path_preference() const { return path_preference_;}
@@ -306,6 +304,10 @@ public:
     void UpdateEcmpHashFields(const Agent *agent,
                               const EcmpLoadBalance &ecmp_load_balance,
                               DBRequest &nh_req);
+    uint64_t peer_sequence_number() const {return peer_sequence_number_;}
+    void set_peer_sequence_number(uint64_t sequence_number) {
+        peer_sequence_number_ = sequence_number;
+    }
 
 private:
     PeerConstPtr peer_;
@@ -347,8 +349,6 @@ private:
     //    - no route present for gw_ip_
     //    - ARP not resolved for gw_ip_
     bool unresolved_;
-    // Stale peer info; peer is dead
-    bool is_stale_;
     // subnet route with discard nexthop.
     bool is_subnet_discard_;
     // route for the gateway
@@ -383,6 +383,7 @@ private:
     // These Ecmp fields will hold the corresponding composite nh ecmp fields reference
     // if the path's ecmp load balance field is not set
     EcmpHashFields ecmp_hash_fields_;
+    uint64_t peer_sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 

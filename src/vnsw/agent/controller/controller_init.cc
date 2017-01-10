@@ -19,7 +19,7 @@
 #include "oper/multicast.h"
 #include "controller/controller_types.h"
 #include "controller/controller_init.h"
-#include "controller/controller_cleanup_timer.h"
+#include "controller/controller_timer.h"
 #include "controller/controller_peer.h"
 #include "controller/controller_ifmap.h"
 #include "controller/controller_dns.h"
@@ -65,14 +65,12 @@ ControllerReConfigData::ControllerReConfigData(std::string service_name,
 
 VNController::VNController(Agent *agent) 
     : agent_(agent), multicast_sequence_number_(0),
-    unicast_cleanup_timer_(agent), multicast_cleanup_timer_(agent), 
-    config_cleanup_timer_(agent),
+    config_cleanup_timer_(agent), end_of_config_timer_(agent),
     work_queue_(agent->task_scheduler()->GetTaskId("Agent::ControllerXmpp"), 0,
                 boost::bind(&VNController::ControllerWorkQueueProcess, this,
                             _1)),
     fabric_multicast_label_range_(), xmpp_channel_down_cb_() {
     work_queue_.set_name("Controller Queue");
-    decommissioned_peer_list_.clear();
 }
 
 VNController::~VNController() {
@@ -377,12 +375,6 @@ void VNController::Cleanup() {
 
     agent_->controller()->increment_multicast_sequence_number();
     agent_->set_cn_mcast_builder(NULL);
-    for (BgpPeerIterator it  = decommissioned_peer_list_.begin();
-         it != decommissioned_peer_list_.end(); ++it) {
-        BgpPeer *peer = static_cast<BgpPeer *>((*it).get());
-        DynamicPeer::ProcessDelete(peer);
-    }
-    decommissioned_peer_list_.clear();
     agent_ifmap_vm_export_.reset();
 }
 
@@ -429,6 +421,8 @@ void VNController::DisConnectControllerIfmapServer(uint8_t idx) {
     xc->Shutdown(); // ManagedDelete
     agent_->set_controller_ifmap_xmpp_client(NULL, idx);
 
+    //TODO start a walk and clean channel
+    
     //cleanup AgentXmppChannel
     DeleteAgentXmppChannel(idx);
     //Trigger removal from service inuse list for discovery
@@ -912,75 +906,6 @@ AgentXmppChannel *VNController::GetActiveXmppChannel() {
     return NULL;
 }
 
-void VNController::AddToDecommissionedPeerList(PeerPtr peer) {
-    (static_cast<BgpPeer *>(peer.get()))->StopRouteExports();
-    decommissioned_peer_list_.push_back(peer);
-}
-
-void VNController::ControllerPeerHeadlessAgentDelDoneEnqueue(BgpPeer *bgp_peer) {
-    ControllerDeletePeerDataType data(new ControllerDeletePeerData(bgp_peer));
-    ControllerWorkQueueDataType base_data =
-        boost::static_pointer_cast<ControllerWorkQueueData>(data);
-    work_queue_.Enqueue(base_data);
-}
-
-/*
- * Callback function executed on expiration of unicast stale timer.
- * Goes through decommisoned peer list and removes the peer.
- * This results in zero referencing(shared_ptr) of BgpPeer object and 
- * destruction of same.
- */
-bool VNController::ControllerPeerHeadlessAgentDelDone(BgpPeer *bgp_peer) {
-    // Retain the disconnect state for peer as bgp_peer will be freed
-    // below.
-    bool is_disconnect_walk = bgp_peer->is_disconnect_walk();
-    for (BgpPeerIterator it  = decommissioned_peer_list_.begin(); 
-         it != decommissioned_peer_list_.end(); ++it) {
-        BgpPeer *peer = static_cast<BgpPeer *>((*it).get());
-        if (peer == bgp_peer) {
-            //Release BGP peer, ideally this should be the last reference being
-            //released for peer.
-            decommissioned_peer_list_.remove(*it);
-            DynamicPeer::ProcessDelete(bgp_peer);
-            break;
-        }
-    }
-
-    // Delete walk for peer was issued via shutdown of agentxmppchannel
-    // If all bgp peers are gone(i.e. walk for delpeer for all decommissioned
-    // peer is over), go ahead with cleanup.
-    if (decommissioned_peer_list_.empty() && is_disconnect_walk) {
-        agent()->controller()->Cleanup();
-    }
-    return true;
-}
-
-/*
- * Callback for unicast timer expiration.
- * Iterates through all decommisioned peers and issues 
- * delete peer walk for each one with peer as self
- */
-void VNController::UnicastCleanupTimerExpired() {
-    for (BgpPeerIterator it  = decommissioned_peer_list_.begin();
-         it != decommissioned_peer_list_.end(); ++it) {
-        BgpPeer *bgp_peer = static_cast<BgpPeer *>((*it).get());
-        bgp_peer->DelPeerRoutes(
-            boost::bind(&VNController::ControllerPeerHeadlessAgentDelDoneEnqueue,
-                        this, bgp_peer));
-    }
-}
-
-void VNController::StartUnicastCleanupTimer(
-                               AgentXmppChannel *agent_xmpp_channel) {
-    // In non-headless mode trigger cleanup 
-    if (!(agent_->headless_agent_mode())) {
-        UnicastCleanupTimerExpired();
-        return;
-    }
-
-    unicast_cleanup_timer_.Start(agent_xmpp_channel);
-}
-
 // Multicast info is maintained using sequence number and not peer,
 // so on expiration of timer send the sequence number specified at start of
 // timer. 
@@ -988,38 +913,33 @@ void VNController::MulticastCleanupTimerExpired(uint64_t peer_sequence) {
     MulticastHandler::GetInstance()->FlushPeerInfo(peer_sequence);
 }
 
-void VNController::StartMulticastCleanupTimer(
-                                 AgentXmppChannel *agent_xmpp_channel) {
-    // In non-headless mode trigger cleanup 
-    if (!(agent_->headless_agent_mode())) {
-        MulticastCleanupTimerExpired(multicast_sequence_number_);
-        return;
-    }
-
-    // Pass the current peer sequence. In the timer expiration interval 
-    // if new peer sends new info sequence number wud have incremented in
-    // multicast.
-    multicast_cleanup_timer_.peer_sequence_ = agent_->controller()->
-        multicast_sequence_number();
-    multicast_cleanup_timer_.Start(agent_xmpp_channel);
-}
-
 void VNController::StartConfigCleanupTimer(
                               AgentXmppChannel *agent_xmpp_channel) {
-        config_cleanup_timer_.Start(agent_xmpp_channel);
+    //First start for end of config identification.
+    end_of_config_timer_.Start(agent_xmpp_channel);
 }
 
-// Helper to iterate thru all decommisioned peer and delete the vrf state for
-// specified vrf entry. Called on per VRF basis.
-void VNController::DeleteVrfStateOfDecommisionedPeers(
-                                                DBTablePartBase *partition,
-                                                DBEntryBase *e) {
-    for (BgpPeerIterator it  = decommissioned_peer_list_.begin(); 
-         it != decommissioned_peer_list_.end(); 
-         ++it) {
-        BgpPeer *bgp_peer = static_cast<BgpPeer *>((*it).get());
-        bgp_peer->DeleteVrfState(partition, e);
+void VNController::StartEndOfRibTimer() {
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        agent_->controller_xmpp_channel(count)->end_of_rib_timer()->
+            Start(agent_->controller_xmpp_channel(count));
+        count++;
     }
+}
+
+void VNController::StartEndOfRibWalker(uint8_t index) {
+    if (agent_->controller_xmpp_channel(index) &&
+        agent_->controller_xmpp_channel(index)->bgp_peer_id())
+        agent_->controller_xmpp_channel(index)->bgp_peer_id()->
+            PeerNotifyRoutes();
+}
+
+void VNController::StopEndOfRibWalker(uint8_t index) {
+    if (agent_->controller_xmpp_channel(index) &&
+        agent_->controller_xmpp_channel(index)->bgp_peer_id())
+        agent_->controller_xmpp_channel(index)->bgp_peer_id()->
+            StopPeerNotifyRoutes();
 }
 
 bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) {
@@ -1034,7 +954,7 @@ bool VNController::ControllerWorkQueueProcess(ControllerWorkQueueDataType data) 
     ControllerDeletePeerDataType derived_walk_done_data =
         boost::dynamic_pointer_cast<ControllerDeletePeerData>(data);
     if (derived_walk_done_data) {
-        return ControllerPeerHeadlessAgentDelDone(derived_walk_done_data->
+        return ControllerPeerDelDone(derived_walk_done_data->
                                                   bgp_peer());
     }
     //Discovery response for servers

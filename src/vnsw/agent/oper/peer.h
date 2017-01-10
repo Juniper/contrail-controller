@@ -159,8 +159,10 @@ public:
     // Table Walkers
     void DelPeerRoutes(DelPeerDone walk_done_cb);
     void PeerNotifyRoutes();
+    void StopPeerNotifyRoutes();
     void PeerNotifyMulticastRoutes(bool associate);
-    void StalePeerRoutes();
+    void DeleteStale();
+    void StopDeleteStale();
 
     bool is_disconnect_walk() const {return is_disconnect_walk_;}
     void set_is_disconnect_walk(bool is_disconnect_walk) {

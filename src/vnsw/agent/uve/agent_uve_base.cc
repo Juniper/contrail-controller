@@ -184,17 +184,12 @@ void AgentUveBase::VrouterAgentProcessState
     if (!is_cup) {
         message += " connection down";
     }
-    bool reconnects = false;
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
         if (!agent_->controller_ifmap_xmpp_server(i).empty()) {
             if (agent_->stats()->xmpp_reconnects(i) >= 1) {
-                reconnects = true;
                 break;
-	    }
+            }
         }
-    }
-    if (agent_->headless_agent_mode() && reconnects && (num_control_nodes == down_control_nodes)) {
-        message += ", vrouter running in headless mode";
     }
 
     if (num_conns != expected_conns) {

@@ -670,7 +670,8 @@ void AgentRoute::DeletePathUsingKeyData(const AgentRouteKey *key,
                                         const AgentRouteData *data,
                                         bool force_delete) {
     AgentPath *peer_path = FindPathUsingKeyData(key, data);
-    DeletePathInternal(peer_path);
+    if (data->DeletePath(agent, peer_path, this))
+        DeletePathInternal(peer_path);
 }
 
 AgentPath *AgentRoute::FindPathUsingKeyData(const AgentRouteKey *key,

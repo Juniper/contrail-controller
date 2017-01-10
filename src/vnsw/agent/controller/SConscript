@@ -15,7 +15,6 @@ vnswctrl = env.Library('vnswctrl',
                        sandesh_objs +
                        [
                           'controller_init.cc',
-                          'controller_cleanup_timer.cc',
                           'controller_export.cc',
                           'controller_ifmap.cc',
                           'controller_peer.cc',
@@ -23,5 +22,6 @@ vnswctrl = env.Library('vnswctrl',
                           'controller_route_walker.cc',
                           'controller_vrf_export.cc',
                           'controller_dns.cc',
-                          'controller_sandesh.cc'
+                          'controller_sandesh.cc',
+                          'controller_timer.cc'
                        ])

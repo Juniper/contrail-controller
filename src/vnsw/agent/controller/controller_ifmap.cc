@@ -32,11 +32,18 @@ AgentIfMapXmppChannel::AgentIfMapXmppChannel(Agent *agent, XmppChannel *channel,
     channel_->RegisterReceive(xmps::CONFIG, 
                               boost::bind(&AgentIfMapXmppChannel::ReceiveInternal,
                                           this, _1));
+    end_of_config_params_.update_receive_time_ =
+        end_of_config_params_.config_enqueued_time_ = 0;
 }
 
 AgentIfMapXmppChannel::~AgentIfMapXmppChannel() {
     channel_->UnRegisterWriteReady(xmps::CONFIG);
     channel_->UnRegisterReceive(xmps::CONFIG);
+}
+
+void AgentIfMapXmppChannel::EndOfConfigParams::Reset() {
+    update_receive_time_ = 0;
+    config_enqueued_time_ = 0;
 }
 
 uint64_t AgentIfMapXmppChannel::NewSeqNumber() {
@@ -69,6 +76,7 @@ void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                                                                           xs_idx_,
                                                                           impl,
                                                                           true));
+        end_of_config_params_.update_receive_time_ = UTCTimestampUsec();
         agent_->controller()->Enqueue(data);
     }
 }
@@ -85,6 +93,7 @@ void AgentIfMapXmppChannel::ReceiveConfigMessage(std::auto_ptr<XmlBase> impl) {
     IFMapAgentParser *parser = agent_->ifmap_parser();
     assert(parser);
     parser->ConfigParse(node, seq_number_);
+    end_of_config_params_.config_enqueued_time_ = UTCTimestampUsec();
 }
 
 void AgentIfMapXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {

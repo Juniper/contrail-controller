@@ -26,6 +26,7 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
 		    data.set_state("Down");
 		}
 
+        data.set_unicast_sequence_number(ch->unicast_sequence_number());
                 data.set_peer_name(xc->ToString());
                 data.set_peer_address(xc->PeerAddress());
 		if (Agent::GetInstance()->mulitcast_builder() == ch) {

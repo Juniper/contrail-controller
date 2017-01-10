@@ -28,6 +28,10 @@ using namespace boost::asio;
 
 ControllerPeerPath::ControllerPeerPath(const Peer *peer) :
     AgentRouteData(false), peer_(peer) {
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    sequence_number_ = 0;
+    if (bgp_peer)
+        sequence_number_ = bgp_peer->unicast_sequence_number();
 }
 
 bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
@@ -43,6 +47,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
         comp_key->SetPolicy(new_comp_nh_policy);
     }
 
+    path->set_peer_sequence_number(sequence_number());
     if (path->ecmp_load_balance() != ecmp_load_balance_) {
         path->UpdateEcmpHashFields(agent, ecmp_load_balance_,
                                    nh_req_);
@@ -126,6 +131,7 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
 
+    path->set_peer_sequence_number(sequence_number());
     if (path->tunnel_bmap() != tunnel_bmap_) {
         path->set_tunnel_bmap(tunnel_bmap_);
         ret = true;
@@ -236,6 +242,7 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
     }
 
     //Do a route lookup in native VRF
+    path->set_peer_sequence_number(sequence_number());
     assert(mpls->nexthop()->GetType() == NextHop::VRF);
     const VrfNH *vrf_nh = static_cast<const VrfNH *>(mpls->nexthop());
     const InetUnicastRouteEntry *uc_rt =
@@ -296,8 +303,12 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
 
 bool StalePathData::AddChangePath(Agent *agent, AgentPath *path,
                                   const AgentRoute *route) {
+    if (path->peer_sequence_number() > sequence_number())
+        return false;
+
     if (path->is_stale() || route->IsDeleted())
         return false;
+
     AgentPath *old_stale_path = route->FindStalePath();
     path->set_is_stale(true);
     //Delete old stale path
@@ -310,4 +321,11 @@ bool StalePathData::AddChangePath(Agent *agent, AgentPath *path,
     AgentRouteTable *table = static_cast<AgentRouteTable *>(route->get_table());
     table->Process(req);
     return true;
+}
+
+bool StalePathData::Deletepath(Agent *agent, AgentPath *path,
+                               const AgentRoute *route) {
+    if (path->peer_sequence_number() > sequence_number_)
+       return false;
+   return true; 
 }

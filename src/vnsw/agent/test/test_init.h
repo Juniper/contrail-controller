@@ -91,7 +91,6 @@ using namespace std;
         ("help", "Print help message")          \
         ("config", opt::value<string>(), "Specify Init config file")  \
         ("kernel", "Run with vrouter")          \
-        ("headless", "Run headless vrouter");   \
     opt::store(opt::parse_command_line(argc, argv, desc), vm); \
     opt::notify(vm);                            \
     if (vm.count("help")) {                     \
@@ -106,8 +105,6 @@ using namespace std;
     } else {                                    \
         strcpy(init_file, DEFAULT_VNSW_CONFIG_FILE); \
     }                                           \
-
-#define HEADLESS_MODE vm.count("headless")
 
 struct PortInfo {
     char name[32];

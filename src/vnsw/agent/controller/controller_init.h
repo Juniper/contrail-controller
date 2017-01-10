@@ -9,7 +9,7 @@
 #include <discovery/client/discovery_client.h>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
-#include <controller/controller_cleanup_timer.h>
+#include <controller/controller_timer.h>
 #include "xmpp/xmpp_channel.h"
 #include <oper/peer.h>
 
@@ -149,35 +149,19 @@ public:
     //Peer maintenace routines 
     uint8_t ActiveXmppConnectionCount();
     AgentXmppChannel *GetActiveXmppChannel();
-    uint32_t DecommissionedPeerListSize() const {
-        return decommissioned_peer_list_.size();
-    }
-    void AddToDecommissionedPeerList(PeerPtr peer);
-    const BgpPeerList &decommissioned_peer_list() const {
-        return decommissioned_peer_list_;
-    }
-
-    //Unicast timer related routines
-    void StartUnicastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
-    void UnicastCleanupTimerExpired();
-    CleanupTimer &unicast_cleanup_timer() {return unicast_cleanup_timer_;}
-    void ControllerPeerHeadlessAgentDelDoneEnqueue(BgpPeer *peer);
-    bool ControllerPeerHeadlessAgentDelDone(BgpPeer *peer);
-
-    //Multicast timer
-    void StartMulticastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
-    void MulticastCleanupTimerExpired(uint64_t peer_sequence);
-    CleanupTimer &multicast_cleanup_timer() {return multicast_cleanup_timer_;}
 
     AgentIfMapVmExport *agent_ifmap_vm_export() const {
         return agent_ifmap_vm_export_.get();
     }
-    void StartConfigCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
-    CleanupTimer &config_cleanup_timer() {return config_cleanup_timer_;}
 
-    // Clear of decommissioned peer listener id for vrf specified
-    void DeleteVrfStateOfDecommisionedPeers(DBTablePartBase *partition, 
-                                            DBEntryBase *e);
+    //EOC and EOR processors
+    void StartConfigCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
+    void StartEndOfRibTimer();
+    void StartEndOfRibWalker(uint8_t index);
+    void StopEndOfRibWalker(uint8_t index);
+    ControllerTimer &config_cleanup_timer() {return config_cleanup_timer_;}
+    ControllerTimer &end_of_config_timer() {return end_of_config_timer_;}
+
     bool ControllerWorkQueueProcess(ControllerWorkQueueDataType data);
     bool XmppMessageProcess(ControllerXmppDataType data);
     Agent *agent() {return agent_;}
@@ -221,11 +205,9 @@ private:
 
     Agent *agent_;
     uint64_t multicast_sequence_number_;
-    std::list<PeerPtr> decommissioned_peer_list_;
     boost::scoped_ptr<AgentIfMapVmExport> agent_ifmap_vm_export_;
-    UnicastCleanupTimer unicast_cleanup_timer_;
-    MulticastCleanupTimer multicast_cleanup_timer_;
     ConfigCleanupTimer config_cleanup_timer_;
+    EndOfConfigTimer end_of_config_timer_;
     WorkQueue<ControllerWorkQueueDataType> work_queue_;
     FabricMulticastLabelRange fabric_multicast_label_range_[MAX_XMPP_SERVERS];
     XmppChannelDownCb xmpp_channel_down_cb_;

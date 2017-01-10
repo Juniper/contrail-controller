@@ -60,6 +60,8 @@ struct AgentXmppData {
     13: ControllerProtoStats tx_proto_stats;
     /** Xmpp authentication type */
     14: string xmpp_auth_type;
+    /** Unicast sequence number */
+    15: u64 unicast_sequence_number;
 }
 
 /**

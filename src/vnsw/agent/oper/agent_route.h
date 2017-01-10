@@ -68,6 +68,8 @@ struct AgentRouteData : public AgentData {
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt) = 0;
+    virtual bool DeletePath(Agent *agent, AgentPath *path,
+                            const AgentRoute *rt) { };
     virtual bool UpdateRoute(AgentRoute *rt) {return false;}
 
     bool is_multicast() const {return is_multicast_;}
