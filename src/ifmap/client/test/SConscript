@@ -44,7 +44,7 @@ env.Prepend(LIBS = [
                     'SimpleAmqpClient', 'rabbitmq',
                     'ifmapio', 'libbgp_schema',
                     'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
-                    'cassandra', 'gendb'
+                    'cassandra', 'gendb', 'ds', 'httpc'
                    ])
 
 if sys.platform != 'darwin':
