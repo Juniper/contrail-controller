@@ -1,10 +1,16 @@
 /*
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
+#include <unistd.h>
+#include <stdlib.h>
 #include <sys/eventfd.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <algorithm>
 #include <vector>
 #include <set>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include <tbb/atomic.h>
 #include <tbb/concurrent_queue.h>
@@ -13,6 +19,46 @@
 #include "ksync_sock.h"
 
 static bool ksync_tx_queue_task_done_ = false;
+
+// Set CPU affinity for KSync Tx Thread based on cpu_pin_policy.
+// By default CPU affinity is not set. cpu_pin_policy can change it,
+//    "last"  : Last CPU-ID
+//    "<num>" : Specifies CPU-ID to pin
+static void set_thread_affinity(std::string cpu_pin_policy) {
+    int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+    char *p = NULL;
+    int cpu_id = strtoul(cpu_pin_policy.c_str(), &p, 0);
+    if (*p || cpu_pin_policy.empty()) {
+        // cpu_pin_policy is non-integer
+        // Assume pinning disabled by default
+        cpu_id = -1;
+        // If policy is "last", pick last CPU-ID
+        boost::algorithm::to_lower(cpu_pin_policy);
+        if (cpu_pin_policy == "last") {
+            cpu_id = num_cores - 1;
+        }
+    } else {
+        // cpu_pin_policy is integer
+        // Disable pinning if configured value out of range
+        if (cpu_id >= num_cores)
+            cpu_id = -1;
+    }
+
+    if (cpu_id >= 0) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(cpu_id, &cpuset);
+        LOG(ERROR, "KsyncTxQueue CPU pinning policy <" << cpu_pin_policy
+            << ">. KsyncTxQueue pinned to CPU " << cpu_id);
+        sched_setaffinity(0, sizeof(cpuset), &cpuset);
+    } else {
+        LOG(ERROR, "KsyncTxQueue CPU pinning policy <" << cpu_pin_policy
+            << ">. KsyncTxQueuen not pinned to CPU");
+    }
+
+    return;
+}
+
 class KSyncTxQueueTask : public Task {
 public:
     KSyncTxQueueTask(TaskScheduler *scheduler, KSyncTxQueue *queue) :
@@ -35,6 +81,7 @@ private:
 KSyncTxQueue::KSyncTxQueue(KSyncSock *sock) :
     work_queue_(NULL),
     event_fd_(-1),
+    cpu_pin_policy_(),
     sock_(sock),
     enqueues_(0),
     dequeues_(0),
@@ -50,7 +97,9 @@ KSyncTxQueue::KSyncTxQueue(KSyncSock *sock) :
 KSyncTxQueue::~KSyncTxQueue() {
 }
 
-void KSyncTxQueue::Init(bool use_work_queue) {
+void KSyncTxQueue::Init(bool use_work_queue,
+                        const std::string &cpu_pin_policy) {
+    cpu_pin_policy_ = cpu_pin_policy;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     if (use_work_queue) {
         assert(work_queue_ == NULL);
@@ -117,12 +166,11 @@ bool KSyncTxQueue::EnqueueInternal(IoContext *io_context) {
 }
 
 bool KSyncTxQueue::Run() {
+    set_thread_affinity(cpu_pin_policy_);
     while (1) {
-        uint64_t u = 0;
-        ssize_t num = 0;
-
         while (1) {
-            num = read(event_fd_, &u, sizeof(u));
+            uint64_t u = 0;
+            ssize_t num = read(event_fd_, &u, sizeof(u));
             if (num >= (int)sizeof(u)) {
                 break;
             }

@@ -181,16 +181,18 @@ TEST_F(AgentParamTest, Agent_Tbb_Option_1) {
     EXPECT_EQ(param.tbb_exec_delay(), 10);
     EXPECT_EQ(param.tbb_schedule_delay(), 25);
     EXPECT_EQ(param.tbb_keepawake_timeout(), 50);
+    EXPECT_STREQ(param.ksync_thread_cpu_pin_policy().c_str(), "last");
 }
 
 TEST_F(AgentParamTest, Agent_Tbb_Option_Arguments) {
-    int argc = 9;
+    int argc = 11;
     char *argv[] = {
         (char *) "",
         (char *) "--TASK.thread_count",                 (char *)"4",
         (char *) "--TASK.log_exec_threshold",           (char *)"100",
         (char *) "--TASK.log_schedule_threshold",      (char *)"200",
         (char *) "--TASK.tbb_keepawake_timeout",      (char *)"300",
+        (char *) "--TASK.ksync_thread_cpu_pin_policy", (char *)"2",
     };
 
     AgentParam param;
@@ -201,6 +203,7 @@ TEST_F(AgentParamTest, Agent_Tbb_Option_Arguments) {
     EXPECT_EQ(param.tbb_exec_delay(), 100);
     EXPECT_EQ(param.tbb_schedule_delay(), 200);
     EXPECT_EQ(param.tbb_keepawake_timeout(), 300);
+    EXPECT_STREQ(param.ksync_thread_cpu_pin_policy().c_str(), "2");
 }
 
 // Check that linklocal flows are updated when the system limits are lowered

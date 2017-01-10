@@ -30,6 +30,7 @@
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
+#include <init/agent_param.h>
 
 #include "ksync_init.h"
 #include "vrouter/ksync/interface_ksync.h"
@@ -129,7 +130,8 @@ void KSync::NetlinkInit() {
     event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    KSyncSockNetlink::Init(io, NETLINK_GENERIC);
+    KSyncSockNetlink::Init(io, NETLINK_GENERIC,
+                           agent_->params()->ksync_thread_cpu_pin_policy());
     for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
         KSyncSock::SetAgentSandeshContext
             (new KSyncSandeshContext(ksync_flow_memory_.get()), i);
@@ -382,7 +384,8 @@ void KSyncTcp::TcpInit() {
     boost::asio::ip::address ip;
     ip = agent_->vrouter_server_ip();
     uint32_t port = agent_->vrouter_server_port();
-    KSyncSockTcp::Init(event_mgr, ip, port);
+    KSyncSockTcp::Init(event_mgr, ip, port,
+                       agent_->params()->ksync_thread_cpu_pin_policy());
     KSyncSock::SetNetlinkFamilyId(24);
 
     for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {

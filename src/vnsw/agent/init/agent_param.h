@@ -295,6 +295,9 @@ public:
         flow_latency_limit_ = count;
     }
 
+    std::string ksync_thread_cpu_pin_policy() const {
+        return ksync_thread_cpu_pin_policy_;
+    }
     uint32_t tbb_thread_count() const { return tbb_thread_count_; }
     uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
@@ -511,6 +514,7 @@ private:
     uint32_t flow_ksync_tokens_;
     uint32_t flow_del_tokens_;
     uint32_t flow_update_tokens_;
+    int flow_netlink_pin_cpuid_;
     uint32_t stale_interface_cleanup_timeout_;
 
     // Parameters configured from command line arguments only (for now)
@@ -589,6 +593,7 @@ private:
     // Config restore audit timeout in msec
     uint64_t restart_restore_audit_timeout_;
 
+    std::string ksync_thread_cpu_pin_policy_;
     // TBB related
     uint32_t tbb_thread_count_;
     uint32_t tbb_exec_delay_;

@@ -246,8 +246,8 @@ void KSyncSock::Shutdown() {
     sock_.release();
 }
 
-void KSyncSock::Init(bool use_work_queue) {
-    sock_->send_queue_.Init(use_work_queue);
+void KSyncSock::Init(bool use_work_queue, const std::string &cpu_pin_policy) {
+    sock_->send_queue_.Init(use_work_queue, cpu_pin_policy);
     pid_ = getpid();
     shutdown_ = false;
 }
@@ -635,9 +635,10 @@ KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol)
 KSyncSockNetlink::~KSyncSockNetlink() {
 }
 
-void KSyncSockNetlink::Init(io_service &ios, int protocol) {
+void KSyncSockNetlink::Init(io_service &ios, int protocol,
+                            const std::string &cpu_pin_policy) {
     KSyncSock::SetSockTableEntry(new KSyncSockNetlink(ios, protocol));
-    KSyncSock::Init(false);
+    KSyncSock::Init(false, cpu_pin_policy);
 }
 
 uint32_t KSyncSockNetlink::GetSeqno(char *data) {
@@ -734,9 +735,10 @@ KSyncSockUdp::KSyncSockUdp(boost::asio::io_service &ios, int port) :
     server_ep_(boost::asio::ip::address::from_string("127.0.0.1"), port) {
 }
 
-void KSyncSockUdp::Init(io_service &ios, int port) {
+void KSyncSockUdp::Init(io_service &ios, int port,
+                        const std::string &cpu_pin_policy) {
     KSyncSock::SetSockTableEntry(new KSyncSockUdp(ios, port));
-    KSyncSock::Init(false);
+    KSyncSock::Init(false, cpu_pin_policy);
 }
 
 uint32_t KSyncSockUdp::GetSeqno(char *data) {
@@ -813,10 +815,10 @@ KSyncSockTcp::KSyncSockTcp(EventManager *evm,
 }
 
 void KSyncSockTcp::Init(EventManager *evm, boost::asio::ip::address ip_addr,
-                        int port) {
+                        int port, const std::string &cpu_pin_policy) {
     KSyncSock::SetSockTableEntry(new KSyncSockTcp(evm, ip_addr, port));
     SetNetlinkFamilyId(10);
-    KSyncSock::Init(false);
+    KSyncSock::Init(false, cpu_pin_policy);
 }
 
 TcpSession* KSyncSockTcp::AllocSession(Socket *socket) {
