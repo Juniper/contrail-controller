@@ -24,7 +24,8 @@ env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
                   'xmpp', 'ds', 'sandeshvns', 'peer_sandesh',
                   'httpc', 'curl', 'process_info',
-                  'db', 'io', 'base', 'xml', 'pugixml', 'libxml2',
+                  'db', 'io', 'base', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
+                  'cassandra', 'gendb', 'xml', 'pugixml', 'libxml2',
                   'boost_regex', 'boost_chrono', 'boost_program_options',
                   'crypto', 'ssl',
                   'boost_filesystem', 'bgp_schema'])
