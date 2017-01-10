@@ -28,15 +28,20 @@ uint64_t AgentIfMapXmppChannel::seq_number_;
 
 AgentIfMapXmppChannel::AgentIfMapXmppChannel(Agent *agent, XmppChannel *channel,
                                              uint8_t cnt) : channel_(channel), 
-                                             xs_idx_(cnt), agent_(agent) {
+                                             xs_idx_(cnt),
+                                             agent_(agent) {
     channel_->RegisterReceive(xmps::CONFIG, 
                               boost::bind(&AgentIfMapXmppChannel::ReceiveInternal,
                                           this, _1));
+    config_cleanup_timer_.reset(new ConfigCleanupTimer(agent));
+    end_of_config_timer_.reset(new EndOfConfigTimer(agent, this));
 }
 
 AgentIfMapXmppChannel::~AgentIfMapXmppChannel() {
     channel_->UnRegisterWriteReady(xmps::CONFIG);
     channel_->UnRegisterReceive(xmps::CONFIG);
+    config_cleanup_timer_.reset();
+    end_of_config_timer_.reset();
 }
 
 uint64_t AgentIfMapXmppChannel::NewSeqNumber() {
@@ -51,6 +56,13 @@ uint64_t AgentIfMapXmppChannel::NewSeqNumber() {
     return  seq_number_;
 }
 
+ConfigCleanupTimer *AgentIfMapXmppChannel::config_cleanup_timer() {
+    return config_cleanup_timer_.get();
+}
+
+EndOfConfigTimer *AgentIfMapXmppChannel::end_of_config_timer() {
+    return end_of_config_timer_.get();
+}
 
 bool AgentIfMapXmppChannel::SendUpdate(const std::string &msg) {
     if (!channel_) return false;
@@ -70,6 +82,7 @@ void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                                                                           impl,
                                                                           true));
         agent_->controller()->Enqueue(data);
+        end_of_config_timer()->last_config_receive_time_ = UTCTimestampUsec();
     }
 }
 
@@ -98,6 +111,41 @@ std::string AgentIfMapXmppChannel::ToString() const {
 }
 
 void AgentIfMapXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
+}
+
+void AgentIfMapXmppChannel::StartEndOfConfigTimer() {
+    //First start for end of config identification.
+    end_of_config_timer()->Start(agent_->controller_xmpp_channel(xs_idx_));
+}
+
+void AgentIfMapXmppChannel::StopEndOfConfigTimer() {
+    //First start for end of config identification.
+    end_of_config_timer()->Cancel();
+}
+
+void AgentIfMapXmppChannel::StartConfigCleanupTimer() {
+    config_cleanup_timer()->Start(agent_->controller_xmpp_channel(xs_idx_));
+}
+
+void AgentIfMapXmppChannel::StopConfigCleanupTimer() {
+    config_cleanup_timer()->Cancel();
+}
+
+void AgentIfMapXmppChannel::EnqueueEndOfConfig() {
+    EndOfConfigDataPtr data(new EndOfConfigData(this));
+    VNController::ControllerWorkQueueDataType base_data =
+        boost::static_pointer_cast<ControllerWorkQueueData>(data);
+    agent_->controller()->Enqueue(base_data);
+}
+
+void AgentIfMapXmppChannel::ProcessEndOfConfig() {
+    config_cleanup_timer()->Start(agent_->controller_xmpp_channel(xs_idx_));
+    agent_->controller()->StartEndOfRibTxTimer();
+    end_of_config_timer()->end_of_config_processed_time_ = UTCTimestampUsec();
+}
+
+EndOfConfigData::EndOfConfigData(AgentIfMapXmppChannel *ch) :
+    ControllerWorkQueueData(), channel_(ch) {
 }
 
 // Get active xmpp-peer

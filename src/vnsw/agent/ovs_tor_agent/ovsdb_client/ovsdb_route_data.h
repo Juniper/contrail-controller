@@ -20,8 +20,8 @@ public:
     virtual ~OvsdbRouteData();
 
     virtual std::string ToString() const;
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *data);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *data);
 
 private:
     const Peer *peer_;
@@ -42,8 +42,8 @@ public:
     virtual ~OvsdbRouteResyncData();
 
     virtual std::string ToString() const;
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *data);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *data);
 
 private:
     SecurityGroupList sg_list_;

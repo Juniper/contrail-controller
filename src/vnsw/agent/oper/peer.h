@@ -82,6 +82,8 @@ public:
     virtual bool IsDeleted() const { return false; }
 
     uint32_t refcount() const { return refcount_; }
+    uint64_t sequence_number() const {return sequence_number_;}
+    void incr_sequence_number() {sequence_number_++;}
 
 private:
     friend void intrusive_ptr_add_ref(const Peer *p);
@@ -93,6 +95,9 @@ private:
     std::string name_;
     bool export_to_controller_;
     mutable tbb::atomic<uint32_t> refcount_;
+    // Sequence number can be used for tracking event based changes like
+    // add/update on peer flaps(as example).
+    uint64_t sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(Peer);
 };
 
@@ -141,10 +146,10 @@ private:
 // Peer used for BGP paths
 class BgpPeer : public DynamicPeer {
 public:
-    typedef boost::function<void()> DelPeerDone;
-    BgpPeer(const Ip4Address &server_ip, const std::string &name,
-            Agent *agent, DBTableBase::ListenerId id,
-            Peer::Type bgp_peer_type);
+    typedef boost::function<void()> WalkDoneCb;
+    BgpPeer(AgentXmppChannel *channel,
+            const Ip4Address &server_ip, const std::string &name,
+            DBTableBase::ListenerId id, Peer::Type bgp_peer_type);
     virtual ~BgpPeer();
 
     bool Compare(const Peer *rhs) const {
@@ -157,17 +162,19 @@ public:
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
 
     // Table Walkers
-    void DelPeerRoutes(DelPeerDone walk_done_cb);
-    void PeerNotifyRoutes();
+    void DelPeerRoutes(WalkDoneCb walk_done_cb,
+                       uint64_t sequence_number);
+    void PeerNotifyRoutes(WalkDoneCb cb);
+    void StopPeerNotifyRoutes();
     void PeerNotifyMulticastRoutes(bool associate);
-    void StalePeerRoutes();
+    void DeleteStale();
+    void StopDeleteStale();
 
-    bool is_disconnect_walk() const {return is_disconnect_walk_;}
-    void set_is_disconnect_walk(bool is_disconnect_walk) {
-        is_disconnect_walk_ = is_disconnect_walk;
-    }
     ControllerRouteWalker *route_walker() const {
         return route_walker_.get(); 
+    }
+    ControllerRouteWalker *delete_stale_walker() const {
+        return delete_stale_walker_.get();
     }
 
     //Helper routines to get export state for vrf and route
@@ -180,13 +187,19 @@ public:
     uint32_t setup_time() const {return setup_time_;}
     Agent *agent() const;
     AgentXmppChannel *GetAgentXmppChannel() const;
+    uint64_t ChannelSequenceNumber() const;
+    void set_route_walker_cb(WalkDoneCb cb);
+    void set_delete_stale_walker_cb(WalkDoneCb cb);
 
-private: 
+private:
+    AgentXmppChannel *channel_;
     Ip4Address server_ip_;
     DBTableBase::ListenerId id_;
     uint32_t setup_time_;
-    tbb::atomic<bool> is_disconnect_walk_;
     boost::scoped_ptr<ControllerRouteWalker> route_walker_;
+    boost::scoped_ptr<ControllerRouteWalker> delete_stale_walker_;
+    WalkDoneCb route_walker_cb_;
+    WalkDoneCb delete_stale_walker_cb_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
 

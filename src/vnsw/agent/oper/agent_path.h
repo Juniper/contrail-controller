@@ -150,12 +150,12 @@ private:
 //Route data to change preference and sequence number of path
 struct PathPreferenceData : public AgentRouteData {
     PathPreferenceData(const PathPreference &path_preference):
-        AgentRouteData(ROUTE_PREFERENCE_CHANGE, false),
+        AgentRouteData(ROUTE_PREFERENCE_CHANGE, false, 0),
         path_preference_(path_preference) { }
     virtual std::string ToString() const {
         return "";
     }
-    virtual bool AddChangePath(Agent*, AgentPath*, const AgentRoute*);
+    virtual bool AddChangePathExtended(Agent*, AgentPath*, const AgentRoute*);
     PathPreference path_preference_;
 };
 
@@ -243,8 +243,6 @@ public:
     bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route);
     virtual std::string ToString() const { return "AgentPath"; }
     void SetSandeshData(PathSandeshData &data) const;
-    bool is_stale() const {return is_stale_;}
-    void set_is_stale(bool is_stale) {is_stale_ = is_stale;}
     uint32_t preference() const { return path_preference_.preference();}
     uint32_t sequence() const { return path_preference_.sequence();}
     const PathPreference& path_preference() const { return path_preference_;}
@@ -306,6 +304,10 @@ public:
     void UpdateEcmpHashFields(const Agent *agent,
                               const EcmpLoadBalance &ecmp_load_balance,
                               DBRequest &nh_req);
+    uint64_t peer_sequence_number() const {return peer_sequence_number_;}
+    void set_peer_sequence_number(uint64_t sequence_number) {
+        peer_sequence_number_ = sequence_number;
+    }
 
 private:
     PeerConstPtr peer_;
@@ -347,8 +349,6 @@ private:
     //    - no route present for gw_ip_
     //    - ARP not resolved for gw_ip_
     bool unresolved_;
-    // Stale peer info; peer is dead
-    bool is_stale_;
     // subnet route with discard nexthop.
     bool is_subnet_discard_;
     // route for the gateway
@@ -383,6 +383,7 @@ private:
     // These Ecmp fields will hold the corresponding composite nh ecmp fields reference
     // if the path's ecmp load balance field is not set
     EcmpHashFields ecmp_hash_fields_;
+    uint64_t peer_sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -436,8 +437,8 @@ class EvpnDerivedPathData : public AgentRouteData {
 public:
     EvpnDerivedPathData(const EvpnRouteEntry *evpn_rt);
     virtual ~EvpnDerivedPathData() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "EvpnDerivedPathData";}
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
 
@@ -466,11 +467,12 @@ class ResolveRoute : public AgentRouteData {
 public:
     ResolveRoute(const InterfaceKey *key, bool policy, const uint32_t label,
                  const std::string &vn_name, const SecurityGroupList &sg_list) :
-        AgentRouteData(false), intf_key_(key->Clone()), policy_(policy),
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+        intf_key_(key->Clone()), policy_(policy),
         label_(label), dest_vn_name_(vn_name), path_sg_list_(sg_list) {}
     virtual ~ResolveRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "Resolve";}
 private:
     boost::scoped_ptr<const InterfaceKey> intf_key_;
@@ -490,8 +492,9 @@ public:
                  const PathPreference &path_preference,
                  const IpAddress &subnet_service_ip,
                  const EcmpLoadBalance &ecmp_load_balance, bool is_local,
-                 bool is_health_check_service) :
-        AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
+                 bool is_health_check_service, uint64_t sequence_number) :
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
+        intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_list_(vn_list), proxy_arp_(false), sync_route_(false),
         flags_(flags), sg_list_(sg_list), communities_(communities),
@@ -504,8 +507,8 @@ public:
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
     virtual std::string ToString() const {return "local VM";}
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     const CommunityList &communities() const {return communities_;}
     const SecurityGroupList &sg_list() const {return sg_list_;}
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
@@ -540,13 +543,15 @@ private:
 class InetInterfaceRoute : public AgentRouteData {
 public:
     InetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
-                       int tunnel_bmap, const VnListType &dest_vn_list):
-        AgentRouteData(false), intf_(intf), label_(label),
-        tunnel_bmap_(tunnel_bmap), dest_vn_list_(dest_vn_list) {
+                       int tunnel_bmap, const VnListType &dest_vn_list,
+                       uint64_t sequence_number):
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
+        intf_(intf), label_(label), tunnel_bmap_(tunnel_bmap),
+        dest_vn_list_(dest_vn_list) {
     }
     virtual ~InetInterfaceRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "host";}
     virtual bool UpdateRoute(AgentRoute *rt);
 
@@ -561,7 +566,8 @@ private:
 class HostRoute : public AgentRouteData {
 public:
     HostRoute(const PacketInterfaceKey &intf, const std::string &dest_vn_name):
-        AgentRouteData(false), intf_(intf), dest_vn_name_(dest_vn_name),
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+        intf_(intf), dest_vn_name_(dest_vn_name),
         proxy_arp_(false), relaxed_policy_(false) {
     }
     virtual ~HostRoute() { }
@@ -569,8 +575,8 @@ public:
     void set_relaxed_policy(bool relaxed_policy) {
         relaxed_policy_ = relaxed_policy;
     }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "host";}
     virtual bool UpdateRoute(AgentRoute *rt);
 
@@ -585,13 +591,15 @@ private:
 class L2ReceiveRoute : public AgentRouteData {
 public:
     L2ReceiveRoute(const std::string &dest_vn_name, uint32_t vxlan_id,
-                   uint32_t mpls_label, const PathPreference &pref) :
-        AgentRouteData(false), dest_vn_name_(dest_vn_name),
-        vxlan_id_(vxlan_id), mpls_label_(mpls_label), path_preference_(pref) {
+                   uint32_t mpls_label, const PathPreference &pref,
+                   uint64_t sequence_number) :
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
+        dest_vn_name_(dest_vn_name), vxlan_id_(vxlan_id),
+        mpls_label_(mpls_label), path_preference_(pref) {
     }
     virtual ~L2ReceiveRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "l2-receive";}
     virtual bool UpdateRoute(AgentRoute *rt) {return false;}
 
@@ -607,14 +615,15 @@ class VlanNhRoute : public AgentRouteData {
 public:
     VlanNhRoute(const VmInterfaceKey &intf, uint16_t tag, uint32_t label,
                 const VnListType &dest_vn_list, const SecurityGroupList &sg_list,
-                const PathPreference &path_preference):
-        AgentRouteData(false), intf_(intf), tag_(tag), label_(label),
+                const PathPreference &path_preference, uint64_t sequence_number) :
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
+        intf_(intf), tag_(tag), label_(label),
         dest_vn_list_(dest_vn_list), sg_list_(sg_list),
         path_preference_(path_preference), tunnel_bmap_(TunnelType::MplsType()) {
     }
     virtual ~VlanNhRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "vlannh";}
 
 private:
@@ -632,14 +641,15 @@ class MulticastRoute : public AgentRouteData {
 public:
     MulticastRoute(const string &vn_name, uint32_t label, int vxlan_id,
                    uint32_t tunnel_type, DBRequest &nh_req,
-                   COMPOSITETYPE comp_nh_type):
-    AgentRouteData(true), vn_name_(vn_name), label_(label), vxlan_id_(vxlan_id), 
+                   COMPOSITETYPE comp_nh_type, uint64_t sequence_number):
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, true, sequence_number),
+    vn_name_(vn_name), label_(label), vxlan_id_(vxlan_id),
     tunnel_type_(tunnel_type), comp_nh_type_(comp_nh_type) {
         composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "multicast";}
     uint32_t vxlan_id() const {return vxlan_id_;}
     COMPOSITETYPE comp_nh_type() const {return comp_nh_type_;}
@@ -667,8 +677,8 @@ public:
     IpamSubnetRoute(DBRequest &nh_req, const std::string &dest_vn_name);
     virtual ~IpamSubnetRoute() {}
     virtual string ToString() const {return "subnet route";}
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual bool UpdateRoute(AgentRoute *rt);
 
 private:
@@ -681,14 +691,14 @@ class ReceiveRoute : public AgentRouteData {
 public:
     ReceiveRoute(const InetInterfaceKey &intf, uint32_t label,
                  uint32_t tunnel_bmap, bool policy, const std::string &vn) :
-        AgentRouteData(false), intf_(intf), label_(label),
-        tunnel_bmap_(tunnel_bmap), policy_(policy), proxy_arp_(false),
-        vn_(vn), sg_list_() {
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+        intf_(intf), label_(label), tunnel_bmap_(tunnel_bmap),
+        policy_(policy), proxy_arp_(false), vn_(vn), sg_list_() {
     }
     virtual ~ReceiveRoute() { }
     void set_proxy_arp() {proxy_arp_ = true;}
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "receive";}
     virtual bool UpdateRoute(AgentRoute *rt);
 
@@ -708,13 +718,14 @@ public:
     Inet4UnicastArpRoute(const std::string &vrf_name,
                          const Ip4Address &addr, bool policy,
                          const VnListType &vn_list, const SecurityGroupList &sg) :
-        AgentRouteData(false), vrf_name_(vrf_name), addr_(addr), 
-        policy_(policy), vn_list_(vn_list), sg_list_(sg) {
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+        vrf_name_(vrf_name), addr_(addr), policy_(policy),
+        vn_list_(vn_list), sg_list_(sg) {
     }
     virtual ~Inet4UnicastArpRoute() { }
 
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "arp";}
 private:
     std::string vrf_name_;
@@ -732,12 +743,13 @@ public:
                              const std::string &vn_name,
                              uint32_t label, const SecurityGroupList &sg,
                              const CommunityList &communities) :
-        AgentRouteData(false), gw_ip_(gw_ip), vrf_name_(vrf_name),
-        vn_name_(vn_name), mpls_label_(label), sg_list_(sg), communities_(communities) {
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+        gw_ip_(gw_ip), vrf_name_(vrf_name), vn_name_(vn_name),
+        mpls_label_(label), sg_list_(sg), communities_(communities) {
     }
     virtual ~Inet4UnicastGatewayRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "gateway";}
 
 private:
@@ -753,10 +765,11 @@ private:
 class DropRoute : public AgentRouteData {
 public:
     DropRoute(const string &vn_name) :
-        AgentRouteData(false), vn_(vn_name) { }
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+        vn_(vn_name) { }
     virtual ~DropRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "drop";}
 private:
     std::string vn_;
@@ -769,8 +782,8 @@ public:
                                const std::string &vn_name);
     virtual ~Inet4UnicastInterfaceRoute() { }
 
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "Interface";}
 
 private:
@@ -817,11 +830,12 @@ private:
 class MacVmBindingPathData : public AgentRouteData {
 public:
     MacVmBindingPathData(const VmInterface *vm_intf) :
-        AgentRouteData(false), vm_intf_(vm_intf) { }
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+        vm_intf_(vm_intf) { }
     virtual ~MacVmBindingPathData() { }
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "MacVmBindingPathData";}
 
 private:
@@ -857,12 +871,13 @@ private:
 
 class InetEvpnRouteData : public AgentRouteData {
 public:
-    InetEvpnRouteData() : AgentRouteData(false) {
+    InetEvpnRouteData() : AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false,
+                                         0) {
     }
     virtual ~InetEvpnRouteData() { }
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {return "Derived Inet route from Evpn";}
 
 private:

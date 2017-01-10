@@ -20,6 +20,10 @@ public:
         bool exported_;
         bool force_chg_;
         RouteExport *rt_export_[Agent::ROUTE_TABLE_MAX];
+        uint64_t last_sequence_number_;
+
+        // Conditions to decide if route in this VRF can be exported.
+        bool IsExportable(uint64_t sequence_number);
     };
 
     static void Notify(const Agent *agent, AgentXmppChannel *,

@@ -133,7 +133,8 @@ void EvpnAgentRouteTable::AddOvsPeerMulticastRouteInternal(const Peer *peer,
                                    vxlan_id));
     req.data.reset(new MulticastRoute(vn_name, 0, vxlan_id,
                                       TunnelType::VxlanType(),
-                                      nh_req, Composite::L2COMP));
+                                      nh_req, Composite::L2COMP,
+                                      peer->sequence_number()));
     if (enqueue) {
         EvpnTableEnqueue(agent(), &req);
     } else {
@@ -164,7 +165,8 @@ void EvpnAgentRouteTable::AddControllerReceiveRouteReq(const Peer *peer,
                                              const IpAddress &ip_addr,
                                              uint32_t ethernet_tag,
                                              const string &vn_name,
-                                             const PathPreference &path_pref) {
+                                             const PathPreference &path_pref,
+                                             uint64_t sequence_number) {
     const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
     assert(bgp_peer != NULL);
 
@@ -172,7 +174,8 @@ void EvpnAgentRouteTable::AddControllerReceiveRouteReq(const Peer *peer,
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                    ethernet_tag));
     req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag,
-                                      label, path_pref));
+                                                label, path_pref,
+                                                sequence_number));
     agent()->fabric_evpn_table()->Enqueue(&req);
 }
 
@@ -187,7 +190,8 @@ void EvpnAgentRouteTable::AddReceiveRouteReq(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                    ethernet_tag));
-    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref));
+    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref,
+                                      peer->sequence_number()));
     agent()->fabric_evpn_table()->Enqueue(&req);
 }
 
@@ -202,7 +206,8 @@ void EvpnAgentRouteTable::AddReceiveRoute(const Peer *peer,
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
                                    ethernet_tag));
-    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref));
+    req.data.reset(new L2ReceiveRoute(vn_name, ethernet_tag, label, pref,
+                                      peer->sequence_number()));
     Process(req);
 }
 
@@ -245,7 +250,8 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           sg_id_list, CommunityList(),
                                           path_pref,
                                           IpAddress(),
-                                          EcmpLoadBalance(), false, false);
+                                          EcmpLoadBalance(), false, false,
+                                          peer->sequence_number());
     data->set_tunnel_bmap(TunnelType::AllType());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -534,8 +540,6 @@ bool EvpnRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
-            if (stale && !path->is_stale())
-                continue;
             PathSandeshData pdata;
             path->SetSandeshData(pdata);
             data.path_list.push_back(pdata);

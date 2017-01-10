@@ -17,9 +17,25 @@
 class XmppChannel;
 class AgentXmppChannel;
 class ControllerVmiSubscribeData;
+class ControllerWorkQueueData;
+
+class EndOfConfigData : public ControllerWorkQueueData {
+public:
+    EndOfConfigData(AgentIfMapXmppChannel *ch);
+    virtual ~EndOfConfigData() { }
+
+    AgentIfMapXmppChannel *channel() {
+        return channel_;
+    }
+
+private:
+    AgentIfMapXmppChannel *channel_;
+    DISALLOW_COPY_AND_ASSIGN(EndOfConfigData);
+};
 
 class AgentIfMapXmppChannel {
 public:
+    typedef boost::shared_ptr<EndOfConfigData> EndOfConfigDataPtr;
     explicit AgentIfMapXmppChannel(Agent *agent, XmppChannel *channel,
                                    uint8_t count);
     virtual ~AgentIfMapXmppChannel();
@@ -36,6 +52,17 @@ public:
     static uint64_t GetSeqNumber() { return seq_number_; }
     static uint64_t NewSeqNumber(); 
 
+    //config cleanup timer related routines
+    ConfigCleanupTimer *config_cleanup_timer();
+    void StartEndOfConfigTimer();
+    void StopEndOfConfigTimer();
+    void EnqueueEndOfConfig();
+    void ProcessEndOfConfig();
+    //End of config timer routines
+    EndOfConfigTimer *end_of_config_timer();
+    void StartConfigCleanupTimer();
+    void StopConfigCleanupTimer();
+
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
@@ -45,6 +72,8 @@ private:
     std::string identifier_;
     uint8_t xs_idx_;
     static uint64_t seq_number_;
+    boost::scoped_ptr<ConfigCleanupTimer> config_cleanup_timer_;
+    boost::scoped_ptr<EndOfConfigTimer> end_of_config_timer_;
     Agent *agent_;
 };
 

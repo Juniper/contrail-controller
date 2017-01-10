@@ -758,7 +758,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                                    SecurityGroupList(),
                                    CommunityList(),
                                    PathPreference(),
-                                   EcmpLoadBalance(), false, false);
+                                   EcmpLoadBalance(), false, false, 0);
     DBRequest localvm_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     key = new InetUnicastRouteKey(old_bgp_peer, "vrf10", addr, 32);
     key->sub_op_ = AgentKey::RESYNC;
@@ -773,7 +773,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
     // Add vlannhroute with old peer. It should be ignored.
     VlanNhRoute *vlan_rt_data =
         new VlanNhRoute(intf_key, 10, 11, vn_list1, SecurityGroupList(),
-                                  PathPreference());
+                                  PathPreference(), 0);
     DBRequest vlanrt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     key = new InetUnicastRouteKey(old_bgp_peer, "vrf10",
                                    Ip4Address::from_string("2.2.2.0"), 24);
@@ -889,7 +889,7 @@ TEST_F(AgentXmppUnitTest, Add_db_inetinterface_req_by_deleted_peer_non_hv) {
                                    SecurityGroupList(),
                                    CommunityList(),
                                    PathPreference(),
-                                   EcmpLoadBalance(), false, false);
+                                   EcmpLoadBalance(), false, false, 0);
     agent->fabric_inet4_unicast_table()->AddLocalVmRouteReq(old_bgp_peer, "vrf1",
                                   addr, 32,
                                   static_cast<LocalVmRoute *>(local_vm_route));
@@ -898,7 +898,7 @@ TEST_F(AgentXmppUnitTest, Add_db_inetinterface_req_by_deleted_peer_non_hv) {
     // Add vlannhroute with old peer. It should be ignored.
     VlanNhRoute *vlan_rt_data =
         new VlanNhRoute(intf_key, 10, 11, vn_list1, SecurityGroupList(),
-                        PathPreference());
+                        PathPreference(), 0);
     agent->fabric_inet4_unicast_table()->AddVlanNHRouteReq(old_bgp_peer,
            "vrf1", Ip4Address::from_string("2.2.2.0"), 24, vlan_rt_data);
     EXPECT_TRUE(RouteGet("vrf1", Ip4Address::from_string("2.2.2.0"), 24) ==

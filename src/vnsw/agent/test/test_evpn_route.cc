@@ -123,11 +123,13 @@ protected:
         WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
     }
 
-    void AddRemoteVmRoute(MacAddress &remote_vm_mac, const IpAddress &ip_addr,
+    void AddRemoteVmRoute(const Peer *peer, MacAddress &remote_vm_mac,
+                          const IpAddress &ip_addr,
                           const Ip4Address &server_ip,
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any other peer than localvmpeer
-        BridgeTunnelRouteAdd(agent_->local_peer(), vrf_name_, bmap, server_ip,
+        const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+        BridgeTunnelRouteAdd(bgp_peer, vrf_name_, bmap, server_ip,
                              label, remote_vm_mac, ip_addr, 32);
         client->WaitForIdle();
     }

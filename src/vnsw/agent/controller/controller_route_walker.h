@@ -14,9 +14,9 @@
  * 1) NOTIFYALL - Walks all VRF and corresponding route table  to notify to peer
  * 2) NOTIFYMULTICAST - Only sends multicast entries from all tables to peer.
  * 3) DELPEER - Deletes path received from this peer from all.
- * 4) STALE - Marks the path/info from this peer as stale and does not delete
- * it. Valid only for headless agent mode. In the case of unicast it marks peer
- * path as stale and in multicast it doesnt delete  the info sent by this peer.
+ * 4) DELSTALE - Marks the path/info from this peer as stale and does not delete
+ * it. In the case of unicast it marks peer path as stale and in multicast
+ * it doesnt delete  the info sent by this peer.
  */
 class ControllerRouteWalker : public AgentRouteWalker {
 public:    
@@ -24,7 +24,7 @@ public:
         NOTIFYALL,
         NOTIFYMULTICAST,
         DELPEER,
-        STALE,
+        DELSTALE,
     };
     ControllerRouteWalker(Agent *agent, Peer *peer);
     virtual ~ControllerRouteWalker() { }
@@ -37,6 +37,10 @@ public:
     //Callback for identifying walk complete of all route tables for given vrf
     void RouteWalkDoneForVrf(VrfEntry *vrf);
     void set_type(Type type) {type_ = type;}
+    uint64_t sequence_number() const {return sequence_number_;}
+    void set_sequence_number(uint64_t sequence_number) {
+        sequence_number_ = sequence_number;
+    }
 
     //Override vrf notification
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
@@ -47,21 +51,21 @@ private:
     //VRF notification handlers
     bool VrfNotifyInternal(DBTablePartBase *partition, DBEntryBase *e);
     bool VrfNotifyMulticast(DBTablePartBase *partition, DBEntryBase *e);
-    bool VrfNotifyStale(DBTablePartBase *partition, DBEntryBase *e);
     bool VrfNotifyAll(DBTablePartBase *partition, DBEntryBase *e);
     bool VrfDelPeer(DBTablePartBase *partition, DBEntryBase *e);
-    bool VrfStaleMarker(DBTablePartBase *partition, DBEntryBase *e);
+    bool VrfDelStale(DBTablePartBase *partition, DBEntryBase *e);
 
     //Route notification handlers
     bool RouteNotifyInternal(DBTablePartBase *partition, DBEntryBase *e);
     bool RouteNotifyAll(DBTablePartBase *partition, DBEntryBase *e);
     bool RouteNotifyMulticast(DBTablePartBase *partition, DBEntryBase *e);
     bool RouteDelPeer(DBTablePartBase *partition, DBEntryBase *e);
-    bool RouteStaleMarker(DBTablePartBase *partition, DBEntryBase *e);
+    bool RouteDelStale(DBTablePartBase *partition, DBEntryBase *e);
 
     Peer *peer_;
     bool associate_;
     Type type_;
+    uint64_t sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(ControllerRouteWalker);
 };
 

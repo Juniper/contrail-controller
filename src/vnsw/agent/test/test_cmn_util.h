@@ -224,33 +224,37 @@ const NextHop* RouteToNextHop(const string &vrf_name, const Ip4Address &addr,
                               int plen);
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
-bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
+                        const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference);
-bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
+                        const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
-                       bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
+                       bool local_ecmp, const string &vn_name,
+                       const SecurityGroupList &sg,
                        const PathPreference &path_preference, EcmpLoadBalance& ecmp_load_balnce);
-bool EcmpTunnelRouteAdd(Agent *agent, const Peer *peer, const string &vrf_name,
+bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf_name,
                         const string &prefix, uint8_t plen,
                         const string &remote_server_1, uint32_t label1,
                         const string &remote_server_2, uint32_t label2,
                         const string &vn);
-bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
+bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const IpAddress &vm_addr, uint8_t plen);
-bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
+bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
+                         const Ip4Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
                          const PathPreference &path_preference);
-bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
+bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const char *vm_addr, uint8_t plen);
-bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, char *vm_addr,
+bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
@@ -429,7 +433,7 @@ void AddActiveActiveInstanceIp(const char *name, int id, const char* addr);
 void AddHealthCheckServiceInstanceIp(const char *name, int id,
                                      const char *addr);
 void DelInstanceIp(const char *name);
-extern Peer *bgp_peer_;
+extern BgpPeer *bgp_peer_;
 VxLanId* GetVxLan(const Agent *agent, uint32_t vxlan_id);
 bool FindVxLanId(const Agent *agent, uint32_t vxlan_id);
 bool FindMplsLabel(MplsLabel::Type type, uint32_t label);
@@ -478,15 +482,30 @@ void AddAapWithMacAndDisablePolicy(const std::string &intf_name, int intf_id,
 
 class XmppChannelMock : public XmppChannel {
 public:
-    XmppChannelMock() : fake_to_("fake"), fake_from_("fake-from") { }
+    XmppChannelMock() : fake_to_("fake"), fake_from_("fake-from") {
+        for (uint8_t idx = 0; idx < (uint8_t)xmps::OTHER; idx++) {
+            registered_[idx] = false;
+        }
+    }
     virtual ~XmppChannelMock() { }
     bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) {
         return true;
     }
     void Close() { }
     int GetTaskInstance() const { return 0; }
-    MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
-    MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));
+    void RegisterReceive(xmps::PeerId id, ReceiveCb cb) {
+        registered_[id] = true;
+    }
+    void UnRegisterReceive(xmps::PeerId id) {
+        bool delete_channel = true;
+        registered_[id] = false;
+        for (uint8_t idx = 0; idx < (uint8_t)xmps::OTHER; idx++) {
+            if (registered_[idx])
+                delete_channel = false;
+        }
+        if (delete_channel)
+            delete this;
+    }
     MOCK_METHOD1(UnRegisterWriteReady, void(xmps::PeerId));
     const std::string &ToString() const { return fake_to_; }
     const std::string &FromString() const  { return fake_from_; }
@@ -551,6 +570,7 @@ public:
 private:
     std::string fake_to_;
     std::string fake_from_;
+    bool registered_[xmps::OTHER];
 };
 
 BgpPeer *CreateBgpPeer(std::string addr, std::string name);
@@ -577,7 +597,8 @@ void DisableUnknownBroadcast(const std::string &vn_name, int vn_id);
 void AddInterfaceVrfAssignRule(const char *intf_name, int intf_id,
                                const char *sip, const char *dip, int proto,
                                const char *vrf, const char *ignore_acl);
-bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Address &vm_addr,
+bool Inet6TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
+                         const Ip6Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,

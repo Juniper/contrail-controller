@@ -16,12 +16,13 @@
 #include <cfg/cfg_types.h>
 #include <port_ipc/port_ipc_handler.h>
 #include <port_ipc/port_subscribe_table.h>
+#include <controller/controller_ifmap.h>
 
 #define MAX_TESTNAME_LEN 80
 
 using namespace std;
 
-Peer *bgp_peer_;
+BgpPeer *bgp_peer_;
 TestClient *client;
 #define MAX_VNET 10
 int test_tap_fd[MAX_VNET];
@@ -1514,7 +1515,7 @@ bool VlanNhFind(int id, uint16_t tag) {
     return (nh != NULL);
 }
 
-bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
+bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const IpAddress &vm_addr, uint8_t plen) {
@@ -1531,7 +1532,7 @@ bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
     return true;
 }
 
-bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
+bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const char *vm_addr, uint8_t plen) {
@@ -1541,7 +1542,8 @@ bool BridgeTunnelRouteAdd(const Peer *peer, const string &vm_vrf,
                         IpAddress::from_string(vm_addr, ec), plen);
 }
 
-bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
+                        const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference) {
@@ -1563,7 +1565,8 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
-bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Address &vm_ip,
+bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
+                        const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
                        const PathPreference &path_preference,
@@ -1586,7 +1589,7 @@ bool EcmpTunnelRouteAdd(const Peer *peer, const string &vrf_name, const Ip4Addre
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
-bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Address &vm_addr,
+bool Inet6TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip6Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
@@ -1605,7 +1608,7 @@ bool Inet6TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip6Addres
     return true;
 }
 
-bool EcmpTunnelRouteAdd(Agent *agent, const Peer *peer, const string &vrf,
+bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf,
                         const string &prefix, uint8_t plen,
                         const string &remote_server_1, uint32_t label1,
                         const string &remote_server_2, uint32_t label2,
@@ -1634,7 +1637,7 @@ bool EcmpTunnelRouteAdd(Agent *agent, const Peer *peer, const string &vrf,
     client->WaitForIdle();
 }
 
-bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
+bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip4Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
@@ -1653,7 +1656,7 @@ bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, const Ip4Addres
     return true;
 }
 
-bool Inet4TunnelRouteAdd(const Peer *peer, const string &vm_vrf, char *vm_addr,
+bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
@@ -3879,30 +3882,53 @@ static bool ControllerCleanupTrigger() {
     return true;
 }
 
+void FireAllControllerTimers(Agent *agent, AgentXmppChannel *channel) {
+    AgentIfMapXmppChannel::NewSeqNumber();
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        if (agent->ifmap_xmpp_channel(count)) {
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                config_cleanup_timer()->sequence_number_ =
+                AgentIfMapXmppChannel::GetSeqNumber();
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                end_of_config_timer()->controller_timer_->Fire();
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                config_cleanup_timer()->TimerExpirationDone();
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                end_of_config_timer()->TimerExpirationDone();
+        }
+    }
+    Agent::GetInstance()->ifmap_stale_cleaner()->
+        StaleTimeout(AgentIfMapXmppChannel::GetSeqNumber());
+
+    TaskScheduler::GetInstance()->Stop();
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        if (agent->ifmap_xmpp_channel(count)) {
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                config_cleanup_timer()->controller_timer_->Fire();
+            if (channel) {
+                channel->end_of_rib_tx_timer()->controller_timer_->Fire();
+                channel->end_of_rib_rx_timer()->controller_timer_->Fire();
+            }
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                end_of_config_timer()->controller_timer_->Fire();
+        }
+    }
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
 void DeleteBgpPeer(Peer *peer) {
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer);
-
     AgentXmppChannel *channel = NULL;
-    XmppChannelMock *xmpp_channel = NULL;
-
+    FireAllControllerTimers(Agent::GetInstance(), channel);
     if (bgp_peer) {
         channel = bgp_peer->GetAgentXmppChannel();
-        AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
-                                                            xmps::NOT_READY);
+        //Increment sequence number to clear config
+        Agent::GetInstance()->controller()->
+            DisConnectControllerIfmapServer(channel->GetXmppServerIdx());
+        Agent::GetInstance()->controller()->FlushTimedOutChannels(channel->
+                                            GetXmppServerIdx());
     }
-    if (channel) {
-        xmpp_channel = static_cast<XmppChannelMock *>
-            (channel->GetXmppChannel());
-    }
-    client->WaitForIdle();
-    TaskScheduler::GetInstance()->Stop();
-    Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->
-        Fire();
-    Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->
-        Fire();
-    Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->
-        Fire();
-    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
     int task_id = TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp");
     std::auto_ptr<TaskTrigger> trigger_
@@ -3911,8 +3937,6 @@ void DeleteBgpPeer(Peer *peer) {
     client->WaitForIdle();
     Agent::GetInstance()->reset_controller_xmpp_channel(0);
     Agent::GetInstance()->reset_controller_xmpp_channel(1);
-    if (xmpp_channel)
-        delete xmpp_channel;
 }
 
 void FillEvpnNextHop(BgpPeer *peer, std::string vrf_name,

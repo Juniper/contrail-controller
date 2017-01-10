@@ -35,11 +35,12 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     sync_(false), force_policy_(false), sg_list_(),
     tunnel_dest_(0), tunnel_bmap_(TunnelType::AllType()),
     tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
-    vrf_name_(""), gw_ip_(), unresolved_(true), is_stale_(false),
+    vrf_name_(""), gw_ip_(), unresolved_(true),
     is_subnet_discard_(false), dependant_rt_(rt), path_preference_(),
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
-    ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false) {
+    ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
+    peer_sequence_number_(0) {
 }
 
 AgentPath::~AgentPath() {
@@ -386,9 +387,9 @@ const NextHop *EvpnDerivedPath::ComputeNextHop(Agent *agent) const {
 }
 
 EvpnDerivedPathData::EvpnDerivedPathData(const EvpnRouteEntry *evpn_rt) :
-    AgentRouteData(false), ethernet_tag_(evpn_rt->ethernet_tag()),
-    ip_addr_(evpn_rt->ip_addr()), reference_path_(evpn_rt->GetActivePath()),
-    ecmp_suppressed_(false) {
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    ethernet_tag_(evpn_rt->ethernet_tag()), ip_addr_(evpn_rt->ip_addr()),
+    reference_path_(evpn_rt->GetActivePath()), ecmp_suppressed_(false) {
     // For debuging add peer of active path in parent as well
     std::stringstream s;
     s << evpn_rt->ToString();
@@ -406,8 +407,8 @@ AgentPath *EvpnDerivedPathData::CreateAgentPath(const Peer *peer,
                                 parent_));
 }
 
-bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
-                                 const AgentRoute *rt) {
+bool EvpnDerivedPathData::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                                const AgentRoute *rt) {
     bool ret = false;
     EvpnDerivedPath *evpn_path = dynamic_cast<EvpnDerivedPath *>(path);
     assert(evpn_path != NULL);
@@ -470,8 +471,8 @@ bool EvpnDerivedPathData::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool HostRoute::AddChangePath(Agent *agent, AgentPath *path,
-                              const AgentRoute *rt) {
+bool HostRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                      const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
 
@@ -508,8 +509,8 @@ bool HostRoute::UpdateRoute(AgentRoute *rt) {
     return ret;
 }
 
-bool L2ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                   const AgentRoute *rt) {
+bool L2ReceiveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                           const AgentRoute *rt) {
     bool ret = false;
 
     path->set_unresolved(false);
@@ -574,8 +575,8 @@ bool InetInterfaceRoute::UpdateRoute(AgentRoute *rt) {
     return ret;
 }
 
-bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                       const AgentRoute *rt) {
+bool InetInterfaceRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                               const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4,
@@ -605,8 +606,8 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool DropRoute::AddChangePath(Agent *agent, AgentPath *path,
-                              const AgentRoute *rt) {
+bool DropRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                      const AgentRoute *rt) {
     bool ret = false;
 
     VnListType dest_vn_list;
@@ -625,8 +626,8 @@ bool DropRoute::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                 const AgentRoute *rt) {
+bool LocalVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                         const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
@@ -774,8 +775,8 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                const AgentRoute *rt) {
+bool VlanNhRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                        const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
@@ -826,8 +827,8 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                 const AgentRoute *rt) {
+bool ResolveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                         const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     ResolveNHKey key(intf_key_.get(), policy_);
@@ -867,8 +868,8 @@ bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                 const AgentRoute *rt) {
+bool ReceiveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                         const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
 
@@ -911,8 +912,8 @@ bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
     return ret;
 }
 
-bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                   const AgentRoute *rt) {
+bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                           const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
 
@@ -966,7 +967,7 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
     return true;
 }
 
-bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path,
+bool PathPreferenceData::AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt) {
     bool ret = false;
     //ECMP flag will not be changed by path preference module,
@@ -989,11 +990,12 @@ bool PathPreferenceData::AddChangePath(Agent *agent, AgentPath *path,
 // Subnet Route route data
 IpamSubnetRoute::IpamSubnetRoute(DBRequest &nh_req,
                                  const std::string &dest_vn_name) :
-    AgentRouteData(false), dest_vn_name_(dest_vn_name) {
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    dest_vn_name_(dest_vn_name) {
     nh_req_.Swap(&nh_req);
 }
 
-bool IpamSubnetRoute::AddChangePath(Agent *agent, AgentPath *path,
+bool IpamSubnetRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                 const AgentRoute *rt) {
     agent->nexthop_table()->Process(nh_req_);
     NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
@@ -1230,7 +1232,6 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
             TunnelType(tunnel_type()).ToString());
     pdata.set_supported_tunnel_type(
             TunnelType::GetString(tunnel_bmap()));
-    pdata.set_stale(is_stale());
     PathPreferenceSandeshData path_preference_data;
     path_preference_data.set_sequence(path_preference_.sequence());
     path_preference_data.set_preference(path_preference_.preference());
@@ -1263,6 +1264,14 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
         string_vector_iter++;
     }
     pdata.set_ecmp_hashing_fields(ss.str());
+    pdata.set_peer_sequence_number(peer_sequence_number());
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer());
+    bool is_stale = false;
+    if (bgp_peer) {
+        if (peer_sequence_number() < bgp_peer->ChannelSequenceNumber())
+            is_stale = true;
+    }
+    pdata.set_stale(is_stale);
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {
@@ -1380,7 +1389,7 @@ AgentPath *MacVmBindingPathData::CreateAgentPath(const Peer *peer,
     return (new MacVmBindingPath(mac_vm_binding_peer));
 }
 
-bool MacVmBindingPathData::AddChangePath(Agent *agent, AgentPath *path,
+bool MacVmBindingPathData::AddChangePathExtended(Agent *agent, AgentPath *path,
                                          const AgentRoute *rt) {
     bool ret = false;
     MacVmBindingPath *dhcp_path =

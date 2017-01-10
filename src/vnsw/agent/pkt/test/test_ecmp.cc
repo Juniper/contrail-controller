@@ -208,7 +208,8 @@ public:
                     InterfaceNHFlags::INET4, SecurityGroupList(),
                     CommunityList(),
                     PathPreference(),
-                    EcmpLoadBalance());
+                    EcmpLoadBalance(),
+                    bgp_peer->sequence_number());
         InetUnicastAgentRouteTable *rt_table =
             agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 

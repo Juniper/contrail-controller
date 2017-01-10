@@ -120,7 +120,7 @@ public:
 
     FlowProto *get_flow_proto() const { return flow_proto_; }
     Agent *agent_;
-    Peer *bgp_peer;
+    BgpPeer *bgp_peer;
     FlowProto *flow_proto_;
     AgentXmppChannel *channel;
     char router_id[80];

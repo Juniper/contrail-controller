@@ -154,7 +154,7 @@ public:
         client->WaitForIdle();
     }
 protected:
-    Peer *peer_;
+    BgpPeer *peer_;
 };
 
 //Add and delete allowed address pair route
