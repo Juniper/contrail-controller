@@ -34,7 +34,11 @@ SandeshTraceBufferPtr FlowExportStatsTraceBuf(SandeshTraceBufferCreate(
     "FlowExportStats", 3000));
 const uint8_t FlowStatsManager::kCatchAllProto;
 
-void FlowStatsManager::UpdateThreshold(uint32_t new_value) {
+void FlowStatsManager::UpdateThreshold(uint64_t new_value, bool check_oflow) {
+    if (check_oflow && new_value < threshold_) {
+        /* Retain the same value for threshold if it results in overflow */
+        return;
+    }
     if (new_value < kMinFlowSamplingThreshold) {
         threshold_ = kMinFlowSamplingThreshold;
     } else {

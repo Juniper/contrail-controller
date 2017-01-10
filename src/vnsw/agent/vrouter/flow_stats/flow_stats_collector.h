@@ -110,7 +110,7 @@ public:
     void set_flow_tcp_syn_age_time(uint64_t interval) {
         flow_tcp_syn_age_time_ = interval;
     }
-    uint32_t threshold()  const;
+    uint64_t threshold()  const;
     boost::uuids::uuid rand_gen();
     bool Run();
     bool RunAgeingTask();

@@ -177,6 +177,6 @@ request sandesh DeleteAgingConfig {
 traceobject sandesh FlowExportStatsTrace {
     1: u32 export_rate;
     2: u32 export_rate_without_sampling;
-    3: u32 old_threshold;
-    4: u32 new_threshold;
+    3: u64 old_threshold;
+    4: u64 new_threshold;
 }
