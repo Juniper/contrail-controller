@@ -31,8 +31,7 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
 
     if (vrf->IsDeleted()) {
-        agent->controller()->
-            DeleteVrfStateOfDecommisionedPeers(partition, e);
+        bgp_peer->DeleteVrfState(partition, e);
         if (!AgentXmppChannel::IsXmppChannelActive(agent, bgp_xmpp_peer)) {
             return;
         }

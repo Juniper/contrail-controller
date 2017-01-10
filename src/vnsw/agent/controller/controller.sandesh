@@ -28,6 +28,60 @@ struct ControllerProtoStats {
     4: u32 close;
 }
 
+struct ControllerEndOfConfigStats {
+    /** last config receive time */
+    1: string last_config_receive_time;
+    /** config update receive */
+    2: string inactivity_detected_time;
+    /** config enqueued for process */
+    3: string end_of_config_processed_time;
+    /** EOC observed because of fallback or inactivity */
+    4: string end_of_config_reason;
+    /** start time */
+    5: string last_start_time;
+    6: bool running;
+}
+
+struct ConfigCleanupStats {
+    1: string last_start_time;
+    2: u64 cleanup_sequence_number;
+    3: bool running;
+}
+
+struct ConfigStats {
+    1: ControllerEndOfConfigStats end_of_config_stats;
+    2: ConfigCleanupStats config_cleanup_stats;
+}
+
+struct ControllerEndOfRibRxStats {
+    /** End of rib sent time */
+    1: string end_of_rib_rx_time;
+    /** EOR observed because of fallback or eor seen */
+    2: string end_of_rib_reason;
+    /** start time */
+    3: string last_start_time;
+    4: bool running;
+}
+
+struct ControllerEndOfRibTxStats {
+    /** End of rib sent time */
+    1: string end_of_rib_tx_time;
+    /** last route publish time */
+    2: string last_route_published_time;
+    /** EOR observed because of fallback or inactivity */
+    3: string end_of_rib_reason;
+    /** start time */
+    4: string last_start_time;
+    5: bool running;
+}
+
+struct ControllerEndOfRibStats {
+    /** End of rib tx */
+    1: ControllerEndOfRibTxStats tx;
+    /** End of rib rx */
+    2: ControllerEndOfRibRxStats rx;
+}
+
 /**
  * Sandesh definition for xmpp channel between agent and controller
  */
@@ -60,6 +114,14 @@ struct AgentXmppData {
     13: ControllerProtoStats tx_proto_stats;
     /** Xmpp authentication type */
     14: string xmpp_auth_type;
+    /** Unicast sequence number */
+    15: u64 sequence_number;
+    /** channel ready state time */
+    16: string last_ready_time;
+    /** End of rib */
+    17: ControllerEndOfRibStats end_of_rib_stats;
+    /** End of config */
+    18: ConfigStats config_stats;
 }
 
 /**

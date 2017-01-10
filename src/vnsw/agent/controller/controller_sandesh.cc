@@ -7,6 +7,9 @@
 #include <controller/controller_sandesh.h>
 #include <controller/controller_types.h>
 #include <controller/controller_peer.h>
+#include <controller/controller_timer.h>
+#include <controller/controller_init.h>
+#include <controller/controller_ifmap.h>
 #include <controller/controller_dns.h>
 
 void AgentXmppConnectionStatusReq::HandleRequest() const {
@@ -18,6 +21,9 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
             AgentXmppData data;
             data.set_controller_ip(Agent::GetInstance()->controller_ifmap_xmpp_server(count));
             AgentXmppChannel *ch = Agent::GetInstance()->controller_xmpp_channel(count);
+        AgentIfMapXmppChannel *ifmap_ch =
+            Agent::GetInstance()->ifmap_xmpp_channel(count);    
+
             if (ch) {
 		XmppChannel *xc = ch->GetXmppChannel(); 
 		if (xc->GetPeerState() == xmps::READY) {
@@ -26,8 +32,92 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
 		    data.set_state("Down");
 		}
 
-                data.set_peer_name(xc->ToString());
-                data.set_peer_address(xc->PeerAddress());
+        data.set_last_ready_time(integerToString(UTCUsecToPTime
+             (Agent::GetInstance()->controller_xmpp_channel_setup_time
+              (count))));
+
+        //End of config
+        ConfigStats config_stats;
+        ControllerEndOfConfigStats eoc_stats = config_stats.end_of_config_stats;
+        if (ifmap_ch) {
+            EndOfConfigTimer *eoc_timer = ifmap_ch->end_of_config_timer();
+            eoc_stats.set_last_config_receive_time(integerToString(UTCUsecToPTime
+                               (eoc_timer->last_config_receive_time_)));
+            eoc_stats.set_inactivity_detected_time(integerToString(UTCUsecToPTime
+                               (eoc_timer->inactivity_detected_time_)));
+            eoc_stats.set_end_of_config_processed_time(integerToString(UTCUsecToPTime
+                               (eoc_timer->end_of_config_processed_time_)));
+            if (eoc_timer->fallback_) {
+                eoc_stats.set_end_of_config_reason("fallback");
+            } else {
+                eoc_stats.set_end_of_config_reason("inactivity");
+            }
+            eoc_stats.set_last_start_time(integerToString(UTCUsecToPTime
+                               (eoc_timer->last_restart_time_)));
+            eoc_stats.set_running(eoc_timer->running());
+        } else {
+            eoc_stats.set_last_config_receive_time("");
+            eoc_stats.set_inactivity_detected_time("");
+            eoc_stats.set_end_of_config_processed_time("");
+            eoc_stats.set_end_of_config_reason("");
+            eoc_stats.set_last_start_time("");
+            eoc_stats.set_running(false);
+        }
+        config_stats.set_end_of_config_stats(eoc_stats);
+
+        ConfigCleanupStats config_cleanup_stats =
+            config_stats.config_cleanup_stats;
+        if (ifmap_ch) {
+            ConfigCleanupTimer *cleanup_timer = ifmap_ch->config_cleanup_timer();
+            config_cleanup_stats.set_last_start_time(integerToString(UTCUsecToPTime
+                               (cleanup_timer->last_restart_time_)));
+            config_cleanup_stats.set_cleanup_sequence_number
+                (cleanup_timer->sequence_number_);
+            config_cleanup_stats.set_running(cleanup_timer->running());
+        } else {
+            config_cleanup_stats.set_last_start_time("");
+            config_cleanup_stats.set_cleanup_sequence_number(0);
+            config_cleanup_stats.set_running(false);
+        }
+        config_stats.set_config_cleanup_stats(config_cleanup_stats);
+        data.set_config_stats(config_stats);
+
+        //End of rib
+        ControllerEndOfRibStats eor_stats;
+        ControllerEndOfRibTxStats eor_tx;
+        EndOfRibTxTimer *eor_tx_timer = ch->end_of_rib_tx_timer();
+        eor_tx.set_end_of_rib_tx_time(integerToString(UTCUsecToPTime
+                                     (eor_tx_timer->end_of_rib_tx_time_)));
+        eor_tx.set_last_route_published_time(integerToString(UTCUsecToPTime
+                                     (eor_tx_timer->last_route_published_time_)));
+        if (eor_tx_timer->fallback_) {
+            eor_tx.set_end_of_rib_reason("fallback");
+        } else {
+            eor_tx.set_end_of_rib_reason("inactivity");
+        }
+        eor_tx.set_last_start_time(integerToString(UTCUsecToPTime
+                                     (eor_tx_timer->last_restart_time_)));
+        eor_tx.set_running(eor_tx_timer->running());
+        eor_stats.set_tx(eor_tx);
+
+        ControllerEndOfRibRxStats eor_rx;
+        EndOfRibRxTimer *eor_rx_timer = ch->end_of_rib_rx_timer();
+        eor_rx.set_end_of_rib_rx_time(integerToString(UTCUsecToPTime
+                                     (eor_rx_timer->end_of_rib_rx_time_)));
+        eor_rx.set_last_start_time(integerToString(UTCUsecToPTime
+                                  (eor_tx_timer->last_restart_time_)));
+        if (eor_rx_timer->fallback_) {
+            eor_rx.set_end_of_rib_reason("fallback");
+        } else {
+            eor_rx.set_end_of_rib_reason("inactivity");
+        }
+        eor_rx.set_running(eor_rx_timer->running());
+        eor_stats.set_rx(eor_rx);
+        data.set_end_of_rib_stats(eor_stats);
+
+        data.set_sequence_number(ch->sequence_number());
+        data.set_peer_name(xc->ToString());
+        data.set_peer_address(xc->PeerAddress());
 		if (Agent::GetInstance()->mulitcast_builder() == ch) {
 		    data.set_mcast_controller("Yes");
 		} else {

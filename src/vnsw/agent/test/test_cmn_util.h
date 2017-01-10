@@ -487,7 +487,11 @@ public:
     int GetTaskInstance() const { return 0; }
     MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
     MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));
-    MOCK_METHOD1(UnRegisterWriteReady, void(xmps::PeerId));
+    //MOCK_METHOD1(UnRegisterWriteReady, void(xmps::PeerId));
+    void UnRegisterWriteReady(xmps::PeerId id) {
+        //Object suicide here, dont access pointer after this.
+        delete this;
+    }
     const std::string &ToString() const { return fake_to_; }
     const std::string &FromString() const  { return fake_from_; }
     std::string StateName() const { return string("Established"); }
