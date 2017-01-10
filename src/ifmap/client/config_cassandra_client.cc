@@ -76,9 +76,9 @@ int ConfigCassandraClient::HashUUID(const string &uuid_str) const {
 bool ConfigCassandraClient::ConfigReader(int worker_id) {
     CHECK_CONCURRENCY("cassandra::Reader");
 
-    BOOST_FOREACH(const string &uuid, uuid_read_list_[worker_id]) {
-        cout << "Read uuid " << uuid << " From : " << worker_id << endl;
-        ReadUuidTableRow(uuid);
+    BOOST_FOREACH(const ObjTypeUUIDType &obj_type_uuid, uuid_read_list_[worker_id]) {
+        cout << "Read uuid " << obj_type_uuid.second << " From : " << worker_id << endl;
+        ReadUuidTableRow(obj_type_uuid.first, obj_type_uuid.second);
     }
 
     uuid_read_list_[worker_id].clear();
@@ -86,13 +86,14 @@ bool ConfigCassandraClient::ConfigReader(int worker_id) {
     return true;
 }
 
-void ConfigCassandraClient::AddUUIDToRequestList(const string &uuid_str) {
+void ConfigCassandraClient::AddUUIDToRequestList(const string &obj_type,
+                                                 const string &uuid_str) {
     int worker_id = HashUUID(uuid_str);
     pair<UUIDReadSet::iterator, bool> ret;
     bool trigger = uuid_read_list_[worker_id].empty();
     ret = uuid_read_set_[worker_id].insert(uuid_str);
     if (ret.second) {
-        uuid_read_list_[worker_id].push_back(uuid_str);
+        uuid_read_list_[worker_id].push_back(make_pair(obj_type, uuid_str));
         if (trigger) {
             config_readers_[worker_id]->Set();
         }
@@ -135,7 +136,10 @@ bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
 }
 
 bool ConfigCassandraClient::ParseFQNameRowGetUUIDList(const GenDb::ColList &col_list,
-                                                      list<string> &uuid_list) {
+                                  ObjTypeUUIDList &uuid_list) {
+    GenDb::Blob dname_blob(boost::get<GenDb::Blob>(col_list.rowkey_[0]));
+    string obj_type(reinterpret_cast<const char *>(dname_blob.data()),
+               dname_blob.size());
     BOOST_FOREACH(const GenDb::NewCol &ncol, col_list.columns_) {
         assert(ncol.name->size() == 1);
         assert(ncol.value->size() == 1);
@@ -150,20 +154,20 @@ bool ConfigCassandraClient::ParseFQNameRowGetUUIDList(const GenDb::ColList &col_
             continue;
         }
         string uuid_str = key.substr(temp+1);
-        uuid_list.push_back(uuid_str);
+        uuid_list.push_back(make_pair(obj_type, uuid_str));
         fq_name_cache_.insert(make_pair(uuid_str, key.substr(0, temp)));
     }
 
     return true;
 }
 
-bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &uuid_key,
-        const GenDb::ColList &col_list) {
+bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &obj_type,
+                       const string &uuid_key, const GenDb::ColList &col_list) {
     auto_ptr<CassColumnKVVec> cass_data_vec(new CassColumnKVVec());
     if (ParseUuidTableRowResponse(uuid_key, col_list, cass_data_vec.get())) {
         // Convert column data to json string.
         ConfigCass2JsonAdapter *ccja =
-            new ConfigCass2JsonAdapter(this, *(cass_data_vec.get()));
+            new ConfigCass2JsonAdapter(this, obj_type, *(cass_data_vec.get()));
         cout << "doc-string is\n" << ccja->doc_string() << endl;
 
         // Enqueue ccja to the parser here.
@@ -205,7 +209,8 @@ void ConfigCassandraClient::InitDatabase() {
     BulkDataSync();
 }
 
-bool ConfigCassandraClient::ReadUuidTableRow(const string &uuid_key) {
+bool ConfigCassandraClient::ReadUuidTableRow(const string &obj_type,
+                                             const string &uuid_key) {
     GenDb::ColList col_list;
     GenDb::DbDataValueVec key;
 
@@ -215,7 +220,7 @@ bool ConfigCassandraClient::ReadUuidTableRow(const string &uuid_key) {
     if (dbif_->Db_GetRow(&col_list, kUuidTableName, key,
                          GenDb::DbConsistency::QUORUM)) {
         if (col_list.columns_.size()) {
-            ParseRowAndEnqueueToParser(uuid_key, col_list);
+            ParseRowAndEnqueueToParser(obj_type, uuid_key, col_list);
         }
     } else {
         IFMAP_WARN(IFMapGetRowError, "GetRow failed for table", kUuidTableName);
@@ -228,12 +233,13 @@ bool ConfigCassandraClient::ReadUuidTableRow(const string &uuid_key) {
 bool ConfigCassandraClient::ReadAllUuidTableRows() {
     GenDb::ColListVec cl_vec_fq_name;
 
-    list<string> uuid_list;
+    ObjTypeUUIDList uuid_list;
     if (dbif_->Db_GetAllRows(&cl_vec_fq_name, kFqnTableName,
                              GenDb::DbConsistency::QUORUM)) {
         BOOST_FOREACH(const GenDb::ColList &cl_list, cl_vec_fq_name) {
             assert(cl_list.rowkey_.size() == 1);
             assert(cl_list.rowkey_[0].which() == GenDb::DB_VALUE_BLOB);
+
             if (cl_list.columns_.size()) {
                 ParseFQNameRowGetUUIDList(cl_list, uuid_list);
             }
@@ -244,9 +250,9 @@ bool ConfigCassandraClient::ReadAllUuidTableRows() {
         return false;
     }
 
-    for (list<string>::iterator it = uuid_list.begin();
+    for (ObjTypeUUIDList::iterator it = uuid_list.begin();
          it != uuid_list.end(); it++) {
-        AddUUIDToRequestList(*it);
+        AddUUIDToRequestList(it->first, it->second);
     }
 
     return true;
@@ -289,7 +295,7 @@ void ConfigCassandraClient::Enqueue(ObjectProcessReq *req) {
 
 bool ConfigCassandraClient::RequestHandler(ObjectProcessReq *req) {
     // TODO Now handles only create
-    AddUUIDToRequestList(req->uuid_str_);
+    AddUUIDToRequestList(req->obj_type_, req->uuid_str_);
     delete req;
     return true;
 }

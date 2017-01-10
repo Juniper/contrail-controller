@@ -27,7 +27,8 @@ env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
                   'db', 'io', 'base', 'xml', 'pugixml', 'libxml2',
                   'boost_regex', 'boost_chrono', 'boost_program_options',
                   'crypto', 'ssl',
-                  'boost_filesystem', 'bgp_schema'])
+                  'boost_filesystem', 'bgp_schema',
+                  'cassandra_cql', 'cassandra', 'gendb', 'ds', 'httpc'])
 env.Prepend(LIBS=['dns_cfg', 'cmn', 'mgr', 'agent_xmpp', 'bind_interface', 'dns_uve'])
 env.Append(LIBS=['sandesh', 'http', 'http_parser'])
 

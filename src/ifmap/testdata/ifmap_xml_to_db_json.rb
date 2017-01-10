@@ -77,13 +77,20 @@ end
 @events = [ ]
 @seen = Hash.new(false)
 
+def oper_convert (oper)
+    return "CREATE" if oper == "createResult"
+    return "UPDATE" if oper == "updateResult"
+    return "DELETE" if oper == "deleteResult"
+    return nil
+end
+
 def print_db (oper, uuid, fq_name, type)
     if oper == "updateResult"
         oper = "createResult" if !@seen[uuid]
         @seen[uuid] = true
     end
     event = {
-        "oper" => oper, "fq_name" => fq_name, "type" => type,
+        "oper" => oper_convert(oper), "fq_name" => fq_name, "type" => type,
         "uuid" => "#{@events.size}:#{uuid}"
     }
     @events.push({"rabbit_message" => event.to_json, "db" => @db.deep_dup })
