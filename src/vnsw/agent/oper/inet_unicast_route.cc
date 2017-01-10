@@ -1161,8 +1161,6 @@ bool InetUnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
-            if (stale && !path->is_stale()) 
-                continue;
             PathSandeshData pdata;
             path->SetSandeshData(pdata);
             data.path_list.push_back(pdata);

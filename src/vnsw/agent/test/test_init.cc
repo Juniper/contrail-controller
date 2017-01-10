@@ -171,9 +171,8 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
 
 void ShutdownAgentController(Agent *agent) {
     TaskScheduler::GetInstance()->Stop();
-    agent->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
-    agent->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-    agent->controller()->config_cleanup_timer().cleanup_timer_->Fire();
+    agent->controller()->config_cleanup_timer().controller_timer_->Fire();
+    agent->controller()->end_of_config_timer().controller_timer_->Fire();
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
     agent->controller()->Cleanup();

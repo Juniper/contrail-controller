@@ -7,6 +7,7 @@
 #include <controller/controller_sandesh.h>
 #include <controller/controller_types.h>
 #include <controller/controller_peer.h>
+#include <controller/controller_ifmap.h>
 #include <controller/controller_dns.h>
 
 void AgentXmppConnectionStatusReq::HandleRequest() const {
@@ -18,6 +19,9 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
             AgentXmppData data;
             data.set_controller_ip(Agent::GetInstance()->controller_ifmap_xmpp_server(count));
             AgentXmppChannel *ch = Agent::GetInstance()->controller_xmpp_channel(count);
+        AgentIfMapXmppChannel *ifmap_ch =
+            Agent::GetInstance()->ifmap_xmpp_channel(count);    
+
             if (ch) {
 		XmppChannel *xc = ch->GetXmppChannel(); 
 		if (xc->GetPeerState() == xmps::READY) {
@@ -26,8 +30,40 @@ void AgentXmppConnectionStatusReq::HandleRequest() const {
 		    data.set_state("Down");
 		}
 
-                data.set_peer_name(xc->ToString());
-                data.set_peer_address(xc->PeerAddress());
+        data.set_last_ready_time(integerToString(UTCUsecToPTime
+             (Agent::GetInstance()->controller_xmpp_channel_setup_time
+              (count))));
+        ControllerEndOfConfigStats eoc_stats;
+        eoc_stats.end_of_config = ch->end_of_config();
+        eoc_stats.end_of_config_time =
+            integerToString(UTCUsecToPTime(ch->end_of_config_time()));
+        if (ifmap_ch) {
+            eoc_stats.update_receive_time =
+                integerToString(UTCUsecToPTime(ifmap_ch->end_of_config_params().
+                                               update_receive_time_));
+            eoc_stats.config_enqueued_time =
+                integerToString(UTCUsecToPTime(ifmap_ch->end_of_config_params().
+                                               config_enqueued_time_));
+        } else {
+            eoc_stats.update_receive_time = "";
+            eoc_stats.config_enqueued_time = "";
+        }
+        data.set_end_of_config_stats(eoc_stats);
+
+        ControllerEndOfRibStats eor_stats;
+        eor_stats.end_of_rib_seen = ch->end_of_rib_seen();
+        eor_stats.end_of_rib_sent = ch->end_of_rib_sent();
+        eor_stats.end_of_rib_seen_time =
+            integerToString(UTCUsecToPTime(ch->end_of_rib_seen_time()));
+        eor_stats.end_of_rib_sent_time =
+            integerToString(UTCUsecToPTime(ch->end_of_rib_sent_time()));
+        eor_stats.route_published_time =
+            integerToString(UTCUsecToPTime(ch->route_published_time()));
+        data.set_end_of_rib_stats(eor_stats);
+
+        data.set_sequence_number(ch->sequence_number());
+        data.set_peer_name(xc->ToString());
+        data.set_peer_address(xc->PeerAddress());
 		if (Agent::GetInstance()->mulitcast_builder() == ch) {
 		    data.set_mcast_controller("Yes");
 		} else {

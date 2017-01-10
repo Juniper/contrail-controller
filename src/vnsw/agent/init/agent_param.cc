@@ -634,12 +634,6 @@ void AgentParam::ParseFlows() {
     GetValueFromTree<uint32_t>(flow_update_tokens_, "FLOWS.update_tokens");
 }
 
-void AgentParam::ParseHeadlessMode() {
-    if (!GetValueFromTree<bool>(headless_mode_, "DEFAULT.headless_mode")) {
-        headless_mode_ = false;
-    }
-}
-
 void AgentParam::ParseDhcpRelayMode() {
     if (!GetValueFromTree<bool>(dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode")) {
         dhcp_relay_mode_ = false;
@@ -657,6 +651,48 @@ void AgentParam::ParseAgentInfo() {
     if (!GetValueFromTree<string>(agent_base_dir_,
                                   "DEFAULT.agent_base_directory")) {
         agent_base_dir_ = "/var/lib/contrail";
+    }
+}
+
+void AgentParam::ParseLlgr() {
+    if (!GetValueFromTree<uint16_t>(llgr_params_.stale_time_,
+                                    "LLGR.stale_time")) {
+        llgr_params_.stale_time_ = 0;
+    }
+    if (!GetValueFromTree<uint16_t>(llgr_params_.config_cleanup_time_,
+                                    "LLGR.config_cleanup_time")) {
+        llgr_params_.config_cleanup_time_ =
+            LlgrParams::kConfigCleanupTime;
+    }
+    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_config_time_,
+                                    "LLGR.end_of_config_time")) {
+        llgr_params_.end_of_config_time_ =
+            LlgrParams::kEocTime;
+    }
+    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_config_inactivity_time_,
+                                    "LLGR.end_of_config_inactivity_time")) {
+        llgr_params_.end_of_config_inactivity_time_ =
+            LlgrParams::kEocInactivityTime;
+    }
+    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_config_fallback_time_,
+                                    "LLGR.end_of_config_fallback_time")) {
+        llgr_params_.end_of_config_fallback_time_ =
+            LlgrParams::kEocFallbackTimeOut;
+    }
+    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_rib_time_,
+                                    "LLGR.end_of_rib_time")) {
+        llgr_params_.end_of_rib_time_ =
+            LlgrParams::kEorTimeOut;
+    }
+    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_rib_fallback_time_,
+                                    "LLGR.end_of_rib_fallback_time")) {
+        llgr_params_.end_of_rib_fallback_time_ =
+            LlgrParams::kEorFallbackTimeOut;
+    }
+    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_rib_inactivity_time_,
+                                    "LLGR.end_of_rib_inactivity_time")) {
+        llgr_params_.end_of_rib_inactivity_time_ =
+            LlgrParams::kEorInactivityTime;
     }
 }
 
@@ -985,11 +1021,6 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.update_tokens");
 }
 
-void AgentParam::ParseHeadlessModeArguments
-    (const boost::program_options::variables_map &var_map) {
-    GetOptValue<bool>(var_map, headless_mode_, "DEFAULT.headless_mode");
-}
-
 void AgentParam::ParseDhcpRelayModeArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<bool>(var_map, dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode");
@@ -1075,6 +1106,25 @@ void AgentParam::ParseRestartArguments
                           "RESTART.restore_audit_timeout");
 }
 
+void AgentParam::ParseLlgrArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<uint16_t>(var_map, llgr_params_.stale_time_, "LLGR.stale_time");
+    GetOptValue<uint16_t>(var_map, llgr_params_.config_cleanup_time_,
+                          "LLGR.config_cleanup_time");
+    GetOptValue<uint16_t>(var_map, llgr_params_.end_of_config_time_,
+                          "LLGR.end_of_config_time");
+    GetOptValue<uint16_t>(var_map, llgr_params_.end_of_config_inactivity_time_,
+                          "LLGR.end_of_config_inactivity_time");
+    GetOptValue<uint16_t>(var_map, llgr_params_.end_of_config_fallback_time_,
+                          "LLGR.end_of_config_fallback_time");
+    GetOptValue<uint16_t>(var_map, llgr_params_.end_of_rib_time_,
+                          "LLGR.end_of_rib_time");
+    GetOptValue<uint16_t>(var_map, llgr_params_.end_of_rib_fallback_time_,
+                          "LLGR.end_of_rib_fallback_time");
+    GetOptValue<uint16_t>(var_map, llgr_params_.end_of_rib_inactivity_time_,
+                          "LLGR.end_of_rib_inactivity_time_");
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -1120,7 +1170,6 @@ void AgentParam::InitFromConfig() {
     ParseTaskSection();
     ParseMetadataProxy();
     ParseFlows();
-    ParseHeadlessMode();
     ParseDhcpRelayMode();
     ParseSimulateEvpnTor();
     ParseServiceInstance();
@@ -1147,7 +1196,6 @@ void AgentParam::InitFromArguments() {
     ParseTaskSectionArguments(var_map_);
     ParseFlowArguments(var_map_);
     ParseMetadataProxyArguments(var_map_);
-    ParseHeadlessModeArguments(var_map_);
     ParseDhcpRelayModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
     ParseAgentInfoArguments(var_map_);
@@ -1467,7 +1515,6 @@ void AgentParam::LogConfig() const {
     else if (gateway_mode_ == NONE)
         LOG(DEBUG, "Gateway Mode                : None");
 
-    LOG(DEBUG, "Headless Mode               : " << headless_mode_);
     LOG(DEBUG, "DHCP Relay Mode             : " << dhcp_relay_mode_);
     if (simulate_evpn_tor_) {
         LOG(DEBUG, "Simulate EVPN TOR           : " << simulate_evpn_tor_);
@@ -1575,8 +1622,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         vrouter_stats_interval_(kVrouterStatsInterval),
         vmware_physical_port_(""), test_mode_(false), tree_(),
         vgw_config_table_(new VirtualGatewayConfigTable() ),
-        headless_mode_(false), dhcp_relay_mode_(false),
-        xmpp_auth_enable_(false),
+        dhcp_relay_mode_(false), xmpp_auth_enable_(false),
         xmpp_server_cert_(""), xmpp_server_key_(""), xmpp_ca_cert_(""),
         xmpp_dns_auth_enable_(false),
         simulate_evpn_tor_(false), si_netns_command_(),
@@ -1606,7 +1652,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
-        default_nic_queue_(Agent::kInvalidQueueId) {
+        default_nic_queue_(Agent::kInvalidQueueId),
+        llgr_params_() {
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()
@@ -1636,8 +1683,6 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Stale Interface cleanup timeout")
         ("DEFAULT.hostname", opt::value<string>(),
          "Hostname of compute-node")
-        ("DEFAULT.headless_mode", opt::value<bool>(),
-         "Run compute-node in headless mode")
         ("DEFAULT.dhcp_relay_mode", opt::value<bool>(),
          "Enable / Disable DHCP relay of DHCP packets from virtual instance")
         ("DEFAULT.http_server_port",
@@ -1835,7 +1880,26 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Timeout for the TBB keepawake timer")
         ;
     options_.add(tbb);
+
+
+    opt::options_description llgr("LLGR");
+    llgr.add_options()
+        ("LLGR.disable", opt::value<bool>()->default_value(false),
+         "Disable LLGR")
+        ;
+    options_.add(llgr);
 }
 
 AgentParam::~AgentParam() {
+}
+
+LlgrParams::LlgrParams() {
+    stale_time_ = 0;
+    config_cleanup_time_ = kConfigCleanupTime;
+    end_of_config_time_ = kEocTime;
+    end_of_config_inactivity_time_ = kEocInactivityTime;
+    end_of_config_fallback_time_ = kEocFallbackTimeOut;
+    end_of_rib_time_ = kEorTimeOut;
+    end_of_rib_fallback_time_ = kEorFallbackTimeOut;
+    end_of_rib_inactivity_time_ = kEorInactivityTime;
 }

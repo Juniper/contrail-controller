@@ -20,6 +20,11 @@ class ControllerVmiSubscribeData;
 
 class AgentIfMapXmppChannel {
 public:
+    struct EndOfConfigParams {
+        void Reset();
+        uint64_t update_receive_time_;
+        uint64_t config_enqueued_time_;
+    };
     explicit AgentIfMapXmppChannel(Agent *agent, XmppChannel *channel,
                                    uint8_t count);
     virtual ~AgentIfMapXmppChannel();
@@ -33,6 +38,7 @@ public:
     void ReceiveConfigMessage(std::auto_ptr<XmlBase> impl);
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
     uint8_t GetXmppServerIdx() { return xs_idx_; }
+    EndOfConfigParams &end_of_config_params() {return end_of_config_params_;}
     static uint64_t GetSeqNumber() { return seq_number_; }
     static uint64_t NewSeqNumber(); 
 
@@ -45,6 +51,7 @@ private:
     std::string identifier_;
     uint8_t xs_idx_;
     static uint64_t seq_number_;
+    EndOfConfigParams end_of_config_params_;
     Agent *agent_;
 };
 

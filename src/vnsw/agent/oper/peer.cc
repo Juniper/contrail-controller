@@ -13,6 +13,7 @@
 #include <controller/controller_peer.h>
 #include <controller/controller_vrf_export.h>
 #include <controller/controller_export.h>
+#include <controller/controller_init.h>
 
 Peer::Peer(Type type, const std::string &name, bool export_to_controller) :
     type_(type), name_(name), export_to_controller_(export_to_controller) {
@@ -103,7 +104,6 @@ BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
     DynamicPeer(agent, bgp_peer_type, name, false),
     server_ip_(server_ip), id_(id),
     route_walker_(new ControllerRouteWalker(agent, this)) {
-        is_disconnect_walk_ = false;
         setup_time_ = UTCTimestampUsec();
 }
 
@@ -115,12 +115,18 @@ BgpPeer::~BgpPeer() {
     }
 }
 
-void BgpPeer::DelPeerRoutes(DelPeerDone walk_done_cb) {
+void BgpPeer::DelPeerRoutes(WalkDoneCb walk_done_cb,
+                            uint64_t sequence_number) {
+    route_walker_->set_sequence_number(sequence_number);
     route_walker_->Start(ControllerRouteWalker::DELPEER, false, walk_done_cb);
 }
 
-void BgpPeer::PeerNotifyRoutes() {
-    route_walker_->Start(ControllerRouteWalker::NOTIFYALL, true, NULL);
+void BgpPeer::PeerNotifyRoutes(WalkDoneCb cb) {
+    route_walker_->Start(ControllerRouteWalker::NOTIFYALL, true, cb);
+}
+
+void BgpPeer::StopPeerNotifyRoutes() {
+    route_walker_->Cancel();
 }
 
 void BgpPeer::PeerNotifyMulticastRoutes(bool associate) {
@@ -128,8 +134,12 @@ void BgpPeer::PeerNotifyMulticastRoutes(bool associate) {
                          NULL);
 }
 
-void BgpPeer::StalePeerRoutes() {
-    route_walker_->Start(ControllerRouteWalker::STALE, true, NULL);
+void BgpPeer::DeleteStale() {
+    route_walker_->Start(ControllerRouteWalker::DELSTALE, false, NULL);
+}
+
+void BgpPeer::StopDeleteStale() {
+    route_walker_->Cancel();
 }
 
 /*
@@ -213,12 +223,10 @@ Agent *BgpPeer::agent() const {
 }
 
 AgentXmppChannel *BgpPeer::GetAgentXmppChannel() const {
-    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
-        AgentXmppChannel *channel =
-            agent()->controller_xmpp_channel(count);
-        if (channel && (channel->bgp_peer_id() == this)) {
-            return channel;
-        }
-    }
-    return NULL;
+    return agent()->controller()->FindChannelForPeer(this);
 }
+
+uint64_t BgpPeer::ChannelSequenceNumber() const {
+    return GetAgentXmppChannel()->sequence_number();
+}
+
