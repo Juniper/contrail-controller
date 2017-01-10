@@ -28,10 +28,21 @@ using namespace boost::asio;
 
 ControllerPeerPath::ControllerPeerPath(const Peer *peer) :
     AgentRouteData(false), peer_(peer) {
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    sequence_number_ = 0;
+    if (bgp_peer)
+        sequence_number_ = bgp_peer->GetAgentXmppChannel()->
+            sequence_number();
 }
 
-bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                        const AgentRoute *rt) {
+bool ControllerPeerPath::AddChangePath(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt) {
+    path->set_peer_sequence_number(sequence_number());
+    return AddChangePathInternal(agent, path, rt);
+}
+
+bool ControllerEcmpRoute::AddChangePathInternal(Agent *agent, AgentPath *path,
+                                                const AgentRoute *rt) {
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
@@ -43,6 +54,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
         comp_key->SetPolicy(new_comp_nh_policy);
     }
 
+    path->set_peer_sequence_number(sequence_number());
     if (path->ecmp_load_balance() != ecmp_load_balance_) {
         path->UpdateEcmpHashFields(agent, ecmp_load_balance_,
                                    nh_req_);
@@ -120,12 +132,13 @@ bool ControllerVmRoute::UpdateRoute(AgentRoute *rt) {
     return ret;
 }
 
-bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                      const AgentRoute *rt) {
+bool ControllerVmRoute::AddChangePathInternal(Agent *agent, AgentPath *path,
+                                              const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
 
+    path->set_peer_sequence_number(sequence_number());
     if (path->tunnel_bmap() != tunnel_bmap_) {
         path->set_tunnel_bmap(tunnel_bmap_);
         ret = true;
@@ -236,6 +249,7 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
     }
 
     //Do a route lookup in native VRF
+    path->set_peer_sequence_number(sequence_number_);
     assert(mpls->nexthop()->GetType() == NextHop::VRF);
     const VrfNH *vrf_nh = static_cast<const VrfNH *>(mpls->nexthop());
     const InetUnicastRouteEntry *uc_rt =
@@ -296,18 +310,87 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
 
 bool StalePathData::AddChangePath(Agent *agent, AgentPath *path,
                                   const AgentRoute *route) {
-    if (path->is_stale() || route->IsDeleted())
+    if (path->peer_sequence_number() >= sequence_number_)
         return false;
-    AgentPath *old_stale_path = route->FindStalePath();
-    path->set_is_stale(true);
+
+    if (route->IsDeleted())
+        return false;
+
     //Delete old stale path
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     AgentRouteKey *key = (static_cast<AgentRouteKey *>(route->
                                       GetDBRequestKey().get()))->Clone();
-    key->set_peer(old_stale_path->peer());
+    key->set_peer(path->peer());
     req.key.reset(key);
     req.data.reset();
     AgentRouteTable *table = static_cast<AgentRouteTable *>(route->get_table());
     table->Process(req);
     return true;
+}
+
+bool StalePathData::DeletePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *route) const {
+    if (path->peer_sequence_number() >= sequence_number_)
+       return false;
+   return true; 
+}
+
+ControllerLocalVmRoute::ControllerLocalVmRoute(const VmInterfaceKey &intf,
+                                               uint32_t mpls_label,
+                                               uint32_t vxlan_id,
+                                               bool force_policy,
+                                               const VnListType &vn_list,
+                                               uint8_t flags,
+                                               const SecurityGroupList &sg_list,
+                                               const CommunityList &communities,
+                                               const PathPreference &path_preference,
+                                               const IpAddress &subnet_service_ip,
+                                               const EcmpLoadBalance &ecmp_load_balance,
+                                               bool is_local,
+                                               bool is_health_check_service,
+                                               uint64_t sequence_number) :
+    LocalVmRoute(intf, mpls_label, vxlan_id, force_policy, vn_list, flags, sg_list,
+                 communities, path_preference, subnet_service_ip, ecmp_load_balance,
+                 is_local, is_health_check_service),
+    sequence_number_(sequence_number) { 
+}
+
+ControllerVlanNhRoute::ControllerVlanNhRoute(const VmInterfaceKey &intf,
+                                             uint32_t tag,
+                                             uint32_t label,
+                                             const VnListType &dest_vn_list,
+                                             const SecurityGroupList &sg_list,
+                                             const PathPreference &path_preference,
+                                             uint64_t sequence_number) :
+    VlanNhRoute(intf, tag, label, dest_vn_list, sg_list, path_preference),
+    sequence_number_(sequence_number) {
+}
+
+ControllerInetInterfaceRoute::ControllerInetInterfaceRoute(const InetInterfaceKey &intf,
+                                                           uint32_t label,
+                                                           int tunnel_bmap,
+                                                           const std::set<string> &dest_vn_list,
+                                                           uint64_t sequence_number):
+    InetInterfaceRoute(intf, label, tunnel_bmap, dest_vn_list),
+    sequence_number_(sequence_number) {
+}
+
+ControllerMulticastRoute::ControllerMulticastRoute(const string &vn_name,
+                                                   uint32_t label,
+                                                   int vxlan_id,
+                                                   uint32_t tunnel_type,
+                                                   DBRequest &nh_req,
+                                                   COMPOSITETYPE comp_nh_type,
+                                                   uint64_t sequence_number) :
+    MulticastRoute(vn_name, label, vxlan_id, tunnel_type, nh_req, comp_nh_type),
+    sequence_number_(sequence_number) {
+}
+
+ControllerL2ReceiveRoute::ControllerL2ReceiveRoute(const std::string &vn_name,
+                                                   uint32_t vxlan_id,
+                                                   uint32_t mpls_label,
+                                                   const PathPreference &path_preference,
+                                                   uint64_t sequence_number):
+    L2ReceiveRoute(vn_name, vxlan_id, mpls_label, path_preference),
+    sequence_number_(sequence_number) {
 }

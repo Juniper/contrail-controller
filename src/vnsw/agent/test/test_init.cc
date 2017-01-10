@@ -13,6 +13,8 @@
 #include <vrouter/ksync/test/ksync_test.h>
 #include <boost/functional/factory.hpp>
 #include <cmn/agent_factory.h>
+#include <controller/controller_ifmap.h>
+#include <controller/controller_peer.h>
 
 namespace opt = boost::program_options;
 
@@ -171,9 +173,14 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
 
 void ShutdownAgentController(Agent *agent) {
     TaskScheduler::GetInstance()->Stop();
-    agent->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
-    agent->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-    agent->controller()->config_cleanup_timer().cleanup_timer_->Fire();
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        if (agent->ifmap_xmpp_channel(count)) {
+            agent->ifmap_xmpp_channel(count)->
+                config_cleanup_timer()->controller_timer_->Fire();
+            agent->ifmap_xmpp_channel(count)->
+                end_of_config_timer()->controller_timer_->Fire();
+        }
+    }
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
     agent->controller()->Cleanup();

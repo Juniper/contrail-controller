@@ -23,6 +23,21 @@ class LocalVmRoute;
 class InetInterfaceRoute;
 class VlanNhRoute;
 class VNController;
+class MulticastRoute;
+class L2ReceiveRoute;
+
+#define CONTROLLER_SEQUENCE_NUMBER(obj)          \
+    uint64_t sequence_number_;                   \
+    uint64_t sequence_number() const {           \
+        return sequence_number_;                 \
+    }                                            \
+    virtual bool AddChangePath(Agent *agent,     \
+                               AgentPath *path,  \
+                               const AgentRoute *rt) { \
+        path->set_peer_sequence_number(sequence_number_); \
+        return obj::AddChangePath(agent, path, rt);     \
+    }                                            \
+
 
 /*
  * Contains all Controller Route data definition.
@@ -41,9 +56,15 @@ public:
     ~ControllerPeerPath() { }
 
     virtual bool UpdateRoute(AgentRoute *route) {return false;}
+    uint64_t sequence_number() const {return sequence_number_;}
+    virtual bool AddChangePathInternal(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt) = 0;
+    bool AddChangePath(Agent *agent, AgentPath *path,
+                       const AgentRoute *rt);
 
 private:
     const Peer *peer_;
+    uint64_t sequence_number_;
 };
 
 /*
@@ -68,8 +89,8 @@ public:
     ControllerVmRoute(const Peer *peer) : ControllerPeerPath(peer) { }
     virtual ~ControllerVmRoute() { }
 
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathInternal(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual bool UpdateRoute(AgentRoute *route);
     virtual string ToString() const {return "remote VM";}
     const SecurityGroupList &sg_list() const {return sg_list_;}
@@ -118,8 +139,8 @@ public:
         {nh_req_.Swap(&nh_req);}
 
     virtual ~ControllerEcmpRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *);
+    virtual bool AddChangePathInternal(Agent *agent, AgentPath *path,
+                                       const AgentRoute *);
     virtual string ToString() const {return "inet4 ecmp";}
 
 private:
@@ -149,9 +170,11 @@ private:
 class ClonedLocalPath : public AgentRouteData {
 public:
     ClonedLocalPath(uint32_t label, const VnListType &vn_list,
-                    const SecurityGroupList &sg_list):
+                    const SecurityGroupList &sg_list,
+                    uint64_t sequence_number):
         AgentRouteData(false), mpls_label_(label),
-        vn_list_(vn_list), sg_list_(sg_list) {}
+        vn_list_(vn_list), sg_list_(sg_list),
+        sequence_number_(sequence_number) {}
     virtual ~ClonedLocalPath() {}
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
@@ -162,11 +185,12 @@ private:
     uint32_t mpls_label_;
     const VnListType vn_list_;
     const SecurityGroupList sg_list_;
+    uint64_t sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(ClonedLocalPath);
 };
 
 /*
- * In headless mode stale path is created when no CN server is present.
+ * stale path is created when no CN server is present.
  * Last peer going down marks its path as stale and keep route alive, till
  * anothe CN takes over.
  * There can be only one stale path as multiple does not make any sense.
@@ -174,15 +198,98 @@ private:
  */
 class StalePathData : public AgentRouteData {
 public:
-    StalePathData() : AgentRouteData(false) { }
+    StalePathData(uint64_t sequence_number) : AgentRouteData(false),
+    sequence_number_(sequence_number) { }
     virtual ~StalePathData() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt);
+    virtual bool DeletePath(Agent *agent, AgentPath *path,
+                            const AgentRoute *rt) const;
     virtual std::string ToString() const {
         return "Stale path marking(healdess mode)";
     }
 
 private:
+    uint64_t sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(StalePathData);
+};
+
+class ControllerLocalVmRoute : public LocalVmRoute {
+public:
+    ControllerLocalVmRoute(const VmInterfaceKey &intf,
+                           uint32_t mpls_label,
+                           uint32_t vxlan_id,
+                           bool force_policy,
+                           const VnListType &vn_list,
+                           uint8_t flags,
+                           const SecurityGroupList &sg_list,
+                           const CommunityList &communities,
+                           const PathPreference &path_preference,
+                           const IpAddress &subnet_service_ip,
+                           const EcmpLoadBalance &ecmp_load_balance,
+                           bool is_local,
+                           bool is_health_check_service,
+                           uint64_t sequence_number);
+    virtual ~ControllerLocalVmRoute() { }
+    CONTROLLER_SEQUENCE_NUMBER(LocalVmRoute);
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(ControllerLocalVmRoute);
+};
+
+class ControllerInetInterfaceRoute : public InetInterfaceRoute {
+public:
+    ControllerInetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
+                                 int tunnel_bmap, const VnListType &dest_vn_list,
+                                 uint64_t sequence_number);
+    virtual ~ControllerInetInterfaceRoute() { }
+    CONTROLLER_SEQUENCE_NUMBER(InetInterfaceRoute);
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(ControllerInetInterfaceRoute);
+};
+
+class ControllerVlanNhRoute : public VlanNhRoute {
+public:
+    ControllerVlanNhRoute(const VmInterfaceKey &intf, uint32_t tag,
+                          uint32_t label,
+                          const VnListType &dest_vn_list,
+                          const SecurityGroupList &sg_list,
+                          const PathPreference &path_preference,
+                          uint64_t sequence_number);
+    virtual ~ControllerVlanNhRoute() { }
+    CONTROLLER_SEQUENCE_NUMBER(VlanNhRoute);
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(ControllerVlanNhRoute);
+};
+
+class ControllerL2ReceiveRoute : public L2ReceiveRoute {
+public:
+    ControllerL2ReceiveRoute(const std::string &dest_vn_name, uint32_t vxlan_id,
+                           uint32_t mpls_label,
+                           const PathPreference &path_preference,
+                           uint64_t sequence_number);
+    virtual ~ControllerL2ReceiveRoute() { }
+    CONTROLLER_SEQUENCE_NUMBER(L2ReceiveRoute);
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(ControllerL2ReceiveRoute);
+};
+
+class ControllerMulticastRoute : public MulticastRoute {
+ public:
+    ControllerMulticastRoute(const string &vn_name,
+                             uint32_t label,
+                             int vxlan_id,
+                             uint32_t tunnel_type,
+                             DBRequest &nh_req,
+                            COMPOSITETYPE comp_nh_type,
+                             uint64_t sequence_number);
+    virtual ~ControllerMulticastRoute() { }
+    CONTROLLER_SEQUENCE_NUMBER(MulticastRoute);
+
+ private:
+    DISALLOW_COPY_AND_ASSIGN(ControllerMulticastRoute);
 };
 #endif //controller_route_path_hpp

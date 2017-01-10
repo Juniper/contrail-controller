@@ -9,10 +9,11 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
+#include "init/agent_param.h"
 #include "controller/controller_peer.h"
-#include "controller/controller_ifmap.h"
 #include "controller/controller_vrf_export.h"
 #include "controller/controller_init.h"
+#include "controller/controller_ifmap.h"
 #include "oper/operdb_init.h"
 #include "oper/vrf.h"
 #include "oper/nexthop.h"
@@ -77,15 +78,19 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent,
                                    const std::string &label_range,
                                    uint8_t xs_idx)
     : channel_(NULL), xmpp_server_(xmpp_server), label_range_(label_range),
-      xs_idx_(xs_idx), agent_(agent) {
+      xs_idx_(xs_idx), route_published_time_(0),
+      sequence_number_(0), agent_(agent) {
     bgp_peer_id_.reset();
+    end_of_rib_tx_timer_.reset(new EndOfRibTxTimer(agent));
+    end_of_rib_rx_timer_.reset(new EndOfRibRxTimer(agent));
+    CreateBgpPeer();
 }
 
 AgentXmppChannel::~AgentXmppChannel() {
-    BgpPeer *bgp_peer = bgp_peer_id();
-    assert(bgp_peer == NULL);
-    channel_->UnRegisterReceive(xmps::BGP);
     channel_->UnRegisterWriteReady(xmps::BGP);
+    channel_->UnRegisterReceive(xmps::BGP);
+    end_of_rib_tx_timer_.reset();
+    end_of_rib_rx_timer_.reset();
 }
 
 InetUnicastAgentRouteTable *AgentXmppChannel::PrefixToRouteTable
@@ -133,20 +138,6 @@ void AgentXmppChannel::CreateBgpPeer() {
     assert(ec.value() == 0);
     bgp_peer_id_.reset(new BgpPeer(ip, addr, agent_, id, Peer::BGP_PEER));
 }
-
-void AgentXmppChannel::DeCommissionBgpPeer() {
-    //Unregister to db table is in  destructor of peer. Unregister shud happen
-    //after dbstate for the id has happened w.r.t. this peer. If unregiter is
-    //done here, then there is a chance that it is reused and before state
-    //is removed it is overwritten. Also it may happen that state delete may be
-    //of somebody else.
-
-    // Add the peer to global decommisioned list
-    agent_->controller()->AddToDecommissionedPeerList(bgp_peer_id_);
-    //Reset channel BGP peer id
-    bgp_peer_id_.reset();
-}
-
 
 bool AgentXmppChannel::SendUpdate(uint8_t *msg, size_t size) {
 
@@ -683,7 +674,8 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
                     BgpPeer *bgp_peer = bgp_peer_id();
                     ClonedLocalPath *data =
                         new ClonedLocalPath(label, vn_list,
-                                item->entry.security_group_list.security_group);
+                                item->entry.security_group_list.security_group,
+                                sequence_number_);
                     rt_table->AddClonedLocalPathReq(bgp_peer, vrf_name,
                                                     prefix_addr, prefix_len,
                                                     data);
@@ -920,7 +912,7 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                          label, mac, ip_addr,
                                          item->entry.nlri.ethernet_tag,
                                          item->entry.virtual_network,
-                                         path_preference);
+                                         path_preference, sequence_number_);
         return;
     }
 
@@ -941,21 +933,23 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
 
     if (encap == TunnelType::VxlanType()) {
         local_vm_route =
-            new LocalVmRoute(intf_key,
+            new ControllerLocalVmRoute(intf_key,
                              MplsTable::kInvalidLabel,
                              label, false, vn_list,
                              InterfaceNHFlags::BRIDGE,
                              sg_list, CommunityList(), path_preference,
-                             Ip4Address(0), ecmp_load_balance, false, false);
+                             Ip4Address(0), ecmp_load_balance, false, false,
+                             sequence_number_);
     } else {
         local_vm_route =
-            new LocalVmRoute(intf_key,
+            new ControllerLocalVmRoute(intf_key,
                              label,
                              VxLanTable::kInvalidvxlan_id,
                              false, vn_list,
                              InterfaceNHFlags::BRIDGE,
                              sg_list, CommunityList(), path_preference,
-                             Ip4Address(0), ecmp_load_balance, false, false);
+                             Ip4Address(0), ecmp_load_balance, false, false,
+                             sequence_number_);
     }
     rt_table->AddLocalVmRouteReq(bgp_peer_id(), vrf_name, mac,
                                  ip_addr, item->entry.nlri.ethernet_tag,
@@ -1032,7 +1026,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             BgpPeer *bgp_peer = bgp_peer_id();
             if (interface->type() == Interface::VM_INTERFACE) {
                 LocalVmRoute *local_vm_route =
-                    new LocalVmRoute(intf_key, label,
+                    new ControllerLocalVmRoute(intf_key, label,
                              VxLanTable::kInvalidvxlan_id,
                              false, vn_list,
                              InterfaceNHFlags::INET4,
@@ -1040,7 +1034,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                              CommunityList(),
                              path_preference,
                              Ip4Address(0),
-                             ecmp_load_balance, false, false);
+                             ecmp_load_balance, false, false,
+                             sequence_number_);
                 rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
                                              prefix_addr, prefix_len,
                                              static_cast<LocalVmRoute *>(local_vm_route));
@@ -1053,9 +1048,9 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                 }
                 InetInterfaceKey intf_key(interface->name());
                 InetInterfaceRoute *inet_interface_route =
-                    new InetInterfaceRoute(intf_key, label,
+                    new ControllerInetInterfaceRoute(intf_key, label,
                                            TunnelType::GREType(),
-                                           vn_list);
+                                           vn_list, sequence_number_);
 
                 rt_table->AddInetInterfaceRouteReq(bgp_peer, vrf_name,
                                                 prefix_addr.to_v4(), prefix_len,
@@ -1076,10 +1071,10 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                                     vlan_nh->GetIfUuid(), "");
             BgpPeer *bgp_peer = bgp_peer_id();
             VlanNhRoute *data =
-                new VlanNhRoute(intf_key, vlan_nh->GetVlanTag(),
+                new ControllerVlanNhRoute(intf_key, vlan_nh->GetVlanTag(),
                                 label, vn_list,
                                 item->entry.security_group_list.security_group,
-                                path_preference);
+                                path_preference, sequence_number_);
             rt_table->AddVlanNHRouteReq(bgp_peer, vrf_name, prefix_addr,
                                         prefix_len, data);
             break;
@@ -1101,7 +1096,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             BgpPeer *bgp_peer = bgp_peer_id();
             ClonedLocalPath *data =
                 new ClonedLocalPath(label, vn_list,
-                        item->entry.security_group_list.security_group);
+                        item->entry.security_group_list.security_group,
+                        sequence_number_);
             rt_table->AddClonedLocalPathReq(bgp_peer, vrf_name,
                                             prefix_addr.to_v4(),
                                             prefix_len, data);
@@ -1166,7 +1162,13 @@ void AgentXmppChannel::ReceiveBgpMessage(std::auto_ptr<XmlBase> impl) {
         agent_->stats()->incr_xmpp_in_msgs(xs_idx_);
 
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
-    pugi->FindNode("items");
+    pugi::xml_node node = pugi->FindNode("items");
+    if ((node == 0) && (bgp_peer_id() != NULL)) {
+        end_of_rib_rx_timer()->Cancel();
+        EndOfRibRx();
+        return;
+    }
+
     pugi->ReadNode("items"); //sets the context
     std::string nodename = pugi->ReadAttrib("node");
 
@@ -1218,120 +1220,13 @@ void AgentXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
 
 void AgentXmppChannel::CleanConfigStale(AgentXmppChannel *agent_xmpp_channel) {
     assert(agent_xmpp_channel);
+    const Agent *agent = agent_xmpp_channel->agent();
 
     //Start a timer to flush off all old configs
-    agent_xmpp_channel->agent()->controller()->
-        StartConfigCleanupTimer(agent_xmpp_channel);
-}
-
-void AgentXmppChannel::CleanUnicastStale(AgentXmppChannel *agent_xmpp_channel) {
-    assert(agent_xmpp_channel);
-
-    // Start Cleanup Timers on stale bgp-peer's
-    agent_xmpp_channel->agent()->controller()->
-        StartUnicastCleanupTimer(agent_xmpp_channel);
-}
-
-void AgentXmppChannel::CleanMulticastStale(AgentXmppChannel *agent_xmpp_channel) {
-    assert(agent_xmpp_channel);
-
-    // Start Cleanup Timers on stale bgp-peers, use current peer identifier
-    // for cleanup.
-    agent_xmpp_channel->agent()->controller()->
-        StartMulticastCleanupTimer(agent_xmpp_channel);
-}
-
-/*
- * Handles both headless and non headless mode
- * all_peer_gone - true indicates that all active peers are gone, false
- * indicates that still one or more active peer is present. Used for headless.
- * In case of non-headless mode delete the peer irrespective of all_peer_gone
- * state.
- *
- * peer - decommissioned peer xmpp channel
- */
-void AgentXmppChannel::UnicastPeerDown(AgentXmppChannel *peer,
-                                       BgpPeer *peer_id) {
-    Agent *agent = peer->agent();
-    uint32_t active_xmpp_count = agent->controller()->
-        ActiveXmppConnectionCount();
-    VNController *vn_controller = agent->controller();
-
-    // Cancel timer - when second peer comes up at say 4.5 mts and
-    // immediately first peer does down then there is a interval of few seconds
-    // for second peer to clean up whereas he shud have had 5 mts.
-    if (agent->headless_agent_mode()) {
-        if (active_xmpp_count == 0) {
-            //Enqueue stale marking of unicast v4 & l2 routes
-            vn_controller->unicast_cleanup_timer().Cancel();
-            // Mark the peer path info as stale and retain it till new active
-            // peer comes over. So no deletion of path.
-            peer_id->StalePeerRoutes();
-            CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "None",
-                       "No active xmpp, cancel cleanup timer, stale routes");
-            return;
-        }
-
-        // Number of active peers has come down to 1 and the active peer
-        // remaining may not be the one who had started the stale walk.
-        // So re-evaluate the stale walk so that new peer can gets its due time
-        // for subscription.
-        if (active_xmpp_count == 1) {
-            // Dont depend on the xmpp channel sent as function argument;
-            // it can be the deleted one and not the current active remaining.
-            // So find the active peer.
-            AgentXmppChannel *active_xmpp_channel = agent->controller()->
-                GetActiveXmppChannel();
-            AgentXmppChannel::CleanUnicastStale(active_xmpp_channel);
-            CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "None",
-             "Active xmpp count is one, evaluate reschedule of cleanup timer");
-        }
-
-        // Ideally two xmpp channels are supported so assert if we reach here
-        // with active_xmpp_count is greater than 1.
-        assert(active_xmpp_count <= 1);
+    if (agent->ifmap_xmpp_channel(agent_xmpp_channel->GetXmppServerIdx())) {
+        agent->ifmap_xmpp_channel(agent_xmpp_channel->GetXmppServerIdx())->
+            StartConfigCleanupTimer();
     }
-    // Dont bother, delete, we are safe
-    // These cases result in delete
-    // 1) Non headless - blindly delete
-    // 2) Headless (active_xmpp present) - Delete peer path
-    // Callback provided  for all walk done - this invokes cleanup in case
-    // delete of peer is issued because of channel getting disconnected.
-    peer_id->DelPeerRoutes(boost::bind(
-                           &VNController::ControllerPeerHeadlessAgentDelDoneEnqueue,
-                           agent->controller(), peer_id));
-    CONTROLLER_TRACE(Trace, peer->GetBgpPeerName(), "None",
-                     "Delete peer paths");
-}
-
-/*
- * all_peer_gone - true indicates all active peers are gone and false specifies
- * atleast one peer is active. Valid only for headless mode.
- * In non headless mode always remove the peer info.
- */
-void AgentXmppChannel::MulticastPeerDown(AgentXmppChannel *old_mcast_builder,
-                                         AgentXmppChannel *new_mcast_builder) {
-    Agent *agent = old_mcast_builder->agent();
-    if (old_mcast_builder && agent->headless_agent_mode()) {
-        if (new_mcast_builder == NULL) {
-            VNController *vn_controller = agent->controller();
-            vn_controller->multicast_cleanup_timer().Cancel();
-            CONTROLLER_TRACE(Trace, old_mcast_builder->GetBgpPeerName(), "None",
-                             "No mcast builder, cancel cleanup timer");
-        } else {
-            //Peer going down has resulted in switch over of peer.
-            //In case stale cleanup timer is active reschedule it so that new
-            //peer can have its quota of stale timeout.
-            AgentXmppChannel::CleanMulticastStale(new_mcast_builder);
-            CONTROLLER_TRACE(Trace, old_mcast_builder->GetBgpPeerName(), "None",
-                             "evaluate reschedule of mcast cleanup timer");
-        }
-        return;
-    }
-
-    //Start multicast timer for cleanup, though peer has nothing to do
-    //w.r.t. multicast, its sent for syntax sake.
-    AgentXmppChannel::CleanMulticastStale(old_mcast_builder);
 }
 
 bool AgentXmppChannel::IsXmppChannelActive(const Agent *agent,
@@ -1383,6 +1278,10 @@ bool AgentXmppChannel::SetConfigPeer(AgentXmppChannel *peer) {
         AgentIfMapXmppChannel::NewSeqNumber();
         agent->ifmap_parser()->reset_statistics();
         agent->controller()->agent_ifmap_vm_export()->NotifyAll(peer);
+        if (agent->ifmap_xmpp_channel(peer->GetXmppServerIdx())) {
+            agent->ifmap_xmpp_channel(peer->GetXmppServerIdx())->
+                end_of_config_timer()->Start(peer);
+        }
         return true;
     }
     return false;
@@ -1415,6 +1314,8 @@ void AgentXmppChannel::XmppClientChannelEvent(AgentXmppChannel *peer,
  * Xmpp Channel event handler- handled events are READY and NOT_READY
  *
  * READY State
+ *
+ * TODO - CHANGE COMMENTS
  *
  * Headless Mode
  * If bgp_peer_id is already set ignore the notification. READY is only
@@ -1471,31 +1372,17 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                                                          xmps::PeerState state) {
     Agent *agent = peer->agent();
     peer->UpdateConnectionInfo(state);
-    bool headless_mode = agent->headless_agent_mode();
 
     if (state == xmps::READY) {
-
-        //Ignore duplicate ready messages, active peer present
-        if (peer->bgp_peer_id() != NULL)
-            return;
-
-        // Create a new BgpPeer channel is UP from DOWN state
-        peer->CreateBgpPeer();
         agent->set_controller_xmpp_channel_setup_time(UTCTimestampUsec(), peer->
                                             GetXmppServerIdx());
         CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                          "NULL", "BGP peer ready.");
-        if ((agent->controller()->ActiveXmppConnectionCount() == 1) &&
-            headless_mode) {
-            CleanUnicastStale(peer);
-        }
+        peer->incr_sequence_number();
 
         // Switch-over Config Control-node
         if (agent->ifmap_active_xmpp_server().empty()) {
             AgentXmppChannel::SetConfigPeer(peer);
-            if (headless_mode) {
-                CleanConfigStale(peer);
-            }
             CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                              "NULL", "BGP peer set as config server.");
         }
@@ -1505,46 +1392,26 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
         if (agent_mcast_builder == NULL) {
             //Since this is first time mcast peer so old and new peer are same
             AgentXmppChannel::SetMulticastPeer(peer, peer);
-            CleanMulticastStale(peer);
             CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                              agent->mulitcast_builder()->
                              GetBgpPeerName(), "Peer elected Mcast builder");
         }
 
-        // Walk route-tables and notify unicast routes
-        // and notify subnet and broadcast if TreeBuilder
-        //TODO this will send notification for mcast routes even though
-        //peer was not selected as mcast_builder. The notification gets dropped
-        //when message is dropped at ControllerSendMulticastRoute by checking
-        //peer against mcast builder. This can be refined though.
-        peer->bgp_peer_id()->PeerNotifyRoutes();
-
-        //Cleanup stales if any
-        // If its headless agent mode clean stale for config and unicast
-        // unconditionally, multicast cleanup is not required if change in mcast
-        // builder is not present.
-        // In case of non headless mode the cleanup shud have happened when all
-        // channels were down for config and unicast so nothing to do. Multicast
-        // handling remains same as of headless.
+        //Notify all routes to channel
+        peer->NotifyRoutes();
+        //Timer to delete stale paths in case EOR is not seen fro CN.
+        //If EOR is seen it will cancel this timer.
+        peer->end_of_rib_rx_timer()->Start(peer);
 
         if (agent->stats())
             agent->stats()->incr_xmpp_reconnects(peer->GetXmppServerIdx());
     } else if (state == xmps::NOT_READY) {
-
-        //Ignore duplicate not-ready messages
-        if (peer->bgp_peer_id() == NULL)
-            return;
-
-        BgpPeer *decommissioned_peer_id = peer->bgp_peer_id();
-        // Add BgpPeer to global decommissioned list
-        peer->DeCommissionBgpPeer();
-
         CONTROLLER_TRACE(Session, peer->GetXmppServer(), "NOT_READY",
                          "NULL", "BGP peer decommissioned for xmpp channel.");
-
-        // Remove all unicast peer paths(in non headless mode) and cancel stale
-        // timer in headless
-        AgentXmppChannel::UnicastPeerDown(peer, decommissioned_peer_id);
+        //Stop stale cleanup if its running
+        peer->bgp_peer_id()->StopDeleteStale();
+        //Also stop end-of-rib rx fallback and retain.
+        peer->end_of_rib_rx_timer()->Cancel();
 
         // evaluate peer change for config and multicast
         AgentXmppChannel *agent_mcast_builder =
@@ -1555,7 +1422,6 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
 
         // Switch-over Config Control-node
         if (peer_is_config_server) {
-            bool new_peer_selected = false;
             //send cfg subscribe to other peer if exists
             uint8_t idx = ((agent->ifmap_active_xmpp_server_index() == 0) ? 1: 0);
             agent->reset_ifmap_active_xmpp_server();
@@ -1563,28 +1429,14 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
 
             if (IsBgpPeerActive(agent, new_cfg_peer) &&
                 AgentXmppChannel::SetConfigPeer(new_cfg_peer)) {
-                new_peer_selected = true;
-                AgentXmppChannel::CleanConfigStale(new_cfg_peer);
                 CONTROLLER_TRACE(Session, new_cfg_peer->GetXmppServer(),
                                  "NOT_READY", "NULL", "BGP peer selected as" 
                                  "config peer on decommission of old config "
                                  "peer.");
 
             } else {
-                //All cfg peers are gone, in headless agent cancel cleanup
-                //timer, retain old config
-                if (headless_mode)
-                    agent->controller()->config_cleanup_timer().Cancel();
-            }
-
-            //Start a timer to flush off all old configs, in non headless mode
-            if (!headless_mode) {
-                // For old config peer increment sequence number and remove
-                // entries
-                if (!new_peer_selected)
-                    AgentIfMapXmppChannel::NewSeqNumber();
-                agent->ifmap_parser()->reset_statistics();
-                AgentXmppChannel::CleanConfigStale(peer);
+                //stop all config clean timer, retain old config
+                peer->AllConfigPeersGone();
             }
         }
 
@@ -1609,11 +1461,6 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                                  "NULL", "No elected Multicast Tree Builder");
             }
             AgentXmppChannel::SetMulticastPeer(peer, new_mcast_builder);
-
-            //Bring down old peer, new_mcast_builder NULL means all possible
-            //builder are gone.
-            AgentXmppChannel::MulticastPeerDown(peer, new_mcast_builder);
-
             if (evaluate_new_mcast_builder) {
                 //Advertise subnet and all broadcast routes to
                 //the new multicast tree builder
@@ -1666,6 +1513,31 @@ void AgentXmppChannel::HandleAgentXmppClientChannelEvent(AgentXmppChannel *peer,
                 Agent::GetInstance()->controller()->ReConnectXmppServer();
             }
         }
+    }
+}
+
+void AgentXmppChannel::NotifyRoutes() {
+    AgentIfMapXmppChannel *ifmap_channel =
+        agent_->ifmap_xmpp_channel(agent_->ifmap_active_xmpp_server_index());
+    if (ifmap_channel &&
+        (ifmap_channel->end_of_config_timer()->running() == false) &&
+        (end_of_rib_tx_timer()->running() == false)) {
+        StartEndOfRibTxWalker();
+    }
+}
+
+EndOfRibTxTimer *AgentXmppChannel::end_of_rib_tx_timer() {
+    return end_of_rib_tx_timer_.get();
+}
+
+EndOfRibRxTimer *AgentXmppChannel::end_of_rib_rx_timer() {
+    return end_of_rib_rx_timer_.get();
+}
+
+void AgentXmppChannel::AllConfigPeersGone() {
+    if (agent_->ifmap_xmpp_channel(xs_idx_)) {
+        agent_->ifmap_xmpp_channel(xs_idx_)->end_of_config_timer()->Cancel();
+        agent_->ifmap_xmpp_channel(xs_idx_)->config_cleanup_timer()->Cancel();
     }
 }
 
@@ -1940,6 +1812,7 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
     SendUpdate(data_,datalen_);
+    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec(); 
     return true;
 }
 
@@ -2261,6 +2134,7 @@ bool AgentXmppChannel::BuildAndSendEvpnDom(EnetItemType &item,
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
     SendUpdate(data_,datalen_);
+    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec(); 
     return true;
 }
 
@@ -2419,6 +2293,7 @@ bool AgentXmppChannel::ControllerSendMcastRouteCommon(AgentRoute *route,
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
     // send data
     SendUpdate(data_,datalen_);
+    end_of_rib_tx_timer()->last_route_published_time_ = UTCTimestampUsec(); 
     return true;
 }
 
@@ -2582,6 +2457,36 @@ bool AgentXmppChannel::ControllerSendMcastRouteDelete(AgentXmppChannel *peer,
     return peer->ControllerSendMcastRouteCommon(route, false);
 }
 
+void AgentXmppChannel::EndOfRibRx() {
+    end_of_rib_rx_timer()->end_of_rib_rx_time_ = UTCTimestampUsec();
+    bgp_peer_id()->DeleteStale(sequence_number_);
+    agent()->controller()->FlushTimedOutChannels(xs_idx_);
+    if (agent()->mulitcast_builder() == this) {
+        MulticastHandler::GetInstance()->FlushPeerInfo(agent()->
+                             controller()->multicast_sequence_number());
+    }
+}
+
+void AgentXmppChannel::EndOfRibTx() {
+    string msg;
+    msg += "\n<message from=\"";
+    msg += channel_->FromString();
+    msg += "\" to=\"";
+    msg += channel_->ToString();
+    msg += "/";
+    msg += XmppInit::kBgpPeer;
+    msg += "\">";
+    msg += "\n\t<event xmlns=\"http://jabber.org/protocol/pubsub\">";
+    msg = (msg + "\n<items node=\"") + XmppInit::kEndOfRibMarker +
+          "\"></items>";
+    msg += "\n\t</event>\n</message>\n";
+
+    if (channel_->connection()) {
+        channel_->connection()->Send((const uint8_t *) msg.data(), msg.size());
+        end_of_rib_tx_timer()->end_of_rib_tx_time_ = UTCTimestampUsec();
+    }
+}
+
 void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
 
     if (agent_->connection_state() == NULL)
@@ -2617,5 +2522,18 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
                     g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, ep);
             }
         }
+    }
+}
+
+void AgentXmppChannel::StartEndOfRibTxWalker() {
+    if (bgp_peer_id()) {
+        bgp_peer_id()->PeerNotifyRoutes(
+                       boost::bind(&AgentXmppChannel::EndOfRibTx, this));
+    }
+}
+
+void AgentXmppChannel::StopEndOfRibTxWalker() {
+    if (bgp_peer_id()) {
+        bgp_peer_id()->StopPeerNotifyRoutes();
     }
 }

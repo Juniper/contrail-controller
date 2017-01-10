@@ -54,7 +54,8 @@ public:
                          uint32_t label, const MacAddress &mac,
                          const IpAddress &ip_addr, uint32_t ethernet_tag,
                          const std::string &vn_name,
-                         const PathPreference &pref);
+                         const PathPreference &pref,
+                         uint64_t sequence_number);
     void AddLocalVmRouteReq(const Peer *peer,
                             const std::string &vrf_name,
                             const MacAddress &mac,

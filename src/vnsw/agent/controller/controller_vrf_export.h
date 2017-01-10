@@ -20,6 +20,7 @@ public:
         bool exported_;
         bool force_chg_;
         RouteExport *rt_export_[Agent::ROUTE_TABLE_MAX];
+        uint64_t last_sequence_number_;
     };
 
     static void Notify(const Agent *agent, AgentXmppChannel *,

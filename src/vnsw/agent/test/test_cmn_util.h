@@ -478,15 +478,30 @@ void AddAapWithMacAndDisablePolicy(const std::string &intf_name, int intf_id,
 
 class XmppChannelMock : public XmppChannel {
 public:
-    XmppChannelMock() : fake_to_("fake"), fake_from_("fake-from") { }
+    XmppChannelMock() : fake_to_("fake"), fake_from_("fake-from") {
+        for (uint8_t idx = 0; idx < (uint8_t)xmps::OTHER; idx++) {
+            registered_[idx] = false;
+        }
+    }
     virtual ~XmppChannelMock() { }
     bool Send(const uint8_t *, size_t, xmps::PeerId, SendReadyCb) {
         return true;
     }
     void Close() { }
     int GetTaskInstance() const { return 0; }
-    MOCK_METHOD2(RegisterReceive, void(xmps::PeerId, ReceiveCb));
-    MOCK_METHOD1(UnRegisterReceive, void(xmps::PeerId));
+    void RegisterReceive(xmps::PeerId id, ReceiveCb cb) {
+        registered_[id] = true;
+    }
+    void UnRegisterReceive(xmps::PeerId id) {
+        bool delete_channel = true;
+        registered_[id] = false;
+        for (uint8_t idx = 0; idx < (uint8_t)xmps::OTHER; idx++) {
+            if (registered_[idx])
+                delete_channel = false;
+        }
+        if (delete_channel)
+            delete this;
+    }
     MOCK_METHOD1(UnRegisterWriteReady, void(xmps::PeerId));
     const std::string &ToString() const { return fake_to_; }
     const std::string &FromString() const  { return fake_from_; }
@@ -551,6 +566,7 @@ public:
 private:
     std::string fake_to_;
     std::string fake_from_;
+    bool registered_[xmps::OTHER];
 };
 
 BgpPeer *CreateBgpPeer(std::string addr, std::string name);

@@ -18,7 +18,7 @@
 #include <controller/controller_types.h>
 
 VrfExport::State::State() : DBState(), exported_(false), 
-    force_chg_(false), rt_export_() {
+    force_chg_(false), rt_export_(), last_sequence_number_(0) {
 };
 
 VrfExport::State::~State() {
@@ -31,8 +31,7 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
 
     if (vrf->IsDeleted()) {
-        agent->controller()->
-            DeleteVrfStateOfDecommisionedPeers(partition, e);
+        bgp_peer->DeleteVrfState(partition, e);
         if (!AgentXmppChannel::IsXmppChannelActive(agent, bgp_xmpp_peer)) {
             return;
         }
@@ -50,8 +49,6 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
     DBTableBase::ListenerId id = bgp_peer->GetVrfExportListenerId();
     State *state = static_cast<State *>(vrf->GetState(partition->parent(), id));
     uint8_t table_type;
-
-
     if (state == NULL) {
         state = new State();
         state->exported_ = false;
@@ -71,6 +68,12 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
                      bgp_xmpp_peer);
             }
         }
+   }
+
+    if (state->last_sequence_number_ == bgp_xmpp_peer->sequence_number()) {
+        state->force_chg_ = false;
+    } else {
+        state->last_sequence_number_ = bgp_xmpp_peer->sequence_number();
     }
 
     if ((state->exported_ == false) || (state->force_chg_ == true)) {

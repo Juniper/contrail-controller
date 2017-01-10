@@ -16,6 +16,7 @@
 #include <cfg/cfg_types.h>
 #include <port_ipc/port_ipc_handler.h>
 #include <port_ipc/port_subscribe_table.h>
+#include <controller/controller_ifmap.h>
 
 #define MAX_TESTNAME_LEN 80
 
@@ -3879,30 +3880,53 @@ static bool ControllerCleanupTrigger() {
     return true;
 }
 
+void FireAllControllerTimers(Agent *agent, AgentXmppChannel *channel) {
+    AgentIfMapXmppChannel::NewSeqNumber();
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        if (agent->ifmap_xmpp_channel(count)) {
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                config_cleanup_timer()->sequence_number_ =
+                AgentIfMapXmppChannel::GetSeqNumber();
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                end_of_config_timer()->controller_timer_->Fire();
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                config_cleanup_timer()->TimerExpirationDone();
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                end_of_config_timer()->TimerExpirationDone();
+        }
+    }
+    Agent::GetInstance()->ifmap_stale_cleaner()->
+        StaleTimeout(AgentIfMapXmppChannel::GetSeqNumber());
+
+    TaskScheduler::GetInstance()->Stop();
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        if (agent->ifmap_xmpp_channel(count)) {
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                config_cleanup_timer()->controller_timer_->Fire();
+            if (channel) {
+                channel->end_of_rib_tx_timer()->controller_timer_->Fire();
+                channel->end_of_rib_rx_timer()->controller_timer_->Fire();
+            }
+            Agent::GetInstance()->ifmap_xmpp_channel(count)->
+                end_of_config_timer()->controller_timer_->Fire();
+        }
+    }
+    TaskScheduler::GetInstance()->Start();
+    client->WaitForIdle();
+}
+
 void DeleteBgpPeer(Peer *peer) {
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer);
-
     AgentXmppChannel *channel = NULL;
-    XmppChannelMock *xmpp_channel = NULL;
-
+    FireAllControllerTimers(Agent::GetInstance(), channel);
     if (bgp_peer) {
         channel = bgp_peer->GetAgentXmppChannel();
-        AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
-                                                            xmps::NOT_READY);
+        //Increment sequence number to clear config
+        Agent::GetInstance()->controller()->
+            DisConnectControllerIfmapServer(channel->GetXmppServerIdx());
+        Agent::GetInstance()->controller()->FlushTimedOutChannels(channel->
+                                            GetXmppServerIdx());
     }
-    if (channel) {
-        xmpp_channel = static_cast<XmppChannelMock *>
-            (channel->GetXmppChannel());
-    }
-    client->WaitForIdle();
-    TaskScheduler::GetInstance()->Stop();
-    Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->
-        Fire();
-    Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->
-        Fire();
-    Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->
-        Fire();
-    TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
     int task_id = TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp");
     std::auto_ptr<TaskTrigger> trigger_
@@ -3911,8 +3935,6 @@ void DeleteBgpPeer(Peer *peer) {
     client->WaitForIdle();
     Agent::GetInstance()->reset_controller_xmpp_channel(0);
     Agent::GetInstance()->reset_controller_xmpp_channel(1);
-    if (xmpp_channel)
-        delete xmpp_channel;
 }
 
 void FillEvpnNextHop(BgpPeer *peer, std::string vrf_name,
