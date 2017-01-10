@@ -27,6 +27,8 @@
 #include <oper/nexthop.h>
 #include <oper/config_manager.h>
 #include <oper/agent_route_resync.h>
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/mpls_index.h>
 
 using namespace std;
 using namespace autogen;
@@ -95,6 +97,22 @@ string VrfEntry::ToString() const {
     return "VRF";
 }
 
+void VrfEntry::AllocateResources() {
+    assert(table_label_ == MplsTable::kInvalidLabel);
+    Agent *agent = static_cast<VrfTable *>(get_table())->agent();
+    ResourceManager::KeyPtr key(new VrfMplsResourceKey(agent->
+                                resource_manager(), name_));
+    set_table_label(agent->mpls_table()->AllocLabel(key));
+}
+
+void VrfEntry::FreeResources() {
+    Agent *agent = static_cast<VrfTable *>(get_table())->agent();
+    ResourceManager::KeyPtr key(new VrfMplsResourceKey(agent->
+                                resource_manager(), name_));
+    agent->mpls_table()->FreeLabel(key);
+    set_table_label(MplsTable::kInvalidLabel);
+}
+
 bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
     bool ret = false;
     if (new_vxlan_id == vxlan_id_) {
@@ -106,12 +124,10 @@ bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
 }
 
 void VrfEntry::CreateTableLabel() {
-    if (table_label_ == MplsTable::kInvalidLabel) {
-        VrfTable *table = static_cast<VrfTable *>(get_table());
-        Agent *agent = table->agent();
-        set_table_label(agent->mpls_table()->AllocLabel());
-        MplsTable::CreateTableLabel(agent, table_label(), name_, false);
-    }
+    assert(table_label_ != MplsTable::kInvalidLabel);
+    VrfTable *table = static_cast<VrfTable *>(get_table());
+    Agent *agent = table->agent();
+    MplsTable::CreateTableLabel(agent, table_label(), name_, false);
 }
 
 void VrfEntry::CreateRouteTables() {

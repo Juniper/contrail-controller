@@ -37,6 +37,7 @@ class AgentStatsCollector;
 class FlowStatsCollector;
 class FlowStatsManager;
 class MetaDataIpAllocator;
+class ResourceManager;
 namespace OVSDB {
 class OvsdbClient;
 };
@@ -898,6 +899,9 @@ public:
     VNController *controller() const;
     void set_controller(VNController *val);
 
+    ResourceManager *resource_manager() const;
+    void set_resource_manager(ResourceManager *resource_manager);
+
     // Miscellaneous
     EventManager *event_manager() const {return event_mgr_;}
     void set_event_manager(EventManager *evm) {
@@ -1142,6 +1146,7 @@ private:
     OperDB *oper_db_;
     DiagTable *diag_table_;
     VNController *controller_;
+    ResourceManager *resource_manager_;
 
     EventManager *event_mgr_;
     TaskTbbKeepAwake *tbb_awake_task_;
