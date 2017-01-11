@@ -15,11 +15,11 @@ import link_local_manager as ll_mgr
 class VncService(object):
 
     def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None,
-                 service=None):
+                 kube=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self.logger = logger
-        self.service = service
+        self.kube = kube
 
         # Cache kubernetes API server params.
         self._kubernetes_api_secure_ip = args.kubernetes_api_secure_ip
@@ -373,7 +373,7 @@ class VncService(object):
 
     def _update_service_external_ip(self, service_namespace, service_name, external_ip):
         merge_patch = {'spec': {'externalIPs': [external_ip]}}
-        self.service.patch(resource_type="services", resource_name=service_name, 
+        self.kube.patch_resource(resource_type="services", resource_name=service_name,
                            namespace=service_namespace, merge_patch=merge_patch)
 
     def _update_service_public_ip(self, service_id, service_name,
