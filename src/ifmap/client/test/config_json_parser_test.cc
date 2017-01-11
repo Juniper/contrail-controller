@@ -32,6 +32,7 @@ using namespace std;
 using namespace rapidjson;
 
 static Document events_;
+static size_t cevent_;
 
 class ConfigCassandraClientTest : public ConfigCassandraClient {
 public:
@@ -76,6 +77,7 @@ protected:
     }
 
     virtual void SetUp() {
+        cevent_ = 0;
         IFMapLinkTable_Init(&db_, &graph_);
         vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
         vnc_cfg_Server_ModuleInit(&db_, &graph_);
@@ -102,9 +104,15 @@ protected:
                 << events_.GetParseError() << std::endl;
             exit(-1);
         }
-        for (SizeType index = 0; index < events_.Size(); index++) {
+    }
+
+    void FeedEventsJson () {
+        while (cevent_++ < events_.Size()) {
+            if (events_[SizeType(cevent_-1)]["operation"].GetString() ==
+                           string("pause"))
+                break;
             config_client_manager_->config_amqp_client()->ProcessMessage(
-                events_[SizeType(index)]["rabbit_message"].GetString());
+                events_[SizeType(cevent_-1)]["message"].GetString());
         }
         task_util::WaitForIdle();
     }
@@ -309,7 +317,8 @@ TEST_F(ConfigJsonParserTest, VmiParseAddDeleteProperty) {
 
 // In a single message, adds vn1, vn2, vn3.
 TEST_F(ConfigJsonParserTest, ServerParser1) {
-    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test1.json");
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.json");
+    FeedEventsJson();
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
@@ -322,10 +331,36 @@ TEST_F(ConfigJsonParserTest, ServerParser1) {
     EXPECT_TRUE(vn != NULL);
 }
 
+// In a multiple messages, adds (vn1, vn2), and vn3.
+TEST_F(ConfigJsonParserTest, ServerParser1_InMultipleMessages) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.1.2.json");
+    FeedEventsJson();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(2, table->Size());
+
+    IFMapNode *vn1 = NodeLookup("virtual-network", "vn1");
+    EXPECT_TRUE(vn1 != NULL);
+    IFMapNode *vn = NodeLookup("virtual-network", "vn2");
+    EXPECT_TRUE(vn != NULL);
+
+    // Verify that vn3 is still not added
+    vn = NodeLookup("virtual-network", "vn3");
+    EXPECT_TRUE(vn == NULL);
+
+    // Resume events processing
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    vn = NodeLookup("virtual-network", "vn3");
+    EXPECT_TRUE(vn != NULL);
+}
+
 // In a single message, adds vn1, vn2, vn3, then deletes, vn3, then adds vn4,
 // vn5, then deletes vn5, vn4 and vn2. Only vn1 should remain.
 TEST_F(ConfigJsonParserTest, DISABLED_ServerParser2) {
     ParseEventsJson("controller/src/ifmap/testdata/server_parser_test.json");
+    FeedEventsJson();
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(1, table->Size());

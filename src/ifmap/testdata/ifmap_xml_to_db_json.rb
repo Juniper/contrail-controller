@@ -3,7 +3,12 @@
 require 'pp'
 require 'rails'
 
-@debug = false
+def init_globals
+    @debug = false
+    @db = Hash.new
+    @events = [ ]
+    @seen = Hash.new(false)
+end
 
 def get_uuid (u)
     c = sprintf("%032x",
@@ -11,8 +16,8 @@ def get_uuid (u)
     c.insert(8, "-").insert(13, "-").insert(18, "-").insert(23, "-").join
 end
 
-def read_xml_to_json
-    ifd = ARGV[0].nil? ? STDIN : File.open(ARGV[0], "r")
+def read_xml_to_json (file_name = ARGV[0])
+    ifd = file_name.nil? ? STDIN : File.open(file_name, "r")
     xml = ifd.read() # File.read("server_parser_test6.xml")
 
     # Add seq-numbers to resultItems to note down the order..
@@ -35,7 +40,8 @@ def read_items
         records = [ ]
         f = tmp.kind_of?(Array) ? tmp : [tmp["resultItem"]]
         f.each { |i|
-            if i.class == Array and i[0].key? "_seq"
+            if (i.class == Array and i[0].key? "_seq") or
+               (i.class == Hash and i.key? "_seq")
                 records.push i
                 next
             end
@@ -53,7 +59,6 @@ def read_items
 end
 
 def init_fake_db
-    @db = Hash.new
     @records.each { |record|
         next if !record["metadata"].key? "id_perms" or
                 !record["metadata"]["id_perms"].key? "uuid"
@@ -74,9 +79,6 @@ def from_name (fq)
     return nil
 end
 
-@events = [ ]
-@seen = Hash.new(false)
-
 def oper_convert (oper)
     return "CREATE" if oper == "createResult"
     return "UPDATE" if oper == "updateResult"
@@ -93,7 +95,11 @@ def print_db (oper, uuid, fq_name, type)
         "oper" => oper_convert(oper), "fq_name" => fq_name, "type" => type,
         "uuid" => "#{@events.size}:#{uuid}"
     }
-    @events.push({"rabbit_message" => event.to_json, "db" => @db.deep_dup })
+    @events.push({
+                      "operation" => "rabbit_enqueue",
+                      "message" => event.to_json,
+                      "db" => @db.deep_dup }
+                )
 end
 
 def parse_links (record)
@@ -170,10 +176,14 @@ def process
 end
 
 def main
-    read_xml_to_json
-    read_items
-    init_fake_db
-    process # Process updates
+    init_globals
+    ARGV.each { |file_name|
+        @events.push({"operation" => "pause"}) if !@events.empty?
+        read_xml_to_json(file_name)
+        read_items
+        init_fake_db
+        process # Process updates
+    }
     puts JSON.pretty_generate(@events)
 end
 
