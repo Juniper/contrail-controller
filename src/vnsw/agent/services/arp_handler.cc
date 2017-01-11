@@ -285,6 +285,14 @@ bool ArpHandler::HandleMessage() {
             break;
         }
 
+        case ArpProto::ARP_SEND_GATEWAY_GRATUITOUS:  {
+            arp_proto->set_gratuitous_arp_entry(
+                    new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
+                        ArpEntry::ACTIVE, ipc->interface));
+            arp_proto->gratuitous_arp_entry()->SendGratuitousArp();
+            break;
+        }
+
         default:
             ARP_TRACE(Error, "Received Invalid internal ARP message : " +
                       integerToString(pkt_info_->ipc->cmd));

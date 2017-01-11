@@ -36,6 +36,7 @@ public:
         RETRY_TIMER_EXPIRED,
         AGING_TIMER_EXPIRED,
         GRATUITOUS_TIMER_EXPIRED,
+        ARP_SEND_GATEWAY_GRATUITOUS,
     };
 
     struct ArpIpc : InterTaskMsg {

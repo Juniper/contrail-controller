@@ -395,6 +395,17 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
                               route->addr().to_v4().to_ulong(), route->vrf(),
                               arp_proto->ip_fabric_interface());
+    } else {
+        const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>(
+                route->GetActiveNextHop());
+        if (intf_nh) {
+            const Interface *intf =
+                static_cast<const Interface *>(intf_nh->GetInterface());
+            if (intf->type() == Interface::VM_INTERFACE) {
+                arp_proto->SendArpIpc(ArpProto::ARP_SEND_GATEWAY_GRATUITOUS,
+                        route->addr().to_v4().to_ulong(), intf->vrf(), intf);
+            }
+       }
     }
 
     //Check if there is a local VM path, if yes send a
