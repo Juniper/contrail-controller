@@ -1,5 +1,5 @@
 {
-    "virtual-network": {
+    "virtual_network": {
         "flood_unknown_unicast": false,
         "fq_name": [
             "dd",

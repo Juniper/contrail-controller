@@ -346,7 +346,7 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
             if (midnode->GetObject() != NULL) {
                 return;
             }
-            IFMapOrigin origin(IFMapOrigin::MAP_SERVER);
+            IFMapOrigin origin(data->origin);
             IFMapLink *glink =
                 static_cast<IFMapLink *>(FindLinkNode(first, midnode,
                                                       data->metadata));
@@ -376,7 +376,7 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
             // TODO: check if the edge is present and ignore otherwise.
             IFMapLink *glink = FindLinkNode(first, second, data->metadata);
             if (glink != NULL) {
-                IFMapOrigin origin(IFMapOrigin::MAP_SERVER);
+                IFMapOrigin origin(data->origin);
                 LinkNodeDelete(glink, origin);
                 // check whether any of the identifiers can be deleted.
                 DeleteIfEmpty(first);

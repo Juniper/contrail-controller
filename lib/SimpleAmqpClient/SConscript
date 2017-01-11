@@ -1,7 +1,17 @@
 # -*- mode: python; -*-
+import os
 vpath = '#/third_party/SimpleAmqpClient'
 
 env = DefaultEnvironment()
+SimpleAmqpClient_path = '#/third_party/SimpleAmqpClient'
+
+def Symlink(target, source):
+    parent = os.path.dirname(target[0].abspath)
+    if not os.path.exists(parent):
+        os.makedirs(parent)
+
+    if not os.path.exists(target[0].abspath):
+        os.symlink(source[0].abspath, target[0].abspath)
 
 cmd = ('(cd ' + Dir('.').abspath + ';' +
          'cmake -DENABLE_SSL_SUPPORT=ON' +
@@ -19,3 +29,6 @@ env.SideEffect(products, libSimpleAmqpClient)
 
 env.Requires(libSimpleAmqpClient, '#/build/include/boost')
 env.Requires(libSimpleAmqpClient, '#/build/lib/librabbitmq.a')
+
+Symlink([Dir('#/build/include/SimpleAmqpClient')],
+        [Dir(SimpleAmqpClient_path + '/src/SimpleAmqpClient')])

@@ -24,6 +24,7 @@ env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/bgp/rtarget', env['TOP'] + '/bgp/security_group',
            env['TOP'] + '/bgp/test', env['TOP'] + '/bgp/tunnel_encap',
            env['TOP'] + '/control-node', env['TOP'] + '/control-node/test',
+           env['TOP'] + '/discovery/test',
            env['TOP'] + '/db', env['TOP'] + '/db/test',
            env['TOP'] + '/discovery/client', env['TOP'] + '/http/client',
            env['TOP'] + '/ifmap', env['TOP'] + '/ifmap/test',
@@ -76,7 +77,17 @@ else:
 
 
 if sys.platform != 'darwin':
-    env.Append(LIBS=['rt'])
+    env.Append(LIBS=['rt',
+                    'io',
+                    'ifmapio',
+                    'cassandra_cql',
+                    'SimpleAmqpClient',
+                    'rabbitmq',
+                    'cassandra',
+                    'gendb',
+                    'ds',
+                    'httpc'
+               ])
 
 
 rtarget_address_test = env.UnitTest('rtarget_address_test', 

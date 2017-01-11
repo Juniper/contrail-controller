@@ -71,6 +71,12 @@ public:
     bool ProcessMessage(const std::string &json_message);
     static void set_disable(bool disable) { disable_ = disable; }
 
+    ConfigClientManager *config_manager() const {
+        return mgr_;
+    }
+    ConfigClientManager *config_manager() {
+        return mgr_;
+    }
 private:
     // A Job for reading the rabbitmq
     class RabbitMQReader;

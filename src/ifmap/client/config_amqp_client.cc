@@ -4,6 +4,7 @@
 
 #include "config_amqp_client.h"
 
+#include <boost/algorithm/string/find.hpp>
 #include <stdio.h>
 
 #include <SimpleAmqpClient/SimpleAmqpClient.h>
@@ -11,8 +12,11 @@
 
 #include "base/task.h"
 #include "ifmap/ifmap_config_options.h"
+#include "config_cassandra_client.h"
 #include "config_client_manager.h"
+#include "config_db_client.h"
 
+using namespace boost;
 using namespace std;
 using namespace rapidjson;
 
@@ -31,7 +35,7 @@ private:
     ConfigAmqpClient *amqpclient_;
     AmqpClient::Channel::ptr_t channel_;
     string consumer_tag_;
-    bool ConnectToRabbitMQ();
+    bool ConnectToRabbitMQ(bool queue_delete = true);
 };
 
 ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
@@ -66,21 +70,33 @@ void ConfigAmqpClient::EnqueueUUIDRequest(string uuid_str, string obj_type,
 }
 
 string ConfigAmqpClient::FormAmqpUri() const {
-    return string("amqp://" + rabbitmq_user() + ":" + rabbitmq_password() +
-                  "@" + rabbitmq_ip() + ":" +  rabbitmq_port());
+    string uri = string("amqp://" + rabbitmq_user() + ":" + rabbitmq_password() +
+      "@" + rabbitmq_ip() + ":" +  rabbitmq_port());
+    if (rabbitmq_vhost() != "") {
+        uri += "/" + rabbitmq_vhost();
+    }
+    return uri;
 }
 
-bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ() {
+bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
     string uri = amqpclient_->FormAmqpUri();
     try {
         channel_ = AmqpClient::Channel::CreateFromUri(uri);
-        // passive = false, durable = false
+        // passive = false, durable = false, auto_delete = false
         channel_->DeclareExchange("vnc_config.object-update",
-                                  AmqpClient::Channel::EXCHANGE_TYPE_FANOUT);
+              AmqpClient::Channel::EXCHANGE_TYPE_FANOUT, false, false, false);
         string queue_name = string("control-node.") + amqpclient_->hostname();
+
+        if (queue_delete) {
+            channel_->DeleteQueue(queue_name, true, true);
+        }
+
         string queue = channel_->DeclareQueue(queue_name);
         channel_->BindQueue(queue, "vnc_config.object-update");
-        consumer_tag_ = channel_->BasicConsume(queue);
+        // no_local = true, no_ack = false,
+        // exclusive = true, message_prefetch_count = 0
+        consumer_tag_ = channel_->BasicConsume(queue, queue_name,
+                                               true, false, true, 0);
     } catch (std::exception &e) {
         static std::string what = e.what();
         std::cout << "Caught fatal exception while connecting to RabbitMQ: " << what << std::endl;
@@ -109,6 +125,7 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
         string oper = "";
         string uuid_str = "";
         string obj_type = "";
+        string obj_name = "";
         for (Value::ConstMemberIterator itr = document.MemberBegin();
              itr != document.MemberEnd(); ++itr) {
             string key(itr->name.GetString());
@@ -116,12 +133,26 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
                 oper = itr->value.GetString();
             } else if (key == "type") {
                 obj_type = itr->value.GetString();
+            } else if (key == "imid") {
+                string temp_imid = itr->value.GetString();
+                iterator_range<string::iterator> r = find_nth(temp_imid, ":", 1);
+                if (r.empty()) {
+                    std::cout << "FAIL " << std::endl;
+                    continue;
+                }
+                obj_name =
+                    temp_imid.substr(distance(temp_imid.begin(), r.begin())+1);
             } else if (key == "uuid") {
                 uuid_str = itr->value.GetString();
             }
         }
         if ((oper == "") || (uuid_str == "") || (obj_type == "")) {
             assert(0);
+        }
+        if (oper == "CREATE") {
+            assert(obj_name != "");
+            config_manager()->config_db_client()->AddFQNameCache(uuid_str,
+                                                                 obj_name);
         }
         EnqueueUUIDRequest(uuid_str, obj_type, oper);
     }
@@ -137,6 +168,7 @@ bool ConfigAmqpClient::RabbitMQReader::Run() {
     AmqpClient::Envelope::ptr_t envelope;
     while (envelope = channel_->BasicConsumeMessage(consumer_tag_)) {
         amqpclient_->ProcessMessage(envelope->Message()->Body());
+        channel_->BasicAck(envelope);
     }
     return true;
 }
