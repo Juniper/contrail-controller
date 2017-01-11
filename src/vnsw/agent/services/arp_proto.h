@@ -36,6 +36,7 @@ public:
         RETRY_TIMER_EXPIRED,
         AGING_TIMER_EXPIRED,
         GRATUITOUS_TIMER_EXPIRED,
+        ARP_SEND_GATEWAY_GRATUITOUS,
     };
 
     struct ArpIpc : InterTaskMsg {
@@ -109,9 +110,9 @@ public:
         ip_fabric_interface_mac_ = mac;
     }
 
-    ArpEntry *gratuitous_arp_entry() const;
-    void set_gratuitous_arp_entry(ArpEntry *entry);
-    void del_gratuitous_arp_entry();
+    bool AddGratuitousArpEntry(ArpEntry *entry);
+    void DeleteGratuitousArpEntry(ArpEntry *entry);
+    ArpEntry *FindGratiousArpEntry (const ArpKey &key);
 
     void IncrementStatsArpReq() { arp_stats_.arp_req++; }
     void IncrementStatsArpReplies() { arp_stats_.arp_replies++; }
@@ -173,11 +174,11 @@ private:
 
     ArpCache arp_cache_;
     ArpStats arp_stats_;
+    ArpCache gratuitous_arp_cache_;
     bool run_with_vrouter_;
     uint32_t ip_fabric_interface_index_;
     MacAddress ip_fabric_interface_mac_;
     Interface *ip_fabric_interface_;
-    ArpEntry *gratuitous_arp_entry_;
     DBTableBase::ListenerId vrf_table_listener_id_;
     DBTableBase::ListenerId interface_table_listener_id_;
     DBTableBase::ListenerId nexthop_table_listener_id_;

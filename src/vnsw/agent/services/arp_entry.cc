@@ -130,17 +130,25 @@ void ArpEntry::SendGratuitousArp() {
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
     if (agent->router_id_configured()) {
-        handler_->SendArp(ARPOP_REQUEST, arp_proto->ip_fabric_interface_mac(),
-                          agent->router_id().to_ulong(), MacAddress(),
-                          agent->router_id().to_ulong(),
-                          arp_proto->ip_fabric_interface_index(),
-                          key_.vrf->vrf_id());
-    }
+        if (interface_->type() == Interface::VM_INTERFACE) {
+            const VmInterface *vmi = static_cast<const VmInterface *>(interface_);
+            MacAddress smac = vmi->GetVifMac(agent);
+            if (key_.vrf && key_.vrf->vn()) {
+                IpAddress gw_ip = key_.vrf->vn()->GetGatewayFromIpam
+                    (Ip4Address(key_.ip));
+                handler_->SendArp(ARPOP_REQUEST, smac,
+                                  gw_ip.to_v4().to_ulong(),
+                                  smac, gw_ip.to_v4().to_ulong(), vmi->id(),
+                                  key_.vrf->vrf_id(), &vmi->mac());
+            }
+        } else {
+            handler_->SendArp(ARPOP_REQUEST, arp_proto->ip_fabric_interface_mac(),
+                              agent->router_id().to_ulong(), MacAddress(),
+                              agent->router_id().to_ulong(),
+                              arp_proto->ip_fabric_interface_index(),
+                              key_.vrf->vrf_id());
+        }
 
-    if (retry_count_ == ArpProto::kGratRetries) {
-        // Retaining this entry till arp module is deleted
-        // arp_proto->DelGratuitousArpEntry();
-        return;
     }
 
     retry_count_++;
