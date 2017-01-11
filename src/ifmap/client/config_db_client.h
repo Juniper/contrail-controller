@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 
+#include "config_client_manager.h"
+#include "ifmap/ifmap_table.h"
+
 struct IFMapConfigOptions;
 
 /* 
@@ -31,7 +34,12 @@ public:
         end_of_rib_computed_ = value;
     }
     bool end_of_rib_computed() const { return end_of_rib_computed_; }
+    virtual void FormDeleteRequestList(const std::string &uuid,
+                              ConfigClientManager::RequestList *req_list,
+                              IFMapTable::RequestKey *key, bool add_change) = 0;
 
+    virtual void AddFQNameCache(const std::string &uuid,
+                                const std::string &fq_name) = 0;
 private:
     std::string config_db_user_;
     std::string config_db_password_;

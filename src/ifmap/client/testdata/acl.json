@@ -1,5 +1,5 @@
 {
-    "access-control-list": {
+    "access_control_list": {
         "access_control_list_entries": {
             "acl_rule": [
                 {
@@ -111,7 +111,7 @@
         },
         "name": "ingress-access-control-list",
         "parent_href": "http://localhost:8095/security-group/8ebba80d-3404-4e51-aa19-47e169834045",
-        "parent_type": "security-group",
+        "parent_type": "security_group",
         "parent_uuid": "8ebba80d-3404-4e51-aa19-47e169834045",
         "perms2": {
             "global_access": 0,
