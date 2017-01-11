@@ -5,7 +5,11 @@
 #ifndef ctrlplane_config_cass2json_adapter_h
 #define ctrlplane_config_cass2json_adapter_h
 #include <map>
+#include <set>
 #include <vector>
+
+#include "rapidjson/document.h"
+
 #include "json_adapter_data.h"
 
 class ConfigCassandraClient;
@@ -16,7 +20,20 @@ class ConfigCassandraClient;
 // doc_string() accessor.
 class ConfigCass2JsonAdapter {
 public:
+    static const std::string prop_prefix;
+    static const std::string list_prop_prefix;
+    static const std::string map_prop_prefix;
+    static const std::string meta_prefix;
+    static const std::string backref_prefix;
+    static const std::string child_prefix;
+    static const std::string ref_prefix;
+    static const std::string parent_prefix;
+    static const std::string parent_type_prefix;
+    static const std::string comma_str;
+
+    static const std::set<std::string> allowed_properties;
     ConfigCass2JsonAdapter(ConfigCassandraClient *cassandra_client,
+                           const std::string &obj_type,
                            const CassColumnKVVec &cdvec);
     const std::string &doc_string() { return doc_string_; }
 
@@ -30,18 +47,12 @@ private:
     typedef std::vector<std::string> PropertyMapDataList;
     typedef std::map<std::string, PropertyMapDataList> MapPropertyMap;
 
-    static const std::string prop_prefix;
-    static const std::string list_prop_prefix;
-    static const std::string map_prop_prefix;
-    static const std::string meta_prefix;
-    static const std::string backref_prefix;
-    static const std::string child_prefix;
-    static const std::string ref_prefix;
-    static const std::string parent_type;
-    static const std::string comma_str;
-    bool CreateJsonString(const CassColumnKVVec &cdvec);
-    bool AddOneEntry(const CassColumnKVVec &cdvec, int i);
+    bool CreateJsonString(const std::string &obj_type,
+                          const CassColumnKVVec &cdvec);
+    bool AddOneEntry(const std::string &obj_type,
+                     const CassColumnKVVec &cdvec, int i);
 
+    std::string GetAttrString(const rapidjson::Value &attr_value);
     ConfigCassandraClient *cassandra_client_;
     std::string doc_string_;
     std::string type_;
@@ -52,6 +63,7 @@ private:
     int backref_plen_;
     int child_plen_;
     int ref_plen_;
+    int parent_type_plen_;
     int parent_plen_;
 
     RefTypeMap ref_type_map_;
