@@ -14,6 +14,7 @@ from vnc_api.vnc_api import *
 import common.logger as logger
 import common.args as kube_args
 import vnc.vnc_kubernetes as vnc_kubernetes
+import kube.kube_monitor as kube_monitor
 import kube.namespace_monitor as namespace_monitor
 import kube.pod_monitor as pod_monitor
 import kube.service_monitor as service_monitor
@@ -29,6 +30,9 @@ class KubeNetworkManager(object):
         kube_api_connected = False
         while not kube_api_connected:
             try:
+                self.kube = kube_monitor.KubeMonitor(
+                    args=self.args, logger=self.logger, q=self.q)
+
                 self.namespace = namespace_monitor.NamespaceMonitor(
                     args=self.args, logger=self.logger, q=self.q)
 
@@ -43,7 +47,7 @@ class KubeNetworkManager(object):
                         logger=self.logger, q=self.q)
 
                 self.endpoint = \
-                    endpoint_monitor.EndPointMonitor( args=self.args,
+                    endpoint_monitor.EndPointMonitor(args=self.args,
                         logger=self.logger, q=self.q)
 
                 kube_api_connected = True
@@ -52,7 +56,7 @@ class KubeNetworkManager(object):
                 time.sleep(5)
 
         self.vnc = vnc_kubernetes.VncKubernetes(args=self.args,
-            logger=self.logger, q=self.q, service=self.service)
+            logger=self.logger, q=self.q, kube=self.kube)
 
     def _kube_object_cache_enabled(self):
         return True if self.args.kube_object_cache == 'True' else False;
@@ -66,7 +70,7 @@ class KubeNetworkManager(object):
             gevent.spawn(self.service.service_callback),
             gevent.spawn(self.pod.pod_callback),
             gevent.spawn(self.network_policy.network_policy_callback),
-            gevent.spawn(self.endpoint.endpoint_callback)
+            gevent.spawn(self.endpoint.endpoint_callback),
         ])
 
 def main():

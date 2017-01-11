@@ -7,7 +7,7 @@ import json
 
 class KubeMonitor(object):
 
-    def __init__(self, args=None, logger=None, q=None, db=None, beta=False):
+    def __init__(self, args=None, logger=None, q=None, db=None):
         self.args = args
         self.logger = logger
         self.q = q
@@ -27,19 +27,21 @@ class KubeMonitor(object):
         else: # kubernetes
             protocol = "http"
 
-        if beta:
-            self.url = "%s://%s:%s/apis/extensions/v1beta1" % ( protocol,
-                                              self.args.kubernetes_api_server, 
+        self.url = "%s://%s:%s/api/v1" % (protocol,
+                                              self.args.kubernetes_api_server,
                                               self.args.kubernetes_api_port)
-        else:
-            self.url = "%s://%s:%s/api/v1" % (protocol,
+        self.beta_url = "%s://%s:%s/apis/extensions/v1beta1" % (protocol,
                                               self.args.kubernetes_api_server,
                                               self.args.kubernetes_api_port)
 
         self.logger.info("KubeMonitor init done.");
 
-    def register_monitor(self, resource_type):
-        url = "%s/%s" % (self.url, resource_type)
+    def register_monitor(self, resource_type, beta=False):
+        if beta == False:
+            base_url = self.url
+        else:
+            base_url = self.beta_url
+        url = "%s/%s" % (base_url, resource_type)
 
         if self.cloud_orchestrator == "openshift":
             resp = requests.get(url, params={'watch': 'true'}, stream=True,
@@ -51,11 +53,16 @@ class KubeMonitor(object):
             return
         return resp.iter_lines(chunk_size=10, delimiter='\n')
 
-    def get(self, resource_type, resource_name, namespace=None):
-        if resource_type == "namespaces":
-            url = "%s/%s" % (self.url, resource_type)
+    def get_resource(self, resource_type, resource_name, namespace=None, beta=False):
+        if beta == False:
+            base_url = self.url
         else:
-            url = "%s/namespaces/%s/%s/%s" % (self.url, namespace, 
+            base_url = self.beta_url
+
+        if resource_type == "namespaces":
+            url = "%s/%s" % (base_url, resource_type)
+        else:
+            url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               resource_type, resource_name)
 
         if self.cloud_orchestrator == "openshift":
@@ -66,13 +73,18 @@ class KubeMonitor(object):
 
         if resp.status_code != 200:
             return
-        return resp.iter_lines(chunk_size=10, delimiter='\n')
+        return json.loads(resp.raw.read())
 
-    def patch(self, resource_type, resource_name, merge_patch, namespace=None):
-        if resource_type == "namespaces":
-            url = "%s/%s" % (self.url, resource_type)
+    def patch_resource(self, resource_type, resource_name, merge_patch, namespace=None, beta=False):
+        if beta == False:
+            base_url = self.url
         else:
-            url = "%s/namespaces/%s/%s/%s" % (self.url, namespace, 
+            base_url = self.beta_url
+
+        if resource_type == "namespaces":
+            url = "%s/%s" % (base_url, resource_type)
+        else:
+            url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               resource_type, resource_name)
 
         self.headers.update({'Accept': 'application/json', 'Content-Type': 'application/strategic-merge-patch+json'})
