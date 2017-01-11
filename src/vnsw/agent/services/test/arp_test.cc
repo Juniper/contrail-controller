@@ -481,26 +481,30 @@ TEST_F(ArpTest, GratArpSendTest) {
     //Add a vhost rcv route and check that grat arp entry gets created
     TriggerAddVhostRcvRoute(ip1);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry()->key().ip == ip1.to_ulong());
+    const VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName(
+            Agent::GetInstance()->fabric_vrf_name());
+    ArpKey key(ip1.to_ulong(), vrf);
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->FindGratiousArpEntry(key) != NULL);
 
     Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
                                                     Agent::GetInstance()->local_peer(), 
                                                     Agent::GetInstance()->fabric_vrf_name(),
                                                     ip1, 32, NULL);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry() == NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->FindGratiousArpEntry(key) == NULL);
 
     Ip4Address ip2 = Ip4Address::from_string("1.1.1.10");
     //Add yet another vhost rcv route and check that grat arp entry get created
     TriggerAddVhostRcvRoute(ip2);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry()->key().ip == ip2.to_ulong());
+    ArpKey key1(ip2.to_ulong(), vrf);
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->FindGratiousArpEntry(key1) != NULL);
     Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(
                                                     Agent::GetInstance()->local_peer(), 
                                                     Agent::GetInstance()->fabric_vrf_name(),
                                                     ip2, 32, NULL);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gratuitous_arp_entry() == NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->FindGratiousArpEntry(key1) == NULL);
 }
 
 #if 0
