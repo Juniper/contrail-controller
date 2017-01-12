@@ -311,7 +311,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 
         // Get only local-NH from route
         const NextHop *local_nh = rt->GetLocalNextHop();
-        if (local_nh->IsActive() == false) {
+        if (!local_nh || local_nh->IsActive() == false) {
             LogError(pkt, "Invalid or Inactive local nexthop ");
             info->short_flow = true;
             info->short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
