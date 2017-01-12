@@ -180,6 +180,7 @@ optional arguments:
                         self._args.disc_server_ip,
                         self._args.disc_server_port,
                         ModuleNames[Module.CONTRAIL_TOPOLOGY])
+        self._args.conf_file = args.conf_file
 
     def _pat(self):
         if self.__pat is None:

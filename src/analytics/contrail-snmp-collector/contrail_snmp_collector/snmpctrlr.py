@@ -9,7 +9,10 @@ import cPickle as pickle
 from snmpuve import SnmpUve
 from opserver.consistent_schdlr import ConsistentScheduler
 from device_config import DeviceConfig, DeviceDict
-
+import ConfigParser
+import signal
+import random
+import hashlib
 
 class MaxNinTtime(object):
     def __init__(self, n, t, default=0):
@@ -44,6 +47,12 @@ class MaxNinTtime(object):
 class Controller(object):
     def __init__(self, config):
         self._config = config
+        self._config.random_collectors = self._config.collectors()
+        self._chksum = ""
+        if self._config.collectors():
+             self._chksum = hashlib.md5("".join(self._config.collectors())).hexdigest()
+             self._config.random_collectors = random.sample(self._config.collectors(), \
+                                                            len(self._config.collectors()))
         self.uve = SnmpUve(self._config)
         self._logger = self.uve.logger()
         self.sleep_time()
@@ -253,7 +262,31 @@ class Controller(object):
                     d.name = snmp_name
                     return
 
+    def sighup_handler(self):
+        if self._config._args.conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._config._args.conf_file)
+            if 'DEFAULTS' in config.sections():
+                try:
+                    collectors = config.get('DEFAULTS', 'collectors')
+                    if type(collectors) is str:
+                        collectors = collectors.split()
+                        new_chksum = hashlib.md5("".join(collectors)).hexdigest()
+                        if new_chksum != self._chksum:
+                            self._chksum = new_chksum
+                            random_collectors = random.sample(collectors, len(collectors))
+                            self.uve.sandesh_reconfig_collectors(random_collectors)
+                except ConfigParser.NoOptionError as e: 
+                    pass
+    # end sighup_handler  
+
     def run(self):
+       
+        """ @sighup
+        SIGHUP handler to indicate configuration changes
+        """
+        gevent.signal(signal.SIGHUP, self.sighup_handler) 
+
         i = 0
         self._sem = Semaphore()
         self._logger.debug('Starting.. %s' % str(
