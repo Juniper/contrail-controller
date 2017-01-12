@@ -192,8 +192,7 @@ void ConfigCassandraClient::ParseUuidTableRowJson(const string &uuid,
     }
 }
 
-bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
-        const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec) {
+void ConfigCassandraClient::MarkCacheDirty(const string &uuid) {
     int idx = HashUUID(uuid);
     ObjectCacheMap::iterator uuid_iter = object_cache_map_[idx].find(uuid);
     if (uuid_iter == object_cache_map_[idx].end()) {
@@ -207,7 +206,10 @@ bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
          it != uuid_iter->second.end(); it++) {
         it->second.second = false;
     }
+}
 
+bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
+        const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec) {
     BOOST_FOREACH(const GenDb::NewCol &ncol, col_list.columns_) {
         assert(ncol.name->size() == 1);
         assert(ncol.value->size() == 1);
@@ -257,6 +259,9 @@ bool ConfigCassandraClient::ParseFQNameRowGetUUIDList(const GenDb::ColList &col_
 bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &obj_type,
                        const string &uuid_key, const GenDb::ColList &col_list) {
     auto_ptr<CassColumnKVVec> cass_data_vec(new CassColumnKVVec());
+
+    MarkCacheDirty(uuid_key);
+
     if (ParseUuidTableRowResponse(uuid_key, col_list,
                                   cass_data_vec.get())) {
         // Convert column data to json string.
@@ -379,7 +384,10 @@ void ConfigCassandraClient::FormDeleteRequestList(const string &uuid,
                               IFMapTable::RequestKey *key, bool add_change) {
     int idx = HashUUID(uuid);
     ObjectCacheMap::iterator uuid_iter = object_cache_map_[idx].find(uuid);
-    assert(uuid_iter != object_cache_map_[idx].end());
+    if (uuid_iter == object_cache_map_[idx].end()) {
+        assert(!add_change);
+        return;
+    }
 
     for (FieldDetailMap::iterator it = uuid_iter->second.begin();
          it != uuid_iter->second.end(); it++) {

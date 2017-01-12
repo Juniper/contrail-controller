@@ -83,6 +83,10 @@ protected:
     bool ParseRowAndEnqueueToParser(const string &obj_type,
                                     const string &uuid_key,
                                     const GenDb::ColList &col_list);
+    virtual int HashUUID(const string &uuid_str) const;
+
+    virtual void HandleObjectDelete(const std::string &obj_type,
+                            const std::string &uuid);
 
 private:
     class ConfigReader;
@@ -131,7 +135,6 @@ private:
     bool ReadAllUuidTableRows();
     bool ParseFQNameRowGetUUIDList(const GenDb::ColList &col_list,
                                    ObjTypeUUIDList &uuid_list);
-    int HashUUID(const string &uuid_str) const;
     bool ConfigReader(int worker_id);
     void AddUUIDToRequestList(const string &oper, const string &obj_type,
                               const string &uuid_str);
@@ -139,8 +142,8 @@ private:
     bool RequestHandler(ObjectProcessReq *req);
     bool StoreKeyIfUpdated(int worker_id, const string &uuid, const string &key,
                            uint32_t timestamp);
-    void HandleObjectDelete(const std::string &obj_type,
-                            const std::string &uuid);
+
+    void MarkCacheDirty(const string &uuid);
 
     ConfigClientManager *mgr_;
     EventManager *evm_;
