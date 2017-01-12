@@ -901,17 +901,23 @@ class VncDbClient(object):
             vn_dict = results[0]
             for ipam in vn_dict.get('network_ipam_refs', []):
                 subnets = ipam['attr']['ipam_subnets']
+
                 for subnet in subnets:
-                    pfx = subnet['subnet']['ip_prefix']
-                    pfx_len = subnet['subnet']['ip_prefix_len']
-                    cidr = '%s/%s' % (pfx, pfx_len)
-                    if (IPAddress(iip_dict['instance_ip_address']) in
-                            IPNetwork(cidr)):
-                        iip_dict['subnet_uuid'] = subnet['subnet_uuid']
-                        self._object_db.object_update('instance-ip',
-                                                         iip_dict['uuid'],
-                                                         iip_dict)
-                        return
+                    try:
+                        if not subnet['subnet']:
+                            continue
+                        pfx = subnet['subnet']['ip_prefix']
+                        pfx_len = subnet['subnet']['ip_prefix_len']
+                        cidr = '%s/%s' % (pfx, pfx_len)
+                        if (IPAddress(iip_dict['instance_ip_address']) in
+                                IPNetwork(cidr)):
+                            iip_dict['subnet_uuid'] = subnet['subnet_uuid']
+                            self._object_db.object_update('instance-ip',
+                                                              iip_dict['uuid'],
+                                                              iip_dict)
+                            return
+                    except KeyError:
+                        continue
 
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
