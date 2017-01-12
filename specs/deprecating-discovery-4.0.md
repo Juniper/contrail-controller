@@ -147,7 +147,7 @@ None
 
 [REDIS].redis_uve_list     Provision list of redis instances
                            Eg: 192.168.0.29:6379 192.168.0.30:6379
-``
+```
 
 ###3.2.5 Provisioning Changes for contrail-analytics-api(contrail-analytics-api.conf)
 
@@ -364,8 +364,7 @@ handler to  handle addition/deletion of publishers.
 
 ##4.1     Assignee(s)
 
-* Nipa Kumar – All C++ Discovery Server Clients
-* Santosh G –  All python Discovery Server Clients
+* Nipa Kumar – All C++/python Discovery Server Clients
 
 #5 Performance and Scaling Impact
 None
