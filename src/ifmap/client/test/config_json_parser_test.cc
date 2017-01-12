@@ -39,32 +39,63 @@ public:
     ConfigCassandraClientTest(ConfigClientManager *mgr, EventManager *evm,
         const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
         int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
-            num_workers) {
+            num_workers), db_index_(num_workers) {
+    }
+
+    virtual void HandleObjectDelete(const string &type, const string &uuid) {
+        vector<string> tokens;
+        boost::split(tokens, uuid, boost::is_any_of(":"));
+        string u = tokens[1];
+        ConfigCassandraClient::HandleObjectDelete(type, u);
+    }
+
+    virtual void AddFQNameCache(const string &uuid, const string &obj_name) {
+        vector<string> tokens;
+        boost::split(tokens, uuid, boost::is_any_of(":"));
+        string u = tokens[1];
+        ConfigCassandraClient::AddFQNameCache(u, obj_name);
+    }
+
+    virtual int HashUUID(const string &uuid) const {
+        string u = uuid;
+        size_t from_front_pos = uuid.find(':');
+        if (from_front_pos != string::npos)  {
+            u = uuid.substr(from_front_pos+1);
+        }
+        return ConfigCassandraClient::HashUUID(u);
     }
 
     virtual bool ReadUuidTableRow(const string &obj_type,
                                   const std::string &uuid_key) {
-        return ParseRowAndEnqueueToParser(obj_type, uuid_key, GenDb::ColList());
+        vector<string> tokens;
+        boost::split(tokens, uuid_key, boost::is_any_of(":"));
+        int index = atoi(tokens[0].c_str());
+        string u = tokens[1];
+        assert(events_[index].IsObject());
+        int idx = HashUUID(u);
+        db_index_[idx].insert(make_pair(u, index));
+        return ParseRowAndEnqueueToParser(obj_type, u, GenDb::ColList());
     }
 
     bool ParseUuidTableRowResponse(const string &uuid,
             const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec) {
         // Retrieve event index prepended to uuid, to get to the correct db.
-        vector<string> tokens;
-        boost::split(tokens, uuid, boost::is_any_of(":"));
-        int index = atoi(tokens[0].c_str());
-        string u = tokens[1];
-        assert(events_[index].IsObject());
+        int idx = HashUUID(uuid);
+        UUIDIndexMap::iterator it = db_index_[idx].find(uuid);
+        int index = it->second;
 
         for (Value::ConstMemberIterator k =
-             events_[SizeType(index)]["db"][u.c_str()].MemberBegin();
-             k != events_[SizeType(index)]["db"][u.c_str()].MemberEnd(); ++k) {
-            ParseUuidTableRowJson(u, k->name.GetString(), k->value.GetString(),
+             events_[SizeType(index)]["db"][uuid.c_str()].MemberBegin();
+             k != events_[SizeType(index)]["db"][uuid.c_str()].MemberEnd(); ++k) {
+            ParseUuidTableRowJson(uuid, k->name.GetString(), k->value.GetString(),
                                   cass_data_vec);
         }
 
         return true;
     }
+private:
+    typedef std::map<string, int> UUIDIndexMap;
+    vector<UUIDIndexMap> db_index_;
 };
 
 class ConfigJsonParserTest : public ::testing::Test {
@@ -375,7 +406,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser) {
 
     IFMapNode *vn1 = NodeLookup("virtual-network", "vn1");
     EXPECT_TRUE(vn1 != NULL);
-    IFMapObject *obj = vn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vn1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vn = NodeLookup("virtual-network", "vn2");
@@ -401,17 +432,17 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParserInParts) {
 
     IFMapNode *vn1 = NodeLookup("virtual-network", "vn1");
     EXPECT_TRUE(vn1 != NULL);
-    IFMapObject *obj = vn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vn1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vn2 = NodeLookup("virtual-network", "vn2");
     EXPECT_TRUE(vn2 != NULL);
-    obj = vn2->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn2->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vn3 = NodeLookup("virtual-network", "vn3");
     EXPECT_TRUE(vn3 != NULL);
-    obj = vn3->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn3->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -424,12 +455,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParserInParts) {
 
     IFMapNode *vn4 = NodeLookup("virtual-network", "vn4");
     EXPECT_TRUE(vn4 != NULL);
-    obj = vn4->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn4->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vn5 = NodeLookup("virtual-network", "vn5");
     EXPECT_TRUE(vn5 != NULL);
-    obj = vn5->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn5->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -454,7 +485,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser1) {
 
     ParseEventsJson("controller/src/ifmap/testdata/server_parser_test1.json");
     FeedEventsJson();
-    EXPECT_EQ(0, table->Size());
+    TASK_UTIL_EXPECT_EQ(0, table->Size());
 
     IFMapNode *vn = NodeLookup("virtual-network", "vn1");
     EXPECT_TRUE(vn == NULL);
@@ -476,15 +507,15 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser1InParts) {
 
     IFMapNode *vn = NodeLookup("virtual-network", "vn1");
     EXPECT_TRUE(vn != NULL);
-    IFMapObject *obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
     vn = NodeLookup("virtual-network", "vn2");
     EXPECT_TRUE(vn != NULL);
-    obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
     vn = NodeLookup("virtual-network", "vn3");
     EXPECT_TRUE(vn != NULL);
-    obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -509,17 +540,17 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser2) {
 
     IFMapNode *vn = NodeLookup("virtual-network", "vn1");
     EXPECT_TRUE(vn != NULL);
-    IFMapObject *obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     vn = NodeLookup("virtual-network", "vn2");
     EXPECT_TRUE(vn != NULL);
-    obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     vn = NodeLookup("virtual-network", "vn3");
     EXPECT_TRUE(vn != NULL);
-    obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 }
 
@@ -536,7 +567,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser2InParts) {
 
     IFMapNode *vn = NodeLookup("virtual-network", "vn1");
     EXPECT_TRUE(vn != NULL);
-    IFMapObject *obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -544,7 +575,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser2InParts) {
 
     vn = NodeLookup("virtual-network", "vn2");
     EXPECT_TRUE(vn != NULL);
-    obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -552,7 +583,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser2InParts) {
 
     vn = NodeLookup("virtual-network", "vn3");
     EXPECT_TRUE(vn != NULL);
-    obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vn->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -630,16 +661,15 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser4) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
-    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
-    EXPECT_TRUE(link == NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL );
 }
 
 // In 2 separate messages: 
@@ -660,17 +690,20 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser4InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
 
+    cevent_ = 0;
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test4_p2.json");
     FeedEventsJson();
     EXPECT_EQ(1, vrtable->Size());
     EXPECT_EQ(1, vmtable->Size());
@@ -678,12 +711,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser4InParts) {
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 }
 
@@ -726,11 +759,11 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser5InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
     EXPECT_TRUE(link != NULL);
@@ -765,7 +798,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser6) {
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    IFMapObject *obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 }
 
@@ -788,12 +821,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser6InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -808,7 +841,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser6InParts) {
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 }
 
@@ -830,12 +863,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser7) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -862,12 +895,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser7InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -882,7 +915,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser7InParts) {
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -891,12 +924,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser7InParts) {
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -920,12 +953,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser8) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -951,12 +984,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser8InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -977,12 +1010,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser8InParts) {
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -1007,12 +1040,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser9) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -1039,12 +1072,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser9InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -1057,12 +1090,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser9InParts) {
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -1072,12 +1105,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser9InParts) {
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 }
 
@@ -1102,7 +1135,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser10) {
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    IFMapObject *obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 }
 
@@ -1126,12 +1159,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser10InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -1144,7 +1177,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser10InParts) {
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 }
 
@@ -1166,12 +1199,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser11) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -1196,12 +1229,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser11InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -1216,7 +1249,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser11InParts) {
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
@@ -1226,12 +1259,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser11InParts) {
     // vr1 should not have any object
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -1284,17 +1317,17 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser12InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc != NULL);
-    obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = gsc->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
 
     IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
@@ -1337,17 +1370,17 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser13) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc != NULL);
-    obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = gsc->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") == NULL);
@@ -1374,12 +1407,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser13InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
@@ -1394,7 +1427,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser13InParts) {
 
     gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc != NULL);
-    obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = gsc->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
@@ -1436,12 +1469,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser14) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
@@ -1471,12 +1504,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser14InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
@@ -1492,7 +1525,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser14InParts) {
 
     gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc != NULL);
-    obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = gsc->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
@@ -1508,12 +1541,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser14InParts) {
 
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
@@ -1543,18 +1576,18 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser15) {
     // Object should not exist
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
     EXPECT_TRUE(vr1->HasAdjacencies(&graph_));
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc != NULL);
-    obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = gsc->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
@@ -1582,12 +1615,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser15InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
@@ -1603,7 +1636,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser15InParts) {
 
     gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc != NULL);
-    obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = gsc->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
@@ -1620,18 +1653,18 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser15InParts) {
     // Object should not exist
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
     EXPECT_TRUE(vr1->HasAdjacencies(&graph_));
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc != NULL);
-    obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = gsc->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(LinkLookup(vr1, vm1, "virtual-router-virtual-machine") != NULL);
@@ -1661,13 +1694,13 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser16) {
     // Object should not exist
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
     EXPECT_TRUE(vr1->HasAdjacencies(&graph_));
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
@@ -1697,12 +1730,12 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser16InParts) {
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     IFMapNode *gsc = NodeLookup("global-system-config", "gsc");
@@ -1718,7 +1751,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser16InParts) {
 
     gsc = NodeLookup("global-system-config", "gsc");
     EXPECT_TRUE(gsc != NULL);
-    obj = gsc->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = gsc->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     EXPECT_TRUE(NodeLookup("virtual-router", "vr1") != NULL);
@@ -1735,13 +1768,13 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser16InParts) {
     // Object should not exist
     vr1 = NodeLookup("virtual-router", "vr1");
     EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj == NULL);
     EXPECT_TRUE(vr1->HasAdjacencies(&graph_));
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     EXPECT_TRUE(obj != NULL);
 
     gsc = NodeLookup("global-system-config", "gsc");
