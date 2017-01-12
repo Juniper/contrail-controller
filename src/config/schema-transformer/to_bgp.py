@@ -18,7 +18,9 @@ reload(sys)
 sys.setdefaultencoding('UTF8')
 import requests
 import ConfigParser
-
+import signal
+import random
+import hashlib
 import argparse
 
 from cfgm_common import vnc_cgitb
@@ -336,6 +338,25 @@ class SchemaTransformer(object):
             cls.reset()
         self._vnc_amqp.close()
     # end reset
+
+    def sighup_handler(self):
+        if self._conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._conf_file)
+            if 'DEFAULTS' in config.sections():
+                try:
+                    collectors = config.get('DEFAULTS', 'collectors')
+                    if type(collectors) is str:
+                        collectors = collectors.split()
+                        new_chksum = hashlib.md5("".join(collectors)).hexdigest()
+                        if new_chksum != self._chksum:
+                            self._chksum = new_chksum
+                            config.random_collectors = random.sample(collectors, len(collectors))
+                            self.logger.sandesh_reconfig_collectors(config)
+                except ConfigParser.NoOptionError as e:
+                    pass
+    # end sighup_handler
+
 # end class SchemaTransformer
 
 
@@ -401,6 +422,7 @@ def parse_args(args_str):
         'cassandra_password': None,
     }
 
+    saved_conf_file = args.conf_file
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
         config.read(args.conf_file)
@@ -414,7 +436,6 @@ def parse_args(args_str):
 
         if 'CASSANDRA' in config.sections():
                 cassandraopts.update(dict(config.items('CASSANDRA')))
-
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -511,6 +532,7 @@ def parse_args(args_str):
                         help="Enabled logical routers")
 
     args = parser.parse_args(remaining_argv)
+    args.conf_file = saved_conf_file
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
@@ -518,6 +540,8 @@ def parse_args(args_str):
 
     return args
 # end parse_args
+
+
 
 transformer = None
 
@@ -552,8 +576,24 @@ def run_schema_transformer(args):
             # auth failure or haproxy throws 503
             time.sleep(3)
 
+    #randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors, len(args.collectors))
+
     global transformer
     transformer = SchemaTransformer(args)
+    transformer._conf_file = args.conf_file
+    transformer._chksum = ""
+    # checksum of collector list
+    if args.collectors:
+        transformer._chksum = hashlib.md5("".join(args.collectors)).hexdigest()
+
+    """ @sighup
+    SIGHUP handler to indicate configuration changes
+    """
+    gevent.signal(signal.SIGHUP, transformer.sighup_handler)
+
     gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
 # end run_schema_transformer
 
@@ -562,7 +602,9 @@ def main(args_str=None):
     global _zookeeper_client
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
+
     args = parse_args(args_str)
+    args._args_list = args_str
     if args.cluster_id:
         client_pfx = args.cluster_id + '-'
         zk_path_pfx = args.cluster_id + '/'
