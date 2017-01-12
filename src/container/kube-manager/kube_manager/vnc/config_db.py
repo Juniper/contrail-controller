@@ -473,6 +473,7 @@ class FloatingIpPoolKM(DBBaseKM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.update_single_ref('virtual_network', obj)
+        self.floating_ip_pool_prefixes = obj['floating_ip_pool_prefixes']
 
     @classmethod
     def delete(cls, uuid):

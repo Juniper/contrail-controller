@@ -585,6 +585,7 @@ class AddrMgmt(object):
         ipam_fq_name_str = ':'.join(ipam_fq_name)
         subnet_objs = self._subnet_objs.get(ipam_uuid)
         if subnet_objs is None:
+            self._subnet_objs[ipam_uuid] = {}
             #read ipam to get ipam_subnets and generate subnet_objs
             (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
                                                      ipam_uuid)
