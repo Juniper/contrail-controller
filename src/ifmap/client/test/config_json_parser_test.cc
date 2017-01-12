@@ -372,7 +372,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParserAddInOneShot) {
 
 // In a multiple messages, adds (vn1, vn2), and vn3.
 TEST_F(ConfigJsonParserTest, DISABLED_ServerParserAddInMultipleShots) {
-    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.1.2.json");
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.1.json");
     FeedEventsJson();
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");

@@ -69,15 +69,15 @@ def init_fake_db (records)
         next if record["identity"]["name"] !~ /contrail:(.*?):(.*$)/
         fq_name = $2; type = $1.gsub("-", "_")
         @db[uuid] = {
-            "uuid" => uuid, "fq_name" => fq_name.split(/:/),
-            "type" => type
+            "uuid" => uuid, "fq_name" => fq_name.split(/:/).to_json,
+            "type" => "\"#{type}\""
         }
     }
     pp @db if @debug
 end
 
 def from_name (fq)
-    @db.each { |k, v| return v if v["fq_name"] == fq.split(/:/) }
+    @db.each { |k, v| return v if v["fq_name"] == fq.split(/:/).to_json }
     return nil
 end
 
@@ -94,27 +94,17 @@ def print_db (oper, uuid, fq_name, type)
         @seen[uuid] = true
     end
 
-    t = type
-    t = $1 if type =~ /\"(.*)\"/
-    if fq_name.kind_of?(Array)
-        fqs = fq_name.join(":")
-    else
-        fqs = fq_name
-        if fq_name.start_with? "["
-            fqs = JSON.parse(fq_name).join(":")
-        end
-    end
-
+    fqs = JSON.parse(fq_name).join(":")
+    type = JSON.parse(type) if type.start_with? "\""
     event = {
         "oper" => oper_convert(oper), "fq_name" => fq_name, "type" => type,
         "uuid" => "#{@events.size}:#{uuid}",
-        "imid" => "contrail:#{t}:#{fqs}",
+        "imid" => "contrail:#{type}:#{fqs}",
     }
-    @events.push({
-                      "operation" => "rabbit_enqueue",
-                      "message" => event.to_json,
-                      "db" => @db.deep_dup }
-                )
+    db_copy = @db.deep_dup
+    db_copy.each { |k, v| v.delete "uuid" }
+    @events.push({"operation" => "rabbit_enqueue", "message" => event.to_json,
+                  "db" => db_copy })
 end
 
 def extract_fq_name_and_type (name)
@@ -137,7 +127,8 @@ def parse_links (record)
     k1 = "ref:" + t2 + ":" + r2["uuid"] if !r2.nil?
     k2 = "backref:" + t1 + ":" + r1["uuid"] if !r1.nil?
     if record["_oper"] == "updateResult"
-        r1[k1] = nil if !r1.nil?; r2[k2] = nil if !r2.nil?
+        r1[k1] = ({ "attr" => nil }).to_json if !r1.nil?
+        r2[k2] = ({ "attr" => nil }).to_json if !r2.nil?
     else
         r1.delete k1 if !r1.nil?; r2.delete k2 if !r2.nil?;
     end
@@ -165,8 +156,15 @@ def parse_nodes (record)
     n = Hash.new
     uuid = obj["uuid"]
     obj.each {|k, v|
-        next if k == "uuid"
-        n[k] = v.class == String ? "\"#{v}\"" : "#{v.to_json}"
+        if v.class == String
+            if k == "fq_name"
+                n[k] = v
+            else
+                n[k] = !v.start_with?("\"") ? "\"#{v}\"" : v
+            end
+        else
+            n[k] = "#{v.to_json}"
+        end
     }
     @db[uuid] = n
     print_db(record["_oper"], obj["uuid"], obj["fq_name"], obj["type"])
@@ -174,17 +172,8 @@ end
 
 def delete_nodes (record)
     uuid = get_uuid(record["metadata"]["id_perms"]["uuid"])
-    if !uuid.nil?
-        if @db.key? uuid and @db[uuid].key? "fq_name"
-            fq_name = @db[uuid]["fq_name"]
-            type = @db[uuid]["type"]
-        else
-            fq_name, type = extract_fq_name_and_type(record["identity"]["name"])
-        end
-    else
-        fq_name = nil
-        type = nil
-    end
+    fq_name, type = extract_fq_name_and_type(record["identity"]["name"])
+    fq_name = fq_name.split(":").to_json
     @db.delete uuid
     print_db(record["_oper"], uuid, fq_name, type)
 end
