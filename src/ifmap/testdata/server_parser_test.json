@@ -1,7 +1,7 @@
 [
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn1\"],\"type\":\"virtual_network\",\"uuid\":\"0:634ae160-d3ef-4e81-b58d-d196211eb4d9\",\"imid\":\"contrail:virtual_network:vn1\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"0:634ae160-d3ef-4e81-b58d-d196211eb4d9\",\"imid\":\"contrail:virtual_network:vn1\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -9,38 +9,26 @@
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240001\",\"uuid_lslong\":\"13082342935312119001\"}}"
       },
       "634ae160-d3ef-4e82-b58d-d196211eb4da": {
-        "uuid": "634ae160-d3ef-4e82-b58d-d196211eb4da",
-        "fq_name": [
-          "vn2"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn2\"]",
+        "type": "\"virtual_network\""
       },
       "634ae160-d3ef-4e83-b58d-d196211eb4db": {
-        "uuid": "634ae160-d3ef-4e83-b58d-d196211eb4db",
-        "fq_name": [
-          "vn3"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn3\"]",
+        "type": "\"virtual_network\""
       },
       "634ae160-d3ef-4e84-b58d-d196211eb4dc": {
-        "uuid": "634ae160-d3ef-4e84-b58d-d196211eb4dc",
-        "fq_name": [
-          "vn4"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn4\"]",
+        "type": "\"virtual_network\""
       },
       "634ae160-d3ef-4e85-b58d-d196211eb4dd": {
-        "uuid": "634ae160-d3ef-4e85-b58d-d196211eb4dd",
-        "fq_name": [
-          "vn5"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn5\"]",
+        "type": "\"virtual_network\""
       }
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn2\"],\"type\":\"virtual_network\",\"uuid\":\"1:634ae160-d3ef-4e82-b58d-d196211eb4da\",\"imid\":\"contrail:virtual_network:vn2\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"1:634ae160-d3ef-4e82-b58d-d196211eb4da\",\"imid\":\"contrail:virtual_network:vn2\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -53,31 +41,22 @@
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240002\",\"uuid_lslong\":\"13082342935312119002\"}}"
       },
       "634ae160-d3ef-4e83-b58d-d196211eb4db": {
-        "uuid": "634ae160-d3ef-4e83-b58d-d196211eb4db",
-        "fq_name": [
-          "vn3"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn3\"]",
+        "type": "\"virtual_network\""
       },
       "634ae160-d3ef-4e84-b58d-d196211eb4dc": {
-        "uuid": "634ae160-d3ef-4e84-b58d-d196211eb4dc",
-        "fq_name": [
-          "vn4"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn4\"]",
+        "type": "\"virtual_network\""
       },
       "634ae160-d3ef-4e85-b58d-d196211eb4dd": {
-        "uuid": "634ae160-d3ef-4e85-b58d-d196211eb4dd",
-        "fq_name": [
-          "vn5"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn5\"]",
+        "type": "\"virtual_network\""
       }
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn3\"],\"type\":\"virtual_network\",\"uuid\":\"2:634ae160-d3ef-4e83-b58d-d196211eb4db\",\"imid\":\"contrail:virtual_network:vn3\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vn3\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"2:634ae160-d3ef-4e83-b58d-d196211eb4db\",\"imid\":\"contrail:virtual_network:vn3\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -95,18 +74,12 @@
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240003\",\"uuid_lslong\":\"13082342935312119003\"}}"
       },
       "634ae160-d3ef-4e84-b58d-d196211eb4dc": {
-        "uuid": "634ae160-d3ef-4e84-b58d-d196211eb4dc",
-        "fq_name": [
-          "vn4"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn4\"]",
+        "type": "\"virtual_network\""
       },
       "634ae160-d3ef-4e85-b58d-d196211eb4dd": {
-        "uuid": "634ae160-d3ef-4e85-b58d-d196211eb4dd",
-        "fq_name": [
-          "vn5"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn5\"]",
+        "type": "\"virtual_network\""
       }
     }
   },
@@ -125,24 +98,18 @@
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240002\",\"uuid_lslong\":\"13082342935312119002\"}}"
       },
       "634ae160-d3ef-4e84-b58d-d196211eb4dc": {
-        "uuid": "634ae160-d3ef-4e84-b58d-d196211eb4dc",
-        "fq_name": [
-          "vn4"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn4\"]",
+        "type": "\"virtual_network\""
       },
       "634ae160-d3ef-4e85-b58d-d196211eb4dd": {
-        "uuid": "634ae160-d3ef-4e85-b58d-d196211eb4dd",
-        "fq_name": [
-          "vn5"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn5\"]",
+        "type": "\"virtual_network\""
       }
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn4\"],\"type\":\"virtual_network\",\"uuid\":\"4:634ae160-d3ef-4e84-b58d-d196211eb4dc\",\"imid\":\"contrail:virtual_network:vn4\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vn4\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"4:634ae160-d3ef-4e84-b58d-d196211eb4dc\",\"imid\":\"contrail:virtual_network:vn4\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -160,17 +127,14 @@
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"7154778764020240004\",\"uuid_lslong\":\"13082342935312119004\"}}"
       },
       "634ae160-d3ef-4e85-b58d-d196211eb4dd": {
-        "uuid": "634ae160-d3ef-4e85-b58d-d196211eb4dd",
-        "fq_name": [
-          "vn5"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn5\"]",
+        "type": "\"virtual_network\""
       }
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn5\"],\"type\":\"virtual_network\",\"uuid\":\"5:634ae160-d3ef-4e85-b58d-d196211eb4dd\",\"imid\":\"contrail:virtual_network:vn5\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vn5\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"5:634ae160-d3ef-4e85-b58d-d196211eb4dd\",\"imid\":\"contrail:virtual_network:vn5\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
