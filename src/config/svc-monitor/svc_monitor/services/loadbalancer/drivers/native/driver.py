@@ -57,7 +57,7 @@ class OpencontrailLoadbalancerDriver(
             portmappings = PortMappings()
             portmap_list = portmappings.get_port_mappings()
         for portmap in portmap_list or []:
-            if portmap.src_port == src_port:
+            if portmap.src_port == src_port and portmap.protocol == protocol:
                 portmap_entry = True
                 break
         if portmap_entry == False:
