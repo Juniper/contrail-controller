@@ -209,6 +209,11 @@ bool AgentQosConfig::Change(const DBRequest *req) {
     const AgentQosConfigData *data =
         static_cast<const AgentQosConfigData *>(req->data.get());
 
+    //Ignore change notification if entry node is marked for deletion
+    if ((data->ifmap_node() == NULL) || (data->ifmap_node()->IsDeleted())) {
+        return ret;
+    }
+
     if (name_ != data->name_) {
         name_ = data->name_;
         ret = true;
