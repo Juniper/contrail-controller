@@ -567,6 +567,8 @@ void AgentParam::ParseTaskSection() {
                                     "TASK.tbb_keepawake_timeout")) {
         tbb_keepawake_timeout_ = Agent::kDefaultTbbKeepawakeTimeout;
     }
+    GetValueFromTree<string>(ksync_thread_cpu_pin_policy_,
+                             "TASK.ksync_thread_cpu_pin_policy");
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -937,6 +939,8 @@ void AgentParam::ParseTaskSectionArguments
                           "TASK.log_schedule_threshold");
     GetOptValue<uint32_t>(var_map, tbb_keepawake_timeout_,
                           "TASK.tbb_keepawake_timeout");
+    GetOptValue<string>(var_map, ksync_thread_cpu_pin_policy_,
+                        "TASK.ksync_thread_cpu_pin_policy");
 }
 
 void AgentParam::ParseMetadataProxyArguments
@@ -1452,6 +1456,8 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Flow ksync-tokens           : " << flow_ksync_tokens_);
     LOG(DEBUG, "Flow del-tokens             : " << flow_del_tokens_);
     LOG(DEBUG, "Flow update-tokens          : " << flow_update_tokens_);
+    LOG(DEBUG, "Pin flow netlink task to CPU: "
+        << ksync_thread_cpu_pin_policy_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1602,6 +1608,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         restart_backup_count_(CFG_BACKUP_COUNT),
         restart_restore_enable_(true),
         restart_restore_audit_timeout_(CFG_RESTORE_AUDIT_TIMEOUT),
+        ksync_thread_cpu_pin_policy_(),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
@@ -1833,6 +1840,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Log message if task takes more than threshold (msec) to schedule")
         ("TASK.tbb_keepawake_timeout", opt::value<uint32_t>(),
          "Timeout for the TBB keepawake timer")
+        ("TASK.ksync_thread_cpu_pin_policy", opt::value<string>(),
+         "Pin ksync io task to CPU")
         ;
     options_.add(tbb);
 }

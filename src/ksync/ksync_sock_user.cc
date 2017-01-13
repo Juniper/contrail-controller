@@ -704,7 +704,7 @@ void KSyncSockTypeMap::Init(boost::asio::io_service &ios) {
 
     singleton_ = new KSyncSockTypeMap(ios);
     KSyncSock::SetSockTableEntry(singleton_);
-    KSyncSock::Init(true);
+    KSyncSock::Init(true, "disabled");
 
     singleton_->local_ep_.address
         (boost::asio::ip::address::from_string("127.0.0.1"));

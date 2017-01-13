@@ -58,7 +58,7 @@ public:
     KSyncTxQueue(KSyncSock *sock);
     ~KSyncTxQueue();
 
-    void Init(bool use_work_queue);
+    void Init(bool use_work_queue, const std::string &cpu_pin_policy);
     void Shutdown();
     bool Run();
 
@@ -87,6 +87,8 @@ private:
 
     WorkQueue<IoContext *> *work_queue_;
     int event_fd_;
+    // CPU pinning policy for netlink task
+    std::string cpu_pin_policy_;
     KSyncSock *sock_;
     Queue queue_;
     tbb::atomic<bool> shutdown_;
