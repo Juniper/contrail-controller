@@ -207,6 +207,7 @@ class CfgParser(object):
             self._args.redis_uve_list = self._args.redis_uve_list.split()
         if type(self._args.alarmgen_list) is str:
             self._args.alarmgen_list = self._args.alarmgen_list.split()
+        self._args.conf_file = args.conf_file
 
     def _pat(self):
         if self.__pat is None:

@@ -42,7 +42,7 @@ class SnmpUve(object):
                 self._conf.sandesh_send_rate_limit());
         sandesh_global.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
-                                      self._conf.collectors(),
+                                      self._conf.random_collectors,
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['contrail_snmp_collector.sandesh'],
@@ -263,3 +263,5 @@ class SnmpUve(object):
         # print 'Sending UVE:', uve.data.name
         uve.send()
 
+    def sandesh_reconfig_collectors(self, collectors):
+        sandesh_global.reconfig_collectors(collectors)

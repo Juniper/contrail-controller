@@ -186,6 +186,7 @@ Mibs = LldpTable, ArpTable
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         self._args.config_sections = config
+        self._args.conf_file = args.conf_file
         self._disc = client.DiscoveryClient(*self.discovery_params())
 
     def devices(self):

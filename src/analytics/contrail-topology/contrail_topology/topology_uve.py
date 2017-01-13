@@ -26,7 +26,7 @@ class LinkUve(object):
                 self._conf.sandesh_send_rate_limit())
         sandesh_global.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
-                                      self._conf.collectors(), 
+                                      self._conf.random_collectors,
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['contrail_topology.sandesh'],
@@ -48,10 +48,12 @@ class LinkUve(object):
         pprint.pprint(data)
         for prouter in data:
             lt = map(lambda x: LinkEntry(**x), data[prouter])
-            uve = PRouterLinkUVE(data=PRouterLinkEntry(name=prouter, 
+            uve = PRouterLinkUVE(data=PRouterLinkEntry(name=prouter,
                         link_table=lt))
             uve.send()
 
     def delete(self, name):
          PRouterLinkUVE(data=PRouterLinkEntry(name=name, deleted=True)).send()
 
+    def sandesh_reconfig_collectors(self, collectors):
+        sandesh_global.reconfig_collectors(collectors)

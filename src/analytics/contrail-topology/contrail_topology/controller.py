@@ -8,6 +8,10 @@ import gevent
 from gevent.lock import Semaphore
 from opserver.consistent_schdlr import ConsistentScheduler
 import traceback
+import ConfigParser
+import signal
+import random
+import hashlib
 
 class PRouter(object):
     def __init__(self, name, data):
@@ -19,6 +23,12 @@ class Controller(object):
         self._config = config
         self._me = socket.gethostname() + ':' + str(os.getpid())
         self.analytic_api = AnalyticApiClient(self._config)
+        self._config.random_collectors = self._config.collectors()
+        self._chksum = ""
+        if self._config.collectors():
+            self._chksum = hashlib.md5("".join(self._config.collectors())).hexdigest()
+            self._config.random_collectors = random.sample(self._config.collectors(), \
+                                                           len(self._config.collectors()))
         self.uve = LinkUve(self._config)
         self.sleep_time()
         self._keep_running = True
@@ -276,7 +286,32 @@ class Controller(object):
             for prouter in prouters:
                 self.uve.delete(prouter.name)
 
+    def sighup_handler(self):
+        if self._config._args.conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._config._args.conf_file)
+            if 'DEFAULTS' in config.sections():
+                try:
+                    collectors = config.get('DEFAULTS', 'collectors')
+                    if type(collectors) is str:
+                        collectors = collectors.split()
+                        new_chksum = hashlib.md5("".join(collectors)).hexdigest()
+                        if new_chksum != self._chksum:
+                            self._chksum = new_chksum
+                            random_collectors = random.sample(collectors, len(collectors))
+                            self.uve.sandesh_reconfig_collectors(random_collectors)
+                except ConfigParser.NoOptionError as e:
+                    pass
+    # end sighup_handler
+ 
+        
     def run(self):
+
+        """ @sighup
+        SIGHUP handler to indicate configuration changes 
+        """
+        gevent.signal(signal.SIGHUP, self.sighup_handler)
+
         self._sem = Semaphore()
         self.constnt_schdlr = ConsistentScheduler(
                             self.uve._moduleid,

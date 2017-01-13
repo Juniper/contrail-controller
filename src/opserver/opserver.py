@@ -31,6 +31,8 @@ import base64
 import socket
 import struct
 import signal
+import random
+import hashlib
 import errno
 import copy
 import datetime
@@ -471,9 +473,14 @@ class OpServer(object):
                             self._args.disc_server_port,
                             ModuleNames[Module.OPSERVER])
 
+        self.random_collectors = self._args.collectors
+        if self._args.collectors:
+            self._chksum = hashlib.md5("".join(self._args.collectors)).hexdigest()
+            self.random_collectors = random.sample(self._args.collectors, \
+                                                   len(self._args.collectors))
         self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
-            self._instance_id, self._args.collectors, 'opserver_context',
+            self._instance_id, self.random_collectors, 'opserver_context',
             int(self._args.http_server_port), ['opserver.sandesh'],
             self.disc, logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf)
@@ -1020,6 +1027,7 @@ class OpServer(object):
         auth_conf_info['api_server_ip'] = api_server_info[0]
         auth_conf_info['api_server_port'] = int(api_server_info[1])
         self._args.auth_conf_info = auth_conf_info
+        self._args.conf_file = args.conf_file
     # end _parse_args
 
     def get_args(self):
@@ -2505,9 +2513,31 @@ class OpServer(object):
         self.stop()
         exit()
 
+    def sighup_handler(self):
+        if self._args.conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._args.conf_file)
+            if 'DEFAULTS' in config.sections():
+                try:
+                    collectors = config.get('DEFAULTS', 'collectors')
+                    if type(collectors) is str:
+                        collectors = collectors.split()
+                        new_chksum = hashlib.md5("".join(collectors)).hexdigest()
+                        if new_chksum != self._chksum:
+                            self._chksum = new_chksum
+                            random_collectors = random.sample(collectors, len(collectors))
+                            self._sandesh.reconfig_collectors(random_collectors)
+                except ConfigParser.NoOptionError as e:
+                    pass
+    # end sighup_handler
+
 def main(args_str=' '.join(sys.argv[1:])):
     opserver = OpServer(args_str)
     gevent.hub.signal(signal.SIGTERM, opserver.sigterm_handler)
+    """ @sighup
+    SIGHUP handler to indicate configuration changes
+    """
+    gevent.hub.signal(signal.SIGHUP, opserver.sighup_handler)
     gv = gevent.getcurrent()
     gv._main_obj = opserver
     opserver.run()

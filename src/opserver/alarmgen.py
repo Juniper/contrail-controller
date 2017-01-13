@@ -17,6 +17,9 @@ import time
 import copy
 import traceback
 import signal
+import random
+import hashlib
+import ConfigParser
 import logging
 logging.getLogger('kafka').addHandler(logging.StreamHandler())
 logging.getLogger('kafka').setLevel(logging.WARNING)
@@ -891,9 +894,14 @@ class Controller(object):
         if self._conf.sandesh_send_rate_limit() is not None:
             SandeshSystem.set_sandesh_send_rate_limit( \
                 self._conf.sandesh_send_rate_limit())
+        self._conf.random_collectors = self._conf.collectors()
+        if self._conf.collectors():
+            self._chksum = hashlib.md5("".join(self._conf.collectors())).hexdigest()
+            self._conf.random_collectors = random.sample(self._conf.collectors(), \
+                                                        len(self._conf.collectors()))
         self._sandesh.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
-                                      self._conf.collectors(),
+                                      self._conf.random_collectors,
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['opserver.sandesh', 'sandesh'],
@@ -2342,6 +2350,24 @@ class Controller(object):
         self.stop()
         exit()
 
+    def sighup_handler(self):
+        if self._conf._args.conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._conf._args.conf_file)
+            if 'DEFAULTS' in config.sections():
+                try:
+                    collectors = config.get('DEFAULTS', 'collectors')
+                    if type(collectors) is str:
+                        collectors = collectors.split()
+                        new_chksum = hashlib.md5("".join(collectors)).hexdigest()
+                        if new_chksum != self._chksum:
+                            self._chksum = new_chksum
+                            random_collectors = random.sample(collectors, len(collectors))
+                            self._sandesh.reconfig_collectors(random_collectors)
+                except ConfigParser.NoOptionError as e:
+                    pass
+      # end sighup_handler
+
 def setup_controller(argv):
     config = CfgParser(argv)
     config.parse()
@@ -2350,6 +2376,10 @@ def setup_controller(argv):
 def main(args=None):
     controller = setup_controller(args or ' '.join(sys.argv[1:]))
     gevent.hub.signal(signal.SIGTERM, controller.sigterm_handler)
+    """ @sighup
+    SIGHUP handler to indicate configuration changes
+    """
+    gevent.hub.signal(signal.SIGHUP, controller.sighup_handler)
     gv = gevent.getcurrent()
     gv._main_obj = controller
     controller.run()
