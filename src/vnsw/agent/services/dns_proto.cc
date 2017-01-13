@@ -16,6 +16,7 @@
 #include "controller/controller_dns.h"
 #include "oper/vn.h"
 #include "oper/route_common.h"
+#include <fstream>
 
 void DnsProto::IoShutdown() {
     BindResolver::Shutdown();
@@ -34,6 +35,10 @@ void DnsProto::IoShutdown() {
 }
 
 void DnsProto::ConfigInit() {
+    BuildDefaultServerList();
+    default_slist_timer_->Start(kDnsDefaultSlistInterval,
+                                boost::bind(&DnsProto::BuildDefaultServerList,
+                                this));
     std::vector<BindResolver::DnsServer> dns_servers;
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
         std::string server = agent()->dns_server(i);
@@ -48,10 +53,15 @@ void DnsProto::ConfigInit() {
 
 DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, "Agent::Services", PktHandler::DNS, io),
-    xid_(0), timeout_(kDnsTimeout), max_retries_(kDnsMaxRetries) {
+    xid_(0), timeout_(agent->params()->dns_timeout()),
+    max_retries_(agent->params()->dns_max_retries()) {
     // limit the number of entries in the workqueue
     work_queue_.SetSize(agent->params()->services_queue_limit());
     work_queue_.SetBounded(true);
+    def_server_list_.clear();
+    default_slist_timer_ = TimerManager::CreateTimer(io, "DnsDefSlistTimer",
+                           TaskScheduler::GetInstance()->
+                           GetTaskId("Agent::Services"), PktHandler::DNS);
 
     lid_ = agent->interface_table()->Register(
                   boost::bind(&DnsProto::InterfaceNotify, this, _2));
@@ -84,6 +94,42 @@ void DnsProto::Shutdown() {
     if (agent_->tsn_enabled()) {
         agent_->vrf_table()->Unregister(vrf_table_listener_id_);
     }
+    default_slist_timer_->Cancel();
+    TimerManager::DeleteTimer(default_slist_timer_);
+}
+
+bool DnsProto::BuildDefaultServerList() {
+    DefaultServerList ip_list;
+    std::ifstream fd;
+    fd.open("/etc/resolv.conf");
+    if (!fd.is_open()) {
+        return true;
+    }
+
+    std::string line;
+    while (getline(fd, line)) {
+        std::size_t pos = line.find_first_of("#");
+        std::stringstream ss(line.substr(0, pos));
+        std::string key;
+        ss >> key;
+        if (key == "nameserver") {
+            std::string ip_str;
+            ss >> ip_str;
+            boost::system::error_code ec;
+            IpAddress ip = IpAddress::from_string(ip_str, ec);
+            if (!ec.value()) {
+                ip_list.push_back(ip);
+            }
+        }
+    }
+
+    def_server_list_ = ip_list; // assign new contents
+    fd.close();
+    return true;
+}
+
+std::vector<IpAddress> DnsProto::GetDefaultServerList() {
+    return def_server_list_;
 }
 
 ProtoHandler *DnsProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,

@@ -119,6 +119,8 @@ public:
             return 0;
         return dns_client_port_;
     }
+    const uint32_t dns_timeout() const { return dns_timeout_; }
+    const uint32_t dns_max_retries() const { return dns_max_retries_; }
     const uint16_t mirror_client_port() const {
         if (test_mode_)
             return 0;
@@ -491,6 +493,8 @@ private:
     uint16_t dns_port_1_;
     uint16_t dns_port_2_;
     uint16_t dns_client_port_;
+    uint32_t dns_timeout_;
+    uint32_t dns_max_retries_;
     uint16_t mirror_client_port_;
     std::string dss_server_;
     uint32_t dss_port_;

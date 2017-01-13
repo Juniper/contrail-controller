@@ -62,6 +62,8 @@ private:
     bool ResolveLinkLocalRequest(DnsItems::iterator &item,
                                  DnsItems *linklocal_items) const;
     bool ResolveAllLinkLocalRequests();
+    void BuildDnsResolvers();
+    void BuildDefaultDnsResolvers();
     bool HandleMessage();
     bool HandleDefaultDnsResponse();
     bool HandleBindResponse();
@@ -74,7 +76,6 @@ private:
     void ParseQuery();
     void Resolve(dns_flags flags, const DnsItems &ques, DnsItems &ans,
                  DnsItems &auth, DnsItems &add);
-    bool SendDnsQuery(int8_t idx, uint16_t xid);
     void SendDnsResponse();
     void UpdateQueryNames();
     void UpdateOffsets(DnsItem &item, bool name_update_required);
@@ -87,6 +88,15 @@ private:
                                std::string *domain_name) const;
     void GetBaseName(const std::string &name, std::string *base) const;
     std::string DnsItemsToString(DnsItems &items) const;
+    void HandleInvalidBindResponse(DnsHandler *handler, dns_flags flags,
+                                   const DnsItems &ques, DnsItems &ans,
+                                   DnsItems &auth, DnsItems &add, uint16_t xid);
+    bool NeedRetryForNextServer(uint16_t code);
+    bool SendToDefaultServer();
+    bool DefaultMethodInUse() { return default_method_; }
+    uint8_t curr_index() { return curr_index_; }
+    uint8_t last_index() { return def_dns_resolvers_.size() - 1; }
+    void IncrCurrIndex() { curr_index_++; }
 
     dnshdr  *dns_;
     uint8_t *resp_ptr_;
@@ -100,6 +110,7 @@ private:
         Timer *timer_;
     };
     std::vector<DnsResolverInfo *> dns_resolvers_;
+    std::vector<DnsResolverInfo *> def_dns_resolvers_;
     std::string ipam_name_;
     std::string domain_name_;
     autogen::IpamType ipam_type_;
@@ -112,6 +123,9 @@ private:
     uint16_t pend_req_;
     ResolvList resolv_list_;
     tbb::mutex mutex_;
+    bool default_method_;
+    uint8_t curr_index_;
+    bool SendDnsQuery(DnsResolverInfo *resolver, uint16_t xid);
 
     DISALLOW_COPY_AND_ASSIGN(DnsHandler);
 };
