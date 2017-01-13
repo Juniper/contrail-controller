@@ -88,15 +88,30 @@ void MulticastMacLocalEntry::OnVrfDelete() {
 bool MulticastMacLocalEntry::Add() {
     OvsdbIdlRowList::iterator it = row_list_.begin();
     TorIpList old_tor_ip_list = tor_ip_list_;
+    uint32_t old_vxlan_id = vxlan_id_;
     // clear the list to hold new entries
     tor_ip_list_.clear();
 
     MulticastMacLocalOvsdb *table = static_cast<MulticastMacLocalOvsdb *>(table_);
+
     OVSDB::VnOvsdbEntry *vn_entry = GetVnEntry();
     // Take vrf reference to genrate withdraw/delete route request
     vrf_ = vn_entry->vrf();
     OVSDB_TRACE(Trace, "Adding multicast Route VN uuid " + logical_switch_name_);
     vxlan_id_ = vn_entry->vxlan_id();
+
+    //In case vxlan id is changed then remove old vaxlan id before auditing
+    //list.
+    if (old_vxlan_id != vxlan_id_) {
+        TorIpList::iterator it_ip = old_tor_ip_list.begin();
+        for (; it_ip != old_tor_ip_list.end(); it_ip++) {
+            table->peer()->DeleteOvsPeerMulticastRoute(vrf_.get(), old_vxlan_id,
+                                                       (*it_ip));
+        }
+        //No need of old list, so flush it and honor new list
+        old_tor_ip_list.clear();
+    }
+
     table->vrf_dep_list_.insert(MulticastMacLocalOvsdb::VrfDepEntry(vrf_.get(),
                                                                     this));
 
