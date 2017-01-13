@@ -742,6 +742,7 @@ TEST_F(ConfigJsonParserTest, ServerParser5) {
 // Both vr and vm nodes should get deleted since they dont have any properties
 // Same as ServerParser5 except that the various operations are happening in
 // separate messages.
+// NA
 TEST_F(ConfigJsonParserTest, DISABLED_ServerParser5InParts) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
@@ -841,7 +842,7 @@ TEST_F(ConfigJsonParserTest, ServerParser6InParts) {
 // 2) delete vr, then link(vr,vm)
 // 3) add vr-with-properties
 // Both vr and vm nodes should continue to live
-TEST_F(ConfigJsonParserTest, DISABLED_ServerParser7) {
+TEST_F(ConfigJsonParserTest, ServerParser7) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
@@ -931,6 +932,7 @@ TEST_F(ConfigJsonParserTest, ServerParser7InParts) {
 // 1) create link(vr,vm)   2) delete link(vr,vm)    3) create link(vr,vm)
 // Both vr and vm should exist but should not have any objects since we dont
 // get any node-config with properties for either of them
+// NA
 TEST_F(ConfigJsonParserTest, DISABLED_ServerParser8) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
@@ -962,6 +964,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser8) {
 // get any node-config with properties for either of them
 // Same as ServerParser8 except that the various operations are happening in
 // separate messages.
+// NA
 TEST_F(ConfigJsonParserTest, DISABLED_ServerParser8InParts) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
@@ -1176,8 +1179,8 @@ TEST_F(ConfigJsonParserTest, ServerParser10InParts) {
 // 1) create vr-with-properties, then vm-with-properties, then link(vr,vm)
 // 2) delete link(vr,vm), then delete vr
 // 3) add link(vr,vm)
-// Both vr and vm nodes should continue to live but vr should have no object
-TEST_F(ConfigJsonParserTest, DISABLED_ServerParser11) {
+// vm nodes should continue to live but not vr
+TEST_F(ConfigJsonParserTest, ServerParser11) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
@@ -1185,29 +1188,24 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser11) {
 
     ParseEventsJson("controller/src/ifmap/testdata/server_parser_test11.json");
     FeedEventsJson();
-    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
 
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");
-    TASK_UTIL_EXPECT_TRUE(vr1 != NULL);
-    IFMapObject *obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
-    TASK_UTIL_EXPECT_TRUE(obj == NULL);
+    TASK_UTIL_EXPECT_TRUE(vr1 == NULL);
 
     IFMapNode *vm1 = NodeLookup("virtual-machine", "vm1");
     TASK_UTIL_EXPECT_TRUE(vm1 != NULL);
-    obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
+    IFMapObject *obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     TASK_UTIL_EXPECT_TRUE(obj != NULL);
-
-    IFMapLink *link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
-    TASK_UTIL_EXPECT_TRUE(link != NULL);
 }
 
 // In 3 separate messages: 
 // 1) create vr-with-properties, then vm-with-properties, then link(vr,vm)
 // 2) delete link(vr,vm), then delete vr
 // 3) add link(vr,vm)
-// Both vr and vm nodes should continue to live but vr should have no object
-TEST_F(ConfigJsonParserTest, DISABLED_ServerParser11InParts) {
+// vm nodes should continue to live but not vr
+TEST_F(ConfigJsonParserTest, ServerParser11InParts) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
@@ -1244,22 +1242,17 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser11InParts) {
     TASK_UTIL_EXPECT_TRUE(obj != NULL);
 
     FeedEventsJson();
-    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
 
     // vr1 should not have any object
     vr1 = NodeLookup("virtual-router", "vr1");
-    TASK_UTIL_EXPECT_TRUE(vr1 != NULL);
-    obj = vr1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
-    TASK_UTIL_EXPECT_TRUE(obj == NULL);
+    TASK_UTIL_EXPECT_TRUE(vr1 == NULL);
 
     vm1 = NodeLookup("virtual-machine", "vm1");
     TASK_UTIL_EXPECT_TRUE(vm1 != NULL);
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     TASK_UTIL_EXPECT_TRUE(obj != NULL);
-
-    link = LinkLookup(vr1, vm1, "virtual-router-virtual-machine");
-    TASK_UTIL_EXPECT_TRUE(link != NULL);
 }
 
 // In a single message: 
@@ -1292,6 +1285,7 @@ TEST_F(ConfigJsonParserTest, ServerParser12) {
 // In 2 separate messages: 
 // 1) create link(vr,vm), then link(vr,gsc)
 // 2) delete link(vr,vm), then link(vr,gsc)
+// NA
 TEST_F(ConfigJsonParserTest, DISABLED_ServerParser12InParts) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
@@ -1382,6 +1376,7 @@ TEST_F(ConfigJsonParserTest, ServerParser13) {
 // 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete link(vr,vm), then link(vm, gsc)
+// NA
 TEST_F(ConfigJsonParserTest, DISABLED_ServerParser13InParts) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
