@@ -67,10 +67,11 @@ struct SystemCpuInfo {
 }
 
 /**
- * This structure carries system memory and cpu information
+ * This structure carries system's cpu information.
  */
-struct SystemMemCpuUsage {
-    1: SysMemInfo mem_info;
-    2: CpuLoadAvg cpu_load;
-    3: double cpu_share;
+struct SysCpuInfo {
+    1: double one_min_avg;
+    2: double five_min_avg;
+    3: double fifteen_min_avg;
+    4: double cpu_share;
 }

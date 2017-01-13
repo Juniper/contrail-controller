@@ -2084,88 +2084,128 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
-      'display_name' : 'Analytics System Memory CPU Usage',
+      'display_name' : 'Analytics System Memory Usage',
       'stat_type' : 'NodeStatus'
-      'stat_attr' : 'system_mem_cpu_usage',
+      'stat_attr' : 'system_mem_usage',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
-          { 'name' : 'system_mem_cpu_usage.mem_info.total', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.used', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.free', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.buffers', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.cached', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.one_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.five_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_mem_usage.total', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.used', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
         ]
     },
     {
-      'display_name' : 'Database System Memory CPU Usage',
+      'display_name' : 'Database System Memory Usage',
       'stat_type' : 'NodeStatus'
-      'stat_attr' : 'system_mem_cpu_usage',
+      'stat_attr' : 'system_mem_usage',
       'obj_table' : DATABASE_INFO_TABLE,
       'attributes': [
-          { 'name' : 'system_mem_cpu_usage.mem_info.total', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.used', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.free', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.buffers', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.cached', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.one_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.five_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_mem_usage.total', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.used', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
         ]
     },
     {
-      'display_name' : 'Config System Memory CPU Usage',
+      'display_name' : 'Config System Memory Usage',
       'stat_type' : 'NodeStatus'
-      'stat_attr' : 'system_mem_cpu_usage',
+      'stat_attr' : 'system_mem_usage',
       'obj_table' : CONFIG_NODE_TABLE,
       'attributes': [
-          { 'name' : 'system_mem_cpu_usage.mem_info.total', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.used', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.free', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.buffers', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.cached', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.one_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.five_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_mem_usage.total', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.used', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
         ]
     },
     {
-      'display_name' : 'Control-node System Memory CPU Usage',
+      'display_name' : 'Control-node System Memory Usage',
       'stat_type' : 'NodeStatus'
-      'stat_attr' : 'system_mem_cpu_usage',
+      'stat_attr' : 'system_mem_usage',
       'obj_table' : BGP_ROUTER_TABLE,
       'attributes': [
-          { 'name' : 'system_mem_cpu_usage.mem_info.total', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.used', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.free', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.buffers', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.cached', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.one_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.five_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_mem_usage.total', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.used', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
         ]
     },
     {
-      'display_name' : 'Vrouter System Memory CPU Usage',
+      'display_name' : 'Vrouter System Memory Usage',
       'stat_type' : 'NodeStatus'
-      'stat_attr' : 'system_mem_cpu_usage',
+      'stat_attr' : 'system_mem_usage',
       'obj_table' : VROUTER_TABLE,
       'attributes': [
-          { 'name' : 'system_mem_cpu_usage.mem_info.total', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.used', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.free', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.buffers', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.mem_info.cached', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.one_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.five_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_load.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'system_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_mem_usage.total', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.used', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Analytics System CPU Usage',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'system_cpu_usage',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'system_cpu_usage.one_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Database System CPU Usage',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'system_cpu_usage',
+      'obj_table' : DATABASE_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'system_cpu_usage.one_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Config System CPU Usage',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'system_cpu_usage',
+      'obj_table' : CONFIG_NODE_TABLE,
+      'attributes': [
+          { 'name' : 'system_cpu_usage.one_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Control-node System CPU Usage',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'system_cpu_usage',
+      'obj_table' : BGP_ROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'system_cpu_usage.one_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Vrouter System CPU Usage',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'system_cpu_usage',
+      'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'system_cpu_usage.one_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
         ]
     },
     {
