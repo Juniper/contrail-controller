@@ -1,58 +1,49 @@
 [
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":[\"vn1\"],\"type\":\"virtual_network\",\"uuid\":\"0:634ae160-d3ef-4e81-b58d-d196211eb4d9\",\"imid\":\"contrail:virtual_network:vn1\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"0:634ae160-d3ef-4e81-b58d-d196211eb4d9\",\"imid\":\"contrail:virtual_network:vn1\"}",
     "db": {
       "634ae160-d3ef-4e82-b58d-d196211eb4da": {
-        "uuid": "634ae160-d3ef-4e82-b58d-d196211eb4da",
-        "fq_name": [
-          "vn2"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn2\"]",
+        "type": "\"virtual_network\""
       },
       "634ae160-d3ef-4e83-b58d-d196211eb4db": {
-        "uuid": "634ae160-d3ef-4e83-b58d-d196211eb4db",
-        "fq_name": [
-          "vn3"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn3\"]",
+        "type": "\"virtual_network\""
       }
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":[\"vn2\"],\"type\":\"virtual_network\",\"uuid\":\"1:634ae160-d3ef-4e82-b58d-d196211eb4da\",\"imid\":\"contrail:virtual_network:vn2\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"1:634ae160-d3ef-4e82-b58d-d196211eb4da\",\"imid\":\"contrail:virtual_network:vn2\"}",
     "db": {
       "634ae160-d3ef-4e83-b58d-d196211eb4db": {
-        "uuid": "634ae160-d3ef-4e83-b58d-d196211eb4db",
-        "fq_name": [
-          "vn3"
-        ],
-        "type": "virtual_network"
+        "fq_name": "[\"vn3\"]",
+        "type": "\"virtual_network\""
       }
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":[\"vn3\"],\"type\":\"virtual_network\",\"uuid\":\"2:634ae160-d3ef-4e83-b58d-d196211eb4db\",\"imid\":\"contrail:virtual_network:vn3\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn3\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"2:634ae160-d3ef-4e83-b58d-d196211eb4db\",\"imid\":\"contrail:virtual_network:vn3\"}",
     "db": {
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"vn3\",\"type\":\"virtual_network\",\"uuid\":\"3:634ae160-d3ef-4e83-b58d-d196211eb4db\",\"imid\":\"contrail:virtual_network:vn3\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn3\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"3:634ae160-d3ef-4e83-b58d-d196211eb4db\",\"imid\":\"contrail:virtual_network:vn3\"}",
     "db": {
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"vn2\",\"type\":\"virtual_network\",\"uuid\":\"4:634ae160-d3ef-4e82-b58d-d196211eb4da\",\"imid\":\"contrail:virtual_network:vn2\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"4:634ae160-d3ef-4e82-b58d-d196211eb4da\",\"imid\":\"contrail:virtual_network:vn2\"}",
     "db": {
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"vn1\",\"type\":\"virtual_network\",\"uuid\":\"5:634ae160-d3ef-4e81-b58d-d196211eb4d9\",\"imid\":\"contrail:virtual_network:vn1\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"5:634ae160-d3ef-4e81-b58d-d196211eb4d9\",\"imid\":\"contrail:virtual_network:vn1\"}",
     "db": {
     }
   }

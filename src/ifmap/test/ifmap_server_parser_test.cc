@@ -96,6 +96,57 @@ class IFMapServerParserTest : public ::testing::Test {
     auto_ptr<IFMapChannelManagerMock> ifmap_channel_mgr_;
 };
 
+// In a single message, adds vn1, vn2, vn3.
+TEST_F(IFMapServerParserTest, ServerParserAddInOneShot) {
+    string message =
+        FileRead("controller/src/ifmap/testdata/server_parser_test01.xml");
+    assert(message.size() != 0);
+    parser_->Receive(&db_, message.data(), message.size(), 0);
+    task_util::WaitForIdle();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    IFMapNode *vn1 = NodeLookup("virtual-network", "vn1");
+    EXPECT_TRUE(vn1 != NULL);
+    IFMapNode *vn = NodeLookup("virtual-network", "vn2");
+    EXPECT_TRUE(vn != NULL);
+    vn = NodeLookup("virtual-network", "vn3");
+    EXPECT_TRUE(vn != NULL);
+}
+
+// In a multiple messages, adds (vn1, vn2), and vn3.
+TEST_F(IFMapServerParserTest, ServerParserAddInMultipleShots) {
+    string message =
+        FileRead("controller/src/ifmap/testdata/server_parser_test01.1.xml");
+    assert(message.size() != 0);
+    parser_->Receive(&db_, message.data(), message.size(), 0);
+    task_util::WaitForIdle();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(2, table->Size());
+
+    IFMapNode *vn1 = NodeLookup("virtual-network", "vn1");
+    EXPECT_TRUE(vn1 != NULL);
+    IFMapNode *vn = NodeLookup("virtual-network", "vn2");
+    EXPECT_TRUE(vn != NULL);
+
+    // Verify that vn3 is still not added
+    vn = NodeLookup("virtual-network", "vn3");
+    EXPECT_TRUE(vn == NULL);
+
+    // Resume events processing
+    message =
+        FileRead("controller/src/ifmap/testdata/server_parser_test01.2.xml");
+    assert(message.size() != 0);
+    parser_->Receive(&db_, message.data(), message.size(), 0);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    vn = NodeLookup("virtual-network", "vn3");
+    EXPECT_TRUE(vn != NULL);
+}
+
 // In a single message, adds vn1, vn2, vn3, then deletes, vn3, then adds vn4,
 // vn5, then deletes vn5, vn4 and vn2. Only vn1 should remain.
 TEST_F(IFMapServerParserTest, ServerParser) {
