@@ -23,11 +23,11 @@ from reaction_map import REACTION_MAP
 
 class VncKubernetes(object):
 
-    def __init__(self, args=None, logger=None, q=None, service=None):
+    def __init__(self, args=None, logger=None, q=None, kube=None):
         self.args = args
         self.logger = logger
         self.q = q
-        self.service = service
+        self.kube = kube
 
         # init vnc connection
         self.vnc_lib = self._vnc_connect()
@@ -42,7 +42,7 @@ class VncKubernetes(object):
         self.rabbit.establish()
 
         # sync api server db in local cache
-        self._sync_sm()
+        self._sync_km()
         self.rabbit._db_resync_done.set()
 
         # provision cluster
@@ -55,7 +55,7 @@ class VncKubernetes(object):
             cluster_pod_subnets = self.args.pod_subnets)
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
-            self.label_cache, self.args, self.logger, self.service)
+            self.label_cache, self.args, self.logger, self.kube)
         self.pod_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
             self.label_cache, self.service_mgr,
@@ -82,7 +82,7 @@ class VncKubernetes(object):
                 time.sleep(3)
         return vnc_lib
 
-    def _sync_sm(self):
+    def _sync_km(self):
         for cls in DBBaseKM.get_obj_type_map().values():
             for obj in cls.list_obj():
                 cls.locate(obj['uuid'], obj)
