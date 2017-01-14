@@ -142,8 +142,12 @@ def parse_nodes (record)
     return if !record.key? "identity" or !record["identity"].key? "name"
     return if record["identity"]["name"] !~ /contrail:(.*?):(.*$)/
     fq_name = $2; type = $1.gsub("-", "_")
-    obj = from_name(fq_name)
-    return if obj.nil?
+    uuid = get_uuid(record["metadata"]["id_perms"]["uuid"])
+    obj = @db[uuid] ||
+        ({"uuid" => uuid, "fq_name" => fq_name.split(/:/).to_json,
+          "type" => "\"#{type}\""})
+    # obj = from_name(fq_name)
+    # return if obj.nil?
     record["metadata"].each { |k, v| obj["prop:" + k] = v }
 
     # Remove ifmap stuff from id-perms
@@ -155,7 +159,7 @@ def parse_nodes (record)
 
     # Convert prop to json string
     n = Hash.new
-    uuid = obj["uuid"]
+    # uuid = obj["uuid"]
     obj.each {|k, v|
         if v.class == String
             if k == "fq_name" or k == "uuid"
