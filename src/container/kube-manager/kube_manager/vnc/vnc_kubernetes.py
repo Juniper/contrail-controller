@@ -11,6 +11,7 @@ from gevent.queue import Empty
 
 import requests
 import argparse
+import uuid
 
 from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
@@ -66,6 +67,9 @@ class VncKubernetes(object):
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints',
             self.vnc_lib, self.label_cache)
+        self.ingress_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_ingress.VncIngress', self.args,
+            self.vnc_lib, self.label_cache, self.logger, self.kube)
 
     def _vnc_connect(self):
         # Retry till API server connection is up
@@ -100,8 +104,53 @@ class VncKubernetes(object):
         except RefsExistError:
             proj_obj = self.vnc_lib.project_read(
                 fq_name=proj_fq_name)
+        try:
+            self._create_default_security_group(proj_obj)
+        except RefsExistError:
+            pass
         ProjectKM.locate(proj_obj.uuid)
         return proj_obj
+
+    def _create_default_security_group(self, proj_obj):
+        DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
+        def _get_rule(ingress, sg, prefix, ethertype):
+            sgr_uuid = str(uuid.uuid4())
+            if sg:
+                addr = AddressType(
+                    security_group=proj_obj.get_fq_name_str() + ':' + sg)
+            elif prefix:
+                addr = AddressType(subnet=SubnetType(prefix, 0))
+            local_addr = AddressType(security_group='local')
+            if ingress:
+                src_addr = addr
+                dst_addr = local_addr
+            else:
+                src_addr = local_addr
+                dst_addr = addr
+            rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+                                  protocol='any',
+                                  src_addresses=[src_addr],
+                                  src_ports=[PortType(0, 65535)],
+                                  dst_addresses=[dst_addr],
+                                  dst_ports=[PortType(0, 65535)],
+                                  ethertype=ethertype)
+            return rule
+
+        rules = [_get_rule(True, 'default', None, 'IPv4'),
+                 _get_rule(True, 'default', None, 'IPv6'),
+                 _get_rule(False, None, '0.0.0.0', 'IPv4'),
+                 _get_rule(False, None, '::', 'IPv6')]
+        sg_rules = PolicyEntriesType(rules)
+
+        # create security group
+        id_perms = IdPermsType(enable=True,
+                               description=DEFAULT_SECGROUP_DESCRIPTION)
+        sg_obj = SecurityGroup(name='default', parent_obj=proj_obj,
+                               id_perms=id_perms,
+                               security_group_entries=sg_rules)
+
+        self.vnc_lib.security_group_create(sg_obj)
+        self.vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
 
     def _create_ipam(self, ipam_name, subnets, proj_obj,
             type='user-defined-subnet'):
@@ -214,5 +263,7 @@ class VncKubernetes(object):
                     self.network_policy_mgr.process(event)
                 elif event['object'].get('kind') == 'Endpoints':
                     self.endpoints_mgr.process(event)
+                elif event['object'].get('kind') == 'Ingress':
+                    self.ingress_mgr.process(event)
             except Empty:
                 gevent.sleep(0)

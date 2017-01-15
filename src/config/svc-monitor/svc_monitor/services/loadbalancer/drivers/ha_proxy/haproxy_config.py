@@ -45,25 +45,20 @@ PERSISTENCE_HTTP_COOKIE = 'HTTP_COOKIE'
 PERSISTENCE_APP_COOKIE = 'APP_COOKIE'
 
 def get_config_v2(lb):
-    sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
-    sock_path += lb.uuid + '/haproxy.sock'
     custom_attr_dict = get_custom_attributes_dict()
     custom_attrs = get_custom_attributes_v2(lb)
-    conf = set_globals(sock_path, custom_attr_dict, custom_attrs) + '\n\n'
+    conf = set_globals(lb.uuid, custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_defaults(custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs)
     return conf
 
 def get_config_v1(pool):
-    sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
-    sock_path += pool.uuid + '/haproxy.sock'
     custom_attr_dict = get_custom_attributes_dict()
     custom_attrs = get_custom_attributes_v1(pool)
-    conf = set_globals(sock_path, custom_attr_dict, custom_attrs) + '\n\n'
+    conf = set_globals(pool.uuid, custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_defaults(custom_attr_dict, custom_attrs) + '\n\n'
     conf += set_v1_frontend_backend(pool, custom_attr_dict, custom_attrs)
     return conf
-
 
 def get_custom_attributes_dict():
     custom_attr_dict = {}
@@ -96,7 +91,7 @@ def get_custom_attributes_v2(lb):
 
     return custom_attrs
 
-def set_globals(sock_path, custom_attr_dict, custom_attrs):
+def set_globals(uuid, custom_attr_dict, custom_attrs):
     agg_custom_attrs = {}
     for key, value in custom_attrs.iteritems():
         agg_custom_attrs.update(custom_attrs[key])
@@ -128,6 +123,9 @@ def set_globals(sock_path, custom_attr_dict, custom_attrs):
         'ulimit-n 200000',
         'maxconn %d' % maxconn
     ]
+
+    sock_path = '/var/lib/contrail/loadbalancer/haproxy/'
+    sock_path += uuid + '/haproxy.sock'
     conf.append('stats socket %s mode 0666 level user' % sock_path)
 
     # Adding custom_attributes config
@@ -254,15 +252,56 @@ def set_backend_v1(pool, custom_attr_dict, custom_attrs):
 
     return "\n\t".join(conf) + '\n'
 
+def get_listeners(lb):
+    listeners = []
+    if lb.device_owner == 'K8S:LOADBALANCER':
+        for ll_id in lb.loadbalancer_listeners:
+            entry_found = False
+            ll = LoadbalancerListenerSM.get(ll_id)
+            if not ll:
+               continue
+            if not ll.params['admin_state']:
+                continue
+            port = ll.params['protocol_port']
+            for listener_entry in listeners or []:
+                if listener_entry['port'] == port:
+                    entry_found = True
+                    break
+            if entry_found == True:
+                pools = listener_entry['pools']
+                pools.append(ll.loadbalancer_pool)
+            else:
+                listener = {}
+                listener['port'] = port
+                listener['obj'] = ll
+                pools = []
+                pools.append(ll.loadbalancer_pool)
+                listener['pools'] = pools
+                listeners.append(listener)
+    else:
+        for ll_id in lb.loadbalancer_listeners:
+            ll = LoadbalancerListenerSM.get(ll_id)
+            if not ll:
+               continue
+            if not ll.params['admin_state']:
+                continue
+            listener = {}
+            listener['obj'] = ll
+            pools = []
+            pools.append(ll.loadbalancer_pool)
+            listener['pools'] = pools
+            listeners.append(listener)
+
+    return listeners
+
 def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
     conf = []
-    for ll_id in lb.loadbalancer_listeners:
-        ll = LoadbalancerListenerSM.get(ll_id)
-        if not ll:
-            continue
-        if not ll.params['admin_state']:
-            continue
+    lconf = ""
+    pconf = ""
 
+    listeners = get_listeners(lb)
+    for listener in listeners:
+        ll = listener['obj']
         ssl = 'ssl'
         tls_sni_presence = False
         if ll.params['protocol'] == PROTO_TERMINATED_HTTPS:
@@ -277,7 +316,7 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
         else:
             ssl += ' no-sslv3'
 
-        lconf = [
+        conf = [
             'frontend %s' % ll.uuid,
             'option tcplog',
             'bind %s:%s %s' % (lb.params['vip_address'],
@@ -286,24 +325,53 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
         ]
 
         if 'connection_limit' in ll.params and ll.params['connection_limit'] > 0:
-            lconf.append('maxconn %d' % ll.params['connection_limit'])
+            conf.append('maxconn %d' % ll.params['connection_limit'])
 
         if ll.params['protocol'] == PROTO_HTTP:
-            lconf.append('option forwardfor')
+            conf.append('option forwardfor')
 
-        pool =  LoadbalancerPoolSM.get(ll.loadbalancer_pool)
-        if pool and pool.params['admin_state']:
-            frontend_custom_attrs = get_valid_attrs(custom_attr_dict,
-                                                    'frontend',
-                                                    custom_attrs[pool.uuid])
-            lconf.append('default_backend %s' % pool.uuid)
-            # Adding custom_attributes config
-            for key, value in frontend_custom_attrs.iteritems():
-                cmd = custom_attr_dict['frontend'][key]['cmd']
-                lconf.append(cmd % value) 
-            res = "\n\t".join(lconf) + '\n\n'
-            res += set_backend_v2(pool, custom_attr_dict, custom_attrs)
-            conf.append(res)
+        pools = listener['pools']
+        for pool_id in pools or []:
+            pool =  LoadbalancerPoolSM.get(pool_id)
+            if pool and pool.params['admin_state']:
+                frontend_custom_attrs = get_valid_attrs(custom_attr_dict,
+                                                        'frontend',
+                                                        custom_attrs[pool.uuid])
+                annotations = pool.annotations
+                acl = {}
+                if annotations and 'key_value_pair' in annotations:
+                    for kv in annotations['key_value_pair'] or []:
+                        acl[kv['key']] = kv['value']
+                    if 'type' not in acl or acl['type'] == 'default':
+                        conf.append('default_backend %s' % pool.uuid)
+                    else:
+                        acl_cdn = ""
+                        host_cdn = ""
+                        path_cdn = ""
+                        if 'host' in acl:
+                            host_cdn = "%s_host" % pool.uuid
+                            conf.append('acl %s hdr(host) -i %s' %(host_cdn, acl['host']))
+                        if 'path' in acl:
+                            path_cdn = "%s_path" % pool.uuid
+                            conf.append('acl %s_path path_beg %s' %(pool.uuid, acl['path']))
+                        acl_cdn = host_cdn + " " + path_cdn
+                        conf.append('use_backend %s if %s' %(pool.uuid, acl_cdn))
+                else:
+                    conf.append('default_backend %s' % pool.uuid)
+
+                # Adding custom_attributes config
+                for key, value in frontend_custom_attrs.iteritems():
+                    cmd = custom_attr_dict['frontend'][key]['cmd']
+                    conf.append(cmd % value)
+                conf.append("\n")
+                pconf += set_backend_v2(pool, custom_attr_dict, custom_attrs)
+        lconf += "\n\t".join(conf)
+
+    conf = []
+    lconf = lconf[:-1]
+    conf.append(lconf)
+    pconf = pconf[:-2]
+    conf.append(pconf)
 
     return "\n".join(conf)
 
@@ -343,7 +411,7 @@ def set_backend_v2(pool, custom_attr_dict, custom_attrs):
         cmd = custom_attr_dict['backend'][key]['cmd']
         conf.append(cmd % value)
 
-    return "\n\t".join(conf) + '\n'
+    return "\n\t".join(conf) + "\n\n"
 
 def set_health_monitor(hm):
     if not hm.params['admin_state']:
