@@ -359,3 +359,44 @@ class NetworkPolicyKM(KubeDBBase):
 
         # Send the reply out.
         np_resp.response(req.context())
+
+#
+# Kubernetes Ingress Object DB.
+#
+class IngressKM(KubeDBBase):
+    _dict = {}
+    obj_type = 'Ingress'
+
+    def __init__(self, uuid, obj=None):
+        self.uuid = uuid
+
+        # Metadata.
+        self.name = None
+        self.namespace = None
+        self.labels = {}
+
+        # Spec.
+        self.rules = []
+        self.default_backend = None
+
+        # If an object is provided, update self with contents of object.
+        if obj:
+            self.update(obj)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self._update_metadata(obj.get('metadata'))
+        self._update_spec(obj.get('spec'))
+
+    def _update_metadata(self, md):
+        if md is None:
+            return
+        self.name = md.get('name')
+        self.namespace = md.get('namespace')
+        self.labels = md.get('labels')
+
+    def _update_spec(self, spec):
+        if spec is None:
+            return
+        self.rules = spec.get('rules')
