@@ -126,6 +126,9 @@ env.Alias('install', env.Install(env['INSTALL_CONF'],
 env.Alias('install', env.InstallAs(
             env['INSTALL_INITD'] + '/contrail-topology',
             'contrail-topology.initd.supervisord'))
+env.Alias('install', env.InstallAs(
+            env['INSTALL_SYSTEMD'] + '/contrail-topology.service',
+            'systemd/contrail-topology.service'))
 env.Alias('install', env.Install(
             env['INSTALL_CONF'] + '/supervisord_analytics_files',
             'contrail-topology.ini'))
