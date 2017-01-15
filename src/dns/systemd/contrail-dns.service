@@ -1,0 +1,22 @@
+[Unit]
+Description="Contrail DNS"
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/contrail-dns
+PIDFile=/var/run/contrail/contrail-dns
+TimeoutStopSec=0
+Restart=always
+User=contrail
+Group=contrail
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ReadOnlyDirectories=/
+ReadWriteDirectories=-/var/log/contrail
+ReadWriteDirectories=-/etc/contrail
+
+[Install]
+WantedBy=multi-user.target
