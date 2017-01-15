@@ -256,6 +256,12 @@ AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
 AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
             AnalyticsEnv['INSTALL_INITD'] + '/contrail-collector',
             'contrail-collector.initd.supervisord'))
+AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
+            AnalyticsEnv['INSTALL_SYSTEMD'] + '/contrail-collector.service',
+            'systemd/contrail-collector.service'))
+AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(
+            AnalyticsEnv['INSTALL_SYSTEMD'] + '/contrail-analytics-nodemgr.service',
+            'systemd/contrail-analytics-nodemgr.service'))
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
             AnalyticsEnv['INSTALL_CONF'], 'supervisord_analytics.conf'))
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(

@@ -1,0 +1,23 @@
+[Unit]
+Description="Contrail SNMP Collector"
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/contrail-snmp-collector
+PIDFile=/var/run/contrail/contrail-snmp-collector.pid
+TimeoutStopSec=0
+Restart=always
+User=contrail
+Group=contrail
+ExecStop=/bin/kill -s TERM $MAINPID
+RestartPreventExitStatus=0
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ReadOnlyDirectories=/
+ReadWriteDirectories=-/var/log/contrail
+ReadWriteDirectories=-/etc/contrail
+
+[Install]
+WantedBy=multi-user.target
