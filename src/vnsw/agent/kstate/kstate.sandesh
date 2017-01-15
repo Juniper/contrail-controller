@@ -163,6 +163,8 @@ struct KFlowInfo {
    23: i16           qos_id;
    24: i16           gen_id;
    25: u16           tcp_seq;
+   26: u16           oflow_bytes;
+   27: u16           oflow_packets;
 }
 
 /**
