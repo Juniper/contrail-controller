@@ -62,6 +62,24 @@ def print_db_entries(db_table, print_fn = print_db_entry, filter_fn = default_fi
     except StopIteration:
         pass
 
+def print_flow_entry(entry):
+    print(str(entry))
+
+def print_flow_entry_map(flow_table):
+    table_ptr = gdb.parse_and_eval('(FlowTable *)' + str(flow_table))
+    flow_map = StdMapPrinter('flow_entry_map_', table_ptr['flow_entry_map_'])
+    it = flow_map.children()
+    try:
+        while (it):
+            entry = next(it)[1]
+            print_flow_entry(entry)
+    except StopIteration:
+        pass
+
+def dump_flow_entries():
+    f_table = gdb.parse_and_eval('Agent::singleton_->pkt_->flow_table_.px')
+    print_flow_entry_map(f_table)
+
 def print_vrf_entry(entry):
     vrf = entry.cast(gdb.lookup_type('VrfEntry'))
     print(str(vrf.address) + "    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=" % ((vrf['name_']), vrf['id_'], vrf['refcount_']['my_storage']['my_value'], vrf['flags']) + str(vrf['rt_table_db_'][int(gdb.parse_and_eval('Agent::INET4_UNICAST'))]) + " mcrt_db=" + str(vrf['rt_table_db_'][int(gdb.parse_and_eval('Agent::INET4_MULTICAST'))]) + " evpn_db=" + str(vrf['rt_table_db_'][int(gdb.parse_and_eval('Agent::EVPN'))]) + " bridge_db=" + str(vrf['rt_table_db_'][int(gdb.parse_and_eval('Agent::BRIDGE'))]) + " v6_rt_db=" + str(vrf['rt_table_db_'][int(gdb.parse_and_eval('Agent::INET6_UNICAST'))]))

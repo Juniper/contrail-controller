@@ -135,6 +135,16 @@ class FlowKeyPrinter:
 
         return '<%s nh=%-6d sip=%-15s dip=%-15s proto=%-3d sport=%-5d dport=%-5d>' % (family, nh, sip, dip, proto, sport, dport)
 
+class FlowEntryPrinter:
+    "Print TBB atomic varaiable of some kind"
+    def __init__ (self, typename, val):
+        self.typename = typename
+        self.val = val
+
+    def to_string (self):
+        return 'FlowEntryAddr %s Source_vn %s Dest_vn %s Packets %d Bytes %d Flags %d SetupTime %d ModifiedTime %d' % (str(self.val.address), self.val['data_']['source_vn'],
+                self.val['data_']['dest_vn'], self.val['stats_']['packets'], self.val['stats_']['bytes'], self.val['flags_'], self.val['stats_']['setup_time'], self.val['stats_']['last_modified_time'])
+
 class IpPrinter:
     "Print TBB atomic varaiable of some kind"
     def __init__ (self, typename, val):
@@ -214,6 +224,9 @@ class Printer(object):
         if type.code == gdb.TYPE_CODE_REF:
             type = type.target ()
 
+        if type.code == gdb.TYPE_CODE_PTR:
+            type = type.target ()
+
         # Get the unqualified type, stripped of typedefs.
         type = type.unqualified ().strip_typedefs ()
 
@@ -267,6 +280,7 @@ def build_agent_dictionary ():
     # tbb objects requiring pretty-printing.
     # In order from:
     agent_printer.add('FlowKey', FlowKeyPrinter)
+    agent_printer.add('FlowEntry', FlowEntryPrinter)
     agent_printer.add('boost::asio::ip::address', IpPrinter)
     agent_printer.add('boost::asio::ip::address_v4', Ipv4Printer)
     agent_printer.add('tbb::atomic', TbbAtomicIntPrinter)
