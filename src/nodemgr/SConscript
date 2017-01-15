@@ -109,6 +109,17 @@ OpEnv.Depends(sdist_gen, sdist_depends)
 
 OpEnv.Default(sdist_gen)
 
+OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-config-nodemgr.conf',
+            'config_nodemgr/contrail-config-nodemgr.conf'))
+OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-database-nodemgr.conf',
+            'database_nodemgr/contrail-database-nodemgr.conf'))
+OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-analytics-nodemgr.conf',
+            'analytics_nodemgr/contrail-analytics-nodemgr.conf'))
+OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-control-nodemgr.conf',
+            'control_nodemgr/contrail-control-nodemgr.conf'))
+OpEnv.Alias('install', OpEnv.InstallAs(OpEnv['INSTALL_CONF'] + '/contrail-vrouter-nodemgr.conf',
+            'vrouter_nodemgr/contrail-vrouter-nodemgr.conf'))
+
 OpEnv.Alias("src:nodemgr", sdist_gen)
 OpEnv.Alias("contrail-nodemgr", sdist_gen)
 

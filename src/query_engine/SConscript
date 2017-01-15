@@ -200,6 +200,9 @@ env.Alias('install',
         env.InstallAs(env['INSTALL_INITD'] + '/contrail-query-engine',
         'contrail-qe.initd.supervisord'))
 env.Alias('install',
+        env.InstallAs(env['INSTALL_SYSTEMD'] + '/contrail-query-engine.service',
+        'systemd/contrail-query-engine.service'))
+env.Alias('install',
         env.InstallAs(env['INSTALL_CONF'] + 
         '/supervisord_analytics_files' + '/contrail-query-engine.ini',
         'contrail-query-engine.ini'))
