@@ -33,8 +33,9 @@ class OpencontrailLoadbalancerDriver(
             fip = None
         return fip
 
-    def _add_vmi_ref(self, vmi, iip_id=None, fip_id=None):
-        fip = self._get_floating_ip(iip_id, fip_id)
+    def _add_vmi_ref(self, vmi, iip_id=None, fip_id=None, fip=None):
+        if not fip:
+            fip = self._get_floating_ip(iip_id, fip_id)
         if fip:
             fip.add_virtual_machine_interface(vmi)
             self._api.floating_ip_update(fip)
@@ -72,6 +73,8 @@ class OpencontrailLoadbalancerDriver(
 
     def _delete_port_map(self, fip, src_port):
         portmappings = fip.get_floating_ip_port_mappings()
+        if not portmappings:
+            return None
         portmap_list = portmappings.get_port_mappings()
         for portmap in portmap_list or []:
             if portmap.src_port == src_port:
@@ -122,6 +125,28 @@ class OpencontrailLoadbalancerDriver(
 
         return conf
 
+    def _update_pool_ip_list(self, pool, action, iip_id=None, fip_id=None, fip=None):
+        if action == "add":
+            if iip_id:
+                ip_id = iip_id
+                pool.lb_instance_ips.append(iip_id)
+            elif fip_id:
+                ip_id = fip_id
+                pool.lb_floating_ips.append(fip_id)
+            if fip:
+                pool.lb_fips[ip_id] = fip
+        elif action == 'del':
+            if iip_id and iip_id in pool.lb_instance_ips:
+                ip_id = iip_id
+                idx = pool.lb_instance_ips.index(ip_id)
+                del pool.lb_instance_ips[idx]
+            elif fip_id and fip_id in pool.lb_floating_ips:
+                ip_id = fip_id
+                idx = pool.lb_floating_ips.index(ip_id)
+                del pool.lb_floating_ips[idx]
+            if ip_id in pool.lb_fips.keys():
+                del pool.lb_fips[ip_id]
+
     def _update_pool_member_props(self, lb, lb_props):
         if lb is None:
             return
@@ -136,33 +161,32 @@ class OpencontrailLoadbalancerDriver(
             src_port = listener.params['protocol_port']
             pool = LoadbalancerPoolSM.get(listener.loadbalancer_pool)
             if pool:
-                for member_id in pool.members:
-                    member = LoadbalancerMemberSM.get(member_id)
-                    if not member:
-                        continue
-                    dst_port = member.params['protocol_port']
-                    try:
-                        vmi = self._api.virtual_machine_interface_read(id=member.vmi)
-                    except NoIdError:
-                        continue
-                    for iip_id in lb_props['old_instance_ips'] or []:
-                        fip = self._delete_vmi_ref(vmi, iip_id=iip_id)
-                        self._delete_port_map(fip, src_port)
-                    for iip_id in lb_props['new_instance_ips'] or []:
-                        fip = self._add_vmi_ref(vmi, iip_id=iip_id)
+                for iip_id in lb_props['old_instance_ips'] or []:
+                    self._update_pool_ip_list(pool, "del", iip_id=iip_id)
+                for fip_id in lb_props['old_floating_ips'] or []:
+                    self._update_pool_ip_list(pool, "del", fip_id=fip_id)
+                for iip_id in lb_props['new_instance_ips'] or []:
+                    fip = self._get_floating_ip(iip_id=iip_id)
+                    for member_id in pool.member_vmis.keys():
+                        vmi = pool.member_vmis[member_id]
+                        member = LoadbalancerMemberSM.get(member_id)
+                        if not member:
+                            continue
+                        dst_port = member.params['protocol_port']
+                        fip = self._add_vmi_ref(vmi, iip_id=iip_id, fip=fip)
                         self._add_port_map(fip, protocol, src_port, dst_port)
-                        if iip_id not in pool.lb_instance_ips:
-                            pool.lb_instance_ips.append(iip_id)
-                            pool.lb_fips.append(fip)
-                    for fip_id in lb_props['old_floating_ips'] or []:
-                        fip = self._delete_vmi_ref(vmi, fip_id=fip_id)
-                        self._delete_port_map(fip, src_port)
-                    for fip_id in lb_props['new_floating_ips'] or []:
-                        fip = self._add_vmi_ref(vmi, fip_id=fip_id)
+                    self._update_pool_ip_list(pool, "add", iip_id=iip_id, fip=fip)
+                for fip_id in lb_props['new_floating_ips'] or []:
+                    fip = self._get_floating_ip(fip_id=fip_id)
+                    for member_id in pool.member_vmis.keys():
+                        vmi = pool.member_vmis[member_id]
+                        member = LoadbalancerMemberSM.get(member_id)
+                        if not member:
+                            continue
+                        dst_port = member.params['protocol_port']
+                        fip = self._add_vmi_ref(vmi, fip_id=fip_id, fip=fip)
                         self._add_port_map(fip, protocol, src_port, dst_port)
-                        if fip_id not in pool.lb_floating_ips:
-                            pool.lb_floating_ips.append(fip_id)
-                            pool.lb_fips.append(fip)
+                    self._update_pool_ip_list(pool, "add", fip_id=fip_id, fip=fip)
 
     def _update_loadbalancer_props(self, lb_id):
         lb = LoadbalancerSM.get(lb_id)
@@ -188,9 +212,7 @@ class OpencontrailLoadbalancerDriver(
 
         old_instance_ips = []
         new_instance_ips = []
-        instance_ips_changed = False
         if set(lb.instance_ips) != vmi.instance_ips:
-            instance_ips_changed = True
             for iip_id in lb.instance_ips or []:
                 if iip_id not in vmi.instance_ips:
                     old_instance_ips.append(iip_id)
@@ -201,9 +223,7 @@ class OpencontrailLoadbalancerDriver(
 
         old_floating_ips = []
         new_floating_ips = []
-        floating_ips_changed = False
         if set(lb.floating_ips) != vmi.floating_ips:
-            floating_ips_changed = True
             for fip_id in lb.floating_ips or []:
                 if fip_id not in vmi.floating_ips:
                     old_floating_ips.append(fip_id)
@@ -246,21 +266,19 @@ class OpencontrailLoadbalancerDriver(
 
         lb_props = {}
         lb_props['old_instance_ips'] = old_instance_ips
-        lb_props['new_instance_ips'] = new_instance_ips
         lb_props['old_floating_ips'] = old_floating_ips
+        lb_props['new_instance_ips'] = new_instance_ips
         lb_props['new_floating_ips'] = new_floating_ips
 
         self._update_pool_member_props(lb, lb_props)
 
-        if instance_ips_changed == True:
-            lb.instance_ips = new_instance_ips
-        if floating_ips_changed == True:
-            lb.floating_ips = new_floating_ips
+        lb.instance_ips = vmi.instance_ips
+        lb.floating_ips = vmi.floating_ips
 
         driver_data = {}
         driver_data['vmi'] = vmi.uuid
-        driver_data['lb_instance_ips'] = lb.instance_ips
-        driver_data['lb_floating_ips'] = lb.floating_ips
+        driver_data['lb_instance_ips'] = list(lb.instance_ips)
+        driver_data['lb_floating_ips'] = list(lb.floating_ips)
 
         self.db.loadbalancer_driver_info_insert(lb_id, driver_data)
 
@@ -329,6 +347,8 @@ class OpencontrailLoadbalancerDriver(
             if fip:
                 src_port = old_listener.props['protocol_port']
                 portmap = self._delete_port_map(fip, src_port)
+                if portmap == None:
+                    continue
                 src_port = listener['protocol_port']
                 dst_port = portmap.dst_port
                 self._add_port_map(fip, protocol, src_port, dst_port)
@@ -337,6 +357,8 @@ class OpencontrailLoadbalancerDriver(
             if fip:
                 src_port = old_listener.props['protocol_port']
                 portmap = self._delete_port_map(fip, src_port)
+                if portmap == None:
+                    continue
                 src_port = listener['protocol_port']
                 dst_port = portmap.dst_port
                 self._add_port_map(fip, protocol, src_port, dst_port)
@@ -382,23 +404,24 @@ class OpencontrailLoadbalancerDriver(
             lb_floating_ips == pool.lb_floating_ips:
             return
 
-        pool.lb_fips = []
+        pool.lb_fips = {}
         pool.lb_instance_ips = []
         pool.lb_floating_ips = []
         for iip_id in lb_instance_ips or []:
             fip = self._get_floating_ip(iip_id=iip_id)
-            pool.lb_instance_ips.append(iip_id)
-            pool.lb_fips.append(fip)
+            self._update_pool_ip_list(pool, "add", iip_id=iip_id, fip=fip)
         for fip_id in lb_floating_ips or []:
             fip = self._get_floating_ip(fip_id=fip_id)
-            pool.lb_floating_ips.append(fip_id)
-            pool.lb_fips.append(fip)
+            self._update_pool_ip_list(pool, "add", fip_id=fip_id, fip=fip)
 
     def _clear_pool_props(self, pool_id):
         pool = LoadbalancerPoolSM.get(pool_id)
         if pool is None:
             return
-        pool.lb_fips = []
+        pool.lb_fips = {}
+        pool.lb_instance_ips = []
+        pool.lb_floating_ips = []
+        pool.member_vmis = {}
 
     def _update_member_props(self, member_id):
         member = LoadbalancerMemberSM.get(member_id)
@@ -409,15 +432,20 @@ class OpencontrailLoadbalancerDriver(
         if pool is None:
             return
 
-        try:
-            vmi = self._api.virtual_machine_interface_read(id=member.vmi)
-        except NoIdError:
-            return
+        if member_id in pool.member_vmis.keys():
+            vmi = pool.member_vmis[member_id]
+        else:
+            try:
+                vmi = self._api.virtual_machine_interface_read(id=member.vmi)
+                pool.member_vmis[member_id] = vmi
+            except NoIdError:
+                return
 
         protocol = pool.listener_protocol
         src_port = pool.listener_port
         dst_port = member.params['protocol_port']
-        for fip in pool.lb_fips or []:
+        for key in pool.lb_fips.keys():
+            fip = pool.lb_fips[key]
             fip.add_virtual_machine_interface(vmi)
             self._api.floating_ip_update(fip)
             self._add_port_map(fip, protocol, src_port, dst_port)
@@ -434,16 +462,22 @@ class OpencontrailLoadbalancerDriver(
         if pool is None:
             return
 
-        try:
-            vmi = self._api.virtual_machine_interface_read(id=member.vmi)
-        except NoIdError:
-            return
+        if member_id in pool.member_vmis.keys():
+            vmi = pool.member_vmis[member_id]
+            del pool.member_vmis[member_id]
+        else:
+            try:
+                vmi = self._api.virtual_machine_interface_read(id=member.vmi)
+                pool.member_vmis[member_id] = vmi
+            except NoIdError:
+                return
 
         port_map_delete = False
         if len(pool.members) == 1 and list(pool.members)[0] == member_id:
             port_map_delete = True
 
-        for fip in pool.lb_fips or []:
+        for key in pool.lb_fips.keys():
+            fip = pool.lb_fips[key]
             fip.del_virtual_machine_interface(vmi)
             self._api.floating_ip_update(fip)
             if port_map_delete == False:
