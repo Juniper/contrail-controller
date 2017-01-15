@@ -1,0 +1,23 @@
+[Unit]
+Description="contrail Device Manager"
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/contrail-device-manager --conf_file /etc/contrail/contrail-device-manager.conf --conf_file /etc/contrail/contrail-keystone-auth.conf
+PIDFile=/var/run/contrail/contrail-device-manager.pid
+TimeoutStopSec=0
+Restart=always
+User=contrail
+Group=contrail
+ExecStop=/bin/kill -s TERM $MAINPID
+
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ReadOnlyDirectories=/
+ReadWriteDirectories=-/var/log/contrail
+ReadWriteDirectories=-/etc/contrail
+
+[Install]
+WantedBy=multi-user.target
