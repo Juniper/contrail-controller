@@ -11,8 +11,8 @@ class KubeMonitor(object):
         self.args = args
         self.logger = logger
         self.q = q
-        self.cloud_orchestrator = os.getenv("CLOUD_ORCHESTRATOR")
-        self.token = os.getenv("TOKEN") # valid only for OpenShift
+        self.cloud_orchestrator = self.args.orchestrator
+        self.token = self.args.token # valid only for OpenShift
         self.headers = {}
 
         # Use Kube DB if kube object caching is enabled in config.

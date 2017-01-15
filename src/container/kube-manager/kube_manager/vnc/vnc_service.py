@@ -109,9 +109,9 @@ class VncService(object):
         for ll_id in list(lb.loadbalancer_listeners):
             ll = LoadbalancerListenerKM.get(ll_id)
             if not ll:
-                contine
+                continue
             if not ll.params['protocol_port']:
-                contine
+                continue
 
             if port:
                 if ll.params['protocol_port'] != port['port'] or \
@@ -141,8 +141,11 @@ class VncService(object):
                         member_match = True
                         break
                 if not member_match:
-                    member_obj = self._vnc_create_member(pool, vmi_id,
-                                                      ll.params['protocol_port'])
+                    if isinstance(ll.target_port, basestring):
+                        target_port = ll.params['protocol_port']
+                    else:
+                        target_port = ll.target_port
+                    member_obj = self._vnc_create_member(pool, vmi_id, target_port)
                     LoadbalancerMemberKM.locate(member_obj.uuid)
                 
 
@@ -155,9 +158,9 @@ class VncService(object):
         for ll_id in list(lb.loadbalancer_listeners):
             ll = LoadbalancerListenerKM.get(ll_id)
             if not ll:
-                contine
+                continue
             if not ll.params['protocol_port']:
-                contine
+                continue
 
             if port:
                 if ll.params['protocol_port'] != port['port'] or \
@@ -165,13 +168,13 @@ class VncService(object):
                     listener_found = False
 
             if not listener_found:
-                contine
+                continue
             pool_id = ll.loadbalancer_pool
             if not pool_id:
-                contine
+                continue
             pool = LoadbalancerPoolKM.get(pool_id)
             if not pool:
-                contine
+                continue
             vm = VirtualMachineKM.get(pod_id)
             if not vm: 
                 continue
