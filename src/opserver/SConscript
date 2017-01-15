@@ -125,6 +125,9 @@ OpEnv.Alias('install', OpEnv.Install(
 OpEnv.Alias('install', OpEnv.InstallAs(
             OpEnv['INSTALL_INITD'] + '/contrail-analytics-api',
             'contrail-opserver.initd.supervisord'))
+OpEnv.Alias('install', OpEnv.InstallAs(
+            OpEnv['INSTALL_SYSTEMD'] + '/contrail-analytics-api.service',
+            'systemd/contrail-analytics-api.service'))
 OpEnv.Alias('install', OpEnv.Install(
             OpEnv['INSTALL_CONF'] + '/supervisord_analytics_files',
             'contrail-analytics-api.ini'))
@@ -133,6 +136,9 @@ OpEnv.Alias('install', OpEnv.Install(
 OpEnv.Alias('install', OpEnv.InstallAs(
             OpEnv['INSTALL_INITD'] + '/contrail-alarm-gen',
             'contrail-alarm-gen.initd.supervisord'))
+OpEnv.Alias('install', OpEnv.InstallAs(
+            OpEnv['INSTALL_SYSTEMD'] + '/contrail-alarm-gen.service',
+            'systemd/contrail-alarm-gen.service'))
 OpEnv.Alias('install', OpEnv.Install(
             OpEnv['INSTALL_CONF'] + '/supervisord_analytics_files',
             'contrail-alarm-gen.ini'))

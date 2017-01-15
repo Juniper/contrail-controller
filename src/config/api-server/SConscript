@@ -124,6 +124,12 @@ if 'install' in BUILD_TARGETS:
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-api.conf'))
 env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
     '/contrail-api', 'contrail-api.initd.supervisord'))
+env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
+    '/contrail-api.service', 'systemd/contrail-api.service'))
+env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
+    '/contrail-config-nodemgr.service', 'systemd/contrail-config-nodemgr.service'))
+env.Alias('install', env.InstallAs(env['INSTALL_SYSTEMD'] +
+    '/ifmap.service', 'systemd/ifmap.service'))
 env.Alias('install', env.Install(env['INSTALL_CONF'],
     'supervisord_config.conf'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+

@@ -105,6 +105,9 @@ env.Alias('install',
 env.Alias('install', env.InstallAs(
     env['INSTALL_INITD'] + 
     '/contrail-discovery', 'contrail-discovery.initd.supervisord'))
+env.Alias('install', env.InstallAs(
+    env['INSTALL_SYSTEMD'] +
+    '/contrail-discovery.service', 'systemd/contrail-discovery.service'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+ 
     '/supervisord_config_files', 'contrail-discovery.ini'))
 env.Alias('install', env.Install(
