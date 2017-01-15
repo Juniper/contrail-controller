@@ -1,0 +1,22 @@
+[Unit]
+Description="Contrail Control"
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/authbind /usr/bin/contrail-control
+PIDFile=/var/run/contrail/contrail-control.pid
+TimeoutStopSec=0
+Restart=always
+User=contrail
+Group=contrail
+ExecStop=/bin/kill -s TERM $MAINPID
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ReadOnlyDirectories=/
+ReadWriteDirectories=-/var/log/contrail
+ReadWriteDirectories=-/etc/contrail
+
+[Install]
+WantedBy=multi-user.target

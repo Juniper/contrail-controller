@@ -1,0 +1,23 @@
+[Unit]
+Description="Contrail API"
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/contrail-api --conf_file /etc/contrail/contrail-api.conf --conf_file /etc/contrail/contrail-keystone-auth.conf --conf_file /etc/contrail/contrail-database.conf --listen_port 9100
+PIDFile=/var/run/contrail/contrail-api.pid
+TimeoutStopSec=0
+Restart=always
+User=contrail
+Group=contrail
+ExecStop=/bin/kill -s TERM $MAINPID
+
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ReadOnlyDirectories=/
+ReadWriteDirectories=-/var/log/contrail
+ReadWriteDirectories=-/etc/contrail
+
+[Install]
+WantedBy=multi-user.target
