@@ -172,6 +172,9 @@ public:
     bool as_override() const { return as_override_; }
     void set_as_override(bool as_override) { as_override_ = as_override; }
 
+    int bgp_origin() const { return bgp_origin_; }
+    void set_bgp_origin(int bgp_origin) { bgp_origin_ = bgp_origin; }
+
     std::string private_as_action() const { return private_as_action_; }
     void set_private_as_action(const std::string &private_as_action) {
         private_as_action_ = private_as_action;
@@ -262,6 +265,7 @@ private:
     bool admin_down_;
     bool passive_;
     bool as_override_;
+    int bgp_origin_;
     std::string private_as_action_;
     uint32_t peer_as_;
     uint32_t identifier_;
