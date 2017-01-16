@@ -40,6 +40,9 @@ void vrouter_ops::Process(SandeshContext *context) {
 void vr_mem_stats_req::Process(SandeshContext *context) {
 }
 
+void vr_bridge_table_data::Process(SandeshContext *context) {
+}
+
 int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
     response_code_ = r->get_resp_code();
 
