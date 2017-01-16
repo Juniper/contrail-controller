@@ -149,7 +149,7 @@ public:
         return flow_export_drops_;
     }
 
-    uint32_t threshold() const { return threshold_;}
+    uint64_t threshold() const { return threshold_;}
     bool delete_short_flow() const {
         return delete_short_flow_;
     }
@@ -173,7 +173,7 @@ private:
     friend class FlowStatsCollectorReq;
     friend class FlowStatsCollector;
     bool UpdateFlowThreshold(void);
-    void UpdateThreshold(uint32_t new_value);
+    void UpdateThreshold(uint64_t new_value, bool check_oflow);
     Agent *agent_;
     WorkQueue<boost::shared_ptr<FlowStatsCollectorReq> > request_queue_;
     FlowAgingTableMap flow_aging_table_map_;
@@ -181,7 +181,7 @@ private:
     tbb::atomic<uint32_t> flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;
-    uint32_t threshold_;
+    uint64_t threshold_;
     tbb::atomic<uint64_t> flow_export_disable_drops_;
     tbb::atomic<uint64_t> flow_export_sampling_drops_;
     tbb::atomic<uint32_t> flow_export_without_sampling_;
