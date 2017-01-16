@@ -30,6 +30,18 @@ The programming of the NIC itself for appropriate mirroring is outside the
 scope of the current activity. Niantic 82599 10G NIC is assumed, which supports
 VLAN port mirroring options.
 
+###Caveats
+
+1. VM Traffic that is sent to another VM running on the same compute
+node will not be mirrored when NIC assisted mirroring is chosen.
+
+2. Traffic coming in from the fabric interface will not be mirrored.
+
+3. When a VLAN interface is used as the fabric interface, traffic will be
+tagged first with the NIC assisted mirroring VLAN followed by the VLAN tag
+on the fabric interface (NIC assisted mirroring VLAN will be the inner tag and
+fabric interface VLAN will be the outer tag).
+
 ##3.1 Alternatives considered
 None
 
