@@ -20,6 +20,7 @@ using boost::assign::list_of;
 using namespace rapidjson;
 using namespace std;
 
+const string ConfigCass2JsonAdapter::fq_name_prefix = "fq_name";
 const string ConfigCass2JsonAdapter::prop_prefix = "prop:";
 const string ConfigCass2JsonAdapter::list_prop_prefix = "propl:";
 const string ConfigCass2JsonAdapter::map_prop_prefix = "propm:";
@@ -35,17 +36,19 @@ const set<string> ConfigCass2JsonAdapter::allowed_properties =
              list_of(prop_prefix)(map_prop_prefix)
                     (list_prop_prefix)(ref_prefix)(parent_prefix);
 
-ConfigCass2JsonAdapter::ConfigCass2JsonAdapter(ConfigCassandraClient *cassandra_client,
-                           const string &obj_type, const CassColumnKVVec &cdvec)
-        : cassandra_client_(cassandra_client), type_(""), prop_plen_(prop_prefix.size()),
-          propl_plen_(list_prop_prefix.size()),
-          propm_plen_(map_prop_prefix.size()),
-          meta_plen_(meta_prefix.size()),
-          backref_plen_(backref_prefix.size()),
-          child_plen_(child_prefix.size()),
-          ref_plen_(ref_prefix.size()),
-          parent_type_plen_(parent_type_prefix.size()),
-          parent_plen_(parent_prefix.size()) {
+ConfigCass2JsonAdapter::ConfigCass2JsonAdapter(
+       ConfigCassandraClient *cassandra_client, const string &obj_type,
+       const CassColumnKVVec &cdvec) : cassandra_client_(cassandra_client),
+    type_(""), prop_plen_(prop_prefix.size()),
+    propl_plen_(list_prop_prefix.size()),
+    propm_plen_(map_prop_prefix.size()),
+    meta_plen_(meta_prefix.size()),
+    backref_plen_(backref_prefix.size()),
+    child_plen_(child_prefix.size()),
+    ref_plen_(ref_prefix.size()),
+    fq_name_plen_(fq_name_prefix.size()),
+    parent_type_plen_(parent_type_prefix.size()),
+    parent_plen_(parent_prefix.size()) {
     CreateJsonString(obj_type, cdvec);
 }
 
@@ -67,20 +70,23 @@ bool ConfigCass2JsonAdapter::AddOneEntry(const string &obj_type,
                 prop_value = "\"" + prop_value + "\"";
             }
             doc_string_ += string("\"" + cdvec.at(i).key.substr(prop_plen_) +
-                                  "\"" + ": " + prop_value);
+                                  "\":" + prop_value);
         } else {
             return false;
         }
     } else if (cdvec.at(i).key.substr(0, propl_plen_) == list_prop_prefix) {
         size_t from_front_pos = cdvec.at(i).key.find(':');
         size_t from_back_pos = cdvec.at(i).key.rfind(':');
-        string property_list = cdvec.at(i).key.substr(from_front_pos+1, (from_back_pos-from_front_pos-1));
+        string property_list = cdvec.at(i).key.substr(from_front_pos+1,
+                                          (from_back_pos-from_front_pos-1));
         int index = 0;
         assert(stringToInteger(cdvec.at(i).key.substr(from_back_pos+1), index));
         ListPropertyMap::iterator it;
-        if ((it = list_property_map_.find(property_list)) == list_property_map_.end()) {
+        if ((it = list_property_map_.find(property_list)) ==
+            list_property_map_.end()) {
             std::pair<ListPropertyMap::iterator, bool> ret;
-            ret = list_property_map_.insert(make_pair(property_list, PropertyListDataMap()));
+            ret = list_property_map_.insert(make_pair(property_list,
+                                                      PropertyListDataMap()));
             assert(ret.second);
             it = ret.first;
         }
@@ -89,11 +95,14 @@ bool ConfigCass2JsonAdapter::AddOneEntry(const string &obj_type,
     } else if (cdvec.at(i).key.substr(0, propm_plen_) == map_prop_prefix) {
         size_t from_front_pos = cdvec.at(i).key.find(':');
         size_t from_back_pos = cdvec.at(i).key.rfind(':');
-        string property_map = cdvec.at(i).key.substr(from_front_pos+1, (from_back_pos-from_front_pos-1));
+        string property_map = cdvec.at(i).key.substr(from_front_pos+1,
+                                             (from_back_pos-from_front_pos-1));
         MapPropertyMap::iterator it;
-        if ((it = map_property_map_.find(property_map)) == map_property_map_.end()) {
+        if ((it = map_property_map_.find(property_map)) ==
+            map_property_map_.end()) {
             std::pair<MapPropertyMap::iterator, bool> ret;
-            ret = map_property_map_.insert(make_pair(property_map, PropertyMapDataList()));
+            ret = map_property_map_.insert(make_pair(property_map,
+                                                     PropertyMapDataList()));
             assert(ret.second);
             it = ret.first;
         }
@@ -104,7 +113,8 @@ bool ConfigCass2JsonAdapter::AddOneEntry(const string &obj_type,
         size_t from_back_pos = cdvec.at(i).key.rfind(':');
         assert(from_front_pos != string::npos);
         assert(from_back_pos != string::npos);
-        string ref_type = cdvec.at(i).key.substr(from_front_pos+1, (from_back_pos-from_front_pos-1));
+        string ref_type = cdvec.at(i).key.substr(from_front_pos+1,
+                                             (from_back_pos-from_front_pos-1));
         string ref_uuid = cdvec.at(i).key.substr(from_back_pos+1);
 
         string fq_name_ref = cassandra_client_->UUIDToFQName(ref_uuid);
@@ -124,24 +134,24 @@ bool ConfigCass2JsonAdapter::AddOneEntry(const string &obj_type,
             Document ref_document;
             ref_document.Parse<0>(cdvec.at(i).value.c_str());
             Value& attr_value = ref_document["attr"];
-            it->second.push_back(string("{ \"to\": \"" + fq_name_ref + "\", \"uuid\" : \"" + ref_uuid + "\", " + "\"attr\":" + GetAttrString(attr_value) + "}"));
+            it->second.push_back(string("{\"to\":\"" + fq_name_ref +\
+                        "\",\"uuid\":\"" + ref_uuid + "\",\"attr\":" +\
+                        GetAttrString(attr_value) + "}"));
         } else {
-            it->second.push_back(string("{ \"to\": \"" + fq_name_ref + "\", \"uuid\" : \"" + ref_uuid + "\" }"));
+            it->second.push_back(string("{\"to\":\"" + fq_name_ref +\
+                                    "\", \"uuid\":\"" + ref_uuid + "\"}"));
         }
         return false;
-    } else if (cdvec.at(i).key.substr(0, parent_type_plen_) == parent_type_prefix) {
-        // If the key has 'parent_type:' at the start, ignore the column.
+    } else if (cdvec.at(i).key.substr(0, parent_type_plen_) ==
+               parent_type_prefix) {
+        // If the key has 'parent_type' at the start, ignore the column.
         return false;
     } else if (cdvec.at(i).key.substr(0, parent_plen_) == parent_prefix) {
         size_t pos = cdvec.at(i).key.rfind(':');
-
         assert(pos != string::npos);
-        doc_string_ += string(
-            "\"parent_uuid\" : \"" + cdvec.at(i).key.substr(pos+1) + "\",");
-
         size_t type_pos = cdvec.at(i).key.find(':');
         assert(type_pos != string::npos);
-        doc_string_ += string("\"parent_type\" : \"" +\
+        doc_string_ += string("\"parent_type\":\"" +\
           cdvec.at(i).key.substr(type_pos+1, pos-type_pos-1) + "\"");
     } else if (cdvec.at(i).key.substr(0, child_plen_) == child_prefix) {
         // If the key has 'children:' at the start, ignore the column.
@@ -152,18 +162,22 @@ bool ConfigCass2JsonAdapter::AddOneEntry(const string &obj_type,
     } else if (cdvec.at(i).key.substr(0, meta_plen_) == meta_prefix) {
         // If the key has 'META:' at the start, ignore the column.
         return false;
+    } else if (cdvec.at(i).key.substr(0, fq_name_plen_) == fq_name_prefix) {
+        // Write the fq_name node
+        doc_string_ +=
+            string("\"" + cdvec.at(i).key + "\":" + cdvec.at(i).value);
     } else if (cdvec.at(i).key.compare("type") == 0) {
         // Prepend the 'type'. This is "our key", with value being the json
         // sub-document containing all other columns.
         assert(type_ != obj_type);
         type_ = cdvec.at(i).value;
         type_.erase(remove(type_.begin(), type_.end(), '\"' ), type_.end());
-        doc_string_ = string("{\n" + cdvec.at(i).value + ":" + "{\n") +
+        doc_string_ = string("{" + cdvec.at(i).value + ":" + "{") +
                         doc_string_;
         return false;
     } else {
-        doc_string_ += string("\"" + cdvec.at(i).key + "\"" + ": " +
-                                cdvec.at(i).value);
+        cout << "Unknown tag:" << cdvec.at(i).key << endl;
+        return false;
     }
     return true;
 }
@@ -181,11 +195,10 @@ bool ConfigCass2JsonAdapter::CreateJsonString(const string &obj_type,
     // Add the refs
     for (RefTypeMap::iterator it = ref_type_map_.begin();
          it != ref_type_map_.end(); it++) {
-        doc_string_ += string("\"" + it->first + "_refs\": " + "[ ");
+        doc_string_ += string("\"" + it->first + "_refs\":[");
         for (RefDataList::iterator rit = it->second.begin();
              rit != it->second.end(); rit++) {
-            doc_string_ += *rit;
-            doc_string_ += comma_str;
+            doc_string_ += *rit + comma_str;
         }
         // Remove the comma after the last entry.
         if (doc_string_[doc_string_.size() - 1] == ',') {
@@ -200,11 +213,10 @@ bool ConfigCass2JsonAdapter::CreateJsonString(const string &obj_type,
         string wrapper_field =
             cassandra_client_->mgr()->GetWrapperFieldName(type_, it->first);
         if (wrapper_field != "") wrapper_field = "\"" + wrapper_field + "\":";
-        doc_string_ += string("\"" + it->first + "\": { " + wrapper_field + " [ ");
+        doc_string_ += string("\"" + it->first + "\":{" + wrapper_field + "[");
         for (PropertyMapDataList::iterator rit = it->second.begin();
              rit != it->second.end(); rit++) {
-            doc_string_ += *rit;
-            doc_string_ += comma_str;
+            doc_string_ += *rit + comma_str;
         }
         // Remove the comma after the last entry.
         if (doc_string_[doc_string_.size() - 1] == ',') {
@@ -219,17 +231,16 @@ bool ConfigCass2JsonAdapter::CreateJsonString(const string &obj_type,
         string wrapper_field =
             cassandra_client_->mgr()->GetWrapperFieldName(type_, it->first);
         if (wrapper_field != "") wrapper_field = "\"" + wrapper_field + "\":";
-        doc_string_ += string("\"" + it->first + "\": { " + wrapper_field + "[ ");
+        doc_string_ += string("\"" + it->first + "\":{" + wrapper_field + "[");
         for (PropertyListDataMap::iterator rit = it->second.begin();
              rit != it->second.end(); rit++) {
-            doc_string_ += rit->second;
-            doc_string_ += comma_str;
+            doc_string_ += rit->second + comma_str;
         }
         // Remove the comma after the last entry.
         if (doc_string_[doc_string_.size() - 1] == ',') {
             doc_string_.erase(doc_string_.size() - 1);
         }
-        doc_string_ += string("] },");
+        doc_string_ += string("]},");
     }
 
     // Remove the comma after the last entry.
@@ -239,8 +250,7 @@ bool ConfigCass2JsonAdapter::CreateJsonString(const string &obj_type,
 
     // Add one brace to close out the type's value and one to close out the
     // whole json document.
-    doc_string_ += string("\n}\n}");
+    doc_string_ += string("}}");
 
     return true;
 }
-

@@ -88,7 +88,7 @@ public:
              events_[SizeType(index)]["db"][uuid.c_str()].MemberBegin();
              k != events_[SizeType(index)]["db"][uuid.c_str()].MemberEnd(); ++k) {
             ParseUuidTableRowJson(uuid, k->name.GetString(), k->value.GetString(),
-                                  cass_data_vec);
+                                  0, cass_data_vec);
         }
         db_index_[idx].erase(it);
         return true;

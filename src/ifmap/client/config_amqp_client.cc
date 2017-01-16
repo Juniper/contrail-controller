@@ -36,6 +36,8 @@ private:
     AmqpClient::Channel::ptr_t channel_;
     string consumer_tag_;
     bool ConnectToRabbitMQ(bool queue_delete = true);
+    bool AckRabbitMessages(AmqpClient::Envelope::ptr_t &envelop);
+    bool ReceiveRabbitMessages(AmqpClient::Envelope::ptr_t &envelop);
 };
 
 ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
@@ -56,7 +58,6 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     reader_task_id_ = scheduler->GetTaskId("amqp::RabbitMQReader");
-    monitor_task_id_ = scheduler->GetTaskId("amqp::RabbitMQMonitor");
     Task *task = new RabbitMQReader(this);
     scheduler->Enqueue(task);
 }
@@ -64,9 +65,9 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
 ConfigAmqpClient::~ConfigAmqpClient() {
 }
 
-void ConfigAmqpClient::EnqueueUUIDRequest(string uuid_str, string obj_type,
-                                     string oper) {
-    mgr_->EnqueueUUIDRequest(uuid_str, obj_type, oper);
+void ConfigAmqpClient::EnqueueUUIDRequest(string oper, string obj_type,
+                                     string uuid_str) {
+    mgr_->EnqueueUUIDRequest(oper, obj_type, uuid_str);
 }
 
 string ConfigAmqpClient::FormAmqpUri() const {
@@ -79,37 +80,47 @@ string ConfigAmqpClient::FormAmqpUri() const {
 }
 
 bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
-    string uri = amqpclient_->FormAmqpUri();
-    try {
-        channel_ = AmqpClient::Channel::CreateFromUri(uri);
-        // passive = false, durable = false, auto_delete = false
-        channel_->DeclareExchange("vnc_config.object-update",
+    while (true) {
+        string uri = amqpclient_->FormAmqpUri();
+        try {
+            channel_ = AmqpClient::Channel::CreateFromUri(uri);
+            // passive = false, durable = false, auto_delete = false
+            channel_->DeclareExchange("vnc_config.object-update",
               AmqpClient::Channel::EXCHANGE_TYPE_FANOUT, false, false, false);
-        string queue_name = string("control-node.") + amqpclient_->hostname();
+            string queue_name =
+                string("control-node.") + amqpclient_->hostname();
 
-        if (queue_delete) {
-            channel_->DeleteQueue(queue_name, true, true);
+            if (queue_delete) {
+                channel_->DeleteQueue(queue_name, true, true);
+            }
+
+            // passive = false, durable = false,
+            // exclusive = true, auto_delete = false
+            string queue = channel_->DeclareQueue(queue_name, false, false,
+                                                  true, false);
+            channel_->BindQueue(queue, "vnc_config.object-update");
+            // no_local = true, no_ack = false,
+            // exclusive = true, message_prefetch_count = 0
+            consumer_tag_ = channel_->BasicConsume(queue, queue_name,
+                                                   true, false, true, 0);
+        } catch (std::exception &e) {
+            static std::string what = e.what();
+            std::cout << "Caught fatal exception while connecting to RabbitMQ: "
+                << what << std::endl;
+            // Wait to reconnect
+            sleep(5);
+            continue;
+        } catch (...) {
+            std::cout << "Caught fatal unknown exception while connecting to "
+                << "RabbitMQ: " << std::endl;
+            assert(0);
         }
-
-        string queue = channel_->DeclareQueue(queue_name);
-        channel_->BindQueue(queue, "vnc_config.object-update");
-        // no_local = true, no_ack = false,
-        // exclusive = true, message_prefetch_count = 0
-        consumer_tag_ = channel_->BasicConsume(queue, queue_name,
-                                               true, false, true, 0);
-    } catch (std::exception &e) {
-        static std::string what = e.what();
-        std::cout << "Caught fatal exception while connecting to RabbitMQ: " << what << std::endl;
-        return false;
-    } catch (...) {
-        std::cout << "Caught fatal unknown exception while connecting to RabbitMQ: " << std::endl;
-        assert(0);
+        return true;
     }
-    return true;
+    return false;
 }
 
 bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
-    std::cout << "Rxed Message : " << json_message << std::endl;
     Document document;
     document.Parse<0>(json_message.c_str());
 
@@ -121,7 +132,6 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
             << document.GetParseError() << std::endl;
         return false;
     } else {
-        std::cout << "Success " << std::endl;
         string oper = "";
         string uuid_str = "";
         string obj_type = "";
@@ -137,7 +147,8 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
                 string temp_imid = itr->value.GetString();
                 iterator_range<string::iterator> r = find_nth(temp_imid, ":", 1);
                 if (r.empty()) {
-                    std::cout << "FAIL " << std::endl;
+                    std::cout << "Failed to get fetch name from ampq message"
+                        << std::endl;
                     continue;
                 }
                 obj_name =
@@ -154,31 +165,66 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
             config_manager()->config_db_client()->AddFQNameCache(uuid_str,
                                                                  obj_name);
         }
-        EnqueueUUIDRequest(uuid_str, obj_type, oper);
+        EnqueueUUIDRequest(oper, obj_type, uuid_str);
     }
     return true;
 }
 
-bool ConfigAmqpClient::RabbitMQReader::Run() {
-    while (true) {
-        if (ConnectToRabbitMQ()) {
-            break;
-        }
+bool ConfigAmqpClient::RabbitMQReader::ReceiveRabbitMessages(
+                                     AmqpClient::Envelope::ptr_t &envelope) {
+    try {
+        // timeout = -1.. wait forever
+        return (channel_->BasicConsumeMessage(consumer_tag_, envelope, -1));
+    } catch (std::exception &e) {
+        static std::string what = e.what();
+        std::cout << "Caught fatal exception while receiving " <<
+            "messages from RabbitMQ: " << what << std::endl;
+        return false;
+    } catch (...) {
+        std::cout << "Caught fatal unknown exception while receiving " <<
+            "messages from RabbitMQ: " << std::endl;
+        assert(0);
     }
-    AmqpClient::Envelope::ptr_t envelope;
-    while (envelope = channel_->BasicConsumeMessage(consumer_tag_)) {
-        amqpclient_->ProcessMessage(envelope->Message()->Body());
+    return true;
+}
+
+bool ConfigAmqpClient::RabbitMQReader::AckRabbitMessages(
+                                     AmqpClient::Envelope::ptr_t &envelope) {
+    try {
         channel_->BasicAck(envelope);
+    } catch (std::exception &e) {
+        static std::string what = e.what();
+        std::cout << "Caught fatal exception while Acking message to RabbitMQ: "
+            << what << std::endl;
+        return false;
+    } catch (...) {
+        std::cout << "Caught fatal unknown exception while acking messages " <<
+            "from RabbitMQ: " << std::endl;
+        assert(0);
+    }
+    return true;
+}
+
+
+bool ConfigAmqpClient::RabbitMQReader::Run() {
+    assert(ConnectToRabbitMQ());
+    while (true) {
+        AmqpClient::Envelope::ptr_t envelope;
+        if (ReceiveRabbitMessages(envelope) == false) {
+            assert(ConnectToRabbitMQ(false));
+            continue;
+        }
+        amqpclient_->ProcessMessage(envelope->Message()->Body());
+        if (AckRabbitMessages(envelope) == false) {
+            assert(ConnectToRabbitMQ(false));
+            continue;
+        }
     }
     return true;
 }
 
 int ConfigAmqpClient::reader_task_id() const {
     return reader_task_id_;
-}
-
-int ConfigAmqpClient::monitor_task_id() const {
-    return monitor_task_id_;
 }
 
 string ConfigAmqpClient::hostname() const {

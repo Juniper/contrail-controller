@@ -20,6 +20,7 @@ class ConfigCassandraClient;
 // doc_string() accessor.
 class ConfigCass2JsonAdapter {
 public:
+    static const std::string fq_name_prefix;
     static const std::string prop_prefix;
     static const std::string list_prop_prefix;
     static const std::string map_prop_prefix;
@@ -63,6 +64,7 @@ private:
     int backref_plen_;
     int child_plen_;
     int ref_plen_;
+    int fq_name_plen_;
     int parent_type_plen_;
     int parent_plen_;
 

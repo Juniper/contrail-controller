@@ -15,7 +15,7 @@
 
 struct IFMapConfigOptions;
 
-/* 
+/*
  * This is the base class for interactions with a database that stores the user
  * configuration.
  */

@@ -11,7 +11,7 @@
 struct IFMapConfigOptions;
 class ConfigClientManager;
 
-/* 
+/*
  * This is class interacts with RabbitMQ
  */
 class ConfigAmqpClient {
@@ -61,13 +61,12 @@ public:
     }
 
     int reader_task_id() const;
-    int monitor_task_id() const;
 
     std::string FormAmqpUri() const;
     std::string hostname() const;
 
-    void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
-                       std::string oper);
+    void EnqueueUUIDRequest(std::string oper, std::string obj_type,
+                       std::string uuid_str);
     bool ProcessMessage(const std::string &json_message);
     static void set_disable(bool disable) { disable_ = disable; }
 
@@ -85,7 +84,6 @@ private:
     std::string hostname_;
 
     int reader_task_id_;
-    int monitor_task_id_;
     std::string rabbitmq_ip_;
     std::string rabbitmq_port_;
     std::string rabbitmq_user_;

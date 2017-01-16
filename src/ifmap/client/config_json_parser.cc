@@ -48,7 +48,6 @@ bool ConfigJsonParser::ParseNameType(const Document &document,
     }
     key->id_name += fq_name_node[i].GetString();
 
-
     return true;
 }
 
@@ -61,11 +60,10 @@ bool ConfigJsonParser::ParseOneProperty(const Value &key_node,
     if (loc == metadata_map_.end()) {
         return true;
     }
-    cout << "Property: " << metaname << endl;
     auto_ptr<AutogenProperty> pvalue;
     bool success = (loc->second)(value_node, &pvalue);
     if (!success) {
-        cout << "loc->second call failure\n";
+        cout << "Parsing value node for " << metaname << " failed" << endl;
         return false;
     }
 
@@ -78,7 +76,8 @@ bool ConfigJsonParser::ParseOneProperty(const Value &key_node,
 
 bool ConfigJsonParser::ParseProperties(const Document &document,
         bool add_change, const IFMapTable::RequestKey &key,
-        IFMapOrigin::Origin origin, ConfigClientManager::RequestList *req_list) const {
+        IFMapOrigin::Origin origin,
+        ConfigClientManager::RequestList *req_list) const {
 
     Value::ConstMemberIterator doc_itr = document.MemberBegin();
     const Value &value_node = doc_itr->value;
@@ -91,36 +90,34 @@ bool ConfigJsonParser::ParseProperties(const Document &document,
     return true;
 }
 
-
-
 bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
         IFMapOrigin::Origin origin, const string &to_underscore,
-        const IFMapTable::RequestKey &key, ConfigClientManager::RequestList *req_list) const {
+        const IFMapTable::RequestKey &key,
+        ConfigClientManager::RequestList *req_list) const {
     const Value& to_node = ref_entry["to"];
 
     string from_underscore = key.id_type;
     std::replace(from_underscore.begin(), from_underscore.end(), '-', '_');
-    string link_name = config_mgr()->GetLinkName(from_underscore, to_underscore);
+    string link_name =
+        config_mgr()->GetLinkName(from_underscore, to_underscore);
     string metaname = link_name;
     std::replace(metaname.begin(), metaname.end(), '-', '_');
 
     MetadataParseMap::const_iterator loc = metadata_map_.find(metaname);
     if (loc == metadata_map_.end()) {
-        cout << metaname << " not found in map" << endl;
+        cout << metaname << " not found in metadata map" << endl;
         return false;
     }
     const Value& attr_node = ref_entry["attr"];
     auto_ptr<AutogenProperty> pvalue;
     bool success = (loc->second)(attr_node, &pvalue);
     if (!success) {
-        cout << "loc->second call failure" << endl;
+        cout << "Parsing link attribute for " << metaname << " failed" << endl;
         return false;
     }
 
     string neigh_name;
     neigh_name += to_node.GetString();
-    cout << "neigh type " << to_underscore
-         << " ----- neigh name is " << neigh_name << endl;
 
     config_mgr()->InsertRequestIntoQ(origin, to_underscore, neigh_name,
                                  link_name, pvalue, key, add_change, req_list);
@@ -131,7 +128,6 @@ bool ConfigJsonParser::ParseRef(const Value &ref_entry, bool add_change,
 bool ConfigJsonParser::ParseLinks(const Document &document, bool add_change,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
         ConfigClientManager::RequestList *req_list) const {
-
     Value::ConstMemberIterator doc_itr = document.MemberBegin();
     const Value &properties = doc_itr->value;
     for (Value::ConstMemberIterator itr = properties.MemberBegin();
@@ -159,9 +155,8 @@ bool ConfigJsonParser::ParseLinks(const Document &document, bool add_change,
                 string parent_type = ptype_node.GetString();
                 // Get the parent name from our name.
                 string parent_name = key.id_name.substr(0, pos);
-                cout << "parent name is " << parent_name;
-                string metaname = config_mgr()->GetLinkName(parent_type, key.id_type);
-                cout << " metaname is " << metaname << endl;
+                string metaname =
+                    config_mgr()->GetLinkName(parent_type,key.id_type);
                 auto_ptr<AutogenProperty > pvalue;
                 config_mgr()->InsertRequestIntoQ(origin, parent_type,
                      parent_name, metaname, pvalue, key, add_change, req_list);
@@ -177,7 +172,6 @@ bool ConfigJsonParser::ParseLinks(const Document &document, bool add_change,
 bool ConfigJsonParser::ParseDocument(const Document &document, bool add_change,
         IFMapOrigin::Origin origin, ConfigClientManager::RequestList *req_list,
         IFMapTable::RequestKey *key) const {
-
     // Update the name and the type into 'key'.
     if (!ParseNameType(document, key)) {
         return false;
@@ -210,12 +204,11 @@ bool ConfigJsonParser::Receive(const string &uuid, const string &in_message,
                    pos, "with error description", document.GetParseError());
         return false;
     } else {
-        cout << "No parse error\n";
         auto_ptr<IFMapTable::RequestKey> key(new IFMapTable::RequestKey());
-        if (!ParseDocument(document, add_change, origin, &req_list, key.get())) {
+        if (!ParseDocument(document, add_change, origin, &req_list, key.get()))
             return false;
-        }
-        config_mgr()->config_db_client()->FormDeleteRequestList(uuid, &req_list, key.get(), true);
+        config_mgr()->config_db_client()->FormDeleteRequestList(uuid, &req_list,
+                                                            key.get(), true);
         config_mgr()->EnqueueListToTables(&req_list);
     }
     return true;
