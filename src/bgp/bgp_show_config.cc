@@ -329,6 +329,8 @@ static void FillBgpNeighborConfigInfo(ShowBgpNeighborConfig *sbnc,
     sbnc->set_admin_down(neighbor->admin_down());
     sbnc->set_passive(neighbor->passive());
     sbnc->set_as_override(neighbor->as_override());
+    sbnc->set_bgp_origin(neighbor->bgp_origin());
+    sbnc->set_origin_override(neighbor->origin_override());
     sbnc->set_private_as_action(neighbor->private_as_action());
     sbnc->set_router_type(neighbor->router_type());
     sbnc->set_local_identifier(neighbor->local_identifier_string());
