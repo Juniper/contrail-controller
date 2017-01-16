@@ -298,6 +298,7 @@ TestClient *OvsTestInit(const char *init_file, bool ovs_init, bool use_ssl) {
     param->set_agent_stats_interval(AgentParam::kAgentStatsInterval);
     param->set_flow_stats_interval(AgentParam::kFlowStatsInterval);
     param->set_vrouter_stats_interval(AgentParam::kVrouterStatsInterval);
+    param->set_restart_backup_enable(false);
 
     // Initialize the agent-init control class
     int introspect_port = 0;

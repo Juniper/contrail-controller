@@ -12,6 +12,9 @@
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_type.h>
+#include <resource_manager/mpls_index.h>
 
 using namespace std;
 
@@ -20,10 +23,6 @@ MplsTable *MplsTable::mpls_table_;
 MplsLabel::~MplsLabel() { 
     if (label_ == MplsTable::kInvalidLabel) {
         return;
-    }
-    if (!IsFabricMulticastReservedLabel() &&
-        free_label_) {
-        agent_->mpls_table()->FreeLabel(label_);
     }
 }
 
@@ -47,11 +46,8 @@ std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
 DBEntry *MplsTable::Add(const DBRequest *req) {
     MplsLabelKey *key = static_cast<MplsLabelKey *>(req->key.get());
     MplsLabel *mpls = new MplsLabel(agent(), key->type_, key->label_);
+    assert(key->label_ != MplsTable::kInvalidLabel);
 
-    mpls->free_label_ = true;
-    if (!mpls->IsFabricMulticastReservedLabel()) {
-        UpdateLabel(key->label_, mpls);
-    }
     ChangeHandler(mpls, req);
     mpls->SendObjectLog(this, AgentLogEvent::ADD);
     return mpls;
@@ -128,8 +124,16 @@ void MplsTable::CreateTableLabel(const Agent *agent,
 void MplsTable::ReserveLabel(uint32_t start, uint32_t end) {
     // We want to allocate labels from an offset
     // Pre-allocate entries
-    for (unsigned int i = start; i < end; i++) {
-        InsertAtIndex(i, NULL);
+    for (uint32_t i = start; i < end;  i++) {
+        agent()->resource_manager()->ReserveIndex(Resource::MPLS_INDEX, i);
+    }
+}
+
+void MplsTable::FreeReserveLabel(uint32_t start, uint32_t end) {
+    // We want to allocate labels from an offset
+    // Pre-allocate entries
+    for (uint32_t i = start; i < end;  i++) {
+        agent()->resource_manager()->ReleaseIndex(Resource::MPLS_INDEX, i);
     }
 }
 
@@ -144,6 +148,17 @@ void MplsTable::Process(DBRequest &req) {
     DBTablePartition *tpart =
         static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
     tpart->Process(NULL, &req);
+}
+
+uint32_t MplsTable::AllocLabel(ResourceManager::KeyPtr key) {
+    uint32_t label = ((static_cast<IndexResourceData *>(agent()->resource_manager()->
+                                      Allocate(key).get()))->GetIndex());
+    assert(label != MplsTable::kInvalidLabel);
+    return label;
+}
+
+void MplsTable::FreeLabel(uint32_t label) {
+    agent()->resource_manager()->Release(Resource::MPLS_INDEX, label);
 }
 
 void MplsLabel::CreateVlanNh(const Agent *agent,
@@ -245,8 +260,8 @@ bool MplsLabel::IsFabricMulticastReservedLabel() const {
     if (type_ != MplsLabel::MCAST_NH)
         return false;
 
-    return (agent_->mpls_table()->
-            IsFabricMulticastLabel(label_));
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    return (agent->mpls_table()->IsFabricMulticastLabel(label_));
 }
 
 bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
@@ -430,4 +445,10 @@ bool MplsTable::IsFabricMulticastLabel(uint32_t label) const {
             (label <= multicast_label_end_[count])) return true;
     }
     return false;
+}
+
+MplsLabel *MplsTable::FindMplsLabel(uint32_t label) {
+    // Label type does not matter, use invalid
+    MplsLabelKey key(MplsLabel::INVALID, label);
+    return static_cast<MplsLabel *>(Find(&key, false));
 }

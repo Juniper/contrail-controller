@@ -302,6 +302,9 @@ public:
 
     // Restart parameters
     bool restart_backup_enable() const { return restart_backup_enable_; }
+    void set_restart_backup_enable(bool val) {
+        restart_backup_enable_ = val;
+    }
     uint64_t restart_backup_idle_timeout() const {
         return restart_backup_idle_timeout_;
     }

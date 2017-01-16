@@ -27,6 +27,8 @@
 #include <oper/nexthop.h>
 #include <oper/config_manager.h>
 #include <oper/agent_route_resync.h>
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/mpls_index.h>
 
 using namespace std;
 using namespace autogen;
@@ -109,7 +111,9 @@ void VrfEntry::CreateTableLabel() {
     if (table_label_ == MplsTable::kInvalidLabel) {
         VrfTable *table = static_cast<VrfTable *>(get_table());
         Agent *agent = table->agent();
-        set_table_label(agent->mpls_table()->AllocLabel());
+        ResourceManager::KeyPtr key(new VrfMplsResourceKey
+                                    (agent->resource_manager(), name_));
+        set_table_label(agent->mpls_table()->AllocLabel(key));
         MplsTable::CreateTableLabel(agent, table_label(), name_, false);
     }
 }
@@ -485,6 +489,7 @@ bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     vrf->UpdateVxlanId(agent(), VxLanTable::kInvalidvxlan_id);
     vrf->vn_.reset(NULL);
     if (vrf->table_label() != MplsTable::kInvalidLabel) {
+        agent()->mpls_table()->FreeLabel(vrf->table_label());
         MplsLabel::Delete(agent(), vrf->table_label());
         vrf->set_table_label(MplsTable::kInvalidLabel);
     }
