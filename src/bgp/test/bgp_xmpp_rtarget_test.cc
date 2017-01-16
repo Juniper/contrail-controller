@@ -47,12 +47,14 @@ static const char *config_template0 = "\
             <family>route-target</family>\
         </address-families>\
         <session to=\'CN2\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>route-target</family>\
             </address-families>\
         </session>\
         <session to=\'MX\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>route-target</family>\
@@ -70,6 +72,7 @@ static const char *config_template0 = "\
             <family>route-target</family>\
         </address-families>\
         <session to=\'MX\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>route-target</family>\
@@ -103,12 +106,14 @@ static const char *config_template1 = "\
             <family>route-target</family>\
         </address-families>\
         <session to=\'CN2\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>route-target</family>\
             </address-families>\
         </session>\
         <session to=\'MX\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>route-target</family>\
@@ -126,6 +131,7 @@ static const char *config_template1 = "\
             <family>route-target</family>\
         </address-families>\
         <session to=\'MX\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>route-target</family>\

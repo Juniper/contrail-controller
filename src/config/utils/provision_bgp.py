@@ -61,6 +61,7 @@ class BgpProvisioner(object):
 
         bgp_sess_attrs = [
             BgpSessionAttributes(address_families=bgp_addr_fams)]
+        bgp_sess_attrs[0].bgp_origin = 2
         bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]
         bgp_peering_attrs = BgpPeeringAttributes(session=bgp_sessions)
 

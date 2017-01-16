@@ -249,11 +249,11 @@ TEST_F(BgpTableTest, RiboutClusterId) {
 TEST_F(BgpTableTest, RiboutAS) {
     RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
     RibExportPolicy policy1(
-        BgpProto::EBGP, RibExportPolicy::BGP, 101, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 101, false, 0, false, -1, 0);
     RibExportPolicy policy2(
-        BgpProto::EBGP, RibExportPolicy::BGP, 102, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 102, false, 0, false, -1, 0);
     RibExportPolicy policy3(
-        BgpProto::EBGP, RibExportPolicy::BGP, 103, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 103, false, 0, false, -1, 0);
 
     // Create 3 ribouts.
     ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
@@ -291,9 +291,9 @@ TEST_F(BgpTableTest, RiboutAS) {
 TEST_F(BgpTableTest, RiboutASOverride) {
     RibOut *ribout1 = NULL, *ribout2 = NULL, *temp = NULL;
     RibExportPolicy policy1(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, true, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, true, 0, false, -1, 0);
     RibExportPolicy policy2(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, 0, false, -1, 0);
 
     // Create 2 ribouts.
     ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
@@ -328,11 +328,11 @@ TEST_F(BgpTableTest, RiboutNexthop) {
     IpAddress nexthop3 = IpAddress::from_string("10.1.1.3", ec);
     RibOut *ribout1 = NULL, *ribout2 = NULL, *ribout3 = NULL, *temp = NULL;
     RibExportPolicy policy1(BgpProto::EBGP, RibExportPolicy::BGP, 100, true,
-                            false, nexthop1, -1, 0);
+                            0, false, nexthop1, -1, 0);
     RibExportPolicy policy2(BgpProto::EBGP, RibExportPolicy::BGP, 100, true,
-                            false, nexthop2, -1, 0);
+                            0, false, nexthop2, -1, 0);
     RibExportPolicy policy3(BgpProto::EBGP, RibExportPolicy::BGP, 100, true,
-                            false, nexthop3, -1, 0);
+                            0, false, nexthop3, -1, 0);
 
     // Create 3 ribouts.
     ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
@@ -370,9 +370,9 @@ TEST_F(BgpTableTest, RiboutNexthop) {
 TEST_F(BgpTableTest, RiboutLlgrDisabled) {
     RibOut *ribout1 = NULL, *ribout2 = NULL, *temp = NULL;
     RibExportPolicy policy1(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, 0, false, -1, 0);
     RibExportPolicy policy2(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, 0, false, -1, 0);
 
     // Create 2 ribouts.
     ribout1 = rt_table_->RibOutLocate(&sender_, policy1);
@@ -403,9 +403,9 @@ TEST_F(BgpTableTest, RiboutLlgrDisabled) {
 TEST_F(BgpTableTest, RiboutLlgrEnabled) {
     RibOut *ribout1 = NULL, *ribout2 = NULL, *temp = NULL;
     RibExportPolicy policy1(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, true, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, 0, true, -1, 0);
     RibExportPolicy policy2(
-        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 100, false, 0, false, -1, 0);
 
     // Create 2 ribouts.
     ribout1 = rt_table_->RibOutLocate(&sender_, policy1);

@@ -230,7 +230,7 @@ protected:
 
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number = 0) {
-        RibExportPolicy policy(type, encoding, as_number, false, false, -1, 0);
+        RibExportPolicy policy(type, encoding, as_number, false, 0, false, -1, 0);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
@@ -239,7 +239,7 @@ protected:
             RibExportPolicy::Encoding encoding, as_t as_number,
             bool as_override, IpAddress nexthop) {
         RibExportPolicy policy(
-            type, encoding, as_number, as_override, false, nexthop, -1, 0);
+            type, encoding, as_number, as_override, 0, false, nexthop, -1, 0);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
@@ -247,7 +247,7 @@ protected:
     void CreateRibOut(BgpProto::BgpPeerType type,
             RibExportPolicy::Encoding encoding, as_t as_number, bool llgr) {
         RibExportPolicy policy(
-            type, encoding, as_number, false, llgr, -1, 0);
+            type, encoding, as_number, false, 0, llgr, -1, 0);
         ribout_ = table_->RibOutLocate(sender_, policy);
         RegisterRibOutPeers();
     }
@@ -668,7 +668,7 @@ TEST_P(BgpTableExportParamTest1, AsOverride) {
 //
 TEST_P(BgpTableExportParamTest1, RemovePrivateAll) {
     RibExportPolicy policy(
-        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, 0, false, -1, 0);
     bool all = true; bool replace = false; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -694,7 +694,7 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAll) {
 //
 TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace1) {
     RibExportPolicy policy(
-        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, 0, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -721,7 +721,7 @@ TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace1) {
 //
 TEST_P(BgpTableExportParamTest1, RemovePrivateAllReplace2) {
     RibExportPolicy policy(
-        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, 0, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -1069,7 +1069,7 @@ TEST_P(BgpTableExportParamTest3, AsOverrideAndRewriteNexthop) {
 //
 TEST_P(BgpTableExportParamTest3, RemovePrivateAll) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
-        LocalAsNumber(), false, false, -1, 0);
+        LocalAsNumber(), false, 0, false, -1, 0);
     bool all = true; bool replace = false; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -1092,7 +1092,7 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAll) {
 //
 TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace1) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
-        LocalAsNumber(), false, false, -1, 0);
+        LocalAsNumber(), false, 0, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -1119,7 +1119,7 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace1) {
 //
 TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace2) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
-        LocalAsNumber(), false, false, -1, 0);
+        LocalAsNumber(), false, 0, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);
@@ -1150,7 +1150,7 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace2) {
 //
 TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace3) {
     RibExportPolicy policy(BgpProto::IBGP, RibExportPolicy::BGP,
-        LocalAsNumber(), false, false, -1, 0);
+        LocalAsNumber(), false, 0, false, -1, 0);
     bool all = true; bool replace = true; bool peer_loop_check = true;
     policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
     CreateRibOut(policy);

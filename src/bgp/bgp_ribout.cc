@@ -279,6 +279,8 @@ RibOut::RibOut(BgpTable *table, BgpUpdateSender *sender,
             name_ += " Nexthop " + policy_.nexthop.to_string();
         if (policy_.as_override)
             name_ += " ASOverride";
+        if (policy_.bgp_origin)
+            name_ += " BgpOrigin";
         name_ += ")";
     }
     for (int idx = 0; idx < DB::PartitionCount(); ++idx) {

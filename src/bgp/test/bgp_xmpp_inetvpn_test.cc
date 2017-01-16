@@ -34,6 +34,7 @@ static const char *config_2_control_nodes_4vns = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -45,6 +46,7 @@ static const char *config_2_control_nodes_4vns = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -113,6 +115,7 @@ static const char *config_2_control_nodes_2_vns = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
             </address-families>\
@@ -123,6 +126,7 @@ static const char *config_2_control_nodes_2_vns = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
             </address-families>\
@@ -152,6 +156,7 @@ static const char *config_2_control_nodes = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -163,6 +168,7 @@ static const char *config_2_control_nodes = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -186,6 +192,7 @@ static const char *config_2_control_nodes_no_rtf = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
             </address-families>\
@@ -196,6 +203,7 @@ static const char *config_2_control_nodes_no_rtf = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
             </address-families>\
@@ -225,6 +233,7 @@ static const char *config_2_control_nodes_no_vn_info = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -236,6 +245,7 @@ static const char *config_2_control_nodes_no_vn_info = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -256,6 +266,7 @@ static const char *config_2_control_nodes_different_asn = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -268,6 +279,7 @@ static const char *config_2_control_nodes_different_asn = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -291,6 +303,7 @@ static const char *config_2_control_nodes_route_aggregate = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -302,6 +315,7 @@ static const char *config_2_control_nodes_route_aggregate = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -333,6 +347,7 @@ static const char *config_2_control_nodes_routing_policy = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\
@@ -344,6 +359,7 @@ static const char *config_2_control_nodes_routing_policy = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>route-target</family>\
                 <family>inet-vpn</family>\

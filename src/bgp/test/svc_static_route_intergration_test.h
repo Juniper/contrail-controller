@@ -80,6 +80,7 @@ static const char *config_control_node= "\
             <family>erm-vpn</family>\
         </address-families>\
         <session to=\'CN2\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>inet6-vpn</family>\
@@ -88,6 +89,7 @@ static const char *config_control_node= "\
             </address-families>\
         </session>\
         <session to=\'MX\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>inet6-vpn</family>\
@@ -107,6 +109,7 @@ static const char *config_control_node= "\
             <family>route-target</family>\
         </address-families>\
         <session to=\'MX\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>inet-vpn</family>\
                 <family>inet6-vpn</family>\

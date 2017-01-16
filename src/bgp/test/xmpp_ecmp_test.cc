@@ -183,6 +183,7 @@ const char *XmppEcmpTest::config_tmpl = "\
         <port>%d</port>\
         <autonomous-system>64512</autonomous-system>\
         <session to=\'B\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>e-vpn</family>\
                 <family>route-target</family>\
@@ -196,6 +197,7 @@ const char *XmppEcmpTest::config_tmpl = "\
         <port>%d</port>\
         <autonomous-system>64512</autonomous-system>\
         <session to=\'A\'>\
+			<bgp-origin>0</bgp-origin>\
             <address-families>\
                 <family>e-vpn</family>\
                 <family>route-target</family>\
