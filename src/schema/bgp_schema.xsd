@@ -192,6 +192,15 @@
          description='There can be upto 3 instances BGP session attributes, representing configuration for both ends and common. Currently only 1 instance representing common attributes is supported.'/>
 </xsd:complexType>
 
+<xsd:simpleType name='BgpOriginType'>
+    <xsd:restriction base="xsd:integer">
+        <xsd:enumeration value="0"/>
+        <xsd:enumeration value="1"/>
+        <xsd:enumeration value="2"/>
+        <xsd:enumeration value="3"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='BgpSessionAttributes'>
     <xsd:annotation>
         <xsd:documentation>
@@ -204,6 +213,9 @@
             speaker AS in the AS Path.
         </xsd:documentation>
     </xsd:annotation>
+    <xsd:element name='bgp-origin' type='BgpOriginType' required='optional' operations='CRUD' description="User define route origin value possible values are 0-IGP 1-EGP 2-INCOMPLETE 3-None"/>
+    <xsd:element name="origin-override" type="xsd:boolean" default="false" required='optional' operations='CRUD'
+         description='Mark this to override BGP Origin'/>
     <xsd:element name='bgp-router' type='xsd:string' required='optional' operations='CRUD'
          description='When the parameters are uni-directional the bgp-router element specifies to which node the configuration applies. If missing the attributes apply to both ends of the session.'/>
     <xsd:element name="admin-down" type="xsd:boolean" default="false" required='optional' operations='CRUD'
