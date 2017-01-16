@@ -56,10 +56,10 @@ struct RibExportPolicy {
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
         int affinity, uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        as_t as_number, bool as_override, bool llgr, int affinity,
+        as_t as_number, bool as_override, int bgp_origin, bool llgr, int affinity,
         uint32_t cluster_id);
     RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-        as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
+        as_t as_number, bool as_override, int bgp_origin, bool llgr, IpAddress nexthop,
         int affinity, uint32_t cluster_id);
 
     void SetRemovePrivatePolicy(bool all, bool replace, bool peer_loop_check);
@@ -69,6 +69,7 @@ struct RibExportPolicy {
     Encoding encoding;
     as_t as_number;
     bool as_override;
+    int bgp_origin;
     IpAddress nexthop;
     int affinity;
     bool llgr;

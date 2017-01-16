@@ -291,6 +291,7 @@ public:
     BgpProto::BgpPeerType peer_type() const { return policy_.type; }
     as_t peer_as() const { return policy_.as_number; }
     bool as_override() const { return policy_.as_override; }
+    int bgp_origin() const { return policy_.bgp_origin; }
     bool llgr() const { return policy_.llgr; }
     const IpAddress &nexthop() const { return policy_.nexthop; }
     bool IsEncodingXmpp() const {

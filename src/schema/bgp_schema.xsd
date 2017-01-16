@@ -204,6 +204,7 @@
             speaker AS in the AS Path.
         </xsd:documentation>
     </xsd:annotation>
+    <xsd:element name='bgp-origin' type='xsd:integer' required='optional' operations='CRUD' description="User define route origin value possible values are 0-IGP 1-EGP 2-INCOMPLETE 3-None"/>
     <xsd:element name='bgp-router' type='xsd:string' required='optional' operations='CRUD'
          description='When the parameters are uni-directional the bgp-router element specifies to which node the configuration applies. If missing the attributes apply to both ends of the session.'/>
     <xsd:element name="admin-down" type="xsd:boolean" default="false" required='optional' operations='CRUD'

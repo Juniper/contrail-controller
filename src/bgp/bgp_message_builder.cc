@@ -25,7 +25,17 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
     BgpProto::Update update;
     const BgpAttr *attr = roattr->attr();
 
-    BgpAttrOrigin *origin = new BgpAttrOrigin(attr->origin());
+    //Get bgp_origin from ribout and check conditions 
+    //0=IGP 1=EGP 2=INCOMPLETE 3=NONE(In case of 3 contrail default behaviour excutes)
+    BgpAttrOrigin *origin;
+    if (ribout->bgp_origin() != 3)
+    {
+        origin = new BgpAttrOrigin(ribout->bgp_origin());
+    }
+    else
+    {
+        origin = new BgpAttrOrigin(attr->origin());
+    }
     update.path_attributes.push_back(origin);
 
     if ((route->Afi() == BgpAf::IPv4) && (route->Safi() == BgpAf::Unicast)) {
