@@ -450,6 +450,8 @@ private:
     bool passive_;
     bool resolve_paths_;
     bool as_override_;
+    string bgp_origin_;
+    bool origin_override_;
     string private_as_action_;
 
     tbb::atomic<int> membership_req_pending_;
