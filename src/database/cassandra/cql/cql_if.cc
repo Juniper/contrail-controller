@@ -722,10 +722,25 @@ bool DynamicCf2CassPrepareBind(interface::CassLibrary *cci,
 
 static std::string CassSelectFromTableInternal(const std::string &table,
     const GenDb::DbDataValueVec &rkeys,
-    const GenDb::ColumnNameRange &ck_range) {
+    const GenDb::ColumnNameRange &ck_range,
+    const GenDb::FieldNamesToReadVec &read_vec) {
     std::ostringstream query;
     // Table
-    query << "SELECT * FROM " << table;
+    if (read_vec.empty()) {
+        query << "SELECT * FROM " << table;
+    } else {
+        query << "SELECT ";
+        for (GenDb::FieldNamesToReadVec::const_iterator it = read_vec.begin();
+             it != read_vec.end(); it++) {
+            query << it->get<0>() << ",";
+            bool read_timestamp = it->get<3>();
+            if (read_timestamp) {
+                query << "WRITETIME(" << it->get<0>() << "),";
+            }
+        }
+        query.seekp(-1, query.cur);
+        query << " FROM " << table;
+    }
     int rk_size(rkeys.size());
     CassQueryPrinter cprinter(query);
     for (int i = 0; i < rk_size; i++) {
@@ -785,18 +800,20 @@ static std::string CassSelectFromTableInternal(const std::string &table,
 
 std::string PartitionKey2CassSelectFromTable(const std::string &table,
     const GenDb::DbDataValueVec &rkeys) {
-    return CassSelectFromTableInternal(table, rkeys, GenDb::ColumnNameRange());
+    return CassSelectFromTableInternal(table, rkeys, GenDb::ColumnNameRange(),
+                                       GenDb::FieldNamesToReadVec());
 }
 
 std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
     const std::string &table, const GenDb::DbDataValueVec &rkeys,
-    const GenDb::ColumnNameRange &ck_range) {
-    return CassSelectFromTableInternal(table, rkeys, ck_range);
+    const GenDb::ColumnNameRange &ck_range,
+    const GenDb::FieldNamesToReadVec &read_vec) {
+    return CassSelectFromTableInternal(table, rkeys, ck_range, read_vec);
 }
 
 std::string CassSelectFromTable(const std::string &table) {
     return CassSelectFromTableInternal(table, GenDb::DbDataValueVec(),
-        GenDb::ColumnNameRange());
+        GenDb::ColumnNameRange(), GenDb::FieldNamesToReadVec());
 }
 
 static GenDb::DbDataValue CassValue2DbDataValue(
@@ -962,6 +979,48 @@ static GenDb::DbOpResult::type CassError2DbOpResult(CassError rc) {
         return GenDb::DbOpResult::BACK_PRESSURE;
       default:
         return GenDb::DbOpResult::ERROR;
+    }
+}
+
+static void DynamicCfGetResult(interface::CassLibrary *cci,
+    CassResultPtr *result, const GenDb::FieldNamesToReadVec &read_vec,
+    GenDb::NewColVec *v_columns) {
+    // Row iterator
+    CassIteratorPtr riterator(cci->CassIteratorFromResult(result->get()), cci);
+    while (cci->CassIteratorNext(riterator.get())) {
+        const CassRow *row(cci->CassIteratorGetRow(riterator.get()));
+        GenDb::DbDataValueVec *cnames(new GenDb::DbDataValueVec);
+        GenDb::DbDataValueVec *values(new GenDb::DbDataValueVec);
+        GenDb::DbDataValueVec *timestamps(new GenDb::DbDataValueVec);
+        int i = 0;
+        for (GenDb::FieldNamesToReadVec::const_iterator it = read_vec.begin();
+             it != read_vec.end(); it++) {
+            bool row_key = it->get<1>();
+            bool row_column = it->get<2>();
+            bool read_timestamp = it->get<3>();
+            if (row_key) {
+                i++;
+                continue;
+            }
+            const CassValue *cvalue(cci->CassRowGetColumn(row, i));
+            assert(cvalue);
+            GenDb::DbDataValue db_value(CassValue2DbDataValue(cci, cvalue));
+            if (row_column) {
+                cnames->push_back(db_value);
+            } else {
+                values->push_back(db_value);
+                if (read_timestamp) {
+                    i++;
+                    const CassValue *ctimestamp(cci->CassRowGetColumn(row, i));
+                    assert(ctimestamp);
+                    GenDb::DbDataValue time_value(CassValue2DbDataValue(cci, ctimestamp));
+                    timestamps->push_back(time_value);
+                }
+            }
+            i++;
+        }
+        GenDb::NewCol *column(new GenDb::NewCol(cnames, values, 0, timestamps));
+        v_columns->push_back(column);
     }
 }
 
@@ -1205,6 +1264,20 @@ static bool DynamicCfGetResultAsync(interface::CassLibrary *cci,
     ExecuteQueryResultAsync(cci, session, query, consistency, cb,
         rctx.release());
     return true;
+}
+
+static bool DynamicCfGetResultSync(interface::CassLibrary *cci,
+    CassSession *session, const char *query,
+    const GenDb::FieldNamesToReadVec &read_vec,
+    CassConsistency consistency, GenDb::NewColVec *v_columns) {
+    CassResultPtr result(NULL, cci);
+    bool success(ExecuteQueryResultSync(cci, session, query, &result,
+        consistency));
+    if (!success) {
+        return success;
+    }
+    DynamicCfGetResult(cci, &result, read_vec, v_columns);
+    return success;
 }
 
 static bool DynamicCfGetResultSync(interface::CassLibrary *cci,
@@ -1718,6 +1791,23 @@ bool CqlIfImpl::SelectFromTableSync(const std::string &cfname,
         return impl::DynamicCfGetResultSync(cci_, session_.get(),
             query.c_str(), rk_count, ck_count, consistency, out);
     }
+}
+
+
+bool CqlIfImpl::SelectFromTableClusteringKeyRangeFieldNamesSync(const std::string &cfname,
+    const GenDb::DbDataValueVec &rkey,
+    const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
+    const GenDb::FieldNamesToReadVec &read_vec,
+    GenDb::NewColVec *out) {
+    if (session_state_ != SessionState::CONNECTED) {
+        return false;
+    }
+    std::string query(
+        impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(cfname,
+        rkey, ck_range, read_vec));
+    assert(IsTableDynamic(cfname));
+    return impl::DynamicCfGetResultSync(cci_, session_.get(),
+        query.c_str(), read_vec, consistency, out);
 }
 
 bool CqlIfImpl::SelectFromTableClusteringKeyRangeSync(const std::string &cfname,
@@ -2257,6 +2347,23 @@ bool CqlIf::Db_GetRow(GenDb::ColList *out, const std::string &cfname,
     CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
     bool success(impl_->SelectFromTableSync(cfname, rowkey,
         consistency, &out->columns_));
+    if (!success) {
+        IncrementTableReadFailStats(cfname);
+        IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN);
+        return success;
+    }
+    IncrementTableReadStats(cfname);
+    return success;
+}
+
+bool CqlIf::Db_GetRow(GenDb::ColList *out, const std::string &cfname,
+    const GenDb::DbDataValueVec &rowkey,
+    GenDb::DbConsistency::type dconsistency,
+    const GenDb::ColumnNameRange &crange,
+    const GenDb::FieldNamesToReadVec &read_vec) {
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
+    bool success(impl_->SelectFromTableClusteringKeyRangeFieldNamesSync(cfname,
+       rowkey, crange, consistency, read_vec, &out->columns_));
     if (!success) {
         IncrementTableReadFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN);

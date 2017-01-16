@@ -542,6 +542,109 @@ TEST_F(CqlIfTest, SelectFromTableSlice) {
     EXPECT_EQ(expected_qstring4, actual_string4);
 }
 
+TEST_F(CqlIfTest, SelectFromTableReadFields) {
+    std::string table("SliceSelectTable");
+    // Empty field list. Read all fields
+    GenDb::ColumnNameRange empty_crange;
+    GenDb::FieldNamesToReadVec empty_fields;
+    std::string actual_qstring(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, empty_crange, empty_fields));
+    std::string expected_qstring(
+        "SELECT * FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839");
+    EXPECT_EQ(expected_qstring, actual_qstring);
+
+    // Read only row key
+    GenDb::FieldNamesToReadVec only_key;
+    only_key.push_back(boost::make_tuple("key", true, false, false));
+    std::string actual_qstring1(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, empty_crange, only_key));
+    std::string expected_qstring1(
+        "SELECT key FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839");
+    EXPECT_EQ(expected_qstring1, actual_qstring1);
+
+    // Read row key, column1 and value without timestamp
+    GenDb::FieldNamesToReadVec key_column_values;
+    key_column_values.push_back(boost::make_tuple("key", true, false, false));
+    key_column_values.push_back(boost::make_tuple("column1", false, true, false));
+    key_column_values.push_back(boost::make_tuple("value", false, false, false));
+    std::string actual_qstring2(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, empty_crange, key_column_values));
+    std::string expected_qstring2(
+        "SELECT key,column1,value FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839");
+    EXPECT_EQ(expected_qstring2, actual_qstring2);
+
+    // Read row key, column1 and value with timestamp
+    GenDb::FieldNamesToReadVec key_column_values_timestamp;
+    key_column_values_timestamp.push_back(boost::make_tuple("key", true, false,
+                                                            false));
+    key_column_values_timestamp.push_back(boost::make_tuple("column1", false,
+                                                            true, false));
+    key_column_values_timestamp.push_back(boost::make_tuple("value", false,
+                                                            false, true));
+    std::string actual_qstring3(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, empty_crange, key_column_values_timestamp));
+    std::string expected_qstring3(
+        "SELECT key,column1,value,WRITETIME(value) FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839");
+    EXPECT_EQ(expected_qstring3, actual_qstring3);
+
+    // Read row key, column1 and value with timestamp and use column name
+    // in filter. i.e. column1 >= "c"
+    GenDb::Blob col_filter(reinterpret_cast<const uint8_t *>("d"), 1);
+    GenDb::ColumnNameRange crange;
+    crange.start_ = boost::assign::list_of(GenDb::DbDataValue(col_filter));
+    std::string actual_qstring4(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, crange, key_column_values_timestamp));
+    std::string expected_qstring4(
+        "SELECT key,column1,value,WRITETIME(value) FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839 "
+        "AND (column1) >= (0x64)");
+    EXPECT_EQ(expected_qstring4, actual_qstring4);
+}
+
 using ::testing::_;
 using ::testing::Return;
 using ::testing::DoAll;
