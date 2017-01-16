@@ -408,6 +408,8 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           passive_(config->passive()),
           resolve_paths_(config->router_type() == "bgpaas-client"),
           as_override_(config->as_override()),
+          bgp_origin_(config->bgp_origin()),
+          origin_override_(config->origin_override()),
           defer_close_(false),
           graceful_close_(true),
           vpn_tables_registered_(false),
@@ -485,6 +487,8 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_admin_down(admin_down_);
     peer_info.set_passive(passive_);
     peer_info.set_as_override(as_override_);
+    peer_info.set_bgp_origin(bgp_origin_);
+    peer_info.set_origin_override(origin_override_);
     peer_info.set_router_type(router_type_);
     peer_info.set_peer_type(
         PeerType() == BgpProto::IBGP ? "internal" : "external");
@@ -714,6 +718,18 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (as_override_ != config->as_override()) {
         as_override_ = config->as_override();
         peer_info.set_as_override(as_override_);
+        clear_session = true;
+    }
+
+    if (bgp_origin_ != config->bgp_origin()) {
+        bgp_origin_ = config->bgp_origin();
+        peer_info.set_bgp_origin(bgp_origin_);
+        clear_session = true;
+    }
+
+    if (origin__override_ != config->origin_override()) {
+        origin_override_ = config->origin_override();
+        peer_info.set_origin_override(origin__override_);
         clear_session = true;
     }
 
@@ -2166,6 +2182,8 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_admin_down(admin_down_);
     bnr->set_passive(passive_);
     bnr->set_as_override(as_override_);
+    bnr->set_bgp_origin(bgp_origin_);
+    bnr->set_origin_override(origin__override_);
     bnr->set_private_as_action(private_as_action_);
     bnr->set_peer_address(peer_address_string());
     bnr->set_peer_id(bgp_identifier_string());
