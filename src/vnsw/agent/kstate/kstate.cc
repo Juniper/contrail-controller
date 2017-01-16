@@ -255,10 +255,20 @@ void KState::RouteMsgHandler(vr_route_req *r) {
 
     vector<KRouteInfo> &list =
                         const_cast<std::vector<KRouteInfo>&>(resp->get_rt_list());
-    
+
     data.set_vrf_id(r->get_rtr_vrf_id());
     data.set_family(rst->FamilyToString(r->get_rtr_family()));
-    data.set_prefix(PrefixToString(r->get_rtr_prefix()));
+    if(r->get_h_op() == sandesh_op::GET) {
+        boost::system::error_code ec;
+        IpAddress addr(IpAddress::from_string(PrefixToString(r->get_rtr_prefix()), ec));
+        if (addr.is_v4()) {
+            data.set_prefix((Address::GetIp4SubnetAddress(addr.to_v4(), r->get_rtr_prefix_len())).to_string());
+        } else if(addr.is_v6()) {
+            data.set_prefix((Address::GetIp6SubnetAddress(addr.to_v6(), r->get_rtr_prefix_len())).to_string());
+        }
+    } else {
+        data.set_prefix(PrefixToString(r->get_rtr_prefix()));
+    }
     data.set_prefix_len(r->get_rtr_prefix_len());
     data.set_rid(r->get_rtr_rid());
     data.set_label_flags(rst->LabelFlagsToString(
@@ -269,7 +279,11 @@ void KState::RouteMsgHandler(vr_route_req *r) {
         data.set_label(0);
     }
     data.set_nh_id(r->get_rtr_nh_id());
-    
+    if(r->get_rtr_family() == AF_BRIDGE) {
+        data.set_rtr_mac(MacToString(r->get_rtr_mac()));
+        data.set_index(r->get_rtr_index());
+    }
+
     list.push_back(data);
 
     RouteContext *rctx = static_cast<RouteContext *>(rst->more_context());

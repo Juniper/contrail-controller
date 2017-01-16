@@ -9,26 +9,26 @@
 
 using namespace std;
 
-RouteKState::RouteKState(KRouteResp *obj, const std::string &resp_ctx, 
-                         vr_route_req &req, int id) :
-                         KState(resp_ctx, obj) {
-    InitEncoder(req, id);
+RouteKState::RouteKState(KRouteResp *obj, const std::string &resp_ctx,
+                         vr_route_req &req, int id, int family_id, sandesh_op::type op_code, int prefix_size) :
+                         KState(resp_ctx, obj), family_id_(family_id), op_code_(op_code), prefix_(prefix_size, 0) {
+    InitEncoder(req, id, op_code_);
 }
 
-void RouteKState::InitEncoder(vr_route_req &req, int id) const {
-    req.set_rtr_family(AF_INET);
+void RouteKState::InitEncoder(vr_route_req &req, int id, sandesh_op::type op_code_) const {
+    req.set_rtr_family(family_id_);
     req.set_rtr_vrf_id(id);
     req.set_rtr_rid(0);
-    req.set_rtr_prefix_len(0);
-    /* Only dump is supported */
-    req.set_h_op(sandesh_op::DUMP);
+    if(op_code_ == sandesh_op::DUMP)
+        req.set_rtr_prefix_len(0);
+    req.set_h_op(op_code_);
 }
 
 void RouteKState::Handler() {
     KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
-            /* There are more routes in Kernel. We need to query them from 
+            /* There are more routes in Kernel. We need to query them from
              * Kernel and send it to Sandesh.
              */
             SendResponse();
@@ -49,13 +49,15 @@ void RouteKState::SendNextRequest() {
     vr_route_req req;
     RouteContext *rctx = static_cast<RouteContext *>(more_context_);
 
-    InitEncoder(req, rctx->vrf_id);
+    InitEncoder(req, rctx->vrf_id, op_code_);
     req.set_rtr_marker(rctx->marker);
     req.set_rtr_marker_plen(rctx->marker_plen);
     // rtr_prefix needs to be initialized
-    int arr_prefix[4] = {0, 0, 0, 0};
-    std::vector<int8_t> prefix(arr_prefix, arr_prefix + sizeof(arr_prefix) / sizeof(arr_prefix[0]));
-    req.set_rtr_prefix(prefix);
+    if(family_id_ == AF_BRIDGE) {
+        req.set_rtr_mac(prefix_);
+    } else {
+        req.set_rtr_prefix(prefix_);
+    }
     EncodeAndSend(req);
 }
 
@@ -74,6 +76,10 @@ const string RouteKState::FamilyToString(int nh_family) const {
     switch(family) {
         case AF_INET:
             return "AF_INET";
+        case AF_INET6:
+            return "AF_INET6";
+        case AF_BRIDGE:
+            return "AF_BRIDGE";
         default:
             return "INVALID";
     }

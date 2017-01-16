@@ -157,8 +157,8 @@ public:
 
 class DumpRouteKState: public RouteKState {
 public:
-    DumpRouteKState(KRouteResp *obj, std::string resp_ctx, vr_route_req &encoder, int id): 
-                    RouteKState(obj, resp_ctx, encoder, id) {}
+    DumpRouteKState(KRouteResp *obj, std::string resp_ctx, vr_route_req &encoder, int id, int family_id, sandesh_op::type, int prefix_size):
+                    RouteKState(obj, resp_ctx, encoder, id, AF_INET, sandesh_op::DUMP, 4) {}
     virtual void SendResponse() {
         //Update the response_object_ with empty list
         KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
@@ -197,9 +197,9 @@ public:
         vr_route_req req;
         KRouteResp *resp = new KRouteResp();
 
-        // The following object is deleted in KStateIoContext::Handler() 
+        // The following object is deleted in KStateIoContext::Handler()
         // after the Handler is invoked.
-        DumpRouteKState *kstate = new DumpRouteKState(resp, "dummy", req, vrf_id);
+        DumpRouteKState *kstate = new DumpRouteKState(resp, "dummy", req, vrf_id, AF_INET, sandesh_op::DUMP, 4);
         kstate->table_ = table;
         kstate->EncodeAndSend(req);
     }
