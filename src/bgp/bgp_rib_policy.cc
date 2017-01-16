@@ -16,6 +16,7 @@ RibExportPolicy::RibExportPolicy()
       encoding(BGP),
       as_number(0),
       as_override(false),
+      bgp_origin(2),
       affinity(-1),
       llgr(false),
       cluster_id(0) {
@@ -26,6 +27,7 @@ RibExportPolicy::RibExportPolicy(uint32_t cluster_id)
       encoding(BGP),
       as_number(0),
       as_override(false),
+      bgp_origin(2),
       affinity(-1),
       llgr(false),
       cluster_id(cluster_id) {
@@ -37,6 +39,7 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
       encoding(encoding),
       as_number(0),
       as_override(false),
+      bgp_origin(2),
       affinity(affinity),
       llgr(false),
       cluster_id(cluster_id) {
@@ -47,12 +50,13 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
 }
 
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-    as_t as_number, bool as_override, bool llgr, int affinity,
+    as_t as_number, bool as_override, int bgp_origin, bool llgr, int affinity,
     uint32_t cluster_id)
     : type(type),
       encoding(encoding),
       as_number(as_number),
       as_override(as_override),
+      bgp_origin(bgp_origin),
       affinity(affinity),
       llgr(llgr),
       cluster_id(cluster_id) {
@@ -63,12 +67,13 @@ RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
 }
 
 RibExportPolicy::RibExportPolicy(BgpProto::BgpPeerType type, Encoding encoding,
-    as_t as_number, bool as_override, bool llgr, IpAddress nexthop,
+    as_t as_number, bool as_override, int bgp_origin, bool llgr, IpAddress nexthop,
     int affinity, uint32_t cluster_id)
     : type(type),
       encoding(BGP),
       as_number(as_number),
       as_override(as_override),
+      bgp_origin(bgp_origin),
       nexthop(nexthop),
       affinity(affinity),
       llgr(llgr),
@@ -93,6 +98,7 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     BOOL_KEY_COMPARE(type, rhs.type);
     BOOL_KEY_COMPARE(as_number, rhs.as_number);
     BOOL_KEY_COMPARE(as_override, rhs.as_override);
+    BOOL_KEY_COMPARE(bgp_origin, rhs.bgp_origin);
     BOOL_KEY_COMPARE(nexthop, rhs.nexthop);
     BOOL_KEY_COMPARE(affinity, rhs.affinity);
     BOOL_KEY_COMPARE(llgr, rhs.llgr);
