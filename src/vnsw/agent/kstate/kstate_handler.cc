@@ -21,23 +21,85 @@ void KInterfaceReq::HandleRequest() const {
     KInterfaceResp *resp = new KInterfaceResp();
     resp->set_context(context());
 
-    InterfaceKState *kstate = new InterfaceKState(resp, context(), req, 
+    InterfaceKState *kstate = new InterfaceKState(resp, context(), req,
                                                   get_if_id());
     kstate->EncodeAndSend(req);
 }
 
 void KRouteReq::HandleRequest() const {
     vr_route_req req;
-    int arr_marker[4] = {0, 0, 0, 0};
-    std::vector<int8_t> marker(arr_marker, arr_marker + sizeof(arr_marker) / sizeof(arr_marker[0]));
+    int prefix_size, family_id;
+    std::string family = get_family();
 
+    if(family == "inet6") {
+        prefix_size = 16;
+        family_id = AF_INET6;
+    } else if(family == "bridge") {
+        prefix_size = 6;
+        family_id = AF_BRIDGE;
+    } else if(family == "inet") {
+        prefix_size = 4;
+        family_id = AF_INET;
+    } else {
+        std::string msg("Allowed options for family are inet, inet6, bridge");
+        ErrResp *resp = new ErrResp();
+        resp->set_resp(msg);
+        resp->set_context(context());
+        resp->Response();
+        return;
+    }
+
+    std::vector<int8_t> marker(prefix_size, 0);
+    if(family_id == AF_BRIDGE) {
+        req.set_rtr_mac(marker);
+    } else {
+        // rtr_prefix needs to be initialized
+        req.set_rtr_prefix(marker);
+        req.set_rtr_marker_plen(0);
+    }
     req.set_rtr_marker(marker);
-    req.set_rtr_marker_plen(0);
-    req.set_rtr_prefix(marker);
     KRouteResp *resp = new KRouteResp();
     resp->set_context(context());
 
-    RouteKState *kstate = new RouteKState(resp, context(), req, get_vrf_id());
+    RouteKState *kstate = new RouteKState(resp, context(), req, get_vrf_id(), family_id, sandesh_op::DUMP, prefix_size);
+    kstate->EncodeAndSend(req);
+}
+
+void KRouteGetReq::HandleRequest() const {
+    vr_route_req req;
+    int family_id, prefix_size;
+    boost::system::error_code ec;
+    IpAddress addr(IpAddress::from_string(get_prefix(), ec));
+
+    if(addr.is_v4()) {
+        family_id = AF_INET;
+        prefix_size = 4;
+        boost::array<unsigned char, 4> bytes = addr.to_v4().to_bytes();
+        std::vector<int8_t> rtr_prefix(bytes.begin(), bytes.end());
+        req.set_rtr_prefix(rtr_prefix);
+    } else if(addr.is_v6()) {
+        family_id = AF_INET6;
+        prefix_size = 16;
+        boost::array<unsigned char, 16> bytes = addr.to_v6().to_bytes();
+        std::vector<int8_t> rtr_prefix(bytes.begin(), bytes.end());
+        req.set_rtr_prefix(rtr_prefix);
+    } else {
+        std::string msg("Allowed options for family are inet, inet6");
+        ErrResp *resp = new ErrResp();
+        resp->set_resp(msg);
+        resp->set_context(context());
+        resp->Response();
+        return;
+    }
+    std::vector<int8_t> marker(prefix_size, 0);
+    // rtr_prefix needs to be initialized
+    req.set_rtr_marker(marker);
+    req.set_rtr_marker_plen(0);
+    req.set_rtr_prefix_len(get_prefix_len());
+    KRouteResp *resp = new KRouteResp();
+    resp->set_context(context());
+
+    RouteKState *kstate = new RouteKState(resp, context(), req, get_vrf_id(), family_id, sandesh_op::GET, 0);
     kstate->EncodeAndSend(req);
 }
 
