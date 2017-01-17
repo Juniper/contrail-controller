@@ -89,7 +89,7 @@ private:
     void DelFabricRoute(MetaDataIp *ip);
 
     Agent *agent_;
-    IndexVector<MetaDataIp> index_table_;
+    IndexVector<MetaDataIp *> index_table_;
     uint16_t start_;
     uint16_t end_;
     DISALLOW_COPY_AND_ASSIGN(MetaDataIpAllocator);

@@ -307,10 +307,13 @@ public:
 
     // Restart parameters
     bool restart_backup_enable() const { return restart_backup_enable_; }
+    void set_restart_backup_enable(bool val) {
+        restart_backup_enable_ = val;
+    }
     uint64_t restart_backup_idle_timeout() const {
         return restart_backup_idle_timeout_;
     }
-    const std::string &restart_backup_dir() const {
+    const std::string& restart_backup_dir() const {
         return restart_backup_dir_;
     }
     uint16_t restart_backup_count() const { return restart_backup_count_; }

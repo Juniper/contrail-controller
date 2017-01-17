@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct  InterfaceIndexResource {
+    1: i16    type;
+    2: string uuid;
+    3: string mac;
+    4: bool policy;
+    5: u16  vlan_tag;
+    6: u64 time_stamp;
+}
+
+struct  VrfMplsResource {
+    1: string name;
+    2: u64 time_stamp;
+}
+
+struct  RouteMplsResource {
+    1: string vrf_name;
+    2: string route_prefix;
+    3: u64 time_stamp;
+}
+
+buffer sandesh InterfaceIndexResourceMapSandesh {
+    1: map<u32, InterfaceIndexResource> index_map;
+    2: u64 time_stamp;
+}
+
+buffer sandesh VrfMplsResourceMapSandesh {
+    1: map<u32, VrfMplsResource> index_map;
+    2: u64 time_stamp;
+}
+
+buffer sandesh RouteMplsResourceMapSandesh {
+    1: map<u32, RouteMplsResource> index_map;
+    2: u64 time_stamp;
+}

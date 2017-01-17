@@ -34,6 +34,9 @@
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_table.h>
+#include <resource_manager/mpls_index.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -103,13 +106,14 @@ void InetInterface::ActivateSimpleGateway() {
                                             agent->pkt_interface_mac());
 
     if (label_ == MplsTable::kInvalidLabel) {
-        // Allocate MPLS Label 
-        label_ = agent->mpls_table()->AllocLabel();
+        ResourceManager::KeyPtr mpls_key(new InterfaceIndexResourceKey
+                                         (agent->resource_manager(), GetUuid(),
+                                          mac_, false, 0, 0));
+        label_ = agent->mpls_table()->AllocLabel(mpls_key);
         // Create MPLS entry pointing to virtual host interface-nh
         MplsLabel::CreateInetInterfaceLabel(agent, label_, name(), false,
                                             InterfaceNHFlags::INET4,
                                             agent->pkt_interface_mac());
-
     }
 
     //There is no policy enabled nexthop created for VGW interface,
@@ -141,6 +145,7 @@ void InetInterface::DeActivateSimpleGateway() {
     InterfaceNH::DeleteInetInterfaceNextHop(name(), agent->pkt_interface_mac());
 
     // Delete MPLS Label
+    agent->mpls_table()->FreeLabel(label_);
     MplsLabel::DeleteReq(agent, label_);
     label_ = MplsTable::kInvalidLabel;
     flow_key_nh_ = NULL;
