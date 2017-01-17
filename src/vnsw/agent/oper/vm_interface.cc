@@ -39,6 +39,9 @@
 #include <oper/global_vrouter.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <oper/qos_config.h>
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_table.h>
+#include <resource_manager/mpls_index.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -2954,7 +2957,11 @@ void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change,
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     if (label_ == MplsTable::kInvalidLabel) {
         if (new_label == MplsTable::kInvalidLabel) {
-            label_ = agent->mpls_table()->AllocLabel();
+            ResourceManager::KeyPtr key
+                (new InterfaceIndexResourceKey(agent->resource_manager(),
+                                               GetUuid(), MacAddress(),
+                                               policy_enabled_, LABEL_TYPE_L3));
+            label_ = agent->mpls_table()->AllocLabel(key);
         } else {
             label_ = new_label;
         }
@@ -2975,6 +2982,7 @@ void VmInterface::DeleteL3MplsLabel() {
     }
 
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    agent->mpls_table()->FreeLabel(label_);
     MplsLabel::Delete(agent, label_);
     label_ = MplsTable::kInvalidLabel;
     UpdateMetaDataIpInfo();
@@ -2986,7 +2994,11 @@ void VmInterface::AllocL2MplsLabel(bool force_update,
     bool new_entry = false;
     if (l2_label_ == MplsTable::kInvalidLabel) {
         Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-        l2_label_ = agent->mpls_table()->AllocLabel();
+        ResourceManager::KeyPtr key
+            (new InterfaceIndexResourceKey(agent->resource_manager(),
+                                           GetUuid(), MacAddress(),
+                                           policy_enabled_, LABEL_TYPE_L2));
+        l2_label_ = agent->mpls_table()->AllocLabel(key);
         new_entry = true;
     }
 
@@ -3004,6 +3016,7 @@ void VmInterface::DeleteL2MplsLabel() {
     }
 
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    agent->mpls_table()->FreeLabel(l2_label_);
     MplsLabel::Delete(agent, l2_label_);
     l2_label_ = MplsTable::kInvalidLabel;
 }
@@ -3018,9 +3031,14 @@ void VmInterface::UpdateL3TunnelId(bool force_update, bool policy_change) {
          * policy is disabled on VMI, the leaked route was still pointing to
          * policy enabled NH */
 
-        /* Fetch new label before we delete the existing label */
+        /* Fetch new label before we delete the existing label so that we dont
+         * get back the same label*/
         Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-        uint32_t new_label = agent->mpls_table()->AllocLabel();
+        ResourceManager::KeyPtr key
+            (new InterfaceIndexResourceKey(agent->resource_manager(),
+                                           GetUuid(), MacAddress(),
+                                           policy_enabled_, LABEL_TYPE_L3));
+        uint32_t new_label = agent->mpls_table()->AllocLabel(key);
         DeleteL3MplsLabel();
         AllocL3MplsLabel(force_update, policy_change, new_label);
     } else {
@@ -4839,10 +4857,23 @@ void VmInterface::AllowedAddressPair::CreateLabelAndNH(Agent *agent,
     //Allocate a new L3 label with proper layer 2
     //rewrite information
     if (label_ == MplsTable::kInvalidLabel) {
-        label_ = agent->mpls_table()->AllocLabel();
+        ResourceManager::KeyPtr key
+            (new InterfaceIndexResourceKey(agent->resource_manager(),
+                                           interface->GetUuid(), mac_,
+                                           interface->policy_enabled(),
+                                           LABEL_TYPE_AAP));
+        label_ = agent->mpls_table()->AllocLabel(key);
     } else if (policy_change) {
         old_label = label_;
-        label_ = agent->mpls_table()->AllocLabel();
+        ResourceManager::KeyPtr alloc_key
+            (new InterfaceIndexResourceKey(agent->resource_manager(),
+                                           interface->GetUuid(), mac_,
+                                           interface->policy_enabled(),
+                                           LABEL_TYPE_AAP));
+        label_ = agent->mpls_table()->AllocLabel(alloc_key);
+        assert(label_ != old_label);
+        // TODO: Can mac_ change for AAP?
+        agent->mpls_table()->FreeLabel(old_label);
         MplsLabel::Delete(interface->agent(), old_label);
     }
 
@@ -4909,8 +4940,12 @@ void VmInterface::AllowedAddressPair::DeActivate(VmInterface *interface) const {
     if (installed_ == false)
         return;
     interface->DeleteRoute(vrf_, addr_, plen_);
-    MplsLabel::Delete(interface->agent(), label_);
-    label_ = MplsTable::kInvalidLabel;
+    Agent *agent = interface->agent();
+    if (label_ != MplsTable::kInvalidLabel) {
+        agent->mpls_table()->FreeLabel(label_);
+        MplsLabel::Delete(interface->agent(), label_);
+        label_ = MplsTable::kInvalidLabel;
+    }
     policy_enabled_nh_ = NULL;
     policy_disabled_nh_ = NULL;
     installed_ = false;
@@ -5054,7 +5089,12 @@ void VmInterface::ServiceVlan::Activate(VmInterface *interface,
 
     if (label_ == MplsTable::kInvalidLabel) {
         VlanNH::Create(interface->GetUuid(), tag_, vrf_name_, smac_, dmac_);
-        label_ = table->agent()->mpls_table()->AllocLabel();
+        Agent *agent = interface->agent();
+        ResourceManager::KeyPtr key
+            (new InterfaceIndexResourceKey(agent->resource_manager(),
+                                           interface->GetUuid(), MacAddress(),
+                                           false, LABEL_TYPE_SERVICE_VLAN));
+        label_ = table->agent()->mpls_table()->AllocLabel(key);
         MplsLabel::CreateVlanNh(table->agent(), label_,
                                 interface->GetUuid(), tag_);
         VrfAssignTable::CreateVlan(interface->GetUuid(), vrf_name_, tag_);
@@ -5100,6 +5140,7 @@ void VmInterface::ServiceVlan::DeActivate(VmInterface *interface) const {
         interface->ServiceVlanRouteDel(*this);
         Agent *agent =
             static_cast<InterfaceTable *>(interface->get_table())->agent();
+        agent->mpls_table()->FreeLabel(label_);
         MplsLabel::Delete(agent, label_);
         label_ = MplsTable::kInvalidLabel;
         VlanNH::Delete(interface->GetUuid(), tag_);
