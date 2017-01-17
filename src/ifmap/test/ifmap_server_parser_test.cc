@@ -1426,7 +1426,7 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
 
     // Using datafile from test13_p1
     string message =
-        FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
+        FileRead("controller/src/ifmap/testdata/server_parser_test14_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1551,7 +1551,7 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
 
     // Using datafile from test13_p1
     string message = 
-        FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
+        FileRead("controller/src/ifmap/testdata/server_parser_test15_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1680,7 +1680,7 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
 
     // Using datafile from test13_p1
     string message = 
-        FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
+        FileRead("controller/src/ifmap/testdata/server_parser_test16_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
