@@ -617,4 +617,7 @@ void VerifyForwardingClass(Agent *agent, struct TestForwardingClassData *data,
 void VerifyQosConfig(Agent *agent, struct TestQosConfigData *data);
 void AddQosConfig(struct TestQosConfigData &data);
 void AddQosQueue(const char *name, uint32_t id, uint32_t qos_queue_id);
+uint32_t AllocLabel(const char *name);
+void FreeLabel(uint32_t label);
+
 #endif // vnsw_agent_test_cmn_util_h

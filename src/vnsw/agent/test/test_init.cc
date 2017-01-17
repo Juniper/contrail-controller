@@ -65,6 +65,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     param->set_agent_stats_interval(agent_stats_interval);
     param->set_flow_stats_interval(flow_stats_interval);
     param->set_vrouter_stats_interval(vrouter_stats_interval);
+    param->set_restart_backup_enable(false);
 
     // Initialize the agent-init control class
     int introspect_port = 0;
@@ -133,6 +134,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     init->set_agent_param(param);
     init->ProcessOptions(init_file, "test");
 
+    param->set_restart_backup_enable(false);
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
     init->set_services_enable(true);

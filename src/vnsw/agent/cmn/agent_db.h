@@ -14,6 +14,7 @@ class AgentDBState;
 class AgentSandesh;
 class AgentSandeshArguments;
 class AgentSandesh;
+class ResourceManager;
 typedef class boost::shared_ptr<AgentSandesh> AgentSandeshPtr;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -130,6 +131,8 @@ public:
     void ClearRefState() const;
     bool IsActive() const;
 
+    virtual void AllocateResources(ResourceManager *resource_manager);
+    virtual void FreeResources(ResourceManager *resource_manager);
     virtual void PostAdd();
     virtual bool DBEntrySandesh(Sandesh *resp, std::string &name) const = 0;
 private:

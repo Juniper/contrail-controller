@@ -2214,7 +2214,7 @@ TEST_F(RouteTest, EcmpTest_1) {
 
     const Agent *agent = Agent::GetInstance();
     int remote_server_ip = 0x0A0A0A0A;
-    int label = agent->mpls_table()->AllocLabel();
+    int label = AllocLabel("ecmp_test_1");
     int nh_count = 3;
 
 
@@ -2288,6 +2288,7 @@ TEST_F(RouteTest, EcmpTest_1) {
                   new ControllerVmRoute(peer));
     MplsLabel::DeleteReq(agent, label);
     client->WaitForIdle(5);
+    FreeLabel(label);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
     CompositeNHKey comp_key(Composite::ECMP, true, comp_nh_list, vrf_name_);
     EXPECT_FALSE(FindNH(&comp_key));
