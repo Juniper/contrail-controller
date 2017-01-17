@@ -28,6 +28,7 @@ REACTION_MAP = {
     },
     "loadbalancer": {
         'self': [],
+        'virtual_machine_interface': [],
         'loadbalancer_listener': [],
     },
     "service_instance": {
@@ -84,7 +85,7 @@ REACTION_MAP = {
     "virtual_machine_interface": {
         'self': ['interface_route_table', 'virtual_machine',
                  'port_tuple', 'security_group',
-                 'instance_ip', 'service_health_check'],
+                 'instance_ip', 'service_health_check', 'loadbalancer'],
         'interface_route_table': [],
         'service_health_check': [],
         'security_group': [],
