@@ -158,6 +158,9 @@ void VrouterUveEntryBase::VmWalkDone(DBTableBase *base, StringVectorPtr list) {
     VrouterAgent vrouter_agent;
     vrouter_agent.set_name(agent_->agent_name());
     vrouter_agent.set_virtual_machine_list(*(list.get()));
+    VrouterAgentObjectCount vm_count;
+    vm_count.set_active(list.get()->size());
+    vrouter_agent.set_vm_count(vm_count);
     DispatchVrouterMsg(vrouter_agent);
     vm_walk_id_ = DBTableWalker::kInvalidWalkerId;
 
@@ -306,8 +309,9 @@ void VrouterUveEntryBase::InterfaceWalkDone(DBTableBase *base,
         prev_vrouter_.set_unmanaged_if_list(*(unmanaged_list.get()));
     }
 
-    vrouter_agent.set_total_interface_count((if_list.get()->size() +
-                                             nova_if_list.get()->size()));
+    VrouterAgentObjectCount vmi_count;
+    vmi_count.set_active((if_list.get()->size() + nova_if_list.get()->size()));
+    vrouter_agent.set_vmi_count(vmi_count);
     vrouter_agent.set_down_interface_count((err_if_list.get()->size() +
                                             nova_if_list.get()->size()));
     DispatchVrouterMsg(vrouter_agent);
@@ -317,10 +321,6 @@ void VrouterUveEntryBase::InterfaceWalkDone(DBTableBase *base,
     prev_vrouter_.set_interface_list(*(if_list.get()));
     prev_vrouter_.set_error_intf_list(*(err_if_list.get()));
     prev_vrouter_.set_no_config_intf_list(*(nova_if_list.get()));
-    prev_vrouter_.set_total_interface_count
-        (vrouter_agent.get_total_interface_count());
-    prev_vrouter_.set_down_interface_count
-        (vrouter_agent.get_down_interface_count());
 
     /* Restart the timer after we are done with the walk */
     StartTimer();

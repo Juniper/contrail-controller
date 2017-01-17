@@ -88,6 +88,13 @@ struct AgentInterface {
 }
 
 /**
+ * Sandesh definition for count of Agent objects
+ */
+struct VrouterAgentObjectCount {
+    1: u16 active
+}
+
+/**
  * Structure definition for vrouter-agent information
  */
 struct VrouterAgent {
@@ -158,7 +165,8 @@ struct VrouterAgent {
    /** Count of total number of virtual-machine-interfaces that are part of
     * this vrouter
     */
-   31: optional u16 total_interface_count;
+   /** @display_name:Vrouter Agent VMI count */
+   31: optional VrouterAgentObjectCount vmi_count (tags="")
    /** Count of total number of virtual-machine-interfaces that are part of
     * this vrouter and that are in INACTIVE state
     */
@@ -218,6 +226,8 @@ struct VrouterAgent {
    51: optional string platform;
    /** Maximum entries supported in each type of object*/
    52: optional agent.VrouterObjectLimits vr_limits;
+   /** @display_name:Vrouter Agent VM count */
+   53: optional VrouterAgentObjectCount vm_count (tags="")
 }
 
 /**
