@@ -15,6 +15,7 @@
 #include "viz_constants.h"
 
 #include "options.h"
+#include <boost/functional/hash.hpp>
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -30,6 +31,16 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
 
     Process(argc, argv, cmdline_options);
     return true;
+}
+
+uint32_t Options::GenerateHash(std::vector<std::string> &list) {
+    std::string concat_servers;
+    std::vector<std::string>::iterator iter;
+    for (iter = list.begin(); iter != list.end(); iter++) { 
+        concat_servers += *iter;
+    }
+    boost::hash<std::string> string_hash;
+    return(string_hash(concat_servers));
 }
 
 // Initialize query-engine's command line option tags with appropriate default
@@ -230,6 +241,12 @@ void Options::Process(int argc, char *argv[],
                                   "DEFAULT.cassandra_server_list");
     GetOptValue< vector<string> >(var_map, collector_server_list_,
                                   "DEFAULT.collectors");
+    // Randomize Collector List
+    collector_chksum_ = GenerateHash(collector_server_list_);
+    randomized_collector_server_list_ = collector_server_list_;
+    std::random_shuffle(randomized_collector_server_list_.begin(),
+                        randomized_collector_server_list_.end());
+
     GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
     GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
     GetOptValue<uint16_t>(var_map, http_server_port_,
@@ -257,4 +274,32 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, redis_password_, "REDIS.password");
     GetOptValue<string>(var_map, cassandra_user_, "CASSANDRA.cassandra_user");
     GetOptValue<string>(var_map, cassandra_password_, "CASSANDRA.cassandra_password");
+}
+
+void Options::ParseReConfig() {
+    // ReParse the filtered config params
+    opt::variables_map var_map;
+    ifstream config_file_in;
+    for(std::vector<int>::size_type i = 0; i != config_file_.size(); i++) {
+        config_file_in.open(config_file_[i].c_str());
+        if (config_file_in.good()) {
+           opt::store(opt::parse_config_file(config_file_in, config_file_options_),
+                   var_map);
+        }
+        config_file_in.close();
+    }
+
+    collector_server_list_.clear();
+    GetOptValue< vector<string> >(var_map, collector_server_list_,
+                                  "DEFAULT.collectors");
+    uint32_t new_chksum = GenerateHash(collector_server_list_);
+    if (collector_chksum_ != new_chksum) {
+        collector_chksum_ = new_chksum;
+        randomized_collector_server_list_.clear();
+        randomized_collector_server_list_ = collector_server_list_;
+        std::random_shuffle(randomized_collector_server_list_.begin(),
+                            randomized_collector_server_list_.end());
+        // ReConnect Collectors
+        Sandesh::ReConfigCollectors(randomized_collector_server_list_);
+    }
 }
