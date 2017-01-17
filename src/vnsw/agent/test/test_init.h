@@ -613,7 +613,7 @@ TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false,
                      int flow_stats_interval = AgentParam::kFlowStatsInterval,
                      bool asio = true, bool ksync_sync_mode = true,
                      int vrouter_stats_interval =
-                     AgentParam::kVrouterStatsInterval);
+                     AgentParam::kVrouterStatsInterval, bool backup_enable = false);
 
 TestClient *VGwInit(const string &init_file, bool ksync_init);
 void TestShutdown();

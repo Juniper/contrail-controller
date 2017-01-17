@@ -16,9 +16,9 @@ class IndexVector {
 public:
     static const size_t kGrowSize = 32;
 
-    typedef std::vector<EntryType *> EntryTable;
+    typedef std::vector<EntryType> EntryTable;
 
-    IndexVector() { }
+    IndexVector() {  }
     ~IndexVector() {
         // Make sure the bitmap is empty
         if (bitmap_.count() != bitmap_.size()) {
@@ -29,15 +29,15 @@ public:
     }
 
     // Get entry at an index
-    EntryType *At(size_t index) const {
+    EntryType At(size_t index) const {
         if (index >= bitmap_.size()) {
-            return NULL;
+            return EntryType();
         }
         return entries_[index];
     }
 
     // Allocate a new index and store entry in vector at allocated index
-    size_t Insert(EntryType *entry) {
+    size_t Insert(EntryType entry) {
         size_t index = bitmap_.find_first();
         if (index == bitmap_.npos) {
             size_t size = bitmap_.size();
@@ -51,7 +51,7 @@ public:
         return index;
     }
 
-    size_t InsertAtIndex(uint32_t index, EntryType *entry) {
+    size_t InsertAtIndex(uint32_t index, EntryType entry) {
         size_t size = bitmap_.size();
         if (size == 0 || size <= index) {
             bitmap_.resize(index + kGrowSize, 1);
@@ -69,7 +69,7 @@ public:
         return index;
     }
 
-    void Update(size_t index, EntryType *entry) {
+    void Update(size_t index, EntryType entry) {
         assert(index < bitmap_.size());
         assert(bitmap_[index] == 0);
         entries_[index] = entry;
@@ -79,14 +79,13 @@ public:
         assert(index < bitmap_.size());
         assert(bitmap_[index] == 0);
         bitmap_.set(index);
-        entries_[index] = NULL;
+        entries_[index] = EntryType();
     }
 
 private:
     typedef boost::dynamic_bitset<> Bitmap;
     Bitmap bitmap_;
     EntryTable entries_;
-
     DISALLOW_COPY_AND_ASSIGN(IndexVector);
 };
 

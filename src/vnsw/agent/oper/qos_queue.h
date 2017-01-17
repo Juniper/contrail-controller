@@ -111,7 +111,7 @@ public:
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
 private:
-    IndexVector<QosQueue> index_table_;
+    IndexVector<QosQueue *> index_table_;
     DISALLOW_COPY_AND_ASSIGN(QosQueueTable);
 };
 #endif
