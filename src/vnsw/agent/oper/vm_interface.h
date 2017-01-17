@@ -93,6 +93,17 @@ public:
         SRIOV
     };
 
+    // Interface uses different type of labels. Enumeration of different
+    // types is given below
+    enum LabelType {
+        LABEL_TYPE_INVALID = 0,
+        LABEL_TYPE_L2,
+        LABEL_TYPE_L3,
+        LABEL_TYPE_AAP,
+        LABEL_TYPE_SERVICE_VLAN,
+        LABEL_TYPE_MAX
+    };
+
     struct ListEntry {
         ListEntry() : installed_(false), del_pending_(false) { }
         ListEntry(bool installed, bool del_pending) :

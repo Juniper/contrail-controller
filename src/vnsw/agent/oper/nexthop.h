@@ -1545,7 +1545,7 @@ private:
 
     NextHop *discard_nh_;
     NextHop *l2_receive_nh_;
-    IndexVector<NextHop> index_table_;
+    IndexVector<NextHop *> index_table_;
     static NextHopTable *nexthop_table_;
     DISALLOW_COPY_AND_ASSIGN(NextHopTable);
 };

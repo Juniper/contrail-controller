@@ -22,6 +22,7 @@
 #include <oper/agent_profile.h>
 #include <filter/acl.h>
 #include <controller/controller_init.h>
+#include <resource_manager/resource_manager.h>
 
 #include "agent_init.h"
 
@@ -37,6 +38,7 @@ AgentInit::~AgentInit() {
     controller_.reset();
     cfg_.reset();
     oper_.reset();
+    resource_manager_.reset();
     agent_->db()->ClearFactoryRegistry();
     agent_.reset();
 
@@ -155,9 +157,8 @@ bool AgentInit::InitBase() {
 
     bool ret = Init();
     agent_->set_init_done(true);
-    agent_->SetResourceManagerReady();
     ConnectToControllerBase();
-
+    resource_manager_.get()->Audit();
     return ret;
 }
 
@@ -200,6 +201,8 @@ void AgentInit::CreateModulesBase() {
     stats_.reset(new AgentStats(agent()));
     agent()->set_stats(stats_.get());
 
+    resource_manager_.reset(new ResourceManager(agent()));
+    agent()->set_resource_manager(resource_manager_.get());
     CreateModules();
 }
 
@@ -234,6 +237,10 @@ void AgentInit::InitModulesBase() {
 
     if (oper_.get()) {
         oper_->Init();
+    }
+
+    if (resource_manager_.get()) {
+        resource_manager_->Init();
     }
 
     InitModules();

@@ -19,14 +19,14 @@ protected:
 };
 
 TEST_F(MplsTest, agent_dpdk_mode) {
-    uint16_t label1 = agent_->mpls_table()->AllocLabel();
-    uint16_t label2 = agent_->mpls_table()->AllocLabel();
+    uint16_t label1 = AllocLabel("test_dpdk_1");
+    uint16_t label2 = AllocLabel("test_dpdk_2");
 
     EXPECT_TRUE(label1 == MplsTable::kStartLabel);
     EXPECT_TRUE(label2 == MplsTable::kStartLabel + 1);
 
-    agent_->mpls_table()->FreeLabel(label1);
-    agent_->mpls_table()->FreeLabel(label2);
+    FreeLabel(label1);
+    FreeLabel(label2);
 }
 
 int main(int argc, char *argv[]) {

@@ -196,6 +196,6 @@ private:
     bool delete_short_flow_;
     //Protocol based array for minimal tree comparision
     FlowStatsCollectorObject* protocol_list_[256];
-    IndexVector<FlowStatsCollector> instance_table_;
+    IndexVector<FlowStatsCollector *> instance_table_;
 };
 #endif //vnsw_agent_flow_stats_manager_h

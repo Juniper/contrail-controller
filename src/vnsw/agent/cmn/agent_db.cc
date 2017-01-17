@@ -28,6 +28,12 @@ bool AgentDBEntry::IsActive() const {
     return !IsDeleted();
 }
 
+void AgentDBEntry::AllocateResources(ResourceManager *resource_manager) {
+}
+
+void AgentDBEntry::FreeResources(ResourceManager *resource_manager) {
+}
+
 void AgentDBEntry::PostAdd() {
 }
 
@@ -96,15 +102,25 @@ AgentDBEntry *AgentDBTable::Find(const DBRequestKey *key) {
 
 void AgentDBTablePartition::Add(DBEntry *entry) {
     entry->set_table_partition(static_cast<DBTablePartBase *>(this));
+    Agent *agent = (static_cast<AgentDBTable *>(parent()))->agent();
+    if (agent) {
+        (static_cast<AgentDBEntry *>(entry))->AllocateResources
+            (agent->resource_manager());
+    }
     DBTablePartition::Add(entry);
     static_cast<AgentDBEntry *>(entry)->PostAdd();
 }
 
 void AgentDBTablePartition::Remove(DBEntryBase *entry) {
-    AgentDBEntry *agent = static_cast<AgentDBEntry *>(entry);
-    if (agent->GetRefCount() != 0) {
-        agent->ClearOnRemoveQ();
+    AgentDBEntry *agent_dbentry = static_cast<AgentDBEntry *>(entry);
+    if (agent_dbentry->GetRefCount() != 0) {
+        agent_dbentry->ClearOnRemoveQ();
         return;
+    }
+    Agent *agent = (static_cast<AgentDBTable *>(parent()))->agent();
+    if (agent) {
+        (static_cast<AgentDBEntry *>(entry))->FreeResources
+            (agent->resource_manager());
     }
     DBTablePartition::Remove(entry);
 }
