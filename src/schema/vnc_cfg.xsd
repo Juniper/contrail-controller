@@ -533,11 +533,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="FloatingIpPoolSubnetType">
+    <xsd:element name="subnet" type="SubnetType" required='optional'
+         description='Block of ip addresses for floating ip allocation. Not implemented.'/>
+    <xsd:element name="subnet-uuid" type="xsd:string" required='optional'
+         description='UUID of the subnet to be used for floating ip allocation'/>
+</xsd:complexType>
+
 <xsd:complexType name="FloatingIpPoolType">
-    <xsd:all>
-        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded" required='optional'
-             description='Block of ip addresses for floating ip allocation. Currently not supported'/>
-    </xsd:all>
+    <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded" required='optional'
+         description='Deprecated. Do not use.'/>
+    <xsd:element name="subnet-list" type="FloatingIpPoolSubnetType" maxOccurs="unbounded"
+         required="optional" description="List of subnets to be used for floating ip pool allocation"/>
 </xsd:complexType>
 
 <xsd:complexType name="SubnetListType">
