@@ -1841,7 +1841,7 @@ class VncApiServer(object):
                 'token_info': None,
                 'is_cloud_admin_role': False,
                 'is_global_read_only_role': False,
-                'permissions': PERMS_RWX
+                'permissions': 'RWX'
             }
             return result
 
@@ -3523,8 +3523,9 @@ class VncApiServer(object):
         self._args.multi_tenancy = multi_tenancy
     # end
 
+    # check if token validatation needed
     def is_multi_tenancy_set(self):
-        return self._args.multi_tenancy or self.aaa_mode != 'no-auth'
+        return self.aaa_mode != 'no-auth'
 
     def is_rbac_enabled(self):
         return self.aaa_mode == 'rbac'
