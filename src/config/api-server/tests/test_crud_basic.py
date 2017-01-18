@@ -50,6 +50,20 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 class TestFixtures(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestFixtures, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestFixtures, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def test_fixture_ref(self):
         proj_fixt = self.useFixture(
             ProjectTestFixtureGen(self._vnc_lib, project_name='admin'))
@@ -150,6 +164,20 @@ class TestFixtures(test_case.ApiServerTestCase):
 # end class TestFixtures
 
 class TestListUpdate(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestListUpdate, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestListUpdate, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def test_policy_create_w_rules(self):
         proj_fixt = self.useFixture(ProjectTestFixtureGen(self._vnc_lib))
 
@@ -233,6 +261,20 @@ class TestListUpdate(test_case.ApiServerTestCase):
 # end class TestListUpdate
 
 class TestCrud(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestCrud, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestCrud, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def test_create_using_lib_api(self):
         vn_obj = VirtualNetwork('vn-%s' %(self.id()))
         self._vnc_lib.virtual_network_create(vn_obj)
@@ -362,6 +404,20 @@ class TestCrud(test_case.ApiServerTestCase):
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestVncCfgApiServer, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestVncCfgApiServer, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def test_fq_name_to_id_http_post(self):
         test_obj = self._create_test_object()
         test_uuid = self._vnc_lib.fq_name_to_id('virtual-network', test_obj.get_fq_name())
@@ -1868,10 +1924,19 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
     STALE_LOCK_SECS = '0.2'
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         super(TestStaleLockRemoval, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'stale_lock_seconds',
             cls.STALE_LOCK_SECS)])
     # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestStaleLockRemoval, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
 
     def test_stale_fq_name_lock_removed_on_partial_create(self):
         # 1. partially create an object i.e zk done, cass
@@ -1966,8 +2031,18 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
     """ Tests to verify the max_requests config parameter of api-server."""
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         super(TestVncCfgApiServerRequests, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'max_requests', 10)])
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestVncCfgApiServerRequests, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
 
     def api_requests(self, orig_vn_read, count, vn_name):
         api_server = self._server_info['api_server']
@@ -2051,8 +2126,12 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
 
 class TestLocalAuth(test_case.ApiServerTestCase):
     _rbac_role = 'admin'
+
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         from keystonemiddleware import auth_token
         class FakeAuthProtocol(object):
             _test_case = cls
@@ -2081,6 +2160,12 @@ class TestLocalAuth(test_case.ApiServerTestCase):
                 (auth_token, 'AuthProtocol', FakeAuthProtocol),
                 ])
     # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestLocalAuth, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
 
     def test_local_auth_on_8095(self):
         from requests.auth import HTTPBasicAuth
@@ -2249,6 +2334,9 @@ class TestExtensionApi(test_case.ApiServerTestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         test_common.setup_extra_flexmock(
             [(stevedore.extension.ExtensionManager, '__new__',
               FakeExtensionManager)])
@@ -2265,6 +2353,7 @@ class TestExtensionApi(test_case.ApiServerTestCase):
         FakeExtensionManager._entry_pt_to_classes['vnc_cfg_api.resourceApi'] = \
             None
         FakeExtensionManager._ext_objs = []
+        logger.removeHandler(cls.console_handler)
         super(TestExtensionApi, cls).tearDownClass()
     # end tearDownClass
 
@@ -2353,6 +2442,20 @@ class TestExtensionApi(test_case.ApiServerTestCase):
 
 
 class TestPropertyWithList(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestPropertyWithList, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestPropertyWithList, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def assert_kvpos(self, rd_ff_proto, idx, k, v, pos):
         self.assertEqual(rd_ff_proto[idx][0]['protocol'], k)
         self.assertEqual(rd_ff_proto[idx][0]['port'], v)
@@ -2798,6 +2901,20 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
         self.assertEqual(rd_bindings[idx][0]['value'], v)
         self.assertEqual(rd_bindings[idx][1], pos)
 
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestPropertyWithMap, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestPropertyWithMap, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def test_set_in_object(self):
         vmi_obj = VirtualMachineInterface('vmi-%s' %(self.id()),
             parent_obj=Project())
@@ -2912,6 +3029,20 @@ class TestPropertyWithMap(test_case.ApiServerTestCase):
 
 
 class TestDBAudit(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestDBAudit, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestDBAudit, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def setUp(self):
         super(TestDBAudit, self).setUp()
         self._args = '--ifmap-servers %s:%s' % (self._api_server_ip,
@@ -3255,6 +3386,20 @@ class TestDBAudit(test_case.ApiServerTestCase):
 # end class TestDBAudit
 
 class TestBulk(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestBulk, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestBulk, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def test_list_bulk_collection(self):
         obj_count = self._vnc_lib.POST_FOR_LIST_THRESHOLD + 1
         vn_uuids = []
@@ -3387,6 +3532,20 @@ class TestBulk(test_case.ApiServerTestCase):
 
 
 class TestCacheWithMetadata(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestCacheWithMetadata, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestCacheWithMetadata, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def setUp(self):
         self.uuid_cf = test_common.CassandraCFs.get_cf(
             'config_db_uuid', 'obj_uuid_table')
@@ -3571,10 +3730,19 @@ class TestCacheWithMetadata(test_case.ApiServerTestCase):
 class TestCacheWithMetadataEviction(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         return super(TestCacheWithMetadataEviction, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'object_cache_entries',
             '2')])
     # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestCacheWithMetadataEviction, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
 
     def test_evict_on_full(self):
         vn1_obj = vnc_api.VirtualNetwork('vn-1-%s' %(self.id()))
@@ -3613,10 +3781,19 @@ class TestCacheWithMetadataEviction(test_case.ApiServerTestCase):
 class TestCacheWithMetadataExcludeTypes(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         return super(TestCacheWithMetadataExcludeTypes, cls).setUpClass(
             extra_config_knobs=[('DEFAULTS', 'object_cache_exclude_types',
             'project, network-ipam')])
     # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestCacheWithMetadataExcludeTypes, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
 
     def test_exclude_types_not_cached(self):
         # verify not cached for configured types
@@ -3642,6 +3819,20 @@ class TestCacheWithMetadataExcludeTypes(test_case.ApiServerTestCase):
 # end class TestCacheWithMetadataExcludeTypes
 
 class TestRefValidation(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestRefValidation, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRefValidation, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
     def test_refs_validation_with_expected_error(self):
         obj = VirtualNetwork('validate-create-error')
         body_dict = {'virtual-network':
@@ -3711,6 +3902,20 @@ class TestVncApiStats(test_case.ApiServerTestCase):
     def _check_sendwith(self, sandesh, stats, *args):
         self.assertEqual(stats.response_code, 409)
         self.assertEqual(stats.obj_type, 'abc')
+
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestVncApiStats, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestVncApiStats, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
 
     def test_response_code_on_exception(self):
         from cfgm_common.vnc_api_stats import VncApiStatistics

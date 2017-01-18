@@ -162,12 +162,20 @@ class TestRbacMtDisabled(test_case.ApiServerTestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
             ('DEFAULTS', 'multi_tenancy', False),
         ]
         super(TestRbacMtDisabled, cls).setUpClass(extra_config_knobs=extra_config_knobs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRbacMtDisabled, cls).tearDownClass(*args, **kwargs)
 
     def setUp(self):
         super(TestRbacMtDisabled, self).setUp()
@@ -191,12 +199,20 @@ class TestRbacMtEnabled(test_case.ApiServerTestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
             ('DEFAULTS', 'multi_tenancy', True),
         ]
         super(TestRbacMtEnabled, cls).setUpClass(extra_config_knobs=extra_config_knobs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRbacMtEnabled, cls).tearDownClass(*args, **kwargs)
 
     def setUp(self):
         super(TestRbacMtEnabled, self).setUp()
@@ -220,11 +236,19 @@ class TestRbacAaaModeRbac(test_case.ApiServerTestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
         ]
         super(TestRbacAaaModeRbac, cls).setUpClass(extra_config_knobs=extra_config_knobs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRbacAaaModeRbac, cls).tearDownClass(*args, **kwargs)
 
     def setUp(self):
         super(TestRbacAaaModeRbac, self).setUp()
@@ -247,11 +271,19 @@ class TestRbacAaaModeAdminOnly(test_case.ApiServerTestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'cloud-admin'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
         ]
         super(TestRbacAaaModeAdminOnly, cls).setUpClass(extra_config_knobs=extra_config_knobs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRbacAaaModeAdminOnly, cls).tearDownClass(*args, **kwargs)
 
     def setUp(self):
         super(TestRbacAaaModeAdminOnly, self).setUp()
@@ -274,11 +306,19 @@ class TestRbacAaaModeNoAuth(test_case.ApiServerTestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'no-auth'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
         ]
         super(TestRbacAaaModeNoAuth, cls).setUpClass(extra_config_knobs=extra_config_knobs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRbacAaaModeNoAuth, cls).tearDownClass(*args, **kwargs)
 
     def setUp(self):
         super(TestRbacAaaModeNoAuth, self).setUp()
@@ -300,11 +340,19 @@ class TestRbacAaaModeInvalid(test_case.ApiServerTestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'invalid-value'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
         ]
         super(TestRbacAaaModeInvalid, cls).setUpClass(extra_config_knobs=extra_config_knobs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRbacAaaModeInvalid, cls).tearDownClass(*args, **kwargs)
 
     def setUp(self):
         super(TestRbacAaaModeInvalid, self).setUp()
@@ -326,10 +374,18 @@ class TestRbac(test_case.ApiServerTestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
         ]
         super(TestRbac, cls).setUpClass(extra_config_knobs=extra_config_knobs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRbac, cls).tearDownClass(*args, **kwargs)
 
     def setUp(self):
         super(TestRbac, self).setUp()

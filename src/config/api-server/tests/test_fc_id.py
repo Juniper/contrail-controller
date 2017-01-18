@@ -38,11 +38,17 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 class TestForwardingClassId(test_case.ApiServerTestCase):
-    def __init__(self, *args, **kwargs):
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
-        logger.addHandler(ch)
-        super(TestForwardingClassId, self).__init__(*args, **kwargs)
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestForwardingClassId, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestForwardingClassId, cls).tearDownClass(*args, **kwargs)
 
     def test_requested_fc_id(self):
         fc1 = ForwardingClass(name = "fc1",

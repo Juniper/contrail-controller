@@ -36,6 +36,18 @@ class WrongValueException(Exception):
 
 
 class TestIfmapKombuClient(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestIfmapKombuClient, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestIfmapKombuClient, cls).tearDownClass(*args, **kwargs)
+
     def setUp(self):
         self.mock_connect = flexmock(operational = True,
             _info = lambda: "",

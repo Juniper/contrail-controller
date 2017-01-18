@@ -40,11 +40,17 @@ logger.setLevel(logging.DEBUG)
 
 
 class TestIpAlloc(test_case.ApiServerTestCase):
-    def __init__(self, *args, **kwargs):
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.DEBUG)
-        logger.addHandler(ch)
-        super(TestIpAlloc, self).__init__(*args, **kwargs)
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestIpAlloc, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestIpAlloc, cls).tearDownClass(*args, **kwargs)
 
     def test_subnet_overlap(self):
         project = Project('v4-proj-%s' %(self.id()), Domain())
