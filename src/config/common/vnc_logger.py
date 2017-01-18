@@ -121,7 +121,8 @@ class ConfigServiceLogger(object):
             '%s_context' % self.context, int(self._args.http_server_port),
             ['cfgm_common', '%s.sandesh' % self.module_pkg], self.discovery,
             logger_class=self._args.logger_class,
-            logger_config_file=self._args.logging_conf)
+            logger_config_file=self._args.logging_conf,
+            config=self._args.sandesh_config)
 
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,

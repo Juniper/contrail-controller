@@ -41,6 +41,7 @@ from pysandesh.connection_info import ConnectionState
 class ConfigEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
                  discovery_port, collector_addr,
+                 sandesh_config,
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
         self.node_type = "contrail-config"
@@ -63,7 +64,8 @@ class ConfigEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8100, ['nodemgr.common.sandesh'], _disc)
+            self.module_id, 8100, ['nodemgr.common.sandesh'], _disc,
+            config=sandesh_config)
         sandesh_global.set_logging_params(enable_local_log=True)
         ConnectionState.init(sandesh_global, socket.gethostname(),
 		self.module_id, self.instance_id,

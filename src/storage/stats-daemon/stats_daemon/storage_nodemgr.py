@@ -846,11 +846,20 @@ def parse_args(args_str):
         'log_file': Sandesh._DEFAULT_LOG_FILE,
         #'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
+    sandesh_opts = {
+        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'certfile': '/etc/contrail/ssl/certs/server.pem',
+        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_ssl_enable': False
+        'introspect_ssl_enable': False
+    }
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
         config.read([args.conf_file])
         defaults.update(dict(config.items("DEFAULTS")))
+        if 'SANDESH' in config.sections():
+            sandesh_opts.update(dict(config.items('SANDESH')))
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -863,6 +872,7 @@ def parse_args(args_str):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
+    defaults.update(sandesh_opts)
     parser.set_defaults(**defaults)
 
     parser.add_argument("--disc_server_ip",
@@ -881,6 +891,16 @@ def parse_args(args_str):
                         help="Filename for the logs to be written to")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
                         help="Sandesh send rate limit in messages/sec")
+    parser.add_argument("--keyfile",
+                        help="Sandesh ssl private key")
+    parser.add_argument("--certfile",
+                        help="Sandesh ssl certificate")
+    parser.add_argument("--ca_cert",
+                        help="Sandesh CA ssl certificate")
+    parser.add_argument("--sandesh_ssl_enable", action="store_true",
+                        help="Enable ssl for sandesh connection")
+    parser.add_argument("--introspect_ssl_enable", action="store_true",
+                        help="Enable ssl for introspect connection")
 
     args = parser.parse_args(remaining_argv)
     return args
@@ -913,6 +933,8 @@ def main(args_str=None):
         #if args.sandesh_send_rate_limit is not None:
         #    SandeshSystem.set_sandesh_send_rate_limit( \
         #        args.sandesh_send_rate_limit)
+        sandesh_config = SandeshConfig(args.keyfile, args.certfile,
+            args.ca_cert, args.sandesh_ssl_enable, args.introspect_ssl_enable)
         sandesh_global.init_generator(
             module_name,
             socket.gethostname(),
@@ -922,7 +944,8 @@ def main(args_str=None):
             module_name,
             HttpPortStorageStatsmgr,
             ['stats_daemon.sandesh.storage'],
-            _disc)
+            _disc,
+            config=sandesh_config)
 
         sandesh_global.set_logging_params(
             enable_local_log=args.log_local,

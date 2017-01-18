@@ -286,6 +286,8 @@ public:
     }
     uint32_t services_queue_limit() { return services_queue_limit_; }
 
+    const SandeshConfig &sandesh_config() const { return sandesh_config_; }
+
     uint16_t flow_thread_count() const { return flow_thread_count_; }
     void set_flow_thread_count(uint16_t count) { flow_thread_count_ = count; }
 
@@ -422,6 +424,7 @@ private:
     void ParseNexthopServer();
     void ParsePlatform();
     void ParseServices();
+    void ParseSandesh();
     void ParseQueue();
     void ParseRestart();
     void set_agent_mode(const std::string &mode);
@@ -460,6 +463,8 @@ private:
     void ParsePlatformArguments
         (const boost::program_options::variables_map &v);
     void ParseServicesArguments
+        (const boost::program_options::variables_map &v);
+    void ParseSandeshArguments
         (const boost::program_options::variables_map &v);
     void ParseRestartArguments
         (const boost::program_options::variables_map &v);
@@ -582,6 +587,9 @@ private:
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;
     uint32_t services_queue_limit_;
+
+    // Sandesh config options
+    SandeshConfig sandesh_config_;
 
     // Agent config backup options
     bool restart_backup_enable_;

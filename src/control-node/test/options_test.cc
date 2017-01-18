@@ -84,6 +84,14 @@ TEST_F(OptionsTest, NoArguments) {
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
+    EXPECT_FALSE(options_.sandesh_config().sandesh_ssl_enable);
+    EXPECT_FALSE(options_.sandesh_config().introspect_ssl_enable);
+    EXPECT_EQ(options_.sandesh_config().keyfile,
+              "/etc/contrail/ssl/private/server-privkey.pem");
+    EXPECT_EQ(options_.sandesh_config().certfile,
+              "/etc/contrail/ssl/certs/server.pem");
+    EXPECT_EQ(options_.sandesh_config().ca_cert,
+              "/etc/contrail/ssl/certs/ca-cert.pem");
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -126,6 +134,14 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
+    EXPECT_FALSE(options_.sandesh_config().sandesh_ssl_enable);
+    EXPECT_FALSE(options_.sandesh_config().introspect_ssl_enable);
+    EXPECT_EQ(options_.sandesh_config().keyfile,
+              "/etc/contrail/ssl/private/server-privkey.pem");
+    EXPECT_EQ(options_.sandesh_config().certfile,
+              "/etc/contrail/ssl/certs/server.pem");
+    EXPECT_EQ(options_.sandesh_config().ca_cert,
+              "/etc/contrail/ssl/certs/ca-cert.pem");
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -252,7 +268,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "user=test-user\n"
         "stale_entries_cleanup_timeout=120\n"
         "end_of_rib_timeout=110\n"
-        "peer_response_wait_time=100\n";
+        "peer_response_wait_time=100\n"
+        "\n"
+        "[SANDESH]\n"
+        "sandesh_ssl_enable=true\n"
+        "introspect_ssl_enable=true\n"
+        "keyfile=/tmp/ssl/private/server-privkey.pem\n"
+        "certfile=/tmp/ssl/certs/server.pem\n"
+        "ca_cert=/tmp/ssl/certs/ca-cert.pem\n";
 
     ofstream config_file;
     config_file.open("./options_test_config_file.conf");
@@ -309,6 +332,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server.key");
     EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/ca-cert.pem");
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_TRUE(options_.sandesh_config().sandesh_ssl_enable);
+    EXPECT_TRUE(options_.sandesh_config().introspect_ssl_enable);
+    EXPECT_EQ(options_.sandesh_config().keyfile,
+              "/tmp/ssl/private/server-privkey.pem");
+    EXPECT_EQ(options_.sandesh_config().certfile,
+              "/tmp/ssl/certs/server.pem");
+    EXPECT_EQ(options_.sandesh_config().ca_cert,
+              "/tmp/ssl/certs/ca-cert.pem");
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {

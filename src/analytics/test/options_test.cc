@@ -96,6 +96,14 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
     uint16_t structured_syslog_port(0);
     EXPECT_FALSE(options_.collector_structured_syslog_port(&structured_syslog_port));
+    EXPECT_FALSE(options_.sandesh_config().sandesh_ssl_enable);
+    EXPECT_FALSE(options_.sandesh_config().introspect_ssl_enable);
+    EXPECT_EQ(options_.sandesh_config().keyfile,
+              "/etc/contrail/ssl/private/server-privkey.pem");
+    EXPECT_EQ(options_.sandesh_config().certfile,
+              "/etc/contrail/ssl/certs/server.pem");
+    EXPECT_EQ(options_.sandesh_config().ca_cert,
+              "/etc/contrail/ssl/certs/ca-cert.pem");
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -147,6 +155,14 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
     uint16_t structured_syslog_port(0);
     EXPECT_FALSE(options_.collector_structured_syslog_port(&structured_syslog_port));
+    EXPECT_FALSE(options_.sandesh_config().sandesh_ssl_enable);
+    EXPECT_FALSE(options_.sandesh_config().introspect_ssl_enable);
+    EXPECT_EQ(options_.sandesh_config().keyfile,
+              "/etc/contrail/ssl/private/server-privkey.pem");
+    EXPECT_EQ(options_.sandesh_config().certfile,
+              "/etc/contrail/ssl/certs/server.pem");
+    EXPECT_EQ(options_.sandesh_config().ca_cert,
+              "/etc/contrail/ssl/certs/ca-cert.pem");
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -291,6 +307,13 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "server=1.2.3.4\n"
         "port=200\n"
         "\n"
+        "[SANDESH]\n"
+        "sandesh_ssl_enable=true\n"
+        "introspect_ssl_enable=true\n"
+        "keyfile=/tmp/ssl/private/server-privkey.pem\n"
+        "certfile=/tmp/ssl/certs/server.pem\n"
+        "ca_cert=/tmp/ssl/certs/ca-cert.pem\n"
+        "\n"
     ;
 
     ofstream config_file;
@@ -372,6 +395,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(cassandra_options.flow_tables_compaction_strategy_,
         "SizeTieredCompactionStrategy");
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_TRUE(options_.sandesh_config().sandesh_ssl_enable);
+    EXPECT_TRUE(options_.sandesh_config().introspect_ssl_enable);
+    EXPECT_EQ(options_.sandesh_config().keyfile,
+              "/tmp/ssl/private/server-privkey.pem");
+    EXPECT_EQ(options_.sandesh_config().certfile,
+              "/tmp/ssl/certs/server.pem");
+    EXPECT_EQ(options_.sandesh_config().ca_cert,
+              "/tmp/ssl/certs/ca-cert.pem");
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {

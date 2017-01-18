@@ -5,6 +5,7 @@
 #include <boost/program_options.hpp>
 #include "io/event_manager.h"
 #include "ifmap/ifmap_config_options.h"
+#include "sandesh/sandesh.h"
 
 // Process command line/configuration file options for control-node.
 class Options {
@@ -85,6 +86,7 @@ public:
     const std::vector<std::string> cassandra_server_list() const {
         return cassandra_server_list_;
     }
+    const SandeshConfig &sandesh_config() const { return sandesh_config_; }
 
     const std::string rabbitmq_ip() const { return ifmap_config_options_.rabbitmq_ip; }
     const std::string rabbitmq_port() const { return ifmap_config_options_.rabbitmq_port; }
@@ -157,5 +159,6 @@ private:
     std::string cassandra_password_;
     std::vector<std::string> cassandra_server_list_;
     std::vector<std::string> default_collector_server_list_;
+    SandeshConfig sandesh_config_;
     boost::program_options::options_description config_file_options_;
 };
