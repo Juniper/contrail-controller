@@ -23,7 +23,6 @@ import random
 import socket
 import threading
 import uuid
-import zmq
 
 from datetime import timedelta
 from tornado.web import HTTPError
@@ -35,6 +34,7 @@ import tornado.options
 import tornado.web
 
 try:
+    import zmq
     import netronome.virtiorelayd.virtiorelayd_pb2 as relay
 except ImportError:
     relay = None

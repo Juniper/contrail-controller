@@ -34,6 +34,7 @@ from netronome.vrouter import (
     plug_modes as PM, port, vf
 )
 from netronome.vrouter.apps import port_control
+from netronome.vrouter.sa.helpers import one_or_none
 from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import FakeSysfs
 from netronome.vrouter.tests.helpers.plug import (
@@ -1821,28 +1822,39 @@ def randip6():
 class TestAddCmd_AppTest(_DisableGC, unittest.TestCase):
     """Higher-level tests of the "add" command."""
 
-    def _pre_populate_database_with_plug_mode(self, db_fname, uuid, mode):
+    def _create_database(self, db_fname):
         engine = database.create_engine(db_fname)[0]
         set_sqlite_synchronous_off(engine)
         port.create_metadata(engine)
         vf.create_metadata(engine)
         Session = sessionmaker(bind=engine)
+        return Session()
 
-        s = Session()
-
+    def _pre_populate_database_with_plug_mode(self, db_fname, uuid, mode):
+        s = self._create_database(db_fname)
         pm = port.PlugMode(neutron_port=uuid, mode=mode)
         s.add(pm)
         s.commit()
+        return s
 
     @contextlib.contextmanager
     def _test(
-        self, pre_populate_mode, hw_acceleration_mode=None, _cm_run=None,
-        n_trials=1, **config_kwds
+        self, pre_populate_mode, hw_acceleration_mode=None,
+        hw_acceleration_modes=None, _cm_run=None, n_trials=1, **config_kwds
     ):
         # Make a temporary database with a plug mode already configured.
         tmp = tempfile.mkdtemp(prefix=_TMP_PREFIX)
         db_fname = os.path.join(tmp, 'TestAddCmd_AppTest.sqlite3')
         config_kwds.setdefault('database', db_fname)
+
+        if hw_acceleration_modes is not None:
+            if not isinstance(hw_acceleration_modes, tuple):
+                raise ValueError('hw_acceleration_modes must be a tuple')
+
+            config_kwds.setdefault(
+                'hw_acceleration_modes', ','.join(hw_acceleration_modes)
+            )
+
         c = _make_config_file(**config_kwds)
 
         u = uuid.uuid1()
@@ -2006,6 +2018,132 @@ class TestAddCmd_AppTest(_DisableGC, unittest.TestCase):
                 _PORT_CONTROL_LOGGER.name: {'DEBUG': 1},
             })
 
+    def _setup_db(self, uuid, mode):
+        tmp = tempfile.mkdtemp(prefix=_TMP_PREFIX)
+        db_fname = os.path.join(tmp, 'TestAddCmd_AppTest.sqlite3')
+
+        if mode is None:
+            return self._create_database(db_fname)
+        else:
+            return self._pre_populate_database_with_plug_mode(
+                db_fname, uuid, mode
+            )
+
+    def _query_pm(self, session, uuid):
+        return one_or_none(
+            session.query(port.PlugMode).
+            filter(port.PlugMode.neutron_port == uuid)
+        )
+
+    def test_check_pre_configured_plug_mode_for_add(self):
+        class Mock(object):
+            pass
+
+        logger = logging.getLogger('_check_pre_configured_plug_mode_for_add')
+
+        def _LMC(cls=LogMessageCounter):
+            return attachLogHandler(logger, cls())
+
+        # pm none, hw_acceleration_mode not none: create pm =
+        # hw_acceleration_mode
+        for m in PM.all_plug_modes:
+            conf = Mock()
+            conf.hw_acceleration_mode = m
+            conf.uuid = uuid.uuid1()
+            session = self._setup_db(mode=None, uuid=conf.uuid)
+            pm = self._query_pm(session, conf.uuid)
+            self.assertIsNone(pm)
+            with _LMC() as lmc:
+                port_control._check_pre_configured_plug_mode_for_add(
+                    session, conf, logger
+                )
+                self.assertEqual(lmc.count, {})
+            pm = self._query_pm(session, conf.uuid)
+            self.assertIsNotNone(pm)
+            self.assertEqual(pm.mode, m)
+
+        # pm not none, hw_acceleration_mode none: pass, pm same after
+        for m in PM.all_plug_modes:
+            conf = Mock()
+            conf.hw_acceleration_mode = None
+            conf.uuid = uuid.uuid1()
+            session = self._setup_db(mode=m, uuid=conf.uuid)
+            pm = self._query_pm(session, conf.uuid)
+            self.assertIsNotNone(pm)
+            self.assertEqual(pm.mode, m)
+            with _LMC() as lmc:
+                port_control._check_pre_configured_plug_mode_for_add(
+                    session, conf, logger
+                )
+                self.assertEqual(lmc.count, {})
+            pm = self._query_pm(session, conf.uuid)
+            self.assertIsNotNone(pm)
+            self.assertEqual(pm.mode, m)
+
+        # pm not none, hw_acceleration_mode not none: check for conflict
+        for m in PM.all_plug_modes:
+            for n in PM.all_plug_modes:
+                conf = Mock()
+                conf.hw_acceleration_mode = m
+                conf.uuid = uuid.uuid1()
+                session = self._setup_db(mode=n, uuid=conf.uuid)
+                pm = self._query_pm(session, conf.uuid)
+                self.assertIsNotNone(pm)
+                self.assertEqual(pm.mode, n)
+
+                def fn():
+                    port_control._check_pre_configured_plug_mode_for_add(
+                        session, conf, logger
+                    )
+
+                with _LMC() as lmc:
+                    if m == n:
+                        fn()
+                    else:
+                        with self.assertRaises(plug.PlugModeError):
+                            fn()
+                    self.assertEqual(lmc.count, {})
+
+                pm = self._query_pm(session, conf.uuid)
+                self.assertIsNotNone(pm)
+                self.assertEqual(pm.mode, n)
+
+        # pm none, hw_acceleration_mode none. Depending on the value of
+        # conf.hw_acceleration_modes, this can do any of:
+        #   - pass, still no pm after
+        #   - silently configure unaccelerated mode
+        #   - warn and configure unaccelerated mode
+        warning = {logger.name: {'WARNING': 1}}
+        test_data = (
+            ((), None, {}),
+            ((PM.unaccelerated,), PM.unaccelerated, {}),
+            ((PM.unaccelerated, PM.VirtIO), PM.unaccelerated, warning),
+            ((PM.unaccelerated, PM.SRIOV), PM.unaccelerated, warning),
+            ((PM.SRIOV,), None, {}),
+            (PM.all_plug_modes, PM.unaccelerated, warning),
+            (PM.accelerated_plug_modes, None, {}),
+        )
+        for td in test_data:
+            conf = Mock()
+            conf.hw_acceleration_mode = None
+            conf.hw_acceleration_modes = td[0]
+            conf.uuid = uuid.uuid1()
+            session = self._setup_db(mode=None, uuid=conf.uuid)
+            pm = self._query_pm(session, conf.uuid)
+            self.assertIsNone(pm)
+
+            with _LMC() as lmc:
+                port_control._check_pre_configured_plug_mode_for_add(
+                    session, conf, logger
+                )
+                self.assertEqual(lmc.count, td[2])
+
+            pm = self._query_pm(session, conf.uuid)
+            if td[1] is None:
+                self.assertIsNone(pm)
+            else:
+                self.assertEqual(pm.mode, td[1])
+
     def test_plug_straightaway(self):
         with self._test(
             pre_populate_mode=None,
@@ -2025,7 +2163,8 @@ class TestAddCmd_AppTest(_DisableGC, unittest.TestCase):
     def test_plug_straightaway_without_mandatory(self):
         with self._test(
             pre_populate_mode=None,
-            _cm_run=self.assertRaises(plug.PlugModeError)
+            _cm_run=self.assertRaises(plug.PlugModeError),
+            hw_acceleration_modes=PM.accelerated_plug_modes,
         ) as (logs, rc):
 
             self.assertIsNone(rc)
@@ -2098,6 +2237,110 @@ class TestDeleteCmd_BasicTest(unittest.TestCase):
             # 2. Make sure it produces something that can be fed into the plug
             # driver's constructor.
             d = t[0](config=c, **t[1])
+
+
+class TestFixup(unittest.TestCase):
+    def _test(self, fn, test_data):
+        for t in test_data:
+            try:
+                self.assertEqual(fn(t[0]), t[1])
+            except AssertionError as e:
+                e.args = explain_assertion(
+                    e.args,
+                    'test input {!r} failed'.format(t[0])
+                )
+                raise
+
+    def test_conver_oper_to_subcmd(self):
+        O = './oper.py'
+        OA = '--oper=add'
+        OD = '--oper=delete'
+        OI = '--oper=iommu_check'
+        test_data = (
+            ([], []),
+            ([O], [O]),
+            ([OA], [OA]),
+            ([O, OA], [O, '--', 'add']),
+            ([O, OA, '-h'], [O, '--', 'add', '-h']),
+            ([O, OD, '--uuid=XXX'], [O, '--', 'delete', '--uuid=XXX']),
+            ([O, '--uuid=XXX', OD], [O, '--', 'delete', '--uuid=XXX']),
+            ([O, '--uuid=XXX', OD, '-h'],
+             [O, '--', 'delete', '--uuid=XXX', '-h']),
+            ([O, '--uuid=XXX', '--', OD, '-h'],
+             [O, '--uuid=XXX', '--', OD, '-h']),   # any --
+            ([O, '--uuid=XXX', OD, '--'],
+             [O, '--uuid=XXX', OD, '--']),         # any --
+            ([O, '--vn_uuid=XXX', OA, OI, '-h'],
+             [O, '--vn_uuid=XXX', OA, OI, '-h']),  # multiple --oper
+            ([O, '--vn_uuid=XXX', OI, '-h'],
+             [O, '--', 'iommu_check', '--vn_uuid=XXX', '-h']),  # unusual cmd
+        )
+        self._test(port_control._convert_oper_to_subcmd, test_data)
+
+    def test_split_single_string_arg(self):
+        O = './oper.py'
+        test_data = (
+            ([], []),
+            ([O], [O]),
+            ([O, '-h'], [O, '-h']),
+            ([O, '-h --the road'], [O, '-h', '--the road']),
+            ([O, '-h --the=road'], [O, '-h', '--the=road']),
+            ([O, '-h --the road --less --traveled'],
+             [O, '-h', '--the road', '--less', '--traveled']),
+            ([O, '-h --the=road --less --traveled'],
+             [O, '-h', '--the=road', '--less', '--traveled']),
+            ([O, '-h --the=road --less', '--traveled'],  # 3rd arg = disable
+             [O, '-h --the=road --less', '--traveled']),
+        )
+        self._test(port_control._split_single_string_arg, test_data)
+
+        lp1584625_test_data = (
+            # Test LP1584625 quoting.
+            ([O, '--ip_address="1.2.3.4"'], [O, '--ip_address=1.2.3.4']),
+
+            ([O, '--ip_address="1.2.3.4" --other_opt="value" --o3="val3"'],
+             [O, '--ip_address=1.2.3.4', '--other_opt=value', '--o3=val3']),
+
+            # Unusual behavior that we need to preserve for compatibility with
+            # unpatched Nova:
+
+            # Doesn't split with unquoted options in the mix.
+            ([O, '--ip_address="1.2.3.4" --other_opt="value" --o3=val3'],
+             [O, '--ip_address=1.2.3.4', '--other_opt="value" --o3=val3']),
+
+            # Doesn't split with boolean options in the mix.
+            ([O, '--ip_address="1.2.3.4" --bool'],
+             [O, '--ip_address="1.2.3.4" --bool']),
+
+            # Doesn't strip quotes with trailing text after option value.
+            ([O, '--ip_address="1.2.3.4"5 --other_opt="value" --o3="val3"'],
+             [O, '--ip_address="1.2.3.4"5', '--other_opt=value', '--o3=val3']),
+
+            # Vulnerable to command-line argument injection.
+            # VM name in Horizon: VM1 --ip_address="1.2.3.4"
+            ([O, '--vm_name="VM1 --ip_address="1.2.3.4""'],
+             [O, '--vm_name="VM1', '--ip_address=1.2.3.4"']),
+
+            # VM name in Horizon: VM1 --ip_address="1.2.3.4" --vm_name="VM2
+            ([O, '--vm_name="VM1 --ip_address="1.2.3.4" --vm_name="VM2"'],
+             [O, '--vm_name="VM1', '--ip_address=1.2.3.4', '--vm_name=VM2']),
+        )
+        self._test(port_control._split_single_string_arg, lp1584625_test_data)
+
+    def test_fixup(self):
+        O = './oper.py'
+        test_data = (
+            ([], []),
+            ([O], [O]),
+            ([O, '-h'], [O, '-h']),
+            ([O, '-h --the road --oper=less --traveled'],
+             [O, '--', 'less', '-h', '--the road', '--traveled']),
+            ([O, '-h --the road --oper=less', '--traveled'],
+             [O, '-h --the road --oper=less', '--traveled']),
+            ([O, '-h --the road', '--oper=less', '--traveled'],
+             [O, '--', 'less', '-h --the road', '--traveled']),
+        )
+        self._test(port_control.fixup, test_data)
 
 
 if __name__ == '__main__':
