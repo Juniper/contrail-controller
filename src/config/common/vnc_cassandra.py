@@ -975,7 +975,10 @@ class VncCassandraClient(object):
                 return coll_infos
 
             filtered_infos = {}
-            columns = ['prop:%s' % filter_key for filter_key in filters]
+            columns = ['prop:%s' % filter_key for filter_key in filters if
+                       filter_key in obj_class.prop_fields]
+            if not columns:
+                return coll_infos
             rows = self.multiget(self._OBJ_UUID_CF_NAME,
                                  coll_infos.keys(),
                                  columns=columns)

@@ -1078,7 +1078,9 @@ class VncRDBMSClient(object):
 
         if filters:
             for key, value in filters.iteritems():
-                value = [ json.dumps(v) for v in value]
+                if key not in obj_class.prop_fields:
+                    continue
+                value = [json.dumps(v) for v in value]
                 sqa_objs = sqa_objs.filter(getattr(sqa_class, key).in_(value))
 
         if count:
