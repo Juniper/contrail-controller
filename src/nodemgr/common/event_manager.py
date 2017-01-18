@@ -557,8 +557,8 @@ class EventManager(object):
 
         # get system mem/cpu usage
         system_mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
-        system_mem_usage = system_mem_cpu_usage_data.get_sys_mem_info()
-        system_cpu_usage = system_mem_cpu_usage_data.get_sys_cpu_info()
+        system_mem_usage = system_mem_cpu_usage_data.get_sys_mem_info(self.uve_node_type)
+        system_cpu_usage = system_mem_cpu_usage_data.get_sys_cpu_info(self.uve_node_type)
 
         # update last_cpu/time after all processing is complete
         self.last_cpu = system_mem_cpu_usage_data.last_cpu

@@ -333,6 +333,15 @@ enum NodeType {
     SERVERMGR,
 }
 
+const map<NodeType, string> UVENodeTypeNames = {
+    NodeType.INVALID         : "Invalid",
+    NodeType.CONFIG          : "config-node",
+    NodeType.CONTROL         : "control-node",
+    NodeType.ANALYTICS       : "analytics-node",
+    NodeType.COMPUTE         : "vrouter",
+    NodeType.DATABASE        : "database-node",
+}
+
 const map<NodeType, string> NodeTypeNames = {
     NodeType.INVALID         : "Invalid",
     NodeType.CONFIG          : "Config",

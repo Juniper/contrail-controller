@@ -30,7 +30,7 @@ from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType, INSTANCE_ID_DEFAULT
+    Module2NodeType, INSTANCE_ID_DEFAULT, UVENodeTypeNames
 from subprocess import Popen, PIPE
 from StringIO import StringIO
 
@@ -55,6 +55,7 @@ class VrouterEventManager(EventManager):
         EventManager.__init__(self, rule_file, discovery_server,
                               discovery_port, collector_addr, sandesh_global)
         self.node_type = "contrail-vrouter"
+        self.uve_node_type = UVENodeTypeNames[NodeType.COMPUTE]
         self.table = "ObjectVRouter"
         _disc = self.get_discovery_client()
         sandesh_global.init_generator(

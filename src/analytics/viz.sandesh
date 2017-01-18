@@ -2094,6 +2094,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2107,6 +2108,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2120,6 +2122,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2133,6 +2136,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2146,6 +2150,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2158,6 +2163,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_cpu_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2170,6 +2176,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_cpu_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2182,6 +2189,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_cpu_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2194,6 +2202,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_cpu_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
@@ -2206,6 +2215,7 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_cpu_usage.node_type', 'datatype' : 'string', 'index' : true},
         ]
     },
     {

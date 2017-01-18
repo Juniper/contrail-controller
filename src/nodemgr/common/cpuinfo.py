@@ -48,7 +48,7 @@ class MemCpuUsageData(object):
         return int(proc.communicate()[0])
     #end get_num_thread_per_core
 
-    def get_sys_mem_info(self):
+    def get_sys_mem_info(self, node_type):
         virtmem_info = psutil.virtual_memory()
         sys_mem_info = SysMemInfo()
         sys_mem_info.total = virtmem_info.total/1024
@@ -56,16 +56,18 @@ class MemCpuUsageData(object):
         sys_mem_info.free = virtmem_info.free/1024
         sys_mem_info.buffers = virtmem_info.buffers/1024
         sys_mem_info.cached = virtmem_info.cached/1024
+        sys_mem_info.node_type = node_type
         return sys_mem_info
     #end get_sys_mem_info
 
-    def get_sys_cpu_info(self):
+    def get_sys_cpu_info(self, node_type):
         cpu_load_avg = self._get_cpu_load_avg()
         sys_cpu_info = SysCpuInfo()
         sys_cpu_info.one_min_avg = cpu_load_avg.one_min_avg
         sys_cpu_info.five_min_avg = cpu_load_avg.five_min_avg
         sys_cpu_info.fifteen_min_avg = cpu_load_avg.fifteen_min_avg
         sys_cpu_info.cpu_share = self._get_sys_cpu_share()
+        sys_cpu_info.node_type = node_type
         return sys_cpu_info
     #end get_sys_cpu_info
 

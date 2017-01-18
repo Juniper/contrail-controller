@@ -20,7 +20,7 @@ from nodemgr.common.event_manager import EventManager
 from pysandesh.sandesh_base import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType
+    Module2NodeType, UVENodeTypeNames
 from subprocess import Popen, PIPE
 
 from nodemgr.common.sandesh.nodeinfo.ttypes import *
@@ -37,6 +37,7 @@ class AnalyticsEventManager(EventManager):
             self, rule_file, discovery_server,
             discovery_port, collector_addr, sandesh_global)
         self.node_type = 'contrail-analytics'
+        self.uve_node_type = UVENodeTypeNames[NodeType.ANALYTICS]
         self.table = "ObjectCollectorInfo"
         self.module = Module.ANALYTICS_NODE_MGR
         self.module_id = ModuleNames[self.module]

@@ -28,6 +28,7 @@ struct SysMemInfo {
     3: u32 free;
     4: u32 buffers;
     5: u32 cached;
+    6: string node_type;
 }
 
 /**
@@ -74,4 +75,5 @@ struct SysCpuInfo {
     2: double five_min_avg;
     3: double fifteen_min_avg;
     4: double cpu_share;
+    5: string node_type;
 }
