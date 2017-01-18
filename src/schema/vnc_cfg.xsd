@@ -228,6 +228,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
             description='This mode used to determine static or dynamic nh '/>
         <xsd:element name="static-nh-header" type="StaticMirrorNhType"             required='optional'
             description='vtep details required if static nh enabled'/>
+        <xsd:element name="nic-assisted-mirroring" type="xsd:boolean"  default="false" required='optional'
+            description='This flag is used to select nic assisted mirroring'/>
+        <xsd:element name="nic-assisted-mirroring-vlan" type="VlanIdType"       required='optional'
+             description='The VLAN to be tagged on the traffic for NIC to Mirror'/>
     </xsd:all>
 </xsd:complexType>
 
