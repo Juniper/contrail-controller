@@ -74,7 +74,7 @@ class VncNamespace(object):
         ipam = self._vnc_lib.network_ipam_read(fq_name=ipam_obj.get_fq_name())
 
         # Cache ipam info.
-        NetworkIpamSM.locate(ipam.uuid)
+        NetworkIpamKM.locate(ipam.uuid)
 
         return ipam_obj, ipam_subnets
 
@@ -97,21 +97,6 @@ class VncNamespace(object):
         try:
             vn_obj = self._vnc_lib.virtual_network_read(
                 fq_name=vn.get_fq_name())
-
-            # Delete existing ipams on this virtual network.
-            #
-            # This is so that we can reconcile any possible changes to ipam
-            # properties/subnet that we may have missed during restart.
-            # Ipams on the network are self created. So they can be cleaned
-            # up and recreated, safely.
-            if vn_obj.get_network_ipam_refs():
-                ipam_refs = vn_obj.get_network_ipam_refs()
-                for ipam in ipam_refs:
-                    ipam_obj = NetworkIpam(name=ipam['to'][-1],
-                                           parent_obj=proj_obj)
-                    vn_obj.del_network_ipam(ipam_obj)
-                    self._vnc_lib.virtual_network_update(vn_obj)
-                    self._delete_ipam(ipam)
 
         except NoIdError:
             # Virtual network does not exist. Create one.
@@ -182,7 +167,8 @@ class VncNamespace(object):
 
         # If this namespace is isolated, create it own network.
         if self._is_namespace_isolated(name) == True:
-            self._create_virtual_network(ns_name= name, vn_name=name,
+            vn_name = name + "-vn"
+            self._create_virtual_network(ns_name= name, vn_name=vn_name,
                                          proj_obj = proj_obj)
 
 

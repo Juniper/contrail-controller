@@ -212,6 +212,30 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 
 class FloatingIpServer(Resource, FloatingIp):
     @classmethod
+    def _get_fip_pool_subnets(cls, fip_obj_dict, db_conn):
+        fip_subnet_list = None
+
+        # Get floating-ip-pool object.
+        fip_pool_fq_name = fip_obj_dict['fq_name'][:-1]
+        fip_pool_uuid = db_conn.fq_name_to_uuid('floating_ip_pool',
+            fip_pool_fq_name)
+        ok, fip_pool_dict = cls.dbe_read(db_conn, 'floating_ip_pool',
+            fip_pool_uuid)
+        if not ok:
+            return ok, fip_subnet_list
+
+        # Get any subnets configured on the floating-ip-pool.
+        try:
+            fip_subnet_list =\
+                fip_pool_dict['floating_ip_pool_prefixes']['subnet_list']
+        except KeyError, TypeError:
+            # It is acceptable that the prefixes and subnet_list may be absent
+            # or may be None.
+            pass
+
+        return True, fip_subnet_list
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         if obj_dict['parent_type'] == 'instance-ip':
             return True, ""
@@ -221,9 +245,48 @@ class FloatingIpServer(Resource, FloatingIp):
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
             return (False, (400, 'Ip address already in use'))
         try:
-            fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
+            #
+            # Parse through floating-ip-pool config to see if there are any
+            # guidelines laid for allocation of this floating-ip.
+            #
+            ok, fip_subnet_list = cls._get_fip_pool_subnets(obj_dict, db_conn)
+            if not ok:
+                return (ok, (400, "Floating-ip-pool lookup failed"))
+
+            if not fip_subnet_list:
+                # Subnet specification was not found on the floating-ip-pool.
+                # Proceed to allocated floating-ip from any of the subnets
+                # on the virtual-network.
+                fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
                                                   asked_ip_addr=req_ip,
                                                   alloc_id=obj_dict['uuid'])
+            else:
+                subnets_tried = []
+                # Iterate through configured subnets on floating-ip-pool.
+                # We will try to allocate floating-ip by iterating through
+                # the list of configured subnets.
+                for fip_pool_subnet in fip_subnet_list:
+                    if fip_pool_subnet['subnet_uuid']:
+                        try:
+                            # Record the subnets that we try to allocate from.
+                            subnets_tried.append(\
+                                fip_pool_subnet['subnet_uuid'])
+
+                            fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
+                                sub = fip_pool_subnet['subnet_uuid'],
+                                asked_ip_addr=req_ip,
+                                alloc_id=obj_dict['uuid'])
+
+                        except cls.addr_mgmt.AddrMgmtSubnetExhausted:
+                            # This subnet is exhausted. Try next subnet.
+                            continue
+
+                if not fip_addr:
+                    # Floating-ip could not be allocated from any of the
+                    # configured subnets. Raise an exception.
+                    raise cls.addr_mgmt.AddrMgmtSubnetExhausted(vn_fq_name,
+                        subnets_tried)
+
             def undo():
                 db_conn.config_log(
                     'AddrMgmt: free FIP %s for vn=%s tenant=%s, on undo'
@@ -2448,3 +2511,135 @@ class QosConfigServer(Resource, QosConfig):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         return cls._check_qos_values(obj_dict, db_conn)
 # end class QosConfigServer
+
+class FloatingIpPoolServer(Resource, FloatingIpPool):
+    @classmethod
+    def _validate_subnet_prefix(cls, fip_pool_subnet, ipam_ref, vn_fq_name,
+        db_conn):
+        # Given a subnet ip/prefix corresponding ot a floating-ip-pool
+        # subnet, check if the subnet belongs to ipam ip/prefix.
+
+        # Get the floating-ip-pool subnet network info.
+        fip_ip_prefix = fip_pool_subnet.get('ip_prefix')
+        fip_ip_prefix_len = fip_pool_subnet.get('ip_prefix_len')
+        fip_pool_network = IPNetwork("%s/%s" %
+            (fip_ip_prefix,fip_ip_prefix_len))
+
+        # Get the ipam object.
+        ipam_fq_name = ipam_ref['to']
+        ipam_uuid = ipam_ref.get('uuid')
+        if not ipam_uuid:
+            ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
+                ipam_fq_name)
+        ok, ipam_dict = db_conn.dbe_read(
+                                obj_type='network_ipam',
+                                obj_ids={'uuid': ipam_uuid})
+        if not ok:
+            return False
+
+        subnets = []
+        ipam_subnets = ipam_dict.get('ipam_subnets')
+        if ipam_subnets is None:
+            # There are no flat-subnets.
+            # Check for presence of user-defined subnets.
+            vn_refs = ipam_dict.get('virtual_network_back_refs')
+            for vn_ref in vn_refs:
+                if not cmp(vn_ref['to'], vn_fq_name):
+                    if not vn_ref['attr']:
+                        continue
+                    subnets = vn_ref['attr']['ipam_subnets']
+                    break
+        else:
+            subnets = ipam_subnets.get('subnets')
+
+        for ipam_subnet in subnets:
+            subnet = ipam_subnet.get('subnet')
+            if subnet is None:
+                continue
+
+            ip_prefix = subnet.get('ip_prefix')
+            ip_prefix_len = subnet.get('ip_prefix_len')
+            ipam_network = IPNetwork("%s/%s" % (ip_prefix, ip_prefix_len))
+
+            if fip_pool_network in ipam_network:
+                return True
+
+        return False
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        #
+        # Floating-ip-pools corresponding to a virtual-network can be
+        # 'optionally' configured to be specific to a ipam subnet on a virtual-
+        # network. Additionally, configuration can also restrict the prefix
+        # range within the subnet.
+        #
+        # If the subnet and/or prefix range in the subnet is specified,
+        # sanity check the config to verify that the subnet exists in the
+        # virtual-network and the requested prefix range is valid within the
+        # subnet.
+        #
+
+        # If subnet info is not specified in the floating-ip-pool object, then
+        # there is nothing to validate. Just return.
+        try:
+            if (obj_dict['parent_type'] != 'virtual-network' or\
+                obj_dict['floating_ip_pool_prefixes'] is None or\
+                obj_dict['floating_ip_pool_prefixes']['subnet_list'] is None):
+                    return True, ""
+        except KeyError, TypeError:
+            return True, ""
+
+        try:
+            # Get the virtual-network object.
+            vn_fq_name = obj_dict['fq_name'][:-1]
+            vn_id = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+            ok, vn_dict = cls.dbe_read(db_conn, 'virtual_network', vn_id)
+            if not ok:
+                return ok, vn_dict
+
+            # Iterate through configured subnets on this FloatingIpPool.
+            # Validate the requested prefixes for matching subnets.
+            for fip_pool_subnet in \
+                obj_dict['floating_ip_pool_prefixes']['subnet_list']:
+                vn_ipams = vn_dict['network_ipam_refs']
+                subnet_found = False
+                for ipam in vn_ipams:
+                     if not ipam['attr']:
+                         continue
+                     for ipam_subnet in ipam['attr']['ipam_subnets']:
+                         ipam_subnet_info = None
+                         if ipam_subnet['subnet_uuid']:
+                             if ipam_subnet['subnet_uuid'] != \
+                                fip_pool_subnet['subnet_uuid']:
+                                 # Subnet uuid does not match. This is not the
+                                 # requested subnet. Keep looking.
+                                 continue
+
+                             # Subnet of interest was found.
+                             # If prefix is specified, validate that requested
+                             # prefix is contained in this subnet.
+                             subnet_found = True
+                             if fip_pool_subnet['subnet']:
+                                validate_res = cls._validate_subnet_prefix(
+                                                fip_pool_subnet['subnet'],
+                                                ipam, vn_fq_name, db_conn)
+                                if not validate_res:
+                                    return (False,
+                                        (400, "Specified prefix does not "
+                                              "belong to requested subnet"))
+                             break
+
+                if not subnet_found:
+                    # Specified subnet was not found on the virtual-network.
+                    # Return failure.
+                    msg = "Subnet %s was not found in virtual-network %s" %\
+                        (fip_pool_subnet['subnet_uuid'], vn_id)
+                    return (False, (400, msg))
+
+        except KeyError:
+            return (False,
+                (400, 'Incomplete info to create a floating-ip-pool'))
+
+        return True, ""
+# end class FloatingIpPoolServer

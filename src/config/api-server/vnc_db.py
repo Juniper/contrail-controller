@@ -900,17 +900,23 @@ class VncDbClient(object):
                 return
             vn_dict = results[0]
             for ipam in vn_dict.get('network_ipam_refs', []):
-                subnets = ipam['attr']['ipam_subnets']
-                for subnet in subnets:
-                    pfx = subnet['subnet']['ip_prefix']
-                    pfx_len = subnet['subnet']['ip_prefix_len']
+                ipam_subnets = ipam['attr']['ipam_subnets']
+
+                for ipam_subnet in ipam_subnets:
+                    if 'subnet' not in ipam_subnet or\
+                            ipam_subnet['subnet'] is None:
+                        # Ipam subnet info need not have ip/prefix info,
+                        # instead they could hold the uuid of subnet info.
+                        continue
+                    pfx = ipam_subnet['subnet']['ip_prefix']
+                    pfx_len = ipam_subnet['subnet']['ip_prefix_len']
                     cidr = '%s/%s' % (pfx, pfx_len)
                     if (IPAddress(iip_dict['instance_ip_address']) in
                             IPNetwork(cidr)):
-                        iip_dict['subnet_uuid'] = subnet['subnet_uuid']
+                        iip_dict['subnet_uuid'] = ipam_subnet['subnet_uuid']
                         self._object_db.object_update('instance-ip',
-                                                         iip_dict['uuid'],
-                                                         iip_dict)
+                                                          iip_dict['uuid'],
+                                                          iip_dict)
                         return
 
     def _dbe_resync(self, obj_type, obj_uuids):
