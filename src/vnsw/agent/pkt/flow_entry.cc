@@ -278,7 +278,7 @@ void FlowData::Reset() {
     tunnel_info.Reset();
     flow_source_plen_map.clear();
     flow_dest_plen_map.clear();
-    enable_rpf = true;
+    enable_rpf = false;
     l2_rpf_plen = Address::kMaxV4PrefixLen;
     vm_cfg_name = "";
     bgp_as_a_service_port = 0;
@@ -875,7 +875,7 @@ void FlowEntry::UpdateRpf() {
     if (data_.vn_entry) {
         data_.enable_rpf = data_.vn_entry->enable_rpf();
     } else {
-        data_.enable_rpf = true;
+        data_.enable_rpf = false;
     }
 }
 
