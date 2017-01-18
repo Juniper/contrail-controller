@@ -303,7 +303,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
     #end test_06_send_tracebuffer
 
-    #@unittest.skip('verify source/module list')
+    @unittest.skip('verify source/module list')
     def test_07_table_source_module_list(self):
         '''
         This test verifies /analytics/table/<table>/column-values/Source
