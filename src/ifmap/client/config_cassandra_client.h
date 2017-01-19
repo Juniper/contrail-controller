@@ -17,6 +17,7 @@
 class EventManager;
 class ConfigJsonParser;
 class ConfigClientManager;
+struct ConfigDBConnInfo;
 class TaskTrigger;
 
 class ObjectProcessReq {
@@ -71,9 +72,17 @@ public:
 
     void DeleteFQNameCache(const string &uuid);
 
+    ConfigClientManager *mgr() {
+        return mgr_;
+    }
+
     const ConfigClientManager *mgr() const {
         return mgr_;
     }
+
+    void BulkSyncDone(int worker_id);
+
+    virtual void GetConnectionInfo(ConfigDBConnInfo &status) const;
 
 protected:
     virtual bool ReadUuidTableRow(const std::string &obj_type,
@@ -137,14 +146,15 @@ private:
     bool ParseFQNameRowGetUUIDList(const GenDb::ColList &col_list,
                                    ObjTypeUUIDList &uuid_list);
     bool ConfigReader(int worker_id);
-    void AddUUIDToRequestList(const string &oper, const string &obj_type,
-                              const string &uuid_str);
+    void AddUUIDToRequestList(int worker_id, const string &oper,
+                              const string &obj_type, const string &uuid_str);
     void Enqueue(int worker_id, ObjectProcessReq *req);
-    bool RequestHandler(ObjectProcessReq *req);
+    bool RequestHandler(int worker_id, ObjectProcessReq *req);
     bool StoreKeyIfUpdated(int worker_id, const string &uuid, const string &key,
                            uint64_t timestamp);
 
     void MarkCacheDirty(const string &uuid);
+    void HandleCassandraConnectionStatus(bool success);
 
     ConfigClientManager *mgr_;
     EventManager *evm_;
@@ -158,6 +168,9 @@ private:
     mutable tbb::spin_rw_mutex rw_mutex_;
     FQNameCacheMap fq_name_cache_;
     std::vector<ObjProcessWorkQType> obj_process_queue_;
+    tbb::atomic<long> bulk_sync_status_;
+    tbb::atomic<bool> cassandra_connection_up_;
+    tbb::atomic<uint64_t> connection_status_change_at_;
 };
 
 #endif // ctrlplane_config_cass_client_h

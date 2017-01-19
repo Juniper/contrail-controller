@@ -16,6 +16,7 @@
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
+#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
@@ -104,7 +105,7 @@ protected:
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
         ifmap_server_(new IFMapServer(&db_, &graph_, evm_.io_service())),
         config_client_manager_(new ConfigClientManager(&evm_,
-                    ifmap_server_.get(), "localhost", config_options_)) {
+            ifmap_server_.get(), "localhost", "config-test", config_options_)) {
     }
 
     virtual void SetUp() {
@@ -1310,7 +1311,7 @@ TEST_F(ConfigJsonParserTest, ServerParser14InParts) {
 // 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete vr
-TEST_F(ConfigJsonParserTest, DISABLED_ServerParser15) {
+TEST_F(ConfigJsonParserTest, ServerParser15) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
@@ -1323,8 +1324,6 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser15) {
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
     TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
-
-    usleep(1000);
 
     // Object should not exist
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");

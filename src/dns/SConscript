@@ -12,6 +12,7 @@ def MapBuildDir(list):
 env = BuildEnv.Clone()
 
 env.Prepend(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
 env.Prepend(CPPPATH = env['TOP'] + '/dns')
 env.Prepend(CPPPATH = env['TOP'] + '/dns/cmn')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
@@ -26,6 +27,7 @@ env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
                   'httpc', 'curl', 'process_info',
                   'db', 'io', 'base', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
                   'cassandra', 'gendb', 'xml', 'pugixml', 'libxml2',
+                  'cpuinfo', 'process_info', 'nodeinfo',
                   'boost_regex', 'boost_chrono', 'boost_program_options',
                   'crypto', 'ssl',
                   'boost_filesystem', 'bgp_schema'])
@@ -44,6 +46,7 @@ if sys.platform != 'darwin':
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
                       '-lbase', '-lifmap_server', '-rdynamic',
+                      '-lcpuinfo', '-lprocess_info', '-lnodeinfo',
                       '-Wl,--no-whole-archive'])
 
 contrail_dns = env.Program(target = 'contrail-dns', source = ['main.cc'])
