@@ -39,6 +39,11 @@ class DbQueryUnitTest: public ::testing::Test {
         const GenDb::ColumnNameRange &crange,
         GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbGetRowCb cb);
+    bool StatTableGetRowAsyncSuccess(const std::string& cfname,
+        const GenDb::DbDataValueVec& rowkey,
+        const GenDb::ColumnNameRange &crange,
+        GenDb::DbConsistency::type dconsistency,
+        GenDb::GenDbIf::DbGetRowCb cb);
     bool TestFailureHandling(const std::string& cfname,
              const GenDb::DbDataValueVec& rowkey,
              const GenDb::ColumnNameRange &crange,
@@ -84,6 +89,28 @@ bool DbQueryUnitTest::GetRowAsyncSuccess(const std::string& cfname,
     return true;
 }
 
+bool DbQueryUnitTest::StatTableGetRowAsyncSuccess(const std::string& cfname,
+    const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+    GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
+    // Return the following for every row
+    boost::uuids::random_generator rgen_;
+    boost::uuids::uuid unm(rgen_());
+    GenDb::DbDataValueVec *colname(new GenDb::DbDataValueVec());
+    colname->reserve(3);
+    colname->push_back("a6s9");
+    //colname->push_back(unm);
+    colname->push_back((uint32_t)(21212));
+    colname->push_back(unm);
+    GenDb::DbDataValueVec *colvalue(new GenDb::DbDataValueVec());
+    colvalue->push_back("Attrval1");
+    std::auto_ptr<GenDb::ColList> columns(new GenDb::ColList());
+    int ttl = 5;
+    columns->columns_ = boost::assign::ptr_list_of<GenDb::NewCol>
+        (GenDb::NewCol(colname, colvalue, ttl));
+    cb(GenDb::DbOpResult::OK, columns);
+    return true;
+}
+
 bool DbQueryUnitTest::GetRowAsyncFailure(const std::string& cfname,
     const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
     GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
@@ -108,6 +135,9 @@ TEST_F(DbQueryUnitTest, ProcessQuery) {
     AnalyticsQueryMock parent;
     analytics_query_mock.parallel_batch_num = 1;
     analytics_query_mock.query_id = "abcd";
+    std::auto_ptr<QueryEngine> qe(new QueryEngine());
+    analytics_query_mock.qe_ = qe.get();
+    analytics_query_mock.qe_->max_tasks_ = 15;
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
     EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
@@ -119,6 +149,8 @@ TEST_F(DbQueryUnitTest, ProcessQuery) {
     EXPECT_CALL(analytics_query_mock, end_time()).Times(AnyNumber()).WillRepeatedly(Return(1473385977637609));
     EXPECT_CALL(analytics_query_mock, from_time()).Times(AnyNumber()).WillRepeatedly(Return(1473384977637609));
     EXPECT_CALL(analytics_query_mock, subquery_processed(_)).Times(1).WillOnce(Invoke(this, &DbQueryUnitTest::subquery_processed));
+    EXPECT_CALL(analytics_query_mock, is_stat_table_query()).Times(AnyNumber())
+        .WillRepeatedly(Return(false));
     bool status = dbq->process_query();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(QUERY_IN_PROGRESS, status);
@@ -129,6 +161,9 @@ TEST_F(DbQueryUnitTest, ProcessQueryFailure) {
     AnalyticsQueryMock parent;
     analytics_query_mock.parallel_batch_num = 1;
     analytics_query_mock.query_id = "abcd";
+    std::auto_ptr<QueryEngine> qe(new QueryEngine());
+    analytics_query_mock.qe_ = qe.get();
+    analytics_query_mock.qe_->max_tasks_ = 15;
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
     EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
@@ -151,6 +186,9 @@ TEST_F(DbQueryUnitTest, QueryFailureCallback) {
     AnalyticsQueryMock parent;
     analytics_query_mock.parallel_batch_num = 1;
     analytics_query_mock.query_id = "abcd";
+    std::auto_ptr<QueryEngine> qe(new QueryEngine());
+    analytics_query_mock.qe_ = qe.get();
+    analytics_query_mock.qe_->max_tasks_ = 15;
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock,
         &analytics_query_mock);
@@ -178,6 +216,10 @@ TEST_F(DbQueryUnitTest, QueryFailureCallback) {
 TEST_F(DbQueryUnitTest, WhereQueryProcessing) {
     AnalyticsQueryMock mq;
     mq.query_id = "abcd";
+    std::auto_ptr<QueryEngine> qe(new QueryEngine());
+    mq.qe_ = qe.get();
+    mq.qe_->max_tasks_ = 15;
+
     DbQueryUnit *mdbq = new DbQueryUnit(&mq,&mq);
     EXPECT_CALL(mq, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
     WhereQuery *wq= new WhereQuery(mdbq);
@@ -237,6 +279,64 @@ TEST_F(DbQueryUnitTest, GetObjectId) {
     std::string returned_val;
     res1.get_objectid(returned_val);
     EXPECT_EQ(object_id, returned_val);
+}
+
+/*
+ * check if the stats attribute are updated properly for successful and
+ * unsuccessful stats table reads
+ */
+TEST_F(DbQueryUnitTest, TestStatsUpdate) {
+    AnalyticsQueryMock analytics_query_mock;
+    AnalyticsQueryMock parent;
+    analytics_query_mock.parallel_batch_num = 1;
+    analytics_query_mock.query_id = "abcd";
+    std::auto_ptr<QueryEngine> qe(new QueryEngine());
+    analytics_query_mock.qe_ = qe.get();
+    analytics_query_mock.qe_->max_tasks_ = 15;
+    analytics_query_mock.stat_name_attr = "Statattr";
+
+    DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
+    EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
+        Db_GetRowAsync(_,_,_,_,_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Invoke(this,
+                &DbQueryUnitTest::StatTableGetRowAsyncSuccess));
+    EXPECT_CALL(analytics_query_mock, table()).Times(AnyNumber()).WillRepeatedly(Return("StatTable1"));
+    EXPECT_CALL(analytics_query_mock, end_time()).Times(AnyNumber()).WillRepeatedly(Return(1473385977637609));
+    EXPECT_CALL(analytics_query_mock, from_time()).Times(AnyNumber()).WillRepeatedly(Return(1473384977637609));
+    EXPECT_CALL(analytics_query_mock, subquery_processed(_)).Times(1).WillOnce(Invoke(this, &DbQueryUnitTest::subquery_processed));
+    EXPECT_CALL(analytics_query_mock, is_stat_table_query())
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(true));
+    bool status = dbq->process_query();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(QUERY_IN_PROGRESS, status);
+    std::vector<GenDb::DbTableInfo> vstats_dbti, vstats_dbti_fail;
+    // Only StatsTable stats can be tested in UT,
+    // stats for other tables are checked in systemtest
+    analytics_query_mock.qe_->stable_stats_.GetDiffs(&vstats_dbti);
+    // Only one stat attribute is being read
+    TASK_UTIL_EXPECT_EQ(vstats_dbti.size(), 1);
+    // Each read increments the read count of the stat attribute
+    TASK_UTIL_EXPECT_EQ(vstats_dbti[0].table_name, "Statattr" );
+    TASK_UTIL_EXPECT_EQ(vstats_dbti[0].reads, 120);
+    EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
+        Db_GetRowAsync(_,_,_,_,_))
+            .Times(AnyNumber())
+            .WillRepeatedly(Invoke(this,
+                &DbQueryUnitTest::GetRowAsyncFailure));
+    EXPECT_CALL(analytics_query_mock, table()).Times(AnyNumber()).WillRepeatedly(Return("StatTable1"));
+    EXPECT_CALL(analytics_query_mock, end_time()).Times(AnyNumber()).WillRepeatedly(Return(1473385977637609));
+    EXPECT_CALL(analytics_query_mock, from_time()).Times(AnyNumber()).WillRepeatedly(Return(1473384977637609));
+    EXPECT_CALL(analytics_query_mock, subquery_processed(_)).Times(1).WillOnce(Return());
+    status = dbq->process_query();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(QUERY_IN_PROGRESS, status);
+    TASK_UTIL_EXPECT_EQ(QUERY_FAILURE, dbq->query_status);
+    // stats for other tables are checked in systemtest
+    analytics_query_mock.qe_->stable_stats_.GetDiffs(&vstats_dbti_fail);
+    // Read failures should be recorded
+    TASK_UTIL_EXPECT_GT(vstats_dbti_fail[0].read_fails, 0);
 }
 
 int main(int argc, char **argv) {
