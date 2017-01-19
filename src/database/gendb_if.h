@@ -14,6 +14,7 @@
 #include <boost/variant.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/tuple/tuple.hpp>
 #include <database/gendb_types.h>
 #include <net/address.h>
 #include <boost/asio/ip/tcp.hpp>
@@ -126,20 +127,33 @@ struct NewCf {
 
 struct NewCol {
     NewCol(DbDataValueVec* n, DbDataValueVec* v, int ttl) :
-        cftype_(NewCf::COLUMN_FAMILY_NOSQL), name(n), value(v), ttl(ttl) {}
+        cftype_(NewCf::COLUMN_FAMILY_NOSQL), name(n), value(v), ttl(ttl),
+    timestamp(new DbDataValueVec()) {}
+
+    NewCol(DbDataValueVec* n, DbDataValueVec* v, int ttl,
+           DbDataValueVec* t) :
+        cftype_(NewCf::COLUMN_FAMILY_NOSQL), name(n), value(v), ttl(ttl),
+    timestamp(t) {}
 
     NewCol(const std::string& n, const DbDataValue& v, int ttl) :
         cftype_(NewCf::COLUMN_FAMILY_SQL), name(new DbDataValueVec(1, n)),
-        value(new DbDataValueVec(1, v)), ttl(ttl) {}
+        value(new DbDataValueVec(1, v)), ttl(ttl),
+        timestamp(new DbDataValueVec()) {}
+
+    NewCol(const std::string& n, const DbDataValue& v, int ttl, DbDataValueVec *t) :
+        cftype_(NewCf::COLUMN_FAMILY_SQL), name(new DbDataValueVec(1, n)),
+        value(new DbDataValueVec(1, v)), ttl(ttl), timestamp(t) {}
 
     NewCol(const NewCol &rhs) :
         cftype_(rhs.cftype_), name(new DbDataValueVec(*rhs.name)),
-        value(new DbDataValueVec(*rhs.value)), ttl(rhs.ttl) {}
+        value(new DbDataValueVec(*rhs.value)), ttl(rhs.ttl),
+        timestamp(new DbDataValueVec(*rhs.timestamp)) {}
 
     bool operator==(const NewCol &rhs) const {
         return (*rhs.name == *name &&
                 *rhs.value == *value &&
-                rhs.ttl == ttl);
+                rhs.ttl == ttl &&
+                *rhs.timestamp == *timestamp);
     }
 
     size_t GetSize() const;
@@ -148,6 +162,7 @@ struct NewCol {
     boost::scoped_ptr<DbDataValueVec> name;
     boost::scoped_ptr<DbDataValueVec> value;
     int ttl;
+    boost::scoped_ptr<DbDataValueVec> timestamp;
 };
 
 typedef boost::ptr_vector<NewCol> NewColVec;
@@ -194,6 +209,11 @@ struct ColumnNameRange {
     uint32_t count_;
 };
 
+// fields to read, whether the field is rowkey, whether the field is column,
+// whether to read writetime
+typedef boost::tuple<std::string, bool, bool, bool> FieldNamesToReadInfo;
+typedef std::vector<FieldNamesToReadInfo> FieldNamesToReadVec;
+
 typedef boost::asio::ip::tcp::endpoint Endpoint;
 
 struct DbOpResult {
@@ -237,6 +257,10 @@ public:
     // Read/Get
     virtual bool Db_GetRow(ColList *ret, const std::string& cfname,
         const DbDataValueVec& rowkey, DbConsistency::type dconsistency) = 0;
+    virtual bool Db_GetRow(ColList *ret, const std::string& cfname,
+        const DbDataValueVec& rowkey, DbConsistency::type dconsistency,
+        const ColumnNameRange& crange,
+        const FieldNamesToReadVec &read_vec) = 0;
     virtual bool Db_GetMultiRow(ColListVec *ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& key) = 0;
     virtual bool Db_GetMultiRow(ColListVec *ret,
