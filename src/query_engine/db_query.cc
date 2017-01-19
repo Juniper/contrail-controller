@@ -185,11 +185,7 @@ query_status_t DbQueryUnit::process_query()
     std::vector<GenDb::DbDataValueVec> keys = populate_row_keys();
 
     /* Create a pipeline to fetch all rows corresponding to keys */
-    int max_tasks = 15;
-    if (m_query->qe_) {
-        max_tasks = m_query->qe_->max_tasks_;
-    }
-
+    int max_tasks = m_query->qe_->max_tasks_;
     std::vector<std::pair<int,int> > tinfo;
     for (uint idx=0; idx<(uint)max_tasks; idx++) {
         tinfo.push_back(make_pair(0, -1));
@@ -259,6 +255,8 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
     std::auto_ptr<q_result> q_result_ptr(new q_result);
     std::auto_ptr<GetRowInput>  gri(get_row_ctx);
     uint32_t t2;
+    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
+    QueryEngine *qe = m_query->qe_;
     try {
         GenDb::DbDataValueVec val = gri.get()->rowkey;
         t2 = boost::get<uint32_t>(val.at(0));
@@ -270,13 +268,22 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
        query_fetch_error = true;
        ExternalProcIf<q_result> * rpi(
            reinterpret_cast<ExternalProcIf<q_result> *>(privdata));
+       if (m_query->is_stat_table_query(m_query->table())) {
+            tbb::mutex::scoped_lock lock(qe->smutex_);
+            qe->stable_stats_.Update(m_query->stat_name_attr, false, true,
+                false, 1);
+       }
        rpi->Response(q_result_ptr);
        return;
     }
-
+    // Update the reads against the stat
+    if (m_query->is_stat_table_query(m_query->table())) {
+        tbb::mutex::scoped_lock lock(qe->smutex_);
+        qe->stable_stats_.Update(m_query->stat_name_attr, false, false,
+            false, 1);
+    }
     GenDb::NewColVec::iterator i;
 
-    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     for (i = column_list->columns_.begin(); i != column_list->columns_.end();
          i++) {
         {
