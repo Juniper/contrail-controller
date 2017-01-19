@@ -207,6 +207,7 @@ public:
     const std::string auth_user() const { return ks_user_; }
     const std::string auth_passwd() const { return ks_password_; }
     const std::string auth_tenant() const { return ks_tenant_; }
+    const SandeshConfig &sandesh_config() const { return sandesh_config_; }
 
 private:
     template <typename ValueType>
@@ -289,6 +290,7 @@ private:
     std::string ks_cert_;
     std::string ks_key_;
     std::string ks_ca_;
+    SandeshConfig sandesh_config_;
 
     boost::program_options::options_description config_file_options_;
     DbWriteOptions db_write_options_;

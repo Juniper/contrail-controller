@@ -39,7 +39,7 @@ from nodemgr.common.sandesh.nodeinfo.process_info.constants import *
 
 class ControlEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr):
+                 discovery_port, collector_addr, sandesh_config):
         self.node_type = "contrail-control"
         self.uve_node_type = UVENodeTypeNames[NodeType.CONTROL]
         self.table = "ObjectBgpRouter"
@@ -57,7 +57,8 @@ class ControlEventManager(EventManager):
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
-            self.module_id, 8101, ['nodemgr.common.sandesh'], _disc)
+            self.module_id, 8101, ['nodemgr.common.sandesh'], _disc,
+            config=sandesh_config)
         sandesh_global.set_logging_params(enable_local_log=True)
         ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
             self.instance_id,

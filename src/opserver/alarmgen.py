@@ -908,7 +908,8 @@ class Controller(object):
                                       host_ip=self._conf.host_ip(),
                                       discovery_client=self.disc,
                                       connect_to_collector = is_collector,
-                                      alarm_ack_callback=self.alarm_ack_callback)
+                                      alarm_ack_callback=self.alarm_ack_callback,
+                                      config=self._conf.sandesh_config())
         if test_logger is not None:
             self._logger = test_logger
         else:

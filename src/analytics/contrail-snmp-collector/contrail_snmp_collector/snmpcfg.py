@@ -105,6 +105,13 @@ Mibs = LldpTable, ArpTable
             'disc_server_ip'     : '127.0.0.1',
             'disc_server_port'   : 5998,
         }
+        sandesh_opts = {
+            'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+            'certfile': '/etc/contrail/ssl/certs/server.pem',
+            'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+            'sandesh_ssl_enable': False,
+            'introspect_ssl_enable': False
+        }
 
         config = None
         if args.conf_file:
@@ -117,6 +124,8 @@ Mibs = LldpTable, ArpTable
                 ksopts.update(dict(config.items("KEYSTONE")))
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
+            if 'SANDESH' in config.sections():
+                sandesh_opts.update(dict(config.items('SANDESH')))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -129,6 +138,7 @@ Mibs = LldpTable, ArpTable
         )
         defaults.update(ksopts)
         defaults.update(disc_opts)
+        defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--collectors",
             help="List of Collector IP addresses in ip:port format",
@@ -175,6 +185,16 @@ Mibs = LldpTable, ArpTable
             help="Discovery Server IP address")
         parser.add_argument("--disc_server_port", type=int,
             help="Discovery Server port")
+        parser.add_argument("--keyfile",
+            help="Sandesh ssl private key")
+        parser.add_argument("--certfile",
+            help="Sandesh ssl certificate")
+        parser.add_argument("--ca_cert",
+            help="Sandesh CA ssl certificate")
+        parser.add_argument("--sandesh_ssl_enable", action="store_true",
+            help="Enable ssl for sandesh connection")
+        parser.add_argument("--introspect_ssl_enable", action="store_true",
+            help="Enable ssl for introspect connection")
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument("--device-config-file",
             help="where to look for snmp credentials")
@@ -270,3 +290,10 @@ Mibs = LldpTable, ArpTable
 
     def sandesh_send_rate_limit(self):
         return self._args.sandesh_send_rate_limit
+
+    def sandesh_config(self):
+        return SandeshConfig(self._args.keyfile,
+                             self._args.certfile,
+                             self._args.ca_cert,
+                             self._args.sandesh_ssl_enable,
+                             self._args.introspect_ssl_enable)

@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             instance_id,
             a_evm, "127.0.0.1", coll_port,
-            options.http_server_port(), &vsc));
+            options.http_server_port(), &vsc, options.sandesh_config()));
     if (!success) {
         LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
         ShutdownServers(&analytics, NULL);

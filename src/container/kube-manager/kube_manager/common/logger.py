@@ -191,7 +191,8 @@ class KubeManagerLogger(object):
             int(self._args.http_server_port),
             ['cfgm_common', 'kube_manager.sandesh', 'kube_introspect.sandesh'],
             self._module["discovery"], logger_class=self._args.logger_class,
-            logger_config_file=self._args.logging_conf)
+            logger_config_file=self._args.logging_conf,
+            config=self._args.sandesh_config)
 
         # Set Sandesh logging params.
         self._sandesh.set_logging_params(
