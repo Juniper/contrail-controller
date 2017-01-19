@@ -16,7 +16,7 @@
 #include "base/timer.h"
 #include "net/address.h"
 #include "base/queue_task.h"
-#include "ifmap/client/ifmap_manager.h"
+#include "ifmap/client/config_client_manager.h"
 
 class BgpRouterState;
 class DB;
@@ -86,14 +86,11 @@ public:
     IFMapExporter *exporter() { return exporter_.get(); }
     IFMapVmUuidMapper *vm_uuid_mapper() { return vm_uuid_mapper_.get(); }
     boost::asio::io_service *io_service() { return io_service_; }
-    void set_ifmap_manager(IFMapManager *manager) {
-        ifmap_manager_ = manager;
+    void set_config_manager(ConfigClientManager *manager) {
+        config_manager_ = manager;
     }
-    IFMapManager *get_ifmap_manager() { return ifmap_manager_; }
-    IFMapManager *get_ifmap_manager() const { return ifmap_manager_; }
-    virtual uint64_t get_ifmap_channel_sequence_number() {
-        return ifmap_manager_->GetChannelSequenceNumber();
-    }
+    ConfigClientManager *get_config_manager() { return config_manager_; }
+    ConfigClientManager *get_config_manager() const { return config_manager_; }
     void set_ifmap_channel_manager(IFMapChannelManager *manager) {
         ifmap_channel_manager_ = manager;
     }
@@ -162,7 +159,7 @@ private:
     IndexMap index_map_;
     WorkQueue<QueueEntry> work_queue_;
     boost::asio::io_service *io_service_;
-    IFMapManager *ifmap_manager_;
+    ConfigClientManager *config_manager_;
     IFMapChannelManager *ifmap_channel_manager_;
     ClientHistory client_history_;
 };
