@@ -3748,6 +3748,8 @@ class DBInterface(object):
         self._vnc_lib.chown(port_id, tenant_id)
         # add support, nova boot --nic subnet-id=subnet_uuid
         subnet_id = port_q.get('subnet_id')
+        exception = None
+        exception_kwargs = {}
         try:
             if 'fixed_ips' in port_q:
                 self._port_create_instance_ip(net_obj, port_obj, port_q)
@@ -3762,15 +3764,23 @@ class DBInterface(object):
                          {'fixed_ips':[{'ip_address': None,
                                         'subnet_id':subnet_id}]},
                                                   ip_family="v6")
+        except RefsExistError as e:
+            # failure in creating the instance ip. Roll back
+            exception = 'Conflict'
+            exception_kwargs = {'message': str(e)}
         except BadRequest as e:
             # failure in creating the instance ip. Roll back
-            self._virtual_machine_interface_delete(port_id=port_id)
-            self._raise_contrail_exception('BadRequest', resource='port', msg=str(e))
+            exception = 'BadRequest'
+            exception_kwargs = {'resource': 'port', 'msg': str(e)}
         except vnc_exc.HttpError:
             # failure in creating the instance ip. Roll back
-            self._virtual_machine_interface_delete(port_id=port_id)
-            self._raise_contrail_exception('IpAddressGenerationFailure',
-                                           net_id=net_obj.uuid)
+            exception = 'IpAddressGenerationFailure'
+            exception_kwargs = {'net_id': net_obj.uuid}
+        finally:
+            if exception:
+                self._virtual_machine_interface_delete(port_id=port_id)
+                self._raise_contrail_exception(exception, **exception_kwargs)
+
         # TODO below reads back default parent name, fix it
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
