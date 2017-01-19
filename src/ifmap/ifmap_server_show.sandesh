@@ -4,7 +4,7 @@
 
 /** Definitions for showing ifmap-server state and stats **/
 
-request sandesh IFMapPeerServerInfoReq {
+request sandesh ConfigClientInfoReq {
 }
 
 struct IFMapPeerServerInfoUI {
@@ -17,24 +17,21 @@ struct IFMapServerInfoUI {
     1: u64 num_peer_clients;
 }
 
-struct IFMapPeerServerInfo {
-    1: string url;
-    3: bool init_done;
+struct ConfigDBConnInfo {
+    1: string cluster;
+    2: bool connection_status;
+    3: u64 connection_status_change_at;
 }
 
-struct IFMapPeerServerConnInfo {
-    1: string publisher_id;
-    2: string session_id;
-    3: u64 sequence_number;
-    4: string connection_status;
-    5: string host;
-    6: string port;
-    11: i32 end_of_rib_timeout_ms;
-    7: bool end_of_rib_computed;
-    8: bool end_of_rib_timer_running;
-    12: i32 stale_entries_cleanup_timeout_ms;
-    9: bool start_stale_entries_cleanup;
-    10: bool stale_entries_cleanup_timer_running;
+struct ConfigAmqpConnInfo {
+    1: string url;
+    2: bool connection_status;
+    3: u64 connection_status_change_at;
+}
+
+struct ConfigClientManagerInfo {
+    1: bool end_of_rib_computed;
+    2: u64 end_of_rib_computed_at;
 }
 
 struct IFMapPeerTimedoutEntry {
@@ -86,12 +83,10 @@ struct IFMapDSPeerInfo {
     10: u64 no_best_peer_count;
 }
 
-response sandesh IFMapPeerServerInfoResp {
-    1: IFMapPeerServerInfo server_info;
-    2: IFMapPeerServerConnInfo server_conn_info;
-    3: IFMapPeerServerStatsInfo stats_info;
-    4: IFMapStateMachineInfo sm_info;
-    5: IFMapDSPeerInfo ds_peer_info;
+response sandesh ConfigClientInfoResp {
+    1: ConfigClientManagerInfo client_manager_info;
+    2: ConfigDBConnInfo db_conn_info;
+    3: ConfigAmqpConnInfo amqp_conn_info;
 }
 
 /** Definitions for showing the list of node ifmap tables **/

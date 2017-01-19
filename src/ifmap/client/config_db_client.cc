@@ -15,7 +15,6 @@ ConfigDbClient::ConfigDbClient(const IFMapConfigOptions &options)
     : config_db_user_(options.config_db_username),
       config_db_password_(options.config_db_password) {
 
-    set_end_of_rib_computed(false);
     for (vector<string>::const_iterator iter =
                 options.config_db_server_list.begin();
          iter != options.config_db_server_list.end(); iter++) {
