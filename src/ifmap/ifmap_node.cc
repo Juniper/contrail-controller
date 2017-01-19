@@ -76,7 +76,7 @@ const IFMapObject *IFMapNode::GetObject() const {
 
 IFMapNode::crc32type IFMapNode::GetConfigCrc() {
     IFMapNode::crc32type crc = 0;
-    IFMapObject *object = Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *object = Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     if (object) {
         crc = object->CalculateCrc();
         if (crc == 0) {

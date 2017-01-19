@@ -8,8 +8,13 @@
 #include <string>
 #include <vector>
 
+#include <boost/asio/ip/tcp.hpp>
+
+#include <tbb/atomic.h>
+
 struct IFMapConfigOptions;
 class ConfigClientManager;
+struct ConfigAmqpConnInfo;
 
 /*
  * This is class interacts with RabbitMQ
@@ -17,7 +22,7 @@ class ConfigClientManager;
 class ConfigAmqpClient {
 public:
     ConfigAmqpClient(ConfigClientManager *mgr, std::string hostname,
-                     const IFMapConfigOptions &options);
+                 std::string module_name, const IFMapConfigOptions &options);
     virtual ~ConfigAmqpClient();
 
     std::string rabbitmq_ip() const {
@@ -64,6 +69,7 @@ public:
 
     std::string FormAmqpUri() const;
     std::string hostname() const;
+    std::string module_name() const;
 
     void EnqueueUUIDRequest(std::string oper, std::string obj_type,
                        std::string uuid_str);
@@ -76,12 +82,20 @@ public:
     ConfigClientManager *config_manager() {
         return mgr_;
     }
+    boost::asio::ip::tcp::endpoint endpoint() const {
+        return endpoint_;
+    }
+
+    void set_connected(bool connected);
+    void GetConnectionInfo(ConfigAmqpConnInfo &info) const;
+
 private:
     // A Job for reading the rabbitmq
     class RabbitMQReader;
 
     ConfigClientManager *mgr_;
     std::string hostname_;
+    std::string module_name_;
 
     int reader_task_id_;
     int current_server_index_;
@@ -96,6 +110,10 @@ private:
     std::string rabbitmq_ssl_certfile_;
     std::string rabbitmq_ssl_ca_certs_;
     static bool disable_;
+    boost::asio::ip::tcp::endpoint endpoint_;
+    tbb::atomic<bool> connection_status_;
+    tbb::atomic<uint64_t> connection_status_change_at_;
+
 };
 
 #endif // ctrlplane_config_amqp_client_h
