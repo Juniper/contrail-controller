@@ -7,17 +7,21 @@
 
 #include <pthread.h>
 #include <boost/program_options.hpp>
+#include "sandesh/sandesh_types.h"
+#include "sandesh/sandesh.h"
+#include "nodeinfo_types.h"
+#include "base/connection_info.h"
 #include <base/logging.h>
 #include <base/misc_utils.h>
 #include <base/contrail_ports.h>
 #include <base/task.h>
 #include <db/db_graph.h>
+#include <ifmap/client/config_client_manager.h>
 #include <ifmap/ifmap_link_table.h>
 #include "ifmap/ifmap_sandesh_context.h"
 #include <ifmap/ifmap_server_parser.h>
 #include <ifmap/ifmap_server.h>
 #include <ifmap/ifmap_xmpp.h>
-#include <ifmap/client/ifmap_manager.h>
 #include <io/event_manager.h>
 #include <sandesh/sandesh.h>
 #include <vnc_cfg_types.h>
@@ -38,6 +42,14 @@
 namespace opt = boost::program_options;
 using namespace boost::asio::ip;
 using namespace std;
+using process::ConnectionInfo;
+using process::ConnectionStateManager;
+using process::GetProcessStateCb;
+using process::ProcessState;
+using process::ConnectionType;
+using process::ConnectionTypeName;
+using process::g_process_info_constants;
+
 
 uint64_t start_time;
 TaskTrigger *dns_info_trigger;
@@ -57,11 +69,24 @@ bool DnsInfoLogger() {
     return true;
 }
 
-bool DnsServerReEvaluatePublishCb(IFMapServer *ifmap_server,
-                                  std::string &message) {
+static void DnsServerGetProcessStateCb(
+   const ConfigClientManager *config_client_manager,
+   const std::vector<ConnectionInfo> &cinfos,
+   ProcessState::type &state, std::string &message,
+   std::vector<ConnectionTypeName> expected_connections) {
+    GetProcessStateCb(cinfos, state, message, expected_connections);
+    if (state == ProcessState::NON_FUNCTIONAL)
+        return;
+    if (!config_client_manager->GetEndOfRibComputed()) {
+        state = ProcessState::NON_FUNCTIONAL;
+        message = "IFMap Server End-Of-RIB not computed";
+    }
+}
 
-    IFMapManager *ifmap_manager = ifmap_server->get_ifmap_manager();
-    if (ifmap_manager && !ifmap_manager->GetEndOfRibComputed()) {
+
+bool DnsServerReEvaluatePublishCb(IFMapServer *ifmap_server,
+      const ConfigClientManager *config_client_manager, std::string &message) {
+    if (!config_client_manager->GetEndOfRibComputed()) {
         message = "IFMap Server End-Of-RIB not computed";
         return false;
     }
@@ -83,13 +108,16 @@ static string FileRead(const string &filename) {
     return content;
 }
 
-static void IFMap_Initialize(IFMapServer *server) {
+static void IFMap_Initialize(IFMapServer *server, ConfigClientManager *mgr) {
     IFMapLinkTable_Init(server->database(), server->graph());
+    // TODO Remove server parser
     IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
     vnc_cfg_ParserInit(parser);
+    vnc_cfg_JsonParserInit(mgr->config_json_parser());
     vnc_cfg_Server_ModuleInit(server->database(), server->graph());
     // bgp_schema_ParserInit(parser);
     // bgp_schema_Server_ModuleInit(server->database(), server->graph());
+    // bgp_schema_JsonParserInit(mgr->config_json_parser());
     server->Initialize();
 }
 
@@ -192,12 +220,18 @@ int main(int argc, char *argv[]) {
     }
 
     // DNS::SetTestMode(options.test_mode());
+    ConnectionStateManager::GetInstance();
 
     DB config_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
     DBGraph config_graph;
     IFMapServer ifmap_server(&config_db, &config_graph,
                              Dns::GetEventManager()->io_service());
-    IFMap_Initialize(&ifmap_server);
+
+    ConfigClientManager *config_client_manager =
+        new ConfigClientManager(Dns::GetEventManager(), &ifmap_server,
+            options.hostname(), module_name, options.ifmap_config_options());
+    IFMap_Initialize(&ifmap_server, config_client_manager);
+
 
     DnsManager dns_manager;
     Dns::SetDnsManager(&dns_manager);
@@ -260,7 +294,8 @@ int main(int argc, char *argv[]) {
             std::string pub_msg;
             pub_msg = pub_ss.str();
             ds_client->Publish(sname, pub_msg,
-                boost::bind(&DnsServerReEvaluatePublishCb, &ifmap_server, _1));
+                boost::bind(&DnsServerReEvaluatePublishCb,
+                            &ifmap_server, config_client_manager, _1));
         }
 
         //subscribe to collector service if not configured
@@ -301,16 +336,27 @@ int main(int argc, char *argv[]) {
     }
     Dns::SetDiscoveryServiceClient(ds_client);
 
-    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
+    ifmap_server.set_config_manager(config_client_manager);
 
-    IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server,
-                options.ifmap_config_options(),
-                boost::bind(&IFMapServerParser::Receive, ifmap_parser,
-                            &config_db, _1, _2, _3),
-                        Dns::GetEventManager()->io_service());
-    ifmap_server.set_ifmap_manager(ifmapmgr);
-    dns_manager.set_ifmap_manager(ifmapmgr);
-    ifmapmgr->InitializeDiscovery(ds_client, options.ifmap_server_url());
+    //
+    // Determine if the number of connections is as expected.
+    // 1. Cassandra Server
+    // 2. AMQP Server
+    //
+    std::vector<ConnectionTypeName> expected_connections;
+    expected_connections = boost::assign::list_of
+     (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                         ConnectionType::DATABASE)->second, "Cassandra"));
+     (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second, "RabbitMQ"));
+    ConnectionStateManager::GetInstance()->Init(
+        *(Dns::GetEventManager()->io_service()), options.hostname(),
+        module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
+        boost::bind(&DnsServerGetProcessStateCb, config_client_manager, _1, _2, _3,
+                    expected_connections), "ObjectDns");
+
+    dns_manager.set_config_manager(config_client_manager);
+    config_client_manager->Initialize();
 
     Dns::GetEventManager()->Run();
 
