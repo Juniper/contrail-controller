@@ -81,10 +81,6 @@ BuildTest(env, 'ifmap_graph_walker_test', ['ifmap_graph_walker_test.cc'], [],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'schema/ifmapio'],
           flaky_test_suite)
 
-BuildTest(env, 'ifmap_restart_test', ['ifmap_restart_test.cc'],
-          ['schema/ifmap_vnc', 'schema/bgp_schema', 'schema/ifmapio', 'schema/bgp_schema',
-           'xml/xml'], [])
-
 BuildTest(env, 'ifmap_server_test', ['ifmap_server_test.cc'],
           [], ['schema/ifmap_vnc', 'schema/ifmapio', 'schema/bgp_schema'])
 

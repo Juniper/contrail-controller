@@ -7,6 +7,9 @@
 
 #include <boost/scoped_ptr.hpp>
 
+#include <tbb/compat/condition_variable>
+#include <tbb/mutex.h>
+
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_origin.h"
 
@@ -18,6 +21,8 @@ struct DBRequest;
 class EventManager;
 class IFMapServer;
 struct IFMapConfigOptions;
+class IFMapPeerServerInfoUI;
+struct ConfigClientManagerInfo;
 
 /*
  * This class is the manager that over-sees the retrieval of user configuration.
@@ -29,7 +34,7 @@ class ConfigClientManager {
 public:
     typedef std::list<struct DBRequest *> RequestList;
     ConfigClientManager(EventManager *evm, IFMapServer *ifmap_server,
-                        std::string hostname,
+                        std::string hostname, std::string module_name,
                         const IFMapConfigOptions& config_options);
     void Initialize();
     ConfigAmqpClient *config_amqp_client() const;
@@ -57,6 +62,11 @@ public:
     std::string GetWrapperFieldName(const std::string &type_name,
                                     const std::string &property_name) const;
 
+    void EndOfConfig();
+    void WaitForEndOfConfig();
+    void GetPeerServerInfo(IFMapPeerServerInfoUI *server_info);
+    void GetClientManagerInfo(ConfigClientManagerInfo &info) const;
+
 private:
     typedef std::pair<std::string, std::string> LinkMemberPair;
     typedef std::pair<std::string, bool> LinkDataPair;
@@ -73,6 +83,11 @@ private:
     boost::scoped_ptr<ConfigAmqpClient> config_amqp_client_;
     int thread_count_;
     WrapperFieldMap wrapper_field_map_;
+
+    mutable tbb::mutex end_of_rib_sync_mutex_;
+    tbb::interface5::condition_variable cond_var_;
+    bool end_of_rib_computed_;
+    uint64_t end_of_rib_computed_at_;
 };
 
 #endif // ctrlplane_config_client_manager_h

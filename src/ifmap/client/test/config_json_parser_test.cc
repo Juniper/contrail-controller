@@ -16,6 +16,7 @@
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
+#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
@@ -78,7 +79,8 @@ public:
     }
 
     bool ParseUuidTableRowResponse(const string &uuid,
-            const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec) {
+            const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
+            ConfigCassandraParseContext &context) {
         // Retrieve event index prepended to uuid, to get to the correct db.
         int idx = HashUUID(uuid);
         UUIDIndexMap::iterator it = db_index_[idx].find(uuid);
@@ -88,7 +90,7 @@ public:
              events_[SizeType(index)]["db"][uuid.c_str()].MemberBegin();
              k != events_[SizeType(index)]["db"][uuid.c_str()].MemberEnd(); ++k) {
             ParseUuidTableRowJson(uuid, k->name.GetString(), k->value.GetString(),
-                                  0, cass_data_vec);
+                                  0, cass_data_vec, context);
         }
         db_index_[idx].erase(it);
         return true;
@@ -104,7 +106,7 @@ protected:
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
         ifmap_server_(new IFMapServer(&db_, &graph_, evm_.io_service())),
         config_client_manager_(new ConfigClientManager(&evm_,
-                    ifmap_server_.get(), "localhost", config_options_)) {
+            ifmap_server_.get(), "localhost", "config-test", config_options_)) {
     }
 
     virtual void SetUp() {
@@ -1310,7 +1312,7 @@ TEST_F(ConfigJsonParserTest, ServerParser14InParts) {
 // 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
 // 2) create link(vr,gsc), then gsc-with-properties
 // 3) delete vr
-TEST_F(ConfigJsonParserTest, DISABLED_ServerParser15) {
+TEST_F(ConfigJsonParserTest, ServerParser15) {
     IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
@@ -1323,8 +1325,6 @@ TEST_F(ConfigJsonParserTest, DISABLED_ServerParser15) {
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
     TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
-
-    usleep(1000);
 
     // Object should not exist
     IFMapNode *vr1 = NodeLookup("virtual-router", "vr1");

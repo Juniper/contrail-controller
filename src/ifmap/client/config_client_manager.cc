@@ -2,34 +2,45 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 #include "config_client_manager.h"
+
+#include <boost/assign/list_of.hpp>
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/request_pipeline.h>
+
+#include "base/connection_info.h"
+#include "base/task.h"
 #include "config_amqp_client.h"
 #include "config_db_client.h"
 #include "config_cassandra_client.h"
 #include "config_json_parser.h"
-
-#include "base/task.h"
 #include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_server.h"
+#include "ifmap/ifmap_sandesh_context.h"
+#include "ifmap/ifmap_server_show_types.h"
 #include "ifmap/ifmap_server_table.h"
 #include "io/event_manager.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
+using namespace boost::assign;
 using namespace std;
 
 ConfigClientManager::ConfigClientManager(EventManager *evm,
-        IFMapServer *ifmap_server, string hostname,
+        IFMapServer *ifmap_server, string hostname, string module_name,
         const IFMapConfigOptions& config_options)
         : evm_(evm), ifmap_server_(ifmap_server) {
     config_json_parser_.reset(new ConfigJsonParser(this));
     thread_count_ = TaskScheduler::GetInstance()->HardwareThreadCount();
+    end_of_rib_computed_ = false;
+    end_of_rib_computed_at_ = UTCTimestampUsec();
     config_db_client_.reset(
             IFMapFactory::Create<ConfigCassandraClient>(this, evm,
                 config_options, config_json_parser_.get(), thread_count_));
-    config_amqp_client_.reset(new ConfigAmqpClient(this, hostname,
+    config_amqp_client_.reset(new ConfigAmqpClient(this, hostname, module_name,
                                                    config_options));
     vnc_cfg_FilterInfo vnc_filter_info;
     bgp_schema_FilterInfo bgp_schema_filter_info;
@@ -70,7 +81,8 @@ ConfigAmqpClient *ConfigClientManager::config_amqp_client() const {
 }
 
 bool ConfigClientManager::GetEndOfRibComputed() const {
-    return config_db_client_->end_of_rib_computed();
+    tbb::mutex::scoped_lock lock(end_of_rib_sync_mutex_);
+    return end_of_rib_computed_;
 }
 
 void ConfigClientManager::EnqueueUUIDRequest(string oper, string obj_type,
@@ -154,4 +166,87 @@ string ConfigClientManager::GetWrapperFieldName(const string &type_name,
         std::replace(temp_str.begin(), temp_str.end(), '-', '_');
         return temp_str;
     }
+}
+
+void ConfigClientManager::EndOfConfig() {
+    {
+        // Notify waiting caller with the resultcjjjkkkk
+        tbb::mutex::scoped_lock lock(end_of_rib_sync_mutex_);
+        assert(!end_of_rib_computed_);
+        end_of_rib_computed_ = true;
+        cond_var_.notify_all();
+        end_of_rib_computed_at_ = UTCTimestampUsec();
+    }
+
+    process::ConnectionState::GetInstance()->Update();
+}
+
+void ConfigClientManager::WaitForEndOfConfig() {
+    tbb::interface5::unique_lock<tbb::mutex> lock(end_of_rib_sync_mutex_);
+    // Wait for End of config
+    if (!end_of_rib_computed_)
+        cond_var_.wait(lock);
+}
+
+void ConfigClientManager::GetPeerServerInfo(
+                                        IFMapPeerServerInfoUI *server_info) {
+    ConfigDBConnInfo status;
+
+    config_db_client()->GetConnectionInfo(status);
+    server_info->set_url(status.cluster);
+    server_info->set_connection_status(
+                       (status.connection_status ? "Up" : "Down"));
+    server_info->set_connection_status_change_at(
+                       status.connection_status_change_at);
+}
+
+void ConfigClientManager::GetClientManagerInfo(
+                                   ConfigClientManagerInfo &info) const {
+    tbb::mutex::scoped_lock lock(end_of_rib_sync_mutex_);
+    info.end_of_rib_computed = end_of_rib_computed_;
+    info.end_of_rib_computed_at = end_of_rib_computed_at_;
+}
+
+static bool ConfigClientInfoHandleRequest(const Sandesh *sr,
+                                         const RequestPipeline::PipeSpec ps,
+                                         int stage, int instNum,
+                                         RequestPipeline::InstData *data) {
+    const ConfigClientInfoReq *request =
+        static_cast<const ConfigClientInfoReq *>(ps.snhRequest_.get());
+    ConfigClientInfoResp *response = new ConfigClientInfoResp();
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+
+    ConfigClientManager *config_mgr =
+        sctx->ifmap_server()->get_config_manager();
+
+    ConfigAmqpConnInfo amqp_conn_info;
+    config_mgr->config_amqp_client()->GetConnectionInfo(amqp_conn_info);
+
+    ConfigDBConnInfo db_conn_info;
+    config_mgr->config_db_client()->GetConnectionInfo(db_conn_info);
+
+    ConfigClientManagerInfo client_mgr_info;
+    config_mgr->GetClientManagerInfo(client_mgr_info);
+
+    response->set_client_manager_info(client_mgr_info);
+    response->set_db_conn_info(db_conn_info);
+    response->set_amqp_conn_info(amqp_conn_info);
+    response->set_context(request->context());
+    response->set_more(false);
+    response->Response();
+    return true;
+}
+
+void ConfigClientInfoReq::HandleRequest() const {
+    RequestPipeline::StageSpec s0;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s0.taskId_ = scheduler->GetTaskId("config::SandeshCmd");
+    s0.cbFn_ = ConfigClientInfoHandleRequest;
+    s0.instances_.push_back(0);
+
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_= list_of(s0);
+    RequestPipeline rp(ps);
 }

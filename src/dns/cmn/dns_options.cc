@@ -62,6 +62,10 @@ void Options::Initialize(EventManager &evm,
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 
+    vector<string> default_config_db_server_list;
+    string default_config_db_server(host_ip + ":9042");
+    default_config_db_server_list.push_back(default_config_db_server);
+
     // Command line and config file options.
     opt::options_description config("Configuration options");
     config.add_options()
@@ -154,6 +158,16 @@ void Options::Initialize(EventManager &evm,
              ifmap_config_options_.server_url), "IFMAP server URL")
         ("IFMAP.user", opt::value<string>()->default_value("dns_user"),
              "IFMAP server username")
+        ("IFMAP.config_user",
+             opt::value<string>()->default_value("control-node"),
+             "Config database username")
+        ("IFMAP.config_password",
+             opt::value<string>()->default_value("control-node"),
+             "Config database password")
+        ("IFMAP.config_db_server_list",
+             opt::value<vector<string> >()->default_value(
+             default_config_db_server_list, default_config_db_server),
+             "Config database server list")
         ("IFMAP.stale_entries_cleanup_timeout",
              opt::value<int>()->default_value(300),
              "IFMAP stale entries cleanup timeout")
@@ -161,6 +175,36 @@ void Options::Initialize(EventManager &evm,
              "IFMAP end of rib timeout")
         ("IFMAP.peer_response_wait_time", opt::value<int>()->default_value(60),
              "IFMAP peer response wait time")
+        ("IFMAP.rabbitmq_ip",
+             opt::value<string>()->default_value("127.0.0.1"),
+             "RabbitMQ server ip")
+        ("IFMAP.rabbitmq_port",
+             opt::value<string>()->default_value("5672"),
+             "RabbitMQ port")
+        ("IFMAP.rabbitmq_user",
+             opt::value<string>()->default_value("guest"),
+             "RabbitMQ user")
+        ("IFMAP.rabbitmq_password",
+             opt::value<string>()->default_value("guest"),
+             "RabbitMQ password")
+        ("IFMAP.rabbitmq_vhost",
+             opt::value<string>()->default_value(""),
+             "RabbitMQ vhost")
+        ("IFMAP.rabbitmq_use_ssl",
+             opt::value<bool>()->default_value(false),
+             "Use SSL for RabbitMQ connection")
+        ("IFMAP.rabbitmq_ssl_version",
+             opt::value<string>()->default_value(""),
+             "SSL version for RabbitMQ connection")
+        ("IFMAP.rabbitmq_ssl_keyfile",
+             opt::value<string>()->default_value(""),
+             "Keyfile for SSL RabbitMQ connection")
+        ("IFMAP.rabbitmq_ssl_certfile",
+             opt::value<string>()->default_value(""),
+             "Certificate file for SSL RabbitMQ connection")
+        ("IFMAP.rabbitmq_ssl_ca_certs",
+             opt::value<string>()->default_value(""),
+             "CA Certificate file for SSL RabbitMQ connection")
 
         ("DEFAULT.xmpp_dns_auth_enable", opt::bool_switch(&xmpp_auth_enable_),
              "Enable authentication over Xmpp")
@@ -319,6 +363,13 @@ void Options::Process(int argc, char *argv[],
                         "IFMAP.server_url");
     GetOptValue<string>(var_map, ifmap_config_options_.user,
                         "IFMAP.user");
+    GetOptValue<string>(var_map, ifmap_config_options_.config_db_username,
+                        "IFMAP.config_user");
+    GetOptValue<string>(var_map, ifmap_config_options_.config_db_password,
+                        "IFMAP.config_password");
+    GetOptValue< vector<string> >(var_map,
+                                  ifmap_config_options_.config_db_server_list,
+                                  "IFMAP.config_db_server_list");
     GetOptValue<string>(var_map, ifmap_config_options_.certs_store,
                         "IFMAP.certs_store");
     GetOptValue<int>(var_map,
@@ -329,6 +380,36 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map,
                      ifmap_config_options_.peer_response_wait_time,
                      "IFMAP.peer_response_wait_time");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ip,
+                     "IFMAP.rabbitmq_ip");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_port,
+                     "IFMAP.rabbitmq_port");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_user,
+                     "IFMAP.rabbitmq_user");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_password,
+                     "IFMAP.rabbitmq_password");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_vhost,
+                     "IFMAP.rabbitmq_vhost");
+    GetOptValue<bool>(var_map,
+                     ifmap_config_options_.rabbitmq_use_ssl,
+                     "IFMAP.rabbitmq_use_ssl");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ssl_version,
+                     "IFMAP.rabbitmq_ssl_version");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ssl_keyfile,
+                     "IFMAP.rabbitmq_ssl_keyfile");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ssl_certfile,
+                     "IFMAP.rabbitmq_ssl_certfile");
+    GetOptValue<string>(var_map,
+                     ifmap_config_options_.rabbitmq_ssl_ca_certs,
+                     "IFMAP.rabbitmq_ssl_ca_certs");
 
     GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_dns_auth_enable");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
