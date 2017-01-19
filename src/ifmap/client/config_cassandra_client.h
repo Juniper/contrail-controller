@@ -21,14 +21,14 @@ class TaskTrigger;
 
 class ObjectProcessReq {
 public:
-    ObjectProcessReq(std::string uuid_str, std::string obj_type,
-                     std::string oper) : uuid_str_(uuid_str),
-    obj_type_(obj_type), oper_(oper) {
+    ObjectProcessReq(std::string oper, std::string obj_type,
+                     std::string uuid_str) : oper_(oper),
+    obj_type_(obj_type), uuid_str_(uuid_str) {
     }
 
-    std::string uuid_str_;
-    std::string obj_type_;
     std::string oper_;
+    std::string obj_type_;
+    std::string uuid_str_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(ObjectProcessReq);
@@ -47,6 +47,7 @@ public:
     static const std::string kObjectProcessTaskId;
     // wait time before retrying in seconds
     static const int kInitRetryTimeSec = 5;
+    static const int kMaxRequestsToYield = 64;
 
     typedef boost::scoped_ptr<GenDb::GenDbIf> GenDbIfPtr;
 
@@ -57,8 +58,8 @@ public:
     virtual void InitDatabase();
     std::string UUIDToFQName(const std::string &uuid_str) const;
 
-    virtual void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
-                                    std::string oper);
+    virtual void EnqueueUUIDRequest(std::string oper, std::string obj_type,
+                                    std::string uuid_str);
 
     ConfigJsonParser *json_parser() const { return parser_; }
 
@@ -78,7 +79,7 @@ protected:
     virtual bool ReadUuidTableRow(const std::string &obj_type,
                                   const std::string &uuid);
     void ParseUuidTableRowJson(const string &uuid, const string &key,
-                               const string &value,
+                               const string &value, uint64_t timestamp,
                                CassColumnKVVec *cass_data_vec);
     bool ParseRowAndEnqueueToParser(const string &obj_type,
                                     const string &uuid_key,
@@ -96,7 +97,7 @@ private:
     struct ObjectProcessRequestType {
         ObjectProcessRequestType(const std::string &in_oper,
                                  const std::string &in_obj_type,
-                                 const std::string &in_uuid) 
+                                 const std::string &in_uuid)
             : oper(in_oper), obj_type(in_obj_type), uuid(in_uuid) {
         }
         std::string oper;
@@ -120,7 +121,7 @@ private:
     typedef std::pair<string, string> ObjTypeUUIDType;
     typedef std::list<ObjTypeUUIDType> ObjTypeUUIDList;
 
-    typedef std::pair<uint32_t, bool> FieldTimeStampInfo;
+    typedef std::pair<uint64_t, bool> FieldTimeStampInfo;
     typedef std::map<std::string, FieldTimeStampInfo> FieldDetailMap;
 
     // Map of UUID to Field mapping
@@ -141,7 +142,7 @@ private:
     void Enqueue(int worker_id, ObjectProcessReq *req);
     bool RequestHandler(ObjectProcessReq *req);
     bool StoreKeyIfUpdated(int worker_id, const string &uuid, const string &key,
-                           uint32_t timestamp);
+                           uint64_t timestamp);
 
     void MarkCacheDirty(const string &uuid);
 

@@ -36,8 +36,8 @@ public:
     ConfigDbClient *config_db_client() const;
     ConfigJsonParser *config_json_parser() const;
     bool GetEndOfRibComputed() const;
-    void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
-                            std::string oper);
+    void EnqueueUUIDRequest(std::string oper, std::string obj_type,
+                            std::string uuid_str);
     ConfigAmqpClient *config_amqp_client() { return config_amqp_client_.get(); }
     ConfigJsonParser *config_json_parser() { return config_json_parser_.get(); }
     ConfigDbClient *config_db_client() { return config_db_client_.get(); }

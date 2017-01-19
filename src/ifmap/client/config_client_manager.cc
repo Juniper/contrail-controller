@@ -22,7 +22,7 @@ using namespace std;
 
 ConfigClientManager::ConfigClientManager(EventManager *evm,
         IFMapServer *ifmap_server, string hostname,
-        const IFMapConfigOptions& config_options) 
+        const IFMapConfigOptions& config_options)
         : evm_(evm), ifmap_server_(ifmap_server) {
     config_json_parser_.reset(new ConfigJsonParser(this));
     thread_count_ = TaskScheduler::GetInstance()->HardwareThreadCount();
@@ -40,13 +40,13 @@ ConfigClientManager::ConfigClientManager(EventManager *evm,
     for (vnc_cfg_FilterInfo::iterator it = vnc_filter_info.begin();
          it != vnc_filter_info.end(); it++) {
         link_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
-                                        make_pair(it->metadata_, it->linkattr_)));
+                                    make_pair(it->metadata_, it->linkattr_)));
     }
 
     for (bgp_schema_FilterInfo::iterator it = bgp_schema_filter_info.begin();
          it != bgp_schema_filter_info.end(); it++) {
         link_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
-                                        make_pair(it->metadata_, it->linkattr_)));
+                                    make_pair(it->metadata_, it->linkattr_)));
     }
 
     bgp_schema_Server_GenerateWrapperPropertyInfo(&wrapper_field_map_);
@@ -73,9 +73,9 @@ bool ConfigClientManager::GetEndOfRibComputed() const {
     return config_db_client_->end_of_rib_computed();
 }
 
-void ConfigClientManager::EnqueueUUIDRequest(string uuid_str, string obj_type,
-                                             string oper) {
-    config_db_client_->EnqueueUUIDRequest(uuid_str, obj_type, oper);
+void ConfigClientManager::EnqueueUUIDRequest(string oper, string obj_type,
+                                             string uuid_str) {
+    config_db_client_->EnqueueUUIDRequest(oper, obj_type, uuid_str);
 }
 
 void ConfigClientManager::InsertRequestIntoQ(IFMapOrigin::Origin origin,
@@ -106,7 +106,8 @@ void ConfigClientManager::EnqueueListToTables(RequestList *req_list) const {
         IFMapTable::RequestKey *key =
             static_cast<IFMapTable::RequestKey *>(req->key.get());
 
-        IFMapTable *table = IFMapTable::FindTable(ifmap_server_->database(), key->id_type);
+        IFMapTable *table = IFMapTable::FindTable(ifmap_server_->database(),
+                                                  key->id_type);
         if (table != NULL) {
             table->Enqueue(req.get());
         } else {
@@ -148,6 +149,7 @@ string ConfigClientManager::GetWrapperFieldName(const string &type_name,
     if (it == wrapper_field_map_.end()) {
         return "";
     } else {
+        // TODO: Fix the autogen to have _ instead of -
         string temp_str = it->second;
         std::replace(temp_str.begin(), temp_str.end(), '-', '_');
         return temp_str;
