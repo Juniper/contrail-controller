@@ -950,6 +950,12 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self.assertThat(obj_dict[0]['fq_name'][:-1],
                 Equals(proj_obj.fq_name))
 
+        # unanchored list with unknown filter
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            parent_id=proj_obj.uuid,
+            filters={'foo': 'bar'})['virtual-networks']
+        self.assertEqual(len(read_vn_objs), num_objs)
+
         # parent anchored detailed list without filters
         read_vn_objs = self._vnc_lib.virtual_networks_list(
             parent_id=proj_obj.uuid, detail=True)
