@@ -4,6 +4,17 @@
 
 #include "config_cassandra_client.h"
 
+#include <boost/foreach.hpp>
+#include <boost/functional/hash.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/request_pipeline.h>
+
+#include "base/connection_info.h"
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
@@ -14,13 +25,9 @@
 #include "database/cassandra/cql/cql_if.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
+#include "ifmap/ifmap_server_show_types.h"
 
 #include "sandesh/common/vns_constants.h"
-
-#include <boost/foreach.hpp>
-#include <boost/functional/hash.hpp>
-#include <boost/uuid/uuid.hpp>
-
 
 using namespace std;
 
@@ -39,6 +46,10 @@ ConfigCassandraClient::ConfigCassandraClient(ConfigClientManager *mgr,
     dbif_.reset(new cass::cql::CqlIf(evm, config_db_ips(),
                 GetFirstConfigDbPort(), "", ""));
 
+    // Initialized the casssadra connection status;
+    cassandra_connection_up_ = false;
+    connection_status_change_at_ = UTCTimestampUsec();
+
     int processor_task_id =
         TaskScheduler::GetInstance()->GetTaskId(kObjectProcessTaskId);
 
@@ -49,7 +60,7 @@ ConfigCassandraClient::ConfigCassandraClient(ConfigClientManager *mgr,
              TaskScheduler::GetInstance()->GetTaskId("cassandra::Reader"), i)));
         WorkQueue<ObjectProcessReq *> *tmp_work_q =
             new WorkQueue<ObjectProcessReq *>(processor_task_id, i,
-                      bind(&ConfigCassandraClient::RequestHandler, this, _1));
+                      bind(&ConfigCassandraClient::RequestHandler, this, i, _1));
         obj_process_queue_.push_back(ObjProcessWorkQType(tmp_work_q));
     }
 }
@@ -116,8 +127,10 @@ bool ConfigCassandraClient::ConfigReader(int worker_id) {
             if (!ReadUuidTableRow(obj_req->obj_type, obj_req->uuid)) {
                 return false;
             }
-        } else {
+        } else if (obj_req->oper == "DELETE") {
             HandleObjectDelete(obj_req->obj_type, obj_req->uuid);
+        } else if (obj_req->oper == "EndOfConfig") {
+            BulkSyncDone(worker_id);
         }
         uuid_read_set_[worker_id].erase(obj_req->uuid);
         uuid_read_list_[worker_id].erase(it);
@@ -130,10 +143,10 @@ bool ConfigCassandraClient::ConfigReader(int worker_id) {
     return true;
 }
 
-void ConfigCassandraClient::AddUUIDToRequestList(const string &oper,
+void ConfigCassandraClient::AddUUIDToRequestList(int worker_id,
+                                                 const string &oper,
                                                  const string &obj_type,
                                                  const string &uuid_str) {
-    int worker_id = HashUUID(uuid_str);
     pair<UUIDProcessSet::iterator, bool> ret;
     bool trigger = uuid_read_list_[worker_id].empty();
     ObjectProcessRequestType *req =
@@ -151,19 +164,27 @@ void ConfigCassandraClient::AddUUIDToRequestList(const string &oper,
 }
 
 bool ConfigCassandraClient::StoreKeyIfUpdated(int idx, const string &uuid,
-                                      const string &key, uint64_t timestamp) {
+                  const string &key, const string &value, uint64_t timestamp,
+                  ConfigCassandraParseContext &context) {
     ObjectCacheMap::iterator uuid_iter = object_cache_map_[idx].find(uuid);
     assert(uuid_iter != object_cache_map_[idx].end());
     size_t from_front_pos = key.find(':');
+    size_t from_back_pos = key.rfind(':');
     string type_field = key.substr(0, from_front_pos+1);
     bool is_ref = (type_field == ConfigCass2JsonAdapter::ref_prefix);
     bool is_parent = (type_field == ConfigCass2JsonAdapter::parent_prefix);
+    bool is_propl = (type_field == ConfigCass2JsonAdapter::list_prop_prefix);
+    bool is_propm = (type_field == ConfigCass2JsonAdapter::map_prop_prefix);
     string field_name = key;
+    string prop_name = "";
     if (is_ref || is_parent) {
-        size_t from_back_pos = key.rfind(':');
         string ref_uuid = key.substr(from_back_pos+1);
         string ref_name = UUIDToFQName(ref_uuid);
         field_name = key.substr(0, from_back_pos+1) + ref_name;
+    } else if (is_propl || is_propm) {
+        prop_name = key.substr(0, from_back_pos);
+        context.list_map_properties.insert(make_pair(prop_name,
+                                            JsonAdapterDataType(key, value)));
     }
 
     FieldDetailMap::iterator field_iter = uuid_iter->second.find(field_name);
@@ -182,15 +203,20 @@ bool ConfigCassandraClient::StoreKeyIfUpdated(int idx, const string &uuid,
         }
         field_iter->second.first = timestamp;
     }
-    return true;
+    if (is_propl || is_propm) {
+        context.updated_list_map_properties.insert(prop_name);
+        return false;
+    } else {
+        return true;
+    }
 }
 
 void ConfigCassandraClient::ParseUuidTableRowJson(const string &uuid,
         const string &key, const string &value, uint64_t timestamp,
-        CassColumnKVVec *cass_data_vec) {
+        CassColumnKVVec *cass_data_vec, ConfigCassandraParseContext &context) {
     int worker_id = HashUUID(uuid);
     // Check whether there was an update to property of ref
-    if (StoreKeyIfUpdated(worker_id, uuid, key, timestamp)) {
+    if (StoreKeyIfUpdated(worker_id, uuid, key, value, timestamp, context)) {
         // Field is updated.. enqueue to parsing
         cass_data_vec->push_back(JsonAdapterDataType(key, value));
     }
@@ -213,7 +239,8 @@ void ConfigCassandraClient::MarkCacheDirty(const string &uuid) {
 }
 
 bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
-        const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec) {
+        const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
+        ConfigCassandraParseContext &context) {
     BOOST_FOREACH(const GenDb::NewCol &ncol, col_list.columns_) {
         assert(ncol.name->size() == 1);
         assert(ncol.value->size() == 1);
@@ -232,7 +259,8 @@ bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
         const GenDb::DbDataValue &dtimestamp(ncol.timestamp->at(0));
         assert(dtimestamp.which() == GenDb::DB_VALUE_UINT64);
         uint64_t timestamp = boost::get<uint64_t>(dtimestamp);
-        ParseUuidTableRowJson(uuid, key, value, timestamp, cass_data_vec);
+        ParseUuidTableRowJson(uuid, key, value, timestamp, cass_data_vec,
+                              context);
     }
 
     return true;
@@ -270,8 +298,25 @@ bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &obj_type,
 
     MarkCacheDirty(uuid_key);
 
+    ConfigCassandraParseContext context;
+
     if (ParseUuidTableRowResponse(uuid_key, col_list,
-                                  cass_data_vec.get())) {
+                                  cass_data_vec.get(), context)) {
+        // Read the context for map and list properties
+        if (context.updated_list_map_properties.size()) {
+            for (set<string>::iterator it =
+                 context.updated_list_map_properties.begin();
+                 it != context.updated_list_map_properties.end(); it++) {
+                pair<multimap<string, JsonAdapterDataType>::iterator,
+                    multimap<string, JsonAdapterDataType>::iterator> ret =
+                    context.list_map_properties.equal_range(*it);
+                for (multimap<string, JsonAdapterDataType>::iterator mit =
+                     ret.first; mit != ret.second; mit++) {
+                    cass_data_vec->push_back(mit->second);
+                }
+            }
+        }
+
         // Convert column data to json string.
         auto_ptr<ConfigCass2JsonAdapter> ccja(new ConfigCass2JsonAdapter(this,
                                              obj_type, *(cass_data_vec.get())));
@@ -289,6 +334,7 @@ bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &obj_type,
 }
 
 void ConfigCassandraClient::InitDatabase() {
+    HandleCassandraConnectionStatus(false);
     while (true) {
         if (!dbif_->Db_Init()) {
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
@@ -312,6 +358,7 @@ void ConfigCassandraClient::InitDatabase() {
         }
         break;
     }
+    HandleCassandraConnectionStatus(true);
     BulkDataSync();
 }
 
@@ -334,10 +381,12 @@ bool ConfigCassandraClient::ReadUuidTableRow(const string &obj_type,
 
     if (dbif_->Db_GetRow(&col_list, kUuidTableName, key,
                          GenDb::DbConsistency::QUORUM, crange, field_vec)) {
+        HandleCassandraConnectionStatus(true);
         if (col_list.columns_.size()) {
             ParseRowAndEnqueueToParser(obj_type, uuid_key, col_list);
         }
     } else {
+        HandleCassandraConnectionStatus(false);
         IFMAP_WARN(IFMapGetRowError, "GetRow failed for table", kUuidTableName);
         return false;
     }
@@ -345,24 +394,50 @@ bool ConfigCassandraClient::ReadUuidTableRow(const string &obj_type,
     return true;
 }
 
+void ConfigCassandraClient::HandleCassandraConnectionStatus(bool success) {
+    bool previous_status = cassandra_connection_up_.fetch_and_store(success);
+    if (previous_status == success) {
+        return;
+    }
+
+    connection_status_change_at_ = UTCTimestampUsec();
+    if (success) {
+        // Update connection info
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::DATABASE, "Cassandra",
+            process::ConnectionStatus::UP,
+            dbif_->Db_GetEndpoints(), "Established Cassandra connection");
+    } else {
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::DATABASE, "Cassandra",
+            process::ConnectionStatus::UP,
+            dbif_->Db_GetEndpoints(), "Lost Cassandra connection");
+    }
+}
+
 bool ConfigCassandraClient::ReadAllUuidTableRows() {
     GenDb::ColListVec cl_vec_fq_name;
 
     ObjTypeUUIDList uuid_list;
-    if (dbif_->Db_GetAllRows(&cl_vec_fq_name, kFqnTableName,
-                             GenDb::DbConsistency::QUORUM)) {
-        BOOST_FOREACH(const GenDb::ColList &cl_list, cl_vec_fq_name) {
-            assert(cl_list.rowkey_.size() == 1);
-            assert(cl_list.rowkey_[0].which() == GenDb::DB_VALUE_BLOB);
+    while (true) {
+        if (dbif_->Db_GetAllRows(&cl_vec_fq_name, kFqnTableName,
+                                 GenDb::DbConsistency::QUORUM)) {
+            HandleCassandraConnectionStatus(true);
+            BOOST_FOREACH(const GenDb::ColList &cl_list, cl_vec_fq_name) {
+                assert(cl_list.rowkey_.size() == 1);
+                assert(cl_list.rowkey_[0].which() == GenDb::DB_VALUE_BLOB);
 
-            if (cl_list.columns_.size()) {
-                ParseFQNameRowGetUUIDList(cl_list, uuid_list);
+                if (cl_list.columns_.size()) {
+                    ParseFQNameRowGetUUIDList(cl_list, uuid_list);
+                }
             }
+            break;
+        } else {
+            HandleCassandraConnectionStatus(false);
+            IFMAP_WARN(IFMapGetRowError, "GetAllRows failed for table. Retry !",
+                       kFqnTableName);
+            sleep(kInitRetryTimeSec);
         }
-    } else {
-        IFMAP_WARN(IFMapGetRowError, "GetAllRows failed for table",
-                   kFqnTableName);
-        return false;
     }
 
     for (ObjTypeUUIDList::iterator it = uuid_list.begin();
@@ -370,10 +445,16 @@ bool ConfigCassandraClient::ReadAllUuidTableRows() {
         EnqueueUUIDRequest("CREATE", it->first, it->second);
     }
 
+    for (int i = 0; i < num_workers_; i++) {
+        ObjectProcessReq *req = new ObjectProcessReq("EndOfConfig","", "");
+        Enqueue(i, req);
+    }
+
     return true;
 }
 
 bool ConfigCassandraClient::BulkDataSync() {
+    bulk_sync_status_ = num_workers_;
     ReadAllUuidTableRows();
     return true;
 }
@@ -389,8 +470,9 @@ void ConfigCassandraClient::Enqueue(int worker_id, ObjectProcessReq *req) {
     obj_process_queue_[worker_id]->Enqueue(req);
 }
 
-bool ConfigCassandraClient::RequestHandler(ObjectProcessReq *req) {
-    AddUUIDToRequestList(req->oper_, req->obj_type_, req->uuid_str_);
+bool ConfigCassandraClient::RequestHandler(int worker_id,
+                                           ObjectProcessReq *req) {
+    AddUUIDToRequestList(worker_id, req->oper_, req->obj_type_, req->uuid_str_);
     delete req;
     return true;
 }
@@ -405,6 +487,7 @@ void ConfigCassandraClient::FormDeleteRequestList(const string &uuid,
         return;
     }
 
+    set<string> list_map_property_erased;
     for (FieldDetailMap::iterator it = uuid_iter->second.begin(), itnext;
          it != uuid_iter->second.end(); it = itnext) {
         itnext = it;
@@ -430,6 +513,10 @@ void ConfigCassandraClient::FormDeleteRequestList(const string &uuid,
                     (type_field == ConfigCass2JsonAdapter::ref_prefix);
                 bool is_parent =
                     (type_field == ConfigCass2JsonAdapter::parent_prefix);
+                bool is_propm =
+                    (type_field == ConfigCass2JsonAdapter::map_prop_prefix);
+                bool is_propl =
+                    (type_field == ConfigCass2JsonAdapter::list_prop_prefix);
                 if (is_ref || is_parent) {
                     string temp_str = it->first.substr(from_front_pos+1);
                     size_t sec_sep_pos = temp_str.find(':');
@@ -442,6 +529,17 @@ void ConfigCassandraClient::FormDeleteRequestList(const string &uuid,
                     }
                 } else {
                     size_t from_back_pos = it->first.rfind(':');
+                    if (is_propm || is_propl) {
+                        pair<set<string>::iterator, bool> ret =
+                            list_map_property_erased.insert(
+                                        it->first.substr(0, from_back_pos));
+                        if (add_change) {
+                            uuid_iter->second.erase(it);
+                            continue;
+                        } else if (!ret.second) {
+                            continue;
+                        }
+                    }
                     metaname  = it->first.substr(from_front_pos+1,
                                          (from_back_pos-from_front_pos-1));
                     std::replace(metaname.begin(), metaname.end(), '_', '-');
@@ -459,5 +557,46 @@ void ConfigCassandraClient::FormDeleteRequestList(const string &uuid,
 
     if (add_change != true) {
         object_cache_map_[idx].erase(uuid_iter);
+    } else {
+        if (list_map_property_erased.empty()) {
+            return;
+        }
+        for (set<string>::iterator it = list_map_property_erased.begin();
+             it != list_map_property_erased.end(); it++) {
+            UpdatePropertyDeleteToReqList(key, uuid_iter, *it, req_list);
+        }
     }
 }
+
+void ConfigCassandraClient::UpdatePropertyDeleteToReqList(
+      IFMapTable::RequestKey *key, ObjectCacheMap::iterator uuid_iter,
+      const string &lookup_key, ConfigClientManager::RequestList *req_list) {
+    FieldDetailMap::iterator lower_bound_it =
+        uuid_iter->second.lower_bound(lookup_key);
+    if (lower_bound_it != uuid_iter->second.end() &&
+        boost::starts_with(lower_bound_it->first, lookup_key)) {
+        return;
+    }
+    size_t from_front_pos = lookup_key.find(':');
+    string metaname = lookup_key.substr(from_front_pos+1);
+    std::replace(metaname.begin(), metaname.end(), '_', '-');
+    auto_ptr<AutogenProperty > pvalue;
+    mgr()->InsertRequestIntoQ(IFMapOrigin::CASSANDRA, "", "", metaname,
+                              pvalue, *key, false, req_list);
+}
+
+void ConfigCassandraClient::BulkSyncDone(int worker_id) {
+    long num_config_readers_still_processing =
+        bulk_sync_status_.fetch_and_decrement();
+    if (num_config_readers_still_processing == 1) {
+        mgr()->EndOfConfig();
+    }
+}
+
+void ConfigCassandraClient::GetConnectionInfo(ConfigDBConnInfo &status) const {
+    status.cluster = boost::algorithm::join(config_db_ips(), ", ");
+    status.connection_status = cassandra_connection_up_;
+    status.connection_status_change_at = connection_status_change_at_;
+    return;
+}
+

@@ -16,6 +16,8 @@
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/db_graph_edge.h"
+#include "ifmap/client/config_amqp_client.h"
+#include "ifmap/client/config_db_client.h"
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_exporter.h"
 #include "ifmap/ifmap_graph_walker.h"
@@ -36,98 +38,6 @@
 #include "control-node/sandesh/control_node_types.h"
 
 using std::make_pair;
-
-class IFMapServer::IFMapStaleEntriesCleaner : public Task {
-public:
-    IFMapStaleEntriesCleaner(DB *db, DBGraph *graph, IFMapServer *server):
-        Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
-        db_(db), graph_(graph), ifmap_server_(server) {
-    }
-
-    bool Run() {
-        // objects_deleted indicates the count of objects-deleted-but-not-node
-        uint32_t nodes_deleted = 0, nodes_changed = 0, links_deleted = 0,
-                 objects_deleted = 0;
-        uint64_t curr_seq_num =
-            ifmap_server_->get_ifmap_channel_sequence_number();
-
-        DBGraph::edge_iterator e_next(graph_);
-        for (DBGraph::edge_iterator e_iter = graph_->edge_list_begin();
-             e_iter != graph_->edge_list_end(); e_iter = e_next) {
-            const DBGraph::DBEdgeInfo &tuple = *e_iter;
-            // increment only after dereferencing
-            e_next = ++e_iter;
-
-            IFMapLink *link = static_cast<IFMapLink *>(boost::get<2>(tuple));
-            assert(link);
-
-            bool exists = false;
-            IFMapLink::LinkOriginInfo origin_info = 
-                link->GetOriginInfo(IFMapOrigin::MAP_SERVER, &exists);
-            if (exists && (origin_info.sequence_number < curr_seq_num)) {
-                IFMapLinkTable *ltable = static_cast<IFMapLinkTable *>(
-                    db_->FindTable("__ifmap_metadata__.0"));
-                // Cleanup the node and remove from the graph
-                link->RemoveOriginInfo(IFMapOrigin::MAP_SERVER);
-                if (link->is_origin_empty()) {
-                    ltable->DeleteLink(link);
-                }
-                links_deleted++;
-            }
-        }
-
-        DBGraph::vertex_iterator v_next(graph_);
-        for (DBGraph::vertex_iterator v_iter = graph_->vertex_list_begin();
-            v_iter != graph_->vertex_list_end(); v_iter = v_next) {
-
-            IFMapNode *node = static_cast<IFMapNode *>(v_iter.operator->());
-            // increment only after dereferencing
-            v_next = ++v_iter;
-
-            IFMapObject *object = 
-                node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
-            IFMapServerTable *ntable =
-                static_cast<IFMapServerTable *>(node->table());
-            if (object != NULL) {
-                if (object->sequence_number() < curr_seq_num) {
-                    node->Remove(object);
-                    bool retb = ntable->DeleteIfEmpty(node);
-                    if (retb) {
-                        nodes_deleted++;
-                    } else {
-                        objects_deleted++;
-                    }
-                } else {
-                    // There could be stale properties
-                    bool changed = object->ResolveStaleness();
-                    if (changed) {
-                        nodes_changed++;
-                        ntable->Notify(node);
-                    }
-                }
-            } else {
-                // The node doesnt have any object. We should delete it if it
-                // does not have any neighbors either.
-                bool retb = ntable->DeleteIfEmpty(node);
-                if (retb) {
-                    nodes_deleted++;
-                }
-            }
-        }
-        IFMAP_DEBUG(IFMapStaleEntriesCleanerInfo, curr_seq_num, nodes_deleted,
-                    nodes_changed, links_deleted, objects_deleted);
-
-        return true;
-    }
-    std::string Description() const {
-        return "IFMapServer::IFMapStaleEntriesCleaner";
-    }
-
-private:
-    DB *db_;
-    DBGraph *graph_;
-    IFMapServer *ifmap_server_;
-};
 
 class IFMapServer::IFMapVmSubscribe : public Task {
 public:
@@ -196,7 +106,7 @@ IFMapServer::IFMapServer(DB *db, DBGraph *graph,
           vm_uuid_mapper_(new IFMapVmUuidMapper(db_, this)),
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"),
               0, boost::bind(&IFMapServer::ClientWorker, this, _1)),
-          io_service_(io_service), ifmap_manager_(NULL),
+          io_service_(io_service), config_manager_(NULL),
           ifmap_channel_manager_(NULL) {
 }
 
@@ -397,14 +307,6 @@ bool IFMapServer::ClientNameToIndex(const std::string &id, int *index) {
     return false;
 }
 
-bool IFMapServer::ProcessStaleEntriesTimeout() {
-    IFMapStaleEntriesCleaner *cleaner =
-        new IFMapStaleEntriesCleaner(db_, graph_, this);
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    scheduler->Enqueue(cleaner);
-    return false;
-}
-
 void IFMapServer::ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
                                      bool subscribe, bool has_vms) {
     IFMapVmSubscribe *vm_sub = new IFMapVmSubscribe(db_, graph_, this,
@@ -518,12 +420,19 @@ void IFMapServer::GetUIInfo(IFMapServerInfoUI *server_info) const {
 bool IFMapServer::CollectStats(BgpRouterState *state, bool first) const {
     CHECK_CONCURRENCY("bgp::ShowCommand");
 
-    IFMapPeerServerInfoUI peer_server_info;
+    ConfigDBConnInfo db_conn_info;
     bool change = false;
 
-    get_ifmap_manager()->GetPeerServerInfo(&peer_server_info);
-    if (first || peer_server_info != state->get_ifmap_info())  {
-        state->set_ifmap_info(peer_server_info);
+    get_config_manager()->config_db_client()->GetConnectionInfo(db_conn_info);
+    if (first || db_conn_info != state->get_db_conn_info())  {
+        state->set_db_conn_info(db_conn_info);
+        change = true;
+    }
+
+    ConfigAmqpConnInfo amqp_conn_info;
+    get_config_manager()->config_amqp_client()->GetConnectionInfo(amqp_conn_info);
+    if (first || amqp_conn_info != state->get_amqp_conn_info())  {
+        state->set_amqp_conn_info(amqp_conn_info);
         change = true;
     }
 

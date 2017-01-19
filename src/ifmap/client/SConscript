@@ -17,11 +17,7 @@ except_env.CppEnableExceptions()
 except_env.Append(CPPPATH = env['TOP'])
 
 libifmapio = env.Library('ifmapio',
-                         ['ifmap_manager.cc',
-                          'ifmap_state_machine.cc',
-                          'ifmap_channel.cc',
-                          'peer_server_finder.cc',
-                          'config_amqp_client.cc',
+                         ['config_amqp_client.cc',
                           'config_cass2json_adapter.cc',
                           'config_cassandra_client.cc',
                           'config_client_manager.cc',
