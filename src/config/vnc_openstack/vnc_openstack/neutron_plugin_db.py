@@ -428,6 +428,10 @@ class DBInterface(object):
             if net_obj.get_floating_ip_pools():
                 fip_pools = net_obj.get_floating_ip_pools()
                 for fip_pool in fip_pools:
+                    fip_pool_obj = self._vnc_lib.floating_ip_pool_read(id=fip_pool['uuid'])
+                    fips = fip_pool_obj.get_floating_ips()
+                    for fip in fips:
+                        self.floatingip_delete(fip_id=fip['uuid'])
                     self._floating_ip_pool_delete(fip_pool_id=fip_pool['uuid'])
 
             self._vnc_lib.virtual_network_delete(id=net_id)
