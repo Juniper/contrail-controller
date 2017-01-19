@@ -21,6 +21,7 @@
 #include "utils.h"
 #include <database/cassandra/cql/cql_if.h>
 #include <boost/make_shared.hpp>
+#include "qe_sandesh.h"
 
 using std::map;
 using std::string;
@@ -397,6 +398,30 @@ bool AnalyticsQuery::can_parallelize_query() {
     return parallelize_query_;
 }
 
+/* parse the stat name and attribute which can be used
+ * to collect stats. Table name is of the format,
+ * StatTable.TableName.AttrName
+ * The functions sets the stat_name_attr member, which is later
+ * used to collect stats information
+ */
+void AnalyticsQuery::ParseStatName(std::string& stat_table_name) {
+     size_t pos, old_pos;
+     pos = old_pos = 0;
+     std::string delimiter = ".";
+     while((pos = stat_table_name.find(delimiter, old_pos+1)) !=
+         std::string::npos) {
+         if (!old_pos) {
+             old_pos = pos;
+             continue;
+         }
+         stat_name_attr += stat_table_name.substr(old_pos+1,
+             pos-old_pos-1);
+         stat_name_attr += ":";
+         old_pos = pos;
+     }
+     stat_name_attr += stat_table_name.substr(old_pos+1);
+}
+
 void AnalyticsQuery::Init(std::string qid,
     std::map<std::string, std::string>& json_api_data,
     int32_t or_number)
@@ -437,6 +462,7 @@ void AnalyticsQuery::Init(std::string qid,
         QE_TRACE(DEBUG,  " table is " << table_);
         if (is_stat_table_query(table_)) {
             stats_.reset(new StatsQuery(table_));
+            ParseStatName(table_);
         }
     }
 
@@ -1354,6 +1380,16 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk,
     return true;
 }
 
+bool QueryEngine::GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti)
+        const {
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        stable_stats_.GetCumulative(vstats_dbti);
+    }
+    return dbif_->Db_GetCumulativeStats(vdbti, dbe);
+}
+
 
 std::ostream &operator<<(std::ostream &out, query_result_unit_t& res)
 {
@@ -1548,3 +1584,37 @@ std::ostream& operator<<(std::ostream& out, const flow_tuple& ft) {
         << ft.direction;
     return out;
 }
+
+bool QueryEngine::GetDiffStats(std::vector<GenDb::DbTableInfo> *vdbti,
+    GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti) {
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        stable_stats_.GetDiffs(vstats_dbti);
+    }
+    return dbif_->Db_GetStats(vdbti, dbe);
+}
+
+bool QueryEngine::GetCqlStats(cass::cql::DbStats *stats) const {
+    cass::cql::CqlIf *cql_if(dynamic_cast<cass::cql::CqlIf *>(dbif_.get()));
+    if (cql_if == NULL) {
+        return false;
+    }
+    cql_if->Db_GetCqlStats(stats);
+    return true;
+}
+
+void ShowQEDbStatsReq::HandleRequest() const {
+    std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
+    GenDb::DbErrors dbe;
+    QESandeshContext *qec = static_cast<QESandeshContext *>(
+                                        Sandesh::client_context());
+    assert(qec);
+    ShowQEDbStatsResp *resp(new ShowQEDbStatsResp);
+    qec->QE()->GetCumulativeStats(&vdbti, &dbe, &vstats_dbti);
+    resp->set_table_info(vdbti);
+    resp->set_errors(dbe);
+    resp->set_statistics_table_info(vstats_dbti);
+    resp->set_context(context());
+    resp->Response();
+}
+
