@@ -218,7 +218,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # verify that UVEs are resynced with redis-uve
         assert vizd_obj.verify_generator_uve_list(gen_list)
 
-    #@unittest.skip('Skipping contrail-collector HA test')
+    @unittest.skip('Skipping contrail-collector HA test')
     def test_05_collector_ha(self):
         logging.info('%%% test_05_collector_ha %%%')
         
