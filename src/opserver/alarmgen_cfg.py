@@ -90,6 +90,14 @@ class CfgParser(object):
             'admin_tenant_name': 'default-domain'
         }
 
+        sandesh_opts = {
+            'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+            'certfile': '/etc/contrail/ssl/certs/server.pem',
+            'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+            'sandesh_ssl_enable': False,
+            'introspect_ssl_enable': False
+        }
+
         config = None
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
@@ -103,6 +111,8 @@ class CfgParser(object):
                 disc_opts.update(dict(config.items('DISCOVERY')))
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
+            if 'SANDESH' in config.sections():
+                sandesh_opts.update(dict(config.items('SANDESH')))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -117,6 +127,7 @@ class CfgParser(object):
         defaults.update(redis_opts)
         defaults.update(disc_opts)
         defaults.update(keystone_opts)
+        defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--host_ip",
             help="Host IP address")
@@ -196,6 +207,16 @@ class CfgParser(object):
             help="Password of keystone admin user")
         parser.add_argument("--admin_tenant_name",
             help="Tenant name for keystone admin user")
+        parser.add_argument("--keyfile",
+            help="Sandesh ssl private key")
+        parser.add_argument("--certfile",
+            help="Sandesh ssl certificate")
+        parser.add_argument("--ca_cert",
+            help="Sandesh CA ssl certificate")
+        parser.add_argument("--sandesh_ssl_enable", action="store_true",
+            help="Enable ssl for sandesh connection")
+        parser.add_argument("--introspect_ssl_enable", action="store_true",
+            help="Enable ssl for introspect connection")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -298,3 +319,10 @@ class CfgParser(object):
                 'admin_user': self._args.admin_user,
                 'admin_password': self._args.admin_password,
                 'admin_tenant_name': self._args.admin_tenant_name}
+
+    def sandesh_config(self):
+        return SandeshConfig(self._args.keyfile,
+                             self._args.certfile,
+                             self._args.ca_cert,
+                             self._args.sandesh_ssl_enable,
+                             self._args.introspect_ssl_enable)

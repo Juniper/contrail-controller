@@ -30,7 +30,8 @@ class LinkUve(object):
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['contrail_topology.sandesh'],
-                                      self._conf._disc)
+                                      self._conf._disc,
+                                      config=self._conf.sandesh_config())
         sandesh_global.set_logging_params(
             enable_local_log=self._conf.log_local(),
             category=self._conf.log_category(),

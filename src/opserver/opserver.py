@@ -483,7 +483,8 @@ class OpServer(object):
             self._instance_id, self.random_collectors, 'opserver_context',
             int(self._args.http_server_port), ['opserver.sandesh'],
             self.disc, logger_class=self._args.logger_class,
-            logger_config_file=self._args.logging_conf)
+            logger_config_file=self._args.logging_conf,
+            config=self._args.sandesh_config)
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
             category=self._args.log_category,
@@ -871,6 +872,13 @@ class OpServer(object):
             'admin_password': 'contrail123',
             'admin_tenant_name': 'default-domain'
         }
+        sandesh_opts = {
+            'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+            'certfile': '/etc/contrail/ssl/certs/server.pem',
+            'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+            'sandesh_ssl_enable': False,
+            'introspect_ssl_enable': False
+        }
 
         # read contrail-analytics-api own conf file
         config = None
@@ -887,6 +895,8 @@ class OpServer(object):
                 cassandra_opts.update(dict(config.items('CASSANDRA')))
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
+            if 'SANDESH' in config.sections():
+                sandesh_opts.update(dict(config.items('SANDESH')))
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -901,7 +911,7 @@ class OpServer(object):
         defaults.update(disc_opts)
         defaults.update(cassandra_opts)
         defaults.update(keystone_opts)
-        defaults.update()
+        defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
 
         parser.add_argument("--host_ip",
@@ -999,6 +1009,16 @@ class OpServer(object):
             help="Port with local auth for admin access")
         parser.add_argument("--api_server_use_ssl",
             help="Use SSL to connect with API server")
+        parser.add_argument("--keyfile",
+            help="Sandesh ssl private key")
+        parser.add_argument("--certfile",
+            help="Sandesh ssl certificate")
+        parser.add_argument("--ca_cert",
+            help="Sandesh CA ssl certificate")
+        parser.add_argument("--sandesh_ssl_enable", action="store_true",
+            help="Enable ssl for sandesh connection")
+        parser.add_argument("--introspect_ssl_enable", action="store_true",
+            help="Enable ssl for introspect connection")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -1028,6 +1048,9 @@ class OpServer(object):
         auth_conf_info['api_server_port'] = int(api_server_info[1])
         self._args.auth_conf_info = auth_conf_info
         self._args.conf_file = args.conf_file
+        self._args.sandesh_config = SandeshConfig(self._args.keyfile,
+            self._args.certfile, self._args.ca_cert,
+            self._args.sandesh_ssl_enable, self._args.introspect_ssl_enable)
     # end _parse_args
 
     def get_args(self):

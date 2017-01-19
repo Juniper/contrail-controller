@@ -95,6 +95,13 @@ optional arguments:
             'admin_password': 'password1',
             'admin_tenant_name': 'default-domain'
         }
+        sandesh_opts = {
+            'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+            'certfile': '/etc/contrail/ssl/certs/server.pem',
+            'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+            'sandesh_ssl_enable': False,
+            'introspect_ssl_enable': False
+        }
 
         config = None
         if args.conf_file:
@@ -107,6 +114,8 @@ optional arguments:
                 disc_opts.update(dict(config.items('DISCOVERY')))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
+            if 'SANDESH' in config.sections():
+                sandesh_opts.update(dict(config.items('SANDESH')))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -119,6 +128,7 @@ optional arguments:
         )
         defaults.update(disc_opts)
         defaults.update(ksopts)
+        defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--analytics_api",
             help="List of analytics-api IP addresses in ip:port format",
@@ -168,6 +178,16 @@ optional arguments:
                             help="Password of keystone admin user")
         parser.add_argument("--admin_tenant_name",
                             help="Tenant name for keystone admin user")
+        parser.add_argument("--keyfile",
+            help="Sandesh ssl private key")
+        parser.add_argument("--certfile",
+            help="Sandesh ssl certificate")
+        parser.add_argument("--ca_cert",
+            help="Sandesh CA ssl certificate")
+        parser.add_argument("--sandesh_ssl_enable", action="store_true",
+            help="Enable ssl for sandesh connection")
+        parser.add_argument("--introspect_ssl_enable", action="store_true",
+            help="Enable ssl for introspect connection")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
@@ -234,6 +254,13 @@ optional arguments:
 
     def sandesh_send_rate_limit(self):
         return self._args.sandesh_send_rate_limit
+
+    def sandesh_config(self):
+        return SandeshConfig(self._args.keyfile,
+                             self._args.certfile,
+                             self._args.ca_cert,
+                             self._args.sandesh_ssl_enable,
+                             self._args.introspect_ssl_enable)
 
     def api_svrs(self):
         a = self._disc.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 0)

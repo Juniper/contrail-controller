@@ -78,7 +78,9 @@ public:
     bool test_mode() const { return test_mode_; }
     bool collectors_configured() const { return collectors_configured_; }
     uint32_t sandesh_send_rate_limit() const { return send_ratelimit_; }
-
+    const SandeshConfig &sandesh_config() const {
+        return sandesh_config_;
+    }
 private:
 
     template <typename ValueType>
@@ -138,6 +140,7 @@ private:
     bool collectors_configured_;
     std::vector<std::string> default_collector_server_list_;
     uint32_t send_ratelimit_;
+    SandeshConfig sandesh_config_;
 
     boost::program_options::options_description config_file_options_;
 };

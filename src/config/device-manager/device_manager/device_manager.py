@@ -381,6 +381,13 @@ def parse_args(args_str):
         'cassandra_user': None,
         'cassandra_password': None
     }
+    sandeshopts = {
+        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'certfile': '/etc/contrail/ssl/certs/server.pem',
+        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_ssl_enable': False,
+        'introspect_ssl_enable': False
+    }
 
     saved_conf_file = args.conf_file
     if args.conf_file:
@@ -395,6 +402,8 @@ def parse_args(args_str):
             ksopts.update(dict(config.items("KEYSTONE")))
         if 'CASSANDRA' in config.sections():
             cassandraopts.update(dict(config.items('CASSANDRA')))
+        if 'SANDESH' in config.sections():
+            sandeshopts.update(dict(config.items('SANDESH')))
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -409,6 +418,7 @@ def parse_args(args_str):
     defaults.update(secopts)
     defaults.update(ksopts)
     defaults.update(cassandraopts)
+    defaults.update(sandeshopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -484,6 +494,9 @@ def parse_args(args_str):
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
+    args.sandesh_config = SandeshConfig(args.keyfile,
+        args.certfile, args.ca_cert,
+        args.sandesh_ssl_enable, args.introspect_ssl_enable)
 
     args.conf_file = saved_conf_file
     return args

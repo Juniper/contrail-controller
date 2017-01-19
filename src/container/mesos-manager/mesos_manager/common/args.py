@@ -6,7 +6,7 @@ import argparse
 import ConfigParser
 import sys
 
-from pysandesh.sandesh_base import Sandesh, SandeshSystem
+from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 import mesos_consts
 from sandesh_common.vns.constants import HttpPortMesosManager
 
@@ -52,6 +52,15 @@ def parse_args():
         'cassandra_password': None,
         'cluster_id': '',
     }
+
+    sandesh_opts = {
+        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'certfile': '/etc/contrail/ssl/certs/server.pem',
+        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_ssl_enable': False,
+        'introspect_ssl_enable': False
+    }
+
     mesos_opts = {}
 
     config = ConfigParser.SafeConfigParser()
@@ -61,6 +70,8 @@ def parse_args():
             vnc_opts.update(dict(config.items("VNC")))
         if 'MESOS' in config.sections():
             mesos_opts.update(dict(config.items("MESOS")))
+        if 'SANDESH' in config.sections():
+            sandesh_opts.update(dict(config.items('SANDESH')))
         if 'DEFAULTS' in config.sections():
             defaults.update(dict(config.items("DEFAULTS")))
 
@@ -71,6 +82,7 @@ def parse_args():
     )
     defaults.update(vnc_opts)
     defaults.update(mesos_opts)
+    defaults.update(sandesh_opts)
     parser.set_defaults(**defaults)
     args = parser.parse_args()
 
@@ -80,4 +92,7 @@ def parse_args():
         args.pod_subnets = args.pod_subnets.split()
     if type(args.service_subnets) is str:
         args.service_subnets = args.service_subnets.split()
+    args.sandesh_config = SandeshConfig(args.keyfile,
+        args.certfile, args.ca_cert,
+        args.sandesh_ssl_enable, args.introspect_ssl_enable)
     return args

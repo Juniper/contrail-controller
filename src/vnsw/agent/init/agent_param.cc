@@ -724,6 +724,19 @@ void AgentParam::ParseServices() {
     GetValueFromTree<uint32_t>(services_queue_limit_, "SERVICES.queue_limit");
 }
 
+void AgentParam::ParseSandesh() {
+    GetValueFromTree<string>(sandesh_config_.keyfile,
+                             "SANDESH.keyfile");
+    GetValueFromTree<string>(sandesh_config_.certfile,
+                             "SANDESH.certfile");
+    GetValueFromTree<string>(sandesh_config_.ca_cert,
+                             "SANDESH.ca_cert");
+    GetValueFromTree<bool>(sandesh_config_.sandesh_ssl_enable,
+                           "SANDESH.sandesh_ssl_enable");
+    GetValueFromTree<bool>(sandesh_config_.introspect_ssl_enable,
+                           "SANDESH.introspect_ssl_enable");
+}
+
 void AgentParam::ParseQueue() {
 
     const std::string qos_str = "QUEUE";
@@ -1070,6 +1083,20 @@ void AgentParam::ParseServicesArguments
     GetOptValue<uint32_t>(v, services_queue_limit_, "SERVICES.queue_limit");
 }
 
+void AgentParam::ParseSandeshArguments
+    (const boost::program_options::variables_map &v) {
+    GetOptValue<string>(v, sandesh_config_.keyfile,
+                        "SANDESH.keyfile");
+    GetOptValue<string>(v, sandesh_config_.certfile,
+                        "SANDESH.certfile");
+    GetOptValue<string>(v, sandesh_config_.ca_cert,
+                        "SANDESH.ca_cert");
+    GetOptValue<bool>(v, sandesh_config_.sandesh_ssl_enable,
+                      "SANDESH.sandesh_ssl_enable");
+    GetOptValue<bool>(v, sandesh_config_.introspect_ssl_enable,
+                      "SANDESH.introspect_ssl_enable");
+}
+
 void AgentParam::ParseRestartArguments
     (const boost::program_options::variables_map &v) {
     GetOptValue<bool>(v, restart_backup_enable_, "RESTART.backup_enable");
@@ -1136,6 +1163,7 @@ void AgentParam::InitFromConfig() {
     ParseNexthopServer();
     ParsePlatform();
     ParseServices();
+    ParseSandesh();
     ParseQueue();
     ParseRestart();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
@@ -1162,6 +1190,7 @@ void AgentParam::InitFromArguments() {
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
     ParseServicesArguments(var_map_);
+    ParseSandeshArguments(var_map_);
     ParseRestartArguments(var_map_);
     return;
 }
@@ -1492,6 +1521,15 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance lbaas auth : " << si_lbaas_auth_conf_);
     LOG(DEBUG, "Bgp as a service port range : " << bgp_as_a_service_port_range_);
     LOG(DEBUG, "Services queue limit        : " << services_queue_limit_);
+
+    LOG(DEBUG, "Sandesh Key file            : " << sandesh_config_.keyfile);
+    LOG(DEBUG, "Sandesh Cert file           : " << sandesh_config_.certfile);
+    LOG(DEBUG, "Sandesh CA Cert             : " << sandesh_config_.ca_cert);
+    LOG(DEBUG, "Sandesh SSL Enable          : "
+        << sandesh_config_.sandesh_ssl_enable);
+    LOG(DEBUG, "Introspect SSL Enable       : "
+        << sandesh_config_.introspect_ssl_enable);
+
     if (hypervisor_mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -1609,6 +1647,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         subnet_hosts_resolvable_(true),
         services_queue_limit_(1024),
+        sandesh_config_(),
         restart_backup_enable_(true),
         restart_backup_idle_timeout_(CFG_BACKUP_IDLE_TIMEOUT),
         restart_backup_dir_(CFG_BACKUP_DIR),
@@ -1851,6 +1890,26 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Pin ksync io task to CPU")
         ;
     options_.add(tbb);
+
+    opt::options_description sandesh("Sandesh specific options");
+    sandesh.add_options()
+        ("SANDESH.keyfile", opt::value<string>()->default_value(
+            "/etc/contrail/ssl/private/server-privkey.pem"),
+            "Sandesh ssl private key")
+        ("SANDESH.certfile", opt::value<string>()->default_value(
+            "/etc/contrail/ssl/certs/server.pem"),
+            "Sandesh ssl certificate")
+        ("SANDESH.ca_cert", opt::value<string>()->default_value(
+            "/etc/contrail/ssl/certs/ca-cert.pem"),
+            "Sandesh CA ssl certificate")
+        ("SANDESH.sandesh_ssl_enable",
+             opt::bool_switch(&sandesh_config_.sandesh_ssl_enable),
+             "Enable ssl for sandesh connection")
+        ("SANDESH.introspect_ssl_enable",
+             opt::bool_switch(&sandesh_config_.introspect_ssl_enable),
+             "Enable ssl for introspect connection")
+        ;
+    options_.add(sandesh);
 }
 
 AgentParam::~AgentParam() {
