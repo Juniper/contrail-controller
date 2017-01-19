@@ -425,15 +425,18 @@ class DBInterface(object):
             return
 
         try:
-            if net_obj.get_floating_ip_pools():
-                fip_pools = net_obj.get_floating_ip_pools()
-                for fip_pool in fip_pools:
-                    self._floating_ip_pool_delete(fip_pool_id=fip_pool['uuid'])
+            fip_pools = net_obj.get_floating_ip_pools()
+            for fip_pool in fip_pools or []:
+                fip_pool_obj = self._vnc_lib.floating_ip_pool_read(id=fip_pool['uuid'])
+                fips = fip_pool_obj.get_floating_ips()
+                for fip in fips or []:
+                    self.floatingip_delete(fip_id=fip['uuid'])
+                self._floating_ip_pool_delete(fip_pool_id=fip_pool['uuid'])
 
             self._vnc_lib.virtual_network_delete(id=net_id)
         except RefsExistError:
             self._raise_contrail_exception('NetworkInUse', net_id=net_id)
-    #end _virtual_network_delete
+    # end _virtual_network_delete
 
     def _virtual_network_list(self, parent_id=None, obj_uuids=None,
                               fields=None, detail=False, count=False,
