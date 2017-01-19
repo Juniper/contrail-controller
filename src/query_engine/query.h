@@ -62,6 +62,7 @@
 #include "../analytics/redis_connection.h"
 #include "base/work_pipeline.h"
 #include "database/gendb_if.h"
+#include "database/gendb_statistics.h"
 #include "../analytics/viz_message.h"
 #include "json_parse.h"
 #include "QEOpServerProxy.h"
@@ -906,6 +907,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     virtual bool is_query_parallelized() { return parallelize_query_; }
 
     const StatsQuery& stats(void) const { return *stats_; }
+    std::string stat_name_attr; // will be populated only for stats query
     private:
     std::auto_ptr<StatsQuery> stats_;
     // Analytics table to query
@@ -930,6 +932,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         std::map<std::string, std::string>& json_api_data,
         int32_t or_number);
     bool can_parallelize_query();
+    void ParseStatName(std::string &stat_table_name);
 };
 
 // limit on the size of query result we can handle
@@ -972,6 +975,9 @@ public:
             int max_slice,
             const std::string  & cassandra_user,
             const std::string  & cassandra_password);
+
+    // This constructor used only for test purpose
+    QueryEngine(){}
 
     virtual ~QueryEngine();
     
@@ -1018,6 +1024,16 @@ public:
     void db_err_handler() {};
     TtlMap& GetTTlMap() { return ttlmap_; }
     const std::string & keyspace() { return keyspace_; }
+    GenDb::DbTableStatistics stable_stats_;
+    mutable tbb::mutex smutex_;
+    bool GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti)
+        const;
+    bool GetDiffStats(std::vector<GenDb::DbTableInfo> *vdbti,
+        GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
+    bool GetCqlStats(cass::cql::DbStats *stats) const;
+    GenDbIfPtr GetDbHandler() { return dbif_; }
+
 private:
     GenDbIfPtr dbif_;
     boost::scoped_ptr<QEOpServerProxy> qosp_;

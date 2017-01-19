@@ -25,6 +25,7 @@ import fixtures
 import socket
 from utils.analytics_fixture import AnalyticsFixture
 from utils.generator_fixture import GeneratorFixture
+from utils.stats_fixture import StatsFixture
 from mockcassandra import mockcassandra
 import logging
 import time
@@ -573,6 +574,51 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_generator_list(vizd_obj.collectors,
                                               exp_genlist)
     # end test_13_verify_sandesh_ssl
+
+    #@unittest.skip('verify test_14_verify_qe_stats_collection query')
+    def test_14_verify_qe_stats_collection(self):
+        '''
+        This test checks if the QE is able to collect the stats
+        related to DB reads correctly
+        '''
+        logging.info('%%% test_14_verify_qe_stats_collection %%%')
+        analytics = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port))
+        assert analytics.verify_on_setup()
+        # make stat table entries also
+        collectors = [analytics.get_collector()]
+        generator_obj = self.useFixture(
+            StatsFixture("VRouterAgent", collectors,
+                             logging, analytics.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        logging.info("Starting stat gen " + str(UTCTimestampUsec()))
+
+        generator_obj.send_test_stat("t010","lxxx","samp1",1,1);
+        generator_obj.send_test_stat("t010","lyyy","samp1",2,2);
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
+            select_fields = [ "UUID", "st.s1", "st.i1", "st.d1" ],
+            where_clause = 'name|st.s1=t010|samp1', num = 2, check_rows =
+            [{ "st.s1":"samp1", "st.i1":2, "st.d1":2},
+             { "st.s1":"samp1", "st.i1":1, "st.d1":1}]);
+        # Get the current read stats for MessageTable
+        old_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'MessageTable')
+        # read some data from message table and issue thequery again
+        assert analytics.verify_message_table_moduleid()
+        new_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'MessageTable')
+        assert(old_reads < new_reads)
+        # Get the current read stats for stats table
+        old_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'StatTestState:st',True)
+        assert (old_reads > 0)
+        assert generator_obj.verify_test_stat("StatTable.StatTestState.st","-2m",
+            select_fields = [ "UUID", "st.s1", "st.i1", "st.d1" ],
+            where_clause = 'name|st.s1=t010|samp1', num = 2, check_rows =
+            [{ "st.s1":"samp1", "st.i1":2, "st.d1":2},
+             { "st.s1":"samp1", "st.i1":1, "st.d1":1}]);
+        new_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'StatTestState:st',True)
+        assert(new_reads > old_reads)
+    # end test_14_verify_qe_stats_collection
 
     @staticmethod
     def get_free_port():
