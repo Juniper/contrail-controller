@@ -1,5 +1,6 @@
 import sys
 import json
+import re
 
 from testtools.matchers import Equals, Contains
 from testtools import ExpectedException
@@ -473,6 +474,41 @@ class TestBasic(test_case.NeutronBackendTestCase):
         sg_q = self.create_resource('security_group', proj_obj.uuid)
         with ExpectedException(webtest.app.AppError):
             self.update_resource('port', port_q['id'], proj_obj.uuid, extra_res_fields={'security_groups': [sg_q['id']]})
+
+    def test_fixed_ip_conflicts_with_floating_ip(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        sg_q = self.create_resource('security_group', proj_obj.uuid)
+        net_q = self.create_resource('network', proj_obj.uuid,
+            extra_res_fields={'router:external': True})
+        subnet_q = self.create_resource('subnet', proj_obj.uuid,
+            extra_res_fields={
+                'network_id': net_q['id'],
+                'cidr': '1.1.1.0/24',
+                'ip_version': 4,
+            })
+        fip_q = self.create_resource('floatingip', proj_obj.uuid,
+            extra_res_fields={'floating_network_id': net_q['id']})
+
+        try:
+            self.create_resource('port', proj_obj.uuid,
+                extra_res_fields={
+                    'network_id': net_q['id'],
+                    'fixed_ips': [{'ip_address': fip_q['floating_ip_address']}],
+                    'security_groups': [sg_q['id']],
+                })
+            self.assertTrue(False,
+                'Create with fixed-ip conflicting with floating-ip passed')
+        except webtest.app.AppError as e:
+            self.assertIsNot(re.search('Conflict', str(e)), None)
+            self.assertIsNot(re.search('Ip address already in use', str(e)),
+                             None)
+
+        # cleanup
+        self.delete_resource('floatingip', proj_obj.uuid, fip_q['id'])
+        self.delete_resource('subnet', proj_obj.uuid, subnet_q['id'])
+        self.delete_resource('network', proj_obj.uuid, net_q['id'])
+        self.delete_resource('security_group', proj_obj.uuid, sg_q['id'])
+    # end test_fixed_ip_conflicts_with_floating_ip
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
