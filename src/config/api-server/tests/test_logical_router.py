@@ -2,6 +2,8 @@
 # Copyright (c) 2013,2014 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import gevent.monkey
+gevent.monkey.patch_all()
 import os
 import sys
 import socket
@@ -438,7 +440,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Add Router Interface
         lr.add_virtual_machine_interface(vm_port_obj)
         logger.debug("Trying to Link VM's VMI object and LR object")
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Linking VM's VMI object and LR object failed as expected")
         lr.del_virtual_machine_interface(vm_port_obj)
