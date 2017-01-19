@@ -10,9 +10,14 @@
 #include <SimpleAmqpClient/SimpleAmqpClient.h>
 #include "rapidjson/document.h"
 
-#include "base/string_util.h"
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+
+#include "base/connection_info.h"
 #include "base/task.h"
+#include "base/string_util.h"
 #include "ifmap/ifmap_config_options.h"
+#include "ifmap/ifmap_server_show_types.h"
 #include "config_cassandra_client.h"
 #include "config_client_manager.h"
 #include "config_db_client.h"
@@ -42,9 +47,9 @@ private:
 };
 
 ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
-                                   const IFMapConfigOptions &options) :
-    mgr_(mgr), hostname_(hostname), current_server_index_(0),
-    rabbitmq_user_(options.rabbitmq_user),
+                      string module_name, const IFMapConfigOptions &options) :
+    mgr_(mgr), hostname_(hostname), module_name_(module_name),
+    current_server_index_(0), rabbitmq_user_(options.rabbitmq_user),
     rabbitmq_password_(options.rabbitmq_password),
     rabbitmq_vhost_(options.rabbitmq_vhost),
     rabbitmq_use_ssl_(options.rabbitmq_use_ssl),
@@ -71,6 +76,15 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
         rabbitmq_ports_.push_back(port_str);
     }
 
+    boost::system::error_code ec;
+    int port = 0;
+    stringToInteger(rabbitmq_port(), port);
+    endpoint_.address(boost::asio::ip::address::from_string(rabbitmq_ip(), ec));
+    endpoint_.port(port);
+
+    connection_status_ = false;
+    connection_status_change_at_ = UTCTimestampUsec();
+
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     reader_task_id_ = scheduler->GetTaskId("amqp::RabbitMQReader");
     Task *task = new RabbitMQReader(this);
@@ -95,6 +109,12 @@ string ConfigAmqpClient::FormAmqpUri() const {
 }
 
 bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
+    // Update connection info
+    process::ConnectionState::GetInstance()->Update(
+        process::ConnectionType::DATABASE, "RabbitMQ",
+        process::ConnectionStatus::DOWN,
+        amqpclient_->endpoint(), "RabbitMQ connection down");
+    amqpclient_->set_connected(false);
     while (true) {
         string uri = amqpclient_->FormAmqpUri();
         try {
@@ -103,7 +123,7 @@ bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
             channel_->DeclareExchange("vnc_config.object-update",
               AmqpClient::Channel::EXCHANGE_TYPE_FANOUT, false, false, false);
             string queue_name =
-                string("control-node.") + amqpclient_->hostname();
+                amqpclient_->module_name() + "." + amqpclient_->hostname();
 
             if (queue_delete) {
                 channel_->DeleteQueue(queue_name, true, true);
@@ -130,9 +150,27 @@ bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
                 << "RabbitMQ: " << std::endl;
             assert(0);
         }
+
+        // Update connection info
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::DATABASE, "RabbitMQ",
+            process::ConnectionStatus::UP,
+            amqpclient_->endpoint(), "RabbitMQ connection established");
+        amqpclient_->set_connected(true);
         return true;
     }
     return false;
+}
+
+void ConfigAmqpClient::set_connected(bool connected) {
+    connection_status_ = connected;
+    connection_status_change_at_ = UTCTimestampUsec();
+}
+
+void ConfigAmqpClient::GetConnectionInfo(ConfigAmqpConnInfo &conn_info) const {
+    conn_info.connection_status = connection_status_;
+    conn_info.connection_status_change_at = connection_status_change_at_;
+    conn_info.url = FormAmqpUri();
 }
 
 bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
@@ -187,6 +225,8 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
 
 bool ConfigAmqpClient::RabbitMQReader::ReceiveRabbitMessages(
                                      AmqpClient::Envelope::ptr_t &envelope) {
+    // To start consuming the message, we should have finised bulk sync
+    amqpclient_->config_manager()->WaitForEndOfConfig();
     try {
         // timeout = -1.. wait forever
         return (channel_->BasicConsumeMessage(consumer_tag_, envelope, -1));
@@ -244,4 +284,8 @@ int ConfigAmqpClient::reader_task_id() const {
 
 string ConfigAmqpClient::hostname() const {
     return hostname_;
+}
+
+string ConfigAmqpClient::module_name() const {
+    return module_name_;
 }

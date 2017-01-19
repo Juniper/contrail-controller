@@ -24,16 +24,8 @@ env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/schema')
 env.Append(LIBPATH = env['TOP'] + '/discovery/client')
 
-libboostssltest = env.Library('boostssl',
-                         [
-                          'boost_ssl_client.cc',
-                          'boost_ssl_server.cc',
-                         ])
-
-env.Install(env['TOP_LIB'], libboostssltest)
-
 env.Prepend(LIBS = [
-                    'boostssl', 'ifmapio', 'bgp_schema', 'ifmap_vnc', 'ifmap_server',
+                    'ifmapio', 'bgp_schema', 'ifmap_vnc', 'ifmap_server',
                     'ds', 'xmpp', 'peer_sandesh',
                     'sandesh', 'http', 'http_parser', 'httpc',
                     'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
@@ -50,24 +42,11 @@ env.Prepend(LIBS = [
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
 
-ifmap_boost_ssl_test = env.UnitTest('ifmap_boost_ssl_test',
-                                    ['ifmap_boost_ssl_test.cc'])
-env.Alias('src/ifmap/client:ifmap_boost_ssl_test', ifmap_boost_ssl_test)
-
-ifmap_state_machine_test = env.UnitTest('ifmap_state_machine_test',
-                                        ['ifmap_state_machine_test.cc'])
-env.Alias('src/ifmap/client:ifmap_state_machine_test', ifmap_state_machine_test)
-
-peer_server_finder_test = env.UnitTest('peer_server_finder_test',
-                                       ['peer_server_finder_test.cc'])
-env.Alias('src/ifmap/client:peer_server_finder_test', peer_server_finder_test)
-
 config_json_parser_test = env.UnitTest('config_json_parser_test',
                                        ['config_json_parser_test.cc'])
 env.Alias('src/ifmap/client:config_json_parser_test', config_json_parser_test)
 
 client_unit_tests = [
-                     peer_server_finder_test,
 #                    config_json_parser_test
                     ]
 
@@ -75,7 +54,6 @@ client_test = env.TestSuite('ifmap-test', client_unit_tests)
 
 env.Alias('src/ifmap/client:test', client_test)
 env.Alias('src/ifmap/client:flaky-test', [
-    ifmap_state_machine_test,
     config_json_parser_test
 ])
 Return('client_unit_tests')

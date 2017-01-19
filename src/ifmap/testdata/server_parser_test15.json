@@ -1,26 +1,7 @@
 [
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vr1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"0:8c5eeb87-0b08-4724-b53f-0a0368055374\",\"imid\":\"contrail:virtual_router:vr1\"}",
-    "db": {
-      "8c5eeb87-0b08-4724-b53f-0a0368055374": {
-        "fq_name": "[\"vr1\"]",
-        "type": "\"virtual_router\"",
-        "ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375": "{\"attr\":null}"
-      },
-      "8c5eeb87-0b08-4725-b53f-0a0368055375": {
-        "fq_name": "[\"vm1\"]",
-        "type": "\"virtual_machine\""
-      },
-      "8c5eeb87-0b08-4b0c-b53f-0a036805575c": {
-        "fq_name": "[\"gsc\"]",
-        "type": "\"global_system_config\""
-      }
-    }
-  },
-  {
-    "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"vr1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"1:8c5eeb87-0b08-4724-b53f-0a0368055374\",\"imid\":\"contrail:virtual_router:vr1\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vm1\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"0:8c5eeb87-0b08-4725-b53f-0a0368055375\",\"imid\":\"contrail:virtual_machine:vm1\"}",
     "db": {
       "8c5eeb87-0b08-4724-b53f-0a0368055374": {
         "fq_name": "[\"vr1\"]",
@@ -40,7 +21,46 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vm1\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"2:8c5eeb87-0b08-4725-b53f-0a0368055375\",\"imid\":\"contrail:virtual_machine:vm1\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vr1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"1:8c5eeb87-0b08-4724-b53f-0a0368055374\",\"imid\":\"contrail:virtual_router:vr1\"}",
+    "db": {
+      "8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": "[\"vr1\"]",
+        "type": "\"virtual_router\"",
+        "ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375": "{\"attr\":null}"
+      },
+      "8c5eeb87-0b08-4725-b53f-0a0368055375": {
+        "fq_name": "[\"vm1\"]",
+        "type": "\"virtual_machine\""
+      },
+      "8c5eeb87-0b08-4b0c-b53f-0a036805575c": {
+        "fq_name": "[\"gsc\"]",
+        "type": "\"global_system_config\""
+      }
+    }
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"vr1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"2:8c5eeb87-0b08-4724-b53f-0a0368055374\",\"imid\":\"contrail:virtual_router:vr1\"}",
+    "db": {
+      "8c5eeb87-0b08-4724-b53f-0a0368055374": {
+        "fq_name": "[\"vr1\"]",
+        "type": "\"virtual_router\"",
+        "ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375": "\"{\"attr\":null}\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"10114780778358916900\",\"uuid_lslong\":\"13060168454144086900\"},\"created\":null,\"last_modified\":null}"
+      },
+      "8c5eeb87-0b08-4725-b53f-0a0368055375": {
+        "fq_name": "[\"vm1\"]",
+        "type": "\"virtual_machine\""
+      },
+      "8c5eeb87-0b08-4b0c-b53f-0a036805575c": {
+        "fq_name": "[\"gsc\"]",
+        "type": "\"global_system_config\""
+      }
+    }
+  },
+  {
+    "operation": "rabbit_enqueue",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"vm1\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"3:8c5eeb87-0b08-4725-b53f-0a0368055375\",\"imid\":\"contrail:virtual_machine:vm1\"}",
     "db": {
       "8c5eeb87-0b08-4724-b53f-0a0368055374": {
         "fq_name": "[\"vr1\"]",
@@ -61,7 +81,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"gsc\\\"]\",\"type\":\"global_system_config\",\"uuid\":\"3:8c5eeb87-0b08-4b0c-b53f-0a036805575c\",\"imid\":\"contrail:global_system_config:gsc\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"gsc\\\"]\",\"type\":\"global_system_config\",\"uuid\":\"4:8c5eeb87-0b08-4b0c-b53f-0a036805575c\",\"imid\":\"contrail:global_system_config:gsc\"}",
     "db": {
       "8c5eeb87-0b08-4724-b53f-0a0368055374": {
         "fq_name": "[\"vr1\"]",
@@ -83,7 +103,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"gsc\\\"]\",\"type\":\"global_system_config\",\"uuid\":\"4:8c5eeb87-0b08-4b0c-b53f-0a036805575c\",\"imid\":\"contrail:global_system_config:gsc\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"gsc\\\"]\",\"type\":\"global_system_config\",\"uuid\":\"5:8c5eeb87-0b08-4b0c-b53f-0a036805575c\",\"imid\":\"contrail:global_system_config:gsc\"}",
     "db": {
       "8c5eeb87-0b08-4724-b53f-0a0368055374": {
         "fq_name": "[\"vr1\"]",
@@ -99,14 +119,13 @@
       "8c5eeb87-0b08-4b0c-b53f-0a036805575c": {
         "fq_name": "[\"gsc\"]",
         "type": "\"global_system_config\"",
-        "ref:virtual_router:8c5eeb87-0b08-4724-b53f-0a0368055374": "\"{\"attr\":null}\"",
         "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"10114780778358917900\",\"uuid_lslong\":\"13060168454144087900\"},\"created\":null,\"last_modified\":null}"
       }
     }
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vr1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"5:8c5eeb87-0b08-4724-b53f-0a0368055374\",\"imid\":\"contrail:virtual_router:vr1\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vr1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"6:8c5eeb87-0b08-4724-b53f-0a0368055374\",\"imid\":\"contrail:virtual_router:vr1\"}",
     "db": {
       "8c5eeb87-0b08-4725-b53f-0a0368055375": {
         "fq_name": "[\"vm1\"]",
