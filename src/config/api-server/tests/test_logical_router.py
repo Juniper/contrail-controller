@@ -449,7 +449,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         lr.add_virtual_machine_interface(port_obj)
         self._vnc_lib.logical_router_update(lr)
         logger.debug("Link VM to internal interface of a LR")
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
             port_obj.add_virtual_machine(vm_inst_obj)
             self._vnc_lib.virtual_machine_interface_update(port_obj)
         logger.debug("Linking VM to internal interface of LR failed as expected")
