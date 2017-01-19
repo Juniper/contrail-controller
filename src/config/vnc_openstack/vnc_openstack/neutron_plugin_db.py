@@ -3720,16 +3720,27 @@ class DBInterface(object):
         self._vnc_lib.chown(port_id, tenant_id)
         # add support, nova boot --nic subnet-id=subnet_uuid
         subnet_id = port_q.get('subnet_id')
-        net_fq_name = net_obj.get_fq_name()
-        net_fq_name_str = str([str(a) for a in net_fq_name])
         if 'fixed_ips' in port_q:
+            exception = None
+            exception_kwargs = {}
             try:
                 self._port_create_instance_ip(net_obj, port_obj, port_q)
-            except BadRequest as e:
+            except RefsExistError as e:
                 # failure in creating the instance ip. Roll back
-                self._virtual_machine_interface_delete(port_id=port_id)
-                self._raise_contrail_exception('BadRequest', resource='port',
-                                               msg=str(e))
+                exception = 'Conflict'
+                exception_kwargs = {'message': str(e)}
+            except BadRequest as e:
+                exception = 'BadRequest'
+                exception_kwargs = {'resource': 'port', 'msg': str(e)}
+            except vnc_exc.HttpError:
+                # failure in creating the instance ip. Roll back
+                exception = 'IpAddressGenerationFailure'
+                exception_kwargs = {'net_id': net_obj.uuid}
+            finally:
+                if exception:
+                    # failure in creating the instance ip. Roll back
+                    self._virtual_machine_interface_delete(port_id=port_id)
+                    self._raise_contrail_exception(exception, **exception_kwargs)
         elif net_obj.get_network_ipam_refs():
             ipv4_port_delete = False
             ipv6_port_delete = False
@@ -3743,7 +3754,12 @@ class DBInterface(object):
                 ipv4_port_delete = True
                 v4_msg_str = "v4:"+ str(e) 
                 err_msg_str += v4_msg_str
- 
+            except vnc_exc.HttpError as e:
+                # failure in creating the instance ip. Roll back
+                self._virtual_machine_interface_delete(port_id=port_id)
+                self._raise_contrail_exception('IpAddressGenerationFailure',
+                                               resource='port', msg=str(e))
+
             try:
                 self._port_create_instance_ip(net_obj, port_obj,
                      {'fixed_ips':[{'ip_address': None,
@@ -3753,6 +3769,11 @@ class DBInterface(object):
                 ipv6_port_delete = True
                 v6_msg_str = " v6:"+ str(e)
                 err_msg_str += v6_msg_str
+            except vnc_exc.HttpError as e:
+                # failure in creating the instance ip. Roll back
+                self._virtual_machine_interface_delete(port_id=port_id)
+                self._raise_contrail_exception('IpAddressGenerationFailure',
+                                               resource='port', msg=str(e))
 
             # if if bad request is for both ipv4 and ipv6
             # delete the port and Roll back
