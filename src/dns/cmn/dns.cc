@@ -81,6 +81,19 @@ void Dns::SetTaskSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("http::RequestHandlerTask")));
     scheduler->SetPolicy(scheduler->GetTaskId("xmpp::StateMachine"),
                          exclude_io);
+
+    // Policy for cassandra::ObjectProcessor Task.
+    TaskPolicy cassadra_obj_process_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("cassandra::ObjectProcessor")));
+    scheduler->SetPolicy(scheduler->GetTaskId("cassandra::Reader"),
+        cassadra_obj_process_policy);
+
+    // Policy for cassandra::Reader Task.
+    TaskPolicy cassadra_reader_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("cassandra::Reader")));
+    scheduler->SetPolicy(scheduler->GetTaskId("cassandra::ObjectProcessor"),
+        cassadra_reader_policy);
+
 }
 
 void DiscoveryClientSubscriberStatsReq::HandleRequest() const {

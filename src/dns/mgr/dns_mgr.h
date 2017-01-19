@@ -10,7 +10,7 @@
 #include <mgr/dns_oper.h>
 #include <bind/named_config.h>
 #include <cfg/dns_config.h>
-#include <ifmap/client/ifmap_manager.h>
+#include <ifmap/client/config_client_manager.h>
 
 class DB;
 class DBGraph;
@@ -85,10 +85,13 @@ public:
                             const std::string &vdns_name, const DnsItem &item);
     bool IsBindStatusUp() { return bind_status_.IsUp(); }
 
-    void set_ifmap_manager(IFMapManager *ifmap_mgr) { ifmap_mgr_ = ifmap_mgr; }
-    IFMapManager* get_ifmap_manager() { return ifmap_mgr_; }
+    void set_config_manager(ConfigClientManager *config_manager) {
+        config_client_manager_ = config_manager;
+    }
+    ConfigClientManager* get_config_manager() { return config_client_manager_; }
     bool IsEndOfConfig() {
-        if (ifmap_mgr_) return (ifmap_mgr_->GetEndOfRibComputed());
+        if (config_client_manager_)
+            return (config_client_manager_->GetEndOfRibComputed());
         return (true);
     }
     PendingListMap GetDeportedPendingListMap() { return dp_pending_map_; }
@@ -139,7 +142,7 @@ private:
     tbb::mutex mutex_;
     BindStatus bind_status_;
     DnsConfigManager config_mgr_;    
-    IFMapManager *ifmap_mgr_;
+    ConfigClientManager *config_client_manager_;
     static uint16_t g_trans_id_;
     PendingListMap pending_map_;
     DeportedPendingListMap dp_pending_map_;

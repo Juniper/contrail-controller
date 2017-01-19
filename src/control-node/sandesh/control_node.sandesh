@@ -41,6 +41,8 @@ struct BgpRouterState {
    16: optional list<string> core_files_list;
    17: optional ifmap_server_show.IFMapPeerServerInfoUI ifmap_info;
    18: optional ifmap_server_show.IFMapServerInfoUI ifmap_server_info;
+   34: optional ifmap_server_show.ConfigDBConnInfo db_conn_info;
+   35: optional ifmap_server_show.ConfigAmqpConnInfo amqp_conn_info;
 }
 
 /**
