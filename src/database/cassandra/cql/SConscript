@@ -4,9 +4,8 @@
 
 Import('DbEnv')
 CqlIfEnv = DbEnv.Clone()
-
+CqlIfEnv.Prepend(LIBS=['sandesh'])
 CqlIfEnv.Append(CPPPATH = ['/usr/include'])
-
 local_srcs = ['cql_if.cc']
 
 gen_files = CqlIfEnv.SandeshGenCpp('cql.sandesh')

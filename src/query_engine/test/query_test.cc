@@ -185,10 +185,12 @@ TEST_F(AnalyticsQueryTest, ApplyLimitTest) {
     query_result2.info.push_back(uuid);
     where_info.push_back(query_result2);
     AnalyticsQuery *q = new AnalyticsQuery(qid, (boost::shared_ptr<GenDb::GenDbIf>)dbif_mock_, json_api_data, -1, &where_info, ttlmap_, 0, 1, NULL);
-    
     EXPECT_EQ(QUERY_SUCCESS, q->process_query()); // query was parsed and successful
 
     EXPECT_EQ(1, q->final_mresult->size()); // one row as result due to limit of 1
+    // Make sure the stat name and attributes are stored in stat_name_attr
+    std::string expected_stat_name("AlarmgenStatus:counters");
+    EXPECT_EQ(q->stat_name_attr, expected_stat_name);
     delete q;
 }
 

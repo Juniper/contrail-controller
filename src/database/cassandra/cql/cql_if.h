@@ -9,7 +9,7 @@
 #include <vector>
 
 #include <tbb/atomic.h>
-
+#include <sandesh/sandesh.h>
 #include <database/gendb_if.h>
 #include <database/gendb_statistics.h>
 #include <database/cassandra/cql/cql_types.h>

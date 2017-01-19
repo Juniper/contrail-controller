@@ -25,6 +25,7 @@
 #include "nodeinfo_types.h"
 #include "query_engine/options.h"
 #include "query.h"
+#include "qe_sandesh.h"
 #include <base/misc_utils.h>
 #include <query_engine/buildinfo.h>
 #include <sandesh/sandesh_http.h>
@@ -55,6 +56,8 @@ bool QedVersion(std::string &version) {
 static EventManager * pevm = NULL;
 static DiscoveryServiceClient *ds_client = NULL;
 static Options options;
+static TaskTrigger *qe_dbstats_task_trigger;
+static Timer *qe_dbstats_timer;
 
 static void WaitForIdle() {
     static const int kTimeout = 15;
@@ -88,6 +91,11 @@ static void ShutdownQe() {
         delete ds_client;
     }
     WaitForIdle();
+    if (qe_dbstats_timer) {
+        TimerManager::DeleteTimer(qe_dbstats_timer);
+        delete qe_dbstats_task_trigger;
+        qe_dbstats_timer = NULL;
+    }
     Sandesh::Uninit();
     ConnectionStateManager::
         GetInstance()->Shutdown();
@@ -102,6 +110,62 @@ static void terminate_qe (int param)
 
 static void reconfig_qe(int signum) {
     options.ParseReConfig();
+}
+
+static bool QEDbStatsTrigger() {
+    qe_dbstats_task_trigger->Set();
+    return false;
+}
+
+/*
+ * Send the database stats to the collector periodically
+ */
+static bool SendQEDbStats(QESandeshContext &ctx) {
+    // DB stats
+    std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
+    GenDb::DbErrors dbe;
+    QueryEngine *qe = ctx.QE();
+    if ((qe->GetDbHandler()).get() != NULL) {
+        qe->GetDiffStats(&vdbti, &dbe, &vstats_dbti);
+    }
+    map<string,GenDb::DbTableStat> mtstat, msstat;
+
+    for (size_t idx=0; idx<vdbti.size(); idx++) {
+        GenDb::DbTableStat dtis;
+        dtis.set_reads(vdbti[idx].get_reads());
+        dtis.set_read_fails(vdbti[idx].get_read_fails());
+        dtis.set_writes(vdbti[idx].get_writes());
+        dtis.set_write_fails(vdbti[idx].get_write_fails());
+        dtis.set_write_back_pressure_fails(vdbti[idx].get_write_back_pressure_fails());
+        mtstat.insert(make_pair(vdbti[idx].get_table_name(), dtis));
+    }
+
+    for (size_t idx=0; idx<vstats_dbti.size(); idx++) {
+        GenDb::DbTableStat dtis;
+        dtis.set_reads(vstats_dbti[idx].get_reads());
+        dtis.set_read_fails(vstats_dbti[idx].get_read_fails());
+        dtis.set_writes(vstats_dbti[idx].get_writes());
+        dtis.set_write_fails(vstats_dbti[idx].get_write_fails());
+        dtis.set_write_back_pressure_fails(
+            vstats_dbti[idx].get_write_back_pressure_fails());
+        msstat.insert(make_pair(vstats_dbti[idx].get_table_name(), dtis));
+    }
+
+    QEDbStats qe_db_stats;
+    qe_db_stats.set_table_info(mtstat);
+    qe_db_stats.set_errors(dbe);
+    qe_db_stats.set_stats_info(msstat);
+
+    cass::cql::DbStats cql_stats;
+    if (qe->GetCqlStats(&cql_stats)) {
+        qe_db_stats.set_cql_stats(cql_stats);
+    }
+    qe_db_stats.set_name(Sandesh::source());
+    QEDbStatsUve::Send(qe_db_stats);
+    qe_dbstats_timer->Cancel();
+    qe_dbstats_timer->Start(60*1000, boost::bind(&QEDbStatsTrigger),
+                               NULL);
+    return true;
 }
 
 int
@@ -296,6 +360,15 @@ main(int argc, char *argv[]) {
             options.cassandra_password(),
             options.cluster_id()));
     }
+    QESandeshContext qec(qe.get());
+    Sandesh::set_client_context(&qec);
+    qe_dbstats_task_trigger =
+        new TaskTrigger(boost::bind(&SendQEDbStats, qec),
+                    TaskScheduler::GetInstance()->GetTaskId("QE::DBStats"), 0);
+    qe_dbstats_timer = TimerManager::CreateTimer(*evm.io_service(),
+        "QE Db stats timer",
+        TaskScheduler::GetInstance()->GetTaskId("QE::DBStats"), 0);
+    qe_dbstats_timer->Start(5*1000, boost::bind(&QEDbStatsTrigger), NULL);
 
     signal(SIGTERM, terminate_qe);
     signal(SIGHUP, reconfig_qe);
@@ -303,3 +376,4 @@ main(int argc, char *argv[]) {
 
     return 0;
 }
+

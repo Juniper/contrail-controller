@@ -9,11 +9,31 @@ env = CqlIfEnv.Clone()
 def MapBuildDir(list):
     return map(lambda x: env['TOP'] + '/' + x, list)
 
-libs = ['cassandra_cql', 'gendb', 'base', 'cassandra', 'gunit']
-env.Prepend(LIBS=libs)
-libpaths=['base']
-env.Append(LIBPATH = [MapBuildDir(libpaths)])
+env.Prepend(LIBS=[  'io',
+                    'sandesh',
+                    'http',
+                    'http_parser',
+                    'pugixml',
+                    'xml',
+                    'curl',
+                    'process_info',
+                    'io',
+                    'base',
+                    'sandeshvns',
+                    'cassandra_cql',
+                    'gendb',
+                    'cassandra',
+                    'gunit'])
 
+libs = MapBuildDir([
+        'xml',
+        'base',
+        'io',
+        'sandesh'])
+
+env.Append(LIBPATH=libs)
+
+env.Prepend(LINKFLAGS=['-Wl,--whole-archive', '-lbase','-Wl,--no-whole-archive' ])
 cql_if_test = env.UnitTest('cql_if_test',
                           ['cql_if_test.cc'])
 

@@ -14,6 +14,7 @@ env.Append(CPPPATH = [env['TOP'],
                       env['TOP'] + '/base/sandesh/',
                       env['TOP'] + '/database/',
                       env['TOP'] + '/tools/sandesh/library/common',
+                      env['TOP'] + '/database/cassandra/cql',
                      ])
 
 env.Prepend(LIBS=[  'cpuinfo',
