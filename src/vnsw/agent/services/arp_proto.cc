@@ -19,9 +19,8 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
                    bool run_with_vrouter) :
     Proto(agent, "Agent::Services", PktHandler::ARP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_interface_index_(-1),
-    ip_fabric_interface_(NULL), gratuitous_arp_entry_(NULL),
-    max_retries_(kMaxRetries), retry_timeout_(kRetryTimeout),
-    aging_timeout_(kAgingTimeout) {
+    ip_fabric_interface_(NULL), max_retries_(kMaxRetries),
+    retry_timeout_(kRetryTimeout), aging_timeout_(kAgingTimeout) {
     // limit the number of entries in the workqueue
     work_queue_.SetSize(agent->params()->services_queue_limit());
     work_queue_.SetBounded(true);
@@ -39,10 +38,17 @@ ArpProto::~ArpProto() {
 }
 
 void ArpProto::Shutdown() {
-    del_gratuitous_arp_entry();
     // we may have arp entries in arp cache without ArpNH, empty them
     for (ArpIterator it = arp_cache_.begin(); it != arp_cache_.end(); ) {
         it = DeleteArpEntry(it);
+    }
+
+    for (ArpIterator it = gratuitous_arp_cache_.begin();
+            it != gratuitous_arp_cache_.end();) {
+        ArpEntry *entry = it->second;
+        gratuitous_arp_cache_.erase(it++);
+        if (entry)
+            delete entry;
     }
     agent_->vrf_table()->Unregister(vrf_table_listener_id_);
     agent_->interface_table()->Unregister(interface_table_listener_id_);
@@ -128,8 +134,8 @@ bool ArpDBState::SendArpRequest() {
         it->second++;
         arp_handler.SendArp(ARPOP_REQUEST, smac,
                             gw_ip_.to_v4().to_ulong(),
-                            MacAddress(), vm_ip_.to_v4().to_ulong(),
-                            it->first, vrf_id_);
+                            MacAddress(), MacAddress::BroadcastMac(),
+                            vm_ip_.to_v4().to_ulong(), it->first, vrf_id_);
         vrf_state_->arp_proto->IncrementStatsVmArpReq();
         ret = true;
     }
@@ -271,14 +277,11 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     ArpDBState *state =
         static_cast<ArpDBState *>
         (entry->GetState(part->parent(), route_table_listener_id));
-
+    ArpKey key(route->addr().to_v4().to_ulong(), route->vrf());
+    ArpEntry *arpentry = arp_proto->GratiousArpEntry(key);
     if (entry->IsDeleted() || deleted) {
         if (state) {
-            if (arp_proto->gratuitous_arp_entry() &&
-                arp_proto->gratuitous_arp_entry()->key().ip ==
-                    route->addr().to_v4().to_ulong()) {
-                arp_proto->del_gratuitous_arp_entry();
-            }
+            arp_proto->DeleteGratuitousArpEntry(arpentry);
             entry->ClearState(part->parent(), route_table_listener_id);
             state->Delete(route);
             delete state;
@@ -294,11 +297,24 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
 
     if (route->vrf()->GetName() == agent->fabric_vrf_name() &&
         route->GetActiveNextHop()->GetType() == NextHop::RECEIVE) {
-        arp_proto->del_gratuitous_arp_entry();
         //Send Grat ARP
+        arp_proto->AddGratuitousArpEntry(key);
         arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
                               route->addr().to_v4().to_ulong(), route->vrf(),
                               arp_proto->ip_fabric_interface());
+    } else {
+        const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>(
+                route->GetActiveNextHop());
+        if (intf_nh) {
+            const Interface *intf =
+                static_cast<const Interface *>(intf_nh->GetInterface());
+            if (intf->type() == Interface::VM_INTERFACE) {
+                ArpKey intf_key(route->addr().to_v4().to_ulong(), route->vrf());
+                arp_proto->AddGratuitousArpEntry(intf_key);
+                arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
+                        route->addr().to_v4().to_ulong(), intf->vrf(), intf);
+            }
+       }
     }
 
     //Check if there is a local VM path, if yes send a
@@ -459,19 +475,45 @@ bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type,
     return false;
 }
 
-ArpEntry *ArpProto::gratuitous_arp_entry() const {
-    return gratuitous_arp_entry_;
+ void ArpProto::AddGratuitousArpEntry(ArpKey &key) {
+    gratuitous_arp_cache_.insert(ArpCachePair(key, NULL));
 }
 
-void ArpProto::set_gratuitous_arp_entry(ArpEntry *entry) {
-    gratuitous_arp_entry_ = entry;
-}
+void ArpProto::DeleteGratuitousArpEntry(ArpEntry *entry) {
+    if (!entry)
+        return ;
 
-void ArpProto::del_gratuitous_arp_entry() {
-    if (gratuitous_arp_entry_) {
-        delete gratuitous_arp_entry_;
-        gratuitous_arp_entry_ = NULL;
+    ArpProto::ArpIterator iter = gratuitous_arp_cache_.find(entry->key());
+    if (iter == gratuitous_arp_cache_.end()) {
+        return;
     }
+    gratuitous_arp_cache_.erase(iter);
+    delete entry;
+}
+
+ArpEntry *
+ArpProto::GratiousArpEntry(const ArpKey &key) {
+    ArpProto::ArpIterator it = gratuitous_arp_cache_.find(key);
+    if (it == gratuitous_arp_cache_.end())
+        return NULL;
+    return it->second;
+}
+ArpProto::ArpIterator
+ArpProto::GratiousArpEntryIterator(const ArpKey &key, bool *key_valid) {
+    ArpProto::ArpIterator it = gratuitous_arp_cache_.find(key);
+    if (it == gratuitous_arp_cache_.end())
+        return it;
+    const VrfEntry *vrf = key.vrf;
+    if (!vrf)
+        return it;
+    const ArpVrfState *state = static_cast<const ArpVrfState *>
+                         (vrf->GetState(vrf->get_table_partition()->parent(),
+                          vrf_table_listener_id_));
+    // If VRF is delete marked, do not add ARP entries to cache
+    if (state == NULL || state->deleted == true)
+        return it;
+    *key_valid = true;
+    return it;
 }
 
 void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, in_addr_t ip,
