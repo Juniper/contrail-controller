@@ -54,6 +54,7 @@ bool QedVersion(std::string &version) {
 
 static EventManager * pevm = NULL;
 static DiscoveryServiceClient *ds_client = NULL;
+static Options options;
 
 static void WaitForIdle() {
     static const int kTimeout = 15;
@@ -99,11 +100,16 @@ static void terminate_qe (int param)
   pevm->Shutdown();
 }
 
+static void reconfig_qe(int signum) {
+    options.ParseReConfig();
+}
+
 int
 main(int argc, char *argv[]) {
     EventManager evm;
     pevm = &evm;
-    Options options;
+
+    srand(unsigned(time(NULL)));
 
     // Increase max number of threads available by a factor of 4
     TaskScheduler::SetThreadAmpFactor( 
@@ -211,7 +217,8 @@ main(int argc, char *argv[]) {
     // subscribe to the collector service with discovery only if the
     // collector list is not configured.
     if (use_collector_list) {
-        std::vector<std::string> collectors(options.collector_server_list());
+        std::vector<std::string> collectors(
+            options.randomized_collector_server_list());
         if (!collectors.size()) {
             collectors = options.default_collector_server_list();
         }
@@ -288,6 +295,7 @@ main(int argc, char *argv[]) {
     }
 
     signal(SIGTERM, terminate_qe);
+    signal(SIGHUP, reconfig_qe);
     evm.Run();
 
     return 0;
