@@ -45,6 +45,18 @@ class TestQuota(test_case.ApiServerTestCase):
         self._port_quota = 3
         self._fip_quota = 3
 
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestQuota, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestQuota, cls).tearDownClass(*args, **kwargs)
+
     def test_create_vmi_with_quota_in_parallels(self):
         proj_name = 'admin' + self.id()
         vn_name = 'test-net'

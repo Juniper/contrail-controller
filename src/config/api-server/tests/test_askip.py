@@ -38,6 +38,17 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 class TestRequestedIp(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestRequestedIp, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestRequestedIp, cls).tearDownClass(*args, **kwargs)
 
     def test_requested_ip(self):
 
@@ -49,19 +60,19 @@ class TestRequestedIp(test_case.ApiServerTestCase):
 
         domain = Domain(domain_name)
         self._vnc_lib.domain_create(domain)
-        print 'Created domain'
+        logger.debug('Created domain')
 
         project = Project(proj_name, domain)
         self._vnc_lib.project_create(project)
-        print 'Created Project'
+        logger.debug('Created Project')
 
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
         self._vnc_lib.network_ipam_create(ipam)
-        print 'Created network ipam'
+        logger.debug('Created network ipam')
 
         ipam = self._vnc_lib.network_ipam_read(fq_name=[domain_name, proj_name,
                                                'default-network-ipam'])
-        print 'Read network ipam'
+        logger.debug('Read network ipam')
         ipam_sn_1 = IpamSubnetType(subnet=SubnetType(subnet, prefix))
 
         vn = VirtualNetwork(vn_name, project)
@@ -71,7 +82,7 @@ class TestRequestedIp(test_case.ApiServerTestCase):
 
         ip_obj = InstanceIp(name=str(uuid.uuid4()))
         ip_obj.uuid = ip_obj.name
-        print 'Created Instance IP object ', ip_obj.uuid
+        logger.debug('Created Instance IP object %s', ip_obj.uuid)
 
         vm_inst_obj = VirtualMachine(str(uuid.uuid4()))
         vm_inst_obj.uuid = vm_inst_obj.name
@@ -87,21 +98,19 @@ class TestRequestedIp(test_case.ApiServerTestCase):
         ip_obj.set_virtual_network(net_obj)
         port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
 
-        print 'Allocating an IP address'
         ip_id = self._vnc_lib.instance_ip_create(ip_obj)
         ip_obj = self._vnc_lib.instance_ip_read(id=ip_id)
         ip_addr = ip_obj.get_instance_ip_address()
-        print ' got ', ip_addr
+        logger.debug('Allocating an IP address %s', ip_addr)
 
         # Add test to ask for ip that is already allocated
         # print 'Try to reserve above address ... should fail'
 
-        print
         ask_ip = '192.168.1.6'
-        print ' Try to request address 192.168.1.6'
+        logger.debug('Try to request address 192.168.1.6')
         ip_obj2 = InstanceIp(name=str(uuid.uuid4()))
         ip_obj2.uuid = ip_obj2.name
-        print 'Created Instance IP object', ip_obj2.uuid
+        logger.debug('Created Instance IP object %s', ip_obj2.uuid)
 
         vm_inst_obj2 = VirtualMachine(str(uuid.uuid4()))
         vm_inst_obj2.uuid = vm_inst_obj2.name
@@ -117,21 +126,17 @@ class TestRequestedIp(test_case.ApiServerTestCase):
         port_id2 = self._vnc_lib.virtual_machine_interface_create(port_obj2)
 
         ip_obj2.set_instance_ip_address(ask_ip)
-        try:
-            ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
-            ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
-            ip_addr2 = ip_obj2.get_instance_ip_address()
-            if ip_addr2 == ask_ip:
-                print ' Test passed!'
-                self._vnc_lib.instance_ip_delete(id=ip_id2)
-            else:
-                print ' Test failed! got %s' % (ip_addr2)
-        except:
-            print ' Failed to reserve IP address. Test failed'
+        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
+        ip_obj2 = self._vnc_lib.instance_ip_read(id=ip_id2)
+        ip_addr2 = ip_obj2.get_instance_ip_address()
+        if ip_addr2 == ask_ip:
+            logger.debug('Test passed!')
+            self._vnc_lib.instance_ip_delete(id=ip_id2)
+        else:
+            self.assertTrue(False, 'Test failed! got %s' % (ip_addr2))
 
         #cleanup
-        print
-        print 'Cleaning up'
+        logger.debug('Cleaning up')
         self._vnc_lib.instance_ip_delete(id=ip_id)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj2.uuid)
