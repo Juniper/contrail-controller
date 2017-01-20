@@ -319,7 +319,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         if (socket.gethostname() == 'build01'):
             logging.info("Skipping test")
             return True
-        return True
+        return False
 
 # end class AnalyticsDbTest
 
