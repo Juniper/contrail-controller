@@ -319,21 +319,25 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
-        exp_genlist1 = ['contrail-collector', 'contrail-analytics-api',
-                        'contrail-query-engine']
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
-                                              exp_genlist1)
-        exp_genlist2 = ['contrail-collector'] 
-        assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
-                                              exp_genlist2)
+        source = socket.gethostname()
+        exp_genlist = [
+            source+':Analytics:contrail-collector:0',
+            source+':Analytics:contrail-analytics-api:0',
+            source+':Analytics:contrail-query-engine:0',
+            source+'dup:Analytics:contrail-collector:0'
+        ]
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors,
+                                              exp_genlist)
         exp_src_list = [col.hostname for col in vizd_obj.collectors]
-        exp_mod_list = exp_genlist1 
+        exp_mod_list = ['contrail-collector', 'contrail-analytics-api',
+            'contrail-query-engine']
         assert vizd_obj.verify_table_source_module_list(exp_src_list, 
                                                         exp_mod_list)
         # stop the second redis_uve instance and verify the src/module list
         vizd_obj.redis_uves[1].stop()
         exp_src_list = [vizd_obj.collectors[0].hostname]
-        exp_mod_list = exp_genlist1
+        exp_mod_list = [gen.split(':')[2] \
+            for gen in vizd_obj.get_generator_list(vizd_obj.collectors[0])]
         assert vizd_obj.verify_table_source_module_list(exp_src_list, 
                                                         exp_mod_list)
     #end test_07_table_source_module_list
