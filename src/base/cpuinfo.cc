@@ -22,6 +22,12 @@
 
 using namespace boost;
 
+static void error_check(std::ifstream &file) {
+    assert(file.is_open());
+    assert(!file.fail());
+    assert(!file.bad());
+}
+
 static uint32_t NumCpus() {
     static uint32_t count = 0;
 
@@ -35,6 +41,7 @@ static uint32_t NumCpus() {
     return count;
 #else
     std::ifstream file("/proc/cpuinfo");
+    error_check(file);
     std::string content((std::istreambuf_iterator<char>(file)),
                    std::istreambuf_iterator<char>());
     // Create a find_iterator
@@ -75,6 +82,7 @@ static void ProcessMemInfo(ProcessMemInfo &info) {
     return;
 #else
     std::ifstream file("/proc/self/status");
+    error_check(file);
     bool vmsize = false;
     bool peak = false;
     bool rss = false;
@@ -103,6 +111,7 @@ static void ProcessMemInfo(ProcessMemInfo &info) {
 
 static void SystemMemInfo(SystemMemInfo &info) {
     std::ifstream file("/proc/meminfo");
+    error_check(file);
     std::string tmp;
     // MemTotal:       132010576 kB
     file >> tmp; file >> info.total; file >> tmp; 
