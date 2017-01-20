@@ -69,6 +69,8 @@ env.Alias('install', env.Install(env['INSTALL_CONF'],
     'contrail-schema.conf'))
 env.Alias('install', env.InstallAs( env['INSTALL_INITD'] + 
     '/contrail-schema', 'contrail-schema.initd.supervisord'))
+env.Alias('install', env.InstallAs( env['INSTALL_SYSTEMD'] +
+    '/contrail-schema.service', 'systemd/contrail-schema.service'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+ 
     '/supervisord_config_files', 'contrail-schema.ini'))
 env.Alias('install', env.Install(
