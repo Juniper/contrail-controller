@@ -928,6 +928,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 pmap.set_port(pmap_it->first.port_);
                 pmap.set_nat_port(pmap_it->second);
                 pmap_list.push_back(pmap);
+                pmap_it++;
             }
             entry.set_port_map(pmap_list);
 
