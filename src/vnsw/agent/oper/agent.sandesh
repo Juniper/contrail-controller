@@ -337,7 +337,7 @@ struct PathPreferenceSandeshData {
     1: i32 sequence;
     2: i32 preference;
     3: bool ecmp;
-    4: bool wait_for_traffic;
+    4: optional bool wait_for_traffic;
     5: optional string dependent_ip;
 }
 
