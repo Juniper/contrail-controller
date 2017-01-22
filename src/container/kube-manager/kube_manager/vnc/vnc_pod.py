@@ -71,7 +71,8 @@ class VncPod(object):
 
         # Create Floating-Ip object.
         fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (pod_name),
-                             parent_obj=fip_pool_obj)
+                             parent_obj=fip_pool_obj,
+                             floating_ip_traffic_direction='egress')
         fip_obj.set_virtual_machine_interface(vmi_obj)
 
         try:

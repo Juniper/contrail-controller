@@ -154,12 +154,13 @@ class VncKubernetes(object):
 
     def _create_ipam(self, ipam_name, subnets, proj_obj,
             type='user-defined-subnet'):
+        ipam_obj = NetworkIpam(name=ipam_name, parent_obj=proj_obj)
+
         ipam_subnets = []
         for subnet in subnets:
             pfx, pfx_len = subnet.split('/')
             ipam_subnet = IpamSubnetType(subnet=SubnetType(pfx, int(pfx_len)))
             ipam_subnets.append(ipam_subnet)
-        ipam_obj = NetworkIpam(name=ipam_name, parent_obj=proj_obj)
 
         if type == 'flat-subnet':
             ipam_obj.set_ipam_subnet_method('flat-subnet')
@@ -168,7 +169,7 @@ class VncKubernetes(object):
         try:
             self.vnc_lib.network_ipam_create(ipam_obj)
         except RefsExistError:
-            vn_obj = self.vnc_lib.network_ipam_read(
+            ipam_obj = self.vnc_lib.network_ipam_read(
                 fq_name=ipam_obj.get_fq_name())
         return ipam_obj, ipam_subnets
 
@@ -176,13 +177,25 @@ class VncKubernetes(object):
         vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
             address_allocation_mode='user-defined-subnet-only')
 
+        # Create Pod IPAM.
         ipam_obj, ipam_subnets= self._create_ipam('pod-ipam',
             self.args.pod_subnets, proj_obj)
+
+        # Attach Pod IPAM to virtual-network.
         vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam_subnets))
 
-        ipam_obj, ipam_subnets = self._create_ipam('service-ipam',
+        #
+        # Create Service IPAM.
+        #
+        svc_ipam_obj, ipam_subnets = self._create_ipam('service-ipam',
             self.args.service_subnets, proj_obj, type='flat-subnet')
-        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
+
+        # Attach Service IPAM to virtual-network.
+        #
+        # For flat-subnets, the subnets are specified on the IPAM and
+        # not on the virtual-network to IPAM link. So pass an empty
+        # list of VnSubnetsType.
+        vn_obj.add_network_ipam(svc_ipam_obj, VnSubnetsType([]))
 
         vn_obj.set_virtual_network_properties(
              VirtualNetworkType(forwarding_mode='l3'))
@@ -195,7 +208,7 @@ class VncKubernetes(object):
         VirtualNetworkKM.locate(vn_obj.uuid)
 
         # Create service floating ip pool.
-        self._create_cluster_service_fip_pool(vn_obj)
+        self._create_cluster_service_fip_pool(vn_obj, svc_ipam_obj)
 
         return vn_obj.uuid
 
@@ -213,27 +226,66 @@ class VncKubernetes(object):
         return FloatingIpPoolKM.find_by_name_or_uuid(
             self._get_cluster_service_fip_pool_name(vn_obj.name))
 
-    def _create_cluster_service_fip_pool(self, vn_obj):
-        # Create a floating IP pool in cluster service network.
+    def _create_cluster_service_fip_pool(self, vn_obj, ipam_obj):
+        # Create a floating-ip-pool in cluster service network.
         #
-        # Service IP's in the cluster are allocated from service
+        # Service IP's in the k8s cluster are allocated from service
         # IPAM in the cluster network. All pods spawned in isolated
-        # virtual networks will be allocated an IP from this floating IP
-        # pool. These pods in those isolated virtual networks will use this
-        # floating IP for traffic to services in the cluster.
+        # virtual networks will be allocated an IP from this floating-ip-
+        # pool. These pods, in those isolated virtual networks, will use this
+        # floating-ip for outbound traffic to services in the k8s cluster.
+
+        # Get IPAM refs from virtual-network.
+        ipam_refs = vn_obj.get_network_ipam_refs()
+        svc_subnet_uuid = None
+        for ipam_ref in ipam_refs:
+            if ipam_ref['to'] == ipam_obj.get_fq_name():
+                ipam_subnets = ipam_ref['attr'].get_ipam_subnets()
+                if not ipam_subnets:
+                    import pdb;pdb.set_trace()
+                    continue
+                # We will use the first subnet in the matching IPAM.
+                svc_subnet_uuid = ipam_subnets[0].get_subnet_uuid()
+                break
+
+        fip_subnets = FloatingIpPoolSubnetType(subnet_uuid = [svc_subnet_uuid])
         fip_pool_obj = FloatingIpPool(
             self._get_cluster_service_fip_pool_name(vn_obj.name),
+            floating_ip_pool_subnets = fip_subnets,
             parent_obj=vn_obj)
         try:
             # Create floating ip pool for cluster service network.
-            self.vnc_lib.floating_ip_pool_create(fip_pool_obj)
-        except:
-            self.logger.error("Service floating-IP-pool create failed for "
-                              "Virtual Network[%s] " % vn_obj.name)
-            return None
+            fip_pool_vnc_obj =\
+                self.vnc_lib.floating_ip_pool_create(fip_pool_obj)
+
+        except RefsExistError:
+            # Floating-ip-pool exists.
+            #
+            # Validate that existing floating-ip-pool has the service subnet
+            # uuid as one of its subnets. If not raise an exception, as the
+            # floating-ip-pool cannot be created, as one with the same name but
+            # different attributes exists in the system.
+            fip_pool_vnc_obj = self._get_cluster_service_fip_pool()
+            svc_subnet_found = False
+            fip_subnets = None
+
+            if hasattr(fip_pool_vnc_obj, 'floating_ip_pool_subnets'):
+                fip_subnets = fip_pool_vnc_obj.floating_ip_pool_subnets
+
+            if fip_subnets:
+                for subnet in fip_subnets['subnet_uuid']:
+                    if subnet == svc_subnet_uuid:
+                        svc_subnet_found = True
+                        break
+
+            if not svc_subnet_found:
+                self.logger.error("Failed to create floating-ip-pool %s for"\
+                    "subnet %s. A floating-ip-pool with same name exists." %\
+                    (":".join(fip_pool_vnc_obj.fq_name), svc_subnet_uuid))
+
         else:
             # Update local cache.
-            FloatingIpPoolKM.locate(fip_pool_obj.uuid)
+            FloatingIpPoolKM.locate(fip_pool_vnc_obj)
 
         return
 
