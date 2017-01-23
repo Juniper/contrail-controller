@@ -1081,6 +1081,123 @@ TYPED_TEST(StaticRouteTest, UpdateNexthop) {
     this->DeleteRoute(NULL, "nat", this->BuildPrefix("192.168.1.1", 32));
 }
 
+//
+// Duplicate prefix list
+// 1. Configure multiple static routes with same prefix
+// 2. Validate that only one of the routes is active
+// 3. Now update the config with only one static route entry
+// 4. Validate that static route is active with correct rtargets
+//
+TYPED_TEST(StaticRouteTest, DuplicatePrefix) {
+    vector<string> instance_names = list_of("blue")("nat");
+    this->NetworkConfig(instance_names);
+
+    this->SetStaticRouteEntries("nat",
+        "controller/src/bgp/testdata/static_route_16.xml");
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+
+    // Add nexthop route.
+    this->AddRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32), 100,
+        this->BuildNextHopAddress("2.3.4.5"));
+
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyPathAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+        this->BuildNextHopAddress("2.3.4.5"), "blue");
+
+    this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
+    set<string> rtarget_list =
+        list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
+        this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
+
+    this->VerifyStaticRouteSandesh("nat");
+
+    // Now update the config to contain only one prefix
+    this->SetStaticRouteEntries("nat",
+        "controller/src/bgp/testdata/static_route_16a.xml");
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+
+    // Add the NEW nexthop route.
+    this->AddRoute(NULL, "nat", this->BuildPrefix("1.1.1.1", 32), 100,
+        this->BuildNextHopAddress("5.4.3.2"));
+
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+
+    this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
+    rtarget_list = list_of("target:1:1")("target:1:2")("target:1:3");
+    this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
+        this->BuildNextHopAddress("5.4.3.2"), "unresolved", rtarget_list);
+
+    this->VerifyStaticRouteSandesh("nat");
+
+    // Delete nexthop route.
+    this->DeleteRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32));
+    this->DeleteRoute(NULL, "nat", this->BuildPrefix("1.1.1.1", 32));
+
+    // Check for Static route
+    this->VerifyRouteNoExists("nat", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+}
+
+
+//
+// Duplicate prefix list
+// 1. Configure single static route
+// 2. Validate that the static route is active
+// 3. Now update the config with multiple static routes with same prefix
+// 4. Validate that single static route is active with correct rtargets
+//
+TYPED_TEST(StaticRouteTest, DuplicatePrefix_1) {
+    vector<string> instance_names = list_of("blue")("nat");
+    this->NetworkConfig(instance_names);
+
+    this->SetStaticRouteEntries("nat",
+        "controller/src/bgp/testdata/static_route_16a.xml");
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+
+    // Add nexthop route.
+    this->AddRoute(NULL, "nat", this->BuildPrefix("1.1.1.1", 32), 100,
+        this->BuildNextHopAddress("2.3.4.5"));
+
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+
+    this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
+    set<string> rtarget_list =
+        list_of("target:1:1")("target:1:2")("target:1:3");
+    this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
+        this->BuildNextHopAddress("2.3.4.5"), "unresolved", rtarget_list);
+
+    this->VerifyStaticRouteSandesh("nat");
+
+    // Now update the config to contain multiple static routes with same prefix
+    this->SetStaticRouteEntries("nat",
+        "controller/src/bgp/testdata/static_route_16.xml");
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+
+    // Add nexthop route.
+    this->AddRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32), 100,
+        this->BuildNextHopAddress("5.4.3.2"));
+
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyPathAttributes("blue", this->BuildPrefix("192.168.1.0", 24),
+        this->BuildNextHopAddress("5.4.3.2"), "blue");
+
+    this->VerifyRouteExists("nat", this->BuildPrefix("192.168.1.0", 24));
+    rtarget_list = list_of("target:64496:1")("target:64496:2")("target:64496:3");
+    this->VerifyPathAttributes("nat", this->BuildPrefix("192.168.1.0", 24),
+        this->BuildNextHopAddress("5.4.3.2"), "unresolved", rtarget_list);
+
+    this->VerifyStaticRouteSandesh("nat");
+
+    // Delete nexthop route.
+    this->DeleteRoute(NULL, "nat", this->BuildPrefix("192.168.1.254", 32));
+    this->DeleteRoute(NULL, "nat", this->BuildPrefix("1.1.1.1", 32));
+
+    // Check for Static route
+    this->VerifyRouteNoExists("nat", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+}
+
 TYPED_TEST(StaticRouteTest, MultiplePrefix) {
     vector<string> instance_names = list_of("blue")("nat");
     this->NetworkConfig(instance_names);

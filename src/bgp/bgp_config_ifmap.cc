@@ -896,14 +896,28 @@ static void SetStaticRouteConfig(BgpInstanceConfig *rti,
             if (ec != 0)
                 continue;
             item.address = address;
-            inet_list.push_back(item);
+            std::pair<BgpInstanceConfig::StaticRouteList::iterator, bool> ret =
+                inet_list.insert(item);
+            if (!ret.second) {
+                BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                    "Duplicate static route prefix " << route.prefix <<
+                    " with nexthop " << route.next_hop <<
+                    " for routing instance " << rti->name());
+            }
         } else {
             Ip6Address address;
             ec = Inet6SubnetParse(route.prefix, &address, &item.prefix_length);
             if (ec != 0)
                 continue;
             item.address = address;
-            inet6_list.push_back(item);
+            std::pair<BgpInstanceConfig::StaticRouteList::iterator, bool> ret =
+                inet6_list.insert(item);
+            if (!ret.second) {
+                BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_ALL,
+                    "Duplicate static route prefix " << route.prefix <<
+                    " with nexthop " << route.next_hop <<
+                    " for routing instance " << rti->name());
+            }
         }
     }
     rti->swap_static_routes(Address::INET, &inet_list);

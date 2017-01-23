@@ -307,6 +307,7 @@ struct ServiceChainConfig {
 };
 
 struct StaticRouteConfig {
+    bool operator<(const StaticRouteConfig &) const;
     IpAddress address;
     int prefix_length;
     IpAddress nexthop;
@@ -382,7 +383,7 @@ class BgpInstanceConfig {
 public:
     typedef std::set<std::string> NeighborList;
     typedef std::set<std::string> RouteTargetList;
-    typedef std::vector<StaticRouteConfig> StaticRouteList;
+    typedef std::set<StaticRouteConfig> StaticRouteList;
     typedef std::vector<ServiceChainConfig> ServiceChainList;
     typedef std::vector<AggregateRouteConfig> AggregateRouteList;
 
