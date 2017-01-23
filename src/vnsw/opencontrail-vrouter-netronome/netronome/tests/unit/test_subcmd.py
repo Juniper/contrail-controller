@@ -14,15 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import unittest
 
 # import test
 from netronome import subcmd
+from netronome.vrouter.tests.unit import *
+
+
+def _ROOT_LMC(cls=LogMessageCounter):
+    return attachLogHandler(logging.root, cls())
+
 
 def _subcmd():
     return subcmd.Subcmd(
         name='name', description='description', logger=subcmd._LOGGER
     )
+
 
 class TestSubcmd(unittest.TestCase):
     def test_Subcmd_ctor(self):
@@ -45,6 +53,37 @@ class TestSubcmd(unittest.TestCase):
             s.cmds = 'a string'
         with self.assertRaises(ValueError):
             s.cmds = type(self)
+
+    def test_subcmd_SystemExit_ec_None(self):
+        test_data = (
+            # Normal exit code pairs.
+            (0, 0),
+            (1, 1),
+            (2, 2),
+            (3, 3),
+
+            # Emulate oslo_config.cfg with an invalid command-line argument
+            # value. oslo_config raises SystemExit without any arguments in
+            # this case, which means "success." We need to make sure that we
+            # are working around this bug properly.
+            (None, 2),
+        )
+
+        for td in test_data:
+            c = _subcmd()
+
+            def parse_args(*args, **kwds):
+                if td[0] is None:
+                    raise SystemExit
+                else:
+                    raise SystemExit(td[0])
+
+            c.parse_args = parse_args
+
+            s = subcmd.SubcmdApp(cmds=(c,))
+            with _ROOT_LMC():
+                ec = s.run(argv=['test_subcmd_SystemExit_ec_None', 'name'])
+                self.assertEqual(ec, td[1])
 
 if __name__ == '__main__':
     unittest.main()

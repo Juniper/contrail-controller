@@ -27,6 +27,7 @@ from netronome.vrouter.sa.helpers import one_or_none
 
 import json
 import logging
+import re
 import sys
 
 from datetime import timedelta
@@ -34,6 +35,86 @@ from lxml import etree
 from nova.virt.libvirt.config import LibvirtConfigGuestInterface
 from oslo_config import (cfg, types)
 from sqlalchemy.orm.session import sessionmaker
+
+_OPER_RE = re.compile(r'\A--oper=(\w+)\Z')
+
+
+def _split_single_string_arg(args):
+    """The original (unaccelerated) nova-compute and vrouter_api.py pass all
+    the vrouter-port-control command line arguments lumped together as a single
+    string. vrouter-port-control, in turn, attempts to split these on a regex
+    that matches only whitespace followed by an option.
+
+    This approach is vulnerable to injection attacks, see Launchpad #1584625.
+    Later code introduced a workaround involving double quotes, but this is
+    still vulnerable to a (different) injection attack. The correct fix is to
+    pass the command-line arguments as a list rather than lumped together into
+    a single string.
+
+    For the sake of compatibility with unaccelerated nova-compute, if the
+    command-line arguments are passed as a single string, we attempt to split
+    on them on one of the two original regexes here, stripping quotes if
+    applicable.
+
+    Once patches are upstreamed to nova-compute and contrail-nova-vif-driver to
+    pass the arguments as a list, this code should be removed.
+    """
+
+    if len(args) != 2:
+        # Disable the workaround if the arguments were passed as a list.
+        return args
+
+    if '"' not in args[1]:
+        # Split on original vrouter-port-control regex.
+        ans = re.split(r'\s+(?=--)', args[1])
+
+    else:
+        # Split on LP1584625 regex.
+        ans = re.split(r'\s+(?=--[_A-Z0-9]+=".*?")', args[1], flags=re.I)
+
+        # Strip quotes (following LP1584265 vrouter-port-control).
+        opt_re = re.compile(r'\A--(?P<opt>[_A-Z0-9]+)="(?P<arg>.*?)"\Z', re.I)
+        strip_quotes = lambda m: '--{opt}={arg}'.format(**m.groupdict())
+        ans = map(lambda s: opt_re.sub(strip_quotes, s), ans)
+
+    return args[:1] + ans
+
+
+def _convert_oper_to_subcmd(args):
+    """Convert traditional --oper=CMD vrouter-port-control syntax to the newer
+    subcommand format."""
+
+    cmd = []
+    out = []
+
+    for a in args[1:]:
+        m = _OPER_RE.match(a)
+        if m:
+            # Special --oper=CMD argument. Convert to subcommand.
+            if cmd:
+                # Multiple --oper=CMD arguments are nonsensical. Don't attempt
+                # to implement compatibility support.
+                return args
+            cmd = ['--', m.group(1)]
+        elif a == '--':
+            # Assume that a command that already includes -- does NOT need
+            # compatibility support.
+            return args
+        else:
+            # Regular argument.
+            out.append(a)
+
+    return args[:1] + cmd + out
+
+
+def fixup(args):
+    """Apply unpatched nova-compute compatibility fixes to args."""
+
+    fixups = (
+        _split_single_string_arg,
+        _convert_oper_to_subcmd,
+    )
+    return reduce((lambda x, y: y(x)), fixups, args)
 
 
 def _make_vf_pool(fallback_map, port_dir, grace_period):
@@ -685,7 +766,54 @@ class IPAddressOrNone(types.IPAddress):
             return super(IPAddressOrNone, self).__call__(value)
 
 
-def _check_pre_configured_plug_mode_for_add(session, conf):
+def _check_pre_configured_plug_mode_for_add_pm_None(session, conf, logger):
+    if conf.hw_acceleration_mode is not None:
+        # Create a plug mode record for hw_acceleration_mode.
+        pm = port.PlugMode(
+            neutron_port=conf.uuid, mode=conf.hw_acceleration_mode
+        )
+        session.add(pm)
+        return
+
+    # No existing plug mode, and no hw_acceleration_mode. This can indicate
+    # that we are running with a non-hardware acceleration aware version of
+    # Nova.
+
+    if PM.unaccelerated not in conf.hw_acceleration_modes:
+        # Compute node is configured for accelerated operation only.
+        # Don't configure any plug mode. plug_port() will raise PlugModeError.
+        return
+
+    if set(conf.hw_acceleration_modes) & set(PM.accelerated_plug_modes):
+        # Compute node is configured to allow, but not require, accelerated
+        # operation. Log a warning on the theory that we might be running with
+        # a non-hardware acceleration aware version of Nova.
+        logger.warning(
+            'disabling hardware acceleration for port %s because the port '
+            'was not configured before plugging', conf.uuid
+        )
+
+    else:
+        # Compute node is configured for only unaccelerated operation. Don't
+        # log any message.
+        pass
+
+    # Create a plug mode record for unaccelerated operation.
+    pm = port.PlugMode(neutron_port=conf.uuid, mode=PM.unaccelerated)
+    session.add(pm)
+
+
+def _check_pre_configured_plug_mode_for_add_pm(session, conf, pm):
+    if conf.hw_acceleration_mode is None:
+        # plug_port() will use the pre-configured plug mode.
+        return
+
+    # Check for conflict between the originally selected mode and the mode
+    # specified on the command line.
+    _check_plug_mode_conflict(conf.uuid, pm.mode, conf.hw_acceleration_mode)
+
+
+def _check_pre_configured_plug_mode_for_add(session, conf, logger):
     # Retrieve any existing plug mode and cross check it against the
     # --hw-acceleration-mode command-line parameter.
     pm = one_or_none(
@@ -694,25 +822,9 @@ def _check_pre_configured_plug_mode_for_add(session, conf):
     )
 
     if pm is None:
-        if conf.hw_acceleration_mode is None:
-            # plug_port() will raise PlugModeError.
-            pass
-        else:
-            # Create a plug mode record for hw_acceleration_mode.
-            pm = port.PlugMode(
-                neutron_port=conf.uuid, mode=conf.hw_acceleration_mode
-            )
-            session.add(pm)
+        _check_pre_configured_plug_mode_for_add_pm_None(session, conf, logger)
     else:
-        if conf.hw_acceleration_mode is None:
-            # plug_port() will use the pre-configured plug mode.
-            pass
-        else:
-            # Check for conflict between the originally selected mode and the
-            # mode specified on the command line.
-            _check_plug_mode_conflict(
-                conf.uuid, pm.mode, conf.hw_acceleration_mode
-            )
+        _check_pre_configured_plug_mode_for_add_pm(session, conf, pm)
 
 
 class AddCmd(OsloConfigSubcmd):
@@ -907,7 +1019,7 @@ class AddCmd(OsloConfigSubcmd):
 
         s = Session()
 
-        _check_pre_configured_plug_mode_for_add(s, conf)
+        _check_pre_configured_plug_mode_for_add(s, conf, self.logger)
 
         plug.plug_port(s, vf_pool, conf, _root_dir=self._root_dir)
         s.commit()

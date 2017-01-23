@@ -148,9 +148,14 @@ class SubcmdApp(object):
             'command', metavar='<command>', help='Subcommand to run',
         )
 
-        h = logging.StreamHandler()
-        h.setFormatter(logging.Formatter(logging.BASIC_FORMAT, None))
-        logging.root.addHandler(h)
+        # Leave logging alone if unit tests (or other outside code) have
+        # already configured it.
+        if not logging.root.handlers:
+            h = logging.StreamHandler()
+            h.setFormatter(logging.Formatter(logging.BASIC_FORMAT, None))
+            logging.root.addHandler(h)
+        else:
+            h = None
 
         args, tail = parser.parse_known_args(argv[1:])
         if args.command not in self.cmd_map:
@@ -165,7 +170,9 @@ class SubcmdApp(object):
                 args=tail
             )
 
-            logging.root.removeHandler(h)
+            if h is not None:
+                logging.root.removeHandler(h)
+
             cmd.apply_features('run')
             rc = cmd.run()
 
@@ -179,8 +186,17 @@ class SubcmdApp(object):
             self.logger.exception(exception_msg(e))
             return 1
 
-        except SystemExit as e:  # (thanks, oslo_config)
-            return e.code
+        except SystemExit as e:
+            # oslo_config raises SystemExit rather than a normal exception when
+            # command-line parsing fails. In the case of an invalid
+            # command-line argument value (parser raises ValueError),
+            # oslo_config raises SystemExit without any arguments. This sets
+            # e.code to None which means "success." (oslo_config bug.)
+            #
+            # Work around this by returning 2 (command-line parsing error) if
+            # e.code is None. Otherwise Nova will not signal an error if it
+            # passes us bad command-line data (a la LP1584625).
+            return 2 if e.code is None else e.code
 
         except ImportError as e:
             logging.basicConfig(level=logging.DEBUG)  # fallback

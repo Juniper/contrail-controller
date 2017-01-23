@@ -30,7 +30,6 @@ import tempfile
 import threading
 import unittest
 import uuid
-import zmq
 
 from datetime import timedelta
 from sqlalchemy.orm.session import sessionmaker
