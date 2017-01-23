@@ -400,7 +400,7 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         if (intf_nh) {
             const Interface *intf =
                 static_cast<const Interface *>(intf_nh->GetInterface());
-            if (intf->type() == Interface::VM_INTERFACE) {
+            if (!intf->IsDeleted() && intf->type() == Interface::VM_INTERFACE) {
                 ArpKey intf_key(route->addr().to_v4().to_ulong(), route->vrf());
                 arp_proto->AddGratuitousArpEntry(intf_key);
                 arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
@@ -656,13 +656,13 @@ ArpProto::GratiousArpEntryIterator(const ArpKey &key, bool *key_valid) {
 }
 
 void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, in_addr_t ip,
-                          const VrfEntry *vrf, const Interface* itf) {
+                          const VrfEntry *vrf, InterfaceConstRef itf) {
     ArpIpc *ipc = new ArpIpc(type, ip, vrf, itf);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }
 
 void ArpProto::SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key,
-                          const Interface* itf) {
+                          InterfaceConstRef itf) {
     ArpIpc *ipc = new ArpIpc(type, key, itf);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }
