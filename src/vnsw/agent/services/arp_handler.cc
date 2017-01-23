@@ -234,7 +234,7 @@ bool ArpHandler::HandleMessage() {
             ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
             if (!entry) {
                 entry = new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
-                                     ArpEntry::INITING, ipc->interface);
+                                     ArpEntry::INITING, ipc->interface.get());
                 if (arp_proto->AddArpEntry(entry) == false) {
                     delete entry;
                     break;
@@ -251,10 +251,10 @@ bool ArpHandler::HandleMessage() {
             bool key_valid = false;
             ArpProto::ArpIterator it =
             arp_proto->GratiousArpEntryIterator(ipc->key, &key_valid);
-            if (key_valid) {
+            if (key_valid && !ipc->interface->IsDeleted()) {
                 if (it->second == NULL) {
                     it->second = new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
-                                              ArpEntry::ACTIVE, ipc->interface);
+                                              ArpEntry::ACTIVE, ipc->interface.get());
                     ret = false;
                 }
                 it->second->SendGratuitousArp();

@@ -39,14 +39,14 @@ public:
     };
 
     struct ArpIpc : InterTaskMsg {
-        ArpIpc(ArpProto::ArpMsgType msg, ArpKey &akey, const Interface* itf)
+        ArpIpc(ArpProto::ArpMsgType msg, ArpKey &akey, InterfaceConstRef itf)
             : InterTaskMsg(msg), key(akey), interface(itf) {}
         ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf,
-               const Interface* itf) :
+               InterfaceConstRef itf) :
             InterTaskMsg(msg), key(ip, vrf), interface(itf) {}
 
         ArpKey key;
-        const Interface *interface;
+        InterfaceConstRef interface;
     };
 
     struct ArpStats {
@@ -156,7 +156,7 @@ public:
     void set_retry_timeout(uint32_t timeout) { retry_timeout_ = timeout; }
     void set_aging_timeout(uint32_t timeout) { aging_timeout_ = timeout; }
     void SendArpIpc(ArpProto::ArpMsgType type, in_addr_t ip,
-                    const VrfEntry *vrf, const Interface* itf);
+                    const VrfEntry *vrf, InterfaceConstRef itf);
     bool ValidateAndClearVrfState(VrfEntry *vrf, const ArpVrfState *vrf_state);
     ArpIterator FindUpperBoundArpEntry(const ArpKey &key);
     ArpIterator FindLowerBoundArpEntry(const ArpKey &key);
@@ -169,7 +169,7 @@ private:
     void NextHopNotify(DBEntryBase *entry);
     void InterfaceNotify(DBEntryBase *entry);
     void SendArpIpc(ArpProto::ArpMsgType type, ArpKey &key,
-                    const Interface* itf);
+                    InterfaceConstRef itf);
     ArpProto::ArpIterator DeleteArpEntry(ArpProto::ArpIterator iter);
 
     ArpCache arp_cache_;
