@@ -72,7 +72,7 @@ bool MiscUtils::GetVersionInfoInternal(const string &cmd, string &rpm_version,
     return true;
 }
 
-bool MiscUtils::GetContrailVersionInfo(BuildModule id, string &rpm_version, 
+bool MiscUtils::GetContrailVersionInfo(BuildModule id, string &rpm_version,
                                        string &build_num) {
     bool ret;
     stringstream cmd;
@@ -92,7 +92,7 @@ bool MiscUtils::GetContrailVersionInfo(BuildModule id, string &rpm_version,
     return ret;
 }
 
-bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info, 
+bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info,
                              string &result) {
     string rpm_version;
     string build_num;
@@ -108,10 +108,12 @@ bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info,
         result = build_info;
         return false;
     }
-    fields[0u].AddMember("build-id", const_cast<char *>(rpm_version.c_str()), 
-                         d.GetAllocator());
-    fields[0u].AddMember("build-number", const_cast<char *>(build_num.c_str()), 
-                         d.GetAllocator());
+
+    rapidjson::Value v;
+    fields[0u].AddMember("build-id",
+        v.SetString(rpm_version.c_str(), d.GetAllocator()), d.GetAllocator());
+    fields[0u].AddMember("build-number",
+        v.SetString(build_num.c_str(), d.GetAllocator()), d.GetAllocator());
 
     rapidjson::StringBuffer strbuf;
     rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);

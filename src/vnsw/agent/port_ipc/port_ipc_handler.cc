@@ -439,6 +439,14 @@ bool PortIpcHandler::IsUUID(const string &uuid_str) const {
     return true;
 }
 
+void PortIpcHandler::AddMember(const char *key, const char *value,
+        rapidjson::Document *doc) const {
+    rapidjson::Document::AllocatorType &a = doc->GetAllocator();
+    rapidjson::Value v;
+    rapidjson::Value vk;
+    doc->AddMember(vk.SetString(key, a), v.SetString(value, a), a);
+}
+
 void PortIpcHandler::MakeVmiUuidJson(const VmiSubscribeEntry *entry,
                                      string &info, bool meta_info) const {
     rapidjson::Document doc;
@@ -446,27 +454,27 @@ void PortIpcHandler::MakeVmiUuidJson(const VmiSubscribeEntry *entry,
     rapidjson::Document::AllocatorType &a = doc.GetAllocator();
 
     string str1 = UuidToString(entry->vmi_uuid());
-    doc.AddMember("id", str1.c_str(), a);
+    AddMember("id", str1.c_str(), &doc);
     string str2 = UuidToString(entry->vm_uuid());
-    doc.AddMember("instance-id", str2.c_str(), a);
-    doc.AddMember("display-name", entry->vm_name().c_str(), a);
+    AddMember("instance-id", str2.c_str(), &doc);
+    AddMember("display-name", entry->vm_name().c_str(), &doc);
     string str3 = entry->ip4_addr().to_string();
-    doc.AddMember("ip-address", str3.c_str(), a);
+    AddMember("ip-address", str3.c_str(), &doc);
     string str4 = entry->ip6_addr().to_string();
-    doc.AddMember("ip6-address", str4.c_str(), a);
+    AddMember("ip6-address", str4.c_str(), &doc);
     string str5 = UuidToString(entry->vn_uuid());
-    doc.AddMember("vn-id", str5.c_str(), a);
+    AddMember("vn-id", str5.c_str(), &doc);
     string str6 = UuidToString(entry->project_uuid());
-    doc.AddMember("vm-project-id", str6.c_str(), a);
-    doc.AddMember("mac-address", entry->mac_addr().c_str(), a);
-    doc.AddMember("system-name", entry->ifname().c_str(), a);
+    AddMember("vm-project-id", str6.c_str(), &doc);
+    AddMember("mac-address", entry->mac_addr().c_str(), &doc);
+    AddMember("system-name", entry->ifname().c_str(), &doc);
     doc.AddMember("type", (int)entry->type(), a);
     doc.AddMember("rx-vlan-id", (int)entry->rx_vlan_id(), a);
     doc.AddMember("tx-vlan-id", (int)entry->tx_vlan_id(), a);
     if (meta_info) {
-        doc.AddMember("author", agent_->program_name().c_str(), a);
+        AddMember("author", agent_->program_name().c_str(), &doc);
         string now = duration_usecs_to_string(UTCTimestampUsec());
-        doc.AddMember("time", now.c_str(), a);
+        AddMember("time", now.c_str(), &doc);
     }
 
     rapidjson::StringBuffer buffer;
@@ -779,20 +787,19 @@ void PortIpcHandler::MakeVmVnPortJson(const VmVnPortSubscribeEntry *entry,
                                       string &info, bool meta_info) const {
     rapidjson::Document doc;
     doc.SetObject();
-    rapidjson::Document::AllocatorType &a = doc.GetAllocator();
 
     string str2 = UuidToString(entry->vm_uuid());
-    doc.AddMember("vm-uuid", str2.c_str(), a);
-    doc.AddMember("vm-id", entry->vm_identifier().c_str(), a);
-    doc.AddMember("vm-name", entry->vm_name().c_str(), a);
-    doc.AddMember("host-ifname", entry->ifname().c_str(), a);
-    doc.AddMember("vm-ifname", entry->vm_ifname().c_str(), a);
-    doc.AddMember("vm-namespace", entry->vm_namespace().c_str(), a);
+    AddMember("vm-uuid", str2.c_str(), &doc);
+    AddMember("vm-id", entry->vm_identifier().c_str(), &doc);
+    AddMember("vm-name", entry->vm_name().c_str(), &doc);
+    AddMember("host-ifname", entry->ifname().c_str(), &doc);
+    AddMember("vm-ifname", entry->vm_ifname().c_str(), &doc);
+    AddMember("vm-namespace", entry->vm_namespace().c_str(), &doc);
 
     if (meta_info) {
-        doc.AddMember("author", agent_->program_name().c_str(), a);
+        AddMember("author", agent_->program_name().c_str(), &doc);
         string now = duration_usecs_to_string(UTCTimestampUsec());
-        doc.AddMember("time", now.c_str(), a);
+        AddMember("time", now.c_str(), &doc);
     }
 
     rapidjson::StringBuffer buffer;
@@ -884,15 +891,15 @@ bool PortIpcHandler::MakeJsonFromVmiConfig(const uuid &vmi_uuid,
     rapidjson::Document::AllocatorType &a = doc.GetAllocator();
 
     string str1 = UuidToString(vmi_uuid);
-    doc.AddMember("id", str1.c_str(), a);
+    AddMember("id", str1.c_str(), &doc);
 
     string str2 = UuidToString(vmi_entry->vm_uuid_);
-    doc.AddMember("instance-id", str2.c_str(), a);
+    AddMember("instance-id", str2.c_str(), &doc);
 
     string str5 = UuidToString(vmi_entry->vn_uuid_);
-    doc.AddMember("vn-id", str5.c_str(), a);
+    AddMember("vn-id", str5.c_str(), &doc);
 
-    doc.AddMember("mac-address", vmi_entry->mac_.c_str(), a);
+    AddMember("mac-address", vmi_entry->mac_.c_str(), &doc);
     doc.AddMember("sub-interface", (bool)vmi_entry->sub_interface_, a);
     doc.AddMember("vlan-id", (int)vmi_entry->vlan_tag_, a);
 
@@ -944,37 +951,37 @@ bool PortIpcHandler::MakeJsonFromVmi(const uuid &vmi_uuid, string &resp) const {
     rapidjson::Document::AllocatorType &a = doc.GetAllocator();
 
     string str1 = UuidToString(vmi->GetUuid());
-    doc.AddMember("id", str1.c_str(), a);
+    AddMember("id", str1.c_str(), &doc);
 
     string str2 = UuidToString(vm->GetUuid());
-    doc.AddMember("instance-id", str2.c_str(), a);
+    AddMember("instance-id", str2.c_str(), &doc);
 
     string str3 = vmi->primary_ip_addr().to_string();
-    doc.AddMember("ip-address", str3.c_str(), a);
+    AddMember("ip-address", str3.c_str(), &doc);
     doc.AddMember("plen", ipam->plen, a);
 
     string str4 = vmi->primary_ip6_addr().to_string();
-    doc.AddMember("ip6-address", str4.c_str(), a);
+    AddMember("ip6-address", str4.c_str(), &doc);
 
     string str5 = UuidToString(vn->GetUuid());
-    doc.AddMember("vn-id", str5.c_str(), a);
+    AddMember("vn-id", str5.c_str(), &doc);
 
     string str6 = UuidToString(vmi->vm_project_uuid());
-    doc.AddMember("vm-project-id", str6.c_str(), a);
+    AddMember("vm-project-id", str6.c_str(), &doc);
 
     string str7 = vmi->vm_mac().ToString();
-    doc.AddMember("mac-address", str7.c_str(), a);
-    doc.AddMember("system-name", vmi->name().c_str(), a);
+    AddMember("mac-address", str7.c_str(), &doc);
+    AddMember("system-name", vmi->name().c_str(), &doc);
     doc.AddMember("rx-vlan-id", (int)vmi->rx_vlan_id(), a);
     doc.AddMember("tx-vlan-id", (int)vmi->tx_vlan_id(), a);
     string str8 = ipam->dns_server.to_v4().to_string();
-    doc.AddMember("dns-server", str8.c_str(), a);
+    AddMember("dns-server", str8.c_str(), &doc);
     string str9 = ipam->default_gw.to_v4().to_string();
-    doc.AddMember("gateway", str9.c_str(), a);
+    AddMember("gateway", str9.c_str(), &doc);
 
-    doc.AddMember("author", agent_->program_name().c_str(), a);
+    AddMember("author", agent_->program_name().c_str(), &doc);
     string now = duration_usecs_to_string(UTCTimestampUsec());
-    doc.AddMember("time", now.c_str(), a);
+    AddMember("time", now.c_str(), &doc);
 
     rapidjson::StringBuffer buffer;
     rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);

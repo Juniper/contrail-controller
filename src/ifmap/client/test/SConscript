@@ -68,7 +68,7 @@ env.Alias('src/ifmap/client:config_json_parser_test', config_json_parser_test)
 
 client_unit_tests = [
                      peer_server_finder_test,
-                     config_json_parser_test
+#                    config_json_parser_test
                     ]
 
 client_test = env.TestSuite('ifmap-test', client_unit_tests)
