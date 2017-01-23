@@ -26,7 +26,6 @@ import socket
 from utils.analytics_fixture import AnalyticsFixture
 from utils.stats_fixture import StatsFixture
 from mockcassandra import mockcassandra
-from mockredis import mockredis
 import logging
 import time
 import pycassa
@@ -54,8 +53,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.cassandra_port = StatsTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
-        cls.redis_port = StatsTest.get_free_port()
-        mockredis.start_redis(cls.redis_port)
 
     @classmethod
     def tearDownClass(cls):
@@ -63,7 +60,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return
 
         mockcassandra.stop_cassandra(cls.cassandra_port)
-        mockredis.stop_redis(cls.redis_port)
         pass
 
     #@unittest.skip('Get samples using StatsOracle')
@@ -80,7 +76,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -135,7 +130,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -200,7 +194,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -238,7 +231,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -283,7 +275,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -328,7 +319,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()
@@ -372,7 +362,6 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.verify_collector_obj_count()

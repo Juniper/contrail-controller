@@ -23,7 +23,6 @@ import fixtures
 from collections import OrderedDict
 
 from mockcassandra import mockcassandra
-from mockredis import mockredis
 from utils.analytics_fixture import AnalyticsFixture
 from utils.opserver_introspect_utils import VerificationOpsSrv
 from utils.util import retry, find_buildroot
@@ -43,14 +42,11 @@ class AnalyticsUFlowTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.cassandra_port = AnalyticsFixture.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
-        cls.redis_port = AnalyticsFixture.get_free_port()
-        mockredis.start_redis(cls.redis_port)
     # end setUpClass
 
     @classmethod
     def tearDownClass(cls):
         mockcassandra.stop_cassandra(cls.cassandra_port)
-        mockredis.stop_redis(cls.redis_port)
     # end tearDownClass
 
     @retry(delay=1, tries=5)
@@ -83,7 +79,6 @@ class AnalyticsUFlowTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info('%%% test_ipfix %%%')
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port,
                              ipfix_port = True))
         assert vizd_obj.verify_on_setup()
@@ -117,7 +112,6 @@ class AnalyticsUFlowTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info('%%% test_sflow %%%')
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port,
                              sflow_port=True))
         assert vizd_obj.verify_on_setup()
