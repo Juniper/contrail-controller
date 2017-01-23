@@ -12,7 +12,6 @@
 #include "nexthop_server/nexthop_server.h"
 #include <pthread.h>
 #include "rapidjson/document.h"
-#include "rapidjson/filestream.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
@@ -118,7 +117,7 @@ NexthopDBClient::NextMessage(int *data_len)
     }
 
     const char *nhdata = s.GetString();
-    int nhlen = s.Size();
+    int nhlen = strlen(nhdata);
     u_int8_t *out_data = new u_int8_t[nhlen + 4];
     out_data[0] = (unsigned char) (nhlen >> 24);
     out_data[1] = (unsigned char) (nhlen >> 16);

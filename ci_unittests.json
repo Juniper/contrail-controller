@@ -29,7 +29,6 @@
             "controller/src/config/svc_monitor:test",
             "controller/src/config/schema-transformer:test",
             "controller/src/api-lib:test",
-            "controller/src/discovery:test",
             "controller/src/config/api-server:test",
             "controller/src/config/vnc_openstack:test"
         ],
@@ -137,7 +136,6 @@
         "scons_test_targets" : [
             "controller/src/base:test",
             "controller/src/db:test",
-            "controller/src/discovery:test",
             "controller/src/database/gendb:test",
             "controller/src/database/cassandra/cql:test",
             "controller/src/zookeeper:test",

@@ -1240,8 +1240,10 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
                     std::string nm = it->first + std::string("|s");
                     pair<AttribMap::iterator,bool> rt = 
                         attribs_buf.insert(make_pair(nm, it->second));
-                    val.SetString(it->second.str.c_str());
-                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
+                    val.SetString(it->second.str.c_str(), dd.GetAllocator());
+                    rapidjson::Value vk;
+                    dd.AddMember(vk.SetString(rt.first->first.c_str(),
+                                 dd.GetAllocator()), val, dd.GetAllocator());
                     string field_name = it->first;
                      if (field_name.compare("fields.value") == 0) {
                          if (statName.compare("FieldNames") == 0) {
@@ -1258,7 +1260,9 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
                     pair<AttribMap::iterator,bool> rt = 
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetUint64(it->second.num);
-                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
+                    rapidjson::Value vk;
+                    dd.AddMember(vk.SetString(rt.first->first.c_str(),
+                                 dd.GetAllocator()), val, dd.GetAllocator());
                 }
                 break;
             case DOUBLE: {
@@ -1267,7 +1271,9 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
                     pair<AttribMap::iterator,bool> rt = 
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetDouble(it->second.dbl);
-                    dd.AddMember(rt.first->first.c_str(), val, dd.GetAllocator());
+                    rapidjson::Value vk;
+                    dd.AddMember(vk.SetString(rt.first->first.c_str(),
+                                 dd.GetAllocator()), val, dd.GetAllocator());
                 }
                 break;                
             default:
@@ -1465,48 +1471,66 @@ class FlowValueJsonPrinter : public boost::static_visitor<> {
         std::string tuuid_s(to_string(tuuid));
         rapidjson::Value val(rapidjson::kStringType);
         val.SetString(tuuid_s.c_str(), dd_.GetAllocator());
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const std::string &tstring) {
         rapidjson::Value val(rapidjson::kStringType);
         val.SetString(tstring.c_str(), dd_.GetAllocator());
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const uint8_t &t8) {
         rapidjson::Value val(rapidjson::kNumberType);
         val.SetUint(t8);
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const uint16_t &t16) {
         rapidjson::Value val(rapidjson::kNumberType);
         val.SetUint(t16);
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const uint32_t &tu32) {
         rapidjson::Value val(rapidjson::kNumberType);
         val.SetUint(tu32);
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const uint64_t &tu64) {
         rapidjson::Value val(rapidjson::kNumberType);
         val.SetUint64(tu64);
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const double &tdouble) {
         rapidjson::Value val(rapidjson::kNumberType);
         val.SetDouble(tdouble);
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const IpAddress &tipaddr) {
         rapidjson::Value val(rapidjson::kStringType);
         val.SetString(tipaddr.to_string().c_str(), dd_.GetAllocator());
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const GenDb::Blob &tblob) {
         rapidjson::Value val(rapidjson::kStringType);
         val.SetString(reinterpret_cast<const char *>(tblob.data()),
             tblob.size(), dd_.GetAllocator());
-        dd_.AddMember(name_.c_str(), val, dd_.GetAllocator());
+        rapidjson::Value vk;
+        dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
+                      dd_.GetAllocator());
     }
     void operator()(const boost::blank &tblank) {
     }
