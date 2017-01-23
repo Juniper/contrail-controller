@@ -3,6 +3,8 @@
  */
 #include "config_json_parser.h"
 
+#include <boost/lexical_cast.hpp>
+
 #include "config_cassandra_client.h"
 
 #include "ifmap/ifmap_log.h"
@@ -201,7 +203,8 @@ bool ConfigJsonParser::Receive(const string &uuid, const string &in_message,
         // GetParseError returns const char *
         IFMAP_WARN(IFMapJsonLoadError,
                    "Error in parsing JSON message at position",
-                   pos, "with error description", document.GetParseError());
+                   pos, "with error description",
+                   boost::lexical_cast<string>(document.GetParseError()));
         return false;
     } else {
         auto_ptr<IFMapTable::RequestKey> key(new IFMapTable::RequestKey());

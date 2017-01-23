@@ -102,12 +102,14 @@ public:
                 unsigned long num = 0;
                 stringToInteger(map_it->second, num);
                 val.SetUint64(num);
-                dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                rapidjson::Value vk;
+                dd.AddMember(vk.SetString(map_it->first.c_str(), dd.GetAllocator()), val, dd.GetAllocator());
                 found = true;
             } else if (columns[j].name == map_it->first) {
                 if (map_it->second.length() == 0) {
                     rapidjson::Value val(rapidjson::kNullType);
-                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                    rapidjson::Value vk;
+                    dd.AddMember(vk.SetString(map_it->first.c_str(), dd.GetAllocator()), val, dd.GetAllocator());
                     found = true;
                     continue;
                 }
@@ -117,24 +119,29 @@ public:
                     columns[j].datatype == "uuid")
                 {
                     rapidjson::Value val(rapidjson::kStringType);
-                    val.SetString(map_it->second.c_str());
-                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                    val.SetString(map_it->second.c_str(), dd.GetAllocator());
+                    rapidjson::Value vk;
+                    dd.AddMember(vk.SetString(map_it->first.c_str(), dd.GetAllocator()), val, dd.GetAllocator());
                 } else if (columns[j].datatype == "ipaddr") {
                     rapidjson::Value val(rapidjson::kStringType);
-                   val.SetString(map_it->second.c_str(), map_it->second.size());
-                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                   val.SetString(map_it->second.c_str(),
+                                 dd.GetAllocator());
+                    rapidjson::Value vk;
+                    dd.AddMember(vk.SetString(map_it->first.c_str(), dd.GetAllocator()), val, dd.GetAllocator());
 
                 } else if (columns[j].datatype == "double") {
                     rapidjson::Value val(rapidjson::kNumberType);
                     double dval = (double) strtod(map_it->second.c_str(), NULL);
                     val.SetDouble(dval);
-                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                    rapidjson::Value vk;
+                    dd.AddMember(vk.SetString(map_it->first.c_str(), dd.GetAllocator()), val, dd.GetAllocator());
                 } else {
                     rapidjson::Value val(rapidjson::kNumberType);
                     unsigned long num = 0;
                     stringToInteger(map_it->second, num);
                     val.SetUint64(num);
-                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                    rapidjson::Value vk;
+                    dd.AddMember(vk.SetString(map_it->first.c_str(), dd.GetAllocator()), val, dd.GetAllocator());
                 }
                 found = true;
             }
