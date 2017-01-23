@@ -537,11 +537,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
-<xsd:complexType name="FloatingIpPoolType">
-    <xsd:all>
-        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded" required='optional'
-             description='Block of ip addresses for floating ip allocation. Currently not supported'/>
-    </xsd:all>
+<xsd:complexType name="FloatingIpPoolSubnetType">
+    <xsd:element name="subnet-uuid" type="xsd:string" maxOccurs="unbounded"
+         description='List of subnets associated with this floating ip pool.'/>
 </xsd:complexType>
 
 <xsd:complexType name="SubnetListType">
@@ -1820,11 +1818,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'Subnet belongs of the referenced virtual machine interface. This is used in CPE use case when a subnet is reachable via the interface. It also serves as dynamic DHCP pool for host on this LAN, where vrouter is DHCP server.') -->
 
 <xsd:element name="floating-ip-pool" type="ifmap:IdentityType"/>
-<xsd:element name="floating-ip-pool-prefixes" type="FloatingIpPoolType"/>
+<xsd:element name="floating-ip-pool-subnets" type="FloatingIpPoolSubnetType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Exclude('floating-ip-pool-prefixes', ['backend']);
-     Property('floating-ip-pool-prefixes', 'floating-ip-pool', 'optional', 'CRUD',
-              'List of ip prefixes that restrict floating ip allocation from the corresponding virtual network.(Not yet implemented).') -->
+     Exclude('floating-ip-pool-subnets', ['backend']);
+     Property('floating-ip-pool-subnets', 'floating-ip-pool', 'optional', 'CRUD',
+              'Subnets that restrict floating ip allocation from the corresponding virtual network.') -->
 <xsd:element name="virtual-network-floating-ip-pool"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('virtual-network-floating-ip-pool', ['backend']);
