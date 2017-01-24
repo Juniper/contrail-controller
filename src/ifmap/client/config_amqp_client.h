@@ -21,11 +21,11 @@ public:
     virtual ~ConfigAmqpClient();
 
     std::string rabbitmq_ip() const {
-        return rabbitmq_ip_;
+        return rabbitmq_ips_[current_server_index_];
     }
 
     std::string rabbitmq_port() const {
-        return rabbitmq_port_;
+        return rabbitmq_ports_[current_server_index_];
     }
 
     std::string rabbitmq_user() const {
@@ -84,8 +84,9 @@ private:
     std::string hostname_;
 
     int reader_task_id_;
-    std::string rabbitmq_ip_;
-    std::string rabbitmq_port_;
+    int current_server_index_;
+    std::vector<std::string> rabbitmq_ips_;
+    std::vector<std::string> rabbitmq_ports_;
     std::string rabbitmq_user_;
     std::string rabbitmq_password_;
     std::string rabbitmq_vhost_;
