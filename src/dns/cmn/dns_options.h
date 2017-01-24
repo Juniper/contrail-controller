@@ -5,6 +5,7 @@
 #include <boost/program_options.hpp>
 #include "io/event_manager.h"
 #include "ifmap/ifmap_config_options.h"
+#include "sandesh/sandesh.h"
 
 // Process command line/configuration file options for dns.
 class Options {

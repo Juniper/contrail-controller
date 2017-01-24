@@ -78,7 +78,8 @@ public:
     }
 
     bool ParseUuidTableRowResponse(const string &uuid,
-            const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec) {
+            const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
+            ConfigCassandraParseContext &context) {
         // Retrieve event index prepended to uuid, to get to the correct db.
         int idx = HashUUID(uuid);
         UUIDIndexMap::iterator it = db_index_[idx].find(uuid);
@@ -88,7 +89,7 @@ public:
              events_[SizeType(index)]["db"][uuid.c_str()].MemberBegin();
              k != events_[SizeType(index)]["db"][uuid.c_str()].MemberEnd(); ++k) {
             ParseUuidTableRowJson(uuid, k->name.GetString(), k->value.GetString(),
-                                  0, cass_data_vec);
+                                  0, cass_data_vec, context);
         }
         db_index_[idx].erase(it);
         return true;
@@ -222,9 +223,8 @@ TEST_F(ConfigJsonParserTest, DISABLED_AclParse) {
     string message =
         FileRead("controller/src/ifmap/client/testdata/acl.json");
     assert(message.size() != 0);
-    bool add_change = true;
     config_client_manager_->config_json_parser()->Receive(
-        "d4cb8100-b9b8-41cd-8fdf-5eb76323f096", message, add_change,
+        "d4cb8100-b9b8-41cd-8fdf-5eb76323f096", message,
         IFMapOrigin::CASSANDRA);
     task_util::WaitForIdle();
 
@@ -265,9 +265,8 @@ TEST_F(ConfigJsonParserTest, DISABLED_VmiParseAddDeleteProperty) {
     string message =
         FileRead("controller/src/ifmap/client/testdata/vmi.json");
     assert(message.size() != 0);
-    bool add_change = true;
     config_client_manager_->config_json_parser()->Receive(
-        "42f6d841-d1c7-40b8-b1c4-ca2ab415c81d", message, add_change,
+        "42f6d841-d1c7-40b8-b1c4-ca2ab415c81d", message,
         IFMapOrigin::CASSANDRA);
     task_util::WaitForIdle();
 
@@ -335,7 +334,7 @@ TEST_F(ConfigJsonParserTest, DISABLED_VmiParseAddDeleteProperty) {
     message = FileRead("controller/src/ifmap/client/testdata/vmi1.json");
     assert(message.size() != 0);
     config_client_manager_->config_json_parser()->Receive(
-        "42f6d841-d1c7-40b8-b1c4-ca2ab415c81d", message, add_change,
+        "42f6d841-d1c7-40b8-b1c4-ca2ab415c81d", message,
         IFMapOrigin::CASSANDRA);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_FALSE(
