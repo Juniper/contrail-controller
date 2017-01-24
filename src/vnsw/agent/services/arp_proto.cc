@@ -140,10 +140,6 @@ bool ArpPathPreferenceState::SendArpRequest(WaitForTrafficIntfMap
 
     WaitForTrafficIntfMap::iterator it = wait_for_traffic_map.begin();
     for (;it != wait_for_traffic_map.end(); it++) {
-        if (it->second >= kMaxRetry) {
-            continue;
-        }
-
         const VmInterface *vm_intf = static_cast<const VmInterface *>(
                 vrf_state_->agent->interface_table()->FindInterface(it->first));
         if (!vm_intf) {
@@ -161,6 +157,12 @@ bool ArpPathPreferenceState::SendArpRequest(WaitForTrafficIntfMap
                             MacAddress(), vm_ip_.to_v4().to_ulong(),
                             it->first, vrf_id_);
         vrf_state_->arp_proto->IncrementStatsVmArpReq();
+
+        // reduce the frequency of ARP requests after some tries
+        if (it->second >= kMaxRetry) {
+            arp_req_timer_->Reschedule(kTimeout * 5);
+        }
+
         ret = true;
     }
     return ret;
@@ -222,17 +224,14 @@ void ArpPathPreferenceState::SendArpRequestForAllIntf(const AgentRoute *route) {
                 gw_ip_ = path->subnet_service_ip();
             }
             uint32_t intf_id = intf->id();
-            bool wait_for_traffic = path->path_preference().wait_for_traffic();
             //Build new list of interfaces in active state
-            if (wait_for_traffic == true) {
-                WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
-                    wait_for_traffic_map.find(intf_id);
-                if (wait_for_traffic_it == wait_for_traffic_map.end()) {
-                    new_wait_for_traffic_map.insert(std::make_pair(intf_id, 0));
-                } else {
-                    new_wait_for_traffic_map.insert(std::make_pair(intf_id,
-                        wait_for_traffic_it->second));
-                }
+            WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
+                wait_for_traffic_map.find(intf_id);
+            if (wait_for_traffic_it == wait_for_traffic_map.end()) {
+                new_wait_for_traffic_map.insert(std::make_pair(intf_id, 0));
+            } else {
+                new_wait_for_traffic_map.insert(std::make_pair(intf_id,
+                    wait_for_traffic_it->second));
             }
         }
     }
