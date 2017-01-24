@@ -88,17 +88,6 @@ public:
     }
     const SandeshConfig &sandesh_config() const { return sandesh_config_; }
 
-    const std::string rabbitmq_ip() const { return ifmap_config_options_.rabbitmq_ip; }
-    const std::string rabbitmq_port() const { return ifmap_config_options_.rabbitmq_port; }
-    const std::string rabbitmq_user() const { return ifmap_config_options_.rabbitmq_user; }
-    const std::string rabbitmq_password() const { return ifmap_config_options_.rabbitmq_password; }
-    const std::string rabbitmq_vhost() const { return ifmap_config_options_.rabbitmq_vhost; }
-    bool rabbitmq_use_ssl() const { return ifmap_config_options_.rabbitmq_use_ssl; }
-    const std::string rabbitmq_ssl_version() const { return ifmap_config_options_.rabbitmq_ssl_version; }
-    const std::string rabbitmq_ssl_keyfile() const { return ifmap_config_options_.rabbitmq_ssl_keyfile; }
-    const std::string rabbitmq_ssl_certfile() const { return ifmap_config_options_.rabbitmq_ssl_certfile; }
-    const std::string rabbitmq_ssl_ca_certs() const { return ifmap_config_options_.rabbitmq_ssl_ca_certs; }
-
     void ParseReConfig();
 
 private:

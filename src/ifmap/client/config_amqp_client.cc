@@ -10,6 +10,7 @@
 #include <SimpleAmqpClient/SimpleAmqpClient.h>
 #include "rapidjson/document.h"
 
+#include "base/string_util.h"
 #include "base/task.h"
 #include "ifmap/ifmap_config_options.h"
 #include "config_cassandra_client.h"
@@ -42,8 +43,7 @@ private:
 
 ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
                                    const IFMapConfigOptions &options) :
-    mgr_(mgr), hostname_(hostname), rabbitmq_ip_(options.rabbitmq_ip),
-    rabbitmq_port_(options.rabbitmq_port),
+    mgr_(mgr), hostname_(hostname), current_server_index_(0),
     rabbitmq_user_(options.rabbitmq_user),
     rabbitmq_password_(options.rabbitmq_password),
     rabbitmq_vhost_(options.rabbitmq_vhost),
@@ -55,6 +55,21 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
 
     if (disable_)
         return;
+
+    for (vector<string>::const_iterator iter =
+                options.rabbitmq_server_list.begin();
+         iter != options.rabbitmq_server_list.end(); iter++) {
+        string server_info(*iter);
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep(":");
+        tokenizer tokens(server_info, sep);
+        tokenizer::iterator tit = tokens.begin();
+        string ip(*tit);
+        rabbitmq_ips_.push_back(ip);
+        ++tit;
+        string port_str(*tit);
+        rabbitmq_ports_.push_back(port_str);
+    }
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     reader_task_id_ = scheduler->GetTaskId("amqp::RabbitMQReader");

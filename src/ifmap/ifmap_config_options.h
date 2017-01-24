@@ -45,8 +45,7 @@ struct IFMapConfigOptions {
     std::string config_db_username;
     std::string config_db_password;
     std::vector<std::string> config_db_server_list;
-    std::string rabbitmq_ip;
-    std::string rabbitmq_port;
+    std::vector<std::string> rabbitmq_server_list;
     std::string rabbitmq_user;
     std::string rabbitmq_password;
     std::string rabbitmq_vhost;
