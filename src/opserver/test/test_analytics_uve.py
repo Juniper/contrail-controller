@@ -25,7 +25,6 @@ import socket
 from utils.util import obj_to_dict, find_buildroot
 from utils.analytics_fixture import AnalyticsFixture
 from utils.generator_fixture import GeneratorFixture
-from mockredis import mockredis
 from mockzoo import mockzoo
 import logging
 import time
@@ -49,13 +48,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             if (os.getenv('DYLD_LIBRARY_PATH', '').find('build/lib') < 0):
                 assert(False)
 
-        cls.redis_port = AnalyticsUveTest.get_free_port()
-        mockredis.start_redis(cls.redis_port)
-
     @classmethod
     def tearDownClass(cls):
-
-        mockredis.stop_redis(cls.redis_port)
+        pass
 
     #@unittest.skip('Skipping non-cassandra test with vizd')
     def test_00_nocassandra(self):
@@ -67,7 +62,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info("%%% test_00_nocassandra %%%")
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0)) 
+            AnalyticsFixture(logging, builddir, 0)) 
         assert vizd_obj.verify_on_setup()
 
         return True
@@ -84,7 +79,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info("%%% test_01_vm_uve %%%")
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0))
+            AnalyticsFixture(logging, builddir, 0))
         assert vizd_obj.verify_on_setup()
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
@@ -128,7 +123,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info("%%% test_02_vm_uve_with_password %%%")
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, -1, 0,
+            AnalyticsFixture(logging, builddir, 0,
                              redis_password='contrail'))
         assert vizd_obj.verify_on_setup()
         collectors = [vizd_obj.get_collector()]
@@ -150,7 +145,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info('%%% test_03_redis_uve_restart %%%')
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, -1, 0,
+            AnalyticsFixture(logging, builddir, 0,
             start_kafka = True))
         assert vizd_obj.verify_on_setup()
 
@@ -181,7 +176,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging,
-                             builddir, -1, 0,
+                             builddir, 0,
                              redis_password='contrail'))
         self.verify_uve_resync(vizd_obj)
         return True
@@ -221,7 +216,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info('%%% test_05_collector_ha %%%')
         
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, -1, 0,
+            AnalyticsFixture(logging, builddir, 0,
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
         collectors = [vizd_obj.collectors[1].get_addr(), 
@@ -356,7 +351,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, self.__class__.redis_port, 0,
+            AnalyticsFixture(logging, builddir, 0,
             start_kafka = True))
         assert vizd_obj.verify_on_setup()
 
@@ -481,7 +476,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # collector_ha_test flag is set to True, because we wanna test
         # retrieval of alarms across multiple redis servers.
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, -1, 0,
+            AnalyticsFixture(logging, builddir, 0,
                              collector_ha_test=True,
                              start_kafka = True))
         assert vizd_obj.verify_on_setup()
@@ -594,7 +589,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             return True
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, -1, 0,
+            AnalyticsFixture(logging, builddir, 0,
                 collector_ha_test=True, start_kafka = True))
         assert vizd_obj.verify_on_setup()
 
@@ -1901,7 +1896,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging,
-                             builddir, -1, 0,
+                             builddir, 0,
                              redis_password='contrail'))
         assert vizd_obj.verify_on_setup()
         assert vizd_obj.set_opserver_db_info(vizd_obj.opserver,

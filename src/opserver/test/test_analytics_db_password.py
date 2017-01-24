@@ -22,7 +22,6 @@ import fixtures
 import socket
 from utils.analytics_fixture import AnalyticsFixture
 from mockcassandra import mockcassandra
-from mockredis import mockredis
 import logging
 from pysandesh.util import UTCTimestampUsec
 from utils.util import find_buildroot
@@ -45,10 +44,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.cassandra_port = AnalyticsDbTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port,cassandra_user='cassandra', cassandra_password='cassandra')
-        cls.redis_port = AnalyticsDbTest.get_free_port()
-        mockredis.start_redis(cls.redis_port)
-        cls.redis_password_port = AnalyticsDbTest.get_free_port()
-        mockredis.start_redis(cls.redis_password_port, password='contrail')
 
     @classmethod
     def tearDownClass(cls):
@@ -56,8 +51,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
             return
 
         mockcassandra.stop_cassandra(cls.cassandra_port)
-        mockredis.stop_redis(cls.redis_port)
-        mockredis.stop_redis(cls.redis_password_port, password='contrail')
         pass
 
     #@unittest.skip('Skipping test_00_verify_database_purge_with_percentage_input')
@@ -74,7 +67,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra'))
@@ -100,7 +92,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra'))
@@ -126,7 +117,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra'))
@@ -152,7 +142,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra'))
@@ -178,7 +167,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra'))
@@ -204,7 +192,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_password_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra',
@@ -231,7 +218,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_password_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra',
@@ -258,7 +244,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_password_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra',
@@ -285,7 +270,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_password_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra',
@@ -312,7 +296,6 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
-                             self.__class__.redis_password_port,
                              self.__class__.cassandra_port,
                              cassandra_user='cassandra',
                              cassandra_password='cassandra',

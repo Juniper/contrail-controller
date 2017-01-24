@@ -294,14 +294,13 @@ class AlarmGen(object):
 # end class AlarmGen
 
 class OpServer(object):
-    def __init__(self, collectors, redis_port, analytics_fixture, logger,
+    def __init__(self, collectors, analytics_fixture, logger,
                  admin_user, admin_password, zoo=None, is_dup=False):
         self.collectors = collectors
         self.analytics_fixture = analytics_fixture
         self.http_port = 0
         self.hostname = socket.gethostname()
         self._zoo = zoo
-        self._redis_port = redis_port
         self._instance = None
         self._logger = logger
         self._is_dup = is_dup
@@ -468,13 +467,9 @@ class QueryEngine(object):
 # end class QueryEngine
 
 class Redis(object):
-    def __init__(self, port, builddir, password=None):
+    def __init__(self, builddir, password=None):
         self.builddir = builddir
-        self.port = port
-        if self.port == -1:
-            self.use_global = False
-        else:
-            self.use_global = True
+        self.port = AnalyticsFixture.get_free_port()
         self.password = password
         self.running = False
     # end __init__
@@ -482,18 +477,11 @@ class Redis(object):
     def start(self):
         assert(self.running == False)
         self.running = True
-        if not self.use_global:
-            if self.port == -1:
-                self.port = AnalyticsFixture.get_free_port()
-            ret = mockredis.start_redis(self.port, self.password)
-            assert(ret)
-        else:
-            redish = redis.StrictRedis("127.0.0.1", self.port, password=self.password)
-            redish.flushall()
+        ret = mockredis.start_redis(self.port, self.password)
+        return(ret)
 
     # end start
     def stop(self):
-        assert(not self.use_global)
         if self.running:
             mockredis.stop_redis(self.port, self.password)
             self.running =  False
@@ -549,14 +537,13 @@ class AnalyticsFixture(fixtures.Fixture):
     ADMIN_USER = 'test'
     ADMIN_PASSWORD = 'password'
 
-    def __init__(self, logger, builddir, redis_port, cassandra_port,
+    def __init__(self, logger, builddir, cassandra_port,
                  ipfix_port = False, sflow_port = False, syslog_port = False,
                  protobuf_port = False, noqed=False, collector_ha_test=False,
                  redis_password=None, start_kafka=False,
                  cassandra_user=None, cassandra_password=None):
 
         self.builddir = builddir
-        self.redis_port = redis_port
         self.cassandra_port = cassandra_port
         self.ipfix_port = ipfix_port
         self.sflow_port = sflow_port
@@ -580,7 +567,7 @@ class AnalyticsFixture(fixtures.Fixture):
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
 
-        self.redis_uves = [Redis(self.redis_port, self.builddir,
+        self.redis_uves = [Redis(self.builddir,
                                  self.redis_password)]
         self.redis_uves[0].start()
 
@@ -609,7 +596,7 @@ class AnalyticsFixture(fixtures.Fixture):
             return
 
         if self.collector_ha_test:
-            self.redis_uves.append(Redis(-1, self.builddir,
+            self.redis_uves.append(Redis(self.builddir,
                                          self.redis_password))
             self.redis_uves[1].start()
             self.collectors.append(Collector(self, self.redis_uves[1],
@@ -621,7 +608,6 @@ class AnalyticsFixture(fixtures.Fixture):
                 self.logger.error("Second Collector did NOT start")
 
         self.opserver = OpServer(self.get_collectors(),
-                                 self.redis_uves[0].port, 
                                  self, self.logger, self.admin_user,
                                  self.admin_password, zkport)
         if not self.opserver.start():
@@ -2707,8 +2693,7 @@ class AnalyticsFixture(fixtures.Fixture):
         for collector in self.collectors:
             collector.stop()
         for redis_uve in self.redis_uves:
-            if not redis_uve.use_global:
-                redis_uve.stop()
+            redis_uve.stop()
         if self.kafka is not None:
             self.kafka.stop()
         self.zookeeper.stop()
