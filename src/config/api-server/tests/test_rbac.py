@@ -370,6 +370,34 @@ class TestRbacAaaModeInvalid(test_case.ApiServerTestCase):
         super(TestRbacAaaModeInvalid, self).tearDown()
     # end tearDown
 
+class TestAuthModeInvalid(test_case.ApiServerTestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        extra_config_knobs = [
+            ('DEFAULTS', 'auth', 'no-auth'),
+        ]
+        super(TestAuthModeInvalid, cls).setUpClass(extra_config_knobs=extra_config_knobs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestAuthModeInvalid, cls).tearDownClass(*args, **kwargs)
+
+    def setUp(self):
+        super(TestAuthModeInvalid, self).setUp()
+
+    def test_aaa_mode(self):
+        rv = self._api_server.is_auth_disabled()
+        self.assertEquals(rv, True)
+
+    def tearDown(self):
+        super(TestAuthModeInvalid, self).tearDown()
+    # end tearDown
+
 class TestRbac(test_case.ApiServerTestCase):
 
     @classmethod
