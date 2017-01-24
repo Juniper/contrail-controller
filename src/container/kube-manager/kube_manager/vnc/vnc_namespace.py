@@ -6,6 +6,8 @@
 VNC service management for kubernetes
 """
 
+import uuid
+
 from vnc_api.vnc_api import *
 from config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
@@ -155,13 +157,60 @@ class VncNamespace(object):
         # Clear network info from namespace entry.
         self._set_namespace_virtual_network(ns_name, None)
 
+    def _create_default_security_group(self, proj_obj):
+        DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
+        def _get_rule(ingress, sg, prefix, ethertype):
+            sgr_uuid = str(uuid.uuid4())
+            if sg:
+                addr = AddressType(
+                    security_group=proj_obj.get_fq_name_str() + ':' + sg)
+            elif prefix:
+                addr = AddressType(subnet=SubnetType(prefix, 0))
+            local_addr = AddressType(security_group='local')
+            if ingress:
+                src_addr = addr
+                dst_addr = local_addr
+            else:
+                src_addr = local_addr
+                dst_addr = addr
+            rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+                                  protocol='any',
+                                  src_addresses=[src_addr],
+                                  src_ports=[PortType(0, 65535)],
+                                  dst_addresses=[dst_addr],
+                                  dst_ports=[PortType(0, 65535)],
+                                  ethertype=ethertype)
+            return rule
+
+        rules = [_get_rule(True, 'default', None, 'IPv4'),
+                 _get_rule(True, 'default', None, 'IPv6'),
+                 _get_rule(False, None, '0.0.0.0', 'IPv4'),
+                 _get_rule(False, None, '::', 'IPv6')]
+        sg_rules = PolicyEntriesType(rules)
+
+        # create security group
+        id_perms = IdPermsType(enable=True,
+                               description=DEFAULT_SECGROUP_DESCRIPTION)
+        sg_obj = SecurityGroup(name='default', parent_obj=proj_obj,
+                               id_perms=id_perms,
+                               security_group_entries=sg_rules)
+
+        self._vnc_lib.security_group_create(sg_obj)
+        self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
+
     def vnc_namespace_add(self, namespace_id, name):
         proj_fq_name = ['default-domain', name]
         proj_obj = Project(name=name, fq_name=proj_fq_name)
+
         try:
             self._vnc_lib.project_create(proj_obj)
         except RefsExistError:
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+
+        try:
+            self._create_default_security_group(proj_obj)
+        except RefsExistError:
+            pass
 
         ProjectKM.locate(proj_obj.uuid)
 
@@ -176,16 +225,48 @@ class VncNamespace(object):
 
     def vnc_namespace_delete(self,namespace_id,  name):
         proj_fq_name = ['default-domain', name]
-        proj_obj = Project(name=name, fq_name=proj_fq_name)
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         try:
             # If the namespace is isolated, delete its virtual network.
             if self._is_namespace_isolated(name) == True:
                 self._delete_virtual_network(vn_name=name, proj=proj_obj)
-
-            self._vnc_lib.project_delete(fq_name=['default-domain', name])
-
+            # delete all security groups
+            security_groups = proj_obj.get_security_groups()
+            for sg in security_groups or []:
+                self._vnc_lib.security_group_delete(id=sg['uuid'])
+            self._vnc_lib.project_delete(id=proj_obj.uuid)
             self._delete_namespace(name)
+        except NoIdError:
+            pass
 
+    def process(self, event):
+        name = event['object']['metadata'].get('name')
+        ProjectKM.locate(proj_obj.uuid)
+
+        # If this namespace is isolated, create it own network.
+        if self._is_namespace_isolated(name) == True:
+            vn_name = name + "-vn"
+            self._create_virtual_network(ns_name= name, vn_name=vn_name,
+                                         proj_obj = proj_obj)
+
+
+        return proj_obj
+
+    def vnc_namespace_delete(self,namespace_id,  name):
+        proj_fq_name = ['default-domain', name]
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        try:
+            # If the namespace is isolated, delete its virtual network.
+            if self._is_namespace_isolated(name) == True:
+                self._delete_virtual_network(vn_name=name, proj=proj_obj)
+            # delete all security groups
+            security_groups = proj_obj.get_security_groups()
+            for sg in security_groups or []:
+                self._vnc_lib.security_group_delete(id=sg['uuid'])
+            # delete the project
+            self._vnc_lib.project_delete(fq_name=['default-domain', name])
+            # delete the namespace
+            self._delete_namespace(name)
         except NoIdError:
             pass
 
