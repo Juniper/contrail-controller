@@ -3413,15 +3413,19 @@ class VirtualMachineInterfaceST(DBBaseST):
 
     def recreate_vrf_assign_table(self):
         if self.service_interface_type not in ['left', 'right']:
+            self._set_vrf_assign_table(None)
             return
         vn = VirtualNetworkST.get(self.virtual_network)
         if vn is None:
+            self._set_vrf_assign_table(None)
             return
         vm_pt = self.get_virtual_machine_or_port_tuple()
         if not vm_pt:
+            self._set_vrf_assign_table(None)
             return
         smode = vm_pt.get_service_mode()
         if smode not in ['in-network', 'in-network-nat']:
+            self._set_vrf_assign_table(None)
             return
 
         vrf_table = VrfAssignTableType()
@@ -3489,6 +3493,10 @@ class VirtualMachineInterfaceST(DBBaseST):
 
         if policy_rule_count == 0:
             vrf_table = None
+        self._set_vrf_assign_table(vrf_table)
+    # end recreate_vrf_assign_table
+
+    def _set_vrf_assign_table(self, vrf_table):
         vrf_table_pickle = jsonpickle.encode(vrf_table)
         if vrf_table_pickle != self.vrf_table:
             self.obj.set_vrf_assign_table(vrf_table)
@@ -3498,8 +3506,8 @@ class VirtualMachineInterfaceST(DBBaseST):
             except NoIdError as e:
                 if e._unknown_id == self.uuid:
                     VirtualMachineInterfaceST.delete(self.name)
+    # _set_vrf_assign_table
 
-    # end recreate_vrf_assign_table
 
     def handle_st_object_req(self):
         resp = super(VirtualMachineInterfaceST, self).handle_st_object_req()
