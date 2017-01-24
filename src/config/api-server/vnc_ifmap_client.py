@@ -34,7 +34,7 @@ from gen.resource_xsd import *
 from provision_defaults import Provision
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from pysandesh.gen_py.process_info.ttypes import ConnectionType
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh.traces.ttypes import IfmapTrace
 
@@ -100,7 +100,7 @@ class VncIfmapClient(object):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
 
-        ConnectionState.update(conn_type = ConnectionType.IFMAP,
+        ConnectionState.update(conn_type = ConnType.IFMAP,
             name = 'IfMap', status = ConnectionStatus.INIT, message = '',
             server_addrs = ["%s:%s" % (ifmap_srv_ip, ifmap_srv_port)])
         self._conn_state = ConnectionStatus.INIT
@@ -386,7 +386,7 @@ class VncIfmapClient(object):
                     self.config_log(msg, level=SandeshLevel.SYS_WARN)
                 time.sleep(3)
 
-        ConnectionState.update(conn_type = ConnectionType.IFMAP,
+        ConnectionState.update(conn_type = ConnType.IFMAP,
             name = 'IfMap', status = ConnectionStatus.UP, message = '',
             server_addrs = ["%s:%s" % (self._ifmap_srv_ip,
                                        self._ifmap_srv_port)])
@@ -550,7 +550,7 @@ class VncIfmapClient(object):
                         self.config_log(log_str, level=SandeshLevel.SYS_ERR)
 
                     ConnectionState.update(
-                        conn_type = ConnectionType.IFMAP,
+                        conn_type = ConnType.IFMAP,
                         name = 'IfMap',
                         status = ConnectionStatus.INIT,
                         message = 'Session lost, renew it',
@@ -764,7 +764,7 @@ class VncIfmapClient(object):
                 if not self._is_ifmap_up:
                     self._get_api_server().publish_ifmap_to_discovery('up', '')
                     self._is_ifmap_up = True
-                    ConnectionState.update(conn_type = ConnectionType.IFMAP,
+                    ConnectionState.update(conn_type = ConnType.IFMAP,
                                            name = 'IfMap',
                                            status = ConnectionStatus.UP,
                                            message = '',
@@ -777,7 +777,7 @@ class VncIfmapClient(object):
                     self._get_api_server().publish_ifmap_to_discovery('down',
                                                    'IFMAP DB - Invalid state')
                     self._is_ifmap_up = False
-                    ConnectionState.update(conn_type = ConnectionType.IFMAP,
+                    ConnectionState.update(conn_type = ConnType.IFMAP,
                                            name = 'IfMap',
                                            status = ConnectionStatus.DOWN,
                                            message = 'Invalid IFMAP DB State',
