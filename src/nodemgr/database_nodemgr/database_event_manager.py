@@ -241,7 +241,8 @@ class DatabaseEventManager(EventManager):
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
         cqlsh_cmd = "cqlsh " + self.hostip + " -e quit"
-        proc = Popen(cqlsh_cmd, shell=True, stdout=PIPE, stderr=PIPE)
+        proc = Popen(cqlsh_cmd, shell=True, stdout=PIPE, stderr=PIPE,
+                     close_fds=True)
         (output, errout) = proc.communicate()
         if proc.returncode != 0:
             self.fail_status_bits |= self.FAIL_STATUS_SERVER_PORT
@@ -260,7 +261,8 @@ class DatabaseEventManager(EventManager):
         cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
         # Get compactionstats
         compaction_count = subprocess.Popen("nodetool compactionstats|grep 'pending tasks:'",
-            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            close_fds=True)
         op, err = compaction_count.communicate()
         if compaction_count.returncode != 0:
             msg = "Failed to get nodetool compactionstats " + err
@@ -270,7 +272,7 @@ class DatabaseEventManager(EventManager):
             self.get_pending_compaction_count(op)
         # Get the tpstats value
         tpstats_op = subprocess.Popen(["nodetool", "tpstats"], stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE)
+                                      stderr=subprocess.PIPE, close_fds=True)
         op, err = tpstats_op.communicate()
         if tpstats_op.returncode != 0:
             msg = "Failed to get nodetool tpstats " + err
