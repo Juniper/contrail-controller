@@ -34,6 +34,8 @@ def parse_args():
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_file': '/var/log/contrail/contrail-kube-manager.log',
         'api_service_link_local' : 'True',
+        'orchestrator' : 'kubernetes',
+        'token' : '',
     }
 
     vnc_opts = {

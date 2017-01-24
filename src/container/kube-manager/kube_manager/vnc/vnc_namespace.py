@@ -155,7 +155,7 @@ class VncNamespace(object):
         # Clear network info from namespace entry.
         self._set_namespace_virtual_network(ns_name, None)
 
-    def vnc_namespace_add(self, name):
+    def vnc_namespace_add(self, namespace_id, name):
         proj_fq_name = ['default-domain', name]
         proj_obj = Project(name=name, fq_name=proj_fq_name)
         try:
@@ -174,7 +174,7 @@ class VncNamespace(object):
 
         return proj_obj
 
-    def vnc_namespace_delete(self, name):
+    def vnc_namespace_delete(self,namespace_id,  name):
         proj_fq_name = ['default-domain', name]
         proj_obj = Project(name=name, fq_name=proj_fq_name)
         try:
@@ -191,8 +191,9 @@ class VncNamespace(object):
 
     def process(self, event):
         name = event['object']['metadata'].get('name')
+        ns_id = event['object']['metadata'].get('uid')
 
         if event['type'] == 'ADDED':
-            self.vnc_namespace_add(name)
+            self.vnc_namespace_add(ns_id, name)
         elif event['type'] == 'DELETED':
-            self.vnc_namespace_delete(name)
+            self.vnc_namespace_delete(ns_id, name)
