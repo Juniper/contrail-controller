@@ -131,7 +131,8 @@ void DiscoveryAgentClient::DiscoverServices() {
                                        csf,
                                        list,
                                        NULL,
-                                       param_->derived_stats_map());
+                                       param_->derived_stats_map(),
+                                       param_->sandesh_config());
             }
 
             //subscribe to Xmpp Server on controller

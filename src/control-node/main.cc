@@ -441,7 +441,9 @@ int main(int argc, char *argv[]) {
                                    options.http_server_port(),
                                    csf,
                                    list,
-                                   &sandesh_context));
+                                   &sandesh_context,
+                                   Sandesh::DerivedStats(),
+                                   options.sandesh_config()));
             if (!success) {
                 LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
                 ShutdownServers(&bgp_peer_manager, ds_client, &tbb_awake_task);
@@ -477,7 +479,9 @@ int main(int argc, char *argv[]) {
                         &evm,
                         options.http_server_port(), 0,
                         options.randomized_collector_server_list(),
-                        &sandesh_context);
+                        &sandesh_context,
+                        Sandesh::DerivedStats(),
+                        options.sandesh_config());
             } else {
                 success = Sandesh::InitGenerator(
                         g_vns_constants.ModuleNames.find(module)->second,
@@ -486,7 +490,9 @@ int main(int argc, char *argv[]) {
                         g_vns_constants.INSTANCE_ID_DEFAULT,
                         &evm,
                         options.http_server_port(),
-                        &sandesh_context);
+                        &sandesh_context,
+                        Sandesh::DerivedStats(),
+                        options.sandesh_config());
             }
             if (!success) {
                 LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");

@@ -11,7 +11,7 @@ import ConfigParser
 import gen.resource_xsd
 import vnc_quota
 import cfgm_common
-from pysandesh.sandesh_base import Sandesh, SandeshSystem
+from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 _WEB_HOST = '0.0.0.0'
@@ -142,6 +142,14 @@ def parse_args(args_str):
         'rdbms_password' : None,
         'rdbms_connection': None
     }
+    # sandesh options
+    sandeshopts = {
+        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'certfile': '/etc/contrail/ssl/certs/server.pem',
+        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_ssl_enable': False,
+        'introspect_ssl_enable': False
+    }
 
     config = None
     saved_conf_file = args.conf_file
@@ -175,6 +183,8 @@ def parse_args(args_str):
                 rdbmsopts.update(dict(config.items('RDBMS')))
         if 'IFMAP_SERVER' in config.sections():
                 ifmapopts.update(dict(config.items('IFMAP_SERVER')))
+        if 'SANDESH' in config.sections():
+            sandeshopts.update(dict(config.items('SANDESH')))
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(
@@ -190,6 +200,7 @@ def parse_args(args_str):
     defaults.update(cassandraopts)
     defaults.update(rdbmsopts)
     defaults.update(ifmapopts)
+    defaults.update(sandeshopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -372,6 +383,9 @@ def parse_args(args_str):
             args_obj.rdbms_server_list.split()
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
+    args_obj.sandesh_config = SandeshConfig(args_obj.keyfile,
+        args_obj.certfile, args_obj.ca_cert, args_obj.sandesh_ssl_enable,
+        args_obj.introspect_ssl_enable)
 
     args_obj.conf_file = saved_conf_file
     return args_obj, remaining_argv

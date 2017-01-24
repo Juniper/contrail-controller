@@ -336,6 +336,22 @@ void Options::Initialize(EventManager &evm,
                     "/etc/contrail/ks-key"), "Keystone private key")
         ("KEYSTONE.cafile", opt::value<string>()->default_value(
                     "/etc/contrail/ks-ca"), "Keystone CA chain")
+
+        ("SANDESH.keyfile", opt::value<string>()->default_value(
+            "/etc/contrail/ssl/private/server-privkey.pem"),
+            "Sandesh ssl private key")
+        ("SANDESH.certfile", opt::value<string>()->default_value(
+            "/etc/contrail/ssl/certs/server.pem"),
+            "Sandesh ssl certificate")
+        ("SANDESH.ca_cert", opt::value<string>()->default_value(
+            "/etc/contrail/ssl/certs/ca-cert.pem"),
+            "Sandesh CA ssl certificate")
+        ("SANDESH.sandesh_ssl_enable",
+             opt::bool_switch(&sandesh_config_.sandesh_ssl_enable),
+             "Enable ssl for sandesh connection")
+        ("SANDESH.introspect_ssl_enable",
+             opt::bool_switch(&sandesh_config_.introspect_ssl_enable),
+             "Enable ssl for introspect connection")
         ;
 
     config_file_options_.add(config).add(cassandra_config);
@@ -607,4 +623,15 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, ks_cert_, "KEYSTONE.certfile");
     GetOptValue<string>(var_map, ks_key_, "KEYSTONE.keyfile");
     GetOptValue<string>(var_map, ks_ca_, "KEYSTONE.cafile");
+
+    GetOptValue<string>(var_map, sandesh_config_.keyfile,
+                        "SANDESH.keyfile");
+    GetOptValue<string>(var_map, sandesh_config_.certfile,
+                        "SANDESH.certfile");
+    GetOptValue<string>(var_map, sandesh_config_.ca_cert,
+                        "SANDESH.ca_cert");
+    GetOptValue<bool>(var_map, sandesh_config_.sandesh_ssl_enable,
+                      "SANDESH.sandesh_ssl_enable");
+    GetOptValue<bool>(var_map, sandesh_config_.introspect_ssl_enable,
+                      "SANDESH.introspect_ssl_enable");
 }

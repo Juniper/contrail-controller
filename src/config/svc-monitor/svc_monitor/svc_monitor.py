@@ -36,7 +36,7 @@ from cfgm_common.vnc_amqp import VncAmqpHandle
 
 from config_db import *
 
-from pysandesh.sandesh_base import Sandesh, SandeshSystem
+from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from sandesh_common.vns.ttypes import Module
@@ -746,6 +746,13 @@ def parse_args(args_str):
         'cassandra_user': None,
         'cassandra_password': None,
     }
+    sandeshopts = {
+        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'certfile': '/etc/contrail/ssl/certs/server.pem',
+        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_ssl_enable': False,
+        'introspect_ssl_enable': False
+    }
 
     saved_conf_file = args.conf_file
     config = ConfigParser.SafeConfigParser()
@@ -762,6 +769,8 @@ def parse_args(args_str):
             schedops.update(dict(config.items("SCHEDULER")))
         if 'CASSANDRA' in config.sections():
             cassandraopts.update(dict(config.items('CASSANDRA')))
+        if 'SANDESH' in config.sections():
+            sandeshopts.update(dict(config.items('SANDESH')))
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -777,6 +786,7 @@ def parse_args(args_str):
     defaults.update(ksopts)
     defaults.update(schedops)
     defaults.update(cassandraopts)
+    defaults.update(sandeshopts)
     parser.set_defaults(**defaults)
 
     parser.add_argument(
@@ -857,6 +867,10 @@ def parse_args(args_str):
     if args.netns_availability_zone and \
             args.netns_availability_zone.lower() == 'none':
         args.netns_availability_zone = None
+    args.sandesh_config = SandeshConfig(args.keyfile,
+        args.certfile, args.ca_cert,
+        args.sandesh_ssl_enable, args.introspect_ssl_enable)
+
     return args
 
 

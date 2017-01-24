@@ -1467,7 +1467,8 @@ class VncApiServer(object):
                                      int(self._args.http_server_port),
                                      ['cfgm_common', 'vnc_cfg_api_server.sandesh'], self._disc,
                                      logger_class=self._args.logger_class,
-                                     logger_config_file=self._args.logging_conf)
+                                     logger_config_file=self._args.logging_conf,
+                                     config=self._args.sandesh_config)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="RestApiTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="DBRequestTraceBuf", size=1000)

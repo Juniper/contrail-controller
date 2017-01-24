@@ -75,6 +75,13 @@ optional arguments:
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
             'device_file'     : '/etc/contrail/bv_devices.conf',
         }
+        sandesh_opts = {
+            'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+            'certfile': '/etc/contrail/ssl/certs/server.pem',
+            'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+            'sandesh_ssl_enable': False,
+            'introspect_ssl_enable': False
+        }
 
         config = None
         if args.conf_file:
@@ -83,6 +90,8 @@ optional arguments:
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
+            if 'SANDESH' in config.sections():
+                sandesh_opts.update(dict(config.items('SANDESH')))
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -93,6 +102,7 @@ optional arguments:
             # Don't mess with format of description
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
+        defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--analytics_api",
             help="List of analytics-api IP addresses in ip:port format",
@@ -126,6 +136,16 @@ optional arguments:
             help="ip:port of zookeeper server")
         parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
+        parser.add_argument("--keyfile",
+            help="Sandesh ssl private key")
+        parser.add_argument("--certfile",
+            help="Sandesh ssl certificate")
+        parser.add_argument("--ca_cert",
+            help="Sandesh CA ssl certificate")
+        parser.add_argument("--sandesh_ssl_enable", action="store_true",
+            help="Enable ssl for sandesh connection")
+        parser.add_argument("--introspect_ssl_enable", action="store_true",
+            help="Enable ssl for introspect connection")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -194,3 +214,10 @@ optional arguments:
 
     def device_file(self):
         return self._args.device_file
+
+    def sandesh_config(self):
+        return SandeshConfig(self._args.keyfile,
+                             self._args.certfile,
+                             self._args.ca_cert,
+                             self._args.sandesh_ssl_enable,
+                             self._args.introspect_ssl_enable)

@@ -50,7 +50,7 @@ from nodemgr.control_nodemgr.control_event_manager import ControlEventManager
 from nodemgr.config_nodemgr.config_event_manager import ConfigEventManager
 from nodemgr.vrouter_nodemgr.vrouter_event_manager import VrouterEventManager
 from nodemgr.database_nodemgr.database_event_manager import DatabaseEventManager
-from pysandesh.sandesh_base import SandeshSystem
+from pysandesh.sandesh_base import SandeshSystem, SandeshConfig
 
 def usage():
     print doc
@@ -77,6 +77,13 @@ def main(args_str=' '.join(sys.argv[1:])):
                'sandesh_send_rate_limit': \
                     SandeshSystem.get_sandesh_send_rate_limit(),
               }
+    sandesh_opts = {
+        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'certfile': '/etc/contrail/ssl/certs/server.pem',
+        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_ssl_enable': False,
+        'introspect_ssl_enable': False
+    }
     node_type = args.nodetype
     if (node_type == 'contrail-analytics'):
         config_file = '/etc/contrail/contrail-analytics-nodemgr.conf'
@@ -108,9 +115,12 @@ def main(args_str=' '.join(sys.argv[1:])):
             default['collectors'] = collector.split()
         except ConfigParser.NoOptionError as e:
             pass
+    if 'SANDESH' in config.sections():
+        sandesh_opts.update(dict(config.items('SANDESH')))
     parser = argparse.ArgumentParser(parents=[node_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     default.update(disc_options)
+    default.update(sandesh_opts)
     parser.set_defaults(**default)
     parser.add_argument("--rules",
                         help='Rules file to use for processing events')
@@ -125,6 +135,16 @@ def main(args_str=' '.join(sys.argv[1:])):
                              'ip1:port1 ip2:port2')
     parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
+    parser.add_argument("--keyfile",
+                        help="Sandesh ssl private key")
+    parser.add_argument("--certfile",
+                        help="Sandesh ssl certificate")
+    parser.add_argument("--ca_cert",
+                        help="Sandesh CA ssl certificate")
+    parser.add_argument("--sandesh_ssl_enable", action="store_true",
+                        help="Enable ssl for sandesh connection")
+    parser.add_argument("--introspect_ssl_enable", action="store_true",
+                        help="Enable ssl for introspect connection")
     if (node_type == 'contrail-database'):
         parser.add_argument("--minimum_diskgb",
                             type=int,
@@ -164,6 +184,8 @@ def main(args_str=' '.join(sys.argv[1:])):
 
     if _args.sandesh_send_rate_limit is not None:
         SandeshSystem.set_sandesh_send_rate_limit(_args.sandesh_send_rate_limit)
+    sandesh_config = SandeshConfig(_args.keyfile, _args.certfile,
+        _args.ca_cert, _args.sandesh_ssl_enable, _args.introspect_ssl_enable)
     # done parsing arguments
 
     if not 'SUPERVISOR_SERVER_URL' in os.environ:
@@ -175,22 +197,22 @@ def main(args_str=' '.join(sys.argv[1:])):
     if (node_type == 'contrail-analytics'):
         prog = AnalyticsEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr)
+            discovery_port, collector_addr, sandesh_config)
     elif (node_type == 'contrail-config'):
         cassandra_repair_interval = _args.cassandra_repair_interval
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = ConfigEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr,
+            discovery_port, collector_addr, sandesh_config,
             cassandra_repair_interval, cassandra_repair_logdir)
     elif (node_type == 'contrail-control'):
         prog = ControlEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr)
+            discovery_port, collector_addr, sandesh_config)
     elif (node_type == 'contrail-vrouter'):
         prog = VrouterEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr)
+            discovery_port, collector_addr, sandesh_config)
     elif (node_type == 'contrail-database'):
         hostip = _args.hostip
         minimum_diskgb = _args.minimum_diskgb
@@ -199,7 +221,7 @@ def main(args_str=' '.join(sys.argv[1:])):
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = DatabaseEventManager(
             rule_file, discovery_server,
-            discovery_port, collector_addr,
+            discovery_port, collector_addr, sandesh_config,
             hostip, minimum_diskgb, contrail_databases,
 	    cassandra_repair_interval, cassandra_repair_logdir)
     else:

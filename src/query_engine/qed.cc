@@ -225,13 +225,15 @@ main(int argc, char *argv[]) {
         success = Sandesh::InitGenerator(module_name, options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     instance_id, &evm, options.http_server_port(), 0,
-                    collectors, NULL);
+                    collectors, NULL, Sandesh::DerivedStats(),
+                    options.sandesh_config());
     } else {
         const std::vector<std::string> collectors;
         success = Sandesh::InitGenerator(module_name, options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     instance_id, &evm, options.http_server_port(), csf,
-                    collectors, NULL);
+                    collectors, NULL, Sandesh::DerivedStats(),
+                    options.sandesh_config());
     }
     if (!success) {
         LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");

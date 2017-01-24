@@ -536,7 +536,8 @@ void Agent::InitCollector() {
                 event_manager(),
                 params_->http_server_port(), 0,
                 GetCollectorlist(),
-                NULL, params_->derived_stats_map());
+                NULL, params_->derived_stats_map(),
+                params_->sandesh_config());
     } else {
         Sandesh::InitGenerator(module_name(),
                 host_name(),
@@ -544,7 +545,8 @@ void Agent::InitCollector() {
                 instance_id_,
                 event_manager(),
                 params_->http_server_port(),
-                NULL, params_->derived_stats_map());
+                NULL, params_->derived_stats_map(),
+                params_->sandesh_config());
     }
 
 }

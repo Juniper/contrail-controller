@@ -45,7 +45,7 @@ from loadbalancer_stats import LoadbalancerStatsUVE
 
 class VrouterEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr):
+                 discovery_port, collector_addr, sandesh_config):
         self.module = Module.COMPUTE_NODE_MGR
         self.module_id = ModuleNames[self.module]
 
@@ -62,7 +62,8 @@ class VrouterEventManager(EventManager):
             self.module_id, socket.gethostname(),
             node_type_name, self.instance_id, self.collector_addr,
             self.module_id, 8102, ['vrouter.loadbalancer',
-                'nodemgr.common.sandesh'], _disc)
+                'nodemgr.common.sandesh'], _disc,
+                config=sandesh_config)
         sandesh_global.set_logging_params(enable_local_log=True)
         self.supervisor_serverurl = "unix:///var/run/supervisord_vrouter.sock"
         self.add_current_process()
