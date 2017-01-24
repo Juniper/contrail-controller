@@ -33,27 +33,27 @@ public:
     void MetadataRegister(const std::string &metadata, MetadataParseFn parser);
     void MetadataClear(const std::string &module);
     bool Receive(const std::string &uuid, const std::string &in_message,
-                 bool add_change, IFMapOrigin::Origin origin);
+                 IFMapOrigin::Origin origin);
     ConfigClientManager *config_mgr() const { return mgr_; }
     ConfigClientManager *config_mgr() { return mgr_; }
 
 private:
-    bool ParseDocument(const rapidjson::Document &document, bool add_change,
+    bool ParseDocument(const rapidjson::Document &document,
         IFMapOrigin::Origin origin, ConfigClientManager::RequestList *req_list,
         IFMapTable::RequestKey *key) const;
     bool ParseNameType(const rapidjson::Document &document,
                        IFMapTable::RequestKey *key) const;
-    bool ParseProperties(const rapidjson::Document &document, bool add_change,
+    bool ParseProperties(const rapidjson::Document &document,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
         ConfigClientManager::RequestList *req_list) const;
     bool ParseOneProperty(const rapidjson::Value &key_node,
-        const rapidjson::Value &value_node, bool add_change,
+        const rapidjson::Value &value_node,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
         ConfigClientManager::RequestList *req_list) const;
-    bool ParseLinks(const rapidjson::Document &document, bool add_change,
+    bool ParseLinks(const rapidjson::Document &document,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
         ConfigClientManager::RequestList *req_list) const;
-    bool ParseRef(const rapidjson::Value &ref_entry, bool add_change,
+    bool ParseRef(const rapidjson::Value &ref_entry,
         IFMapOrigin::Origin origin, const std::string &to_underscore,
         const IFMapTable::RequestKey &key, ConfigClientManager::RequestList *req_list) const;
 

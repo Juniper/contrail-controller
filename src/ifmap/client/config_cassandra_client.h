@@ -76,11 +76,16 @@ public:
     }
 
 protected:
+    struct ConfigCassandraParseContext {
+        std::multimap<string, JsonAdapterDataType> list_map_properties;
+        std::set<string> updated_list_map_properties;
+    };
+
     virtual bool ReadUuidTableRow(const std::string &obj_type,
                                   const std::string &uuid);
     void ParseUuidTableRowJson(const string &uuid, const string &key,
-                               const string &value, uint64_t timestamp,
-                               CassColumnKVVec *cass_data_vec);
+           const string &value, uint64_t timestamp,
+           CassColumnKVVec *cass_data_vec, ConfigCassandraParseContext &context);
     bool ParseRowAndEnqueueToParser(const string &obj_type,
                                     const string &uuid_key,
                                     const GenDb::ColList &col_list);
@@ -130,10 +135,11 @@ private:
     typedef boost::shared_ptr<WorkQueue<ObjectProcessReq *> > ObjProcessWorkQType;
     void InitRetry();
     virtual bool ParseUuidTableRowResponse(const std::string &uuid,
-        const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec);
+        const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
+        ConfigCassandraParseContext &context);
     void AddUuidEntry(const string &uuid);
     bool BulkDataSync();
-    bool ReadAllUuidTableRows();
+    bool ReadAllFqnTableRows();
     bool ParseFQNameRowGetUUIDList(const GenDb::ColList &col_list,
                                    ObjTypeUUIDList &uuid_list);
     bool ConfigReader(int worker_id);
@@ -142,9 +148,13 @@ private:
     void Enqueue(int worker_id, ObjectProcessReq *req);
     bool RequestHandler(ObjectProcessReq *req);
     bool StoreKeyIfUpdated(int worker_id, const string &uuid, const string &key,
-                           uint64_t timestamp);
+                           const string &value, uint64_t timestamp,
+                           ConfigCassandraParseContext &context);
 
     void MarkCacheDirty(const string &uuid);
+    void UpdatePropertyDeleteToReqList(IFMapTable::RequestKey * key,
+       ObjectCacheMap::iterator uuid_iter, const string &lookup_key,
+       ConfigClientManager::RequestList *req_list);
 
     ConfigClientManager *mgr_;
     EventManager *evm_;
