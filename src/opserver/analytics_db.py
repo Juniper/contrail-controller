@@ -39,15 +39,20 @@ from opserver_util import OpServerUtils
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
                     redis_query_port, redis_password, cassandra_user,
-                    cassandra_password):
+                    cassandra_password, cluster_id):
         self._logger = logger
         self._cassandra_server_list = cassandra_server_list
         self._redis_query_port = redis_query_port
         self._redis_password = redis_password
         self._pool = None
         self._session = None
+        self._cluster_id = cluster_id
         self._cassandra_user = cassandra_user
         self._cassandra_password = cassandra_password
+        if (cluster_id != ''):
+            self._keyspace = COLLECTOR_KEYSPACE_CQL + '_' + cluster_id
+        else:
+            self._keyspace = COLLECTOR_KEYSPACE_CQL
         self.connect_db()
         self.number_of_purge_requests = 0
     # end __init__
@@ -183,7 +188,7 @@ class AnalyticsDb(object):
             cql_port = int(self._cassandra_server_list[0].split(":")[1])
             cluster = Cluster(contact_points = server_list,
                 auth_provider = creds, port = cql_port)
-            self._session=cluster.connect(COLLECTOR_KEYSPACE_CQL)
+            self._session=cluster.connect(self._keyspace)
             self._session.connection_class = GeventConnection
             self._session.default_consistency_level = ConsistencyLevel.LOCAL_ONE
             return self._session
@@ -276,7 +281,7 @@ class AnalyticsDb(object):
         total_rows_deleted = 0 # total number of rows deleted
         purge_error_details = []
         table_list = self._session.cluster.metadata.\
-                     keyspaces[COLLECTOR_KEYSPACE_CQL].tables.keys()
+                     keyspaces[self._keyspace].tables.keys()
         if (table_list == None):
             self._logger.error('Failed to get table list')
             purge_error_details.append('Failed to get table list')
@@ -316,7 +321,7 @@ class AnalyticsDb(object):
                 try:
                     # Get the partition keys for the table
                     partion_key_list = self._session.cluster.metadata.\
-                        keyspaces[COLLECTOR_KEYSPACE_CQL].tables[table].\
+                        keyspaces[self._keyspace].tables[table].\
                         partition_key
                     pk_name = [i.name for i in partion_key_list]
                     if table == OBJECT_TABLE or table not in \

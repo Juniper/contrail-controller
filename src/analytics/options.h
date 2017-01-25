@@ -97,6 +97,7 @@ public:
         {
         }
 
+        std::string cluster_id_;
         vector<string> cassandra_ips_;
         vector<int> cassandra_ports_;
         TtlMap ttlmap_;
@@ -201,6 +202,7 @@ public:
     void disable_db_messages_keyword_writes() {
         cassandra_options_.disable_db_messages_keyword_writes_ = !enable_db_messages_keyword_writes_;
     }
+    const std::string cluster_id() const { return cassandra_options_.cluster_id_; }
     const std::string auth_host() const { return ks_server_; }
     const uint16_t auth_port() const { return ks_port_; }
     const std::string auth_protocol() const { return ks_protocol_; }

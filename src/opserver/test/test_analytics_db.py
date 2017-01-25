@@ -289,6 +289,57 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_database_purge_request_limit()
         return True
 
+    #@unittest.skip('Query query engine logs to test QE w/ ClusterName')
+    def test_10_message_table_query(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        Then it checks that the collector UVE (via redis)
+        and syslog (via cassandra) can be accessed from
+        opserver.
+        '''
+        logging.info("%%% test_10_message_table_query %%%")
+        if AnalyticsDbTest._check_skip_test() is True:
+            return True
+  
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port,
+                             cluster_id='Cluster1'))
+  
+        vizd_obj2 = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port,
+                             cluster_id='Cluster2'))
+  
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_message_table_moduleid()
+        assert vizd_obj.verify_message_table_select_uint_type()
+        assert vizd_obj.verify_message_table_messagetype()
+        assert vizd_obj.verify_message_table_where_or()
+        assert vizd_obj.verify_message_table_where_and()
+        assert vizd_obj.verify_message_table_where_prefix()
+        assert vizd_obj.verify_message_table_filter()
+        assert vizd_obj.verify_message_table_filter2()
+        assert vizd_obj.verify_message_table_sort()
+        assert vizd_obj.verify_message_table_limit()
+  
+        assert vizd_obj2.verify_on_setup()
+        assert vizd_obj2.verify_collector_obj_count()
+        assert vizd_obj2.verify_message_table_moduleid()
+        assert vizd_obj2.verify_message_table_select_uint_type()
+        assert vizd_obj2.verify_message_table_messagetype()
+        assert vizd_obj2.verify_message_table_where_or()
+        assert vizd_obj2.verify_message_table_where_and()
+        assert vizd_obj2.verify_message_table_where_prefix()
+        assert vizd_obj2.verify_message_table_filter()
+        assert vizd_obj2.verify_message_table_filter2()
+        assert vizd_obj2.verify_message_table_sort()
+        assert vizd_obj2.verify_message_table_limit()
+  
+        return True
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

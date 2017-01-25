@@ -963,7 +963,8 @@ public:
             const std::string & redis_password,
             int max_tasks, int max_slice,
             const std::string & cassandra_name,
-            const std::string & cassandra_password);
+            const std::string & cassandra_password,
+            const std::string & cluster_id);
 
     QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
@@ -1016,6 +1017,7 @@ public:
 
     void db_err_handler() {};
     TtlMap& GetTTlMap() { return ttlmap_; }
+    const std::string & keyspace() { return keyspace_; }
 private:
     GenDbIfPtr dbif_;
     boost::scoped_ptr<QEOpServerProxy> qosp_;

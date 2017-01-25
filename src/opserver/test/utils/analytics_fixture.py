@@ -66,7 +66,7 @@ class Collector(object):
                  syslog_port = False, protobuf_port = True,
                  kafka = None, is_dup = False,
                  cassandra_user = None, cassandra_password = None,
-                 zookeeper = None):
+                 zookeeper = None, cluster_id=''):
         self.analytics_fixture = analytics_fixture
         if kafka is None:
             self.kafka_port = None
@@ -94,6 +94,7 @@ class Collector(object):
         self.cassandra_password = analytics_fixture.cassandra_password
         self.zk_port = zookeeper.port
         self._generator_id = None
+        self.cluster_id = cluster_id
     # end __init__
 
     def get_addr(self):
@@ -173,6 +174,9 @@ class Collector(object):
             args.append(str(4))
         args.append('--DEFAULT.zookeeper_server_list')
         args.append('127.0.0.1:%d' % self.zk_port)
+        if self.cluster_id:
+            args.append('--DATABASE.cluster_id')
+            args.append(self.cluster_id)
         self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -363,6 +367,9 @@ class OpServer(object):
         if self.analytics_fixture.cassandra_password is not None:
             args.append('--cassandra_password')
             args.append(self.analytics_fixture.cassandra_password)
+        if self.analytics_fixture.cluster_id:
+            args.append('--cluster_id')
+            args.append(self.analytics_fixture.cluster_id)
         self._logger.info('Setting up OpServer: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -397,7 +404,7 @@ class OpServer(object):
 # end class OpServer
 
 class QueryEngine(object):
-    def __init__(self, collectors, analytics_fixture, logger):
+    def __init__(self, collectors, analytics_fixture, logger, cluster_id=''):
         self.collectors = collectors
         self.analytics_fixture = analytics_fixture
         self.listen_port = AnalyticsFixture.get_free_port()
@@ -412,6 +419,7 @@ class QueryEngine(object):
            self.redis_password = str(self.analytics_fixture.redis_uves[0].password) 
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
                             ':'+ModuleNames[Module.QUERY_ENGINE]+':0'
+        self.cluster_id = cluster_id
     # end __init__
 
     def get_generator_id(self):
@@ -441,6 +449,8 @@ class QueryEngine(object):
             args += ['--CASSANDRA.cassandra_user', self.cassandra_user]
         if self.cassandra_password is not None:
             args += ['--CASSANDRA.cassandra_password', self.cassandra_password]
+        if self.cluster_id:
+            args += ['--DATABASE.cluster_id', self.cluster_id]
         self._logger.info('Setting up contrail-query-engine: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -541,7 +551,7 @@ class AnalyticsFixture(fixtures.Fixture):
                  ipfix_port = False, sflow_port = False, syslog_port = False,
                  protobuf_port = False, noqed=False, collector_ha_test=False,
                  redis_password=None, start_kafka=False,
-                 cassandra_user=None, cassandra_password=None):
+                 cassandra_user=None, cassandra_password=None, cluster_id=""):
 
         self.builddir = builddir
         self.cassandra_port = cassandra_port
@@ -563,6 +573,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.zookeeper = None
         self.admin_user = AnalyticsFixture.ADMIN_USER
         self.admin_password = AnalyticsFixture.ADMIN_PASSWORD
+        self.cluster_id = cluster_id
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
@@ -586,7 +597,7 @@ class AnalyticsFixture(fixtures.Fixture):
                            syslog_port = self.syslog_port,
                            protobuf_port = self.protobuf_port,
                            kafka = self.kafka,
-                           zookeeper = self.zookeeper)]
+                           zookeeper = self.zookeeper, cluster_id=self.cluster_id)]
         if not self.collectors[0].start():
             self.logger.error("Collector did NOT start")
             return 
@@ -603,7 +614,7 @@ class AnalyticsFixture(fixtures.Fixture):
                                              self.logger,
                                              kafka = self.kafka,
                                              is_dup = True,
-                                             zookeeper = self.zookeeper))
+                                             zookeeper = self.zookeeper, cluster_id=self.cluster_id))
             if not self.collectors[1].start():
                 self.logger.error("Second Collector did NOT start")
 
@@ -622,7 +633,7 @@ class AnalyticsFixture(fixtures.Fixture):
 
         if not self.noqed:
             self.query_engine = QueryEngine(self.get_collectors(),
-                                            self, self.logger)
+                                            self, self.logger, cluster_id=self.cluster_id)
             if not self.query_engine.start():
                 self.logger.error("QE did NOT start")
     # end setUp
