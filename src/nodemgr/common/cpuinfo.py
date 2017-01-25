@@ -26,25 +26,25 @@ class MemCpuUsageData(object):
 
     def get_num_socket(self):
         cmd = 'lscpu | grep "Socket(s):" | awk \'{print $2}\''
-        proc = Popen(cmd, shell=True, stdout=PIPE)
+        proc = Popen(cmd, shell=True, stdout=PIPE, close_fds=True)
         return int(proc.communicate()[0])
     #end get_num_socket
 
     def get_num_cpu(self):
         cmd = 'lscpu | grep "^CPU(s):" | awk \'{print $2}\''
-        proc = Popen(cmd, shell=True, stdout=PIPE)
+        proc = Popen(cmd, shell=True, stdout=PIPE, close_fds=True)
         return int(proc.communicate()[0])
     #end get_num_cpu
 
     def get_num_core_per_socket(self):
         cmd = 'lscpu | grep "Core(s) per socket:" | awk \'{print $4}\''
-        proc = Popen(cmd, shell=True, stdout=PIPE)
+        proc = Popen(cmd, shell=True, stdout=PIPE, close_fds=True)
         return int(proc.communicate()[0])
     #end get_num_core_per_socket
 
     def get_num_thread_per_core (self):
         cmd = 'lscpu | grep "Thread(s) per core:" | awk \'{print $4}\''
-        proc = Popen(cmd, shell=True, stdout=PIPE)
+        proc = Popen(cmd, shell=True, stdout=PIPE, close_fds=True)
         return int(proc.communicate()[0])
     #end get_num_thread_per_core
 

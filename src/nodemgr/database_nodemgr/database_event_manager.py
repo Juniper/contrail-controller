@@ -136,7 +136,7 @@ class DatabaseEventManager(EventManager):
                     msg = "analytics_dir is " + analytics_dir
                     self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
                     df = subprocess.Popen(["df", analytics_dir],
-                            stdout=subprocess.PIPE)
+                            stdout=subprocess.PIPE, close_fds=True)
                     output = df.communicate()[0]
                     device, size, disk_space_used, disk_space_available, \
                        percent, mountpoint = output.split("\n")[1].split()
@@ -152,7 +152,7 @@ class DatabaseEventManager(EventManager):
                 if (disk_space_analytics / (1024 * 1024) < self.minimum_diskgb):
                     cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
                     (ret_value, error_value) = Popen(
-                        cmd_str, shell=True, stdout=PIPE).communicate()
+                        cmd_str, shell=True, stdout=PIPE, close_fds=True).communicate()
                     self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE
                 self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
         except:
@@ -206,14 +206,14 @@ class DatabaseEventManager(EventManager):
                     msg = "analytics_dir is " + analytics_dir
                     self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
                     df = subprocess.Popen(["df", analytics_dir],
-                            stdout=subprocess.PIPE)
+                            stdout=subprocess.PIPE, close_fds=True)
                     output = df.communicate()[0]
                     device, size, disk_space_used, disk_space_available, \
                         percent, mountpoint =  output.split("\n")[1].split()
                     total_disk_space_used += int(disk_space_used)
                     total_disk_space_available += int(disk_space_available)
                     du = subprocess.Popen(["du", "-skl", analytics_dir],
-                            stdout=subprocess.PIPE)
+                            stdout=subprocess.PIPE, close_fds=True)
                     analytics_db_size, directory = du.communicate()[0].split()
                     total_analytics_db_size += int(analytics_db_size)
             if cassandra_data_dir_exists == False:
@@ -241,7 +241,8 @@ class DatabaseEventManager(EventManager):
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
         cqlsh_cmd = "cqlsh " + self.hostip + " -e quit"
-        proc = Popen(cqlsh_cmd, shell=True, stdout=PIPE, stderr=PIPE)
+        proc = Popen(cqlsh_cmd, shell=True, stdout=PIPE, stderr=PIPE,
+                     close_fds=True)
         (output, errout) = proc.communicate()
         if proc.returncode != 0:
             self.fail_status_bits |= self.FAIL_STATUS_SERVER_PORT
@@ -260,7 +261,8 @@ class DatabaseEventManager(EventManager):
         cassandra_status.cassandra_compaction_task = CassandraCompactionTask()
         # Get compactionstats
         compaction_count = subprocess.Popen("nodetool compactionstats|grep 'pending tasks:'",
-            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            close_fds=True)
         op, err = compaction_count.communicate()
         if compaction_count.returncode != 0:
             msg = "Failed to get nodetool compactionstats " + err
@@ -270,7 +272,7 @@ class DatabaseEventManager(EventManager):
             self.get_pending_compaction_count(op)
         # Get the tpstats value
         tpstats_op = subprocess.Popen(["nodetool", "tpstats"], stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE)
+                                      stderr=subprocess.PIPE, close_fds=True)
         op, err = tpstats_op.communicate()
         if tpstats_op.returncode != 0:
             msg = "Failed to get nodetool tpstats " + err

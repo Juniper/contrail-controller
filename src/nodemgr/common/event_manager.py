@@ -154,7 +154,7 @@ class EventManager(object):
 
     def check_ntp_status(self):
         ntp_status_cmd = 'ntpq -n -c pe | grep "^*"'
-        proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE)
+        proc = Popen(ntp_status_cmd, shell=True, stdout=PIPE, stderr=PIPE, close_fds=True)
         (output, errout) = proc.communicate()
         if proc.returncode != 0:
             self.fail_status_bits |= self.FAIL_STATUS_NTP_SYNC
@@ -187,7 +187,7 @@ class EventManager(object):
             ls_command = "ls -1 /var/crashes"
             (corenames, stderr) = Popen(
                 ls_command.split(),
-                stdout=PIPE).communicate()
+                stdout=PIPE, close_fds=True).communicate()
 
             process_state_db_tmp = {}
             for key in self.process_state_db:
@@ -259,14 +259,14 @@ class EventManager(object):
         stat_command_option = "stat --printf=%Y /var/crashes"
         modified_time = Popen(
             stat_command_option.split(),
-            stdout=PIPE).communicate()
+            stdout=PIPE, close_fds=True).communicate()
         if modified_time[0] == self.core_dir_modified_time:
             return False
         self.core_dir_modified_time = modified_time[0]
         ls_command_option = "ls /var/crashes"
         (corename, stderr) = Popen(
             ls_command_option.split(),
-            stdout=PIPE).communicate()
+            stdout=PIPE, close_fds=True).communicate()
         self.all_core_file_list = corename.split('\n')[0:-1]
         self.send_process_state_db(self.group_names)
         return True
@@ -316,7 +316,7 @@ class EventManager(object):
                     find_command_option + "\n")
                 (corename, stderr) = Popen(
                     find_command_option.split(),
-                    stdout=PIPE).communicate()
+                    stdout=PIPE, close_fds=True).communicate()
                 self.stderr.write("core file: " + corename + "\n")
 
                 if ((corename is not None) and (len(corename.rstrip()) >= 1)):
@@ -439,7 +439,8 @@ class EventManager(object):
         for pname in third_party_process_dict:
             pattern = third_party_process_dict[pname]
             cmd = "ps -aux | grep " + pattern + " | awk '{print $2}' | head -n1"
-            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, close_fds=True)
             stdout, stderr = proc.communicate()
             if (stdout != ''):
                 pid = int(stdout.strip('\n'))
@@ -467,7 +468,8 @@ class EventManager(object):
         disk_usage_info = {}
         partition = subprocess.Popen(
             "df -PT -t ext2 -t ext3 -t ext4 -t xfs",
-            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            close_fds=True)
         for line in partition.stdout:
             if 'Filesystem' in line:
                 continue
