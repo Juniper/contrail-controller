@@ -7,7 +7,7 @@ import ConfigParser
 import sys
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
-import mesos_consts
+import mesos_manager.mesos_consts as mesos_consts
 from sandesh_common.vns.constants import HttpPortMesosManager
 
 
@@ -18,8 +18,8 @@ def parse_args():
     args, remaining_argv = conf_parser.parse_known_args(sys.argv)
 
     defaults = {
-        'listen_ip_addr': mesos_consts._WEB_HOST,
-        'listen_port': mesos_consts._WEB_PORT,
+        'mesos_api_server': mesos_consts._WEB_HOST,
+        'mesos_api_port': mesos_consts._WEB_PORT,
         'http_server_port': HttpPortMesosManager,
         'worker_id': '0',
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),

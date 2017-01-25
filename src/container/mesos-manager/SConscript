@@ -26,7 +26,10 @@ for file in setup_sources:
 
 local_sources = [
     'mesos_manager/__init__.py',
+    'mesos_manager/mesos_cni.py',
+    'mesos_manager/mesos_consts.py',
     'mesos_manager/mesos_manager.py',
+    'mesos_manager/mesos_server.py',
     'mesos_manager/common/__init__.py',
     'mesos_manager/common/logger.py',
     'mesos_manager/common/args.py',
