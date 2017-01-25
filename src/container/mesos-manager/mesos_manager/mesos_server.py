@@ -22,8 +22,8 @@ class MesosServer(object):
         self._homepage_links = []
         self._cni_data = {}
 
-        self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
-                                           self._args.listen_port)
+        self._base_url = "http://%s:%s" % (self._args.mesos_api_server,
+                                           self._args.mesos_api_port)
         self._pipe_start_app = None
         bottle.route('/', 'GET', self.homepage_http_get)
 
@@ -67,7 +67,7 @@ class MesosServer(object):
             self._pipe_start_app = bottle.app()
 
     def process_cni_data(self, container_id, data):
-        self.logger.info("Server: Got CNI data for Container Id: %d."
+        self.logger.info("Server: Got CNI data for Container Id: %s."
             %(container_id))
         print data
         cni_data_obj = MESOSCniDataObject(data)
@@ -101,11 +101,11 @@ class MesosServer(object):
     # end get_args
 
     def get_ip_addr(self):
-        return self._args.listen_ip_addr
+        return self._args.mesos_api_server
     # end get_ip_addr
 
     def get_port(self):
-        return self._args.listen_port
+        return self._args.mesos_api_port
     # end get_port
 
     def get_pipe_start_app(self):
@@ -121,13 +121,11 @@ class MesosServer(object):
             elif 'application/xml' in ctype:
                 data = xmltodict.parse(bottle.request.body.read())
         except Exception as e:
-            self.syslog('Unable to parse publish request')
-            self.syslog(bottle.request.body.buf)
+            self.logger.info('Unable to parse publish request')
+            self.logger.info(bottle.request.body.buf)
             bottle.abort(415, 'Unable to parse publish request')
-
         for key, value in data.items():
             json_req[key] = value
-
         cid = json_req['cid']
         self.create_cni_data(cid, json_req)
 
@@ -193,8 +191,8 @@ class MesosServer(object):
             bottle.run(app=pipe_start_app, host=self.get_ip_addr(),
                        port=self.get_port(), server='gevent')
         except Exception as e:
-            import pdb; pdb.set_trace()
             self.cleanup()
     # start_server
 
 # end class MesosServer
+
