@@ -1171,8 +1171,17 @@ class VncApi(object):
         query_params['shared'] = shared
 
         if filters:
-            query_params['filters'] = ','.join(
-                '%s==%s' %(k,json.dumps(v)) for k,v in filters.items())
+            query_params['filters'] = ''
+            for key, value in filters.items():
+                if isinstance(value, list):
+                    query_params['filters'] += ','.join(
+                        '%s==%s' % (key, json.dumps(val)) for val in value)
+                else:
+                    query_params['filters'] += ('%s==%s' %
+                                                (key, json.dumps(value)))
+                query_params['filters'] += ','
+            # Remove last trailing comma
+            query_params['filters'] = query_params['filters'][:-1]
 
         if self._exclude_hrefs is not None:
             query_params['exclude_hrefs'] = True

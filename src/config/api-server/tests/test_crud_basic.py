@@ -976,6 +976,18 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             self.assertThat(read_display_names,
                             Contains(obj.display_name))
 
+        # unanchored detailed list with filter with multiple values
+        filtered_display_names = [
+            '%s-%d' %(self.id(), num_objs - 1),
+            '%s-%d' %(self.id(), num_objs - 2),
+        ]
+        read_vn_objs = self._vnc_lib.virtual_networks_list(
+            detail=True,
+            filters={'display_name': filtered_display_names})
+        self.assertEqual(len(read_vn_objs), len(filtered_display_names))
+        read_display_names = [o.display_name for o in read_vn_objs]
+        self.assertEqual(set(read_display_names), set(filtered_display_names))
+
         # parent anchored summary list without filters, with extra fields
         read_vn_dicts = self._vnc_lib.virtual_networks_list(
             parent_id=proj_obj.uuid,
