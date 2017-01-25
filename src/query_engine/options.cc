@@ -173,6 +173,9 @@ void Options::Initialize(EventManager &evm,
         ("SANDESH.introspect_ssl_enable",
              opt::bool_switch(&sandesh_config_.introspect_ssl_enable),
              "Enable ssl for introspect connection")
+
+        ("DATABASE.cluster_id", opt::value<string>()->default_value(""),
+             "Analytics Cluster Id")
         ;
 
     config_file_options_.add(config).add(cassandra_config);
@@ -288,6 +291,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");
     GetOptValue<string>(var_map, redis_password_, "REDIS.password");
+    GetOptValue<string>(var_map, cluster_id_, "DATABASE.cluster_id");
     GetOptValue<string>(var_map, cassandra_user_, "CASSANDRA.cassandra_user");
     GetOptValue<string>(var_map, cassandra_password_, "CASSANDRA.cassandra_password");
 

@@ -913,7 +913,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         this->status_details = EIO;
     }
 
-    if (!dbif_->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+    if (!dbif_->Db_SetTablespace(qe_->keyspace())) {
         QE_LOG(ERROR,  ": Create/Set KEYSPACE: " <<
            g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         this->status_details = EIO;
@@ -995,6 +995,8 @@ QueryEngine::QueryEngine(EventManager *evm,
         cassandra_password_(cassandra_password)
 {
     max_slice_ =  max_slice;
+    // default keyspace
+    keyspace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
     init_vizd_tables();
 
     // Initialize database connection
@@ -1010,7 +1012,8 @@ QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
             const std::string & redis_password, int max_tasks, int max_slice, 
             const std::string & cassandra_user,
-            const std::string & cassandra_password) :
+            const std::string & cassandra_password,
+            const std::string & cluster_id) :
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port, redis_password, max_tasks)),
         evm_(evm),
@@ -1020,7 +1023,11 @@ QueryEngine::QueryEngine(EventManager *evm,
         cassandra_password_(cassandra_password) {
         dbif_.reset(new cass::cql::CqlIf(evm, cassandra_ips,
             cassandra_ports[0], cassandra_user, cassandra_password));
-        keyspace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
+        if (cluster_id.empty()) {
+            keyspace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
+        } else {
+            keyspace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL + '_' + cluster_id;
+        }
     max_slice_ = max_slice;
     max_tasks_ = max_tasks;
     init_vizd_tables();

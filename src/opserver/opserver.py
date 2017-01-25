@@ -734,7 +734,8 @@ class OpServer(object):
                                          self._args.redis_query_port,
                                          self._args.redis_password,
                                          self._args.cassandra_user,
-                                         self._args.cassandra_password)
+                                         self._args.cassandra_password,
+                                         self._args.cluster_id)
 
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
@@ -860,6 +861,9 @@ class OpServer(object):
             'disc_server_ip'     : None,
             'disc_server_port'   : 5998,
         }
+        database_opts = {
+            'cluster_id'     : '',
+        }
         cassandra_opts = {
             'cassandra_user'     : None,
             'cassandra_password' : None,
@@ -897,6 +901,8 @@ class OpServer(object):
                 keystone_opts.update(dict(config.items('KEYSTONE')))
             if 'SANDESH' in config.sections():
                 sandesh_opts.update(dict(config.items('SANDESH')))
+            if 'DATABASE' in config.sections():
+                database_opts.update(dict(config.items('DATABASE')))
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -910,6 +916,7 @@ class OpServer(object):
         defaults.update(redis_opts)
         defaults.update(disc_opts)
         defaults.update(cassandra_opts)
+        defaults.update(database_opts)
         defaults.update(keystone_opts)
         defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
@@ -974,6 +981,8 @@ class OpServer(object):
         parser.add_argument(
             "--logger_class",
             help=("Optional external logger class, default: None"))
+        parser.add_argument("--cluster_id",
+            help="Analytics Cluster Id")
         parser.add_argument("--cassandra_user",
             help="Cassandra user name")
         parser.add_argument("--cassandra_password",

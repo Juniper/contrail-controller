@@ -293,7 +293,8 @@ main(int argc, char *argv[]) {
             max_tasks,
             options.max_slice(),
             options.cassandra_user(),
-            options.cassandra_password()));
+            options.cassandra_password(),
+            options.cluster_id()));
     }
 
     signal(SIGTERM, terminate_qe);
