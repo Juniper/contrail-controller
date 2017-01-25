@@ -18,6 +18,7 @@ import discoveryclient.client as client
 from pysandesh.util import UTCTimestampUsec
 import select
 import redis
+import errno
 from collections import namedtuple
 
 PartInfo = namedtuple("PartInfo",["ip_address","instance_id","acq_time","port"])
@@ -631,6 +632,10 @@ class PartitionHandler(gevent.Greenlet):
                                   (messag, traceback.format_exc()))
                 self.stop_partition()
                 pause = True
+                if hasattr(ex,'errno'):
+                    # This is an unrecoverable error
+                    if ex.errno == errno.EMFILE:
+                       raise SystemExit(1)
 
         self._logger.error("Stopping %s pcount %d" % (self._topic, pcount))
         partdb = self.stop_partition()
