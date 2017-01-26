@@ -4,6 +4,8 @@
 import gevent
 import gevent.queue
 import gevent.wsgi
+import gevent.monkey
+gevent.monkey.patch_all()
 import os
 import sys
 import logging
