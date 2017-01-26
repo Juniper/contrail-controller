@@ -722,8 +722,10 @@ OpServerProxy::UVENotif(const std::string &type,
         for (map<string,string>::const_iterator it = value.begin();
                     it != value.end(); it++) {
             rapidjson::Value sval(rapidjson::kStringType);
-            sval.SetString((it->second).c_str());
-            dd.AddMember(it->first.c_str(), sval, dd.GetAllocator());
+            sval.SetString((it->second).c_str(), dd.GetAllocator());
+            rapidjson::Value skey(rapidjson::kStringType);
+            dd.AddMember(skey.SetString(it->first.c_str(), dd.GetAllocator()),
+                         sval, dd.GetAllocator());
         }
         rapidjson::StringBuffer sb;
         rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
