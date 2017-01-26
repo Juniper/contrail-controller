@@ -27,13 +27,12 @@ logger = _myprint
 
 issu_keyspace_config_db_uuid = {
     'config_db_uuid': [
-        ('obj_uuid_table'), ('obj_fq_name_table'), ('obj_shared_table')]}
+        ('obj_uuid_table'), ('obj_fq_name_table')]}
 
 issu_info_pre = [
     (None, 'config_db_uuid', {
         'obj_uuid_table': {},
-        'obj_fq_name_table': {},
-        'obj_shared_table': {}}),
+        'obj_fq_name_table': {}}),
     (None, 'to_bgp_keyspace', {
         'route_target_table': {}, 'service_chain_table': {},
         'service_chain_ip_address_table': {},
@@ -42,7 +41,7 @@ issu_info_pre = [
     (None, 'svc_monitor_keyspace', {
         'pool_table': {}, 'service_instance_table': {}}),
     (None, 'dm_keyspace', {
-        'dm_pr_vn_ip_table': {}, 'dm_pnf_resource_table': {}})]
+        'dm_pr_vn_ip_table': {}})]
 
 issu_keyspace_to_bgp_keyspace = {
     'to_bgp_keyspace': [
@@ -55,10 +54,13 @@ issu_keyspace_svc_monitor_keyspace = {
     'svc_monitor_keyspace': [('pool_table'), ('service_instance_table')]}
 
 issu_keyspace_dm_keyspace = {
-    'dm_keyspace': [('dm_pr_vn_ip_table'), ('dm_pnf_resource_table')]}
+    'dm_keyspace': [('dm_pr_vn_ip_table')]}
 
 
 issu_info_post = [
+    (None, 'config_db_uuid', {
+        'obj_uuid_table': {},
+        'obj_fq_name_table':{}}),
     (None, 'to_bgp_keyspace', {
         'route_target_table': {}, 'service_chain_table': {},
         'service_chain_ip_address_table': {},
@@ -67,12 +69,12 @@ issu_info_post = [
     (None, 'svc_monitor_keyspace', {
         'pool_table': {}, 'service_instance_table': {}}),
     (None, 'dm_keyspace', {
-        'dm_pr_vn_ip_table': {}, 'dm_pnf_resource_table': {}})]
+        'dm_pr_vn_ip_table': {}})]
 
 issu_info_config_db_uuid = [
     (None, 'config_db_uuid', {
         'obj_uuid_table': {},
-        'obj_fq_name_table': {}, 'obj_shared_table': {}})]
+        'obj_fq_name_table': {}})]
 
 issu_znode_list = ['fq-name-to-uuid', 'api-server', 'id']
 
@@ -88,10 +90,10 @@ def parse_args(args_str=None):
         'new_rabbit_password': 'guest',
         'new_rabbit_ha_mode': False,
         'new_rabbit_q_name': 'vnc-config.issu-queue',
-        'new_rabbit_vhost' : '/v2',
+        'new_rabbit_vhost' : '',
         'new_rabbit_port': '5672',
         'odb_prefix' : '',
-        'ndb_prefix': 'v2',
+        'ndb_prefix': '',
         'reset_config': None,
         'old_cassandra_address_list': '10.84.24.35:9160',
         'old_zookeeper_address_list': '10.84.24.35:2181',
