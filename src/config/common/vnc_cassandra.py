@@ -137,7 +137,11 @@ class VncCassandraClient(object):
         self._cache_uuid_to_fq_name = {}
         self._obj_uuid_cf = self._cf_dict[self._OBJ_UUID_CF_NAME]
         self._obj_fq_name_cf = self._cf_dict[self._OBJ_FQ_NAME_CF_NAME]
-        self._obj_shared_cf = self._cf_dict[self._OBJ_SHARED_CF_NAME]
+        if (((self._ro_keyspaces) and
+             (self._OBJ_SHARED_CF_NAME in self._ro_keyspaces[self._UUID_KEYSPACE_NAME])) or
+             ((self._rw_keyspaces) and
+             (self._OBJ_SHARED_CF_NAME in self._rw_keyspaces[self._UUID_KEYSPACE_NAME]))):
+            self._obj_shared_cf = self._cf_dict[self._OBJ_SHARED_CF_NAME]
         if walk:
             self.walk()
     # end __init__
