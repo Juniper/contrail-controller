@@ -6,6 +6,9 @@
 This file contains config data model for schema transformer
 """
 
+import gevent.monkey
+gevent.monkey.patch_all()
+
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
