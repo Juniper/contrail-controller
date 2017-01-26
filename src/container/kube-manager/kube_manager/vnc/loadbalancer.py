@@ -35,35 +35,54 @@ class ServiceLbManager(object):
 
     def _create_virtual_interface(self, proj_obj, vn_obj, service_name,
                                   vip_address):
-        vmi = VirtualMachineInterface(name=service_name, parent_obj=proj_obj)
-        vmi.set_virtual_network(vn_obj)
-        vmi.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
-        sg_obj = SecurityGroup("default", proj_obj)
-        vmi.add_security_group(sg_obj)
+        vmi_obj = VirtualMachineInterface(name=service_name, parent_obj=proj_obj)
+        vmi_obj.set_virtual_network(vn_obj)
+        vmi_obj.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
+        #sg_obj = SecurityGroup("default", proj_obj)
+        #vmi_obj.add_security_group(sg_obj)
         try:
-            self._vnc_lib.virtual_machine_interface_create(vmi)
+            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            VirtualMachineInterfaceKM.locate(vmi_obj.uuid)
+            iip_ids = set()
+            vmi_id = vmi_obj.uuid
+        except BadRequest as e:
+            return None, None
         except RefsExistError:
-            self._vnc_lib.virtual_machine_interface_update(vmi)
-        #VirtualMachineInterfaceKM.locate(vmi.uuid)
-        vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi.uuid)
-        iip_refs = vmi.get_instance_ip_back_refs()
+            vmi_id = self._vnc_lib.fq_name_to_id('virtual-machine-interface',vmi_obj.get_fq_name())
+            if vmi_id:
+                vmi = VirtualMachineInterfaceKM.get(vmi_id)
+                iip_ids = vmi.instance_ips
+            else:
+                self.logger.warning("Create virtual interface failed for"
+                    " service (" + service_name + ")" + " RefExistError but vmi doesn't exist")
+                return None, None
 
-        if iip_refs is not None:
-            iip = self._vnc_lib.instance_ip_read(id=iip_refs[0]['uuid'])
-            if iip.get_instance_ip_address() == vip_address:
+        try:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
+        except NoIdError:
+            self.logger.warning("Read Service virtual interface failed for"
+                " service (" + service_name + ")" + " NoIdError for vmi(" + vmi_id + ") doesn't exist")
+            return None, None
+
+        for iip_id in list(iip_ids):
+            iip_obj = self._vnc_lib.instance_ip_read(id=iip_id)
+            if iip_obj.get_instance_ip_address() == vip_address:
                 return vmi, vip_address
 
-            fip_refs = iip.get_floating_ips()
+            fip_refs = iip_obj.get_floating_ips()
             for ref in fip_refs or []:
                 fip = self._vnc_lib.floating_ip_read(id=ref['uuid'])
                 fip.set_virtual_machine_interface_list([])
                 self._vnc_lib.floating_ip_update(fip)
                 self._vnc_lib.floating_ip_delete(id=ref['uuid'])
-            self._vnc_lib.instance_ip_delete(id=iip_refs[0]['uuid'])
+            self._vnc_lib.instance_ip_delete(id=iip_obj.uuid)
 
-        iip_obj = InstanceIp(name=service_name)
+        ip_name = str(uuid.uuid4())
+        iip_obj = InstanceIp(name=ip_name)
+        iip_obj.uuid = ip_name
         iip_obj.set_virtual_network(vn_obj)
-        iip_obj.set_virtual_machine_interface(vmi)
+        iip_obj.set_virtual_machine_interface(vmi_obj)
+        iip_obj.set_display_name(service_name)
         if vip_address:
             iip_obj.set_instance_ip_address(vip_address)
         try:
@@ -71,10 +90,10 @@ class ServiceLbManager(object):
         except RefsExistError:
             self._vnc_lib.instance_ip_update(iip_obj)
         #InstanceIpKM.locate(iip_obj.uuid)
-        iip = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
-        vip_address = iip.get_instance_ip_address()
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
+        vip_address = iip_obj.get_instance_ip_address()
 
-        return vmi, vip_address
+        return vmi_obj, vip_address
 
     def _delete_virtual_interface(self, vmi_list):
         if vmi_list is None:

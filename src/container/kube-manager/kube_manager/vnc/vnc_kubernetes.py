@@ -66,7 +66,7 @@ class VncKubernetes(object):
             self.vnc_lib, self.label_cache, self.logger)
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints',
-            self.vnc_lib, self.label_cache)
+            self.vnc_lib, self.logger, self.kube)
         self.ingress_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_ingress.VncIngress', self.args,
             self.vnc_lib, self.label_cache, self.logger, self.kube)

@@ -137,6 +137,7 @@ class LoadbalancerMemberKM(DBBaseKM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.vmi = None
+        self.vm = None
         self.loadbalancer_pool = {}
         self.update(obj_dict)
         if self.loadbalancer_pool:
@@ -157,7 +158,8 @@ class LoadbalancerMemberKM(DBBaseKM):
             for kvp in annotations['key_value_pair'] or []:
                 if kvp['key'] == 'vmi':
                     self.vmi = kvp['value']
-                    break
+                if kvp['key'] == 'vm':
+                    self.vm = kvp['value']
     # end update
 
     @classmethod
