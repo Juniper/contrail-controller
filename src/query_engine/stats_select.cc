@@ -51,8 +51,11 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                 case QEOpServerProxy::STRING : {
                         string mapit = boost::get<string>(it->second);
                         rapidjson::Value val(rapidjson::kStringType);
-                        val.SetString(mapit.c_str());
-                        dd.AddMember(it->first.c_str(), val, dd.GetAllocator());              
+                        val.SetString(mapit.c_str(), dd.GetAllocator());
+                        rapidjson::Value vk;
+                        dd.AddMember(vk.SetString(it->first.c_str(),
+                                                  dd.GetAllocator()),
+                                     val, dd.GetAllocator());
                     }
                     break;
                 case QEOpServerProxy::UUID : {
@@ -60,21 +63,30 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                         rapidjson::Value val(rapidjson::kStringType);
                         std::string ustr = to_string(mapit);
                         val.SetString(ustr.c_str(), dd.GetAllocator());
-                        dd.AddMember(it->first.c_str(), val, dd.GetAllocator()); 
+                        rapidjson::Value vk;
+                        dd.AddMember(vk.SetString(it->first.c_str(),
+                                                  dd.GetAllocator()),
+                                     val, dd.GetAllocator()); 
                     }
                     break;
                 case QEOpServerProxy::UINT64 : {
                         uint64_t mapit = boost::get<uint64_t>(it->second);
                         rapidjson::Value val(rapidjson::kNumberType);
                         val.SetUint64(mapit);
-                        dd.AddMember(it->first.c_str(), val, dd.GetAllocator());
+                        rapidjson::Value vk;
+                        dd.AddMember(vk.SetString(it->first.c_str(),
+                                                  dd.GetAllocator()),
+                                     val, dd.GetAllocator());
                     }
                     break;
                 case QEOpServerProxy::DOUBLE : {
                         double mapit = boost::get<double>(it->second);
                         rapidjson::Value val(rapidjson::kNumberType);
                         val.SetDouble(mapit);
-                        dd.AddMember(it->first.c_str(), val, dd.GetAllocator());
+                        rapidjson::Value vk;
+                        dd.AddMember(vk.SetString(it->first.c_str(),
+                                                  dd.GetAllocator()),
+                                     val, dd.GetAllocator());
                     }
                     break;
                 default:
@@ -108,16 +120,20 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                         uint64_t mapit = boost::get<uint64_t>(it->second);
                         rapidjson::Value val(rapidjson::kNumberType);
                         val.SetUint64(mapit);
-                        dd.AddMember(sname.c_str(), dd.GetAllocator(),
-                            val, dd.GetAllocator());
+                        rapidjson::Value vk;
+                        dd.AddMember(vk.SetString(sname.c_str(),
+                                                  dd.GetAllocator()),
+                                     val, dd.GetAllocator());
                     }
                     break;
                 case QEOpServerProxy::DOUBLE : {
                         double mapit = boost::get<double>(it->second);
                         rapidjson::Value val(rapidjson::kNumberType);
                         val.SetDouble(mapit);
-                        dd.AddMember(sname.c_str(), dd.GetAllocator(),
-                            val, dd.GetAllocator());
+                        rapidjson::Value vk;
+                        dd.AddMember(vk.SetString(sname.c_str(),
+                                                  dd.GetAllocator()),
+                                     val, dd.GetAllocator());
                     }
                     break;
                 case QEOpServerProxy::TDIGEST : {
@@ -140,11 +156,15 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                         for (size_t idx=0; idx<7; idx++) {
                             rapidjson::Value sval(rapidjson::kNumberType);
                             sval.SetDouble(TDigest_percentile(mapit.get(), ptiles[idx]));
-                            val.AddMember(stiles[idx].c_str(), dd.GetAllocator(),
-                                sval, dd.GetAllocator());
+                            rapidjson::Value vk;
+                            val.AddMember(vk.SetString(stiles[idx].c_str(),
+                                                       dd.GetAllocator()),
+                                          sval, dd.GetAllocator());
                         }
-                        dd.AddMember(sname.c_str(), dd.GetAllocator(),
-                            val, dd.GetAllocator());
+                        rapidjson::Value vk;
+                        dd.AddMember(vk.SetString(sname.c_str(),
+                                                  dd.GetAllocator()),
+                                     val, dd.GetAllocator());
                     }
                     break;
                 case QEOpServerProxy::CENTROID : {
@@ -152,8 +172,10 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
                             boost::get<boost::shared_ptr<Centroid> >(it->second);
                         rapidjson::Value val(rapidjson::kNumberType);
                         val.SetDouble(Centroid_get_mean(mapit.get()));
-                        dd.AddMember(sname.c_str(), dd.GetAllocator(),
-                            val, dd.GetAllocator());
+                        rapidjson::Value vk;
+                        dd.AddMember(vk.SetString(sname.c_str(),
+                                                  dd.GetAllocator()),
+                                     val, dd.GetAllocator());
                     }
                     break;
                 default:

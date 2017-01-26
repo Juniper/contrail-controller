@@ -103,6 +103,8 @@ class PortIpcHandler {
     bool ValidateMac(const std::string &mac) const;
     bool IsUUID(const std::string &uuid_str) const;
     void ProcessFile(const std::string &file, bool check_port, bool vm_vn_port);
+    void AddMember(const char *key, const char *value,
+                   rapidjson::Document *doc) const;
     bool WriteJsonToFile(const rapidjson::Value &v,
                          VmiSubscribeEntry *entry) const;
     bool WriteJsonToFile(const rapidjson::Value &v,

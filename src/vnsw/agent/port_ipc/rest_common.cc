@@ -27,7 +27,10 @@ void SendErrorResponse(HttpSession *session,
                         const std::string &error_msg, int status_code) {
     rapidjson::Document document;
     document.SetObject();
-    document.AddMember("error", error_msg.c_str(), document.GetAllocator());
+    rapidjson::Value v;
+    document.AddMember("error",
+                       v.SetString(error_msg.c_str(), document.GetAllocator()),
+                       document.GetAllocator());
     rapidjson::StringBuffer strbuf;
     rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
     document.Accept(writer);
