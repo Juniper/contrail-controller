@@ -345,6 +345,10 @@ int TaskScheduler::GetThreadCount(int thread_count) {
     return num_cores_ * ThreadAmpFactor_;
 }
 
+int TaskScheduler::GetDefaultThreadCount() {
+    return tbb::task_scheduler_init::default_num_threads();
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Implementation for class TaskScheduler 
 ////////////////////////////////////////////////////////////////////////////
