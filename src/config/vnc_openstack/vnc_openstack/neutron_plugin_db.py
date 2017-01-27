@@ -3740,6 +3740,8 @@ class DBInterface(object):
                     except NoIdError:
                         continue
                     ret_q_ports.append(port_info)
+            elif 'network_id' in filters:
+                ret_q_ports = self._port_list_network(filters['network_id'])
             else:
                 ret_q_ports = self._port_list_project(project_id,
                                                   is_admin=context['is_admin'])
