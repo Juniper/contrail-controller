@@ -267,7 +267,9 @@ int main(int argc, char *argv[]) {
                         Sandesh::StringToLevel(options.log_level())));
     }
 
-    TaskScheduler::Initialize();
+    int num_threads_to_tbb = TaskScheduler::GetDefaultThreadCount() +
+        ConfigClientManager::GetNumWorkers();
+    TaskScheduler::Initialize(num_threads_to_tbb);
     TaskScheduler::GetInstance()->SetTrackRunTime(
         options.task_track_run_time());
     BgpServer::Initialize();

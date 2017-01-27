@@ -199,6 +199,8 @@ public:
     // Get number of tbb worker threads.
     static int GetThreadCount(int thread_count = 0);
 
+    static int GetDefaultThreadCount();
+
     uint64_t enqueue_count() const { return enqueue_count_; }
     uint64_t done_count() const { return done_count_; }
     uint64_t cancel_count() const { return cancel_count_; }

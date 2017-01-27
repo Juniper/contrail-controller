@@ -27,6 +27,7 @@ struct IFMapConfigOptions;
  */
 class ConfigClientManager {
 public:
+    static const int kNumConfigReaderTasks = 4;
     typedef std::list<struct DBRequest *> RequestList;
     ConfigClientManager(EventManager *evm, IFMapServer *ifmap_server,
                         std::string hostname,
@@ -56,6 +57,10 @@ public:
 
     std::string GetWrapperFieldName(const std::string &type_name,
                                     const std::string &property_name) const;
+    static int GetNumWorkers() {
+        // AMQP reader and ConfigDB readers
+        return kNumConfigReaderTasks + 1;
+    }
 
 private:
     typedef std::pair<std::string, std::string> LinkMemberPair;

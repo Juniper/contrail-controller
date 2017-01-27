@@ -25,7 +25,7 @@ ConfigClientManager::ConfigClientManager(EventManager *evm,
         const IFMapConfigOptions& config_options)
         : evm_(evm), ifmap_server_(ifmap_server) {
     config_json_parser_.reset(new ConfigJsonParser(this));
-    thread_count_ = TaskScheduler::GetInstance()->HardwareThreadCount();
+    thread_count_ = kNumConfigReaderTasks;
     config_db_client_.reset(
             IFMapFactory::Create<ConfigCassandraClient>(this, evm,
                 config_options, config_json_parser_.get(), thread_count_));

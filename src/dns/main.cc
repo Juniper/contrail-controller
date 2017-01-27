@@ -17,6 +17,7 @@
 #include <ifmap/ifmap_server_parser.h>
 #include <ifmap/ifmap_server.h>
 #include <ifmap/ifmap_xmpp.h>
+#include <ifmap/client/config_client_manager.h>
 #include <ifmap/client/ifmap_manager.h>
 #include <io/event_manager.h>
 #include <sandesh/sandesh.h>
@@ -123,6 +124,11 @@ void InitializeSignalHandlers() {
 }
 
 int main(int argc, char *argv[]) {
+    // Initialize the task scheduler
+    int num_threads_to_tbb = TaskScheduler::GetDefaultThreadCount() +
+        ConfigClientManager::GetNumWorkers();
+    TaskScheduler::Initialize(num_threads_to_tbb);
+
     // Create DB table and event manager
     Dns::Init();
 
