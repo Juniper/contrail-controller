@@ -256,7 +256,7 @@ class VncNetworkPolicy(object):
         self._apply_sg_2_pod(sg, pod_id)
 
     def vnc_pod_add(self, event):
-        labels = event['object']['metadata']['labels']
+        labels = event['object']['metadata'].get('labels', {})
         pod_id = event['object']['metadata']['uid']
 
         for label in labels.items():

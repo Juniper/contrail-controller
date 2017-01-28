@@ -198,7 +198,7 @@ class VncPod(object):
         pod_id = event['object']['metadata'].get('uid')
         pod_name = event['object']['metadata'].get('name')
         pod_namespace = event['object']['metadata'].get('namespace')
-        labels = event['object']['metadata']['labels']
+        labels = event['object']['metadata'].get('labels', {})
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             pod_node = event['object']['spec'].get('nodeName')
