@@ -131,7 +131,14 @@ class VncIngress(object):
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj, uid,
                       name, proj_obj, vip_address)
         if lb_obj:
-            self._allocate_floating_ip(lb_obj, name, proj_obj)
+            vip_info = {}
+            vip_info['clusterIP'] = lb_obj._loadbalancer_properties.vip_address
+            fip_obj = self._allocate_floating_ip(lb_obj, name, proj_obj)
+            if fip_obj:
+                vip_info['externalIP'] = fip_obj.address
+            patch = {'metadata': {'annotations': vip_info}}
+            self._kube.patch_resource("ingresses", name, \
+                                      patch, namespace, beta=True)
 
         return lb_obj
 
