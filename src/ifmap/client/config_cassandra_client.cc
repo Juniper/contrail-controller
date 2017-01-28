@@ -10,6 +10,11 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/request_pipeline.h>
+
+#include "base/connection_info.h"
 #include "base/logging.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
@@ -20,6 +25,7 @@
 #include "database/cassandra/cql/cql_if.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
+#include "ifmap/ifmap_server_show_types.h"
 
 #include "sandesh/common/vns_constants.h"
 
@@ -40,6 +46,10 @@ ConfigCassandraClient::ConfigCassandraClient(ConfigClientManager *mgr,
     dbif_.reset(new cass::cql::CqlIf(evm, config_db_ips(),
                 GetFirstConfigDbPort(), "", ""));
 
+    // Initialized the casssadra connection status;
+    cassandra_connection_up_ = false;
+    connection_status_change_at_ = UTCTimestampUsec();
+
     int processor_task_id =
         TaskScheduler::GetInstance()->GetTaskId(kObjectProcessTaskId);
 
@@ -50,7 +60,7 @@ ConfigCassandraClient::ConfigCassandraClient(ConfigClientManager *mgr,
              TaskScheduler::GetInstance()->GetTaskId("cassandra::Reader"), i)));
         WorkQueue<ObjectProcessReq *> *tmp_work_q =
             new WorkQueue<ObjectProcessReq *>(processor_task_id, i,
-                      bind(&ConfigCassandraClient::RequestHandler, this, _1));
+                      bind(&ConfigCassandraClient::RequestHandler, this, i, _1));
         obj_process_queue_.push_back(ObjProcessWorkQType(tmp_work_q));
     }
 }
@@ -117,8 +127,10 @@ bool ConfigCassandraClient::ConfigReader(int worker_id) {
             if (!ReadUuidTableRow(obj_req->obj_type, obj_req->uuid)) {
                 return false;
             }
-        } else {
+        } else if (obj_req->oper == "DELETE") {
             HandleObjectDelete(obj_req->obj_type, obj_req->uuid);
+        } else if (obj_req->oper == "EndOfConfig") {
+            BulkSyncDone(worker_id);
         }
         uuid_read_set_[worker_id].erase(obj_req->uuid);
         uuid_read_list_[worker_id].erase(it);
@@ -131,10 +143,10 @@ bool ConfigCassandraClient::ConfigReader(int worker_id) {
     return true;
 }
 
-void ConfigCassandraClient::AddUUIDToRequestList(const string &oper,
+void ConfigCassandraClient::AddUUIDToRequestList(int worker_id,
+                                                 const string &oper,
                                                  const string &obj_type,
                                                  const string &uuid_str) {
-    int worker_id = HashUUID(uuid_str);
     pair<UUIDProcessSet::iterator, bool> ret;
     bool trigger = uuid_read_list_[worker_id].empty();
     ObjectProcessRequestType *req =
@@ -166,7 +178,6 @@ bool ConfigCassandraClient::StoreKeyIfUpdated(int idx, const string &uuid,
     string field_name = key;
     string prop_name = "";
     if (is_ref || is_parent) {
-        size_t from_back_pos = key.rfind(':');
         string ref_uuid = key.substr(from_back_pos+1);
         string ref_name = UUIDToFQName(ref_uuid);
         field_name = key.substr(0, from_back_pos+1) + ref_name;
@@ -321,6 +332,7 @@ bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &obj_type,
 }
 
 void ConfigCassandraClient::InitDatabase() {
+    HandleCassandraConnectionStatus(false);
     while (true) {
         if (!dbif_->Db_Init()) {
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
@@ -344,6 +356,7 @@ void ConfigCassandraClient::InitDatabase() {
         }
         break;
     }
+    HandleCassandraConnectionStatus(true);
     BulkDataSync();
 }
 
@@ -372,10 +385,12 @@ bool ConfigCassandraClient::ReadUuidTableRow(const string &obj_type,
         // Failure is returned only due to connectivity issue or consistency
         // issues in reading from cassandra
         //
+        HandleCassandraConnectionStatus(true);
         if (col_list.columns_.size()) {
             ParseRowAndEnqueueToParser(obj_type, uuid_key, col_list);
         }
     } else {
+        HandleCassandraConnectionStatus(false);
         IFMAP_WARN(IFMapGetRowError, "GetRow failed for table", kUuidTableName);
         //
         // Task is rescheduled to read the request queue
@@ -393,6 +408,27 @@ bool ConfigCassandraClient::ReadUuidTableRow(const string &obj_type,
     return true;
 }
 
+void ConfigCassandraClient::HandleCassandraConnectionStatus(bool success) {
+    bool previous_status = cassandra_connection_up_.fetch_and_store(success);
+    if (previous_status == success) {
+        return;
+    }
+
+    connection_status_change_at_ = UTCTimestampUsec();
+    if (success) {
+        // Update connection info
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::DATABASE, "Cassandra",
+            process::ConnectionStatus::UP,
+            dbif_->Db_GetEndpoints(), "Established Cassandra connection");
+    } else {
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::DATABASE, "Cassandra",
+            process::ConnectionStatus::DOWN,
+            dbif_->Db_GetEndpoints(), "Lost Cassandra connection");
+    }
+}
+
 bool ConfigCassandraClient::ReadAllFqnTableRows() {
     GenDb::ColListVec cl_vec_fq_name;
 
@@ -400,6 +436,7 @@ bool ConfigCassandraClient::ReadAllFqnTableRows() {
     while (true) {
         if (dbif_->Db_GetAllRows(&cl_vec_fq_name, kFqnTableName,
                                  GenDb::DbConsistency::QUORUM)) {
+            HandleCassandraConnectionStatus(true);
             BOOST_FOREACH(const GenDb::ColList &cl_list, cl_vec_fq_name) {
                 assert(cl_list.rowkey_.size() == 1);
                 assert(cl_list.rowkey_[0].which() == GenDb::DB_VALUE_BLOB);
@@ -410,6 +447,7 @@ bool ConfigCassandraClient::ReadAllFqnTableRows() {
             }
             break;
         } else {
+            HandleCassandraConnectionStatus(false);
             IFMAP_WARN(IFMapGetRowError, "GetAllRows failed for table. Retry !",
                        kFqnTableName);
             sleep(kInitRetryTimeSec);
@@ -420,10 +458,16 @@ bool ConfigCassandraClient::ReadAllFqnTableRows() {
         EnqueueUUIDRequest("CREATE", it->first, it->second);
     }
 
+    for (int i = 0; i < num_workers_; i++) {
+        ObjectProcessReq *req = new ObjectProcessReq("EndOfConfig","", "");
+        Enqueue(i, req);
+    }
+
     return true;
 }
 
 bool ConfigCassandraClient::BulkDataSync() {
+    bulk_sync_status_ = num_workers_;
     ReadAllFqnTableRows();
     return true;
 }
@@ -439,8 +483,9 @@ void ConfigCassandraClient::Enqueue(int worker_id, ObjectProcessReq *req) {
     obj_process_queue_[worker_id]->Enqueue(req);
 }
 
-bool ConfigCassandraClient::RequestHandler(ObjectProcessReq *req) {
-    AddUUIDToRequestList(req->oper_, req->obj_type_, req->uuid_str_);
+bool ConfigCassandraClient::RequestHandler(int worker_id,
+                                           ObjectProcessReq *req) {
+    AddUUIDToRequestList(worker_id, req->oper_, req->obj_type_, req->uuid_str_);
     delete req;
     return true;
 }
@@ -552,3 +597,19 @@ void ConfigCassandraClient::UpdatePropertyDeleteToReqList(
     mgr()->InsertRequestIntoQ(IFMapOrigin::CASSANDRA, "", "", metaname,
                               pvalue, *key, false, req_list);
 }
+
+void ConfigCassandraClient::BulkSyncDone(int worker_id) {
+    long num_config_readers_still_processing =
+        bulk_sync_status_.fetch_and_decrement();
+    if (num_config_readers_still_processing == 1) {
+        mgr()->EndOfConfig();
+    }
+}
+
+void ConfigCassandraClient::GetConnectionInfo(ConfigDBConnInfo &status) const {
+    status.cluster = boost::algorithm::join(config_db_ips(), ", ");
+    status.connection_status = cassandra_connection_up_;
+    status.connection_status_change_at = connection_status_change_at_;
+    return;
+}
+

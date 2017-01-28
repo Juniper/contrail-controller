@@ -408,8 +408,8 @@ void IFMapChannelManager::ProcessChannelReady(XmppChannel *channel) {
         IFMAP_XMPP_DEBUG(IFMapXmppChannelEvent, "Create",
             channel->connection()->ToUVEKey(), IFMapXmppChannel::NoFqnSet);
         CreateIFMapXmppChannel(channel);
-        IFMapManager *ifmap_manager = ifmap_server_->get_ifmap_manager();
-        if (ifmap_manager && !ifmap_manager->GetEndOfRibComputed()) {
+        ConfigClientManager *client_manager = ifmap_server_->get_config_manager();
+        if (client_manager && !client_manager->GetEndOfRibComputed()) {
             IFMAP_XMPP_DEBUG(IFMapXmppChannelEvent, "Close",
                              channel->connection()->ToUVEKey(),
                              IFMapXmppChannel::NoFqnSet);

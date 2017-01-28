@@ -119,7 +119,7 @@ void IFMapVmUuidMapper::VmNodeProcess(DBTablePartBase *partition,
         return;
     }
 
-    IFMapObject *object = vm_node->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    IFMapObject *object = vm_node->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
     if (object) {
         // Insert into the uuid-node-mapper
         autogen::VirtualMachine *vm = static_cast<autogen::VirtualMachine *>
