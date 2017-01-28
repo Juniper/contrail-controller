@@ -1,0 +1,6 @@
+export LANG="en_US.UTF-8"
+export CNI_IFNAME="eth1"
+export CNI_NETNS="/var/run/netns/ns-1"
+export CNI_PATH="/opt/cni/bin:/opt/bridge/bin"
+export CNI_COMMAND="ADD"
+export CNI_CONTAINERID="23046cae-85df-4621-b32d-4fe7d8f8dfb8"
