@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
 
 #include <fstream>
@@ -154,15 +154,14 @@ vector<ArgSet> PopulateTestMessageStatsInfo(bool no_struct_part) {
     uint64_t ts = 1481978789000018;
     if (no_struct_part) {
         a1.attribs = map_list_of
-            ("Source", DbHandler::Var("127.0.0.1"))
+            ("Source", DbHandler::Var("csp-ucpe-bglr51"))
             ("data.ip", DbHandler::Var("127.0.0.1"))
             ("data.prog", DbHandler::Var("RT_FLOW"))
             ("data.hostname", DbHandler::Var("csp-ucpe-bglr51"))
-            ("data.body", DbHandler::Var("APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\""))
             ("data.timestamp", DbHandler::Var(ts));
     } else {
         a1.attribs = map_list_of
-            ("Source", DbHandler::Var("127.0.0.1"))
+            ("Source", DbHandler::Var("csp-ucpe-bglr51"))
             ("data.ip", DbHandler::Var("127.0.0.1"))
             ("data.prog", DbHandler::Var("RT_FLOW"))
             ("data.hostname", DbHandler::Var("csp-ucpe-bglr51"))
@@ -171,14 +170,11 @@ vector<ArgSet> PopulateTestMessageStatsInfo(bool no_struct_part) {
             ("data.timestamp", DbHandler::Var(ts))
             ("data.source-address", DbHandler::Var("4.0.0.1"))
             ("data.source-port", DbHandler::Var(static_cast<uint64_t>(13175)))
-            ("data.body", DbHandler::Var("APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\"]"))
             ("data.reason", DbHandler::Var("TCP RST"));
     }
     DbHandler::AttribMap sm;
     a1.attribs_tag.insert(make_pair("Source", make_pair(
         DbHandler::Var("127.0.0.1"), sm)));
-    a1.attribs_tag.insert(make_pair("data.prog", make_pair(
-        DbHandler::Var("RT_FLOW"), sm)));
     a1.attribs_tag.insert(make_pair("data.hostname", make_pair(
         DbHandler::Var("csp-ucpe-bglr51"), sm)));
     if (!no_struct_part) {
@@ -202,9 +198,12 @@ TEST_F(StructuredSyslogStatWalkerTest, Basic) {
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     const uint8_t* p = reinterpret_cast<const uint8_t*>(test_structured_syslog.c_str());
-    structured_syslog::StructuredSyslogConfig *config_obj = new structured_syslog::StructuredSyslogConfig();
+    boost::shared_ptr<ConfigDBConnection> cfgdbConnection (new ConfigDBConnection(0, 0));
+    StructuredSyslogConfig *structured_syslog_config = new StructuredSyslogConfig(cfgdbConnection);
+    structured_syslog::StructuredSyslogServerConfig *config_obj = new structured_syslog::StructuredSyslogServerConfig(structured_syslog_config);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
         boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
+    delete structured_syslog_config;
     delete config_obj;
 
     ASSERT_TRUE(r);
@@ -214,6 +213,27 @@ TEST_F(StructuredSyslogStatWalkerTest, Basic) {
 
 }
 
+TEST_F(StructuredSyslogStatWalkerTest, DeviceMultiSyslog) {
+    StatCbTester ct(PopulateTestMessageStatsInfo(false), true);
+    const std::string test_structured_syslog ("652 <14>1 2017-02-03T09:05:26.178Z csp-ucpe-bglr51 RT_FLOW - APPTRACK_SESSION_CREATE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\" destination-address=\"172.217.26.161\" destination-port=\"443\" service-name=\"junos-https\" application=\"UNKNOWN\" nested-application=\"UNKNOWN\" nat-source-address=\"10.213.17.220\" nat-source-port=\"10831\" nat-destination-address=\"172.217.26.161\" nat-destination-port=\"443\" src-nat-rule-name=\"r1\" dst-nat-rule-name=\"N/A\" protocol-id=\"6\" policy-name=\"default-permit\" source-zone-name=\"trust\" destination-zone-name=\"trust\" session-id-32=\"271992\" username=\"N/A\" roles=\"N/A\" encrypted=\"UNKNOWN\"]644 <14>1 2017-02-03T09:05:27.776Z csp-ucpe-bglr51 RT_FLOW - APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\" destination-address=\"10.209.194.133\" destination-port=\"53\" service-name=\"junos-dns-udp\" application=\"DNS\" nested-application=\"UNKNOWN\" nat-source-address=\"10.213.17.220\" nat-source-port=\"14299\" nat-destination-address=\"10.209.194.133\" nat-destination-port=\"53\" src-nat-rule-name=\"r1\" dst-nat-rule-name=\"N/A\" protocol-id=\"17\" policy-name=\"default-permit\" source-zone-name=\"trust\" destination-zone-name=\"trust\" session-id-32=\"272036\" username=\"N/A\" roles=\"N/A\" encrypted=\"No\"]");
+    boost::system::error_code ec;
+    boost::asio::ip::address raddr(
+        boost::asio::ip::address::from_string("127.0.0.1", ec));
+    boost::asio::ip::udp::endpoint rep(raddr, 0);
+    const uint8_t* p = reinterpret_cast<const uint8_t*>(test_structured_syslog.c_str());
+    boost::shared_ptr<ConfigDBConnection> cfgdbConnection (new ConfigDBConnection(0, 0));
+    StructuredSyslogConfig *structured_syslog_config = new StructuredSyslogConfig(cfgdbConnection);
+    structured_syslog::StructuredSyslogServerConfig *config_obj = new structured_syslog::StructuredSyslogServerConfig(structured_syslog_config);
+    bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
+    delete structured_syslog_config;
+    delete config_obj;
+    ASSERT_TRUE(r);
+    if (r ==false) {
+        ct.Verify();
+    }
+
+}
 TEST_F(StructuredSyslogStatWalkerTest, DeviceSyslog) {
     StatCbTester ct(PopulateTestMessageStatsInfo(false), true);
     const std::string test_structured_syslog ("<14>1 2016-12-17T14:46:29.585Z csp-ucpe-bglr51 RT_FLOW - APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\"]");
@@ -222,10 +242,12 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceSyslog) {
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     const uint8_t* p = reinterpret_cast<const uint8_t*>(test_structured_syslog.c_str());
-    structured_syslog::StructuredSyslogConfig *config_obj = new structured_syslog::StructuredSyslogConfig();
+    boost::shared_ptr<ConfigDBConnection> cfgdbConnection (new ConfigDBConnection(0, 0));
+    StructuredSyslogConfig *structured_syslog_config = new StructuredSyslogConfig(cfgdbConnection);
+    structured_syslog::StructuredSyslogServerConfig *config_obj = new structured_syslog::StructuredSyslogServerConfig(structured_syslog_config);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
         boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
-
+    delete structured_syslog_config;
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -242,10 +264,12 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceSyslogTz) {
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     const uint8_t* p = reinterpret_cast<const uint8_t*>(test_structured_syslog.c_str());
-    structured_syslog::StructuredSyslogConfig *config_obj = new structured_syslog::StructuredSyslogConfig();
+    boost::shared_ptr<ConfigDBConnection> cfgdbConnection (new ConfigDBConnection(0, 0));
+    StructuredSyslogConfig *structured_syslog_config = new StructuredSyslogConfig(cfgdbConnection);
+    structured_syslog::StructuredSyslogServerConfig *config_obj = new structured_syslog::StructuredSyslogServerConfig(structured_syslog_config);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
         boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
-
+    delete structured_syslog_config;
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -256,16 +280,18 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceSyslogTz) {
 
 TEST_F(StructuredSyslogStatWalkerTest, ParseError) {
     StatCbTester ct(PopulateTestMessageStatsInfo(true), true);
-    const std::string test_structured_syslog ("123 <14>Dec 17 14:46:29 csp-ucpe-bglr51 RT_FLOW: APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\"]");
+    const std::string test_structured_syslog ("ABCD <14>Dec 17 14:46:29 csp-ucpe-bglr51 RT_FLOW: APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\"]");
     boost::system::error_code ec;
     boost::asio::ip::address raddr(
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     const uint8_t* p = reinterpret_cast<const uint8_t*>(test_structured_syslog.c_str());
-    structured_syslog::StructuredSyslogConfig *config_obj = new structured_syslog::StructuredSyslogConfig();
+    boost::shared_ptr<ConfigDBConnection> cfgdbConnection (new ConfigDBConnection(0, 0));
+    StructuredSyslogConfig *structured_syslog_config = new StructuredSyslogConfig(cfgdbConnection);
+    structured_syslog::StructuredSyslogServerConfig *config_obj = new structured_syslog::StructuredSyslogServerConfig(structured_syslog_config);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
         boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
-
+    delete structured_syslog_config;
     delete config_obj;
     ASSERT_FALSE(r);
 
@@ -279,10 +305,13 @@ TEST_F(StructuredSyslogStatWalkerTest, BadStruct) {
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
     const uint8_t* p = reinterpret_cast<const uint8_t*>(test_structured_syslog.c_str());
-    structured_syslog::StructuredSyslogConfig *config_obj = new structured_syslog::StructuredSyslogConfig();
+    boost::shared_ptr<ConfigDBConnection> cfgdbConnection (new ConfigDBConnection(0, 0));
+    StructuredSyslogConfig *structured_syslog_config = new StructuredSyslogConfig(cfgdbConnection);
+    structured_syslog::StructuredSyslogServerConfig *config_obj = new structured_syslog::StructuredSyslogServerConfig(structured_syslog_config);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
         boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
 
+    delete structured_syslog_config;
     delete config_obj;
     ASSERT_TRUE(r);
 

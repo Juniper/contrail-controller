@@ -1,0 +1,100 @@
+<!--
+ Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2"
+    xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2">
+
+<xsd:element name="global-analytics-config" type="ifmap:IdentityType"
+     description="global analytics config related data"/>
+<xsd:element name="global-system-config-global-analytics-config"
+     description="structured syslog config related data"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('global-system-config-global-analytics-config',
+         'global-system-config', 'global-analytics-config', ['has'],
+         'optional', 'CRUD', 'List of global-analytics-config that are
+          anchored under global-system-config.')-->
+
+<xsd:element name="structured-syslog-config" type="ifmap:IdentityType"
+     description="structured syslog config related data"/>
+<xsd:element name="global-analytics-config-structured-syslog-config"
+     description="structured syslog config related data"/>
+<xsd:element name="project-structured-syslog-config"
+     description="project specific structured syslog config related data"/>
+
+<!--#IFMAP-SEMANTICS-IDL
+    Link('global-analytics-config-structured-syslog-config',
+         'global-analytics-config', 'structured-syslog-config', ['has'],
+         'optional', 'CRUD', 'List of structured-syslog-config that are
+          applicable to objects anchored under global-analytics-config.');
+    Link('project-structured-syslog-config',
+         'project', 'structured-syslog-config', ['has'],
+         'optional', 'CRUD', 'List of structured-syslog-config that are
+          applicable to objects anchored under project.')-->
+
+<xsd:element name="structured-syslog-hostname-record" type="ifmap:IdentityType"
+     description="mapping Hostname to other entities"/>
+<xsd:element name="structured-syslog-config-structured-syslog-hostname-record"
+     description="mapping Hostname to other entities"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('structured-syslog-config-structured-syslog-hostname-record',
+          'structured-syslog-config', 'structured-syslog-hostname-record',
+          ['has'], 'optional', 'CRUD', 'List of
+          structured-syslog-hostname-record that are applicable to objects
+          anchored under structured-syslog-config.')-->
+<xsd:element name="structured-syslog-hostaddr" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-hostaddr',
+                                  'structured-syslog-hostname-record',
+                                  'required', 'CRUD', 'The host address') -->
+<xsd:element name="structured-syslog-tenant" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-tenant',
+                                  'structured-syslog-hostname-record',
+                                  'required', 'CRUD', 'The tenant name') -->
+<xsd:element name="structured-syslog-location" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-location',
+                                  'structured-syslog-hostname-record',
+                                  'required', 'CRUD', 'location details') -->
+<xsd:element name="structured-syslog-device" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-device',
+                                  'structured-syslog-hostname-record',
+                                  'optional', 'CRUD', 'device id') -->
+
+<xsd:element name="structured-syslog-application-record"
+                    type="ifmap:IdentityType"
+                    description="mapping App name to other entities"/>
+<xsd:element name="structured-syslog-config-structured-syslog-application-record"
+                    description="mapping App name to other entities"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('structured-syslog-config-structured-syslog-application-record',
+         'structured-syslog-config', 'structured-syslog-application-record',
+         ['has'], 'optional', 'CRUD', 'List of
+         structured-syslog-application-record that are applicable to objects
+         anchored under structured-syslog-config.')-->
+<xsd:element name="structured-syslog-app-category" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-app-category',
+                                  'structured-syslog-application-record',
+                                  'required', 'CRUD', 'The application
+                                   category') -->
+<xsd:element name="structured-syslog-app-subcategory" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-app-subcategory',
+                                  'structured-syslog-application-record',
+                                  'optional', 'CRUD', 'The application
+                                   sub category') -->
+<xsd:element name="structured-syslog-app-groups" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-app-groups',
+                                  'structured-syslog-application-record',
+                                  'optional', 'CRUD', 'app groups comma
+                                   separated') -->
+<xsd:element name="structured-syslog-app-risk" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-app-risk',
+                                  'structured-syslog-application-record',
+                                  'optional', 'CRUD', 'The application
+                                   risk profile') -->
+<xsd:element name="structured-syslog-app-service-tags" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-app-service-tags',
+                                  'structured-syslog-application-record',
+                                  'optional', 'CRUD', 'service-tags
+                                   corresponding to applications') -->
+
+</xsd:schema>
+
