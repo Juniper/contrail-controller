@@ -12,6 +12,7 @@
 #include "discovery/client/discovery_client.h"
 #include "http/client/vncapi.h"
 #include "parser_util.h"
+#include "configdb_connection.h"
 
 class Options;
 //class DiscoveryServiceClient;
@@ -48,33 +49,22 @@ typedef std::map<std::string, boost::shared_ptr<UserDefinedCounterData> > Cfg_t;
 
 class UserDefinedCounters {
     public:
-        UserDefinedCounters(EventManager *evm, VncApiConfig *vnccfg);
+        UserDefinedCounters(boost::shared_ptr<ConfigDBConnection> cfgdb_connection);
         ~UserDefinedCounters();
         void MatchFilter(std::string text, LineParser::WordListType *words);
         void SendUVEs();
         void AddConfig(std::string name, std::string pattern);
         bool FindByName(std::string name);
         void PollCfg();
-        void Update(Options *o, DiscoveryServiceClient *c);
 
     private:
         void ReadConfig();
-        std::string ExecHelper(const std::string cmd);
         void UDCHandler(rapidjson::Document &jdoc,
                     boost::system::error_code &ec,
                     std::string version, int status, std::string reason,
                     std::map<std::string, std::string> *headers);
-        void InitVnc(EventManager *evm, VncApiConfig *vnccfg);
-        void RetryNextApi();
-        void APIfromDisc(Options *o, std::vector<DSResponse> response);
-
         Cfg_t config_;
-        std::string call_str_;
-        boost::shared_ptr<VncApi> vnc_;
-        EventManager *evm_;
-        VncApiConfig vnccfg_;
-        std::vector<DSResponse> api_svr_list_;
-        mutable tbb::mutex mutex_;
+        boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
 };
 
 
