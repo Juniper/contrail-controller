@@ -67,9 +67,9 @@ class LoadbalancerListenerKM(DBBaseKM):
         self.params = obj.get('loadbalancer_listener_properties', None)
         self.update_single_ref('loadbalancer', obj)
         self.update_single_ref('loadbalancer_pool', obj)
-        annotations = obj.get('annotations', None)
-        if annotations:
-            for kvp in annotations['key_value_pair'] or []:
+        self.annotations = obj.get('annotations', None)
+        if self.annotations:
+            for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'targetPort':
                     self.target_port = kvp['value']
                     break
@@ -107,6 +107,7 @@ class LoadbalancerPoolKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.params = obj.get('loadbalancer_pool_properties', None)
         self.provider = obj.get('loadbalancer_pool_provider', None)
+        self.annotations = obj.get('annotations', None)
         kvpairs = obj.get('loadbalancer_pool_custom_attributes', None)
         if kvpairs:
             self.custom_attributes = kvpairs.get('key_value_pair', [])
@@ -152,9 +153,9 @@ class LoadbalancerMemberKM(DBBaseKM):
         self.params = obj.get('loadbalancer_member_properties', None)
         self.loadbalancer_pool = self.get_parent_uuid(obj)
         self.id_perms = obj.get('id_perms', None)
-        annotations = obj.get('annotations', None)
-        if annotations:
-            for kvp in annotations['key_value_pair'] or []:
+        self.annotations = obj.get('annotations', None)
+        if self.annotations:
+            for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'vmi':
                     self.vmi = kvp['value']
                     break
