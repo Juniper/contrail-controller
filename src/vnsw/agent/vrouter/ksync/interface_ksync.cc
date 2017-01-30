@@ -18,6 +18,7 @@
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
+#include <init/agent_param.h>
 #include "vrouter/ksync/agent_ksync_types.h"
 #include "vr_types.h"
 #include "base/logging.h"
@@ -628,6 +629,15 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             flags |= VIF_FLAG_NATIVE_VLAN_TAG;
         }
         encoder.set_vifr_name(display_name_);
+
+        AgentParam *params = ksync_obj_->ksync()->agent()->params();
+        std::vector<int16_t> nic_queue_list;
+        for (std::set<uint16_t>::const_iterator it =
+                 params->nic_queue_list().begin();
+                 it != params->nic_queue_list().end(); it++) {
+            nic_queue_list.push_back(*it);
+        }
+        encoder.set_vifr_hw_queues(nic_queue_list);
         break;
     }
 

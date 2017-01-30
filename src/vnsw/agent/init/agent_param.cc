@@ -766,6 +766,7 @@ void AgentParam::ParseQueue() {
                     }
 
                     string range = *it;
+                    nic_queue_list_.insert(queue);
                     std::vector<uint16_t> range_value;
                     if (stringToIntegerList(range, "-", range_value)) {
                         if (range_value.size() == 1) {

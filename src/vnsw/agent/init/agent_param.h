@@ -326,6 +326,9 @@ public:
     void set_pkt0_tx_buffer_count(uint32_t val) { pkt0_tx_buffer_count_ = val; }
     bool measure_queue_delay() const { return measure_queue_delay_; }
     void set_measure_queue_delay(bool val) { measure_queue_delay_ = val; }
+    const std::set<uint16_t>& nic_queue_list() const {
+        return nic_queue_list_;
+    }
     uint16_t get_nic_queue(uint16_t queue) {
         std::map<uint16_t, uint16_t>::iterator it = qos_queue_map_.find(queue);
         if (it != qos_queue_map_.end()) {
@@ -533,7 +536,6 @@ private:
     int log_files_count_;
     long log_file_size_;
     std::string log_property_file_;
-
     bool log_local_;
     bool log_flow_;
     std::string log_level_;
@@ -612,6 +614,7 @@ private:
     uint32_t tbb_schedule_delay_;
     uint32_t tbb_keepawake_timeout_;
     std::map<uint16_t, uint16_t> qos_queue_map_;
+    std::set<uint16_t> nic_queue_list_;
     uint16_t default_nic_queue_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
