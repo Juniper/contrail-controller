@@ -129,7 +129,11 @@ class DatabaseEventManager(EventManager):
                 if DatabaseEventManager.cassandra_old():
                     analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
                 else:
-                    analytics_dir = cassandra_data_dir + '/ContrailAnalyticsCql'
+                    import glob
+                    all_analytics_dirs = glob.glob(cassandra_data_dir + '/ContrailAnalyticsCql*')
+                    if all_analytics_dirs:
+                        #for now we assume the partition for all analytics clusters is same
+                        analytics_dir = all_analytics_dirs[0]
 
                 if os.path.exists(analytics_dir):
                     cassandra_data_dir_exists = True
@@ -199,7 +203,11 @@ class DatabaseEventManager(EventManager):
                 if DatabaseEventManager.cassandra_old():
                     analytics_dir = cassandra_data_dir + '/ContrailAnalytics'
                 else:
-                    analytics_dir = cassandra_data_dir + '/ContrailAnalyticsCql'
+                    import glob
+                    all_analytics_dirs = glob.glob(cassandra_data_dir + '/ContrailAnalyticsCql*')
+                    if all_analytics_dirs:
+                        #for now we assume the partition for all analytics clusters is same
+                        analytics_dir = all_analytics_dirs[0]
 
                 if os.path.exists(analytics_dir):
                     cassandra_data_dir_exists = True

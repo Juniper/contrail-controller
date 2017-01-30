@@ -92,6 +92,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
     EXPECT_EQ(options_.disable_db_statistics_writes(), false);
     EXPECT_EQ(options_.disable_all_db_writes(), false);
+    EXPECT_EQ(options_.cluster_id(), "");
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
     uint16_t structured_syslog_port(0);
@@ -143,6 +144,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
     EXPECT_EQ(options_.disable_db_statistics_writes(), false);
     EXPECT_EQ(options_.disable_all_db_writes(), false);
+    EXPECT_EQ(options_.cluster_id(), "");
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
     uint16_t structured_syslog_port(0);
@@ -194,6 +196,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
     EXPECT_EQ(options_.disable_flow_collection(), false);
+    EXPECT_EQ(options_.cluster_id(), "");
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
     uint16_t structured_syslog_port(0);
@@ -201,7 +204,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
-    int argc = 6;
+    int argc = 8;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
@@ -209,12 +212,16 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     char argv_3[] = "--DEFAULT.disable_flow_collection";
     char argv_4[] = "--DATABASE.disable_all_writes";
     char argv_5[] = "--DATABASE.enable_message_keyword_writes";
+    char argv_6[] = "--DATABASE.cluster_id";
+    char argv_7[] = "C1";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
     argv[3] = argv_3;
     argv[4] = argv_4;
     argv[5] = argv_5;
+    argv[6] = argv_6;
+    argv[7] = argv_7;
 
     options_.Parse(evm_, argc, argv);
     vector<string> passed_conf_files;
@@ -250,6 +257,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.disable_flow_collection(), true); // Overridden from command line.
     EXPECT_EQ(options_.disable_all_db_writes(), true); // Overridden from command line.
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), true); // Overriden from command line.
+    EXPECT_EQ(options_.cluster_id(), "C1");
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
     uint16_t structured_syslog_port(0);
@@ -371,6 +379,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "LeveledCompactionStrategy");
     EXPECT_EQ(cassandra_options.flow_tables_compaction_strategy_,
         "SizeTieredCompactionStrategy");
+    EXPECT_EQ(options_.cluster_id(), "");
     EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
 }
 

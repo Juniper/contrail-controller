@@ -284,6 +284,8 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.disable_flow_collection",
             opt::bool_switch(&disable_flow_collection_),
             "Disable flow message collection")
+        ("DATABASE.cluster_id", opt::value<string>()->default_value(""),
+             "Analytics Cluster Id")
         ("DATABASE.disable_all_writes",
             opt::bool_switch(&cassandra_options_.disable_all_db_writes_),
             "Disable all writes to the database")
@@ -593,6 +595,9 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");
     GetOptValue<string>(var_map, redis_password_, "REDIS.password");
+
+    GetOptValue<string>(var_map, cassandra_options_.cluster_id_, "DATABASE.cluster_id");
+
     GetOptValue<string>(var_map, cassandra_options_.user_,
         "CASSANDRA.cassandra_user");
     GetOptValue<string>(var_map, cassandra_options_.password_,

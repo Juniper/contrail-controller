@@ -74,7 +74,6 @@ DbHandler::DbHandler(EventManager *evm,
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(cassandra_options.ttlmap_),
-    tablespace_(g_viz_constants.COLLECTOR_KEYSPACE_CQL),
     compaction_strategy_(cassandra_options.compaction_strategy_),
     flow_tables_compaction_strategy_(
         cassandra_options.flow_tables_compaction_strategy_),
@@ -96,6 +95,12 @@ DbHandler::DbHandler(EventManager *evm,
     udc_cfg_poll_timer_->Start(kUDCPollInterval,
         boost::bind(&DbHandler::PollUDCCfg, this),
         boost::bind(&DbHandler::PollUDCCfgErrorHandler, this, _1, _2));
+
+    if (cassandra_options.cluster_id_.empty()) {
+        tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
+    } else {
+        tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL + '_' + cassandra_options.cluster_id_;
+    }
 
     if (use_db_write_options_) {
         // Set disk-usage watermark defaults

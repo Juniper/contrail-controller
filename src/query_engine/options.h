@@ -55,6 +55,7 @@ public:
     const std::string syslog_facility() const { return syslog_facility_; }
     const int analytics_data_ttl() const { return analytics_data_ttl_; }
     const bool test_mode() const { return test_mode_; }
+    const std::string cluster_id() const { return cluster_id_; }
     const std::string cassandra_user() const { return cassandra_user_; }
     const std::string cassandra_password() const { return cassandra_password_; }
     const uint32_t sandesh_send_rate_limit() const { return send_ratelimit_; }
@@ -114,6 +115,7 @@ private:
     SandeshConfig sandesh_config_;
 
     boost::program_options::options_description config_file_options_;
+    std::string cluster_id_;
     std::string cassandra_user_;
     std::string cassandra_password_;
 };
