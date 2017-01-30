@@ -1766,7 +1766,7 @@ class VncApiServer(object):
     # end get_rabbit_health_check_interval
 
     def is_auth_disabled(self):
-        return self._args.auth is None
+        return self._args.auth is None or self._args.auth.lower() != 'keystone'
 
     def is_admin_request(self):
         if not self.is_multi_tenancy_set():
