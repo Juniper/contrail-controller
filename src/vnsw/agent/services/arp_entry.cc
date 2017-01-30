@@ -141,14 +141,14 @@ void ArpEntry::SendGratuitousArp() {
                 if (!gw_ip.is_unspecified() && gw_ip.is_v4())  {
                     handler_->SendArp(ARPOP_REQUEST, smac,
                                       gw_ip.to_v4().to_ulong(),
-                                      smac, vmi->mac(), gw_ip.to_v4().to_ulong(),
+                                      smac, vmi->vm_mac(), gw_ip.to_v4().to_ulong(),
                                       vmi->id(), key_.vrf->vrf_id());
                 }
                 if (!dns_ip.is_unspecified() && dns_ip.is_v4() &&
                     dns_ip != gw_ip)  {
                     handler_->SendArp(ARPOP_REQUEST, smac,
                                       dns_ip.to_v4().to_ulong(),
-                                      smac, vmi->mac(), dns_ip.to_v4().to_ulong(),
+                                      smac, vmi->vm_mac(), dns_ip.to_v4().to_ulong(),
                                       vmi->id(), key_.vrf->vrf_id());
                 }
             }
