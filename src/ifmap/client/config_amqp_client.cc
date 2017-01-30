@@ -58,7 +58,11 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
     rabbitmq_ssl_certfile_(options.rabbitmq_ssl_certfile),
     rabbitmq_ssl_ca_certs_(options.rabbitmq_ssl_ca_certs) {
 
+    connection_status_ = false;
     if (disable_)
+        return;
+
+    if (options.rabbitmq_server_list.empty())
         return;
 
     for (vector<string>::const_iterator iter =
@@ -82,7 +86,6 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
     endpoint_.address(boost::asio::ip::address::from_string(rabbitmq_ip(), ec));
     endpoint_.port(port);
 
-    connection_status_ = false;
     connection_status_change_at_ = UTCTimestampUsec();
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();

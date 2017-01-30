@@ -32,7 +32,7 @@ public:
 
     void MetadataRegister(const std::string &metadata, MetadataParseFn parser);
     void MetadataClear(const std::string &module);
-    bool Receive(const std::string &uuid, const std::string &in_message,
+    bool Receive(const std::string &uuid, const rapidjson::Document &document,
                  IFMapOrigin::Origin origin);
     ConfigClientManager *config_mgr() const { return mgr_; }
     ConfigClientManager *config_mgr() { return mgr_; }

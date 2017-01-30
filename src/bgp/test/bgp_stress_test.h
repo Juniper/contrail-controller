@@ -9,7 +9,6 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/inet/inet_route.h"
-#include "ifmap/client/ifmap_manager.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
@@ -26,6 +25,7 @@
 class BgpAttr;
 class BgpNeighborConfig;
 class BgpServer;
+class ConfigClientManager;
 class SandeshSession;
 class StateMachine;
 class XmppChannel;
@@ -174,16 +174,6 @@ private:
     WorkQueue<const std::string *> config_queue_;
 };
 
-class IFMapManagerTest : public IFMapManager {
-public:
-    IFMapManagerTest(IFMapServer *ifmap_server,
-                 const IFMapConfigOptions& config_options, PollReadCb readcb,
-                 boost::asio::io_service *io_service) :
-        IFMapManager(ifmap_server, config_options, readcb, io_service) {
-    }
-    virtual bool GetEndOfRibComputed() const { return true; }
-};
-
 class PeerCloseManagerTest : public PeerCloseManager {
 public:
     explicit PeerCloseManagerTest(IPeerClose *peer_close);
@@ -292,7 +282,7 @@ class BgpStressTest : public ::testing::TestWithParam<TestParams> {
 protected:
     BgpStressTest() : thread_(&evm_) { }
 
-    void IFMapInitialize();
+    void IFMapInitialize(const std::string &hostname);
     void IFMapCleanUp();
     virtual void SetUp();
     virtual void TearDown();
@@ -464,7 +454,7 @@ protected:
     DBGraph *config_graph_;
     boost::scoped_ptr<IFMapServer> ifmap_server_;
     boost::scoped_ptr<IFMapChannelManager> ifmap_channel_mgr_;
-    boost::scoped_ptr<IFMapManagerTest> ifmap_manager_;
+    boost::scoped_ptr<ConfigClientManager> config_client_manager_;
 };
 
 #endif
