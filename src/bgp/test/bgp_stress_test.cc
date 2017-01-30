@@ -27,6 +27,11 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
+#include "ifmap/client/config_amqp_client.h"
+#include "ifmap/client/config_client_manager.h"
+#include "ifmap/client/config_db_client.h"
+#include "ifmap/client/config_json_parser.h"
+#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "xmpp/xmpp_sandesh.h"
 
@@ -439,7 +444,7 @@ void BgpStressTestEvent::clear_events() {
     d_events_played_list_.clear();
 }
 
-void BgpStressTest::IFMapInitialize() {
+void BgpStressTest::IFMapInitialize(const string &hostname) {
     if (d_external_mode_) return;
 
     config_db_ =
@@ -448,16 +453,24 @@ void BgpStressTest::IFMapInitialize() {
 
     ifmap_server_.reset(new IFMapServer(config_db_, config_graph_,
                                         evm_.io_service()));
+    config_client_manager_.reset(new ConfigClientManager(&evm_,
+        ifmap_server_.get(), hostname, "BgpServerTest",
+        IFMapConfigOptions()));
+
     IFMapLinkTable_Init(ifmap_server_->database(), ifmap_server_->graph());
-    IFMapServerParser *ifmap_parser =
-        IFMapServerParser::GetInstance("vnc_cfg");
-    vnc_cfg_ParserInit(ifmap_parser);
+    IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
+    vnc_cfg_ParserInit(parser);
+    bgp_schema_ParserInit(parser);
+
+    vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
     vnc_cfg_Server_ModuleInit(ifmap_server_->database(),
                               ifmap_server_->graph());
-    bgp_schema_ParserInit(ifmap_parser);
+    bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
     bgp_schema_Server_ModuleInit(ifmap_server_->database(),
                                  ifmap_server_->graph());
     ifmap_server_->Initialize();
+    ifmap_server_->set_config_manager(config_client_manager_.get());
+    config_client_manager_->EndOfConfig();
 }
 
 void BgpStressTest::IFMapCleanUp() {
@@ -479,6 +492,8 @@ void BgpStressTest::SetUp() {
 
     sandesh_context_.reset(new BgpSandeshContext());
     RegisterSandeshShowXmppExtensions(sandesh_context_.get());
+    boost::system::error_code error;
+    string hostname(boost::asio::ip::host_name(error));
     if (!d_no_sandesh_server_) {
 
         //
@@ -487,8 +502,6 @@ void BgpStressTest::SetUp() {
         sandesh_server_ = new SandeshServerTest(&evm_);
         sandesh_server_->Initialize(0);
 
-        boost::system::error_code error;
-        string hostname(boost::asio::ip::host_name(error));
         Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname,
                                "BgpTest", "Test", &evm_,
                                 d_http_port_, sandesh_context_.get());
@@ -501,7 +514,7 @@ void BgpStressTest::SetUp() {
         sandesh_server_ = NULL;
     }
 
-    IFMapInitialize();
+    IFMapInitialize(hostname);
 
     if (!d_external_mode_) {
         server_.reset(new BgpServerTest(&evm_, "A0", config_db_,
@@ -546,12 +559,6 @@ void BgpStressTest::SetUp() {
 
     sandesh_context_->bgp_server = server_.get();
     sandesh_context_->xmpp_peer_manager = channel_manager_.get();
-    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
-    ifmap_manager_.reset(new IFMapManagerTest(ifmap_server_.get(),
-        IFMapConfigOptions(), boost::bind(&IFMapServerParser::Receive,
-                                          ifmap_parser, config_db_, _1, _2, _3),
-        evm_.io_service()));
-    ifmap_server_->set_ifmap_manager(ifmap_manager_.get());
 
     XmppSandeshContext xmpp_sandesh_context;
     xmpp_sandesh_context.xmpp_server = xmpp_server_test_;

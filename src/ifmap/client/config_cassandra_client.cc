@@ -49,6 +49,7 @@ ConfigCassandraClient::ConfigCassandraClient(ConfigClientManager *mgr,
     // Initialized the casssadra connection status;
     cassandra_connection_up_ = false;
     connection_status_change_at_ = UTCTimestampUsec();
+    bulk_sync_status_ = 0;
 
     int processor_task_id =
         TaskScheduler::GetInstance()->GetTaskId(kObjectProcessTaskId);
@@ -266,6 +267,21 @@ bool ConfigCassandraClient::ParseUuidTableRowResponse(const string &uuid,
     return true;
 }
 
+string ConfigCassandraClient::GetUUID(const string &key,
+                                      const string &obj_type) {
+    size_t temp = key.rfind(':');
+    return (temp == string::npos) ? "" : key.substr(temp+1);
+}
+
+void ConfigCassandraClient::UpdateCache(const std::string &key,
+        const std::string &obj_type, ObjTypeUUIDList &uuid_list) {
+    string uuid_str = GetUUID(key, obj_type);
+    if (uuid_str.empty())
+        return;
+    uuid_list.push_back(make_pair(obj_type, uuid_str));
+    AddFQNameCache(uuid_str, key.substr(0, key.rfind(':')));
+}
+
 bool ConfigCassandraClient::ParseFQNameRowGetUUIDList(
                   const GenDb::ColList &col_list, ObjTypeUUIDList &uuid_list) {
     GenDb::Blob dname_blob(boost::get<GenDb::Blob>(col_list.rowkey_[0]));
@@ -280,13 +296,7 @@ bool ConfigCassandraClient::ParseFQNameRowGetUUIDList(
         GenDb::Blob dname_blob(boost::get<GenDb::Blob>(dname));
         string key(reinterpret_cast<const char *>(dname_blob.data()),
                    dname_blob.size());
-        size_t temp = key.rfind(':');
-        if (temp == string::npos) {
-            continue;
-        }
-        string uuid_str = key.substr(temp+1);
-        uuid_list.push_back(make_pair(obj_type, uuid_str));
-        AddFQNameCache(uuid_str, key.substr(0, temp));
+        UpdateCache(key, obj_type, uuid_list);
     }
 
     return true;
@@ -318,10 +328,10 @@ bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &obj_type,
         }
 
         // Convert column data to json string.
-        ConfigCass2JsonAdapter ccja(this, obj_type, cass_data_vec);
+        ConfigCass2JsonAdapter ccja(uuid_key, this, obj_type, cass_data_vec);
 
         // Enqueue Json document to the parser here.
-        parser_->Receive(uuid_key, ccja.doc_string(), IFMapOrigin::CASSANDRA);
+        parser_->Receive(uuid_key, ccja.document(), IFMapOrigin::CASSANDRA);
     } else {
         IFMAP_WARN(IFMapGetRowError, "Parsing row response failed for table",
                    kUuidTableName);
@@ -453,7 +463,12 @@ bool ConfigCassandraClient::ReadAllFqnTableRows() {
             sleep(kInitRetryTimeSec);
         }
     }
-    for (ObjTypeUUIDList::iterator it = uuid_list.begin();
+    return EnqueueUUIDRequest(uuid_list);
+}
+
+bool ConfigCassandraClient::EnqueueUUIDRequest(
+        const ObjTypeUUIDList &uuid_list) {
+    for (ObjTypeUUIDList::const_iterator it = uuid_list.begin();
          it != uuid_list.end(); it++) {
         EnqueueUUIDRequest("CREATE", it->first, it->second);
     }
@@ -473,7 +488,7 @@ bool ConfigCassandraClient::BulkDataSync() {
 }
 
 void ConfigCassandraClient::EnqueueUUIDRequest(string oper, string obj_type,
-                                             string uuid_str) {
+                                               string uuid_str) {
     int idx = HashUUID(uuid_str);
     ObjectProcessReq *req = new ObjectProcessReq(oper, obj_type, uuid_str);
     Enqueue(idx, req);
