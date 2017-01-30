@@ -138,7 +138,7 @@ const BitSet *IFMapExporter::MergeClientInterest(
 IFMapNodeState *IFMapExporter::NodeStateLookup(IFMapNode *node){
     const TableInfo *tinfo = Find(node->table());
     IFMapNodeState *state = static_cast<IFMapNodeState *>(
-        node->GetState(node->table(), tinfo->id()));
+        node->GetState(node->table(), tinfo ? tinfo->id() : 0));
     return state;
 }
 
@@ -278,6 +278,8 @@ void IFMapExporter::EnqueueDelete(ObjectType *obj, IFMapState *state) {
 
 IFMapLinkState *IFMapExporter::LinkStateLookup(IFMapLink *link) {
     const TableInfo *tinfo = Find(link_table_);
+    if (!tinfo)
+        return NULL;
     IFMapLinkState *state = static_cast<IFMapLinkState *>(
         link->GetState(link_table_, tinfo->id()));
     return state;    
