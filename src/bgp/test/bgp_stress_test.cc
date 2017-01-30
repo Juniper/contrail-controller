@@ -27,6 +27,11 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
+#include "ifmap/client/config_amqp_client.h"
+#include "ifmap/client/config_client_manager.h"
+#include "ifmap/client/config_db_client.h"
+#include "ifmap/client/config_json_parser.h"
+#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "xmpp/xmpp_sandesh.h"
 
@@ -479,6 +484,8 @@ void BgpStressTest::SetUp() {
 
     sandesh_context_.reset(new BgpSandeshContext());
     RegisterSandeshShowXmppExtensions(sandesh_context_.get());
+    boost::system::error_code error;
+    string hostname(boost::asio::ip::host_name(error));
     if (!d_no_sandesh_server_) {
 
         //
@@ -487,8 +494,6 @@ void BgpStressTest::SetUp() {
         sandesh_server_ = new SandeshServerTest(&evm_);
         sandesh_server_->Initialize(0);
 
-        boost::system::error_code error;
-        string hostname(boost::asio::ip::host_name(error));
         Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname,
                                "BgpTest", "Test", &evm_,
                                 d_http_port_, sandesh_context_.get());
@@ -502,6 +507,10 @@ void BgpStressTest::SetUp() {
     }
 
     IFMapInitialize();
+    config_client_manager_.reset(new ConfigClientManager(&evm_,
+        ifmap_server_.get(), hostname, "BgpServerTest",
+        IFMapConfigOptions()));
+    ifmap_server_->set_config_manager(config_client_manager_.get());
 
     if (!d_external_mode_) {
         server_.reset(new BgpServerTest(&evm_, "A0", config_db_,
@@ -546,12 +555,6 @@ void BgpStressTest::SetUp() {
 
     sandesh_context_->bgp_server = server_.get();
     sandesh_context_->xmpp_peer_manager = channel_manager_.get();
-    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
-    ifmap_manager_.reset(new IFMapManagerTest(ifmap_server_.get(),
-        IFMapConfigOptions(), boost::bind(&IFMapServerParser::Receive,
-                                          ifmap_parser, config_db_, _1, _2, _3),
-        evm_.io_service()));
-    ifmap_server_->set_ifmap_manager(ifmap_manager_.get());
 
     XmppSandeshContext xmpp_sandesh_context;
     xmpp_sandesh_context.xmpp_server = xmpp_server_test_;
