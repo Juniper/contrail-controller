@@ -6,11 +6,22 @@ from kube_manager.common.kube_config_db import NamespaceKM
 class NamespaceMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
-        super(NamespaceMonitor, self).__init__(args, logger, q, NamespaceKM)
-        self.handle = self.register_monitor('namespaces')
+        super(NamespaceMonitor, self).__init__(args, logger, q, NamespaceKM,
+            resource_name='namespaces')
+        self.init_monitor()
         self.logger.info("NamespaceMonitor init done.");
 
-    def _process_namespace_event(self, event):
+    def get_entry_url(self, base_url, entry):
+        """Get URL to an entry.
+        NOTE: This method overrides a generic implementation provided by
+        KubeMonitor base class. This is to workaround a bug in Kuberneters
+        config stored in its api server where the 'selfLink' is not correctly
+        populated for namespace entries. Once that bug is fixed, this method
+        should be removed.
+        """
+        return self.v1_url + "/namespaces/" +  entry['metadata']['name']
+
+    def process_event(self, event):
         namespce_data = event['object']
         event_type = event['type']
 
@@ -29,20 +40,7 @@ class NamespaceMonitor(KubeMonitor):
             event['object']['metadata'].get('name')))
         self.q.put(event)
 
-    def process(self):
-        try:
-            line = next(self.handle)
-            if not line:
-                return
-        except StopIteration:
-            return
-
-        try:
-            self._process_namespace_event(json.loads(line))
-        except ValueError:
-            print("Invalid JSON data from response stream:%s" % line)
-
-    def namespace_callback(self):
+    def event_callback(self):
         while True:
             self.process()
             gevent.sleep(0)

@@ -5,11 +5,12 @@ from kube_monitor import KubeMonitor
 class EndPointMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
-        super(EndPointMonitor, self).__init__(args, logger, q)
-        self.handle = self.register_monitor('endpoints')
+        super(EndPointMonitor, self).__init__(args, logger, q,
+            resource_name='endpoints')
+        self.init_monitor()
         self.logger.info("EndPointyMonitor init done.");
 
-    def _process_endpoint_event(self, event):
+    def process_event(self, event):
         endpoint_data = event['object']
         event_type = event['type']
 
@@ -28,20 +29,7 @@ class EndPointMonitor(KubeMonitor):
             event['object']['metadata'].get('name')))
         self.q.put(event)
 
-    def process(self):
-        try:
-            line = next(self.handle)
-            if not line:
-                return
-        except StopIteration:
-            return
-
-        try:
-            self._process_endpoint_event(json.loads(line))
-        except ValueError:
-            print("Invalid JSON data from response stream:%s" % line)
-
-    def endpoint_callback(self):
+    def event_callback(self):
         while True:
             self.process()
             gevent.sleep(0)

@@ -6,11 +6,12 @@ from kube_manager.common.kube_config_db import PodKM
 class PodMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
-        super(PodMonitor, self).__init__(args, logger, q, PodKM)
-        self.handle = self.register_monitor('pods')
+        super(PodMonitor, self).__init__(args, logger, q, PodKM,
+            resource_name='pods')
+        self.init_monitor()
         self.logger.info("PodMonitor init done.");
 
-    def _process_pod_event(self, event):
+    def process_event(self, event):
         pod_data = event['object']
         event_type = event['type']
 
@@ -41,21 +42,7 @@ class PodMonitor(KubeMonitor):
             event['object']['metadata'].get('name')))
         self.q.put(event)
 
-    def process(self):
-        try:
-            line = next(self.handle)
-            if not line:
-                return
-        except StopIteration:
-            return
-
-        try:
-            self._process_pod_event(json.loads(line))
-        except ValueError:
-            print("Invalid JSON data from response stream:%s" % line)
-
-
-    def pod_callback(self):
+    def event_callback(self):
         while True:
             self.process()
             gevent.sleep(0)

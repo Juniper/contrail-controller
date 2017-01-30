@@ -7,11 +7,11 @@ class NetworkPolicyMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None, network_policy_db=None):
         super(NetworkPolicyMonitor, self).__init__(args, logger, q,
-            NetworkPolicyKM)
-        self.handle = self.register_monitor('networkpolicies', beta=True)
+            NetworkPolicyKM, resource_name='networkpolicies', beta=True)
+        self.init_monitor()
         self.logger.info("NetworkPolicyMonitor init done.");
 
-    def _process_network_policy_event(self, event):
+    def process_event(self, event):
         print("Put %s %s %s:%s" % (event['type'],
             event['object'].get('kind'),
             event['object']['metadata'].get('namespace'),
@@ -32,20 +32,7 @@ class NetworkPolicyMonitor(KubeMonitor):
 
         self.q.put(event)
 
-    def process(self):
-        try:
-            line = next(self.handle)
-            if not line:
-                return
-        except StopIteration:
-            return
-
-        try:
-            self._process_network_policy_event(json.loads(line))
-        except ValueError:
-            print("Invalid JSON data from response stream:%s" % line)
-
-    def network_policy_callback(self):
+    def event_callback(self):
         while True:
             self.process()
             gevent.sleep(0)
