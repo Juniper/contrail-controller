@@ -242,7 +242,6 @@ class VncKubernetes(object):
             if ipam_ref['to'] == ipam_obj.get_fq_name():
                 ipam_subnets = ipam_ref['attr'].get_ipam_subnets()
                 if not ipam_subnets:
-                    import pdb;pdb.set_trace()
                     continue
                 # We will use the first subnet in the matching IPAM.
                 svc_subnet_uuid = ipam_subnets[0].get_subnet_uuid()
