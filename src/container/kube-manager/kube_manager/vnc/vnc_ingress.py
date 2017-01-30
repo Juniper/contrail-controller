@@ -21,6 +21,7 @@ class VncIngress(object):
         self._kube = kube
         self._vnc_lib = vnc_lib
         self._vn_obj = None
+        self._service_subnet_uuid = None
         self._fip_pool_obj = None
         self.service_lb_mgr = importutils.import_object(
             'kube_manager.vnc.loadbalancer.ServiceLbManager', vnc_lib, logger)
@@ -49,6 +50,22 @@ class VncIngress(object):
             return None
         self._vn_obj = vn_obj
         return vn_obj
+
+    def _get_service_subnet_uuid(self):
+        if self._service_subnet_uuid:
+            return self._service_subnet_uuid
+        vn_obj = self._get_network()
+        service_ipam_fq_name = ['default-domain', 'default', 'service-ipam']
+        ipam_refs = vn_obj.get_network_ipam_refs()
+        for ipam_ref in ipam_refs or []:
+            if ipam_ref['to'] == service_ipam_fq_name:
+                ipam_subnets = ipam_ref['attr'].get_ipam_subnets()
+                if not ipam_subnets:
+                    continue
+                service_subnet_uuid = ipam_subnets[0].get_subnet_uuid()
+                self._service_subnet_uuid = service_subnet_uuid
+                break
+        return self._service_subnet_uuid
 
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
@@ -128,8 +145,9 @@ class VncIngress(object):
             return None
 
         vip_address = None
+        service_subnet_uuid = self._get_service_subnet_uuid()
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj, uid,
-                      name, proj_obj, vip_address)
+                      name, proj_obj, vip_address, service_subnet_uuid)
         if lb_obj:
             vip_info = {}
             vip_info['clusterIP'] = lb_obj._loadbalancer_properties.vip_address

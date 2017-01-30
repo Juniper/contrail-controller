@@ -34,8 +34,10 @@ class ServiceLbManager(object):
 
 
     def _create_virtual_interface(self, proj_obj, vn_obj, service_name,
-                                  vip_address):
-        vmi = VirtualMachineInterface(name=service_name, parent_obj=proj_obj)
+                                  vip_address=None, subnet_uuid=None):
+        obj_uuid = str(uuid.uuid1())
+        name = obj_uuid + "-" + service_name
+        vmi = VirtualMachineInterface(name=name, parent_obj=proj_obj)
         vmi.set_virtual_network(vn_obj)
         vmi.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
         sg_obj = SecurityGroup("default", proj_obj)
@@ -63,6 +65,8 @@ class ServiceLbManager(object):
 
         iip_obj = InstanceIp(name=service_name)
         iip_obj.set_virtual_network(vn_obj)
+        if subnet_uuid:
+            iip_obj.set_subnet_uuid(subnet_uuid)
         iip_obj.set_virtual_machine_interface(vmi)
         if vip_address:
             iip_obj.set_instance_ip_address(vip_address)
@@ -127,7 +131,7 @@ class ServiceLbManager(object):
 
         return sas_obj
 
-    def create(self, lb_provider, vn_obj, service_id, service_name, proj_obj, vip_address):
+    def create(self, lb_provider, vn_obj, service_id, service_name, proj_obj, vip_address=None, subnet_uuid=None):
         """
         Create a loadbalancer.
         """
@@ -139,7 +143,7 @@ class ServiceLbManager(object):
             lb_obj.set_service_appliance_set(sas_obj)
 
         vmi_obj, vip_address = self._create_virtual_interface(proj_obj,
-            vn_obj, service_name, vip_address)
+            vn_obj, service_name, vip_address, subnet_uuid)
         lb_obj.set_virtual_machine_interface(vmi_obj)
 
         props = LoadbalancerType(provisioning_status='ACTIVE', 
