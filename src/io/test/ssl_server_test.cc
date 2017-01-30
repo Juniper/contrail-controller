@@ -69,9 +69,9 @@ public:
                               boost::asio::ssl::verify_fail_if_no_peer_cert), ec);
         assert(ec.value() == 0);
         ctx->use_certificate_chain_file
-            ("controller/src/ifmap/client/test/newcert.pem", ec);
+            ("controller/src/io/test/newcert.pem", ec);
         assert(ec.value() == 0);
-        ctx->use_private_key_file("controller/src/ifmap/client/test/privkey.pem",
+        ctx->use_private_key_file("controller/src/io/test/privkey.pem",
                                   boost::asio::ssl::context::pem, ec);
         assert(ec.value() == 0);
         ctx->load_verify_file("controller/src/io/test/ssl_client_cert.pem",
@@ -85,7 +85,7 @@ public:
     void set_verify_fail_certs() {
         boost::asio::ssl::context *ctx = context();
         boost::system::error_code ec;
-        ctx->load_verify_file("controller/src/ifmap/client/test/newcert.pem",
+        ctx->load_verify_file("controller/src/io/test/newcert.pem",
                               ec);
         assert(ec.value() == 0);
     }
@@ -201,7 +201,7 @@ public:
         ctx->use_private_key_file("controller/src/io/test/ssl_client_privkey.pem",
                                   boost::asio::ssl::context::pem, ec);
         assert(ec.value() == 0);
-        ctx->load_verify_file("controller/src/ifmap/client/test/newcert.pem",
+        ctx->load_verify_file("controller/src/io/test/newcert.pem",
                               ec);
         assert(ec.value() == 0);
     }
@@ -220,7 +220,7 @@ public:
                               boost::asio::ssl::verify_fail_if_no_peer_cert), ec);
         assert(ec.value() == 0);
         ctx->use_certificate_chain_file
-            ("controller/src/ifmap/client/test/newcert.pem", ec);
+            ("controller/src/io/test/newcert.pem", ec);
         assert(ec.value() == 0);
         ctx->load_verify_file("controller/src/io/test/ssl_client_cert.pem",
                               ec);
