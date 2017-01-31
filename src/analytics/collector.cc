@@ -116,7 +116,12 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
     }
     SandeshGenerator *gen = vsession->generator();
     if (gen) {
-        if (!rsc) return true;
+        if (!rsc) {
+            LOG(ERROR, "Force gen " << gen->ToString() <<
+                " to disconnect on redis disconnection");
+            gen->DisconnectSession(vsession);
+            return false;
+        }
 
         std::vector<UVETypeInfo> vu;
         std::map<std::string, int32_t> seqReply;

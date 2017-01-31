@@ -159,7 +159,12 @@ class AnalyticsDiscovery(gevent.Greenlet):
                                 (self._basepath, self._svc_name, self._inst),
                                 self._pubinfo, ephemeral=True)
                 else:
-                    self._logger.error("cannot publish empty info")
+                    if self._zk.exists("%s/%s/%s" % \
+                            (self._basepath, self._svc_name, self._inst)):
+                        self._logger.error("withdrawing published info!")
+                        self._zk.delete("%s/%s/%s" % \
+                                (self._basepath, self._svc_name, self._inst))
+
             except Exception as ex:
                 template = "Exception {0} in AnalyticsDiscovery publish. Args:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
@@ -207,9 +212,10 @@ class AnalyticsDiscovery(gevent.Greenlet):
                 try:
                     # If a reconnect happens during processing, don't lose it
                     while self._reconnect:
+                        self._logger.error("Analytics Discovery %s reconnect" \
+                                % self._svc_name)
                         self._reconnect = False
-                        if self._pubinfo:
-                            self.publish(self._pubinfo)
+                        self.publish(self._pubinfo)
 
                         for wk in self._watchers.keys():
                             self._zk.ensure_path(self._basepath + "/" + wk)
@@ -221,7 +227,7 @@ class AnalyticsDiscovery(gevent.Greenlet):
                             # Remove contents for the children who are gone
                             # (DO NOT remove the watch)
                             for elem in old_children - new_children:
-                                 self._wchildren[wk][elem] = None
+                                 del self._wchildren[wk][elem]
 
                             # Overwrite existing children, or create new ones
                             for elem in new_children:

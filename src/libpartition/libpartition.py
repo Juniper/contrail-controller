@@ -315,18 +315,26 @@ class PartitionClient(object):
         # clean up greenlets
         for part in self._part_lock_task_dict.keys():
             try:
+                self._logger.error("libpartition greenlet cleanup %s" % str(part))
                 self._part_lock_task_dict[part].kill()
             except:
                 pass
 
+        self._logger.error("Stopping libpartition")
         # close zookeeper
         try:
             self._zk.stop()
         except:
-            pass
+            self._logger.error("Stopping libpartition failed")
+        else:
+            self._logger.error("Stopping libpartition successful")
+
+        self._logger.error("Closing libpartition")
         try:
             self._zk.close()
         except:
-            pass
+            self._logger.error("Closing libpartition failed")
+        else:
+            self._logger.error("Closing libpartition successful")
 
     #end close
