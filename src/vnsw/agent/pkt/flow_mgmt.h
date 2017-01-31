@@ -1144,7 +1144,8 @@ private:
     // Handle Delete of a flow. Updates FlowMgmtKeyTree for all objects
     void DeleteFlow(FlowEntryPtr &flow, const RevFlowDepParams &p);
     void UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes, uint32_t packets,
-                         uint32_t oflow_bytes);
+                         uint32_t oflow_bytes, uint32_t flow_handle,
+                         uint8_t gen_id);
 
     // Add a FlowMgmtKey into the FlowMgmtKeyTree for an object
     // The FlowMgmtKeyTree for object is passed as argument

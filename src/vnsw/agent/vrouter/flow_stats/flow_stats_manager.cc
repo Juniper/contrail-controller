@@ -273,7 +273,8 @@ FlowStatsManager::GetFlowStatsCollector(const FlowEntry *flow) const {
     return obj->FlowToCollector(flow);
 }
 
-void FlowStatsManager::AddEvent(FlowEntryPtr &flow) {
+void FlowStatsManager::AddEvent(FlowEntryPtr &flow, uint32_t flow_handle,
+                                uint8_t gen_id) {
     if (flow == NULL) {
         return;
     }
@@ -286,10 +287,11 @@ void FlowStatsManager::AddEvent(FlowEntryPtr &flow) {
         fsc = flow->fsc();
     }
 
-    fsc->AddEvent(flow);
+    fsc->AddEvent(flow, flow_handle, gen_id);
 }
 
 void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
+                                   uint32_t flow_handle, uint8_t gen_id,
                                    const RevFlowDepParams &params) {
     if (flow == NULL) {
         return;
@@ -297,14 +299,15 @@ void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
     FlowStatsCollector *fsc = flow->fsc();
     /* Ignore delete requests if FlowStatsCollector is NULL */
     if (fsc != NULL) {
-        fsc->DeleteEvent(flow, params);
+        fsc->DeleteEvent(flow, flow_handle, gen_id, params);
         flow->set_fsc(NULL);
     }
 }
 
 void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
                                         uint32_t bytes, uint32_t packets,
-                                        uint32_t oflow_bytes) {
+                                        uint32_t oflow_bytes,
+                                        uint32_t flow_handle, uint8_t gen_id) {
     if (flow == NULL) {
         return;
     }
@@ -316,7 +319,8 @@ void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
         return;
     }
 
-    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes);
+    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes, flow_handle,
+                          gen_id);
 }
 
 uint32_t FlowStatsManager::AllocateIndex() {

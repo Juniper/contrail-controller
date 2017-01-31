@@ -786,6 +786,7 @@ void FlowEntry::set_flow_handle(uint32_t flow_handle, uint8_t gen_id) {
         flow_handle_ = flow_handle;
     }
     gen_id_ = gen_id;
+    flow_table_->AddFlowInfo(this);
 }
 
 const std::string& FlowEntry::acl_assigned_vrf() const {

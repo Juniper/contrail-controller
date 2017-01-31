@@ -133,6 +133,11 @@ void FlowMgmtManager::AddEvent(FlowEntry *flow) {
         req = new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW, flow);
         flow->set_flow_mgmt_request(req);
         request_queue_.Enqueue(FlowMgmtRequestPtr(req));
+    } else {
+        /* If the request is already enqueued, update the flow-handle and gen-id
+         * in the request */
+        req->set_flow_handle(flow->flow_handle());
+        req->set_flow_gen_id(flow->gen_id());
     }
 }
 
@@ -146,6 +151,11 @@ void FlowMgmtManager::DeleteEvent(FlowEntry *flow,
         req = new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW, flow);
         flow->set_flow_mgmt_request(req);
         request_queue_.Enqueue(FlowMgmtRequestPtr(req));
+    } else {
+        /* If the request is already enqueued, update the flow-handle and gen-id
+         * in the request */
+        req->set_flow_handle(flow->flow_handle());
+        req->set_flow_gen_id(flow->gen_id());
     }
 
     req->set_params(params);
@@ -441,11 +451,15 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
         if (req->flow()->deleted() == false) {
             FlowMgmtRequestPtr log_req(new FlowMgmtRequest
                                        (FlowMgmtRequest::ADD_FLOW,
-                                        req->flow().get()));
+                                        req->flow().get(),
+                                        req->flow_handle(),
+                                        req->flow_gen_id()));
             log_queue_->Enqueue(log_req);
 
             //Enqueue Add request to flow-stats-collector
-            agent_->flow_stats_manager()->AddEvent(req->flow());
+            agent_->flow_stats_manager()->AddEvent(req->flow(),
+                                                   req->flow_handle(),
+                                                   req->flow_gen_id());
 
             //Enqueue Add request to UVE module for ACE stats
             EnqueueUveAddEvent(flow);
@@ -455,11 +469,15 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
         } else {
             FlowMgmtRequestPtr log_req(new FlowMgmtRequest
                                        (FlowMgmtRequest::DELETE_FLOW,
-                                        req->flow().get(), req->params()));
+                                        req->flow().get(), req->params(),
+                                        req->flow_handle(),
+                                        req->flow_gen_id()));
             log_queue_->Enqueue(log_req);
 
             //Enqueue Delete request to flow-stats-collector
-            agent_->flow_stats_manager()->DeleteEvent(flow, req->params());
+            agent_->flow_stats_manager()->DeleteEvent(flow, req->flow_handle(),
+                                                      req->flow_gen_id(),
+                                                      req->params());
 
             //Enqueue Delete request to UVE module for ACE stats
             EnqueueUveDeleteEvent(flow);
@@ -472,7 +490,8 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
     case FlowMgmtRequest::UPDATE_FLOW_STATS: {
         //Handle Flow stats update for flow-mgmt
         UpdateFlowStats(req->flow(), req->bytes(), req->packets(),
-                        req->oflow_bytes());
+                        req->oflow_bytes(), req->flow_handle(),
+                        req->flow_gen_id());
         break;
     }
 
@@ -687,10 +706,12 @@ void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow,
 }
 
 void FlowMgmtManager::UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes,
-                                      uint32_t packets, uint32_t oflow_bytes) {
+                                      uint32_t packets, uint32_t oflow_bytes,
+                                      uint32_t flow_handle, uint8_t gen_id) {
     //Enqueue Flow Index Update Event request to flow-stats-collector
     agent_->flow_stats_manager()->UpdateStatsEvent(flow, bytes, packets,
-                                                   oflow_bytes);
+                                                   oflow_bytes, flow_handle,
+                                                   gen_id);
 }
 
 bool FlowMgmtManager::HasVrfFlows(uint32_t vrf_id) {

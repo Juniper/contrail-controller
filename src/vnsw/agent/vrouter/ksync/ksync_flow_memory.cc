@@ -30,6 +30,7 @@
 #include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include <ksync/ksync_sock_user.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
 
 #include <vr_types.h>
 #include <nl_util.h>
@@ -221,9 +222,10 @@ void KSyncFlowMemory::KFlow2FlowKey(const vr_flow_entry *kflow,
     key->family = family;
 }
 
-const vr_flow_entry *KSyncFlowMemory::GetValidKFlowEntry(const FlowKey &key,
-                                                         uint32_t idx,
-                                                         uint8_t gen_id) const {
+const vr_flow_entry *KSyncFlowMemory::GetKFlowStats(const FlowKey &key,
+                                                    uint32_t idx,
+                                                    uint8_t gen_id,
+                                                    vr_flow_stats *stat) const {
     const vr_flow_entry *kflow = GetKernelFlowEntry(idx, false);
     if (!kflow) {
         return NULL;
@@ -234,10 +236,44 @@ const vr_flow_entry *KSyncFlowMemory::GetValidKFlowEntry(const FlowKey &key,
         if (!key.IsEqual(rhs)) {
             return NULL;
         }
+        *stat = kflow->fe_stats;
         if (kflow->fe_gen_id != gen_id) {
             return NULL;
         }
     }
+    *stat = kflow->fe_stats;
+    return kflow;
+}
+
+const vr_flow_entry *KSyncFlowMemory::GetKFlowStatsAndInfo(const FlowKey &key,
+                                                           uint32_t idx,
+                                                           uint8_t gen_id,
+                                                           vr_flow_stats *stats,
+                                                           KFlowData *info)
+    const {
+    const vr_flow_entry *kflow = GetKernelFlowEntry(idx, false);
+    if (!kflow) {
+        return NULL;
+    }
+    if (key.protocol == IPPROTO_TCP) {
+        FlowKey rhs;
+        KFlow2FlowKey(kflow, &rhs);
+        if (!key.IsEqual(rhs)) {
+            return NULL;
+        }
+        *stats = kflow->fe_stats;
+        info->underlay_src_port = kflow->fe_udp_src_port;
+        info->tcp_flags = kflow->fe_tcp_flags;
+        info->flags = kflow->fe_flags;
+
+        if (kflow->fe_gen_id != gen_id) {
+            return NULL;
+        }
+    }
+    *stats = kflow->fe_stats;
+    info->underlay_src_port = kflow->fe_udp_src_port;
+    info->tcp_flags = kflow->fe_tcp_flags;
+    info->flags = kflow->fe_flags;
     return kflow;
 }
 
@@ -278,11 +314,12 @@ bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key) {
     return true;
 }
 
-bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry) const {
+bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry,
+                                       uint16_t flags) const {
     if (!entry) {
         return false;
     }
-    if (entry->fe_flags & VR_FLOW_FLAG_EVICTED) {
+    if (flags & VR_FLOW_FLAG_EVICTED) {
         return true;
     }
     return false;

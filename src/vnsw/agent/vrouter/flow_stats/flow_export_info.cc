@@ -5,22 +5,27 @@ FlowExportInfo::FlowExportInfo() :
     flow_(), setup_time_(0), teardown_time_(0), last_modified_time_(0),
     bytes_(0), packets_(0), underlay_source_port_(0), changed_(false),
     tcp_flags_(0), delete_enqueue_time_(0), evict_enqueue_time_(0),
-    visit_time_(0), exported_atleast_once_(false) {
+    visit_time_(0), exported_atleast_once_(false), gen_id_(0),
+    flow_handle_(FlowEntry::kInvalidFlowHandle) {
 }
 
-FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe) :
+FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe, uint32_t flow_handle,
+                               uint8_t gen_id) :
     flow_(fe), setup_time_(0), teardown_time_(0), last_modified_time_(0),
     bytes_(0), packets_(0), underlay_source_port_(0), changed_(true),
     tcp_flags_(0), delete_enqueue_time_(0), evict_enqueue_time_(0),
-    visit_time_(0), exported_atleast_once_(false) {
+    visit_time_(0), exported_atleast_once_(false), gen_id_(gen_id),
+    flow_handle_(flow_handle) {
 }
 
-FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe, uint64_t setup_time) :
+FlowExportInfo::FlowExportInfo(const FlowEntryPtr &fe, uint32_t flow_handle,
+                               uint8_t gen_id, uint64_t setup_time) :
     flow_(fe), setup_time_(setup_time),
     teardown_time_(0), last_modified_time_(setup_time),
     bytes_(0), packets_(0), underlay_source_port_(0), changed_(true),
     tcp_flags_(0), delete_enqueue_time_(0), evict_enqueue_time_(0),
-    visit_time_(0), exported_atleast_once_(false) {
+    visit_time_(0), exported_atleast_once_(false), gen_id_(gen_id),
+    flow_handle_(flow_handle) {
 }
 
 FlowEntry* FlowExportInfo::reverse_flow() const {
@@ -37,6 +42,12 @@ bool FlowExportInfo::IsActionLog() const {
         return true;
     }
     return false;
+}
+
+void FlowExportInfo::ResetStats() {
+    bytes_ = packets_ = 0;
+    tcp_flags_ = 0;
+    underlay_source_port_ = 0;
 }
 
 ///////////////////////////////////////////////////////////////////

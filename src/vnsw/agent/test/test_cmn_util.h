@@ -373,7 +373,8 @@ FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
                    uint16_t sport, uint16_t dport, int nh_id);
 bool FlowStatsMatch(const string &vrf_name, const char *sip, const char *dip,
                     uint8_t proto, uint16_t sport, uint16_t dport,
-                    uint64_t pkts, uint64_t bytes, int nh_id);
+                    uint64_t pkts, uint64_t bytes, int nh_id,
+                    uint32_t flow_handle = FlowEntry::kInvalidFlowHandle);
 bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
               uint8_t proto, uint16_t sport, uint16_t dport, bool nat,
               const string &nat_vrf_name, const char *nat_sip,
