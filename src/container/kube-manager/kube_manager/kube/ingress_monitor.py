@@ -7,11 +7,11 @@ class IngressMonitor(KubeMonitor):
 
     def __init__(self, args=None, logger=None, q=None):
         super(IngressMonitor, self).__init__(args,
-              logger, q, IngressKM)
-        self.handle = self.register_monitor('ingresses', beta=True)
+            logger, q, IngressKM, resource_name='ingresses', beta=True)
+        self.init_monitor()
         self.logger.info("IngressMonitor init done.");
 
-    def _process_ingress_event(self, event):
+    def process_event(self, event):
         event_type = event['type']
         kind = event['object'].get('kind')
 
@@ -34,20 +34,7 @@ class IngressMonitor(KubeMonitor):
         print("Put %s %s %s:%s" %(event_type, kind, namespace, name))
         self.q.put(event)
 
-    def process(self):
-        try:
-            line = next(self.handle)
-            if not line:
-                return
-        except StopIteration:
-            return
-
-        try:
-            self._process_ingress_event(json.loads(line))
-        except ValueError:
-            print("Invalid JSON data from response stream:%s" % line)
-
-    def ingress_callback(self):
+    def event_callback(self):
         while True:
             self.process()
             gevent.sleep(0)

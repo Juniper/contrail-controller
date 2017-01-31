@@ -27,31 +27,32 @@ class KubeNetworkManager(object):
         self.args = args
         self.logger = logger.KubeManagerLogger(args)
         self.q = Queue()
-
+        # All monitors supported by this manager.
+        self.monitors = {}
         kube_api_connected = False
         while not kube_api_connected:
             try:
                 self.kube = kube_monitor.KubeMonitor(
                     args=self.args, logger=self.logger, q=self.q)
 
-                self.namespace = namespace_monitor.NamespaceMonitor(
+                self.monitors['namespace'] = namespace_monitor.NamespaceMonitor(
                     args=self.args, logger=self.logger, q=self.q)
 
-                self.pod = pod_monitor.PodMonitor(args=self.args,
+                self.monitors['pod'] = pod_monitor.PodMonitor(args=self.args,
                     logger=self.logger, q=self.q)
 
-                self.service = service_monitor.ServiceMonitor(
+                self.monitors['service'] = service_monitor.ServiceMonitor(
                     args=self.args, logger=self.logger, q=self.q)
 
-                self.network_policy =\
+                self.monitors['network_policy'] =\
                     network_policy_monitor.NetworkPolicyMonitor(args=self.args,
                         logger=self.logger, q=self.q)
 
-                self.endpoint = \
+                self.monitors['endpoint'] = \
                     endpoint_monitor.EndPointMonitor(args=self.args,
                         logger=self.logger, q=self.q)
 
-                self.ingress = \
+                self.monitors['ingress'] = \
                     ingress_monitor.IngressMonitor(args=self.args,
                         logger=self.logger, q=self.q)
 
@@ -59,6 +60,10 @@ class KubeNetworkManager(object):
 
             except Exception as e:
                 time.sleep(5)
+
+        # Register all the known monitors.
+        for monitor in self.monitors.values():
+            monitor.register_monitor()
 
         self.vnc = vnc_kubernetes.VncKubernetes(args=self.args,
             logger=self.logger, q=self.q, kube=self.kube)
@@ -69,15 +74,11 @@ class KubeNetworkManager(object):
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
 
-        gevent.joinall([
-            gevent.spawn(self.vnc.vnc_process),
-            gevent.spawn(self.namespace.namespace_callback),
-            gevent.spawn(self.service.service_callback),
-            gevent.spawn(self.pod.pod_callback),
-            gevent.spawn(self.network_policy.network_policy_callback),
-            gevent.spawn(self.endpoint.endpoint_callback),
-            gevent.spawn(self.ingress.ingress_callback),
-        ])
+        greenlets = [gevent.spawn(self.vnc.vnc_process)]
+        for monitor in self.monitors.values():
+            greenlets.append(gevent.spawn(monitor.event_callback))
+
+        gevent.joinall(greenlets)
 
 def main():
     args = kube_args.parse_args()
