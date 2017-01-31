@@ -278,11 +278,12 @@ bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key) {
     return true;
 }
 
-bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry) const {
+bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry,
+                                       uint16_t flags) const {
     if (!entry) {
         return false;
     }
-    if (entry->fe_flags & VR_FLOW_FLAG_EVICTED) {
+    if (flags & VR_FLOW_FLAG_EVICTED) {
         return true;
     }
     return false;

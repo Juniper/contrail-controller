@@ -53,6 +53,11 @@ public:
 
     uint64_t visit_time() const { return visit_time_; }
     void set_visit_time(uint64_t t) { visit_time_ = t; }
+    uint8_t gen_id() const { return gen_id_; }
+    void set_gen_id(uint8_t value) { gen_id_ = value; }
+    uint32_t flow_handle() const { return flow_handle_; }
+    void set_flow_handle(uint32_t value) { flow_handle_ = value; }
+    void ResetStats();
 private:
     FlowEntryPtr flow_;
     uint64_t setup_time_;
@@ -71,6 +76,8 @@ private:
     uint64_t evict_enqueue_time_;
     uint64_t visit_time_;
     bool exported_atleast_once_;
+    uint8_t gen_id_;
+    uint32_t flow_handle_;
 };
 
 typedef boost::intrusive::list<FlowExportInfo> FlowExportInfoList;

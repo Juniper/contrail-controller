@@ -304,7 +304,8 @@ void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
 
 void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
                                         uint32_t bytes, uint32_t packets,
-                                        uint32_t oflow_bytes) {
+                                        uint32_t oflow_bytes,
+                                        uint32_t flow_handle, uint8_t gen_id) {
     if (flow == NULL) {
         return;
     }
@@ -316,7 +317,8 @@ void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
         return;
     }
 
-    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes);
+    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes, flow_handle,
+                          gen_id);
 }
 
 uint32_t FlowStatsManager::AllocateIndex() {
