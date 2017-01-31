@@ -29,28 +29,42 @@ public:
 
     FlowMgmtRequest(Event event, FlowEntry *flow) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
-        bytes_(), packets_(), oflow_bytes_(), params_() {
+        bytes_(), packets_(), oflow_bytes_(), params_(),
+        flow_handle_(flow->flow_handle()), flow_gen_id_(flow->gen_id()) {
+            if (event == RETRY_DELETE_VRF)
+                assert(vrf_id_);
+    }
+
+    FlowMgmtRequest(Event event, FlowEntry *flow, uint32_t handle,
+                    uint8_t flow_gen_id) :
+        event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
+        bytes_(), packets_(), oflow_bytes_(), params_(),
+        flow_handle_(handle), flow_gen_id_(flow_gen_id) {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
     }
 
     FlowMgmtRequest(Event event, FlowEntry *flow,
-                    const RevFlowDepParams &params) :
+                    const RevFlowDepParams &params, uint32_t handle,
+                    uint8_t flow_gen_id) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
-        bytes_(), packets_(), oflow_bytes_(), params_(params) {
+        bytes_(), packets_(), oflow_bytes_(), params_(params),
+        flow_handle_(handle), flow_gen_id_(flow_gen_id) {
     }
 
     FlowMgmtRequest(Event event, FlowEntry *flow, uint32_t bytes,
                     uint32_t packets, uint32_t oflow_bytes) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
-        bytes_(bytes), packets_(packets), oflow_bytes_(oflow_bytes), params_() {
+        bytes_(bytes), packets_(packets), oflow_bytes_(oflow_bytes), params_(),
+        flow_handle_(flow->flow_handle()), flow_gen_id_(flow->gen_id()) {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
     }
 
     FlowMgmtRequest(Event event, const DBEntry *db_entry, uint32_t gen_id) :
         event_(event), flow_(NULL), db_entry_(db_entry), vrf_id_(0),
-        gen_id_(gen_id), bytes_(), packets_(), oflow_bytes_(), params_() {
+        gen_id_(gen_id), bytes_(), packets_(), oflow_bytes_(), params_(),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), flow_gen_id_(0) {
             if (event == RETRY_DELETE_VRF) {
                 const VrfEntry *vrf = dynamic_cast<const VrfEntry *>(db_entry);
                 assert(vrf);
@@ -60,7 +74,8 @@ public:
 
     FlowMgmtRequest(Event event) :
         event_(event), flow_(NULL), db_entry_(NULL), vrf_id_(),
-        gen_id_(), bytes_(), packets_(), oflow_bytes_(), params_() {
+        gen_id_(), bytes_(), packets_(), oflow_bytes_(), params_(),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), flow_gen_id_(0) {
     }
 
     virtual ~FlowMgmtRequest() { }
@@ -105,6 +120,10 @@ public:
     uint32_t bytes() const { return bytes_;}
     uint32_t packets() const { return packets_;}
     uint32_t oflow_bytes() const { return oflow_bytes_;}
+    uint32_t flow_handle() const { return flow_handle_;}
+    void set_flow_handle(uint32_t value) { flow_handle_ = value;}
+    uint8_t flow_gen_id() const { return flow_gen_id_; }
+    void set_flow_gen_id(uint8_t value) { flow_gen_id_ = value; }
     const RevFlowDepParams& params() const { return params_; }
     void set_params(const RevFlowDepParams &params) {
         params_ = params;
@@ -123,6 +142,8 @@ private:
     uint32_t packets_;
     uint32_t oflow_bytes_;
     RevFlowDepParams params_;
+    uint32_t flow_handle_;
+    uint8_t flow_gen_id_;
 
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtRequest);
 };

@@ -288,6 +288,65 @@ TEST_F(TestFlowTable, EvictPktTrapBeforeReverseFlowResp) {
     client->WaitForIdle();
 }
 
+TEST_F(TestFlowTable, ResetFlowStats) {
+    TxTcpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
+                    remote_vm1_ip, vm1_ip, 1000, 200, 1, 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(remote_vm1_ip, vm1_ip, IPPROTO_TCP, 1000,
+                              200, vif0->flow_key_nh()->id(), 1);
+    EXPECT_TRUE(flow != NULL);
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow != NULL);
+
+    //Invoke FlowStatsCollector to check whether flow gets evicted
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle();
+
+    //Verify the stats of flow
+    EXPECT_TRUE(FlowStatsMatch("vrf1", remote_vm1_ip, vm1_ip, IPPROTO_TCP, 1000,
+                               200, 1, 30, vif0->flow_key_nh()->id(), 1));
+
+    //Change the stats
+    KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
+
+    //Invoke FlowStatsCollector to enqueue delete for evicted flow.
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle();
+
+    //Verify the stats of flow
+    EXPECT_TRUE(FlowStatsMatch("vrf1", remote_vm1_ip, vm1_ip, IPPROTO_TCP, 1000,
+                               200, 2, 60, vif0->flow_key_nh()->id(), 1));
+
+    TxTcpMplsPacket(eth->id(), remote_compute, router_id_, vif0->label(),
+                    remote_vm1_ip, vm1_ip, 1000, 200, 1, 10);
+    client->WaitForIdle();
+
+    flow = FlowGet(remote_vm1_ip, vm1_ip, IPPROTO_TCP, 1000,
+                   200, vif0->flow_key_nh()->id(), 10);
+    EXPECT_TRUE(flow != NULL);
+
+    //Verify that flow-handle is updated in flow-stats module
+    FlowStatsCollector *fsc = flow->fsc();
+    EXPECT_TRUE(fsc != NULL);
+    FlowExportInfo *info = fsc->FindFlowExportInfo(flow);
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(info->flow_handle() == 10);
+
+    //Verify the stats of flow are reset after change of flow-handle
+    EXPECT_TRUE(FlowStatsMatch("vrf1", remote_vm1_ip, vm1_ip, IPPROTO_TCP, 1000,
+                               200, 0, 0, vif0->flow_key_nh()->id(), 10));
+
+    //Invoke FlowStatsCollector to enqueue delete for reverse flow which is
+    //marked as short flow
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle();
+
+    //Verify the stats of flow
+    EXPECT_TRUE(FlowStatsMatch("vrf1", remote_vm1_ip, vm1_ip, IPPROTO_TCP, 1000,
+                               200, 1, 30, vif0->flow_key_nh()->id(), 10));
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;
     GETUSERARGS();

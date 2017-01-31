@@ -240,6 +240,24 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     //Verify flow count
     EXPECT_EQ(4U, flow_proto_->FlowCount());
 
+    FlowStatsCollector *fsc = f1->fsc();
+    EXPECT_TRUE(fsc != NULL);
+    FlowExportInfo *info = fsc->FindFlowExportInfo(f1);
+    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(f1_rev);
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
+    WAIT_FOR(1000, 10000, (f1->flow_handle() == info->flow_handle()));
+    WAIT_FOR(1000, 10000, (f1_rev->flow_handle() == rinfo->flow_handle()));
+
+    fsc = f2->fsc();
+    EXPECT_TRUE(fsc != NULL);
+    info = fsc->FindFlowExportInfo(f2);
+    rinfo = fsc->FindFlowExportInfo(f2_rev);
+    EXPECT_TRUE(info != NULL);
+    EXPECT_TRUE(rinfo != NULL);
+    WAIT_FOR(100, 10000, (f2->flow_handle() == info->flow_handle()));
+    WAIT_FOR(100, 10000, (f2_rev->flow_handle() == rinfo->flow_handle()));
+
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
     client->WaitForIdle(10);
@@ -255,9 +273,9 @@ TEST_F(StatsTestMock, FlowStatsTest) {
                                flow1->flow_key_nh()->id()));
 
     //Change the stats
-    KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f1->flow_handle(), 1, 30);
     KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), 1, 30);
-    KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
+    KSyncSockTypeMap::IncrFlowStats(f2->flow_handle(), 1, 30);
     KSyncSockTypeMap::IncrFlowStats(f2_rev->flow_handle(), 1, 30);
 
     //Invoke FlowStatsCollector to update the stats
@@ -266,11 +284,11 @@ TEST_F(StatsTestMock, FlowStatsTest) {
 
     //Verify the updated flow stats. Flow was deleted and re-added when
     //reverse packet was setn
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30,
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 2, 60,
                                flow0->flow_key_nh()->id()));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 2, 60,
                                flow1->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60,
                                flow0->flow_key_nh()->id()));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60,
                                flow1->flow_key_nh()->id()));

@@ -253,6 +253,7 @@ public:
     int flow_ksync_task_id() const { return flow_ksync_task_id_; }
     static void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
                             tbb::mutex **mutex_ptr_1, tbb::mutex **mutex_ptr_2);
+    void AddFlowInfo(FlowEntry *fe);
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
@@ -267,7 +268,6 @@ private:
     void DeleteInternal(FlowEntry *fe, uint64_t t, const RevFlowDepParams &p);
     void DeleteFlowInfo(FlowEntry *fe, const RevFlowDepParams &params);
 
-    void AddFlowInfo(FlowEntry *fe);
     void UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow);
 
     void UpdateUnLocked(FlowEntry *flow, FlowEntry *rflow);
