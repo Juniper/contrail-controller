@@ -896,8 +896,12 @@ class DBInterface(object):
     # end _subnet_vnc_read_mapping
 
     def _subnet_vnc_get_prefix(self, subnet_vnc):
-        pfx = subnet_vnc.subnet.get_ip_prefix()
-        pfx_len = subnet_vnc.subnet.get_ip_prefix_len()
+        if subnet_vnc.subnet:
+            pfx = subnet_vnc.subnet.get_ip_prefix()
+            pfx_len = subnet_vnc.subnet.get_ip_prefix_len()
+        else:
+            pfx = '0.0.0.0'
+            pfx_len = 0
 
         network = IPNetwork('%s/%s' % (pfx, pfx_len))
         return str(network)
@@ -3729,48 +3733,48 @@ class DBInterface(object):
         # initialize port object
         port_obj = self._port_neutron_to_vnc(port_q, net_obj, CREATE)
 
-        # determine creation of v4 and v6 ip object
-        ip_obj_v4_create = False
-        ip_obj_v6_create = False
-        ipam_refs = net_obj.get_network_ipam_refs() or []
-        for ipam_ref in ipam_refs:
-            subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
-            for subnet_vnc in subnet_vncs:
-                cidr = '%s/%s' %(subnet_vnc.subnet.get_ip_prefix(),
-                                 subnet_vnc.subnet.get_ip_prefix_len())
-                if (IPNetwork(cidr).version == 4):
-                    ip_obj_v4_create = True
-                if (IPNetwork(cidr).version == 6):
-                    ip_obj_v6_create = True
-
+        # always request for v4 and v6 ip object and handle the failure
         # create the object
         port_id = self._resource_create('virtual_machine_interface', port_obj)
         self._vnc_lib.chown(port_id, tenant_id)
         # add support, nova boot --nic subnet-id=subnet_uuid
         subnet_id = port_q.get('subnet_id')
-        try:
-            if 'fixed_ips' in port_q:
+        net_fq_name = net_obj.get_fq_name()
+        net_fq_name_str = str([str(a) for a in net_fq_name])
+        if 'fixed_ips' in port_q:
+            try:
                 self._port_create_instance_ip(net_obj, port_obj, port_q)
-            elif net_obj.get_network_ipam_refs():
-                if (ip_obj_v4_create is True):
-                    self._port_create_instance_ip(net_obj, port_obj,
-                         {'fixed_ips':[{'ip_address': None,
-                                        'subnet_id':subnet_id}]},
-                                                  ip_family="v4")
-                if (ip_obj_v6_create is True):
-                    self._port_create_instance_ip(net_obj, port_obj,
-                         {'fixed_ips':[{'ip_address': None,
-                                        'subnet_id':subnet_id}]},
-                                                  ip_family="v6")
-        except BadRequest as e:
-            # failure in creating the instance ip. Roll back
-            self._virtual_machine_interface_delete(port_id=port_id)
-            self._raise_contrail_exception('BadRequest', resource='port', msg=str(e))
-        except vnc_exc.HttpError:
-            # failure in creating the instance ip. Roll back
-            self._virtual_machine_interface_delete(port_id=port_id)
-            self._raise_contrail_exception('IpAddressGenerationFailure',
-                                           net_id=net_obj.uuid)
+            except BadRequest as e:
+                # failure in creating the instance ip. Roll back
+                self._virtual_machine_interface_delete(port_id=port_id)
+                self._raise_contrail_exception('BadRequest', resource='port',
+                                               msg=str(e))
+        elif net_obj.get_network_ipam_refs():
+            ipv4_port_delete = False
+            ipv6_port_delete = False
+            try:
+                self._port_create_instance_ip(net_obj, port_obj,
+                     {'fixed_ips':[{'ip_address': None,
+                                    'subnet_id':subnet_id}]},
+                                              ip_family="v4")
+            except BadRequest as e:
+                ipv4_port_delete = True
+
+            try:
+                self._port_create_instance_ip(net_obj, port_obj,
+                     {'fixed_ips':[{'ip_address': None,
+                                    'subnet_id':subnet_id}]},
+                                              ip_family="v6")
+            except BadRequest as e:
+                ipv6_port_delete = True
+
+            # if if bad request is for both ipv4 and ipv6
+            # delete the port and Roll back
+            if ipv4_port_delete and ipv6_port_delete:
+                    self._virtual_machine_interface_delete(port_id=port_id)
+                    self._raise_contrail_exception('BadRequest',
+                                                   resource='port', msg=str(e))
+
         # TODO below reads back default parent name, fix it
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
