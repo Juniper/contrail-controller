@@ -37,7 +37,7 @@ public:
             return true;
         }
 
-        fec->ExportFlow(info, bytes_, pkts_, NULL);
+        fec->ExportFlow(info, bytes_, pkts_, NULL, true);
         return true;
     }
     std::string Description() const { return "FlowExportTask"; }
