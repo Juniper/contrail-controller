@@ -189,7 +189,7 @@ class KubeManagerLogger(object):
             self._module["node_type_name"], self._module["instance_id"],
             self._args.collectors, 'kube_manager_context',
             int(self._args.http_server_port),
-            ['cfgm_common', 'kube_manager.sandesh', 'kube_introspect.sandesh'],
+            ['cfgm_common', 'kube_manager'],
             self._module["discovery"], logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)
