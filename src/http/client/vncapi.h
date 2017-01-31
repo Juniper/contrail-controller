@@ -84,5 +84,6 @@ class VncApi : public boost::enable_shared_from_this<VncApi> {
                 std::map<std::string, std::string> *headers)> cb);
     void RespHandler(RespBlock *rb, std::string &str,
             boost::system::error_code &ec);
+    std::string GetToken(RespBlock *rb) const;
 };
 #endif
