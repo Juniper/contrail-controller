@@ -92,23 +92,12 @@ bool ZookeeperClientImpl::Connect() {
                                          NULL,
                                          NULL,
                                          0);
-        // Unfortunately, EINVAL is highly overloaded in zookeeper_init
-        // and can correspond to:
-        //   (1) Empty / invalid 'host' string format.
-        //   (2) Any getaddrinfo error other than EAI_NONAME,
-        //       EAI_NODATA, and EAI_MEMORY are mapped to EINVAL.
-        // Either way, retrying is not problematic.
-        if (zk_handle_ == NULL && errno == EINVAL) {
-            ZOO_LOG(WARN, "zookeeper_init FAILED: (" << errno <<
-                "): retrying in 1 second");
-            sleep(1);
-            continue;
-        }
         if (zk_handle_ == NULL) {
             int zerrno(errno);
-            ZOO_LOG_ERR("zookeeper_init returned NULL zhandle: ("
-                << zerrno << ")");
-            return false;
+            ZOO_LOG_ERR("zookeeper_init FAILED: (" << zerrno <<
+                "): servers: " << servers_ << " retrying in 1 second");
+            sleep(1);
+            continue;
         }
         // Block till session is connected
         while (!connected_) {
