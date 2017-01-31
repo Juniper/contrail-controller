@@ -22,6 +22,7 @@
 
 
 import os
+import errno
 import urllib
 from collections import OrderedDict
 import sys
@@ -148,6 +149,11 @@ def getCertKeyCaBundle(bundle, certs):
         if not bundle_is_stale:
             return bundle
 
+    try:
+        os.makedirs(os.path.dirname(bundle))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
     with open(bundle, 'w') as ofile:
         for cert in certs:
             with open(cert) as ifile:
