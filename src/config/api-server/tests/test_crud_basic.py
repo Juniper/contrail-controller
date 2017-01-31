@@ -2,6 +2,9 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import gevent.monkey
+gevent.monkey.patch_all()
+
 import os
 import sys
 import socket
@@ -401,6 +404,17 @@ class TestCrud(test_case.ApiServerTestCase):
         with ExpectedException(BadRequest) as e:
             port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
        #end test_service_interface_type_value
+
+    def test_physical_router_credentials(self):
+        user_cred_create = UserCredentials(username="test_user", password="test_pswd")
+        phy_rout = PhysicalRouter(physical_router_user_credentials=user_cred_create)
+        self._vnc_lib.physical_router_create(phy_rout)
+
+        phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_rout.uuid)
+        user_cred_read = phy_rout_obj.get_physical_router_user_credentials()
+        if user_cred_read.password != '**Password Hidden**':
+            raise Exception("ERROR: physical-router: password should be hidden")
+       #end test_physical_router_credentials
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):

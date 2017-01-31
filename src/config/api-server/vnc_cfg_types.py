@@ -119,6 +119,14 @@ class ResourceDbMixin(object):
         pass
     #end dbe_delete_notification
 
+    @classmethod
+    def pre_dbe_read(cls, id, db_conn):
+        return True, ''
+
+    @classmethod
+    def post_dbe_read(cls, obj_dict, db_conn):
+        return True
+
 # end class ResourceDbMixin
 
 class Resource(ResourceDbMixin):
@@ -2583,3 +2591,13 @@ class FloatingIpPoolServer(Resource, FloatingIpPool):
 
         return True, ""
 # end class FloatingIpPoolServer
+
+class PhysicalRouterServer(Resource, PhysicalRouter):
+    @classmethod
+    def post_dbe_read(cls, obj_dict, db_conn):
+        if 'physical_router_user_credentials' in obj_dict:
+            if obj_dict['physical_router_user_credentials'].get('password'):
+                obj_dict['physical_router_user_credentials']['password'] = "**Password Hidden**"
+
+        return True
+# end class PhysicalRouterServer
