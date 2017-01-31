@@ -28,7 +28,7 @@ class KSyncFlowIndexManager;
 struct FlowKSyncResponseInfo {
     int ksync_error_;
     uint32_t flow_handle_;
-    uint32_t gen_id_;
+    uint8_t gen_id_;
     uint64_t evict_flow_bytes_;
     uint64_t evict_flow_packets_;
     int32_t evict_flow_oflow_;
@@ -92,7 +92,7 @@ public:
         ksync_response_info_.Reset();
     }
     void SetKSyncResponseInfo(int ksync_error, uint32_t flow_handle,
-                              uint32_t gen_id, uint64_t evict_flow_bytes,
+                              uint8_t gen_id, uint64_t evict_flow_bytes,
                               uint64_t evict_flow_packets,
                               int32_t evict_flow_oflow) {
         ksync_response_info_.ksync_error_ = ksync_error;
