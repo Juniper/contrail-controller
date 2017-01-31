@@ -2429,6 +2429,10 @@ class OpServer(object):
             instance_id = elem['instance-id']
             port = int(elem['redis-port']) 
             ip_address = elem['ip-address']
+            # If AlarmGenerator sends partitions as NULL, its
+            # unable to provide service
+            if not elem['partitions']:
+                continue
             parts = json.loads(elem['partitions'])
             for partstr,acq_time in parts.iteritems():
                 partno = int(partstr)
