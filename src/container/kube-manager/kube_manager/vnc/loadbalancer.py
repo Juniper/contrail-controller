@@ -22,102 +22,108 @@ class ServiceLbManager(object):
             return None
         return lb_obj
 
-    def delete(self, id):
-        try:
-            lb = self._vnc_lib.loadbalancer_read(id=id)
-        except NoIdError:
-            loadbalancerv2.EntityNotFound(name=self.resource_name, id=id)
+    def delete(self, service_id):
+        lb = LoadbalancerKM.get(service_id)
+        if not lb:
+            return
 
-        lb_vmi_refs = lb.get_virtual_machine_interface_refs()
-        self._vnc_lib.loadbalancer_delete(id=id)
-        self._delete_virtual_interface(lb_vmi_refs)
+        self._vnc_lib.loadbalancer_delete(id=service_id)
+        vmi_ids = lb.virtual_machine_interfaces
+        if vmi_ids is None:
+            return None
+        self._delete_virtual_interface(vmi_ids)
 
 
     def _create_virtual_interface(self, proj_obj, vn_obj, service_name,
                                   vip_address=None, subnet_uuid=None):
         obj_uuid = str(uuid.uuid1())
         name = obj_uuid + "-" + service_name
-        vmi = VirtualMachineInterface(name=name, parent_obj=proj_obj)
-        vmi.uuid = obj_uuid
-        vmi.set_virtual_network(vn_obj)
-        vmi.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
+        vmi_obj = VirtualMachineInterface(name=name, parent_obj=proj_obj)
+        vmi_obj.uuid = obj_uuid
+        vmi_obj.set_virtual_network(vn_obj)
+        vmi_obj.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
         sg_obj = SecurityGroup("default", proj_obj)
-        vmi.add_security_group(sg_obj)
+        vmi_obj.add_security_group(sg_obj)
         try:
-            self._vnc_lib.virtual_machine_interface_create(vmi)
+            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            VirtualMachineInterfaceKM.locate(vmi_obj.uuid)
+            iip_ids = set()
+            vmi_id = vmi_obj.uuid
+        except BadRequest as e:
+            return None, None
         except RefsExistError:
-            self._vnc_lib.virtual_machine_interface_update(vmi)
-        #VirtualMachineInterfaceKM.locate(vmi.uuid)
-        vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi.uuid)
-        iip_refs = vmi.get_instance_ip_back_refs()
+            vmi_id = self._vnc_lib.fq_name_to_id('virtual-machine-interface',vmi_obj.get_fq_name())
+            if vmi_id:
+                vmi = VirtualMachineInterfaceKM.get(vmi_id)
+                iip_ids = vmi.instance_ips
+            else:
+                self.logger.warning("Create virtual interface failed for"
+                    " service (" + service_name + ")" + " RefExistError but vmi doesn't exist")
+                return None, None
 
-        if iip_refs is not None:
-            iip = self._vnc_lib.instance_ip_read(id=iip_refs[0]['uuid'])
-            if iip.get_instance_ip_address() == vip_address:
+        try:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
+        except NoIdError:
+            self.logger.warning("Read Service virtual interface failed for"
+                " service (" + service_name + ")" + " NoIdError for vmi(" + vmi_id + ") doesn't exist")
+            return None, None
+
+        for iip_id in list(iip_ids):
+            iip_obj = self._vnc_lib.instance_ip_read(id=iip_id)
+            if iip_obj.get_instance_ip_address() == vip_address:
                 return vmi, vip_address
 
-            fip_refs = iip.get_floating_ips()
+            fip_refs = iip_obj.get_floating_ips()
             for ref in fip_refs or []:
                 fip = self._vnc_lib.floating_ip_read(id=ref['uuid'])
                 fip.set_virtual_machine_interface_list([])
                 self._vnc_lib.floating_ip_update(fip)
                 self._vnc_lib.floating_ip_delete(id=ref['uuid'])
-            self._vnc_lib.instance_ip_delete(id=iip_refs[0]['uuid'])
+            self._vnc_lib.instance_ip_delete(id=iip_obj.uuid)
 
-        iip_obj = InstanceIp(name=service_name)
+        ip_name = str(uuid.uuid4())
+        iip_obj = InstanceIp(name=ip_name)
+        iip_obj.uuid = ip_name
         iip_obj.set_virtual_network(vn_obj)
         if subnet_uuid:
             iip_obj.set_subnet_uuid(subnet_uuid)
         iip_obj.set_virtual_machine_interface(vmi)
+        iip_obj.set_display_name(service_name)
         if vip_address:
             iip_obj.set_instance_ip_address(vip_address)
         try:
             self._vnc_lib.instance_ip_create(iip_obj)
         except RefsExistError:
             self._vnc_lib.instance_ip_update(iip_obj)
-        #InstanceIpKM.locate(iip_obj.uuid)
-        iip = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
-        vip_address = iip.get_instance_ip_address()
+        InstanceIpKM.locate(iip_obj.uuid)
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_obj.uuid)
+        vip_address = iip_obj.get_instance_ip_address()
 
-        return vmi, vip_address
+        return vmi_obj, vip_address
 
-    def _delete_virtual_interface(self, vmi_list):
-        if vmi_list is None:
-            return
+    def _delete_virtual_interface(self, vmi_ids):
+        for vmi_id in vmi_ids:
+            vmi = VirtualMachineInterfaceKM.get(vmi_id)
+            if vmi:
+                # Delete vmi-->floating-ip
+                fip_ids = vmi.floating_ips.copy()
+                for fip_id in fip_ids:
+                    self._vnc_lib.floating_ip_delete(id=fip_id)
 
-        for vmi_ref in vmi_list:
-            interface_id = vmi_ref['uuid']
-            try:
-                vmi = self._vnc_lib.virtual_machine_interface_read(id=interface_id)
-            except NoIdError as ex:
-                LOG.error(ex)
-                continue
+                ip_ids = vmi.instance_ips.copy()
+                for ip_id in ip_ids:
+                    ip = InstanceIpKM.get(ip_id)
+                    if ip:
+                        fip_ids = ip.floating_ips.copy()
+                        for fip_id in fip_ids:
+                            # Delete vmi-->instance-ip-->floating-ip
+                            self._vnc_lib.floating_ip_delete(id=fip_id)
 
-            ip_refs = vmi.get_instance_ip_back_refs()
-            for ip_ref in ip_refs or []:
-                try:
-                    ip = self._vnc_lib.instance_ip_read(id=ip_ref['uuid'])
-                except NoIdError as ex:
-                    LOG.error(ex)
-                    continue
+                        # Delete vmi-->instance-ip
+                        self._vnc_lib.instance_ip_delete(id=ip_id)
 
-                fip_refs = ip.get_floating_ips()
-                for ref in fip_refs or []:
-                    self._vnc_lib.floating_ip_delete(id=ref['uuid'])
-                self._vnc_lib.instance_ip_delete(id=ip_ref['uuid'])
-
-            fip_refs = vmi.get_floating_ip_back_refs()
-            for ref in fip_refs or []:
-                try:
-                    fip = self._api.floating_ip_read(id=ref['uuid'])
-                except NoIdError as ex:
-                    LOG.error(ex)
-                    continue
-                fip.set_virtual_machine_interface_list([])
-                self._vnc_lib.floating_ip_update(fip)
-                self._vnc_lib.floating_ip_delete(fip)
-
-            self._vnc_lib.virtual_machine_interface_delete(id=interface_id)
+                # Delete vmi
+                self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
 
     def _check_provider_exists(self, loadbalancer_provider):
         """
