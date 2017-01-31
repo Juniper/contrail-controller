@@ -68,29 +68,49 @@ UserDefinedCounters::UDCHandler(rapidjson::Document &jdoc,
     if (jdoc.IsObject() && jdoc.HasMember("global-system-configs")) {
         for (rapidjson::SizeType j=0;
                     j < jdoc["global-system-configs"].Size(); j++) {
-            if (jdoc["global-system-configs"][j]["user_defined_log_statistics"].
-                    IsObject()) {
-                const rapidjson::Value& gsc = jdoc["global-system-configs"][j]
-                        ["user_defined_log_statistics"]["statlist"];
-                if (gsc.IsArray()) {
-                    for (rapidjson::SizeType i = 0; i < gsc.Size(); i++) {
-                        std::string name = gsc[i]["name"].GetString(),
-                                    patrn = gsc[i]["pattern"].GetString();
-                        AddConfig(name, patrn);
-                        std::cout << "\nname: " << name << "\npattern: "
-                            << patrn << "\n";
-                    }
-                    Cfg_t::iterator cit=config_.begin();
-                    while (cit != config_.end()) {
-                        Cfg_t::iterator dit = cit++;
-                        if (!dit->second->IsRefreshed()) {
-                            UserDefinedLogStatistic udc;
-                            udc.set_name(dit->first);
-                            udc.set_deleted(true);
-                            UserDefinedLogStatisticUVE::Send(udc);
-                            config_.erase(dit);
-                        }
-                    }
+
+            if (!jdoc["global-system-configs"][j].HasMember(
+                      "user_defined_log_statistics")) {
+                    continue;
+            }
+
+            if (!jdoc["global-system-configs"][j]
+                     ["user_defined_log_statistics"].IsObject()) {
+                continue;
+            }
+
+            if (!jdoc["global-system-configs"][j]
+                     ["user_defined_log_statistics"].HasMember("statlist")) {
+                continue;
+            }
+
+            const rapidjson::Value& gsc = jdoc["global-system-configs"][j]
+                    ["user_defined_log_statistics"]["statlist"];
+            if (!gsc.IsArray()) {
+                continue;
+            }
+
+            for (rapidjson::SizeType i = 0; i < gsc.Size(); i++) {
+                if (!gsc[i].IsObject() || !gsc[i].HasMember("name") ||
+                        !gsc[i].HasMember("pattern")) {
+                    continue;
+                }
+                std::string name = gsc[i]["name"].GetString(),
+                            patrn = gsc[i]["pattern"].GetString();
+                AddConfig(name, patrn);
+                std::cout << "\nname: " << name << "\npattern: "
+                    << patrn << "\n";
+            }
+
+            Cfg_t::iterator cit=config_.begin();
+            while (cit != config_.end()) {
+                Cfg_t::iterator dit = cit++;
+                if (!dit->second->IsRefreshed()) {
+                    UserDefinedLogStatistic udc;
+                    udc.set_name(dit->first);
+                    udc.set_deleted(true);
+                    UserDefinedLogStatisticUVE::Send(udc);
+                    config_.erase(dit);
                 }
             }
         }
