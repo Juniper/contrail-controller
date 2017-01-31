@@ -29,6 +29,7 @@ class VncKubernetes(object):
         self.logger = logger
         self.q = q
         self.kube = kube
+        self.vm_dict = {}
 
         # init vnc connection
         self.vnc_lib = self._vnc_connect()
@@ -59,7 +60,7 @@ class VncKubernetes(object):
             self.label_cache, self.args, self.logger, self.kube)
         self.pod_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
-            self.label_cache, self.service_mgr,
+            self.label_cache, self.service_mgr, self.vm_dict, self.q,
             svc_fip_pool = self._get_cluster_service_fip_pool())
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
@@ -89,7 +90,15 @@ class VncKubernetes(object):
     def _sync_km(self):
         for cls in DBBaseKM.get_obj_type_map().values():
             for obj in cls.list_obj():
-                cls.locate(obj['uuid'], obj)
+                obj_km = cls.locate(obj['uuid'], obj)
+                if cls.obj_type == 'virtual_machine':
+                    annotations = obj.get('annotations', None)
+                    if not annotations:
+                        continue
+                    for kvp in annotations['key_value_pair'] or []:
+                        if kvp['key'] == 'device_owner' \
+                           and kvp['value'] == 'K8S:POD':
+                            self.vm_dict[obj['uuid']] = obj_km
 
     @staticmethod
     def reset():
@@ -296,6 +305,9 @@ class VncKubernetes(object):
 
     def _get_cluster_network(self):
         return VirtualNetworkKM.find_by_name_or_uuid('cluster-network')
+
+    def vnc_timer(self):
+        self.pod_mgr.pod_timer()
 
     def vnc_process(self):
         while True:

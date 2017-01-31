@@ -13,10 +13,14 @@ from kube_manager.common.kube_config_db import NamespaceKM
 class VncPod(object):
 
     def __init__(self, vnc_lib=None, label_cache=None, service_mgr=None,
-                     svc_fip_pool = None):
+                 vm_dict={}, queue=None, svc_fip_pool=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self._service_mgr = service_mgr
+        self._vm_dict = vm_dict
+        self._pod_dict = {}
+        self._queue = queue
+        self._timer_tick = 0
         self._service_fip_pool = svc_fip_pool
 
     def _get_network(self, pod_id, pod_namespace):
@@ -119,15 +123,37 @@ class VncPod(object):
             self._label_cache._remove_label(key,
                 self._label_cache.pod_label_cache, label, pod_id)
 
+    def _update_pod_dict(self, pod_id):
+        self._pod_dict[pod_id] = pod_id
+        return
+
+    def _update_vm_dict(self, pod_id, vm):
+        self._vm_dict[pod_id] = vm
+        return
+
+    def _delete_pod_vm_dict_entry(self, pod_id):
+        if pod_id in self._vm_dict:
+            del self._vm_dict[pod_id]
+        if pod_id in self._pod_dict:
+            del self._pod_dict[pod_id]
+        return
+
     def _create_vm(self, pod_id, pod_name, labels):
         vm_obj = VirtualMachine(name=pod_name)
         vm_obj.uuid = pod_id
+        annotations = {}
+        annotations['device_owner'] = 'K8S:POD'
+        for key in annotations:
+            vm_obj.add_annotations(KeyValuePair(key=key, value=annotations[key]))
+        vm_obj.add_annotations(KeyValuePair(key='labels', value=labels))
         try:
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
             vm_obj = self._vnc_lib.virtual_machine_read(id=pod_id)
         vm = VirtualMachineKM.locate(vm_obj.uuid)
         vm.pod_labels = labels
+        self._update_pod_dict(pod_id)
+        self._update_vm_dict(pod_id, vm)
         return vm_obj
 
     def _link_vm_to_node(self, vm_obj, pod_node):
@@ -144,6 +170,10 @@ class VncPod(object):
             vm.virtual_router = vrouter_obj.uuid
 
     def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, labels):
+        vm = VirtualMachineKM.get(pod_id)
+        if vm:
+            self._update_pod_dict(pod_id)
+            return
         vn_obj = self._get_network(pod_id, pod_namespace)
         vm_obj = self._create_vm(pod_id, pod_name, labels)
         vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
@@ -180,6 +210,7 @@ class VncPod(object):
     def vnc_pod_delete(self, pod_id, pod_name, labels):
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
+            self._delete_pod_vm_dict_entry(pod_id)
             return
 
         if vm.virtual_router:
@@ -195,6 +226,44 @@ class VncPod(object):
             self._vnc_lib.virtual_machine_delete(id=pod_id)
         except NoIdError:
             pass
+
+        self._delete_pod_vm_dict_entry(pod_id)
+        return
+
+    def _create_pod_event(self, event_type, pod_id, vm_obj):
+        event = {}
+        object = {}
+        object['kind'] = 'Pod'
+        object['metadata'] = {}
+        object['metadata']['uid'] = pod_id
+        object['metadata']['labels'] = vm_obj.pod_labels
+        if event_type == 'delete':
+            event['type'] = 'DELETED'
+            event['object'] = object
+            self._queue.put(event)
+        return
+
+    def _sync_pod_vm(self):
+        vm_uuid_list = self._vm_dict.keys()
+        pod_uuid_list = self._pod_dict.keys()
+        total = len(vm_uuid_list)
+        iter_count = 500
+        start_idx = self._timer_tick * iter_count
+        if start_idx > total:
+            start_idx = 0
+        end_idx = start_idx + iter_count
+        if end_idx > total:
+            end_idx = total
+        for idx in range(start_idx, end_idx):
+            uuid = vm_uuid_list[idx]
+            if uuid not in pod_uuid_list:
+                self._create_pod_event('delete', uuid, self._vm_dict[uuid])
+        return
+
+    def pod_timer(self):
+        self._sync_pod_vm()
+        self._timer_tick += 1
+        return
 
     def process(self, event):
         pod_id = event['object']['metadata'].get('uid')

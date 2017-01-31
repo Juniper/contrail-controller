@@ -25,6 +25,8 @@ import kube.ingress_monitor as ingress_monitor
 class KubeNetworkManager(object):
     def __init__(self, args=None):
         self.args = args
+        if 'kube_timer_interval' not in self.args:
+            self.args.kube_timer_interval = '60'
         self.logger = logger.KubeManagerLogger(args)
         self.q = Queue()
 
@@ -66,6 +68,25 @@ class KubeNetworkManager(object):
     def _kube_object_cache_enabled(self):
         return True if self.args.kube_object_cache == 'True' else False;
 
+    def launch_timer(self):
+        if not self.args.kube_timer_interval.isdigit():
+            self.logger.emergency("set seconds for kube_timer_interval "
+                                  "in contrail-kubernetes.conf. \
+                                   example: kube_timer_interval=60")
+            sys.exit()
+        self.logger.notice("kube_timer_interval set to %s seconds" %
+                            self.args.kube_timer_interval)
+        time.sleep(int(self.args.kube_timer_interval))
+        while True:
+            gevent.sleep(int(self.args.kube_timer_interval))
+            try:
+                self.timer_callback()
+            except Exception:
+                pass
+
+    def timer_callback(self):
+        self.vnc.vnc_timer()
+
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
 
@@ -77,6 +98,7 @@ class KubeNetworkManager(object):
             gevent.spawn(self.network_policy.network_policy_callback),
             gevent.spawn(self.endpoint.endpoint_callback),
             gevent.spawn(self.ingress.ingress_callback),
+            gevent.spawn(self.launch_timer),
         ])
 
 def main():
