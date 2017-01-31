@@ -85,20 +85,6 @@ TEST_F(ZookeeperClientTest, Basic) {
     EXPECT_FALSE(cImpl->IsConnected());
 }
 
-TEST_F(ZookeeperClientTest, ZookeeperInitFail) {
-    ZookeeperMockInterface *zmi(new ZookeeperMockInterface);
-    EXPECT_CALL(*zmi, ZooSetDebugLevel(_));
-    impl::ZookeeperClientImpl *cImpl(
-        new impl::ZookeeperClientImpl("Test", "127.0.0.1:2181", zmi));
-    std::auto_ptr<ZookeeperClient> client(CreateClient(cImpl));
-    std::string zk_lock_name("/test-lock");
-    ZookeeperLock zk_lock(client.get(), zk_lock_name.c_str());
-    std::string zk_lock_id(GetLockId(zk_lock));
-    EXPECT_CALL(*zmi, ZookeeperInit(StrEq("127.0.0.1:2181"), _, _, _, _, _));
-    EXPECT_FALSE(zk_lock.Lock());
-    EXPECT_FALSE(cImpl->IsConnected());
-}
-
 TEST_F(ZookeeperClientTest, ZooStateConnecting2Connect) {
     ZookeeperMockInterface *zmi(new ZookeeperMockInterface);
     EXPECT_CALL(*zmi, ZooSetDebugLevel(_));
