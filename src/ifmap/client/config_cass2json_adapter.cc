@@ -68,6 +68,9 @@ bool ConfigCass2JsonAdapter::AddOneEntry(const string &obj_type,
             string prop_value = cdvec.at(i).value;
             if (cdvec.at(i).key.substr(prop_plen_) == "security_group_id") {
                 prop_value = "\"" + prop_value + "\"";
+            } else if (cdvec.at(i).key.substr(prop_plen_) == "bgpaas_session_attributes") {
+                // TODO remove this once schema is fixed
+                prop_value = "\"\"";
             }
             doc_string_ += string("\"" + cdvec.at(i).key.substr(prop_plen_) +
                                   "\":" + prop_value);
