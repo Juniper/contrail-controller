@@ -76,15 +76,13 @@ public:
     bool SendRemote(const std::string& destination, const std::string& dec_sandesh);
     void RedisUpdate(bool rsc) {
         collector_->RedisUpdate(rsc);
-        if (rsc) {
-            redis_gen_ ++;
-            CollectorPublish();
-        }
+        if (rsc) redis_gen_ ++;
+        CollectorPublish(rsc);
     }
     void SendDbStatistics();
     void SendProtobufCollectorStatistics();
     void SendGeneratorStatistics();
-    void CollectorPublish();
+    void CollectorPublish(bool rsc);
     bool GetCqlMetrics(cass::cql::Metrics *metrics);
 
     static const unsigned int kPartCountCnodes = 1;

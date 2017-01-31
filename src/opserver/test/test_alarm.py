@@ -43,7 +43,7 @@ logging.getLogger("stevedore.extension").setLevel(logging.WARNING)
 
 
 class TestChecker(object):
-    @retry(delay=1, tries=3)
+    @retry(delay=1, tries=4)
     def checker_dict(self,expected,actual,match=True):
         residual = actual
         matched = True
@@ -64,7 +64,7 @@ class TestChecker(object):
             (str(expected), str(actual), str(match)))
         return result
     
-    @retry(delay=1, tries=3)
+    @retry(delay=1, tries=4)
     def checker_exact(self,expected,actual,match=True):
         result = False
         logging.info("exact exp %s actual %s match %s" % \

@@ -87,16 +87,19 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             ttl_map, cassandra_user, cassandra_password,
             db_initializer_->GetDbHandler()));
     }
-    CollectorPublish();
 }
 
 void
-VizCollector::CollectorPublish()
+VizCollector::CollectorPublish(bool rsc)
 {
     if (!collector_) return;
     DiscoveryServiceClient *ds_client = Collector::GetCollectorDiscoveryServiceClient();
     if (!ds_client) return;
     string service_name = g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME;
+    if (!rsc) {
+        ds_client->WithdrawPublish(service_name);
+        return;
+    }
     stringstream pub_ss;
     pub_ss << "<" << service_name << "><ip-address>" << Collector::GetSelfIp() <<
             "</ip-address><port>" << collector_->GetPort() <<
