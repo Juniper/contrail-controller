@@ -1665,10 +1665,12 @@ void PktFlowInfo::UpdateEvictedFlowStats(const PktInfo *pkt) {
     FlowMgmtManager *mgr = agent->pkt()->flow_mgmt_manager(
                                flow_table->table_index());
 
+    /* Enqueue stats update request with gen-id and flow-handle */
     if (flow.get() && flow->deleted() == false) {
         mgr->FlowStatsUpdateEvent(flow.get(), pkt->agent_hdr.cmd_param_2,
                                   pkt->agent_hdr.cmd_param_3,
-                                  pkt->agent_hdr.cmd_param_4);
+                                  pkt->agent_hdr.cmd_param_4,
+                                  pkt->agent_hdr.cmd_param, flow->gen_id());
     }
 }
 

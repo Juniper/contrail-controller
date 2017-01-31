@@ -21,18 +21,24 @@ public:
     };
 
     FlowExportReq(Event event, const FlowExportInfo &info) :
-        event_(event), info_(info), time_(0) {
+        event_(event), info_(info), time_(0), bytes_(0), packets_(0),
+        oflow_bytes_(0), flow_handle_(FlowEntry::kInvalidFlowHandle),
+        gen_id_(0) {
     }
 
     FlowExportReq(Event event, const FlowExportInfo &info, uint64_t time,
                   const RevFlowDepParams &p) :
-        event_(event), info_(info), time_(time), params_(p) {
+        event_(event), info_(info), time_(time), bytes_(0), packets_(0),
+        oflow_bytes_(0), params_(p),
+        flow_handle_(FlowEntry::kInvalidFlowHandle), gen_id_(0) {
     }
 
     FlowExportReq(Event event, const FlowExportInfo &info, uint32_t bytes,
-                  uint32_t packets, uint32_t oflow_bytes) :
+                  uint32_t packets, uint32_t oflow_bytes, uint32_t flow_handle,
+                  uint8_t gen_id) :
                   event_(event), info_(info), bytes_(bytes), packets_(packets),
-                  oflow_bytes_(oflow_bytes) {
+                  oflow_bytes_(oflow_bytes), flow_handle_(flow_handle),
+                  gen_id_(gen_id) {
     }
 
     ~FlowExportReq() { }
@@ -43,6 +49,8 @@ public:
     uint32_t bytes() const { return bytes_;}
     uint32_t packets() const { return packets_;}
     uint32_t oflow_bytes() const { return oflow_bytes_;}
+    uint32_t flow_handle() const { return flow_handle_;}
+    uint8_t gen_id() const { return gen_id_;}
     const RevFlowDepParams& params() const { return params_; }
 
 private:
@@ -53,6 +61,8 @@ private:
     uint32_t packets_;
     uint32_t oflow_bytes_;
     RevFlowDepParams params_;
+    uint32_t flow_handle_;
+    uint8_t gen_id_;
     DISALLOW_COPY_AND_ASSIGN(FlowExportReq);
 };
 #endif //  __AGENT_FLOW_EXPORT_REQUEST_H__
