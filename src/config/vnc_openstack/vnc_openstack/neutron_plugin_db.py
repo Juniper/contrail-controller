@@ -100,7 +100,7 @@ class DBInterface(object):
 
     def _validate_project_ids(self, context, project_ids):
         if context and not context['is_admin']:
-            return [context['tenant']]
+            return [str(uuid.UUID(context['tenant']))]
 
         return_project_ids = []
         for project_id in project_ids:
