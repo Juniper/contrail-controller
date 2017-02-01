@@ -271,13 +271,14 @@ void FlowStatsCollector::UpdateAndExportFlowStats(FlowEntry *flow,
                                                   RevFlowDepParams *params) {
     FlowTableKSyncObject *ksync_obj = Agent::GetInstance()->ksync()->
                                          flowtable_ksync_obj();
-    const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(flow);
+    vr_flow_stats k_stats;
+    const vr_flow_entry *k_flow = ksync_obj->GetKFlowAndStats(flow, &k_stats);
     if (k_flow) {
         uint64_t diff_bytes, diff_pkts;
-        UpdateFlowStatsInternal(flow, k_flow->fe_stats.flow_bytes,
-                                k_flow->fe_stats.flow_bytes_oflow,
-                                k_flow->fe_stats.flow_packets,
-                                k_flow->fe_stats.flow_packets_oflow, time,
+        UpdateFlowStatsInternal(flow, k_stats.flow_bytes,
+                                k_stats.flow_bytes_oflow,
+                                k_stats.flow_packets,
+                                k_stats.flow_packets_oflow, time,
                                 true, &diff_bytes, &diff_pkts);
         FlowExport(flow, diff_bytes, diff_pkts, params);
         return;
@@ -663,6 +664,16 @@ void FlowStatsCollector::DeleteFlow(boost::shared_ptr<FlowExportReq> &req) {
         RevFlowDepParams params = req->params();
         UpdateAndExportFlowStats(fe, req->time(), &params);
     }
+
+    /* The following callback will be initialized only by UT code to collect
+     * stats before it is reset. We are having both test_mode check and callback
+     * empty check because test_mode check is less expensive than empty check */
+    if (agent_uve_->agent()->test_mode()) {
+        if (!collect_stats_for_flow_cb_.empty()) {
+            collect_stats_for_flow_cb_(fe);
+        }
+    }
+
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
      * values */
