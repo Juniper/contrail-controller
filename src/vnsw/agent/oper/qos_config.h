@@ -219,7 +219,7 @@ private:
     AgentQosConfigNameMap name_map_;
     std::set<boost::uuids::uuid> vhost_qos_config_uuids_;
     std::set<boost::uuids::uuid> fabric_qos_config_uuids_;
-    IndexVector<AgentQosConfig> index_table_;
+    IndexVector<AgentQosConfig *> index_table_;
     DISALLOW_COPY_AND_ASSIGN(AgentQosConfigTable);
 };
 #endif
