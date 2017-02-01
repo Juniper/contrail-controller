@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#! /usr/bin/python
 #
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
@@ -19,9 +19,49 @@ from sandesh_common.vns.constants import ServiceHttpPortMap, \
 
 DPDK_NETLINK_TCP_PORT = 20914
 
+CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
+                                  'upstart' : ['supervisor-vrouter'],
+                                  'systemd' : ['contrail-vrouter-agent',
+                                               'contrail-vrouter-nodemgr']},
+                     'control' : {'sysv' : ['supervisor-control'],
+                                  'upstart' : ['supervisor-control'],
+                                  'systemd' :['contrail-control',
+                                              'contrail-named',
+                                              'contrail-dns',
+                                              'contrail-control-nodemgr']},
+                     'config' : {'sysv' : ['supervisor-config'],
+                                 'upstart' : ['supervisor-config'],
+                                 'systemd' :['contrail-api',
+                                             'contrail-schema',
+                                             'contrail-svc-monitor',
+                                             'contrail-device-manager',
+                                             'contrail-config-nodemgr',
+                                             'ifmap']},
+                     'analytics' : {'sysv' : ['supervisor-analytics'],
+                                    'upstart' : ['supervisor-analytics'],
+                                    'systemd' :['contrail-collector',
+                                                'contrail-analytics-api',
+                                                'contrail-query-engine',
+                                                'contrail-alarm-gen',
+                                                'contrail-snmp-collector',
+                                                'contrail-topology',
+                                                'contrail-analytics-nodemgr',]},
+                     'database' : {'sysv' : ['supervisor-database'],
+                                   'upstart' : ['supervisor-database'],
+                                  'systemd' :['kafka',
+                                              'contrail-database-nodemgr']},
+                     'webui' : {'sysv' : ['supervisor-webui'],
+                                'upstart' : ['supervisor-webui'],
+                                'systemd' :['contrail-webui',
+                                            'contrail-webui-middleware']},
+                     'support-service' : {'sysv' : ['supervisor-support-service'],
+                                          'upstart' : ['supervisor-support-service'],
+                                          'systemd' :['rabbitmq-server',
+                                                      'zookeeper']},
+                    }
 distribution = platform.linux_distribution()[0].lower()
 if distribution.startswith('centos') or \
-   distribution.startswith('redhat'):
+   distribution.startswith('red hat'):
     distribution = 'redhat'
 elif distribution.startswith('ubuntu'):
     distribution = 'debian'
@@ -37,6 +77,11 @@ except:
         init = 'upstart'
     except:
         init = 'sysv'
+
+# contrail services in redhat system uses sysv, though systemd is default.
+init_sys_used = init
+if distribution in ['redhat']:
+    init_sys_used = 'sysv'
 
 class EtreeToDict(object):
     """Converts the xml etree to dictionary/list of dictionary."""
@@ -153,67 +198,59 @@ class IntrospectUtil(object):
 
 #end class IntrospectUtil
 
-def service_installed(svc):
-    if distribution == 'redhat':
-        cmd = 'chkconfig --list %s' % svc
+def service_installed(svc, initd_svc):
+    if (distribution == 'debian' and not init == 'systemd'):
+        if initd_svc:
+            return os.path.exists('/etc/init.d/' + svc)
+        cmd = 'initctl show-config ' + svc
     else:
-        if init == 'systemd':
-            cmd = 'systemctl cat %s' % svc
-        elif init == 'upstart':
-            cmd = 'initctl show-config %s' % svc
-        else:
-            return os.path.exists('/etc/init.d/%s' % svc)
-
+        cmd = 'chkconfig --list ' + svc
     with open(os.devnull, "w") as fnull:
         return not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull)
 
-def service_bootstatus(svc):
-    if distribution == 'redhat':
-        cmd = 'chkconfig %s' % svc
-    else:
-        if init == 'systemd':
-            cmd = 'systemctl is-enabled %s' % svc
-        elif init == 'upstart':
-            cmd = 'initctl show-config %s' % svc
-            cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
-            if cmdout.find('  start on') != -1:
+def service_bootstatus(svc, initd_svc):
+    if (distribution == 'debian' and not init == 'systemd'):
+        # On ubuntu/debian there does not seem to be an easy way to find
+        # the boot status for init.d services without going through the
+        # /etc/rcX.d level
+        if initd_svc:
+            if glob.glob('/etc/rc*.d/S*' + svc):
                 return ''
             else:
                 return ' (disabled on boot)'
-        else:
-            # On ubuntu/debian there does not seem to be an easy way to find
-            # the boot status for init.d services without going through the
-            # /etc/rcX.d level
-            if glob.glob('/etc/rc*.d/S*%s' % svc):
-                return ''
-            else:
-                return ' (disabled on boot)'
-
-    with open(os.devnull, "w") as fnull:
-        if not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull):
+        cmd = 'initctl show-config ' + svc
+        cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
+        if cmdout.find('  start on') != -1:
             return ''
         else:
             return ' (disabled on boot)'
-
-def service_status(svc):
-    if init == 'systemd':
-        cmd = 'systemctl status %s' % svc
-    elif init == 'upstart':
-        cmd = 'initctl status %s' % svc
     else:
-        cmd = 'service %s status | grep -i -e running -e active' % svc
+        cmd = 'chkconfig ' + svc
+        with open(os.devnull, "w") as fnull:
+            if not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull):
+                return ''
+            else:
+                return ' (disabled on boot)'
 
-    with open(os.devnull, "w") as fnull:
-        if not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull):
+def service_status(svc, initd_svc):
+    cmd = 'service ' + svc + ' status'
+    p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+    cmdout = p.communicate()[0]
+    if initd_svc:
+        if p.returncode == 0 or 'Active: active' in cmdout:
             return 'active'
         else:
             return 'inactive'
+    if cmdout.find('running') != -1:
+        return 'active'
+    else:
+        return 'inactive'
 
-def check_svc(svc):
+def check_svc(svc, initd_svc=False):
     psvc = svc + ':'
-    if service_installed(svc):
-        bootstatus = service_bootstatus(svc)
-        status = service_status(svc)
+    if service_installed(svc, initd_svc):
+        bootstatus = service_bootstatus(svc, initd_svc)
+        status = service_status(svc, initd_svc)
     else:
         bootstatus = ' (disabled on boot)'
         status='inactive'
@@ -377,34 +414,40 @@ def check_svc_status(service_name, debug, detail, timeout):
 
 def check_status(svc_name, options):
     check_svc(svc_name)
-    check_svc_status(svc_name, options.debug, options.detail, options.timeout)
+    if init_sys_used not in ['systemd']:
+        check_svc_status(svc_name, options.debug, options.detail, options.timeout)
 
-def supervisor_status(nodetype, options):
+def contrail_service_status(nodetype, options):
     if nodetype == 'compute':
         print "== Contrail vRouter =="
-        check_status('supervisor-vrouter', options)
+        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            check_status(svc_name, options)
     elif nodetype == 'config':
         print "== Contrail Config =="
-        check_status('supervisor-config', options)
+        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            check_status(svc_name, options)
     elif nodetype == 'control':
         print "== Contrail Control =="
-        check_status('supervisor-control', options)
+        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            check_status(svc_name, options)
     elif nodetype == 'analytics':
         print "== Contrail Analytics =="
-        check_status('supervisor-analytics', options)
+        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            check_status(svc_name, options)
     elif nodetype == 'database':
         print "== Contrail Database =="
-        check_svc('contrail-database')
+        check_svc('contrail-database', initd_svc=True)
         print ""
-        print "== Contrail Supervisor Database =="
-        check_status('supervisor-database', options)
+        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            check_status(svc_name, options)
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
-        check_status('supervisor-webui', options)
-    elif nodetype == 'support-service' and \
-         distribution == 'debian':
+        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            check_status(svc_name, options)
+    elif (nodetype == 'support-service' and distribution == 'debian'):
         print "== Contrail Support Services =="
-        check_status('supervisor-support-service', options)
+        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            check_status(svc_name, options)
 
 def package_installed(pkg):
     if distribution == 'debian':
@@ -460,28 +503,36 @@ def main():
     if agent:
         if not vr:
             print "vRouter is NOT PRESENT\n"
-        supervisor_status('compute', options)
+        contrail_service_status('compute', options)
     else:
         if vr:
             print "vRouter is PRESENT\n"
 
     if control:
-        supervisor_status('control', options)
+        contrail_service_status('control', options)
 
     if analytics:
-        supervisor_status('analytics', options)
+        contrail_service_status('analytics', options)
 
     if capi:
-        supervisor_status('config', options)
+        contrail_service_status('config', options)
 
     if cwebui or cwebstorage:
-        supervisor_status('webui', options)
+        contrail_service_status('webui', options)
 
     if database:
-        supervisor_status('database', options)
+        contrail_service_status('database', options)
 
     if capi:
-        supervisor_status('support-service', options)
+        if init in ['systemd']:
+            contrail_service_status('support-service', options)
+        else:
+            service_name = 'supervisor-support-service'
+            service_sock = service_name.replace('-', '_')
+            service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
+            service_sock = "/var/run/%s" % service_sock
+            if os.path.exists(service_sock):
+                contrail_service_status('support-service', options)
 
     if storage:
         print "== Contrail Storage =="
