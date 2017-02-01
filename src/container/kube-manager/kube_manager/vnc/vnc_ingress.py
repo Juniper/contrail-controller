@@ -107,6 +107,11 @@ class VncIngress(object):
                           address, port, annotations)
         return member_obj
 
+    def _vnc_update_member(self, member_id, address, port, annotations):
+        member_obj = self.service_lb_member_mgr.update(member_id,
+                          address, port, annotations)
+        return member_obj
+
     def _vnc_create_pool(self, namespace, ll, port, lb_algorithm, annotations):
         proj_obj = self._get_project(namespace)
         ll_obj = self.service_ll_mgr.read(ll.uuid)
@@ -155,7 +160,61 @@ class VncIngress(object):
         self._deallocate_floating_ip(lb_obj)
         self.service_lb_mgr.delete(lb_obj.uuid)
 
-    def _get_backend_list(self, spec):
+    def _get_old_backend_list(self, lb):
+        backend_list = []
+        listener_list = lb.loadbalancer_listeners
+        for ll_id in listener_list:
+            backend = {}
+            backend['listener_id'] = ll_id
+            ll = LoadbalancerListenerKM.get(ll_id)
+            pool_id = ll.loadbalancer_pool
+            if pool_id:
+                pool = LoadbalancerPoolKM.get(pool_id)
+                if pool.annotations is None:
+                    annotations = {}
+                    kvps = []
+                    pool_obj = self._vnc_lib.loadbalancer_pool_read(id=pool_id)
+                    kvps_len = len(pool_obj.annotations.key_value_pair)
+                    for count in range(0, kvps_len):
+                         kvp = {}
+                         kvp['key'] = pool_obj.annotations.key_value_pair[count].key
+                         kvp['value'] = pool_obj.annotations.key_value_pair[count].value
+                         kvps.append(kvp)
+                    annotations['key_value_pair'] = kvps
+                else:
+                    annotations = pool.annotations
+                backend['pool_id'] = pool_id
+                backend['annotations'] = {}
+                for kvp in annotations['key_value_pair'] or []:
+                    key = kvp['key']
+                    value = kvp['value']
+                    backend['annotations'][key] = value
+                backend['member'] = {}
+                member_id = list(pool.members)[0]
+                member = LoadbalancerMemberKM.get(member_id)
+                if member.annotations is None:
+                    annotations = {}
+                    kvps = []
+                    member_obj = self._vnc_lib.loadbalancer_member_read(id=member_id)
+                    kvps_len = len(member_obj.annotations.key_value_pair)
+                    for count in range(0, kvps_len):
+                         kvp = {}
+                         kvp['key'] = member_obj.annotations.key_value_pair[count].key
+                         kvp['value'] = member_obj.annotations.key_value_pair[count].value
+                         kvps.append(kvp)
+                    annotations['key_value_pair'] = kvps
+                else:
+                    annotations = member.annotations
+                backend['member_id'] = member_id
+                for kvp in annotations['key_value_pair'] or []:
+                    if kvp['key'] == 'serviceName':
+                        backend['member']['serviceName'] = kvp['value']
+                        backend['member']['servicePort'] = member.params['protocol_port']
+                        break
+            backend_list.append(backend)
+        return backend_list
+
+    def _get_new_backend_list(self, spec):
         backend_list = []
         rules = []
         if 'rules' in spec:
@@ -198,6 +257,8 @@ class VncIngress(object):
         if 'clusterIP' in service_info['spec']:
             service_ip = service_info['spec']['clusterIP']
             member_match = False
+            annotations = {}
+            annotations['serviceName'] = service_name
             for member_id in pool.members:
                 member = LoadbalancerMemberKM.get(member_id)
                 if member and member.params['address'] == service_ip \
@@ -206,8 +267,31 @@ class VncIngress(object):
                     break
             if not member_match:
                 member_obj = self._vnc_create_member(pool, \
-                                  service_ip, service_port, None)
+                                  service_ip, service_port, annotations)
                 member = LoadbalancerMemberKM.locate(member_obj.uuid)
+        return member
+
+    def _update_member(self, namespace, backend_member, pool):
+        member_id = backend_member['member_id']
+        new_service_name = backend_member['serviceName']
+        new_service_port = backend_member['servicePort']
+        member = LoadbalancerMemberKM.get(member_id)
+        annotations = member.annotations
+        for kvp in annotations['key_value_pair'] or []:
+            if kvp['key'] == 'serviceName':
+                old_service_name = kvp['value']
+                break
+        old_service_port = member.params['protocol_port']
+        if new_service_name != old_service_name:
+            service_info = self._kube.get_resource(resource_type, new_service_name, namespace)
+            if 'clusterIP' in service_info['spec']:
+                service_ip = service_info['spec']['clusterIP']
+        else:
+            service_ip = member.params['address']
+        annotations = {}
+        annotations['serviceName'] = new_service_name
+        member_obj = self._vnc_update_member(member_id, service_ip, new_service_port, annotations)
+        member = LoadbalancerMemberKM.update(member)
         return member
 
     def _create_pool(self, namespace, ll, port, lb_algorithm, annotations):
@@ -233,16 +317,49 @@ class VncIngress(object):
                 return
             lb = LoadbalancerKM.locate(uid)
 
-        self._delete_all_listeners(lb)
+        spec = event['object']['spec']
+        new_backend_list = self._get_new_backend_list(spec)
+        old_backend_list = self._get_old_backend_list(lb)
 
+        # find the unchanged backends
+        for new_backend in new_backend_list[:] or []:
+            for old_backend in old_backend_list[:] or []:
+                if new_backend['annotations'] == old_backend['annotations'] and \
+                    new_backend['member'] == old_backend['member']:
+                    old_backend_list.remove(old_backend)
+                    new_backend_list.remove(new_backend)
+        if len(old_backend_list) == 0 and len(new_backend_list) == 0:
+            return lb
+
+        # find the updated backends and update
+        backend_update_list = []
+        for new_backend in new_backend_list[:] or []:
+            for old_backend in old_backend_list[:] or []:
+                if new_backend['annotations'] == old_backend['annotations']:
+                    backend = old_backend
+                    backend['member']['member_id'] = old_backend['member_id']
+                    backend['member']['serviceName'] = new_backend['member']['serviceName']
+                    backend['member']['servicePort'] = new_backend['member']['servicePort']
+                    backend_update_list.append(backend)
+                    old_backend_list.remove(old_backend)
+                    new_backend_list.remove(new_backend)
+        for backend in backend_update_list or []:
+            pool = LoadbalancerPoolKM.get(backend['pool_id'])
+            backend_member = backend['member']
+            self._update_member(namespace, backend_member, pool)
+        if len(old_backend_list) == 0 and len(new_backend_list) == 0:
+            return lb
+
+        # delete the old backends
+        for backend in old_backend_list or []:
+            self._delete_listener(backend['listener_id'])
+
+        # create the new backends
         port = {}
         lb_algorithm = "ROUND_ROBIN"
         port['protocol'] = 'HTTP'
         port['port'] = '80'
-
-        spec = event['object']['spec']
-        backend_list = self._get_backend_list(spec)
-        for backend in backend_list:
+        for backend in new_backend_list:
             ll = self._create_listener(namespace, lb, port)
             annotations = {}
             for key in backend['annotations']:
@@ -269,6 +386,20 @@ class VncIngress(object):
                 LoadbalancerPoolKM.delete(pool_id)
             self._vnc_delete_listener(ll_id)
             LoadbalancerListenerKM.delete(ll_id)
+
+    def _delete_listener(self, ll_id):
+        ll = LoadbalancerListenerKM.get(ll_id)
+        pool_id = ll.loadbalancer_pool
+        if pool_id:
+            pool = LoadbalancerPoolKM.get(pool_id)
+            member_list = pool.members.copy()
+            for member_id in member_list:
+                self._vnc_delete_member(member_id)
+                LoadbalancerMemberKM.delete(member_id)
+            self._vnc_delete_pool(pool_id)
+            LoadbalancerPoolKM.delete(pool_id)
+        self._vnc_delete_listener(ll_id)
+        LoadbalancerListenerKM.delete(ll_id)
 
     def _delete_lb(self, uid):
         lb_obj = LoadbalancerKM.get(uid)

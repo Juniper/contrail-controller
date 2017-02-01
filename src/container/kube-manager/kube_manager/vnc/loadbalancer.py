@@ -283,3 +283,21 @@ class ServiceLbMemberManager(object):
                 member_obj.add_annotations(KeyValuePair(key=key, value=annotations[key]))
         self._vnc_lib.loadbalancer_member_create(member_obj)
         return member_obj
+
+    def update(self, member_id, address, port, annotations):
+        """
+        Update a loadbalancer_member object.
+        """
+        member_obj = self._vnc_lib.loadbalancer_member_read(id=member_id)
+        props = LoadbalancerMemberType(address=address, protocol_port=port)
+        member_obj.set_loadbalancer_member_properties(props)
+        if annotations:
+            kvps = []
+            for key in annotations.keys():
+                kvp = {}
+                kvp['key'] = key
+                kvp['value'] = annotations[key]
+                kvps.append(kvp)
+            member_obj.set_annotations(KeyValuePairs(kvps))
+        self._vnc_lib.loadbalancer_member_update(member_obj)
+        return member_obj
