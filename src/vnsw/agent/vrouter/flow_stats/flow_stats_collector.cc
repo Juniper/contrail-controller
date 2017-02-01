@@ -168,20 +168,28 @@ uint64_t FlowStatsCollector::GetFlowStats(const uint16_t &oflow_data,
 }
 
 uint64_t FlowStatsCollector::GetUpdatedFlowBytes(const FlowStats *stats,
-                                                 uint64_t k_flow_bytes) {
+                                                 uint64_t k_flow_bytes,
+                                                 bool delete_marked) {
     uint64_t oflow_bytes = 0xffff000000000000ULL & stats->bytes;
     uint64_t old_bytes = 0x0000ffffffffffffULL & stats->bytes;
     if (old_bytes > k_flow_bytes) {
+        if (delete_marked) {
+            return stats->bytes;
+        }
         oflow_bytes += 0x0001000000000000ULL;
     }
     return (oflow_bytes |= k_flow_bytes);
 }
 
 uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowStats *stats,
-                                                   uint64_t k_flow_pkts) {
+                                                   uint64_t k_flow_pkts,
+                                                   bool delete_marked) {
     uint64_t oflow_pkts = 0xffffff0000000000ULL & stats->packets;
     uint64_t old_pkts = 0x000000ffffffffffULL & stats->packets;
     if (old_pkts > k_flow_pkts) {
+        if (delete_marked) {
+            return stats->packets;
+        }
         oflow_pkts += 0x0000010000000000ULL;
     }
     return (oflow_pkts |= k_flow_pkts);
@@ -686,8 +694,8 @@ void FlowStatsCollector::UpdateFlowStatsInternal(FlowEntry *flow,
     k_packets = GetFlowStats(oflow_pkts, pkts);
 
     FlowStats *stats = &(flow->stats_);
-    total_bytes = GetUpdatedFlowBytes(stats, k_bytes);
-    total_packets = GetUpdatedFlowPackets(stats, k_packets);
+    total_bytes = GetUpdatedFlowBytes(stats, k_bytes, flow->deleted());
+    total_packets = GetUpdatedFlowPackets(stats, k_packets, flow->deleted());
     *diff_bytes = total_bytes - stats->bytes;
     *diff_pkts = total_packets - stats->packets;
     stats->bytes = total_bytes;

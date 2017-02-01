@@ -132,8 +132,10 @@ private:
                       uint64_t curr_time, const FlowEntry *flow);
     bool TcpFlowShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
                              uint64_t curr_time, const FlowEntry *flow);
-    uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
-    uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
+    uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts,
+                                   bool delete_marked);
+    uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes,
+                                 bool delete_marked);
     InterfaceUveTable::FloatingIp *ReverseFlowFip(const FlowEntry *flow);
     void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow,
                           RevFlowDepParams *params);
