@@ -11,6 +11,21 @@ from cfgm_common.vnc_db import DBBase
 
 class DBBaseKM(DBBase):
     obj_type = __name__
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        self._fq_name_to_uuid[tuple(obj_dict['fq_name'])] = uuid
+
+    @classmethod
+    def get_fq_name_to_uuid(cls, fq_name):
+        return cls._fq_name_to_uuid.get(tuple(fq_name))
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        del cls._fq_name_to_uuid[tuple(self.fq_name)]
 
     def evaluate(self):
         # Implement in the derived class
@@ -448,7 +463,8 @@ class SecurityGroupKM(DBBaseKM):
         self.virtual_machine_interfaces = set()
         self.annotations = None
         self.rule_entries = None
-        self.update(obj_dict)
+        obj_dict = self.update(obj_dict)
+        super(SecurityGroupKM, self).__init__(uuid, obj_dict)
 
     def update(self, obj=None):
         if obj is None:
@@ -458,6 +474,7 @@ class SecurityGroupKM(DBBaseKM):
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.annotations = obj.get('annotations', None)
         self.rule_entries = obj.get('security_group_entries', None)
+        return obj
 
     @classmethod
     def delete(cls, uuid):
@@ -465,6 +482,7 @@ class SecurityGroupKM(DBBaseKM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
+        super(SecurityGroupKM, cls).delete(uuid)
         del cls._dict[uuid]
 
 class FloatingIpPoolKM(DBBaseKM):
