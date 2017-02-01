@@ -114,6 +114,17 @@
         ],
         "misc_test_targets" : [ ]
     },
+    "contrail-container" : {
+        "source_directories" : [
+            "controller/src/container"
+        ],
+        "scons_test_targets" : [
+            "controller/src/container/kube_cni:test",
+            "controller/src/container/kube_manager:test",
+            "controller/src/container/mesos_manager:test"
+        ],
+        "misc_test_targets" : [ ]
+    },
     "contrail-libs" : {
         "source_directories" : [
             "controller/src/base",
