@@ -221,6 +221,12 @@ class VirtualMachineKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        if self.annotations:
+            for kvp in self.annotations['key_value_pair'] or []:
+                if kvp['key'] == 'labels':
+                    self.pod_labels = kvp['value']
+                    break
         self.update_single_ref('virtual_router', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
 
@@ -232,7 +238,6 @@ class VirtualMachineKM(DBBaseKM):
         obj.update_single_ref('virtual_router', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
-
 
 class VirtualRouterKM(DBBaseKM):
     _dict = {}
