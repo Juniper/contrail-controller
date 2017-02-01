@@ -239,7 +239,7 @@ private:
 
     DB *db_;
     static VrfTable *vrf_table_;
-    IndexVector<VrfEntry> index_table_;
+    IndexVector<VrfEntry *> index_table_;
     VrfNameTree name_tree_;
     VrfDbTree dbtree_[Agent::ROUTE_TABLE_MAX];
     DBTableWalker::WalkId walkid_;

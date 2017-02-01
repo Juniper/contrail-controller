@@ -549,9 +549,11 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
             if (local_peer_path == NULL &&
                 local_vm_peer_path == NULL)
                 delete_label = true;
-        } 
-        if (delete_label)
+        }
+        if (delete_label) {
             agent->mpls_table()->DeleteMcastLabel(path->label());
+            FreeMplsLabel(path->label());
+        }
 
         return;
     }
@@ -572,7 +574,7 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
         // XOR use - we shud never reach here when both are NULL or set.
         // Only one should be present.
         assert((local_vm_peer_path != NULL) ^ (local_peer_path != NULL));
-        *evpn_label = agent->mpls_table()->AllocLabel();
+        *evpn_label = AllocateMplsLabel();
     }
     assert(*evpn_label != MplsTable::kInvalidLabel);
     path->set_label(*evpn_label);
@@ -812,6 +814,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         //Delete Old label, in case label has changed for same peer.
         if (old_fabric_mpls_label != fabric_peer_path->label()) {
             agent->mpls_table()->DeleteMcastLabel(old_fabric_mpls_label);
+            FreeMplsLabel(old_fabric_mpls_label);
         }
     }
 
