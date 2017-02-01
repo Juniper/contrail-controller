@@ -32,7 +32,7 @@ class VncNetworkPolicy(object):
             result.update(pod_ids)
         return result
 
-    def _append_sg_rule(self, sg, sg_rule):
+    def _add_sg_rule(self, sg, sg_rule):
         sg_obj = self._vnc_lib.security_group_read(id=sg.uuid)
         rules = sg_obj.get_security_group_entries()
         if rules is None:
@@ -49,14 +49,14 @@ class VncNetworkPolicy(object):
         sg_obj.set_security_group_entries(rules)
         self._vnc_lib.security_group_update(sg_obj)
 
-    def _delete_sg_rules(self, sg_obj, sg, ip_addr):
-        sg_obj = self._vnc_lib.security_group_read(id=sg.uuid)
+    def _delete_sg_rule(self, sg_uuid, rule_uuid):
+        sg_obj = self._vnc_lib.security_group_read(id=sg_uuid)
         rules = sg_obj.get_security_group_entries()
         if rules is None:
             return
 
         for sgr in rules.get_policy_rule() or []:
-            if sgr.ip_addr != ip_addr:
+            if sgr.rule_uuid != rule_uuid:
                 continue
             rules.delete_policy_rule(sgr)
             update_sg = True
@@ -99,29 +99,6 @@ class VncNetworkPolicy(object):
             for policy_id in policy_ids:
                 self._sg_2_pod_link(pod_id, policy_id, 'ADD')
 
-    def _delete_src_pod_from_policy(self, pod_id, policy_id):
-        sg = SecurityGroupKM.get(policy_id)
-        if not sg:
-            return
-        vm = VirtualMachineKM.get(pod_id)
-        if not vm:
-            return
-
-        ip_addr = None
-        for vmi_id in vm.virtual_machine_interfaces:
-            vmi = VirtualMachineInterfaceKM.get(vmi_id)
-            if not vmi:
-                continue
-            for iip_id in vmi.instance_ips:
-                iip = InstanceIpKM.get(iip_id)
-                if not iip:
-                    continue
-                ip_addr = iip.address
-        if not ip_addr:
-            return
-
-        self._delete_sg_rule(sg, ip_addr)
-
     def vnc_pod_delete(self, event):
         labels = event['object']['metadata']['labels']
         pod_id = event['object']['metadata']['uid']
@@ -131,11 +108,7 @@ class VncNetworkPolicy(object):
 
             policy_ids = self.policy_src_label_cache.get(key, [])
             for policy_id in policy_ids:
-                self._delete_src_pod_from_policy(pod_id, policy_id)
-
-            policy_ids = self.policy_dest_label_cache.get(key, [])
-            for policy_id in policy_ids:
-                self._sg_2_pod_link(pod_id, policy_id, 'DELETE')
+                self._delete_sg_rule(policy_id, pod_id)
 
     def _set_sg_rule(self, sg, src_pod, ports):
         vm = VirtualMachineKM.get(src_pod)
@@ -155,7 +128,7 @@ class VncNetworkPolicy(object):
         if not ip_addr:
             return
 
-        sgr_uuid = str(uuid.uuid4())
+        sgr_uuid = src_pod
         src_addr = AddressType(subnet=SubnetType(ip_addr, 32))
         dst_addr = AddressType(security_group='local')
         for port in ports:
@@ -167,7 +140,7 @@ class VncNetworkPolicy(object):
                 dst_addresses=[dst_addr],
                 dst_ports=[PortType(int(port['port']), int(port['port']))],
                 ethertype='IPv4')
-            self._append_sg_rule(sg, rule)
+            self._add_sg_rule(sg, rule)
 
     def _set_sg_rules(self, sg, event):
         update = False
