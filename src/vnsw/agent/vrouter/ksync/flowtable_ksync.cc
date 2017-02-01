@@ -604,6 +604,25 @@ const vr_flow_entry *FlowTableKSyncObject::GetValidKFlowEntry
     return kflow;
 }
 
+const vr_flow_entry *FlowTableKSyncObject::GetKFlowAndStats
+    (FlowEntry *fe, vr_flow_stats *k_stats) const {
+
+    const vr_flow_entry *k_flow = GetValidKFlowEntry(fe);
+    bool hold_flow = false;
+    if (k_flow) {
+        if (k_flow->fe_action == VR_FLOW_ACTION_HOLD) {
+            hold_flow = true;
+            k_flow = NULL;
+        } else {
+            *k_stats = k_flow->fe_stats;
+        }
+    }
+    if (!hold_flow) {
+        k_flow = GetValidKFlowEntry(fe);
+    }
+    return k_flow;
+}
+
 const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
     (uint32_t idx, bool ignore_active_status) const {
     if (idx == FlowEntry::kInvalidFlowHandle) {

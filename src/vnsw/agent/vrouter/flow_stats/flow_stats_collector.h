@@ -33,6 +33,7 @@ public:
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
     static const uint32_t kDefaultFlowSamplingThreshold = 500;
     static const uint64_t FlowTcpSynAgeTime = 1000000 * 180;
+    typedef boost::function<void(FlowEntry *)> CollectFlowEntryStatsCb;
 
     struct FlowKeyCmp {
         bool operator()(const FlowEntry *lhs, const FlowEntry *rhs) const {
@@ -112,6 +113,12 @@ public:
     const FlowAgingTableKey& flow_aging_key() const {
         return flow_aging_key_;
     }
+
+    /* The below callback is set only by UT code to collect stats for FlowEntry
+     * before its values are reset */
+    void set_collect_stats_for_flow_cb(CollectFlowEntryStatsCb cb) {
+        collect_stats_for_flow_cb_ = cb;
+    }
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
     friend class FlowStatsManager;
@@ -160,6 +167,9 @@ private:
     FlowStatsManager *flow_stats_manager_;
     WorkQueue<boost::shared_ptr<FlowExportReq> > request_queue_;
     uint32_t instance_id_;
+    /* The below callback is set only by UT code to collect stats for a
+     * FlowEntry before its stats are reset */
+    CollectFlowEntryStatsCb collect_stats_for_flow_cb_;
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 #endif //vnsw_agent_flow_stats_collector_h

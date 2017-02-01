@@ -593,6 +593,25 @@ void KSyncSockTypeMap::SetFlowTcpFlags(int idx, uint16_t flags) {
     }
 }
 
+void KSyncSockTypeMap::SetFlowAction(int idx, uint16_t action) {
+    vr_flow_entry *f = &flow_table_[idx];
+    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        f->fe_action = action;
+    }
+}
+
+void KSyncSockTypeMap::ResetFlowKey(int idx) {
+    vr_flow_entry *f = &flow_table_[idx];
+    if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        f->fe_key.flow4_sip = 0;
+        f->fe_key.flow4_dip = 0;
+        f->fe_key.flow4_sport = 0;
+        f->fe_key.flow4_dport = 0;
+        f->fe_key.flow4_nh_id = 0;
+        f->fe_key.flow4_proto = 0;
+    }
+}
+
 void KSyncSockTypeMap::SetUnderlaySourcePort(int idx, int port) {
     vr_flow_entry *f = &flow_table_[idx];
     if (f->fe_flags & VR_FLOW_FLAG_ACTIVE) {

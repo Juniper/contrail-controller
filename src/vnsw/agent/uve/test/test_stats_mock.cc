@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <map>
 #include "base/os.h"
 #include "cmn/agent_cmn.h"
 #include "pkt/pkt_init.h"
@@ -39,11 +40,24 @@ VmInterface *test0, *test1;
 
 class StatsTestMock : public ::testing::Test {
 public:
-    StatsTestMock() : util_() {}
+    struct FlowEntryStats {
+        uint64_t bytes;
+        uint64_t packets;
+
+        FlowEntryStats(uint64_t byte, uint64_t pkts) :
+            bytes(byte), packets(pkts) {}
+        void set_stats(uint64_t byte, uint64_t pkts) {
+            bytes = byte;
+            packets = pkts;
+        }
+    };
+    typedef std::map<uint32_t, FlowEntryStats> FlowId2StatsMap;
+    typedef std::pair<uint32_t, FlowEntryStats> FlowId2StatsPair;
+    StatsTestMock() : agent_(Agent::GetInstance()), util_() {}
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
         VnUveTableTest *vut = static_cast<VnUveTableTest *>
-        (Agent::GetInstance()->uve()->vn_uve_table());
+        (agent_->uve()->vn_uve_table());
         const VnUveEntry::VnStatsSet *stats_set = vut->FindInterVnStats(svn);
 
         if (!stats_set) {
@@ -126,7 +140,37 @@ public:
         client->VnDelNotifyWait(1);
         client->PortDelNotifyWait(2);
     }
+
+    void CollectFlowEntryStats(FlowEntry *fe) {
+        FlowId2StatsMap::iterator it = flow_stats_map_.find(fe->flow_handle());
+        if (it == flow_stats_map_.end()) {
+            FlowEntryStats value(fe->stats().bytes, fe->stats().packets);
+            flow_stats_map_.insert(FlowId2StatsPair(fe->flow_handle(), value));
+        } else {
+            FlowEntryStats &value = it->second;
+            value.set_stats(fe->stats().bytes, fe->stats().packets);
+        }
+    }
+
+    bool GetStats(uint32_t handle, uint64_t *bytes, uint64_t *pkts) {
+        FlowId2StatsMap::iterator it = flow_stats_map_.find(handle);
+        if (it == flow_stats_map_.end()) {
+            *bytes = *pkts = 0;
+            return false;
+        }
+        const FlowEntryStats &value = it->second;
+        *bytes = value.bytes;
+        *pkts = value.packets;
+        return true;
+    }
+
+    void ClearFlowStatsMap() {
+        flow_stats_map_.clear();
+    }
+    Agent *agent_;
     TestUveUtil util_;
+    FlowId2StatsMap flow_stats_map_;
+
 };
 
 TEST_F(StatsTestMock, FlowStatsTest) {
@@ -137,7 +181,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
     FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0,
                             flow0->flow_key_nh()->id());
@@ -175,7 +219,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -213,7 +257,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
 
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, FlowStatsOverflowTest) {
@@ -224,7 +268,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
     FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
                             flow0->flow_key_nh()->id());
@@ -243,7 +287,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -380,7 +424,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(f1_rev->flow_handle(), 0, 0);
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
@@ -392,7 +436,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
     FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
                             flow0->flow_key_nh()->id());
@@ -410,7 +454,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -440,7 +484,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
                                flow1->flow_key_nh()->id()));
 
     int tmp_age_time = 1000 * 1000;
-    Agent* agent = Agent::GetInstance();
+    Agent* agent = agent_;
     int bkp_age_time = agent->flow_stats_manager()->
                            default_flow_stats_collector()->flow_age_time_intvl();
 
@@ -451,17 +495,182 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 
     //Restore flow aging time
     agent->flow_stats_manager()->tcp_flow_stats_collector()->
         UpdateFlowAgeTime(bkp_age_time);
 }
 
+//Verify that flow-stats does not overflow when flow-entry is delete marked and
+//vrouter has an entry with same key but in HOLD state.
+TEST_F(StatsTestMock, FlowStatsOverflow_DeletedFlow1) {
+    hash_id = 1;
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f1_rev->flow_handle());
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
+
+    //Verify flow count
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
+                               flow1->flow_key_nh()->id()));
+
+    /* Verify overflow counter of agent */
+    //Decrement the stats so that they become 0
+    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -30);
+    KSyncSockTypeMap::SetFlowAction(1, VR_FLOW_ACTION_HOLD);
+    KSyncSockTypeMap::SetFlowAction(f1_rev->flow_handle(), VR_FLOW_ACTION_HOLD);
+
+    //Take reference of flows before they are freed
+    FlowEntryPtr ref1(f1);
+    FlowEntryPtr ref2(f1_rev);
+
+    //Register callback with the stats-collector to read stats of FlowEntry
+    ClearFlowStatsMap();
+    FlowStatsCollector *fsc = f1->stats().fsc;
+    fsc->set_collect_stats_for_flow_cb(boost::bind(
+                                       &StatsTestMock::CollectFlowEntryStats,
+                                       this, _1));
+
+    //Enquue Delete for all the flows
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+
+    //Verify that stats for the flow have not been decremented or resulted in
+    //overflow.
+    uint64_t bytes, pkts;
+    EXPECT_TRUE(GetStats(ref1->flow_handle(), &bytes, &pkts));
+    EXPECT_TRUE(bytes == 30);
+    EXPECT_TRUE(pkts == 1);
+
+    EXPECT_TRUE(GetStats(ref2->flow_handle(), &bytes, &pkts));
+    EXPECT_TRUE(bytes == 30);
+    EXPECT_TRUE(pkts == 1);
+
+    //cleanup
+    ref1.reset(NULL);
+    ref2.reset(NULL);
+    ClearFlowStatsMap();
+    WAIT_FOR(100, 10000,
+             (agent_->pkt()->flow_table()->Size() == 0U));
+}
+
+//Verify that flow-stats does not overflow when flow-entry is delete marked in
+//agent and vrouter entry on the index has stats and flow-key reset, but the
+//flag on the vrouter entry is still VR_FLOW_FLAG_ACTIVE. This can happen
+//when agent is trying to read an entry that is being modified by vrouter.
+TEST_F(StatsTestMock, FlowStatsOverflow_DeletedFlow2) {
+    hash_id = 1;
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f1_rev->flow_handle());
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
+
+    //Verify flow count
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
+                               flow1->flow_key_nh()->id()));
+
+    /* Verify overflow counter of agent */
+    //Decrement the stats so that they become 0
+    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -30);
+    KSyncSockTypeMap::ResetFlowKey(1);
+    KSyncSockTypeMap::ResetFlowKey(f1_rev->flow_handle());
+
+    //Take reference of flows before they are freed
+    FlowEntryPtr ref1(f1);
+    FlowEntryPtr ref2(f1_rev);
+
+    //Register callback with the stats-collector to read stats of FlowEntry
+    ClearFlowStatsMap();
+    FlowStatsCollector *fsc = f1->stats().fsc;
+    fsc->set_collect_stats_for_flow_cb(boost::bind(
+                                       &StatsTestMock::CollectFlowEntryStats,
+                                       this, _1));
+
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+
+    //Verify that stats for the flow have not been decremented or resulted in
+    //overflow.
+    uint64_t bytes, pkts;
+    EXPECT_TRUE(GetStats(ref1->flow_handle(), &bytes, &pkts));
+    EXPECT_TRUE(bytes == 30);
+    EXPECT_TRUE(pkts == 1);
+
+    EXPECT_TRUE(GetStats(ref2->flow_handle(), &bytes, &pkts));
+    EXPECT_TRUE(bytes == 30);
+    EXPECT_TRUE(pkts == 1);
+
+    //cleanup
+    ref1.reset(NULL);
+    ref2.reset(NULL);
+    ClearFlowStatsMap();
+    WAIT_FOR(100, 10000,
+             (agent_->pkt()->flow_table()->Size() == 0U));
+}
+
 TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     hash_id = 1;
  
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     //Flow creation using TCP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     1000, 200, hash_id);
@@ -485,7 +694,7 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the TCP flags
     util_.EnqueueFlowStatsCollectorTask();
@@ -510,7 +719,7 @@ TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
     WAIT_FOR(100, 10000,
-             (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+             (agent_->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, DeletedFlowStatsTest) {
@@ -521,7 +730,7 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
                         "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
 
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
     FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 0, 0, 0,
                             flow0->flow_key_nh()->id());
@@ -559,7 +768,7 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
                         flow0->flow_key_nh()->id()));
 
     //Verify flow count
-    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(4U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -608,12 +817,12 @@ TEST_F(StatsTestMock, DeletedFlowStatsTest) {
     //cleanup
     client->EnqueueFlowFlush();
     client->WaitForIdle();
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, IntfStatsTest) {
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (Agent::GetInstance()->stats_collector());
+        (agent_->stats_collector());
     collector->interface_stats_responses_ = 0;
 
     util_.EnqueueAgentStatsCollectorTask(1);
@@ -652,7 +861,7 @@ TEST_F(StatsTestMock, IntfStatsTest) {
 
 TEST_F(StatsTestMock, InterVnStatsTest) {
     hash_id = 1;
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
     //(1) Inter-VN stats between for traffic within same VN
     //Flow creation using IP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
@@ -673,7 +882,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     InterVnStatsMatch("vn5", "vn5", 1, 30, true); //outgoing stats
     InterVnStatsMatch("vn5", "vn5", 1, 30, false); //Incoming stats
 
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
     FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 30, 40,
                             flow0->flow_key_nh()->id());
@@ -731,7 +940,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     client->WaitForIdle(10);
 
     /* Make sure that the short flow is removed */
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 2U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 2U));
 
     //Verify Inter-Vn stats
     InterVnStatsMatch("vn5", (FlowHandler::UnknownVn()).c_str(), 1, 30, true); //outgoing stats
@@ -740,7 +949,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     //clean-up. Flush flow table
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, VrfStatsTest) {
@@ -750,7 +959,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf41")== true));
     EXPECT_TRUE(DBTableFind("vrf41.uc.route.0"));
 
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf41");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
     int vrf41_id = vrf->vrf_id();
 
@@ -759,7 +968,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf42")== true));
     EXPECT_TRUE(DBTableFind("vrf42.uc.route.0"));
 
-    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf42");
+    vrf = agent_->vrf_table()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
     int vrf42_id = vrf->vrf_id();
 
@@ -772,7 +981,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
                                      31, 32, 33, 34, 35);
 
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
-        (Agent::GetInstance()->stats_collector());
+        (agent_->stats_collector());
     //Wait for stats to be updated in agent
     collector->vrf_stats_responses_ = 0;
 
@@ -846,7 +1055,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf41")== true));
     EXPECT_TRUE(DBTableFind("vrf41.uc.route.0"));
 
-    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf41");
+    vrf = agent_->vrf_table()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
 
     VrfAddReq("vrf42");
@@ -854,7 +1063,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     WAIT_FOR(100, 10000, (VrfFind("vrf42")== true));
     EXPECT_TRUE(DBTableFind("vrf42.uc.route.0"));
 
-    vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf42");
+    vrf = agent_->vrf_table()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
 
     //Wait for stats to be updated in agent
@@ -931,24 +1140,24 @@ TEST_F(StatsTestMock, Underlay_1) {
 
     CreateFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const FlowEntry *rfe = fe->reverse_flow_entry();
 
     EXPECT_STREQ(fe->peer_vrouter().c_str(),
-                 Agent::GetInstance()->router_id().to_string().c_str());
+                 agent_->router_id().to_string().c_str());
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::INVALID);
     EXPECT_EQ(fe->underlay_source_port(), 0);
 
     EXPECT_STREQ(rfe->peer_vrouter().c_str(),
-                 Agent::GetInstance()->router_id().to_string().c_str());
+                 agent_->router_id().to_string().c_str());
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::INVALID);
     EXPECT_EQ(rfe->underlay_source_port(), 0);
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
 }
 
 //Flow parameters (vrouter, peer_vrouter and tunnel_type) verification for
@@ -970,7 +1179,7 @@ TEST_F(StatsTestMock, Underlay_2) {
     };
     CreateFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const FlowEntry *rfe = fe->reverse_flow_entry();
@@ -985,7 +1194,7 @@ TEST_F(StatsTestMock, Underlay_2) {
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
 
     //Remove remote VM routes
     util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);
@@ -1010,7 +1219,7 @@ TEST_F(StatsTestMock, Underlay_3) {
     };
     CreateFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const FlowEntry *rfe = fe->reverse_flow_entry();
@@ -1038,7 +1247,7 @@ TEST_F(StatsTestMock, Underlay_3) {
     //Since encap type is MPLS_GRE verify that exported flow has
     //0 as underlay source port
     FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>
-        (Agent::GetInstance()->flow_stats_manager()->
+        (agent_->flow_stats_manager()->
          default_flow_stats_collector());
     FlowDataIpv4 flow_log = f->last_sent_flow_log();
     EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
@@ -1046,7 +1255,7 @@ TEST_F(StatsTestMock, Underlay_3) {
     //cleanup
     DeleteFlow(flow, 1);
     client->WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(0U, agent_->pkt()->flow_table()->Size());
 
     //Remove remote VM routes
     util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);
@@ -1055,7 +1264,7 @@ TEST_F(StatsTestMock, Underlay_3) {
 
 #if 0
 TEST_F(StatsTestMock, FlowTcpClosedFlow) {
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
 
     //Flow creation using TCP packet
@@ -1071,7 +1280,7 @@ TEST_F(StatsTestMock, FlowTcpClosedFlow) {
     EXPECT_TRUE(f2_rev != NULL);
 
     //Verify flow count
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -1096,11 +1305,11 @@ TEST_F(StatsTestMock, FlowTcpClosedFlow) {
 
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, FlowTcpHalfClosedFlow) {
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
 
     //Flow creation using TCP packet
@@ -1116,7 +1325,7 @@ TEST_F(StatsTestMock, FlowTcpHalfClosedFlow) {
     EXPECT_TRUE(f2_rev != NULL);
 
     //Verify flow count
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     KSyncSockTypeMap::IncrFlowStats(hash_id, 1, 30);
     KSyncSockTypeMap::IncrFlowStats(f2_rev->flow_handle(), 1, 30);
@@ -1159,11 +1368,11 @@ TEST_F(StatsTestMock, FlowTcpHalfClosedFlow) {
 
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, FlowSyncFlow) {
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
 
     //Flow creation using TCP packet
@@ -1179,12 +1388,12 @@ TEST_F(StatsTestMock, FlowSyncFlow) {
     EXPECT_TRUE(f2_rev != NULL);
 
     //Verify flow count
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     KSyncSockTypeMap::IncrFlowStats(hash_id, 1, 30);
     KSyncSockTypeMap::SetFlowTcpFlags(hash_id, VR_FLOW_TCP_SYN);
     KSyncSockTypeMap::SetFlowTcpFlags(f2_rev->flow_handle(), VR_FLOW_TCP_SYN_R);
-    Agent::GetInstance()->flow_stats_manager()->default_flow_stats_collector()->
+    agent_->flow_stats_manager()->default_flow_stats_collector()->
          set_flow_tcp_syn_age_time(1000000 * 1);
     sleep(1);
     //Invoke FlowStatsCollector to update the stats
@@ -1199,11 +1408,11 @@ TEST_F(StatsTestMock, FlowSyncFlow) {
 
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, FlowTcpResetFlow) {
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    VrfEntry *vrf = agent_->vrf_table()->FindVrfFromName("vrf5");
     EXPECT_TRUE(vrf != NULL);
 
     //Flow creation using TCP packet
@@ -1219,7 +1428,7 @@ TEST_F(StatsTestMock, FlowTcpResetFlow) {
     EXPECT_TRUE(f2_rev != NULL);
 
     //Verify flow count
-    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    EXPECT_EQ(2U, agent_->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
     util_.EnqueueFlowStatsCollectorTask();
@@ -1244,7 +1453,7 @@ TEST_F(StatsTestMock, FlowTcpResetFlow) {
 
     client->EnqueueFlowFlush();
     client->WaitForIdle(10);
-    WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+    WAIT_FOR(100, 10000, (agent_->pkt()->flow_table()->Size() == 0U));
 }
 #endif
 
