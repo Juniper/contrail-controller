@@ -1691,7 +1691,10 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
     if (ret.second == false) {
         delete flow;
         flow = ret.first->second;
-        flow->set_deleted(false);
+        if (flow->deleted()) {
+            flow->set_deleted(false);
+            flow->ResetStats();
+        }
         DeleteFlowInfo(flow);
     } else {
         UpdateStats(ADD, &stats_);

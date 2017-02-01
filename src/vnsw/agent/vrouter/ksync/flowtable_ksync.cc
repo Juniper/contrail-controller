@@ -604,6 +604,44 @@ const vr_flow_entry *FlowTableKSyncObject::GetValidKFlowEntry
     return kflow;
 }
 
+/* This API will return non-NULL vr_flow_entry pointer only if the stats
+ * read from the vr_flow_entry is valid.
+ */
+const vr_flow_entry *FlowTableKSyncObject::GetKFlowAndStats
+    (FlowEntry *fe, vr_flow_stats *k_stats) const {
+
+    /* We validate the vrouter's vr_flow_entry twice, before reading stats and
+     * after reading stats. This is required to handle the following case
+     * 1. Agent has submitted DELETE to vrouter.
+     * 2. Vrouter has DELETED the entry but agent has still not processed
+     *    the DeleteAck for the the FlowEntry and agent's FlowStatsCollector is
+     *    processing the DELETE for the FlowEntry and vrouter has either
+     *    (a) ADDed a new FlowEntry at same index with same Flowkey which
+     *        is still in HOLD state.
+     *    (b) ADDed a new FlowEntry at same index with different Flowkey.
+     *    (c) Reset the stats at the index. Vrouter processes delete of a flow
+     *        by first reseting FlowKey, then stats and finally the ACTIVE flag
+     *        of vr_flow_entry
+     * 3. When Agent attempts to read stats for the flow-entry which is delete
+     *    marked but the vrouter entry is in one of the above (a)/(b)/(c)
+     *    states, Agent validates the read stats as shown belown in the code.
+     */
+    const vr_flow_entry *k_flow = GetValidKFlowEntry(fe);
+    bool hold_flow = false;
+    if (k_flow) {
+        if (k_flow->fe_action == VR_FLOW_ACTION_HOLD) {
+            hold_flow = true;
+            k_flow = NULL;
+        } else {
+            *k_stats = k_flow->fe_stats;
+        }
+    }
+    if (!hold_flow) {
+        k_flow = GetValidKFlowEntry(fe);
+    }
+    return k_flow;
+}
+
 const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
     (uint32_t idx, bool ignore_active_status) const {
     if (idx == FlowEntry::kInvalidFlowHandle) {

@@ -82,6 +82,8 @@ public:
                                             bool ignore_active_status) const;
     bool GetFlowKey(uint32_t index, FlowKey *key);
     const vr_flow_entry *GetValidKFlowEntry(FlowEntry *fe) const;
+    const vr_flow_entry *GetKFlowAndStats(FlowEntry *fe, vr_flow_stats *k_stats)
+        const;
 
     uint32_t flow_table_entries_count() { return flow_table_entries_count_; }
     bool AuditProcess();
