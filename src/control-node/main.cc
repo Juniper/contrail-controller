@@ -357,9 +357,7 @@ int main(int argc, char *argv[]) {
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::COLLECTOR)->second, "Collector"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::IFMAP)->second, "IFMapServer"));
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "Cassandra"));
+                             ConnectionType::DATABASE)->second, "Cassandra"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second, "RabbitMQ"));
     } else {
@@ -371,17 +369,13 @@ int main(int argc, char *argv[]) {
                              ConnectionType::COLLECTOR)->second, "Collector"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DISCOVERY)->second,
-                             g_vns_constants.IFMAP_SERVER_DISCOVERY_SERVICE_NAME))
+                             g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::IFMAP)->second, "IFMapServer"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DISCOVERY)->second,
-                             g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME));
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "Cassandra"));
+                             ConnectionType::DATABASE)->second, "Cassandra"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second, "RabbitMQ"));
     }
+
     ConnectionStateManager::GetInstance()->Init(
         *evm.io_service(), options.hostname(),
         module_name, g_vns_constants.INSTANCE_ID_DEFAULT,
