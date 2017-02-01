@@ -103,8 +103,8 @@ def main(args_str=' '.join(sys.argv[1:])):
         return
     config = ConfigParser.SafeConfigParser()
     config.read([config_file])
-    if 'DEFAULT' in config.sections():
-        default.update(dict(config.items('DEFAULT')))
+    if 'DEFAULTS' in config.sections():
+        default.update(dict(config.items('DEFAULTS')))
     if 'DISCOVERY' in config.sections():
         disc_options.update(dict(config.items('DISCOVERY')))
     disc_options['discovery_server'] = disc_options.pop('server')
@@ -146,8 +146,9 @@ def main(args_str=' '.join(sys.argv[1:])):
     parser.add_argument("--introspect_ssl_enable", action="store_true",
                         help="Enable ssl for introspect connection")
     if (node_type == 'contrail-database'):
-        parser.add_argument("--minimum_diskgb",
+        parser.add_argument("--minimum_diskGB",
                             type=int,
+                            dest='minimum_diskgb',
                             help="Minimum disk space in GB's")
         parser.add_argument("--contrail_databases",
                             nargs='+',
