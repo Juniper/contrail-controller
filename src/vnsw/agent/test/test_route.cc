@@ -1625,7 +1625,7 @@ TEST_F(RouteTest, RouteResync_1) {
     VnListType vn_list;
     vn_list.insert("vn1");
     req.data.reset(new InetInterfaceRoute(intf_key, 1, TunnelType::GREType(),
-                          vn_list));
+                          vn_list, peer->sequence_number()));
     AgentRouteTable *table =
         agent_->vrf_table()->GetInet4UnicastRouteTable("vrf1");
     table->Enqueue(&req);

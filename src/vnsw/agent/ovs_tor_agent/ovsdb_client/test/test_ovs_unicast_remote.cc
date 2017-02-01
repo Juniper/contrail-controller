@@ -135,7 +135,7 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     client->WaitForIdle();
 
     MacAddress mac("00:00:00:01:00:01");
-    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+    BridgeTunnelRouteAdd(bgp_peer_, std::string("test-vrf1"),
                          (1 << TunnelType::VXLAN), "10.0.0.1",
                          101, mac, "0.0.0.0", 32);
     client->WaitForIdle();
@@ -174,13 +174,13 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
 
     // Delete route
     Ip4Address zero_ip;
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
                                    mac, zero_ip, 0, NULL);
     client->WaitForIdle();
 
     // Add Route with new tunnel dest
-    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+    BridgeTunnelRouteAdd(bgp_peer_, std::string("test-vrf1"),
                          (1 << TunnelType::VXLAN), "10.0.0.2",
                          101, mac, "0.0.0.0", 32);
     client->WaitForIdle();
@@ -201,18 +201,18 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     }
 
     // Delete route
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
                                    mac, zero_ip, 0, NULL);
     client->WaitForIdle();
 
     // Add new route for same mac but with receive route to have empty dest ip
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new EvpnRouteKey(agent_->local_peer(),
+    req.key.reset(new EvpnRouteKey(bgp_peer_,
                                    std::string("test-vrf1"), mac,
                                    zero_ip, 0));
     req.data.reset(new L2ReceiveRoute(std::string("test-vn1"), 0, 101,
-                                      PathPreference()));
+                                      PathPreference(), 0));
     if (agent_->fabric_evpn_table()) {
         agent_->fabric_evpn_table()->Enqueue(&req);
     }
@@ -234,7 +234,7 @@ TEST_F(UnicastRemoteTest, TunnelIpChange) {
     // release reference of ucast mac
     ucast_mac = NULL;
     // Delete route
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
                                    mac, zero_ip, 0, NULL);
     client->WaitForIdle();
@@ -270,7 +270,7 @@ TEST_F(UnicastRemoteTest, LogicalSwitchDeleteOnRefRelease) {
     client->WaitForIdle();
 
     MacAddress mac("00:00:00:01:00:01");
-    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+    BridgeTunnelRouteAdd(bgp_peer_, std::string("test-vrf1"),
                          (1 << TunnelType::VXLAN), "10.0.0.1",
                          101, mac, "0.0.0.0", 32);
     client->WaitForIdle();
@@ -303,7 +303,7 @@ TEST_F(UnicastRemoteTest, LogicalSwitchDeleteOnRefRelease) {
 
     // Delete route
     Ip4Address zero_ip;
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
                                    mac, zero_ip, 0, NULL);
     client->WaitForIdle();
@@ -350,10 +350,10 @@ TEST_F(UnicastRemoteTest, PhysicalLocatorCreateWait) {
         new TestTaskHold(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
     MacAddress mac1("00:00:00:01:00:01");
     MacAddress mac2("00:00:00:01:00:02");
-    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+    BridgeTunnelRouteAdd(bgp_peer_, std::string("test-vrf1"),
                          (1 << TunnelType::VXLAN), "10.0.1.1",
                          101, mac1, "0.0.0.0", 32);
-    BridgeTunnelRouteAdd(agent_->local_peer(), std::string("test-vrf1"),
+    BridgeTunnelRouteAdd(bgp_peer_, std::string("test-vrf1"),
                          (1 << TunnelType::VXLAN), "10.0.1.1",
                          101, mac2, "0.0.0.0", 32);
     delete hold;
@@ -387,10 +387,10 @@ TEST_F(UnicastRemoteTest, PhysicalLocatorCreateWait) {
     EXPECT_EQ(txn_failures, tcp_session_->client_idl()->stats().txn_failed);
     // Delete route
     Ip4Address zero_ip;
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
                                    mac1, zero_ip, 0, NULL);
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_,
                                    std::string("test-vrf1"),
                                    mac2, zero_ip, 0, NULL);
     client->WaitForIdle();
@@ -417,7 +417,11 @@ int main(int argc, char *argv[]) {
     // override with true to initialize ovsdb server and client
     ksync_init = true;
     client = OvsTestInit(init_file, ksync_init);
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
     int ret = RUN_ALL_TESTS();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     return ret;
 }

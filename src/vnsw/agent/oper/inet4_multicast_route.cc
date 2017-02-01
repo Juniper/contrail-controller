@@ -73,7 +73,7 @@ Inet4MulticastAgentRouteTable::AddMulticastRoute(const string &vrf_name,
                                               MplsTable::kInvalidLabel,
                                               VxLanTable::kInvalidvxlan_id,
                                               TunnelType::AllType(),
-                                              nh_req, Composite::L3COMP);
+                                              nh_req, Composite::L3COMP, 0);
     req.key.reset(rt_key);
     req.data.reset(data);
     MulticastTableEnqueue(Agent::GetInstance(), &req);

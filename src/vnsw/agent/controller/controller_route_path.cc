@@ -26,12 +26,16 @@
 using namespace std;
 using namespace boost::asio;
 
-ControllerPeerPath::ControllerPeerPath(const Peer *peer) :
-    AgentRouteData(false), peer_(peer) {
+ControllerPeerPath::ControllerPeerPath(const BgpPeer *peer) :
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0), peer_(peer) {
+    sequence_number_ = 0;
+    if (peer)
+        sequence_number_ = peer->GetAgentXmppChannel()->
+            sequence_number();
 }
 
-bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                        const AgentRoute *rt) {
+bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                                const AgentRoute *rt) {
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
@@ -43,6 +47,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
         comp_key->SetPolicy(new_comp_nh_policy);
     }
 
+    path->set_peer_sequence_number(sequence_number());
     if (path->ecmp_load_balance() != ecmp_load_balance_) {
         path->UpdateEcmpHashFields(agent, ecmp_load_balance_,
                                    nh_req_);
@@ -58,7 +63,8 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
                                                  nh_req_, agent, path);
 }
 
-ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
+ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
+                                         const BgpPeer *bgp_peer,
                                          const string &default_vrf,
                                          const Ip4Address &router_id,
                                          const string &vrf_name,
@@ -78,7 +84,7 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
 
     // Make route request pointing to Tunnel-NH created above
     ControllerVmRoute *data =
-        new ControllerVmRoute(peer, default_vrf, tunnel_dest, label,
+        new ControllerVmRoute(bgp_peer, default_vrf, tunnel_dest, label,
                               dest_vn_list, bmap, sg_list, path_preference,
                               nh_req, ecmp_suppressed,
                               ecmp_load_balance);
@@ -120,12 +126,13 @@ bool ControllerVmRoute::UpdateRoute(AgentRoute *rt) {
     return ret;
 }
 
-bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                      const AgentRoute *rt) {
+bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                              const AgentRoute *rt) {
     bool ret = false;
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
 
+    path->set_peer_sequence_number(sequence_number());
     if (path->tunnel_bmap() != tunnel_bmap_) {
         path->set_tunnel_bmap(tunnel_bmap_);
         ret = true;
@@ -226,8 +233,8 @@ bool ControllerVmRoute::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
-                                    const AgentRoute *rt) {
+bool ClonedLocalPath::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                            const AgentRoute *rt) {
     bool ret = false;
 
     MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(mpls_label_);
@@ -236,6 +243,7 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
     }
 
     //Do a route lookup in native VRF
+    path->set_peer_sequence_number(sequence_number_);
     assert(mpls->nexthop()->GetType() == NextHop::VRF);
     const VrfNH *vrf_nh = static_cast<const VrfNH *>(mpls->nexthop());
     const InetUnicastRouteEntry *uc_rt =
@@ -294,20 +302,29 @@ bool ClonedLocalPath::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool StalePathData::AddChangePath(Agent *agent, AgentPath *path,
-                                  const AgentRoute *route) {
-    if (path->is_stale() || route->IsDeleted())
+bool StalePathData::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                          const AgentRoute *route) {
+    if (path->peer_sequence_number() >= sequence_number_)
         return false;
-    AgentPath *old_stale_path = route->FindStalePath();
-    path->set_is_stale(true);
+
+    if (route->IsDeleted())
+        return false;
+
     //Delete old stale path
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     AgentRouteKey *key = (static_cast<AgentRouteKey *>(route->
                                       GetDBRequestKey().get()))->Clone();
-    key->set_peer(old_stale_path->peer());
+    key->set_peer(path->peer());
     req.key.reset(key);
     req.data.reset();
     AgentRouteTable *table = static_cast<AgentRouteTable *>(route->get_table());
     table->Process(req);
     return true;
+}
+
+bool StalePathData::CanDeletePath(Agent *agent, AgentPath *path,
+                                  const AgentRoute *route) const {
+    if (path->peer_sequence_number() >= sequence_number_)
+       return false;
+   return true;
 }

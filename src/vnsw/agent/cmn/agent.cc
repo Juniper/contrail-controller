@@ -484,7 +484,6 @@ void Agent::CopyConfig(AgentParam *params) {
     else
         TunnelType::SetDefaultType(TunnelType::MPLS_GRE);
 
-    headless_agent_mode_ = params_->headless_mode();
     simulate_evpn_tor_ = params->simulate_evpn_tor();
     test_mode_ = params_->test_mode();
     tsn_enabled_ = params_->isTsnAgent();
@@ -692,8 +691,7 @@ Agent::Agent() :
     mac_vm_binding_peer_(NULL), ifmap_parser_(NULL),
     router_id_configured_(false), mirror_src_udp_port_(0),
     lifetime_manager_(NULL), ksync_sync_mode_(false), mgmt_ip_(""),
-    vxlan_network_identifier_mode_(AUTOMATIC), headless_agent_mode_(false), 
-    vhost_interface_(NULL),
+    vxlan_network_identifier_mode_(AUTOMATIC), vhost_interface_(NULL),
     connection_state_(NULL), test_mode_(false),
     xmpp_dns_test_mode_(false),
     init_done_(false), resource_manager_ready_(false),

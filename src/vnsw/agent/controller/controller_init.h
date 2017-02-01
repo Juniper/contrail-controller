@@ -9,7 +9,7 @@
 #include <discovery/client/discovery_client.h>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
-#include <controller/controller_cleanup_timer.h>
+#include <controller/controller_timer.h>
 #include "xmpp/xmpp_channel.h"
 #include <oper/peer.h>
 
@@ -26,20 +26,6 @@ public:
 
 private:
     DISALLOW_COPY_AND_ASSIGN(ControllerWorkQueueData);
-};
-
-class ControllerDeletePeerData : public ControllerWorkQueueData {
-public:
-    ControllerDeletePeerData(BgpPeer *bgp_peer) :
-        ControllerWorkQueueData(),
-        bgp_peer_(bgp_peer) {}
-    virtual ~ControllerDeletePeerData() {}
-
-    BgpPeer *bgp_peer() const {return bgp_peer_;}
-
-private:
-    BgpPeer *bgp_peer_;
-    DISALLOW_COPY_AND_ASSIGN(ControllerDeletePeerData);
 };
 
 class ControllerXmppData : public ControllerWorkQueueData {
@@ -99,17 +85,33 @@ public:
     DISALLOW_COPY_AND_ASSIGN(ControllerReConfigData);
 };
 
+class ControllerDelPeerData : public ControllerWorkQueueData {
+public:
+    ControllerDelPeerData(AgentXmppChannel *ch);
+    virtual ~ControllerDelPeerData() {}
+    AgentXmppChannel *channel() {
+        return channel_;
+    }
+
+private:
+    AgentXmppChannel *channel_;
+    DISALLOW_COPY_AND_ASSIGN(ControllerDelPeerData);
+};
+
 class VNController {
 public:
     typedef boost::function<void(uint8_t)> XmppChannelDownCb;
     typedef boost::shared_ptr<ControllerXmppData> ControllerXmppDataType;
-    typedef boost::shared_ptr<ControllerDeletePeerData> ControllerDeletePeerDataType;
     typedef boost::shared_ptr<ControllerWorkQueueData> ControllerWorkQueueDataType;
     typedef boost::shared_ptr<ControllerDiscoveryData> ControllerDiscoveryDataType;
     typedef boost::shared_ptr<ControllerReConfigData> ControllerReConfigDataType;
+    typedef boost::shared_ptr<ControllerDelPeerData> ControllerDelPeerDataType;
     typedef std::list<PeerPtr> BgpPeerList;
     typedef BgpPeerList::const_iterator BgpPeerConstIterator;
     typedef std::list<PeerPtr>::iterator BgpPeerIterator;
+    typedef boost::shared_ptr<AgentXmppChannel> AgentXmppChannelPtr;
+    typedef std::vector<AgentXmppChannelPtr> AgentXmppChannelList;
+    typedef AgentXmppChannelList::iterator AgentXmppChannelListIter;
 
     struct FabricMulticastLabelRange {
         FabricMulticastLabelRange() : start(), end(), fabric_multicast_label_range_str() {};
@@ -149,35 +151,15 @@ public:
     //Peer maintenace routines 
     uint8_t ActiveXmppConnectionCount();
     AgentXmppChannel *GetActiveXmppChannel();
-    uint32_t DecommissionedPeerListSize() const {
-        return decommissioned_peer_list_.size();
-    }
-    void AddToDecommissionedPeerList(PeerPtr peer);
-    const BgpPeerList &decommissioned_peer_list() const {
-        return decommissioned_peer_list_;
-    }
-
-    //Unicast timer related routines
-    void StartUnicastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
-    void UnicastCleanupTimerExpired();
-    CleanupTimer &unicast_cleanup_timer() {return unicast_cleanup_timer_;}
-    void ControllerPeerHeadlessAgentDelDoneEnqueue(BgpPeer *peer);
-    bool ControllerPeerHeadlessAgentDelDone(BgpPeer *peer);
-
-    //Multicast timer
-    void StartMulticastCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
-    void MulticastCleanupTimerExpired(uint64_t peer_sequence);
-    CleanupTimer &multicast_cleanup_timer() {return multicast_cleanup_timer_;}
 
     AgentIfMapVmExport *agent_ifmap_vm_export() const {
         return agent_ifmap_vm_export_.get();
     }
-    void StartConfigCleanupTimer(AgentXmppChannel *agent_xmpp_channel);
-    CleanupTimer &config_cleanup_timer() {return config_cleanup_timer_;}
 
-    // Clear of decommissioned peer listener id for vrf specified
-    void DeleteVrfStateOfDecommisionedPeers(DBTablePartBase *partition, 
-                                            DBEntryBase *e);
+    //Start/stop eor processors
+    void StartEndOfRibTxTimer();
+    void StopEndOfRibTx();
+
     bool ControllerWorkQueueProcess(ControllerWorkQueueDataType data);
     bool XmppMessageProcess(ControllerXmppDataType data);
     Agent *agent() {return agent_;}
@@ -193,6 +175,10 @@ public:
     void RegisterControllerChangeCallback(XmppChannelDownCb xmpp_channel_down_cb) {
         xmpp_channel_down_cb_ = xmpp_channel_down_cb;
     }
+    void FlushTimedOutChannels(uint8_t index);
+    void DelPeerWalkDone(AgentXmppChannel *ch);
+    void DelPeerWalkDoneProcess(AgentXmppChannel *ch);
+    void StartDelPeerWalk(AgentXmppChannelPtr ch);
     bool RxXmppMessageTrace(uint8_t peer_index,
                             const std::string &to_address,
                             int port, int size,
@@ -203,6 +189,8 @@ public:
                             int port, int size,
                             const std::string &msg,
                             const XmppStanza::XmppMessage *xmpp_msg);
+    //Unit test helpers
+    bool IsWorkQueueEmpty() const;
 
 private:
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
@@ -221,16 +209,15 @@ private:
 
     Agent *agent_;
     uint64_t multicast_sequence_number_;
-    std::list<PeerPtr> decommissioned_peer_list_;
     boost::scoped_ptr<AgentIfMapVmExport> agent_ifmap_vm_export_;
-    UnicastCleanupTimer unicast_cleanup_timer_;
-    MulticastCleanupTimer multicast_cleanup_timer_;
-    ConfigCleanupTimer config_cleanup_timer_;
     WorkQueue<ControllerWorkQueueDataType> work_queue_;
     FabricMulticastLabelRange fabric_multicast_label_range_[MAX_XMPP_SERVERS];
     XmppChannelDownCb xmpp_channel_down_cb_;
     uint32_t controller_list_chksum_;
     uint32_t dns_list_chksum_;
+    AgentXmppChannelList timed_out_channels_[MAX_XMPP_SERVERS];
+    AgentXmppChannelList delpeer_walks_;
+    bool disconnect_;
 };
 
 extern SandeshTraceBufferPtr ControllerInfoTraceBuf;

@@ -957,8 +957,8 @@ const NextHop* InetUnicastRouteEntry::GetLocalNextHop() const {
 // AgentRouteData virtual functions
 /////////////////////////////////////////////////////////////////////////////
 
-bool Inet4UnicastArpRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                         const AgentRoute *rt) {
+bool Inet4UnicastArpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                                 const AgentRoute *rt) {
     bool ret = false;
 
     ArpNHKey key(vrf_name_, addr_, policy_);
@@ -988,8 +988,8 @@ bool Inet4UnicastArpRoute::AddChangePath(Agent *agent, AgentPath *path,
     return ret;
 }
 
-bool Inet4UnicastGatewayRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                             const AgentRoute *agent_rt) {
+bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                                     const AgentRoute *agent_rt) {
     path->set_vrf_name(vrf_name_);
 
     InetUnicastAgentRouteTable *table = NULL;
@@ -1104,21 +1104,21 @@ AgentPath *InetEvpnRouteData::CreateAgentPath(const Peer *peer,
     return (new InetEvpnRoutePath(peer, rt));
 }
 
-bool InetEvpnRouteData::AddChangePath(Agent *agent,
-                                      AgentPath *path,
-                                      const AgentRoute *route) {
+bool InetEvpnRouteData::AddChangePathExtended(Agent *agent,
+                                              AgentPath *path,
+                                              const AgentRoute *route) {
     return dynamic_cast<InetEvpnRoutePath *>(path)->SyncDependantRoute(route);
 }
 
 Inet4UnicastInterfaceRoute::Inet4UnicastInterfaceRoute
 (const PhysicalInterface *interface, const std::string &vn_name) :
-        AgentRouteData(false),
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
         interface_key_(new PhysicalInterfaceKey(interface->name())),
         vn_name_(vn_name) {
 }
 
-bool Inet4UnicastInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path,
-                                               const AgentRoute *rt) {
+bool Inet4UnicastInterfaceRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                                       const AgentRoute *rt) {
     bool ret = false;
 
     path->set_unresolved(false);
@@ -1161,8 +1161,6 @@ bool InetUnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
-            if (stale && !path->is_stale()) 
-                continue;
             PathSandeshData pdata;
             path->SetSandeshData(pdata);
             data.path_list.push_back(pdata);
@@ -1356,7 +1354,8 @@ InetUnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
                                               &path_preference) {
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     VlanNhRoute *data = new VlanNhRoute(intf_key, tag, label, dest_vn_list,
-                                        sg_list, path_preference);
+                                        sg_list, path_preference,
+                                        peer->sequence_number());
     AddVlanNHRouteReq(peer, vm_vrf, addr, plen, data);
 }
 
@@ -1378,7 +1377,8 @@ InetUnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_list,
-                                   sg_list, path_preference));
+                                   sg_list, path_preference,
+                                   peer->sequence_number()));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 
@@ -1420,7 +1420,8 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                     vn_list, InterfaceNHFlags::INET4, sg_list,
                                     communities, path_preference,
                                     subnet_service_ip, ecmp_load_balance,
-                                    is_local, is_health_check_service);
+                                    is_local, is_health_check_service,
+                                    peer->sequence_number());
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1466,7 +1467,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                     InterfaceNHFlags::INET4, sg_list, communities,
                                     path_preference, subnet_service_ip,
                                     ecmp_load_balance, is_local,
-                                    is_health_check_service));
+                                    is_health_check_service,
+                                    peer->sequence_number()));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 
@@ -1620,7 +1622,8 @@ void InetUnicastAgentRouteTable::AddInetInterfaceRouteReq(const Peer *peer,
                                                           const VnListType &vn_list) {
     InetInterfaceKey intf_key(interface);
     InetInterfaceRoute *data = new InetInterfaceRoute
-        (intf_key, label, TunnelType::GREType(), vn_list);
+        (intf_key, label, TunnelType::GREType(), vn_list,
+         peer->sequence_number());
 
     AddInetInterfaceRouteReq(peer, vm_vrf, addr, plen, data);
 }

@@ -939,9 +939,6 @@ public:
         vxlan_network_identifier_mode_ = mode;
     }
 
-    bool headless_agent_mode() const {return headless_agent_mode_;}
-    void set_headless_agent_mode(bool mode) {headless_agent_mode_ = mode;}
-
     bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     void set_simulate_evpn_tor(bool mode) {simulate_evpn_tor_ = mode;}
 
@@ -1275,7 +1272,6 @@ private:
     std::string mgmt_ip_;
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
-    bool headless_agent_mode_;
     const Interface *vhost_interface_;
     process::ConnectionState* connection_state_;
     bool test_mode_;

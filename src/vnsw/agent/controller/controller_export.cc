@@ -121,6 +121,10 @@ void RouteExport::Notify(const Agent *agent,
         if (!vs)
             return;
 
+        //Make sure that vrf has been subscribed before route is published.
+        if (vs->IsExportable(bgp_xmpp_peer->sequence_number()))
+            return;
+
         // There may be instances when decommisioned peer is not yet
         // unregistered while a new peer is already present. So there will be
         // two notifications. If its for decommisioned peer then ignore the same

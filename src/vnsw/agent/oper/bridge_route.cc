@@ -106,7 +106,8 @@ void BridgeAgentRouteTable::AddBridgeReceiveRouteReq(const Peer *peer,
                                                      const string &vn_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, vxlan_id));
-    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0, PathPreference()));
+    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0, PathPreference(),
+                                      peer->sequence_number()));
     agent()->fabric_l2_unicast_table()->Enqueue(&req);
 }
 
@@ -117,7 +118,8 @@ void BridgeAgentRouteTable::AddBridgeReceiveRoute(const Peer *peer,
                                                   const string &vn_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, vxlan_id));
-    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0, PathPreference()));
+    req.data.reset(new L2ReceiveRoute(vn_name, vxlan_id, 0, PathPreference(),
+                                      peer->sequence_number()));
     Process(req);
 }
 
@@ -197,7 +199,7 @@ AgentRouteData *BridgeAgentRouteTable::BuildNonBgpPeerData(const string &vrf_nam
     nh_req.data.reset(new CompositeNHData());
     return (new MulticastRoute(vn_name, label,
                                vxlan_id, tunnel_type,
-                               nh_req, type));
+                               nh_req, type, 0));
 }
 
 AgentRouteData *BridgeAgentRouteTable::BuildBgpPeerData(const Peer *peer,
@@ -216,9 +218,8 @@ AgentRouteData *BridgeAgentRouteTable::BuildBgpPeerData(const Peer *peer,
     nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
                                         vrf_name));
     nh_req.data.reset(new CompositeNHData());
-    return (new MulticastRoute(vn_name, label,
-                                         ethernet_tag, tunnel_type,
-                                         nh_req, type));
+    return (new MulticastRoute(vn_name, label, ethernet_tag, tunnel_type,
+                               nh_req, type, bgp_peer->sequence_number()));
 }
 
 void BridgeAgentRouteTable::AddBridgeBroadcastRoute(const Peer *peer,
@@ -244,9 +245,17 @@ void BridgeAgentRouteTable::DeleteBroadcastReq(const Peer *peer,
     //For same BGP peer type comp type helps in identifying if its a delete
     //for TOR or EVPN path.
     //Only ethernet tag is required, rest are dummy.
-    req.data.reset(new MulticastRoute("", 0, ethernet_tag,
-                                      TunnelType::AllType(),
-                                      nh_req, type));
+    const BgpPeer *bgp_peer = dynamic_cast<const BgpPeer *>(peer);
+    if (bgp_peer) {
+        req.data.reset(new MulticastRoute("", 0,
+                                     ethernet_tag, TunnelType::AllType(),
+                                     nh_req, type,
+                                     bgp_peer->sequence_number()));
+    } else {
+        req.data.reset(new MulticastRoute("", 0, ethernet_tag,
+                                          TunnelType::AllType(),
+                                          nh_req, type, 0));
+    }
 
     BridgeTableEnqueue(Agent::GetInstance(), &req);
 }
@@ -857,8 +866,6 @@ bool BridgeRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
          it != GetPathList().end(); it++) {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
-            if (stale && !path->is_stale())
-                continue;
             PathSandeshData pdata;
             path->SetSandeshData(pdata);
             if (is_multicast()) {

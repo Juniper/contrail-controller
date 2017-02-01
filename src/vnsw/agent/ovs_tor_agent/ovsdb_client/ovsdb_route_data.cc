@@ -22,13 +22,15 @@ OvsdbRouteData::OvsdbRouteData(const Peer *peer, uint32_t vxlan_id,
                                const std::string &dest_vn_name,
                                const SecurityGroupList &sg_list,
                                bool ha_stale_export, uint32_t sequence) :
-    AgentRouteData(false), peer_(peer), vxlan_id_(vxlan_id), tor_ip_(tor_ip),
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    peer_(peer), vxlan_id_(vxlan_id), tor_ip_(tor_ip),
     tor_vrf_(tor_vrf), router_id_(router_id), dest_vn_name_(dest_vn_name),
     sg_list_(sg_list), ha_stale_export_(ha_stale_export), sequence_(sequence) {
 }
 
 OvsdbRouteData::OvsdbRouteData(const Peer *peer) :
-    AgentRouteData(false), peer_(peer), vxlan_id_() {
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    peer_(peer), vxlan_id_() {
 }
 
 OvsdbRouteData::~OvsdbRouteData() {
@@ -38,8 +40,8 @@ std::string OvsdbRouteData::ToString() const {
     return "OVS Route Data";
 }
 
-bool OvsdbRouteData::AddChangePath(Agent *agent, AgentPath *path,
-                                   const AgentRoute *data) {
+bool OvsdbRouteData::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                           const AgentRoute *data) {
     bool ret = false;
     NextHop *nh = NULL;
 
@@ -94,7 +96,8 @@ bool OvsdbRouteData::AddChangePath(Agent *agent, AgentPath *path,
 }
 
 OvsdbRouteResyncData::OvsdbRouteResyncData(const SecurityGroupList &sg_list) :
-    AgentRouteData(false), sg_list_(sg_list) {
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    sg_list_(sg_list) {
 }
 
 OvsdbRouteResyncData::~OvsdbRouteResyncData() {
@@ -104,8 +107,8 @@ std::string OvsdbRouteResyncData::ToString() const {
     return "OVS Route Resync";
 }
 
-bool OvsdbRouteResyncData::AddChangePath(Agent *agent, AgentPath *path,
-                                         const AgentRoute *data) {
+bool OvsdbRouteResyncData::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                                 const AgentRoute *data) {
     bool ret = false;
     if (path->sg_list() != sg_list_) {
         path->set_sg_list(sg_list_);

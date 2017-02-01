@@ -596,7 +596,7 @@ TEST_F(SgTestV6, Sg_Policy_2) {
     //Add a remote route pointing to SG id 2
     boost::system::error_code ec;
     Ip6Address addr6 = Ip6Address::from_string("::11.1.1.0", ec);
-    Inet6TunnelRouteAdd(Agent::GetInstance()->local_peer(), "vrf1", addr6, 120,
+    Inet6TunnelRouteAdd(bgp_peer_, "vrf1", addr6, 120,
                         Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(),
                         vnet[1]->label(), "vn1", sg_id_list, PathPreference());
@@ -619,7 +619,7 @@ TEST_F(SgTestV6, Sg_Policy_2) {
 
     //Change the route sg id to 3
     sg_id_list[0] = 3;
-    Inet6TunnelRouteAdd(Agent::GetInstance()->local_peer(), "vrf1", addr6, 120,
+    Inet6TunnelRouteAdd(bgp_peer_, "vrf1", addr6, 120,
                         Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(),
                         vnet[1]->label(), "vn1", sg_id_list, PathPreference());
@@ -639,7 +639,7 @@ TEST_F(SgTestV6, Sg_Policy_2) {
     DelNode("security-group", "sg2");
     DelSgAclLink("sg2", "ag2");
     DelSgAcl("ag2");
-    InetUnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(),
+    InetUnicastAgentRouteTable::DeleteReq(bgp_peer_,
             "vrf1", Ip6Address::from_string("::11.1.1.0", ec), 120, NULL);
     client->WaitForIdle();
     WAIT_FOR(500, 1000, (RouteFindV6("vrf1", addr6, 120) == false));
@@ -653,12 +653,16 @@ int main(int argc, char *argv[]) {
                       (10 * 60 * 1000), (10 * 60 * 1000), true, true,
                       (10 * 60 * 1000));
     if (Init()) {
+        boost::system::error_code ec;
+        bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                                  "xmpp channel");
         ret = RUN_ALL_TESTS();
         usleep(100000);
         client->WaitForIdle();
         Shutdown();
     }
     client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     delete client;
     return ret;

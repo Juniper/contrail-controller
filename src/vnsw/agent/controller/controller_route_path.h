@@ -37,13 +37,13 @@ class VNController;
 class ControllerPeerPath : public AgentRouteData {
 public:
     static const uint64_t kInvalidPeerIdentifier = 0xFFFFFFFFFFFFFFFFLL;
-    ControllerPeerPath(const Peer *peer);
+    ControllerPeerPath(const BgpPeer *peer);
     ~ControllerPeerPath() { }
 
     virtual bool UpdateRoute(AgentRoute *route) {return false;}
 
 private:
-    const Peer *peer_;
+    const BgpPeer *peer_;
 };
 
 /*
@@ -51,7 +51,7 @@ private:
  */
 class ControllerVmRoute : public ControllerPeerPath {
 public:
-    ControllerVmRoute(const Peer *peer, const string &vrf_name,
+    ControllerVmRoute(const BgpPeer *peer, const string &vrf_name,
                   const Ip4Address &addr, uint32_t label,
                   const VnListType &dest_vn_list, int bmap,
                   const SecurityGroupList &sg_list,
@@ -65,15 +65,15 @@ public:
         {nh_req_.Swap(&req);}
     // Data passed in case of delete from BGP peer, to validate 
     // the request at time of processing.
-    ControllerVmRoute(const Peer *peer) : ControllerPeerPath(peer) { }
+    ControllerVmRoute(const BgpPeer *peer) : ControllerPeerPath(peer) { }
     virtual ~ControllerVmRoute() { }
 
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual bool UpdateRoute(AgentRoute *route);
     virtual string ToString() const {return "remote VM";}
     const SecurityGroupList &sg_list() const {return sg_list_;}
-    static ControllerVmRoute *MakeControllerVmRoute(const Peer *peer,
+    static ControllerVmRoute *MakeControllerVmRoute(const BgpPeer *peer,
                                             const string &default_vrf,
                                             const Ip4Address &router_id,
                                             const string &vrf_name,
@@ -102,7 +102,7 @@ private:
 
 class ControllerEcmpRoute : public ControllerPeerPath {
 public:
-    ControllerEcmpRoute(const Peer *peer, const IpAddress &dest_addr,
+    ControllerEcmpRoute(const BgpPeer *peer, const IpAddress &dest_addr,
                         uint8_t plen, const VnListType &vn_list,
                         uint32_t label, bool local_ecmp_nh,
                         const string &vrf_name, SecurityGroupList sg_list,
@@ -118,8 +118,8 @@ public:
         {nh_req_.Swap(&nh_req);}
 
     virtual ~ControllerEcmpRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual string ToString() const {return "inet4 ecmp";}
 
 private:
@@ -149,12 +149,13 @@ private:
 class ClonedLocalPath : public AgentRouteData {
 public:
     ClonedLocalPath(uint32_t label, const VnListType &vn_list,
-                    const SecurityGroupList &sg_list):
-        AgentRouteData(false), mpls_label_(label),
-        vn_list_(vn_list), sg_list_(sg_list) {}
+                    const SecurityGroupList &sg_list,
+                    uint64_t sequence_number):
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
+        mpls_label_(label), vn_list_(vn_list), sg_list_(sg_list) {}
     virtual ~ClonedLocalPath() {}
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
     virtual std::string ToString() const {
         return "Nexthop cloned from local path";
     }
@@ -166,7 +167,7 @@ private:
 };
 
 /*
- * In headless mode stale path is created when no CN server is present.
+ * stale path is created when no CN server is present.
  * Last peer going down marks its path as stale and keep route alive, till
  * anothe CN takes over.
  * There can be only one stale path as multiple does not make any sense.
@@ -174,10 +175,14 @@ private:
  */
 class StalePathData : public AgentRouteData {
 public:
-    StalePathData() : AgentRouteData(false) { }
+    StalePathData(uint64_t sequence_number) :
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false,
+                       sequence_number) { }
     virtual ~StalePathData() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt);
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
+    virtual bool CanDeletePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt) const;
     virtual std::string ToString() const {
         return "Stale path marking(healdess mode)";
     }

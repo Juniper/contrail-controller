@@ -58,22 +58,26 @@ struct AgentRouteData : public AgentData {
         ROUTE_PREFERENCE_CHANGE,
         IPAM_SUBNET,
     };
-    AgentRouteData(bool is_multicast) : type_(ADD_DEL_CHANGE),
-    is_multicast_(is_multicast) { }
-    AgentRouteData(Type type, bool is_multicast):
-        type_(type), is_multicast_(is_multicast) { }
+    AgentRouteData(Type type, bool is_multicast, uint64_t sequence_number):
+        type_(type), is_multicast_(is_multicast),
+        sequence_number_(sequence_number) { }
     virtual ~AgentRouteData() { }
 
     virtual std::string ToString() const = 0;
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
-    virtual bool AddChangePath(Agent *agent, AgentPath *path,
-                               const AgentRoute *rt) = 0;
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt) = 0;
+    virtual bool CanDeletePath(Agent *agent, AgentPath *path,
+                            const AgentRoute *rt) const {return true;}
     virtual bool UpdateRoute(AgentRoute *rt) {return false;}
 
+    bool AddChangePath(Agent *agent, AgentPath *path, const AgentRoute *rt);
     bool is_multicast() const {return is_multicast_;}
+    uint64_t sequence_number() const {return sequence_number_;}
 
     Type type_;
     bool is_multicast_;
+    uint64_t sequence_number_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteData);
 };
 
@@ -182,8 +186,6 @@ public:
     void DeletePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
                             AgentPath *path);
                             //const Peer *peer);
-    //Stale path handling
-    void SquashStalePaths(AgentRoute *rt, const AgentPath *path);
     void EvaluateUnresolvedRoutes(void);
 
 private:
@@ -268,7 +270,6 @@ public:
     uint32_t vrf_id() const;
 
     AgentPath *FindLocalVmPortPath() const;
-    AgentPath *FindStalePath() const;
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
     const std::string &dest_vn_name() const;
