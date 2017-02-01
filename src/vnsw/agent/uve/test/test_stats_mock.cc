@@ -458,6 +458,146 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
         UpdateFlowAgeTime(bkp_age_time);
 }
 
+//Verify that flow-stats does not overflow when flow-entry is delete marked and
+//vrouter has an entry with same key but in HOLD state.
+TEST_F(StatsTestMock, FlowStatsOverflow_DeletedFlow1) {
+    hash_id = 1;
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f1_rev->flow_handle());
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
+
+    //Verify flow count
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
+                               flow1->flow_key_nh()->id()));
+
+    /* Verify overflow counter of agent */
+    //Decrement the stats so that they become 0
+    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -30);
+    KSyncSockTypeMap::SetFlowAction(1, VR_FLOW_ACTION_HOLD);
+    KSyncSockTypeMap::SetFlowAction(f1_rev->flow_handle(), VR_FLOW_ACTION_HOLD);
+
+    //Take reference of flows before they are freed
+    FlowEntryPtr ref1(f1);
+    FlowEntryPtr ref2(f1_rev);
+
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+
+    //Verify that stats for the flow have not been decremented or resulted in
+    //overflow.
+    EXPECT_TRUE(ref1->stats().bytes == 30);
+    EXPECT_TRUE(ref1->stats().packets == 1);
+    EXPECT_TRUE(ref2->stats().bytes == 30);
+    EXPECT_TRUE(ref2->stats().packets == 1);
+
+    //cleanup
+    ref1.reset(NULL);
+    ref2.reset(NULL);
+    WAIT_FOR(100, 10000,
+             (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+}
+
+//Verify that flow-stats does not overflow when flow-entry is delete marked in
+//agent and vrouter entry on the index has stats and flow-key reset, but the
+//flag on the vrouter entry is still VR_FLOW_FLAG_ACTIVE. This can happen
+//when agent is trying to read an entry that is being modified by vrouter.
+TEST_F(StatsTestMock, FlowStatsOverflow_DeletedFlow2) {
+    hash_id = 1;
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
+
+    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
+    EXPECT_TRUE(vrf != NULL);
+    FlowEntry *f1 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(f1 != NULL);
+    FlowEntry *f1_rev = f1->reverse_flow_entry();
+    EXPECT_TRUE(f1_rev != NULL);
+
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
+                    f1_rev->flow_handle());
+    client->WaitForIdle(10);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
+                        "vn5", "vn5", f1_rev->flow_handle(),
+                        flow1->flow_key_nh()->id(),
+                        flow0->flow_key_nh()->id()));
+
+    //Verify flow count
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    util_.EnqueueFlowStatsCollectorTask();
+    client->WaitForIdle(10);
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30,
+                               flow0->flow_key_nh()->id()));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30,
+                               flow1->flow_key_nh()->id()));
+
+    /* Verify overflow counter of agent */
+    //Decrement the stats so that they become 0
+    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(f1_rev->flow_handle(), -1, -30);
+    KSyncSockTypeMap::ResetFlowKey(1);
+    KSyncSockTypeMap::ResetFlowKey(f1_rev->flow_handle());
+
+    //Take reference of flows before they are freed
+    FlowEntryPtr ref1(f1);
+    FlowEntryPtr ref2(f1_rev);
+
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(10);
+
+    //Verify that stats for the flow have not been decremented or resulted in
+    //overflow.
+    EXPECT_TRUE(ref1->stats().bytes == 30);
+    EXPECT_TRUE(ref1->stats().packets == 1);
+    EXPECT_TRUE(ref2->stats().bytes == 30);
+    EXPECT_TRUE(ref2->stats().packets == 1);
+
+    //cleanup
+    ref1.reset(NULL);
+    ref2.reset(NULL);
+    WAIT_FOR(100, 10000,
+             (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
+}
+
 TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
     hash_id = 1;
  

@@ -1693,6 +1693,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
         flow = ret.first->second;
         flow->set_deleted(false);
         DeleteFlowInfo(flow);
+        flow->ResetStats();
     } else {
         UpdateStats(ADD, &stats_);
         flow->stats_.setup_time = UTCTimestampUsec();

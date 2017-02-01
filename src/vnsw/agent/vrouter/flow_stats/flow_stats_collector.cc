@@ -272,12 +272,26 @@ void FlowStatsCollector::UpdateAndExportFlowStats(FlowEntry *flow,
     FlowTableKSyncObject *ksync_obj = Agent::GetInstance()->ksync()->
                                          flowtable_ksync_obj();
     const vr_flow_entry *k_flow = ksync_obj->GetValidKFlowEntry(flow);
+    vr_flow_stats k_stats;
+    bool hold_flow = false;
+    if (k_flow) {
+        if (k_flow->fe_action == VR_FLOW_ACTION_HOLD) {
+            hold_flow = true;
+            k_flow = NULL;
+        } else {
+            k_stats = k_flow->fe_stats;
+        }
+    }
+    if (!hold_flow) {
+        k_flow = ksync_obj->GetValidKFlowEntry(flow);
+    }
+
     if (k_flow) {
         uint64_t diff_bytes, diff_pkts;
-        UpdateFlowStatsInternal(flow, k_flow->fe_stats.flow_bytes,
-                                k_flow->fe_stats.flow_bytes_oflow,
-                                k_flow->fe_stats.flow_packets,
-                                k_flow->fe_stats.flow_packets_oflow, time,
+        UpdateFlowStatsInternal(flow, k_stats.flow_bytes,
+                                k_stats.flow_bytes_oflow,
+                                k_stats.flow_packets,
+                                k_stats.flow_packets_oflow, time,
                                 true, &diff_bytes, &diff_pkts);
         FlowExport(flow, diff_bytes, diff_pkts, params);
         return;
@@ -666,8 +680,11 @@ void FlowStatsCollector::DeleteFlow(boost::shared_ptr<FlowExportReq> &req) {
     /* Reset stats and teardown_time after these information is exported during
      * flow delete so that if the flow entry is reused they point to right
      * values */
-    fe->ResetStats();
-    fe->stats_.teardown_time = 0;
+
+    if (!agent_uve_->agent()->test_mode()) {
+        fe->ResetStats();
+        fe->stats_.teardown_time = 0;
+    }
     /* Remove the flow from our aging tree */
     flow_tree_.erase(fe);
 }
