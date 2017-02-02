@@ -4,93 +4,53 @@
 
 from gevent import monkey
 monkey.patch_all()
+
 import os
-import sys
-import socket
 import subprocess
-import json
-import time
-import datetime
+import socket
 import platform
-import select
-import gevent
-import ConfigParser
 import yaml
-
-from nodemgr.common.event_manager import EventManager
+from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from nodemgr.database_nodemgr.common import CassandraManager
-
-from ConfigParser import NoOptionError
-
-from supervisor import childutils
-
-from pysandesh.sandesh_base import *
+from pysandesh.sandesh_base import sandesh_global
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_logger import SandeshLogger
-from pysandesh.sandesh_session import SandeshWriter
-from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
-from sandesh_common.vns.ttypes import Module, NodeType
-from sandesh_common.vns.constants import ModuleNames, NodeTypeNames,\
-    Module2NodeType, INSTANCE_ID_DEFAULT, SERVICE_CONTRAIL_DATABASE, \
-    RepairNeededKeyspaces, ThreadPoolNames, UVENodeTypeNames
-from subprocess import Popen, PIPE
-from StringIO import StringIO
-
-from nodemgr.common.sandesh.nodeinfo.ttypes import *
-from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
-from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import *
-from nodemgr.common.sandesh.nodeinfo.process_info.constants import *
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ThreadPoolNames
 from database.sandesh.database.ttypes import \
     DatabaseUsageStats, DatabaseUsageInfo, DatabaseUsage, CassandraStatusUVE,\
     CassandraStatusData,CassandraThreadPoolStats, CassandraCompactionTask
-from pysandesh.connection_info import ConnectionState
 
 class DatabaseEventManager(EventManager):
-    def __init__(self, rule_file, discovery_server,
+    def __init__(self, rule_file, unit_names, discovery_server,
                  discovery_port, collector_addr, sandesh_config,
                  hostip, minimum_diskgb, contrail_databases,
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
-        self.node_type = "contrail-database"
-        self.uve_node_type = UVENodeTypeNames[NodeType.DATABASE]
-        self.table = "ObjectDatabaseInfo"
-        self.module = Module.DATABASE_NODE_MGR
-        self.module_id = ModuleNames[self.module]
+        type_info = EventManagerTypeInfo(
+            package_name = 'contrail-database-common',
+            object_table = "ObjectDatabaseInfo",
+            module_type = Module.DATABASE_NODE_MGR,
+            supervisor_serverurl = "unix:///var/run/supervisord_database.sock",
+            third_party_processes =  {
+                "cassandra" : "Dcassandra-pidfile=.*cassandra\.pid",
+                "zookeeper" : "org.apache.zookeeper.server.quorum.QuorumPeerMain"
+            },
+            sandesh_packages = ['database.sandesh'],
+            unit_names = unit_names)
+        EventManager.__init__(
+            self, type_info, rule_file, discovery_server,
+            discovery_port, collector_addr, sandesh_global, sandesh_config)
         self.hostip = hostip
         self.minimum_diskgb = minimum_diskgb
         self.contrail_databases = contrail_databases
         self.cassandra_repair_interval = cassandra_repair_interval
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self.cassandra_mgr = CassandraManager(cassandra_repair_logdir)
-        self.supervisor_serverurl = "unix:///var/run/supervisord_database.sock"
-        self.add_current_process()
-        node_type = Module2NodeType[self.module]
-        node_type_name = NodeTypeNames[node_type]
-        self.sandesh_global = sandesh_global
-        EventManager.__init__(
-            self, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global)
-        self.sandesh_global = sandesh_global
-        if self.rule_file is '':
-            self.rule_file = "/etc/contrail/" + \
-                "supervisord_database_files/contrail-database.rules"
-        json_file = open(self.rule_file)
-        self.rules_data = json.load(json_file)
-        _disc = self.get_discovery_client()
-        sandesh_global.init_generator(
-            self.module_id, socket.gethostname(), node_type_name,
-            self.instance_id, self.collector_addr, self.module_id, 8103,
-            ['database.sandesh', 'nodemgr.common.sandesh'], _disc,
-            config=sandesh_config)
-        sandesh_global.set_logging_params(enable_local_log=True)
-        ConnectionState.init(sandesh_global, socket.gethostname(), self.module_id,
-            self.instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus, self.table)
-        self.send_init_info()
-        self.third_party_process_dict = {}
-        self.third_party_process_dict["cassandra"] = "Dcassandra-pidfile=.*cassandra\.pid"
-        self.third_party_process_dict["zookeeper"] = "org.apache.zookeeper.server.quorum.QuorumPeerMain"
+        # Initialize tpstat structures
+        self.cassandra_status_old = CassandraStatusData()
+        self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
+        self.cassandra_status_old.thread_pool_stats = []
     # end __init__
 
     def _get_cassandra_config_option(self, config):
@@ -104,10 +64,6 @@ class DatabaseEventManager(EventManager):
         yamlstream.close()
         return cfg[config]
 
-    def msg_log(self, msg, level):
-        self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
-                            level), msg)
-
     @staticmethod
     def cassandra_old():
         (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
@@ -120,6 +76,7 @@ class DatabaseEventManager(EventManager):
         return False
 
     def process(self):
+        self.load_rules_data()
         try:
             cassandra_data_dirs = self._get_cassandra_config_option("data_file_directories")
             cassandra_data_dir_exists = False
@@ -155,29 +112,15 @@ class DatabaseEventManager(EventManager):
                 disk_space_analytics = int(total_disk_space_used) + int(total_disk_space_available)
                 if (disk_space_analytics / (1024 * 1024) < self.minimum_diskgb):
                     cmd_str = "service " + SERVICE_CONTRAIL_DATABASE + " stop"
-                    (ret_value, error_value) = Popen(
-                        cmd_str, shell=True, stdout=PIPE, close_fds=True).communicate()
+                    (ret_value, error_value) = subprocess.Popen(
+                        cmd_str, shell=True, stdout=subprocess.PIPE,
+                        close_fds=True).communicate()
                     self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE
                 self.fail_status_bits &= ~self.FAIL_STATUS_DISK_SPACE_NA
         except:
             msg = "Failed to get database usage"
             self.msg_log(msg, level=SandeshLevel.SYS_ERR)
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
-
-    def send_process_state_db(self, group_names):
-        self.send_process_state_db_base(
-            group_names, ProcessInfo)
-
-    def send_nodemgr_process_status(self):
-        self.send_nodemgr_process_status_base(
-            ProcessStateNames, ProcessState, ProcessStatus)
-
-    def get_node_third_party_process_dict(self):
-        return self.third_party_process_dict 
-
-    def get_process_state(self, fail_status_bits):
-        return self.get_process_state_base(
-            fail_status_bits, ProcessStateNames, ProcessState)
 
     def get_failbits_nodespecific_desc(self, fail_status_bits):
         description = ""
@@ -249,8 +192,8 @@ class DatabaseEventManager(EventManager):
             self.fail_status_bits |= self.FAIL_STATUS_DISK_SPACE_NA
 
         cqlsh_cmd = "cqlsh " + self.hostip + " -e quit"
-        proc = Popen(cqlsh_cmd, shell=True, stdout=PIPE, stderr=PIPE,
-                     close_fds=True)
+        proc = subprocess.Popen(cqlsh_cmd, shell=True, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, close_fds=True)
         (output, errout) = proc.communicate()
         if proc.returncode != 0:
             self.fail_status_bits |= self.FAIL_STATUS_SERVER_PORT
@@ -297,8 +240,7 @@ class DatabaseEventManager(EventManager):
                 pending_compaction_tasks = cassandra_status.\
                 cassandra_compaction_task.pending_compaction_tasks
             msg = 'Sending UVE: ' + str(cassandra_status_uve)
-            self.sandesh_global.logger().log(SandeshLogger.get_py_logger_level(
-                            SandeshLevel.SYS_DEBUG), msg)
+            self.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
             cassandra_status_uve.send()
     # end send_database_status
 
@@ -350,36 +292,8 @@ class DatabaseEventManager(EventManager):
         return thread_pool_stats_list
     # end get_tp_status
 
-    def runforever(self, test=False):
-        self.prev_current_time = int(time.time())
-        # Initialize tpstat structures
-        self.cassandra_status_old = CassandraStatusData()
-        self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
-        self.cassandra_status_old.thread_pool_stats = []
-        while 1:
-            # we explicitly use self.stdin, self.stdout, and self.stderr
-            # instead of sys.* so we can unit test this code
-            headers, payload = self.listener_nodemgr.wait(
-                self.stdin, self.stdout)
-
-            # self.stderr.write("headers:\n" + str(headers) + '\n')
-            # self.stderr.write("payload:\n" + str(payload) + '\n')
-
-            pheaders, pdata = childutils.eventdata(payload + '\n')
-            # self.stderr.write("pheaders:\n" + str(pheaders)+'\n')
-            # self.stderr.write("pdata:\n" + str(pdata))
-
-            # check for process state change events
-            if headers['eventname'].startswith("PROCESS_STATE"):
-                self.event_process_state(pheaders, headers)
-            # check for flag value change events
-            if headers['eventname'].startswith("PROCESS_COMMUNICATION"):
-                self.event_process_communication(pdata)
-            # do periodic events
-            if headers['eventname'].startswith("TICK_60"):
-                self.database_periodic()
-                self.event_tick_60()
-            self.listener_nodemgr.ok(self.stdout)
-
-    def get_package_name(self):
-        return self.node_type + '-common'
+    def do_periodic_events(self):
+        self.database_periodic()
+        self.event_tick_60()
+    # end do_periodic_events
+# end class DatabaseEventManager
