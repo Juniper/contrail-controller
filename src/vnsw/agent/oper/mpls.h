@@ -9,6 +9,7 @@
 #include <cmn/agent.h>
 #include <oper/route_common.h>
 #include <oper/nexthop.h>
+#include <resource_manager/resource_manager.h>
 
 using namespace boost::uuids;
 using namespace std;
@@ -23,8 +24,7 @@ public:
     typedef DependencyList<AgentRoute, MplsLabel> DependentPathList;
 
     MplsLabel(const Agent *agent, Type type, uint32_t label) :
-        agent_(agent), type_(type), label_(label), 
-        free_label_(false), nh_(NULL) { }
+        agent_(agent), type_(type), label_(label), nh_(NULL) { }
     virtual ~MplsLabel();
 
     bool IsLess(const DBEntry &rhs) const {
@@ -77,7 +77,6 @@ private:
     const Agent *agent_;
     Type type_;
     uint32_t label_;
-    bool free_label_;
     NextHopRef nh_;
     friend class MplsTable;
     DEPENDENCY_LIST(AgentRoute, MplsLabel, mpls_label_);
@@ -144,8 +143,7 @@ public:
     static const uint32_t kStartLabel = 16;
     static const uint32_t kDpdkShiftBits = 4;
 
-    MplsTable(DB *db, const std::string &name) : AgentDBTable(db, name),
-        mpls_shift_bits_(0) { }
+    MplsTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
     virtual ~MplsTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -163,30 +161,6 @@ public:
                           const std::string vrf_name);
     void DeleteMcastLabel(uint32_t src_label);
 
-    // Allocate and Free label from the label_table
-    uint32_t AllocLabel() {
-        uint32_t index = label_table_.Insert(NULL);
-        return index << mpls_shift_bits_;
-    }
-
-    uint32_t InsertAtIndex(uint32_t label, MplsLabel *entry) {
-        uint32_t index = label_table_.InsertAtIndex(label, entry);
-        return index << mpls_shift_bits_;
-    }
-
-    void UpdateLabel(uint32_t label, MplsLabel *entry) {
-        uint32_t index = label >> mpls_shift_bits_;
-        return label_table_.Update(index, entry);
-    }
-    void FreeLabel(uint32_t label) {
-        uint32_t index = label >> mpls_shift_bits_;
-        label_table_.Remove(index);
-    }
-    MplsLabel *FindMplsLabel(size_t label) {
-        uint32_t index = label >> mpls_shift_bits_;
-        return label_table_.At(index);
-    }
-
     static void CreateTableLabel(const Agent *agent, uint32_t label,
                                  const std::string &vrf_name,
                                  bool policy);
@@ -195,26 +169,18 @@ public:
     void Process(DBRequest &req);
     bool ChangeNH(MplsLabel *mpls, NextHop *nh);
 
-    void set_mpls_shift_bits(uint32_t shift) {
-        mpls_shift_bits_ = shift;
-    }
     void ReserveLabel(uint32_t start, uint32_t end);
+    void FreeReserveLabel(uint32_t start, uint32_t end);
     void ReserveMulticastLabel(uint32_t start, uint32_t end, uint8_t idx);
     bool IsFabricMulticastLabel(uint32_t label) const;
+    MplsLabel *FindMplsLabel(uint32_t label);
+    uint32_t AllocLabel(ResourceManager::KeyPtr key);
+    void FreeLabel(uint32_t label);
 
 private:
     static MplsTable *mpls_table_;
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);
-    IndexVector<MplsLabel> label_table_;
-    //When agent is running with dpdk vrouter, it may
-    //use flow director functionality present in nic, to
-    //forward the packet to right queue of VM based on mpls label.
-    //NIC supporting that usually match 16 bits in packet and forward
-    //that to a queue, in case of MPLS packet lower 4bits of mpls label
-    //are present in one 16bit word and upper 16bit are present in
-    //other word. Mpls label are allocated such that lower 4 bits are 0,
-    //so that remaining MSB can uniquely identify the queue
-    uint32_t mpls_shift_bits_;
+    IndexVector<MplsLabel *> label_table_;
     uint32_t multicast_label_start_[MAX_XMPP_SERVERS];
     uint32_t multicast_label_end_[MAX_XMPP_SERVERS];
     DISALLOW_COPY_AND_ASSIGN(MplsTable);

@@ -1,0 +1,31 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+   cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS=cflags)
+
+SandeshGenFiles = env.SandeshGenCpp('resource_manager.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
+
+libresource_manager = env.Library('resource_manager',
+                                     sandesh_objs +
+                                     [ 'resource_manager.cc',
+                                       'resource_table.cc',
+                                       'resource_cmn.cc',
+                                       'index_resource.cc',
+                                       'mpls_index.cc',
+                                       except_env.Object('resource_backup.cc'),
+                                       except_env.Object('sandesh_map.cc'),
+                                     ])
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

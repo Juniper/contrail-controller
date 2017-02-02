@@ -17,7 +17,8 @@
 #include <port_ipc/port_ipc_handler.h>
 #include <port_ipc/port_subscribe_table.h>
 #include <controller/controller_ifmap.h>
-
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/mpls_index.h>
 #define MAX_TESTNAME_LEN 80
 
 using namespace std;
@@ -4580,4 +4581,18 @@ void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip,
     AddNode("virtual-machine-interface", intf_name.c_str(),
             intf_id, cbuf);
     client->WaitForIdle();
+}
+
+uint32_t AllocLabel(const char *str) {
+    Agent *agent = Agent::GetInstance();
+    std::stringstream str_str;
+    str_str << str;
+    ResourceManager::KeyPtr key(new TestMplsResourceKey(agent->
+                                resource_manager(), str_str.str()));
+    return (agent->mpls_table()->AllocLabel(key));
+}
+
+void FreeLabel(uint32_t label) {
+    Agent *agent = Agent::GetInstance();
+    agent->mpls_table()->FreeLabel(label);
 }
