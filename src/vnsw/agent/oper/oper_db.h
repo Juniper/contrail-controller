@@ -121,7 +121,7 @@ public:
         DBRequest req;
         IFMapDependencyManager *dep = agent()->oper_db()->dependency_manager();
         boost::uuids::uuid new_uuid = boost::uuids::nil_uuid();
-        bool uuid_set = IFNodeToUuid(node, new_uuid);
+        IFNodeToUuid(node, new_uuid);
         IFMapNodeState *state = dep->IFMapNodeGet(node);
         boost::uuids::uuid old_uuid = state->uuid();
 
@@ -137,7 +137,7 @@ public:
                     }
                 }
             }
-            if (uuid_set && dep->IsNodeIdentifiedByUuid(node)) {
+            if (dep->IsNodeIdentifiedByUuid(node)) {
                 assert(new_uuid != boost::uuids::nil_uuid());
             }
             state->set_uuid(new_uuid);
@@ -145,7 +145,7 @@ public:
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
-            if (uuid_set && (old_uuid == boost::uuids::nil_uuid()) &&
+            if (old_uuid == boost::uuids::nil_uuid() &&
                 (dep->IsNodeIdentifiedByUuid(node))) {
                 //Node was never added so no point sending delete
                 return;
