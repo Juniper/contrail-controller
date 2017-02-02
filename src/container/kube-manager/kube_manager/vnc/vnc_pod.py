@@ -9,14 +9,16 @@ VNC pod management for kubernetes
 from vnc_api.vnc_api import *
 from config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
+from kube_manager.common.kube_config_db import PodKM
 
 class VncPod(object):
 
     def __init__(self, vnc_lib=None, label_cache=None, service_mgr=None,
-                     svc_fip_pool = None):
+                 queue=None, svc_fip_pool=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self._service_mgr = service_mgr
+        self._queue = queue
         self._service_fip_pool = svc_fip_pool
 
     def _get_network(self, pod_id, pod_namespace):
@@ -122,6 +124,11 @@ class VncPod(object):
     def _create_vm(self, pod_id, pod_name, labels):
         vm_obj = VirtualMachine(name=pod_name)
         vm_obj.uuid = pod_id
+        annotations = {}
+        annotations['device_owner'] = 'K8S:POD'
+        for key in annotations:
+            vm_obj.add_annotations(KeyValuePair(key=key, value=annotations[key]))
+        vm_obj.add_annotations(KeyValuePair(key='labels', value=labels))
         try:
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
@@ -144,6 +151,9 @@ class VncPod(object):
             vm.virtual_router = vrouter_obj.uuid
 
     def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, labels):
+        vm = VirtualMachineKM.get(pod_id)
+        if vm:
+            return
         vn_obj = self._get_network(pod_id, pod_namespace)
         vm_obj = self._create_vm(pod_id, pod_name, labels)
         vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
@@ -195,6 +205,43 @@ class VncPod(object):
             self._vnc_lib.virtual_machine_delete(id=pod_id)
         except NoIdError:
             pass
+
+        return
+
+    def _create_pod_event(self, event_type, pod_id, vm_obj):
+        event = {}
+        object = {}
+        object['kind'] = 'Pod'
+        object['metadata'] = {}
+        object['metadata']['uid'] = pod_id
+        object['metadata']['labels'] = vm_obj.pod_labels
+        if event_type == 'delete':
+            event['type'] = 'DELETED'
+            event['object'] = object
+            self._queue.put(event)
+        return
+
+    def _sync_pod_vm(self):
+        vm_uuid_list = list(VirtualMachineKM.keys())
+        pod_uuid_list = list(PodKM.keys())
+        for uuid in vm_uuid_list:
+            if uuid in pod_uuid_list:
+                continue
+            vm = VirtualMachineKM.get(uuid)
+            if not vm:
+                continue
+            if not vm.annotations:
+                continue
+            for kvp in vm.annotations['key_value_pair'] or []:
+                if kvp['key'] == 'device_owner' \
+                   and kvp['value'] == 'K8S:POD':
+                    self._create_pod_event('delete', uuid, vm)
+                    break
+        return
+
+    def pod_timer(self):
+        self._sync_pod_vm()
+        return
 
     def process(self, event):
         pod_id = event['object']['metadata'].get('uid')

@@ -36,6 +36,11 @@ class DBBase(object):
                 yield i
         # end __iter__
 
+        def keys(cls):
+            for i in cls._dict.keys():
+                yield i
+        # end keys
+
         def values(cls):
             for i in cls._dict.values():
                 yield i
