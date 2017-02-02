@@ -12,23 +12,23 @@
 #include <oper/tunnel_nh.h> 
 
 class DiagTable;
-class OverlayPing : public DiagEntry{
+
+class OverlayPing : public DiagEntry {
 public:
-   static const uint32_t kOverlayUdpHdrLength = 2 *(sizeof(struct ether_header) +
-                                               sizeof(struct ip) + sizeof(udphdr))
-                                               + sizeof(VxlanHdr);
-   static const uint32_t kVxlanRABit = 0x01000000;
-   static const uint32_t kVxlanIBit = 0x08000000;
-   static const MacAddress in_dst_mac_;
-   static const MacAddress in_source_mac_;
+    static const uint32_t kOverlayUdpHdrLength =
+        2 * (sizeof(struct ether_header) + sizeof(struct ip) + sizeof(udphdr)) +
+        sizeof(VxlanHdr);
+    static const uint32_t kVxlanRABit = 0x01000000;
+    static const uint32_t kVxlanIBit = 0x08000000;
+    static const MacAddress in_dst_mac_;
+    static const MacAddress in_source_mac_;
    
-   OverlayPing(const OverlayPingReq *req, DiagTable *diag_table);
+    OverlayPing(const OverlayPingReq *req, DiagTable *diag_table);
     virtual ~OverlayPing();
     virtual void SendRequest();
     virtual void HandleReply(DiagPktHandler *handler);
     virtual void RequestTimedOut(uint32_t seq_no);
     virtual void SendSummary();
-    //void FillOamPktHeader(OverlayOamPktData *pkt);
     static BridgeRouteEntry *L2RouteGet(VxLanId* vxlan, string remotemac, 
                                         Agent *agent);
 private:
@@ -37,6 +37,7 @@ private:
     uint16_t   data_len_;
     uint16_t   len_;   //Length including tcp, ip, agent headers + outer eth
     std::string context_;
+    boost::posix_time::ptime senttime_;
     boost::posix_time::time_duration avg_rtt_;
     uint32_t  pkt_lost_count_;
 };

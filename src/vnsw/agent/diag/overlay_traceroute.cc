@@ -65,7 +65,8 @@ void OverlayTraceRoute::SendRequest()
     OverlayOamPktData *pktdata = NULL;
     pktdata = (OverlayOamPktData *)(buf + OverlayPing::kOverlayUdpHdrLength);
 
-    FillOamPktHeader(pktdata, vxlan_id);
+    boost::posix_time::ptime senttime = microsec_clock::universal_time();
+    FillOamPktHeader(pktdata, vxlan_id, senttime);
     DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
                                    *(diag_table_->agent()->event_manager())->io_service());
     // FIll outer header
