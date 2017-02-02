@@ -968,8 +968,7 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         prefix_key_value_map = {'Source': socket.gethostname()[:-1],
-            'ModuleId': 'contrail-', 'Messagetype': 'Collector',
-            'Category': 'Discovery'}
+            'ModuleId': 'contrail-', 'Messagetype': 'Collector'}
         for key, value in prefix_key_value_map.iteritems():
             self.logger.info('verify where_prefix: %s = %s*' % (key, value))
             res = vns.post_query('MessageTable', start_time='-10m',
