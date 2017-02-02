@@ -106,9 +106,9 @@ Mibs = LldpTable, ArpTable
             'disc_server_port'   : 5998,
         }
         sandesh_opts = {
-            'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-            'certfile': '/etc/contrail/ssl/certs/server.pem',
-            'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+            'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+            'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
+            'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
             'sandesh_ssl_enable': False,
             'introspect_ssl_enable': False
         }
@@ -185,11 +185,11 @@ Mibs = LldpTable, ArpTable
             help="Discovery Server IP address")
         parser.add_argument("--disc_server_port", type=int,
             help="Discovery Server port")
-        parser.add_argument("--keyfile",
+        parser.add_argument("--sandesh_keyfile",
             help="Sandesh ssl private key")
-        parser.add_argument("--certfile",
+        parser.add_argument("--sandesh_certfile",
             help="Sandesh ssl certificate")
-        parser.add_argument("--ca_cert",
+        parser.add_argument("--sandesh_ca_cert",
             help="Sandesh CA ssl certificate")
         parser.add_argument("--sandesh_ssl_enable", action="store_true",
             help="Enable ssl for sandesh connection")
@@ -292,8 +292,8 @@ Mibs = LldpTable, ArpTable
         return self._args.sandesh_send_rate_limit
 
     def sandesh_config(self):
-        return SandeshConfig(self._args.keyfile,
-                             self._args.certfile,
-                             self._args.ca_cert,
+        return SandeshConfig(self._args.sandesh_keyfile,
+                             self._args.sandesh_certfile,
+                             self._args.sandesh_ca_cert,
                              self._args.sandesh_ssl_enable,
                              self._args.introspect_ssl_enable)

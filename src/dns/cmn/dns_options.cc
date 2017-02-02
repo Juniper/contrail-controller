@@ -222,13 +222,13 @@ void Options::Initialize(EventManager &evm,
              opt::value<string>()->default_value(
              "/etc/contrail/ssl/certs/ca-cert.pem"),
              "XMPP CA ssl certificate")
-        ("SANDESH.keyfile", opt::value<string>()->default_value(
+        ("SANDESH.sandesh_keyfile", opt::value<string>()->default_value(
             "/etc/contrail/ssl/private/server-privkey.pem"),
             "Sandesh ssl private key")
-        ("SANDESH.certfile", opt::value<string>()->default_value(
+        ("SANDESH.sandesh_certfile", opt::value<string>()->default_value(
             "/etc/contrail/ssl/certs/server.pem"),
             "Sandesh ssl certificate")
-        ("SANDESH.ca_cert", opt::value<string>()->default_value(
+        ("SANDESH.sandesh_ca_cert", opt::value<string>()->default_value(
             "/etc/contrail/ssl/certs/ca-cert.pem"),
             "Sandesh CA ssl certificate")
         ("SANDESH.sandesh_ssl_enable",
@@ -431,11 +431,11 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert");
 
     GetOptValue<string>(var_map, sandesh_config_.keyfile,
-                        "SANDESH.keyfile");
+                        "SANDESH.sandesh_keyfile");
     GetOptValue<string>(var_map, sandesh_config_.certfile,
-                        "SANDESH.certfile");
+                        "SANDESH.sandesh_certfile");
     GetOptValue<string>(var_map, sandesh_config_.ca_cert,
-                        "SANDESH.ca_cert");
+                        "SANDESH.sandesh_ca_cert");
     GetOptValue<bool>(var_map, sandesh_config_.sandesh_ssl_enable,
                       "SANDESH.sandesh_ssl_enable");
     GetOptValue<bool>(var_map, sandesh_config_.introspect_ssl_enable,
