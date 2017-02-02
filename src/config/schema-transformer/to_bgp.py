@@ -4064,7 +4064,7 @@ def parse_args(args_str):
                         help="Used for database keyspace separation")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
-    parser.add_argument("--zk_timeout",
+    parser.add_argument("--zk_timeout", type=int,
                         help="Timeout for ZookeeperClient")
     parser.add_argument("--logical_routers_enabled", type=_bool,
                         help="Timeout for ZookeeperClient")
