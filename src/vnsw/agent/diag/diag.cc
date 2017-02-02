@@ -148,17 +148,33 @@ uint32_t DiagEntry::HashValUdpSourcePort() {
     boost::hash_combine(seed, dport_);
     return seed;
 }
-void DiagEntry::FillOamPktHeader(OverlayOamPktData *pktdata, uint32_t vxlan_id) {
-   pktdata->msg_type_ = AgentDiagPktData::DIAG_REQUEST;
-   pktdata->reply_mode_ = OverlayOamPktData::REPLY_OVERLAY_SEGMENT;
-   pktdata->org_handle_ = htons(key_);
-   pktdata->seq_no_ = htonl(seq_no_);
-   boost::posix_time::ptime time =  microsec_clock::universal_time();
-   boost::posix_time::time_duration td = time.time_of_day();
-   pktdata->timesent_sec_ = td.total_seconds();
-   pktdata->timesent_misec_ = td.total_microseconds() - 
-       seconds(pktdata->timesent_sec_).total_microseconds();
-   pktdata->vxlanoamtlv_.type_ = AgentDiagPktData::DIAG_REQUEST;
-   pktdata->vxlanoamtlv_.vxlan_id_ = htonl(vxlan_id);
-   pktdata->vxlanoamtlv_.sip_ = sip_.to_v4();
+
+void DiagEntry::FillOamPktHeader(OverlayOamPktData *pktdata, uint32_t vxlan_id,
+                                 const boost::posix_time::ptime &time) {
+    pktdata->msg_type_ = AgentDiagPktData::DIAG_REQUEST;
+    pktdata->reply_mode_ = OverlayOamPktData::REPLY_OVERLAY_SEGMENT;
+    pktdata->org_handle_ = htons(key_);
+    pktdata->seq_no_ = htonl(seq_no_);
+
+    boost::posix_time::ptime
+        epoch(boost::gregorian::date(1970, boost::gregorian::Jan, 1));
+    boost::posix_time::time_duration td = time - epoch;
+    pktdata->timesent_sec_ = htonl(td.total_seconds());
+    pktdata->timesent_misec_ = htonl(td.total_microseconds());
+
+    if (sip_.is_v4()) {
+        pktdata->oamtlv_.type_ = htons(OamTlv::VXLAN_PING_IPv4);
+        pktdata->oamtlv_.length_ = htons(sizeof(OamTlv::VxlanOamV4Tlv));
+        OamTlv::VxlanOamV4Tlv *vxlan_tlv =
+            (OamTlv::VxlanOamV4Tlv *) pktdata->oamtlv_.data_;
+        vxlan_tlv->vxlan_id_ = htonl(vxlan_id);
+        vxlan_tlv->sip_ = htonl(sip_.to_v4().to_ulong());
+    } else {
+        pktdata->oamtlv_.type_ = htons(OamTlv::VXLAN_PING_IPv6);
+        pktdata->oamtlv_.length_ = htons(sizeof(OamTlv::VxlanOamV6Tlv));
+        OamTlv::VxlanOamV6Tlv *vxlan_tlv =
+            (OamTlv::VxlanOamV6Tlv *) pktdata->oamtlv_.data_;
+        vxlan_tlv->vxlan_id_ = htonl(vxlan_id);
+        memcpy(vxlan_tlv->sip_, sip_.to_v6().to_bytes().data(), 16);
+    }
 }
