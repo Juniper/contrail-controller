@@ -94,119 +94,6 @@ class VncService(object):
             if len(pod_ids):
                 self.add_pods_to_service(service_id, pod_ids, ports)
 
-    def remove_service_selectors_from_cache(self, selectors, service_id, ports):
-        for selector in selectors.items():
-            key = self._label_cache._get_key(selector)
-            self._label_cache._remove_label(key,
-                self._label_cache.service_selector_cache, selector, service_id)
-
-    def add_pod_to_service(self, service_id, pod_id, port=None):
-        lb = LoadbalancerKM.get(service_id)
-        if not lb:
-            return
-
-        listener_found = True
-        for ll_id in list(lb.loadbalancer_listeners):
-            ll = LoadbalancerListenerKM.get(ll_id)
-            if not ll:
-                continue
-            if not ll.params['protocol_port']:
-                continue
-
-            if port:
-                if ll.params['protocol_port'] != port['port'] or \
-                   ll.params['protocol'] != port['protocol']:
-                    listener_found = False
-
-            if not listener_found:
-                continue
-            pool_id = ll.loadbalancer_pool
-            if not pool_id:
-                continue
-            pool = LoadbalancerPoolKM.get(pool_id)
-            if not pool:
-                continue
-            vm = VirtualMachineKM.get(pod_id)
-            if not vm: 
-                continue
-
-            for vmi_id in list(vm.virtual_machine_interfaces):
-                vmi = VirtualMachineInterfaceKM.get(vmi_id)
-                if not vmi:
-                    continue
-                member_match = False
-                for member_id in pool.members:
-                    member = LoadbalancerMemberKM.get(member_id)
-                    if member and member.vmi == vmi_id:
-                        member_match = True
-                        break
-                if not member_match:
-                    if isinstance(ll.target_port, basestring):
-                        target_port = ll.params['protocol_port']
-                    else:
-                        target_port = ll.target_port
-                    member_obj = self._vnc_create_member(pool, vmi_id, target_port)
-                    LoadbalancerMemberKM.locate(member_obj.uuid)
-                
-
-    def remove_pod_from_service(self, service_id, pod_id, port=None):
-        lb = LoadbalancerKM.get(service_id)
-        if not lb:
-            return
-
-        listener_found = True
-        for ll_id in list(lb.loadbalancer_listeners):
-            ll = LoadbalancerListenerKM.get(ll_id)
-            if not ll:
-                continue
-            if not ll.params['protocol_port']:
-                continue
-
-            if port:
-                if ll.params['protocol_port'] != port['port'] or \
-                   ll.params['protocol'] != port['protocol']:
-                    listener_found = False
-
-            if not listener_found:
-                continue
-            pool_id = ll.loadbalancer_pool
-            if not pool_id:
-                continue
-            pool = LoadbalancerPoolKM.get(pool_id)
-            if not pool:
-                continue
-            vm = VirtualMachineKM.get(pod_id)
-            if not vm: 
-                continue
-
-            for vmi_id in list(vm.virtual_machine_interfaces):
-                vmi = VirtualMachineInterfaceKM.get(vmi_id)
-                if not vmi:
-                    continue
-                member_match = False
-                for member_id in pool.members:
-                    member = LoadbalancerMemberKM.get(member_id)
-                    if member and member.vmi == vmi_id:
-                        member_match = True
-                        break
-                if member_match:
-                    self._vnc_delete_member(member.uuid)
-                    LoadbalancerMemberKM.delete(member.uuid)
-
-    def add_pods_to_service(self, service_id, pod_list, ports=None):
-        for pod_id in pod_list:
-            for port in ports:
-                self.add_pod_to_service(service_id, pod_id, port)
-
-    def _vnc_create_member(self, pool, vmi_id, protocol_port):
-        pool_obj = self.service_lb_pool_mgr.read(pool.uuid)
-        address = None
-        annotations = {}
-        annotations['vmi'] = vmi_id
-        member_obj = self.service_lb_member_mgr.create(pool_obj,
-                          address, protocol_port, annotations)
-        return member_obj
-
     def _vnc_create_pool(self, namespace, ll, port):
         proj_obj = self._get_project(namespace)
         ll_obj = self.service_ll_mgr.read(ll.uuid)
@@ -409,14 +296,9 @@ class VncService(object):
         if service_name == self._kubernetes_service_name:
             self._create_link_local_service(service_name, service_ip, ports)
 
-        if selectors:
-            self.check_service_selectors_actions(selectors, service_id, ports)
-
         self._update_service_public_ip(service_id, service_name,
                         service_namespace, service_type, externalIp)
 
-    def _vnc_delete_member(self, member_id):
-        self.service_lb_member_mgr.delete(member_id)
 
     def _vnc_delete_pool(self, pool_id):
         self.service_lb_pool_mgr.delete(pool_id)
@@ -438,7 +320,7 @@ class VncService(object):
                     for member_id in members or []:
                         member = LoadbalancerMemberKM.get(member_id)
                         if member:
-                            self._vnc_delete_member(member_id)
+                            self.service_lb_member_mgr.delete(member_id)
                             LoadbalancerMemberKM.delete(member_id)
 
                 self._vnc_delete_pool(pool_id)
@@ -468,9 +350,6 @@ class VncService(object):
         # kubernetes service.
         if service_name == self._kubernetes_service_name:
             _delete_link_local_service(service_name, svc_ip, ports)
-
-        if selectors:
-            self.remove_service_selectors_from_cache(selectors, service_id, ports)
 
     def process(self, event):
         service_id = event['object']['metadata'].get('uid')

@@ -153,6 +153,7 @@ class LoadbalancerMemberKM(DBBaseKM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.vmi = None
+        self.vm = None
         self.loadbalancer_pool = {}
         self.update(obj_dict)
         if self.loadbalancer_pool:
@@ -173,7 +174,8 @@ class LoadbalancerMemberKM(DBBaseKM):
             for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'vmi':
                     self.vmi = kvp['value']
-                    break
+                if kvp['key'] == 'vm':
+                    self.vm = kvp['value']
     # end update
 
     @classmethod
@@ -392,6 +394,7 @@ class InstanceIpKM(DBBaseKM):
         self.family = None
         self.virtual_machine_interfaces = set()
         self.virtual_networks = set()
+        self.floating_ips = set()
         self.update(obj_dict)
 
     def update(self, obj=None):
@@ -403,6 +406,7 @@ class InstanceIpKM(DBBaseKM):
         self.address = obj.get('instance_ip_address', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_network', obj)
+        self.update_multiple_refs('floating_ip', obj)
 
     @classmethod
     def delete(cls, uuid):
