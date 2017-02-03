@@ -7,7 +7,7 @@
 #include "mac_learning_init.h"
 
 SandeshTraceBufferPtr MacLearningTraceBuf(SandeshTraceBufferCreate("MacLearning",
-                                                                   50000));
+                                                                   500000));
 
 MacLearningModule::MacLearningModule(Agent *agent):
     agent_(agent), mac_learning_proto_(NULL) {

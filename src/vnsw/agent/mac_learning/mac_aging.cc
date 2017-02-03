@@ -21,6 +21,20 @@
 MacAgingEntry::MacAgingEntry(MacLearningEntryPtr ptr):
     mac_learning_entry_(ptr), packets_(0), deleted_(false) {
     last_modified_time_ = UTCTimestampUsec();
+    addition_time_ = UTCTimestampUsec();
+}
+
+void MacAgingEntry::FillSandesh(SandeshMacEntry *smac) const {
+    smac->set_vrf(mac_learning_entry_->vrf()->GetName());
+    smac->set_mac(mac_learning_entry_->mac().ToString());
+    smac->set_index(mac_learning_entry_->index());
+    smac->set_packets(packets_);
+    std::string time_since_addition =
+        duration_usecs_to_string(UTCTimestampUsec() - addition_time_);
+    smac->set_time_since_add(time_since_addition);
+    std::string last_stats_change =
+        duration_usecs_to_string(UTCTimestampUsec() - last_modified_time_);
+    smac->set_last_stats_change(last_stats_change);
 }
 
 MacAgingTable::MacAgingTable(Agent *agent, const VrfEntry *vrf) :

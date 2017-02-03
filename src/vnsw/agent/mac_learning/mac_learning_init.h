@@ -18,12 +18,16 @@ public:
     void Init();
     void Shutdown();
 
-    MacLearningMgmtManager* mac_learning_mgmt() {
+    MacLearningMgmtManager* mac_learning_mgmt() const {
         return mac_learning_mgmt_.get();
     }
 
-    MacLearningDBClient* mac_learning_db_client() {
+    MacLearningDBClient* mac_learning_db_client() const {
         return mac_learning_db_client_.get();
+    }
+
+    MacLearningProto* mac_learning_proto() const {
+        return mac_learning_proto_.get();
     }
 private:
     Agent *agent_;

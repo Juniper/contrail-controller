@@ -6,6 +6,8 @@
 #define SRC_VNSW_AGENT_MAC_LEARNING_MAC_AGING_H_
 
 #include "cmn/agent.h"
+class MacEntryResp;
+class SandeshMacEntry;
 
 class MacAgingEntry {
 public:
@@ -44,11 +46,13 @@ public:
         return deleted_;
     }
 
+    void FillSandesh(SandeshMacEntry *sme) const;
 private:
     MacLearningEntryPtr mac_learning_entry_;
     uint64_t packets_;
     uint64_t last_modified_time_;
     bool deleted_;
+    uint64_t addition_time_;
 };
 typedef boost::shared_ptr<MacAgingEntry> MacAgingEntryPtr;
 
@@ -74,11 +78,21 @@ public:
     void Add(MacLearningEntryPtr ptr);
     void Delete(MacLearningEntryPtr ptr);
 
+    const MacAgingEntry *Find(MacLearningEntry *me) const {
+        MacAgingEntryTable::const_iterator it =
+            aging_table_.find(me);
+        if (it != aging_table_.end()) {
+            return it->second.get();
+        }
+        return NULL;
+    }
+
 private:
     bool ShouldBeAged(MacAgingEntry *ptr, uint64_t curr_time);
     void SendDeleteMsg(MacAgingEntry *ptr);
     void ReadStats(MacAgingEntry *ptr);
     void Trace(const std::string &str, MacAgingEntry *ptr);
+    friend class MacAgingSandeshResp;
     Agent *agent_;
     MacAgingEntryTable aging_table_;
     MacLearningEntry* last_key_;
@@ -112,6 +126,7 @@ public:
 
 private:
     void DeleteVrf(uint32_t id);
+    friend class MacAgingSandeshResp;
     Agent *agent_;
     uint32_t partition_id_;
     MacLearningRequestQueue request_queue_;
