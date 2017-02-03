@@ -411,29 +411,7 @@ class DBInterface(object):
         except (PermissionDenied, RefsExistError) as e:
             self._raise_contrail_exception('BadRequest',
                 resource='network', msg=str(e))
-
-        # read back to get subnet gw allocated by api-server
-        fq_name_str = json.dumps(net_obj.get_fq_name())
-    #end _virtual_network_update
-
-    def _virtual_network_delete(self, net_id):
-        fq_name_str = None
-        try:
-            net_obj = self._vnc_lib.virtual_network_read(id=net_id)
-            fq_name_str = json.dumps(net_obj.get_fq_name())
-        except NoIdError:
-            return
-
-        try:
-            if net_obj.get_floating_ip_pools():
-                fip_pools = net_obj.get_floating_ip_pools()
-                for fip_pool in fip_pools:
-                    self._floating_ip_pool_delete(fip_pool_id=fip_pool['uuid'])
-
-            self._vnc_lib.virtual_network_delete(id=net_id)
-        except RefsExistError:
-            self._raise_contrail_exception('NetworkInUse', net_id=net_id)
-    #end _virtual_network_delete
+    # end _virtual_network_update
 
     def _virtual_network_list(self, parent_id=None, obj_uuids=None,
                               fields=None, detail=False, count=False,
@@ -668,8 +646,7 @@ class DBInterface(object):
 
     def _logical_router_update(self, rtr_obj):
         self._vnc_lib.logical_router_update(rtr_obj)
-        fq_name_str = json.dumps(rtr_obj.get_fq_name())
-    #end _logical_router_update
+    # end _logical_router_update
 
     def _logical_router_delete(self, rtr_id):
         try:
@@ -2583,8 +2560,24 @@ class DBInterface(object):
 
     @wait_for_api_server_connection
     def network_delete(self, net_id):
-        self._virtual_network_delete(net_id=net_id)
-    #end network_delete
+        try:
+            net_obj = self._vnc_lib.virtual_network_read(id=net_id)
+        except NoIdError:
+            return
+
+        try:
+            fip_pools = net_obj.get_floating_ip_pools()
+            for fip_pool in fip_pools or []:
+                fip_pool_obj = self._vnc_lib.floating_ip_pool_read(id=fip_pool['uuid'])
+                fips = fip_pool_obj.get_floating_ips()
+                for fip in fips or []:
+                    self.floatingip_delete(fip_id=fip['uuid'])
+                self._floating_ip_pool_delete(fip_pool_id=fip_pool['uuid'])
+
+            self._vnc_lib.virtual_network_delete(id=net_id)
+        except RefsExistError:
+            self._raise_contrail_exception('NetworkInUse', net_id=net_id)
+    # end network_delete
 
     # TODO request based on filter contents
     @wait_for_api_server_connection
