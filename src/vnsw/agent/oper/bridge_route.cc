@@ -198,7 +198,7 @@ AgentRouteData *BridgeAgentRouteTable::BuildNonBgpPeerData(const string &vrf_nam
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
                                         vrf_name));
-    nh_req.data.reset(new CompositeNHData(pbb_nh, learning_enabled));
+    nh_req.data.reset(new CompositeNHData(pbb_nh, learning_enabled, false));
     return (new MulticastRoute(vn_name, label,
                                vxlan_id, tunnel_type,
                                nh_req, type, 0));
@@ -221,7 +221,7 @@ AgentRouteData *BridgeAgentRouteTable::BuildBgpPeerData(const Peer *peer,
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(type, false, component_nh_key_list,
                                         vrf_name));
-    nh_req.data.reset(new CompositeNHData(pbb_nh, learning_enabled));
+    nh_req.data.reset(new CompositeNHData(pbb_nh, learning_enabled, false));
     return (new MulticastRoute(vn_name, label, ethernet_tag, tunnel_type,
                                nh_req, type, bgp_peer->sequence_number()));
 }
@@ -776,7 +776,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                         false,
                                         component_nh_list,
                                         vrf()->GetName()));
-    nh_req.data.reset(new CompositeNHData(pbb_nh, learning_enabled));
+    nh_req.data.reset(new CompositeNHData(pbb_nh, learning_enabled,
+                                          vrf()->layer2_control_word()));
     agent->nexthop_table()->Process(nh_req);
     NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
                                  FindActiveEntry(nh_req.key.get()));
@@ -835,7 +836,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                              vxlan_id,
                                              label,
                                              tunnel_bmap,
-                                             nh);
+                                             nh, this);
 
     //Bake all MPLS label
     if (fabric_peer_path) {

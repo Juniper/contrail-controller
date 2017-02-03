@@ -309,6 +309,14 @@ public:
         etree_leaf_ = leaf;
     }
 
+    bool layer2_control_word() const {
+        return layer2_control_word_;
+    }
+
+    void set_layer2_control_word(bool layer2_control_word) {
+        layer2_control_word_ = layer2_control_word;
+    }
+
     void UpdateEcmpHashFields(const Agent *agent,
                               const EcmpLoadBalance &ecmp_load_balance,
                               DBRequest &nh_req);
@@ -316,6 +324,7 @@ public:
     void set_peer_sequence_number(uint64_t sequence_number) {
         peer_sequence_number_ = sequence_number;
     }
+    bool ResyncControlWord(const AgentRoute *rt);
 
 private:
     PeerConstPtr peer_;
@@ -394,6 +403,10 @@ private:
     uint64_t peer_sequence_number_;
     //Is the path an etree leaf or root
     bool etree_leaf_;
+    //Should control word of 4 bytes be inserted while egressing the
+    //packet, which could be used by receiving router to determine
+    //if its a l2 packet or l3 packet.
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -698,7 +711,8 @@ public:
                                    uint32_t vxlan_id,
                                    uint32_t label,
                                    uint32_t tunnel_type,
-                                   NextHop *nh);
+                                   NextHop *nh,
+                                   const AgentRoute *rt);
 
 private:
     string vn_name_;

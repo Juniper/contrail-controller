@@ -783,6 +783,10 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "virtual-network", true,
                                "virtual-network-routing-instance",
                                "routing-instance", true));
+    AddDependencyPath("bridge-domain",
+                      MakePath("virtual-network-bridge-domain",
+                      "virtual-network", true));
+
     RegisterConfigHandler(this, "bridge-domain",
                           agent ? agent->bridge_domain_table() : NULL);
 }

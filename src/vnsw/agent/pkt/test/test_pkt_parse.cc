@@ -803,6 +803,80 @@ TEST_F(PktParseTest, FlowOverridesDHCP) {
     EXPECT_EQ(invalid_count, GetPktModuleCount(PktHandler::INVALID));
 }
 
+TEST_F(PktParseTest, UnicastControlWord) {
+    std::auto_ptr<PktGen> pkt(new PktGen());
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    VmInterface *vnet1 = VmInterfaceGet(1);
+
+    std::stringstream str;
+    str << "<layer2-control-word>"<< "true"
+        << "</layer2-control-word>";
+    AddNode("virtual-network", "vn1", 1,  str.str().c_str());
+    client->WaitForIdle();
+
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AgentHdr::TRAP_FLOW_MISS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
+    pkt->AddGreHdr();
+    pkt->AddMplsHdr(vnet1->l2_label(), true);
+    pkt->AddLayer2ControlWord();
+    pkt->AddEthHdr("00:01:01:01:01:01", "00:02:02:02:02:02", 0x800);
+    pkt->AddIpHdr("10.10.10.10", "10.10.10.11", 1);
+
+    PktInfo pkt_info(Agent::GetInstance(), 200,
+                      PktHandler::MAC_LEARNING, 0);
+    TestPkt(&pkt_info, pkt.get());
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "10.10.10.11",
+                 1, 0, 0));
+}
+
+TEST_F(PktParseTest, MulticastControlWord) {
+    Agent *agent = Agent::GetInstance();
+    //Add a peer and enqueue path add in multicast route.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    agent->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
+            oper_db()->multicast());
+
+    Ip4Address sip(0);
+    Ip4Address broadcast(0xFFFFFFFF);
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                IpAddress::from_string("8.8.8.8").to_v4(),
+                TunnelType::MplsType()));
+    mc_handler->ModifyFabricMembers(agent->multicast_tree_builder_peer(),
+            "vrf1", broadcast, sip, 4100, olist, 1);
+    client->WaitForIdle();
+
+    std::auto_ptr<PktGen> pkt(new PktGen());
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    pkt->Reset();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(eth->id(), AgentHdr::TRAP_FLOW_MISS);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
+    pkt->AddGreHdr();
+
+    pkt->AddMplsHdr(4100, true);
+    pkt->AddVxLanControlWord();
+    pkt->AddEthHdr("00:01:01:01:01:01", "00:02:02:02:02:02", 0x800);
+    pkt->AddIpHdr("10.10.10.10", "10.10.10.11", 1);
+
+    PktInfo pkt_info(Agent::GetInstance(), 200,
+                     PktHandler::MAC_LEARNING, 0);
+    TestPkt(&pkt_info, pkt.get());
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "10.10.10.11",
+                                1, 0, 0));
+
+	DeleteBgpPeer(bgp_peer_ptr);
+	client->WaitForIdle();
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

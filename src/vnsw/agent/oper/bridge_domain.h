@@ -80,6 +80,10 @@ public:
         return mac_aging_time_;
     }
 
+    bool layer2_control_word() const {
+        return layer2_control_word_;
+    }
+
 private:
     friend class BridgeDomainTable;
     void UpdateVrf(const BridgeDomainData *data);
@@ -94,6 +98,7 @@ private:
     bool learning_enabled_;
     bool pbb_etree_enabled_;
     uint32_t mac_aging_time_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(BridgeDomainEntry);
 };
 

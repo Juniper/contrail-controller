@@ -65,7 +65,8 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         table_label_(MplsTable::kInvalidLabel),
         vxlan_id_(VxLanTable::kInvalidvxlan_id),
         rt_table_delete_bmap_(0),
-        route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false) {
+        route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false),
+        layer2_control_word_(false) {
 }
 
 VrfEntry::~VrfEntry() {
@@ -114,7 +115,8 @@ bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
 }
 
 void VrfEntry::CreateTableLabel(bool learning_enabled, bool l2,
-                                bool flood_unknown_unicast) {
+                                bool flood_unknown_unicast,
+                                bool layer2_control_word) {
     VrfTable *table = static_cast<VrfTable *>(get_table());
     Agent *agent = table->agent();
 
@@ -127,7 +129,8 @@ void VrfEntry::CreateTableLabel(bool learning_enabled, bool l2,
     }
 
     MplsTable::CreateTableLabel(agent, table_label(), name_, false,
-                                learning_enabled, l2, flood_unknown_unicast);
+                                learning_enabled, l2, flood_unknown_unicast,
+                                layer2_control_word);
 }
 
 void VrfEntry::CreateRouteTables() {
@@ -319,6 +322,7 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());
         data.set_vxlan_id(vxlan_id_);
         data.set_mac_aging_time(mac_aging_time_);
+        data.set_layer2_control_word(layer2_control_word_);
         list.push_back(data);
         return true;
     }
@@ -456,6 +460,9 @@ DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
     vrf->bmac_vrf_name_ = data->bmac_vrf_name_;
     vrf->learning_enabled_ = data->learning_enabled_;
     vrf->mac_aging_time_ = data->mac_aging_time_;
+    if (vrf->vn_.get()) {
+        vrf->layer2_control_word_ = vrf->vn_->layer2_control_word();
+    }
     return vrf;
 }
 
@@ -474,6 +481,17 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
     if (vn != vrf->vn_.get()) {
         vrf->vn_.reset(vn);
+        vrf->ResyncRoutes();
+        ret = true;
+    }
+
+    bool layer2_control_word = false;
+    if (vn) {
+        layer2_control_word = vn->layer2_control_word();
+    }
+
+    if (vrf->layer2_control_word_ != layer2_control_word) {
+        vrf->layer2_control_word_ = layer2_control_word;
         vrf->ResyncRoutes();
         ret = true;
     }

@@ -164,7 +164,8 @@ public:
     static void CreateTableLabel(const Agent *agent, uint32_t label,
                                  const std::string &vrf_name,
                                  bool policy, bool learning_enabled,
-                                 bool l2, bool flood_unknown_unicast);
+                                 bool l2, bool flood_unknown_unicast,
+                                 bool layer2_control_word);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     void Process(DBRequest &req);
