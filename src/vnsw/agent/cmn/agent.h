@@ -158,6 +158,12 @@ typedef boost::intrusive_ptr<const QosQueue> QosQueueConstRef;
 void intrusive_ptr_release(const QosQueueRef *p);
 void intrusive_ptr_add_ref(const QosQueueRef *p);
 
+class BridgeDomainEntry;
+typedef boost::intrusive_ptr<BridgeDomainEntry> BridgeDomainRef;
+typedef boost::intrusive_ptr<const BridgeDomainEntry> BridgeDomainConstRef;
+void intrusive_ptr_release(const BridgeDomainEntry *p);
+void intrusive_ptr_add_ref(const BridgeDomainEntry *p);
+
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
 typedef std::vector<std::string> CommunityList;
@@ -192,6 +198,7 @@ class AgentQosConfigTable;
 class QosQueueTable;
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
+class BridgeDomainTable;
 
 class XmppInit;
 class AgentXmppChannel;
@@ -219,6 +226,8 @@ class ServiceInstanceTable;
 class Agent;
 class RESTServer;
 class PortIpcHandler;
+class MacLearningProto;
+class MacLearningModule;
 
 extern void RouterIdDepInit(Agent *agent);
 
@@ -271,6 +280,10 @@ extern void RouterIdDepInit(Agent *agent);
 #define kTaskHttpRequstHandler "http::RequestHandlerTask"
 #define kAgentResourceRestoreTask    "Agent::ResoureRestore"
 #define kAgentResourceBackUpTask     "Agent::ResourceBackup"
+#define kTaskMacLearning "Agent::MacLearning"
+#define kTaskMacLearningMgmt "Agent::MacLearningMgmt"
+#define kTaskMacAging "Agent::MacAging"
+
 #define kInterfaceDbTablePrefix "db.interface"
 #define kVnDbTablePrefix  "db.vn"
 #define kVmDbTablePrefix  "db.vm"
@@ -838,6 +851,22 @@ public:
     FlowProto *GetFlowProto() const { return flow_proto_; }
     void SetFlowProto(FlowProto *proto) { flow_proto_ = proto; }
 
+    MacLearningProto* mac_learning_proto() const {
+        return mac_learning_proto_;
+    }
+
+    void set_mac_learning_proto(MacLearningProto *mac_learning_proto) {
+        mac_learning_proto_ = mac_learning_proto;
+    }
+
+    MacLearningModule* mac_learning_module() const {
+        return mac_learning_module_;
+    }
+
+    void set_mac_learning_module(MacLearningModule *mac_learning_module) {
+        mac_learning_module_ = mac_learning_module;
+    }
+
     // Peer objects
     const Peer *local_peer() const {return local_peer_.get();}
     const Peer *local_vm_peer() const {return local_vm_peer_.get();}
@@ -851,6 +880,7 @@ public:
         return multicast_tree_builder_peer_.get();}
     const Peer *mac_vm_binding_peer() const {return mac_vm_binding_peer_.get();}
     const Peer *inet_evpn_peer() const {return inet_evpn_peer_.get();}
+    const Peer *mac_learning_peer() const {return mac_learning_peer_.get();}
 
     // Agent Modules
     AgentConfig *cfg() const; 
@@ -873,6 +903,9 @@ public:
 
     HealthCheckTable *health_check_table() const;
     void set_health_check_table(HealthCheckTable *table);
+
+    BridgeDomainTable *bridge_domain_table() const;
+    void set_bridge_domain_table(BridgeDomainTable *table);
 
     MetaDataIpAllocator *metadata_ip_allocator() const;
     void set_metadata_ip_allocator(MetaDataIpAllocator *allocator);
@@ -1178,6 +1211,7 @@ private:
     VrfEntry *fabric_vrf_;
     InterfaceTable *intf_table_;
     HealthCheckTable *health_check_table_;
+    BridgeDomainTable *bridge_domain_table_;
     std::auto_ptr<MetaDataIpAllocator> metadata_ip_allocator_;
     NextHopTable *nh_table_;
     InetUnicastAgentRouteTable *uc_rt_table_;
@@ -1254,6 +1288,8 @@ private:
     Dhcpv6Proto *dhcpv6_proto_;
     Icmpv6Proto *icmpv6_proto_;
     FlowProto *flow_proto_;
+    MacLearningProto *mac_learning_proto_;
+    MacLearningModule *mac_learning_module_;
 
     std::auto_ptr<Peer> local_peer_;
     std::auto_ptr<Peer> local_vm_peer_;
@@ -1266,6 +1302,7 @@ private:
     std::auto_ptr<Peer> multicast_tree_builder_peer_;
     std::auto_ptr<Peer> mac_vm_binding_peer_;
     std::auto_ptr<Peer> inet_evpn_peer_;
+    std::auto_ptr<Peer> mac_learning_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
 

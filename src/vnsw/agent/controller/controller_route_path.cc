@@ -75,7 +75,8 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
                                          const SecurityGroupList &sg_list,
                                          const PathPreference &path_preference,
                                          bool ecmp_suppressed,
-                                         const EcmpLoadBalance &ecmp_load_balance) {
+                                         const EcmpLoadBalance &ecmp_load_balance,
+                                         bool etree_leaf) {
     // Make Tunnel-NH request
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new TunnelNHKey(default_vrf, router_id, tunnel_dest, false,
@@ -87,7 +88,7 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
         new ControllerVmRoute(bgp_peer, default_vrf, tunnel_dest, label,
                               dest_vn_list, bmap, sg_list, path_preference,
                               nh_req, ecmp_suppressed,
-                              ecmp_load_balance);
+                              ecmp_load_balance, etree_leaf);
     return data;
 }
 
@@ -227,6 +228,11 @@ bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
 
     if (ecmp_load_balance_ != path->ecmp_load_balance()) {
         path->set_ecmp_load_balance(ecmp_load_balance_);
+        ret = true;
+    }
+
+    if (path->etree_leaf() != etree_leaf_) {
+        path->set_etree_leaf(etree_leaf_);
         ret = true;
     }
 

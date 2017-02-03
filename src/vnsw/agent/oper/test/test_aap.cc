@@ -998,7 +998,7 @@ TEST_F(TestAap, StateMachine_17) {
     Ip4Address server_ip = Ip4Address::from_string("10.1.1.1");
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
     PathPreference path_preference(100, PathPreference::HIGH, false, false);
-    Inet4TunnelRouteAdd(peer_, "default-project:vn2:vn2", fip, 32, server_ip, bmap,
+    Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
             16, "vn1", SecurityGroupList(), path_preference);
 
     client->WaitForIdle();

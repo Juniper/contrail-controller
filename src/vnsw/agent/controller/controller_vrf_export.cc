@@ -44,6 +44,12 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->bgp_peer_id());
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
 
+    //PBB VRF is implictly created, agent is not supposed to send RI
+    //subscription message since control-node will not be aware of this RI
+    //We still want to set a state and subscribe for bridge table for
+    //building ingress replication tree
+    bool send_subscribe  = vrf->ShouldExportRoute();
+
     if (vrf->IsDeleted()) {
         bgp_peer->DeleteVrfState(partition, e);
         if (!AgentXmppChannel::IsXmppChannelActive(agent, bgp_xmpp_peer)) {
@@ -90,7 +96,12 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
         state->last_sequence_number_ = bgp_xmpp_peer->sequence_number();
     }
 
-    if ((state->exported_ == false) || (state->force_chg_ == true)) {
+    if (send_subscribe == false) {
+        state->force_chg_ = false;
+    }
+
+    if (send_subscribe && ((state->exported_ == false) ||
+                          (state->force_chg_ == true))) {
         if (AgentXmppChannel::ControllerSendSubscribe(bgp_xmpp_peer, vrf, 
                                                       true)) {
             CONTROLLER_TRACE(Trace, bgp_peer->GetName(), vrf->GetName(),

@@ -24,6 +24,7 @@
 #define MULTICAST_TOR_PEER_NAME "Multicast TOR"
 #define MULTICAST_FABRIC_TREE_BUILDER_NAME "MulticastTreeBuilder"
 #define MAC_VM_BINDING_PEER_NAME "MacVmBindingPeer"
+#define MAC_LEARNING_PEER_NAME "DynamicMacLearningPeer"
 
 class AgentXmppChannel;
 class ControllerRouteWalker;
@@ -56,6 +57,7 @@ public:
         MULTICAST_TOR_PEER,
         MAC_VM_BINDING_PEER,
         INET_EVPN_PEER,
+        MAC_LEARNING_PEER,
     };
 
     Peer(Type type, const std::string &name, bool controller_export);

@@ -118,6 +118,12 @@ private:
     bool flood_unknown_unicast_;
     VmInterface::FatFlowList fat_flow_list_;
     KSyncEntryPtr qos_config_;
+    bool learning_enabled_;
+    uint32_t isid_;
+    uint32_t pbb_cmac_vrf_;
+    MacAddress pbb_mac_;
+    bool etree_leaf_;
+    bool pbb_interface_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 
