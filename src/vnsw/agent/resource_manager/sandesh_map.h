@@ -17,7 +17,6 @@ class ResourceBackupManager;
 // Write to file will happens upon fallback.
 class BackUpResourceTable {
 public:
-    static const uint32_t kSandeshMetaDataSize = 1000;
     static const uint8_t  kFallBackCount = 6;
     BackUpResourceTable(ResourceBackupManager *manager,
                         const std::string &name);
@@ -48,15 +47,11 @@ private:
     uint32_t backup_idle_timeout_;
     uint64_t last_modified_time_;
     uint8_t fall_back_count_;
-    // temparory flag needs to be deleted once after reading
-    // End of config
-    bool audit_required_;
     DISALLOW_COPY_AND_ASSIGN(BackUpResourceTable);
 };
 // Vrf backup resource table to maintains Sandesh encoded data VrfMpls info
 class VrfMplsBackUpResourceTable : public BackUpResourceTable {
 public:
-    static const uint32_t kVrfMplsRecordSize = 20;
     typedef std::map<uint32_t, VrfMplsResource> Map;
     typedef Map::iterator MapIter;
 
@@ -76,7 +71,6 @@ private:
 // interfaceMpls info
 class InterfaceMplsBackUpResourceTable : public BackUpResourceTable {
 public:
-    static const uint32_t KInterfaceMplsRecordSize = 30;
     typedef std::map<uint32_t, InterfaceIndexResource> Map;
     typedef Map::iterator MapIter;
 
@@ -95,7 +89,6 @@ private:
 // Route backup resource table to maintains sandesh encoded data for route info
 class RouteMplsBackUpResourceTable : public BackUpResourceTable {
 public:
-    static const uint32_t KRouteMplsRecordSize = 24;
     typedef std::map<uint32_t, RouteMplsResource> Map;
     typedef Map::iterator MapIter;
 
