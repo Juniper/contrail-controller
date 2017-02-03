@@ -14,11 +14,11 @@
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/mpls_index.h"
 #include <boost/filesystem.hpp>
-
+bool BackUpResourceTable::audit_required_ = true;
 BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                          const std::string &name) :
     backup_manager_(manager), agent_(manager->agent()), name_(name),
-    last_modified_time_(UTCTimestampUsec()), audit_required_(true) {
+    last_modified_time_(UTCTimestampUsec()) {
     backup_dir_ = agent_->params()->restart_backup_dir();
     backup_idle_timeout_ = agent_->params()
         ->restart_backup_idle_timeout();
@@ -29,6 +29,7 @@ BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                        name,
                                        agent_->task_scheduler()->
                                        GetTaskId(kAgentResourceBackUpTask));
+    StartTimer();
 }
 
 BackUpResourceTable::~BackUpResourceTable() {

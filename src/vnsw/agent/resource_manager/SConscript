@@ -6,13 +6,7 @@
 import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
-
-except_env = env.Clone()
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-   cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS=cflags)
-
+except_env = AgentEnv.RemoveExceptionFlag(env)
 SandeshGenFiles = env.SandeshGenCpp('resource_manager.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
