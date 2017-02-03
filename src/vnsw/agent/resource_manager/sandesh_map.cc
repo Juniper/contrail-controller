@@ -14,11 +14,10 @@
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/mpls_index.h"
 #include <boost/filesystem.hpp>
-
 BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                          const std::string &name) :
     backup_manager_(manager), agent_(manager->agent()), name_(name),
-    last_modified_time_(UTCTimestampUsec()), audit_required_(true) {
+    last_modified_time_(UTCTimestampUsec()) {
     backup_dir_ = agent_->params()->restart_backup_dir();
     backup_idle_timeout_ = agent_->params()
         ->restart_backup_idle_timeout();
@@ -37,11 +36,6 @@ BackUpResourceTable::~BackUpResourceTable() {
 }
 
 bool BackUpResourceTable::TimerExpiry() {
-    // temporary Code to trigger Audit
-    if (audit_required_ == true) {
-        audit_required_ = false;
-        agent_->resource_manager()->Audit();
-    }
     // Check for Update required otherwise wait for fallback time.
     if (UpdateRequired() || fall_back_count_ >= kFallBackCount) {
         if (WriteToFile()) {
@@ -110,21 +104,14 @@ bool VrfMplsBackUpResourceTable::WriteToFile() {
     VrfMplsResourceMapSandesh map;
     map.set_index_map(map_);
     map.set_time_stamp(UTCTimestampUsec());
-    // calculating some heuristic size for the buffer
-    // Can be enhanced by giving the Stream as argument to WriteBinary
-    size = map_.size() * kVrfMplsRecordSize + kSandeshMetaDataSize;
-    write_buf.reset(new uint8_t [size]);
-    error = 0;
+    //calculating size by encoding the Sandesh structure
+    // TODO WriteBinary can be modified to write the buffer to fileIO
+    size = map.ToString().size();
+    write_buf.reset(new uint8_t [size]());
     write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
     if (error != 0) {
-        //calculating size by encoding the Sandesh structure
-        size = map.ToString().size();
-        write_buf.reset(new uint8_t [size]);
-        write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-        if (error != 0) {
-            LOG(ERROR, "Sandesh Write Binary failed ");
-            return false;
-        }
+        LOG(ERROR, "Sandesh Write Binary failed ");
+        return false;
     }
 
     return backup_manager()->SaveResourceDataToFile(vrf_file_name_str_,
@@ -186,21 +173,13 @@ bool  RouteMplsBackUpResourceTable::WriteToFile() {
     RouteMplsResourceMapSandesh map;
     map.set_index_map(map_);
     map.set_time_stamp(UTCTimestampUsec());
-    // calculating some heuristic size for the buffer
-    // Can be enhanced by giving the Stream as argument to WriteBinary
-    size = map_.size() * KRouteMplsRecordSize + kSandeshMetaDataSize;
-    write_buf.reset(new uint8_t [size]);
-    error = 0;
+    //Calculating size by encoding Sandesh structure
+    size = map.ToString().size();
+    write_buf.reset(new uint8_t [size]());
     write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
     if (error != 0) {
-        //Calculating size by encoding Sandesh structure again
-        size = map.ToString().size();
-        write_buf.reset(new uint8_t [size]);
-        write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-        if (error != 0) {
-            LOG(ERROR, "Sandesh Write Binary failed ");
-            return false;
-        }
+        LOG(ERROR, "Sandesh Write Binary failed ");
+        return false;
     }
     
     return backup_manager()->SaveResourceDataToFile(route_file_name_str_,
@@ -263,21 +242,13 @@ bool InterfaceMplsBackUpResourceTable::WriteToFile() {
     InterfaceIndexResourceMapSandesh map;
     map.set_index_map(map_);
     map.set_time_stamp(UTCTimestampUsec());
-    // calculating some heuristic size for the buffer
-    // Can be enhanced by giving the Stream as argument to WriteBinary
-    size = map_.size() * KInterfaceMplsRecordSize + kSandeshMetaDataSize;
-    write_buf.reset(new uint8_t [size]);
-    error = 0;
+    //Calculating size by encoding Sandesh structure
+    size = map.ToString().size();
+    write_buf.reset(new uint8_t [size]());
     write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
     if (error != 0) {
-        //Calculating size by encoding Sandesh structure again
-        size = map.ToString().size();
-        write_buf.reset(new uint8_t [size]);
-        write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-        if (error != 0) {
-            LOG(ERROR, "Sandesh Write Binary failed ");
-            return false;
-        }
+        LOG(ERROR, "Sandesh Write Binary failed ");
+        return false;
     }
 
     return backup_manager()->SaveResourceDataToFile(interface_file_name_str_,
