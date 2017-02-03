@@ -14,11 +14,11 @@
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/mpls_index.h"
 #include <boost/filesystem.hpp>
-
+bool BackUpResourceTable::audit_required_ = true;
 BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                          const std::string &name) :
     backup_manager_(manager), agent_(manager->agent()), name_(name),
-    last_modified_time_(UTCTimestampUsec()), audit_required_(true) {
+    last_modified_time_(UTCTimestampUsec()) {
     backup_dir_ = agent_->params()->restart_backup_dir();
     backup_idle_timeout_ = agent_->params()
         ->restart_backup_idle_timeout();
@@ -37,17 +37,16 @@ BackUpResourceTable::~BackUpResourceTable() {
 }
 
 bool BackUpResourceTable::TimerExpiry() {
-    // temporary Code to trigger Audit
-    if (audit_required_ == true) {
-        audit_required_ = false;
-        agent_->resource_manager()->Audit();
-    }
     // Check for Update required otherwise wait for fallback time.
     if (UpdateRequired() || fall_back_count_ >= kFallBackCount) {
         if (WriteToFile()) {
             last_modified_time_ = UTCTimestampUsec();
             fall_back_count_ = 0;
             return false;
+        }
+        if (audit_required_ == true) {
+            audit_required_ = false;
+            agent_->resource_manager()->Audit();
         }
     }
     fall_back_count_++;

@@ -51,7 +51,7 @@ static bool RenameFile(const std::string &file_tmp_name,
     boost::filesystem::path tmp_file_path(file_tmp_name.c_str());
     boost::filesystem::path backup_file_path(file_name.c_str());
     boost::filesystem::rename(tmp_file_path, backup_file_path, ec);
-    if (!ec) {
+    if (ec != 0) {
         LOG(ERROR, "Resource backup mgr Rename file failed" << ec);
         return false;
     }
