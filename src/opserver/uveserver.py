@@ -60,14 +60,9 @@ class UVEServer(object):
     #end __init__
 
     def fill_redis_uve_info(self, redis_uve_info):
-        # TODO: Verify known collector pids
         try:
             for rkey,rinst in self._redis_uve_map.iteritems():
                 rinst.redis_handle.ping()
-                #redish = redis.StrictRedis(
-                #            host=rkey.ip, port=rkey.port,
-                #            password=self._redis_password, db=1, socket_timeout=30)
-                #redish.ping()
         except:
             redis_uve_info.status = 'DisConnected'
         else:

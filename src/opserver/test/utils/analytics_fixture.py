@@ -834,7 +834,6 @@ class AnalyticsFixture(fixtures.Fixture):
         # get generator list
         gen_list = vns.uve_query('generators',
             {'cfilt':'ModuleClientState:client_info'})
-        self.logger.info('Anish genlist %s' % str(gen_list))
         try:
             actual_gen_list = [gen['name'] for gen in gen_list]
             self.logger.info('generators: %s' % str(actual_gen_list))

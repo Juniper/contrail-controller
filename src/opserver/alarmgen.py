@@ -2277,7 +2277,7 @@ class Controller(object):
         '''
         Analytics node may be brought up/down any time. For partitioning,
         alarmgen needs to know the list of all Analytics nodes (alarmgens).
-        Periodically poll the alarmgen list from the discovery service
+        AnalyticsDiscovery (using zookeeper) will report this.
         '''
         if self._disable_cb:
             self._logger.error("Discovery AG callback IGNORED: %s" % str(alist))
