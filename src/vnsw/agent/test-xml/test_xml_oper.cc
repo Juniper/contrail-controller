@@ -1356,11 +1356,11 @@ bool AgentUtXmlFlowValidate::Validate() {
 
     if (rpf_nh_) {
         if (rpf_nh_ == NextHopTable::kRpfDiscardIndex) {
-            if (flow->data().nh.get() != NULL) {
+            if (flow->data().rpf_nh.get() != NULL) {
                 return false;
             }
-        } else if (!flow->data().nh.get() ||
-                   flow->data().nh.get()->id() != rpf_nh_) {
+        } else if (!flow->data().rpf_nh.get() ||
+                   flow->data().rpf_nh.get()->id() != rpf_nh_) {
             return false;
         }
     }

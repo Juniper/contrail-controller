@@ -1456,9 +1456,9 @@ FlowMgmtEntry *InterfaceFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
 // Nh Flow Management
 /////////////////////////////////////////////////////////////////////////////
 void NhFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree) {
-    if (flow->nh() == NULL)
+    if (flow->rpf_nh() == NULL)
         return;
-    NhFlowMgmtKey *key = new NhFlowMgmtKey(flow->nh());
+    NhFlowMgmtKey *key = new NhFlowMgmtKey(flow->rpf_nh());
     AddFlowMgmtKey(tree, key);
 }
 
@@ -1547,10 +1547,20 @@ void InetRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
 
 void InetRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow,
                                         FlowMgmtKeyTree *tree) {
+
     if (flow->l3_flow() == false) {
-        if (flow->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
+        if (flow->data().rpf_src_l3) {
+            if (flow->data().rpf_vrf == VrfEntry::kInvalidIndex) {
+                return;
+            }
+            ExtractKeys(flow, tree, flow->data().rpf_vrf,
+                        flow->key().src_addr, flow->data().rpf_plen);
+        } else {
+            if (flow->data().flow_source_vrf == VrfEntry::kInvalidIndex) {
+                return;
+            }
             ExtractKeys(flow, tree, flow->data().flow_source_vrf,
-                        flow->key().src_addr, flow->data().l2_rpf_plen);
+                        flow->key().src_addr, 0);
         }
         return;
     }

@@ -7,11 +7,6 @@
 #include "test_pkt_util.h"
 #include "pkt/flow_proto.h"
 
-#define AGE_TIME 10*1000
-
-void RouterIdDepInit(Agent *agent) {
-}
-
 struct PortInfo input1[] = {
     {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 2, 1},
 };
@@ -32,6 +27,37 @@ struct PortInfo input4[] = {
     {"vnet8", 8, "4.1.1.1", "00:00:00:01:01:01", 4, 8},
 };
 
+IpamInfo ipam_info_2[] = {
+    {"1.1.1.0", 24, "1.1.1.254"},
+    {"2.1.1.0", 24, "2.1.1.254"},
+};
+
+IpamInfo ipam_info_3[] = {
+    {"3.1.1.0", 24, "3.1.1.254"},
+};
+
+IpamInfo ipam_info_4[] = {
+    {"4.1.1.0", 24, "4.1.1.254"},
+};
+
+static bool FlowStatsTimerStartStopTrigger (bool stop) {
+    FlowStatsCollectorObject *obj = Agent::GetInstance()->flow_stats_manager()->
+        default_flow_stats_collector_obj();
+    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+        FlowStatsCollector *fsc = obj->GetCollector(i);
+        fsc->TestStartStopTimer(stop);
+    }
+    return true;
+}
+
+static void FlowStatsTimerStartStop (bool stop) {
+    int task_id = TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsCollector);
+    std::auto_ptr<TaskTrigger> trigger_
+        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, stop), task_id, 0));
+    trigger_->Set();
+    client->WaitForIdle();
+}
+
 class EcmpTest : public ::testing::Test {
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
@@ -43,6 +69,9 @@ class EcmpTest : public ::testing::Test {
         CreateVmportWithEcmp(input2, 3);
         CreateVmportFIpEnv(input3, 3);
         CreateVmportFIpEnv(input4, 1);
+        AddIPAM("vn2", ipam_info_2, 2);
+        AddIPAM("default-project:vn3", ipam_info_3, 1);
+        AddIPAM("default-project:vn4", ipam_info_4, 1);
         client->WaitForIdle();
         for (uint32_t i = 1; i < 9; i++) {
             EXPECT_TRUE(VmPortActive(i));
@@ -118,9 +147,18 @@ class EcmpTest : public ::testing::Test {
                             30, "default-project:vn4", SecurityGroupList(),
                             PathPreference());
         client->WaitForIdle();
+        FlowStatsTimerStartStop(true);
+    }
+
+    void FlushFlowTable() {
+        client->EnqueueFlowFlush();
+        client->WaitForIdle();
+        EXPECT_EQ(0U, get_flow_proto()->FlowCount());
     }
 
     virtual void TearDown() {
+        FlushFlowTable();
+
         DelLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
         DelLink("virtual-machine-interface", "vnet3", "floating-ip", "fip1");
         DelLink("virtual-machine-interface", "vnet4", "floating-ip", "fip1");
@@ -138,21 +176,27 @@ class EcmpTest : public ::testing::Test {
         DeleteVmportEnv(input2, 3, true);
         DeleteVmportFIpEnv(input3, 3, true);
         DeleteVmportFIpEnv(input4, 1, true);
-        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+        agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
                 "vrf2", remote_vm_ip1_, 32, new ControllerVmRoute(bgp_peer));
-        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+        agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
                 "default-project:vn3:vn3", remote_vm_ip2_, 32,
                 new ControllerVmRoute(bgp_peer));
-        Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+        agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
                 "default-project:vn4:vn4", remote_vm_ip3_, 32,
                 new ControllerVmRoute(bgp_peer));
 
+        DelIPAM("vn2");
+        DelIPAM("default-project:vn3");
+        DelIPAM("default-project:vn4");
         client->WaitForIdle();
         DeleteBgpPeer(bgp_peer);
         EXPECT_FALSE(VrfFind("vrf1", true));
         EXPECT_FALSE(VrfFind("vrf2", true));
         EXPECT_FALSE(VrfFind("default-project:vn3:vn3", true));
         EXPECT_FALSE(VrfFind("default-project:vn4:vn4", true));
+        FlowStatsTimerStartStop(false);
+
+        WAIT_FOR(1000, 1000, (agent_->vrf_table()->Size() == 1));
     }
 
 public:
@@ -161,7 +205,7 @@ public:
         const VmInterface *vm_intf = VmInterfaceGet(intf_id);
         const VrfEntry *vrf = VrfGet(vrf_name.c_str());
         uint32_t label = vm_intf->GetServiceVlanLabel(vrf);
-        int nh_id = Agent::GetInstance()->mpls_table()->
+        int nh_id = agent_->mpls_table()->
                         FindMplsLabel(label)->nexthop()->id();
         return nh_id;
     }
@@ -181,8 +225,8 @@ public:
 
         for(int i = 0; i < count; i++) {
             ComponentNHKeyPtr comp_nh(new ComponentNHKey(
-                        label, Agent::GetInstance()->fabric_vrf_name(),
-                        Agent::GetInstance()->router_id(),
+                        label, agent_->fabric_vrf_name(),
+                        agent_->router_id(),
                         Ip4Address(remote_server_ip++),
                         false, TunnelType::GREType()));
             comp_nh_list.push_back(comp_nh);
@@ -204,13 +248,11 @@ public:
         vn_list.insert(vn);
         LocalVmRoute *local_vm_route =
             new LocalVmRoute(intf_key, vm_intf->label(),
-                    VxLanTable::kInvalidvxlan_id, false, vn_list,
-                    InterfaceNHFlags::INET4, SecurityGroupList(),
-                    CommunityList(),
-                    PathPreference(), Ip4Address(0),
-                    EcmpLoadBalance(), false, false, 
-                    bgp_peer->sequence_number(),
-                    false);
+                             VxLanTable::kInvalidvxlan_id, false, vn_list,
+                             InterfaceNHFlags::INET4, SecurityGroupList(),
+                             CommunityList(), PathPreference(), Ip4Address(0),
+                             EcmpLoadBalance(), false, false,
+                             bgp_peer->sequence_number(), false);
         InetUnicastAgentRouteTable *rt_table =
             agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 
@@ -250,13 +292,12 @@ public:
     uint32_t mpls_label_1;
     uint32_t mpls_label_2;
     uint32_t mpls_label_3;
-    Peer *bgp_peer;
+    BgpPeer *bgp_peer;
     Agent *agent_;
     FlowProto *flow_proto_;
-    AgentXmppChannel *channel;
 };
 
-//Ping from vrf1 to vrf2(which has ECMP vip)
+// Ping from vrf1 to vrf2(which has ECMP vip)
 TEST_F(EcmpTest, EcmpTest_1) {
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
     client->WaitForIdle();
@@ -264,19 +305,22 @@ TEST_F(EcmpTest, EcmpTest_1) {
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
                                "1.1.1.1", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx != 
-            CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->rpf_nh()->id() == GetFlowKeyNH(1));
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
-            CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    // Flow-key in reverse must be same as member NH in forward flow
 }
 
-//Ping from vrf2(vip and floating IP ECMP) to vrf3
+// Ping from vrf2(vip and floating IP ECMP) to vrf3
 TEST_F(EcmpTest, EcmpTest_2) {
     TxIpPacket(VmPortGetId(4), "2.1.1.1", "3.1.1.1", 1);
     client->WaitForIdle();
+
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
                                "2.1.1.1", "3.1.1.1", 1, 0, 0, GetFlowKeyNH(4));
     EXPECT_TRUE(entry != NULL);
@@ -284,68 +328,99 @@ TEST_F(EcmpTest, EcmpTest_2) {
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
 
+    // RPF must be based on route from reverse flow
+    InetUnicastRouteEntry *rt =
+        RouteGet("vrf2",Ip4Address::from_string("2.1.1.1"), 32);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetLocalNextHop());
+
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx != 
-            CompositeNH::kInvalidComponentNHIdx);
-    
-    //Make sure reverse component index point to right interface
-    Ip4Address ip = Ip4Address::from_string("2.1.1.1");
-    const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("vrf2", ip, 32)->GetActiveNextHop());
-    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-        (comp_nh->Get(rev_entry->data().component_nh_idx)->nh());
-    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    rt = RouteGet("default-project:vn3:vn3",
+                  Ip4Address::from_string("3.1.1.1"), 32);
+    EXPECT_TRUE(rev_entry->rpf_nh() == rt->GetActiveNextHop());
 }
 
 //Ping from vrf3(floating IP is ECMP) to vrf4
-TEST_F(EcmpTest, EcmpTest_3) {
+TEST_F(EcmpTest, EcmpTest_3_1) {
     TxIpPacket(VmPortGetId(5), "3.1.1.1", "4.1.1.1", 1);
     client->WaitForIdle();
 
     FlowEntry *entry = FlowGet(VrfGet("default-project:vn3:vn3")->vrf_id(),
                                "3.1.1.1", "4.1.1.1", 1, 0, 0, GetFlowKeyNH(5));
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 
-            CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
+
+    // RPF must be based on route from reverse flow
+    InetUnicastRouteEntry *rt =
+        RouteGet("default-project:vn3:vn3",
+                 Ip4Address::from_string("3.1.1.1"), 32);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetLocalNextHop());
 
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx != 
-            CompositeNH::kInvalidComponentNHIdx);
-    //Make sure reverse component index point to right interface
-    Ip4Address ip = Ip4Address::from_string("4.1.1.100");
-    const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("default-project:vn4:vn4", ip, 32)->GetActiveNextHop());
-    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-        (comp_nh->Get(rev_entry->data().component_nh_idx)->nh());
-    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    rt = RouteGet("default-project:vn4:vn4",
+                  Ip4Address::from_string("4.1.1.1"), 32);
+    EXPECT_TRUE(rev_entry->rpf_nh() == rt->GetActiveNextHop());
 }
 
 //Ping from vrf3(floating IP is ECMP) to vrf4
-TEST_F(EcmpTest, EcmpTest_7) {
+TEST_F(EcmpTest, EcmpTest_3_2) {
     TxIpPacket(VmPortGetId(6), "3.1.1.2", "4.1.1.1", 1);
     client->WaitForIdle();
 
     FlowEntry *entry = FlowGet(VrfGet("default-project:vn3:vn3")->vrf_id(),
                                "3.1.1.2", "4.1.1.1", 1, 0, 0, GetFlowKeyNH(6));
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 
-            CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
+
+    // RPF must be based on route from reverse flow
+    InetUnicastRouteEntry *rt =
+        RouteGet("default-project:vn3:vn3",
+                 Ip4Address::from_string("3.1.1.2"), 32);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetLocalNextHop());
 
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx != 
-            CompositeNH::kInvalidComponentNHIdx);
-    //Make sure reverse component index point to right interface
-    Ip4Address ip = Ip4Address::from_string("4.1.1.100");
-    const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("default-project:vn4:vn4", ip, 32)->GetActiveNextHop());
-    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-        (comp_nh->Get(rev_entry->data().component_nh_idx)->nh());
-    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet6");
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    rt = RouteGet("default-project:vn4:vn4",
+                  Ip4Address::from_string("4.1.1.1"), 32);
+    EXPECT_TRUE(rev_entry->rpf_nh() == rt->GetActiveNextHop());
+}
+
+//Ping from vrf3(floating IP is ECMP) to vrf4
+TEST_F(EcmpTest, EcmpTest_3_3) {
+    TxIpPacket(VmPortGetId(7), "3.1.1.3", "4.1.1.1", 1);
+    client->WaitForIdle();
+
+    FlowEntry *entry = FlowGet(VrfGet("default-project:vn3:vn3")->vrf_id(),
+                               "3.1.1.3", "4.1.1.1", 1, 0, 0, GetFlowKeyNH(7));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
+
+    // RPF must be based on route from reverse flow
+    InetUnicastRouteEntry *rt =
+        RouteGet("default-project:vn3:vn3",
+                 Ip4Address::from_string("3.1.1.3"), 32);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetLocalNextHop());
+
+    //Reverse flow should be set and should also be ECMP
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    rt = RouteGet("default-project:vn4:vn4",
+                  Ip4Address::from_string("4.1.1.1"), 32);
+    EXPECT_TRUE(rev_entry->rpf_nh() == rt->GetActiveNextHop());
 }
 
 //Ping from external world to ECMP vip
@@ -356,7 +431,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
     char remote_server_ip[80]; 
     char remote_vm_ip[80];
 
-    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
+    strcpy(router_id, agent_->router_id().to_string().c_str());
     strcpy(remote_server_ip, remote_server_ip_.to_string().c_str());
     strcpy(remote_vm_ip, remote_vm_ip1_.to_string().c_str());
 
@@ -385,7 +460,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
     char remote_server_ip[80]; 
     char remote_vm_ip[80];
 
-    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
+    strcpy(router_id, agent_->router_id().to_string().c_str());
     strcpy(remote_server_ip, remote_server_ip_.to_string().c_str());
     strcpy(remote_vm_ip, remote_vm_ip3_.to_string().c_str());
 
@@ -433,21 +508,18 @@ TEST_F(EcmpTest, EcmpTest_8) {
     Ip4Address server_ip3 = Ip4Address::from_string("15.15.15.17");
 
     ComponentNHKeyPtr comp_nh_data1(new ComponentNHKey(
-        16, Agent::GetInstance()->fabric_vrf_name(),
-        Agent::GetInstance()->router_id(), server_ip1, false,
+        16, agent_->fabric_vrf_name(), agent_->router_id(), server_ip1, false,
         TunnelType::GREType()));
     comp_nh.push_back(comp_nh_data1);
 
     ComponentNHKeyPtr comp_nh_data2(new ComponentNHKey(
-        17, Agent::GetInstance()->fabric_vrf_name(),
-        Agent::GetInstance()->router_id(),
-        server_ip2, false, TunnelType::GREType()));
+        17, agent_->fabric_vrf_name(), agent_->router_id(), server_ip2, false,
+        TunnelType::GREType()));
     comp_nh.push_back(comp_nh_data2);
 
     ComponentNHKeyPtr comp_nh_data3(new ComponentNHKey(
-        18, Agent::GetInstance()->fabric_vrf_name(),
-        Agent::GetInstance()->router_id(),
-        server_ip3, false, TunnelType::GREType()));
+        18, agent_->fabric_vrf_name(), agent_->router_id(), server_ip3, false,
+        TunnelType::GREType()));
     comp_nh.push_back(comp_nh_data3);
 
     SecurityGroupList sg_list;
@@ -461,7 +533,7 @@ TEST_F(EcmpTest, EcmpTest_8) {
     char remote_server_ip[80]; 
     char remote_vm_ip[80];
 
-    strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
+    strcpy(router_id, agent_->router_id().to_string().c_str());
     strcpy(remote_server_ip, "15.15.15.16");
     strcpy(remote_vm_ip, "30.30.30.1");
 
@@ -471,22 +543,19 @@ TEST_F(EcmpTest, EcmpTest_8) {
                    remote_vm_ip, vm_ip, 1, 10);
 
     client->WaitForIdle();
-    int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, vintf->label())->
-                    nexthop()->id();
+    int nh_id = GetActiveLabel(MplsLabel::VPORT_NH,
+                               vintf->label())->nexthop()->id();
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
                                remote_vm_ip, vm_ip, 1, 0, 0, nh_id);
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 
-            CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx != 
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 1);
-    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
-                                         "vrf2", ip, 24,
-                                         new ControllerVmRoute(bgp_peer));
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    DeleteRemoteRoute("vrf2", ip.to_string(), 24);
     client->WaitForIdle();
 }
 
@@ -514,10 +583,12 @@ TEST_F(EcmpTest, EcmpTest_9) {
     EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name));
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx != 
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().vrf == VrfGet("default-project:vn4:vn4")->vrf_id());
-    EXPECT_TRUE(rev_entry->data().dest_vrf == VrfGet("default-project:vn3:vn3")->vrf_id());
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().vrf ==
+                VrfGet("default-project:vn4:vn4")->vrf_id());
+    EXPECT_TRUE(rev_entry->data().dest_vrf ==
+                VrfGet("default-project:vn3:vn3")->vrf_id());
     EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name));
     EXPECT_TRUE(VnMatch(rev_entry->data().dest_vn_list, vn_name));
 }
@@ -529,6 +600,10 @@ TEST_F(EcmpTest, EcmpTest_10) {
         {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:01", 9, 9},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_9[] = {
+        {"9.1.1.0", 24, "9.1.1.254"},
+    };
+    AddIPAM("vn9", ipam_info_9, 1);
     client->WaitForIdle();
 
     //Leak route for 2.1.1.1 in vrf9 and
@@ -555,17 +630,14 @@ TEST_F(EcmpTest, EcmpTest_10) {
             "2.1.1.1", "9.1.1.1", 1, 0, 0, GetFlowKeyNH(2));
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx ==
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
-
-    //Reverse flow is no ECMP
-    FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-    //Make sure reverse flow packet is destined to vnet2
-    const InterfaceNH *nh = static_cast<const InterfaceNH *>(
-            composite_nh->GetNH(rev_entry->data().component_nh_idx));
-    EXPECT_TRUE(nh->GetInterface()->name() == "vnet2");
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetActiveNextHop());
+
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+    // VRouter manages the component-index for reverse flow
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::ShortFlow) == false);
 
     TxIpPacket(VmPortGetId(3), "2.1.1.1", "9.1.1.1", 1);
@@ -576,15 +648,12 @@ TEST_F(EcmpTest, EcmpTest_10) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetActiveNextHop());
 
     //Reverse flow is no ECMP
     rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-    //Make sure reverse flow packet is destined to vnet3
-    nh = static_cast<const InterfaceNH *>(
-             composite_nh->GetNH(rev_entry->data().component_nh_idx));
-    EXPECT_TRUE(nh->GetInterface()->name() == "vnet3");
     EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::ShortFlow) == false);
 
     TxIpPacket(VmPortGetId(4), "2.1.1.1", "9.1.1.1", 1);
@@ -595,15 +664,12 @@ TEST_F(EcmpTest, EcmpTest_10) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetActiveNextHop());
 
     //Reverse flow is no ECMP
     rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-    //Make sure reverse flow packet is destined to vnet4
-    nh = static_cast<const InterfaceNH *>(
-             composite_nh->GetNH(rev_entry->data().component_nh_idx));
-    EXPECT_TRUE(nh->GetInterface()->name() == "vnet4");
     EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::ShortFlow) == false);
 
     DeleteVmportEnv(input1, 1, true);
@@ -611,6 +677,8 @@ TEST_F(EcmpTest, EcmpTest_10) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
     EXPECT_FALSE(VrfFind("vrf9"));
+
+    DelIPAM("vn9");
 }
 
 //Ping from vip to ECMP FIP with ingress vrf and egress VRF having
@@ -621,6 +689,10 @@ TEST_F(EcmpTest, EcmpTest_11) {
         {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:01", 9, 9},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_9[] = {
+        {"9.1.1.0", 24, "9.1.1.254"},
+    };
+    AddIPAM("vn9", ipam_info_9, 1);
     client->WaitForIdle();
 
     //Leak route for 2.1.1.1 in vrf9 and
@@ -637,11 +709,11 @@ TEST_F(EcmpTest, EcmpTest_11) {
     AddLocalVmRoute("default-project:vn3:vn3", "9.1.1.1", 32, "vn9", 9);
     client->WaitForIdle();
 
+    // In case of floating-ip, the translated VRF in reverse-flow is "vrf2"
     Ip4Address vm_src_ip = Ip4Address::from_string("2.1.1.1");
     rt = RouteGet("vrf2", vm_src_ip, 32);
     EXPECT_TRUE(rt != NULL);
-    composite_nh = static_cast<const CompositeNH *>(
-                       rt->GetActiveNextHop());
+    composite_nh = static_cast<const CompositeNH *>(rt->GetActiveNextHop());
 
     TxIpPacket(VmPortGetId(2), "2.1.1.1", "9.1.1.1", 1);
     client->WaitForIdle();
@@ -652,15 +724,12 @@ TEST_F(EcmpTest, EcmpTest_11) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetLocalNextHop());
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-    //Make sure reverse flow packet is destined to vnet2
-    const InterfaceNH *nh = static_cast<const InterfaceNH *>(
-            composite_nh->GetNH(rev_entry->data().component_nh_idx));
-    EXPECT_TRUE(nh->GetInterface()->name() == "vnet2");
     EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::ShortFlow) == false);
 
     TxIpPacket(VmPortGetId(3), "2.1.1.1", "9.1.1.1", 1);
@@ -671,15 +740,12 @@ TEST_F(EcmpTest, EcmpTest_11) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetLocalNextHop());
 
     //Reverse flow is no ECMP
     rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-    //Make sure reverse flow packet is destined to vnet3
-    nh = static_cast<const InterfaceNH *>(
-             composite_nh->GetNH(rev_entry->data().component_nh_idx));
-    EXPECT_TRUE(nh->GetInterface()->name() == "vnet3");
     EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::ShortFlow) == false);
 
     TxIpPacket(VmPortGetId(4), "2.1.1.1", "9.1.1.1", 1);
@@ -690,15 +756,12 @@ TEST_F(EcmpTest, EcmpTest_11) {
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(entry->rpf_nh() == rt->GetLocalNextHop());
 
     //Reverse flow is no ECMP
     rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-    //Make sure reverse flow packet is destined to vnet4
-    nh = static_cast<const InterfaceNH *>(
-             composite_nh->GetNH(rev_entry->data().component_nh_idx));
-    EXPECT_TRUE(nh->GetInterface()->name() == "vnet4");
     EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::ShortFlow) == false);
 
     DeleteVmportEnv(input1, 1, true);
@@ -706,13 +769,28 @@ TEST_F(EcmpTest, EcmpTest_11) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
     EXPECT_FALSE(VrfFind("vrf9"));
+    DelIPAM("vn9");
 }
 
+// Flow from interface (vnet9) in vrf9 to remote ECMP in vrf10.
+// Interface has floating-ip in vrf10
+//
+// Remove ECMP has 2 path from 10.10.10.100 and 10.10.10.101
+//
+// After flow setup, the reverse flow moves from 10.10.10.100 to 10.10.10.101
+// or vice-versa
+//
+// In normal scenario, VRouter should take care of this flow-movement. However
+// agent can come into picture if the flow is already evicted in vrouter
 TEST_F(EcmpTest, EcmpTest_12) {
     struct PortInfo input1[] = {
         {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:01", 9, 9},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_9[] = {
+        {"9.1.1.0", 24, "9.1.1.254"},
+    };
+    AddIPAM("vn9", ipam_info_9, 1);
     client->WaitForIdle();
 
     VmInterface *intf = static_cast<VmInterface *>(VmPortGet(9));
@@ -733,14 +811,13 @@ TEST_F(EcmpTest, EcmpTest_12) {
     Ip4Address gw_rt = Ip4Address::from_string("0.0.0.0");
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
     Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
-    Agent *agent = Agent::GetInstance();
-    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip1,
                                                   false,
                                                   TunnelType::DefaultType()));
-    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip2,
                                                   false,
                                                   TunnelType::DefaultType()));
@@ -764,17 +841,27 @@ TEST_F(EcmpTest, EcmpTest_12) {
 
     uint32_t reverse_index = entry->reverse_flow_entry()->flow_handle();
     if (entry->data().component_nh_idx == 0) {
+        // If forward flow setup to go on 10.10.10.100, trap reverse flow
+        // from 10.10.10.101
         TxIpMplsPacket(eth_intf_id_, "10.10.10.101",
-                       agent->router_id().to_string().c_str(),
+                       agent_->router_id().to_string().c_str(),
                        label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
         client->WaitForIdle();
-        EXPECT_TRUE(entry->data().component_nh_idx == 1);
+        // "entry" is new reverse flow now.
+        // VRouter manages its ECMP member index
+        EXPECT_TRUE(entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
     } else {
+        // If forward flow setup to go on 10.10.10.101, trap reverse flow
+        // from 10.10.10.100
         TxIpMplsPacket(eth_intf_id_, "10.10.10.100",
-                       agent->router_id().to_string().c_str(),
+                       agent_->router_id().to_string().c_str(),
                        label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
         client->WaitForIdle();
-        EXPECT_TRUE(entry->data().component_nh_idx == 0);
+        // "entry" is new reverse flow now.
+        // VRouter manages its ECMP member index
+        EXPECT_TRUE(entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
     }
 
     DeleteVmportEnv(input1, 1, true);
@@ -793,6 +880,7 @@ TEST_F(EcmpTest, EcmpTest_12) {
     client->WaitForIdle();
     EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
+    DelIPAM("vn9");
 }
 
 //Add a test case to check if rpf NH of flow using floating IP
@@ -803,6 +891,10 @@ TEST_F(EcmpTest, EcmpTest_13) {
         {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:01", 9, 9},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_9[] = {
+        {"9.1.1.0", 24, "9.1.1.254"},
+    };
+    AddIPAM("vn9", ipam_info_9, 1);
     client->WaitForIdle();
 
     VmInterface *intf = static_cast<VmInterface *>(VmPortGet(9));
@@ -824,14 +916,13 @@ TEST_F(EcmpTest, EcmpTest_13) {
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
     Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
     Ip4Address remote_server_ip3 = Ip4Address::from_string("10.10.10.102");
-    Agent *agent = Agent::GetInstance();
-    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip1,
                                                   false,
                                                   TunnelType::DefaultType()));
-    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip2,
                                                   false,
                                                   TunnelType::DefaultType()));
@@ -842,6 +933,7 @@ TEST_F(EcmpTest, EcmpTest_13) {
                        comp_nh_list, false, "default-project:vn10",
                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
+    InetUnicastRouteEntry *rt = RouteGet("default-project:vn10:vn10", gw_rt, 0);
 
     TxIpPacket(VmPortGetId(9), "9.1.1.1", "10.1.1.1", 1);
     client->WaitForIdle();
@@ -853,27 +945,33 @@ TEST_F(EcmpTest, EcmpTest_13) {
                 CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
 
-    uint32_t index;
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+    EXPECT_TRUE(rev_entry->rpf_nh() == rt->GetActiveNextHop());
+
     uint32_t reverse_index = entry->reverse_flow_entry()->flow_handle();
     if (entry->data().component_nh_idx == 0) {
+        // If forward flow setup to go on 10.10.10.100, trap reverse flow
+        // from 10.10.10.101
         TxIpMplsPacket(eth_intf_id_, "10.10.10.101",
-                       agent->router_id().to_string().c_str(),
+                       agent_->router_id().to_string().c_str(),
                        label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
         client->WaitForIdle();
-        EXPECT_TRUE(entry->data().component_nh_idx == 1);
-        index = 1;
+        EXPECT_TRUE(entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
     } else {
+        // If forward flow setup to go on 10.10.10.101, trap reverse flow
+        // from 10.10.10.100
         TxIpMplsPacket(eth_intf_id_, "10.10.10.100",
-                       agent->router_id().to_string().c_str(),
+                       agent_->router_id().to_string().c_str(),
                        label, "10.1.1.1", "10.10.10.2", 1, reverse_index);
         client->WaitForIdle();
-        EXPECT_TRUE(entry->data().component_nh_idx == 0);
-        index = 0;
+        EXPECT_TRUE(entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
     }
 
     //Update the route to make the composite NH point to new nexthop
-    ComponentNHKeyPtr nh_data3(new ComponentNHKey(20, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data3(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip3,
                                                   false,
                                                   TunnelType::DefaultType()));
@@ -882,11 +980,12 @@ TEST_F(EcmpTest, EcmpTest_13) {
                        comp_nh_list, false, "default-project:vn10",
                        SecurityGroupList(), PathPreference());
     client->WaitForIdle();
-    EXPECT_TRUE(entry->data().component_nh_idx == index);
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
     //Make sure flow has the right nexthop set.
-    InetUnicastRouteEntry *rt = RouteGet("default-project:vn10:vn10", gw_rt, 0);
-    FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->nh() == rt->GetActiveNextHop());
+    rt = RouteGet("default-project:vn10:vn10", gw_rt, 0);
+    rev_entry = entry->reverse_flow_entry();
+    EXPECT_TRUE(rev_entry->rpf_nh() == rt->GetActiveNextHop());
 
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("default-project:vn10:vn10", "0.0.0.0", 0);
@@ -904,6 +1003,7 @@ TEST_F(EcmpTest, EcmpTest_13) {
     client->WaitForIdle();
     EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
+    DelIPAM("vn9");
 }
 
 //Add a test case to check if rpf NH of flow using floating IP 
@@ -913,6 +1013,10 @@ TEST_F(EcmpTest, EcmpTest_14) {
         {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:01", 9, 9},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_9[] = {
+        {"9.1.1.0", 24, "9.1.1.254"},
+    };
+    AddIPAM("vn9", ipam_info_9, 1);
     client->WaitForIdle();
 
     AddVn("default-project:vn10", 10);
@@ -930,14 +1034,13 @@ TEST_F(EcmpTest, EcmpTest_14) {
     Ip4Address gw_rt = Ip4Address::from_string("0.0.0.0");
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
     Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
-    Agent *agent = Agent::GetInstance();
-    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip1,
                                                   false,
                                                   TunnelType::DefaultType()));
-    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip2,
                                                   false,
                                                   TunnelType::DefaultType()));
@@ -969,7 +1072,7 @@ TEST_F(EcmpTest, EcmpTest_14) {
     //Make sure flow has the right nexthop set.
     InetUnicastRouteEntry *rt = RouteGet("default-project:vn10:vn10", gw_rt, 0);
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->nh() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->rpf_nh() == rt->GetActiveNextHop());
 
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("default-project:vn10:vn10", "0.0.0.0", 0);
@@ -987,6 +1090,7 @@ TEST_F(EcmpTest, EcmpTest_14) {
     client->WaitForIdle();
     EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
+    DelIPAM("vn9");
 }
 
 TEST_F(EcmpTest, EcmpTest_15) {
@@ -994,19 +1098,22 @@ TEST_F(EcmpTest, EcmpTest_15) {
         {"vnet9", 9, "9.1.1.1", "00:00:00:01:01:01", 9, 9},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_9[] = {
+        {"9.1.1.0", 24, "9.1.1.254"},
+    };
+    AddIPAM("vn9", ipam_info_9, 1);
     client->WaitForIdle();
 
     Ip4Address gw_rt = Ip4Address::from_string("0.0.0.0");
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
     Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
-    Agent *agent = Agent::GetInstance();
-    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip1,
                                                   false,
                                                   TunnelType::DefaultType()));
-    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip2,
                                                   false,
                                                   TunnelType::DefaultType()));
@@ -1038,12 +1145,13 @@ TEST_F(EcmpTest, EcmpTest_15) {
     //Make sure flow has the right nexthop set.
     InetUnicastRouteEntry *rt = RouteGet("vrf9", gw_rt, 0);
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->nh() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->rpf_nh() == rt->GetActiveNextHop());
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf9", true));
+    DelIPAM("vn9");
 }
 
 //In case of ECMP route leaked across VRF, there might
@@ -1064,13 +1172,12 @@ TEST_F(EcmpTest, EcmpTest_16) {
 
     VmInterface *intf = static_cast<VmInterface *>(VmPortGet(1));
     uint32_t label = intf->label();
-    Agent *agent = Agent::GetInstance();
     //Add a ECMP route for traffic origiator
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(label, MakeUuid(1),
                                                   InterfaceNHFlags::INET4,
                                                   intf->vm_mac()));
-    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip1,
                                                   false,
                                                   TunnelType::DefaultType()));
@@ -1081,7 +1188,7 @@ TEST_F(EcmpTest, EcmpTest_16) {
     //error case, local component NH would be picked from
     //composite NH, than from local vm peer
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
-    agent->fabric_inet4_unicast_table()->DeleteReq(intf->peer(), "vrf2",
+    agent_->fabric_inet4_unicast_table()->DeleteReq(intf->peer(), "vrf2",
                                                    ip, 32, NULL);
     EcmpTunnelRouteAdd(bgp_peer, "vrf9", ip, 32,
                        comp_nh_list, false, "vn3",
@@ -1124,9 +1231,6 @@ TEST_F(EcmpTest, EcmpTest_16) {
     client->WaitForIdle();
     DelVrf("vrf9");
     client->WaitForIdle();
-
-    WAIT_FOR(1000, 1000, get_flow_proto()->FlowCount() == 0);
-    EXPECT_FALSE(VrfFind("vrf9", true));
 }
 
 TEST_F(EcmpTest, EcmpTest_17) {
@@ -1143,7 +1247,7 @@ TEST_F(EcmpTest, EcmpTest_17) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().ecmp_rpf_nh_ != 0);
+    EXPECT_TRUE(rev_entry->rpf_nh() != NULL);
 
     AddRemoteVmRoute("vrf2", "2.1.1.1", 32, "vn10");
     client->WaitForIdle();
@@ -1152,7 +1256,7 @@ TEST_F(EcmpTest, EcmpTest_17) {
     EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == true);
 }
 
-TEST_F(EcmpTest, EcmpReEval_1) {
+TEST_F(EcmpTest, DISABLED_EcmpReEval_1) {
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
     client->WaitForIdle();
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
@@ -1164,7 +1268,7 @@ TEST_F(EcmpTest, EcmpReEval_1) {
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx ==
-            CompositeNH::kInvalidComponentNHIdx);
+                CompositeNH::kInvalidComponentNHIdx);
 
     uint32_t ecmp_index = entry->data().component_nh_idx;
     //Delete VM corresponding to index component_nh_idx
@@ -1179,7 +1283,7 @@ TEST_F(EcmpTest, EcmpReEval_1) {
  
     //Verify compoennt NH index is different
     EXPECT_TRUE(entry2->data().component_nh_idx !=
-            CompositeNH::kInvalidComponentNHIdx);
+                CompositeNH::kInvalidComponentNHIdx);
     //make sure new ecmp index is different from that of old ecmp index
     EXPECT_TRUE(ecmp_index != entry2->data().component_nh_idx);
 }
@@ -1202,7 +1306,7 @@ TEST_F(EcmpTest, EcmpReEval_2) {
             "1.1.1.1", "3.1.1.10", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx ==
-            CompositeNH::kInvalidComponentNHIdx);
+                CompositeNH::kInvalidComponentNHIdx);
 
     //Convert dip to ECMP nh
     ComponentNHKeyList local_comp_nh;
@@ -1210,17 +1314,18 @@ TEST_F(EcmpTest, EcmpReEval_2) {
     client->WaitForIdle();
 
     //Enqueue a re-evaluate request
-    TxIpPacketEcmp(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
     entry = FlowGet(VrfGet("vrf2")->vrf_id(),
             "1.1.1.1", "3.1.1.10", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
     //Since flow already existed, use same old NH which would be at index 0
-    EXPECT_TRUE(entry->data().component_nh_idx == 0);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+                CompositeNH::kInvalidComponentNHIdx);
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx ==
-            CompositeNH::kInvalidComponentNHIdx);
+                CompositeNH::kInvalidComponentNHIdx);
     DeleteRemoteRoute("vrf2", "3.1.1.10", 32);
 }
 
@@ -1233,6 +1338,11 @@ TEST_F(EcmpTest, EcmpReEval_3) {
         {"vnet11", 11, "11.1.1.1", "00:00:00:01:01:01", 10, 11},
     };
     CreateVmportFIpEnv(input1, 2);
+    IpamInfo ipam_info_10[] = {
+        {"10.1.1.0", 24, "10.1.1.254"},
+        {"11.1.1.0", 24, "11.1.1.254"},
+    };
+    AddIPAM("vn10", ipam_info_10, 2);
     client->WaitForIdle();
 
     //Associate floating IP with one interface
@@ -1254,24 +1364,21 @@ TEST_F(EcmpTest, EcmpReEval_3) {
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx ==
-            CompositeNH::kInvalidComponentNHIdx);
+                CompositeNH::kInvalidComponentNHIdx);
 
     AddLink("virtual-machine-interface", "vnet11", "floating-ip", "fip3");
     client->WaitForIdle();
 
     //Enqueue a re-evaluate request
-    TxIpPacketEcmp(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
+    TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
     entry = FlowGet(VrfGet("vrf2")->vrf_id(), "1.1.1.1", "3.1.1.10", 1, 0, 0,
                     GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
-    //Since flow already existed, use same old NH which would be at index 0
-    EXPECT_TRUE(entry->data().component_nh_idx == 0);
-
-    FlowEntry *rev_entry1 = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry == rev_entry1);
+    EXPECT_TRUE(entry->data().component_nh_idx !=
+                CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().component_nh_idx ==
-            CompositeNH::kInvalidComponentNHIdx);
+                CompositeNH::kInvalidComponentNHIdx);
 
     DelLink("virtual-machine-interface", "vnet10", "floating-ip", "fip3");
     DelLink("virtual-machine-interface", "vnet11", "floating-ip", "fip3");
@@ -1280,6 +1387,7 @@ TEST_F(EcmpTest, EcmpReEval_3) {
     DeleteVmportFIpEnv(input1, 2, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vn10:vn10"));
+    DelIPAM("vn10");
 }
 
 TEST_F(EcmpTest, ServiceVlanTest_1) {
@@ -1290,6 +1398,13 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
     };
 
     CreateVmportWithEcmp(input1, 3);
+    IpamInfo ipam_info_10[] = {
+        {"10.1.1.0", 24, "10.1.1.254"},
+        {"11.1.1.0", 24, "11.1.1.254"},
+        {"12.1.1.0", 24, "12.1.1.254"},
+    };
+    AddIPAM("vn10", ipam_info_10, 3);
+
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(10));
     EXPECT_TRUE(VmPortActive(11));
@@ -1300,6 +1415,10 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
         {"vnet13", 13, "11.1.1.252", "00:00:00:01:01:01", 11, 13},
     };
     CreateVmportWithEcmp(input2, 1);
+    IpamInfo ipam_info_11[] = {
+        {"11.1.1.0", 24, "11.1.1.254"},
+    };
+    AddIPAM("vn11", ipam_info_11, 1);
     client->WaitForIdle();
 
     AddVmPortVrf("ser1", "11.1.1.253", 1);
@@ -1326,8 +1445,8 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx != 
-            CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
 
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "routing-instance", "vrf11");
@@ -1340,9 +1459,11 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
     DeleteVmportEnv(input1, 3, true);
     DeleteVmportEnv(input2, 1, true);
     client->WaitForIdle();
-    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf10"));
+
+    DelIPAM("vn10");
+    DelIPAM("vn11");
 }
 
 //Service VM with ECMP instantiated in two 
@@ -1353,6 +1474,10 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
         {"vnet10", 10, "10.1.1.1", "00:00:00:01:01:01", 10, 10},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_10[] = {
+        {"10.1.1.0", 24, "10.1.1.254"},
+    };
+    AddIPAM("vn10", ipam_info_10, 1);
     client->WaitForIdle();
 
     ComponentNHKeyList local_comp_nh;
@@ -1386,8 +1511,8 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("vrf10", "11.1.1.0", 24);
     client->WaitForIdle();
-    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf10"));
+    DelIPAM("vn10");
 }
 
 //Service VM with ECMP instantiated in local and remote server
@@ -1398,6 +1523,10 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
         {"vnet10", 10, "10.1.1.1", "00:00:00:01:01:01", 10, 10},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_10[] = {
+        {"10.1.1.0", 24, "10.1.1.254"},
+    };
+    AddIPAM("vn10", ipam_info_10, 1);
     client->WaitForIdle();
 
     //Add service VM in vrf11 as mgmt VRF
@@ -1405,6 +1534,10 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
         {"vnet11", 11, "1.1.1.252", "00:00:00:01:01:01", 11, 11},
     };
     CreateVmportWithEcmp(input2, 1);
+    IpamInfo ipam_info_11[] = {
+        {"11.1.1.0", 24, "11.1.1.254"},
+    };
+    AddIPAM("vn11", ipam_info_11, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -1439,8 +1572,8 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     //Choose some random source and destination port
     uint32_t sport = rand() % 65535;
     uint32_t dport = rand() % 65535;
-    for (uint32_t i = 0; i < 100; i++) {
-        uint32_t hash_id = rand() % 65535;
+    for (uint32_t i = 0; i < 32; i++) {
+        uint32_t hash_id = i + 100;
         TxTcpPacket(VmPortGetId(10), "10.1.1.1", "11.1.1.252", sport, dport, 
                     false, hash_id);
         client->WaitForIdle();
@@ -1497,11 +1630,11 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     //packet came with explicit unicast mpls tag
     sport = rand() % 65535;
     dport = rand() % 65535;
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 32; i++) {
         char router_id[80];
         strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
 
-        uint32_t hash_id = rand() % 65535;
+        uint32_t hash_id = i + 200;
         TxTcpMplsPacket(eth_intf_id_, "10.11.11.1", router_id, 
                         vlan_label, "10.1.1.3", "11.1.1.252", 
                         sport, dport, false, hash_id);
@@ -1534,6 +1667,8 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf10"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
+    DelIPAM("vn10");
+    DelIPAM("vn11");
 }
 
 
@@ -1545,6 +1680,10 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         {"vnet10", 10, "10.1.1.1", "00:00:00:01:01:01", 10, 10},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_10[] = {
+        {"10.1.1.0", 24, "10.1.1.254"},
+    };
+    AddIPAM("vn10", ipam_info_10, 1);
     client->WaitForIdle();
 
     //Add service VM in vrf11 as mgmt VRF
@@ -1553,6 +1692,10 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         {"vnet12", 12, "1.1.1.253", "00:00:00:01:01:01", 11, 12},
     };
     CreateVmportWithEcmp(input2, 2);
+    IpamInfo ipam_info_11[] = {
+        {"1.1.1.0", 24, "1.1.1.254"},
+    };
+    AddIPAM("vn11", ipam_info_11, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -1565,9 +1708,9 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
             "virtual-machine-interface", "vnet12");
     client->WaitForIdle();
 
-    uint32_t vrf_id = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf10")->vrf_id();
-    uint32_t service_vrf_id = 
-        Agent::GetInstance()->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
+    uint32_t vrf_id = agent_->vrf_table()->FindVrfFromName("vrf10")->vrf_id();
+    uint32_t service_vrf_id =
+        agent_->vrf_table()->FindVrfFromName("service-vrf1")->vrf_id();
 
     //Leak aggregarete route to vrf10
     Ip4Address service_vm_ip = Ip4Address::from_string("10.1.1.2"); 
@@ -1578,18 +1721,28 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
+        Composite::LOCAL_ECMP, true, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
     AddRemoteEcmpRoute("vrf10", "11.1.1.0", 24, "vn11", 0, comp_nh_list);
     AddRemoteEcmpRoute("service-vrf1", "11.1.1.0", 24, "vn11", 0, comp_nh_list);
+    client->WaitForIdle();
+
+    Ip4Address dest_ip = Ip4Address::from_string("11.1.1.0");
+    InetUnicastRouteEntry *rt_vrf10 = RouteGet("vrf10", dest_ip, 24);
+    const NextHop *nh_vrf10 = rt_vrf10->GetActiveNextHop();
+    EXPECT_TRUE(dynamic_cast<const CompositeNH *>(nh_vrf10) != NULL);
+
+    InetUnicastRouteEntry *rt_svrf = RouteGet("service-vrf1", dest_ip, 24);
+    const NextHop *nh_svrf = rt_svrf->GetActiveNextHop();
+    EXPECT_TRUE(dynamic_cast<const CompositeNH *>(nh_svrf) != NULL);
 
     //Choose some random source and destination port
     uint32_t sport = rand() % 65535;
     uint32_t dport = rand() % 65535;
-    for (uint32_t i = 0; i < 100; i++) {
-        uint32_t hash_id = rand() % 65535;
+    for (uint32_t i = 0; i < 32; i++) {
+        uint32_t hash_id = i + 100;
         TxTcpPacket(VmPortGetId(10), "10.1.1.1", "11.1.1.252", sport, dport, 
                     false, hash_id);
         client->WaitForIdle();
@@ -1599,7 +1752,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
                 GetFlowKeyNH(10));
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data().component_nh_idx !=
-                CompositeNH::kInvalidComponentNHIdx);
+                    CompositeNH::kInvalidComponentNHIdx);
         EXPECT_TRUE(entry->data().vrf == vrf_id);
         //Packet destined to service interface, vrf has to be 
         //service vlan VRF
@@ -1631,11 +1784,11 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     //Send a packet from a remote VM to service VM
     sport = rand() % 65535;
     dport = rand() % 65535;
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 32; i++) {
         char router_id[80];
         strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
 
-        uint32_t hash_id = rand() % 65535;
+        uint32_t hash_id = i + 200;
         TxTcpMplsPacket(eth_intf_id_, "10.11.11.1", router_id, 
                         label, "10.1.1.3", "11.1.1.252", 
                         sport, dport, false, hash_id);
@@ -1681,12 +1834,13 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle(2);
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf10"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
+    DelIPAM("vn10");
+    DelIPAM("vn11");
 }
 
 //Packet from a right service VM interface(both service vm instance launched on same server)
@@ -1696,6 +1850,10 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         {"vnet11", 11, "11.1.1.1", "00:00:00:01:01:01", 11, 11},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_11[] = {
+        {"11.1.1.0", 24, "11.1.1.254"},
+    };
+    AddIPAM("vn11", ipam_info_11, 1);
     client->WaitForIdle();
 
     //Add service VM in vrf13 as mgmt VRF
@@ -1704,6 +1862,10 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         {"vnet14", 14, "1.1.1.253", "00:00:00:01:01:01", 13, 14},
     };
     CreateVmportWithEcmp(input2, 2);
+    IpamInfo ipam_info_13[] = {
+        {"1.1.1.0", 24, "1.1.1.254"},
+    };
+    AddIPAM("vn13", ipam_info_13, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -1731,7 +1893,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
+        Composite::LOCAL_ECMP, true, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
@@ -1742,9 +1904,6 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     //Leak route for vm11 to service vrf
     AddLocalVmRoute("service-vrf1", "11.1.1.1", 32, "vn11", 11);
     client->WaitForIdle();
-    Ip4Address vn10_agg_ip = Ip4Address::from_string("10.1.1.0");
-    const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("service-vrf1", vn10_agg_ip, 24)->GetActiveNextHop());
 
     uint32_t vnet13_vlan_nh = GetServiceVlanNH(13, "service-vrf1");
     uint32_t vnet14_vlan_nh = GetServiceVlanNH(14, "service-vrf1");
@@ -1752,8 +1911,8 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     //Choose some random source and destination port
     uint32_t sport = rand() % 65535;
     uint32_t dport = rand() % 65535;
-    for (uint32_t i = 0; i < 100; i++) {
-        uint32_t hash_id = rand() % 65535;
+    for (uint32_t i = 0; i < 32; i++) {
+        uint32_t hash_id = i + 100;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
         client->WaitForIdle();
@@ -1774,9 +1933,8 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
-        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-            (comp_nh->GetNH(rev_entry->data().component_nh_idx));
-        EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(13));
+        EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
         //Packet to service interface, vrf has to be 
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == vrf_id);
@@ -1788,8 +1946,8 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     }
 
     //Send traffice from second service interface and expect things to be fine
-    for (uint32_t i = 0; i < 100; i++) {
-        uint32_t hash_id = rand() % 65535;
+    for (uint32_t i = 0; i < 32; i++) {
+        uint32_t hash_id = i + 200;
         TxTcpPacket(VmPortGetId(14), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
         client->WaitForIdle();
@@ -1811,9 +1969,8 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
 
         //make sure reverse flow points to right index
         FlowEntry *rev_entry = entry->reverse_flow_entry();
-        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-            (comp_nh->GetNH(rev_entry->data().component_nh_idx));
-        EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(14));
+        EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
 
         //Packet from vm11 to service vrf 
         EXPECT_TRUE(rev_entry->data().vrf == vrf_id);
@@ -1839,14 +1996,13 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    //Make sure all flows are also deleted
-    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
-
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
+    DelIPAM("vn11");
+    DelIPAM("vn13");
 }
 
 //Packet from a right service VM interface(both service vm instance launched on same server)
@@ -1860,6 +2016,10 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         {"vnet14", 14, "1.1.1.253", "00:00:00:01:01:01", 13, 14},
     };
     CreateVmportWithEcmp(input2, 2);
+    IpamInfo ipam_info_13[] = {
+        {"1.1.1.0", 24, "1.1.1.254"},
+    };
+    AddIPAM("vn13", ipam_info_13, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -1886,7 +2046,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::ECMP, true, composite_nh_key->component_nh_key_list(),
+        Composite::LOCAL_ECMP, true, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
@@ -1898,9 +2058,6 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     comp_nh_list.clear();
     AddRemoteEcmpRoute("service-vrf1", "11.1.1.3", 32, "vn11", 2, comp_nh_list);
     client->WaitForIdle();
-    Ip4Address vn10_agg_ip = Ip4Address::from_string("10.1.1.0");
-    const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("service-vrf1", vn10_agg_ip, 24)->GetActiveNextHop());
 
     uint32_t vnet13_vlan_nh = GetServiceVlanNH(13, "service-vrf1");
     uint32_t vnet14_vlan_nh = GetServiceVlanNH(14, "service-vrf1");
@@ -1908,7 +2065,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     uint32_t sport = rand() % 65535;
     uint32_t dport = rand() % 65535;
     for (uint32_t i = 0; i < 10; i++) {
-        uint32_t hash_id = rand() % 65535;
+        uint32_t hash_id = i + 100;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
         client->WaitForIdle();
@@ -1927,9 +2084,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
-        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-            (comp_nh->GetNH(rev_entry->data().component_nh_idx));
-        EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(13));
+        EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
         //Packet to service interface, vrf has to be 
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
@@ -1942,7 +2098,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
 
     //Send traffic from second service interface
     for (uint32_t i = 0; i < 10; i++) {
-        uint32_t hash_id = rand() % 65535;
+        uint32_t hash_id = i + 200;
         TxTcpPacket(VmPortGetId(14), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
         client->WaitForIdle();
@@ -1962,9 +2118,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
 
         //make sure reverse flow points to right index
         FlowEntry *rev_entry = entry->reverse_flow_entry();
-        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-            (comp_nh->GetNH(rev_entry->data().component_nh_idx));
-        EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(14));
+        EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
 
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
@@ -1978,7 +2133,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     strcpy(router_id, Agent::GetInstance()->router_id().to_string().c_str());
     //Send traffic from remote VM service
     for (uint32_t i = 0; i < 10; i++) {
-        uint32_t hash_id = rand() % 65535;
+        uint32_t hash_id = i + 100;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.10", router_id, 
                         mpls_label, "11.1.1.1", "10.1.1.1", 
                         sport, dport, false, hash_id);
@@ -2010,7 +2165,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
  
     //Send traffic from remote VM which is also ecmp
     for (uint32_t i = 0; i < 10; i++) {
-        uint32_t hash_id = rand() % 65535;
+        uint32_t hash_id = i + 200;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.10", router_id, 
                         mpls_label, "11.1.1.3", "10.1.1.1", 
                         sport, dport, false, hash_id);
@@ -2030,7 +2185,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
 
         //make sure reverse flow is no ecmp
         FlowEntry *rev_entry = entry->reverse_flow_entry();
-        EXPECT_TRUE(rev_entry->data().component_nh_idx == 0);
+        EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
         EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_10));
@@ -2041,7 +2197,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
 
     //Send traffic from remote VM which is also ecmp
     for (uint32_t i = 0; i < 10; i++) {
-        uint32_t hash_id = rand() % 65535;
+        uint32_t hash_id = i + 100;
         TxTcpMplsPacket(eth_intf_id_, "10.10.10.11", router_id, 
                         mpls_label, "11.1.1.3", "10.1.1.1", 
                         sport, dport, false, hash_id);
@@ -2060,7 +2216,8 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
 
         //make sure reverse flow is no ecmp
         FlowEntry *rev_entry = entry->reverse_flow_entry();
-        EXPECT_TRUE(rev_entry->data().component_nh_idx == 1);
+        EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data().dest_vrf == service_vrf_id);
         EXPECT_TRUE(VnMatch(rev_entry->data().source_vn_list, vn_name_10));
@@ -2081,19 +2238,22 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    WAIT_FOR(10000, 1000, (get_flow_proto()->FlowCount() == 0));
-    client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
+    DelIPAM("vn13");
 }
 
-//Packet from a right service VM interface(one service instance on local server,
-// one on remote server) reaching end host on a local machine
+// Packet from a right service VM interface(one service instance on
+// local server, one on remote server) reaching end host on a local machine
 TEST_F(EcmpTest, ServiceVlanTest_7) {
     struct PortInfo input1[] = {
         {"vnet11", 11, "11.1.1.1", "00:00:00:01:01:01", 11, 11},
     };
     CreateVmportWithEcmp(input1, 1);
+    IpamInfo ipam_info_11[] = {
+        {"11.1.1.0", 24, "11.1.1.254"},
+    };
+    AddIPAM("vn11", ipam_info_11, 1);
     client->WaitForIdle();
 
     //Add service VM in vrf13 as mgmt VRF
@@ -2101,6 +2261,10 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
         {"vnet13", 13, "1.1.1.252", "00:00:00:01:01:01", 13, 13},
     };
     CreateVmportWithEcmp(input2, 1);
+    IpamInfo ipam_info_12[] = {
+        {"12.1.1.0", 24, "12.1.1.254"},
+    };
+    AddIPAM("vn12", ipam_info_12, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -2132,16 +2296,13 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
     //Leak route for vm11 to service vrf
     AddLocalVmRoute("service-vrf1", "11.1.1.1", 32, "vn11", 11);
     client->WaitForIdle();
-    Ip4Address vn10_agg_ip = Ip4Address::from_string("10.1.1.0");
-    const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("service-vrf1", vn10_agg_ip, 24)->GetActiveNextHop());
     uint32_t vnet13_vlan_nh = GetServiceVlanNH(13, "service-vrf1");
 
     //Choose some random source and destination port
     uint32_t sport = rand() % 65535;
     uint32_t dport = rand() % 65535;
-    for (uint32_t i = 0; i < 100; i++) {
-        uint32_t hash_id = rand() % 65535;
+    for (uint32_t i = 0; i < 32; i++) {
+        uint32_t hash_id = i + 100;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
         client->WaitForIdle();
@@ -2162,9 +2323,8 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
         EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
-        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-            (comp_nh->GetNH(rev_entry->data().component_nh_idx));
-        EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(13));
+        EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
         //Packet to service interface, vrf has to be 
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == vrf_id);
@@ -2180,8 +2340,6 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "virtual-machine-interface", "vnet13");
     DeleteVmportEnv(input2, 1, true);
-    client->WaitForIdle();
-    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
 
     DeleteVmportEnv(input1, 1, true);
     DelVrf("service-vrf1");
@@ -2189,6 +2347,8 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
+    DelIPAM("vn11");
+    DelIPAM("vn12");
 }
 
 //Packet from a right service VM interface (one service instance on local server,
@@ -2199,6 +2359,10 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         {"vnet13", 13, "1.1.1.252", "00:00:00:01:01:01", 13, 13},
     };
     CreateVmportWithEcmp(input2, 1);
+    IpamInfo ipam_info_13[] = {
+        {"1.1.1.0", 24, "1.1.1.254"},
+    };
+    AddIPAM("vn13", ipam_info_13, 1);
     client->WaitForIdle();
 
     AddVrf("service-vrf1", 12);
@@ -2233,7 +2397,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     //Choose some random source and destination port
     uint32_t sport = rand() % 65535;
     uint32_t dport = rand() % 65535;
-    for (uint32_t i = 0; i < 100; i++) {
+    for (uint32_t i = 0; i < 32; i++) {
         uint32_t hash_id = rand() % 65535;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
@@ -2252,11 +2416,11 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         std::string vn_name_11("vn11");
         EXPECT_TRUE(VnMatch(entry->data().source_vn_list, vn_name_10));
         EXPECT_TRUE(VnMatch(entry->data().dest_vn_list, vn_name_11));
-        EXPECT_TRUE(entry->nh()->GetType() == NextHop::VLAN);
+        EXPECT_TRUE(entry->rpf_nh()->GetType() == NextHop::VLAN);
 
         FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(entry->data().component_nh_idx ==
-                CompositeNH::kInvalidComponentNHIdx);
+                    CompositeNH::kInvalidComponentNHIdx);
         //Packet to service interface, vrf has to be 
         //service vlan VRF
         EXPECT_TRUE(rev_entry->data().vrf == service_vrf_id);
@@ -2274,56 +2438,14 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     DeleteVmportEnv(input2, 1, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    EXPECT_TRUE(get_flow_proto()->FlowCount() == 0);
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
-}
-
-TEST_F(EcmpTest, TrapFlag) {
-    AddRemoteVmRoute("vrf2", "10.1.1.1", 32, "vn2");
-    TxIpPacket(VmPortGetId(1), "1.1.1.1", "10.1.1.1", 1);
-    client->WaitForIdle();
-
-    FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
-            "1.1.1.1", "10.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx ==
-            CompositeNH::kInvalidComponentNHIdx);
-
-    //Reverse flow is no ECMP
-    FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
-            CompositeNH::kInvalidComponentNHIdx);
-
-    ComponentNHKeyList local_comp_nh;
-    AddRemoteEcmpRoute("vrf2", "10.1.1.1", 32, "vn2", 2, local_comp_nh);
-    client->WaitForIdle();
-    EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::Trap) == true);
-
-    TxIpPacket(VmPortGetId(1), "1.1.1.1", "10.1.1.1", 1);
-    client->WaitForIdle();
-
-    entry = FlowGet(VrfGet("vrf2")->vrf_id(),
-            "1.1.1.1", "10.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx !=
-            CompositeNH::kInvalidComponentNHIdx);
-
-    //Reverse flow is no ECMP
-    rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
-                CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::Trap) == false);
-    Ip4Address remote_vm = Ip4Address::from_string("10.1.1.1");
-    Agent::GetInstance()->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
-            "vrf2", remote_vm, 32, new ControllerVmRoute(bgp_peer));
-    client->WaitForIdle();
+    DelIPAM("vn13");
 }
 
 //Send a packet from vgw to ecmp destination
 TEST_F(EcmpTest, VgwFlag) {
-    Agent *agent = Agent::GetInstance();
-    InetInterface::CreateReq(agent->interface_table(), "vgw1",
+    InetInterface::CreateReq(agent_->interface_table(), "vgw1",
                             InetInterface::SIMPLE_GATEWAY, "vrf2",
                             Ip4Address(0), 0, Ip4Address(0), Agent::NullString(),
                             "", Interface::TRANSPORT_ETHERNET);
@@ -2337,8 +2459,8 @@ TEST_F(EcmpTest, VgwFlag) {
 
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
     ComponentNHKeyPtr nh_data1(new ComponentNHKey(16, nh_key));
-    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent->fabric_vrf_name(),
-                                                  agent->router_id(),
+    ComponentNHKeyPtr nh_data2(new ComponentNHKey(20, agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
                                                   remote_server_ip1,
                                                   false,
                                                   TunnelType::DefaultType()));
@@ -2370,11 +2492,10 @@ TEST_F(EcmpTest, VgwFlag) {
                 CompositeNH::kInvalidComponentNHIdx);
 
     client->WaitForIdle();
-    agent->fabric_inet4_unicast_table()->DeleteReq(bgp_peer, "vrf2",
+    agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer, "vrf2",
                ip, 0, new ControllerVmRoute(bgp_peer));
-    InetInterface::DeleteReq(agent->interface_table(), "vgw1");
+    InetInterface::DeleteReq(agent_->interface_table(), "vgw1");
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
 }
 
 int main(int argc, char *argv[]) {

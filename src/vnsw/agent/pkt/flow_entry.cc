@@ -268,7 +268,7 @@ void FlowData::Reset() {
     intf_entry.reset(NULL);
     in_vm_entry.Reset(true);
     out_vm_entry.Reset(true);
-    nh.reset(NULL);
+    src_ip_nh.reset(NULL);
     vrf = VrfEntry::kInvalidIndex;
     mirror_vrf = VrfEntry::kInvalidIndex;
     dest_vrf = 0;
@@ -282,10 +282,11 @@ void FlowData::Reset() {
     flow_source_plen_map.clear();
     flow_dest_plen_map.clear();
     enable_rpf = true;
-    l2_rpf_plen = Address::kMaxV4PrefixLen;
+    rpf_nh.reset(NULL);
+    rpf_plen = Address::kMaxV4PrefixLen;
+    rpf_vrf = VrfEntry::kInvalidIndex;
     vm_cfg_name = "";
     bgp_as_a_service_port = 0;
-    ecmp_rpf_nh_ = 0;
     acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
     qos_config_idx = AgentQosConfigTable::kInvalidIndex;
     ttl = 0;
@@ -553,7 +554,6 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
     data_.in_vm_entry.SetVm(ctrl->vm_);
     data_.out_vm_entry.SetVm(rev_ctrl->vm_);
     l3_flow_ = info->l3_flow;
-    data_.ecmp_rpf_nh_ = 0;
     data_.acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
     return true;
 }
@@ -581,7 +581,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         reset_flags(FlowEntry::IngressDir);
     }
     if (ctrl->rt_ != NULL) {
-        SetRpfNH(flow_table_, ctrl->rt_);
+        RpfInit(ctrl->rt_);
     }
 
     if (info->bgp_router_service_flow) {
@@ -657,7 +657,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
         }
     }
     if (ctrl->rt_ != NULL) {
-        SetRpfNH(flow_table_, ctrl->rt_);
+        RpfInit(ctrl->rt_);
     }
 
     if (info->bgp_router_service_flow) {
@@ -682,12 +682,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
     } else {
         reset_flags(FlowEntry::EcmpFlow);
     }
-    data_.component_nh_idx = info->in_component_nh_idx;
-    if (info->trap_rev_flow) {
-        set_flags(FlowEntry::Trap);
-    } else {
-        reset_flags(FlowEntry::Trap);
-    }
+    data_.component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
 
     reset_flags(FlowEntry::UnknownUnicastFlood);
     if (info->flood_unknown_unicast) {
@@ -856,6 +851,254 @@ static bool ShouldDrop(uint32_t action) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Flow RPF
+//
+// With exception of Baremetals, support RPF checks are always based on
+// inet route for source-ip. 
+//
+// Agent is not aware of IP address assigned for baremetals. So, the RPF check
+// for baremetals will be done based on the L2-Route
+//
+// VRouter enforces RPF check based on RPF-NH programmed in the flow. The RPF
+// NH can be of two types,
+// - Unicast NH :
+//   In this case, VRouter matches with incoming interface/tunnel-src with
+//   RPF NH the flow
+//
+// - ECMP NH :
+//   In this case, VRouter picks an ECMP component-nh and matches with incoming
+//   interface/tunnel-src. The index for component-nh is got from reverse flow.
+//
+//   Picking Ecmp Index
+//   ------------------
+//   VRouter manages the ECMP Index in a flow (exception : Agent computes
+//   initial value for forward flows). If a flow has VRF translation/NAT,
+//   VRouter does route lookup in translated VRF for translated destination-ip,
+//   and computes ECMP Index based on Composite-NH in route.
+//
+//   Ex: If flows are,
+//
+//   Forward-Flow :
+//   <ip1, ip2, proto, sport, dport> src-vrf = vrf1, dst-vrf = vrf2
+//
+//   Reverse-Flow:
+//   <ip3, ip4, proto, dport, sport> src-vrf = vrf3, dst-vrf = vrf4
+//
+//   When computing ECMP-Index for forward flow, VRouter does route lookup in
+//   vrf2 for address ip3
+//   When computing ECMP-Index for reverse flow, VRouter does route lookup in
+//   vrf4 for address ip1
+//
+//   Note, the Composite-NH and order of members in the Composite-NH can be
+//   different in vrf1 and vrf4
+//
+//   The RPF-NH is picked from route for ip1 in vrf4.
+// Route Tracking
+// --------------
+//   Flow Management should track the route for ip1 in vrf4 to update RPF-NH
+//
+// RPF for layer-3 flows
+// ---------------------
+//   RPF for layer-3 flows is always based on inet route for source-ip
+//
+// RPF for layer-2 flows
+// ---------------------
+//   For Non-Baremetal
+//      For ingress flows
+//          RPF check is always based on inet route for source-ip
+//      For egress flows,
+//          If route for source-ip is host-route, then RPF is based on inet-route
+//          Else RPF is based on bridge-route for smac
+//   For Baremetal
+//      RPF is based on bridge-route for smac
+//
+// RPF Computation
+// ---------------
+// RPF computation happens in two stages
+// 1. FlowEntry creation (RpfInit):
+//    Called during FlowEntry init. Computes src_ip_nh for flow.
+//
+//    For layer-2 flows, RPF-NH Is same as src_ip_nh
+//    For Non-ECMP layer-3 flows, RPF-NH is same as src_ip_nh
+//    For ECMP layer-3 flows, RPF-NH must be computed only after VRF
+//    translation is computed for reverse flow.
+//
+// 2. Post ACL processing (RpfUpdate):
+//    Post ACL processing, all VRF translation rules are identified.
+//    The RPF-NH is computed in this method.
+/////////////////////////////////////////////////////////////////////////////
+
+// Utility method to set src_ip_nh fields
+void FlowEntry::RpfSetSrcIpNhFields(const AgentRoute *rt,
+                                    const NextHop *src_ip_nh, bool rpf_src_l3) {
+    data_.rpf_src_l3 = rpf_src_l3;
+    data_.src_ip_nh.reset(src_ip_nh);
+    if (rt) {
+        data_.rpf_vrf = rt->vrf()->vrf_id();
+        data_.rpf_plen = rt->plen();
+    } else {
+        data_.rpf_vrf = VrfEntry::kInvalidIndex;
+        data_.rpf_plen = Address::kMaxV4PrefixLen;
+    }
+}
+
+// Utility method to set rpf_nh fields
+void FlowEntry::RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh,
+                                  bool rpf_src_l3) {
+    data_.rpf_src_l3 = rpf_src_l3;
+    data_.rpf_nh.reset(rpf_nh);
+    if (rt) {
+        data_.rpf_vrf = rt->vrf()->vrf_id();
+        data_.rpf_plen = rt->plen();
+    } else {
+        data_.rpf_vrf = VrfEntry::kInvalidIndex;
+        data_.rpf_plen = Address::kMaxV4PrefixLen;
+    }
+}
+
+// This method is called when flow is initialized. The RPF-NH cannot be
+// computed at this stage since we dont know if reverse flow has VRF
+// translation or not.
+// This method only sets src_ip_nh field
+//
+// In case of layer-3 flow "rt" is inet route for source-ip in source-vrf
+// In case of layer-2 flow "rt" is l2 route for smac in source-vrf
+void FlowEntry::RpfInit(const AgentRoute *rt) {
+    RpfSetSrcIpNhFields(NULL, NULL, true);
+
+    // RPF enabled?
+    if (data_.vn_entry && data_.vn_entry->enable_rpf() == false)
+        return;
+
+    bool is_rt_l3 = true;
+    bool src_rt_l3 = true;
+    const AgentRoute *rpf_rt = rt;
+    const InetUnicastRouteEntry *ip_rt =
+        dynamic_cast<const InetUnicastRouteEntry *>(rpf_rt);
+
+    if (ip_rt == NULL) {
+        is_rt_l3 = false;
+        // Get inet route for non-baremetal cases
+        const VmInterface *vmi =
+            dynamic_cast<const VmInterface *>(intf_entry());
+        if (vmi && vmi->vmi_type() != VmInterface::BAREMETAL) {
+            rpf_rt = static_cast<AgentRoute *>
+                (FlowEntry::GetUcRoute(rt->vrf(), key().src_addr));
+        } else {
+            src_rt_l3 = false;
+        }
+    }
+
+    if (rpf_rt == NULL) {
+        set_flags(FlowEntry::ShortFlow);
+        short_flow_reason_ = SHORT_NO_SRC_ROUTE_L2RPF;
+        return;
+    }
+
+    const NextHop *src_ip_nh = rpf_rt->GetActiveNextHop();
+    // Dont support ECMP on l2-flows. So, if l2-flow and src_ip_nh is ECMP,
+    // fallback to the original l2-route
+    if (l3_flow() == false && src_ip_nh->GetType() == NextHop::COMPOSITE) {
+        rpf_rt = rt;
+        src_ip_nh = rt->GetActiveNextHop();
+        src_rt_l3 = is_rt_l3;
+    }
+
+    RpfSetSrcIpNhFields(rpf_rt, src_ip_nh, src_rt_l3);
+    return;
+}
+
+// Should src_ip_nh be treated as RPF-NH
+bool FlowEntry::RpfFromSrcIpNh() const {
+    // For l2-flows, src_ip_nh is same as RPF-NH
+    if (l3_flow() == false)
+        return true;
+
+    // Dont bother about RPF for short-flows
+    if (is_flags_set(FlowEntry::ShortFlow))
+        return true;
+
+    // If ecmp_nh and src_ip_nh can differ only if src_ip_nh is Composite
+    if (is_flags_set(FlowEntry::EcmpFlow) == false)
+        return true;
+
+    const FlowEntry *rflow = reverse_flow_entry();
+    if (rflow == NULL) {
+        FlowInfo flow_info;
+        FillFlowInfo(flow_info);
+        FLOW_TRACE(Trace, "Invalid reverse flow for setting ECMP index",
+                   flow_info);
+        return true;
+    }
+
+    // TODO : Is this needed?
+    // If reverse flow is not ECMP, the RPF-NH is same as NH in forward flow
+    if (rflow->is_flags_set(FlowEntry::EcmpFlow) == false)
+        return true;
+
+    return false;
+}
+
+void FlowEntry::RpfCompute() {
+    const FlowEntry *rflow = reverse_flow_entry();
+    assert(rflow);
+    assert(rflow->is_flags_set(FlowEntry::EcmpFlow));
+
+    // Find destination VRF from reverse flow
+    const VrfEntry *vrf = rflow->GetDestinationVrf();
+    if (vrf == NULL) {
+        FlowInfo flow_info;
+        FillFlowInfo(flow_info);
+        FLOW_TRACE(Trace, "Error setting RPF NH. Destination VRF not found "
+                   "in reverse flow", flow_info);
+        return;
+    }
+
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>
+        (FlowEntry::GetUcRoute(vrf, key().src_addr));
+    if (!rt ) {
+        FlowInfo flow_info;
+        FillFlowInfo(flow_info);
+        FLOW_TRACE(Trace, "Error setting RPF NH. Route not found in "
+                  "destination vrf", flow_info);
+        return;
+    }
+
+    const NextHop *nh = rt->GetActiveNextHop();
+    if (nh->GetType() == NextHop::COMPOSITE) {
+        // If rflow is egress, the ECMP-NH will be picked based on MPLS label
+        // and MPLS Label will point to local-composite
+        if (rflow->is_flags_set(FlowEntry::IngressDir) == false) {
+            nh = rt->GetLocalNextHop();
+        }
+    }
+
+    RpfSetRpfNhFields(rt, nh, true);
+}
+
+// Computes RPF-NH for flow based on ip_src_nh
+// Must be called after policy lookup is done
+void FlowEntry::RpfUpdate() {
+    // Is RPF check enabled?
+    data_.enable_rpf = true;
+    if (data_.vn_entry) {
+        data_.enable_rpf = data_.vn_entry->enable_rpf();
+    }
+
+    if (data_.enable_rpf) {
+        // Treat src_ip_nh as RPF-NH?
+        if (RpfFromSrcIpNh()) {
+            data_.rpf_nh = data_.src_ip_nh;
+        } else {
+            // Compute RPF Nh
+            RpfCompute();
+        }
+    } else {
+        data_.rpf_nh = NULL;
+    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // Flow entry fileds updation routines
 /////////////////////////////////////////////////////////////////////////////
 std::string FlowEntry::DropReasonStr(uint16_t reason) {
@@ -910,93 +1153,6 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
         data_.dest_sg_id_l = path->sg_list();
         data_.dest_plen = rt->plen();
     }
-}
-
-void FlowEntry::UpdateRpf() {
-    if (data_.vn_entry) {
-        data_.enable_rpf = data_.vn_entry->enable_rpf();
-    } else {
-        data_.enable_rpf = true;
-    }
-}
-
-//Given a NH take reference on the NH and set the RPF
-bool FlowEntry::SetRpfNHState(FlowTable *ft, const NextHop *nh) {
-
-    if (data_.nh.get() != nh) {
-        data_.nh = nh;
-        return true;
-    }
-    return false;
-}
-
-bool FlowEntry::SetRpfNH(FlowTable *ft, const AgentRoute *rt) {
-    bool ret = false;
-
-    if (data().ecmp_rpf_nh_ != 0) {
-        //Set RPF NH based on reverese flow route
-        return ret;
-    }
-
-    if (!rt) {
-        return SetRpfNHState(ft, NULL);
-    }
-
-    //If l2 flow has a ip route entry present in
-    //layer 3 table, then use that for calculating
-    //rpf nexthop, else use layer 2 route entry(baremetal
-    //scenario where layer 3 route may not be present)
-    bool is_baremetal = false;
-    const VmInterface *vmi = dynamic_cast<const VmInterface *>(intf_entry());
-    if (vmi && vmi->vmi_type() == VmInterface::BAREMETAL) {
-        is_baremetal = true;
-    }
-
-    data_.l2_rpf_plen = Address::kMaxV4PrefixLen;
-    if (l3_flow() == false && is_baremetal == false) {
-        //For ingress flow, agent always sets
-        //rpf NH from layer 3 route entry
-        //In case of egress flow if route entry is present
-        //and its a host route entry use it for RPF NH
-        //For baremetal case since IP address may not be known
-        //agent uses layer 2 route entry
-        InetUnicastRouteEntry *ip_rt = static_cast<InetUnicastRouteEntry *>(
-                FlowEntry::GetUcRoute(rt->vrf(), key().src_addr));
-        if (ip_rt &&
-                ip_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
-            //L2 flow cant point to composite NH, set RPF NH based on
-            //layer 2 route irrespective prefix lenght of layer 3 route,
-            //this is to avoid packet drop in scenario where transition
-            //happened from non-ecmp to ECMP.
-        } else if (is_flags_set(FlowEntry::IngressDir) ||
-                (ip_rt && ip_rt->IsHostRoute())) {
-            if (data_.vn_entry && data_.vn_entry->enable_rpf() && !ip_rt) {
-                set_flags(FlowEntry::ShortFlow);
-                short_flow_reason_ = SHORT_NO_SRC_ROUTE_L2RPF;
-                return ret;
-            }
-            rt = ip_rt;
-            if (rt) {
-                data_.l2_rpf_plen = rt->plen();
-            }
-        }
-    }
-
-    const NextHop *nh = NULL;
-    if (rt && rt->GetActiveNextHop()) {
-        nh = rt->GetActiveNextHop();
-    }
-
-    return SetRpfNHState(ft, nh);
-}
-
-bool FlowEntry::SetEcmpRpfNH(FlowTable *ft, uint32_t nh_id) {
-    if (!nh_id) {
-        return SetRpfNHState(ft, NULL);
-    }
-
-    const NextHop *nh = ft->agent()->nexthop_table()->FindNextHop(nh_id);
-    return SetRpfNHState(ft, nh);
 }
 
 VmInterfaceKey FlowEntry::InterfaceIdToKey(Agent *agent, uint32_t id) {
@@ -1767,9 +1923,7 @@ done:
 // Flow policy action compute routines
 /////////////////////////////////////////////////////////////////////////////
 void FlowEntry::ResyncFlow() {
-    UpdateRpf();
     DoPolicy();
-    UpdateEcmpInfo();
 
     // If this is forward flow, update the SG action for reflexive entry
     FlowEntry *rflow = (is_flags_set(FlowEntry::ReverseFlow) == false) ?
@@ -1782,7 +1936,7 @@ void FlowEntry::ResyncFlow() {
 }
 
 const VrfEntry*
-FlowEntry::GetDestinationVrf() {
+FlowEntry::GetDestinationVrf() const {
     const VrfEntry *vrf = NULL;
     VrfTable *vrf_table = flow_table()->agent()->vrf_table();
 
@@ -1793,186 +1947,6 @@ FlowEntry::GetDestinationVrf() {
         vrf = vrf_table->FindVrfFromId(data().vrf);
     }
     return vrf;
-}
-
-void FlowEntry::SetComponentIndex(const NextHopKey *nh_key,
-                                  uint32_t label, bool mpls_path_select) {
-
-    const VrfEntry *vrf = GetDestinationVrf();
-    if (vrf == NULL) {
-        FlowInfo flow_info;
-        FillFlowInfo(flow_info);
-        FLOW_TRACE(Trace, "Invalid reverse while setting ECMP index", flow_info);
-        return;
-    }
-
-    FlowEntry *rflow = reverse_flow_entry();
-    const IpAddress dip = rflow->key().src_addr;
-    InetUnicastRouteEntry *rt =
-        static_cast<InetUnicastRouteEntry *>(FlowEntry::GetUcRoute(vrf, dip));
-    if (!rt ) {
-        rflow->set_ecmp_rpf_nh(0);
-        return;
-    }
-
-    const NextHop *nh = rt->GetActiveNextHop();
-    //Set composite NH based on local mpls label flow
-    if (mpls_path_select) {
-        nh = rt->GetLocalNextHop();
-    }
-
-    if (!nh) {
-        rflow->set_ecmp_rpf_nh(0);
-        return;
-    }
-
-    if (nh->GetType() != NextHop::COMPOSITE) {
-        rflow->set_ecmp_rpf_nh(nh->id());
-        return;
-    }
-
-    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-
-    const NextHop *component_nh_ptr = static_cast<NextHop *>(
-        flow_table()->agent()->nexthop_table()->FindActiveEntry(nh_key));
-    ComponentNH component_nh(label, component_nh_ptr);
-
-    uint32_t idx = 0;
-    if (comp_nh->GetIndex(component_nh, idx)) {
-        if (data_.component_nh_idx != idx) {
-            data_.component_nh_idx = idx;
-        }
-        //Update the reverse flow source RPF check based on this
-        //composite NH
-        rflow->set_ecmp_rpf_nh(nh->id());
-    } else {
-        FlowInfo flow_info;
-        FillFlowInfo(flow_info);
-        FLOW_TRACE(Trace, "Invalid reverse while setting ECMP index", flow_info);
-    }
-}
-
-void FlowEntry::SetLocalFlowEcmpIndex() {
-    //There are 2 scenarios possible when the destination
-    //interface is a VM interface
-    //1> Flow is local flow
-    //   In this scenario component NH Index has to be set based
-    //   on that of BGP path since packets are getting routed
-    //   based on route table
-    //2> Flow is remote i.e packet came with mpls label from a tunnel
-    //   In this sceanrio if mpls label points to composite NH
-    //   pick component index from there, if mpls label points to
-    //   interface NH there is no need to set component index
-    uint32_t label;
-    FlowEntry *rflow = reverse_flow_entry();
-
-    const VmInterface *vm_port = NULL;
-    if (rflow->data().intf_entry->type() == Interface::VM_INTERFACE) {
-        vm_port =
-            static_cast<const VmInterface *>(rflow->data().intf_entry.get());
-        label = vm_port->label();
-    } else {
-        const InetInterface *inet_intf =
-            static_cast<const InetInterface*>(rflow->data().intf_entry.get());
-        label = inet_intf->label();
-    }
-
-    //Find the source NH
-    const NextHop *nh = flow_table()->agent()->nexthop_table()->
-                            FindNextHop(rflow->key().nh);
-    if (nh == NULL) {
-        return;
-    }
-    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
-    NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
-
-    //All component nexthop are NULL
-    nh_key->SetPolicy(false);
-
-    if (nh->GetType() == NextHop::VLAN) {
-        const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
-        label = vm_port->GetServiceVlanLabel(vlan_nh->GetVrf());
-    }
-
-    bool mpls_path = false;
-    if (!is_flags_set(FlowEntry::LocalFlow)) {
-        mpls_path = true;
-    }
-
-    SetComponentIndex(nh_key, label, mpls_path);
-}
-
-void FlowEntry::SetRemoteFlowEcmpIndex() {
-    uint32_t label;
-
-    //Get tunnel info from reverse flow
-    label = 0;
-    boost::system::error_code ec;
-    Ip4Address dest_ip = Ip4Address::from_string(peer_vrouter_, ec);
-    if (ec.value() != 0) {
-        return;
-    }
-
-    boost::scoped_ptr<NextHopKey> nh_key(
-            new TunnelNHKey(flow_table()->agent()->fabric_vrf_name(),
-                            flow_table()->agent()->router_id(),
-                            dest_ip, false, tunnel_type()));
-    SetComponentIndex(nh_key.get(), label, false);
-}
-
-void FlowEntry::UpdateEcmpInfo() {
-    FlowEntry *rflow = reverse_flow_entry();
-
-    if (is_flags_set(FlowEntry::EcmpFlow) == false ||
-        is_flags_set(FlowEntry::ShortFlow) ||
-        l3_flow() == false) {
-        return;
-    }
-
-    if (rflow == NULL) {
-        FlowInfo flow_info;
-        FillFlowInfo(flow_info);
-        FLOW_TRACE(Trace, "Invalid reverse flow for setting ECMP index", flow_info);
-        return;
-    }
-
-    bool local_flow = false;
-    if (is_flags_set(FlowEntry::LocalFlow) ||
-            !is_flags_set(FlowEntry::IngressDir)) {
-        local_flow = true;
-    }
-
-    if (local_flow) {
-        SetLocalFlowEcmpIndex();
-    } else {
-        SetRemoteFlowEcmpIndex();
-    }
-}
-
-void FlowEntry::set_ecmp_rpf_nh(uint32_t id) {
-    if (data_.ecmp_rpf_nh_ == id) {
-        return;
-    }
-
-    data_.ecmp_rpf_nh_ = id;
-    bool update_ksync = false;
-
-    if (!id) {
-        const VrfEntry *vrf = flow_table()->agent()->vrf_table()->
-            FindVrfFromId(data().flow_source_vrf);
-        if (vrf) {
-            //Flow transitioned from ECMP to non ecmp
-            InetUnicastRouteEntry *ip_rt = static_cast<InetUnicastRouteEntry *>(
-                    FlowEntry::GetUcRoute(vrf, key().src_addr));
-            update_ksync = SetRpfNH(flow_table(), ip_rt);
-        }
-    } else {
-        update_ksync = SetEcmpRpfNH(flow_table(), id);
-    }
-
-    if (ksync_entry() && update_ksync) {
-        flow_table()->UpdateKSync(this, true);
-    }
 }
 
 bool FlowEntry::SetQosConfigIndex() {
@@ -2379,7 +2353,7 @@ void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const {
     SetAclListAclAction(vrf_assign_acl_l, acl_action_l, acl_type);
 }
 
-void FlowEntry::FillFlowInfo(FlowInfo &info) {
+void FlowEntry::FillFlowInfo(FlowInfo &info) const {
     info.set_gen_id(gen_id_);
     info.set_flow_index(flow_handle_);
     if (key_.family == Address::INET) {
@@ -2468,7 +2442,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
 
     if (data_.match_p.action_info.action & (1 << TrafficAction::MIRROR)) {
         info.set_mirror(true);
-        std::vector<MirrorActionSpec>::iterator it;
+        std::vector<MirrorActionSpec>::const_iterator it;
         std::vector<MirrorInfo> mirror_l;
         for (it = data_.match_p.action_info.mirror_l.begin();
              it != data_.match_p.action_info.mirror_l.end();
@@ -2500,6 +2474,17 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_drop_reason(FlowEntry::DropReasonStr(data_.drop_reason));
     if (flow_table_) {
         info.set_table_id(flow_table_->table_index());
+    }
+
+    if (rpf_nh()) {
+        info.set_rpf_nh(rpf_nh()->id());
+    } else {
+        info.set_rpf_nh(0xFFFFFFFF);
+    }
+    if (src_ip_nh()) {
+        info.set_src_ip_nh(src_ip_nh()->id());
+    } else {
+        info.set_src_ip_nh(0xFFFFFFFF);
     }
 }
 

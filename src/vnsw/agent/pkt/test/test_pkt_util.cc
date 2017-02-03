@@ -59,17 +59,6 @@ void TxL2Packet(int ifindex, const char *smac, const char *dmac,
     delete pkt;
 }
 
-void TxIpPacketEcmp(int ifindex, const char *sip, const char *dip,
-                    int proto, int hash_id) {
-    PktGen *pkt = new PktGen();
-    MakeIpPacket(pkt, ifindex, sip, dip, proto, hash_id, AgentHdr::TRAP_ECMP_RESOLVE);
-    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
-    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
-                                                    pkt->GetBuffLen());
-    delete pkt;
-}
-
 void MakeUdpPacket(PktGen *pkt, int ifindex, const char *sip,
 		   const char *dip, uint16_t sport, uint16_t dport,
 		   int hash_id, uint32_t vrf_id) {
@@ -259,18 +248,6 @@ void TxIp6Packet(int ifindex, const char *sip, const char *dip, int proto,
     PktGen *pkt = new PktGen();
     MakeIp6Packet(pkt, ifindex, sip, dip, proto, hash_id, AGENT_TRAP_FLOW_MISS, 
                   vrf);
-    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
-    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
-                                                    pkt->GetBuffLen());
-    delete pkt;
-}
-
-void TxIp6PacketEcmp(int ifindex, const char *sip, const char *dip,
-                     int proto, int hash_id) {
-    PktGen *pkt = new PktGen();
-    MakeIp6Packet(pkt, ifindex, sip, dip, proto, hash_id,
-                  AGENT_TRAP_ECMP_RESOLVE);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),

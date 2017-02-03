@@ -205,8 +205,8 @@ TEST_F(FipEcmpTest, Test_1) {
  
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().nh.get() == rt->GetLocalNextHop());
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetLocalNextHop());
 
 
     rt = static_cast<InetUnicastRouteEntry *>( 
@@ -215,7 +215,7 @@ TEST_F(FipEcmpTest, Test_1) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     DeleteRoute(VRF2, "0.0.0.0", 0, bgp_peer);
     DeleteRemoteEcmpFip();
@@ -239,8 +239,9 @@ TEST_F(FipEcmpTest, Test_2) {
     FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
             "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx == 2);
-    EXPECT_TRUE(entry->data().nh.get() == rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetLocalNextHop());
 
     rt = static_cast<InetUnicastRouteEntry *>( 
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
@@ -248,7 +249,7 @@ TEST_F(FipEcmpTest, Test_2) {
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     DeleteRoute(VRF2, "0.0.0.0", 0, bgp_peer);
     DeleteRemoteEcmpFip();
@@ -275,15 +276,15 @@ TEST_F(FipEcmpTest, Test_3) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
                     CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().nh.get() == rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetLocalNextHop());
 
     rt = static_cast<InetUnicastRouteEntry *>( 
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
                      CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     DeleteRoute(VRF2, "0.0.0.0", 32, bgp_peer);
     DeleteLocalEcmpFip();
@@ -310,16 +311,17 @@ TEST_F(FipEcmpTest, Test_4) {
     FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
             "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
     EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx ==  2);
-    EXPECT_TRUE(entry->data().nh.get() == rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetLocalNextHop());
 
     rt = static_cast<InetUnicastRouteEntry *>( 
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx == 
-                    CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rev_entry->data().rpf_nh.get() == rt->GetActiveNextHop());
 
     DeleteRoute(VRF2, "0.0.0.0", 0, bgp_peer);
     DeleteLocalEcmpFip();
