@@ -103,12 +103,14 @@ void MplsTable::CreateTableLabel(const Agent *agent,
                                  bool policy,
                                  bool learning_enabled,
                                  bool l2,
-                                 bool flood_unknown_unicast) {
+                                 bool flood_unknown_unicast,
+                                 bool layer2_control_word) {
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false, l2);
     nh_req.key.reset(vrf_nh_key);
-    nh_req.data.reset(new VrfNHData(flood_unknown_unicast, learning_enabled));
+    nh_req.data.reset(new VrfNHData(flood_unknown_unicast, learning_enabled,
+                                    layer2_control_word));
     agent->nexthop_table()->Process(nh_req);
 
     DBRequest req;
@@ -263,7 +265,7 @@ bool MplsLabel::IsFabricMulticastReservedLabel() const {
     if (type_ != MplsLabel::MCAST_NH)
         return false;
 
-    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    Agent *agent = static_cast<MplsTable *>(get_table())->agent();
     return (agent->mpls_table()->IsFabricMulticastLabel(label_));
 }
 

@@ -20,7 +20,7 @@
 BridgeDomainEntry::BridgeDomainEntry(const BridgeDomainTable *table,
                                      const boost::uuids::uuid &id) :
     AgentOperDBEntry(), table_(table), uuid_(id), isid_(0), bmac_vrf_name_(""),
-    learning_enabled_(false), pbb_etree_enabled_(false) {
+    learning_enabled_(false), pbb_etree_enabled_(false), layer2_control_word_(false) {
 }
 
 bool BridgeDomainEntry::IsLess(const DBEntry &rhs) const {
@@ -104,8 +104,10 @@ void BridgeDomainEntry::UpdateVrf(const BridgeDomainData *data) {
     assert(vrf_);
 
     vrf_->CreateTableLabel(data->learning_enabled_, true,
-                           vn_->flood_unknown_unicast());
+                           vn_->flood_unknown_unicast(),
+                           vn_->layer2_control_word());
     mac_aging_time_ = data->mac_aging_time_;
+    layer2_control_word_ = vn_->layer2_control_word();
 }
 
 bool BridgeDomainEntry::Change(const BridgeDomainData *data) {
@@ -131,7 +133,8 @@ bool BridgeDomainEntry::Change(const BridgeDomainData *data) {
 
         if (vrf_.get() == NULL ||
             mac_aging_time_ != data->mac_aging_time_ ||
-            learning_enabled_ != data->learning_enabled_) {
+            learning_enabled_ != data->learning_enabled_ ||
+            layer2_control_word_ != vn->layer2_control_word()) {
             UpdateVrf(data);
             ret = true;
         }
@@ -141,7 +144,8 @@ bool BridgeDomainEntry::Change(const BridgeDomainData *data) {
         learning_enabled_ = data->learning_enabled_;
         if (vrf_.get() && vn_.get()) {
             vrf_->CreateTableLabel(learning_enabled_, true,
-                                   vn->flood_unknown_unicast());
+                                   vn->flood_unknown_unicast(),
+                                   vn->layer2_control_word());
         }
         ret = true;
     }

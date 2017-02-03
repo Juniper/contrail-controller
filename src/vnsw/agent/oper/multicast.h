@@ -49,6 +49,7 @@ struct MulticastDBState : DBState {
     uint32_t vxlan_id_;
     bool learning_enabled_;
     bool pbb_etree_enabled_;
+    bool layer2_control_word_;
 };
 
 struct MulticastIntfDBState : DBState {
@@ -225,6 +226,7 @@ private:
     uint32_t fabric_label_;
     bool learning_enabled_;
     bool pbb_etree_enabled_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
 };
 

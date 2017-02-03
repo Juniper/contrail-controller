@@ -69,7 +69,7 @@ void ResourceTable::FlushStale() {
         if (key->dirty()) {
             KeyDataMapIter del_it = it;
             it++;
-            key_data_map_.erase(del_it);
+            ReleaseKey(del_it->first, del_it->second);
         } else {
             it++;
         }

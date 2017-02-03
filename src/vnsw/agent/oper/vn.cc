@@ -603,6 +603,10 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
+    if (vn->layer2_control_word_ != data->layer2_control_word_) {
+        vn->layer2_control_word_ = data->layer2_control_word_;
+        ret = true;
+    }
     return ret;
 }
 
@@ -851,8 +855,10 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool enable_rpf;
     bool flood_unknown_unicast;
     bool mirror_destination;
-    bool pbb_evpn_enable_ = cfg->pbb_evpn_enable();
-    bool pbb_etree_enable_ = cfg->pbb_etree_enable();
+    bool pbb_evpn_enable = cfg->pbb_evpn_enable();
+    bool pbb_etree_enable = cfg->pbb_etree_enable();
+    bool layer2_control_word = cfg->layer2_control_word();
+
     Agent::ForwardingMode forwarding_mode;
     CfgForwardingFlags(node, &bridging, &layer3_forwarding, &enable_rpf,
                        &flood_unknown_unicast, &forwarding_mode,
@@ -863,8 +869,8 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       GetCfgVnId(cfg), bridging, layer3_forwarding,
                       cfg->id_perms().enable, enable_rpf,
                       flood_unknown_unicast, forwarding_mode,
-                      qos_config_uuid, mirror_destination, pbb_etree_enable_,
-                      pbb_evpn_enable_);
+                      qos_config_uuid, mirror_destination, pbb_etree_enable,
+                      pbb_evpn_enable, layer2_control_word);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -911,7 +917,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     const VnData::VnIpamDataMap &vn_ipam_data, int vn_id,
                     int vxlan_id, bool admin_state, bool enable_rpf,
                     bool flood_unknown_unicast, bool pbb_etree_enable,
-                    bool pbb_evpn_enable) {
+                    bool pbb_evpn_enable, bool layer2_control_word) {
     bool mirror_destination = false;
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
@@ -920,7 +926,8 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               vn_id, vxlan_id, true, true,
                               admin_state, enable_rpf,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
-                              mirror_destination, pbb_etree_enable, pbb_evpn_enable);
+                              mirror_destination, pbb_etree_enable, pbb_evpn_enable,
+                              layer2_control_word);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -1213,6 +1220,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     data.set_enable_rpf(enable_rpf());
     data.set_flood_unknown_unicast(flood_unknown_unicast());
     data.set_pbb_etree_enabled(pbb_etree_enable());
+    data.set_layer2_control_word(layer2_control_word());
     std::vector<VnSandeshData> &list =
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
     list.push_back(data);

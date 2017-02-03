@@ -376,6 +376,8 @@ struct VnSandeshData {
     17: bool flood_unknown_unicast;
     /** Etree mode enabled or disabled for PBB Backbone VN */
     18: bool pbb_etree_enabled;
+    /** Layer-2 control word enabled */
+    19: bool layer2_control_word;
 }
 
 /**
@@ -580,6 +582,8 @@ struct NhSandeshData {
    27: bool learning_enabled;
    /** Is the nexthop root or leaf for etree mode */
    28: bool etree_leaf;
+   /** Layer 2 control word */
+   29: bool layer2_control_word;
 }
 
 /**
@@ -664,6 +668,8 @@ struct PathSandeshData {
    22: optional u64 peer_sequence_number;
    /** PBB etree leaf configuration */
    23: bool etree_leaf;
+   /** Layer 2 control word */
+   24: bool layer2_control_word;
 }
 
 /**
@@ -754,6 +760,8 @@ struct VrfSandeshData {
    12: string RD;
    /** MAC aging timeout */
    13: i32 mac_aging_time;
+   /** Layer 2 control word */
+   14: bool layer2_control_word;
 }
 
 /**

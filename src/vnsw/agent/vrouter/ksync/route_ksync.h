@@ -85,6 +85,7 @@ private:
     bool local_vm_peer_route_;
     bool flood_;
     uint32_t ethernet_tag_;
+    bool layer2_control_word_;
     //////////////////////////////////////////////////////////////////
     // NOTE: Please update CopyReplacmenetData when any new field is added
     // here

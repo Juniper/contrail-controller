@@ -301,6 +301,15 @@ public:
         len += PBB_HEADER_LEN;
     }
 
+    void AddLayer2ControlWord() {
+        len += PktHandler::kMulticastControlWordSize;
+    }
+
+    void AddVxLanControlWord() {
+        len += PktHandler::kMulticastControlWordSize + sizeof(VxlanHdr) +
+               sizeof(udphdr) + sizeof(ip);
+    }
+
     void AddIpHdr(const char *sip, const char *dip, uint16_t proto,
                   bool fragment = false, int ttl = 0) {
         struct ip *ip = (struct ip *)(buff + len);
