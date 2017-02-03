@@ -19,8 +19,6 @@ extern void TxL2Packet(int ifindex, const char *smac, const char *dmac,
                        const char *sip, const char *dip, int proto,
                        int hash_id = 1, int vrf = -1, uint16_t sport = 0,
                        uint16_t dport = 0);
-extern void TxIpPacketEcmp(int ifindex, const char *sip, const char *dip, 
-		                   int proto, int hash_id = 1);
 
 extern void MakeUdpPacket(PktGen *pkt, int ifindex, const char *sip,
 			  const char *dip, uint16_t sport, uint16_t dport,
@@ -73,9 +71,6 @@ extern void MakeIp6Packet(PktGen *pkt, int ifindex, const char *sip,
 
 extern void TxIp6Packet(int ifindex, const char *sip, const char *dip,
                         int proto, int hash_id = 1, int vrf = -1);
-
-extern void TxIp6PacketEcmp(int ifindex, const char *sip, const char *dip, 
-		                    int proto, int hash_id = 1);
 
 extern void MakeUdp6Packet(PktGen *pkt, int ifindex, const char *sip,
                            const char *dip, uint16_t sport, uint16_t dport,

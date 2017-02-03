@@ -1647,7 +1647,9 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class NextHopTable : public AgentDBTable {
 public:
+    static const uint32_t kRpfDisableIndex = 0;
     static const uint32_t kRpfDiscardIndex = 2;
+
     NextHopTable(DB *db, const std::string &name);
     virtual ~NextHopTable();
 

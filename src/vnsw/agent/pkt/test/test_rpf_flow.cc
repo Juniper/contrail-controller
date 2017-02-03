@@ -249,7 +249,7 @@ TEST_F(FlowRpfTest, Flow_rpf_failure_invalid_source) {
     EXPECT_TRUE(fe->data().enable_rpf == true);
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) != true));
-        const NextHop *nh = fe->nh();
+        const NextHop *nh = fe->rpf_nh();
         EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
         if (nh->GetType() == NextHop::INTERFACE) {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);

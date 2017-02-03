@@ -535,8 +535,8 @@ public:
     void Verify(FlowEntry *fe) {
         FlowEntry *rev = fe->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
-        EXPECT_TRUE(fe->data().nh->id() == forward_flow_rpf_nh_);
-        EXPECT_TRUE(rev->data().nh->id() == reverse_flow_rpf_nh_);
+        EXPECT_TRUE(fe->data().rpf_nh->id() == forward_flow_rpf_nh_);
+        EXPECT_TRUE(rev->data().rpf_nh->id() == reverse_flow_rpf_nh_);
     }
 private:
     uint32_t forward_flow_rpf_nh_;
