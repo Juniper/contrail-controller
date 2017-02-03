@@ -243,6 +243,10 @@ class VncService(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             self.logger.error(err_msg)
             return None
+        except:
+            err_msg = cfgm_common.utils.detailed_traceback()
+            self.logger.error(err_msg)
+            return None
         fip = FloatingIpKM.locate(fip_obj.uuid)
         return fip.address
 
@@ -283,9 +287,21 @@ class VncService(object):
             if public_ip is not None:
                 public_ip = self._deallocate_floating_ip(service_id)
 
+    def _check_service_uuid_change(self, svc_uuid, svc_name, 
+                                   svc_namespace, ports):
+        lb_fq_name = ['default-domain', svc_namespace, svc_name]
+        lb_uuid = LoadbalancerKM.get_fq_name_to_uuid(lb_fq_name)
+        if lb_uuid != svc_uuid:
+            self.vnc_service_delete(lb_uuid, svc_name, svc_namespace, ports)
+
     def vnc_service_add(self, service_id, service_name,
                         service_namespace, service_ip, selectors, ports,
                         service_type, externalIp):
+        lb = LoadbalancerKM.get(service_id)
+        if not lb:
+            self._check_service_uuid_change(service_id, service_name, 
+                                            service_namespace, ports)
+
         self._lb_create(service_id, service_name, service_namespace,
                         service_ip, ports)
 
@@ -306,7 +322,7 @@ class VncService(object):
     def _vnc_delete_listener(self, ll_id):
         self.service_ll_mgr.delete(ll_id)
 
-    def _vnc_delete_listeners(self, lb, ports):
+    def _vnc_delete_listeners(self, lb):
         listeners = lb.loadbalancer_listeners.copy()
         for ll_id in listeners or []:
             ll = LoadbalancerListenerKM.get(ll_id)
@@ -332,19 +348,18 @@ class VncService(object):
         self.service_lb_mgr.delete(lb_id)
 
     def _lb_delete(self, service_id, service_name,
-            service_namespace, service_ip, selectors, ports):
+                   service_namespace):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             return
-        self._vnc_delete_listeners(lb, ports)
+        self._vnc_delete_listeners(lb)
         self._vnc_delete_lb(service_id)
         LoadbalancerKM.delete(service_id)
 
     def vnc_service_delete(self, service_id, service_name,
-                           service_namespace, service_ip, selectors, ports):
+                           service_namespace, ports):
         self._deallocate_floating_ip(service_id)
-        self._lb_delete(service_id, service_name, service_namespace, service_ip,
-                        selectors, ports)
+        self._lb_delete(service_id, service_name, service_namespace)
 
         # Delete link local service that would have been allocated for
         # kubernetes service.
@@ -371,4 +386,4 @@ class VncService(object):
                 service_type, externalIp)
         elif event['type'] == 'DELETED':
             self.vnc_service_delete(service_id, service_name, service_namespace,
-                                    service_ip, selectors, ports)
+                                    ports)

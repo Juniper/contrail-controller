@@ -87,7 +87,7 @@ class ServiceLbManager(object):
         iip_obj.set_virtual_network(vn_obj)
         if subnet_uuid:
             iip_obj.set_subnet_uuid(subnet_uuid)
-        iip_obj.set_virtual_machine_interface(vmi)
+        iip_obj.set_virtual_machine_interface(vmi_obj)
         iip_obj.set_display_name(service_name)
         if vip_address:
             iip_obj.set_instance_ip_address(vip_address)

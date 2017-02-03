@@ -132,10 +132,19 @@ class VncPod(object):
         if vm: 
             vm.virtual_router = vrouter_obj.uuid
 
+    def _check_pod_uuid_change(self, pod_uuid, pod_name, pod_namespace):
+        vm_fq_name = [pod_name]
+        vm_uuid = LoadbalancerKM.get_fq_name_to_uuid(vm_fq_name)
+        if vm_uuid != pod_uuid:
+            self.vnc_pod_delete(vm_uuid)
+
     def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, labels):
         vm = VirtualMachineKM.get(pod_id)
         if vm:
             return
+        if not vm:
+            self._check_pod_uuid_change(pod_id, pod_name, pod_namespace)
+
         vn_obj = self._get_network(pod_id, pod_namespace)
         vm_obj = self._create_vm(pod_id, pod_name, labels)
         vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
@@ -168,7 +177,7 @@ class VncPod(object):
         except NoIdError:
             pass
 
-    def vnc_pod_delete(self, pod_id, pod_name, labels):
+    def vnc_pod_delete(self, pod_id):
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             return
@@ -236,4 +245,4 @@ class VncPod(object):
             self.vnc_pod_add(pod_id, pod_name, pod_namespace,
                 pod_node, labels)
         elif event['type'] == 'DELETED':
-            self.vnc_pod_delete(pod_id, pod_name, labels)
+            self.vnc_pod_delete(pod_id)
