@@ -7,7 +7,7 @@
 
 #include "cmn/agent.h"
 #include "mac_learning_key.h"
-
+class MacEntryResp;
 /*
  * High level mac learning modules
  *
@@ -253,18 +253,49 @@ public:
         return agent_;
     }
 
-    MacAgingPartition* aging_partition() {
+    MacAgingPartition* aging_partition() const {
         return aging_partition_.get();
     }
 
     void Enqueue(MacLearningEntryRequestPtr req);
     void EnqueueMgmtReq(MacLearningEntryPtr ptr, bool add);
 private:
+    friend class MacLearningSandeshResp;
     Agent *agent_;
     uint32_t id_;
     MacLearningEntryTable mac_learning_table_;
     MacLearningRequestQueue request_queue_;
     boost::shared_ptr<MacAgingPartition> aging_partition_;
     DISALLOW_COPY_AND_ASSIGN(MacLearningPartition);
+};
+
+class MacLearningSandeshResp : public Task {
+public:
+    const static uint32_t kMaxResponse = 100;
+    const static char kDelimiter = '-';
+    MacLearningSandeshResp(Agent *agent, MacEntryResp *resp,
+                        std::string resp_ctx,
+                        std::string key,
+                        const MacAddress &mac);
+    virtual ~MacLearningSandeshResp();
+    std::string Description() const { return "MacLearningSandeshRespTask"; }
+
+private:
+    bool Run();
+    bool SetMacKey(string key);
+    void SendResponse(SandeshResponse *resp);
+
+    const MacLearningPartition* GetPartition();
+    std::string GetMacKey();
+
+    Agent *agent_;
+    MacEntryResp *resp_;
+    std::string resp_data_;
+    uint32_t   partition_id_;
+    uint32_t   vrf_id_;
+    MacAddress mac_;
+    bool       exact_match_;
+    MacAddress user_given_mac_;
+    DISALLOW_COPY_AND_ASSIGN(MacLearningSandeshResp);
 };
 #endif
