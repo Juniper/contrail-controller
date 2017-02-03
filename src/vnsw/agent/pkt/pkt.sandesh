@@ -108,6 +108,7 @@ struct SandeshFlowData {
     43: optional string sg_rule_uuid;
     44: optional string nw_ace_uuid;
     45: i32 rpf_nh;
+    62: i32 src_ip_nh;
     46: optional string drop_reason;
     47: optional string peer_vrouter;
     48: optional string tunnel_type;
@@ -265,6 +266,8 @@ struct FlowInfo {
    43: string drop_reason;
    44: u16 table_id;
    46: string short_flow_reason;
+   47: u32 rpf_nh;
+   48: u32 src_ip_nh;
 }
 
 /**

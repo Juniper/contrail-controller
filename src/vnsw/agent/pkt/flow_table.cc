@@ -572,7 +572,7 @@ void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
     if (flow->vn_entry() && flow->vn_entry()->IsDeleted())
         return;
 
-    if (flow->nh() && flow->nh()->IsDeleted())
+    if (flow->rpf_nh() && flow->rpf_nh()->IsDeleted())
         return;
 
     if (flow->intf_entry() && flow->intf_entry()->IsDeleted())
@@ -597,6 +597,11 @@ void FlowTable::HandleRevaluateDBEntry(const DBEntry *entry, FlowEntry *flow,
     // as forward flow resync will try to update reverse flow
     rflow->ResyncFlow();
     flow->ResyncFlow();
+
+    // RPF computation can be done only after policy processing.
+    // Do RPF computation now
+    flow->RpfUpdate();
+    rflow->RpfUpdate();
 
     // the SG action could potentially have changed
     // due to reflexive nature. Update KSync for reverse flow first

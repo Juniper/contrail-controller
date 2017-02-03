@@ -659,6 +659,16 @@ VrfEntry *VrfGet(const char *name, bool ret_del) {
     return vrf;
 }
 
+uint32_t GetVrfId(const char *name) {
+    VrfEntry *vrf = VrfGet(name, false);
+    return vrf->vrf_id();
+}
+
+VrfEntry *VrfGet(size_t index) {
+    return static_cast<VrfEntry *>
+        (Agent::GetInstance()->vrf_table()->FindVrfFromId(index));
+}
+
 bool VnFind(int id) {
     VnEntry *vn;
     VnKey key(MakeUuid(id));

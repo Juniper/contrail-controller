@@ -4,207 +4,524 @@
 #include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
+#include "test_ecmp.h"
 #include "pkt/flow_proto.h"
 
-#define AGE_TIME 10*1000
+class LocalEcmpTest : public EcmpTest {
+public:
+    LocalEcmpTest() : EcmpTest() { }
+    virtual ~LocalEcmpTest() { }
 
-void RouterIdDepInit(Agent *agent) {
-}
-
-struct PortInfo input1[] = {
-    {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
-    {"vnet2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2}
-};
-IpamInfo ipam_info[] = {
-    {"1.1.1.0", 24, "1.1.1.10"},
-};
-
-class EcmpTest : public ::testing::Test {
     virtual void SetUp() {
-        agent_ = Agent::GetInstance();
-
-        boost::system::error_code ec;
-        bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
-                                 "xmpp channel");
-        client->WaitForIdle();
-
-        flow_proto_ = agent_->pkt()->get_flow_proto();
-        CreateVmportWithEcmp(input1, 2);
-        client->WaitForIdle();
-        AddIPAM("vn1", ipam_info, 1);
-        client->WaitForIdle();
-        AddVn("vn2", 2);
-        AddVrf("vrf2");
-        client->WaitForIdle();
-        strcpy(router_id, agent_->router_id().to_string().c_str());
-        strcpy(MX_0, "100.1.1.1");
-        strcpy(MX_1, "100.1.1.2");
-        strcpy(MX_2, "100.1.1.3");
-        strcpy(MX_3, "100.1.1.4");
-
-        const VmInterface *vmi = static_cast<const VmInterface *>(VmPortGet(1));
-        vm1_label = vmi->label();
-        vmi = static_cast<const VmInterface *>(VmPortGet(2));
-        vm2_label = vmi->label();
-        eth_intf_id = EthInterfaceGet("vnet0")->id();
+        EcmpTest::SetUp();
     }
  
     virtual void TearDown() {
-        DeleteVmportEnv(input1, 2, true);
-        client->WaitForIdle();
-        DelIPAM("vn1");
-        client->WaitForIdle();
-        DelVn("vn2");
-        DelVrf("vrf2");
-        client->WaitForIdle();
-        DeleteBgpPeer(bgp_peer);
-        client->WaitForIdle();
-        EXPECT_FALSE(VrfFind("vrf1", true));
-        EXPECT_FALSE(VrfFind("vrf2", true));
-        WAIT_FOR(1000, 1000, (flow_proto_->FlowCount() == 0));
-        client->WaitForIdle();
+        EcmpTest::TearDown();
     }
-public:
-    void AddRemoteEcmpRoute(const string vrf_name, const string ip,
-            uint32_t plen, const string vn, int count, bool reverse = false,
-            bool same_label = false) {
-        //If there is a local route, include that always
-        Ip4Address vm_ip = Ip4Address::from_string(ip);
-
-        ComponentNHKeyList comp_nh_list;
-        int remote_server_ip = 0x64010101;
-        int label = 16;
-        SecurityGroupList sg_id_list;
-
-        for(int i = 0; i < count; i++) {
-            ComponentNHKeyPtr comp_nh(new ComponentNHKey(
-                        label, Agent::GetInstance()->fabric_vrf_name(),
-                        Agent::GetInstance()->router_id(),
-                        Ip4Address(remote_server_ip++),
-                        false, TunnelType::AllType()));
-            comp_nh_list.push_back(comp_nh);
-            if (!same_label) {
-                label++;
-            }
-        }
-        if (reverse) {
-            std::reverse(comp_nh_list.begin(), comp_nh_list.end());
-        }
-
-        EcmpTunnelRouteAdd(bgp_peer, vrf_name, vm_ip, plen,
-                           comp_nh_list, -1, vn, sg_id_list,
-                           PathPreference());
-    }
-
-    FlowProto *get_flow_proto() const { return flow_proto_; }
-    Agent *agent_;
-    BgpPeer *bgp_peer;
-    FlowProto *flow_proto_;
-    AgentXmppChannel *channel;
-    char router_id[80];
-    char MX_0[80];
-    char MX_1[80];
-    char MX_2[80];
-    char MX_3[80];
-    int vm1_label;
-    int vm2_label;
-    int agg_label;
-    int eth_intf_id;
 };
 
-//Send packet from ECMP VM to ECMP MX
-//Verify component index is set and correspnding
-//rpf nexthop
-TEST_F(EcmpTest, EcmpTest_1) {
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4); 
-    AddRemoteEcmpRoute("vrf1", "1.1.1.1", 32, "vn1", 4);
+// Ping from non-ECMP to ECMP
+// All members of dest-ecmp on same host
+TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_1) {
+    for (int i = 0; i < 16; i++) {
+        TxTcpPacket(vmi_[1]->id(), "1.1.1.1", "1.1.1.10", 100, i, false);
+        client->WaitForIdle();
 
-    TxIpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1", 1);
-    client->WaitForIdle();
+        FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10",
+                                  6, 100, i, GetFlowKeyNH(1));
+        EXPECT_TRUE(flow != NULL);
+        EXPECT_TRUE(flow->data().component_nh_idx
+                    != CompositeNH::kInvalidComponentNHIdx);
+        EXPECT_TRUE(flow->rpf_nh() == vmi_[1]->flow_key_nh());
 
-    AgentRoute *rt = RouteGet("vrf1", Ip4Address::from_string("0.0.0.0"), 0);
-    InetUnicastRouteEntry *src_rt = static_cast<InetUnicastRouteEntry *>(
-        RouteGet("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
-
-    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
-                               "1.1.1.1", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx !=
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().nh.get() == src_rt->GetLocalNextHop());
-
-    //Reverse flow is no ECMP
-    FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx != 
-            CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
-
-    DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
-    client->WaitForIdle();
-    sleep(1);
-    client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+        FlowEntry *rflow = flow->reverse_flow_entry();
+        EXPECT_TRUE(rflow->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
+        const VmInterface *out_vmi = GetOutVmi(flow);
+        EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+    }
 }
 
-//Send packet from ECMP of AAP and verify ECMP index and
-//RPF nexthop is set fine
-TEST_F(EcmpTest, EcmpTest_2) {
-    Ip4Address ip = Ip4Address::from_string("1.1.1.10");
-    std::string mac("0a:0b:0c:0d:0e:0f");
+// Ping from non-ECMP to ECMP
+// ECMP has both local and remote members
+TEST_F(LocalEcmpTest, NonEcmpToHybridEcmp_1) {
+    int local_count = 0;
+    int remote_count = 0;
+    for (int i = 0; i < 16; i++) {
+        TxTcpPacket(vmi_[1]->id(), "1.1.1.1", "1.1.1.30", 100, i, false);
+        client->WaitForIdle();
 
-    AddEcmpAap("vnet1", 1, ip, mac);
-    AddEcmpAap("vnet2", 2, ip, mac);
-    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn1", 4);
-    client->WaitForIdle();
+        FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.30",
+                                  6, 100, i, GetFlowKeyNH(1));
+        EXPECT_TRUE(flow != NULL);
+        EXPECT_TRUE(flow->data().component_nh_idx
+                    != CompositeNH::kInvalidComponentNHIdx);
+        EXPECT_TRUE(flow->rpf_nh() == vmi_[1]->flow_key_nh());
 
-    TxIpPacket(VmPortGetId(1), "1.1.1.10", "2.1.1.1", 1);
-    client->WaitForIdle();
+        FlowEntry *rflow = flow->reverse_flow_entry();
+        EXPECT_TRUE(rflow->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
 
-    AgentRoute *rt = RouteGet("vrf1", Ip4Address::from_string("0.0.0.0"), 0);
-    InetUnicastRouteEntry *src_rt = static_cast<InetUnicastRouteEntry *>(
-            RouteGet("vrf1", Ip4Address::from_string("1.1.1.10"), 32));
+        const NextHop *nh = GetOutMemberNh(flow);
+        if (dynamic_cast<const InterfaceNH *>(nh)) {
+            local_count++;
+            const VmInterface *out_vmi = GetOutVmi(flow);
+            EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+        } else {
+            remote_count++;
+            // RPF in reverse flow points to composite-nh
+            EXPECT_TRUE(rflow->rpf_nh() == GetOutNh(flow));
+        }
+    }
 
-    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
-                               "1.1.1.10", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx !=
-                CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().nh.get() == src_rt->GetLocalNextHop());
-
-    FlowEntry *rev_entry = entry->reverse_flow_entry();
-    EXPECT_TRUE(rev_entry->data().component_nh_idx !=
-                CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->data().nh.get() == rt->GetActiveNextHop());
-
-    DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
-    client->WaitForIdle();
-    sleep(1);
-    client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+    EXPECT_TRUE(local_count > 0);
+    EXPECT_TRUE(remote_count > 0);
 }
 
-TEST_F(EcmpTest, EcmpTest_3) {
+// Ping from non-ECMP to ECMP
+// All members of dest-ecmp on same host
+// ECMP transitions to Non-ECMP
+TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_EcmpTransition_1) {
+    struct PortInfo input10_1[] = {
+        {"vif11", 11, "1.1.1.10", "00:01:01:01:01:11", 1, 11},
+    };
+    struct PortInfo input10_2[] = {
+        {"vif12", 12, "1.1.1.10", "00:01:01:01:01:12", 1, 12},
+    };
+    struct PortInfo input10_3[] = {
+        {"vif13", 13, "1.1.1.10", "00:01:01:01:01:13", 1, 13},
+    };
+
+    // Delete vif13 as tests expects only 2 member ECMP
+    DeleteVmportEnv(input10_3, 1, false);
+
+    TxIpPacket(vmi_[1]->id(), "1.1.1.1", "1.1.1.10", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10",
+                              1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                != CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[1]->flow_key_nh());
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    const VmInterface *out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+
+    // Delete interface other than one being used
+    if (out_vmi->name() == "vif11")
+        DeleteVmportEnv(input10_2, 1, false);
+
+    if (out_vmi->name() == "vif12")
+        DeleteVmportEnv(input10_1, 1, false);
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10", 1, 0, 0,
+                   GetFlowKeyNH(1));
+    // Flow not ECMP anymore
+    EXPECT_TRUE(flow->data().component_nh_idx
+                == CompositeNH::kInvalidComponentNHIdx);
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+}
+
+// Ping from non-ECMP to non-ECMP
+// Destination transitions from non-ECMP to ECMP
+TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_EcmpTransition_2) {
+    struct PortInfo input10_1[] = {
+        {"vif11", 11, "1.1.1.10", "00:01:01:01:01:11", 1, 11},
+        {"vif12", 12, "1.1.1.10", "00:01:01:01:01:12", 1, 12},
+    };
+
+    // Delete vif11 and vif12
+    DeleteVmportEnv(input10_1, 2, false);
+
+    TxIpPacket(vmi_[1]->id(), "1.1.1.1", "1.1.1.10", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10",
+                              1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                == CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[1]->flow_key_nh());
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rflow->rpf_nh() == vmi_[13]->flow_key_nh());
+
+    // Restore 2 more interfaces in ECMP
+    CreateVmportWithEcmp(input10, 3);
+    client->WaitForIdle();
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10", 1, 0, 0,
+                   GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    // Flow transitioned from Non-ECMP to ECMP. ecmp-index must be set to 0
+    EXPECT_EQ(0, flow->data().component_nh_idx);
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rflow->rpf_nh() == vmi_[13]->flow_key_nh());
+}
+
+// Ping from non-ECMP to ECMP
+// All members of dest-ecmp on same host
+// Delete interface being used in ECMP. Flow must be deleted
+TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_EcmpDel_1) {
+    struct PortInfo input10_1[] = {
+        {"vif11", 11, "1.1.1.10", "00:01:01:01:01:11", 1, 11},
+    };
+    struct PortInfo input10_2[] = {
+        {"vif12", 12, "1.1.1.10", "00:01:01:01:01:12", 1, 12},
+    };
+    struct PortInfo input10_3[] = {
+        {"vif13", 13, "1.1.1.10", "00:01:01:01:01:13", 1, 13},
+    };
+
+    TxIpPacket(vmi_[1]->id(), "1.1.1.1", "1.1.1.10", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10",
+                              1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                != CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[1]->flow_key_nh());
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    const VmInterface *out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+
+    // Delete interface other than one being used
+    if (out_vmi->name() == "vif11")
+        DeleteVmportEnv(input10_1, 1, false);
+
+    if (out_vmi->name() == "vif12")
+        DeleteVmportEnv(input10_2, 1, false);
+
+    if (out_vmi->name() == "vif13")
+        DeleteVmportEnv(input10_3, 1, false);
+
+    EXPECT_EQ(0, flow_proto_->FlowCount());
+}
+
+// Ping from non-ECMP to ECMP
+// All members of dest-ecmp on same host
+// Delete interface not being used in ECMP. Flow must be revaluated
+TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_EcmpDel_2) {
+    struct PortInfo input10_1[] = {
+        {"vif11", 11, "1.1.1.10", "00:01:01:01:01:11", 1, 11},
+    };
+    struct PortInfo input10_2[] = {
+        {"vif12", 12, "1.1.1.10", "00:01:01:01:01:12", 1, 12},
+    };
+    struct PortInfo input10_3[] = {
+        {"vif13", 13, "1.1.1.10", "00:01:01:01:01:13", 1, 13},
+    };
+
+    TxIpPacket(vmi_[1]->id(), "1.1.1.1", "1.1.1.10", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10",
+                              1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    uint32_t ecmp_idx = flow->data().component_nh_idx;
+    EXPECT_TRUE(ecmp_idx != CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[1]->flow_key_nh());
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    const VmInterface *out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+
+    // Delete interface other than one being used
+    if (out_vmi->name() == "vif11")
+        DeleteVmportEnv(input10_2, 1, false);
+
+    if (out_vmi->name() == "vif12")
+        DeleteVmportEnv(input10_3, 1, false);
+
+    if (out_vmi->name() == "vif13")
+        DeleteVmportEnv(input10_1, 1, false);
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10", 1, 0, 0,
+                   GetFlowKeyNH(1));
+    // On revaluation component_nh_idx must be retained
+    EXPECT_EQ(ecmp_idx, flow->data().component_nh_idx);
+    EXPECT_TRUE(flow->IsEcmpFlow());
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    // out-vmi and rpf-nh must not change for reverse flow
+    EXPECT_TRUE(rflow->intf_entry() == out_vmi);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+}
+
+// Ping from Local only ECMP to non-ECMP
+// Test repeated for all local members in ECMP
+TEST_F(LocalEcmpTest, LocalEcmpToNonEcmp_1) {
+    TxIpPacket(vmi_[11]->id(), "1.1.1.10", "1.1.1.1", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "1.1.1.1", 1, 0, 0,
+                              GetFlowKeyNH(11));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                == CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[11]->flow_key_nh());
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rflow->rpf_nh() == vmi_[1]->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    // Repeat for vmi-12
+    TxIpPacket(vmi_[12]->id(), "1.1.1.10", "1.1.1.1", 1);
+    client->WaitForIdle();
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "1.1.1.1", 1, 0, 0,
+                   GetFlowKeyNH(12));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                == CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[12]->flow_key_nh());
+
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rflow->rpf_nh() == vmi_[1]->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    // Repeat for vmi-13
+    TxIpPacket(vmi_[13]->id(), "1.1.1.10", "1.1.1.1", 1);
+    client->WaitForIdle();
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "1.1.1.1", 1, 0, 0,
+                   GetFlowKeyNH(13));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                == CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[13]->flow_key_nh());
+
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rflow->rpf_nh() == vmi_[1]->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+}
+
+// Ping from Hybrid ECMP to non-ECMP.
+// Test repeated for all local members in ECMP
+TEST_F(LocalEcmpTest, HybridEcmpToNonEcmp_1) {
+    TxIpPacket(vmi_[31]->id(), "1.1.1.30", "1.1.1.1", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.30", "1.1.1.1",
+                              1, 0, 0, GetFlowKeyNH(31));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                == CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[31]->flow_key_nh());
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rflow->rpf_nh() == vmi_[1]->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    // Repeat test for vmi-32
+    TxIpPacket(vmi_[32]->id(), "1.1.1.30", "1.1.1.1", 1);
+    client->WaitForIdle();
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.30", "1.1.1.1", 1, 0, 0,
+                   GetFlowKeyNH(32));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                == CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[32]->flow_key_nh());
+
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rflow->rpf_nh() == vmi_[1]->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    // Repeat test for vmi-33
+    TxIpPacket(vmi_[33]->id(), "1.1.1.30", "1.1.1.1", 1);
+    client->WaitForIdle();
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.30", "1.1.1.1", 1, 0, 0,
+                   GetFlowKeyNH(33));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                == CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[33]->flow_key_nh());
+
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(rflow->rpf_nh() == vmi_[1]->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+}
+
+// Ping from ECMP source to ECMP destination in same VRF
+// RPF-NH in both flow must be set as interface-nh
+TEST_F(LocalEcmpTest, EcmpToEcmp_1) {
+    TxIpPacket(vmi_[11]->id(), "1.1.1.10", "1.1.1.20", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "1.1.1.20",
+                              1, 0, 0, GetFlowKeyNH(11));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                != CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[11]->flow_key_nh());
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    const VmInterface *out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+}
+
+// Ping from ECMP source in vrf-1 to ECMP destination in vrf-2
+// RPF-NH in both flow must be set as interface-nh
+TEST_F(LocalEcmpTest, EcmpToEcmp_2) {
+    AddIPAM("vn2", ipam_info_2, 1);
+    CreateVmportWithEcmp(input22, 3);
+    client->WaitForIdle();
+
+    // Leak route for 1.1.1.10 into vrf-2. But with changed order of components
+    LeakRoute("vrf1", "1.1.1.10", "vrf2");
+
+    // Leak route for 2.1.1.10 into vrf-1. But with changed order of components
+    LeakRoute("vrf2", "2.1.1.10", "vrf1");
+    client->WaitForIdle();
+
+    // Tx packet from port-11
+    TxIpPacket(vmi_[11]->id(), "1.1.1.10", "2.1.1.10", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "2.1.1.10",
+                              1, 0, 0, GetFlowKeyNH(11));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                != CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[11]->flow_key_nh());
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    const VmInterface *out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    // Tx packet from port-12
+    TxIpPacket(vmi_[12]->id(), "1.1.1.10", "2.1.1.10", 1);
+    client->WaitForIdle();
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "2.1.1.10", 1, 0, 0,
+                   GetFlowKeyNH(12));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                != CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[12]->flow_key_nh());
+
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    // Tx packet from port-13
+    TxIpPacket(vmi_[13]->id(), "1.1.1.10", "2.1.1.10", 1);
+    client->WaitForIdle();
+
+    flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "2.1.1.10", 1, 0, 0,
+                   GetFlowKeyNH(13));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                != CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh() == vmi_[13]->flow_key_nh());
+
+    rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+    FlushFlowTable();
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input22, 3, true);
+    DelIPAM("vn2");
+    client->WaitForIdle();
+}
+
+// Ping from ECMP source-ip but with wrong VMI to ECMP destination in
+// same VRF RPF-NH in both flow must be set as composite-nh
+TEST_F(LocalEcmpTest, EcmpToEcmp_RpfFail_1) {
+    TxIpPacket(vmi_[1]->id(), "1.1.1.10", "1.1.1.20", 1);
+    client->WaitForIdle();
+
+    FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "1.1.1.20",
+                              1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx
+                != CompositeNH::kInvalidComponentNHIdx);
+    EXPECT_TRUE(flow->rpf_nh()->GetType() == NextHop::COMPOSITE);
+
+    FlowEntry *rflow = flow->reverse_flow_entry();
+    EXPECT_TRUE(rflow->data().component_nh_idx ==
+                CompositeNH::kInvalidComponentNHIdx);
+    const VmInterface *out_vmi = GetOutVmi(flow);
+    EXPECT_TRUE(rflow->rpf_nh() == out_vmi->flow_key_nh());
+}
+
+TEST_F(LocalEcmpTest, Metadata_Ecmp_1) {
     boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
-    const InetInterface *vhost = static_cast<InetInterface *>(
-            agent_->interface_table()->FindActiveEntry(key.get()));
-    const VmInterface *vmi = static_cast<const VmInterface *>(VmPortGet(1));
+    const InetInterface *vhost = static_cast<InetInterface *>
+        (agent_->interface_table()->FindActiveEntry(key.get()));
 
     TxTcpPacket(vhost->id(), vhost->ip_addr().to_string().c_str(),
-                vmi->mdata_ip_addr().to_string().c_str(), 100, 100, false, 0);
+                vmi_[11]->mdata_ip_addr().to_string().c_str(), 100, 100, false,
+                0);
     client->WaitForIdle();
 
-    FlowEntry *entry = FlowGet(0, vhost->ip_addr().to_string().c_str(),
-                           vmi->mdata_ip_addr().to_string().c_str(), 
-                           IPPROTO_TCP, 100, 100, vhost->flow_key_nh()->id());
-    EXPECT_TRUE(entry != NULL);
-    EXPECT_TRUE(entry->data().component_nh_idx !=
-            CompositeNH::kInvalidComponentNHIdx);
+    FlowEntry *flow = FlowGet(0, vhost->ip_addr().to_string().c_str(),
+                              vmi_[11]->mdata_ip_addr().to_string().c_str(),
+                              IPPROTO_TCP, 100, 100,
+                              vhost->flow_key_nh()->id());
+    EXPECT_TRUE(flow != NULL);
+    EXPECT_TRUE(flow->data().component_nh_idx !=
+                CompositeNH::kInvalidComponentNHIdx);
     
-    InetUnicastRouteEntry *rt = RouteGet("vrf1", vmi->primary_ip_addr(), 32);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", vmi_[11]->primary_ip_addr(),
+                                         32);
     const CompositeNH *cnh = 
         dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
-    EXPECT_TRUE(cnh->GetNH(entry->data().component_nh_idx) == 
-                vmi->l3_interface_nh_no_policy());
+    EXPECT_TRUE(cnh->GetNH(flow->data().component_nh_idx) == 
+                vmi_[11]->l3_interface_nh_no_policy());
    
     client->WaitForIdle();
 }

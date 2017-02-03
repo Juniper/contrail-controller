@@ -915,7 +915,6 @@ bool PktHandler::IsManagedTORPacket(Interface *intf, PktInfo *pkt_info,
 
 bool PktHandler::IsFlowPacket(PktInfo *pkt_info) {
     if (pkt_info->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
-        pkt_info->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE ||
         pkt_info->agent_hdr.cmd == AgentHdr::TRAP_FLOW_ACTION_HOLD) {
         return true;
     }
@@ -924,7 +923,6 @@ bool PktHandler::IsFlowPacket(PktInfo *pkt_info) {
 
 bool PktHandler::IsFlowPacket(const AgentHdr &agent_hdr) {
     if (agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS ||
-        agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE ||
         agent_hdr.cmd == AgentHdr::TRAP_FLOW_ACTION_HOLD) {
         return true;
     }
