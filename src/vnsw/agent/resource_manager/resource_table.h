@@ -14,7 +14,6 @@ public:
     virtual ~ResourceKey();
 
     virtual const std::string ToString() {return "";}
-    virtual void Copy(const ResourceKey &rhs) { }
     virtual bool IsLess(const ResourceKey &rhs) const = 0;
     virtual void Backup(ResourceData *data, uint16_t op) = 0;
     bool operator<(const ResourceKey &rhs) const;
@@ -27,6 +26,7 @@ private:
     ResourceManager *rm_;
     bool dirty_;
     ResourceTable *resource_table_;
+    DISALLOW_COPY_AND_ASSIGN(ResourceKey);
 };
 
 class ResourceData {
