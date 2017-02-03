@@ -770,7 +770,7 @@ def parse_args(args_str):
                         help="Start port for bgp-as-a-service proxy")
     parser.add_argument("--bgpaas_port_end", type=int,
                         help="End port for bgp-as-a-service proxy")
-    parser.add_argument("--zk_timeout",
+    parser.add_argument("--zk_timeout", type=int,
                         help="Timeout for ZookeeperClient")
     parser.add_argument("--logical_routers_enabled", type=_bool,
                         help="Enabled logical routers")
