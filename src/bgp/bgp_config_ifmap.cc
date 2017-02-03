@@ -856,6 +856,20 @@ static bool GetVirtualNetworkAllowTransit(DBGraph *graph, IFMapNode *node) {
     return false;
 }
 
+
+//
+// Check if a virtual-network has pbb-evpn enabled.
+// The input IFMapNode represents the virtual-network.
+//
+static bool GetVirtualNetworkPbbEvpnEnable(DBGraph *graph, IFMapNode *node) {
+    const autogen::VirtualNetwork *vn =
+        static_cast<autogen::VirtualNetwork *>(node->GetObject());
+    if (vn && vn->IsPropertySet(autogen::VirtualNetwork::PBB_EVPN_ENABLE))
+        return vn->pbb_evpn_enable();
+    return false;
+}
+
+
 //
 // Get the vxlan id for a virtual-network.  The input IFMapNode represents
 // the virtual-network.
@@ -1088,6 +1102,8 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
             data_.set_virtual_network_allow_transit(
                 GetVirtualNetworkAllowTransit(graph, adj));
             data_.set_vxlan_id(GetVirtualNetworkVxlanId(graph, adj));
+            data_.set_virtual_network_pbb_evpn_enable(
+                GetVirtualNetworkPbbEvpnEnable(graph, adj));
         }
     }
 

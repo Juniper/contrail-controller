@@ -326,6 +326,7 @@ struct ShowRoutingInstance {
     5: list<string> export_target;                  // Export Route targets
     10: bool always_subscribe;                      // Always subscribe for RTF
     12: bool allow_transit;                         // Allow transit
+    13: bool pbb_evpn_enable;                       // PBB EVPN enabled
     7: bool deleted;                                // Deletion in progress
     9: string deleted_at;                           // Delete timestamp
     2: optional list<ShowRoutingInstanceTable> tables;
@@ -575,6 +576,7 @@ struct ShowBgpInstanceConfig {
     4: list<string> export_target;
     10: bool has_pnf;
     13: bool allow_transit;
+    14: bool pbb_evpn_enable;
     9: string last_change_at;
     5: list<ShowBgpServiceChainConfig> service_chain_infos;
     6: list<ShowBgpStaticRouteConfig> static_routes;

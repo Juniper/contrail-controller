@@ -8,6 +8,7 @@
 #include <string>
 
 #include "bgp/bgp_server.h"
+#include "bgp/extended-community/etree.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
 #include "net/bgp_af.h"
@@ -962,6 +963,34 @@ uint32_t BgpAttr::sequence_number() const {
         if (ExtCommunity::is_mac_mobility(*it)) {
             MacMobility mm(*it);
             return mm.sequence_number();
+        }
+    }
+    return 0;
+}
+
+bool BgpAttr::sticky() const {
+    if (!ext_community_)
+        return 0;
+    for (ExtCommunity::ExtCommunityList::const_iterator it =
+         ext_community_->communities().begin();
+         it != ext_community_->communities().end(); ++it) {
+        if (ExtCommunity::is_mac_mobility(*it)) {
+            MacMobility mm(*it);
+            return mm.sticky();
+        }
+    }
+    return 0;
+}
+
+bool BgpAttr::leaf() const {
+    if (!ext_community_)
+        return 0;
+    for (ExtCommunity::ExtCommunityList::const_iterator it =
+         ext_community_->communities().begin();
+         it != ext_community_->communities().end(); ++it) {
+        if (ExtCommunity::is_etree(*it)) {
+            ETree etree(*it);
+            return etree.leaf();
         }
     }
     return 0;

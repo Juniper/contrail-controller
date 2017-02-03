@@ -61,6 +61,12 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // Compare local_pref in reverse order as larger is better.
     KEY_COMPARE(rattr->local_pref(), attr_->local_pref());
 
+    // ETree Root path first [compare in reverse order]
+    BOOL_COMPARE(rattr->leaf(), attr_->leaf());
+
+    // Sticky paths first
+    BOOL_COMPARE(rattr->sticky(), attr_->sticky());
+
     // Compare sequence_number in reverse order as larger is better.
     KEY_COMPARE(rattr->sequence_number(), attr_->sequence_number());
 

@@ -767,6 +767,7 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
     : name_(name), index_(-1), server_(server), mgr_(mgr), config_(config),
       is_master_(false), always_subscribe_(false), virtual_network_index_(0),
       virtual_network_allow_transit_(false),
+      virtual_network_pbb_evpn_enable_(false),
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
       manager_delete_ref_(this, NULL) {
@@ -940,6 +941,8 @@ void RoutingInstance::ProcessConfig() {
     virtual_network_ = config_->virtual_network();
     virtual_network_index_ = config_->virtual_network_index();
     virtual_network_allow_transit_ = config_->virtual_network_allow_transit();
+    virtual_network_pbb_evpn_enable_ =
+        config_->virtual_network_pbb_evpn_enable();
     vxlan_id_ = config_->vxlan_id();
 
     // Always subscribe (using RTF) for RTs of PNF service chain instances.
@@ -1013,6 +1016,9 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
     bool notify_routes = false;
     if (virtual_network_allow_transit_ != cfg->virtual_network_allow_transit())
         notify_routes = true;
+    if (virtual_network_pbb_evpn_enable_ !=
+        cfg->virtual_network_pbb_evpn_enable())
+        notify_routes = true;
     if (virtual_network_ != cfg->virtual_network())
         notify_routes = true;
     if (virtual_network_index_ != cfg->virtual_network_index())
@@ -1043,6 +1049,7 @@ void RoutingInstance::UpdateConfig(const BgpInstanceConfig *cfg) {
 
     virtual_network_index_ = cfg->virtual_network_index();
     virtual_network_allow_transit_ = cfg->virtual_network_allow_transit();
+    virtual_network_pbb_evpn_enable_ = cfg->virtual_network_pbb_evpn_enable();
     vxlan_id_ = cfg->vxlan_id();
 
     // Master routing instance doesn't have import & export list
@@ -1153,6 +1160,10 @@ int RoutingInstance::virtual_network_index() const {
 
 bool RoutingInstance::virtual_network_allow_transit() const {
     return virtual_network_allow_transit_;
+}
+
+bool RoutingInstance::virtual_network_pbb_evpn_enable() const {
+    return virtual_network_pbb_evpn_enable_;
 }
 
 int RoutingInstance::vxlan_id() const {

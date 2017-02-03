@@ -557,6 +557,15 @@ bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
     string vn_name(node.attribute("name").value());
     assert(!vn_name.empty());
 
+    auto_ptr<autogen::VirtualNetwork::OolProperty> pbb_property(
+        new autogen::VirtualNetwork::OolProperty);
+    pbb_property->data = false;
+
+    if (node.attribute("pbb-evpn-enable")) {
+        pbb_property->data =
+            (string(node.attribute("pbb-evpn-enable").value()) == "true");
+    }
+
     auto_ptr<autogen::VirtualNetworkType> property(
         new autogen::VirtualNetworkType());
     assert(property->XmlParse(node));
@@ -564,9 +573,13 @@ bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
     if (add_change) {
         MapObjectSetProperty("virtual-network", vn_name,
             "virtual-network-properties", property.release(), requests);
+        MapObjectSetProperty("virtual-network", vn_name,
+            "pbb-evpn-enable", pbb_property.release(), requests);
     } else {
         MapObjectClearProperty("virtual-network", vn_name,
             "virtual-network-properties", requests);
+        MapObjectClearProperty("virtual-network", vn_name,
+            "pbb-evpn-enable", requests);
     }
 
     return true;

@@ -10,6 +10,7 @@
 #include "bgp/extended-community/default_gateway.h"
 #include "bgp/extended-community/es_import.h"
 #include "bgp/extended-community/esi_label.h"
+#include "bgp/extended-community/etree.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
@@ -353,7 +354,10 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_mac_mobility(*it)) {
             MacMobility mm(*it);
             communities->push_back(mm.ToString());
-            show_path->set_sequence_no(mm.ToString());
+            show_path->set_sequence_no(integerToString(mm.sequence_number()));
+        } else if (ExtCommunity::is_etree(*it)) {
+            ETree etree(*it);
+            communities->push_back(etree.ToString());
         } else if (ExtCommunity::is_router_mac(*it)) {
             RouterMac router_mac(*it);
             communities->push_back(router_mac.ToString());
