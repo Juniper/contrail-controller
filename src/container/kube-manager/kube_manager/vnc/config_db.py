@@ -25,7 +25,7 @@ class DBBaseKM(DBBase):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        del cls._fq_name_to_uuid[tuple(self.fq_name)]
+        del cls._fq_name_to_uuid[tuple(obj.fq_name)]
 
     def evaluate(self):
         # Implement in the derived class
@@ -40,7 +40,8 @@ class LoadbalancerKM(DBBaseKM):
         self.virtual_machine_interfaces = set()
         self.loadbalancer_listeners = set()
         self.selectors = None
-        self.update(obj_dict)
+        obj_dict = self.update(obj_dict)
+        super(LoadbalancerKM, self).__init__(uuid, obj_dict)
 
     def update(self, obj=None):
         if obj is None:
@@ -50,6 +51,7 @@ class LoadbalancerKM(DBBaseKM):
         self.parent_uuid = obj['parent_uuid']
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('loadbalancer_listener', obj)
+        return obj
 
     @classmethod
     def delete(cls, uuid):
@@ -58,6 +60,7 @@ class LoadbalancerKM(DBBaseKM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('loadbalancer_listener', {})
+        super(LoadbalancerKM, cls).delete(uuid)
         del cls._dict[uuid]
 
 class LoadbalancerListenerKM(DBBaseKM):
@@ -232,7 +235,8 @@ class VirtualMachineKM(DBBaseKM):
         self.virtual_router = None
         self.virtual_machine_interfaces = set()
         self.pod_labels = None
-        self.update(obj_dict)
+        obj_dict = self.update(obj_dict)
+        super(VirtualMachineKM, self).__init__(uuid, obj_dict)
 
     def update(self, obj=None):
         if obj is None:
@@ -247,6 +251,7 @@ class VirtualMachineKM(DBBaseKM):
                     break
         self.update_single_ref('virtual_router', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
+        return obj
 
     @classmethod
     def delete(cls, uuid):
@@ -255,6 +260,7 @@ class VirtualMachineKM(DBBaseKM):
         obj = cls._dict[uuid]
         obj.update_single_ref('virtual_router', {})
         obj.update_multiple_refs('virtual_machine_interface', {})
+        super(VirtualMachineKM, cls).delete(uuid)
         del cls._dict[uuid]
 
 class VirtualRouterKM(DBBaseKM):

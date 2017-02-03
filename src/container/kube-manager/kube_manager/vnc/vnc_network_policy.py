@@ -85,8 +85,11 @@ class VncNetworkPolicy(object):
             self._set_sg_rule(sg, pod_id, ports)
 
     def vnc_pod_add(self, event):
-        labels = event['object']['metadata']['labels']
+        labels = event['object']['metadata'].get('labels')
         pod_id = event['object']['metadata']['uid']
+
+        if not labels:
+            return
 
         for label in labels.items():
             key = self._label_cache._get_key(label)
@@ -100,8 +103,11 @@ class VncNetworkPolicy(object):
                 self._sg_2_pod_link(pod_id, policy_id, 'ADD')
 
     def vnc_pod_delete(self, event):
-        labels = event['object']['metadata']['labels']
+        labels = event['object']['metadata'].get('labels')
         pod_id = event['object']['metadata']['uid']
+
+        if not labels:
+            return
 
         for label in labels.items():
             key = self._label_cache._get_key(label)
