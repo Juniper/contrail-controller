@@ -73,6 +73,7 @@ class SchemaTransformer(object):
             'network_policy': [],
             'virtual_machine_interface': [],
             'route_table': [],
+            'bgpvpn': [],
         },
         'virtual_machine': {
             'self': ['service_instance'],
@@ -113,6 +114,7 @@ class SchemaTransformer(object):
             'self': ['route_table'],
             'virtual_machine_interface': [],
             'route_table': [],
+            'bgpvpn': [],
         },
         'floating_ip': {
             'self': ['virtual_machine_interface'],
@@ -139,7 +141,12 @@ class SchemaTransformer(object):
         },
         'route_aggregate': {
             'self': ['service_instance'],
-        }
+        },
+        'bgpvpn': {
+            'self': ['virtual_network', 'logical_router'],
+            'virtual_network': [],
+            'logical_router': [],
+        },
     }
 
     def __init__(self, args=None):
@@ -181,6 +188,7 @@ class SchemaTransformer(object):
     def reinit(self):
         GlobalSystemConfigST.reinit()
         BgpRouterST.reinit()
+        BgpvpnST.reinit()
         LogicalRouterST.reinit()
         vn_list = list(VirtualNetworkST.list_vnc_obj())
         vn_id_list = set([vn.uuid for vn in vn_list])
