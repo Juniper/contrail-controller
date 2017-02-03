@@ -43,8 +43,6 @@ public:
 
     //Work queue to restore the data.
     bool WorkQueueRestoreProcess(ResourceRestoreReqPtr restore_data);
-    void RestoreResource();
-
     Agent *agent() {return agent_;}
 private:
     Agent *agent_;

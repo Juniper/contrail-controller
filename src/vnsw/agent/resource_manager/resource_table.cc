@@ -64,12 +64,11 @@ ResourceData* ResourceTable::FindKey(KeyPtr key) {
 
 void ResourceTable::FlushStale() {
     for (KeyDataMapIter it = key_data_map_.begin();
-         it != key_data_map_.end();) {
+        it != key_data_map_.end();) {
         KeyPtr key = it->first;
         if (key->dirty()) {
-            KeyDataMapIter del_it = it;
             it++;
-            key_data_map_.erase(del_it);
+            rm_->Release(key);
         } else {
             it++;
         }

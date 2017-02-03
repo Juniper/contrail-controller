@@ -48,9 +48,6 @@ private:
     uint32_t backup_idle_timeout_;
     uint64_t last_modified_time_;
     uint8_t fall_back_count_;
-    // temparory flag needs to be deleted once after reading
-    // End of config
-    bool audit_required_;
     DISALLOW_COPY_AND_ASSIGN(BackUpResourceTable);
 };
 // Vrf backup resource table to maintains Sandesh encoded data VrfMpls info
