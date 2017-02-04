@@ -34,6 +34,7 @@
 #include "uflow_types.h"
 #include "viz_constants.h"
 #include <database/cassandra/cql/cql_types.h>
+#include "configdb_connection.h"
 #include "usrdef_counters.h"
 #include "options.h"
 
@@ -140,8 +141,11 @@ public:
     void ResetDbQueueWaterMarkInfo();
     std::vector<boost::asio::ip::tcp::endpoint> GetEndpoints() const;
     std::string GetName() const;
-    void UpdateUdc(Options *o, DiscoveryServiceClient *c) {
-        udc_->Update(o, c);
+    void UpdateConfigDBConnection(Options *o, DiscoveryServiceClient *c) {
+        cfgdb_connection_->Update(o, c);
+    }
+    boost::shared_ptr<ConfigDBConnection> GetConfigDBConnection() {
+        return cfgdb_connection_;
     }
     bool IsAllWritesDisabled() const;
     bool IsStatisticsWritesDisabled() const;
@@ -257,6 +261,7 @@ private:
     bool disable_statistics_writes_;
     bool disable_messages_writes_;
     bool disable_messages_keyword_writes_;
+    boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
     boost::scoped_ptr<UserDefinedCounters> udc_;
     Timer *udc_cfg_poll_timer_;
     static const int kUDCPollInterval = 120 * 1000; // in ms

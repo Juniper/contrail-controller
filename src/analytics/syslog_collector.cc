@@ -205,9 +205,18 @@ bool SyslogParser::parse_syslog (Iterator start, Iterator end, syslog_m_t &v)
     bool r = qi::phrase_parse(start, end,
             // Begin grammar
                                //facility severity
-            (  '<' >> int_     [insert(phx::ref(v),
+            (
+            (
+                  int_         [insert(phx::ref(v),
+        phx::construct<std::pair<std::string, Holder> >("msglen",
+                  phx::construct<Holder>("msglen", _1)))]
+               >> '<' >> int_     [insert(phx::ref(v),
         phx::construct<std::pair<std::string, Holder> >("facsev",
                   phx::construct<Holder>("facsev", _1)))] >> '>'
+                |'<' >> int_     [insert(phx::ref(v),
+        phx::construct<std::pair<std::string, Holder> >("facsev",
+                  phx::construct<Holder>("facsev", _1)))] >> '>'
+                  )
                >> (
                                 //month
                 months       [insert(phx::ref(v),
@@ -241,7 +250,7 @@ bool SyslogParser::parse_syslog (Iterator start, Iterator end, syslog_m_t &v)
                >>int_       [insert(phx::ref(v),
         phx::construct<std::pair<std::string, Holder> >("year",
                   phx::construct<Holder>("year", _1)))] >> lit("-")
-                                //month
+                               //month
                >>int_       [insert(phx::ref(v),
         phx::construct<std::pair<std::string, Holder> >("month",
                   phx::construct<Holder>("month", _1)))] >> lit("-")
@@ -365,7 +374,7 @@ void SyslogParser::GetTimestamp (syslog_m_t v, time_t& timestamp)
         bt::time_duration diff = bt::duration_from_string(tz.substr(1));
         if (tz.substr(0,1) == "-") {
             timestamp = (p - epoch).total_microseconds()
-                            + diff.total_microseconds();        
+                            + diff.total_microseconds();
         } else {
             timestamp = (p - epoch).total_microseconds()
                             - diff.total_microseconds();

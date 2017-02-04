@@ -12,22 +12,10 @@
 #include "http/client/vncapi.h"
 #include "options.h"
 
-UserDefinedCounters::UserDefinedCounters(EventManager *evm,
-        VncApiConfig *vnccfg) : evm_(evm)
+UserDefinedCounters::UserDefinedCounters(boost::shared_ptr<ConfigDBConnection> cfgdb_connection)
+                    : cfgdb_connection_(cfgdb_connection)
 {
-    InitVnc(evm_, vnccfg);
-}
 
-void
-UserDefinedCounters::InitVnc(EventManager *evm, VncApiConfig *vnccfg)
-{
-    if (vnccfg) {
-        if (!vnc_) {
-            vnc_.reset(new VncApi(evm, vnccfg));
-        } else {
-            vnc_->SetApiServerAddress();
-        }
-    }
 }
 
 UserDefinedCounters::~UserDefinedCounters()
@@ -44,7 +32,7 @@ UserDefinedCounters::PollCfg()
 void
 UserDefinedCounters::ReadConfig()
 {
-    if (vnc_) {
+    if (cfgdb_connection_->GetVnc()) {
         std::vector<std::string> ids;
         std::vector<std::string> filters;
         std::vector<std::string> parents;
@@ -53,7 +41,7 @@ UserDefinedCounters::ReadConfig()
 
         fields.push_back("user_defined_log_statistics");
 
-        vnc_->GetConfig("global-system-config", ids, filters, parents, refs,
+        cfgdb_connection_->GetVnc()->GetConfig("global-system-config", ids, filters, parents, refs,
                 fields, boost::bind(&UserDefinedCounters::UDCHandler, this,
                     _1, _2, _3, _4, _5, _6));
     }
@@ -118,7 +106,7 @@ UserDefinedCounters::UDCHandler(rapidjson::Document &jdoc,
     } else {
                 //Print Errors
     }
-    RetryNextApi();
+    cfgdb_connection_->RetryNextApi();
 }
 
 void
@@ -160,45 +148,3 @@ UserDefinedCounters::FindByName(std::string name) {
     return it  != config_.end();
 }
 
-void
-UserDefinedCounters::Update(Options *o, DiscoveryServiceClient *c) {
-    c->Subscribe(g_vns_constants.API_SERVER_DISCOVERY_SERVICE_NAME,
-            0, boost::bind(&UserDefinedCounters::APIfromDisc, this, o, _1));
-}
-
-void
-UserDefinedCounters::APIfromDisc(Options *o, std::vector<DSResponse> response)
-{
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (api_svr_list_.empty()) {
-        api_svr_list_ = response;
-        if (!api_svr_list_.empty()) {
-            lock.release();
-            vnccfg_.ks_srv_ip          = o->auth_host();
-            vnccfg_.ks_srv_port        = o->auth_port();
-            vnccfg_.protocol           = o->auth_protocol();
-            vnccfg_.user               = o->auth_user();
-            vnccfg_.password           = o->auth_passwd();
-            vnccfg_.tenant             = o->auth_tenant();
-
-            RetryNextApi();
-        }
-    } else {
-        api_svr_list_.erase(api_svr_list_.begin(), api_svr_list_.end());
-        api_svr_list_ = response;
-    }
-}
-
-void
-UserDefinedCounters::RetryNextApi()
-{
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (!api_svr_list_.empty()) {
-        DSResponse api = api_svr_list_.back();
-        api_svr_list_.pop_back();
-        lock.release();
-        vnccfg_.cfg_srv_ip         = api.ep.address().to_string();
-        vnccfg_.cfg_srv_port       = api.ep.port();
-        InitVnc(evm_, &vnccfg_);
-    }
-}

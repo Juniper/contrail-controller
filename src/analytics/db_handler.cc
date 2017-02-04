@@ -85,11 +85,12 @@ DbHandler::DbHandler(EventManager *evm,
     disable_statistics_writes_(cassandra_options.disable_db_stats_writes_),
     disable_messages_writes_(cassandra_options.disable_db_messages_writes_),
     disable_messages_keyword_writes_(cassandra_options.disable_db_messages_keyword_writes_),
-    udc_(new UserDefinedCounters(evm, 0)),
     udc_cfg_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
         "udc config poll timer",
         TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))),
     use_db_write_options_(use_db_write_options) {
+    cfgdb_connection_.reset(new ConfigDBConnection(evm, 0));
+    udc_.reset(new UserDefinedCounters(cfgdb_connection_));
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);
     udc_cfg_poll_timer_->Start(kUDCPollInterval,
@@ -165,9 +166,11 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     disable_statistics_writes_(false),
     disable_messages_writes_(false),
     disable_messages_keyword_writes_(false),
-    udc_(new UserDefinedCounters(0, 0)),
     udc_cfg_poll_timer_(NULL),
     use_db_write_options_(false) {
+    cfgdb_connection_.reset(new ConfigDBConnection(0, 0));
+    udc_.reset(new UserDefinedCounters(cfgdb_connection_));
+
 }
 
 DbHandler::~DbHandler() {
