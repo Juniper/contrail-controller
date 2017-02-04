@@ -15,6 +15,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/evpn/evpn_table.h"
+#include "bgp/routing-instance/routing_instance.h"
 
 using std::sort;
 using std::string;
@@ -232,15 +233,24 @@ UpdateInfo *EvpnLocalMcastNode::GetUpdateInfo() {
     if (assisted_replication_leaf_)
         return NULL;
 
+    const RoutingInstance *rti = partition_->table()->routing_instance();
+    bool pbb_evpn_enable = rti->virtual_network_pbb_evpn_enable();
+    uint32_t local_ethernet_tag = route_->GetPrefix().tag();
+
     // Go through list of EvpnRemoteMcastNodes and build the BgpOList.
     BgpOListSpec olist_spec(BgpAttribute::OList);
     BOOST_FOREACH(EvpnMcastNode *node, partition_->remote_mcast_node_list()) {
+        uint32_t remote_ethernet_tag = node->route()->GetPrefix().tag();
+
         if (node->address() == address_)
             continue;
         if (node->assisted_replication_leaf())
             continue;
         if (!edge_replication_not_supported_ &&
             !node->edge_replication_not_supported())
+            continue;
+        if (pbb_evpn_enable && remote_ethernet_tag &&
+            (local_ethernet_tag != remote_ethernet_tag))
             continue;
 
         const ExtCommunity *extcomm = node->attr()->ext_community();

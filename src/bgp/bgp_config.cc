@@ -284,6 +284,7 @@ BgpInstanceConfig::BgpInstanceConfig(const string &name)
       has_pnf_(false),
       virtual_network_index_(0),
       virtual_network_allow_transit_(false),
+      virtual_network_pbb_evpn_enable_(false),
       vxlan_id_(0),
       last_change_at_(UTCTimestampUsec()) {
 }
@@ -298,6 +299,7 @@ void BgpInstanceConfig::Clear() {
     virtual_network_.clear();
     virtual_network_index_ = 0;
     virtual_network_allow_transit_ = false;
+    virtual_network_pbb_evpn_enable_ = false;
     vxlan_id_ = 0;
     inet_static_routes_.clear();
     inet6_static_routes_.clear();

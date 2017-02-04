@@ -38,6 +38,7 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
     sbic->set_export_target(export_list);
     sbic->set_has_pnf(instance->has_pnf());
     sbic->set_allow_transit(instance->virtual_network_allow_transit());
+    sbic->set_pbb_evpn_enable(instance->virtual_network_pbb_evpn_enable());
     sbic->set_last_change_at(UTCUsecToString(instance->last_change_at()));
 
     vector<ShowBgpServiceChainConfig> sbscc_list;

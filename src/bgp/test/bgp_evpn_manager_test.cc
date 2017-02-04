@@ -3,6 +3,7 @@
  */
 
 #include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
@@ -18,6 +19,9 @@
 #include "io/test/event_manager_test.h"
 
 using namespace std;
+using boost::assign::list_of;
+
+typedef vector<uint32_t> TagList;
 
 class PeerMock : public IPeer {
 public:
@@ -144,7 +148,7 @@ static const char *config_template = "\
         <identifier>192.168.0.1</identifier>\
         <address>127.0.0.1</address>\
     </bgp-router>\
-    <virtual-network name='blue'>\
+    <virtual-network name='blue' pbb-evpn-enable='%s'>\
         <network-id>1</network-id>\
     </virtual-network>\
     <routing-instance name='blue'>\
@@ -161,19 +165,26 @@ protected:
     static const int kVrfId = 1;
     static const int kVnIndex = 1;
 
-    BgpEvpnManagerTest()
+    BgpEvpnManagerTest(bool pbb_evpn = false)
         : thread_(&evm_),
           blue_(NULL),
           master_(NULL),
           blue_manager_(NULL),
           blue_ribout_(NULL),
-          tag_(0) {
+          tag_(0), pbb_evpn_(pbb_evpn) {
     }
 
     virtual void SetUp() {
         server_.reset(new BgpServerTest(&evm_, "local"));
         thread_.Start();
-        server_->Configure(config_template);
+        char config[4096];
+        if (pbb_evpn_) {
+            snprintf(config, sizeof(config), config_template, "true");
+        } else {
+            snprintf(config, sizeof(config), config_template, "false");
+        }
+
+        server_->Configure(config);
         task_util::WaitForIdle();
 
         DB *db = server_->database();
@@ -238,6 +249,16 @@ protected:
         return found;
     }
 
+    TagList GetTagList(const TagList &tag_list) const {
+        TagList temp_tag_list;
+        if (tag_list.empty()) {
+            temp_tag_list.push_back(tag_);
+        } else {
+            temp_tag_list = tag_list;
+        }
+        return temp_tag_list;
+    }
+
     bool VerifyPeerInOList(PeerMock *peer, UpdateInfoPtr uinfo) {
         return VerifyPeerInOListCommon(peer, uinfo, false);
     }
@@ -268,10 +289,10 @@ protected:
     }
 
     bool VerifyPeerUpdateInfoCommon(PeerMock *peer, bool odd, bool even,
-        bool include_xmpp, bool include_leaf = false) {
+        uint32_t tag, bool include_xmpp, bool include_leaf = false) {
         ConcurrencyScope scope("db::DBTable");
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
+        EvpnPrefix prefix(rd, tag, MacAddress::BroadcastMac(), IpAddress());
         EvpnTable::RequestKey key(prefix, peer);
         EvpnRoute *rt = dynamic_cast<EvpnRoute *>(blue_->Find(&key));
         if (rt == NULL)
@@ -327,10 +348,10 @@ protected:
         return true;
     }
 
-    bool VerifyPeerNoUpdateInfo(PeerMock *peer) {
+    bool VerifyPeerNoUpdateInfo(PeerMock *peer, uint32_t tag) {
         ConcurrencyScope scope("db::DBTable");
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
+        EvpnPrefix prefix(rd, tag, MacAddress::BroadcastMac(), IpAddress());
         EvpnTable::RequestKey key(prefix, peer);
         EvpnRoute *rt = dynamic_cast<EvpnRoute *>(blue_->Find(&key));
         if (rt == NULL)
@@ -401,11 +422,11 @@ protected:
         ChangeXmppPeersEncapCommon(true, true, encap);
     }
 
-    void AddXmppPeerBroadcastMacRoute(PeerMock *peer, string nexthop_str = "",
-        uint32_t label = 0) {
+    void AddXmppPeerBroadcastMacRoute(PeerMock *peer, uint32_t tag,
+          string nexthop_str = "", uint32_t label = 0) {
         EXPECT_TRUE(peer->IsXmppPeer());
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
+        EvpnPrefix prefix(rd, tag, MacAddress::BroadcastMac(), IpAddress());
 
         BgpAttrSpec attr_spec;
         ExtCommunitySpec ext_comm;
@@ -446,31 +467,35 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void AddXmppPeersBroadcastMacRouteCommon(bool odd, bool even) {
+    void AddXmppPeersBroadcastMacRouteCommon(TagList tag_list,
+                                             bool odd, bool even) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
             if ((odd && peer->index() % 2 != 0) ||
                 (even && peer->index() % 2 == 0)) {
-                AddXmppPeerBroadcastMacRoute(peer);
+                BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                    AddXmppPeerBroadcastMacRoute(peer, tag);
             }
         }
     }
 
-    void AddOddXmppPeersBroadcastMacRoute() {
-        AddXmppPeersBroadcastMacRouteCommon(true, false);
+    void AddOddXmppPeersBroadcastMacRoute(TagList tag_list = TagList()) {
+        AddXmppPeersBroadcastMacRouteCommon(tag_list, true, false);
     }
 
-    void AddEvenXmppPeersBroadcastMacRoute() {
-        AddXmppPeersBroadcastMacRouteCommon(false, true);
+    void AddEvenXmppPeersBroadcastMacRoute(TagList tag_list = TagList()) {
+        AddXmppPeersBroadcastMacRouteCommon(tag_list, false, true);
     }
 
-    void AddAllXmppPeersBroadcastMacRoute() {
-        AddXmppPeersBroadcastMacRouteCommon(true, true);
+    void AddAllXmppPeersBroadcastMacRoute(TagList tag_list = TagList()) {
+        AddXmppPeersBroadcastMacRouteCommon(tag_list, true, true);
     }
 
-    void DelXmppPeerBroadcastMacRoute(PeerMock *peer) {
+    void DelXmppPeerBroadcastMacRoute(PeerMock *peer, uint32_t tag) {
         EXPECT_TRUE(peer->IsXmppPeer());
+
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, MacAddress::BroadcastMac(), IpAddress());
+        EvpnPrefix prefix(rd, tag, MacAddress::BroadcastMac(), IpAddress());
 
         DBRequest delReq;
         delReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
@@ -479,16 +504,18 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void DelAllXmppPeersBroadcastMacRoute() {
+    void DelAllXmppPeersBroadcastMacRoute(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            DelXmppPeerBroadcastMacRoute(peer);
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                DelXmppPeerBroadcastMacRoute(peer, tag);
         }
     }
 
-    void VerifyXmppPeerInclusiveMulticastRoute(PeerMock *peer) {
+    void VerifyXmppPeerInclusiveMulticastRoute(PeerMock *peer, uint32_t tag) {
         EXPECT_TRUE(peer->IsXmppPeer());
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, peer->address());
+        EvpnPrefix prefix(rd, tag, peer->address());
         EvpnTable::RequestKey key(prefix, peer);
         TASK_UTIL_EXPECT_TRUE(master_->Find(&key) != NULL);
         EvpnRoute *rt = dynamic_cast<EvpnRoute *>(master_->Find(&key));
@@ -512,50 +539,64 @@ protected:
         TASK_UTIL_EXPECT_TRUE(peer->encap() == encap);
     }
 
-    void VerifyAllXmppPeersInclusiveMulticastRoute() {
+    void VerifyAllXmppPeersInclusiveMulticastRoute(TagList tag_list =
+                                                   TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            VerifyXmppPeerInclusiveMulticastRoute(peer);
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                VerifyXmppPeerInclusiveMulticastRoute(peer, tag);
         }
     }
 
-    void VerifyXmppPeerNoInclusiveMulticastRoute(PeerMock *peer) {
+    void VerifyXmppPeerNoInclusiveMulticastRoute(PeerMock *peer, uint32_t tag) {
         EXPECT_TRUE(peer->IsXmppPeer());
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, peer->address());
+        EvpnPrefix prefix(rd, tag, peer->address());
         EvpnTable::RequestKey key(prefix, peer);
         TASK_UTIL_EXPECT_TRUE(blue_->Find(&key) == NULL);
     }
 
-    void VerifyAllXmppPeersNoInclusiveMulticastRoute() {
+    void VerifyAllXmppPeersNoInclusiveMulticastRoute(TagList tag_list =
+                                                     TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            VerifyXmppPeerNoInclusiveMulticastRoute(peer);
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                VerifyXmppPeerNoInclusiveMulticastRoute(peer, tag);
         }
     }
 
-    void VerifyAllXmppPeersOddUpdateInfo() {
+    void VerifyAllXmppPeersOddUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            TASK_UTIL_EXPECT_TRUE(
-                VerifyPeerUpdateInfoCommon(peer, true, false, false));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(
+                    VerifyPeerUpdateInfoCommon(peer, true, false, tag, false));
         }
     }
 
-    void VerifyAllXmppPeersEvenUpdateInfo() {
+    void VerifyAllXmppPeersEvenUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            TASK_UTIL_EXPECT_TRUE(
-                VerifyPeerUpdateInfoCommon(peer, false, true, false));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(
+                    VerifyPeerUpdateInfoCommon(peer, false, true, tag, false));
         }
     }
 
-    void VerifyAllXmppPeersAllUpdateInfo() {
+    void VerifyAllXmppPeersAllUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            TASK_UTIL_EXPECT_TRUE(
-                VerifyPeerUpdateInfoCommon(peer, true, true, false));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(
+                    VerifyPeerUpdateInfoCommon(peer, true, true, tag, false));
         }
     }
 
-    void VerifyAllXmppPeersNoUpdateInfo() {
+    void VerifyAllXmppPeersNoUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, xmpp_peers_) {
-            TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer, tag));
         }
     }
 
@@ -752,10 +793,11 @@ protected:
     }
 
     void AddBgpPeerInclusiveMulticastRoute(PeerMock *peer,
+        uint32_t tag,
         string rtarget_str = "target:64512:1") {
         EXPECT_FALSE(peer->IsXmppPeer());
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, peer->address());
+        EvpnPrefix prefix(rd, tag, peer->address());
 
         BgpAttrSpec attr_spec;
         ExtCommunitySpec ext_comm;
@@ -789,58 +831,66 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void AddBgpPeerInclusiveMulticastRouteCommon(bool odd, bool even) {
+    void AddBgpPeerInclusiveMulticastRouteCommon(TagList tag_list,
+                                                 bool odd, bool even) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
             if ((odd && peer->index() % 2 != 0) ||
                 (even && peer->index() % 2 == 0)) {
-                AddBgpPeerInclusiveMulticastRoute(peer);
+                BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                    AddBgpPeerInclusiveMulticastRoute(peer, tag);
             }
         }
     }
 
-    void AddOddBgpPeersInclusiveMulticastRoute() {
-        AddBgpPeerInclusiveMulticastRouteCommon(true, false);
+    void AddOddBgpPeersInclusiveMulticastRoute(TagList tag_list = TagList()) {
+        AddBgpPeerInclusiveMulticastRouteCommon(tag_list, true, false);
     }
 
-    void AddEvenBgpPeersInclusiveMulticastRoute() {
-        AddBgpPeerInclusiveMulticastRouteCommon(false, true);
+    void AddEvenBgpPeersInclusiveMulticastRoute(TagList tag_list = TagList()) {
+        AddBgpPeerInclusiveMulticastRouteCommon(tag_list, false, true);
     }
 
-    void AddAllBgpPeersInclusiveMulticastRoute() {
-        AddBgpPeerInclusiveMulticastRouteCommon(true, true);
+    void AddAllBgpPeersInclusiveMulticastRoute(TagList tag_list = TagList()) {
+        AddBgpPeerInclusiveMulticastRouteCommon(tag_list, true, true);
     }
 
-    void DelBgpPeerInclusiveMulticastRoute(PeerMock *peer) {
+    void DelBgpPeerInclusiveMulticastRoute(PeerMock *peer, uint32_t tag) {
         EXPECT_FALSE(peer->IsXmppPeer());
+
         RouteDistinguisher rd(peer->address().to_ulong(), kVrfId);
-        EvpnPrefix prefix(rd, tag_, peer->address());
+        EvpnPrefix prefix(rd, tag, peer->address());
 
         DBRequest delReq;
         delReq.key.reset(new EvpnTable::RequestKey(prefix, peer));
         delReq.oper = DBRequest::DB_ENTRY_DELETE;
         master_->Enqueue(&delReq);
+        task_util::WaitForIdle();
     }
 
-    void DelBgpPeerInclusiveMulticastRouteCommon(bool odd, bool even) {
+    void DelBgpPeerInclusiveMulticastRouteCommon(TagList tag_list,
+                                                 bool odd, bool even) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
             if ((odd && peer->index() % 2 != 0) ||
                 (even && peer->index() % 2 == 0)) {
-                DelBgpPeerInclusiveMulticastRoute(peer);
+                BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                    DelBgpPeerInclusiveMulticastRoute(peer, tag);
             }
         }
         task_util::WaitForIdle();
     }
 
-    void DelOddBgpPeersInclusiveMulticastRoute() {
-        DelBgpPeerInclusiveMulticastRouteCommon(true, false);
+    void DelOddBgpPeersInclusiveMulticastRoute(TagList tag_list = TagList()) {
+        DelBgpPeerInclusiveMulticastRouteCommon(tag_list, true, false);
     }
 
-    void DelEvenBgpPeersInclusiveMulticastRoute() {
-        DelBgpPeerInclusiveMulticastRouteCommon(false, true);
+    void DelEvenBgpPeersInclusiveMulticastRoute(TagList tag_list = TagList()) {
+        DelBgpPeerInclusiveMulticastRouteCommon(tag_list, false, true);
     }
 
-    void DelAllBgpPeersInclusiveMulticastRoute() {
-        DelBgpPeerInclusiveMulticastRouteCommon(true, true);
+    void DelAllBgpPeersInclusiveMulticastRoute(TagList tag_list = TagList()) {
+        DelBgpPeerInclusiveMulticastRouteCommon(tag_list, true, true);
     }
 
     void AddBgpPeerBroadcastMacRoute(PeerMock *peer) {
@@ -937,23 +987,29 @@ protected:
         DelBgpPeerBroadcastMacRouteCommon(true, true);
     }
 
-    void VerifyAllBgpPeersBgpUpdateInfo() {
+    void VerifyAllBgpPeersBgpUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
-            TASK_UTIL_EXPECT_TRUE(
-                VerifyPeerUpdateInfoCommon(peer, true, true, false));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(
+                    VerifyPeerUpdateInfoCommon(peer, true, true, tag, false));
         }
     }
 
-    void VerifyAllBgpPeersAllUpdateInfo() {
+    void VerifyAllBgpPeersAllUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
-            TASK_UTIL_EXPECT_TRUE(
-                VerifyPeerUpdateInfoCommon(peer, true, true, true));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(
+                    VerifyPeerUpdateInfoCommon(peer, true, true, tag, true));
         }
     }
 
-    void VerifyAllBgpPeersNoUpdateInfo() {
+    void VerifyAllBgpPeersNoUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, bgp_peers_) {
-            TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer, tag));
         }
     }
 
@@ -1261,9 +1317,11 @@ protected:
         }
     }
 
-    void VerifyAllLeafPeersNoUpdateInfo() {
+    void VerifyAllLeafPeersNoUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, leaf_peers_) {
-            TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer, tag));
         }
     }
 
@@ -1421,63 +1479,73 @@ protected:
         }
     }
 
-    void VerifyReplicatorPeersLeafUpdateInfoCommon(bool odd, bool even) {
+    void VerifyReplicatorPeersLeafUpdateInfoCommon(TagList tag_list,
+                                                   bool odd, bool even) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
             if (!odd && peer->index() % 2 != 0)
                 continue;
             if (!even && peer->index() % 2 == 0)
                 continue;
-            TASK_UTIL_EXPECT_TRUE(
-                VerifyPeerUpdateInfoCommon(peer, false, false, false, true));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(
+                    VerifyPeerUpdateInfoCommon(peer, false, false, tag, false, true));
         }
     }
 
-    void VerifyOddReplicatorPeersLeafUpdateInfo() {
-        VerifyReplicatorPeersLeafUpdateInfoCommon(true, false);
+    void VerifyOddReplicatorPeersLeafUpdateInfo(TagList tag_list = TagList()) {
+        VerifyReplicatorPeersLeafUpdateInfoCommon(tag_list, true, false);
     }
 
-    void VerifyEvenReplicatorPeersLeafUpdateInfo() {
-        VerifyReplicatorPeersLeafUpdateInfoCommon(false, true);
+    void VerifyEvenReplicatorPeersLeafUpdateInfo(TagList tag_list = TagList()) {
+        VerifyReplicatorPeersLeafUpdateInfoCommon(tag_list, false, true);
     }
 
-    void VerifyAllReplicatorPeersLeafUpdateInfo() {
-        VerifyReplicatorPeersLeafUpdateInfoCommon(true, true);
+    void VerifyAllReplicatorPeersLeafUpdateInfo(TagList tag_list = TagList()) {
+        VerifyReplicatorPeersLeafUpdateInfoCommon(tag_list, true, true);
     }
 
-    void VerifyAllReplicatorPeersNonLeafUpdateInfo() {
+    void VerifyAllReplicatorPeersNonLeafUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
-            TASK_UTIL_EXPECT_TRUE(
-                VerifyPeerUpdateInfoCommon(peer, true, true, false, false));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(
+                    VerifyPeerUpdateInfoCommon(peer, true, true, tag, false, false));
         }
     }
 
-    void VerifyAllReplicatorPeersAllUpdateInfo() {
+    void VerifyAllReplicatorPeersAllUpdateInfo(TagList tag_list = TagList()) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
-            TASK_UTIL_EXPECT_TRUE(
-                VerifyPeerUpdateInfoCommon(peer, true, true, false, true));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(
+                    VerifyPeerUpdateInfoCommon(peer, true, true, tag, false, true));
         }
     }
 
-    void VerifyReplicatorPeersNoUpdateInfoCommon(bool odd, bool even) {
+    void VerifyReplicatorPeersNoUpdateInfoCommon(TagList tag_list,
+                                                 bool odd, bool even) {
+        TagList temp_tag_list = GetTagList(tag_list);
         BOOST_FOREACH(PeerMock *peer, replicator_peers_) {
             if (!odd && peer->index() % 2 != 0)
                 continue;
             if (!even && peer->index() % 2 == 0)
                 continue;
-            TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer));
+            BOOST_FOREACH(uint32_t tag, temp_tag_list) 
+                TASK_UTIL_EXPECT_TRUE(VerifyPeerNoUpdateInfo(peer, tag));
         }
     }
 
-    void VerifyOddReplicatorPeersNoUpdateInfo() {
-        VerifyReplicatorPeersNoUpdateInfoCommon(true, false);
+    void VerifyOddReplicatorPeersNoUpdateInfo(TagList tag_list = TagList()) {
+        VerifyReplicatorPeersNoUpdateInfoCommon(tag_list, true, false);
     }
 
-    void VerifyEvenReplicatorPeersNoUpdateInfo() {
-        VerifyReplicatorPeersNoUpdateInfoCommon(false, true);
+    void VerifyEvenReplicatorPeersNoUpdateInfo(TagList tag_list = TagList()) {
+        VerifyReplicatorPeersNoUpdateInfoCommon(tag_list, false, true);
     }
 
-    void VerifyAllReplicatorPeersNoUpdateInfo() {
-        VerifyReplicatorPeersNoUpdateInfoCommon(true, true);
+    void VerifyAllReplicatorPeersNoUpdateInfo(TagList tag_list = TagList()) {
+        VerifyReplicatorPeersNoUpdateInfoCommon(tag_list, true, true);
     }
 
     size_t GetPartitionLocalSize(uint32_t tag) {
@@ -1516,6 +1584,13 @@ protected:
     vector<PeerMock *> leaf_peers_;
     vector<PeerMock *> replicator_peers_;
     int tag_;
+    bool pbb_evpn_;
+};
+
+class BgpPbbEvpnManagerTest : public BgpEvpnManagerTest {
+protected:
+    BgpPbbEvpnManagerTest() : BgpEvpnManagerTest(true) {
+    }
 };
 
 // Add Broadcast MAC routes from all XMPP peers.
@@ -1628,6 +1703,86 @@ TEST_P(BgpEvpnManagerTest, Basic4) {
     TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
     TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
     VerifyAllXmppPeersNoInclusiveMulticastRoute();
+}
+
+// Add Broadcast MAC routes from all XMPP peers with ISID value as tag.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all BGP peers. In this test, the BGP peer
+// sends IM route with ISID value as tag
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpPbbEvpnManagerTest, PbbEvpnBasic1) {
+    TagList isid_list = list_of(200200);
+    AddAllXmppPeersBroadcastMacRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(xmpp_peers_.size(), GetPartitionLocalSize(tag_));
+    VerifyAllXmppPeersInclusiveMulticastRoute(isid_list);
+    VerifyAllXmppPeersNoUpdateInfo();
+    AddAllBgpPeersInclusiveMulticastRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(bgp_peers_.size() + xmpp_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersAllUpdateInfo(isid_list);
+
+    DelAllBgpPeersInclusiveMulticastRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(xmpp_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersNoUpdateInfo(isid_list);
+    DelAllXmppPeersBroadcastMacRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersNoInclusiveMulticastRoute(isid_list);
+}
+
+// Add Broadcast MAC routes from all XMPP peers with ISID value as tag.
+// In this test, XMPP peer sends broadcast routes for each ISID associated with
+// B-Component.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all BGP peers. In this test, the BGP peer
+// sends multiple IM routes each with unique ISID value as tag.
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpPbbEvpnManagerTest, PbbEvpnBasic2) {
+    TagList isid_list = list_of(200200)(300300);
+    size_t size = isid_list.size();
+    AddAllXmppPeersBroadcastMacRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(size * xmpp_peers_.size(), GetPartitionLocalSize(tag_));
+    VerifyAllXmppPeersInclusiveMulticastRoute(isid_list);
+    VerifyAllXmppPeersNoUpdateInfo();
+    AddAllBgpPeersInclusiveMulticastRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(size * (bgp_peers_.size() + xmpp_peers_.size()),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersAllUpdateInfo(isid_list);
+
+    DelAllBgpPeersInclusiveMulticastRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(size * xmpp_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersNoUpdateInfo(isid_list);
+    DelAllXmppPeersBroadcastMacRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersNoInclusiveMulticastRoute(isid_list);
+}
+
+// Add Broadcast MAC routes from all XMPP peers with ISID value as tag.
+// Verify generated Inclusive Multicast routes in bgp.evpn.0.
+// Add Inclusive Multicast route from all BGP peers. In this test, the BGP peer
+// sends IM route with 0 tag. To test the case where Mx sends IM route with 0
+// tag when only single I-Component is configured.
+// Verify UpdateInfo for Broadcast MAC routes from all XMPP peers.
+TEST_P(BgpPbbEvpnManagerTest, PbbEvpnBasic3) {
+    TagList isid_list = list_of(200200);
+    AddAllXmppPeersBroadcastMacRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(xmpp_peers_.size(), GetPartitionLocalSize(tag_));
+    VerifyAllXmppPeersInclusiveMulticastRoute(isid_list);
+    VerifyAllXmppPeersNoUpdateInfo();
+    TagList mx_isid_list = list_of(0);
+    AddAllBgpPeersInclusiveMulticastRoute(mx_isid_list);
+    TASK_UTIL_EXPECT_EQ(bgp_peers_.size() + xmpp_peers_.size(),
+        GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersAllUpdateInfo(isid_list);
+
+    DelAllBgpPeersInclusiveMulticastRoute(mx_isid_list);
+    TASK_UTIL_EXPECT_EQ(xmpp_peers_.size(), GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersNoUpdateInfo(isid_list);
+    DelAllXmppPeersBroadcastMacRoute(isid_list);
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionLocalSize(tag_));
+    TASK_UTIL_EXPECT_EQ(0, GetPartitionRemoteSize(tag_));
+    VerifyAllXmppPeersNoInclusiveMulticastRoute(isid_list);
 }
 
 // Add Broadcast MAC routes from all XMPP peers.
@@ -3849,6 +4004,7 @@ TEST_P(BgpEvpnManagerTest, UnicastAndMulticast6) {
 }
 
 INSTANTIATE_TEST_CASE_P(Default, BgpEvpnManagerTest, ::testing::Values(0, 4094));
+INSTANTIATE_TEST_CASE_P(Default, BgpPbbEvpnManagerTest, ::testing::Values(0, 4094));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }

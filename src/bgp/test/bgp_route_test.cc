@@ -6,6 +6,8 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_server.h"
+#include "bgp/extended-community/etree.h"
+#include "bgp/extended-community/mac_mobility.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
@@ -606,6 +608,227 @@ TEST_F(BgpRouteTest, PathCompareMed3) {
 
     EXPECT_EQ(1, path1.PathCompare(path2, false));
     EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
+//
+// Paths with sticky bit is chosen
+// Test with path having same seq no and different sticky bit
+//
+TEST_F(BgpRouteTest, PathCompareSticky1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    MacMobility mm1(100, true);
+    ExtCommunitySpec ext_spec1;
+    ext_spec1.communities.push_back(get_value(mm1.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec1;
+    spec1.push_back(&ext_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    MacMobility mm2(100, false);
+    ExtCommunitySpec ext_spec2;
+    ext_spec2.communities.push_back(get_value(mm2.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec2;
+    spec2.push_back(&ext_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(1, path1.PathCompare(path2, true));
+    EXPECT_EQ(-1, path2.PathCompare(path1, true));
+}
+
+//
+// Paths with sticky bit is chosen.
+// Test with path having different seq no and sticky bit
+//
+TEST_F(BgpRouteTest, PathCompareSticky2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    MacMobility mm1(200, true);
+    ExtCommunitySpec ext_spec1;
+    ext_spec1.communities.push_back(get_value(mm1.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec1;
+    spec1.push_back(&ext_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    MacMobility mm2(100, false);
+    ExtCommunitySpec ext_spec2;
+    ext_spec2.communities.push_back(get_value(mm2.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec2;
+    spec2.push_back(&ext_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(1, path1.PathCompare(path2, true));
+    EXPECT_EQ(-1, path2.PathCompare(path1, true));
+}
+
+//
+// Path with latest seq no is chosen
+//
+TEST_F(BgpRouteTest, PathCompareSeqNo) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    MacMobility mm1(100, true);
+    ExtCommunitySpec ext_spec1;
+    ext_spec1.communities.push_back(get_value(mm1.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec1;
+    spec1.push_back(&ext_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    MacMobility mm2(200, true);
+    ExtCommunitySpec ext_spec2;
+    ext_spec2.communities.push_back(get_value(mm2.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec2;
+    spec2.push_back(&ext_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(1, path1.PathCompare(path2, true));
+    EXPECT_EQ(-1, path2.PathCompare(path1, true));
+}
+
+//
+// ECMP Test with seq no.
+// With same seq-no and sticky route
+//
+TEST_F(BgpRouteTest, PathCompareSeqNo1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    MacMobility mm1(100, true);
+    ExtCommunitySpec ext_spec1;
+    ext_spec1.communities.push_back(get_value(mm1.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec1;
+    spec1.push_back(&ext_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    MacMobility mm2(100, true);
+    ExtCommunitySpec ext_spec2;
+    ext_spec2.communities.push_back(get_value(mm2.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec2;
+    spec2.push_back(&ext_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(0, path1.PathCompare(path2, false));
+    EXPECT_EQ(0, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
+//
+// ECMP Test with seq no.
+// With same seq-no and non-sticky route
+//
+TEST_F(BgpRouteTest, PathCompareSeqNo2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    MacMobility mm1(100, false);
+    ExtCommunitySpec ext_spec1;
+    ext_spec1.communities.push_back(get_value(mm1.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec1;
+    spec1.push_back(&ext_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    MacMobility mm2(100, false);
+    ExtCommunitySpec ext_spec2;
+    ext_spec2.communities.push_back(get_value(mm2.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec2;
+    spec2.push_back(&ext_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(0, path1.PathCompare(path2, false));
+    EXPECT_EQ(0, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+//
+// ETree root Path is chosen
+//
+TEST_F(BgpRouteTest, PathCompareETree) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    ETree etree1(true, 100);
+    ExtCommunitySpec ext_spec1;
+    ext_spec1.communities.push_back(get_value(etree1.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec1;
+    spec1.push_back(&ext_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    ETree etree2(false, 100);
+    ExtCommunitySpec ext_spec2;
+    ext_spec2.communities.push_back(get_value(etree2.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec2;
+    spec2.push_back(&ext_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(1, path1.PathCompare(path2, false));
+    EXPECT_EQ(-1, path2.PathCompare(path1, false));
+    EXPECT_EQ(1, path1.PathCompare(path2, true));
+    EXPECT_EQ(-1, path2.PathCompare(path1, true));
+}
+
+//
+// ETree root ECMP test
+// Both path being root path
+//
+TEST_F(BgpRouteTest, PathCompareETree1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    ETree etree1(true, 100);
+    ExtCommunitySpec ext_spec1;
+    ext_spec1.communities.push_back(get_value(etree1.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec1;
+    spec1.push_back(&ext_spec1);
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    ETree etree2(true, 100);
+    ExtCommunitySpec ext_spec2;
+    ext_spec2.communities.push_back(get_value(etree2.GetExtCommunity().begin(), 8));
+    BgpAttrSpec spec2;
+    spec2.push_back(&ext_spec2);
+    BgpAttrPtr attr2 = db->Locate(spec2);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr2, 0, 0);
+
+    EXPECT_EQ(0, path1.PathCompare(path2, false));
+    EXPECT_EQ(0, path2.PathCompare(path1, false));
     EXPECT_EQ(0, path1.PathCompare(path2, true));
     EXPECT_EQ(0, path2.PathCompare(path1, true));
 }

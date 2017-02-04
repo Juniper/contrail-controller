@@ -120,6 +120,7 @@ public:
     const BgpInstanceConfig *config() const { return config_; }
     int virtual_network_index() const;
     bool virtual_network_allow_transit() const;
+    bool virtual_network_pbb_evpn_enable() const;
     int vxlan_id() const;
 
     const RoutingInstanceMgr *manager() const { return mgr_; }
@@ -219,6 +220,7 @@ private:
     std::string virtual_network_;
     int virtual_network_index_;
     bool virtual_network_allow_transit_;
+    bool virtual_network_pbb_evpn_enable_;
     int vxlan_id_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstance> manager_delete_ref_;
