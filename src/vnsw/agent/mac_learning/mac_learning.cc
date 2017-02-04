@@ -49,6 +49,10 @@ void MacLearningEntryLocal::Add() {
         return;
     }
 
+    if (vm_intf->vn() == NULL) {
+        return;
+    }
+
     ethernet_tag_ = vm_intf->ethernet_tag();
     SecurityGroupList sg_list;
     vm_intf->CopySgIdList(&sg_list);
@@ -185,4 +189,197 @@ void MacLearningPartition::Resync(MacLearningEntryPtr ptr) {
 
 void MacLearningPartition::Enqueue(MacLearningEntryRequestPtr req) {
     request_queue_.Enqueue(req);
+}
+
+MacLearningSandeshResp::MacLearningSandeshResp(Agent *agent,
+                                         MacEntryResp *resp,
+                                         std::string resp_ctx,
+                                         std::string key,
+                                         const MacAddress &mac) :
+    Task((TaskScheduler::GetInstance()->
+                GetTaskId("Agent::MacLearningSandeshTask")), 0),
+    agent_(agent), resp_(resp), resp_data_(resp_ctx), partition_id_(0),
+    vrf_id_(0), mac_(MacAddress::ZeroMac()), exact_match_(false),
+    user_given_mac_(mac) {
+    if (key != agent_->NullString()) {
+        SetMacKey(key);
+    }
+}
+
+MacLearningSandeshResp::~MacLearningSandeshResp() {
+}
+
+bool MacLearningSandeshResp::SetMacKey(string key) {
+    const char ch = kDelimiter;
+    size_t n = std::count(key.begin(), key.end(), ch);
+    if (n != 3) {
+        return false;
+    }
+
+    stringstream ss(key);
+    string item;
+
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> partition_id_;
+    }
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> vrf_id_;
+    }
+    if (getline(ss, item, ch)) {
+        mac_ = MacAddress::FromString(item);
+    }
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> exact_match_;
+    }
+    return true;
+}
+
+string
+MacLearningSandeshResp::GetMacKey() {
+    stringstream ss;
+    ss << partition_id_ << kDelimiter;
+    ss << vrf_id_ << kDelimiter;
+    ss << mac_.ToString();
+    ss << kDelimiter << exact_match_;
+    return ss.str();
+}
+
+const MacLearningPartition*
+MacLearningSandeshResp::GetPartition() {
+    if (partition_id_ >= agent_->flow_thread_count()) {
+        return NULL;
+    }
+
+    MacLearningPartition *mp = agent_->mac_learning_proto()->
+                                Find(partition_id_);
+    return mp;
+}
+
+bool
+MacLearningSandeshResp::Run() {
+    std::vector<SandeshMacEntry>& list =
+        const_cast<std::vector<SandeshMacEntry>&>(resp_->get_mac_entry_list());
+    uint32_t entries_count = 0;
+
+    while (entries_count < kMaxResponse) {
+        const MacLearningPartition *mp = GetPartition();
+        if (mp == NULL) {
+            break;
+        }
+
+        MacLearningKey key(vrf_id_, mac_);
+        MacLearningPartition::MacLearningEntryTable::const_iterator it;
+        if (user_given_mac_ != MacAddress::ZeroMac()) {
+            it = mp->mac_learning_table_.find(key);
+        } else {
+            it = mp->mac_learning_table_.upper_bound(key);
+        }
+
+        while (entries_count < kMaxResponse) {
+            if (exact_match_ && it->first.vrf_id_ != vrf_id_) {
+                break;
+            } else {
+                vrf_id_ = it->first.vrf_id_;
+            }
+
+            if (it == mp->mac_learning_table_.end()) {
+                break;
+            }
+
+            const MacAgingTable *at =
+                mp->aging_partition()->Find(it->first.vrf_id_);
+            //Find the aging entry
+            const MacAgingEntry *aging_entry =  NULL;
+            if (at) {
+                aging_entry = at->Find(it->second.get());
+            }
+            if (aging_entry) {
+                SandeshMacEntry data;
+                data.set_partition(partition_id_);
+                aging_entry->FillSandesh(&data);
+                list.push_back(data);
+            }
+
+            entries_count++;
+            if (user_given_mac_ != MacAddress::ZeroMac()) {
+                break;
+            }
+            mac_ = it->first.mac_;
+            it++;
+        }
+
+        if (entries_count >= kMaxResponse) {
+            break;
+        }
+
+        if (exact_match_ == false) {
+            vrf_id_++;
+        }
+
+        if (it == mp->mac_learning_table_.end()) {
+            partition_id_++;
+            if (exact_match_ == false) {
+                vrf_id_ = 0;
+            }
+        }
+
+        if (user_given_mac_ != MacAddress::ZeroMac()) {
+            //If entry is found in current partition
+            //move on to next partition
+            if (it != mp->mac_learning_table_.end()) {
+                partition_id_++;
+            }
+            mac_ = user_given_mac_;
+        } else {
+            mac_ = MacAddress::ZeroMac();
+        }
+    }
+
+    if (partition_id_ < agent_->flow_thread_count()) {
+        resp_->set_mac_key(GetMacKey());
+    }
+
+    SendResponse(resp_);
+    return true;
+}
+
+void MacLearningSandeshResp::SendResponse(SandeshResponse *resp) {
+    resp->set_context(resp_data_);
+    resp->set_more(false);
+    resp->Response();
+}
+
+void FetchMacEntry::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+
+    std::ostringstream str;
+    str << "0" << MacLearningSandeshResp::kDelimiter << get_vrf_id() <<
+         MacLearningSandeshResp::kDelimiter << get_mac();
+
+    bool exact_match = false;
+    if (get_vrf_id() != 0 || get_mac() != agent->NullString()) {
+        exact_match = true;
+    }
+    str << MacLearningSandeshResp::kDelimiter << exact_match;
+
+    MacAddress mac = MacAddress::FromString(get_mac());
+
+    MacEntryResp *resp = new MacEntryResp();
+    MacLearningSandeshResp *task = new MacLearningSandeshResp(agent, resp,
+                                                        context(),
+                                                        str.str(), mac);
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
+}
+
+void NextMacEntrySet::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+
+    MacEntryResp *resp = new MacEntryResp();
+    MacLearningSandeshResp *task = new MacLearningSandeshResp(agent, resp,
+                                                        context(),
+                                                        get_mac_entry_key(),
+                                                        MacAddress::ZeroMac());
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
 }
