@@ -184,6 +184,7 @@ struct ShowRoutePath {
     10: string as_path;
     11: string next_hop;
     12: u32 label;
+    26: string origin;
     13: bool replicated;
     14: string primary_table (link="ShowRouteReq");
     24: list<string> secondary_tables;
@@ -196,6 +197,7 @@ struct ShowRoutePath {
     21: ShowPmsiTunnel pmsi_tunnel;
     22: ShowLoadBalance load_balance;
     23: list<string> cluster_list;
+    27: string originator_id;
 }
 
 struct ShowRoute {

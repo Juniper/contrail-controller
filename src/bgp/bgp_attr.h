@@ -819,6 +819,7 @@ public:
     friend std::size_t hash_value(BgpAttr const &attr);
 
     BgpAttrOrigin::OriginType origin() const { return origin_; }
+    std::string origin_string() const;
     const IpAddress &nexthop() const { return nexthop_; }
     Address::Family nexthop_family() const;
     uint32_t med() const { return med_; }
