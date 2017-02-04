@@ -63,6 +63,7 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogS
 
   const std::string body(SyslogParser::GetMapVals(v, "body", ""));
   std::size_t start = 0, end = 0;
+  v.erase("body");
 
   end = body.find('[', start);
   if (end == std::string::npos) {
@@ -207,7 +208,8 @@ void PushStructuredSyslogStats(SyslogParser::syslog_m_t v, const std::string &st
 
 void PushStructuredSyslogTopLevelTags(SyslogParser::syslog_m_t v, StatWalker::TagMap *top_tags) {
     StatWalker::TagVal tvalue;
-    const std::string saddr(SyslogParser::GetMapVals(v, "ip", ""));
+    const std::string ip(SyslogParser::GetMapVals(v, "ip", ""));
+    const std::string saddr(SyslogParser::GetMapVals(v, "hostname", ip));
     tvalue.val = saddr;
     top_tags->insert(make_pair("Source", tvalue));
 }
@@ -354,29 +356,36 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
   boost::system::error_code ec;
   const std::string ip(remote_address.to_string(ec));
   const uint8_t *p = data;
+  size_t start = 0;
+  bool r;
 
-  SyslogParser::syslog_m_t v;
   while (!*(p + len - 1))
       --len;
-  bool r = SyslogParser::parse_syslog (p, p + len, v);
+  do {
+      SyslogParser::syslog_m_t v;
+      r = SyslogParser::parse_syslog (p + start, p + len, v);
 #ifdef STRUCTURED_SYSLOG_DEBUG
-  std::string app_str (p, p + len);
-  LOG(DEBUG, "structured_syslog: " << app_str << " parsed " << r << ".");
+      std::string app_str (p + start, p + len);
+      LOG(DEBUG, "structured_syslog: " << app_str << " parsed " << r << ".");
 #endif
-  if (r) {
-      v.insert(std::pair<std::string, SyslogParser::Holder>("ip",
-            SyslogParser::Holder("ip", ip)));
-      SyslogParser::PostParsing(v);
-      if (StructuredSyslogPostParsing(v, config_obj))
-      {
-          StructuredSyslogDecorate(v, config_obj);
-          StructuredSyslogPush(v, stat_db_callback, config_obj->tagged_fields);
+      if (r) {
+          v.insert(std::pair<std::string, SyslogParser::Holder>("ip",
+                SyslogParser::Holder("ip", ip)));
+          std::stringstream lenss;
+          lenss << SyslogParser::GetMapVal(v, "msglen", 0);
+          std::string lenstr = lenss.str();
+          start += SyslogParser::GetMapVal(v, "msglen", len) + lenstr.length() + 1;
+          SyslogParser::PostParsing(v);
+          if (StructuredSyslogPostParsing(v, config_obj))
+          {
+              StructuredSyslogDecorate(v, config_obj);
+              StructuredSyslogPush(v, stat_db_callback, config_obj->tagged_fields);
+          }
       }
-  }
-
-  while (!v.empty()) {
-      v.erase(v.begin());
-  }
+      while (!v.empty()) {
+          v.erase(v.begin());
+      }
+  } while (r && start<len);
   return r;
 }
 
