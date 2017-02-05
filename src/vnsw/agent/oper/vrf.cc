@@ -363,6 +363,13 @@ void VrfEntry::ResyncRoutes() {
     route_resync_walker_.get()->UpdateRoutesInVrf(this);
 }
 
+int VrfEntry::InstanceId() const {
+    if (vn() == NULL)
+        return kInvalidIndex;
+
+    return vn()->vnid();
+}
+
 void VrfEntry::RetryDelete() {
     if (AllRouteTablesEmpty() == false)
         return;

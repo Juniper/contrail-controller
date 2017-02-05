@@ -129,6 +129,7 @@ public:
     void set_allow_route_add_on_deleted_vrf(bool val) {
         allow_route_add_on_deleted_vrf_ = val;
     }
+    int InstanceId() const;
 
 private:
     friend class VrfTable;
