@@ -70,7 +70,9 @@ class VncIngress(object):
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
             return self._fip_pool_obj
-        fip_pool_fq_name = ['default-domain', 'default', '__public__', '__fip_pool_public__']
+        fip_pool_fq_name = ['default-domain', 'default', 
+                            self._args.public_network_name, 
+                            self._args.public_fip_pool_name]
         try:
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
         except NoIdError:
