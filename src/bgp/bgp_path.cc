@@ -62,10 +62,10 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     KEY_COMPARE(rattr->local_pref(), attr_->local_pref());
 
     // ETree Root path first [compare in reverse order]
-    BOOL_COMPARE(rattr->leaf(), attr_->leaf());
+    BOOL_COMPARE(rattr->etree_leaf(), attr_->etree_leaf());
 
     // Sticky paths first
-    BOOL_COMPARE(rattr->sticky(), attr_->sticky());
+    BOOL_COMPARE(rattr->evpn_sticky_mac(), attr_->evpn_sticky_mac());
 
     // Compare sequence_number in reverse order as larger is better.
     KEY_COMPARE(rattr->sequence_number(), attr_->sequence_number());

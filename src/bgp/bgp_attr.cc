@@ -983,7 +983,7 @@ uint32_t BgpAttr::sequence_number() const {
     return 0;
 }
 
-bool BgpAttr::sticky() const {
+bool BgpAttr::evpn_sticky_mac() const {
     if (!ext_community_)
         return 0;
     for (ExtCommunity::ExtCommunityList::const_iterator it =
@@ -997,7 +997,7 @@ bool BgpAttr::sticky() const {
     return 0;
 }
 
-bool BgpAttr::leaf() const {
+bool BgpAttr::etree_leaf() const {
     if (!ext_community_)
         return 0;
     for (ExtCommunity::ExtCommunityList::const_iterator it =

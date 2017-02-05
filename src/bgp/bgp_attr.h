@@ -854,8 +854,8 @@ public:
     BgpOListPtr leaf_olist() const { return leaf_olist_; }
     BgpAttrDB *attr_db() const { return attr_db_; }
     uint32_t sequence_number() const;
-    bool sticky() const;
-    bool leaf() const;
+    bool evpn_sticky_mac() const;
+    bool etree_leaf() const;
     MacAddress mac_address() const;
 
 private:
