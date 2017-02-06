@@ -777,6 +777,30 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end _check_vrouter_link
 
     @classmethod
+    def _check_bridge_domain_vmi_association(cls, obj_dict,
+                                             db_conn, create):
+        bridge_domain_links = {}
+        bd_refs = obj_dict.get('bridge_domain_refs') or []
+        for bd in bd_refs:
+            bd_fq_name = bd['to']
+            bd_uuid = bd.get('uuid')
+            if not bd_uuid:
+                bd_uuid = db_conn.fq_name_to_uuid('bridge_domain', bd_fq_name)
+
+            bdmt = bd['attr']
+            vlan_tag = bdmt['vlan_tag']
+            if vlan_tag in bridge_domain_links:
+                msg = "Virtual machine interface(%s) already refers to bridge "\
+                      "domain(%s) for vlan tag %d"\
+                      %(obj_dict['uuid'], bd_uuid, vlan_tag)
+                return (False, msg)
+
+            bridge_domain_links[vlan_tag] = bd_uuid
+
+        return (True, '')
+    # end _check_bridge_domain_vmi_association
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict.get('uuid')
@@ -794,6 +818,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             return ok, result
 
         vn_dict = result
+
+        (ok, error) = cls._check_bridge_domain_vmi_association(obj_dict,
+                                                               db_conn, True)
+        if not ok:
+            return (False, (400, error))
 
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
@@ -881,6 +910,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                               db_conn, 'virtual_machine_interface', id)
         if not ok:
             return ok, read_result
+
+        (ok, error) = cls._check_bridge_domain_vmi_association(obj_dict,
+                                                               db_conn, False)
+        if not ok:
+            return (False, (400, error))
 
         # check if the vmi is a internal interface of a logical
         # router
