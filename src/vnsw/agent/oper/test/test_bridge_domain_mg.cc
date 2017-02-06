@@ -91,7 +91,6 @@ public:
                 "bridge-domain", "bridge1");
         DelLink("virtual-machine-interface-bridge-domain", intf_name,
                 "virtual-machine-interface", intf_name);
-        DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
         DelNode("virtual-machine-interface-bridge-domain", intf_name);
         client->WaitForIdle();
     }
@@ -300,6 +299,46 @@ TEST_F(BridgeDomainMGTest, Test5) {
 
     DeleteBridgeDomain(input[0].name);
     DeleteBgpPeer(bgp_peer_ptr);
+    client->WaitForIdle();
+}
+
+TEST_F(BridgeDomainMGTest, Test6) {
+    CreateBridgeDomain(input[0].name, 1);
+    client->WaitForIdle();
+
+    CreateBridgeDomain(input[1].name, 2);
+    client->WaitForIdle();
+
+    const VmInterface *vm_intf1 =
+        static_cast<const VmInterface *>(VmPortGet(1));
+    const VmInterface *vm_intf2 =
+        static_cast<const VmInterface *>(VmPortGet(2));
+
+    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+
+    BridgeRouteEntry *l2_rt =
+        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+    NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
+    const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
+    cnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
+
+    EXPECT_TRUE(cnh->composite_nh_type() == Composite::L2INTERFACE);
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+
+    const InterfaceNH *intf_nh =
+        static_cast<const InterfaceNH *>(cnh->GetNH(0));
+    EXPECT_TRUE(intf_nh->GetInterface() == vm_intf1);
+    intf_nh = static_cast<const InterfaceNH *>(cnh->GetNH(1));
+    EXPECT_TRUE(intf_nh->GetInterface() == vm_intf2);
+
+    DeleteBridgeDomain(input[0].name);
+    DeleteBridgeDomain(input[1].name);
+    client->WaitForIdle();
+
+    std::stringstream str;
+    str.clear();
+    str << "<pbb-etree-enable>"<< "true" << "</pbb-etree-enable>";
+    AddNode("virtual-network", "vn1", 1, str.str().c_str());
     client->WaitForIdle();
 }
 

@@ -271,6 +271,11 @@ void MulticastHandler::AddBridgeDomain(DBTablePartBase *partition,
     }
 
     MulticastGroupObject *obj = FindFloodGroupObject(bd->vrf()->GetName());
+    if (obj == NULL) {
+        obj = CreateMulticastGroupObject(state->vrf_name_, kBroadcast,
+                                         bd->vn(), state->vxlan_id_);
+    }
+
     if (state->learning_enabled_ != bd->learning_enabled()) {
         state->learning_enabled_ = bd->learning_enabled();
         ChangeLearningMode(obj, state->learning_enabled_);
