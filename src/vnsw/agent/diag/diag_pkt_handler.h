@@ -13,6 +13,7 @@
 #include <cmn/agent.h>
 
 struct AgentDiagPktData;
+struct OverlayOamPktData;
 class PktInfo;
 
 // Pseudo header for TCP checksum
@@ -52,7 +53,7 @@ public:
 private:
     bool IsTraceRoutePacket();
     bool IsOverlayPingPacket();
-    void SetReturnCode(uint8_t *retcode);
+    void SetReturnCode(OverlayOamPktData *oamdata);
     bool HandleTraceRoutePacket();
     void SendTimeExceededPacket();
     void SendTimeExceededV6Packet();

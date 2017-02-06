@@ -80,6 +80,12 @@ BridgeRouteEntry *BridgeAgentRouteTable::FindRouteNoLock(const MacAddress &mac){
     return static_cast<BridgeRouteEntry *>(FindActiveEntryNoLock(&entry));
 }
 
+BridgeRouteEntry *BridgeAgentRouteTable::FindRoute(const MacAddress &mac,
+                                                   Peer::Type peer) {
+    BridgeRouteEntry entry(vrf_entry(), mac, peer, false);
+    return static_cast<BridgeRouteEntry *>(FindActiveEntry(&entry));
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // BridgeAgentRouteTable utility methods to add/delete routes
 /////////////////////////////////////////////////////////////////////////////
