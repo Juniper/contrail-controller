@@ -296,7 +296,7 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         data.set_table_label(table_label());
         VrfTable *table = static_cast<VrfTable *>(get_table());
         stringstream rd;
-        rd << table->agent()->compute_node_ip().to_string() << ":" << vrf_id();
+        rd << table->agent()->compute_node_ip().to_string() << ":" << InstanceId();
         data.set_RD(rd.str());
 
         std::vector<VrfSandeshData> &list = 
@@ -365,6 +365,19 @@ void VrfEntry::CancelDeleteTimer() {
 
 void VrfEntry::ResyncRoutes() {
     route_resync_walker_.get()->UpdateRoutesInVrf(this);
+}
+
+int VrfEntry::InstanceId() const {
+    Agent *agent = (static_cast<VrfTable *>(get_table()))->agent();
+    bool is_tsn_or_ta_mode = (agent->tsn_enabled()) ||
+        (agent->tor_agent_enabled());
+    if (is_tsn_or_ta_mode == false) {
+        return id_;
+    }
+    if (vn() == NULL)
+        return kInvalidIndex;
+
+    return vn()->vnid();
 }
 
 void VrfEntry::RetryDelete() {
