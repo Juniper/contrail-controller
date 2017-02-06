@@ -23,6 +23,9 @@ class VizSession;
 class Collector;
 class SandeshStateMachineStats;
 
+int GetDeferTimeMSec(uint64_t event_time_usec,
+    uint64_t last_expiry_time_usec, uint64_t last_defer_time_usec);
+
 class Generator {
 public:
     virtual ~Generator() {}
@@ -45,6 +48,9 @@ private:
 
 class SandeshGenerator : public Generator {
 public:
+    const static int kInitialSmDeferTimeMSec = 300;
+    const static int kMaxSmDeferTimeMSec = 30000;
+
     typedef boost::tuple<std::string /* Source */, std::string /* Module */,
         std::string /* Instance id */, std::string /* Node type */> GeneratorId;
 
@@ -63,10 +69,8 @@ public:
     bool GetSandeshStateMachineDropLevel(std::string &drop_level) const;
     bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats,
                                 SandeshGeneratorBasicStats &sm_msg_stats) const;
-    bool GetDbStats(uint64_t *queue_count, uint64_t *enqueues,
-        std::string *drop_level, std::vector<SandeshStats> *vdropmstats) const;
-    bool IsStateMachineBackPressureTimerRunning() const;
-    void SendDbStatistics();
+    bool IsStateMachineDeferTimerRunning() const;
+    int GetStateMachineDeferTimeMSec() const;
 
     const std::string &instance_id() const { return instance_id_; }
     const std::string &node_type() const { return node_type_; }
@@ -106,14 +110,13 @@ private:
     bool DbConnectTimerExpired();
 
     void ProcessRulesCb(GenDb::DbOpResult::type dresult);
-    bool StateMachineBackPressureTimerExpired();
-    void CreateStateMachineBackPressureTimer();
-    void DeleteStateMachineBackPressureTimer();
-    void StartStateMachineBackPressureTimer();
-    void StopStateMachineBackPressureTimer();
-
-    static const uint32_t kWaitTimerSec = 10;
-    static const uint32_t kDbConnectTimerSec = 10;
+    bool StateMachineDeferTimerExpired();
+    void CreateStateMachineDeferTimer();
+    void DeleteStateMachineDeferTimer();
+    void StartStateMachineDeferTimer(int time_msec);
+    void StopStateMachineDeferTimer();
+    bool IsStateMachineDeferTimerRunningUnlocked() const;
+    int GetStateMachineDeferMSec() const;
 
     Collector * const collector_;
     SandeshStateMachine *state_machine_;
@@ -131,7 +134,9 @@ private:
     tbb::atomic<bool> disconnected_;
     DbHandlerPtr db_handler_;
     GenDb::GenDbIf::DbAddColumnCb process_rules_cb_;
-    Timer *sm_back_pressure_timer_;
+    Timer *sm_defer_timer_;
+    uint64_t sm_defer_timer_expiry_time_usec_;
+    int sm_defer_time_msec_;
     mutable tbb::mutex mutex_;
 };
 

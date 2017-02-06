@@ -6,7 +6,6 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
-#include <boost/assign/list_of.hpp>
 #include <iostream>
 #include <vector>
 
@@ -18,7 +17,6 @@
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_session.h"
-#include <sandesh/request_pipeline.h>
 
 #include "ruleeng.h"
 #include "protobuf_collector.h"
@@ -291,68 +289,4 @@ void VizCollector::SendDbStatistics() {
 bool VizCollector::GetCqlMetrics(cass::cql::Metrics *metrics) {
     DbHandlerPtr db_handler(db_initializer_->GetDbHandler());
     return db_handler->GetCqlMetrics(metrics);
-}
-
-class ShowCollectorServerHandler {
-public:
-    static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps, int stage, int instNum,
-            RequestPipeline::InstData *data) {
-        const ShowCollectorServerReq *req =
-            static_cast<const ShowCollectorServerReq *>(ps.snhRequest_.get());
-        ShowCollectorServerResp *resp = new ShowCollectorServerResp;
-        VizSandeshContext *vsc =
-            dynamic_cast<VizSandeshContext *>(req->client_context());
-        if (!vsc) {
-            LOG(ERROR, __func__ << ": Sandesh client context NOT PRESENT");
-            resp->Response();
-            return true;
-        }
-        // Socket statistics
-        SocketIOStats rx_socket_stats;
-        Collector *collector(vsc->Analytics()->GetCollector());
-        collector->GetRxSocketStats(&rx_socket_stats);
-        resp->set_rx_socket_stats(rx_socket_stats);
-        SocketIOStats tx_socket_stats;
-        collector->GetTxSocketStats(&tx_socket_stats);
-        resp->set_tx_socket_stats(tx_socket_stats);
-        // Collector statistics
-        resp->set_stats(vsc->Analytics()->GetCollector()->GetStats());
-        // SandeshGenerator summary info
-        std::vector<GeneratorSummaryInfo> generators;
-        collector->GetGeneratorSummaryInfo(&generators);
-        resp->set_generators(generators);
-        resp->set_num_generators(generators.size());
-        // CQL metrics if supported
-        cass::cql::Metrics cmetrics;
-        if (vsc->Analytics()->GetCqlMetrics(&cmetrics)) {
-            resp->set_cql_metrics(cmetrics);
-        }
-        // Get cumulative CollectorDbStats
-        std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
-        GenDb::DbErrors dbe;
-        DbHandlerPtr db_handler(vsc->Analytics()->GetDbHandler());
-        db_handler->GetCumulativeStats(&vdbti, &dbe, &vstats_dbti);
-        resp->set_table_info(vdbti);
-        resp->set_errors(dbe);
-        resp->set_statistics_table_info(vstats_dbti);
-        // Send the response
-        resp->set_context(req->context());
-        resp->Response();
-        return true;
-    }
-};
-
-void ShowCollectorServerReq::HandleRequest() const {
-    RequestPipeline::PipeSpec ps(this);
-
-    // Request pipeline has single stage to collect neighbor config info
-    // and respond to the request
-    RequestPipeline::StageSpec s1;
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    s1.taskId_ = scheduler->GetTaskId("collector::ShowCommand");
-    s1.cbFn_ = ShowCollectorServerHandler::CallbackS1;
-    s1.instances_.push_back(0);
-    ps.stages_ = boost::assign::list_of(s1);
-    RequestPipeline rp(ps);
 }
