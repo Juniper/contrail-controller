@@ -183,6 +183,7 @@ public:
     void ResyncRoutes();
     bool IdentifyBgpRoutersServiceIp(const IpAddress &ip_address,
                                      bool *is_dns, bool *is_gateway) const;
+    int vnid() const {return vnid_;}
 
 private:
     friend class VnTable;
@@ -263,6 +264,7 @@ public:
                                      bool *resync_routes,
                                      VnData *data,
                                      VnEntry *vn);
+    int GetCfgVnId(autogen::VirtualNetwork *cfg_vn);
 
 private:
     static VnTable *vn_table_;
