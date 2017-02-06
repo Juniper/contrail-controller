@@ -415,6 +415,267 @@ class TestCrud(test_case.ApiServerTestCase):
         if user_cred_read.password != '**Password Hidden**':
             raise Exception("ERROR: physical-router: password should be hidden")
        #end test_physical_router_credentials
+
+    def test_bridge_domain_link_to_multiple_vn(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        vn2_name = self.id() + '-vn-2'
+        vn2 = VirtualNetwork(vn2_name)
+        logger.info('Creating VN %s', vn2_name)
+        self._vnc_lib.virtual_network_create(vn2)
+
+        bd_name = self.id() + '-bd'
+        bd = BridgeDomain(bd_name)
+        bd.set_isid(200200);
+        logger.info('Creating Bridge Domain %s', bd_name)
+        self._vnc_lib.bridge_domain_create(bd)
+
+        # link bridge domain to a virtual network
+        vn1.add_bridge_domain(bd);
+        self._vnc_lib.virtual_network_update(vn1)
+
+        # Linking bridge domain to another virtual network should fail
+        vn2.add_bridge_domain(bd);
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_update(vn2)
+        # end test_bridge_domain_link_to_multiple_vn
+
+    def test_bridge_domain_with_null_isid_to_vn(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        bd_name = self.id() + '-bd'
+        bd = BridgeDomain(bd_name)
+        logger.info('Creating Bridge Domain %s', bd_name)
+        self._vnc_lib.bridge_domain_create(bd)
+
+        # Linking bridge domain to virtual network should fail if isid is not
+        # configured on bridge domain
+        vn1.add_bridge_domain(bd);
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_update(vn1)
+
+        bd.set_isid(200200)
+        self._vnc_lib.bridge_domain_update(bd)
+
+        vn1.add_bridge_domain(bd);
+        self._vnc_lib.virtual_network_update(vn1)
+        # end test_bridge_domain_with_null_isid_to_vn
+
+    def test_bridge_domain_with_null_isid_to_vmi(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        vmi_name = self.id() + '-port'
+        vmi = VirtualMachineInterface(vmi_name, parent_obj=Project())
+        vmi.add_virtual_network(vn1)
+        logger.info('Creating port %s', vmi_name)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        bd_name = self.id() + '-bd'
+        bd = BridgeDomain(bd_name)
+        logger.info('Creating Bridge Domain %s', bd_name)
+        self._vnc_lib.bridge_domain_create(bd)
+
+        # Linking bridge domain to virtual machine interface should fail if
+        # isid is not configured on bridge domain
+        bd_ref_data = BridgeDomainMembershipType();
+        bd_ref_data.set_vlan_tag(0);
+
+        vmi.add_bridge_domain(bd, bd_ref_data);
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        bd.set_isid(200200)
+        self._vnc_lib.bridge_domain_update(bd)
+
+        vmi.add_bridge_domain(bd, bd_ref_data);
+        self._vnc_lib.virtual_machine_interface_update(vmi)
+        # end test_bridge_domain_with_null_isid_to_vmi
+
+    def test_bridge_domain_update_to_null_isid_with_vmi(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        vmi_name = self.id() + '-port'
+        logger.info('Creating port %s', vmi_name)
+        vmi = VirtualMachineInterface(vmi_name, parent_obj=Project())
+        vmi.add_virtual_network(vn1)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        bd_name = self.id() + '-bd'
+        bd = BridgeDomain(bd_name)
+        logger.info('Creating Bridge Domain %s', bd_name)
+        self._vnc_lib.bridge_domain_create(bd)
+
+        # Linking bridge domain to virtual machine interface should fail if
+        # isid is not configured on bridge domain
+        bd_ref_data = BridgeDomainMembershipType();
+        bd_ref_data.set_vlan_tag(0);
+
+        vmi.add_bridge_domain(bd, bd_ref_data);
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        bd.set_isid(200200)
+        self._vnc_lib.bridge_domain_update(bd)
+
+        vmi.add_bridge_domain(bd, bd_ref_data);
+        self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        # Bridge domain update should fail if VMI is referring to it
+        bd.set_isid(0)
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.bridge_domain_update(bd)
+        # end test_bridge_domain_update_to_null_isid_with_vmi
+
+    def test_bridge_domain_update_to_null_isid_with_vn(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        bd_name = self.id() + '-bd'
+        bd = BridgeDomain(bd_name)
+        logger.info('Creating Bridge Domain %s', bd_name)
+        self._vnc_lib.bridge_domain_create(bd)
+
+        # Linking bridge domain to virtual network should fail if isid is not
+        # configured on bridge domain
+        vn1.add_bridge_domain(bd);
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_update(vn1)
+
+        bd.set_isid(200200)
+        self._vnc_lib.bridge_domain_update(bd)
+
+        vn1.add_bridge_domain(bd);
+        self._vnc_lib.virtual_network_update(vn1)
+
+        # Bridge domain update should fail if VN is referring to it
+        bd.set_isid(0)
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.bridge_domain_update(bd)
+        # end test_bridge_domain_update_to_null_isid_with_vn
+
+    def test_bridge_domain_update_to_non_null_isid_with_vmi(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        vmi_name = self.id() + '-port'
+        logger.info('Creating port %s', vmi_name)
+        vmi = VirtualMachineInterface(vmi_name, parent_obj=Project())
+        vmi.add_virtual_network(vn1)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        bd_name = self.id() + '-bd'
+        bd = BridgeDomain(bd_name)
+        logger.info('Creating Bridge Domain %s', bd_name)
+        self._vnc_lib.bridge_domain_create(bd)
+
+        # Linking bridge domain to virtual machine interface should fail if
+        # isid is not configured on bridge domain
+        bd_ref_data = BridgeDomainMembershipType();
+        bd_ref_data.set_vlan_tag(0);
+
+        vmi.add_bridge_domain(bd, bd_ref_data);
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        bd.set_isid(200200)
+        self._vnc_lib.bridge_domain_update(bd)
+
+        vmi.add_bridge_domain(bd, bd_ref_data);
+        self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        # ISID can't be updated on bridge domain with VMI referring to it
+        bd.set_isid(300300)
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.bridge_domain_update(bd)
+        # end test_bridge_domain_update_to_non_null_isid_with_vmi
+
+    def test_bridge_domain_update_to_non_null_isid_with_vn(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        bd_name = self.id() + '-bd'
+        bd = BridgeDomain(bd_name)
+        logger.info('Creating Bridge Domain %s', bd_name)
+        self._vnc_lib.bridge_domain_create(bd)
+
+        # Linking bridge domain to virtual network should fail if isid is not
+        # configured on bridge domain
+        vn1.add_bridge_domain(bd);
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_update(vn1)
+
+        bd.set_isid(200200)
+        self._vnc_lib.bridge_domain_update(bd)
+
+        vn1.add_bridge_domain(bd);
+        self._vnc_lib.virtual_network_update(vn1)
+
+        # ISID can't be updated on bridge domain with VN referring to it
+        bd.set_isid(300300)
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.bridge_domain_update(bd)
+        # end test_bridge_domain_update_to_non_null_isid_with_vn
+
+    def test_bridge_domain_with_vmi_ref_multiple_bd(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
+
+        vmi_name = self.id() + '-port'
+        logger.info('Creating port %s', vmi_name)
+        vmi = VirtualMachineInterface(vmi_name, parent_obj=Project())
+        vmi.add_virtual_network(vn1)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+
+        bd1_name = self.id() + '-bd-1'
+        bd1 = BridgeDomain(bd1_name)
+        bd1.set_isid(200200)
+        logger.info('Creating Bridge Domain %s', bd1_name)
+        self._vnc_lib.bridge_domain_create(bd1)
+
+        bd2_name = self.id() + '-bd-2'
+        bd2 = BridgeDomain(bd2_name)
+        bd2.set_isid(300300)
+        logger.info('Creating Bridge Domain %s', bd2_name)
+        self._vnc_lib.bridge_domain_create(bd2)
+
+        bd_ref_data1 = BridgeDomainMembershipType();
+        bd_ref_data1.set_vlan_tag(0);
+
+        # VMI is referring to two bridge domain(bd1 and bd2) for vlan tag = 0
+        vmi.add_bridge_domain(bd1, bd_ref_data1);
+        vmi.add_bridge_domain(bd2, bd_ref_data1);
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        # Link the VMI to two bridge domain for different vlan tags(0, 1)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi.uuid)
+        bd_ref_data1 = BridgeDomainMembershipType(vlan_tag=1);
+        bd_ref_data2 = BridgeDomainMembershipType(vlan_tag=2);
+        vmi_obj.add_bridge_domain(bd1, bd_ref_data1);
+        vmi_obj.add_bridge_domain(bd2, bd_ref_data2);
+        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        # end test_bridge_domain_with_vmi_ref_multiple_bd
+
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
