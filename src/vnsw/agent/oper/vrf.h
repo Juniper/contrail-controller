@@ -171,6 +171,7 @@ public:
         allow_route_add_on_deleted_vrf_ = val;
     }
     InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr) const;
+    int RDInstanceId() const;
 
     uint32_t isid() const {
         return isid_;
