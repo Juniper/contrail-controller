@@ -106,7 +106,7 @@ void TxL2Packet(int ifindex, const char *smac, const char *dmac,
 }
 
 TEST_F(MacAgingTest, Test1) {
-    uint32_t timeout1 = 100 * 1000;
+    uint32_t timeout1 = 1000 * 1000;//1 second timeout
     MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, 0x33);
 
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
@@ -114,7 +114,8 @@ TEST_F(MacAgingTest, Test1) {
                "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
     client->WaitForIdle();
 
-    const VrfEntry *vrf = VrfGet("vrf1");
+    VrfEntry *vrf = VrfGet("vrf1");
+    vrf->set_mac_aging_time(1);
     uint32_t table_id = agent_->mac_learning_proto()->Hash(vrf->vrf_id(), smac);
     MacLearningPartition *table = agent_->mac_learning_proto()->Find(table_id);
     table->aging_partition()->Find(vrf->vrf_id())->set_timeout(100);
@@ -126,8 +127,14 @@ TEST_F(MacAgingTest, Test1) {
 }
 
 TEST_F(MacAgingTest, Test2) {
-    uint32_t timeout1 = 100 * 1000; //100 ms
+    uint32_t timeout1 = 1000 * 1000; //1 second
     MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, 0x33);
+
+    VrfEntry *vrf1 = VrfGet("vrf1");
+    VrfEntry *vrf2 = VrfGet("vrf2");
+
+    vrf1->set_mac_aging_time(1);
+    vrf2->set_mac_aging_time(2);
 
     const VmInterface *intf1 = static_cast<const VmInterface *>(VmPortGet(1));
     const VmInterface *intf2 = static_cast<const VmInterface *>(VmPortGet(3));
@@ -137,28 +144,14 @@ TEST_F(MacAgingTest, Test2) {
             "1.1.1.1", "1.1.1.11", 1, 100, intf2->vrf()->vrf_id(), 1, 2);
     client->WaitForIdle();
 
-    const VrfEntry *vrf1 = VrfGet("vrf1");
-    uint32_t table_id = agent_->mac_learning_proto()->Hash(vrf1->vrf_id(), smac);
-    MacLearningPartition *table1 = agent_->mac_learning_proto()->Find(table_id);
-
-    const VrfEntry *vrf2 = VrfGet("vrf2");
-    uint32_t table_id2 = agent_->mac_learning_proto()->Hash(vrf2->vrf_id(), smac);
-    MacLearningPartition *table2 = agent_->mac_learning_proto()->Find(table_id2);
-
-    //Set timeout to 100 msec
-    table1->aging_partition()->Find(vrf1->vrf_id())->set_timeout(100);
-    table2->aging_partition()->Find(vrf2->vrf_id())->set_timeout(1000);
-
     EXPECT_TRUE(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) != NULL);
     EXPECT_TRUE(EvpnRouteGet("vrf2", smac, Ip4Address(0), 0) != NULL);
 
     usleep(timeout1);
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL));
-    usleep(timeout1);
     EXPECT_TRUE(EvpnRouteGet("vrf2", smac, Ip4Address(0), 0) != NULL);
 
-    table2->aging_partition()->Find(vrf2->vrf_id())->set_timeout(100);
     usleep(timeout1);
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (EvpnRouteGet("vrf2", smac, Ip4Address(0), 0) == NULL));
@@ -171,39 +164,38 @@ TEST_F(MacAgingTest, Test3) {
                "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
     client->WaitForIdle();
 
-    const VrfEntry *vrf = VrfGet("vrf1");
+    VrfEntry *vrf = VrfGet("vrf1");
     uint32_t table_id = agent_->mac_learning_proto()->Hash(vrf->vrf_id(), smac);
     MacLearningPartition *table = agent_->mac_learning_proto()->Find(table_id);
 
     MacAgingTable *aging_table = table->aging_partition()->Find(vrf->vrf_id());
 
     //Set aging timeout to 1 second
-    aging_table->set_timeout(1000);
+    vrf->set_mac_aging_time(1);
 
-    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(1000) == 200);
+    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(1000) == 1000);
     EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(100) ==
                 MacAgingTable::kMinEntriesPerScan);
+    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(10000) == 10000);
+    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(5000) == 5000);
+    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(4639) == 4639);
+
+    vrf->set_mac_aging_time(5);
+    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(1000) == 200);
+    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(100) ==
+            MacAgingTable::kMinEntriesPerScan);
     EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(10000) == 2000);
     EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(5000) == 1000);
     EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(4639) == 4639/5);
 
-    aging_table->set_timeout(5000);
-    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(1000) ==
-                MacAgingTable::kMinEntriesPerScan);
-    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(100) ==
-            MacAgingTable::kMinEntriesPerScan);
-    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(10000) == 400);
-    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(5000) == 200);
-    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(4639) == 4639/25);
-
     //Timeout of 3 mins
-    aging_table->set_timeout(180000);
-    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(100000) == 1000/9);
+    vrf->set_mac_aging_time(180);
+    EXPECT_TRUE(aging_table->CalculateEntriesPerIteration(100000) == 100000/180);
 }
 
 TEST_F(MacAgingTest, Test4) {
     uint32_t timeout1 = 100; //100 ms
-    const VrfEntry *vrf1 = VrfGet("vrf1");
+    VrfEntry *vrf1 = VrfGet("vrf1");
     MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, 0x33);
 
     const VmInterface *intf1 = static_cast<const VmInterface *>(VmPortGet(1));
@@ -211,10 +203,7 @@ TEST_F(MacAgingTest, Test4) {
                "1.1.1.1", "1.1.1.11", 1, 100, intf1->vrf()->vrf_id(), 1, 1);
     client->WaitForIdle();
 
-    uint32_t table_id = agent_->mac_learning_proto()->Hash(vrf1->vrf_id(), smac);
-    MacLearningPartition *table1 = agent_->mac_learning_proto()->Find(table_id);
-    //Set timeout to 100 msec
-    table1->aging_partition()->Find(vrf1->vrf_id())->set_timeout(100);
+    vrf1->set_mac_aging_time(1);
 
     EXPECT_TRUE(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) != NULL);
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();

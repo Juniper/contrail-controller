@@ -68,7 +68,7 @@ public:
      }
      void Change();
      void Delete(bool set_delete);
-     virtual void TryDelete();
+     virtual bool TryDelete();
 
      void set_tree(MacLearningMgmtDBTree *tree) {
          tree_ = tree;
@@ -96,6 +96,9 @@ public:
          return Compare(rhs);
      }
 
+     MacLearningMgmtDBTree* tree() const {
+         return tree_;
+     }
 protected:
      Type type_;
      const DBEntry* db_entry_;
@@ -117,7 +120,7 @@ class MacLearningMgmtVrfEntry : public MacLearningMgmtDBEntry {
 public:
      MacLearningMgmtVrfEntry(const VrfEntry *vrf);
      virtual ~MacLearningMgmtVrfEntry() {}
-     virtual void TryDelete();
+     virtual bool TryDelete();
 
 private:
      DISALLOW_COPY_AND_ASSIGN(MacLearningMgmtVrfEntry);
@@ -133,7 +136,7 @@ public:
        return false;
    }
 
-   virtual void TryDelete();
+   virtual bool TryDelete();
    virtual bool Compare(const MacLearningMgmtDBEntry *rhs) const {
        const MacLearningMgmtRouteEntry *rhs_rt =
            static_cast<const MacLearningMgmtRouteEntry *>(rhs);
@@ -186,6 +189,7 @@ public:
     MacLearningMgmtManager* mac_learning_mac_manager() {
         return mac_learning_mac_manager_;
     }
+    void TryDelete(MacLearningMgmtDBEntry *db_entry);
 protected:
     Tree tree_;
     MacLearningMgmtManager *mac_learning_mac_manager_;
@@ -263,6 +267,9 @@ public:
     }
 
     bool IsVrfRouteEmpty(const std::string &vrf_name);
+    Agent *agent() const {
+        return agent_;
+    }
 private:
     Agent *agent_;
     MacLearningNodeTree mac_learning_node_tree_;
