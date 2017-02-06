@@ -508,6 +508,11 @@ bool InterfaceNH::Change(const DBRequest *req) {
         ret = true;
     }
 
+    if (layer2_control_word_ != data->layer2_control_word_) {
+        layer2_control_word_ = data->layer2_control_word_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -517,12 +522,14 @@ const uuid &InterfaceNH::GetIfUuid() const {
 
 static void AddInterfaceNH(const uuid &intf_uuid, const MacAddress &dmac,
                           uint8_t flags, bool policy, const string vrf_name,
-                          bool learning_enabled, bool etree_leaf) {
+                          bool learning_enabled, bool etree_leaf,
+                          bool layer2_control_word) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InterfaceNHKey
                   (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
                    policy, flags, dmac));
-    req.data.reset(new InterfaceNHData(vrf_name, learning_enabled, etree_leaf));
+    req.data.reset(new InterfaceNHData(vrf_name, learning_enabled,
+                                       etree_leaf, layer2_control_word));
     Agent::GetInstance()->nexthop_table()->Process(req);
 }
 
@@ -533,9 +540,9 @@ void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
                                         const string &vrf_name,
                                         bool learning_enabled) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, true, vrf_name,
-                   learning_enabled, false);
+                   learning_enabled, false, false);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name,
-                   learning_enabled, false);
+                   learning_enabled, false, false);
 }
 
 void InterfaceNH::DeleteL3InterfaceNH(const uuid &intf_uuid,
@@ -548,11 +555,12 @@ void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
                                         const MacAddress &dmac,
                                         const string &vrf_name,
                                         bool learning_enabled,
-                                        bool etree_leaf) {
+                                        bool etree_leaf,
+                                        bool layer2_control_word) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::BRIDGE, false, vrf_name,
-                   learning_enabled, etree_leaf);
+                   learning_enabled, etree_leaf, layer2_control_word);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::BRIDGE, true, vrf_name,
-                   learning_enabled, etree_leaf);
+                   learning_enabled, etree_leaf, layer2_control_word);
 }
 
 void InterfaceNH::DeleteL2InterfaceNH(const uuid &intf_uuid,
@@ -566,7 +574,7 @@ void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
                                                const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, (InterfaceNHFlags::INET4 |
                                      InterfaceNHFlags::MULTICAST), false,
-                   vrf_name, false, true);
+                   vrf_name, false, true, false);
 }
 
 void InterfaceNH::DeleteMulticastVmInterfaceNH(const uuid &intf_uuid) {
@@ -751,6 +759,11 @@ bool VrfNH::Change(const DBRequest *req) {
 
     if (learning_enabled_ != data->learning_enabled_) {
         learning_enabled_ = data->learning_enabled_;
+        ret = true;
+    }
+
+    if (layer2_control_word_ != data->layer2_control_word_) {
+        layer2_control_word_ = data->layer2_control_word_;
         ret = true;
     }
 
@@ -1447,6 +1460,11 @@ bool CompositeNH::Change(const DBRequest* req) {
         changed = true;
     }
 
+    if (data && layer2_control_word_ != data->layer2_control_word_) {
+        layer2_control_word_ = data->layer2_control_word_;
+        changed = true;
+    }
+
     ComponentNHList component_nh_list;
     ComponentNHKeyList::const_iterator it = component_nh_key_list_.begin();
     for (;it != component_nh_key_list_.end(); it++) {
@@ -1775,7 +1793,8 @@ CompositeNH *CompositeNH::ChangeTunnelType(Agent *agent,
                                                      vrf_->GetName());
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(comp_nh_key);
-    nh_req.data.reset(new CompositeNHData());
+    nh_req.data.reset(new CompositeNHData(pbb_nh_, learning_enabled_,
+                                          layer2_control_word_));
     agent->nexthop_table()->Process(nh_req);
 
     CompositeNH *comp_nh = static_cast<CompositeNH *>(
@@ -2628,6 +2647,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_vrf(vrf->GetVrf()->GetName());
             data.set_vxlan_flag(vrf->vxlan_nh());
             data.set_flood_unknown_unicast(vrf->flood_unknown_unicast());
+            data.set_layer2_control_word(vrf->layer2_control_word());
             break;
         }
         case INTERFACE: {
@@ -2644,6 +2664,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                 data.set_mcast("enabled");
             else
                 data.set_mcast("disabled");
+            data.set_layer2_control_word(itf->layer2_control_word());
             break;
         }
         case TUNNEL: {
@@ -2698,6 +2719,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
         case COMPOSITE: {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>(this);
             ExpandCompositeNextHop(comp_nh, data);
+            data.set_layer2_control_word(comp_nh->layer2_control_word());
             break;
         }
 

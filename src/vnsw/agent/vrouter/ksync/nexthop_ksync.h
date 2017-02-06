@@ -113,6 +113,7 @@ private:
     bool learning_enabled_;
     bool need_pbb_tunnel_;
     bool etree_leaf_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 

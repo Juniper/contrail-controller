@@ -114,6 +114,10 @@ public:
         return true;
     }
 
+    bool layer2_control_word() const {
+        return layer2_control_word_;
+    }
+
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
     InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key)const;
@@ -144,7 +148,8 @@ public:
     InetUnicastAgentRouteTable *GetInet6UnicastRouteTable() const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const;
     void CreateTableLabel(bool learning_enabled, bool l2,
-                          bool flod_unknown_unicast);
+                          bool flod_unknown_unicast,
+                          bool layer2_control_word);
     bool AllRouteTableDeleted() const;
     bool RouteTableDeleted(uint8_t table_type) const;
     void SetRouteTableDeleted(uint8_t table_type);
@@ -199,6 +204,7 @@ private:
     uint32_t isid_;
     tbb::atomic<uint32_t> mac_aging_time_;
     bool learning_enabled_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 

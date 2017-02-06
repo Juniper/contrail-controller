@@ -280,6 +280,11 @@ void MulticastHandler::AddBridgeDomain(DBTablePartBase *partition,
         state->pbb_etree_enabled_ = bd->pbb_etree_enabled();
         ChangePbbEtreeMode(obj, state->pbb_etree_enabled_);
     }
+
+    if (state->layer2_control_word_ != bd->layer2_control_word()) {
+        state->layer2_control_word_ = bd->layer2_control_word();
+        Resync(obj);
+    }
 }
 
 void MulticastHandler::ChangeLearningMode(MulticastGroupObject *obj,

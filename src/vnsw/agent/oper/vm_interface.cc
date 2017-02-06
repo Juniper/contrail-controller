@@ -81,7 +81,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     logical_interface_(nil_uuid()), nova_ip_addr_(0), nova_ip6_addr_(),
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
     ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false),
-    learning_enabled_(false), etree_leaf_(false) {
+    learning_enabled_(false), etree_leaf_(false), layer2_control_word_(false) {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -120,7 +120,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()),
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
     hc_instance_set_(), service_health_check_ip_(), is_vn_qos_config_(false),
-    learning_enabled_(false), etree_leaf_(false) {
+    learning_enabled_(false), etree_leaf_(false), layer2_control_word_(false) {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -1976,7 +1976,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     bool policy_change = (policy_enabled_ != old_policy);
 
     if (vrf_ && vmi_type() == GATEWAY) {
-        vrf_->CreateTableLabel(false, false, false);
+        vrf_->CreateTableLabel(false, false, false, false);
     }
 
     //Update common prameters
@@ -2288,6 +2288,17 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             flood_unknown_unicast_ = flood_unknown_unicast;
             ret = true;
         }
+
+        bool layer2_control_word = false;
+        if (vn) {
+            layer2_control_word = vn->layer2_control_word();
+        }
+        if (layer2_control_word_ != layer2_control_word) {
+            layer2_control_word_ = layer2_control_word;
+            *etree_leaf_mode_changed = true;
+            ret = true;
+        }
+
 
         AgentQosConfigTable *qos_table = table->agent()->qos_config_table();
         AgentQosConfigKey qos_key(data->qos_config_uuid_);
@@ -3348,7 +3359,8 @@ void VmInterface::UpdateL2NextHop(bool force_update) {
         InterfaceNH::CreateL2VmInterfaceNH(GetUuid(),
                                            vm_mac_,
                                            vrf_->GetName(),
-                                           learning_enabled_, etree_leaf_);
+                                           learning_enabled_, etree_leaf_,
+                                           layer2_control_word_);
         InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                               GetUuid(), ""),
                            true, InterfaceNHFlags::BRIDGE, vm_mac_);

@@ -1019,18 +1019,22 @@ private:
 class InterfaceNHData : public NextHopData {
 public:
     InterfaceNHData(const string vrf_name) :
-        NextHopData(), vrf_key_(vrf_name), relaxed_policy_(false) { }
+        NextHopData(), vrf_key_(vrf_name), relaxed_policy_(false),
+        layer2_control_word_(false) { }
     InterfaceNHData(const string vrf_name, bool relaxed_policy) :
-        NextHopData(), vrf_key_(vrf_name), relaxed_policy_(relaxed_policy) { }
-    InterfaceNHData(const string vrf_name, bool learning_enabled, bool etree_leaf):
+        NextHopData(), vrf_key_(vrf_name), relaxed_policy_(relaxed_policy),
+        layer2_control_word_(false) { }
+    InterfaceNHData(const string vrf_name, bool learning_enabled, bool etree_leaf,
+                    bool layer2_control_word):
         NextHopData(learning_enabled, etree_leaf), vrf_key_(vrf_name),
-        relaxed_policy_(false) {}
+        relaxed_policy_(false), layer2_control_word_(layer2_control_word) {}
     virtual ~InterfaceNHData() { }
 
 private:
     friend class InterfaceNH;
     VrfKey vrf_key_;
     bool relaxed_policy_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceNHData);
 };
 
@@ -1075,7 +1079,8 @@ public:
                                       const MacAddress &dmac,
                                       const string &vrf_name,
                                       bool learning_enabled,
-                                      bool etree_leaf);
+                                      bool etree_leaf,
+                                      bool layer2_control_word);
     static void DeleteL2InterfaceNH(const uuid &intf_uuid,
                                     const MacAddress &mac);
     static void CreateL3VmInterfaceNH(const uuid &intf_uuid,
@@ -1117,6 +1122,10 @@ public:
         return false;
     }
 
+    bool layer2_control_word() const {
+        return layer2_control_word_;
+    }
+
 private:
     InterfaceRef interface_;
     uint8_t flags_;
@@ -1124,6 +1133,7 @@ private:
     VrfEntryRef vrf_; 
     bool delete_on_zero_refcount_;
     bool relaxed_policy_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceNH);
 };
 
@@ -1158,13 +1168,16 @@ private:
 
 class VrfNHData : public NextHopData {
 public:
-    VrfNHData(bool flood_unknown_unicast, bool learning_enabled):
+    VrfNHData(bool flood_unknown_unicast, bool learning_enabled,
+              bool layer2_control_word):
               NextHopData(learning_enabled, true),
-              flood_unknown_unicast_(flood_unknown_unicast) {}
+              flood_unknown_unicast_(flood_unknown_unicast),
+              layer2_control_word_(layer2_control_word) {}
     virtual ~VrfNHData() { }
 private:
     friend class VrfNH;
     bool flood_unknown_unicast_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(VrfNHData);
 };
 
@@ -1203,11 +1216,16 @@ public:
         return false;
     }
 
+    bool layer2_control_word() const {
+        return layer2_control_word_;
+    }
+
 private:
     VrfEntryRef vrf_;
     // NH created by VXLAN
     bool vxlan_nh_;
     bool flood_unknown_unicast_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(VrfNH);
 };
 
@@ -1464,12 +1482,15 @@ private:
 
 class CompositeNHData : public NextHopData {
 public:
-    CompositeNHData() : NextHopData(), pbb_nh_(false) {}
-    CompositeNHData(bool pbb_nh, bool learning_enabled) :
-        NextHopData(learning_enabled, true), pbb_nh_(pbb_nh) {}
+    CompositeNHData() : NextHopData(), pbb_nh_(false),
+        layer2_control_word_(false) {}
+    CompositeNHData(bool pbb_nh, bool learning_enabled, bool layer2_control_word) :
+        NextHopData(learning_enabled, true), pbb_nh_(pbb_nh),
+        layer2_control_word_(layer2_control_word) {}
 private:
     friend class CompositeNH;
     bool pbb_nh_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNHData);
 };
 
@@ -1603,6 +1624,10 @@ public:
    bool pbb_nh() const {
        return pbb_nh_;
    }
+
+   bool layer2_control_word() const {
+       return layer2_control_word_;
+   }
 private:
     void CreateComponentNH(Agent *agent, TunnelType::Type type) const;
     void ChangeComponentNHKeyTunnelType(ComponentNHKeyList &component_nh_list,
@@ -1613,6 +1638,7 @@ private:
     VrfEntryRef vrf_;
     EcmpHashFields comp_ecmp_hash_fields_;
     bool pbb_nh_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(CompositeNH);
 };
 

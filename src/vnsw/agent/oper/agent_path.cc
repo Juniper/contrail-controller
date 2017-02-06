@@ -40,7 +40,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
     ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
-    peer_sequence_number_(0), etree_leaf_(false) {
+    peer_sequence_number_(0), etree_leaf_(false), layer2_control_word_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -470,6 +470,10 @@ bool EvpnDerivedPathData::AddChangePathExtended(Agent *agent, AgentPath *path,
 
     if (evpn_path->etree_leaf() != reference_path_->etree_leaf()) {
         evpn_path->set_etree_leaf(reference_path_->etree_leaf());
+        ret = true;
+    }
+
+    if (evpn_path->ResyncControlWord(rt)) {
         ret = true;
     }
 
@@ -978,7 +982,7 @@ bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                              vxlan_id_,
                                              label_,
                                              tunnel_type_,
-                                             nh);
+                                             nh, rt);
     return ret;
 }
 
@@ -989,7 +993,8 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
                                         uint32_t vxlan_id,
                                         uint32_t label,
                                         uint32_t tunnel_type,
-                                        NextHop *nh) {
+                                        NextHop *nh,
+                                        const AgentRoute *rt) {
     VnListType dest_vn_list;
     dest_vn_list.insert(vn_name);
     path->set_dest_vn_list(dest_vn_list);
@@ -1013,6 +1018,8 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
     }
 
     path->ChangeNH(agent, nh);
+
+    path->ResyncControlWord(rt);
 
     return true;
 }
@@ -1333,6 +1340,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     }
     pdata.set_stale(is_stale);
     pdata.set_etree_leaf(etree_leaf());
+    pdata.set_layer2_control_word(layer2_control_word());
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {
@@ -1497,3 +1505,17 @@ void AgentPath::UpdateEcmpHashFields(const Agent *agent,
     }
 }
 
+bool AgentPath::ResyncControlWord(const AgentRoute *rt) {
+    const BridgeRouteEntry *bridge_rt =
+        dynamic_cast<const BridgeRouteEntry *>(rt);
+    if (!bridge_rt || rt->vrf() == NULL) {
+        return false;
+    }
+
+    if (layer2_control_word() != bridge_rt->vrf()->layer2_control_word()) {
+        set_layer2_control_word(bridge_rt->vrf()->layer2_control_word());
+        return true;
+    }
+
+    return false;
+}

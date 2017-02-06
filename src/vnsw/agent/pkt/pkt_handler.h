@@ -308,6 +308,8 @@ private:
 
     int ParseMPLSoGRE(PktInfo *pkt_info, uint8_t *pkt);
     int ParseMPLSoUDP(PktInfo *pkt_info, uint8_t *pkt);
+    int ParseControlWord(PktInfo *pkt_info, uint8_t *pkt,
+                         const MplsLabel *mpls);
     int ParseUDPTunnels(PktInfo *pkt_info, uint8_t *pkt);
     int ParseVxlan(PktInfo *pkt_info, uint8_t *pkt);
     int ParseUdp(PktInfo *pkt_info, uint8_t *pkt);

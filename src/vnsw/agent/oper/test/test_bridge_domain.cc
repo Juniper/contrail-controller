@@ -256,7 +256,6 @@ TEST_F(BridgeDomainTest, Test6) {
     client->WaitForIdle();
 }
 
-
 int main(int argc, char **argv) {
     GETUSERARGS();
 

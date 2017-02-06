@@ -514,6 +514,47 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
     return len;
 }
 
+int PktHandler::ParseControlWord(PktInfo *pkt_info, uint8_t *pkt,
+                                 const MplsLabel *mpls) {
+    uint32_t ret = 0;
+    if (mpls->IsFabricMulticastReservedLabel() == true) {
+        //Check if there is a control word
+        uint32_t *control_word = (uint32_t *)(pkt);
+        if (*control_word == kMulticastControlWord) {
+            pkt_info->l3_label = false;
+            ret += kMulticastControlWordSize + sizeof(VxlanHdr) +
+                   sizeof(udphdr) + sizeof(ip);
+        }
+    } else if (pkt_info->l3_label == false) {
+        bool layer2_control_word = false;
+        const InterfaceNH *intf_nh =
+            dynamic_cast<const InterfaceNH *>(mpls->nexthop());
+        if (intf_nh && intf_nh->layer2_control_word()) {
+            layer2_control_word = true;
+        }
+
+        const CompositeNH *comp_nh =
+            dynamic_cast<const CompositeNH *>(mpls->nexthop());
+        if (comp_nh && comp_nh->layer2_control_word()) {
+            layer2_control_word = true;
+        }
+
+        const VrfNH *vrf_nh =
+            dynamic_cast<const VrfNH *>(mpls->nexthop());
+        if (vrf_nh && vrf_nh->layer2_control_word()) {
+            layer2_control_word = true;
+        }
+
+        //Check if there is a control word
+        uint32_t *control_word = (uint32_t *)(pkt);
+        if (layer2_control_word && *control_word == kMulticastControlWord) {
+            ret += kMulticastControlWordSize;
+        }
+    }
+
+    return ret;
+}
+
 int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
     MplsHdr *hdr = (MplsHdr *)(pkt);
 
@@ -556,18 +597,7 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
         pkt_info->l3_label = false;
     }
 
-    if (mpls->IsFabricMulticastReservedLabel() == true) {
-        //Check if there is a control word
-        uint32_t *control_word = (uint32_t *)(pkt + ret);
-        if (*control_word == kMulticastControlWord) {
-            pkt_info->l3_label = false;
-            ret += kMulticastControlWordSize + sizeof(VxlanHdr) +
-                   sizeof(udphdr) + sizeof(ip);
-        } else {
-            pkt_info->l3_label = true;
-        }
-    }
-
+    ret += ParseControlWord(pkt_info, pkt + ret, mpls);
     return ret;
 }
 

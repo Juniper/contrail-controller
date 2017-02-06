@@ -1127,7 +1127,7 @@ void VnAddReq(int id, const char *name) {
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               name, ipam, vn_ipam_data, id,
                                               (id + 100), true, true, false,
-                                              false, false);
+                                              false, false, false);
     usleep(1000);
 }
 
@@ -1138,7 +1138,7 @@ void VnAddReq(int id, const char *name, int acl_id) {
                                               MakeUuid(acl_id),
                                               name, ipam, vn_ipam_data, id,
                                               (id + 100), true, true, false,
-                                              false, false);
+                                              false, false, false);
     usleep(1000);
 }
 
@@ -1149,7 +1149,7 @@ void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
                                               MakeUuid(acl_id), vrf_name, ipam,
                                               vn_ipam_data, id, (id + 100),
                                               true, true, false,
-                                              false, false);
+                                              false, false, false);
     usleep(1000);
 }
 
@@ -1159,7 +1159,7 @@ void VnAddReq(int id, const char *name, const char *vrf_name) {
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               vrf_name, ipam, vn_ipam_data, id,
                                               (id + 100), true, true, false,
-                                              false, false);
+                                              false, false, false);
     usleep(1000);
 }
 
@@ -1169,7 +1169,7 @@ void VnVxlanAddReq(int id, const char *name, uint32_t vxlan_id) {
     Agent::GetInstance()->vn_table()->AddVn(MakeUuid(id), name, nil_uuid(),
                                               name, ipam, vn_ipam_data, id,
                                               vxlan_id, true, true, false,
-                                              false, false);
+                                              false, false, false);
 }
 
 void VnDelReq(int id) {

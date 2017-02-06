@@ -49,7 +49,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     ecmp_hash_fieds_(entry->ecmp_hash_fieds_.HashFieldsToUse()),
     pbb_child_nh_(entry->pbb_child_nh_), isid_(entry->isid_),
     pbb_label_(entry->pbb_label_), learning_enabled_(entry->learning_enabled_),
-    need_pbb_tunnel_(entry->need_pbb_tunnel_), etree_leaf_(entry->etree_leaf_) {
+    need_pbb_tunnel_(entry->need_pbb_tunnel_), etree_leaf_(entry->etree_leaf_),
+    layer2_control_word_(entry->layer2_control_word_) {
     }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
@@ -61,7 +62,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
     vxlan_nh_(false), flood_unknown_unicast_(false),
     learning_enabled_(nh->learning_enabled()), need_pbb_tunnel_(false),
-    etree_leaf_ (false) {
+    etree_leaf_ (false), layer2_control_word_(false) {
 
     switch (type_) {
     case NextHop::ARP: {
@@ -524,6 +525,10 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             relaxed_policy_ = intf_nh->relaxed_policy();
             ret = true;
         }
+        if (layer2_control_word_ != intf_nh->layer2_control_word()) {
+            layer2_control_word_ = intf_nh->layer2_control_word();
+            ret = true;
+        }
         break;
     }
 
@@ -690,6 +695,11 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             need_pbb_tunnel_ = comp_nh->pbb_nh();
             ret = true;
         }
+
+        if (layer2_control_word_ != comp_nh->layer2_control_word()) {
+            layer2_control_word_ = comp_nh->layer2_control_word();
+            ret = true;
+        }
         break;
     }
 
@@ -712,6 +722,11 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
 
         if (flood_unknown_unicast_ != vrf_nh->flood_unknown_unicast()) {
             flood_unknown_unicast_ = vrf_nh->flood_unknown_unicast();
+            ret = true;
+        }
+
+        if (layer2_control_word_ != vrf_nh->layer2_control_word()) {
+            layer2_control_word_ = vrf_nh->layer2_control_word();
             ret = true;
         }
         break;
@@ -769,6 +784,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     if (learning_enabled_) {
         flags |= NH_FLAG_MAC_LEARN;
+    }
+
+    if (layer2_control_word_) {
+        flags |= NH_FLAG_L2_CONTROL_DATA;
     }
 
     if_ksync = interface();

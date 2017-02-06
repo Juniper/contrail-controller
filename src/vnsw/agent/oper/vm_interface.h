@@ -859,6 +859,14 @@ public:
         return pbb_interface_;
     }
 
+    bool layer2_control_word() const {
+        return layer2_control_word_;
+    }
+
+    void set_layer2_control_word(bool layer2_control_word) {
+        layer2_control_word_ = layer2_control_word;
+    }
+
     uint32_t GetIsid() const;
     uint32_t GetPbbVrf() const;
     uint32_t GetPbbLabel() const;
@@ -1120,6 +1128,7 @@ private:
     bool learning_enabled_;
     bool etree_leaf_;
     bool pbb_interface_;
+    bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

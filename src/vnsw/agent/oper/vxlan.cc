@@ -320,7 +320,8 @@ void VxLanTable::Create(uint32_t vxlan_id, const string &vrf_name,
         nh_req.data.reset(new CompositeNHData());
     } else {
         nh_req.key.reset(new VrfNHKey(vrf_name, false, true));
-        nh_req.data.reset(new VrfNHData(flood_unknown_unicast, learning_enable));
+        nh_req.data.reset(new VrfNHData(flood_unknown_unicast, learning_enable,
+                                        false));
     }
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VxLanIdKey(vxlan_id));
