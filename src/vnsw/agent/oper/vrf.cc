@@ -363,6 +363,19 @@ void VrfEntry::ResyncRoutes() {
     route_resync_walker_.get()->UpdateRoutesInVrf(this);
 }
 
+int VrfEntry::InstanceId() const {
+    Agent *agent = (static_cast<VrfTable *>(get_table()))->agent();
+    bool is_tsn_or_ta_mode = (agent->tsn_enabled()) ||
+        (agent->tor_agent_enabled());
+    if (is_tsn_or_ta_mode == false) {
+        return id_;
+    }
+    if (vn() == NULL)
+        return kInvalidIndex;
+
+    return vn()->vnid();
+}
+
 void VrfEntry::RetryDelete() {
     if (AllRouteTablesEmpty() == false)
         return;
