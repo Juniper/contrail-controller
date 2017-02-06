@@ -19,11 +19,18 @@
      description="structured syslog config related data"/>
 <xsd:element name="global-analytics-config-structured-syslog-config"
      description="structured syslog config related data"/>
+<xsd:element name="project-structured-syslog-config"
+     description="project specific structured syslog config related data"/>
+
 <!--#IFMAP-SEMANTICS-IDL
     Link('global-analytics-config-structured-syslog-config',
          'global-analytics-config', 'structured-syslog-config', ['has'],
          'optional', 'CRUD', 'List of structured-syslog-config that are
-          applicable to objects anchored under global-analytics-config.')-->
+          applicable to objects anchored under global-analytics-config.');
+    Link('project-structured-syslog-config',
+         'project', 'structured-syslog-config', ['has'],
+         'optional', 'CRUD', 'List of structured-syslog-config that are
+          applicable to objects anchored under project.')-->
 
 <xsd:element name="structured-syslog-hostname-record" type="ifmap:IdentityType"
      description="mapping Hostname to other entities"/>

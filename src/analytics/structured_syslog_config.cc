@@ -144,9 +144,20 @@ StructuredSyslogConfig::ApplicationRecordsHandler(rapidjson::Document &jdoc,
                     app_service_tags = ar["structured_syslog_app_service_tags"].GetString();
                 }
 
-                LOG(DEBUG, "Adding ApplicationRecord: " << name);
-                AddApplicationRecord(name, app_category, app_subcategory,
-                                        app_groups, app_risk, app_service_tags);
+                const rapidjson::Value& fq_name = ar["fq_name"];
+                std::string tenant_name = fq_name[1].GetString();
+                if (tenant_name.compare("default-global-analytics-config") == 0) {
+                    LOG(DEBUG, "Adding ApplicationRecord: " << name);
+                    AddApplicationRecord(name, app_category, app_subcategory,
+                                            app_groups, app_risk, app_service_tags);
+                }
+                else{
+                    std::string apprec_name;
+                    apprec_name =  tenant_name + '-' + name;
+                    LOG(DEBUG, "Adding TenantApplicationRecord: " << apprec_name);
+                    AddTenantApplicationRecord(apprec_name, app_category, app_subcategory,
+                                            app_groups, app_risk, app_service_tags);
+                }
         }
         Car_t::iterator cit = application_records_.begin();
         while (cit != application_records_.end()) {
@@ -156,6 +167,15 @@ StructuredSyslogConfig::ApplicationRecordsHandler(rapidjson::Document &jdoc,
                 application_records_.erase(dit);
             }
         }
+        Ctar_t::iterator ctit = tenant_application_records_.begin();
+        while (ctit != tenant_application_records_.end()) {
+            Ctar_t::iterator dtit = ctit++;
+            if (!dtit->second->GetandClearRefreshed()) {
+                LOG(DEBUG, "Erasing TenantApplicationRecord: " << dtit->second->name());
+                tenant_application_records_.erase(dtit);
+            }
+        }
+
         return;
     } else {
         cfgdb_connection_->RetryNextApi();
