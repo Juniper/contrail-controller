@@ -99,7 +99,8 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         instance_(session->GetSessionInstance()),
         process_rules_cb_(
             boost::bind(&SandeshGenerator::ProcessRulesCb, this, _1)),
-        sm_back_pressure_timer_(NULL) {
+        sm_back_pressure_timer_(NULL),
+        sm_back_pressure_count_(1) {
         //Use collector db_handler
         db_handler_ = global_db_handler;
         disconnected_ = false;
@@ -181,8 +182,8 @@ void SandeshGenerator::CreateStateMachineBackPressureTimer() {
         state_machine_->connection()->GetTaskId(), instance_);
 }
 
-void SandeshGenerator::StartStateMachineBackPressureTimer() {
-    sm_back_pressure_timer_->Start(Collector::kSmBackPressureTimeMSec,
+void SandeshGenerator::StartStateMachineBackPressureTimer(int time_msec) {
+    sm_back_pressure_timer_->Start(time_msec,
             boost::bind(
                 &SandeshGenerator::StateMachineBackPressureTimerExpired, this),
             boost::bind(&SandeshGenerator::TimerErrorHandler, this, _1, _2));
@@ -197,21 +198,45 @@ void SandeshGenerator::DeleteStateMachineBackPressureTimer() {
     sm_back_pressure_timer_ = NULL;
 }
 
-bool SandeshGenerator::IsStateMachineBackPressureTimerRunning() const {
-    tbb::mutex::scoped_lock lock(mutex_);
+bool SandeshGenerator::IsStateMachineBackPressureTimerRunningUnlocked() const {
     if (sm_back_pressure_timer_) {
         return sm_back_pressure_timer_->running();
     }
     return false;
 }
 
+bool SandeshGenerator::IsStateMachineBackPressureTimerRunning() const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return IsStateMachineBackPressureTimerRunningUnlocked();
+}
+
+int SandeshGenerator::GetStateMachineBackPressureTimeMSec() const {
+    return std::min(
+        static_cast<uint64_t>(Collector::kInitialSmBackPressureTimeMSec) *
+        static_cast<uint64_t>(sm_back_pressure_count_),
+        static_cast<uint64_t>(Collector::kMaxSmBackPressureTimeMSec));
+}
+
 void SandeshGenerator::ProcessRulesCb(GenDb::DbOpResult::type dresult) {
+    dresult = GenDb::DbOpResult::BACK_PRESSURE;
+    tbb::mutex::scoped_lock lock(mutex_);
     if (dresult == GenDb::DbOpResult::BACK_PRESSURE) {
-        tbb::mutex::scoped_lock lock(mutex_);
         if (state_machine_) {
             state_machine_->SetDeferDequeue(true);
-            StartStateMachineBackPressureTimer();
+            // Get time before incrementing sm_back_pressure_count
+            int sm_back_pressure_time_msec(
+                GetStateMachineBackPressureTimeMSec());
+            // Increment sm_back_pressure_count only if timer is not
+            // running to prevent the sm_back_pressure_count from
+            // incrementing more than once every timer expiry
+            if (!IsStateMachineBackPressureTimerRunningUnlocked()) {
+                sm_back_pressure_count_++;
+            }
+            StartStateMachineBackPressureTimer(sm_back_pressure_time_msec);
         }
+    }
+    if (dresult == GenDb::DbOpResult::OK) {
+        sm_back_pressure_count_ = 1;
     }
 }
 

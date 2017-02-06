@@ -106,11 +106,10 @@ private:
     bool StateMachineBackPressureTimerExpired();
     void CreateStateMachineBackPressureTimer();
     void DeleteStateMachineBackPressureTimer();
-    void StartStateMachineBackPressureTimer();
+    void StartStateMachineBackPressureTimer(int time_msec);
     void StopStateMachineBackPressureTimer();
-
-    static const uint32_t kWaitTimerSec = 10;
-    static const uint32_t kDbConnectTimerSec = 10;
+    bool IsStateMachineBackPressureTimerRunningUnlocked() const;
+    int GetStateMachineBackPressureTimeMSec() const;
 
     Collector * const collector_;
     SandeshStateMachine *state_machine_;
@@ -128,6 +127,7 @@ private:
     DbHandlerPtr db_handler_;
     GenDb::GenDbIf::DbAddColumnCb process_rules_cb_;
     Timer *sm_back_pressure_timer_;
+    int sm_back_pressure_count_;
     mutable tbb::mutex mutex_;
 };
 
