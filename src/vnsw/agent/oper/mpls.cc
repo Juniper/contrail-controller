@@ -263,7 +263,7 @@ bool MplsLabel::IsFabricMulticastReservedLabel() const {
     if (type_ != MplsLabel::MCAST_NH)
         return false;
 
-    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    Agent *agent = static_cast<MplsTable *>(get_table())->agent();
     return (agent->mpls_table()->IsFabricMulticastLabel(label_));
 }
 
