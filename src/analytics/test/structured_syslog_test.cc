@@ -337,7 +337,3 @@ int main(int argc, char **argv) {
     int result = RUN_ALL_TESTS();
     return result;
 }
-
-
-void ShowCollectorServerReq::HandleRequest() const {
-}

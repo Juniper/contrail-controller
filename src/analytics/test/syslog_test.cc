@@ -402,9 +402,6 @@ TEST_F(LineParserTest, WCSearchMultilineJsonLike)
     EXPECT_EQ(1, SearchPattern("name: a7s[0-9]+", "\n{   \n    ComputeCpuState: \n    {\n        name: a7s30\n        cpu_info:  \n        {\n            VrouterCpuInfo:\n            {\n                mem_virt: 1039252\n                cpu_share: 1.05\n                used_sys_mem: 37335184\n                one_min_cpuload: 0.14\n                mem_res: 265460\n            }\n            tags: .mem_virt,.cpu_share,.mem_res\n        }\n    }\n}\n"));
 }
 
-void ShowCollectorServerReq::HandleRequest() const {
-}
-
 int
 main(int argc, char **argv)
 {
