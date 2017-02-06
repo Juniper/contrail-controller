@@ -18,8 +18,11 @@ class VncService(object):
                  kube=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
+        self._args = args
         self.logger = logger
         self.kube = kube
+
+        self._fip_pool_obj = None
 
         # Cache kubernetes API server params.
         self._kubernetes_api_secure_ip = args.kubernetes_api_secure_ip
@@ -68,11 +71,17 @@ class VncService(object):
         return vn_obj
 
     def _get_public_fip_pool(self):
-        fip_pool_fq_name = ['default-domain', 'default', '__public__', '__fip_pool_public__']
+        if self._fip_pool_obj:
+            return self._fip_pool_obj
+        fip_pool_fq_name = ['default-domain', 'default', 
+                            self._args.public_network_name, 
+                            self._args.public_fip_pool_name]
         try:
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
         except NoIdError:
             return None
+
+        self._fip_pool_obj = fip_pool_obj
         return fip_pool_obj
 
     def _get_virtualmachine(self, id):
@@ -209,7 +218,7 @@ class VncService(object):
 
         return None
 
-    def _allocate_floating_ip(self, service_id, external_ip):
+    def _allocate_floating_ip(self, service_id, external_ip=None):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             return None
@@ -228,9 +237,14 @@ class VncService(object):
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
         if vmi_obj is None:
             return None
+
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
+            self.logger.warning("public_fip_pool [%s, %s] doesn't exists" %
+                                 (self.config.public_network_name,
+                                 self.config.public_fip_pool_name))
             return None
+
         fip_obj = FloatingIp(lb.name + "-externalIP", fip_pool)
         fip_obj.set_virtual_machine_interface(vmi_obj)
         if external_ip:
@@ -276,16 +290,49 @@ class VncService(object):
                            namespace=service_namespace, merge_patch=merge_patch)
 
     def _update_service_public_ip(self, service_id, service_name,
-                        service_namespace, service_type, external_ip):
-        public_ip = self._get_floating_ip(service_id)
+                        service_namespace, service_type, external_ip, loadBalancerIp):
+        allocated_fip = self._get_floating_ip(service_id)
         if service_type in ["LoadBalancer"]:
-            if public_ip is None:
-                public_ip = self._allocate_floating_ip(service_id, external_ip)
+            if allocated_fip is None and loadBalancerIp is not None:
+                allocated_fip = self._allocate_floating_ip(service_id, loadBalancerIp)
+                if external_ip != allocated_fip:
+                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                return
+
+            if allocated_fip is None and loadBalancerIp is None:
+                allocated_fip = self._allocate_floating_ip(service_id)
+                if external_ip != allocated_fip:
+                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                return
+
+            if allocated_fip is not None and loadBalancerIp is None:
+                if external_ip != allocated_fip:
+                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                return
+
+            if allocated_fip and loadBalancerIp and allocated_fip == loadBalancerIp:
                 if external_ip is None:
-                    self._update_service_external_ip(service_namespace, service_name, public_ip)
-        elif service_type in ["ClusterIP"]:
-            if public_ip is not None:
-                public_ip = self._deallocate_floating_ip(service_id)
+                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                return
+
+        if service_type in ["ClusterIP"]:
+            if allocated_fip is not None and external_ip is None:
+                self._deallocate_floating_ip(service_id)
+                return
+
+            if allocated_fip is None and external_ip is None:
+                return
+
+            if allocated_fip is not None and external_ip is not None:
+                if external_ip != allocated_fip:
+                    self._deallocate_floating_ip(service_id)
+                    self._allocate_floating_ip(service_id, external_ip)
+                    self._update_service_external_ip(service_namespace, service_name, external_ip)
+                return
+
+            if allocated_fip is None and external_ip is not None:
+                self._allocate_floating_ip(service_id, external_ip)
+                return
 
     def _check_service_uuid_change(self, svc_uuid, svc_name, 
                                    svc_namespace, ports):
@@ -296,7 +343,7 @@ class VncService(object):
 
     def vnc_service_add(self, service_id, service_name,
                         service_namespace, service_ip, selectors, ports,
-                        service_type, externalIp):
+                        service_type, externalIp, loadBalancerIp):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             self._check_service_uuid_change(service_id, service_name, 
@@ -313,7 +360,7 @@ class VncService(object):
             self._create_link_local_service(service_name, service_ip, ports)
 
         self._update_service_public_ip(service_id, service_name,
-                        service_namespace, service_type, externalIp)
+                        service_namespace, service_type, externalIp, loadBalancerIp)
 
 
     def _vnc_delete_pool(self, pool_id):
@@ -374,6 +421,7 @@ class VncService(object):
         selectors = event['object']['spec'].get('selector', None)
         ports = event['object']['spec'].get('ports')
         service_type  = event['object']['spec'].get('type')
+        loadBalancerIp  = event['object']['spec'].get('loadBalancerIP', None)
         externalIps  = event['object']['spec'].get('externalIPs', None)
         if externalIps is not None:
             externalIp = externalIps[0]
@@ -383,7 +431,7 @@ class VncService(object):
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_service_add(service_id, service_name,
                 service_namespace, service_ip, selectors, ports,
-                service_type, externalIp)
+                service_type, externalIp, loadBalancerIp)
         elif event['type'] == 'DELETED':
             self.vnc_service_delete(service_id, service_name, service_namespace,
                                     ports)
