@@ -12,6 +12,7 @@ Contrail CNI plugin for Kubernetes
 import inspect
 import logging
 import os
+import requests
 import sys
 import traceback
 
@@ -24,13 +25,39 @@ from common.cni import Error as CniError
 from contrail.contrail_cni import Error as ContrailError
 
 
+# Mesos-manager IP/Port
+MESOS_MGR_IP   = '127.0.0.1'
+MESOS_MGR_PORT = 6999
+
 # Error codes
 UNEXPECTED_PARAMS_ERROR = 1001
+CNI_ERR_POST_PARAMS     = 1002
 
 
 # logger for the file
 logger = None
 
+def get_json_params_request(cni):
+    ret_dict = {}
+    ret_dict['cmd'] = cni.command
+    ret_dict['cid'] = cni.container_id
+    ret_dict.update(cni.stdin_json)
+    return ret_dict
+
+def send_params_to_mesos_mgr(cni):
+    url = 'http://%s:%s' %(MESOS_MGR_IP, MESOS_MGR_PORT)
+    if cni.command == 'ADD':
+        url += '/add_cni_info'
+
+    cni_req =  get_json_params_request(cni)
+    r = requests.post('%s' %(url), json=cni_req)
+
+    if r.status_code != requests.status_codes.codes.ok:
+        raise ParamsError(CNI_ERR_POST_PARAMS,
+                          'Error in Post ' + url +
+                          ' HTTP Response code ' + r.status_code +
+                          ' HTTP Response Data ' + r.text)
+    return
 
 def main():
     try:
@@ -43,6 +70,7 @@ def main():
         # Mesos passes container_uuid in container_id
         cni.cni.update(cni.cni.container_id, None, None)
         cni.log()
+        send_params_to_mesos_mgr(cni)
         cni.Run()
     except CniError as err:
         err.log()
