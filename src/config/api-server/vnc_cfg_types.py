@@ -777,6 +777,45 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end _check_vrouter_link
 
     @classmethod
+    def _check_bridge_domain_vmi_association(cls, obj_dict,
+                                             db_conn, create):
+        bridge_domain_links = {}
+        bd_refs = obj_dict.get('bridge_domain_refs') or []
+        for bd in bd_refs:
+            bd_fq_name = bd['to']
+            bd_uuid = bd.get('uuid')
+            if not bd_uuid:
+                bd_uuid = db_conn.fq_name_to_uuid('bridge_domain', bd_fq_name)
+
+            (ok, bd_dict) = db_conn.dbe_read(obj_type='bridge_domain',
+                                             obj_ids={'uuid': bd_uuid},
+                                             obj_fields=['isid'])
+            if not ok:
+                return (ok, 400, bd_dict)
+ 
+            isid = 0;
+            if 'isid' in bd_dict:
+                isid = bd_dict['isid']
+
+            if isid == 0:
+                msg = "ISID must be configured on Bridge domain(%s) before any"\
+                      " virtual machine interface can refer to it" %(bd_uuid)
+                return (False, msg)
+
+            bdmt = bd['attr']
+            vlan_tag = bdmt['vlan_tag']
+            if vlan_tag in bridge_domain_links:
+                msg = "Virtual machine interface(%s) already refers to bridge "\
+                      "domain(%s) for vlan tag %d"\
+                      %(obj_dict['uuid'], bd_uuid, vlan_tag)
+                return (False, msg)
+
+            bridge_domain_links[vlan_tag] = bd_uuid
+
+        return (True, '')
+    # end _check_bridge_domain_vmi_association
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict.get('uuid')
@@ -794,6 +833,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             return ok, result
 
         vn_dict = result
+
+        (ok, error) = cls._check_bridge_domain_vmi_association(obj_dict,
+                                                               db_conn, True)
+        if not ok:
+            return (False, (400, error))
 
         inmac = None
         if 'virtual_machine_interface_mac_addresses' in obj_dict:
@@ -881,6 +925,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                               db_conn, 'virtual_machine_interface', id)
         if not ok:
             return ok, read_result
+
+        (ok, error) = cls._check_bridge_domain_vmi_association(obj_dict,
+                                                               db_conn, False)
+        if not ok:
+            return (False, (400, error))
 
         # check if the vmi is a internal interface of a logical
         # router
@@ -971,6 +1020,31 @@ class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
     # end pre_dbe_update
 # end class ServiceApplianceSetServer
 
+class BridgeDomainServer(Resource, BridgeDomain):
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        req_bd_dict = obj_dict
+        ok, result = cls.dbe_read(db_conn, 'bridge_domain', id)
+        if not ok:
+            return (ok, (500, 'Error in dbe_read: %s' %(result)))
+
+        isid = 0
+        if 'isid' in result:
+            isid = result['isid']
+
+        if 'isid' in req_bd_dict and isid != req_bd_dict['isid']:
+            if (('virtual_network_back_refs' in result and\
+                 len(result['virtual_network_back_refs'])) or\
+                ('virtual_machine_interface_back_refs' in result and\
+                 len(result['virtual_machine_interface_back_refs']))):
+                msg = "ISID on the bridge domain(%s) can't be update when "\
+                      "virtual networks or virtual machine interfaces are "\
+                      "referring to it" %(id)
+                return (False, (409, msg))
+        return True, ""
+    # end pre_dbe_update
+# end class BridgeDomainServer
+
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
@@ -996,6 +1070,40 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         return (True, '')
     # end _check_route_targets
+
+    @classmethod
+    def _check_bridge_domain_vn_association(cls, obj_dict, db_conn, create):
+        bd_refs = obj_dict.get('bridge_domain_refs') or []
+        for bd in bd_refs:
+            bd_fq_name = bd['to']
+            bd_uuid = bd.get('uuid')
+            if not bd_uuid:
+                bd_uuid = db_conn.fq_name_to_uuid('bridge_domain', bd_fq_name)
+
+            (ok, bd_dict) = db_conn.dbe_read(
+                               obj_type='bridge_domain',
+                               obj_ids={'uuid': bd_uuid},
+                               obj_fields=['virtual_network_back_refs', 'isid'])
+            if not ok:
+                return (ok, 400, bd_dict)
+ 
+            isid = 0;
+            if 'isid' in bd_dict:
+                isid = bd_dict['isid']
+
+            if isid == 0:
+                msg = "ISID must be configured on Bridge Domain(%s) before it "\
+                      "can be associated with any virtual network" %(bd_uuid)
+                return (False, msg)
+
+            if 'virtual_network_back_refs' in bd_dict:
+                vn_uuid = bd_dict['virtual_network_back_refs'][0]['uuid']
+                if obj_dict.get('uuid') != vn_uuid:
+                    msg = "Bridge domain(%s) is already associated with "\
+                          "virtual network(%s)" %(bd_uuid, vn_uuid)
+                    return (False, msg)
+        return (True, '')
+    # end _check_bridge_domain_vn_association
 
     @classmethod
     def _check_provider_details(cls, obj_dict, db_conn, create):
@@ -1190,6 +1298,11 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (400, error))
 
+        (ok, error) = cls._check_bridge_domain_vn_association(obj_dict, db_conn,
+                                                              True)
+        if not ok:
+            return (False, (400, error))
+
         # Check if network forwarding mode support BGP VPN types
         ok, result = BgpvpnServer.check_network_supports_vpn_type(
             db_conn, obj_dict)
@@ -1288,6 +1401,11 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         (ok, error) = cls._check_provider_details(obj_dict, db_conn, False)
         if not ok:
             return (False, (409, error))
+
+        (ok, error) = cls._check_bridge_domain_vn_association(obj_dict, db_conn,
+                                                              False)
+        if not ok:
+            return (False, (400, error))
 
         fields = ['network_ipam_refs', 'virtual_network_network_id', 'address_allocation_mode',
                   'route_target_list', 'import_route_target_list', 'export_route_target_list',
