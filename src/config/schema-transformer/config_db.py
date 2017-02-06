@@ -3407,9 +3407,14 @@ class VirtualMachineInterfaceST(DBBaseST):
                 ri_name = vn.get_service_name(service_chain.name, si_name)
                 for sp in service_chain.sp_list:
                     for dp in service_chain.dp_list:
-                        mc = MatchConditionType(src_port=sp,
-                                                dst_port=dp,
-                                                protocol=service_chain.protocol)
+                        if self.service_interface_type == 'left':
+                            mc = MatchConditionType(src_port=dp,
+                                                    dst_port=sp,
+                                                    protocol=service_chain.protocol)
+                        else:
+                            mc = MatchConditionType(src_port=sp,
+                                                    dst_port=dp,
+                                                    protocol=service_chain.protocol)
 
                         vrf_rule = VrfAssignRuleType(match_condition=mc,
                                                      routing_instance=ri_name,
