@@ -59,21 +59,6 @@ struct GeneratorInfo {
 }
 
 /**
- * @description: This structure send statistics data related to adds to the Database
- * on a per generator basis
- * @object: generator
- */
-objectlog sandesh GeneratorDbStats {
-    1: string                             name (key="ObjectGeneratorInfo")
-    /** @display_name:Generator Database Table Statistics*/
-    2: optional list<gendb.DbTableInfo>   table_info (tags=".table_name")
-    /** @display_name:Generator Database Errors*/
-    3: optional gendb.DbErrors            errors (tags="")
-    /** @display_name:Generator Statistics Database Table*/
-    4: optional list<gendb.DbTableInfo>   statistics_table_info (tags=".table_name")
-}
-
-/**
  * This structure send statistics data related to Database
  * additions on a per generator basis
  */
@@ -115,8 +100,9 @@ struct GeneratorSummaryInfo {
     6: u64                                 sm_queue_count
     7: optional u64                        db_queue_count
     8: optional string                     db_drop_level
-    9: optional bool                       sm_back_pressure
-    10: optional u64                       max_sm_queue_count
+    9: optional bool                       sm_defer
+    10: optional i32                       sm_defer_time_msec
+    11: optional u64                       max_sm_queue_count
 }
 
 /**
