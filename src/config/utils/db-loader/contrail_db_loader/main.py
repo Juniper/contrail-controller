@@ -175,7 +175,8 @@ That will load %(sum)d resources into database."""
                     self._rules_per_security_group)
             elif resource.type == 'virtual-machine-interface':
                 _, time_elapsed = resource.create_resources(
-                    self._resource_map['virtual-network'].amount_per_project)
+                    self._resource_map['virtual-network'].amount_per_project,
+                    self._resource_map['security-group'].amount_per_project)
             else:
                 _, time_elapsed = resource.create_resources()
             logger.info("%d resources were created to load %d '%s' in "

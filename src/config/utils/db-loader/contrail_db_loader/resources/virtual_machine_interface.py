@@ -26,7 +26,7 @@ class VirtualMachineInterface(Resource):
         return self._project_amount * self._amount_per_project * 3
 
     @timeit(return_time_elapsed=True)
-    def create_resources(self, vn_per_project):
+    def create_resources(self, vn_per_project, sg_per_project):
         vms = []
         with self._uuid_cf.batch(queue_size=self._batch_size) as uuid_batch,\
                 self._fqname_cf.batch(queue_size=self._batch_size) as \
@@ -57,6 +57,7 @@ class VirtualMachineInterface(Resource):
             for project_idx in range(self._project_amount):
                 for resource_idx in range(self._amount_per_project):
                     vn_idx = randint(0, vn_per_project - 1)
+                    sg_idx = randint(0, sg_per_project - 1)
                     fq_name = [
                         'default-domain',
                         'project-%d' % project_idx,
@@ -121,7 +122,7 @@ class VirtualMachineInterface(Resource):
                             'to': [
                                 'default-domain',
                                 'project-%d' % project_idx,
-                                'default',
+                                'security-group-%d' % sg_idx,
                             ],
                             'attr': None,
                         }],
