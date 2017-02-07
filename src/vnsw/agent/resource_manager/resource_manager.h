@@ -39,7 +39,7 @@ public:
     void Release(Resource::Type, uint32_t index);
     ResourceTable *resource_table(uint8_t type);
     ResourceBackupManager *backup_mgr() {return backup_mgr_.get();}
-    void Audit();
+    bool Audit();
 
     //Work queue to restore the data.
     bool WorkQueueRestoreProcess(ResourceRestoreReqPtr restore_data);

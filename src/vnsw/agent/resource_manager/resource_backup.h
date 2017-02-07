@@ -59,6 +59,7 @@ public:
     void BackupResource(ResourceManager::KeyPtr key,
                         ResourceManager::DataPtr data, 
                         ResourceBackupReq::Op op);
+    void AuditDone();
 
 private:
     ResourceManager *resource_manager_;
@@ -66,6 +67,7 @@ private:
     ResourceSandeshMaps sandesh_maps_;
     // Work queue to backup the data.
     WorkQueue<ResourceBackupReqPtr> backup_work_queue_;
+    EventNotifyHandle::Ptr audit_handle_;
     DISALLOW_COPY_AND_ASSIGN(ResourceBackupManager);
 };
 

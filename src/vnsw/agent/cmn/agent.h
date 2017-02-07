@@ -42,6 +42,7 @@ namespace OVSDB {
 class OvsdbClient;
 };
 class ConfigManager;
+class EventNotifyManager;
 
 class Interface;
 typedef boost::intrusive_ptr<Interface> InterfaceRef;
@@ -1032,6 +1033,7 @@ public:
     void set_init_done(bool done) { init_done_ = done; }
 
     ConfigManager *config_manager() const;
+    EventNotifyManager *event_notify_manager() const;
 
     AgentParam *params() const { return params_; }
 
@@ -1234,6 +1236,7 @@ private:
     QosQueueTable *qos_queue_table_;
     AgentQosConfigTable *qos_config_table_;
     std::auto_ptr<ConfigManager> config_manager_;
+    std::auto_ptr<EventNotifyManager> event_notify_manager_;
  
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;

@@ -25,6 +25,7 @@
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
 #include <cmn/agent.h>
+#include <cmn/event_notifier.h>
 #include <controller/controller_init.h>
 
 #include <oper/operdb_init.h>
@@ -681,8 +682,8 @@ Agent::Agent() :
     acl_table_(NULL), mirror_table_(NULL), vrf_assign_table_(NULL),
     vxlan_table_(NULL), service_instance_table_(NULL),
     physical_device_table_(NULL), physical_device_vn_table_(NULL),
-    config_manager_(), mirror_cfg_table_(NULL), intf_mirror_cfg_table_(NULL),
-    router_id_(0), prefix_len_(0), 
+    config_manager_(), event_notify_manager_(), mirror_cfg_table_(NULL),
+    intf_mirror_cfg_table_(NULL), router_id_(0), prefix_len_(0), 
     gateway_id_(0), compute_node_ip_(0), xs_cfg_addr_(""), xs_idx_(0),
     xs_addr_(), xs_port_(),
     xs_stime_(), xs_auth_enable_(false), xs_dns_idx_(0), dns_addr_(),
@@ -740,6 +741,7 @@ Agent::Agent() :
         boost::bind(&Agent::ReconfigSignalHandler, this, _1, _2));
 
     config_manager_.reset(new ConfigManager(this));
+    event_notify_manager_.reset(new EventNotifyManager());
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
         (agent_xmpp_channel_[count]).reset();
     }
@@ -790,6 +792,10 @@ void Agent::set_stats(AgentStats *stats) {
 
 ConfigManager *Agent::config_manager() const {
     return config_manager_.get();
+}
+
+EventNotifyManager *Agent::event_notify_manager() const {
+    return event_notify_manager_.get();
 }
 
 KSync *Agent::ksync() const {

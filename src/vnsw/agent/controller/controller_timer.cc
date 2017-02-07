@@ -235,6 +235,9 @@ bool EndOfRibTxTimer::TimerExpirationDone() {
     if (end_of_rib) {
         // Start walk to delete stale routes.
         agent_xmpp_channel_->StartEndOfRibTxWalker();
+        //Notify
+        agent_->event_notify_manager()->
+            Notify(new EventNotifyKey(EventNotifyKey::END_OF_RIB));
         return false;
     }
 
