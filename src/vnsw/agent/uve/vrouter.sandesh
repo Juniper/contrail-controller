@@ -418,7 +418,7 @@ struct VrouterStatsAgent {
     /** Time at which agent process was started. This is UTC time in
      * microseconds
      */
-    32: optional u64 uptime;
+    32: optional u64 startup_time;
     /** Physical interface speed and duplexity information */
     33: optional map<string, PhyIfInfo> phy_if_info
 

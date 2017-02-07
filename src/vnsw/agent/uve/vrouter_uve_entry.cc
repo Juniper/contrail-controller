@@ -193,7 +193,7 @@ bool VrouterUveEntry::SendVrouterMsg() {
     stats.set_raw_drop_stats(ds);
 
     if (first) {
-        stats.set_uptime(start_time_);
+        stats.set_startup_time(start_time_);
     }
     AgentStats::FlowCounters &added =  agent_->stats()->added();
     AgentStats::FlowCounters &deleted =  agent_->stats()->deleted();
