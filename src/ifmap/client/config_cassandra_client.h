@@ -48,16 +48,19 @@ public:
     static const std::string kObjectProcessTaskId;
     // wait time before retrying in seconds
     static const int kInitRetryTimeSec = 5;
-    static const int kMaxRequestsToYield = 64;
+    static const int kMaxRequestsToYield = 512;
+    static const int kMaxNumUUIDToRead = 64;
 
     typedef boost::scoped_ptr<GenDb::GenDbIf> GenDbIfPtr;
+    typedef std::pair<std::string, std::string> ObjTypeFQNPair;
 
     ConfigCassandraClient(ConfigClientManager *mgr, EventManager *evm,
                           const IFMapConfigOptions &options,
                           ConfigJsonParser *in_parser, int num_workers);
     virtual ~ConfigCassandraClient();
     virtual void InitDatabase();
-    std::string UUIDToFQName(const std::string &uuid_str) const;
+    ObjTypeFQNPair UUIDToFQName(const std::string &uuid_str,
+                             bool deleted_ok = true) const;
 
     void EnqueueUUIDRequest(std::string oper, std::string obj_type,
                                     std::string uuid_str);
@@ -68,9 +71,12 @@ public:
                                   ConfigClientManager::RequestList *req_list,
                                   IFMapTable::RequestKey *key, bool add_change);
 
-    virtual void AddFQNameCache(const string &uuid, const string &obj_name);
+    virtual void AddFQNameCache(const string &uuid, const string &obj_name,
+                                const string &obj_type);
 
-    void DeleteFQNameCache(const string &uuid);
+    virtual void InvalidateFQNameCache(const string &uuid);
+
+    void PurgeFQNameCache(const string &uuid);
 
     ConfigClientManager *mgr() {
         return mgr_;
@@ -84,24 +90,27 @@ public:
 
     virtual void GetConnectionInfo(ConfigDBConnInfo &status) const;
 
+    static uint32_t GetNumReadRequestToBunch();
+
 protected:
     struct ConfigCassandraParseContext {
+        ConfigCassandraParseContext() : obj_type(""), fq_name_present(false) {
+        }
         std::multimap<string, JsonAdapterDataType> list_map_properties;
         std::set<string> updated_list_map_properties;
+        std::string obj_type;
+        bool fq_name_present;
     };
 
-    virtual bool ReadUuidTableRow(const std::string &obj_type,
-                                  const std::string &uuid);
+    virtual bool ReadUuidTableRows(const vector<string> &uuid_list);
     void ParseUuidTableRowJson(const string &uuid, const string &key,
            const string &value, uint64_t timestamp,
            CassColumnKVVec *cass_data_vec, ConfigCassandraParseContext &context);
-    bool ParseRowAndEnqueueToParser(const string &obj_type,
-                                    const string &uuid_key,
+    bool ParseRowAndEnqueueToParser(const string &uuid_key,
                                     const GenDb::ColList &col_list);
     virtual int HashUUID(const string &uuid_str) const;
 
-    virtual void HandleObjectDelete(const std::string &obj_type,
-                            const std::string &uuid);
+    virtual void HandleObjectDelete(const std::string &uuid);
 
     typedef std::pair<string, string> ObjTypeUUIDType;
     typedef std::list<ObjTypeUUIDType> ObjTypeUUIDList;
@@ -109,14 +118,22 @@ protected:
                      ObjTypeUUIDList &uuid_list);
     bool BulkDataSync();
     bool EnqueueUUIDRequest(const ObjTypeUUIDList &uuid_list);
-    virtual std::string GetUUID(const std::string &key,
-                                const std::string &obj_type);
+    virtual std::string FetchUUIDFromFQNameEntry(const std::string &key) const;
+    virtual std::string GetUUID(const std::string &key) const;
 
 private:
     class ConfigReader;
 
     // UUID to FQName mapping
-    typedef std::map<std::string, std::string> FQNameCacheMap;
+    struct FQNameCacheType {
+        FQNameCacheType(std::string in_obj_type, std::string in_obj_name)
+            : obj_type(in_obj_type), obj_name(in_obj_name), deleted(false) {
+        }
+        std::string obj_type;
+        std::string obj_name;
+        bool deleted;
+    };
+    typedef std::map<std::string, FQNameCacheType> FQNameCacheMap;
     struct ObjectProcessRequestType {
         ObjectProcessRequestType(const std::string &in_oper,
                                  const std::string &in_obj_type,
@@ -171,6 +188,10 @@ private:
     void UpdatePropertyDeleteToReqList(IFMapTable::RequestKey * key,
        ObjectCacheMap::iterator uuid_iter, const string &lookup_key,
        ConfigClientManager::RequestList *req_list);
+
+    bool BunchReadReq(const UUIDProcessList &req_list);
+    void RemoveObjReqEntries(int worker_id, UUIDProcessList &req_list);
+    void RemoveObjReqEntry(int worker_id, ObjectProcessRequestType *req);
 
     ConfigClientManager *mgr_;
     EventManager *evm_;

@@ -32,7 +32,9 @@ struct ConfigClientManagerInfo;
  */
 class ConfigClientManager {
 public:
-    static const int kNumConfigReaderTasks = 4;
+    static const int kNumConfigReaderTasks = 8;
+    static const std::set<std::string> skip_properties;
+
     typedef std::list<struct DBRequest *> RequestList;
     ConfigClientManager(EventManager *evm, IFMapServer *ifmap_server,
                         std::string hostname, std::string module_name,
@@ -62,9 +64,11 @@ public:
 
     std::string GetWrapperFieldName(const std::string &type_name,
                                     const std::string &property_name) const;
+    static int GetNumConfigReader();
+
     static int GetNumWorkers() {
         // AMQP reader and ConfigDB readers
-        return kNumConfigReaderTasks + 1;
+        return GetNumConfigReader() + 1;
     }
 
     void EndOfConfig();

@@ -12,6 +12,8 @@
 #include <fstream>
 #include <string>
 
+#include <boost/foreach.hpp>
+
 #include "base/logging.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
@@ -37,6 +39,7 @@ using namespace std;
 using contrail_rapidjson::Document;
 using contrail_rapidjson::SizeType;
 using contrail_rapidjson::Value;
+
 
 class ConfigJsonParserTest : public ::testing::Test {
 protected:
@@ -1278,6 +1281,65 @@ TEST_F(ConfigJsonParserTest, ServerParser16InParts) {
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+}
+
+
+//
+// Validate the handling of object without type field
+// Steps:
+// 1. Add the VM object
+// 2. Delete the VM object
+// 3. Update the VM object without type field
+//
+TEST_F(ConfigJsonParserTest, MissingTypeField) {
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test17.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Delete the VM entry and send VM entry update with missing type field
+    FeedEventsJson();
+
+    // Verify that VM object is gone
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+}
+
+//
+// Validate the handling of object without fq-name field
+// Steps:
+// 1. Add the VM object
+// 2. Update the VM object without fq-name field
+// 3. Delete the VM object
+//
+TEST_F(ConfigJsonParserTest, MissingFQNameField) {
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test17_1.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    // Update the VM entry with missing fq-name field
+    FeedEventsJson();
+
+    // Verify that VM object is gone
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+
+    // Delete the VM entry
+    FeedEventsJson();
+
+    // Verify that delete of VM object which was assumed to be deleted is
+    // handled well!!
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
 }
 
 int main(int argc, char **argv) {
