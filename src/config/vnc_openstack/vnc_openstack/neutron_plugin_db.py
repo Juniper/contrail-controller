@@ -3905,25 +3905,36 @@ class DBInterface(object):
 
         port_objs = []
         if filters.get('device_id'):
+            back_ref_ids = filters.get('device_id')
+            if filters.get('network_id'):
+                back_ref_ids += filters.get('network_id')
             # Get all VM port
             port_objs_filtered_by_device_id =\
                 self._virtual_machine_interface_list(
                     obj_uuids=filters.get('id'),
-                    back_ref_id=filters.get('device_id'))
+                    back_ref_id=back_ref_ids)
+
+            port_objs_filtered_by_device_id = []
+            founded_device_ids = set()
+            for vmi_obj in self._virtual_machine_interface_list(
+                    obj_uuids=filters.get('id'),
+                    back_ref_id=back_ref_ids):
+                for device_ref in vmi_obj.get_virtual_machine_refs() or [] +\
+                        vmi_obj.get_logical_router_back_refs() or []:
+                    if device_ref['uuid'] in filters.get('device_id'):
+                        port_objs_filtered_by_device_id.append(vmi_obj)
+                        founded_device_ids.add(device_ref['uuid'])
 
             # If some device ids not yet found look to router interfaces
-            found_device_ids = set(
-                vm_ref['uuid']
-                for vmi_obj in port_objs_filtered_by_device_id
-                for vm_ref in vmi_obj.get_virtual_machine_refs() or [])
             not_found_device_ids = set(filters.get('device_id')) -\
-                                   found_device_ids
+                founded_device_ids
             if not_found_device_ids:
                 # Port has a back_ref to logical router, so need to read in
                 # logical routers based on device ids
                 router_objs = self._logical_router_list(
                     obj_uuids=list(not_found_device_ids),
                     parent_id=project_ids,
+                    back_ref_id=filters.get('network_id'),
                     fields=['virtual_machine_interface_back_refs'])
                 router_port_ids = [
                     vmi_ref['uuid']
@@ -3934,8 +3945,7 @@ class DBInterface(object):
                 # Read all logical router ports and add it to the list
                 if router_port_ids:
                     port_objs.extend(self._virtual_machine_interface_list(
-                                         obj_uuids=router_port_ids,
-                                         parent_id=project_ids))
+                        obj_uuids=router_port_ids, parent_id=project_ids))
 
             # Filter it with project ids if there are.
             if project_ids:
@@ -3946,7 +3956,8 @@ class DBInterface(object):
         else:
             port_objs = self._virtual_machine_interface_list(
                 obj_uuids=filters.get('id'),
-                parent_id=project_ids)
+                parent_id=project_ids,
+                back_ref_id=filters.get('network_id'))
 
         neutron_ports = self._port_list(port_objs)
 
@@ -3961,9 +3972,6 @@ class DBInterface(object):
             if ('fixed_ips' in filters and
                 not self._port_fixed_ips_is_present(filters['fixed_ips'],
                                                     neutron_port['fixed_ips'])):
-                continue
-            if not self._filters_is_present(filters,'network_id',
-                                            neutron_port['network_id']):
                 continue
 
             ret_list.append(neutron_port)
