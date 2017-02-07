@@ -15,10 +15,10 @@ env.Append(LIBPATH = env['TOP'] + '/bfd/rest_api')
 env.Append(LIBPATH = env['TOP'] + '/http')
 env.Append(LIBPATH = env['TOP'] + '/http/client')
 
-env.Prepend(LIBS = ['bfd', 'bfd_rest_api', 'io', 'sandesh', 'io',
+env.Prepend(LIBS = ['bfd', 'bfd_rest_api', 'io', 'sandesh',
                     'sandeshvns', 'http', 'httpc', 'http_parser', 'curl',
-                    'pugixml', 'boost_program_options', 'boost_thread',
-                    'boost_regex', 'process_info', 'connection_info', 'base'])
+                    'pugixml', 'boost_program_options', 'boost_thread', 'io',
+                    'ssl', 'crypto', 'boost_regex', 'process_info', 'base'])
 
 libbfd_rest_api_source = ['bfd_rest_server.cc',
                           'bfd_rest_client.cc', 
