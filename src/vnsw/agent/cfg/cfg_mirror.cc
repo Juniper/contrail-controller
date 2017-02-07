@@ -44,6 +44,10 @@ void MirrorCfgTable::Init() {
 
 const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
     MirrorCfgKey key;
+    boost::system::error_code ec;
+    IpAddress sip;
+    IpAddress dest_ip;
+    MirrorEntryData::MirrorEntryFlags mirror_flag;
     key.handle = cfg.get_handle();
     if (key.handle.empty()) {
         return "Invalid Handle";
@@ -57,6 +61,16 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
 
     MirrorCfgEntry *entry = new MirrorCfgEntry;
     entry->key = key;
+    if (cfg.get_nic_assisted_mirroring()) {
+        if (cfg.get_nic_assisted_mirroring_vlan() == 0 ||
+            cfg.get_nic_assisted_mirroring_vlan() >= 4095) {
+            delete entry;
+            return "Invalid Vlan";
+        }
+        MirrorTable::AddMirrorEntry(entry->key.handle,
+                cfg.get_nic_assisted_mirroring_vlan());
+        goto update_acl;
+    }
 
     entry->data.apply_vn = cfg.get_apply_vn();
     entry->data.src_vn = cfg.get_src_vn();
@@ -86,8 +100,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
     }
 
     // Send create request to Mirror Index table
-    boost::system::error_code ec;
-    IpAddress dest_ip = IpAddress::from_string(entry->data.ip, ec);
+    dest_ip = IpAddress::from_string(entry->data.ip, ec);
     if (ec.value() != 0) {
         delete entry;
         return "Invalid mirror destination address ";
@@ -98,11 +111,10 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
         return "Invalid mirror destination port ";
     }
 
-   IpAddress sip = agent_cfg_->agent()->GetMirrorSourceIp(dest_ip);
-   MirrorEntryData::MirrorEntryFlags mirror_flag =
-       MirrorTable::DecodeMirrorFlag(cfg.get_nhmode(),
-                                     cfg.get_juniperheader());
-   if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
+   sip = agent_cfg_->agent()->GetMirrorSourceIp(dest_ip);
+   mirror_flag = MirrorTable::DecodeMirrorFlag(cfg.get_nhmode(),
+                                               cfg.get_juniperheader());
+    if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
         MirrorTable::AddMirrorEntry(entry->key.handle,
                                     entry->data.mirror_vrf, sip,
                                     agent_cfg_->agent()->mirror_port(),
@@ -115,20 +127,21 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
                                     mirror_flag, mac);
     } else if (mirror_flag == MirrorEntryData::StaticNH_Without_JuniperHdr) {
 
-        IpAddress dst_ip = IpAddress::from_string(cfg.get_vtep_dst_ip(), ec);
+        dest_ip = IpAddress::from_string(cfg.get_vtep_dst_ip(), ec);
         if (ec.value() != 0) {
             delete entry;
             return "Invalid mirror destination address ";
         }
         MirrorTable::AddMirrorEntry(entry->key.handle, entry->data.mirror_vrf,
                                     sip, agent_cfg_->agent()->mirror_port(),
-                                    dst_ip, entry->data.udp_port,
+                                    dest_ip, entry->data.udp_port,
                                     cfg.get_vni(), mirror_flag,
                                     MacAddress::ZeroMac());
     } else {
         return "Mode not supported";
     }
 
+update_acl:
     // Update ACL
     VnAclMap::iterator va_it;
     va_it = vn_acl_map_.find(entry->data.apply_vn);
@@ -421,6 +434,8 @@ void IntfMirrorCfgTable::Init() {
 
 const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
     MirrorCfgKey key;
+    boost::system::error_code ec;
+    MirrorEntryData::MirrorEntryFlags mirror_flag;
     //const IntfMirrorCfgSandesh &intf_mirror = cfg.get_intf_mirr();
     key.handle = intf_mirror.get_handle();
     if (key.handle.empty()) {
@@ -435,10 +450,19 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
 
     IntfMirrorCfgEntry *entry = new IntfMirrorCfgEntry;
     entry->key = key;
+    if (intf_mirror.get_nic_assisted_mirroring()) {
+        if (intf_mirror.get_nic_assisted_mirroring_vlan() == 0 ||
+            intf_mirror.get_nic_assisted_mirroring_vlan() >= 4095) {
+            delete entry;
+            return "Invalid Vlan";
+        }
+        MirrorTable::AddMirrorEntry(entry->key.handle,
+                intf_mirror.get_nic_assisted_mirroring_vlan());
+        goto intf_update;
+    }
     entry->data.intf_id = StringToUuid(intf_mirror.get_intf_uuid());
     entry->data.intf_name = intf_mirror.get_intf_name();
     entry->data.mirror_dest.handle = intf_mirror.get_handle();
-    boost::system::error_code ec;
     entry->data.mirror_dest.dip = IpAddress::from_string(intf_mirror.get_ip(),
                                                          ec);
     if (ec.value() != 0) {
@@ -456,9 +480,8 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
     entry->data.mirror_dest.time_period = intf_mirror.get_time_period();
     entry->data.mirror_dest.mirror_vrf = intf_mirror.get_mirror_vrf();
 
-    MirrorEntryData::MirrorEntryFlags mirror_flag =
-        MirrorTable::DecodeMirrorFlag (intf_mirror.get_nhmode(),
-                                       intf_mirror.get_juniperheader());
+    mirror_flag = MirrorTable::DecodeMirrorFlag (intf_mirror.get_nhmode(),
+            intf_mirror.get_juniperheader());
     if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
          MirrorTable::AddMirrorEntry(entry->key.handle,
                                      entry->data.mirror_dest.mirror_vrf,
@@ -491,7 +514,7 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
      } else {
         return "not supported";
      }
-
+intf_update:
     intf_mc_tree_.insert(std::pair<MirrorCfgKey, IntfMirrorCfgEntry *>(key, entry));
 
     VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
