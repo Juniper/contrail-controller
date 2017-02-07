@@ -299,7 +299,7 @@ bool BridgeDomainTable::ProcessConfig(IFMapNode *node, DBRequest &req,
 
     req.key.reset(BuildKey(u));
     if (node->IsDeleted()) {
-        return true;
+        return false;
     }
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
