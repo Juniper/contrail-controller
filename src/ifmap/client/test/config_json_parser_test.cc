@@ -12,6 +12,8 @@
 #include <fstream>
 #include <string>
 
+#include <boost/foreach.hpp>
+
 #include "base/logging.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
@@ -37,6 +39,7 @@ using namespace std;
 using contrail_rapidjson::Document;
 using contrail_rapidjson::SizeType;
 using contrail_rapidjson::Value;
+
 
 class ConfigJsonParserTest : public ::testing::Test {
 protected:

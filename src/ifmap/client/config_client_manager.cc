@@ -29,12 +29,31 @@
 using namespace boost::assign;
 using namespace std;
 
+const set<string> ConfigClientManager::skip_properties = list_of("perms2");
+
+int ConfigClientManager::GetNumConfigReader() {
+    static bool init_ = false;
+    static int num_config_readers = 0;
+
+    if (!init_) {
+        // XXX To be used for testing purposes only.
+        char *count_str = getenv("CONFIG_NUM_WORKERS");
+        if (count_str) {
+            num_config_readers = strtol(count_str, NULL, 0);
+        } else {
+            num_config_readers = kNumConfigReaderTasks;
+        }
+        init_ = true;
+    }
+    return num_config_readers;
+}
+
 ConfigClientManager::ConfigClientManager(EventManager *evm,
         IFMapServer *ifmap_server, string hostname, string module_name,
         const IFMapConfigOptions& config_options)
         : evm_(evm), ifmap_server_(ifmap_server) {
     config_json_parser_.reset(new ConfigJsonParser(this));
-    thread_count_ = kNumConfigReaderTasks;
+    thread_count_ = GetNumConfigReader();
     end_of_rib_computed_ = false;
     end_of_rib_computed_at_ = UTCTimestampUsec();
     config_db_client_.reset(
@@ -114,7 +133,6 @@ void ConfigClientManager::EnqueueListToTables(RequestList *req_list) const {
     while (!req_list->empty()) {
         auto_ptr<DBRequest> req(req_list->front());
         req_list->pop_front();
-
         IFMapTable::RequestKey *key =
             static_cast<IFMapTable::RequestKey *>(req->key.get());
 

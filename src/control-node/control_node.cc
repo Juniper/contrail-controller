@@ -8,6 +8,7 @@
 
 #include "base/task.h"
 #include "db/db.h"
+#include "ifmap/client/config_client_manager.h"
 
 //
 // Default scheduler policy for control-node daemon and test processes.
@@ -218,14 +219,20 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
 
     // Policy for cassandra::ObjectProcessor Task.
-    TaskPolicy cassadra_obj_process_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("cassandra::ObjectProcessor")));
+    TaskPolicy cassadra_reader_policy;
+    for (int idx = 0; idx < ConfigClientManager::GetNumConfigReader(); ++idx) {
+        cassadra_reader_policy.push_back(
+        TaskExclusion(scheduler->GetTaskId("cassandra::ObjectProcessor"), idx));
+    }
     scheduler->SetPolicy(scheduler->GetTaskId("cassandra::Reader"),
-        cassadra_obj_process_policy);
+        cassadra_reader_policy);
 
     // Policy for cassandra::Reader Task.
-    TaskPolicy cassadra_reader_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("cassandra::Reader")));
+    TaskPolicy cassadra_obj_process_policy;
+    for (int idx = 0; idx < ConfigClientManager::GetNumConfigReader(); ++idx) {
+        cassadra_obj_process_policy.push_back(
+                 TaskExclusion(scheduler->GetTaskId("cassandra::Reader"), idx));
+    }
     scheduler->SetPolicy(scheduler->GetTaskId("cassandra::ObjectProcessor"),
-        cassadra_reader_policy);
+        cassadra_obj_process_policy);
 }

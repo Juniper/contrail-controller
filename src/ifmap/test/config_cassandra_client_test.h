@@ -4,6 +4,7 @@
 #ifndef ctrlplane_config_cassandra_client_test_h
 #define ctrlplane_config_cassandra_client_test_h
 
+#include <boost/foreach.hpp>
 #include "ifmap/client/config_amqp_client.h"
 #include "ifmap/client/config_cass2json_adapter.h"
 #include "ifmap/client/config_cassandra_client.h"
@@ -18,19 +19,24 @@ public:
             num_workers), db_index_(num_workers), cevent_(0) {
     }
 
-    virtual void HandleObjectDelete(const std::string &type,
-                                    const std::string &uuid) {
+    virtual void HandleObjectDelete(const string &uuid) {
         std::vector<std::string> tokens;
         boost::split(tokens, uuid, boost::is_any_of(":"));
         std::string u = tokens[1];
-        ConfigCassandraClient::HandleObjectDelete(type, u);
+        ConfigCassandraClient::HandleObjectDelete(u);
     }
 
-    virtual void AddFQNameCache(const std::string &uuid,
+    virtual void AddFQNameCache(const std::string &uuid, const string &obj_type,
                                 const std::string &obj_name) {
         std::vector<std::string> tokens;
         boost::split(tokens, uuid, boost::is_any_of(":"));
-        ConfigCassandraClient::AddFQNameCache(tokens[1], obj_name);
+        ConfigCassandraClient::AddFQNameCache(tokens[1], obj_type, obj_name);
+    }
+
+    virtual void DeleteFQNameCache(const string &uuid) {
+        vector<string> tokens;
+        boost::split(tokens, uuid, boost::is_any_of(":"));
+        ConfigCassandraClient::DeleteFQNameCache(tokens[1]);
     }
 
     virtual int HashUUID(const std::string &uuid) const {
@@ -42,17 +48,21 @@ public:
         return ConfigCassandraClient::HashUUID(u);
     }
 
-    virtual bool ReadUuidTableRow(const std::string &obj_type,
-                                  const std::string &uuid_key) {
-        std::vector<std::string> tokens;
-        boost::split(tokens, uuid_key, boost::is_any_of(":"));
-        int index = atoi(tokens[0].c_str());
-        std::string u = tokens[1];
-        assert(events_[index].IsObject());
-        int idx = HashUUID(u);
-        db_index_[idx].insert(make_pair(u, index));
-        return ParseRowAndEnqueueToParser(obj_type, u, GenDb::ColList());
+    virtual bool ReadUuidTableRow(const vector<string> &uuid_list) {
+        BOOST_FOREACH(string uuid_key, uuid_list) {
+            vector<string> tokens;
+            boost::split(tokens, uuid_key, boost::is_any_of(":"));
+            int index = atoi(tokens[0].c_str());
+            string u = tokens[1];
+            assert(events_[index].IsObject());
+            int idx = HashUUID(u);
+            db_index_[idx].insert(make_pair(u, index));
+            ParseRowAndEnqueueToParser(u, GenDb::ColList());
+        }
+        return true;
     }
+
+
 
     bool ParseUuidTableRowResponse(const std::string &uuid,
             const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
@@ -76,7 +86,12 @@ public:
         return true;
     }
 
-    std::string GetUUID(const std::string &key, const std::string &obj_type) {
+    string GetUUID(const string &key) const {
+        size_t temp = key.rfind(':');
+        return (temp == string::npos) ? key : key.substr(temp+1);
+    }
+
+    std::string FetchUUIDFromFQNameEntry(const std::string &key) const {
         size_t temp = key.rfind(':');
         return (temp == std::string::npos) ?
             "" : (boost::lexical_cast<std::string>(cevent_-1) + ":" +
