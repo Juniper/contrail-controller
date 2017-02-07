@@ -33,7 +33,9 @@ public:
                               IFMapTable::RequestKey *key, bool add_change) = 0;
 
     virtual void AddFQNameCache(const std::string &uuid,
-                                const std::string &fq_name) = 0;
+                   const std::string &obj_type, const std::string &fq_name) = 0;
+    virtual void InvalidateFQNameCache(const std::string &uuid) = 0;
+
     virtual void GetConnectionInfo(ConfigDBConnInfo &status) const = 0;
 
 private:

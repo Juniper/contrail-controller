@@ -37,6 +37,10 @@ std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
     const std::string &table, const GenDb::DbDataValueVec &rkeys,
     const GenDb::ColumnNameRange &crange,
     const GenDb::FieldNamesToReadVec &read_vec = GenDb::FieldNamesToReadVec());
+std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+    const std::string &table, const std::vector<GenDb::DbDataValueVec> &rkeys,
+    const GenDb::ColumnNameRange &crange,
+    const GenDb::FieldNamesToReadVec &read_vec = GenDb::FieldNamesToReadVec());
 
 // CQL Library Shared Pointers to handle library free calls
 template<class T>
@@ -244,6 +248,13 @@ class CqlIfImpl {
         const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
         const GenDb::FieldNamesToReadVec &read_vec,
         GenDb::NewColVec *out);
+
+    bool SelectFromTableClusteringKeyRangeFieldNamesSync(const std::string &cfname,
+        const std::vector<GenDb::DbDataValueVec> &rkeys,
+        const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
+        const GenDb::FieldNamesToReadVec &read_vec,
+        GenDb::ColListVec *out);
+
     bool SelectFromTableAsync(const std::string &cfname,
         const GenDb::DbDataValueVec &rkey, CassConsistency consistency,
         cass::cql::impl::CassAsyncQueryCallback cb);
