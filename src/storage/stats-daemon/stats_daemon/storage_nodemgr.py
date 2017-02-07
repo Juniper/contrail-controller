@@ -847,9 +847,9 @@ def parse_args(args_str):
         #'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
     sandesh_opts = {
-        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-        'certfile': '/etc/contrail/ssl/certs/server.pem',
-        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
+        'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
         'sandesh_ssl_enable': False
         'introspect_ssl_enable': False
     }
@@ -891,11 +891,11 @@ def parse_args(args_str):
                         help="Filename for the logs to be written to")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
                         help="Sandesh send rate limit in messages/sec")
-    parser.add_argument("--keyfile",
+    parser.add_argument("--sandesh_keyfile",
                         help="Sandesh ssl private key")
-    parser.add_argument("--certfile",
+    parser.add_argument("--sandesh_certfile",
                         help="Sandesh ssl certificate")
-    parser.add_argument("--ca_cert",
+    parser.add_argument("--sandesh_ca_cert",
                         help="Sandesh CA ssl certificate")
     parser.add_argument("--sandesh_ssl_enable", action="store_true",
                         help="Enable ssl for sandesh connection")
@@ -933,8 +933,9 @@ def main(args_str=None):
         #if args.sandesh_send_rate_limit is not None:
         #    SandeshSystem.set_sandesh_send_rate_limit( \
         #        args.sandesh_send_rate_limit)
-        sandesh_config = SandeshConfig(args.keyfile, args.certfile,
-            args.ca_cert, args.sandesh_ssl_enable, args.introspect_ssl_enable)
+        sandesh_config = SandeshConfig(args.sandesh_keyfile,
+            args.sandesh_certfile, args.sandesh_ca_cert,
+            args.sandesh_ssl_enable, args.introspect_ssl_enable)
         sandesh_global.init_generator(
             module_name,
             socket.gethostname(),

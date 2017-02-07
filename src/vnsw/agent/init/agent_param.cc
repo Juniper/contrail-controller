@@ -753,11 +753,11 @@ void AgentParam::ParseServices() {
 
 void AgentParam::ParseSandesh() {
     GetValueFromTree<string>(sandesh_config_.keyfile,
-                             "SANDESH.keyfile");
+                             "SANDESH.sandesh_keyfile");
     GetValueFromTree<string>(sandesh_config_.certfile,
-                             "SANDESH.certfile");
+                             "SANDESH.sandesh_certfile");
     GetValueFromTree<string>(sandesh_config_.ca_cert,
-                             "SANDESH.ca_cert");
+                             "SANDESH.sandesh_ca_cert");
     GetValueFromTree<bool>(sandesh_config_.sandesh_ssl_enable,
                            "SANDESH.sandesh_ssl_enable");
     GetValueFromTree<bool>(sandesh_config_.introspect_ssl_enable,
@@ -1109,11 +1109,11 @@ void AgentParam::ParseServicesArguments
 void AgentParam::ParseSandeshArguments
     (const boost::program_options::variables_map &v) {
     GetOptValue<string>(v, sandesh_config_.keyfile,
-                        "SANDESH.keyfile");
+                        "SANDESH.sandesh_keyfile");
     GetOptValue<string>(v, sandesh_config_.certfile,
-                        "SANDESH.certfile");
+                        "SANDESH.sandesh_certfile");
     GetOptValue<string>(v, sandesh_config_.ca_cert,
-                        "SANDESH.ca_cert");
+                        "SANDESH.sandesh_ca_cert");
     GetOptValue<bool>(v, sandesh_config_.sandesh_ssl_enable,
                       "SANDESH.sandesh_ssl_enable");
     GetOptValue<bool>(v, sandesh_config_.introspect_ssl_enable,
@@ -1927,13 +1927,13 @@ AgentParam::AgentParam(bool enable_flow_options,
 
     opt::options_description sandesh("Sandesh specific options");
     sandesh.add_options()
-        ("SANDESH.keyfile", opt::value<string>()->default_value(
+        ("SANDESH.sandesh_keyfile", opt::value<string>()->default_value(
             "/etc/contrail/ssl/private/server-privkey.pem"),
             "Sandesh ssl private key")
-        ("SANDESH.certfile", opt::value<string>()->default_value(
+        ("SANDESH.sandesh_certfile", opt::value<string>()->default_value(
             "/etc/contrail/ssl/certs/server.pem"),
             "Sandesh ssl certificate")
-        ("SANDESH.ca_cert", opt::value<string>()->default_value(
+        ("SANDESH.sandesh_ca_cert", opt::value<string>()->default_value(
             "/etc/contrail/ssl/certs/ca-cert.pem"),
             "Sandesh CA ssl certificate")
         ("SANDESH.sandesh_ssl_enable",

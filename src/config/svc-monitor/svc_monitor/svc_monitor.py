@@ -747,9 +747,9 @@ def parse_args(args_str):
         'cassandra_password': None,
     }
     sandeshopts = {
-        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-        'certfile': '/etc/contrail/ssl/certs/server.pem',
-        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
+        'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
         'sandesh_ssl_enable': False,
         'introspect_ssl_enable': False
     }
@@ -867,8 +867,8 @@ def parse_args(args_str):
     if args.netns_availability_zone and \
             args.netns_availability_zone.lower() == 'none':
         args.netns_availability_zone = None
-    args.sandesh_config = SandeshConfig(args.keyfile,
-        args.certfile, args.ca_cert,
+    args.sandesh_config = SandeshConfig(args.sandesh_keyfile,
+        args.sandesh_certfile, args.sandesh_ca_cert,
         args.sandesh_ssl_enable, args.introspect_ssl_enable)
 
     return args

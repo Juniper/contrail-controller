@@ -144,9 +144,9 @@ def parse_args(args_str):
     }
     # sandesh options
     sandeshopts = {
-        'keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-        'certfile': '/etc/contrail/ssl/certs/server.pem',
-        'ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
+        'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
+        'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
+        'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
         'sandesh_ssl_enable': False,
         'introspect_ssl_enable': False
     }
@@ -383,8 +383,8 @@ def parse_args(args_str):
             args_obj.rdbms_server_list.split()
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
-    args_obj.sandesh_config = SandeshConfig(args_obj.keyfile,
-        args_obj.certfile, args_obj.ca_cert, args_obj.sandesh_ssl_enable,
+    args_obj.sandesh_config = SandeshConfig(args_obj.sandesh_keyfile,
+        args_obj.sandesh_certfile, args_obj.sandesh_ca_cert, args_obj.sandesh_ssl_enable,
         args_obj.introspect_ssl_enable)
 
     args_obj.conf_file = saved_conf_file
