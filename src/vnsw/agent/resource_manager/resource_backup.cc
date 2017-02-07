@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <cmn/agent.h>
+#include <cmn/event_notifier.h>
 #include <base/timer.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -20,9 +21,13 @@ ResourceBackupManager::ResourceBackupManager(ResourceManager *mgr) :
             GetTaskId(kAgentResourceBackUpTask), 0,
             boost::bind(&ResourceBackupManager::WorkQueueBackUpProcess,
             this, _1)) {
+    audit_handle_ = agent_->event_notifier()->RegisterSubscriber
+        ((new EventNotifyKey(EventNotifyKey::END_OF_RIB)),
+         boost::bind(&ResourceManager::Audit, mgr));
 }
 
 ResourceBackupManager::~ResourceBackupManager() {
+    agent_->event_notifier()->DeregisterSubscriber(audit_handle_);
 }
 
 void ResourceBackupManager::Init() {
@@ -83,6 +88,10 @@ ResourceSandeshMaps& ResourceBackupManager::sandesh_maps() {
     return sandesh_maps_;
 }
 
+void ResourceBackupManager::AuditDone() {
+    agent_->event_notifier()->DeregisterSubscriber(audit_handle_);
+    audit_handle_.reset();
+}
 
 ResourceBackupReq::ResourceBackupReq(ResourceManager::KeyPtr key,
                                      ResourceManager::DataPtr data,
