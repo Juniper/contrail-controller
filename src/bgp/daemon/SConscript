@@ -21,6 +21,8 @@ libs = [
     'sandesh',
     'process_info',
     'http',
+    'ssl',
+    'crypto',
     'http_parser',
     'io',
     'base',

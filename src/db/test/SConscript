@@ -18,8 +18,8 @@ libdbtest = env.Library('dbtest', ['db_test_util.cc'])
 env.Alias('src/db:libdbtest', libdbtest)
 
 env.Prepend(LIBS = ['db', 'dbtest', 'gunit', 'task_test', 'io', 'sandesh',
-                    'sandeshvns', 'process_info', 'io', 'base', 
-                    'http', 'http_parser', 'curl',
+                    'sandeshvns', 'process_info', 'base',
+                    'http', 'http_parser', 'curl', 'io', 'ssl', 'crypto',
                     'pugixml', 'boost_program_options'])
 
 if sys.platform != 'darwin':
