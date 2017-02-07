@@ -31,6 +31,9 @@ if sys.platform != 'darwin':
 else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ifmap_server.path])
 
+env.Prepend(LIBS = ['sandesh', 'http', 'http_parser', 'curl', 'db', 
+                    'process_info', 'sandeshvns', 'io', 'base', 
+                    'ssl', 'crypto', 'gunit', 'pugixml'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
