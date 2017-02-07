@@ -6,6 +6,7 @@
 
 #include <cmn/agent_factory.h>
 #include <cmn/agent_stats.h>
+#include <cmn/event_notifier.h>
 #include <init/agent_param.h>
 
 #include <cfg/cfg_init.h>
@@ -202,6 +203,10 @@ void AgentInit::CreateModulesBase() {
 
     resource_manager_.reset(new ResourceManager(agent()));
     agent()->set_resource_manager(resource_manager_.get());
+    //Event notify manager
+    event_notifier_.reset(new EventNotifier(agent()));
+    agent()->set_event_notifier(event_notifier_.get());
+
     CreateModules();
 }
 

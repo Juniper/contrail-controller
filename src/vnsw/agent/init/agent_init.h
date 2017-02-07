@@ -179,6 +179,7 @@ private:
     bool enable_controller_;
     std::auto_ptr<VNController> controller_;
     std::auto_ptr<ResourceManager> resource_manager_;
+    std::auto_ptr<EventNotifier> event_notifier_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentInit);
 };

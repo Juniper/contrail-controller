@@ -111,10 +111,12 @@ ResourceTable* ResourceManager::resource_table(uint8_t type) {
     return resource_table_[type].get();
 }
 
-void ResourceManager::Audit() {
+bool ResourceManager::Audit() {
     for (uint8_t type = uint8_t(Resource::INVALID + 1);
          type < uint8_t(Resource::MAX);
          type++) {
         resource_table_[type].get()->FlushStale();
     }
+    backup_mgr_->AuditDone();
+    return true;
 }

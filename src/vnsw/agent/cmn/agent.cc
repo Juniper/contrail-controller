@@ -25,6 +25,7 @@
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
 #include <cmn/agent.h>
+#include <cmn/event_notifier.h>
 #include <controller/controller_init.h>
 
 #include <oper/operdb_init.h>
@@ -327,6 +328,17 @@ void Agent::SetAgentTaskPolicy() {
     };
     SetTaskPolicyOne("Agent::Profile", profile_task_exclude_list,
                      sizeof(profile_task_exclude_list) / sizeof(char *));
+
+    //event notify exclude list
+    const char *event_notify_exclude_list[] = {
+        "Agent::ControllerXmpp",
+        "db::DBTable",
+        kAgentResourceBackUpTask,
+        AGENT_SHUTDOWN_TASKNAME,
+        AGENT_INIT_TASKNAME
+    };
+    SetTaskPolicyOne(kEventNotifierTask, event_notify_exclude_list,
+                     sizeof(event_notify_exclude_list) / sizeof(char *));
 
 }
 
@@ -660,7 +672,8 @@ Agent::Agent() :
     params_(NULL), cfg_(NULL), stats_(NULL), ksync_(NULL), uve_(NULL),
     stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
     services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
-    diag_table_(NULL), controller_(NULL), resource_manager_(), event_mgr_(NULL),
+    diag_table_(NULL), controller_(NULL), resource_manager_(),
+    event_notifier_(), event_mgr_(NULL),
     agent_xmpp_channel_(), ifmap_channel_(),
     xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(), dns_xmpp_client_(),
     dns_xmpp_init_(), agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL),
@@ -676,8 +689,8 @@ Agent::Agent() :
     acl_table_(NULL), mirror_table_(NULL), vrf_assign_table_(NULL),
     vxlan_table_(NULL), service_instance_table_(NULL),
     physical_device_table_(NULL), physical_device_vn_table_(NULL),
-    config_manager_(), mirror_cfg_table_(NULL), intf_mirror_cfg_table_(NULL),
-    router_id_(0), prefix_len_(0), 
+    config_manager_(), mirror_cfg_table_(NULL),
+    intf_mirror_cfg_table_(NULL), router_id_(0), prefix_len_(0), 
     gateway_id_(0), compute_node_ip_(0), xs_cfg_addr_(""), xs_idx_(0),
     xs_addr_(), xs_port_(),
     xs_stime_(), xs_auth_enable_(false), xs_dns_idx_(0), dns_addr_(),
@@ -779,6 +792,14 @@ void Agent::set_stats(AgentStats *stats) {
 
 ConfigManager *Agent::config_manager() const {
     return config_manager_.get();
+}
+
+EventNotifier *Agent::event_notifier() const {
+    return event_notifier_;
+}
+
+void Agent::set_event_notifier(EventNotifier *val) {
+    event_notifier_ = val;
 }
 
 KSync *Agent::ksync() const {
