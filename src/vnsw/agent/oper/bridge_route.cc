@@ -410,6 +410,7 @@ AgentPath *BridgeRouteEntry::FindEvpnPathUsingKeyData
 void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                                               const AgentRouteData *data,
                                               bool force_delete) {
+    Agent *agent = (static_cast<AgentRouteTable *> (get_table()))->agent();
     std::list<AgentPath *> to_be_deleted_path_list;
     Route::PathList::iterator it;
     //If peer in key is deleted, set force_delete to true.
@@ -443,20 +444,30 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                     delete_path = true;
                 } else if (is_multicast()) {
                     assert(path->peer()->GetType() == Peer::BGP_PEER); 
+                    //BGP peer path uses channel peer unicast sequence number.
+                    //If it is stale, then delete same.
+                    if (data->CanDeletePath(agent, path, this) == false) {
+                        delete_path = false;
+                        continue;
+                    }
+                    //Not a stale so check for multicast data
                     const MulticastRoute *multicast_data =
                         dynamic_cast<const MulticastRoute *>(data);
-                    assert(multicast_data != NULL);
-                    if (multicast_data->vxlan_id() != path->vxlan_id()) {
+                    if (multicast_data &&
+                        (multicast_data->vxlan_id() != path->vxlan_id())) {
                         continue;
                     }
                     delete_path = true;
                 } else if (path->peer()->GetType() == Peer::EVPN_PEER) {
                     const EvpnDerivedPath *evpn_path =
                         dynamic_cast<const EvpnDerivedPath *>(path);
+                    assert(evpn_path != NULL);
                     const EvpnDerivedPathData *evpn_data =
                         dynamic_cast<const EvpnDerivedPathData *>(data);
-                    assert(evpn_path != NULL);
-                    assert(evpn_data != NULL);
+                    //Operate on this path only if data is EvpnDerivedPathData.
+                    //Rest data type need to be ignored.
+                    if (evpn_data == NULL)
+                        continue;
                     if (evpn_path->ethernet_tag() != evpn_data->ethernet_tag()) {
                         continue;
                     }
