@@ -20,3 +20,6 @@ test_local_mac_learning = AgentEnv.MakeTestCmd(env, 'test_local_mac_learning',
 test_mac_aging = AgentEnv.MakeTestCmd(env, 'test_mac_aging',
                                       mac_learning_test_suite)
 test_pbb_route = AgentEnv.MakeTestCmd(env, 'test_pbb_route', mac_learning_test_suite);
+test = env.TestSuite('agent-test', mac_learning_test_suite)
+env.TestSuite('agent:mac_learning_test', mac_learning_test_suite)
+Return('mac_learning_test_suite')

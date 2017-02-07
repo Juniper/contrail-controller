@@ -20,19 +20,19 @@ MacLearningMgmtNode::~MacLearningMgmtNode() {
     MacLearningMgmtDBEntry *entry = vrf_.get();
     vrf_.reset(NULL);
     if (entry) {
-        entry->TryDelete();
+        entry->tree()->TryDelete(entry);
     }
 
     entry = intf_.get();
     intf_.reset(NULL);
     if (entry) {
-        entry->TryDelete();
+        entry->tree()->TryDelete(entry);
     }
 
     entry = rt_.get();
     rt_.reset(NULL);
     if (entry) {
-        entry->TryDelete();
+        entry->tree()->TryDelete(entry);
     }
 }
 
@@ -82,21 +82,23 @@ void MacLearningMgmtDBEntry::Delete(bool set_deleted) {
                                            ptr->mac_learning_entry()));
         ptr->mac_learning_entry()->mac_learning_table()->Enqueue(req_ptr);
     }
-
-    if (mac_entry_list_.empty()) {
-        TryDelete();
-    }
 }
 
-void MacLearningMgmtDBEntry::TryDelete() {
-    if (deleted_ == true && mac_entry_list_.empty() && tree_->Find(this)) {
+bool MacLearningMgmtDBEntry::TryDelete() {
+    if (mac_entry_list_.empty() == false || tree_->Find(this) == NULL) {
+        return false;
+    }
+
+    if (db_entry_ == NULL || deleted_ == true) {
         MacLearningEntryRequestPtr req_ptr(new MacLearningEntryRequest(
                     MacLearningEntryRequest::FREE_DB_ENTRY, db_entry_));
         Agent::GetInstance()->mac_learning_proto()->
             Find(0)->Enqueue(req_ptr);
         tree_->Erase(this);
-        delete this;
+        return true;
     }
+
+    return false;
 }
 
 MacLearningMgmtIntfEntry::MacLearningMgmtIntfEntry(const Interface *intf) :
@@ -118,24 +120,36 @@ MacLearningMgmtRouteEntry::MacLearningMgmtRouteEntry(const AgentRoute *rt):
     vrf_ = br_rt->vrf()->GetName();
 }
 
-void MacLearningMgmtRouteEntry::TryDelete() {
-    const AgentRoute *rt = static_cast<const AgentRoute *>(db_entry_);
-    MacLearningMgmtVrfEntry mgmt_vrf(rt->vrf());
-    MacLearningMgmtVrfEntry *mgmt_entry =
-        static_cast<MacLearningMgmtVrfEntry *>(
-                tree_->mac_learning_mac_manager()->vrf_tree()->Find(&mgmt_vrf));
+bool MacLearningMgmtRouteEntry::TryDelete() {
+   bool ret = MacLearningMgmtDBEntry::TryDelete();
+   if (ret == false) {
+       return ret;
+   }
 
-    MacLearningMgmtDBEntry::TryDelete();
-    if (mgmt_entry) {
-        mgmt_entry->TryDelete();
-    }
+   //If route entry can be deleted, check if VRF entry can be
+   //deleted
+   VrfKey vrf_key(vrf_);
+   Agent *agent = tree_->mac_learning_mac_manager()->agent();
+   const VrfEntry *vrf = static_cast<const VrfEntry *>(
+           agent->vrf_table()->Find(&vrf_key, true));
+   if (vrf) {
+       MacLearningMgmtVrfEntry mgmt_vrf(vrf);
+       MacLearningMgmtVrfEntry *mgmt_entry =
+           static_cast<MacLearningMgmtVrfEntry *>(
+                   tree_->mac_learning_mac_manager()->vrf_tree()->Find(&mgmt_vrf));
+       if (mgmt_entry) {
+           mgmt_entry->tree()->TryDelete(mgmt_entry);
+       }
+   }
+   return ret;
 }
 
-void MacLearningMgmtVrfEntry::TryDelete() {
+bool MacLearningMgmtVrfEntry::TryDelete() {
     const VrfEntry *vrf = static_cast<const VrfEntry *>(db_entry_);
     if (tree_->mac_learning_mac_manager()->IsVrfRouteEmpty(vrf->GetName())) {
-        MacLearningMgmtDBEntry::TryDelete();
+        return MacLearningMgmtDBEntry::TryDelete();
     }
+    return false;
 }
 
 MacLearningMgmtRouteEntry::MacLearningMgmtRouteEntry(const std::string &vrf,
@@ -159,6 +173,7 @@ void MacLearningMgmtDBTree::Delete(MacLearningMgmtDBEntry *e) {
     MacLearningMgmtDBEntry *entry = Find(e);
     if (entry) {
         entry->Delete(true);
+        TryDelete(entry);
     }
 }
 
@@ -174,6 +189,12 @@ MacLearningMgmtDBTree::Find(MacLearningMgmtDBEntry *e) {
 
 void MacLearningMgmtDBTree::Erase(MacLearningMgmtDBEntry *e) {
     tree_.erase(e);
+}
+
+void MacLearningMgmtDBTree::TryDelete(MacLearningMgmtDBEntry *e) {
+    if (e->TryDelete()) {
+        delete e;
+    }
 }
 
 void
@@ -207,6 +228,7 @@ void MacLearningMgmtManager::DeleteDBEntry(MacLearningMgmtRequestPtr ptr) {
     MacLearningMgmtDBEntry *entry = Find(ptr->db_entry());
     if (entry) {
         entry->Delete(true);
+        entry->tree()->TryDelete(entry);
     }
 }
 

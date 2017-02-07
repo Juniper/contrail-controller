@@ -62,9 +62,19 @@ public:
         EXPECT_TRUE(VmPortActive(2));
         AddIPAM("vn1", ipam_info, 1);
         client->WaitForIdle();
+        AddBridgeDomain("bridge1", 1, 1);
+        client->WaitForIdle();
+        AddVn("vn1", 1, true);
+        AddLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+        client->WaitForIdle();
+
+        bgp_peer_ = CreateBgpPeer(Ip4Address(1), "BgpPeer1");
     }
 
     virtual void TearDown() {
+        DelNode("bridge-domain", "bridge1");
+        DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+        client->WaitForIdle();
         DelVrf("evpn_vrf");
         DelVrf("pbb_vrf");
         client->WaitForIdle();
@@ -75,6 +85,7 @@ public:
         client->WaitForIdle();
         DelIPAM("vn1");
         client->WaitForIdle();
+        DeleteBgpPeer(bgp_peer_);
     }
 
 protected:
@@ -84,18 +95,19 @@ protected:
     MacAddress b_smac_;
     MacAddress b_dmac_;
     Ip4Address  server1_ip_;
+    BgpPeer *bgp_peer_;
 };
 
 TEST_F(PbbRouteTest, RouteTest1) {
     //Add a BMAC route in evpn vrf
-    BridgeTunnelRouteAdd(agent_->local_peer(), "evpn_vrf", TunnelType::AllType(),
+    BridgeTunnelRouteAdd(bgp_peer_, "evpn_vrf", TunnelType::AllType(),
                          server1_ip_, (MplsTable::kStartLabel + 60), b_smac_,
                          Ip4Address(0), 32);
     client->WaitForIdle();
 
     PBBRoute *data = new PBBRoute(VrfKey("evpn_vrf"), b_smac_, 0, VnListType(),
-                                  SecurityGroupList(), CommunityList());
-    EvpnAgentRouteTable::AddRemoteVmRouteReq(agent_->local_peer(), "pbb_vrf", c_smac_,
+                                  SecurityGroupList());
+    EvpnAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "pbb_vrf", c_smac_,
                                              Ip4Address(0), 0, data);
     client->WaitForIdle();
 
@@ -107,47 +119,48 @@ TEST_F(PbbRouteTest, RouteTest1) {
 
     EXPECT_TRUE(pbb_rt->GetActiveNextHop()->GetType() == NextHop::PBB);
     const PBBNH *pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
-    EXPECT_TRUE(pbb_nh->dmac() == b_smac_);
+    EXPECT_TRUE(pbb_nh->dest_bmac() == b_smac_);
     EXPECT_TRUE(pbb_nh->vrf()->GetName() == "evpn_vrf");
     EXPECT_TRUE(pbb_nh->child_nh() == evpn_rt->GetActiveNextHop());
     EXPECT_TRUE(pbb_nh->child_nh()->GetType() == NextHop::TUNNEL);
     EXPECT_TRUE(pbb_nh->label() == MplsTable::kStartLabel + 60);
 
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "evpn_vrf", b_smac_,
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "evpn_vrf", b_smac_,
             Ip4Address(0), 0, NULL);
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "pbb_vrf", c_smac_,
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "pbb_vrf", c_smac_,
             Ip4Address(0), 0, NULL);
     client->WaitForIdle();
 }
 
 TEST_F(PbbRouteTest, RouteTest2) {
+    const VrfEntry *vrf = VrfGet("vrf1:1");
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     TxIpPBBPacket(0, "10.10.10.10", agent_->router_id().to_string().c_str(),
-                  intf->l2_label(), b_smac_, b_dmac_, 0, c_smac_, c_dmac_,
-                  "1.1.1.1", "1.1.1.10");
+                  intf->l2_label(), vrf->vrf_id(), b_smac_, b_dmac_, 0,
+                  c_smac_, c_dmac_, "1.1.1.1", "1.1.1.10");
     client->WaitForIdle();
 
-    EvpnRouteEntry *pbb_rt = EvpnRouteGet("vrf1", c_smac_, Ip4Address(0), 0);
+    EvpnRouteEntry *pbb_rt = EvpnRouteGet("vrf1:1", c_smac_, Ip4Address(0), 0);
     EXPECT_TRUE(pbb_rt != NULL);
     EXPECT_TRUE(pbb_rt->GetActiveNextHop()->GetType() == NextHop::PBB);
     const PBBNH *pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
     EXPECT_TRUE(pbb_nh->child_nh()->GetType() == NextHop::DISCARD);
 
     //Add a BMAC route in evpn vrf
-    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf1", TunnelType::AllType(),
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf1", TunnelType::AllType(),
                          server1_ip_, (MplsTable::kStartLabel + 60), b_smac_,
                          Ip4Address(0), 32);
     client->WaitForIdle();
 
     EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", b_smac_, Ip4Address(0), 0);
     pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
-    EXPECT_TRUE(pbb_nh->dmac() == b_smac_);
+    EXPECT_TRUE(pbb_nh->dest_bmac() == b_smac_);
     EXPECT_TRUE(pbb_nh->vrf()->GetName() == "vrf1");
     EXPECT_TRUE(pbb_nh->child_nh() == evpn_rt->GetActiveNextHop());
     EXPECT_TRUE(pbb_nh->child_nh()->GetType() == NextHop::TUNNEL);
     EXPECT_TRUE(pbb_nh->label() == MplsTable::kStartLabel + 60);
 
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf1", b_smac_,
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf1", b_smac_,
             Ip4Address(0), 0, NULL);
     client->WaitForIdle();
 
@@ -155,41 +168,63 @@ TEST_F(PbbRouteTest, RouteTest2) {
 }
 
 TEST_F(PbbRouteTest, RouteTest3) {
+    const VrfEntry *vrf = VrfGet("vrf1:1");
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     TxIpPBBPacket(0, "10.10.10.10", agent_->router_id().to_string().c_str(),
-                  intf->l2_label(), b_smac_, b_dmac_, 0, c_smac_, c_dmac_,
-                  "1.1.1.1", "1.1.1.10");
+                  intf->l2_label(), vrf->vrf_id(), b_smac_, b_dmac_, 0,
+                  c_smac_, c_dmac_, "1.1.1.1", "1.1.1.10");
     client->WaitForIdle();
 
-    EvpnRouteEntry *pbb_rt = EvpnRouteGet("vrf1", c_smac_, Ip4Address(0), 0);
+    EvpnRouteEntry *pbb_rt = EvpnRouteGet("vrf1:1", c_smac_, Ip4Address(0), 0);
     EXPECT_TRUE(pbb_rt != NULL);
     EXPECT_TRUE(pbb_rt->GetActiveNextHop()->GetType() == NextHop::PBB);
     const PBBNH *pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
     EXPECT_TRUE(pbb_nh->child_nh()->GetType() == NextHop::DISCARD);
 
     //Add a BMAC route in evpn vrf
-    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf1", TunnelType::AllType(),
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf1", TunnelType::AllType(),
                          server1_ip_, (MplsTable::kStartLabel + 60), b_smac_,
                          Ip4Address(0), 32, true);
     client->WaitForIdle();
 
     EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", b_smac_, Ip4Address(0), 0);
     pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
-    EXPECT_TRUE(pbb_nh->dmac() == b_smac_);
+    EXPECT_TRUE(pbb_nh->dest_bmac() == b_smac_);
     EXPECT_TRUE(pbb_nh->vrf()->GetName() == "vrf1");
     EXPECT_TRUE(pbb_nh->child_nh() == evpn_rt->GetActiveNextHop());
     EXPECT_TRUE(pbb_nh->child_nh()->GetType() == NextHop::TUNNEL);
     EXPECT_TRUE(pbb_nh->label() == MplsTable::kStartLabel + 60);
     EXPECT_TRUE(pbb_nh->etree_leaf() == true);
 
-    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf1", TunnelType::AllType(),
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf1", TunnelType::AllType(),
             server1_ip_, (MplsTable::kStartLabel + 60), b_smac_,
             Ip4Address(0), 32, false);
     client->WaitForIdle();
     EXPECT_TRUE(pbb_nh->etree_leaf() == false);
 
-    EvpnAgentRouteTable::DeleteReq(agent_->local_peer(), "vrf1", b_smac_,
-            Ip4Address(0), 0, NULL);
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf1", b_smac_,
+                                   Ip4Address(0), 0, NULL);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(EvpnRouteGet("vrf1", c_smac_, Ip4Address(0), 0) == NULL);
+}
+
+TEST_F(PbbRouteTest, RouteTest4) {
+    const VrfEntry *vrf = VrfGet("vrf1:1");
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    TxIpPBBPacket(0, "10.10.10.10", agent_->router_id().to_string().c_str(),
+                  intf->l2_label(), vrf->vrf_id(), b_smac_, b_dmac_, 0,
+                  c_smac_, c_dmac_, "1.1.1.1", "1.1.1.10");
+    client->WaitForIdle();
+
+    EvpnRouteEntry *pbb_rt = EvpnRouteGet("vrf1:1", c_smac_, Ip4Address(0), 0);
+    EXPECT_TRUE(pbb_rt != NULL);
+    EXPECT_TRUE(pbb_rt->GetActiveNextHop()->GetType() == NextHop::PBB);
+    const PBBNH *pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
+    EXPECT_TRUE(pbb_nh->child_nh()->GetType() == NextHop::DISCARD);
+
+    DelNode("bridge-domain", "bridge1");
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
     client->WaitForIdle();
 
     EXPECT_TRUE(EvpnRouteGet("vrf1", c_smac_, Ip4Address(0), 0) == NULL);

@@ -180,6 +180,11 @@ public:
     uint32_t mac_aging_time() const {
         return mac_aging_time_;
     }
+
+    void set_mac_aging_time(uint32_t aging_time) {
+        mac_aging_time_ = aging_time;
+    }
+
 private:
     friend class VrfTable;
     void CreateRouteTables();
