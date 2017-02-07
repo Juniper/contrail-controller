@@ -284,7 +284,7 @@ struct VrouterStatsAgent {  // Agent stats
     29: optional u64 packets_no_route_dp; 
     30: optional u64 packets_no_mpls_dp; 
     31: optional u64 packets_no_flow_dp; 
-    32: optional u64 uptime;
+    32: optional u64 startup_time;
     33: optional map<string, PhyIfInfo> phy_if_info
 
     /** Statistics for vhost interface */

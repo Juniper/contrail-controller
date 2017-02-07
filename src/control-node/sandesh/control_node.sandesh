@@ -18,7 +18,7 @@ struct BgpRouterState {
    29: optional u32 global_asn;
    30: optional bool admin_down
     2: optional bool deleted
-    3: optional u64 uptime;
+    3: optional u64 startup_time;
     7: optional u32 output_queue_depth (tags="");
     8: optional u32 num_bgp_peer;
     9: optional u32 num_up_bgp_peer;
