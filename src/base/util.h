@@ -162,4 +162,14 @@ private:
     T *ptr_;
 };
 
+template <class KeyType, template <class KeyType> class SmartPointer>
+struct SmartPointerComparator {
+    bool operator()( const SmartPointer<KeyType> lhs,
+                     const SmartPointer<KeyType> rhs) const {
+        KeyType *left = lhs.get();
+        KeyType *right = rhs.get();
+        return (*left).IsLess(*right);
+    }
+};
+
 #endif /* UTIL_H_ */
