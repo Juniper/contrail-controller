@@ -940,6 +940,21 @@ void BgpAttr::set_leaf_olist(const BgpOListSpec *leaf_olist_spec) {
     }
 }
 
+std::string BgpAttr::origin_string() const {
+    switch (origin()) {
+    case BgpAttrOrigin::IGP:
+        return "igp";
+        break;
+    case BgpAttrOrigin::EGP:
+        return "egp";
+        break;
+    case BgpAttrOrigin::INCOMPLETE:
+        return "incomplete";
+        break;
+    }
+    return "unknown";
+}
+
 Address::Family BgpAttr::nexthop_family() const {
     if (nexthop_.is_v6()) {
         return Address::INET6;

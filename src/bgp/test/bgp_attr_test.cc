@@ -92,6 +92,42 @@ TEST_F(BgpAttrTest, UnknownCode) {
     EXPECT_EQ(1729, attr->local_pref());
 }
 
+TEST_F(BgpAttrTest, Origin1) {
+    BgpAttrSpec spec;
+    BgpAttrOrigin origin(BgpAttrOrigin::IGP);
+    spec.push_back(&origin);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_EQ(BgpAttrOrigin::IGP, attr->origin());
+    EXPECT_EQ("igp", attr->origin_string());
+}
+
+TEST_F(BgpAttrTest, Origin2) {
+    BgpAttrSpec spec;
+    BgpAttrOrigin origin(BgpAttrOrigin::EGP);
+    spec.push_back(&origin);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_EQ(BgpAttrOrigin::EGP, attr->origin());
+    EXPECT_EQ("egp", attr->origin_string());
+}
+
+TEST_F(BgpAttrTest, Origin3) {
+    BgpAttrSpec spec;
+    BgpAttrOrigin origin(BgpAttrOrigin::INCOMPLETE);
+    spec.push_back(&origin);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_EQ(BgpAttrOrigin::INCOMPLETE, attr->origin());
+    EXPECT_EQ("incomplete", attr->origin_string());
+}
+
+TEST_F(BgpAttrTest, Origin4) {
+    BgpAttrSpec spec;
+    BgpAttrOrigin origin(255);
+    spec.push_back(&origin);
+    BgpAttrPtr attr = attr_db_->Locate(spec);
+    EXPECT_EQ(255, attr->origin());
+    EXPECT_EQ("unknown", attr->origin_string());
+}
+
 TEST_F(BgpAttrTest, MultiExitDiscCompare) {
     BgpAttrMultiExitDisc med1(100);
     BgpAttrMultiExitDisc med2(200);

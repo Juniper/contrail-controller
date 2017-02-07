@@ -453,6 +453,7 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         }
 
         const BgpAttr *attr = path->GetAttr();
+        srp.set_origin(attr->origin_string());
         if (attr->as_path() != NULL)
             srp.set_as_path(attr->as_path()->path().ToString());
         srp.set_local_preference(attr->local_pref());
@@ -499,6 +500,10 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
             bool label_is_vni =  extcomm && extcomm->ContainsTunnelEncapVxlan();
             FillPmsiTunnelInfo(attr->pmsi_tunnel(), label_is_vni, &srp);
         }
+        if (attr->originator_id().to_ulong()) {
+            srp.set_originator_id(attr->originator_id().to_string());
+        }
+
         show_route_paths.push_back(srp);
     }
     show_route->set_paths(show_route_paths);
