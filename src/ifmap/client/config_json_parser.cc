@@ -109,12 +109,16 @@ bool ConfigJsonParser::ParseRef(const Value &ref_entry,
         cout << metaname << " not found in metadata map" << endl;
         return false;
     }
-    const Value& attr_node = ref_entry["attr"];
+
     auto_ptr<AutogenProperty> pvalue;
-    bool success = (loc->second)(attr_node, &pvalue);
-    if (!success) {
-        cout << "Parsing link attribute for " << metaname << " failed" << endl;
-        return false;
+    if (ref_entry.HasMember("attr")) {
+        const Value& attr_node = ref_entry["attr"];
+        bool success = (loc->second)(attr_node, &pvalue);
+        if (!success) {
+            cout << "Parsing link attribute for " << metaname << " failed"
+                 << endl;
+            return false;
+        }
     }
 
     string neigh_name;
