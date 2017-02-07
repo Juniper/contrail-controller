@@ -606,17 +606,14 @@ bool AgentUtXmlMulticastTorValidate::Validate() {
         //Verify CNH
         entry = table->FindRoute(MacAddress::BroadcastMac());
         if (entry == NULL) {
-            cout << "heare 1" << endl;
             return false;
         }
         path = entry->FindPath(agent->multicast_peer());
         if (path == NULL) {
-            cout << "heare 2" << endl;
             return false;
         }
         path = entry->FindPath(peer);
         if (path == NULL) {
-            cout << "heare 3" << endl;
             return false;
         }
     }
@@ -635,7 +632,6 @@ bool AgentUtXmlMulticastTorValidate::Validate() {
         if (entry) {
             const AgentPath *path = entry->FindPath(peer);
             if (path != NULL) {
-                cout << "heare 4" << endl;
                 return false;
             }
         }
