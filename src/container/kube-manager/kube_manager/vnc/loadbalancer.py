@@ -204,7 +204,7 @@ class ServiceLbListenerManager(object):
 
         ll_obj.set_loadbalancer_listener_properties(props)
         if 'targetPort' in port:
-            ll_obj.add_annotations(KeyValuePair(key='targetPort', value=port['targetPort']))
+            ll_obj.add_annotations(KeyValuePair(key='targetPort', value=str(port['targetPort'])))
 
         try:
             self._vnc_lib.loadbalancer_listener_create(ll_obj)
