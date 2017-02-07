@@ -22,7 +22,8 @@ struct MirrorCfgData {
         apply_vn(), src_vn(), src_ip_prefix(), src_ip_prefix_len(0),
         dst_vn(), dst_ip_prefix(), dst_ip_prefix_len(0), start_src_port(0),
         end_src_port(0), start_dst_port(0), end_dst_port(0), protocol(0),
-        ip(), udp_port(0), time_period(60) {};
+        ip(), udp_port(0), time_period(60), mirror_nic_assisted(false),
+        mirror_nic_assisted_vlan(0) {};
     ~MirrorCfgData() {};
 
     std::string apply_vn;
@@ -54,6 +55,8 @@ struct MirrorCfgData {
     // Time period for mirroring in seconds
     int time_period;
     std::string mirror_vrf;
+    bool mirror_nic_assisted;
+    bool mirror_nic_assisted_vlan;
 };
 
 struct AceInfo {
@@ -124,6 +127,8 @@ struct MirrorDestination {
     // Time period for mirroring in seconds
     int time_period;
     std::string mirror_vrf;
+    bool mirror_nic_assisted;
+    bool mirror_nic_assisted_vlan;
 };
 
 struct IntfMirrorCfgData {

@@ -38,6 +38,8 @@ struct MirrorActionSpec {
     bool juniper_header;
     std::string nh_mode;
     StaticMirrorNhData staticnhdata;
+    bool nic_assisted_mirroring;
+    uint16_t nic_assisted_mirroring_vlan;
     bool operator == (const MirrorActionSpec &rhs) const {
         return analyzer_name == rhs.analyzer_name;
     }

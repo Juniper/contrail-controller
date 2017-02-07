@@ -54,11 +54,13 @@ protected:
             sip_.push_back(Ip4Address(ip++));
             dip_.push_back(Ip4Address(ip++));
         }
+        bgp_peer_ = CreateBgpPeer("127.0.0.1", "remote");
     }
 
     virtual void TearDown() {
         WAIT_FOR(1002, 1000, agent_->nexthop_table()->Size() == nh_count_);
         WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
+        DeleteBgpPeer(bgp_peer_);
     }
 
     void AddAllMirrorEntry() {
@@ -125,6 +127,7 @@ protected:
     Ip4Address fabric_gw_ip_;
     Agent *agent_;
     uint32_t nh_count_;
+    BgpPeer *bgp_peer_;
 };
 
 TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
@@ -449,7 +452,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_6) {
     bmap = 1 << TunnelType::VXLAN;
     AddVrf("vrf3");
     client->WaitForIdle();
-    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf3", bmap, remote_server,
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf3", bmap, remote_server,
                          1, remote_vm_mac, remote_vm_ip4_2, 32);
     client->WaitForIdle();
     MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
@@ -506,7 +509,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_7) {
     MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
                                       0x2, 0 , 2, remote_vm_mac);
 
-    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf3", bmap, remote_server,
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf3", bmap, remote_server,
                          1, remote_vm_mac, remote_vm_ip4_2, 32);
     client->WaitForIdle();
 
@@ -523,7 +526,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_7) {
 
     MirrorTable::AddMirrorEntry(ana, "vrf4", vhost_ip, 0x1, remote_server,
                                       0x2, 0 , 2, remote_vm_mac);
-    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf4", bmap, remote_server,
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf4", bmap, remote_server,
                          1, remote_vm_mac, remote_vm_ip4_2, 32);
 
     client->WaitForIdle();
@@ -691,7 +694,7 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_10) {
     MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
                                       0x2, 0 , 2, remote_vm_mac);
 
-    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf3", bmap, remote_server,
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf3", bmap, remote_server,
                          1, remote_vm_mac, remote_vm_ip4_2, 32);
     client->WaitForIdle();
 
@@ -722,6 +725,22 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_10) {
                  (agent_->mirror_table()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry == NULL);
     client->WaitForIdle();
+}
+
+TEST_F(MirrorTableTest, MirrorEntryAdd_nic_assisted_3) {
+    std::stringstream str;
+    str << analyzer;
+    MirrorTable::AddMirrorEntry(analyzer, 15);
+    client->WaitForIdle();
+    MirrorEntryKey key(analyzer);
+    const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry != NULL);
+    MirrorTable::DelMirrorEntry(analyzer);
+    client->WaitForIdle();
+    mirr_entry = static_cast<const MirrorEntry *>
+                 (agent_->mirror_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(mirr_entry == NULL);
 }
 
 int main(int argc, char *argv[]) {
