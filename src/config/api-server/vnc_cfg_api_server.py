@@ -117,7 +117,7 @@ _ACTION_RESOURCES = [
     {'uri': '/prop-collection-get', 'link_name': 'prop-collection-get',
      'method': 'GET', 'method_name': 'prop_collection_http_get'},
     {'uri': '/prop-collection-update', 'link_name': 'prop-collection-update',
-     'method': 'POST', 'method_name': 'prop_collection_update_http_post'},
+     'method': 'POST', 'method_name': 'prop_collection_http_post'},
     {'uri': '/ref-update', 'link_name': 'ref-update',
      'method': 'POST', 'method_name': 'ref_update_http_post'},
     {'uri': '/ref-relax-for-delete', 'link_name': 'ref-relax-for-delete',
@@ -2084,7 +2084,7 @@ class VncApiServer(object):
         return result
     # end prop_collection_http_get
 
-    def prop_collection_update_http_post(self):
+    def prop_collection_http_post(self):
         self._post_common(get_request(), None, None)
 
         request_params = get_request().json
@@ -2115,6 +2115,14 @@ class VncApiServer(object):
             req_oper = req_param.get('operation').lower()
             field_val = req_param.get('value')
             field_pos = str(req_param.get('position'))
+            prop_type = resource_class.prop_field_types[obj_field]['xsd_type']
+            prop_cls = cfgm_common.utils.str_to_class(prop_type, __name__)
+            prop_val_type = prop_cls.attr_field_type_vals[prop_cls.attr_fields[0]]['attr_type']
+            prop_val_cls = cfgm_common.utils.str_to_class(prop_val_type, __name__)
+            try:
+                self._validate_complex_type(prop_val_cls, field_val)
+            except Exception as e:
+                raise cfgm_common.exceptions.HttpError(400, str(e))
             if prop_coll_type == 'list':
                 if req_oper not in ('add', 'modify', 'delete'):
                     err_msg = 'Unsupported operation %s in request %s' %(
@@ -2243,7 +2251,7 @@ class VncApiServer(object):
         self._set_api_audit_info(apiConfig)
         log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
         log.send(sandesh=self._sandesh)
-    # end prop_collection_update_http_post
+    # end prop_collection_http_post
 
     def ref_update_http_post(self):
         self._post_common(get_request(), None, None)

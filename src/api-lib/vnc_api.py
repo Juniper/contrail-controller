@@ -886,10 +886,10 @@ class VncApi(object):
         obj_class = utils.obj_type_to_vnc_class(res_type, __name__)
 
         key_name = obj_class.prop_map_field_key_names[obj_field]
-        if isinstance(value, GeneratedsSuper):
-            return getattr(value, key_name)
+        if isinstance(elem, GeneratedsSuper):
+            return getattr(elem, key_name)
 
-        return value[key_name]
+        return elem[key_name]
     # end _prop_map_get_elem_key
 
     @check_homepage
