@@ -217,6 +217,67 @@ TEST_F(InetVpnRouteTest, FromProtoPrefixError2) {
     EXPECT_NE(0, result);
 }
 
+TEST_F(InetVpnRouteTest, IsMoreSpecific1) {
+    string prefix_str("10.1.1.1:65535:240.240.240.240/32");
+    InetVpnPrefix prefix(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix);
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.240.240.240/32"));
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.240.240.240/28"));
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.240.240.0/24"));
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.240.240.0/20"));
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.240.0.0/16"));
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.240.0.0/12"));
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.0.0.0/8"));
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.0.0.0/4"));
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:0.0.0.0/0"));
+}
+
+TEST_F(InetVpnRouteTest, IsMoreSpecific2) {
+    string prefix_str("10.1.1.1:65535:240.240.240.240/32");
+    InetVpnPrefix prefix(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix);
+    EXPECT_TRUE(route.IsMoreSpecific("10.1.1.1:65535:240.240.240.240/32"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:240.240.240.240/32"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:240.240.240.240/28"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:240.240.240.0/24"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:240.240.240.0/20"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:240.240.0.0/16"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:240.240.0.0/12"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:240.0.0.0/8"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:240.0.0.0/4"));
+    EXPECT_TRUE(route.IsMoreSpecific("20.1.1.1:255:0.0.0.0/0"));
+}
+
+TEST_F(InetVpnRouteTest, IsLessSpecific1) {
+    string prefix_str("10.1.1.1:65535:240.240.0.0/16");
+    InetVpnPrefix prefix(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix);
+    EXPECT_TRUE(route.IsLessSpecific("10.1.1.1:65535:240.240.240.240/32"));
+    EXPECT_TRUE(route.IsLessSpecific("10.1.1.1:65535:240.240.240.240/28"));
+    EXPECT_TRUE(route.IsLessSpecific("10.1.1.1:65535:240.240.240.0/24"));
+    EXPECT_TRUE(route.IsLessSpecific("10.1.1.1:65535:240.240.240.0/20"));
+    EXPECT_TRUE(route.IsLessSpecific("10.1.1.1:65535:240.240.0.0/16"));
+    EXPECT_FALSE(route.IsLessSpecific("10.1.1.1:65535:240.240.0.0/12"));
+    EXPECT_FALSE(route.IsLessSpecific("10.1.1.1:65535:240.0.0.0/8"));
+    EXPECT_FALSE(route.IsLessSpecific("10.1.1.1:65535:240.0.0.0/4"));
+    EXPECT_FALSE(route.IsLessSpecific("10.1.1.1:65535:0.0.0.0/0"));
+}
+
+TEST_F(InetVpnRouteTest, IsLessSpecific2) {
+    string prefix_str("10.1.1.1:65535:240.240.0.0/16");
+    InetVpnPrefix prefix(InetVpnPrefix::FromString(prefix_str));
+    InetVpnRoute route(prefix);
+    EXPECT_TRUE(route.IsLessSpecific("20.1.1.1:255:240.240.240.240/32"));
+    EXPECT_TRUE(route.IsLessSpecific("20.1.1.1:255:240.240.240.240/28"));
+    EXPECT_TRUE(route.IsLessSpecific("20.1.1.1:255:240.240.240.0/24"));
+    EXPECT_TRUE(route.IsLessSpecific("20.1.1.1:255:240.240.240.0/20"));
+    EXPECT_TRUE(route.IsLessSpecific("20.1.1.1:255:240.240.0.0/16"));
+    EXPECT_FALSE(route.IsLessSpecific("20.1.1.1:255:240.240.0.0/12"));
+    EXPECT_FALSE(route.IsLessSpecific("20.1.1.1:255:240.0.0.0/8"));
+    EXPECT_FALSE(route.IsLessSpecific("20.1.1.1:255:240.0.0.0/4"));
+    EXPECT_FALSE(route.IsLessSpecific("20.1.1.1:255:0.0.0.0/0"));
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);

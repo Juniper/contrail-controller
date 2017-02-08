@@ -31,6 +31,9 @@ public:
     virtual bool IsMoreSpecific(const std::string &match) const {
         return false;
     }
+    virtual bool IsLessSpecific(const std::string &match) const {
+        return false;
+    }
 
     void SetState(DBTableBase *tbl_base, ListenerId listener, DBState *state);
     void ClearState(DBTableBase *tbl_base, ListenerId listener);

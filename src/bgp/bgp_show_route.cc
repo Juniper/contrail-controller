@@ -158,7 +158,8 @@ public:
         BgpRoute *route = NULL;
 
         bool exact_lookup = false;
-        if (!req_->get_prefix().empty() && !req_->get_longer_match()) {
+        if (!req_->get_prefix().empty() &&
+            !req_->get_longer_match() && !req_->get_shorter_match()) {
             exact_lookup = true;
             auto_ptr<DBEntry> key = table->AllocEntryStr(req_->get_prefix());
             route = static_cast<BgpRoute *>(partition->Find(key.get()));
@@ -172,7 +173,8 @@ public:
         for (int i = 0; route && (!count || i < count);
              route = static_cast<BgpRoute *>(partition->GetNext(route)), ++i) {
             if (!MatchPrefix(req_->get_prefix(), route,
-                             req_->get_longer_match()))
+                             req_->get_longer_match(),
+                             req_->get_shorter_match()))
                 continue;
             ShowRoute show_route;
             route->FillRouteInfo(table, &show_route, req_->get_source(),
@@ -185,15 +187,21 @@ public:
     }
 
     bool MatchPrefix(const string &expected_prefix, BgpRoute *route,
-                     bool longer_match) {
+                     bool longer_match, bool shorter_match) {
         if (expected_prefix == "")
             return true;
-        if (!longer_match) {
+        if (!longer_match && !shorter_match)
             return expected_prefix == route->ToString();
-        }
 
-        // Do longest prefix match.
-        return route->IsMoreSpecific(expected_prefix);
+        // Do longer match.
+        if (longer_match && route->IsMoreSpecific(expected_prefix))
+            return true;
+
+        // Do shorter match.
+        if (shorter_match && route->IsLessSpecific(expected_prefix))
+            return true;
+
+        return false;
     }
 
     bool match(const string &expected, const string &actual) {
@@ -259,7 +267,8 @@ bool ShowRouteHandler::ConvertReqIterateToReq(
     req->set_context(req_iterate->context());
 
     // Format of route_info:
-    // UserRI||UserRT||UserPfx||NextRI||NextRT||NextPfx||count||longer_match
+    // UserRI||UserRT||UserPfx||NextRI||NextRT||NextPfx||count||longer_match||
+    // shorter_match
     //
     // User* values were entered by the user and Next* values indicate 'where'
     // we need to start this iteration.
@@ -335,7 +344,14 @@ bool ShowRouteHandler::ConvertReqIterateToReq(
     string user_family = route_info.substr((pos9 + sep_size),
                                            pos10 - (pos9 + sep_size));
 
-    string longer_match = route_info.substr(pos10 + sep_size);
+    size_t pos11 = route_info.find(kIterSeparator, (pos10 + sep_size));
+    if (pos11 == string::npos) {
+        return false;
+    }
+    string longer_match = route_info.substr((pos10 + sep_size),
+                                            pos11 - (pos10 + sep_size));
+
+    string shorter_match = route_info.substr(pos11 + sep_size);
 
     req->set_routing_instance(user_ri);
     req->set_routing_table(user_rt);
@@ -348,6 +364,7 @@ bool ShowRouteHandler::ConvertReqIterateToReq(
     req->set_protocol(user_protocol);
     req->set_family(user_family);
     req->set_longer_match(StringToBool(longer_match));
+    req->set_shorter_match(StringToBool(shorter_match));
 
     return true;
 }
@@ -536,7 +553,8 @@ string ShowRouteHandler::SaveContextAndPopLast(const ShowRouteReq *req,
             req->get_source() + kIterSeparator +
             req->get_protocol() + kIterSeparator +
             req->get_family() + kIterSeparator +
-            BoolToString(req->get_longer_match());
+            BoolToString(req->get_longer_match()) + kIterSeparator +
+            BoolToString(req->get_shorter_match());
     }
 
     // Pop off the last entry only after we have captured its values in
