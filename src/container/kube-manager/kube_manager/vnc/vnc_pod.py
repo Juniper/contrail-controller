@@ -14,10 +14,11 @@ from kube_manager.common.kube_config_db import PodKM
 class VncPod(object):
 
     def __init__(self, vnc_lib=None, label_cache=None, service_mgr=None,
-                 queue=None, svc_fip_pool=None):
+            network_policy_mgr=None, queue=None, svc_fip_pool=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self._service_mgr = service_mgr
+        self._network_policy_mgr = network_policy_mgr
         self._queue = queue
         self._service_fip_pool = svc_fip_pool
 
@@ -237,12 +238,22 @@ class VncPod(object):
         pod_namespace = event['object']['metadata'].get('namespace')
         labels = event['object']['metadata'].get('labels', {})
 
-        if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
+        if event['type'] == 'ADDED':
             pod_node = event['object']['spec'].get('nodeName')
             host_network = event['object']['spec'].get('hostNetwork')
             if host_network:
                 return
             self.vnc_pod_add(pod_id, pod_name, pod_namespace,
                 pod_node, labels)
+            self._network_policy_mgr.vnc_pod_add(event)
+        elif event['type'] == 'MODIFIED':
+            pod_node = event['object']['spec'].get('nodeName')
+            host_network = event['object']['spec'].get('hostNetwork')
+            if host_network:
+                return
+            self._network_policy_mgr.vnc_pod_update(event)
+            self.vnc_pod_add(pod_id, pod_name, pod_namespace,
+                pod_node, labels)
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
+            self._network_policy_mgr.vnc_pod_delete(event)
