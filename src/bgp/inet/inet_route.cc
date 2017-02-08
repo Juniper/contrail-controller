@@ -99,6 +99,18 @@ bool InetRoute::IsMoreSpecific(const string &match) const {
     return false;
 }
 
+// Check whether 'this' is less specific than rhs.
+bool InetRoute::IsLessSpecific(const string &match) const {
+    boost::system::error_code ec;
+
+    Ip4Prefix prefix = Ip4Prefix::FromString(match, &ec);
+    if (!ec) {
+        return prefix.IsMoreSpecific(GetPrefix());
+    }
+
+    return false;
+}
+
 DBEntryBase::KeyPtr InetRoute::GetDBRequestKey() const {
     InetTable::RequestKey *key = new InetTable::RequestKey(prefix_, NULL);
     return KeyPtr(key);

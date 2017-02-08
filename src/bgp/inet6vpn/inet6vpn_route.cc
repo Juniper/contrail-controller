@@ -214,3 +214,15 @@ bool Inet6VpnRoute::IsMoreSpecific(const string &other) const {
 
     return false;
 }
+
+// Check whether 'this' is less specific than rhs.
+bool Inet6VpnRoute::IsLessSpecific(const string &other) const {
+    boost::system::error_code ec;
+
+    Inet6VpnPrefix other_prefix = Inet6VpnPrefix::FromString(other, &ec);
+    if (!ec) {
+        return other_prefix.IsMoreSpecific(GetPrefix());
+    }
+
+    return false;
+}
