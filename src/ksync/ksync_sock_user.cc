@@ -564,12 +564,14 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
         f->fe_flags &= ~VR_FLOW_FLAG_ACTIVE;
         f->fe_stats.flow_bytes = 0;
         f->fe_stats.flow_packets = 0;
+        f->fe_key.key_len = 0;
         return;
     }
 
     f->fe_flags |= VR_FLOW_FLAG_ACTIVE;
     f->fe_stats.flow_bytes = 30;
     f->fe_stats.flow_packets = 1;
+    f->fe_key.key_len = sizeof(f->fe_key);
     f->fe_key.flow4_sip = req->get_fr_flow_sip();
     f->fe_key.flow4_dip = req->get_fr_flow_dip();
     f->fe_key.flow4_sport = req->get_fr_flow_sport();
