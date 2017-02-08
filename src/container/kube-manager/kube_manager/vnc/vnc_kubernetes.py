@@ -57,13 +57,13 @@ class VncKubernetes(object):
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
             self.label_cache, self.args, self.logger, self.kube)
-        self.pod_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
-            self.label_cache, self.service_mgr, self.q,
-            svc_fip_pool = self._get_cluster_service_fip_pool())
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
             self.vnc_lib, self.label_cache, self.logger)
+        self.pod_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
+            self.label_cache, self.service_mgr, self.network_policy_mgr,
+            self.q, svc_fip_pool = self._get_cluster_service_fip_pool())
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints',
             self.vnc_lib, self.logger, self.kube)
@@ -309,7 +309,6 @@ class VncKubernetes(object):
                     event['object']['metadata'].get('name')))
                 if event['object'].get('kind') == 'Pod':
                     self.pod_mgr.process(event)
-                    self.network_policy_mgr.process(event)
                 elif event['object'].get('kind') == 'Service':
                     self.service_mgr.process(event)
                 elif event['object'].get('kind') == 'Namespace':
