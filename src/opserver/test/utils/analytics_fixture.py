@@ -66,7 +66,7 @@ class Collector(object):
                  syslog_port = False, protobuf_port = True,
                  kafka = None, is_dup = False,
                  cassandra_user = None, cassandra_password = None,
-                 zookeeper = None, cluster_id=''):
+                 zookeeper = None, cluster_id='', sandesh_config=None):
         self.analytics_fixture = analytics_fixture
         if kafka is None:
             self.kafka_port = None
@@ -95,7 +95,12 @@ class Collector(object):
         self.zk_port = zookeeper.port
         self._generator_id = None
         self.cluster_id = cluster_id
+        self.sandesh_config = sandesh_config
     # end __init__
+
+    def set_sandesh_config(self, sandesh_config):
+        self.sandesh_config = sandesh_config
+    # end set_sandesh_config
 
     def get_addr(self):
         return '127.0.0.1:'+str(self.listen_port)
@@ -177,6 +182,19 @@ class Collector(object):
         if self.cluster_id:
             args.append('--DATABASE.cluster_id')
             args.append(self.cluster_id)
+        if self.sandesh_config:
+            if 'sandesh_ssl_enable' in self.sandesh_config:
+                args.append('--SANDESH.sandesh_ssl_enable')
+                args.append(self.sandesh_config['sandesh_ssl_enable'])
+            if 'sandesh_keyfile' in self.sandesh_config:
+                args.append('--SANDESH.sandesh_keyfile')
+                args.append(self.sandesh_config['sandesh_keyfile'])
+            if 'sandesh_certfile' in self.sandesh_config:
+                args.append('--SANDESH.sandesh_certfile')
+                args.append(self.sandesh_config['sandesh_certfile'])
+            if 'sandesh_ca_cert' in self.sandesh_config:
+                args.append('--SANDESH.sandesh_ca_cert')
+                args.append(self.sandesh_config['sandesh_ca_cert'])
         self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -209,13 +227,15 @@ class Collector(object):
 
 class AlarmGen(object):
     def __init__(self, collectors, kafka_port,
-                 analytics_fixture, logger, zoo, is_dup=False):
+                 analytics_fixture, logger, zoo, is_dup=False,
+                 sandesh_config=None):
         self.collectors = collectors
         self.analytics_fixture = analytics_fixture
         self.http_port = 0
         self.kafka_port = kafka_port
         self._zoo = zoo
         self.hostname = socket.gethostname()
+        self.sandesh_config = sandesh_config
         self._instance = None
         self._logger = logger
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
@@ -224,6 +244,10 @@ class AlarmGen(object):
         if self.analytics_fixture.redis_uves[0].password:
            self.redis_password = str(self.analytics_fixture.redis_uves[0].password)
     # end __init__
+
+    def set_sandesh_config(self, sandesh_config):
+        self.sandesh_config = sandesh_config
+    # end set_sandesh_config
 
     def get_introspect(self):
         if self.http_port != 0:
@@ -265,6 +289,19 @@ class AlarmGen(object):
             args.append('127.0.0.1:'+str(self._zoo))
         args.append('--partitions')
         args.append(part)
+        if self.sandesh_config:
+            if 'sandesh_ssl_enable' in self.sandesh_config and \
+                self.sandesh_config['sandesh_ssl_enable']:
+                args.append('--sandesh_ssl_enable')
+            if 'sandesh_keyfile' in self.sandesh_config:
+                args.append('--sandesh_keyfile')
+                args.append(self.sandesh_config['sandesh_keyfile'])
+            if 'sandesh_certfile' in self.sandesh_config:
+                args.append('--sandesh_certfile')
+                args.append(self.sandesh_config['sandesh_certfile'])
+            if 'sandesh_ca_cert' in self.sandesh_config:
+                args.append('--sandesh_ca_cert')
+                args.append(self.sandesh_config['sandesh_ca_cert'])
 
         self._logger.info('Setting up AlarmGen: %s' % ' '.join(args))
         ports, self._instance = \
@@ -299,7 +336,8 @@ class AlarmGen(object):
 
 class OpServer(object):
     def __init__(self, collectors, analytics_fixture, logger,
-                 admin_user, admin_password, zoo=None, is_dup=False):
+                 admin_user, admin_password, zoo=None, is_dup=False,
+                 sandesh_config=None):
         self.collectors = collectors
         self.analytics_fixture = analytics_fixture
         self.http_port = 0
@@ -319,7 +357,12 @@ class OpServer(object):
         self.admin_port = AnalyticsFixture.get_free_port()
         self.admin_user = admin_user
         self.admin_password = admin_password
+        self.sandesh_config = sandesh_config
     # end __init__
+
+    def set_sandesh_config(self, sandesh_config):
+        self.sandesh_config = sandesh_config
+    # end set_sandesh_config
 
     def get_generator_id(self):
         return self._generator_id
@@ -370,6 +413,19 @@ class OpServer(object):
         if self.analytics_fixture.cluster_id:
             args.append('--cluster_id')
             args.append(self.analytics_fixture.cluster_id)
+        if self.sandesh_config:
+            if 'sandesh_ssl_enable' in self.sandesh_config and \
+                self.sandesh_config['sandesh_ssl_enable']:
+                args.append('--sandesh_ssl_enable')
+            if 'sandesh_keyfile' in self.sandesh_config:
+                args.append('--sandesh_keyfile')
+                args.append(self.sandesh_config['sandesh_keyfile'])
+            if 'sandesh_certfile' in self.sandesh_config:
+                args.append('--sandesh_certfile')
+                args.append(self.sandesh_config['sandesh_certfile'])
+            if 'sandesh_ca_cert' in self.sandesh_config:
+                args.append('--sandesh_ca_cert')
+                args.append(self.sandesh_config['sandesh_ca_cert'])
         self._logger.info('Setting up OpServer: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -404,7 +460,8 @@ class OpServer(object):
 # end class OpServer
 
 class QueryEngine(object):
-    def __init__(self, collectors, analytics_fixture, logger, cluster_id=''):
+    def __init__(self, collectors, analytics_fixture, logger, cluster_id='',
+                 sandesh_config=None):
         self.collectors = collectors
         self.analytics_fixture = analytics_fixture
         self.listen_port = AnalyticsFixture.get_free_port()
@@ -420,7 +477,12 @@ class QueryEngine(object):
         self._generator_id = self.hostname+':'+NodeTypeNames[NodeType.ANALYTICS]+\
                             ':'+ModuleNames[Module.QUERY_ENGINE]+':0'
         self.cluster_id = cluster_id
+        self.sandesh_config = sandesh_config
     # end __init__
+
+    def set_sandesh_config(self, sandesh_config):
+        self.sandesh_config = sandesh_config
+    # end set_sandesh_config
 
     def get_generator_id(self):
         return self._generator_id
@@ -451,6 +513,19 @@ class QueryEngine(object):
             args += ['--CASSANDRA.cassandra_password', self.cassandra_password]
         if self.cluster_id:
             args += ['--DATABASE.cluster_id', self.cluster_id]
+        if self.sandesh_config:
+            if 'sandesh_ssl_enable' in self.sandesh_config:
+                args.append('--SANDESH.sandesh_ssl_enable')
+                args.append(self.sandesh_config['sandesh_ssl_enable'])
+            if 'sandesh_keyfile' in self.sandesh_config:
+                args.append('--SANDESH.sandesh_keyfile')
+                args.append(self.sandesh_config['sandesh_keyfile'])
+            if 'sandesh_certfile' in self.sandesh_config:
+                args.append('--SANDESH.sandesh_certfile')
+                args.append(self.sandesh_config['sandesh_certfile'])
+            if 'sandesh_ca_cert' in self.sandesh_config:
+                args.append('--SANDESH.sandesh_ca_cert')
+                args.append(self.sandesh_config['sandesh_ca_cert'])
         self._logger.info('Setting up contrail-query-engine: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -551,7 +626,8 @@ class AnalyticsFixture(fixtures.Fixture):
                  ipfix_port = False, sflow_port = False, syslog_port = False,
                  protobuf_port = False, noqed=False, collector_ha_test=False,
                  redis_password=None, start_kafka=False,
-                 cassandra_user=None, cassandra_password=None, cluster_id=""):
+                 cassandra_user=None, cassandra_password=None, cluster_id="",
+                 sandesh_config=None):
 
         self.builddir = builddir
         self.cassandra_port = cassandra_port
@@ -574,6 +650,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.admin_user = AnalyticsFixture.ADMIN_USER
         self.admin_password = AnalyticsFixture.ADMIN_PASSWORD
         self.cluster_id = cluster_id
+        self.sandesh_config = sandesh_config
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
@@ -597,7 +674,9 @@ class AnalyticsFixture(fixtures.Fixture):
                            syslog_port = self.syslog_port,
                            protobuf_port = self.protobuf_port,
                            kafka = self.kafka,
-                           zookeeper = self.zookeeper, cluster_id=self.cluster_id)]
+                           zookeeper = self.zookeeper,
+                           cluster_id=self.cluster_id,
+                           sandesh_config=self.sandesh_config)]
         if not self.collectors[0].start():
             self.logger.error("Collector did NOT start")
             return 
@@ -614,26 +693,32 @@ class AnalyticsFixture(fixtures.Fixture):
                                              self.logger,
                                              kafka = self.kafka,
                                              is_dup = True,
-                                             zookeeper = self.zookeeper, cluster_id=self.cluster_id))
+                                             zookeeper = self.zookeeper,
+                                             cluster_id=self.cluster_id,
+                                             sandesh_config=self.sandesh_config))
             if not self.collectors[1].start():
                 self.logger.error("Second Collector did NOT start")
 
         self.opserver = OpServer(self.get_collectors(),
                                  self, self.logger, self.admin_user,
-                                 self.admin_password, zkport)
+                                 self.admin_password, zkport,
+                                 sandesh_config=self.sandesh_config)
         if not self.opserver.start():
             self.logger.error("OpServer did NOT start")
         self.opserver_port = self.get_opserver_port()
         
         if self.kafka is not None: 
             self.alarmgen = AlarmGen(self.get_collectors(), self.kafka.port,
-                                     self, self.logger, zkport)
+                                     self, self.logger, zkport,
+                                     sandesh_config=self.sandesh_config)
             if not self.alarmgen.start():
                 self.logger.error("AlarmGen did NOT start")
 
         if not self.noqed:
             self.query_engine = QueryEngine(self.get_collectors(),
-                                            self, self.logger, cluster_id=self.cluster_id)
+                                            self, self.logger,
+                                            cluster_id=self.cluster_id,
+                                            sandesh_config=self.sandesh_config)
             if not self.query_engine.start():
                 self.logger.error("QE did NOT start")
     # end setUp

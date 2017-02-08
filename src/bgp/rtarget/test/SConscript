@@ -79,6 +79,8 @@ else:
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt',
                     'io',
+                    'ssl',
+                    'crypto',
                     'ifmapio',
                     'cassandra_cql',
                     'SimpleAmqpClient',

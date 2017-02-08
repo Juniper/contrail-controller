@@ -350,7 +350,8 @@ int main(int argc, char *argv[])
             options.get_cassandra_options(),
             zookeeper_server_list,
             use_zookeeper,
-            options.get_db_write_options());
+            options.get_db_write_options(),
+            options.sandesh_config());
 #if 0
     // initialize python/c++ API
     Py_InitializeEx(0);

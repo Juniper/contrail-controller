@@ -37,6 +37,7 @@
 #include "base/parse_object.h"
 #include <base/connection_info.h>
 #include "io/event_manager.h"
+#include "io/ssl_session.h"
 #include "base/sandesh/process_info_types.h"
 
 #include <sandesh/sandesh_types.h>
@@ -67,6 +68,7 @@ public:
         GenDb::GenDbIf::DbAddColumnCb db_cb)> VizCallback;
 
     Collector(EventManager *evm, short server_port,
+              const SandeshConfig &sandesh_config,
               DbHandlerPtr db_handler, OpServerProxy *osp,
               VizCallback cb);
     virtual ~Collector();
@@ -127,7 +129,7 @@ public:
 
     std::string DbGlobalName(bool dup=false);
 protected:
-    virtual TcpSession *AllocSession(Socket *socket);
+    virtual SslSession *AllocSession(SslSocket *socket);
     virtual void DisconnectSession(SandeshSession *session);
 
 private:
@@ -181,7 +183,7 @@ private:
 
 class VizSession : public SandeshSession {
 public:
-    VizSession(TcpServer *client, Socket *socket, int task_instance,
+    VizSession(SslServer *client, SslSocket *socket, int task_instance,
             int writer_task_id, int reader_task_id) :
         SandeshSession(client, socket, task_instance, writer_task_id,
                        reader_task_id),

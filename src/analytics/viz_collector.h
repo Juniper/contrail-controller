@@ -45,7 +45,8 @@ public:
             const Options::Cassandra &cassandra_options,
             const std::string &zookeeper_server_list,
             bool use_zookeeper,
-            const DbWriteOptions &db_write_options);
+            const DbWriteOptions &db_write_options,
+            const SandeshConfig &sandesh_config);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
