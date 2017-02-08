@@ -342,6 +342,34 @@ TEST_F(BridgeDomainMGTest, Test6) {
     client->WaitForIdle();
 }
 
+TEST_F(BridgeDomainMGTest, Test7) {
+    CreateBridgeDomain(input[0].name, 1);
+    client->WaitForIdle();
+
+    CreateBridgeDomain(input[1].name, 2);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+
+    BridgeRouteEntry *l2_rt =
+        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+    NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
+    EXPECT_TRUE(l2_nh->learning_enabled() == false);
+
+    AddBridgeDomain("bridge1", 1, 1, true);
+    client->WaitForIdle();
+    EXPECT_TRUE(l2_nh->learning_enabled() == true);
+
+    AddBridgeDomain("bridge1", 1, 1, false);
+    client->WaitForIdle();
+    EXPECT_TRUE(l2_nh->learning_enabled() == false);
+
+    DeleteBridgeDomain(input[0].name);
+    DeleteBridgeDomain(input[1].name);
+    client->WaitForIdle();
+}
+
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
