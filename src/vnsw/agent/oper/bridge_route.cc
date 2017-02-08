@@ -741,15 +741,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         std::auto_ptr<const NextHopKey> key2(evpn_peer_key);
         ComponentNHKeyPtr component_nh_data2(new ComponentNHKey(0, key2));
         component_nh_list.push_back(component_nh_data2);
-
-        const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(
-                evpn_peer_path->ComputeNextHop(agent));
-        if (cnh && cnh->learning_enabled() == true) {
-            learning_enabled = true;
-        }
-        if (cnh && cnh->pbb_nh() == true) {
-            pbb_nh = true;
-        }
     }
 
     if (fabric_peer_path) {
@@ -759,15 +750,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         std::auto_ptr<const NextHopKey> key3(fabric_peer_key);
         ComponentNHKeyPtr component_nh_data3(new ComponentNHKey(0, key3));
         component_nh_list.push_back(component_nh_data3);
-
-        const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(
-                fabric_peer_path->ComputeNextHop(agent));
-        if (cnh && cnh->learning_enabled() == true) {
-            learning_enabled = true;
-        }
-        if (cnh && cnh->pbb_nh() == true) {
-            pbb_nh = true;
-        }
     }
 
     if (local_vm_peer_path) {
