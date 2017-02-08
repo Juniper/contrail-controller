@@ -523,7 +523,7 @@ class TestPropertyWithList(test_crud_basic.TestPropertyWithList, test_case.ApiSe
         self.assertNotIn(fname, vmis['virtual-machine-interfaces'][0])
 
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_obj.uuid)
-        proto_type = ProtocolType(protocol='proto', port='port')
+        proto_type = ProtocolType(protocol='proto', port=1)
         vmi_obj.add_virtual_machine_interface_fat_flow_protocols(proto_type,
                                                                  1)
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
