@@ -560,6 +560,9 @@ FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
 
 void FlowTableKSyncObject::KFlow2FlowKey(const vr_flow_entry *entry,
                                          FlowKey *key) const {
+    if (entry->fe_key.key_len == 0) {
+        return;
+    }
     key->nh = entry->fe_key.flow4_nh_id;
     // TODO : IPv6
     key->src_addr = Ip4Address(ntohl(entry->fe_key.flow4_sip));
@@ -666,6 +669,9 @@ const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
 bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey *key) {
     const vr_flow_entry *kflow = GetKernelFlowEntry(index, false);
     if (!kflow) {
+        return false;
+    }
+    if (kflow->fe_key.key_len == 0) {
         return false;
     }
     key->nh = kflow->fe_key.flow4_nh_id;
