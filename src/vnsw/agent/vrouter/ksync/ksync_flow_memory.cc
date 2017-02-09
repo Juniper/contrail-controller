@@ -30,6 +30,7 @@
 #include <ksync/ksync_netlink.h>
 #include <ksync/ksync_sock.h>
 #include <ksync/ksync_sock_user.h>
+#include <vrouter/flow_stats/flow_stats_collector.h>
 
 #include <vr_types.h>
 #include <nl_util.h>
@@ -278,14 +279,64 @@ bool KSyncFlowMemory::GetFlowKey(uint32_t index, FlowKey *key) {
     return true;
 }
 
-bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry) const {
+bool KSyncFlowMemory::IsEvictionMarked(const vr_flow_entry *entry,
+                                       uint16_t flags) const {
     if (!entry) {
         return false;
     }
-    if (entry->fe_flags & VR_FLOW_FLAG_EVICTED) {
+    if (flags & VR_FLOW_FLAG_EVICTED) {
         return true;
     }
     return false;
+}
+
+const vr_flow_entry *KSyncFlowMemory::GetKFlowStats(const FlowKey &key,
+                                                    uint32_t idx,
+                                                    uint8_t gen_id,
+                                                    vr_flow_stats *stat) const {
+    const vr_flow_entry *kflow = GetValidKFlowEntry(key, idx, gen_id);
+    if (!kflow) {
+        return NULL;
+    }
+    *stat = kflow->fe_stats;
+    kflow = GetValidKFlowEntry(key, idx, gen_id);
+    return kflow;
+}
+
+void KSyncFlowMemory::ReadFlowInfo(const vr_flow_entry *kflow,
+                                   vr_flow_stats *stat, KFlowData *info) const {
+    *stat = kflow->fe_stats;
+    info->underlay_src_port = kflow->fe_udp_src_port;
+    info->tcp_flags = kflow->fe_tcp_flags;
+    info->flags = kflow->fe_flags;
+}
+
+const vr_flow_entry *KSyncFlowMemory::GetKFlowStatsAndInfo(const FlowKey &key,
+                                                           uint32_t idx,
+                                                           uint8_t gen_id,
+                                                           vr_flow_stats *stats,
+                                                           KFlowData *info)
+    const {
+    const vr_flow_entry *kflow = GetKernelFlowEntry(idx, false);
+    if (!kflow) {
+        return NULL;
+    }
+    if (key.protocol == IPPROTO_TCP) {
+        FlowKey rhs;
+        KFlow2FlowKey(kflow, &rhs);
+        if (!key.IsEqual(rhs)) {
+            return NULL;
+        }
+
+        ReadFlowInfo(kflow, stats, info);
+
+        if (kflow->fe_gen_id != gen_id) {
+            return NULL;
+        }
+    } else {
+        ReadFlowInfo(kflow, stats, info);
+    }
+    return kflow;
 }
 
 bool KSyncFlowMemory::AuditProcess() {

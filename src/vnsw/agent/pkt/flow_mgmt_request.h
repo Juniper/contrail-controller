@@ -41,9 +41,11 @@ public:
     }
 
     FlowMgmtRequest(Event event, FlowEntry *flow, uint32_t bytes,
-                    uint32_t packets, uint32_t oflow_bytes) :
+                    uint32_t packets, uint32_t oflow_bytes,
+                    const boost::uuids::uuid &u) :
         event_(event), flow_(flow), db_entry_(NULL), vrf_id_(0), gen_id_(),
-        bytes_(bytes), packets_(packets), oflow_bytes_(oflow_bytes), params_() {
+        bytes_(bytes), packets_(packets), oflow_bytes_(oflow_bytes), params_(),
+        flow_uuid_(u) {
             if (event == RETRY_DELETE_VRF)
                 assert(vrf_id_);
     }
@@ -109,6 +111,7 @@ public:
     void set_params(const RevFlowDepParams &params) {
         params_ = params;
     }
+    boost::uuids::uuid flow_uuid() const { return flow_uuid_; }
 
 private:
     Event event_;
@@ -123,6 +126,7 @@ private:
     uint32_t packets_;
     uint32_t oflow_bytes_;
     RevFlowDepParams params_;
+    boost::uuids::uuid flow_uuid_;
 
     DISALLOW_COPY_AND_ASSIGN(FlowMgmtRequest);
 };
