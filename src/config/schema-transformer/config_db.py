@@ -3166,7 +3166,13 @@ class BgpAsAServiceST(DBBaseST):
         if not bgpr:
             bgp_router = BgpRouter(vmi.obj.name, parent_obj=ri.obj)
             create = True
-            src_port = self._cassandra.alloc_bgpaas_port(router_fq_name)
+            try:
+                src_port = self._cassandra.alloc_bgpaas_port(router_fq_name)
+                src_port = self._object_db.alloc_bgpaas_port(router_fq_name)
+            except ResourceExhaustionError as e:
+                self._logger.error("Cannot allocate BGPaaS port for %s:%s" % (
+                    router_fq_name, str(e)))
+                return
         else:
             bgp_router = self._vnc_lib.bgp_router_read(id=bgpr.obj.uuid)
             src_port = bgpr.source_port
