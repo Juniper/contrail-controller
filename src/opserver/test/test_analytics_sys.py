@@ -216,7 +216,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_04_intervn_query
 
-    #@unittest.skip('Fieldname queries')
+    @unittest.skip('Fieldname queries')
     def test_05_fieldname_query(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -333,7 +333,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                                         exp_mod_list)
     #end test_07_table_source_module_list
 
-    #@unittest.skip(' where queries with different conditions')
+    @unittest.skip(' where queries with different conditions')
     def test_08_where_clause_query(self):
         '''
         This test is used to check the working of integer 
