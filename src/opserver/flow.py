@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -70,6 +71,7 @@ class FlowQuerier(object):
     def run(self):
         if self.parse_args() != 0:
             return
+
         result = self.query()
         self.display(result)
 
@@ -98,10 +100,40 @@ class FlowQuerier(object):
             'start_time': 'now-10m',
             'end_time': 'now',
             'direction' : 'ingress',
+            'admin_user': 'admin',
+            'admin_password': 'contrail123',
+            'conf_file': '/etc/contrail/contrail-keystone-auth.conf',
         }
 
+        conf_parser = argparse.ArgumentParser(add_help=False)
+        conf_parser.add_argument("--admin-user", help="Name of admin user")
+        conf_parser.add_argument("--admin-password", help="Password of admin user")
+        conf_parser.add_argument("--conf-file", help="Configuration file")
+        args, remaining_argv = conf_parser.parse_known_args();
+
+        configfile = defaults['conf_file']
+        if args.conf_file:
+            configfile = args.conf_file
+
+        config = ConfigParser.SafeConfigParser()
+        config.read(configfile)
+        if 'KEYSTONE' in config.sections():
+            if args.admin_user == None:
+                args.admin_user = config.get('KEYSTONE', 'admin_user')
+            if args.admin_password == None:
+                args.admin_password = config.get('KEYSTONE','admin_password')
+
+        if args.admin_user == None:
+            args.admin_user = defaults['admin_user']
+        if args.admin_password == None:
+            args.admin_password = defaults['admin_password']
+
         parser = argparse.ArgumentParser(
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                  # Inherit options from config_parser
+                  parents=[conf_parser],
+                  # print script description with -h/--help
+                  description=__doc__,
+                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.set_defaults(**defaults)
         parser.add_argument("--analytics-api-ip",
             help="IP address of Analytics API Server")
@@ -139,12 +171,10 @@ class FlowQuerier(object):
             help="Show vmi uuid information")
         parser.add_argument(
             "--verbose", action="store_true", help="Show internal information")        
-        parser.add_argument(
-            "--admin-user", help="Name of admin user", default="admin")
-        parser.add_argument(
-            "--admin-password", help="Password of admin user",
-            default="contrail123")
-        self._args = parser.parse_args()
+        self._args = parser.parse_args(remaining_argv)
+
+        self._args.admin_user = args.admin_user
+        self._args.admin_password = args.admin_password
 
         try:
             self._start_time, self._end_time = \
