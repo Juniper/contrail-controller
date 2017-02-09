@@ -26,10 +26,14 @@ public:
     virtual ~ConfigAmqpClient();
 
     std::string rabbitmq_ip() const {
+        if (current_server_index_ >= rabbitmq_ips_.size())
+            return "";
         return rabbitmq_ips_[current_server_index_];
     }
 
     std::string rabbitmq_port() const {
+        if (current_server_index_ >= rabbitmq_ips_.size())
+            return "";
         return rabbitmq_ports_[current_server_index_];
     }
 
@@ -98,7 +102,7 @@ private:
     std::string module_name_;
 
     int reader_task_id_;
-    int current_server_index_;
+    size_t current_server_index_;
     std::vector<std::string> rabbitmq_ips_;
     std::vector<std::string> rabbitmq_ports_;
     std::string rabbitmq_user_;

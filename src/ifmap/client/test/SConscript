@@ -40,20 +40,16 @@ env.Prepend(LIBS = [
                    ])
 
 if sys.platform != 'darwin':
-    env.Append(LIBS = ['rt'])
+    env.Append(LIBS = ['boost_chrono'])
 
 config_json_parser_test = env.UnitTest('config_json_parser_test',
                                        ['config_json_parser_test.cc'])
 env.Alias('src/ifmap/client:config_json_parser_test', config_json_parser_test)
 
-client_unit_tests = [
-#                    config_json_parser_test
-                    ]
+client_unit_tests = [ config_json_parser_test ]
 
 client_test = env.TestSuite('ifmap-test', client_unit_tests)
 
 env.Alias('src/ifmap/client:test', client_test)
-env.Alias('src/ifmap/client:flaky-test', [
-    config_json_parser_test
-])
+env.Alias('src/ifmap/client:flaky-test', [ ])
 Return('client_unit_tests')
