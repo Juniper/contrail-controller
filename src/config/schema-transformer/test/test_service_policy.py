@@ -21,7 +21,8 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType, VirtualNetworkType,
         VirtualMachineInterface, InterfaceMirrorType, MirrorActionType,
         ServiceChainInfo, RoutingPolicy, RoutingPolicyServiceInstanceType,
         RouteListType, RouteAggregate,RouteTargetList, ServiceInterfaceTag,
-        PolicyBasedForwardingRuleType)
+        PolicyBasedForwardingRuleType, PortTuple, AddressType, ActionListType,
+        PolicyRuleType, Project)
 
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
@@ -267,6 +268,15 @@ class VerifyServicePolicy(VerifyPolicy):
                         return
         raise Exception('subnets assigned not matched in ACL rules for %s; sc: %s' %
                         (fq_name, sc_ri_fq_name))
+
+    @retries(5)
+    def check_vmi_port_tuple(self, vmi_fq_name, pt_uuid):
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(fq_name=vmi_fq_name)
+        for pt in vmi_obj.get_port_tuple_refs():
+            if pt['uuid'] == pt_uuid:
+                return
+        raise Exception('Port Tuple with UUID %s not attached with SI %s' %
+                        (pt_uuid, si_name))
 
     @retries(10)
     def get_si_vm_obj(self, si_obj):
@@ -1785,4 +1795,61 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_vn(fq_name=vn1_obj.get_fq_name())
         self.delete_vn(fq_name=vn2_obj.get_fq_name())
     #end test vrf_assign_rules
+
+    def test_service_policy_with_port_tuples(self):
+        #create vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        #create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        #create vn3
+        vn3_name = self.id() + 'vn3'
+        vn3_obj = self.create_virtual_network(vn3_name, '30.0.0.0/24')
+
+        si1 = [self.id() + '_s1']
+        np = self.create_network_policy(vn1_obj, vn3_obj, si1,
+                                         auto_policy=False,
+                                         service_mode='in-network',
+                                         version=2)
+        right_vmi = self._vnc_lib.virtual_machine_interface_read(fq_name=[u'default-domain',
+                                                                          u'default-project',
+                                                                          si1[0] + 'right'])
+
+        # Creating a service instance SI2 but the right network being the
+        # same VMI as the one created earlier.
+        si2_name = self.id() + '_s2'
+        si2 = self._create_service([('left', vn2_obj.get_fq_name_str()), ('right', vn3_obj.get_fq_name_str())],
+                                   si2_name, False)
+        si2_obj = self._vnc_lib.service_instance_read(fq_name_str=si2)
+
+        proj = Project()
+        pt = PortTuple('pt-'+si2_name, parent_obj=si2_obj)
+        self._vnc_lib.port_tuple_create(pt)
+        port = VirtualMachineInterface(si2_name+'left', parent_obj=proj)
+        vmi_props = VirtualMachineInterfacePropertiesType(service_interface_type='left')
+        port.set_virtual_machine_interface_properties(vmi_props)
+        port.add_virtual_network(vn2_obj)
+        port.add_port_tuple(pt)
+        self._vnc_lib.virtual_machine_interface_create(port)
+
+        right_vmi.add_port_tuple(pt)
+        self._vnc_lib.virtual_machine_interface_update(right_vmi)
+
+        pt1_obj = self._vnc_lib.port_tuple_read(fq_name=[u'default-domain',
+                                                         u'default-project',
+                                                         si1[0],
+                                                         'pt-'+si1[0]])
+        pt2_obj = self._vnc_lib.port_tuple_read(fq_name=[u'default-domain',
+                                                         u'default-project',
+                                                         si2_name,
+                                                         'pt-'+si2_name])
+
+        self.check_vmi_port_tuple(right_vmi.fq_name, pt1_obj.uuid)
+        self.check_vmi_port_tuple(right_vmi.fq_name, pt2_obj.uuid)
+
+    #end test_service_policy_with_port_tuples
+
 # end class TestServicePolicy
