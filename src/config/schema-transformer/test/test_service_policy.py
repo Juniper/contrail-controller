@@ -21,7 +21,7 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType, VirtualNetworkType,
         VirtualMachineInterface, InterfaceMirrorType, MirrorActionType,
         ServiceChainInfo, RoutingPolicy, RoutingPolicyServiceInstanceType,
         RouteListType, RouteAggregate,RouteTargetList, ServiceInterfaceTag,
-        PolicyBasedForwardingRuleType)
+        PolicyBasedForwardingRuleType, PortTuple)
 
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
@@ -267,6 +267,19 @@ class VerifyServicePolicy(VerifyPolicy):
                         return
         raise Exception('subnets assigned not matched in ACL rules for %s; sc: %s' %
                         (fq_name, sc_ri_fq_name))
+
+    @retries(5)
+    def check_port_tuples(self, si_name, pt_uuid):
+        si_obj = self._vnc_lib.service_instance_read(fq_name=[u'default-domain', u'default-project', si_name])
+        vm_obj = self.get_si_vm_obj(si_obj)
+        vmi_refs = vm_obj.get_virtual_machine_interface_back_refs()
+        for vmi_ref in vmi_refs:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_ref['uuid'])
+            for pt in vmi_obj.get_port_tuple_refs():
+                if pt['uuid'] == pt_uuid:
+                    return
+        raise Exception('Port Tuple with UUID %s not attached with SI %s' %
+                        (pt_uuid, si_name))
 
     @retries(10)
     def get_si_vm_obj(self, si_obj):
@@ -1785,4 +1798,60 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_vn(fq_name=vn1_obj.get_fq_name())
         self.delete_vn(fq_name=vn2_obj.get_fq_name())
     #end test vrf_assign_rules
+
+    def test_service_policy_with_port_tuples(self):
+        # Create Service Instance, attach two port tuples to
+        # the VMIs and check.
+        #create vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        #create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
+
+        service_names = [self.id() + 's1']
+        np = self.create_network_policy(vn1_obj, vn2_obj, service_names, auto_policy=False, service_mode='in-network')
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        vn1_uuid = self._vnc_lib.virtual_network_update(vn1_obj)
+        vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
+
+        si_obj = self._vnc_lib.service_instance_read(fq_name=[u'default-domain', u'default-project', service_names[0]])
+
+        pt1 = PortTuple(name=self.id() + 'left1_s1', parent_obj = si_obj)
+        pt2 = PortTuple(name=self.id() + 'left2_s1', parent_obj = si_obj)
+
+        pt1_uuid = self._vnc_lib.port_tuple_create(pt1)
+        pt2_uuid = self._vnc_lib.port_tuple_create(pt2)
+
+        vm_obj = self.get_si_vm_obj(si_obj)
+        vmi_refs = vm_obj.get_virtual_machine_interface_back_refs()
+
+        pt1_obj = self._vnc_lib.port_tuple_read(id=pt1_uuid)
+        pt2_obj = self._vnc_lib.port_tuple_read(id=pt2_uuid)
+
+        left_vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_refs[0]['uuid'])
+        right_vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_refs[1]['uuid'])
+
+        left_vmi.add_port_tuple(pt1_obj)
+        left_vmi.add_port_tuple(pt2_obj)
+
+        self._vnc_lib.virtual_machine_interface_update(left_vmi)
+        self.check_port_tuples(service_names[0], pt1_uuid)
+        self.check_port_tuples(service_names[0], pt2_uuid)
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn1_obj))
+
+        self.delete_network_policy(np)
+
+        self.delete_vn(fq_name=vn1_obj.get_fq_name())
+        self.delete_vn(fq_name=vn2_obj.get_fq_name())
+    #end test_service_policy_with_port_tuples
 # end class TestServicePolicy
