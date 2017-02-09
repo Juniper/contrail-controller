@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -27,12 +28,47 @@ class StatQuerier(object):
 
     def __init__(self):
         self._args = None
+        self._defaults = {
+            'username': 'admin',
+            'password': 'contrail123',
+            'configfile': '/etc/contrail/contrail-keystone-auth.conf',
+        }
     # end __init__
 
     # Public functions
     def run(self):
+        index = 0
+        username = ''
+        password = ''
+        configfile = self._defaults['configfile']
+        for arg in sys.argv:
+            index = index + 1
+            if arg == "--admin-user":
+                username = sys.argv[index]
+            elif arg == "--admin-password":
+                password = sys.argv[index]
+            elif arg == "--conf-file":
+                configfile = sys.argv[index]
+
+        if configfile:
+            config = ConfigParser.SafeConfigParser()
+            config.read(configfile)
+            if 'KEYSTONE' in config.sections():
+                if username == '':
+                    username = config.get('KEYSTONE', 'admin_user')
+                if password == '':
+                    password = config.get('KEYSTONE','admin_password')
+
+        if username == '':
+            username = self._defaults['username']
+        if password == '':
+            password = self._defaults['password']
+
         if self.parse_args() != 0:
             return
+
+        self._args.admin_user = username
+        self._args.admin_password = password
 
         if len(self._args.select)==0 and self._args.dtable is None: 
             tab_url = "http://" + self._args.analytics_api_ip + ":" +\
@@ -100,10 +136,13 @@ class StatQuerier(object):
         parser.add_argument(
             "--sort", help="List of Sort Terms", nargs='+')
         parser.add_argument(
-            "--admin-user", help="Name of admin user", default="admin")
+            "--admin-user", help="Name of admin user",
+            default=self._defaults['username'])
         parser.add_argument(
             "--admin-password", help="Password of admin user",
-            default="contrail123")
+            default=self._defaults['password'])
+        parser.add_argument("--conf-file", help="Configuration file",
+            default=self._defaults['configfile'])
         self._args = parser.parse_args()
 
         if self._args.table is None and self._args.dtable is None:
