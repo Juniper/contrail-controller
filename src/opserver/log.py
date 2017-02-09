@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -45,6 +46,16 @@ class LogQuerier(object):
         try:
             if self.parse_args() != 0:
                 return
+
+            if self._args.conf_file:
+                config = ConfigParser.SafeConfigParser()
+                config.read(self._args.conf_file)
+                if 'KEYSTONE' in config.sections():
+                    if self._args.admin_user == "":
+                        self._args.admin_user = config.get('KEYSTONE', 'admin_user')
+                    if self._args.admin_password == "":
+                        self._args.admin_password = config.get('KEYSTONE','admin_password')
+
             if self._args.tail:
                 start_time = UTCTimestampUsec() - 10*pow(10,6)
                 while True:
@@ -164,9 +175,11 @@ class LogQuerier(object):
         parser.add_argument("--output-file", "-o", help="redirect output to file")
         parser.add_argument("--json", help="Dump output as json", action="store_true")
         parser.add_argument("--all", action="store_true", help=argparse.SUPPRESS)
-        parser.add_argument("--admin-user", help="Name of admin user", default="admin")
+        parser.add_argument("--admin-user", help="Name of admin user", default="")
         parser.add_argument("--admin-password", help="Password of admin user",
-            default="contrail123")
+            default="")
+        parser.add_argument("--conf-file", help="Configuration file",
+            default="/etc/contrail/contrail-keystone-auth.conf")
         self._args = parser.parse_args()
         return 0
     # end parse_args

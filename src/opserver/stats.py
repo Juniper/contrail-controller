@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -33,6 +34,15 @@ class StatQuerier(object):
     def run(self):
         if self.parse_args() != 0:
             return
+
+        if self._args.conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._args.conf_file)
+            if 'KEYSTONE' in config.sections():
+                if self._args.admin_user == "":
+                    self._args.admin_user = config.get('KEYSTONE', 'admin_user')
+                if self._args.admin_password == "":
+                    self._args.admin_password = config.get('KEYSTONE','admin_password')
 
         if len(self._args.select)==0 and self._args.dtable is None: 
             tab_url = "http://" + self._args.analytics_api_ip + ":" +\
@@ -100,10 +110,12 @@ class StatQuerier(object):
         parser.add_argument(
             "--sort", help="List of Sort Terms", nargs='+')
         parser.add_argument(
-            "--admin-user", help="Name of admin user", default="admin")
+            "--admin-user", help="Name of admin user", default="")
         parser.add_argument(
             "--admin-password", help="Password of admin user",
-            default="contrail123")
+            default="")
+        parser.add_argument("--conf-file", help="Configuration file",
+            default="/etc/contrail/contrail-keystone-auth.conf")
         self._args = parser.parse_args()
 
         if self._args.table is None and self._args.dtable is None:
