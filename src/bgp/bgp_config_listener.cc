@@ -44,7 +44,8 @@ void BgpConfigListener::DependencyTrackerInit() {
     policy->insert(make_pair("bgp-peering", bgp_peering_react));
 
     ReactionMap bgp_router_react = map_list_of<string, PropagateList>
-        ("self", list_of("bgp-peering"));
+        ("self", list_of("bgp-peering"))
+        ("instance-bgp-router", list_of("bgp-peering"));
     policy->insert(make_pair("bgp-router", bgp_router_react));
 
     ReactionMap connection_react = map_list_of<string, PropagateList>
