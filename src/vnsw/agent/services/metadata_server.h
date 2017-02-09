@@ -13,7 +13,7 @@ public:
     MetadataServer(EventManager *evm) : HttpServer(evm) {}
     virtual ~MetadataServer() {}
 
-    virtual TcpSession *AllocSession(Socket *socket) {
+    virtual SslSession *AllocSession(SslSocket *socket) {
         std::auto_ptr<MetadataServerSession>
             session(new MetadataServerSession(this, socket));
         boost::system::error_code ec = session->SetSocketOptions();

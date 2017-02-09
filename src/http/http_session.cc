@@ -221,8 +221,9 @@ private:
     HttpSessionPtr session_;
 };
 
-HttpSession::HttpSession(HttpServer *server, Socket *socket)
-    : TcpSession(server, socket), event_cb_(NULL) {
+HttpSession::HttpSession(HttpServer *server, SslSocket *socket,
+    bool async_ready)
+    : SslSession(server, socket, async_ready), event_cb_(NULL) {
     if (req_handler_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         req_handler_task_id_ = scheduler->GetTaskId("http::RequestHandlerTask");
@@ -292,6 +293,9 @@ void HttpSession::OnRead(Buffer buffer) {
     size_t size = BufferSize(buffer);
     std::stringstream msg;
 
+    // No need to proceed if size is 0 which can be the case with ssl
+    if (size == 0)
+	return;
     msg << "HttpSession::Read " << size << " bytes";
     HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_DEBUG, msg.str());
 

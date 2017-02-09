@@ -11,6 +11,9 @@ import platform
 import ConfigParser
 import socket
 import requests
+from urllib3.exceptions import InsecureRequestWarning
+import warnings
+warnings.simplefilter('ignore', InsecureRequestWarning)
 from StringIO import StringIO
 from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
@@ -168,13 +171,19 @@ class IntrospectUtil(object):
         self._timeout = timeout
     #end __init__
 
-    def _mk_url_str(self, path):
+    def _mk_url_str(self, path, secure=False):
+        if secure:
+            return "https://%s:%d/%s" % (self._ip, self._port, path)
         return "http://%s:%d/%s" % (self._ip, self._port, path)
     #end _mk_url_str
 
     def _load(self, path):
         url = self._mk_url_str(path)
-        resp = requests.get(url, timeout=self._timeout)
+        try:
+            resp = requests.get(url, timeout=self._timeout)
+        except requests.ConnectionError:
+            url = self._mk_url_str(path, True)
+            resp = requests.get(url, timeout=self._timeout, verify=False)
         if resp.status_code == requests.codes.ok:
             return etree.fromstring(resp.text)
         else:
