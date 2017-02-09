@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -39,12 +40,48 @@ class LogQuerier(object):
     def __init__(self):
         self._args = None
         self._slogger = None
+        self._defaults = {
+            'username': 'admin',
+            'password': 'contrail123',
+            'configfile': '/etc/contrail/contrail-keystone-auth.conf',
+        }
     # end __init__
 
     def run(self):
         try:
+            index = 0
+            username = ''
+            password = ''
+            configfile = ''
+            for arg in sys.argv:
+                index = index + 1
+                if arg == "--admin-user":
+                    username = sys.argv[index]
+                elif arg == "--admin-password":
+                    password = sys.argv[index]
+                elif arg == "--conf-file":
+                    configfile = sys.argv[index]
+
+            if configfile:
+                config = ConfigParser.SafeConfigParser()
+                config.read(configfile)
+                if 'KEYSTONE' in config.sections():
+                    if username == '':
+                        username = config.get('KEYSTONE', 'admin_user')
+                    if password == '':
+                        password = config.get('KEYSTONE','admin_password')
+
+            if username == '':
+                username = self._defaults['username']
+            if password == '':
+                password = self._defaults['password']
+
             if self.parse_args() != 0:
                 return
+
+            self._args.admin_user = username
+            self._args.admin_password = password
+
             if self._args.tail:
                 start_time = UTCTimestampUsec() - 10*pow(10,6)
                 while True:
@@ -164,9 +201,12 @@ class LogQuerier(object):
         parser.add_argument("--output-file", "-o", help="redirect output to file")
         parser.add_argument("--json", help="Dump output as json", action="store_true")
         parser.add_argument("--all", action="store_true", help=argparse.SUPPRESS)
-        parser.add_argument("--admin-user", help="Name of admin user", default="admin")
+        parser.add_argument("--admin-user", help="Name of admin user", 
+            default=self._defaults['username'])
         parser.add_argument("--admin-password", help="Password of admin user",
-            default="contrail123")
+            default=self._defaults['password'])
+        parser.add_argument("--conf-file", help="Configuration file",
+            default=self._defaults['configfile'])
         self._args = parser.parse_args()
         return 0
     # end parse_args
