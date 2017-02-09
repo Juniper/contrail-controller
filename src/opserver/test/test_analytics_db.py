@@ -170,7 +170,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_04_database_purge_query
 
-    #@unittest.skip('Skipping test_05_verify_database_purge_with_percentage_input_with_redis_password')
+    @unittest.skip('Skipping test_05_verify_database_purge_with_percentage_input_with_redis_password')
     def test_05_verify_database_purge_with_percentage_input_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -194,7 +194,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_05_database_purge_query
 
-    #@unittest.skip('Skipping test_06_verify_database_purge_support_utc_time_format_with_redis_password')
+    @unittest.skip('Skipping test_06_verify_database_purge_support_utc_time_format_with_redis_password')
     def test_06_verify_database_purge_support_utc_time_format_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -218,7 +218,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_06_database_purge_query
 
-    #@unittest.skip('Skipping test_07_verify_database_purge_support_datetime_format_with_redis_password')
+    @unittest.skip('Skipping test_07_verify_database_purge_support_datetime_format_with_redis_password')
     def test_07_verify_database_purge_support_datetime_format_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -242,7 +242,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_07_database_purge_query
 
-    #@unittest.skip('Skipping test_08_verify_database_purge_support_deltatime_format_with_redis_password')
+    @unittest.skip('Skipping test_08_verify_database_purge_support_deltatime_format_with_redis_password')
     def test_08_verify_database_purge_support_deltatime_format_with_redis_password(self):
         '''
         This test starts redis,vizd,opserver and qed

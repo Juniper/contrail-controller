@@ -12,7 +12,7 @@ class MetadataServerSession : public HttpSession {
 public:
     static const int kMetadataSessionInstance = 0;
 
-    MetadataServerSession(HttpServer *server, Socket *socket)
+    MetadataServerSession(HttpServer *server, SslSocket *socket)
         : HttpSession(server, socket) {}
     virtual ~MetadataServerSession() {}
 
