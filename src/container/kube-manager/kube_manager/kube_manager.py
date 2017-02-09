@@ -61,7 +61,7 @@ class KubeNetworkManager(object):
                 kube_api_connected = True
 
             except Exception as e:
-                time.sleep(5)
+                time.sleep(30)
 
         # Register all the known monitors.
         for monitor in self.monitors.values():
@@ -79,8 +79,8 @@ class KubeNetworkManager(object):
                                   "in contrail-kubernetes.conf. \
                                    example: kube_timer_interval=60")
             sys.exit()
-        self.logger.notice("kube_timer_interval set to %s seconds" %
-                            self.args.kube_timer_interval)
+        self.logger.info("KubeNetworkManager - kube_timer_interval(%ss)"
+                          %self.args.kube_timer_interval)
         time.sleep(int(self.args.kube_timer_interval))
         while True:
             gevent.sleep(int(self.args.kube_timer_interval))
