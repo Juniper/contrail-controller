@@ -110,7 +110,7 @@ class VncPod(object):
         annotations['device_owner'] = 'K8S:POD'
         for key in annotations:
             vm_obj.add_annotations(KeyValuePair(key=key, value=annotations[key]))
-        vm_obj.add_annotations(KeyValuePair(key='labels', value=labels))
+        vm_obj.add_annotations(KeyValuePair(key='labels', value=str(labels)))
         try:
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
