@@ -53,7 +53,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         mockcassandra.stop_cassandra(cls.cassandra_port)
         pass
 
-    #@unittest.skip('Skipping test_00_verify_database_purge_with_percentage_input')
+    @unittest.skip('Skipping test_00_verify_database_purge_with_percentage_input')
     def test_00_verify_database_purge_with_percentage_input(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -78,7 +78,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_00_database_purge_query
 
-    #@unittest.skip('Skipping test_01_verify_database_purge_support_utc_time_format')
+    @unittest.skip('Skipping test_01_verify_database_purge_support_utc_time_format')
     def test_01_verify_database_purge_support_utc_time_format(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -103,7 +103,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_01_database_purge_query
 
-    #@unittest.skip('Skipping test_02_verify_database_purge_support_datetime_format')
+    @unittest.skip('Skipping test_02_verify_database_purge_support_datetime_format')
     def test_02_verify_database_purge_support_datetime_format(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -128,7 +128,7 @@ class AnalyticsDbTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_database_purge_query
 
-    #@unittest.skip('Skipping test_03_verify_database_purge_support_deltatime_format')
+    @unittest.skip('Skipping test_03_verify_database_purge_support_deltatime_format')
     def test_03_verify_database_purge_support_deltatime_format(self):
         '''
         This test starts redis,vizd,opserver and qed
