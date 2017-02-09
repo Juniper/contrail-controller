@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -64,12 +65,31 @@ class FlowQuerier(object):
             FlowRecordFields.FLOWREC_VMI_UUID]
         self._DROP_REASON = VizConstants.FlowRecordNames[
             FlowRecordFields.FLOWREC_DROP_REASON]
+        self._defaults = {
+            'username': 'admin',
+            'password': 'contrail123',
+        }
     # end __init__
 
     # Public functions
     def run(self):
         if self.parse_args() != 0:
             return
+
+        if self._args.conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._args.conf_file)
+            if 'KEYSTONE' in config.sections():
+                if self._args.admin_user == "":
+                    self._args.admin_user = config.get('KEYSTONE', 'admin_user')
+                if self._args.admin_password == "":
+                    self._args.admin_password = config.get('KEYSTONE','admin_password')
+
+        if self._args.admin_user == "":
+            self._args.admin_user = self._defaults['username']
+        if self._args.admin_password == "":
+            self._args.admin_password = self._defaults['password']
+
         result = self.query()
         self.display(result)
 
@@ -140,10 +160,12 @@ class FlowQuerier(object):
         parser.add_argument(
             "--verbose", action="store_true", help="Show internal information")        
         parser.add_argument(
-            "--admin-user", help="Name of admin user", default="admin")
+            "--admin-user", help="Name of admin user", default="")
         parser.add_argument(
             "--admin-password", help="Password of admin user",
-            default="contrail123")
+            default="")
+        parser.add_argument("--conf-file", help="Configuration file",
+            default="/etc/contrail/contrail-keystone-auth.conf")
         self._args = parser.parse_args()
 
         try:
