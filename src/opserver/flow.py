@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -70,6 +71,14 @@ class FlowQuerier(object):
     def run(self):
         if self.parse_args() != 0:
             return
+
+        if self._args.admin_conf_file:
+            config = ConfigParser.SafeConfigParser()
+            config.read(self._args.admin_conf_file)
+            if 'KEYSTONE' in config.sections():
+                self._args.admin_user = config.get('KEYSTONE', 'admin_user')
+                self._args.admin_password = config.get('KEYSTONE','admin_password')
+
         result = self.query()
         self.display(result)
 
@@ -144,6 +153,8 @@ class FlowQuerier(object):
         parser.add_argument(
             "--admin-password", help="Password of admin user",
             default="contrail123")
+        parser.add_argument("--conf-file", help="Admin info config file",
+            default='')
         self._args = parser.parse_args()
 
         try:

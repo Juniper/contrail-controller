@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -45,6 +46,14 @@ class LogQuerier(object):
         try:
             if self.parse_args() != 0:
                 return
+
+            if self._args.admin_conf_file:
+                config = ConfigParser.SafeConfigParser()
+                config.read(self._args.admin_conf_file)
+                if 'KEYSTONE' in config.sections():
+                    self._args.admin_user = config.get('KEYSTONE', 'admin_user')
+                    self._args.admin_password = config.get('KEYSTONE','admin_password')
+
             if self._args.tail:
                 start_time = UTCTimestampUsec() - 10*pow(10,6)
                 while True:
@@ -167,6 +176,8 @@ class LogQuerier(object):
         parser.add_argument("--admin-user", help="Name of admin user", default="admin")
         parser.add_argument("--admin-password", help="Password of admin user",
             default="contrail123")
+        parser.add_argument("--conf-file", help="Adim info config file",
+            default='')
         self._args = parser.parse_args()
         return 0
     # end parse_args
