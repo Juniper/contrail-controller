@@ -163,7 +163,7 @@ class Cni():
         Report CNI error and exit
         '''
         resp = {}
-        resp['cniVersion'] = Cni.CNI_CMD_VERSION
+        resp['cniVersion'] = Cni.CNI_VERSION
         resp['code'] = code
         resp['msg'] = msg
         json_data = json.dumps(resp, indent=4)
@@ -188,7 +188,7 @@ class Cni():
         CNI response from dict in data
         '''
         resp = {}
-        resp['cniVersion'] = Cni.CNI_CMD_VERSION
+        resp['cniVersion'] = Cni.CNI_VERSION
         ip4 = {}
         if ip4_address is not None:
             dns = {}
@@ -212,7 +212,7 @@ class Cni():
         CNI response from delete command
         '''
         resp = {}
-        resp['cniVersion'] = Cni.CNI_CMD_VERSION
+        resp['cniVersion'] = Cni.CNI_VERSION
         resp['code'] = 0
         resp['msg'] = 'Delete passed'
         Cni._make_cni_response(resp)
