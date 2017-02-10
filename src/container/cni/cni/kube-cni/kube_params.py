@@ -71,7 +71,7 @@ class K8SParams():
         from docker import client
         os.environ['DOCKER_API_VERSION'] = '1.22'
         try:
-            docker_client = client.Client()
+            docker_client = client.APIClient()
             if docker_client == None:
                 raise Error(K8S_PARAMS_ERR_DOCKER_CONNECTION,
                             'Error creating docker client')
