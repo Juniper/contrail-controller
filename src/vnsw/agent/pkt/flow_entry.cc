@@ -463,9 +463,8 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
         gen_id_ = rhs->gen_id_;
         flow_handle_ = rhs->flow_handle_;
         /* Flow Entry is being re-used. Generate a new UUID for it. */
-        // results is delete miss for previous uuid to stats collector
-        // with eviction disabled following is not required
-        // uuid_ = flow_table_->rand_gen();
+        uuid_ = flow_table_->rand_gen();
+        egress_uuid_ = flow_table_->rand_gen();
     }
 }
 

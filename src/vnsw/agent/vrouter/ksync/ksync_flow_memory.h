@@ -16,7 +16,8 @@ class Timer;
 class KSync;
 class FlowKey;
 struct vr_flow_entry;
-struct vr_flow_entry;
+struct vr_flow_stats;
+struct KFlowData;
 
 class KSyncFlowMemory : public KSyncMemory {
 public:
@@ -31,11 +32,19 @@ public:
                                             bool ignore_active_status) const;
     const vr_flow_entry *GetValidKFlowEntry(const FlowKey &key,
                                             uint32_t idx, uint8_t gen_id) const;
+    const vr_flow_entry *GetKFlowStats(const FlowKey &key, uint32_t idx,
+                                       uint8_t gen_id,
+                                       vr_flow_stats *stats) const;
+    const vr_flow_entry *GetKFlowStatsAndInfo(const FlowKey &key,
+                                              uint32_t idx,
+                                              uint8_t gen_id,
+                                              vr_flow_stats *stats,
+                                              KFlowData *info) const;
     bool GetFlowKey(uint32_t index, FlowKey *key);
 
     uint32_t flow_table_entries_count() { return table_entries_count_; }
 
-    bool IsEvictionMarked(const vr_flow_entry *entry) const;
+    bool IsEvictionMarked(const vr_flow_entry *entry, uint16_t flags) const;
 
     virtual int get_entry_size();
     virtual bool IsInactiveEntry(uint32_t idx, uint8_t &gen_id);
@@ -46,6 +55,8 @@ public:
     virtual void Shutdown();
 private:
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
+    void ReadFlowInfo(const vr_flow_entry *k_flow, vr_flow_stats *stats,
+                      KFlowData *info) const;
     const vr_flow_entry           *flow_table_;
 };
 
