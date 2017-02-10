@@ -681,6 +681,7 @@ void DnsManager::BindEventHandler(BindStatus::Event event) {
             DNS_OPERATIONAL_LOG(
                 g_vns_constants.CategoryNames.find(Category::DNSAGENT)->second,
                 SandeshLevel::SYS_NOTICE, "BIND named up; DNS is operational");
+            ClearDeportedPendingList();
             UpdateAll();
             break;
         }
