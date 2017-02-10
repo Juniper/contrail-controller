@@ -146,6 +146,7 @@ class VncIngress(object):
 
     def _vnc_create_lb(self, uid, name, namespace):
         lb_provider = 'opencontrail'
+        name = 'ingress' + '-' + name
         proj_obj = self._get_project(namespace)
         vn_obj = self._get_network()
         if proj_obj is None or vn_obj is None:
@@ -210,6 +211,8 @@ class VncIngress(object):
                     value = kvp['value']
                     backend['annotations'][key] = value
                 backend['member'] = {}
+                if len(pool.members) == 0:
+                    continue
                 member_id = list(pool.members)[0]
                 member = LoadbalancerMemberKM.get(member_id)
                 if member.annotations is None:

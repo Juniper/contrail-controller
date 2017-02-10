@@ -6,6 +6,8 @@
 VNC pod management for kubernetes
 """
 
+import uuid
+
 from vnc_api.vnc_api import *
 from config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
@@ -91,7 +93,10 @@ class VncPod(object):
         proj_fq_name = ['default-domain', pod_namespace]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
-        vmi_obj = VirtualMachineInterface(name=pod_name, parent_obj=proj_obj)
+        obj_uuid = str(uuid.uuid1())
+        name = 'pod' + '-' + pod_name + '-' + obj_uuid
+        vmi_obj = VirtualMachineInterface(name=name, parent_obj=proj_obj)
+        vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
         sg_obj = SecurityGroup("default", proj_obj)
