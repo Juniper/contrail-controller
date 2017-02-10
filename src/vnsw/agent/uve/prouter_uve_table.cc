@@ -6,6 +6,9 @@
 #include <uve/prouter_uve_table.h>
 #include <uve/agent_uve_base.h>
 
+SandeshTraceBufferPtr ProuterUveTraceBuf(SandeshTraceBufferCreate
+                                         ("ProuterUve", 500));
+
 ProuterUveTable::ProuterUveTable(Agent *agent, uint32_t default_intvl)
     : uve_prouter_map_(), uve_phy_interface_map_(), agent_(agent),
       physical_device_listener_id_(DBTableBase::kInvalidId),
@@ -877,6 +880,12 @@ void ProuterUveTable::UpdateMastership(const boost::uuids::uuid &u, bool value)
 {
     ProuterUveEntry *entry = PDEntryToProuterUveEntry(u);
     if (entry == NULL) {
+        string status = " false";
+        if (value) {
+            status.assign(" true");
+        }
+        string msg = "Mastership update failed for " + to_string(u) + status;
+        PROUTER_UVE_TRACE(msg);
         return;
     }
     if (entry->mastership_ != value) {

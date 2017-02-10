@@ -72,3 +72,14 @@ struct UvePhysicalInterfaceAgent {
 uve sandesh UvePhysicalInterfaceAgentTrace {
     1: UvePhysicalInterfaceAgent data;
 }
+
+
+/**
+ * @description: Trace message for Prouter UVE
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh ProuterUveTrace {
+    /** Message for Prouter object */
+    1: string message;
+}
