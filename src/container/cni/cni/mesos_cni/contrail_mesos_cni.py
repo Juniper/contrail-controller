@@ -44,19 +44,21 @@ def get_json_params_request(cni):
     ret_dict.update(cni.stdin_json)
     return ret_dict
 
-def send_params_to_mesos_mgr(cni):
+def send_params_to_mesos_mgr(c_cni):
     url = 'http://%s:%s' %(MESOS_MGR_IP, MESOS_MGR_PORT)
-    if cni.command == 'ADD':
+    if c_cni.cni.command.lower() == Cni.CNI_CMD_ADD:
         url += '/add_cni_info'
+    elif c_cni.cni.command.lower() == Cni.CNI_CMD_DEL:
+        url += '/del_cni_info'
 
-    cni_req =  get_json_params_request(cni)
+    cni_req =  get_json_params_request(c_cni.cni)
     r = requests.post('%s' %(url), json=cni_req)
 
     if r.status_code != requests.status_codes.codes.ok:
-        raise ParamsError(CNI_ERR_POST_PARAMS,
-                          'Error in Post ' + url +
-                          ' HTTP Response code ' + r.status_code +
-                          ' HTTP Response Data ' + r.text)
+        raise CniError(CNI_ERR_POST_PARAMS,
+                       'Error in Post ' + url +
+                       ' HTTP Response code %s' %(r.status_code) +
+                       ' HTTP Response Data ' + r.text)
     return
 
 def main():
