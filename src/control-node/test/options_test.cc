@@ -123,7 +123,6 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.ifmap_peer_response_wait_time(), 60);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
 }
