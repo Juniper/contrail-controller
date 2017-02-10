@@ -17,7 +17,7 @@ class KubeMonitor(object):
         self.q = q
         self.cloud_orchestrator = self.args.orchestrator
         self.token = self.args.token # valid only for OpenShift
-        self.headers = {}
+        self.headers = {'Connection': 'Keep-Alive'}
         self.verify = False
         self.timeout = 60
 
@@ -37,7 +37,8 @@ class KubeMonitor(object):
 
         if self.cloud_orchestrator == "openshift":
             protocol = "https"
-            self.headers = {'Authorization': "Bearer " + self.token}
+            headers = {'Authorization': "Bearer " + self.token}
+            self.header.update(headers)
             self.verify = False
         else: # kubernetes
             protocol = "http"
@@ -157,7 +158,7 @@ class KubeMonitor(object):
                      namespace=None, beta=False):
         json_data = {}
         if beta == False:
-            base_url = self.url
+            base_url = self.v1_url
         else:
             base_url = self.beta_url
 
@@ -180,7 +181,7 @@ class KubeMonitor(object):
     def patch_resource(self, resource_type, resource_name, \
                        merge_patch, namespace=None, beta=False):
         if beta == False:
-            base_url = self.url
+            base_url = self.v1_url
         else:
             base_url = self.beta_url
 
@@ -192,10 +193,10 @@ class KubeMonitor(object):
 
         headers = {'Accept': 'application/json/', \
                    'Content-Type': 'application/strategic-merge-patch+json'}
-        self.headers.update(headers)
+        headers.update(self.headers)
 
         try:
-            resp = requests.patch(url, headers=self.headers, \
+            resp = requests.patch(url, headers=headers, \
                                   data=json.dumps(merge_patch), \
                                   verify=self.verify)
             if resp.status_code != 200:
