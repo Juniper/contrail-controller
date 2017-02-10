@@ -455,7 +455,7 @@ class QueryEngine(object):
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
                          "contrail-query-engine", ["http"],
-                         args, None)
+                         args, AnalyticsFixture.enable_core)
         self.http_port = ports["http"]
         return self.verify_setup()
     # end start

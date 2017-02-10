@@ -175,7 +175,9 @@ PostProcessingQuery::PostProcessingQuery(
                 for (rapidjson::SizeType j = 0; j<json_filters.Size(); j++) 
                   {
                     filter_match_t filter;
-
+                    QE_PARSE_ERROR((json_filters[j].HasMember(WHERE_MATCH_NAME)
+                        && json_filters[j].HasMember(WHERE_MATCH_VALUE)
+                        && json_filters[j].HasMember(WHERE_MATCH_OP)));
                     const rapidjson::Value& name_value = 
                         json_filters[j][WHERE_MATCH_NAME];
                     const rapidjson::Value&  value_value = 
@@ -237,7 +239,10 @@ PostProcessingQuery::PostProcessingQuery(
 
                     for (rapidjson::SizeType k = 0; k<json_filter_and.Size(); k++) {
                         filter_match_t filter;
-
+                        QE_PARSE_ERROR((
+                            json_filter_and[k].HasMember(WHERE_MATCH_NAME)
+                            && json_filter_and[k].HasMember(WHERE_MATCH_VALUE)
+                            && json_filter_and[k].HasMember(WHERE_MATCH_OP)));
                         const rapidjson::Value& name_value = 
                             json_filter_and[k][WHERE_MATCH_NAME];
                         const rapidjson::Value&  value_value = 

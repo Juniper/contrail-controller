@@ -218,7 +218,7 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_overflowsamples
 
-    @unittest.skip('Get minmax values from inserted stats')
+    #@unittest.skip('Get minmax values from inserted stats')
     def test_03_min_max_query(self):
         '''
         This test starts redis,vizd,opserver and qed
