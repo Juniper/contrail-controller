@@ -501,6 +501,11 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
+    if (vrf->isid_ != data->isid_) {
+        vrf->isid_ = data->isid_;
+        ret = true;
+    }
+
     uint32_t vxlan_id = VxLanTable::kInvalidvxlan_id;
     if (vn) {
         vxlan_id = vn->GetVxLanId();

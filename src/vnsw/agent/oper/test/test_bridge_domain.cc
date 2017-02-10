@@ -84,7 +84,8 @@ TEST_F(BridgeDomainTest, Test2) {
     client->WaitForIdle();
 
     EXPECT_TRUE(bd->vrf() != NULL);
-    EXPECT_TRUE(bd->vrf()->GetName() == "vrf1:1");
+    EXPECT_TRUE(bd->vrf()->GetName() ==
+                "vrf1:00000000-0000-0000-0000-000000000001");
     EXPECT_TRUE(bd->vrf()->IsPbbVrf() == true);
     EXPECT_TRUE(bd->vrf()->bmac_vrf_name() == "vrf1");
     EXPECT_TRUE(bd->vrf()->table_label() != MplsTable::kInvalidLabel);
@@ -98,7 +99,7 @@ TEST_F(BridgeDomainTest, Test2) {
 
     bd = BridgeDomainGet(1);
     EXPECT_TRUE(bd == NULL);
-    EXPECT_FALSE(VrfFind("vrf1:1", true));
+    EXPECT_FALSE(VrfFind("vrf1:00000000-0000-0000-0000-000000000001", true));
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
@@ -181,7 +182,7 @@ TEST_F(BridgeDomainTest, Test5) {
     const VmInterface *vm_intf = static_cast<const VmInterface *>(
             VmPortGet(1));
     EXPECT_TRUE(vm_intf->pbb_interface());
-    const VrfEntry *vrf = VrfGet("vrf1:1");
+    const VrfEntry *vrf = VrfGet("vrf1:00000000-0000-0000-0000-000000000001");
     EXPECT_TRUE(vm_intf->GetPbbVrf() == vrf->vrf_id());
     EXPECT_TRUE(vm_intf->GetIsid() == 1);
     EXPECT_TRUE(vm_intf->flow_key_nh()->learning_enabled() == false);
@@ -210,7 +211,7 @@ TEST_F(BridgeDomainTest, Test5) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 
-    EXPECT_FALSE(VrfFind("vrf1:1", true));
+    EXPECT_FALSE(VrfFind("vrf1:00000000-0000-0000-0000-000000000001", true));
 }
 
 TEST_F(BridgeDomainTest, Test6) {

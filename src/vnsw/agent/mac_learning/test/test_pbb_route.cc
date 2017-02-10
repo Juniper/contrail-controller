@@ -133,14 +133,16 @@ TEST_F(PbbRouteTest, RouteTest1) {
 }
 
 TEST_F(PbbRouteTest, RouteTest2) {
-    const VrfEntry *vrf = VrfGet("vrf1:1");
+    const VrfEntry *vrf = VrfGet("vrf1:00000000-0000-0000-0000-000000000001");
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     TxIpPBBPacket(0, "10.10.10.10", agent_->router_id().to_string().c_str(),
                   intf->l2_label(), vrf->vrf_id(), b_smac_, b_dmac_, 0,
                   c_smac_, c_dmac_, "1.1.1.1", "1.1.1.10");
     client->WaitForIdle();
 
-    EvpnRouteEntry *pbb_rt = EvpnRouteGet("vrf1:1", c_smac_, Ip4Address(0), 0);
+    EvpnRouteEntry *pbb_rt =
+        EvpnRouteGet("vrf1:00000000-0000-0000-0000-000000000001", c_smac_,
+                     Ip4Address(0), 0);
     EXPECT_TRUE(pbb_rt != NULL);
     EXPECT_TRUE(pbb_rt->GetActiveNextHop()->GetType() == NextHop::PBB);
     const PBBNH *pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
@@ -168,14 +170,16 @@ TEST_F(PbbRouteTest, RouteTest2) {
 }
 
 TEST_F(PbbRouteTest, RouteTest3) {
-    const VrfEntry *vrf = VrfGet("vrf1:1");
+    const VrfEntry *vrf = VrfGet("vrf1:00000000-0000-0000-0000-000000000001");
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     TxIpPBBPacket(0, "10.10.10.10", agent_->router_id().to_string().c_str(),
                   intf->l2_label(), vrf->vrf_id(), b_smac_, b_dmac_, 0,
                   c_smac_, c_dmac_, "1.1.1.1", "1.1.1.10");
     client->WaitForIdle();
 
-    EvpnRouteEntry *pbb_rt = EvpnRouteGet("vrf1:1", c_smac_, Ip4Address(0), 0);
+    EvpnRouteEntry *pbb_rt =
+        EvpnRouteGet("vrf1:00000000-0000-0000-0000-000000000001", c_smac_,
+                     Ip4Address(0), 0);
     EXPECT_TRUE(pbb_rt != NULL);
     EXPECT_TRUE(pbb_rt->GetActiveNextHop()->GetType() == NextHop::PBB);
     const PBBNH *pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
@@ -210,14 +214,16 @@ TEST_F(PbbRouteTest, RouteTest3) {
 }
 
 TEST_F(PbbRouteTest, RouteTest4) {
-    const VrfEntry *vrf = VrfGet("vrf1:1");
+    const VrfEntry *vrf = VrfGet("vrf1:00000000-0000-0000-0000-000000000001");
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     TxIpPBBPacket(0, "10.10.10.10", agent_->router_id().to_string().c_str(),
                   intf->l2_label(), vrf->vrf_id(), b_smac_, b_dmac_, 0,
                   c_smac_, c_dmac_, "1.1.1.1", "1.1.1.10");
     client->WaitForIdle();
 
-    EvpnRouteEntry *pbb_rt = EvpnRouteGet("vrf1:1", c_smac_, Ip4Address(0), 0);
+    EvpnRouteEntry *pbb_rt =
+        EvpnRouteGet("vrf1:00000000-0000-0000-0000-000000000001", c_smac_,
+                     Ip4Address(0), 0);
     EXPECT_TRUE(pbb_rt != NULL);
     EXPECT_TRUE(pbb_rt->GetActiveNextHop()->GetType() == NextHop::PBB);
     const PBBNH *pbb_nh = static_cast<const PBBNH *>(pbb_rt->GetActiveNextHop());
@@ -225,6 +231,25 @@ TEST_F(PbbRouteTest, RouteTest4) {
 
     DelNode("bridge-domain", "bridge1");
     DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(EvpnRouteGet("vrf1", c_smac_, Ip4Address(0), 0) == NULL);
+}
+
+TEST_F(PbbRouteTest, RouteTest5) {
+    const VrfEntry *vrf = VrfGet("vrf1:00000000-0000-0000-0000-000000000001");
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    TxIpPBBPacket(0, "10.10.10.10", agent_->router_id().to_string().c_str(),
+                  intf->l2_label(), vrf->vrf_id(), b_smac_, b_dmac_, 0,
+                  c_smac_, c_dmac_, "1.1.1.1", "1.1.1.10");
+    client->WaitForIdle();
+
+    EvpnRouteEntry *pbb_rt =
+        EvpnRouteGet("vrf1:00000000-0000-0000-0000-000000000001", c_smac_,
+                     Ip4Address(0), 0);
+    EXPECT_TRUE(pbb_rt != NULL);
+
+    AddBridgeDomain("bridge1", 1, 2);
     client->WaitForIdle();
 
     EXPECT_TRUE(EvpnRouteGet("vrf1", c_smac_, Ip4Address(0), 0) == NULL);

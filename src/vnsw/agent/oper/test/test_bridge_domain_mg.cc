@@ -103,12 +103,14 @@ TEST_F(BridgeDomainMGTest, Test1) {
     CreateBridgeDomain(input[0].name, 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
     const VmInterface *vm_intf =
         static_cast<const VmInterface *>(VmPortGet(1));
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     cnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -136,10 +138,12 @@ TEST_F(BridgeDomainMGTest, Test2) {
     const VmInterface *vm_intf2 =
         static_cast<const VmInterface *>(VmPortGet(2));
 
-    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     cnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -183,7 +187,8 @@ TEST_F(BridgeDomainMGTest, Test3) {
     client->WaitForIdle();
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     const CompositeNH *fcnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -226,7 +231,8 @@ TEST_F(BridgeDomainMGTest, Test4) {
     client->WaitForIdle();
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     const CompositeNH *fcnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -277,7 +283,8 @@ TEST_F(BridgeDomainMGTest, Test5) {
     client->WaitForIdle();
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     const CompositeNH *fcnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -314,10 +321,12 @@ TEST_F(BridgeDomainMGTest, Test6) {
     const VmInterface *vm_intf2 =
         static_cast<const VmInterface *>(VmPortGet(2));
 
-    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     cnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -349,10 +358,12 @@ TEST_F(BridgeDomainMGTest, Test7) {
     CreateBridgeDomain(input[1].name, 2);
     client->WaitForIdle();
 
-    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     EXPECT_TRUE(l2_nh->learning_enabled() == false);
 
@@ -369,6 +380,19 @@ TEST_F(BridgeDomainMGTest, Test7) {
     client->WaitForIdle();
 }
 
+TEST_F(BridgeDomainMGTest, Test8) {
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
+
+    BridgeRouteEntry *l2_rt =
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
+    EXPECT_TRUE(l2_rt->GetActivePath()->vxlan_id() == 1);
+
+    AddBridgeDomain("bridge1", 1, 2, false);
+    client->WaitForIdle();
+    EXPECT_TRUE(l2_rt->GetActivePath()->vxlan_id() == 2);
+}
 
 int main(int argc, char **argv) {
     GETUSERARGS();

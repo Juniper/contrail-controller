@@ -173,6 +173,7 @@ void MacLearningDBClient::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
         state = new MacLearningVrfState();
         e->SetState(part->parent(), vrf_listener_id_, state);
         state->Register(this, vrf);
+        state->isid_ = vrf->isid();
         AddEvent(vrf, state);
     }
 
@@ -181,6 +182,11 @@ void MacLearningDBClient::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
         if (state->learning_enabled_ == false) {
             DeleteAllMac(vrf, state);
         }
+    }
+
+    if (state->isid_ != vrf->isid()) {
+        state->isid_ = vrf->isid();
+        DeleteAllMac(vrf, state);
     }
 }
 

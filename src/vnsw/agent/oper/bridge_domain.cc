@@ -81,7 +81,7 @@ bool BridgeDomainEntry::DBEntrySandesh(Sandesh *sresp,
 
 void BridgeDomainEntry::UpdateVrf(const BridgeDomainData *data) {
     std::ostringstream str;
-    str << data->bmac_vrf_name_ << ":" << isid_;
+    str << data->bmac_vrf_name_ << ":" << UuidToString(uuid_);
 
     bmac_vrf_name_ = data->bmac_vrf_name_;
 
@@ -112,14 +112,18 @@ void BridgeDomainEntry::UpdateVrf(const BridgeDomainData *data) {
 
 bool BridgeDomainEntry::Change(const BridgeDomainData *data) {
     bool ret = false;
+    bool update_vrf = false;
+
     VnEntry *vn = table_->agent()->vn_table()->Find(data->vn_uuid_);
     if (vn_ != vn) {
         vn_ = vn;
+        update_vrf = true;
         ret = true;
     }
 
-    if (isid_ == 0 && data->isid_ && isid_ != data->isid_) {
+    if (data->isid_ && isid_ != data->isid_) {
         isid_ = data->isid_;
+        update_vrf = true;
         ret = true;
     }
 
@@ -127,32 +131,41 @@ bool BridgeDomainEntry::Change(const BridgeDomainData *data) {
         return ret;
     }
 
-    if (vn_ && data->bmac_vrf_name_ != Agent::NullString()) {
-        std::ostringstream str;
-        str << data->bmac_vrf_name_ << ":" << isid_;
-
-        if (vrf_.get() == NULL ||
-            mac_aging_time_ != data->mac_aging_time_ ||
-            learning_enabled_ != data->learning_enabled_ ||
-            layer2_control_word_ != vn->layer2_control_word()) {
-            UpdateVrf(data);
-            ret = true;
-        }
+    if (mac_aging_time_ != data->mac_aging_time_) {
+        mac_aging_time_ = data->mac_aging_time_;
+        update_vrf = true;
+        ret = true;
     }
 
     if (learning_enabled_ != data->learning_enabled_) {
         learning_enabled_ = data->learning_enabled_;
-        if (vrf_.get() && vn_.get()) {
-            vrf_->CreateTableLabel(learning_enabled_, true,
-                                   vn->flood_unknown_unicast(),
-                                   vn->layer2_control_word());
-        }
+        update_vrf = true;
         ret = true;
+    }
+
+    if (vn && layer2_control_word_ != vn->layer2_control_word()) {
+        layer2_control_word_ = vn->layer2_control_word();
+        update_vrf = true;
+        ret = true;
+    }
+
+    if (vn_ && data->bmac_vrf_name_ != Agent::NullString()) {
+        UpdateVrf(data);
     }
 
     if (pbb_etree_enabled_ != data->pbb_etree_enabled_) {
         pbb_etree_enabled_ = data->pbb_etree_enabled_;
         ret = true;
+    }
+
+    if (bmac_vrf_name_ != data->bmac_vrf_name_) {
+        bmac_vrf_name_ = data->bmac_vrf_name_;
+        update_vrf = true;
+        ret = true;
+    }
+
+    if (vn_ && data->bmac_vrf_name_ != Agent::NullString() && update_vrf) {
+        UpdateVrf(data);
     }
 
     return ret;

@@ -69,7 +69,7 @@ public:
         vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL),
         dependent_mg_(this, NULL) , pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
-        pbb_etree_enabled_(false) {
+        pbb_etree_enabled_(false), bridge_domain_(NULL) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
@@ -81,7 +81,7 @@ public:
         vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL),
         dependent_mg_(this, NULL), pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
-        pbb_etree_enabled_(false) {
+        pbb_etree_enabled_(false), bridge_domain_(NULL) {
         local_olist_.clear();
     };
     virtual ~MulticastGroupObject() { };
@@ -131,6 +131,14 @@ public:
     uint64_t peer_identifier() {return peer_identifier_;}
     void set_vn(const VnEntry *vn);
     void reset_vn();
+    void set_bridge_domain(const BridgeDomainEntry *bd) {
+        bridge_domain_.reset(bd);
+    }
+
+    void reset_bridge_domain() {
+        bridge_domain_.reset(NULL);
+    }
+
     const VnEntry *vn() const {return vn_.get();}
 
     void set_pbb_vrf(bool is_pbb_vrf) {
@@ -204,6 +212,7 @@ public:
         pbb_etree_enabled_ = pbb_etree_enabled;
     }
 
+    MulticastGroupObject* GetDependentMG(uint32_t isid);
 private:
     friend class MulticastHandler;
     std::string vrf_name_;
@@ -227,6 +236,7 @@ private:
     bool learning_enabled_;
     bool pbb_etree_enabled_;
     bool layer2_control_word_;
+    BridgeDomainConstRef bridge_domain_;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
 };
 
