@@ -51,7 +51,10 @@ class ConfigEventManager(EventManager):
         self.cassandra_repair_interval = cassandra_repair_interval
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self.cassandra_mgr = CassandraManager(cassandra_repair_logdir)
-        self.supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
+        if os.path.exists('/tmp/supervisord_config.sock'):
+            self.supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
+        else:
+            self.supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
         self.add_current_process()
         node_type = Module2NodeType[self.module]
         node_type_name = NodeTypeNames[node_type]
