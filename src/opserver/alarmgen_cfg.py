@@ -67,7 +67,7 @@ class CfgParser(object):
             'kombu_ssl_ca_certs': '',
             'alarmgen_list'     : ['127.0.0.1:0'],
             'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
-            'kafka_prefix'     :'',
+            'cluster_id'     :'',
         }
 
         redis_opts = {
@@ -193,8 +193,8 @@ class CfgParser(object):
             nargs="+")
         parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec")
-        parser.add_argument("--kafka_prefix",
-            help="System Prefix for Kafka")
+        parser.add_argument("--cluster_id",
+            help="Analytics Cluster Id")
         parser.add_argument("--auth_host",
             help="ip of keystone server")
         parser.add_argument("--auth_protocol",
@@ -297,7 +297,7 @@ class CfgParser(object):
         return self._args.sandesh_send_rate_limit
 
     def kafka_prefix(self):
-        return self._args.kafka_prefix
+        return self._args.cluster_id
 
     def rabbitmq_params(self):
         return {'servers': self._args.rabbitmq_server_list,
