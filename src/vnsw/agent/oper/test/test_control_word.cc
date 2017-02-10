@@ -177,7 +177,8 @@ TEST_F(TestControlWord, BridgeDomain) {
     EXPECT_TRUE(bd->vrf() != NULL);
 
     MacAddress smac(0xff, 0xff, 0xff, 0xff, 0xff, 0xff);
-    AgentRoute *rt = L2RouteGet("vrf1:1", smac);
+    AgentRoute *rt = L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                                smac);
     EXPECT_TRUE(rt->GetActivePath()->layer2_control_word() == false);
     const CompositeNH *comp_nh = 
         dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());

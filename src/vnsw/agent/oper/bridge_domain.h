@@ -23,10 +23,11 @@ struct BridgeDomainKey : public AgentOperDBKey {
 
 struct BridgeDomainData : public AgentOperDBData {
     BridgeDomainData(Agent *agent, IFMapNode *node):
-        AgentOperDBData(agent, node), vn_uuid_(nil_uuid()), isid_(0),
+        AgentOperDBData(agent, node), name_(""), vn_uuid_(nil_uuid()), isid_(0),
         learning_enabled_(false), bmac_vrf_name_(""), pbb_etree_enabled_(false),
         mac_aging_time_(0) {}
 
+    std::string name_;
     boost::uuids::uuid vn_uuid_;
     uint32_t isid_;
     bool learning_enabled_;
@@ -47,7 +48,7 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
     bool DBEntrySandesh(Sandesh *resp, std::string &name) const;
-    bool Change(const BridgeDomainData *data);
+    bool Change(const BridgeDomainTable *table, const BridgeDomainData *data);
     void Delete();
 
     const boost::uuids::uuid &uuid() const { return uuid_; }

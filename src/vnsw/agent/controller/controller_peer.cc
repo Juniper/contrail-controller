@@ -1948,7 +1948,7 @@ bool AgentXmppChannel::BuildEvpnMulticastMessage(EnetItemType &item,
 
     TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
     item.entry.nlri.ethernet_tag = route->vrf()->isid();
-    if (associate == false && tunnel_type == TunnelType::VXLAN) {
+    if (associate == false) {
         //In case of VXLAN ethernet tag is set to vxlan ID.
         //Upon withdraw or encap change label holds the VN ID
         //which is used to withdraw route

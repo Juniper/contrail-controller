@@ -23,7 +23,7 @@ RouteExport::State::State() :
     DBState(), exported_(false), fabric_multicast_exported_(false),
     force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(), sg_list_(),
     tunnel_type_(TunnelType::INVALID), path_preference_(),
-    destination_(), source_(), ecmp_load_balance_() {
+    destination_(), source_(), ecmp_load_balance_(), isid_(0) {
 }
 
 bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path) const {
@@ -398,6 +398,17 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
             withdraw = true;
         }
 
+        if (route->vrf()->IsPbbVrf()) {
+            if (state->isid_ != active_path->vxlan_id()) {
+                uint32_t old_isid = state->isid_;
+                state->isid_ = active_path->vxlan_id();
+                withdraw_label = old_isid;
+                withdraw = true;
+            } else {
+                state->isid_ = active_path->vxlan_id();
+            }
+        }
+
         if (bridging == false)
             withdraw = true;
 
@@ -410,6 +421,7 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
         }
     }
 
+    state->isid_ = active_path->vxlan_id();
     //Update state values with new values if there is any change.
     //Also force change same i.e. update.
     if (active_path->tunnel_type() != state->tunnel_type_) {

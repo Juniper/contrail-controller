@@ -99,16 +99,20 @@ protected:
     Agent *agent;
 };
 
+//Verify interface with link to bridge-domain
+//gets added as part of multicast tree
 TEST_F(BridgeDomainMGTest, Test1) {
     CreateBridgeDomain(input[0].name, 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
     const VmInterface *vm_intf =
         static_cast<const VmInterface *>(VmPortGet(1));
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     cnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -124,6 +128,9 @@ TEST_F(BridgeDomainMGTest, Test1) {
     client->WaitForIdle();
 }
 
+//Verify that multiple interfaces beloging
+//to same bridge-domain gets added as part of
+//multicast tree
 TEST_F(BridgeDomainMGTest, Test2) {
     CreateBridgeDomain(input[0].name, 1);
     client->WaitForIdle();
@@ -136,10 +143,12 @@ TEST_F(BridgeDomainMGTest, Test2) {
     const VmInterface *vm_intf2 =
         static_cast<const VmInterface *>(VmPortGet(2));
 
-    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     cnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -158,6 +167,8 @@ TEST_F(BridgeDomainMGTest, Test2) {
     client->WaitForIdle();
 }
 
+//If fabric multicast tree gets built on B-VRF
+//verify that it gets copied over to C-VRF
 TEST_F(BridgeDomainMGTest, Test3) {
     //Add a peer and enqueue path add in multicast route.
     BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
@@ -183,7 +194,8 @@ TEST_F(BridgeDomainMGTest, Test3) {
     client->WaitForIdle();
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     const CompositeNH *fcnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -201,6 +213,8 @@ TEST_F(BridgeDomainMGTest, Test3) {
     client->WaitForIdle();
 }
 
+//Verify fabric  members are present in
+//multicast tree only if etree mode is disabled
 TEST_F(BridgeDomainMGTest, Test4) {
     std::stringstream str;
     //Add a peer and enqueue path add in multicast route.
@@ -226,7 +240,8 @@ TEST_F(BridgeDomainMGTest, Test4) {
     client->WaitForIdle();
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     const CompositeNH *fcnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -255,6 +270,8 @@ TEST_F(BridgeDomainMGTest, Test4) {
     client->WaitForIdle();
 }
 
+//Verify EVPN members are present
+//irrespective of etree mode
 TEST_F(BridgeDomainMGTest, Test5) {
     std::stringstream str;
     //Add a peer and enqueue path add in multicast route.
@@ -277,7 +294,8 @@ TEST_F(BridgeDomainMGTest, Test5) {
     client->WaitForIdle();
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     const CompositeNH *fcnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -302,6 +320,9 @@ TEST_F(BridgeDomainMGTest, Test5) {
     client->WaitForIdle();
 }
 
+//Verify that change of PBB mode on
+//bridge-domain with all interface members deleted
+//doesnt cause erroneous behaviour
 TEST_F(BridgeDomainMGTest, Test6) {
     CreateBridgeDomain(input[0].name, 1);
     client->WaitForIdle();
@@ -314,10 +335,12 @@ TEST_F(BridgeDomainMGTest, Test6) {
     const VmInterface *vm_intf2 =
         static_cast<const VmInterface *>(VmPortGet(2));
 
-    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
     cnh = dynamic_cast<const CompositeNH *>(cnh->GetNH(0));
@@ -342,6 +365,8 @@ TEST_F(BridgeDomainMGTest, Test6) {
     client->WaitForIdle();
 }
 
+//Verify change in learning flag on bridge-domain
+//result in mcast NH also having the flag updated
 TEST_F(BridgeDomainMGTest, Test7) {
     CreateBridgeDomain(input[0].name, 1);
     client->WaitForIdle();
@@ -349,10 +374,12 @@ TEST_F(BridgeDomainMGTest, Test7) {
     CreateBridgeDomain(input[1].name, 2);
     client->WaitForIdle();
 
-    EXPECT_TRUE(L2RouteFind("vrf1:1", MacAddress::BroadcastMac()));
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
 
     BridgeRouteEntry *l2_rt =
-        L2RouteGet("vrf1:1", MacAddress("FF:FF:FF:FF:FF:FF"));
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
     EXPECT_TRUE(l2_nh->learning_enabled() == false);
 
@@ -369,6 +396,21 @@ TEST_F(BridgeDomainMGTest, Test7) {
     client->WaitForIdle();
 }
 
+//Verify ethernet-tag gets updated
+//ISID change
+TEST_F(BridgeDomainMGTest, Test8) {
+    EXPECT_TRUE(L2RouteFind("vrf1:00000000-0000-0000-0000-000000000001",
+                            MacAddress::BroadcastMac()));
+
+    BridgeRouteEntry *l2_rt =
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
+    EXPECT_TRUE(l2_rt->GetActivePath()->vxlan_id() == 1);
+
+    AddBridgeDomain("bridge1", 1, 2, false);
+    client->WaitForIdle();
+    EXPECT_TRUE(l2_rt->GetActivePath()->vxlan_id() == 2);
+}
 
 int main(int argc, char **argv) {
     GETUSERARGS();

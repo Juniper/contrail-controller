@@ -51,6 +51,7 @@ public:
         void Unregister(VrfEntry *vrf);
         bool deleted_;
         bool learning_enabled_;
+        uint32_t isid_;
         DBTableBase::ListenerId bridge_listener_id_;
     };
 
