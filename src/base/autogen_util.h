@@ -125,7 +125,7 @@ static bool ParseDateTime(const pugi::xml_node &node, time_t *valuep) {
     char *endp;
     memset(&tm, 0, sizeof(tm));
     if (value.size() == 0) return true;
-    endp = strptime(value.c_str(), "%%FT%%T", &tm);
+    endp = strptime(value.c_str(), "%FT%T", &tm);
     if (!endp) return false;
     *valuep = timegm(&tm);
     return true;
@@ -135,7 +135,7 @@ static bool ParseTime(const pugi::xml_node &node, time_t *valuep) {
     boost::trim(value);
     struct tm tm;
     char *endp;
-    endp = strptime(value.c_str(), "%%T", &tm);
+    endp = strptime(value.c_str(), "%T", &tm);
     if (!endp) return false;
     *valuep = timegm(&tm);
     return true;
@@ -144,14 +144,14 @@ static std::string FormatDateTime(const time_t *valuep) {
     struct tm tm;
     char result[100];
     gmtime_r(valuep, &tm);
-    strftime(result, sizeof(result), "%%FT%%T", &tm);
+    strftime(result, sizeof(result), "%FT%T", &tm);
     return std::string(result);
 }
 static std::string FormatTime(const time_t *valuep) {
     struct tm tm;
     char result[100];
     gmtime_r(valuep, &tm);
-    strftime(result, sizeof(result), "%%T", &tm);
+    strftime(result, sizeof(result), "%T", &tm);
     return std::string(result);
 }
 
@@ -192,7 +192,7 @@ static bool ParseDateTime(const rapidjson::Value &node, time_t *valuep) {
     char *endp;
     memset(&tm, 0, sizeof(tm));
     if (value.size() == 0) return true;
-    endp = strptime(value.c_str(), "%%FT%%T", &tm);
+    endp = strptime(value.c_str(), "%FT%T", &tm);
     if (!endp) return false;
     *valuep = timegm(&tm);
     return true;
@@ -205,7 +205,7 @@ static bool ParseTime(const rapidjson::Value &node, time_t *valuep) {
     boost::trim(value);
     struct tm tm;
     char *endp;
-    endp = strptime(value.c_str(), "%%T", &tm);
+    endp = strptime(value.c_str(), "%T", &tm);
     if (!endp) return false;
     *valuep = timegm(&tm);
     return true;
