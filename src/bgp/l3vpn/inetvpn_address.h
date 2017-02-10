@@ -28,7 +28,8 @@ public:
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
                                const BgpAttr *attr, InetVpnPrefix *prefix,
-                               BgpAttrPtr *new_attr, uint32_t *label);
+                               BgpAttrPtr *new_attr, uint32_t *label,
+                               uint32_t *l3_label);
     static InetVpnPrefix FromString(const std::string &str,
                                     boost::system::error_code *errorp = NULL);
 

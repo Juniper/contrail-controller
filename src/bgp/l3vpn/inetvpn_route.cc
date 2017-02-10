@@ -58,7 +58,8 @@ void InetVpnRoute::SetKey(const DBRequestKey *reqkey) {
 
 void InetVpnRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
                                     const BgpAttr *attr,
-                                    uint32_t label) const {
+                                    uint32_t label,
+                                    uint32_t l3_label) const {
     prefix_.BuildProtoPrefix(label, prefix);
 }
 

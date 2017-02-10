@@ -84,7 +84,8 @@ int ErmVpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
 int ErmVpnPrefix::FromProtoPrefix(BgpServer *server,
                                   const BgpProtoPrefix &proto_prefix,
                                   const BgpAttr *attr, ErmVpnPrefix *prefix,
-                                  BgpAttrPtr *new_attr, uint32_t *label) {
+                                  BgpAttrPtr *new_attr, uint32_t *label,
+                                  uint32_t *l3_label) {
     return FromProtoPrefix(proto_prefix, prefix);
 }
 
@@ -296,7 +297,7 @@ void ErmVpnRoute::SetKey(const DBRequestKey *reqkey) {
 }
 
 void ErmVpnRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
-    const BgpAttr *attr, uint32_t label) const {
+    const BgpAttr *attr, uint32_t label, uint32_t l3_label) const {
     prefix_.BuildProtoPrefix(prefix);
 }
 

@@ -27,7 +27,8 @@ int Inet6Prefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
 int Inet6Prefix::FromProtoPrefix(BgpServer *server,
                                  const BgpProtoPrefix &proto_prefix,
                                  const BgpAttr *attr, Inet6Prefix *prefix,
-                                 BgpAttrPtr *new_attr, uint32_t *label) {
+                                 BgpAttrPtr *new_attr, uint32_t *label,
+                                 uint32_t *l3_label) {
     return FromProtoPrefix(proto_prefix, prefix);
 }
 
@@ -138,7 +139,8 @@ void Inet6Route::SetKey(const DBRequestKey *reqkey) {
 
 void Inet6Route::BuildProtoPrefix(BgpProtoPrefix *prefix,
                                   const BgpAttr *attr,
-                                  uint32_t label) const {
+                                  uint32_t label,
+                                  uint32_t l3_label) const {
     prefix->prefixlen = prefix_.prefixlen();
     prefix->prefix.clear();
     const Ip6Address::bytes_type &addr_bytes = prefix_.ip6_addr().to_bytes();

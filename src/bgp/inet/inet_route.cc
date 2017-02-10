@@ -25,8 +25,8 @@ int Ip4Prefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
 }
 
 int Ip4Prefix::FromProtoPrefix(BgpServer *server,
-    const BgpProtoPrefix &proto_prefix, const BgpAttr *attr,
-    Ip4Prefix *prefix, BgpAttrPtr *new_attr, uint32_t *label) {
+    const BgpProtoPrefix &proto_prefix, const BgpAttr *attr, Ip4Prefix *prefix,
+    BgpAttrPtr *new_attr, uint32_t *label, uint32_t *l3_label) {
     return FromProtoPrefix(proto_prefix, prefix);
 }
 
@@ -124,7 +124,8 @@ void InetRoute::SetKey(const DBRequestKey *reqkey) {
 
 void InetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
                                  const BgpAttr *attr,
-                                 uint32_t label) const {
+                                 uint32_t label,
+                                 uint32_t l3_label) const {
     prefix->prefixlen = prefix_.prefixlen();
     prefix->prefix.clear();
     const Ip4Address::bytes_type &addr_bytes = prefix_.ip4_addr().to_bytes();

@@ -43,7 +43,8 @@ int RTargetPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
 int RTargetPrefix::FromProtoPrefix(BgpServer *server,
                                    const BgpProtoPrefix &proto_prefix,
                                    const BgpAttr *attr, RTargetPrefix *prefix,
-                                   BgpAttrPtr *new_attr, uint32_t *label) {
+                                   BgpAttrPtr *new_attr, uint32_t *label,
+                                   uint32_t *l3_label) {
     return FromProtoPrefix(proto_prefix, prefix);
 }
 
