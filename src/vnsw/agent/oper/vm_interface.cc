@@ -886,7 +886,10 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
         return;
     }
     MirrorActionType mirror_to = cfg->properties().interface_mirror.mirror_to;
-    if (!mirror_to.analyzer_name.empty()) {
+    if (mirror_to.analyzer_name.empty())
+        return;
+    // Check for nic assisted mirroring support.
+    if (!mirror_to.nic_assisted_mirroring) {
         boost::system::error_code ec;
         IpAddress dip = IpAddress::from_string(mirror_to.analyzer_ip_address,
                                               ec);
@@ -907,8 +910,8 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
         if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
             agent->mirror_table()->AddMirrorEntry
                 (mirror_to.analyzer_name, std::string(),
-                agent->GetMirrorSourceIp(dip),
-                agent->mirror_port(), dip, dport);
+                 agent->GetMirrorSourceIp(dip),
+                 agent->mirror_port(), dip, dport);
         } else if (mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
             agent->mirror_table()->AddMirrorEntry(mirror_to.analyzer_name,
                     mirror_to.routing_instance, agent->GetMirrorSourceIp(dip),
@@ -925,19 +928,24 @@ static void ReadAnalyzerNameAndCreate(Agent *agent,
                     agent->mirror_port(), vtep_dip, dport,
                     mirror_to.static_nh_header.vni, mirror_flag,
                     MacAddress::FromString(mirror_to.static_nh_header.vtep_dst_mac_address));
-        } else {
+        }
+        else {
             LOG(ERROR, "Mirror nh mode not supported");
         }
-        data.analyzer_name_ =  mirror_to.analyzer_name;
-        string traffic_direction =
-            cfg->properties().interface_mirror.traffic_direction;
-        if (traffic_direction.compare("egress") == 0) {
-            data.mirror_direction_ = Interface::MIRROR_TX;
-        } else if (traffic_direction.compare("ingress") == 0) {
-            data.mirror_direction_ = Interface::MIRROR_RX;
-        } else {
-            data.mirror_direction_ = Interface::MIRROR_RX_TX;
-        }
+    } else {
+        agent->mirror_table()->AddMirrorEntry(
+                mirror_to.analyzer_name,
+                mirror_to.nic_assisted_mirroring_vlan);
+    }
+    data.analyzer_name_ =  mirror_to.analyzer_name;
+    string traffic_direction =
+        cfg->properties().interface_mirror.traffic_direction;
+    if (traffic_direction.compare("egress") == 0) {
+        data.mirror_direction_ = Interface::MIRROR_TX;
+    } else if (traffic_direction.compare("ingress") == 0) {
+        data.mirror_direction_ = Interface::MIRROR_RX;
+    } else {
+        data.mirror_direction_ = Interface::MIRROR_RX_TX;
     }
 }
 

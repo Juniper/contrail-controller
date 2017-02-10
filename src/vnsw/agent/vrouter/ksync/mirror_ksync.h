@@ -49,6 +49,8 @@ private:
     std::string analyzer_name_;
     uint8_t mirror_flag_;
     uint32_t vni_;
+    bool nic_assisted_mirroring_;
+    uint16_t nic_assisted_mirroring_vlan_;
     DISALLOW_COPY_AND_ASSIGN(MirrorKSyncEntry);
 };
 

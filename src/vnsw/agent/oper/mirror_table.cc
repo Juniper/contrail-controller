@@ -128,11 +128,37 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
     MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
     MirrorEntryData *data = static_cast<MirrorEntryData *>(req->data.get());
-    if (mirror_entry->vrf_name_ != data->vrf_name_ || 
+
+    // Check for nic assisted supported ignore creating NH.
+    // if there is any change from  non nic to nic assited mirroring.
+    // delete if there are any previously allocated resources for mirror entry.
+    if (data->nic_assisted_mirroring_ !=
+        mirror_entry->nic_assisted_mirroring_) {
+        if (!mirror_entry->nic_assisted_mirroring_) {
+            RemoveUnresolved(mirror_entry);
+            DeleteResolvedVrfMirrorEntry(mirror_entry);
+            DeleteMirrorVrf(mirror_entry);
+            mirror_entry->nh_ = NULL;
+            mirror_entry->vrf_ = NULL;
+        }
+        mirror_entry->nic_assisted_mirroring_ =
+            data->nic_assisted_mirroring_;
+        mirror_entry->nic_assisted_mirroring_vlan_ =
+            data->nic_assisted_mirroring_vlan_;
+        if (mirror_entry->nic_assisted_mirroring_)
+            return true;
+    } else if (data->nic_assisted_mirroring_){
+        mirror_entry->nic_assisted_mirroring_vlan_ =
+            data->nic_assisted_mirroring_vlan_;
+        return true;
+    }
+
+    if (mirror_entry->vrf_name_ != data->vrf_name_ ||
         mirror_entry->mirror_flags_ != data->mirror_flags_) {
         DeleteMirrorVrf(mirror_entry);
         mirror_entry->vrf_name_ = data->vrf_name_;
     }
+
     mirror_entry->sip_ = data->sip_;
     mirror_entry->sport_ = data->sport_;
     mirror_entry->dip_ = data->dip_;
@@ -199,7 +225,7 @@ bool MirrorTable::Delete(DBEntry *entry, const DBRequest *request) {
 }
 
 void MirrorTable::DeleteMirrorVrf(MirrorEntry *entry) {
-    if (entry->mirror_flags_ == MirrorEntryData::DynamicNH_Without_JuniperHdr){
+    if (entry->mirror_flags_ == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
         RemoveUnresolved(entry);
         DeleteResolvedVrfMirrorEntry(entry);
         VrfEntry *vrf =
@@ -365,6 +391,18 @@ void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
     req.data.reset(data);
     mirror_table_->Enqueue(&req);
 }
+
+void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
+                                 uint32_t nic_assisted_mirroring_vlan) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    MirrorEntryKey *key = new MirrorEntryKey(analyzer_name);
+    MirrorEntryData *data = new MirrorEntryData(true, nic_assisted_mirroring_vlan);
+    req.key.reset(key);
+    req.data.reset(data);
+    mirror_table_->Enqueue(&req);
+}
+
 
 void MirrorTable::DelMirrorEntry(const std::string &analyzer_name) {
     DBRequest req;

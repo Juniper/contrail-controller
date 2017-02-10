@@ -31,7 +31,14 @@ struct MirrorEntryData : public AgentData {
                     uint32_t vni, const MacAddress &mac, bool createdvrf):
             vrf_name_(vrf_name), sip_(sip), sport_(sport), dip_(dip),
             dport_(dport), mirror_flags_(mirror_flags), vni_(vni),
-            mac_(mac), createdvrf_(createdvrf){ };
+            mac_(mac), createdvrf_(createdvrf),
+            nic_assisted_mirroring_(false) { }
+
+    MirrorEntryData(bool nic_assisted_mirroring,
+            uint16_t nic_assisted_mirroring_vlan):
+            nic_assisted_mirroring_(nic_assisted_mirroring),
+            nic_assisted_mirroring_vlan_(nic_assisted_mirroring_vlan) {  }
+
 
     std::string vrf_name_;
     IpAddress sip_;
@@ -42,6 +49,8 @@ struct MirrorEntryData : public AgentData {
     uint32_t vni_;
     MacAddress mac_; // can be type of vtep mac or analyzer-mac based on type NH
     bool createdvrf_;
+    bool nic_assisted_mirroring_;
+    uint16_t nic_assisted_mirroring_vlan_;
 };
 
 class MirrorEntry : AgentRefCount<MirrorEntry>, public AgentDBEntry {
@@ -77,6 +86,11 @@ public:
     uint8_t GetMirrorFlag() const {return mirror_flags_;}
     const MacAddress *GetMac() const { return &mac_;}
     bool GetCreatedVrf() const {return createdvrf_;}
+    uint16_t nic_assisted_mirroring_vlan() const {
+        return nic_assisted_mirroring_vlan_;}
+    bool nic_assisted_mirroring() const {
+        return nic_assisted_mirroring_;
+    }
 private:
     std::string analyzer_name_;
     VrfEntryRef vrf_;
@@ -92,6 +106,8 @@ private:
     // this vrf will be created if this mirror vrf is not known to compute node
     // add it subscribes for the route information to get down loaded
     bool createdvrf_;
+    bool nic_assisted_mirroring_;
+    uint16_t nic_assisted_mirroring_vlan_;
     friend class MirrorTable;
 };
 
@@ -130,6 +146,8 @@ public:
                                const IpAddress &dip, uint16_t dport,
                                uint32_t vni, uint8_t mirror_flag,
                                const MacAddress &mac);
+    static void AddMirrorEntry(const std::string &analyzer_name,
+                               uint32_t nic_assisted_mirroring_vlan);
     static void DelMirrorEntry(const std::string &analyzer_name);
     virtual void OnZeroRefcount(AgentDBEntry *e);
     static DBTableBase *CreateTable(DB *db, const std::string &name);

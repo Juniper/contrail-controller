@@ -962,6 +962,13 @@ void AclEntrySpec::AddMirrorEntry(Agent *agent) const {
         if (action.ta_type != TrafficAction::MIRROR_ACTION) {
             continue;
         }
+       // Check for nic assisted mirroring
+        if (action.ma.nic_assisted_mirroring) {
+            agent->mirror_table()->AddMirrorEntry(
+                    action.ma.analyzer_name,
+                    action.ma.nic_assisted_mirroring_vlan);
+            continue;
+        }
 
         IpAddress sip = agent->GetMirrorSourceIp(action.ma.ip);
          MirrorEntryData::MirrorEntryFlags mirror_flag =
@@ -969,8 +976,8 @@ void AclEntrySpec::AddMirrorEntry(Agent *agent) const {
                                            action.ma.juniper_header);
         if (mirror_flag == MirrorEntryData::DynamicNH_With_JuniperHdr) {
             agent->mirror_table()->AddMirrorEntry(action.ma.analyzer_name,
-                action.ma.vrf_name, sip, agent->mirror_port(), action.ma.ip,
-                action.ma.port);
+                    action.ma.vrf_name, sip, agent->mirror_port(), action.ma.ip,
+                    action.ma.port);
         } else if (mirror_flag == MirrorEntryData::DynamicNH_Without_JuniperHdr) {
             // remote_vm_analyzer mac provided from the config
             agent->mirror_table()->AddMirrorEntry(action.ma.analyzer_name,
@@ -1008,11 +1015,22 @@ void AclEntrySpec::PopulateAction(const AclTable *acl_table,
         ActionSpec action(TrafficAction::ALERT_ACTION);
         action_l.push_back(action);
     }
-
-    if (!action_list.mirror_to.analyzer_name.empty()) {
-        ActionSpec maction;
-        maction.ta_type = TrafficAction::MIRROR_ACTION;
-        maction.simple_action = TrafficAction::MIRROR;
+    // Check for nic assisted mirroring
+    ActionSpec maction;
+    maction.ta_type = TrafficAction::MIRROR_ACTION;
+    maction.simple_action = TrafficAction::MIRROR;
+    // Check nic assisted mirroring supported.
+    // Then Copy only mirroring_vlan.
+    if (!action_list.mirror_to.analyzer_name.empty()
+        && action_list.mirror_to.nic_assisted_mirroring) {
+        maction.ma.nic_assisted_mirroring =
+            action_list.mirror_to.nic_assisted_mirroring;
+        maction.ma.nic_assisted_mirroring_vlan =
+            action_list.mirror_to.nic_assisted_mirroring_vlan;
+        maction.ma.analyzer_name = action_list.mirror_to.analyzer_name;
+        action_l.push_back(maction);
+        AddMirrorEntry(acl_table->agent());
+    } else if (!action_list.mirror_to.analyzer_name.empty()) {
         boost::system::error_code ec;
         maction.ma.vrf_name = std::string();
         maction.ma.analyzer_name = action_list.mirror_to.analyzer_name;

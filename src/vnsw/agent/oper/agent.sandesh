@@ -1612,6 +1612,10 @@ request sandesh MirrorCreateReq {
     21: optional string vtep_dst_ip;
     /** Mpls label for mirroring */
     22: optional i32 vni;
+    /** nic assisted mirroring */
+    23: optional bool nic_assisted_mirroring;
+    /** nic assisted mirror vlan */
+    24: optional u16 nic_assisted_mirroring_vlan;
 }
 
 /**
@@ -1846,6 +1850,10 @@ request sandesh IntfMirrorCreateReq {
    11: optional string vtep_dst_ip;
    /** Mpls label for mirroring */
    12: optional i32 vni;
+   /** nic assisted mirroring */
+   13: optional bool nic_assisted_mirroring;
+   /** nic assisted mirror vlan */
+   14: optional u16 nic_assisted_mirroring_vlan;
 }
 
 /**

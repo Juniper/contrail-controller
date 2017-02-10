@@ -15,7 +15,9 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
     KSyncNetlinkDBEntry(index), ksync_obj_(obj), vrf_id_(entry->vrf_id_), 
     sip_(entry->sip_), sport_(entry->sport_), dip_(entry->dip_), 
     dport_(entry->dport_), analyzer_name_(entry->analyzer_name_),
-    mirror_flag_(entry->mirror_flag_), vni_(entry->vni_) {
+    mirror_flag_(entry->mirror_flag_), vni_(entry->vni_),
+    nic_assisted_mirroring_(entry->nic_assisted_mirroring_),
+    nic_assisted_mirroring_vlan_(entry->nic_assisted_mirroring_vlan_) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
@@ -32,7 +34,9 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
     sport_(mirror_entry->GetSPort()), dip_(*mirror_entry->GetDip()), 
     dport_(mirror_entry->GetDPort()), nh_(NULL),
     analyzer_name_(mirror_entry->GetAnalyzerName()),
-    mirror_flag_(mirror_entry->GetMirrorFlag()), vni_(mirror_entry->GetVni()) {
+    mirror_flag_(mirror_entry->GetMirrorFlag()), vni_(mirror_entry->GetVni()),
+    nic_assisted_mirroring_(mirror_entry->nic_assisted_mirroring()),
+    nic_assisted_mirroring_vlan_(mirror_entry->nic_assisted_mirroring_vlan()) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
@@ -67,6 +71,25 @@ std::string MirrorKSyncEntry::ToString() const {
 bool MirrorKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const MirrorEntry *mirror = static_cast<MirrorEntry *>(e);
+    // ignore nh refernce if it is nic assisted.
+    // and return early.
+    if (nic_assisted_mirroring_ != mirror->nic_assisted_mirroring()) {
+        nic_assisted_mirroring_ = mirror->nic_assisted_mirroring();
+        ret = true;
+    }
+
+    if (mirror->nic_assisted_mirroring()) {
+        nh_ = NULL;
+        if (nic_assisted_mirroring_vlan_ !=
+            mirror->nic_assisted_mirroring_vlan()) {
+            nic_assisted_mirroring_vlan_ =
+                mirror->nic_assisted_mirroring_vlan();
+            ret = true;
+        }
+        return ret;
+    } else {
+        nic_assisted_mirroring_vlan_ = mirror->nic_assisted_mirroring_vlan();
+    }
 
     if (vni_ != mirror->GetVni()) {
         vni_ = mirror->GetVni();
@@ -97,22 +120,25 @@ bool MirrorKSyncEntry::Sync(DBEntry *e) {
 int MirrorKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_mirror_req encoder;
     int encode_len;
-    NHKSyncEntry *nh_entry = nh();
-
-    encoder.set_h_op(op);
     encoder.set_mirr_index(GetIndex());
+    encoder.set_h_op(op);
     encoder.set_mirr_rid(0);
-    encoder.set_mirr_nhid(nh_entry->nh_id());
-    encoder.set_mirr_vni(vni_);
-    if (mirror_flag_ == MirrorEntryData::DynamicNH_With_JuniperHdr) {
-        encoder.set_mirr_flags(VR_MIRROR_FLAG_DYNAMIC);
+    if (!nic_assisted_mirroring_) {
+        NHKSyncEntry *nh_entry = nh();
+        encoder.set_mirr_nhid(nh_entry->nh_id());
+        encoder.set_mirr_vni(vni_);
+        if (mirror_flag_ == MirrorEntryData::DynamicNH_With_JuniperHdr) {
+            encoder.set_mirr_flags(VR_MIRROR_FLAG_DYNAMIC);
+        }
+    } else {
+        encoder.set_mirr_vlan(nic_assisted_mirroring_vlan_);
+        encoder.set_mirr_flags(VR_MIRROR_FLAG_HW_ASSISTED);
     }
     int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     assert(error == 0);
     assert(encode_len <= buf_len);
-    LOG(DEBUG, "Mirror index " << GetIndex() << " nhid " 
-            << nh_entry->nh_id());
+    LOG(DEBUG, "Mirror index " << GetIndex());
     return encode_len;
 }
 
@@ -131,6 +157,10 @@ int MirrorKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 }
 
 KSyncEntry *MirrorKSyncEntry::UnresolvedReference() {
+    if (nic_assisted_mirroring_) {
+        return NULL;
+    }
+
     NHKSyncEntry *nh_entry = nh();
     if (!nh_entry->IsResolved()) {
         return nh_entry;
