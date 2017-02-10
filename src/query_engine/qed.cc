@@ -53,7 +53,6 @@ bool QedVersion(std::string &version) {
 #include <csignal>
 
 static EventManager * pevm = NULL;
-static DiscoveryServiceClient *ds_client = NULL;
 static Options options;
 
 static void WaitForIdle() {
@@ -83,11 +82,6 @@ static bool OptionsParse(Options &options, EventManager &evm,
 }
 
 static void ShutdownQe() {
-    if (ds_client) {
-        ds_client->Shutdown();
-        delete ds_client;
-    }
-    WaitForIdle();
     Sandesh::Uninit();
     ConnectionStateManager::
         GetInstance()->Shutdown();
@@ -139,22 +133,6 @@ main(int argc, char *argv[]) {
     }
     error_code error;
     ip::tcp::endpoint dss_ep;
-    Sandesh::CollectorSubFn csf = 0;
-
-    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        options.discovery_server(), options.discovery_port(), &dss_ep)) {
-
-            string subscriber_name =
-                g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
-            ds_client = new DiscoveryServiceClient(&evm, dss_ep, 
-                                                   subscriber_name);
-            ds_client->Init();
-            csf = boost::bind(&DiscoveryServiceClient::Subscribe, 
-                              ds_client, _1, _2, _3);
-    } else {
-        LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
-                    options.discovery_server());
-    }
 
     int max_tasks = options.max_tasks();
     // Tune max_tasks 
@@ -198,13 +176,8 @@ main(int argc, char *argv[]) {
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::COLLECTOR)->second, ""));
     bool use_collector_list = true;
-    if (!options.collectors_configured() && csf) {
-        // Use discovery to connect to collector
+    if (!options.collectors_configured()) {
         use_collector_list = false;
-        expected_connections.push_back(ConnectionTypeName(
-            g_process_info_constants.ConnectionTypeNames.find(
-                ConnectionType::DISCOVERY)->second,
-            g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME));
     }
     ConnectionStateManager::
         GetInstance()->Init(*evm.io_service(),
@@ -214,8 +187,6 @@ main(int argc, char *argv[]) {
             expected_connections), "ObjectCollectorInfo");
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success;
-    // subscribe to the collector service with discovery only if the
-    // collector list is not configured.
     if (use_collector_list) {
         std::vector<std::string> collectors(
             options.randomized_collector_server_list());
@@ -224,14 +195,14 @@ main(int argc, char *argv[]) {
         }
         success = Sandesh::InitGenerator(module_name, options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
-                    instance_id, &evm, options.http_server_port(), 0,
+                    instance_id, &evm, options.http_server_port(),
                     collectors, NULL, Sandesh::DerivedStats(),
                     options.sandesh_config());
     } else {
         const std::vector<std::string> collectors;
         success = Sandesh::InitGenerator(module_name, options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
-                    instance_id, &evm, options.http_server_port(), csf,
+                    instance_id, &evm, options.http_server_port(),
                     collectors, NULL, Sandesh::DerivedStats(),
                     options.sandesh_config());
     }

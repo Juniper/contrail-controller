@@ -9,13 +9,11 @@
 #include <tbb/atomic.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/regex.hpp>
-#include "discovery/client/discovery_client.h"
 #include "http/client/vncapi.h"
 #include "parser_util.h"
 #include "configdb_connection.h"
 
 class Options;
-//class DiscoveryServiceClient;
 
 
 class UserDefinedCounterData {
@@ -34,7 +32,6 @@ class UserDefinedCounterData {
         const boost::regex& regexp() const { return regexp_; }
         const std::string name() { return name_; }
         bool IsMe(std::string name) const { return name == name_; }
-        void Update(Options *o, DiscoveryServiceClient *c);
         const std::string pattern() const { return regexp_str_; }
         void Refresh() { refreshed_ = true; }
         bool IsRefreshed() { bool r = refreshed_; refreshed_ = false; return r;}

@@ -9,6 +9,7 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
+#include "io/event_manager.h"
 #include "io/io_log.h"
 #include "io/io_utils.h"
 

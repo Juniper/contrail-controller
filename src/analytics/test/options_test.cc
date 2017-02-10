@@ -23,7 +23,6 @@ using namespace boost::asio::ip;
 static uint16_t default_redis_port = ContrailPorts::RedisUvePort();
 static uint16_t default_collector_port = ContrailPorts::CollectorPort();
 static uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:
@@ -66,8 +65,6 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(expected_conf_files_,
                      options_.config_file());
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -119,8 +116,6 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
                                passed_conf_files);
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -175,8 +170,6 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
                                passed_conf_files);
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -235,8 +228,6 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
                                passed_conf_files);
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -292,9 +283,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "protobuf_port=3333\n"
         "structured_syslog_port=3514\n"
         "\n"
-        "[DISCOVERY]\n"
-        "port=100\n"
-        "server=1.0.0.1 # discovery_server IP address\n"
         "[REDIS]\n"
         "server=1.2.3.4\n"
         "port=200\n"
@@ -346,8 +334,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
 
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
                                input_conf_files);
-    EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
     EXPECT_EQ(options_.host_ip(), "1.2.3.4");
     EXPECT_EQ(options_.http_server_port(), 800);
@@ -411,9 +397,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "protobuf_port=3333\n"
         "structured_syslog_port=3514\n"
         "\n"
-        "[DISCOVERY]\n"
-        "port=100\n"
-        "server=1.0.0.1 # discovery_server IP address\n"
         "[REDIS]\n"
         "server=1.2.3.4\n"
         "port=200\n"
@@ -489,8 +472,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     Options::Cassandra cassandra_options(options_.get_cassandra_options());
     EXPECT_EQ(cassandra_options.user_,"cassandra");
     EXPECT_EQ(cassandra_options.password_,"cassandra");
-    EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
     EXPECT_EQ(options_.host_ip(), "1.2.3.4");
     EXPECT_EQ(options_.http_server_port(), 800);

@@ -34,7 +34,6 @@
 #include "net/tunnel_encap_type.h"
 #include <assert.h>
 #include <controller/controller_route_path.h>
-#include <cfg/discovery_agent.h>
 
 using namespace boost::asio;
 using namespace autogen;
@@ -1472,21 +1471,7 @@ void AgentXmppChannel::NotReady() {
 void AgentXmppChannel::TimedOut() {
     CONTROLLER_TRACE(Session, GetXmppServer(), "TIMEDOUT",
                      "NULL", "Connection to Xmpp Server, Timed out");
-    DiscoveryServiceClient *dsc = agent_->discovery_service_client();
-    if (dsc) {
-        std::vector<DSResponse> resp = agent_->GetDiscoveryServerResponseList();
-        std::vector<DSResponse>::iterator iter;
-        for (iter = resp.begin(); iter != resp.end(); iter++) {
-            DSResponse dr = *iter;
-            if (GetXmppServer().compare(dr.ep.address().to_string()) == 0) {
-                // Add the TIMEDOUT server to the end.
-                if (iter+1 == resp.end()) break;
-                std::rotate(iter, iter+1, resp.end());
-                agent_->controller()->ApplyDiscoveryXmppServices(resp);
-                break;
-            }
-        }
-    } else {
+    {
         bool update_list = false;
         std::vector<string>::iterator iter = agent_->GetControllerlist().begin();
         std::vector<string>::iterator end = agent_->GetControllerlist().end();
@@ -2508,20 +2493,10 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
         agent_->connection_state()->Update(ConnectionType::XMPP, name,
                                            ConnectionStatus::UP, ep,
                                            last_state_name);
-        if (agent_->discovery_service_client()) {
-            agent_->discovery_service_client()->AddSubscribeInUseServiceList(
-                g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, ep);
-        }
     } else {
         agent_->connection_state()->Update(ConnectionType::XMPP, name,
                                            ConnectionStatus::DOWN, ep,
                                            last_state_name);
-        if (state == xmps::TIMEDOUT) {
-            if (agent_->discovery_service_client()) {
-                agent_->discovery_service_client()->DeleteSubscribeInUseServiceList(
-                    g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME, ep);
-            }
-        }
     }
 }
 

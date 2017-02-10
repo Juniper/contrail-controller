@@ -39,8 +39,6 @@
 #include "options.h"
 
 class Options;
-class DiscoveryServiceClient;
-
 class DbHandler {
 public:
     static const int DefaultDbTTL = 0;
@@ -141,9 +139,6 @@ public:
     void ResetDbQueueWaterMarkInfo();
     std::vector<boost::asio::ip::tcp::endpoint> GetEndpoints() const;
     std::string GetName() const;
-    void UpdateConfigDBConnection(Options *o, DiscoveryServiceClient *c) {
-        cfgdb_connection_->Update(o, c);
-    }
     boost::shared_ptr<ConfigDBConnection> GetConfigDBConnection() {
         return cfgdb_connection_;
     }

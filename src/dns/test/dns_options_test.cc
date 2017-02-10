@@ -20,7 +20,6 @@ using namespace boost::asio::ip;
 static uint16_t default_collector_port = ContrailPorts::CollectorPort();
 static uint16_t default_http_server_port = ContrailPorts::HttpPortDns();
 static uint16_t default_dns_server_port = ContrailPorts::DnsServerPort();
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:
@@ -52,8 +51,6 @@ TEST_F(OptionsTest, NoArguments) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
     EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-dns.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.named_config_file(), "contrail-named.conf");
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
     EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
@@ -98,8 +95,6 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
     EXPECT_EQ(options_.config_file(),
               "controller/src/dns/contrail-dns.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.named_config_file(), "contrail-named.conf");
     EXPECT_EQ(options_.named_config_dir(), "/etc/contrail/dns");
     EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
@@ -159,8 +154,6 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.named_log_file(), "/var/log/contrail/contrail-named.log");
     EXPECT_EQ(options_.rndc_config_file(), "test.rndc");
     EXPECT_EQ(options_.rndc_secret(), "secret123");
-    EXPECT_EQ(options_.discovery_server(), "");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -198,8 +191,6 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.dns_config_file(), "dns_config.xml");
     EXPECT_EQ(options_.config_file(),
               "controller/src/dns/contrail-dns.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -249,10 +240,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "xmpp_server_key=/etc/server-privkey.pem\n"
         "xmpp_ca_cert=/etc/ca-cert.pem\n"
         "\n"
-        "[DISCOVERY]\n"
-        "port=100\n"
-        "server=1.0.0.1 # discovery_server IP address\n"
-        "\n"
         "[IFMAP]\n"
         "certs_store=test-store\n"
         "password=test-password\n"
@@ -285,8 +272,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.dns_config_file(), "test.xml");
     EXPECT_EQ(options_.config_file(),
               "./dns_options_test_config_file.conf");
-    EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.named_config_file(), "named.test");
     EXPECT_EQ(options_.named_config_dir(), "/var/log/dns");
     EXPECT_EQ(options_.named_log_file(), "/etc/contrail/dns/named.log");
@@ -346,10 +331,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "test_mode=1\n"
         "sandesh_send_rate_limit=5\n"
         "\n"
-        "[DISCOVERY]\n"
-        "port=100\n"
-        "server=1.0.0.1 # discovery_server IP address\n"
-        "\n"
         "[IFMAP]\n"
         "certs_store=test-store\n"
         "password=test-password\n"
@@ -402,8 +383,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.named_log_file(), "/etc/contrail/dns/named.log");
     EXPECT_EQ(options_.rndc_config_file(), "new.rndc");
     EXPECT_EQ(options_.rndc_secret(), "new-secret-123");
-    EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
     EXPECT_EQ(options_.host_ip(), "1.2.3.4");
     EXPECT_EQ(options_.http_server_port(), 800);
