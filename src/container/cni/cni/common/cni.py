@@ -135,6 +135,8 @@ class Cni():
             self.container_uuid = uuid
         if name is not None:
             self.container_name = name
+        else:
+            self.container_name = uuid
         if vn is not None:
             self.container_vn = vn
         return
