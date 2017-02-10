@@ -37,7 +37,7 @@ class ServiceLbManager(object):
     def _create_virtual_interface(self, proj_obj, vn_obj, service_name,
                                   vip_address=None, subnet_uuid=None):
         obj_uuid = str(uuid.uuid1())
-        name = obj_uuid + "-" + service_name
+        name = service_name + "-" + obj_uuid
         vmi_obj = VirtualMachineInterface(name=name, parent_obj=proj_obj)
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
@@ -178,7 +178,7 @@ class ServiceLbListenerManager(object):
     def create(self, lb_obj, proj_obj, port):
 
         obj_uuid = str(uuid.uuid1())
-        name = obj_uuid + "-" + lb_obj.name + "-" + port['protocol'] + "-" + str(port['port'])
+        name = lb_obj.name + "-" + port['protocol'] + "-" + str(port['port']) + "-" + obj_uuid
 
         id_perms = IdPermsType(enable=True)
         ll_obj = LoadbalancerListener(name, proj_obj, id_perms=id_perms,

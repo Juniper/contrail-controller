@@ -175,11 +175,12 @@ class VncService(object):
 
     def _vnc_create_lb(self, service_id, service_name,
                        service_namespace, service_ip):
+        name = 'service' + '-' + service_name
         proj_obj = self._get_project(service_namespace)
         vn_obj = self._get_network()
         lb_provider = 'native'
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj, service_id,
-                                        service_name, proj_obj, service_ip)
+                                        name, proj_obj, service_ip)
         return lb_obj
 
     def _lb_create(self, service_id, service_name,
