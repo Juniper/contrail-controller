@@ -1872,6 +1872,106 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowBGPaaSPeerings) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink1) {
+    // Add client bgp-router with parameters.
+    string bgp_router_id1 = string("test") + ":client";
+    autogen::BgpRouterParams *params1 = new autogen::BgpRouterParams;
+    params1->Clear();
+    params1->autonomous_system = 100;
+    params1->identifier = "10.1.1.100";
+    params1->address = "127.0.0.100";
+    params1->router_type = "bgpaas-client";
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", bgp_router_id1,
+        "bgp-router-parameters", params1);
+    task_util::WaitForIdle();
+
+    // Add server bgp-router with parameters.
+    string bgp_router_id2 = string("test") + ":server";
+    autogen::BgpRouterParams *params2 = new autogen::BgpRouterParams;
+    params2->Clear();
+    params2->autonomous_system = 100;
+    params2->router_type = "bgpaas-server";
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", bgp_router_id2,
+        "bgp-router-parameters", params2);
+    task_util::WaitForIdle();
+
+    // Now add a bgp-peering link between the bgp-routers.
+    // Verify that's there's no peering config created as there's no parent
+    // routing instance.
+    string peering = "attr(" + bgp_router_id1 + "," + bgp_router_id2 + ")";
+    ifmap_test_util::IFMapMsgLink(&db_,
+        "bgp-router", bgp_router_id1, "bgp-router", bgp_router_id2,
+        "bgp-peering", 0, new autogen::BgpPeeringAttributes());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetPeeringCount());
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) == NULL);
+
+    // Now add a link between the bgp-routers and the routing-instance.
+    // Verify that's the peering config gets created due to notification
+    // of the instance-bgp-router links.
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
+        "bgp-router", bgp_router_id1, "instance-bgp-router");
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
+        "bgp-router", bgp_router_id2, "instance-bgp-router");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) != NULL);
+}
+
+TEST_F(BgpIfmapConfigManagerTest, AddBgpPeeringBeforeInstanceBgpRouterLink2) {
+    // Add client bgp-router with parameters.
+    string bgp_router_id1 = string("test") + ":client";
+    autogen::BgpRouterParams *params1 = new autogen::BgpRouterParams;
+    params1->Clear();
+    params1->autonomous_system = 100;
+    params1->identifier = "10.1.1.100";
+    params1->address = "127.0.0.100";
+    params1->router_type = "bgpaas-client";
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", bgp_router_id1,
+        "bgp-router-parameters", params1);
+    task_util::WaitForIdle();
+
+    // Add server bgp-router with parameters.
+    string bgp_router_id2 = string("test") + ":server";
+    autogen::BgpRouterParams *params2 = new autogen::BgpRouterParams;
+    params2->Clear();
+    params2->autonomous_system = 100;
+    params2->router_type = "bgpaas-server";
+    ifmap_test_util::IFMapMsgPropertyAdd(&db_, "bgp-router", bgp_router_id2,
+        "bgp-router-parameters", params2);
+    task_util::WaitForIdle();
+
+    // Now add a bgp-peering link between the bgp-routers.
+    // Verify that's there's no peering config created as there's no parent
+    // routing instance.
+    string peering = "attr(" + bgp_router_id1 + "," + bgp_router_id2 + ")";
+    ifmap_test_util::IFMapMsgLink(&db_,
+        "bgp-router", bgp_router_id1, "bgp-router", bgp_router_id2,
+        "bgp-peering", 0, new autogen::BgpPeeringAttributes());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetPeeringCount());
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) == NULL);
+
+    // Now add the parent routing-instance.
+    // Verify that's there's no peering config created sine there's no
+    // notification to re-evaluate the bgp-peering.
+    ifmap_test_util::IFMapMsgNodeAdd(&db_, "routing-instance", "test");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetPeeringCount());
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) == NULL);
+
+    // Now add a link between the bgp-routers and the routing-instance.
+    // Verify that's the peering config gets created due to notification
+    // of the instance-bgp-router links.
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
+        "bgp-router", bgp_router_id1, "instance-bgp-router");
+    ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "test",
+        "bgp-router", bgp_router_id2, "instance-bgp-router");
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, GetPeeringCount());
+    TASK_UTIL_EXPECT_TRUE(FindPeeringConfig(peering) != NULL);
+}
+
 TEST_F(BgpIfmapConfigManagerTest, AddBgpRouterBeforeParentLink) {
     string bgp_router_id = string(BgpConfigManager::kMasterInstance) + ":local";
     // Add bgp-router with parameters.
