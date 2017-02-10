@@ -162,10 +162,15 @@ class StatsFixture(fixtures.Fixture):
             for row in res:
                 for k in crow.keys():
                     if k in row:
-                        if (crow[k] != row[k]) and crow[k] != None:
-                            self._logger.error('Expected %s : %s got %s : %s' % 
-                                 (str(k), str(crow[k]), str(k), str(row[k])))
-                            break
+                        if crow[k] != None:
+                            if isinstance(crow[k], float):
+                                crow[k] = round(crow[k], 5)
+                            if isinstance(row[k], float):
+                                row[k] = round(row[k], 5)
+                            if (crow[k] != row[k]):
+                                self._logger.error('Expected %s : %s got %s : %s' %
+                                    (str(k), str(crow[k]), str(k), str(row[k])))
+                                break
                     else:
                         break
                 else:
