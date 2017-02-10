@@ -27,11 +27,16 @@ class DatabaseEventManager(EventManager):
                  hostip, minimum_diskgb, contrail_databases,
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
+
+        if os.path.exists('/tmp/supervisord_database.sock'):
+            supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
+        else:
+            supervisor_serverurl = "unix:///var/run/supervisord_database.sock"
         type_info = EventManagerTypeInfo(
             package_name = 'contrail-database-common',
             object_table = "ObjectDatabaseInfo",
             module_type = Module.DATABASE_NODE_MGR,
-            supervisor_serverurl = "unix:///var/run/supervisord_database.sock",
+            supervisor_serverurl = supervisor_serverurl,
             third_party_processes =  {
                 "cassandra" : "Dcassandra-pidfile=.*cassandra\.pid",
                 "zookeeper" : "org.apache.zookeeper.server.quorum.QuorumPeerMain"
