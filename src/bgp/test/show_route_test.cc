@@ -1155,6 +1155,81 @@ TEST_F(ShowRouteTest2, MatchingPrefix13) {
     }
 }
 
+// Limit routes by regex prefix.
+// Regex matches all prefixes in both tables.
+TEST_F(ShowRouteTest2, MatchingPrefix14) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *prefix_formats[] = {
+        "192.168",
+        "/24",
+        "168.1[1-3].0/24"
+    };
+    BOOST_FOREACH(const char *prefix, prefix_formats) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result = list_of(3)(3);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+        show_req->set_prefix(prefix);
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by regex prefix.
+// Regex matches subset of prefixes in both tables.
+TEST_F(ShowRouteTest2, MatchingPrefix15) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *prefix_formats[] = {
+        "2.168.1[1-2]",
+        "192.168.1[1-2]",
+        "168.1[1-2].0/24"
+    };
+    BOOST_FOREACH(const char *prefix, prefix_formats) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result = list_of(2)(2);
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+        show_req->set_prefix(prefix);
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by regex prefix.
+// Regex does not match any prefixes.
+TEST_F(ShowRouteTest2, MatchingPrefix16) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *prefix_formats[] = {
+        "192.168.14",
+        "168.17",
+        "168.1[4-9]",
+    };
+    BOOST_FOREACH(const char *prefix, prefix_formats) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+        show_req->set_prefix(prefix);
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
 // Start from middle of blue table and go through red table.
 TEST_F(ShowRouteTest2, StartPrefix1) {
     BgpSandeshContext sandesh_context;
