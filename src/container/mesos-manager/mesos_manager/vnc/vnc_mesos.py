@@ -95,10 +95,10 @@ class VncMesos(object):
         return ipam_obj, ipam_subnets
 
     def _create_network(self,labels, mesos_proj_obj):
-        vn_obj = VirtualNetwork(name=labels['network'],
+        vn_obj = VirtualNetwork(name=labels['network-tag'],
             parent_obj=mesos_proj_obj,
             address_allocation_mode='user-defined-subnet-only')
-        ipam_obj, ipam_subnets = self._create_ipam(labels['public'],
+        ipam_obj, ipam_subnets = self._create_ipam(labels['network-tag'],
             labels['public_subnet'],mesos_proj_obj)
         vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam_subnets))
         vn_obj.set_virtual_network_properties(
@@ -120,13 +120,18 @@ class VncMesos(object):
         vm = VirtualMachineMM.locate(vm_obj.uuid)
         return vm_obj
 
-    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj):
+    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj, sg_tags):
         proj_fq_name = ['default-domain', pod_namespace]
         proj_obj = self.vnc_lib.project_read(fq_name=proj_fq_name)
 
         vmi_obj = VirtualMachineInterface(name=pod_name, parent_obj=proj_obj)
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
+        if sg_tags != "": 
+            sg_strings = sg_tags.split(",")
+            for sg_string in sg_strings:
+                sg_obj = self.vnc_lib.security_group_read(fq_name_str=sg_string)
+                vmi_obj.add_security_group(sg_obj)
         try:
             self.vnc_lib.virtual_machine_interface_create(vmi_obj)
         except RefsExistError:
@@ -161,30 +166,69 @@ class VncMesos(object):
     def _setup_all(self, labels, pod_name, pod_id):
         pod_namespace = 'meso-system'
         #pod_name = pod_id
-        pod_node = 'a2s33'
+        cluster_name = labels['cluster_name']
+        if 'sg_tags' in labels.keys():
+            sg_tags = labels['sg_tags'] 
+        else:
+            sg_tags = ''
         mesos_proj_obj = self._create_project(pod_namespace)
         vn_obj = self._create_network(labels, mesos_proj_obj)
         vm_obj = self._create_vm(pod_id, pod_name)
-        vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
+        vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, 
+                                   vn_obj, sg_tags)
         self._create_iip(pod_name, vn_obj, vmi_obj)
-        self._link_vm_to_node(vm_obj, pod_node)
+        self._link_vm_to_node(vm_obj, cluster_name)
 
+    def vnc_interface_and_instance_delete(self, vmi_id):
+        vmi = VirtualMachineInterfaceMM.get(vmi_id)
+        if not vmi:
+            return
+        for iip_id in list(vmi.instance_ips):
+            try:
+                self.vnc_lib.instance_ip_delete(id=iip_id)
+            except NoIdError:
+                pass
+        try:
+            self.vnc_lib.virtual_machine_interface_delete(id=vmi_id)
+        except NoIdError:
+            pass
 
+    def _delete_task(self, labels, task_uuid, task_uuid_str):
+	vm = VirtualMachineMM.get(task_uuid)
+	if not vm:
+	    self.logger.error("task entry does not exist")
+        if vm.virtual_router:
+            self.vnc_lib.ref_update('virtual-router', vm.virtual_router,
+                'virtual-machine', vm.uuid, None, 'DELETE')
+        for vmi_id in list(vm.virtual_machine_interfaces):
+            self.vnc_interface_and_instance_delete(vmi_id)
+        try:
+            self.vnc_lib.virtual_machine_delete(id=task_uuid)
+        except NoIdError:
+            pass
+	#Delete network
+        vn = VirtualNetworkMM.find_by_name_or_uuid(task_uuid_str)
+        if not vn:
+            return
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        VirtualNetworkMM.delete(vn.uuid)
 
     def process_q_event(self, event):
         labels = event['labels']
-        #subnet = event['ipam']['subnet'] if event['ipam'] else None
         for k,v in labels.items():
             if k == mesos_consts.MESOS_LABEL_PRIVATE_NETWORK:
                 print v
                 print "Cid for this is %s" %event['cid']
-                self._setup_all(labels, str(event['cid']), event['cid'])
             elif k == mesos_consts.MESOS_LABEL_PUBLIC_NETWORK:
                 print v
             elif k == mesos_consts.MESOS_LABEL_PUBLIC_SUBNET:
                 print v
             else:
                 pass
+	if event['cmd'] == 'ADD':
+	    self._setup_all(labels, str(event['cid']), event['cid'])
+	elif event['cmd'] == 'DEL':
+	    self._delete_task(labels, event['cid'], str(event['cid']))
 
     def vnc_process(self):
         while True:
