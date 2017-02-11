@@ -24,7 +24,7 @@
 
 using namespace boost;
 using namespace std;
-using namespace rapidjson;
+using namespace RAPIDJSON_NAMESPACE;
 
 bool ConfigAmqpClient::disable_;
 

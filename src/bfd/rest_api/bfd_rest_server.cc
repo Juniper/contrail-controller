@@ -137,11 +137,11 @@ void RESTServer::CreateRESTClientSession(HttpSession* session,
     session->RegisterEventCb(boost::bind(&RESTServer::OnHttpSessionEvent,
                                          this, _1, _2));
 
-    rapidjson::Document document;
+    RAPIDJSON_NAMESPACE::Document document;
     document.SetObject();
     document.AddMember("client-id", client_id, document.GetAllocator());
-    rapidjson::StringBuffer strbuf;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
+    RAPIDJSON_NAMESPACE::StringBuffer strbuf;
+    RAPIDJSON_NAMESPACE::Writer<RAPIDJSON_NAMESPACE::StringBuffer> writer(strbuf);
     document.Accept(writer);
     REST::SendResponse(session, strbuf.GetString());
 }

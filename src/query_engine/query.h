@@ -465,13 +465,13 @@ typedef boost::function<void (void *, QEOpServerProxy::QPerfInfo,
 class WhereQuery : public QueryUnit {
 public:
 
-    bool StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_term,
+    bool StatTermParse(QueryUnit *main_query, const RAPIDJSON_NAMESPACE::Value& where_term,
         std::string& pname, match_op& pop,
         GenDb::DbDataValue& pval, GenDb::DbDataValue& pval2,
         std::string& sname, match_op& sop,
         GenDb::DbDataValue& sval, GenDb::DbDataValue& sval2);
 
-    bool StatTermProcess(const rapidjson::Value& where_term,
+    bool StatTermProcess(const RAPIDJSON_NAMESPACE::Value& where_term,
         QueryUnit* pnode, QueryUnit *main_query);
  
     WhereQuery(const std::string& where_json_string, int direction,

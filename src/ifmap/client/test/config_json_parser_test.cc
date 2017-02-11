@@ -33,9 +33,9 @@
 #include "testing/gunit.h"
 
 using namespace std;
-using rapidjson::Document;
-using rapidjson::SizeType;
-using rapidjson::Value;
+using RAPIDJSON_NAMESPACE::Document;
+using RAPIDJSON_NAMESPACE::SizeType;
+using RAPIDJSON_NAMESPACE::Value;
 
 class ConfigCassandraClientTest : public ConfigCassandraClient {
 public:

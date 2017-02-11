@@ -34,7 +34,7 @@ public:
                            ConfigCassandraClient *cassandra_client,
                            const std::string &obj_type,
                            const CassColumnKVVec &cdvec);
-    const rapidjson::Document &document() { return json_document_; }
+    const RAPIDJSON_NAMESPACE::Document &document() { return json_document_; }
     static void set_assert_on_parse_error(bool flag) {
         assert_on_parse_error_ = flag;
     }
@@ -42,15 +42,15 @@ public:
 private:
     void CreateJsonString(const std::string &obj_type,
                           const CassColumnKVVec &cdvec);
-    void AddOneEntry(rapidjson::Value *jsonObject, const std::string &obj_type,
+    void AddOneEntry(RAPIDJSON_NAMESPACE::Value *jsonObject, const std::string &obj_type,
                      const JsonAdapterDataType &c,
-                     rapidjson::Document::AllocatorType &a);
-    static std::string GetJsonString(const rapidjson::Value &attr_value);
+                     RAPIDJSON_NAMESPACE::Document::AllocatorType &a);
+    static std::string GetJsonString(const RAPIDJSON_NAMESPACE::Value &attr_value);
 
     ConfigCassandraClient *cassandra_client_;
     std::string uuid_;
     std::string type_;
-    rapidjson::Document json_document_;
+    RAPIDJSON_NAMESPACE::Document json_document_;
     static bool assert_on_parse_error_;
 };
 
