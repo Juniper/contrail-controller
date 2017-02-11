@@ -92,8 +92,8 @@ public:
         return (cmp < 0);
     }
 
-    // Check whether 'this' is more specific than rhs.
     virtual bool IsMoreSpecific(const std::string &match) const;
+    virtual bool IsLessSpecific(const std::string &match) const;
     virtual u_int16_t Afi() const { return BgpAf::IPv6; }
     virtual u_int8_t Safi() const { return BgpAf::Unicast; }
     virtual u_int16_t NexthopAfi() const { return BgpAf::IPv4; }

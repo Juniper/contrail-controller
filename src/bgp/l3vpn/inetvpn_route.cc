@@ -87,3 +87,15 @@ bool InetVpnRoute::IsMoreSpecific(const string &match) const {
 
     return false;
 }
+
+// Check whether 'this' is less specific than rhs.
+bool InetVpnRoute::IsLessSpecific(const string &match) const {
+    boost::system::error_code ec;
+
+    InetVpnPrefix prefix = InetVpnPrefix::FromString(match, &ec);
+    if (!ec) {
+        return prefix.IsMoreSpecific(GetPrefix());
+    }
+
+    return false;
+}

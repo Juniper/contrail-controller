@@ -113,6 +113,18 @@ bool Inet6Route::IsMoreSpecific(const string &match) const {
     return false;
 }
 
+// Check whether 'this' is less specific than rhs.
+bool Inet6Route::IsLessSpecific(const string &match) const {
+    error_code ec;
+
+    Inet6Prefix prefix = Inet6Prefix::FromString(match, &ec);
+    if (!ec) {
+        return prefix.IsMoreSpecific(GetPrefix());
+    }
+
+    return false;
+}
+
 DBEntryBase::KeyPtr Inet6Route::GetDBRequestKey() const {
     Inet6Table::RequestKey *key = new Inet6Table::RequestKey(prefix_, NULL);
     return KeyPtr(key);

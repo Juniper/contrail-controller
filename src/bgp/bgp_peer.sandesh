@@ -234,6 +234,7 @@ request sandesh ShowRouteReq {
     2: string routing_instance;
     3: string prefix;
     8: bool longer_match;
+    12: bool shorter_match;
     // Only return this number of results, capped by an internal default max
     7: u32 count;
 
