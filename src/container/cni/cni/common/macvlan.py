@@ -143,7 +143,8 @@ class CniMacVlan(CniInterface, object):
             # Create interface in host-os first
             try:
                 iproute.link('add', ifname=cn_ifname, kind='macvlan',
-                             link=vlan_ifindex, macvlan_mode='vepa')
+                             link=vlan_ifindex, macvlan_mode='vepa',
+                             address=self.container_mac)
             except NetlinkError as e:
                 if e.code != errno.EEXIST:
                     raise Error(CNI_ERROR_ADD_MACVLAN,

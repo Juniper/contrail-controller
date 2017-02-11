@@ -124,7 +124,7 @@ class ContrailCni():
             with open(self.conf_file, 'r') as f:
                 self.stdin_string = f.read()
         else:
-            self.stdin_string = sys.stdin.readline()
+            self.stdin_string = sys.stdin.read()
         self.stdin_json = json.loads(self.stdin_string)
 
         contrail_json = self.stdin_json.get('contrail')
