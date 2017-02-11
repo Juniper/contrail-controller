@@ -160,13 +160,13 @@ class VncService(object):
                         " service " + svc_name + " port " +
                         port['port'].__str__())
 
-    def _delete_link_local_service(self, svc_name, svc_ip, ports):
+    def _delete_link_local_service(self, svc_name, ports):
         # Delete link local service only if enabled.
         if self._create_linklocal:
             # Delete link local service, one for each port.
             for port in ports:
                 try:
-                    ll_mgr.delete_link_local_service_entry(vnc_lib,
+                    ll_mgr.delete_link_local_service_entry(self._vnc_lib,
                         name=svc_name + '-' + port['port'].__str__())
                 except:
                     self.logger.error("Delete link local service failed for"
@@ -412,7 +412,7 @@ class VncService(object):
         # Delete link local service that would have been allocated for
         # kubernetes service.
         if service_name == self._kubernetes_service_name:
-            _delete_link_local_service(service_name, svc_ip, ports)
+            self._delete_link_local_service(service_name, ports)
 
     def process(self, event):
         service_id = event['object']['metadata'].get('uid')

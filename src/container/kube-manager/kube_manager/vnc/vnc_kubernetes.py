@@ -202,10 +202,11 @@ class VncKubernetes(object):
         try:
             self.vnc_lib.virtual_network_create(vn_obj)
         except RefsExistError:
-            vn_obj = self.vnc_lib.virtual_network_read(
-                fq_name=vn_obj.get_fq_name())
+            pass
 
-        VirtualNetworkKM.locate(vn_obj.uuid)
+        # FIP pool creation requires a vnc object. Get it.
+        vn_obj = self.vnc_lib.virtual_network_read(
+            fq_name=vn_obj.get_fq_name())
 
         # Create service floating ip pool.
         self._create_cluster_service_fip_pool(vn_obj, svc_ipam_obj)
