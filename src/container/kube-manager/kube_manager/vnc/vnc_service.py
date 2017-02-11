@@ -9,17 +9,19 @@ VNC service management for kubernetes
 from vnc_api.vnc_api import *
 from config_db import *
 from loadbalancer import *
+from kube_manager.common.kube_config_db import ServiceKM
 from cfgm_common import importutils
 import link_local_manager as ll_mgr
 
 class VncService(object):
 
     def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None,
-                 kube=None):
+                 queue=None, kube=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self._args = args
         self.logger = logger
+        self._queue = queue
         self.kube = kube
 
         self._fip_pool_obj = None
@@ -179,8 +181,10 @@ class VncService(object):
         proj_obj = self._get_project(service_namespace)
         vn_obj = self._get_network()
         lb_provider = 'native'
+        annotations = {}
+        annotations['device_owner'] = 'K8S:SERVICE'
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj, service_id,
-                                        name, proj_obj, service_ip)
+                                     name, proj_obj, annotations=annotations)
         return lb_obj
 
     def _lb_create(self, service_id, service_name,
@@ -413,6 +417,41 @@ class VncService(object):
         # kubernetes service.
         if service_name == self._kubernetes_service_name:
             _delete_link_local_service(service_name, svc_ip, ports)
+
+    def _create_service_event(self, event_type, service_id, lb):
+        event = {}
+        object = {}
+        object['kind'] = 'Service'
+        object['spec'] = {}
+        object['metadata'] = {}
+        object['metadata']['uid'] = service_id
+        if event_type == 'delete':
+            event['type'] = 'DELETED'
+            event['object'] = object
+            self._queue.put(event)
+        return
+
+    def _sync_service_lb(self):
+        lb_uuid_list = list(LoadbalancerKM.keys())
+        service_uuid_list = list(ServiceKM.keys())
+        for uuid in lb_uuid_list:
+            if uuid in service_uuid_list:
+                continue
+            lb = LoadbalancerKM.get(uuid)
+            if not lb:
+                continue
+            if not lb.annotations:
+                continue
+            for kvp in lb.annotations['key_value_pair'] or []:
+                if kvp['key'] == 'device_owner' \
+                   and kvp['value'] == 'K8S:SERVICE':
+                    self._create_service_event('delete', uuid, lb)
+                    break
+        return
+
+    def service_timer(self):
+        self._sync_service_lb()
+        return
 
     def process(self, event):
         service_id = event['object']['metadata'].get('uid')

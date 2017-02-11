@@ -41,6 +41,7 @@ class LoadbalancerKM(DBBaseKM):
         self.virtual_machine_interfaces = set()
         self.loadbalancer_listeners = set()
         self.selectors = None
+        self.annotations = None
         obj_dict = self.update(obj_dict)
         super(LoadbalancerKM, self).__init__(uuid, obj_dict)
 
@@ -50,6 +51,7 @@ class LoadbalancerKM(DBBaseKM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.parent_uuid = obj['parent_uuid']
+        self.annotations = obj.get('annotations', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('loadbalancer_listener', obj)
         return obj
