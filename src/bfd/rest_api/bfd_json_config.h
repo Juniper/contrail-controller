@@ -19,7 +19,7 @@ namespace REST {
 struct JsonData {
     class Constraint {
      public:
-        typedef bool (rapidjson::Value::*TypecheckFunc)() const;
+        typedef bool (contrail_rapidjson::Value::*TypecheckFunc)() const;
 
         Constraint(const char* member_name, TypecheckFunc func)
             : member_name(member_name), typecheck_func(func) {}
@@ -28,10 +28,10 @@ struct JsonData {
         TypecheckFunc typecheck_func;
     };
 
-    virtual bool ValidateJsonDocument(const rapidjson::Value& document) = 0;
-    virtual bool ParseFromJsonDocument(const rapidjson::Value& document) = 0;
-    virtual void EncodeJsonDocument(rapidjson::Value* document,
-        rapidjson::Value::AllocatorType *allocator) = 0;
+    virtual bool ValidateJsonDocument(const contrail_rapidjson::Value& document) = 0;
+    virtual bool ParseFromJsonDocument(const contrail_rapidjson::Value& document) = 0;
+    virtual void EncodeJsonDocument(contrail_rapidjson::Value* document,
+        contrail_rapidjson::Value::AllocatorType *allocator) = 0;
 
     bool ParseFromJsonString(const std::string& json);
     void EncodeJsonString(std::string* json);
@@ -40,7 +40,7 @@ struct JsonData {
 
  protected:
     bool AreConstraintsMet(const std::vector<Constraint>& constraints,
-    const rapidjson::Value& document);
+    const contrail_rapidjson::Value& document);
 };
 
 struct JsonConfig : public JsonData {
@@ -50,10 +50,10 @@ struct JsonConfig : public JsonData {
                TimeInterval required_min_rx_interval,
                int detection_time_multiplier);
 
-    bool ValidateJsonDocument(const rapidjson::Value& document);
-    bool ParseFromJsonDocument(const rapidjson::Value& document);
-    void EncodeJsonDocument(rapidjson::Value* document,
-        rapidjson::Value::AllocatorType *allocator);
+    bool ValidateJsonDocument(const contrail_rapidjson::Value& document);
+    bool ParseFromJsonDocument(const contrail_rapidjson::Value& document);
+    void EncodeJsonDocument(contrail_rapidjson::Value* document,
+        contrail_rapidjson::Value::AllocatorType *allocator);
 
     boost::asio::ip::address address;
     TimeInterval desired_min_tx_interval;
@@ -62,10 +62,10 @@ struct JsonConfig : public JsonData {
 };
 
 struct JsonState : public JsonData {
-    virtual bool ValidateJsonDocument(const rapidjson::Value& document);
-    virtual bool ParseFromJsonDocument(const rapidjson::Value& document);
-    void EncodeJsonDocument(rapidjson::Value* document,
-        rapidjson::Value::AllocatorType *allocator);
+    virtual bool ValidateJsonDocument(const contrail_rapidjson::Value& document);
+    virtual bool ParseFromJsonDocument(const contrail_rapidjson::Value& document);
+    void EncodeJsonDocument(contrail_rapidjson::Value* document,
+        contrail_rapidjson::Value::AllocatorType *allocator);
 
     JsonConfig session_config;
 
@@ -77,20 +77,20 @@ struct JsonState : public JsonData {
 };
 
 struct JsonStateNotification : public JsonData {
-    virtual bool ValidateJsonDocument(const rapidjson::Value& document);
-    virtual bool ParseFromJsonDocument(const rapidjson::Value& document);
-    void EncodeJsonDocument(rapidjson::Value* document,
-        rapidjson::Value::AllocatorType *allocator);
+    virtual bool ValidateJsonDocument(const contrail_rapidjson::Value& document);
+    virtual bool ParseFromJsonDocument(const contrail_rapidjson::Value& document);
+    void EncodeJsonDocument(contrail_rapidjson::Value* document,
+        contrail_rapidjson::Value::AllocatorType *allocator);
 
     boost::asio::ip::address address;
     BFDState state;
 };
 
 struct JsonStateNotificationList : public JsonData {
-    virtual bool ValidateJsonDocument(const rapidjson::Value& document);
-    virtual bool ParseFromJsonDocument(const rapidjson::Value& document);
-    void EncodeJsonDocument(rapidjson::Value* document,
-        rapidjson::Value::AllocatorType *allocator);
+    virtual bool ValidateJsonDocument(const contrail_rapidjson::Value& document);
+    virtual bool ParseFromJsonDocument(const contrail_rapidjson::Value& document);
+    void EncodeJsonDocument(contrail_rapidjson::Value* document,
+        contrail_rapidjson::Value::AllocatorType *allocator);
 
     std::vector<JsonStateNotification> notifications;
 };
@@ -99,10 +99,10 @@ struct JsonStateMap : public JsonData {
     typedef std::map<boost::asio::ip::address, BFDState> StateMap;
     StateMap states;
 
-    virtual bool ValidateJsonDocument(const rapidjson::Value& document);
-    virtual bool ParseFromJsonDocument(const rapidjson::Value& document);
-    void EncodeJsonDocument(rapidjson::Value* document,
-        rapidjson::Value::AllocatorType* allocator);
+    virtual bool ValidateJsonDocument(const contrail_rapidjson::Value& document);
+    virtual bool ParseFromJsonDocument(const contrail_rapidjson::Value& document);
+    void EncodeJsonDocument(contrail_rapidjson::Value* document,
+        contrail_rapidjson::Value::AllocatorType* allocator);
 };
 
 }  // namespace REST

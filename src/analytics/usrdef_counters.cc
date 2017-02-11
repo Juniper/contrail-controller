@@ -48,13 +48,13 @@ UserDefinedCounters::ReadConfig()
 }
 
 void
-UserDefinedCounters::UDCHandler(rapidjson::Document &jdoc,
+UserDefinedCounters::UDCHandler(contrail_rapidjson::Document &jdoc,
             boost::system::error_code &ec,
             std::string version, int status, std::string reason,
             std::map<std::string, std::string> *headers)
 {
     if (jdoc.IsObject() && jdoc.HasMember("global-system-configs")) {
-        for (rapidjson::SizeType j=0;
+        for (contrail_rapidjson::SizeType j=0;
                     j < jdoc["global-system-configs"].Size(); j++) {
 
             if (!jdoc["global-system-configs"][j].HasMember(
@@ -72,13 +72,13 @@ UserDefinedCounters::UDCHandler(rapidjson::Document &jdoc,
                 continue;
             }
 
-            const rapidjson::Value& gsc = jdoc["global-system-configs"][j]
+            const contrail_rapidjson::Value& gsc = jdoc["global-system-configs"][j]
                     ["user_defined_log_statistics"]["statlist"];
             if (!gsc.IsArray()) {
                 continue;
             }
 
-            for (rapidjson::SizeType i = 0; i < gsc.Size(); i++) {
+            for (contrail_rapidjson::SizeType i = 0; i < gsc.Size(); i++) {
                 if (!gsc[i].IsObject() || !gsc[i].HasMember("name") ||
                         !gsc[i].HasMember("pattern")) {
                     continue;

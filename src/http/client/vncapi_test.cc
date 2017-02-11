@@ -91,17 +91,17 @@ class Controller {
         std::cout  << "\n" << x << " all Done waiting...\n";
         return false;
     }
-    void UDCHandler(rapidjson::Document &jdoc, boost::system::error_code &ec,
+    void UDCHandler(contrail_rapidjson::Document &jdoc, boost::system::error_code &ec,
             std::string version, int status, std::string reason,
             std::map<std::string, std::string> *headers) {
 
         if (jdoc.IsObject() && jdoc.HasMember("global-system-configs")) {
-            for (rapidjson::SizeType j=0;
+            for (contrail_rapidjson::SizeType j=0;
                         j < jdoc["global-system-configs"].Size(); j++) {
-                const rapidjson::Value& gsc = jdoc["global-system-configs"][j]
+                const contrail_rapidjson::Value& gsc = jdoc["global-system-configs"][j]
                             ["user_defined_counter"]["counter"];
                 if (gsc.IsArray()) {
-                    for (rapidjson::SizeType i = 0; i < gsc.Size(); i++)
+                    for (contrail_rapidjson::SizeType i = 0; i < gsc.Size(); i++)
                         std::cout << "\nname: " << gsc[i]["name"].GetString()
                             << "\npattern: " << gsc[i]["pattern"].GetString()
                             << "\n";

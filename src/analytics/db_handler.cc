@@ -1236,7 +1236,7 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
 
     // Encoding of all attribs
 
-    rapidjson::Document dd;
+    contrail_rapidjson::Document dd;
     dd.SetObject();
 
     AttribMap attribs_buf;
@@ -1244,12 +1244,12 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
             it != attribs.end(); it++) {
         switch (it->second.type) {
             case STRING: {
-                    rapidjson::Value val(rapidjson::kStringType);
+                    contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
                     std::string nm = it->first + std::string("|s");
                     pair<AttribMap::iterator,bool> rt = 
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetString(it->second.str.c_str(), dd.GetAllocator());
-                    rapidjson::Value vk;
+                    contrail_rapidjson::Value vk;
                     dd.AddMember(vk.SetString(rt.first->first.c_str(),
                                  dd.GetAllocator()), val, dd.GetAllocator());
                     string field_name = it->first;
@@ -1263,23 +1263,23 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
                 }
                 break;
             case UINT64: {
-                    rapidjson::Value val(rapidjson::kNumberType);
+                    contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
                     std::string nm = it->first + std::string("|n");
                     pair<AttribMap::iterator,bool> rt = 
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetUint64(it->second.num);
-                    rapidjson::Value vk;
+                    contrail_rapidjson::Value vk;
                     dd.AddMember(vk.SetString(rt.first->first.c_str(),
                                  dd.GetAllocator()), val, dd.GetAllocator());
                 }
                 break;
             case DOUBLE: {
-                    rapidjson::Value val(rapidjson::kNumberType);
+                    contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
                     std::string nm = it->first + std::string("|d");
                     pair<AttribMap::iterator,bool> rt = 
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetDouble(it->second.dbl);
-                    rapidjson::Value vk;
+                    contrail_rapidjson::Value vk;
                     dd.AddMember(vk.SetString(rt.first->first.c_str(),
                                  dd.GetAllocator()), val, dd.GetAllocator());
                 }
@@ -1289,8 +1289,8 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
         }
     }
 
-    rapidjson::StringBuffer sb;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+    contrail_rapidjson::StringBuffer sb;
+    contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(sb);
     dd.Accept(writer);
     string jsonline(sb.GetString());
 
@@ -1477,66 +1477,66 @@ class FlowValueJsonPrinter : public boost::static_visitor<> {
     }
     void operator()(const boost::uuids::uuid &tuuid) {
         std::string tuuid_s(to_string(tuuid));
-        rapidjson::Value val(rapidjson::kStringType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
         val.SetString(tuuid_s.c_str(), dd_.GetAllocator());
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
     void operator()(const std::string &tstring) {
-        rapidjson::Value val(rapidjson::kStringType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
         val.SetString(tstring.c_str(), dd_.GetAllocator());
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
     void operator()(const uint8_t &t8) {
-        rapidjson::Value val(rapidjson::kNumberType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
         val.SetUint(t8);
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
     void operator()(const uint16_t &t16) {
-        rapidjson::Value val(rapidjson::kNumberType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
         val.SetUint(t16);
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
     void operator()(const uint32_t &tu32) {
-        rapidjson::Value val(rapidjson::kNumberType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
         val.SetUint(tu32);
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
     void operator()(const uint64_t &tu64) {
-        rapidjson::Value val(rapidjson::kNumberType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
         val.SetUint64(tu64);
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
     void operator()(const double &tdouble) {
-        rapidjson::Value val(rapidjson::kNumberType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
         val.SetDouble(tdouble);
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
     void operator()(const IpAddress &tipaddr) {
-        rapidjson::Value val(rapidjson::kStringType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
         val.SetString(tipaddr.to_string().c_str(), dd_.GetAllocator());
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
     void operator()(const GenDb::Blob &tblob) {
-        rapidjson::Value val(rapidjson::kStringType);
+        contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
         val.SetString(reinterpret_cast<const char *>(tblob.data()),
             tblob.size(), dd_.GetAllocator());
-        rapidjson::Value vk;
+        contrail_rapidjson::Value vk;
         dd_.AddMember(vk.SetString(name_.c_str(), dd_.GetAllocator()), val,
                       dd_.GetAllocator());
     }
@@ -1546,13 +1546,13 @@ class FlowValueJsonPrinter : public boost::static_visitor<> {
         name_ = name;
     }
     std::string GetJson() {
-        rapidjson::StringBuffer sb;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+        contrail_rapidjson::StringBuffer sb;
+        contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(sb);
         dd_.Accept(writer);
         return sb.GetString();
     }
  private:
-    rapidjson::Document dd_;
+    contrail_rapidjson::Document dd_;
     std::string name_;
 };
 

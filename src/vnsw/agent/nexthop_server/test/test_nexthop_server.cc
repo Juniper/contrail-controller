@@ -94,7 +94,7 @@ ValidateRcvdMessage(const u_int8_t *rcv_msg, int rcv_len, int exp_len,
     int msg_len = rcv_msg[0] << 24 | rcv_msg[1] << 16 | rcv_msg[2] << 8 | rcv_msg[3];
     TASK_UTIL_EXPECT_EQ((exp_len - 4), msg_len);
     memcpy(rcv_json, &rcv_msg[4], msg_len);
-    rapidjson::Document d;
+    contrail_rapidjson::Document d;
     d.Parse<0>((const char *)rcv_json);
     TASK_UTIL_EXPECT_TRUE(d.IsObject());
     TASK_UTIL_EXPECT_TRUE(d.HasMember(exp_ip));

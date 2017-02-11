@@ -24,7 +24,7 @@
 
 using namespace boost;
 using namespace std;
-using namespace rapidjson;
+using namespace contrail_rapidjson;
 
 bool ConfigAmqpClient::disable_;
 

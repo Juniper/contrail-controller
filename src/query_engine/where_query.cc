@@ -10,7 +10,7 @@
 #include "stats_query.h"
 #include <boost/algorithm/string/case_conv.hpp>
 
-static std::string ToString(const rapidjson::Value& value_value) {
+static std::string ToString(const contrail_rapidjson::Value& value_value) {
     std::string svalue;
     if (value_value.IsString())
     {
@@ -49,7 +49,7 @@ static GenDb::DbDataValue ToDbDataValue(const std::string& value, QEOpServerProx
     return smpl;
 }
 
-static GenDb::DbDataValue ToDbDataValue(const rapidjson::Value& val) {
+static GenDb::DbDataValue ToDbDataValue(const contrail_rapidjson::Value& val) {
     GenDb::DbDataValue ret;
     if (val.IsString()) {
         ret = std::string(val.GetString());
@@ -92,25 +92,25 @@ static StatsQuery::column_t get_column_desc(std::map<std::string,StatsQuery::col
 }
 
 bool
-WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_term,
+WhereQuery::StatTermParse(QueryUnit *main_query, const contrail_rapidjson::Value& where_term,
         std::string& pname, match_op& pop, GenDb::DbDataValue& pval, GenDb::DbDataValue& pval2,
         std::string& sname, match_op& sop, GenDb::DbDataValue& sval, GenDb::DbDataValue& sval2) {
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     QE_ASSERT(m_query->is_stat_table_query(m_query->table()));
 
-    rapidjson::Document dd;
+    contrail_rapidjson::Document dd;
     std::string srvalstr, srval2str;
 
     if (!where_term.HasMember(WHERE_MATCH_NAME))
         return false;
-    const rapidjson::Value& name_value = where_term[WHERE_MATCH_NAME];
+    const contrail_rapidjson::Value& name_value = where_term[WHERE_MATCH_NAME];
     if (!name_value.IsString()) return false;
     pname = name_value.GetString();
 
-    const rapidjson::Value& prval = where_term[WHERE_MATCH_VALUE];
+    const contrail_rapidjson::Value& prval = where_term[WHERE_MATCH_VALUE];
     if (!((prval.IsString() || prval.IsNumber()))) return false;
-    rapidjson::Value prval2;
+    contrail_rapidjson::Value prval2;
     if (where_term.HasMember(WHERE_MATCH_VALUE2)) {
         prval2.CopyFrom(where_term[WHERE_MATCH_VALUE2], dd.GetAllocator());
     }
@@ -121,7 +121,7 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
 
     if (!where_term.HasMember(WHERE_MATCH_OP))
         return false;
-    const rapidjson::Value& op_value = where_term[WHERE_MATCH_OP];
+    const contrail_rapidjson::Value& op_value = where_term[WHERE_MATCH_OP];
     if (!op_value.IsNumber()) return false;
     pop = (match_op)op_value.GetInt();
 
@@ -131,7 +131,7 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
     sname = std::string(); 
     sop = (match_op)0;
     if (where_term.HasMember(WHERE_MATCH_SUFFIX)) {
-        const rapidjson::Value& suffix = where_term[WHERE_MATCH_SUFFIX];
+        const contrail_rapidjson::Value& suffix = where_term[WHERE_MATCH_SUFFIX];
         if (suffix.IsObject()) {
             // For prefix-suffix where terms, prefix operator MUST be "EQUAL"
             if (pop != EQUAL) return false;
@@ -141,14 +141,14 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
 
             if (!suffix.HasMember(WHERE_MATCH_VALUE))
                 return false;
-            const rapidjson::Value& svalue_value =
+            const contrail_rapidjson::Value& svalue_value =
                 suffix[WHERE_MATCH_VALUE];
             if (!((svalue_value.IsString() || svalue_value.IsNumber()))) return false;
             srvalstr = ToString(svalue_value);
             // For dynamic stat tables, convert types as per query json
             sval = ToDbDataValue(svalue_value);
 
-            rapidjson::Value svalue2_value;
+            contrail_rapidjson::Value svalue2_value;
             if (suffix.HasMember(WHERE_MATCH_VALUE2)) {
                 svalue2_value.CopyFrom(suffix[WHERE_MATCH_VALUE2],
                                        dd.GetAllocator());
@@ -159,14 +159,14 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
 
             if (!suffix.HasMember(WHERE_MATCH_OP))
                 return false;
-            const rapidjson::Value& sop_value =
+            const contrail_rapidjson::Value& sop_value =
                 suffix[WHERE_MATCH_OP];
             if (!sop_value.IsNumber()) return false;
             sop = (match_op)sop_value.GetInt();
 
             if (!suffix.HasMember(WHERE_MATCH_NAME))
                 return false;
-            const rapidjson::Value& sname_value =
+            const contrail_rapidjson::Value& sname_value =
                 suffix[WHERE_MATCH_NAME];
             if (!sname_value.IsString()) return false;
             sname = sname_value.GetString();
@@ -187,26 +187,26 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
         std::map<std::string, std::string>::iterator iter, iter2;
         iter = aQuery->json_api_data_.find(QUERY_TABLE_SCHEMA);
         if (iter != aQuery->json_api_data_.end()) {
-            rapidjson::Document d;
+            contrail_rapidjson::Document d;
             std::string json_string = "{ \"schema\" : " + iter->second + " }";
             d.Parse<0>(const_cast<char *>(json_string.c_str()));
-            const rapidjson::Value& json_schema = d["schema"];
+            const contrail_rapidjson::Value& json_schema = d["schema"];
             // If schema is not passed, proceed without suffix information
             if (json_schema.Size() == 0) {
                 return true;
             }
-            for (rapidjson::SizeType j = 0; j<json_schema.Size(); j++) {
+            for (contrail_rapidjson::SizeType j = 0; j<json_schema.Size(); j++) {
                 if (!(json_schema[j].HasMember(WHERE_MATCH_NAME) &&
                       json_schema[j].HasMember(QUERY_TABLE_SCHEMA_DATATYPE) &&
                       json_schema[j].HasMember(QUERY_TABLE_SCHEMA_INDEX) &&
                       json_schema[j].HasMember(QUERY_TABLE_SCHEMA_SUFFIXES)))
                     return false;
-                const rapidjson::Value& name = json_schema[j][WHERE_MATCH_NAME];
-                const rapidjson::Value&  datatype =
+                const contrail_rapidjson::Value& name = json_schema[j][WHERE_MATCH_NAME];
+                const contrail_rapidjson::Value&  datatype =
                         json_schema[j][QUERY_TABLE_SCHEMA_DATATYPE];
-                const rapidjson::Value& index =
+                const contrail_rapidjson::Value& index =
                         json_schema[j][QUERY_TABLE_SCHEMA_INDEX];
-                const rapidjson::Value& suffixes =
+                const contrail_rapidjson::Value& suffixes =
                         json_schema[j][QUERY_TABLE_SCHEMA_SUFFIXES];
                 StatsQuery::column_t cdesc;
                 std::string vstr = datatype.GetString();
@@ -214,8 +214,8 @@ WhereQuery::StatTermParse(QueryUnit *main_query, const rapidjson::Value& where_t
                 cdesc.index = index.GetBool()? true : false;
 
                 if (suffixes.IsArray() && suffixes.Size() > 0) {
-                    for (rapidjson::SizeType k = 0; k<suffixes.Size(); k++) {
-                        const rapidjson::Value& suffix_name = suffixes[k];
+                    for (contrail_rapidjson::SizeType k = 0; k<suffixes.Size(); k++) {
+                        const contrail_rapidjson::Value& suffix_name = suffixes[k];
                         cdesc.suffixes.insert(suffix_name.GetString());
                     }
                 }
@@ -310,7 +310,7 @@ static bool StatSlicer(DbQueryUnit *db_query, match_op op,
     return true;
 }
 
-bool WhereQuery::StatTermProcess(const rapidjson::Value& where_term,
+bool WhereQuery::StatTermProcess(const contrail_rapidjson::Value& where_term,
         QueryUnit* and_node, QueryUnit *main_query) {
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
@@ -462,22 +462,22 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
     }
 
     // Do JSON parsing
-    rapidjson::Document d;
+    contrail_rapidjson::Document d;
     std::string json_string = "{ \"where\" : " + 
         where_json_string + " }";
 
     QE_TRACE(DEBUG, "where query:" << json_string);
     d.Parse<0>(const_cast<char *>(json_string.c_str()));
-    const rapidjson::Value& json_or_list = d["where"]; 
+    const contrail_rapidjson::Value& json_or_list = d["where"]; 
     QE_PARSE_ERROR(json_or_list.IsArray());
 
     QE_TRACE(DEBUG, "number of OR terms in where :" << json_or_list.Size());
 
     if (or_number == -1) wterms_ = json_or_list.Size();
 
-    for (rapidjson::SizeType i = 0; i < json_or_list.Size(); i++) 
+    for (contrail_rapidjson::SizeType i = 0; i < json_or_list.Size(); i++) 
     {
-        const rapidjson::Value& json_or_node = json_or_list[i];
+        const contrail_rapidjson::Value& json_or_node = json_or_list[i];
         QE_PARSE_ERROR(json_or_list[i].IsArray());
         QE_INVALIDARG_ERROR(json_or_list[i].Size() != 0);
 
@@ -504,16 +504,16 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         bool dport_match = false; GenDb::DbDataValue dport, dport2; int dport_op = 0;
         bool object_id_specified = false;
 
-        for (rapidjson::SizeType j = 0; j < json_or_node.Size(); j++)
+        for (contrail_rapidjson::SizeType j = 0; j < json_or_node.Size(); j++)
         {
             QE_PARSE_ERROR((json_or_node[j].HasMember(WHERE_MATCH_NAME) &&
                 json_or_node[j].HasMember(WHERE_MATCH_VALUE) &&
                 json_or_node[j].HasMember(WHERE_MATCH_OP)));
-            const rapidjson::Value& name_value = 
+            const contrail_rapidjson::Value& name_value = 
                 json_or_node[j][WHERE_MATCH_NAME];
-            const rapidjson::Value&  value_value = 
+            const contrail_rapidjson::Value&  value_value = 
                 json_or_node[j][WHERE_MATCH_VALUE];
-            const rapidjson::Value& op_value = 
+            const contrail_rapidjson::Value& op_value = 
                 json_or_node[j][WHERE_MATCH_OP];
 
             // do some validation checks
@@ -561,7 +561,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             if (op == IN_RANGE)
             {
                 QE_PARSE_ERROR(json_or_node[j].HasMember(WHERE_MATCH_VALUE2));
-                const rapidjson::Value&  value_value2 = 
+                const contrail_rapidjson::Value&  value_value2 = 
                 json_or_node[j][WHERE_MATCH_VALUE2];
 
                 // extract value2 after type conversion

@@ -73,14 +73,14 @@ StructuredSyslogConfig::PollApplicationRecords() {
 }
 
 void
-StructuredSyslogConfig::HostnameRecordsHandler(rapidjson::Document &jdoc,
+StructuredSyslogConfig::HostnameRecordsHandler(contrail_rapidjson::Document &jdoc,
             boost::system::error_code &ec,
             const std::string &version, int status, const std::string &reason,
             std::map<std::string, std::string> *headers) {
     if (jdoc.IsObject() && jdoc.HasMember("structured-syslog-hostname-records")) {
-        for (rapidjson::SizeType j = 0;
+        for (contrail_rapidjson::SizeType j = 0;
                     j < jdoc["structured-syslog-hostname-records"].Size(); j++) {
-                const rapidjson::Value& hr = jdoc["structured-syslog-hostname-records"][j];
+                const contrail_rapidjson::Value& hr = jdoc["structured-syslog-hostname-records"][j];
                 std::string name, hostaddr, tenant, location, device;
 
                 name = hr["display_name"].GetString();
@@ -116,14 +116,14 @@ StructuredSyslogConfig::HostnameRecordsHandler(rapidjson::Document &jdoc,
 }
 
 void
-StructuredSyslogConfig::ApplicationRecordsHandler(rapidjson::Document &jdoc,
+StructuredSyslogConfig::ApplicationRecordsHandler(contrail_rapidjson::Document &jdoc,
             boost::system::error_code &ec,
             const std::string &version, int status, const std::string &reason,
             std::map<std::string, std::string> *headers) {
     if (jdoc.IsObject() && jdoc.HasMember("structured-syslog-application-records")) {
-        for (rapidjson::SizeType j = 0;
+        for (contrail_rapidjson::SizeType j = 0;
                     j < jdoc["structured-syslog-application-records"].Size(); j++) {
-                const rapidjson::Value& ar = jdoc["structured-syslog-application-records"][j];
+                const contrail_rapidjson::Value& ar = jdoc["structured-syslog-application-records"][j];
                 std::string name, app_category, app_subcategory,
                             app_groups, app_risk, app_service_tags;
 
@@ -144,7 +144,7 @@ StructuredSyslogConfig::ApplicationRecordsHandler(rapidjson::Document &jdoc,
                     app_service_tags = ar["structured_syslog_app_service_tags"].GetString();
                 }
 
-                const rapidjson::Value& fq_name = ar["fq_name"];
+                const contrail_rapidjson::Value& fq_name = ar["fq_name"];
                 std::string tenant_name = fq_name[1].GetString();
                 if (tenant_name.compare("default-global-analytics-config") == 0) {
                     LOG(DEBUG, "Adding ApplicationRecord: " << name);

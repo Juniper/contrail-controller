@@ -196,7 +196,7 @@ void RESTClient::CreateRESTClientSessionCallback(const std::string& response,
     if (!ec) {
         if (!response.empty()) {
             LOG(DEBUG, "Server response: " << response);
-            rapidjson::Document document;
+            contrail_rapidjson::Document document;
             document.Parse<0>(response.c_str());
             if (document.HasParseError() ||
                 !document.IsObject() ||
