@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/regex.hpp>
+
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_show_handler.h"
@@ -11,11 +13,14 @@
 #include "bgp/routing-instance/service_chaining_types.h"
 #include "net/address_util.h"
 
+using boost::regex;
+using boost::regex_search;
 using std::string;
 using std::vector;
 
 static bool FillServiceChainInfo(Address::Family family,
-                                 const string search_string,
+                                 const string &search_string,
+                                 const regex &search_expr,
                                  ShowServicechainInfo &info,
                                  RoutingInstance *rtinstance) {
     const BgpTable *table =
@@ -27,8 +32,7 @@ static bool FillServiceChainInfo(Address::Family family,
     if (!service_chain_mgr)
         return false;
 
-    if (!search_string.empty() &&
-        (table->name().find(search_string) == string::npos) &&
+    if ((!regex_search(table->name(), search_expr)) &&
         (search_string != "pending" ||
             !service_chain_mgr->IsPending(rtinstance)) &&
         (search_string != "deleted" || !table->IsDeleted())) {
@@ -65,18 +69,19 @@ bool BgpShowHandler<ShowServiceChainReq, ShowServiceChainReqIterate,
     uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
 
+    regex search_expr(data->search_string);
     RoutingInstanceMgr::const_name_iterator it =
         rim->name_clower_bound(data->next_entry);
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
         RoutingInstance *rinstance = it->second;
         ShowServicechainInfo inet_info;
         if (FillServiceChainInfo(Address::INET, data->search_string,
-                                 inet_info, rinstance)) {
+                                 search_expr, inet_info, rinstance)) {
             data->show_list.push_back(inet_info);
         }
         ShowServicechainInfo inet6_info;
         if (FillServiceChainInfo(Address::INET6, data->search_string,
-                                 inet6_info, rinstance)) {
+                                 search_expr, inet6_info, rinstance)) {
             data->show_list.push_back(inet6_info);
         }
 

@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <boost/regex.hpp>
+
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
@@ -14,17 +16,17 @@
 #include "bgp/bgp_xmpp_channel.h"
 #include "xmpp/xmpp_connection.h"
 
+using boost::regex;
+using boost::regex_search;
 using std::string;
 using std::vector;
 
 static bool ShowXmppNeighborMatch(const BgpXmppChannel *bx_channel,
-    const string &search_string) {
-    if (search_string.empty())
-        return true;
-    if (bx_channel->ToString().find(search_string) != string::npos)
+    const string &search_string, const regex &search_expr) {
+    if (regex_search(bx_channel->ToString(), search_expr))
         return true;
     string address_string = bx_channel->remote_endpoint().address().to_string();
-    if (address_string.find(search_string) != string::npos)
+    if (regex_search(address_string, search_expr))
         return true;
     if (search_string == "deleted" && bx_channel->peer_deleted())
         return true;
@@ -71,12 +73,13 @@ static bool ShowXmppNeighbor(const BgpSandeshContext *bsc, bool summary,
     uint32_t page_limit, uint32_t iter_limit, const string &start_neighbor,
     const string &search_string, vector<BgpNeighborResp> *list,
     string *next_neighbor) {
+    regex search_expr(search_string);
     const BgpXmppChannelManager *bxcm = bsc->xmpp_peer_manager;
     BgpXmppChannelManager::const_name_iterator it =
         bxcm->name_clower_bound(start_neighbor);
     for (uint32_t iter_count = 0; it != bxcm->name_cend(); ++it, ++iter_count) {
         const BgpXmppChannel *bx_channel = it->second;
-        if (!ShowXmppNeighborMatch(bx_channel, search_string))
+        if (!ShowXmppNeighborMatch(bx_channel, search_string, search_expr))
             continue;
         BgpNeighborResp bnr;
         FillXmppNeighborInfo(&bnr, bsc, bx_channel, summary);
