@@ -5,6 +5,7 @@
 #include "bgp/bgp_sandesh.h"
 
 #include <boost/assign/list_of.hpp>
+#include <boost/regex.hpp>
 #include <sandesh/request_pipeline.h>
 
 #include "bgp/bgp_peer_internal_types.h"
@@ -14,6 +15,8 @@
 #include "bgp/routing-instance/routing_instance.h"
 
 using boost::assign::list_of;
+using boost::regex;
+using boost::regex_search;
 using std::auto_ptr;
 using std::string;
 using std::vector;
@@ -146,7 +149,8 @@ public:
     };
 
     ShowRouteHandler(const ShowRouteReq *req, int inst_id) :
-        req_(req), inst_id_(inst_id) {}
+        req_(req), inst_id_(inst_id), prefix_expr_(req->get_prefix()) {
+    }
 
     // Search for interesting prefixes in a given table for given partition
     void BuildShowRouteTable(BgpTable *table, vector<ShowRoute> *route_list,
@@ -157,13 +161,7 @@ public:
             static_cast<DBTablePartition *>(table->GetTablePartition(inst_id_));
         BgpRoute *route = NULL;
 
-        bool exact_lookup = false;
-        if (!req_->get_prefix().empty() &&
-            !req_->get_longer_match() && !req_->get_shorter_match()) {
-            exact_lookup = true;
-            auto_ptr<DBEntry> key = table->AllocEntryStr(req_->get_prefix());
-            route = static_cast<BgpRoute *>(partition->Find(key.get()));
-        } else if (table->name() == req_->get_start_routing_table()) {
+        if (table->name() == req_->get_start_routing_table()) {
             auto_ptr<DBEntry> key =
                 table->AllocEntryStr(req_->get_start_prefix());
             route = static_cast<BgpRoute *>(partition->lower_bound(key.get()));
@@ -181,17 +179,15 @@ public:
                                  req_->get_protocol());
             if (!show_route.get_paths().empty())
                 route_list->push_back(show_route);
-            if (exact_lookup)
-                break;
         }
     }
 
     bool MatchPrefix(const string &expected_prefix, BgpRoute *route,
                      bool longer_match, bool shorter_match) {
-        if (expected_prefix == "")
+        if (expected_prefix.empty())
             return true;
         if (!longer_match && !shorter_match)
-            return expected_prefix == route->ToString();
+            return regex_search(route->ToString(), prefix_expr_);
 
         // Do longer match.
         if (longer_match && route->IsMoreSpecific(expected_prefix))
@@ -243,6 +239,7 @@ public:
 private:
     const ShowRouteReq *req_;
     int inst_id_;
+    regex prefix_expr_;
 };
 
 uint32_t ShowRouteHandler::GetMaxRouteCount(const ShowRouteReq *req) {
