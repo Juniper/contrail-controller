@@ -43,6 +43,7 @@ struct AgentRouteWalkerQueueEntry {
         CANCEL_VRF_WALK,
         START_ROUTE_WALK,
         CANCEL_ROUTE_WALK,
+        DELETE,
         DONE_WALK
     };
 
@@ -105,12 +106,14 @@ public:
         walkable_route_tables_ = walkable_route_tables;
     }
     uint32_t walkable_route_tables() const {return walkable_route_tables_;}
+    void Delete();
 
 private:
     void StartVrfWalkInternal();
     void CancelVrfWalkInternal();
     void StartRouteWalkInternal(const VrfEntry * vrf);
     void CancelRouteWalkInternal(const VrfEntry *vrf);
+    void DeleteInternal();
 
     void Callback(VrfEntry *vrf);
     void CallbackInternal(VrfEntry *vrf, bool all_walks_done);
@@ -139,6 +142,24 @@ private:
     WorkQueue<boost::shared_ptr<AgentRouteWalkerQueueEntry> > work_queue_;
     uint32_t walkable_route_tables_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteWalker);
+};
+
+class AgentRouteWalkerCleaner {
+public:
+    typedef std::vector<AgentRouteWalker *> List;
+    typedef List::iterator ListIter;
+
+    AgentRouteWalkerCleaner(Agent *agent);
+    virtual ~AgentRouteWalkerCleaner();
+    void FreeWalker(AgentRouteWalker *walker);
+
+private:
+    bool Free();
+
+    std::vector<AgentRouteWalker *> walker_;
+    boost::scoped_ptr<TaskTrigger> trigger_;
+    Agent *agent_;
+    DISALLOW_COPY_AND_ASSIGN(AgentRouteWalkerCleaner);
 };
 
 #endif
