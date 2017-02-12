@@ -5,6 +5,7 @@
 #include "bgp/bgp_show_handler.h"
 
 #include <boost/foreach.hpp>
+#include <boost/regex.hpp>
 
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer.h"
@@ -15,6 +16,8 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-policy/routing_policy.h"
 
+using boost::regex;
+using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -112,13 +115,14 @@ static bool FillRoutingInstanceInfoList(const BgpSandeshContext *bsc,
     bool summary, uint32_t page_limit, uint32_t iter_limit,
     const string &start_instance, const string &search_string,
     vector<ShowRoutingInstance> *sri_list, string *next_instance) {
+    regex search_expr(search_string);
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     RoutingInstanceMgr::const_name_iterator it =
         rim->name_clower_bound(start_instance);
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
         const RoutingInstance *rtinstance = it->second;
         if (!search_string.empty() &&
-            (rtinstance->name().find(search_string) == string::npos) &&
+            (!regex_search(rtinstance->name(), search_expr)) &&
             (search_string != "deleted" || !rtinstance->deleted())) {
             continue;
         }
