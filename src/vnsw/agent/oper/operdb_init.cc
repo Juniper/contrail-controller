@@ -40,6 +40,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/vrouter.h>
 #include <oper/bgp_as_service.h>
+#include <oper/agent_route_walker.h>
 #include <nexthop_server/nexthop_manager.h>
 #include <oper/forwarding_class.h>
 #include <oper/qos_config.h>
@@ -225,6 +226,8 @@ void OperDB::CreateDBTables(DB *db) {
     vrouter_ = std::auto_ptr<VRouter> (new VRouter(this));
     bgp_as_a_service_ = std::auto_ptr<BgpAsAService>(new BgpAsAService(agent_));
     global_qos_config_ = std::auto_ptr<GlobalQosConfig>(new GlobalQosConfig(this));
+    agent_route_walker_cleaner_ = std::auto_ptr<AgentRouteWalkerCleaner>
+        (new AgentRouteWalkerCleaner(agent_));
 }
 
 void OperDB::Init() {
