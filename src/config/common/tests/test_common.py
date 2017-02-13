@@ -300,7 +300,8 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
     vnc_cgitb.enable(format='text')
 
-    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+    with tempfile.NamedTemporaryFile() as conf, \
+         tempfile.NamedTemporaryFile() as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
         cfg_parser.write(conf)
         conf.flush()
