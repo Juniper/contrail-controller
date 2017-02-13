@@ -56,7 +56,7 @@ class VncKubernetes(object):
             cluster_pod_subnets = self.args.pod_subnets)
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
-            self.label_cache, self.args, self.logger, self.kube)
+            self.label_cache, self.args, self.logger, self.q, self.kube)
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
             self.vnc_lib, self.label_cache, self.logger)
@@ -68,7 +68,7 @@ class VncKubernetes(object):
             'kube_manager.vnc.vnc_endpoints.VncEndpoints',
             self.vnc_lib, self.logger, self.kube)
         self.ingress_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_ingress.VncIngress', self.args,
+            'kube_manager.vnc.vnc_ingress.VncIngress', self.args, self.q,
             self.vnc_lib, self.label_cache, self.logger, self.kube)
 
     def _vnc_connect(self):
@@ -298,6 +298,8 @@ class VncKubernetes(object):
         return VirtualNetworkKM.find_by_name_or_uuid('cluster-network')
 
     def vnc_timer(self):
+        self.ingress_mgr.ingress_timer()
+        self.service_mgr.service_timer()
         self.pod_mgr.pod_timer()
 
     def vnc_process(self):

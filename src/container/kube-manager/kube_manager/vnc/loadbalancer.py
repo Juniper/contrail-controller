@@ -138,7 +138,8 @@ class ServiceLbManager(object):
 
         return sas_obj
 
-    def create(self, lb_provider, vn_obj, service_id, service_name, proj_obj, vip_address=None, subnet_uuid=None):
+    def create(self, lb_provider, vn_obj, service_id, service_name,
+               proj_obj, vip_address=None, subnet_uuid=None, annotations=None):
         """
         Create a loadbalancer.
         """
@@ -153,9 +154,12 @@ class ServiceLbManager(object):
             vn_obj, service_name, vip_address, subnet_uuid)
         lb_obj.set_virtual_machine_interface(vmi_obj)
 
-        props = LoadbalancerType(provisioning_status='ACTIVE', 
+        id_perms = IdPermsType(enable=True)
+        props = LoadbalancerType(provisioning_status='ACTIVE', id_perms=id_perms,
                       operating_status='ONLINE', vip_address=vip_address)
         lb_obj.set_loadbalancer_properties(props)
+        for key in annotations:
+            lb_obj.add_annotations(KeyValuePair(key=key, value=annotations[key]))
 
         try:
             self._vnc_lib.loadbalancer_create(lb_obj)
