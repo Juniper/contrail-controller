@@ -1609,10 +1609,11 @@ void PktFlowInfo::UpdateEvictedFlowStats(const PktInfo *pkt) {
     KSyncFlowIndexManager *imgr = agent->ksync()->ksync_flow_index_manager();
     FlowEntryPtr flow = imgr->FindByIndex(pkt->agent_hdr.cmd_param);
 
+    /* Enqueue stats update request with UUID of the flow */
     if (flow.get() && flow->deleted() == false) {
         mgr->FlowStatsUpdateEvent(flow.get(), pkt->agent_hdr.cmd_param_2,
                                   pkt->agent_hdr.cmd_param_3,
-                                  pkt->agent_hdr.cmd_param_4);
+                                  pkt->agent_hdr.cmd_param_4, flow->uuid());
     }
 }
 
