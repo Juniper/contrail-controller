@@ -185,7 +185,7 @@ void DBGraph::IterateEdges(DBGraphVertex *current_vertex,
 
 void DBGraph::Visit(DBGraphVertex *start, VertexVisitor vertex_visit_fn,
                     EdgeVisitor edge_visit_fn, const VisitorFilter &filter) {
-    uint64_t t = ClockMonotonicUsec();
+    // uint64_t t = ClockMonotonicUsec();
     uint64_t curr_walk = get_graph_walk_num();
     EdgePredicate edge_test(this, filter);
     VertexPredicate vertex_test(this, filter);
@@ -227,8 +227,8 @@ void DBGraph::Visit(DBGraphVertex *start, VertexVisitor vertex_visit_fn,
                          edge_test, vertex_test, curr_walk, visit_q);
         }
     }
-    uint64_t end_t = ClockMonotonicUsec();
-    std::cout << "Graph Walk time(in usec) " <<  (end_t-t) << std::endl;
+    // uint64_t end_t = ClockMonotonicUsec();
+    // std::cout << "Graph Walk time(in usec) " <<  (end_t-t) << std::endl;
 }
 
 DBGraph::edge_iterator::edge_iterator(DBGraph *graph) : graph_(graph) {

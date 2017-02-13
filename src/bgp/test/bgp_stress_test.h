@@ -4,11 +4,18 @@
 #ifndef __BGP__BGP_STRESS_TEST_H__
 #define __BGP__BGP_STRESS_TEST_H__
 
+#include <boost/uuid/name_generator.hpp>
 #include "control-node/test/network_agent_mock.h"
+#include "database/gendb_if.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/inet/inet_route.h"
+#include "ifmap/client/config_amqp_client.h"
+#include "ifmap/client/config_cassandra_client.h"
+#include "ifmap/client/config_client_manager.h"
+#include "ifmap/client/config_db_client.h"
+#include "ifmap/client/config_json_parser.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server_parser.h"
@@ -32,21 +39,63 @@ class XmppChannel;
 class XmppChannelConfig;
 class XmppConnection;
 
+class ConfigCassandraClientTest : public ConfigCassandraClient {
+public:
+    ConfigCassandraClientTest(ConfigClientManager *mgr, EventManager *evm,
+        const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
+        int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
+            num_workers) {
+    }
+
+    virtual int HashUUID(const string &uuid_str) const {
+        return ConfigCassandraClient::HashUUID(uuid_str);
+    }
+
+    virtual void HandleObjectDelete(const std::string &obj_type,
+                            const std::string &uuid) {
+        ConfigCassandraClient::HandleObjectDelete(obj_type, uuid);
+    }
+
+    virtual bool ParseRowAndEnqueueToParser(const string &obj_type,
+                                            const string &uuid_key,
+                                            const GenDb::ColList &col_list) {
+        return ConfigCassandraClient::ParseRowAndEnqueueToParser(obj_type,
+                                          uuid_key, col_list);
+    }
+};
+
+class IFMapServerTest : public IFMapServer {
+public:
+    IFMapServerTest(DB *db, DBGraph *graph, boost::asio::io_service *io_service)
+        : IFMapServer(db, graph, io_service), config_client_manager_(NULL) {
+    }
+
+    virtual ~IFMapServerTest() { }
+
+    void set_config_client_manager(ConfigClientManager *config_client_manager) {
+        config_client_manager_ = config_client_manager;
+    }
+
+    ConfigCassandraClientTest *cassandra_client() {
+        if (!config_client_manager_)
+            return NULL;
+        return dynamic_cast<ConfigCassandraClientTest *>(
+                config_client_manager_->config_db_client());
+    }
+
+private:
+    ConfigClientManager *config_client_manager_;
+};
+
 class IFMapXmppChannelTest : public IFMapXmppChannel {
 public:
     IFMapXmppChannelTest(XmppChannel *channel, IFMapServer *server,
                          IFMapChannelManager *manager) :
             IFMapXmppChannel(channel, server, manager),
-            ifmap_server_(server),
-            config_queue_(TaskScheduler::GetInstance()->GetTaskId(
-                              "ifmap::StateMachine"), 0,
-                          boost::bind(&IFMapXmppChannelTest::ProcessConfig,
-                                      this, _1)) {
+            ifmap_server_(server) {
     }
 
-    virtual ~IFMapXmppChannelTest() {
-        config_queue_.Shutdown();
-    }
+    virtual ~IFMapXmppChannelTest() { }
 
     bool ProcessConfig(const std::string *config) {
         IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
@@ -58,11 +107,8 @@ public:
     }
 
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-
-        //
         // Inject virtual-machine and virtual-router configurations so that
         // they get downloaded to agents later on.
-        //
         CreatefmapConfig(msg);
         IFMapXmppChannel::ReceiveUpdate(msg);
     }
@@ -88,90 +134,109 @@ public:
     }
 
     virtual void CreatefmapConfig(const XmppStanza::XmppMessage *msg) {
-        if (msg->type != XmppStanza::IQ_STANZA) return;
+        ConfigCassandraClientTest *cassandra_client =
+            dynamic_cast<IFMapServerTest *>(ifmap_server_)->cassandra_client();
+
+        if (!cassandra_client)
+            return;
+
+        if (msg->type != XmppStanza::IQ_STANZA)
+            return;
+
+        const XmppStanza::XmppMessageIq *iq;
+        iq = static_cast<const XmppStanza::XmppMessageIq *>(msg);
+        if (iq->iq_type.compare("set"))
+            return;
+
+        if (iq->action.compare("unsubscribe") &&
+                iq->action.compare("subscribe")) {
+            return;
+        }
 
         const char* const vr_string = "virtual-router:";
         const char* const vm_string = "virtual-machine:";
-        const XmppStanza::XmppMessageIq *iq;
         std::ostringstream config;
         std::string oper;
-
-        iq = static_cast<const XmppStanza::XmppMessageIq *>(msg);
+        std::string id_type;
         std::string id_name;
-        std::string uuid_msb = "12309684986471008851";
-        std::string uuid_lsb = "10069215144903555692";
+        string uuid_key;
 
         if (iq->node.compare(0, strlen(vm_string), vm_string) == 0) {
-            id_name = vm_string;
-            std::string uuid = std::string(iq->node, (strlen(vm_string)));
-            id_name += uuid;
-            UuidToDecimal(uuid, uuid_msb, uuid_lsb);
+            id_type = "virtual-machine";
+            id_name = std::string(iq->node, (strlen(vm_string)));
+            uuid_key = id_name;
         } else if (iq->node.compare(0, strlen(vr_string), vr_string) == 0) {
-
-            id_name = vr_string;
-            id_name += std::string(iq->node, (strlen(vr_string)));
+            id_type = "virtual-router";
+            id_name = std::string(iq->node, (strlen(vr_string)));
+            boost::uuids::nil_generator nil;
+            boost::uuids::name_generator gen(nil());
+            boost::uuids::uuid uuid;
+            uuid = gen(id_name);
+            uuid_key = boost::uuids::to_string(uuid);
         } else {
             return;
         }
 
-        if ((iq->iq_type.compare("set") == 0) &&
-            (iq->action.compare("subscribe") == 0)) {
-            oper = "resultItem";
-        } else if ((iq->iq_type.compare("set") == 0) &&
-                  (iq->action.compare("unsubscribe") == 0)) {
-            oper = "deleteItem";
-        } else {
+        int idx = cassandra_client->HashUUID(uuid_key);
+        task_util::TaskFire(boost::bind(&IFMapXmppChannelTest::InjectConfig,
+                                this, iq->action, uuid_key, id_type, id_name),
+                            "cassandra::Reader", idx);
+    }
+
+    void InjectConfig(string action, string uuid_key, string id_type,
+                      string id_name) {
+        ConfigCassandraClientTest *cassandra_client =
+            dynamic_cast<IFMapServerTest *>(ifmap_server_)->cassandra_client();
+        if (!action.compare("unsubscribe")) {
+            cassandra_client->HandleObjectDelete(id_type, uuid_key);
             return;
         }
 
-        //
-        // Dump sample xml configuration with proper id
-        //
-        config <<
-        "<?xml version=\"1.0\"?>"
-        "<ns3:Envelope xmlns:ns2=\"http://www.trustedcomputinggroup.org/2010/IFMAP/2\" xmlns:ns3=\"http://www.w3.org/2003/05/soap-envelope\">"
-        "  <ns3:Body>"
-        "    <ns2:response>"
-        "      <pollResult>"
-        "        <searchResult name=\"bgpd\">";
+        GenDb::ColList col_list;
 
-            config <<
-        "          <" << oper << ">"
-        "            <identity other-type-definition=\"extended\" type=\"other\" name=\"contrail:" << id_name << "\"/>"
-        "            <metadata>"
-        "              <contrail:id-perms xmlns:contrail=\"http://www.contrailsystems.com/vnc_cfg.xsd\" ifmap-cardinality=\"singleValue\" ifmap-publisher-id=\"test--1870931913-1\" ifmap-timestamp=\"2012-11-03T20:33:33+00:00\">"
-        "                <permissions>"
-        "                  <owner>cloud-admin</owner>"
-        "                  <owner-access>7</owner-access>"
-        "                  <group>cloud-admin-group</group>"
-        "                  <group-access>7</group-access>"
-        "                  <other-access>7</other-access>"
-        "                </permissions>"
-        "                <uuid>"
-        "                  <uuid-mslong>" << uuid_msb << "</uuid-mslong>"
-        "                  <uuid-lslong>" << uuid_lsb << "</uuid-lslong>"
-        "                </uuid>"
-        "                <enable>true</enable>"
-        "                <created/>"
-        "                <last-modified/>"
-        "              </contrail:id-perms>"
-        "            </metadata>"
-        "          </" << oper << ">"
-        "";
+        GenDb::DbDataValueVec *names1 = new GenDb::DbDataValueVec();
+        names1->push_back(GenDb::DbDataValue(GenDb::Blob(
+                         (const uint8_t *) "fq_name", 7)));
+        GenDb::DbDataValueVec *values1 = new GenDb::DbDataValueVec();
+        values1->push_back(GenDb::DbDataValue(string("[\"" + id_name + "\"]")));
+        GenDb::DbDataValueVec *timestamps1 = new GenDb::DbDataValueVec();
+        timestamps1->push_back(GenDb::DbDataValue(UTCTimestampUsec()));
+        col_list.columns_.push_back(
+            new GenDb::NewCol(names1, values1, 100, timestamps1));
 
-            config <<
-        "        </searchResult>"
-        "      </pollResult>"
-        "    </ns2:response>"
-        "  </ns3:Body>"
-        "</ns3:Envelope>";
+        GenDb::DbDataValueVec *names2 = new GenDb::DbDataValueVec();
+        names2->push_back(GenDb::DbDataValue(GenDb::Blob(
+                         (const uint8_t *) "type", 4)));
+        GenDb::DbDataValueVec *values2 = new GenDb::DbDataValueVec();
+        values2->push_back(GenDb::DbDataValue(string("\"") + id_type + "\""));
+        GenDb::DbDataValueVec *timestamps2 = new GenDb::DbDataValueVec();
+        timestamps2->push_back(GenDb::DbDataValue(UTCTimestampUsec()));
+        col_list.columns_.push_back(
+            new GenDb::NewCol(names2, values2, 100, timestamps2));
 
-        config_queue_.Enqueue(new std::string(config.str()));
+
+        GenDb::DbDataValueVec *names3 = new GenDb::DbDataValueVec();
+        names3->push_back(GenDb::DbDataValue(GenDb::Blob(
+                (const uint8_t *) "prop:id_perms", 13)));
+        std::string uuid_msb;
+        std::string uuid_lsb;
+        UuidToDecimal(uuid_key, uuid_msb, uuid_lsb);
+        string id_perms = "{\"uuid\":{\"uuid_mslong\":\"" + uuid_msb +
+            "\",\"uuid_lslong\":\"" + uuid_lsb +
+            "\"},\"enable\":true,\"created\":null,\"last_modified\":null}";
+        GenDb::DbDataValueVec *values3 = new GenDb::DbDataValueVec();
+        values3->push_back(GenDb::DbDataValue(id_perms));
+        GenDb::DbDataValueVec *timestamps3 = new GenDb::DbDataValueVec();
+        timestamps3->push_back(GenDb::DbDataValue(UTCTimestampUsec()));
+        col_list.columns_.push_back(
+            new GenDb::NewCol(names3, values3, 100, timestamps3));
+
+        cassandra_client->ParseRowAndEnqueueToParser(id_type, uuid_key,
+                                                     col_list);
     }
 
 private:
     IFMapServer *ifmap_server_;
-    WorkQueue<const std::string *> config_queue_;
 };
 
 class PeerCloseManagerTest : public PeerCloseManager {
@@ -419,7 +484,7 @@ protected:
     void ValidateShowRouteSandeshResponse(Sandesh *sandesh);
 
     std::string GetAgentConfigName(int agent_id);
-    std::string GetAgentVmConfigName(int agent_id, int vm_id);
+    std::string GetAgentVmUuid(int agent_id, int vm_id);
     std::string GetAgentName(int agent_id);
     bool XmppClientIsEstablished(const std::string &client_name);
     std::string GetEnetPrefix(std::string inet_prefix) const;
@@ -455,6 +520,7 @@ protected:
     boost::scoped_ptr<IFMapServer> ifmap_server_;
     boost::scoped_ptr<IFMapChannelManager> ifmap_channel_mgr_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
+    boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
 };
 
 #endif
