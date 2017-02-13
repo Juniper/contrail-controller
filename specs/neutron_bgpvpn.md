@@ -17,7 +17,7 @@ N/A
 Add new BGP VPN resource to Contrail data model named `bgpvpn`:
 
 Resource attributes  | Operations | Type
--|-|-
+-------------------- | ---------- | ----
 Project Owner | CR | Parent reference
 Type | CR | Property `VpnType` string enum `['l2', 'l3']`
 Route targets | CRU | ListProperty `RouteTargetList`
@@ -29,7 +29,7 @@ Routers | CRU | `logical-router` back reference
 For the ` bgpvpn` `type` attribute, only the type `l3` can be used for `bgpvpn` associated to `logical routers`. About the `virtual network` association authorizations depend on the `forwarding mode` set on the `virtual network` as describe below:
 
 Forwarding mode | Authorized VPN types
--|-
+--------------- | --------------------
 `l2_l3` | `l2` and/or `l3`
 `l2` | `l2` only
 `l3` | `l3` only
