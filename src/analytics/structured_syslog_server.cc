@@ -36,7 +36,7 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogS
   /*
   syslog format: <14>1 2016-12-06T11:38:19.818+02:00 csp-ucpe-bglr51 RT_FLOW: APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26
   reason="TCP RST" source-address="4.0.0.3" source-port="13175" destination-address="5.0.0.7"
-  destination-port="48334" service-name="None" application="MTV" nested-application="None"
+  destination-port="48334" service-name="None" application="HTTP" nested-application="Facebook"
   nat-source-address="10.110.110.10" nat-source-port="13175" destination-address="96.9.139.213"
   nat-destination-port="48334" src-nat-rule-name="None" dst-nat-rule-name="None" protocol-id="6"
   policy-name="dmz-out" source-zone-name="DMZ" destination-zone-name="Internet" session-id-32="44292"
@@ -271,13 +271,49 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogServ
                 v.insert(std::pair<std::string, SyslogParser::Holder>("device",
                 SyslogParser::Holder("device", device)));
             }
-            std::string an = SyslogParser::GetMapVals(v, "application", "");
-            std::string tar_name = tenant + '-' + an;
+            std::string an = SyslogParser::GetMapVals(v, "nested-application", "");
+            std::string tar_name = tenant + '/' + an;
+            std::string dar_name = tenant + '/' + device + '/' + an;
+            boost::shared_ptr<TenantApplicationRecord> dar =
+                    config_obj->structured_syslog_config_->GetTenantApplicationRecord(dar_name);
             boost::shared_ptr<TenantApplicationRecord> tar =
                     config_obj->structured_syslog_config_->GetTenantApplicationRecord(tar_name);
             boost::shared_ptr<ApplicationRecord> ar =
                     config_obj->structured_syslog_config_->GetApplicationRecord(an);
-            if (tar != NULL) {
+            if (dar != NULL) {
+                LOG(DEBUG, "StructuredSyslogDecorate device application record: " << dar_name);
+                const std::string device_app_category = dar->tenant_app_category();
+                if (!device_app_category.empty()) {
+                    v.erase("app-category");
+                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-category",
+                    SyslogParser::Holder("app-category", device_app_category)));
+                }
+                const std::string device_app_subcategory = dar->tenant_app_subcategory();
+                if (!device_app_subcategory.empty()) {
+                    v.erase("app-subcategory");
+                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-subcategory",
+                    SyslogParser::Holder("app-subcategory", device_app_subcategory)));
+                }
+                const std::string device_app_groups = dar->tenant_app_groups();
+                if (!device_app_groups.empty()) {
+                    v.erase("app-groups");
+                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-groups",
+                    SyslogParser::Holder("app-groups", device_app_groups)));
+                }
+                const std::string device_app_risk = dar->tenant_app_risk();
+                if (!device_app_risk.empty()) {
+                    v.erase("app-risk");
+                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-risk",
+                    SyslogParser::Holder("app-risk", device_app_risk)));
+                }
+                const std::string device_app_service_tags = dar->tenant_app_service_tags();
+                if (!device_app_service_tags.empty()) {
+                    v.erase("app-service-tags");
+                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-service-tags",
+                    SyslogParser::Holder("app-service-tags", device_app_service_tags)));
+                }
+            }
+            else if (tar != NULL) {
                 LOG(DEBUG, "StructuredSyslogDecorate tenant application record: " << tar_name);
                 const std::string tenant_app_category = tar->tenant_app_category();
                 if (!tenant_app_category.empty()) {

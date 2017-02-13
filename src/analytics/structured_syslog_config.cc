@@ -151,9 +151,9 @@ StructuredSyslogConfig::ApplicationRecordsHandler(rapidjson::Document &jdoc,
                     AddApplicationRecord(name, app_category, app_subcategory,
                                             app_groups, app_risk, app_service_tags);
                 }
-                else{
+                else {
                     std::string apprec_name;
-                    apprec_name =  tenant_name + '-' + name;
+                    apprec_name =  tenant_name + '/' + name;
                     LOG(DEBUG, "Adding TenantApplicationRecord: " << apprec_name);
                     AddTenantApplicationRecord(apprec_name, app_category, app_subcategory,
                                             app_groups, app_risk, app_service_tags);
