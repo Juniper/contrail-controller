@@ -34,9 +34,8 @@ bool ControlNode::ControlNodeInfoLogger(const BgpServer *server,
     state.set_name(server->localname());
 
     // Send self information.
-    uint64_t start_time = UTCTimestampUsec();
-    if (first || start_time != state.get_uptime()) {
-        state.set_uptime(start_time);
+    if (first) {
+        state.set_uptime(UTCTimestampUsec());
         change = true;
     }
 
