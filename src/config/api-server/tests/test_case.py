@@ -9,7 +9,6 @@ sys.path.append("../common/tests")
 
 from vnc_api import vnc_api
 from cfgm_common import vnc_rdbms
-import cfgm_common.ifmap.client as ifmap_client
 from test_utils import *
 import test_common
 
@@ -65,11 +64,11 @@ class ApiServerTestCase(test_common.TestCase):
         return vn_objs, ipam_objs, ri_objs, vmi_objs
     # end _create_vn_ri_vmi
 
-    def assert_ifmap_doesnt_have_ident(self, test_obj):
-        self.assertTill(self.ifmap_doesnt_have_ident, obj=test_obj)
+    def assert_vnc_db_doesnt_have_ident(self, test_obj):
+        self.assertTill(self.vnc_db_doesnt_have_ident, obj=test_obj)
 
-    def assert_ifmap_has_ident(self, test_obj):
-        self.assertTill(self.ifmap_has_ident, obj=test_obj)
+    def assert_vnc_db_has_ident(self, test_obj):
+        self.assertTill(self.vnc_db_has_ident, obj=test_obj)
 # end class ApiServerTestCase
 
 
@@ -93,30 +92,4 @@ class ApiServerRDBMSTestCase(ApiServerTestCase):
         super(ApiServerRDBMSTestCase, cls).setUpClass(
             db="rdbms", extra_config_knobs=extra_config_knobs,
             extra_mocks=extra_mocks)
-#end class ApiServerRDBMSTestCase
-
-
-class ApiServerIrondTestCase(ApiServerTestCase):
-    @classmethod
-    def setUpClass(cls, extra_config_knobs=None, extra_mocks=None):
-        irond_config = [
-            ('DEFAULTS', 'ifmap_server_ip', '127.0.0.1'),
-            ('DEFAULTS', 'ifmap_health_check_interval', '3600'),
-        ]
-        irond_mocks = [
-            (ifmap_client.client, '__init__', FakeIfmapClient.initialize),
-            (ifmap_client.client, 'call', FakeIfmapClient.call),
-            (ifmap_client.client, 'call_async_result',
-             FakeIfmapClient.call_async_result),
-        ]
-        if extra_config_knobs:
-            extra_config_knobs.extend(irond_config)
-        else:
-            extra_config_knobs = irond_config
-        if extra_mocks:
-            extra_mocks.extend(irond_mocks)
-        else:
-            extra_mocks = irond_mocks
-        super(ApiServerIrondTestCase, cls).setUpClass(
-              extra_config_knobs=extra_config_knobs, extra_mocks=extra_mocks)
-
+# end class ApiServerRDBMSTestCase

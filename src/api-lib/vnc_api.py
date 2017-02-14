@@ -742,8 +742,8 @@ class VncApi(object):
         if fq_name_str:
             return (True, self.fq_name_to_id(res_type, fq_name_str.split(':')))
         if ifmap_id:
-            return (True, self.ifmap_to_id(ifmap_id))
-    #end _read_args_to_id
+            return (False, "ifmap_id is no longer supported")
+    # end _read_args_to_id
 
     def _request_server(self, op, url, data=None, retry_on_error=True,
                         retry_after_authn=False, retry_count=30):
@@ -1009,16 +1009,8 @@ class VncApi(object):
     # This is required only for helping ifmap-subscribers using rest publish
     @check_homepage
     def ifmap_to_id(self, ifmap_id):
-        json_body = json.dumps({'ifmap_id': ifmap_id})
-        uri = self._action_uri['ifmap-to-id']
-        try:
-            content = self._request_server(rest.OP_POST, uri, data=json_body)
-        except HttpError as he:
-            if he.status_code == 404:
-                return None
-
-        return json.loads(content)['uuid']
-    #end ifmap_to_id
+        return None
+    # end ifmap_to_id
 
     def obj_to_json(self, obj):
         return json.dumps(obj, default=self._obj_serializer_all)
