@@ -173,36 +173,27 @@ class TestNetworkDM(TestCommonDM):
 
         config = FakeDeviceConnect.get_xml_config()
         ri = self.get_routing_instances(config, vrf_name_l2)[0]
-        ri_intf = None
-        if fwd_mode == 'l2_l3':
-            ri_intf = "irb." + str(network_id)
+        ri_intf = "irb." + str(network_id) if fwd_mode == 'l2_l3' else None
         protocols = ri.get_protocols()
         intfs = []
         if global_encap in ['MPLSoGRE', 'MPLSoUDP']:
-            if (ri.get_instance_type() != 'evpn' or
-                ri.get_vlan_id() != 'none' or \
-                ri.get_routing_interface() != ri_intf):
-                self.assertTrue(False)
-            if interfaces:
-                intfs = protocols.get_evpn().get_interface() or []
+            self.assertEqual(ri.get_instance_type(), 'evpn')
+            self.assertEqual(ri.get_vlan_id(), 'none')
+            self.assertEqual(ri.get_routing_interface(), ri_intf)
+            intfs = protocols.get_evpn().get_interface() if interfaces else []
 
         if global_encap == 'VXLAN':
-            if protocols.get_evpn().get_encapsulation() != 'vxlan':
-                assertTrue(False)
+            self.assertEqual(protocols.get_evpn().get_encapsulation(), 'vxlan')
             bd = ri.get_bridge_domains().get_domain()[0]
-            if (ri.get_instance_type() != 'virtual-switch' or \
-                 bd.name != "bd-" + str(vxlan_id) or \
-                 bd.get_vlan_id() != 'none' or \
-                 bd.get_routing_interface() != ri_intf):
-                self.assertTrue(False)
+            self.assertEqual(ri.get_instance_type(),  'virtual-switch')
+            self.assertEqual(bd.name, "bd-" + str(vxlan_id))
+            self.assertEqual(bd.get_vlan_id(), 'none')
+            self.assertEqual(bd.get_routing_interface(), ri_intf)
             intfs = bd.get_interface() or []
 
         ifnames = [intf.name for intf in intfs]
-        for ifc in interfaces or []:
-            if ifc not in ifnames:
-                self.assertTrue(False)
+        self.assertTrue(set(interfaces or []) <= set(ifnames))
 
-        self.assertTrue(True)
         return
 
     def set_global_vrouter_config(self, encap_priority_list = []):
@@ -277,8 +268,8 @@ class TestNetworkDM(TestCommonDM):
 
         self.set_global_vrouter_config([])
         gevent.sleep(2)
-        # DM defaults to VXLAN
-        self.check_evpn_config("VXLAN", vn1_obj, ["li.1", "li.2"])
+        # DM defaults to MPLSoGRE
+        self.check_evpn_config("MPLSoGRE", vn1_obj, ["li.1", "li.2"])
 
 # end TestNetworkDM
 
