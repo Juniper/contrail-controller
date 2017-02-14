@@ -42,6 +42,7 @@ env.Library('ifmap_test_util_agent',
 
 env.Append(LIBPATH = '.')
 env.Prepend(LIBS = ['ifmap_test_util', 'ifmap_test_util_server'])
+env.Append(LIBS = ['ifmap_test_util', 'ifmap_test_util_server', 'ifmap_server'])
 env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Prepend(LIBS = ['task_test'])
 

@@ -8,6 +8,7 @@ def init_globals
     @db = Hash.new
     @events = [ ]
     @seen = Hash.new(false)
+    @only_initial_sync = true
 end
 
 def get_uuid (u)
@@ -85,7 +86,7 @@ def oper_convert (oper)
     return "CREATE" if oper == "createResult"
     return "UPDATE" if oper == "updateResult"
     return "DELETE" if oper == "deleteResult"
-    return nil
+    return "createResult"
 end
 
 def print_db (oper, uuid, fq_name, type)
@@ -98,7 +99,7 @@ def print_db (oper, uuid, fq_name, type)
     type = JSON.parse(type) if type.start_with? "\""
     event = {
         "oper" => oper_convert(oper), "fq_name" => fq_name, "type" => type,
-        "uuid" => "#{@events.size}:#{uuid}",
+        "uuid" => "#{@events.size + (@only_initial_sync ? 1 : 0)}:#{uuid}",
         "imid" => "contrail:#{type}:#{fqs}",
     }
     db_copy = @db.deep_dup
@@ -126,9 +127,20 @@ def parse_links (record)
 
     k1 = "ref:" + t2 + ":" + r2["uuid"] if !r2.nil?
 #   k2 = "backref:" + t1 + ":" + r1["uuid"] if !r1.nil?
-    if record["_oper"] == "updateResult"
-        r1[k1] = ({ "attr" => nil }).to_json if !r1.nil?
-#       r2[k2] = ({ "attr" => nil }).to_json if !r2.nil?
+    if record["_oper"] == "updateResult" or record["_oper"] == "searchResult"
+        if !r1.nil?
+            a = { }
+            if record.include? "metadata"
+                record["metadata"].values.first.each { |k, v|
+                    if !k.start_with?("xmlns:") and !k.start_with?("ifmap_")
+                        v = [v] if k == "ipam_subnets"
+                        a[k] = v
+                    end
+                }
+            end
+            r1[k1] = ({ "attr" => a }).to_json
+        end
+#       r2[k2] = ({ "attr" => {} }) if !r2.nil?
     else
         r1.delete k1 if !r1.nil?
 #       r2.delete k2 if !r2.nil?;
@@ -148,7 +160,13 @@ def parse_nodes (record)
           "type" => "\"#{type}\""})
     # obj = from_name(fq_name)
     # return if obj.nil?
-    record["metadata"].each { |k, v| obj["prop:" + k] = v }
+
+    record["metadata"].each { |k, v|
+        if v.kind_of? Hash and v.key? "mac_address"
+            v["mac_address"] = v["mac_address"].split(":")
+        end
+        obj["prop:" + k] = v
+    }
 
     # Remove ifmap stuff from id-perms
     if obj.key? "prop:id_perms"
@@ -162,7 +180,7 @@ def parse_nodes (record)
     # uuid = obj["uuid"]
     obj.each {|k, v|
         if v.class == String
-            if k == "fq_name" or k == "uuid"
+            if k == "fq_name" or k == "uuid" or k.start_with?("ref:")
                 n[k] = v
             else
                 n[k] = !v.start_with?("\"") ? "\"#{v}\"" : v
@@ -224,10 +242,23 @@ def process_files (files)
         process(records) # Process updates
     }
 
+    # Add db-sync event at the beginning.
+    if @only_initial_sync and @events.size() > 1
+        db = @events.last["db"].deep_dup
+        @events.unshift({ "operation" => "db_sync", "OBJ_FQ_NAME_TABLE"  => { }, "db" => db })
+        db.each { |k, v|
+            type = JSON.parse(v["type"]).to_s
+            val = JSON.parse(v["fq_name"]).join(":") + ":" + k
+            @events[0]["OBJ_FQ_NAME_TABLE"][type] ||= { }
+            @events[0]["OBJ_FQ_NAME_TABLE"][type][val] = "null"
+        }
+    end
+
     json_file = File.dirname(files[0])+"/"+File.basename(files[0],".*")+".json"
+    @events = [ @events.first ] if @only_initial_sync
     puts JSON.pretty_generate(@events) if @debug
-    puts "Produced #{json_file}"
     File.open(json_file, "w") { |fp| fp.puts JSON.pretty_generate(@events) }
+    puts "Produced #{json_file}"
 end
 
 def main

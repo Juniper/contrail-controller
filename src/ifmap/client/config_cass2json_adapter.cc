@@ -232,4 +232,5 @@ void ConfigCass2JsonAdapter::CreateJsonString(const string &obj_type,
     Value vk;
     json_document_.SetObject().AddMember(vk.SetString(type_.c_str(), a),
                                          jsonObject, a);
+    std::cout << GetJsonString(json_document_) << std::endl;
 }
