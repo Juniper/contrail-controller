@@ -27,8 +27,8 @@ class ServiceLbManager(object):
         if not lb:
             return
 
-        self._vnc_lib.loadbalancer_delete(id=service_id)
         vmi_ids = lb.virtual_machine_interfaces
+        self._vnc_lib.loadbalancer_delete(id=service_id)
         if vmi_ids is None:
             return None
         self._delete_virtual_interface(vmi_ids)
