@@ -211,6 +211,10 @@
 						<identity name="contrail:config-root:root" type="other" other-type-definition="extended" />
 						<metadata>
 							<contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="api-server-1--0000000001-1" ifmap-timestamp="2013-03-11T02:43:42-07:00">
+								<uuid>
+									<uuid-mslong>9910923664090744001</uuid-mslong>
+									<uuid-lslong>99846637264689678534</uuid-lslong>
+								</uuid>
 								<permissions>
 									<owner>cloud-admin</owner>
 									<owner-access>7</owner-access>
