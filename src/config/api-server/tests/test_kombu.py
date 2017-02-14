@@ -97,7 +97,7 @@ class TestIfmapKombuClient(unittest.TestCase):
                  self._url("e.e.e.e", username="eeee", password="xxxx"),
                  self._url("f.f.f.f", username="ffff", password="xxxx", port=5050)]
         with self.assertRaises(CorrectValueException):
-            VncServerKombuClient(self.db_client_mgr, servers, self.port, None,
+            VncServerKombuClient(self.db_client_mgr, servers, self.port,
                                  self.username, self.password, self.vhost, 0,
                                  False)
 
@@ -126,7 +126,7 @@ class TestIfmapKombuClient(unittest.TestCase):
 
         flexmock(self.mock_connect).should_receive("drain_events").replace_with(_drain_events).twice()
         servers = "a.a.a.a"
-        kc = VncServerKombuClient(self.db_client_mgr,servers, self.port,None,
+        kc = VncServerKombuClient(self.db_client_mgr,servers, self.port,
                                   self.username, self.password, self.vhost, 0,
                                   False)
         _lock.wait()
@@ -160,7 +160,7 @@ class TestIfmapKombuClient(unittest.TestCase):
         flexmock(self.mock_connect).should_receive("drain_events").replace_with(_drain_events).once()
         flexmock(self.mock_producer).should_receive("publish").replace_with(_publish).twice()
         servers = "a.a.a.a"
-        kc = VncServerKombuClient(self.db_client_mgr, servers, self.port, None,
+        kc = VncServerKombuClient(self.db_client_mgr, servers, self.port,
                                   self.username, self.password, self.vhost, 0,
                                   False)
         gevent.sleep(0)
@@ -171,57 +171,3 @@ class TestIfmapKombuClient(unittest.TestCase):
         self.assertEqual(len(req_id), 2)
         self.assertEqual(len(set(req_id)), 1)
 
-
-class TestVncRabbitPublish(test_case.ApiServerTestCase):
-    """ Tests to verify the publish of rabbit msg."""
-    @classmethod
-    def setUpClass(cls):
-        super(TestVncRabbitPublish, cls).setUpClass()
-
-    def test_out_of_order_rabbit_publish(self):
-        """ Test to make sure api-server preserves the state of the
-            object even if the CREATE msg is queued after UPDATE in rabbit
-        """
-        self.wait_till_api_server_idle()
-
-        api_server = self._server_info['api_server']
-        orig_dbe_create_publish = api_server._db_conn._msgbus.dbe_create_publish
-        self.block_untill_update_publish = True
-        def out_of_order_dbe_create_publish(obj_type, obj_ids, *args, **kwargs):
-            if obj_type == 'virtual_network':
-                while self.block_untill_update_publish:
-                    gevent.sleep(1)
-            return orig_dbe_create_publish(obj_type,obj_ids, *args, **kwargs)
-
-        api_server._db_conn._msgbus.dbe_create_publish = \
-                out_of_order_dbe_create_publish
-        logger.info("Creating VN object, without publishing it to IFMAP.")
-        vn_obj = VirtualNetwork('vn1')
-        vn_obj.set_uuid(str(uuid.uuid4()))
-        ipam_obj = NetworkIpam('ipam1')
-        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType())
-        self._vnc_lib.network_ipam_create(ipam_obj)
-        vn_create_greenlet = gevent.spawn(self._vnc_lib.virtual_network_create, vn_obj)
-        gevent.sleep(0)
-        logger.info("Update VN object, Expected to update the object in",
-                    "Cassandra DB and skip publishing to IFMAP.")
-        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
-        vn_obj.display_name = 'test_update_1'
-        self._vnc_lib.virtual_network_update(vn_obj)
-        gevent.sleep(2)
-        self.assertTill(self.ifmap_doesnt_have_ident, obj=vn_obj)
-
-        logger.info("Unblock create notify to amqp, Create expected to read from DB",
-                    "and publish to IFMAP with the updated object info.")
-        self.block_untill_update_publish = False
-        vn_uuid = vn_create_greenlet.get(timeout=3)
-        self.assertTill(self.ifmap_ident_has_link, obj=vn_obj,
-                        link_name='display-name')
-        self.assertTrue('test_update_1' in self.ifmap_ident_has_link(
-                            obj=vn_obj, link_name='display-name')['meta'])
-
-        logger.info("update after publishing to IFAMAP, Expected to publish to IFMAP")
-        vn_obj.display_name = 'test_update_2'
-        self._vnc_lib.virtual_network_update(vn_obj)
-        self.assertTill(lambda: 'test_update_2' in self.ifmap_ident_has_link(
-                            obj=vn_obj, link_name='display-name')['meta'])
