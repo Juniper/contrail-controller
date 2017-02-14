@@ -736,7 +736,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                        route_tunnel_bmap,
                                                        comp_type,
                                                        component_nh_key_list,
-                                                       false, false);
+                                                       obj->pbb_vrf(), false);
     } else {
         data = BridgeAgentRouteTable::BuildNonBgpPeerData(obj->vrf_name(),
                                                           obj->GetVnName(),
@@ -745,7 +745,7 @@ void MulticastHandler::TriggerRemoteRouteChange(MulticastGroupObject *obj,
                                                           route_tunnel_bmap,
                                                           comp_type,
                                                           component_nh_key_list,
-                                                          false, false);
+                                                          obj->pbb_vrf(), false);
     }
     BridgeAgentRouteTable::AddBridgeBroadcastRoute(peer,
                                                    obj->vrf_name(),
