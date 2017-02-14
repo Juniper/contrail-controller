@@ -754,7 +754,8 @@ void FlowTable::ProcessKSyncFlowEvent(const FlowEventKSync *req,
             mgr->FlowStatsUpdateEvent(evicted_flow.get(),
                                       req->evict_flow_bytes(),
                                       req->evict_flow_packets(),
-                                      req->evict_flow_oflow());
+                                      req->evict_flow_oflow(),
+                                      evicted_flow->uuid());
         }
     }
 

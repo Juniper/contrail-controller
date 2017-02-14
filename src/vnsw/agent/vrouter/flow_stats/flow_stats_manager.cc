@@ -82,7 +82,8 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_export_count_(), prev_flow_export_rate_compute_time_(0),
     flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
     flow_export_disable_drops_(), flow_export_sampling_drops_(),
-    flow_export_drops_(), prev_cfg_flow_export_rate_(0),
+    flow_export_drops_(), deleted_flow_export_drops_(),
+    prev_cfg_flow_export_rate_(0),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
            "FlowThresholdTimer",
            TaskScheduler::GetInstance()->GetTaskId("Agent::FlowStatsManager"), 0)),
@@ -91,6 +92,7 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_export_disable_drops_ = 0;
     flow_export_sampling_drops_ = 0;
     flow_export_drops_ = 0;
+    deleted_flow_export_drops_ = 0;
     flows_sampled_atleast_once_ = false;
     request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
     for (uint16_t i = 0; i < sizeof(protocol_list_)/sizeof(protocol_list_[0]);
@@ -304,7 +306,8 @@ void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
 
 void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
                                         uint32_t bytes, uint32_t packets,
-                                        uint32_t oflow_bytes) {
+                                        uint32_t oflow_bytes,
+                                        const boost::uuids::uuid &u) {
     if (flow == NULL) {
         return;
     }
@@ -316,7 +319,7 @@ void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
         return;
     }
 
-    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes);
+    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes, u);
 }
 
 uint32_t FlowStatsManager::AllocateIndex() {

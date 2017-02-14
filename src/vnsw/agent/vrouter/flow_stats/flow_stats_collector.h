@@ -25,6 +25,13 @@ class FlowStatsRecordsReq;
 class FetchFlowStatsRecord;
 class FlowStatsManager;
 
+struct KFlowData {
+public:
+    uint16_t underlay_src_port;
+    uint16_t tcp_flags;
+    uint16_t flags;
+};
+
 //Defines the functionality to periodically read flow stats from
 //shared memory (between agent and Kernel) and export this stats info to
 //collector. Also responsible for aging of flow entries. Runs in the context
@@ -118,10 +125,11 @@ public:
                          KSyncFlowMemory *ksync_obj,
                          FlowExportInfo *info, uint64_t curr_time);
     bool AgeFlow(KSyncFlowMemory *ksync_obj, const vr_flow_entry *k_flow,
+                 const vr_flow_stats &k_stats, const KFlowData &kinfo,
                  FlowExportInfo *info, uint64_t curr_time);
     bool EvictFlow(KSyncFlowMemory *ksync_obj, const vr_flow_entry *k_flow,
-                   uint32_t flow_handle, uint16_t gen_id, FlowExportInfo *info,
-                   uint64_t curr_time);
+                   uint16_t k_flow_flags, uint32_t flow_handle, uint16_t gen_id,
+                   FlowExportInfo *info, uint64_t curr_time);
     uint32_t RunAgeing(uint32_t max_count);
     void UpdateFlowAgeTime(uint64_t usecs) {
         flow_age_time_intvl_ = usecs;
@@ -144,11 +152,13 @@ public:
     FlowExportInfo *FindFlowExportInfo(const FlowEntry *fe);
     const FlowExportInfo *FindFlowExportInfo(const FlowEntry *fe) const;
     void ExportFlow(FlowExportInfo *info, uint64_t diff_bytes,
-                    uint64_t diff_pkts, const RevFlowDepParams *params);
+                    uint64_t diff_pkts, const RevFlowDepParams *params,
+                    bool read_flow);
     void UpdateFloatingIpStats(const FlowExportInfo *flow,
                                uint64_t bytes, uint64_t pkts);
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
-                          uint32_t packets, uint32_t oflow_bytes);
+                          uint32_t packets, uint32_t oflow_bytes,
+                          const boost::uuids::uuid &u);
     size_t Size() const { return flow_tree_.size(); }
     size_t AgeTreeSize() const { return flow_export_info_list_.size(); }
     void NewFlow(FlowEntry *flow);
@@ -182,10 +192,9 @@ private:
     void UpdateEntriesToVisit();
     void UpdateStatsAndExportFlow(FlowExportInfo *info, uint64_t teardown_time,
                                   const RevFlowDepParams *params);
-    void EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
-                                uint32_t bytes,
-                                uint32_t packets,
-                                uint32_t oflow_bytes);
+    void EvictedFlowStatsUpdate(const FlowEntryPtr &flow, uint32_t bytes,
+                                uint32_t packets, uint32_t oflow_bytes,
+                                const boost::uuids::uuid &u);
     void UpdateAndExportInternal(FlowExportInfo *info,
                                  uint32_t bytes,
                                  uint16_t oflow_bytes,
@@ -193,7 +202,8 @@ private:
                                  uint16_t oflow_pkts,
                                  uint64_t time,
                                  bool teardown_time,
-                                 const RevFlowDepParams *params);
+                                 const RevFlowDepParams *params,
+                                 bool read_flow);
     void UpdateAndExportInternalLocked(FlowExportInfo *info,
                                        uint32_t bytes,
                                        uint16_t oflow_bytes,
@@ -225,7 +235,7 @@ private:
                             uint64_t bytes, uint64_t pkts);
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowExportInfo *info, const vr_flow_entry *k_flow,
-                      uint64_t curr_time);
+                      const vr_flow_stats &k_stats, uint64_t curr_time);
     uint64_t GetUpdatedFlowPackets(const FlowExportInfo *stats,
                                    uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowExportInfo *stats,
