@@ -24,6 +24,7 @@
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_origin.h"
 #include "ifmap/ifmap_server.h"
+#include "ifmap/test/config_cassandra_client_test.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/test/event_manager_test.h"
 
@@ -36,103 +37,6 @@ using namespace std;
 using rapidjson::Document;
 using rapidjson::SizeType;
 using rapidjson::Value;
-
-class ConfigCassandraClientTest : public ConfigCassandraClient {
-public:
-    ConfigCassandraClientTest(ConfigClientManager *mgr, EventManager *evm,
-        const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
-        int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
-            num_workers), db_index_(num_workers), cevent_(0) {
-    }
-
-    virtual void HandleObjectDelete(const string &type, const string &uuid) {
-        vector<string> tokens;
-        boost::split(tokens, uuid, boost::is_any_of(":"));
-        string u = tokens[1];
-        ConfigCassandraClient::HandleObjectDelete(type, u);
-    }
-
-    virtual void AddFQNameCache(const string &uuid, const string &obj_name) {
-        vector<string> tokens;
-        boost::split(tokens, uuid, boost::is_any_of(":"));
-        ConfigCassandraClient::AddFQNameCache(tokens[1], obj_name);
-    }
-
-    virtual int HashUUID(const string &uuid) const {
-        string u = uuid;
-        size_t from_front_pos = uuid.find(':');
-        if (from_front_pos != string::npos)  {
-            u = uuid.substr(from_front_pos+1);
-        }
-        return ConfigCassandraClient::HashUUID(u);
-    }
-
-    virtual bool ReadUuidTableRow(const string &obj_type,
-                                  const std::string &uuid_key) {
-        vector<string> tokens;
-        boost::split(tokens, uuid_key, boost::is_any_of(":"));
-        int index = atoi(tokens[0].c_str());
-        string u = tokens[1];
-        assert(events_[index].IsObject());
-        int idx = HashUUID(u);
-        db_index_[idx].insert(make_pair(u, index));
-        return ParseRowAndEnqueueToParser(obj_type, u, GenDb::ColList());
-    }
-
-    bool ParseUuidTableRowResponse(const string &uuid,
-            const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
-            ConfigCassandraParseContext &context) {
-        // Retrieve event index prepended to uuid, to get to the correct db.
-        int idx = HashUUID(uuid);
-        UUIDIndexMap::iterator it = db_index_[idx].find(uuid);
-        int index = it->second;
-
-        for (Value::ConstMemberIterator k =
-             events_[SizeType(index)]["db"][uuid.c_str()].MemberBegin();
-             k != events_[SizeType(index)]["db"][uuid.c_str()].MemberEnd();
-             ++k) {
-            ParseUuidTableRowJson(uuid, k->name.GetString(),
-                                  k->value.GetString(), 0,
-                                  cass_data_vec, context);
-        }
-        db_index_[idx].erase(it);
-        return true;
-    }
-
-    string GetUUID(const string &key, const string &obj_type) {
-        size_t temp = key.rfind(':');
-        return (temp == string::npos) ?
-            "" : (boost::lexical_cast<string>(cevent_-1) + ":" +
-                    key.substr(temp+1));
-    }
-
-    bool BulkDataSync() {
-        ConfigCassandraClient::ObjTypeUUIDList uuid_list;
-        for (Value::ConstMemberIterator k =
-             events_[SizeType(cevent_-1)]["OBJ_FQ_NAME_TABLE"].MemberBegin();
-             k != events_[SizeType(cevent_-1)]["OBJ_FQ_NAME_TABLE"].
-                MemberEnd(); ++k) {
-            string obj_type = k->name.GetString();
-            for (Value::ConstMemberIterator l =
-                    events_[SizeType(cevent_-1)]["OBJ_FQ_NAME_TABLE"]
-                        [obj_type.c_str()].MemberBegin();
-                 l != events_[SizeType(cevent_-1)]
-                    ["OBJ_FQ_NAME_TABLE"][obj_type.c_str()].MemberEnd(); l++) {
-                UpdateCache(l->name.GetString(), obj_type, uuid_list);
-            }
-        }
-        return EnqueueUUIDRequest(uuid_list);
-    }
-
-    Document *events() { return &events_; }
-    size_t *cevent() { return &cevent_; }
-
-private:
-    typedef std::map<string, int> UUIDIndexMap;
-    vector<UUIDIndexMap> db_index_;
-    Document events_;
-    size_t cevent_;
-};
 
 class ConfigJsonParserTest : public ::testing::Test {
 protected:
