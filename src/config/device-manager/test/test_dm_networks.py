@@ -188,7 +188,7 @@ class TestNetworkDM(TestCommonDM):
 
         if global_encap == 'VXLAN':
             if protocols.get_evpn().get_encapsulation() != 'vxlan':
-                assertTrue(False)
+                self.assertTrue(False)
             bd = ri.get_bridge_domains().get_domain()[0]
             if (ri.get_instance_type() != 'virtual-switch' or \
                  bd.name != "bd-" + str(vxlan_id) or \
@@ -203,7 +203,7 @@ class TestNetworkDM(TestCommonDM):
                 self.assertTrue(False)
 
         self.assertTrue(True)
-        return
+        return True
 
     def set_global_vrouter_config(self, encap_priority_list = []):
         create = False
@@ -277,8 +277,8 @@ class TestNetworkDM(TestCommonDM):
 
         self.set_global_vrouter_config([])
         gevent.sleep(2)
-        # DM defaults to VXLAN
-        self.check_evpn_config("VXLAN", vn1_obj, ["li.1", "li.2"])
+        # DM defaults to MPLSoGRE
+        self.check_evpn_config("MPLSoGRE", vn1_obj, ["li.1", "li.2"])
 
 # end TestNetworkDM
 
