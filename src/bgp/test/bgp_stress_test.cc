@@ -27,10 +27,6 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_client_manager.h"
-#include "ifmap/client/config_db_client.h"
-#include "ifmap/client/config_json_parser.h"
 #include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "xmpp/xmpp_sandesh.h"
@@ -451,11 +447,13 @@ void BgpStressTest::IFMapInitialize(const string &hostname) {
         new DB(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
     config_graph_ = new DBGraph();
 
-    ifmap_server_.reset(new IFMapServer(config_db_, config_graph_,
-                                        evm_.io_service()));
+    ifmap_server_.reset(new IFMapServerTest(config_db_, config_graph_,
+                                            evm_.io_service()));
     config_client_manager_.reset(new ConfigClientManager(&evm_,
         ifmap_server_.get(), hostname, "BgpServerTest",
         IFMapConfigOptions()));
+    static_cast<IFMapServerTest *>(ifmap_server_.get())->
+        set_config_client_manager(config_client_manager_.get());
 
     IFMapLinkTable_Init(ifmap_server_->database(), ifmap_server_->graph());
     IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
@@ -564,8 +562,8 @@ void BgpStressTest::SetUp() {
     xmpp_sandesh_context.xmpp_server = xmpp_server_test_;
     Sandesh::set_module_context("XMPP", &xmpp_sandesh_context);
 
-    IFMapSandeshContext ifmap_sandesh_context(ifmap_server_.get());
-    Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
+    ifmap_sandesh_context_.reset(new IFMapSandeshContext(ifmap_server_.get()));
+    Sandesh::set_module_context("IFMap", ifmap_sandesh_context_.get());
 
     thread_.Start();
     WaitForIdle();
@@ -1365,13 +1363,17 @@ bool BgpStressTest::IsAgentEstablished(test::NetworkAgentMock *agent) {
 }
 
 void BgpStressTest::SubscribeConfiguration(int agent_id, bool verify) {
-    if (!d_vms_count_) return;
+    if (!d_vms_count_)
+        return;
 
     if (agent_id >= (int) xmpp_agents_.size() || !xmpp_agents_[agent_id])
         return;
-    // if (!IsAgentEstablished(xmpp_agents_[agent_id])) return;
+
     string agent_name = GetAgentConfigName(agent_id);
-    if (xmpp_agents_[agent_id]->vrouter_mgr_->HasSubscribed(agent_name)) return;
+    if (!IsAgentEstablished(xmpp_agents_[agent_id]))
+        return;
+    if (xmpp_agents_[agent_id]->vrouter_mgr_->HasSubscribed(agent_name))
+        return;
 
     BGP_STRESS_TEST_EVENT_LOG(BgpStressTestEvent::SUBSCRIBE_CONFIGURATION);
 
@@ -1382,22 +1384,25 @@ void BgpStressTest::SubscribeConfiguration(int agent_id, bool verify) {
     xmpp_agents_[agent_id]->vrouter_mgr_->Subscribe(agent_name, 0, false);
 
     for (int i = 0; i < d_vms_count_; ++i) {
-        string vm_uuid = GetAgentVmConfigName(agent_id, i);
+        string vm_uuid = GetAgentVmUuid(agent_id, i);
         TASK_UTIL_EXPECT_EQ(0, xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
         xmpp_agents_[agent_id]->vm_mgr_->Subscribe(vm_uuid, 0, false);
     }
 
     int pending = d_vms_count_;
-    if (verify) VerifyConfiguration(agent_id, pending);
+    if (verify)
+        VerifyConfiguration(agent_id, pending);
 }
 
 void BgpStressTest::VerifyConfiguration(int agent_id, int &pending) {
-   if (!d_vms_count_ || d_no_agent_messages_processing_) {
-       return;
-   }
+    if (!d_vms_count_ || d_no_agent_messages_processing_)
+        return;
+
+    if (!IsAgentEstablished(xmpp_agents_[agent_id]))
+        return;
 
     for (int i = 0; i < d_vms_count_; ++i) {
-        string vm_uuid = GetAgentVmConfigName(agent_id, i);
+        string vm_uuid = GetAgentVmUuid(agent_id, i);
         TASK_UTIL_EXPECT_EQ_MSG(1,
             xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid),
             "Pending VMs: " << pending);
@@ -1430,6 +1435,8 @@ void BgpStressTest::UnsubscribeConfiguration(int agent_id, bool verify) {
     // if (!IsAgentEstablished(xmpp_agents_[agent_id])) return;
 
     string agent_name = GetAgentConfigName(agent_id);
+    if (!IsAgentEstablished(xmpp_agents_[agent_id]))
+        return;
     if (!xmpp_agents_[agent_id]->vrouter_mgr_->HasSubscribed(agent_name))
         return;
 
@@ -1437,23 +1444,30 @@ void BgpStressTest::UnsubscribeConfiguration(int agent_id, bool verify) {
     TASK_UTIL_EXPECT_NE(0,
         xmpp_agents_[agent_id]->vrouter_mgr_->Count(agent_name));
 
-    // xmpp_agents_[agent_id]->vrouter_mgr_->Unsubscribe(agent_name);
-    xmpp_agents_[agent_id]->vrouter_mgr_->Clear();
 
     for (int i = 0; i < d_vms_count_; ++i) {
-        string vm_uuid = GetAgentVmConfigName(agent_id, i);
+        string vm_uuid = GetAgentVmUuid(agent_id, i);
         TASK_UTIL_EXPECT_NE(0, xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
         xmpp_agents_[agent_id]->vm_mgr_->Unsubscribe(vm_uuid, 0, false);
     }
+    xmpp_agents_[agent_id]->vrouter_mgr_->Unsubscribe(agent_name, 0, false);
+    xmpp_agents_[agent_id]->vm_mgr_->Clear();
+    xmpp_agents_[agent_id]->vrouter_mgr_->Clear();
 
     int pending = 1;
-    if (verify) VerifyNoConfiguration(agent_id, pending);
+    if (verify)
+        VerifyNoConfiguration(agent_id, pending);
 }
 
 void BgpStressTest::VerifyNoConfiguration(int agent_id, int &pending) {
+    if (!IsAgentEstablished(xmpp_agents_[agent_id]))
+        return;
+
+    if (!d_vms_count_ || d_no_agent_messages_processing_)
+        return;
 
     for (int i = 0; i < d_vms_count_; ++i) {
-        string vm_uuid = GetAgentVmConfigName(agent_id, i);
+        string vm_uuid = GetAgentVmUuid(agent_id, i);
         TASK_UTIL_EXPECT_EQ_MSG(0,
             xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid),
             "Pending VM Configs to receive: " << pending);
@@ -1463,7 +1477,6 @@ void BgpStressTest::VerifyNoConfiguration(int agent_id, int &pending) {
     string agent_name = GetAgentConfigName(agent_id);
     TASK_UTIL_EXPECT_EQ(0,
         xmpp_agents_[agent_id]->vrouter_mgr_->Count(agent_name));
-
 }
 
 void BgpStressTest::UnsubscribeConfiguration(vector<int> agent_ids,
@@ -1868,15 +1881,16 @@ string BgpStressTest::GetAgentConfigName(int agent_id) {
     return config.str();
 }
 
-string BgpStressTest::GetAgentVmConfigName(int agent_id, int vm_id) {
-    string vm_uuid =  BgpConfigParser::session_uuid(
-            "A" + boost::lexical_cast<string>(agent_id + 1),
-            "B" + boost::lexical_cast<string>(vm_id + 1), vm_id + 1);
-    ostringstream config;
+string BgpStressTest::GetAgentVmUuid(int agent_id, int vm_id) {
+    string vm_name = "virtual-machine:Agent_" +
+        boost::lexical_cast<string>(agent_id + 1) + "_VM_" +
+        boost::lexical_cast<string>(vm_id + 1);
 
-    config << "virtual-machine:" << vm_uuid;
-
-    return config.str();
+    boost::uuids::nil_generator nil;
+    boost::uuids::name_generator gen(nil());
+    boost::uuids::uuid uuid;
+    uuid = gen(vm_name);
+    return "virtual-machine:" + boost::uuids::to_string(uuid);
 }
 
 string BgpStressTest::GetAgentName(int agent_id) {
@@ -3371,6 +3385,8 @@ static void SetUp() {
         boost::factory<BgpXmppMessageBuilder *>());
     IFMapFactory::Register<IFMapXmppChannel>(
         boost::factory<IFMapXmppChannelTest *>());
+    IFMapFactory::Register<ConfigCassandraClient>(
+        boost::factory<ConfigCassandraClientTest *>());
     XmppObjectFactory::Register<XmppStateMachine>(
         boost::factory<XmppStateMachineTest *>());
 }
