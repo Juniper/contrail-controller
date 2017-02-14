@@ -95,6 +95,7 @@ public:
         return (true);
     }
     PendingListMap GetDeportedPendingListMap() { return dp_pending_map_; }
+    void ClearDeportedPendingList() { dp_pending_map_.clear(); }
     void NotifyThrottledDnsRecords();
     void DnsConfigMsgHandler(const std::string &key, const std::string &context) const;
     void VdnsRecordsMsgHandler(const std::string &key, const std::string &context, bool show_all = false) const;
