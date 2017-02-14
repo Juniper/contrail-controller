@@ -18,275 +18,105 @@
 
 using namespace std;
 
-MplsTable *MplsTable::mpls_table_;
+SandeshTraceBufferPtr MplsTraceBuf(SandeshTraceBufferCreate("MplsTrace", 1000));
+
+/****************************************************************************
+ * MplsLabel routines
+ ***************************************************************************/
+MplsLabel::MplsLabel(uint32_t label) :
+    label_(label) {
+}
 
 MplsLabel::~MplsLabel() { 
-    if (label_ == MplsTable::kInvalidLabel) {
-        return;
-    }
+}
+
+bool MplsLabel::IsLess(const DBEntry &rhs) const {
+        const MplsLabel &mpls = static_cast<const MplsLabel &>(rhs);
+        return label_ < mpls.label_;
+}
+
+std::string MplsLabel::ToString() const {
+    return "MPLS";
 }
 
 DBEntryBase::KeyPtr MplsLabel::GetDBRequestKey() const {
-    MplsLabelKey *key = new MplsLabelKey(type_, label_);
+    MplsLabelKey *key = new MplsLabelKey(label_);
     return DBEntryBase::KeyPtr(key);
 }
 
 void MplsLabel::SetKey(const DBRequestKey *k) { 
     const MplsLabelKey *key = static_cast<const MplsLabelKey *>(k);
-    type_ = key->type_;
-    label_ = key->label_;
+    label_ = key->label();
 }
 
-std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
-    const MplsLabelKey *key = static_cast<const MplsLabelKey *>(k);
-    MplsLabel *mpls = new MplsLabel(agent(), key->type_, key->label_);
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(mpls));
+uint32_t MplsLabel::GetRefCount() const {
+    return AgentRefCount<MplsLabel>::GetRefCount();
 }
 
-DBEntry *MplsTable::Add(const DBRequest *req) {
-    MplsLabelKey *key = static_cast<MplsLabelKey *>(req->key.get());
-    MplsLabel *mpls = new MplsLabel(agent(), key->type_, key->label_);
-    assert(key->label_ != MplsTable::kInvalidLabel);
-
-    ChangeHandler(mpls, req);
-    mpls->SendObjectLog(this, AgentLogEvent::ADD);
-    return mpls;
+void MplsLabel::Add(Agent *agent, const DBRequest *req) {
+    ChangeInternal(agent, req);
+    SendObjectLog(agent->mpls_table(), AgentLogEvent::ADD);
+    return;
 }
 
-bool MplsTable::OnChange(DBEntry *entry, const DBRequest *req) {
-    bool ret;
-    MplsLabel *mpls = static_cast<MplsLabel *>(entry);
-    ret = ChangeHandler(mpls, req);
-    mpls->SendObjectLog(this, AgentLogEvent::CHANGE);
+bool MplsLabel::Change(const DBRequest *req) {
+    const AgentDBTable *table = static_cast<const AgentDBTable *>(get_table());
+    bool ret = ChangeInternal(table->agent(), req);
+    SendObjectLog(table, AgentLogEvent::CHANGE);
     return ret;
 }
 
-bool MplsTable::ChangeNH(MplsLabel *mpls, NextHop *nh) {
-    if (mpls == NULL)
+void MplsLabel::Delete(const DBRequest *req) {
+    const AgentDBTable *table = static_cast<const AgentDBTable *>(get_table());
+    SendObjectLog(table, AgentLogEvent::DELETE);
+    return;
+}
+
+bool MplsLabel::ChangeInternal(Agent *agent, const DBRequest *req) {
+    NextHopTable *nh_table = agent->nexthop_table();
+    MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
+    NextHop *nh =
+        static_cast<NextHop *>(nh_table->FindActiveEntry(data->nh_key()));
+    if (!nh) {
+        // NextHop not found, point mpls label to discard
+        DiscardNH key;
+        nh = static_cast<NextHop *>(nh_table->FindActiveEntry(&key));
+    }
+    return ChangeNH(nh);
+}
+
+bool MplsLabel::ChangeNH(NextHop *nh) {
+    if (nh_ == nh)
         return false;
 
-    if (mpls->nh_ != nh) {
-        mpls->nh_ = nh;
-        assert(nh);
-        mpls->SyncDependentPath();
-        return true;
-    }
-    return false;
-}
-
-// No Change expected for MPLS Label
-bool MplsTable::ChangeHandler(MplsLabel *mpls, const DBRequest *req) {
-    bool ret = false;
-    MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
-    NextHop *nh = static_cast<NextHop *>
-        (agent()->nexthop_table()->FindActiveEntry(data->nh_key));
-    if (!nh) {
-        //NextHop not found, point mpls label to discard
-        DiscardNH key;
-        nh = static_cast<NextHop *>
-            (agent()->nexthop_table()->FindActiveEntry(&key));
-    }
-    ret = ChangeNH(mpls, nh);
-
-    return ret;
-}
-
-bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
-    MplsLabel *mpls = static_cast<MplsLabel *>(entry);
-    mpls->SendObjectLog(this, AgentLogEvent::DELETE);
+    assert(nh);
+    nh_ = nh;
+    SyncDependentPath();
     return true;
 }
 
-void MplsTable::CreateTableLabel(const Agent *agent,
-                                 uint32_t label,
-                                 const std::string &vrf_name,
-                                 bool policy,
-                                 bool learning_enabled,
-                                 bool l2,
-                                 bool flood_unknown_unicast,
-                                 bool layer2_control_word) {
-    DBRequest nh_req;
-    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false, l2);
-    nh_req.key.reset(vrf_nh_key);
-    nh_req.data.reset(new VrfNHData(flood_unknown_unicast, learning_enabled,
-                                    layer2_control_word));
-    agent->nexthop_table()->Process(nh_req);
-
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
-    req.key.reset(key);
-
-    MplsLabelData *data = new MplsLabelData(vrf_name, policy, l2);
-    req.data.reset(data);
-
-    agent->mpls_table()->Process(req);
-    return;
-}
-
-void MplsTable::ReserveLabel(uint32_t start, uint32_t end) {
-    // We want to allocate labels from an offset
-    // Pre-allocate entries
-    for (uint32_t i = start; i < end;  i++) {
-        agent()->resource_manager()->ReserveIndex(Resource::MPLS_INDEX, i);
+void MplsLabel::SyncDependentPath() {
+    MPLS_TRACE(MplsTrace, "Syncing routes for label ", label());
+    for (DependentPathList::iterator iter =
+         mpls_label_.begin(); iter != mpls_label_.end(); iter++) {
+        AgentRoute *rt = iter.operator->();
+        rt->EnqueueRouteResync();
     }
-}
-
-void MplsTable::FreeReserveLabel(uint32_t start, uint32_t end) {
-    // We want to allocate labels from an offset
-    // Pre-allocate entries
-    for (uint32_t i = start; i < end;  i++) {
-        agent()->resource_manager()->ReleaseIndex(Resource::MPLS_INDEX, i);
-    }
-}
-
-DBTableBase *MplsTable::CreateTable(DB *db, const std::string &name) {
-    mpls_table_ = new MplsTable(db, name);
-    mpls_table_->Init();
-    return mpls_table_;
-};
-
-void MplsTable::Process(DBRequest &req) {
-    agent()->ConcurrencyCheck();
-    DBTablePartition *tpart =
-        static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
-    tpart->Process(NULL, &req);
-}
-
-uint32_t MplsTable::AllocLabel(ResourceManager::KeyPtr key) {
-    uint32_t label = ((static_cast<IndexResourceData *>(agent()->resource_manager()->
-                                      Allocate(key).get()))->index());
-    assert(label != MplsTable::kInvalidLabel);
-    return label;
-}
-
-void MplsTable::FreeLabel(uint32_t label) {
-    agent()->resource_manager()->Release(Resource::MPLS_INDEX, label);
-}
-
-void MplsLabel::CreateVlanNh(const Agent *agent,
-                             uint32_t label,
-                             const uuid &intf_uuid,
-                             uint16_t tag) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
-    req.key.reset(key);
-
-    MplsLabelData *data = new MplsLabelData(intf_uuid, tag);
-    req.data.reset(data);
-
-    agent->mpls_table()->Process(req);
-    return;
-}
-
-void MplsLabel::CreateInetInterfaceLabel(const Agent *agent,
-                                         uint32_t label,
-                                         const string &ifname,
-                                         bool policy, 
-                                         InterfaceNHFlags::Type type,
-                                         const MacAddress &mac) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
-    req.key.reset(key);
-
-    MplsLabelData *data = new MplsLabelData(ifname, policy, type, mac);
-    req.data.reset(data);
-
-    agent->mpls_table()->Process(req);
-    return;
-}
-
-void MplsLabel::CreateVPortLabel(const Agent *agent,
-                                 uint32_t label,
-                                 const uuid &intf_uuid,
-                                 bool policy,
-                                 InterfaceNHFlags::Type type,
-                                 const MacAddress &mac) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
-    req.key.reset(key);
-
-    MplsLabelData *data = new MplsLabelData(intf_uuid, policy, type, mac);
-    req.data.reset(data);
-
-    agent->mpls_table()->Process(req);
-    return;
-}
-
-void MplsLabel::CreateEcmpLabel(const Agent *agent,
-                                uint32_t label, COMPOSITETYPE type, bool policy,
-                                ComponentNHKeyList &component_nh_key_list,
-                                const std::string vrf_name) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
-    req.key.reset(key);
-
-    MplsLabelData *data = new MplsLabelData(type, policy, component_nh_key_list,
-                                            vrf_name);
-    req.data.reset(data);
-
-    agent->mpls_table()->Process(req);
-    return;
-}
-
-void MplsLabel::Delete(const Agent *agent, uint32_t label) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::INVALID, label);
-    req.key.reset(key);
-    req.data.reset(NULL);
-
-    agent->mpls_table()->Process(req);
-}
-
-void MplsLabel::DeleteReq(const Agent *agent, uint32_t label) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::INVALID, label);
-    req.key.reset(key);
-    req.data.reset(NULL);
-
-    agent->mpls_table()->Enqueue(&req);
 }
 
 bool MplsLabel::IsFabricMulticastReservedLabel() const {
-    if (type_ != MplsLabel::MCAST_NH)
-        return false;
-
-    Agent *agent = static_cast<MplsTable *>(get_table())->agent();
-    return (agent->mpls_table()->IsFabricMulticastLabel(label_));
+    MplsTable *table = static_cast<MplsTable *>(get_table());
+    return table->IsFabricMulticastLabel(label_);
 }
 
+/****************************************************************************
+ * MplsLabel Sandesh routines
+ ***************************************************************************/
 bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     MplsResp *resp = static_cast<MplsResp *>(sresp);
 
     MplsSandeshData data;
     data.set_label(label_);
-    switch (type_) {
-        case MplsLabel::INVALID:
-            data.set_type("invalid");
-            break;
-        case MplsLabel::MCAST_NH:
-            data.set_type("mcast_nh");
-            break;
-        case MplsLabel::VPORT_NH:
-            data.set_type("vport_nh");
-            break;
-        default:
-            assert(0);
-    }
     nh_->SetNHSandeshData(data.nh);
     std::vector<MplsSandeshData> &list =
             const_cast<std::vector<MplsSandeshData>&>(resp->get_mpls_list());
@@ -299,18 +129,6 @@ void MplsLabel::SendObjectLog(const AgentDBTable *table,
                               AgentLogEvent::type event) const {
     MplsObjectLogInfo info;
     string str, type_str, nh_type;
-
-    switch(type_) {
-    case INVALID:
-        type_str.assign("Invalid ");
-        break;
-    case VPORT_NH:
-        type_str.assign("Virtual Port");
-        break;
-    case MplsLabel::MCAST_NH:
-        type_str.assign("mcast_nh");
-        break;
-    }
     info.set_type(type_str);
     info.set_label((int)label_);
     switch (event) {
@@ -382,66 +200,117 @@ void MplsLabel::SendObjectLog(const AgentDBTable *table,
     OPER_TRACE_ENTRY(Mpls, table, info);
 }
 
-void MplsLabel::SyncDependentPath() {
-    for (DependentPathList::iterator iter =
-         mpls_label_.begin(); iter != mpls_label_.end(); iter++) {
-        AgentRoute *rt = iter.operator->();
-        LOG(DEBUG, "Syncing route" << rt->ToString());
-        rt->EnqueueRouteResync();
-    }
+/****************************************************************************
+ * MplsTable routines
+ ***************************************************************************/
+MplsTable::MplsTable(DB *db, const std::string &name) :
+    AgentDBTable(db, name) {
 }
 
-void MplsReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentMplsSandesh(context(), get_type(),
-                               get_label()));
-    sand->DoSandesh(sand);
+MplsTable::~MplsTable() {
 }
 
-AgentSandeshPtr MplsTable::GetAgentSandesh(const AgentSandeshArguments *args,
-                                           const std::string &context) {
-    return AgentSandeshPtr(new AgentMplsSandesh(context,
-                                           args->GetString("type"), args->GetString("label")));
+DBTableBase *MplsTable::CreateTable(DB *db, const std::string &name) {
+    MplsTable *table = new MplsTable(db, name);
+    table->Init();
+    return table;
+};
+
+void MplsTable::Process(DBRequest &req) {
+    agent()->ConcurrencyCheck();
+    DBTablePartition *tpart =
+        static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
+    tpart->Process(NULL, &req);
 }
 
-void MplsTable::CreateMcastLabel(uint32_t label,
-                                 COMPOSITETYPE type,
-                                 ComponentNHKeyList &component_nh_key_list,
-                                 const std::string vrf_name) {
-    if (label == 0 || label == MplsTable::kInvalidLabel)
-        return;
-
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, label);
-    req.key.reset(key);
-
-    MplsLabelData *data = new MplsLabelData(type, false, component_nh_key_list,
-                                            vrf_name);
-    req.data.reset(data);
-
-    Process(req);
-    return;
+/*
+ * Allocates label from resource manager, currently used for evpn and
+ * ecmp labels.
+ */
+uint32_t MplsTable::AllocLabel(ResourceManager::KeyPtr key) {
+    uint32_t label = ((static_cast<IndexResourceData *>(agent()->resource_manager()->
+                                      Allocate(key).get()))->index());
+    assert(label != MplsTable::kInvalidLabel);
+    return label;
 }
 
-void MplsTable::DeleteMcastLabel(uint32_t src_label) {
+//Free label from resource manager and delete db entry
+void MplsTable::FreeLabel(uint32_t label) {
+    agent()->resource_manager()->Release(Resource::MPLS_INDEX, label);
+
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, src_label);
+    MplsLabelKey *key = new MplsLabelKey(label);
     req.key.reset(key);
     req.data.reset(NULL);
 
     Process(req);
-    return;
 }
 
-void MplsTable::ReserveMulticastLabel(uint32_t start,
-                                      uint32_t end,
-                                      uint8_t idx) {
-    multicast_label_start_[idx] = start;
-    multicast_label_end_[idx] = end;
-    ReserveLabel(start, end);
+std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
+    const MplsLabelKey *key = static_cast<const MplsLabelKey *>(k);
+    MplsLabel *mpls = new MplsLabel(key->label());
+    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(mpls));
+}
+
+DBEntry *MplsTable::Add(const DBRequest *req) {
+    MplsLabelKey *key = static_cast<MplsLabelKey *>(req->key.get());
+    assert(key->label() != MplsTable::kInvalidLabel);
+
+    MplsLabel *mpls = new MplsLabel(key->label());
+    mpls->Add(agent(), req);
+    return mpls;
+}
+
+bool MplsTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    MplsLabel *mpls = static_cast<MplsLabel *>(entry);
+    return mpls->Change(req);
+}
+
+bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
+    MplsLabel *mpls = static_cast<MplsLabel *>(entry);
+    mpls->Delete(req);
+    return true;
+}
+
+void MplsTable::OnZeroRefcount(AgentDBEntry *e) {
+    agent()->ConcurrencyCheck();
+
+    //Free Mpls label in resource manager
+    MplsLabel *mpls = static_cast<MplsLabel *>(e);
+    agent()->resource_manager()->Release(Resource::MPLS_INDEX, mpls->label());
+
+    //Delete db entry
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key = e->GetDBRequestKey();
+    req.data.reset(NULL);
+    Process(req);
+}
+
+uint32_t MplsTable::CreateRouteLabel(uint32_t label, const NextHopKey *nh_key,
+                                const std::string &vrf_name,
+                                const std::string &route) {
+    if (label == MplsTable::kInvalidLabel) {
+        ResourceManager::KeyPtr key(new RouteMplsResourceKey(agent()->
+                                resource_manager(), vrf_name,
+                                route));
+        label = ((static_cast<IndexResourceData *>(agent()->resource_manager()->
+                                      Allocate(key).get()))->index());
+        assert(label != MplsTable::kInvalidLabel);
+    }
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    MplsLabelKey *key = new MplsLabelKey(label);
+    req.key.reset(key);
+
+    MplsLabelData *data = new MplsLabelData(nh_key->Clone());
+    req.data.reset(data);
+
+    Process(req);
+    return label;
 }
 
 bool MplsTable::IsFabricMulticastLabel(uint32_t label) const {
@@ -452,8 +321,82 @@ bool MplsTable::IsFabricMulticastLabel(uint32_t label) const {
     return false;
 }
 
+void MplsTable::ReserveLabel(uint32_t start, uint32_t end) {
+    // We want to allocate labels from an offset
+    // Pre-allocate entries
+    for (uint32_t i = start; i < end;  i++) {
+        agent()->resource_manager()->ReserveIndex(Resource::MPLS_INDEX, i);
+    }
+}
+
+void MplsTable::FreeReserveLabel(uint32_t start, uint32_t end) {
+    // We want to allocate labels from an offset
+    // Pre-allocate entries
+    for (uint32_t i = start; i < end;  i++) {
+        agent()->resource_manager()->ReleaseIndex(Resource::MPLS_INDEX, i);
+    }
+}
+
+void MplsTable::ReserveMulticastLabel(uint32_t start, uint32_t end,
+                                      uint8_t idx) {
+    multicast_label_start_[idx] = start;
+    multicast_label_end_[idx] = end;
+    ReserveLabel(start, end);
+}
+
 MplsLabel *MplsTable::FindMplsLabel(uint32_t label) {
-    // Label type does not matter, use invalid
-    MplsLabelKey key(MplsLabel::INVALID, label);
+    MplsLabelKey key(label);
     return static_cast<MplsLabel *>(Find(&key, false));
+}
+
+// Allocate label for next-hop(interface, vrf, vlan)
+MplsLabel *MplsTable::AllocLabel(const NextHopKey *nh_key) {
+    switch(nh_key->GetType()) {
+    case NextHop::INTERFACE:
+    case NextHop::VLAN:
+    case NextHop::VRF:
+        break;
+    default:
+        assert(0);
+    }
+
+    // Allocate label from resource manager
+    ResourceManager::KeyPtr rkey(new NexthopIndexResourceKey(
+                                         agent()->resource_manager(),
+                                         nh_key->Clone()));
+    uint32_t label = ((static_cast<IndexResourceData *>(agent()->resource_manager()->
+                                      Allocate(rkey).get()))->index());
+    assert(label != MplsTable::kInvalidLabel);
+
+    // Add MplsLabel db entry
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    MplsLabelKey *key = new MplsLabelKey(label);
+    req.key.reset(key);
+
+    MplsLabelData *data = new MplsLabelData(nh_key->Clone());
+    req.data.reset(data);
+
+    agent()->mpls_table()->Process(req);
+
+    // Return MplsLabel db entry for nh to hold reference
+    MplsLabel *mpls_label = static_cast<MplsLabel *>
+        (agent()->mpls_table()->FindActiveEntry(key));
+    assert(mpls_label);
+
+    return mpls_label;
+}
+
+AgentSandeshPtr MplsTable::GetAgentSandesh(const AgentSandeshArguments *args,
+                                           const std::string &context) {
+    return AgentSandeshPtr(new AgentMplsSandesh
+                           (context, args->GetString("type"),
+                            args->GetString("label")));
+}
+
+void MplsReq::HandleRequest() const {
+    AgentSandeshPtr sand(new AgentMplsSandesh(context(), get_type(),
+                                              get_label()));
+    sand->DoSandesh(sand);
 }

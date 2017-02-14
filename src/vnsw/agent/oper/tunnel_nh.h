@@ -22,7 +22,7 @@ public:
     }
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual bool Change(const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual void Delete(const DBRequest *req);
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
@@ -47,6 +47,7 @@ public:
         }
         return false;
     }
+    virtual bool NeedMplsLabel() { return false; }
 private:
     VrfEntryRef vrf_;
     Ip4Address sip_;
@@ -72,6 +73,9 @@ public:
     virtual ~MirrorNHKey() { };
 
     virtual NextHop *AllocEntry() const;
+    virtual NextHopKey *Clone() const {
+        return new MirrorNHKey(vrf_key_.name_, sip_, sport_, dip_, dport_);
+    }
 private:
     friend class MirrorNH;
     VrfKey vrf_key_;
@@ -99,7 +103,7 @@ public:
 
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual bool Change(const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual void Delete(const DBRequest *req);
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
@@ -126,6 +130,7 @@ public:
         }
         return false;
     }
+    virtual bool NeedMplsLabel() { return false; }
 private:
     InetUnicastAgentRouteTable *GetRouteTable();
     std::string vrf_name_;

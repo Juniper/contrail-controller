@@ -3033,6 +3033,7 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         }
         if (!l2_vn) {
             AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
+            client->WaitForIdle();
         }
         AddLink("virtual-machine-interface", input[i].name, "virtual-machine",
                 vm_name);
@@ -3887,14 +3888,14 @@ VxLanId* GetVxLan(const Agent *agent, uint32_t vxlan_id) {
     return vxlan_id_entry;
 }
 
-bool FindMplsLabel(MplsLabel::Type type, uint32_t label) {
-    MplsLabelKey key(type, label);
+bool FindMplsLabel(uint32_t label) {
+    MplsLabelKey key(label);
     MplsLabel *mpls = static_cast<MplsLabel *>(Agent::GetInstance()->mpls_table()->FindActiveEntry(&key));
     return (mpls != NULL);
 }
 
-MplsLabel* GetActiveLabel(MplsLabel::Type type, uint32_t label) {
-    MplsLabelKey key(type, label);
+MplsLabel* GetActiveLabel(uint32_t label) {
+    MplsLabelKey key(label);
     return static_cast<MplsLabel *>(Agent::GetInstance()->mpls_table()->FindActiveEntry(&key));
 }
 
@@ -4664,12 +4665,14 @@ uint32_t AllocLabel(const char *str) {
     str_str << str;
     ResourceManager::KeyPtr key(new TestMplsResourceKey(agent->
                                 resource_manager(), str_str.str()));
-    return (agent->mpls_table()->AllocLabel(key));
+    uint32_t label = ((static_cast<IndexResourceData *>(agent->resource_manager()->
+                                      Allocate(key).get()))->index());
+    return label;
 }
 
 void FreeLabel(uint32_t label) {
     Agent *agent = Agent::GetInstance();
-    agent->mpls_table()->FreeLabel(label);
+    agent->resource_manager()->Release(Resource::MPLS_INDEX, label);
 }
 
 bool BridgeDomainFind(int id) {
