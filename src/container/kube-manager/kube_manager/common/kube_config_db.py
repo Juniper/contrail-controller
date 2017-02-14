@@ -40,7 +40,7 @@ class PodKM(KubeDBBase):
 
         # Spec.
         self.nodename = None
-        self.ip = None
+        self.host_ip = None
 
         # Status.
         self.phase = None
@@ -71,8 +71,11 @@ class PodKM(KubeDBBase):
     def _update_status(self, status):
         if status is None:
             return
-        self.ip = status.get('hostIP')
+        self.host_ip = status.get('hostIP')
         self.phase = status.get('phase')
+
+    def get_host_ip(self):
+        return self.host_ip
 
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):
@@ -88,7 +91,7 @@ class PodKM(KubeDBBase):
 
             # Construct response for an element.
             pod_instance = introspect.PodInstance(uuid=pod.uuid, name=pod.name,
-                labels=pod.labels, nodename=pod.nodename, ip=pod.ip,
+                labels=pod.labels, nodename=pod.nodename, ip=pod.host_ip,
                 phase=pod.phase)
 
             # Append the constructed element info to the response.
