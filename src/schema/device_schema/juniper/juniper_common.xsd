@@ -82,6 +82,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Interface">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="gratuitous-arp-reply"/>
         <xsd:element name="flexible-vlan-tagging"/>
@@ -92,12 +93,14 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Interfaces">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="interface" type="Interface" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="ForwardingOptions">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="family" type="Family" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
@@ -111,6 +114,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Route">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="discard"/>
         <xsd:element name="next-table" type="xsd:string"/>
@@ -121,6 +125,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Static">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="route" type="Route" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
@@ -155,6 +160,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="RoutingOptions">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="static" type="Static" maxOccurs="unbounded"/>
         <xsd:element name="rib" type="RIB" maxOccurs="unbounded"/>
         <xsd:element name="router-id" type="xsd:string"/>
@@ -166,6 +172,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="BgpGroup">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="type" type="xsd:string"/>
         <xsd:element name="local-address" type="xsd:string"/>
@@ -186,6 +193,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Protocols">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="bgp" type="Bgp"/>
     </xsd:all>
 </xsd:complexType>
@@ -252,6 +260,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="PolicyStatement">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="term" type="Term"/>
         <xsd:element name="then" type="Then"/>
@@ -267,6 +276,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="PolicyOptions">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="policy-statement" type="PolicyStatement" maxOccurs="unbounded"/>
         <xsd:element name="community" type="CommunityType" maxOccurs="unbounded"/>
     </xsd:all>
@@ -274,6 +284,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="FirewallFilter">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="term" type="Term" maxOccurs="unbounded"/>
     </xsd:all>
@@ -294,6 +305,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Firewall">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="family" type="FirewallFamily"/>
     </xsd:all>
 </xsd:complexType>
@@ -306,6 +318,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Domain">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="vlan-id" type="xsd:string"/>
         <xsd:element name="routing-interface" type="xsd:string"/>
@@ -322,6 +335,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Evpn">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="encapsulation" type="xsd:string"/>
         <xsd:element name="extended-vni-list" type="xsd:string"/>
         <xsd:element name="interface" type="Interface" maxOccurs="unbounded"/>
@@ -342,6 +356,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="RoutingInstanceRoutingOptions">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="static" type="Static"/>
         <xsd:element name="auto-export" type="AutoExport"/>
         <xsd:element name="rib" type="RIB"/>
@@ -350,6 +365,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Instance">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="vtep-source-interface" type="xsd:string"/>
         <xsd:element name="instance-type" type="xsd:string"/>
@@ -367,12 +383,14 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="RoutingInstances">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="instance" type="Instance" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="NATRules">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
@@ -386,6 +404,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="ServiceSet">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="nat-rules" type="NATRules" maxOccurs="unbounded"/>
         <xsd:element name="next-hop-service" type="NextHopService"/>
@@ -394,6 +413,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Rule">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="match-direction" type="xsd:string"/>
         <xsd:element name="term" type="Term"/>
@@ -402,6 +422,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="NAT">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="allow-overlapping-nat-pools"/>
         <xsd:element name="rule" type="Rule" maxOccurs="unbounded"/>
     </xsd:all>
@@ -409,6 +430,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Services">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="service-set" type="ServiceSet" maxOccurs="unbounded"/>
         <xsd:element name="nat" type="NAT" maxOccurs="unbounded"/>
     </xsd:all>
@@ -417,6 +439,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 <xsd:complexType name="Groups">
     <xsd:attribute name="operation" type="xsd:string"/>
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="interfaces" type="Interfaces"/>
         <xsd:element name="forwarding-options" type="ForwardingOptions"/>
@@ -445,6 +468,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="config">
     <xsd:attribute name="xmlns:xc" type="xsd:string" default="urn:ietf:params:xml:ns:netconf:base:1.0"/>
+    <xsd:attribute name="xmlns:junos" type="xsd:string" default="http://xml.juniper.net/junos"/>
     <xsd:all>
         <xsd:element name="configuration" type="Configuration"/>
     </xsd:all>
