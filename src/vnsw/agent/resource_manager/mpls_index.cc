@@ -13,6 +13,7 @@
 #include "resource_manager/resource_manager_types.h"
 #include "resource_manager/resource_backup.h"
 #include "base/time_util.h"
+#include <oper/nexthop.h>
 
 MplsIndexResourceKey::MplsIndexResourceKey(ResourceManager *rm,
                                            Type type) :
@@ -22,55 +23,65 @@ MplsIndexResourceKey::MplsIndexResourceKey(ResourceManager *rm,
 MplsIndexResourceKey::~MplsIndexResourceKey() {
 }
 
-//VM interface
-InterfaceIndexResourceKey::InterfaceIndexResourceKey
-(ResourceManager *rm, const boost::uuids::uuid &uuid,
- const MacAddress &mac, bool policy, uint32_t label_type, uint16_t vlan_tag) :
-    MplsIndexResourceKey(rm, MplsIndexResourceKey::INTERFACE),
-    uuid_(uuid), label_type_(label_type), mac_(mac), policy_(policy),
-    vlan_tag_(vlan_tag) {
+// NextHop resource key
+NexthopIndexResourceKey::NexthopIndexResourceKey(ResourceManager *rm,
+                                                 NextHopKey *nh_key) :
+    MplsIndexResourceKey(rm, MplsIndexResourceKey::NEXTHOP) {
+    nh_key_.reset(nh_key);
 }
 
-InterfaceIndexResourceKey::~InterfaceIndexResourceKey() {
+NexthopIndexResourceKey::~NexthopIndexResourceKey() {
 }
 
-bool InterfaceIndexResourceKey::IsLess(const ResourceKey &rhs) const {
+bool NexthopIndexResourceKey::IsLess(const ResourceKey &rhs) const {
     const MplsIndexResourceKey *mpls_key = static_cast<const
         MplsIndexResourceKey *>(&rhs);
+    // Return if index resource key types are different
     if (mpls_key->type() != type())
         return mpls_key->type() < type();
 
-    const InterfaceIndexResourceKey *intf_key = static_cast<const
-        InterfaceIndexResourceKey*>(&rhs);
-
-    if (intf_key->uuid_ != uuid_)
-        return intf_key->uuid_ < uuid_;
-
-    if (intf_key->label_type_ != label_type_)
-        return (intf_key->label_type_ < label_type_);
-
-    if (intf_key->mac_ != mac_)
-        return intf_key->mac_ < mac_;
-
-    if (intf_key->policy_ != policy_)
-        return intf_key->policy_ < policy_;
-
-    return intf_key->vlan_tag_ < vlan_tag_;
-    
+    const NexthopIndexResourceKey *nh_rkey = static_cast<const
+        NexthopIndexResourceKey *>(&rhs);
+    const NextHopKey *nh_key1 = GetNhKey();
+    const NextHopKey *nh_key2 = nh_rkey->GetNhKey();
+    return nh_key1->IsLess(*nh_key2);
 }
-//Backup the Interface Resource Data as Sandesh encoded format.
-void InterfaceIndexResourceKey::Backup(ResourceData *data, uint16_t op) {
+
+//Backup the Nexthop Resource Data
+void NexthopIndexResourceKey::Backup(ResourceData *data, uint16_t op) {
+    const NextHopKey *nh_key = GetNhKey();
+    switch(nh_key->GetType()) {
+    case NextHop::INTERFACE:
+        BackupInterfaceResource(data, op);
+        break;
+    case NextHop::VLAN:
+        BackupVlanResource(data, op);
+        break;
+    case NextHop::VRF:
+        BackupVrfResource(data, op);
+        break;
+    default:
+        assert(0);
+    }
+}
+
+//Backup Interface resource data as sandesh encoded format
+void NexthopIndexResourceKey::BackupInterfaceResource(ResourceData *data,
+                                                      uint16_t op) {
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
     if (op == ResourceBackupReq::DELETE) {
         rm()->backup_mgr()->
            sandesh_maps().DeleteInterfaceMplsResourceEntry(index_data->index());
     } else {
+        const InterfaceNHKey *itfnh_key = static_cast<const InterfaceNHKey *>(
+                                              GetNhKey());
         InterfaceIndexResource backup_data;
-        backup_data.set_type(label_type_);
-        backup_data.set_uuid(UuidToString(uuid_));
-        backup_data.set_mac(mac_.ToString());
-        backup_data.set_policy(policy_);
-        backup_data.set_vlan_tag(vlan_tag_);
+        backup_data.set_type(itfnh_key->GetType());
+        backup_data.set_uuid(UuidToString(itfnh_key->GetUuid()));
+        backup_data.set_name(itfnh_key->name());
+        backup_data.set_policy(itfnh_key->GetPolicy());
+        backup_data.set_flags(itfnh_key->GetFlags());
+        backup_data.set_mac(itfnh_key->GetMac().ToString());
         backup_data.set_time_stamp(UTCTimestampUsec());
         rm()->backup_mgr()->
             sandesh_maps().AddInterfaceMplsResourceEntry(index_data->index(),
@@ -82,34 +93,18 @@ void InterfaceIndexResourceKey::Backup(ResourceData *data, uint16_t op) {
         TriggerBackup();
 }
 
-VrfMplsResourceKey::VrfMplsResourceKey(ResourceManager *rm,
-                                         const std::string &name) :
-    MplsIndexResourceKey(rm, MplsIndexResourceKey::VRF), name_(name) {
-}
-
-VrfMplsResourceKey::~VrfMplsResourceKey() {
-}
-
-bool VrfMplsResourceKey::IsLess(const ResourceKey &rhs) const {
-    const MplsIndexResourceKey *mpls_key = static_cast<const
-        MplsIndexResourceKey *>(&rhs);
-    if (mpls_key->type() != type())
-        return mpls_key->type() < type();
-
-    const VrfMplsResourceKey *vrf_key = static_cast<const
-        VrfMplsResourceKey*>(&rhs);
-    return (vrf_key->name_ < name_);
-}
-
-//Backup the Vrf Resource Data as Sandesh encoded format.
-void VrfMplsResourceKey::Backup(ResourceData *data, uint16_t op) {
+//Backup Vrf resource data as sandesh encoded format
+void NexthopIndexResourceKey::BackupVrfResource(ResourceData *data,
+                                                uint16_t op) {
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
     if (op == ResourceBackupReq::DELETE) {
         rm()->backup_mgr()->sandesh_maps().DeleteVrfMplsResourceEntry(
                 index_data->index());
     } else {
+        const VrfNHKey *vrfnh_key = static_cast<const VrfNHKey *>(GetNhKey());
         VrfMplsResource backup_data;
-        backup_data.set_name(name_);
+        backup_data.set_name(vrfnh_key->GetVrfName());
+        backup_data.set_vxlan_nh(vrfnh_key->GetVxlanNh());
         backup_data.set_time_stamp(UTCTimestampUsec());
         rm()->backup_mgr()->sandesh_maps().AddVrfMplsResourceEntry(
                 index_data->index(), backup_data);
@@ -117,6 +112,29 @@ void VrfMplsResourceKey::Backup(ResourceData *data, uint16_t op) {
     //TODO may be API to insert in map can be added and that will incr sequence
     //number internally.
     rm()->backup_mgr()->sandesh_maps().vrf_mpls_index_table().
+        TriggerBackup();
+}
+
+//Backup Vlan resource data as sandesh encoded format
+void NexthopIndexResourceKey::BackupVlanResource(ResourceData *data,
+                                                 uint16_t op) {
+    IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
+    if (op == ResourceBackupReq::DELETE) {
+        rm()->backup_mgr()->sandesh_maps().DeleteVlanMplsResourceEntry(
+                index_data->index());
+    } else {
+        const VlanNHKey *vlan_nh_key = static_cast<const VlanNHKey *>(
+                                           GetNhKey());
+        VlanMplsResource backup_data;
+        backup_data.set_uuid(UuidToString(vlan_nh_key->GetUuid()));
+        backup_data.set_tag(vlan_nh_key->GetVlanTag());
+        backup_data.set_time_stamp(UTCTimestampUsec());
+        rm()->backup_mgr()->sandesh_maps().AddVlanMplsResourceEntry(
+                index_data->index(), backup_data);
+    }
+    //TODO may be API to insert in map can be added and that will incr sequence
+    //number internally.
+    rm()->backup_mgr()->sandesh_maps().vlan_mpls_index_table().
         TriggerBackup();
 }
 

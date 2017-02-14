@@ -790,8 +790,6 @@ public:
     static void DeleteIfNameReq(InterfaceTable *table,
                                 const boost::uuids::uuid &uuid);
 
-    void AllocL2MplsLabel(bool force_update, bool policy_change);
-    void DeleteL2MplsLabel();
     const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
     bool WaitForTraffic() const;
     bool GetInterfaceDhcpOptions(
@@ -954,10 +952,7 @@ private:
     void UpdateL2(bool old_l2_active, bool policy_change);
     void DeleteL2(bool old_l2_active);
 
-    void AllocL3MplsLabel(bool force_update, bool policy_change,
-                          uint32_t new_label);
     void DeleteL3MplsLabel();
-    void UpdateL3TunnelId(bool force_update, bool policy_change);
     void DeleteL3TunnelId();
     void UpdateMacVmBinding();
     void UpdateL3NextHop();
@@ -1012,8 +1007,6 @@ private:
     void DeleteFatFlow();
     void UpdateBridgeDomain();
     void DeleteBridgeDomain();
-    void UpdateL2TunnelId(bool force_update, bool policy_change);
-    void DeleteL2TunnelId();
     void DeleteL2InterfaceRoute(bool old_bridging, VrfEntry *old_vrf,
                                 const Ip4Address &old_v4_addr,
                                 const Ip6Address &old_v6_addr,

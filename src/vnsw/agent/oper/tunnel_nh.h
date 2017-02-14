@@ -47,6 +47,7 @@ public:
         }
         return false;
     }
+    virtual bool AutoAllocateLabel() { return false; }
 private:
     VrfEntryRef vrf_;
     Ip4Address sip_;
@@ -72,6 +73,9 @@ public:
     virtual ~MirrorNHKey() { };
 
     virtual NextHop *AllocEntry() const;
+    virtual NextHopKey *Clone() const {
+        return new MirrorNHKey(vrf_key_.name_, sip_, sport_, dip_, dport_);
+    }
 private:
     friend class MirrorNH;
     VrfKey vrf_key_;
@@ -126,6 +130,7 @@ public:
         }
         return false;
     }
+    virtual bool AutoAllocateLabel() { return false; }
 private:
     InetUnicastAgentRouteTable *GetRouteTable();
     std::string vrf_name_;
