@@ -2347,6 +2347,16 @@ trace sandesh OperVrf {
 }
 
 /**
+ * @description: Trace message for mpls
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh MplsTrace {
+    /** Message for mpls change */
+    1: string message;
+}
+
+/**
  * @description: Trace meassage for agent route walk
  * @type: Trace
  * @severity: DEBUG

@@ -86,13 +86,11 @@ protected:
         char buff[100];
         sprintf(buff, "test_flow_mgmt_route-%d", tag);
         int label = AllocLabel(buff);
-        MplsLabel::CreateVlanNh(agent_, label, MakeUuid(100), tag);
         return label;
     }
 
     void DeleteMpls(unsigned long label) {
         FreeLabel(label);
-        MplsLabel::DeleteReq(agent_, label);
     }
 
     void CreateTunnelNH(unsigned long addr) {

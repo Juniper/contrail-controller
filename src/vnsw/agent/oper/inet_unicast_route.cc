@@ -493,9 +493,9 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
                                           nh_req, agent, path);
 
     //Make MPLS label point to Composite NH
-    MplsLabel::CreateEcmpLabel(agent, label, Composite::LOCAL_ECMP,
-                               composite_nh_policy, component_nh_list,
-                               vrf()->GetName());
+    agent->mpls_table()->CreateEcmpLabel(label, Composite::LOCAL_ECMP,
+                             composite_nh_policy, component_nh_list,
+                             vrf()->GetName());
 
     RouteInfo rt_info;
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
@@ -801,9 +801,9 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
                                nh_req, agent, ecmp_path);
 
     //Make MPLS label point to composite NH
-    MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
-                               composite_nh_policy, component_nh_key_list,
-                               vrf()->GetName());
+    agent->mpls_table()->CreateEcmpLabel(ecmp_path->label(),
+                             Composite::LOCAL_ECMP, composite_nh_policy,
+                             component_nh_key_list, vrf()->GetName());
 
     RouteInfo rt_info;
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
@@ -857,9 +857,9 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
                                nh_req, agent, ecmp_path);
 
     //Make MPLS label point to updated composite NH
-    MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
-                               composite_nh_policy, component_nh_key_list,
-                               vrf()->GetName());
+    agent->mpls_table()->CreateEcmpLabel(ecmp_path->label(),
+                             Composite::LOCAL_ECMP, composite_nh_policy,
+                             component_nh_key_list, vrf()->GetName());
 
     RouteInfo rt_info;
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
@@ -906,9 +906,9 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
     }
 
     //Make MPLS label point to composite NH
-    MplsLabel::CreateEcmpLabel(agent, ecmp_path->label(), Composite::LOCAL_ECMP,
-                               comp_nh_policy, component_nh_key_list,
-                               vrf()->GetName());
+    agent->mpls_table()->CreateEcmpLabel(ecmp_path->label(),
+                             Composite::LOCAL_ECMP, comp_nh_policy,
+                             component_nh_key_list, vrf()->GetName());
 
     RouteInfo rt_info;
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);

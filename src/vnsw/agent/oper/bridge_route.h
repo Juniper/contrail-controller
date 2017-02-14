@@ -98,6 +98,7 @@ public:
     BridgeRouteEntry(VrfEntry *vrf, const MacAddress &mac,
                      Peer::Type type, bool is_multicast) :
         AgentRoute(vrf, is_multicast), mac_(mac) {
+        nh_.reset();
     }
     virtual ~BridgeRouteEntry() { }
 
@@ -138,6 +139,7 @@ private:
     void HandleDeviceMastershipUpdate(AgentPath *path, bool del);
 
     MacAddress mac_;
+    NextHopRef nh_;
     DISALLOW_COPY_AND_ASSIGN(BridgeRouteEntry);
 };
 

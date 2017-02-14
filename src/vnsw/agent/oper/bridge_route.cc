@@ -572,7 +572,6 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
                 delete_label = true;
         }
         if (delete_label) {
-            agent->mpls_table()->DeleteMcastLabel(path->label());
             FreeMplsLabel(path->label());
         }
 
@@ -786,6 +785,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         return false;
     }
 
+    //Take composite-nh reference
+    nh_ = nh;
     bool ret = false;
     //Identify parameters to be passed to populate multicast_peer path and
     //based on peer priorites for each attribute.
@@ -828,15 +829,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         label = fabric_peer_path->label();
     }
 
-    ret = MulticastRoute::CopyPathParameters(agent,
-                                             multicast_peer_path,
-                                             dest_vn_name,
-                                             unresolved,
-                                             vxlan_id,
-                                             label,
-                                             tunnel_bmap,
-                                             nh, this);
-
     //Bake all MPLS label
     if (fabric_peer_path) {
         //Add new label
@@ -846,7 +838,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                               vrf()->GetName());
         //Delete Old label, in case label has changed for same peer.
         if (old_fabric_mpls_label != fabric_peer_path->label()) {
-            agent->mpls_table()->DeleteMcastLabel(old_fabric_mpls_label);
             FreeMplsLabel(old_fabric_mpls_label);
         }
     }
@@ -858,6 +849,15 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                               component_nh_list,
                                               vrf()->GetName());
     }
+    ret = MulticastRoute::CopyPathParameters(agent,
+                                             multicast_peer_path,
+                                             dest_vn_name,
+                                             unresolved,
+                                             vxlan_id,
+                                             label,
+                                             tunnel_bmap,
+                                             nh, this);
+
     return ret;
 }
 

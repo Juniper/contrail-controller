@@ -15,12 +15,12 @@
 #include <resource_manager/resource_backup.h>
 class ResourceManager;
 class ResourceKey;
+class NextHopKey;
 
 class MplsIndexResourceKey : public IndexResourceKey {
 public:
     enum Type {
-        INTERFACE,
-        VRF,
+        NEXTHOP,
         ROUTE,
         TEST,
         EDGEMCAST
@@ -33,41 +33,22 @@ private:
     Type type_;
 };
 
-//Interface mpls label
-class InterfaceIndexResourceKey : public MplsIndexResourceKey {
+//Nexthop mpls label
+class NexthopIndexResourceKey : public MplsIndexResourceKey {
 public:
-    InterfaceIndexResourceKey(ResourceManager *rm,
-                              const boost::uuids::uuid &uuid,
-                              const MacAddress &mac, bool policy,
-                              uint32_t label_type, uint16_t vlan_tag);
-    virtual ~InterfaceIndexResourceKey();
+    NexthopIndexResourceKey(ResourceManager *rm, NextHopKey *nh_key);
+    virtual ~NexthopIndexResourceKey();
 
     virtual const std::string ToString() { return "";}
     virtual bool IsLess(const ResourceKey &rhs) const;
     virtual void Backup(ResourceData *data, uint16_t op);
+    void BackupInterfaceResource(ResourceData *data, uint16_t op);
+    void BackupVrfResource(ResourceData *data, uint16_t op);
+    void BackupVlanResource(ResourceData *data, uint16_t op);
+    const NextHopKey *GetNhKey() const { return nh_key_.get(); }
 private:
-    const boost::uuids::uuid uuid_;
-    //Type of label - l2, l3 ....
-    uint32_t label_type_;
-    MacAddress mac_;
-    bool policy_;
-    uint16_t vlan_tag_;
-    DISALLOW_COPY_AND_ASSIGN(InterfaceIndexResourceKey);
-};
-
-//Vrf mpls label
-class VrfMplsResourceKey : public MplsIndexResourceKey {
-public:
-    VrfMplsResourceKey(ResourceManager *rm,
-                           const std::string &name);
-    virtual ~VrfMplsResourceKey();
-
-    virtual const std::string ToString() { return "";}
-    virtual bool IsLess(const ResourceKey &rhs) const;
-    virtual void Backup(ResourceData *data, uint16_t op);
-private:
-    const std::string name_;
-    DISALLOW_COPY_AND_ASSIGN(VrfMplsResourceKey);
+    std::auto_ptr<NextHopKey> nh_key_;
+    DISALLOW_COPY_AND_ASSIGN(NexthopIndexResourceKey);
 };
 
 //Route mpls label

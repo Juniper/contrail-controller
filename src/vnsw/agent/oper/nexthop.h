@@ -17,6 +17,8 @@
 
 using namespace boost::uuids;
 using namespace std;
+class NextHopKey;
+class MplsLabel;
 
 template <typename Member>
 class MemberList {
@@ -338,16 +340,18 @@ public:
         PBB
     };
 
-    NextHop(Type type, bool policy) : 
+    NextHop(Type type, bool policy) :
         type_(type), valid_(true), policy_(policy), id_(kInvalidIndex),
-        learning_enabled_(false), etree_leaf_(false) {}
+        mpls_label_(), learning_enabled_(false), etree_leaf_(false) {}
     NextHop(Type type, bool valid, bool policy) : 
         type_(type), valid_(valid), policy_(policy), id_(kInvalidIndex),
-        learning_enabled_(false), etree_leaf_(false) {}
+        mpls_label_(), learning_enabled_(false), etree_leaf_(false) {}
     virtual ~NextHop();
 
     virtual std::string ToString() const { return "NH";}
-    virtual bool Change(const DBRequest *req) { return false; }
+    virtual void Add(Agent *agent, const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req) { return false; }
+    virtual void Change(const DBRequest *req);
     virtual void Delete(const DBRequest *req) {};
     virtual void SetKey(const DBRequestKey *key);
     virtual bool NextHopIsLess(const DBEntry &rhs) const = 0;
@@ -370,6 +374,12 @@ public:
 
     uint32_t GetRefCount() const {
         return AgentRefCount<NextHop>::GetRefCount();
+    }
+
+    void ResetMplsRef() {
+        if (mpls_label_.get() != NULL) {
+            mpls_label_.reset();
+        }
     }
 
     Type GetType() const {return type_;}
@@ -401,8 +411,14 @@ public:
     static void FillObjectLogMac(const unsigned char *m,
                                  NextHopObjectLogInfo &info);
     bool NexthopToInterfacePolicy() const;
+    const MplsLabel *mpls_label() const {
+        return mpls_label_.get();
+    }
 
     virtual bool MatchEgressData(const NextHop *nh) const = 0;
+    MplsLabel *AllocateLabel(Agent *agent, const NextHopKey *key);
+    virtual bool NeedMplsLabel() = 0;
+    void PostAdd();
 protected:
     void FillObjectLog(AgentLogEvent::type event,
                        NextHopObjectLogInfo &info) const;
@@ -410,6 +426,7 @@ protected:
     bool valid_;
     bool policy_;
     uint32_t id_;
+    MplsLabelRef mpls_label_;
     bool learning_enabled_;
     bool etree_leaf_;
 private:
@@ -435,13 +452,16 @@ public:
     virtual ~NextHopKey() { };
 
     virtual NextHop *AllocEntry() const = 0;
-    virtual NextHopKey *Clone() const {return NULL;}
+    virtual NextHopKey *Clone() const = 0;
     virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
         assert(0);
         return false;
     }
     bool IsEqual(const NextHopKey &rhs) const {
         if (type_ != rhs.type_) {
+            return false;
+        }
+        if (policy_ != rhs.policy_) {
             return false;
         }
         if (NextHopKeyIsLess(rhs) == false &&
@@ -460,6 +480,9 @@ public:
     bool IsLess(const NextHopKey &rhs) const {
         if (type_ != rhs.type_) {
             return type_ < rhs.type_;
+        }
+        if (policy_ != rhs.policy_) {
+            return policy_;
         }
         return NextHopKeyIsLess(rhs);
     }
@@ -483,6 +506,7 @@ public:
         return false;
     }
 
+    virtual NextHopKey *Clone() const { return new DiscardNHKey(); }
 private:
 
     virtual NextHop *AllocEntry() const;
@@ -505,7 +529,7 @@ public:
 
     virtual std::string ToString() const { return "DISCARD"; };
     // No change expected to Discard NH */
-    virtual bool Change(const DBRequest *req) { return false; };
+    virtual bool ChangeEntry(const DBRequest *req) { return false; };
     virtual void Delete(const DBRequest *req) {};
     virtual bool NextHopIsLess(const DBEntry &rhs) const { return false; };
     virtual void SetKey(const DBRequestKey *key) { NextHop::SetKey(key); };
@@ -517,6 +541,7 @@ public:
     virtual bool MatchEgressData(const NextHop *nh) const {
         return false;
     }
+    virtual bool NeedMplsLabel() { return false; }
     static void Create();
 
 private:
@@ -534,6 +559,7 @@ public:
         // There is single Bridge Receive NH. There is no field to compare
         return false;
     }
+    virtual NextHopKey *Clone() const { return new L2ReceiveNHKey(); }
 
 private:
 
@@ -557,7 +583,7 @@ public:
 
     virtual std::string ToString() const { return "L2-Receive"; };
     // No change expected to Discard NH */
-    virtual bool Change(const DBRequest *req) { return false; };
+    virtual bool ChangeEntry(const DBRequest *req) { return false; };
     virtual void Delete(const DBRequest *req) {};
     virtual bool NextHopIsLess(const DBEntry &rhs) const { return false; };
     virtual void SetKey(const DBRequestKey *key) { NextHop::SetKey(key); };
@@ -569,6 +595,7 @@ public:
     virtual bool MatchEgressData(const NextHop *nh) const {
         return false;
     }
+    virtual bool NeedMplsLabel() { return false; }
     static void Create();
 
 private:
@@ -585,6 +612,9 @@ public:
     }
     virtual ~ReceiveNHKey() { };
     virtual NextHop *AllocEntry() const;
+    virtual NextHopKey *Clone() const {
+        return new ReceiveNHKey(intf_key_->Clone(), policy_);
+    }
 
 private:
     friend class ReceiveNH;
@@ -611,7 +641,7 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual std::string ToString() const { return "Local Receive"; };
     // No change expected to Receive NH */
-    virtual bool Change(const DBRequest *req) { return false;};
+    virtual bool ChangeEntry(const DBRequest *req) { return false;};
     virtual void Delete(const DBRequest *req) {};
     virtual void SendObjectLog(const NextHopTable *table,
                                AgentLogEvent::type event) const;
@@ -640,6 +670,7 @@ public:
         return false;
     }
 
+    virtual bool NeedMplsLabel() { return false; }
 private:
     InterfaceRef interface_;
     DISALLOW_COPY_AND_ASSIGN(ReceiveNH);
@@ -656,6 +687,9 @@ public:
     virtual ~ResolveNHKey() { };
 
     virtual NextHop *AllocEntry() const;
+    virtual NextHopKey *Clone() const {
+        return new ResolveNHKey(intf_key_->Clone(), policy_);
+    }
 private:
     friend class ResolveNH;
     boost::scoped_ptr<const InterfaceKey> intf_key_;
@@ -680,7 +714,7 @@ public:
 
     virtual std::string ToString() const { return "Resolve"; };
     // No change expected to Resolve NH */
-    virtual bool Change(const DBRequest *req) { return false;};
+    virtual bool ChangeEntry(const DBRequest *req) { return false;};
     virtual void Delete(const DBRequest *req) {};
     virtual void SetKey(const DBRequestKey *key) { NextHop::SetKey(key); };
     virtual bool CanAdd() const;
@@ -707,6 +741,7 @@ public:
     virtual bool MatchEgressData(const NextHop *nh) const {
         return false;
     }
+    virtual bool NeedMplsLabel() { return false; }
 
 private:
     InterfaceConstRef interface_;
@@ -724,6 +759,9 @@ public:
     virtual ~ArpNHKey() { };
 
     virtual NextHop *AllocEntry() const;
+    virtual NextHopKey *Clone() const {
+        return new ArpNHKey(vrf_key_.name_, dip_, policy_);
+    }
 private:
     friend class ArpNH;
     VrfKey vrf_key_;
@@ -761,7 +799,7 @@ public:
     virtual std::string ToString() { return "ARP"; }
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual bool Change(const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual void Delete(const DBRequest *req) {};
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SendObjectLog(const NextHopTable *table,
@@ -786,6 +824,7 @@ public:
         }
         return false;
     }
+    virtual bool NeedMplsLabel() { return false; }
 
 private:
     VrfEntryRef vrf_;
@@ -911,7 +950,7 @@ public:
     }
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual bool Change(const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual void Delete(const DBRequest *req);
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
@@ -941,6 +980,7 @@ public:
     const NextHop *child_nh() const {
         return child_nh_.get();
     }
+    virtual bool NeedMplsLabel() { return false; }
 private:
     VrfEntryRef vrf_;
     MacAddress dest_bmac_;
@@ -981,6 +1021,10 @@ public:
     virtual ~InterfaceNHKey() {};
     const uuid &GetUuid() const {return intf_key_->uuid_;};
     const std::string& name() const { return intf_key_->name_;};
+    const Interface::Type &intf_type() const {return intf_key_->type_;}
+    const InterfaceKey *intf_key() const { return intf_key_.get(); }
+    const uint8_t &flags() const { return flags_; }
+    const MacAddress &dmac() const { return dmac_; }
 
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
@@ -1056,10 +1100,11 @@ public:
     };
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual bool Change(const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual void Delete(const DBRequest *req) {};
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
+    virtual bool NeedMplsLabel();
     virtual void SendObjectLog(const NextHopTable *table,
                                AgentLogEvent::type event) const;
 
@@ -1157,7 +1202,8 @@ public:
     virtual NextHopKey *Clone() const {
         return new VrfNHKey(vrf_key_.name_, policy_, vxlan_nh_);
     }
-
+    const std::string &GetVrfName() const { return vrf_key_.name_; }
+    const bool &GetVxlanNh() const { return vxlan_nh_; }
 private:
     friend class VrfNH;
     VrfKey vrf_key_;
@@ -1192,7 +1238,7 @@ public:
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
     // No change expected for VRF Nexthop
-    virtual bool Change(const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual void Delete(const DBRequest *req) {};
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SendObjectLog(const NextHopTable *table,
@@ -1219,6 +1265,7 @@ public:
     bool layer2_control_word() const {
         return layer2_control_word_;
     }
+    virtual bool NeedMplsLabel() { return true; }
 
 private:
     VrfEntryRef vrf_;
@@ -1259,6 +1306,7 @@ public:
     }
     const boost::uuids::uuid& GetUuid() const {return intf_key_->uuid_;}
     const std::string& name() const { return intf_key_->name_;}
+    const uint16_t& vlan_tag() const { return vlan_tag_; }
 private:
     friend class VlanNH;
     boost::scoped_ptr<InterfaceKey> intf_key_;
@@ -1291,7 +1339,7 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const;
     virtual void Delete(const DBRequest *req) {};
-    virtual bool Change(const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual void SendObjectLog(const NextHopTable *table,
                                AgentLogEvent::type event) const;
     virtual bool CanAdd() const;
@@ -1320,6 +1368,7 @@ public:
         }
         return false;
     }
+    virtual bool NeedMplsLabel() { return true; }
 
 private:
     InterfaceRef interface_;
@@ -1330,6 +1379,9 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VlanNH);
 };
 
+/////////////////////////////////////////////////////////////////////////////
+// Component NH definition
+/////////////////////////////////////////////////////////////////////////////
 //TODO Shift this to class CompositeNH
 struct Composite {
     enum Type {
@@ -1346,12 +1398,9 @@ struct Composite {
         TOR
     };
 };
-
 //TODO remove defines
 #define COMPOSITETYPE Composite::Type
-/////////////////////////////////////////////////////////////////////////////
-// Component NH definition
-/////////////////////////////////////////////////////////////////////////////
+
 class ComponentNH {
 public:
     ComponentNH(uint32_t label, const NextHop *nh):
@@ -1520,7 +1569,7 @@ public:
     virtual std::string ToString() const { return "Composite NH"; };
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual bool Change(const DBRequest *req);
+    virtual bool ChangeEntry(const DBRequest *req);
     virtual void Delete(const DBRequest *req);
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
@@ -1616,6 +1665,7 @@ public:
    virtual bool MatchEgressData(const NextHop *nh) const {
        return false;
    }
+   virtual bool NeedMplsLabel() { return false; }
    uint8_t EcmpHashFieldInUse() const {
         return comp_ecmp_hash_fields_.HashFieldsToUse();
    }
@@ -1658,34 +1708,9 @@ public:
                                             const std::string &context);
 
     virtual DBEntry *Add(const DBRequest *req);
-
-    virtual bool OnChange(DBEntry *entry, const DBRequest *req) {
-        NextHop *nh = static_cast<NextHop *>(entry);
-        bool ret = nh->Change(req);
-        nh->SendObjectLog(this, AgentLogEvent::CHANGE);
-        return ret;
-    }
-
-    virtual bool Resync(DBEntry *entry, const DBRequest *req) {
-        NextHop *nh = static_cast<NextHop *>(entry);
-        bool ret = nh->Change(req);
-        nh->SendObjectLog(this, AgentLogEvent::RESYNC);
-        return ret;
-    }
-
-    virtual bool Delete(DBEntry *entry, const DBRequest *req) {
-        NextHop *nh = static_cast<NextHop *>(entry);
-        nh->Delete(req);
-        nh->SendObjectLog(this, AgentLogEvent::DELETE);
-        return true;
-    }
-
-    static void Delete(NextHopKey *key) {
-        DBRequest req;
-        req.key.reset(key);
-        req.data.reset(NULL);
-        Agent::GetInstance()->nexthop_table()->Enqueue(&req);
-    }
+    virtual bool OnChange(DBEntry *entry, const DBRequest *req);
+    virtual bool Resync(DBEntry *entry, const DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
 
     virtual void OnZeroRefcount(AgentDBEntry *e);
     void Process(DBRequest &req);

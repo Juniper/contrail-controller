@@ -778,7 +778,7 @@ void AgentRoute::FreeMplsLabel(uint32_t label) {
     Agent *agent =
         (static_cast<InetUnicastAgentRouteTable *>(get_table()))->agent();
     agent->mpls_table()->FreeLabel(label);
-    MplsLabel::Delete(agent, label);
+    agent->mpls_table()->Delete(label);
 }
 
 AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,

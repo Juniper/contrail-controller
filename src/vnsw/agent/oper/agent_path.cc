@@ -105,15 +105,13 @@ bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
 
     if (peer_ && (peer_->GetType() == Peer::MULTICAST_PEER) &&
         (label_ != MplsTable::kInvalidLabel)) {
-        MplsLabelKey key(MplsLabel::MCAST_NH, label_);
+        MplsLabelKey key(label_);
         MplsLabel *mpls = static_cast<MplsLabel *>(agent->mpls_table()->
                                                    FindActiveEntry(&key));
-        if (agent->mpls_table()->ChangeNH(mpls, nh))
+        if (mpls->ChangeNH(nh))
             ret = true;
-        if (mpls) {
-            //Send notify of change
-            mpls->get_table_partition()->Notify(mpls);
-        }
+        //Send notify of change
+        mpls->get_table_partition()->Notify(mpls);
     }
 
     return ret;

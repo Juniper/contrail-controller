@@ -68,8 +68,18 @@ struct PortInfo input1[] = {
 
 class VrfAssignTest : public ::testing::Test {
 public:
+    VrfAssignTest() : agent_(Agent::GetInstance()),
+    trigger_(boost::bind(&VrfAssignTest::ResetVlanNhRef, this),
+                         TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
+                         0) {
+    }
+
+    bool ResetVlanNhRef() {
+        vlan_nh_.reset();
+        return true;
+    }
+
     virtual void SetUp() {
-        agent_ = Agent::GetInstance();
         client->Reset();
         CreateVmportEnv(input1, 1);
         client->WaitForIdle();
@@ -78,10 +88,15 @@ public:
         MacAddress mac;
         VlanNH::CreateReq(interface->GetUuid(), 1, "vrf1", mac, mac);
         client->WaitForIdle();
+        VlanNHKey key(interface->GetUuid(), 1);
+        vlan_nh_ = static_cast<NextHop *>(agent_->nexthop_table()->
+                       FindActiveEntry(&key));
     }
 
     virtual void TearDown() {
         VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        trigger_.Set();
+        client->WaitForIdle();
         VlanNH::DeleteReq(interface->GetUuid(), 1);
         DeleteVmportEnv(input1, 1, true);
         client->WaitForIdle();
@@ -91,6 +106,8 @@ public:
     }
 
     Agent *agent_;
+    NextHopRef vlan_nh_;
+    TaskTrigger trigger_;
 };
 
 TEST_F(VrfAssignTest, basic_1) {
