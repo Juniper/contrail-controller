@@ -175,5 +175,104 @@ class DMUtils(object):
         return m.get(cs_name)
     # end get_ip_used_for_str
 
+    @staticmethod
+    def groups_comment():
+        return "/* Contrail Generated Group Config */"
+
+    @staticmethod
+    def vn_ri_comment(vn, is_l2, is_l2_l3, is_nat):
+        vrf_type = "L3"
+        fwd_mode = "L3"
+        if is_l2:
+            vrf_type = "L2"
+            fwd_mode = "L2"
+        if is_l2_l3:
+            fw_mode = "L2-L3"
+        if not is_nat:
+            return "/* Virtual Network: %s, UUID: %s, VRF Type: %s, Forwarding Mode: %s */"%(
+                                                  vn.fq_name[-1], vn.uuid, vrf_type, fwd_mode)
+        else:
+            return "/* Virtual Network: %s, UUID: %s, VRF Type: %s (NAT), Forwarding Mode: %s*/"%(
+                                                  vn.fq_name[-1], vn.uuid, vrf_type, fwd_mode)
+
+    @staticmethod
+    def bgp_group_comment(bgp_obj):
+        return "/* BGP Router: %s, UUID: %s */"%(bgp_obj.name, bgp_obj.uuid)
+
+    @staticmethod
+    def public_vrf_filter_comment():
+        return "/* Public VRF Filter for Floating IPs*/"
+
+    @staticmethod
+    def vn_ps_comment(vn, target_type):
+        return "/* Virtual Network: %s, UUID: %s, Route Targets Type: %s */"%(vn.fq_name[-1], vn.uuid, target_type)
+
+    @staticmethod
+    def vn_firewall_comment(vn, mode):
+        return "/* Virtual Network: %s, UUID: %s, Filter Type: %s */"%(vn.fq_name[-1], vn.uuid, mode)
+
+    @staticmethod
+    def vn_bd_comment(vn, encap):
+        return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */"%(vn.fq_name[-1], vn.uuid, encap)
+
+    @staticmethod
+    def vn_evpn_comment(vn, encap):
+        return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */"%(vn.fq_name[-1], vn.uuid, encap)
+
+    @staticmethod
+    def vn_irb_comment(vn, vrf_type):
+        return "/* Virtual Network: %s, UUID: %s, VRF Type: %s */"%(vn.fq_name[-1], vn.uuid, vrf_type)
+
+    @staticmethod
+    def service_set_comment(vn):
+        return "/* Virtual Network: %s, UUID: %s, VRF Type: %s */"%(vn.fq_name[-1], vn.uuid)
+
+    @staticmethod
+    def service_set_nat_rule_comment(vn, nat_type):
+        return "/* %s Rules for Virtual Network: %s, UUID: %sType: %s */"%(nat_type, vn.fq_name[-1], vn.uuid)
+
+    @staticmethod
+    def nat_comment():
+        return "/* Network Address Transalation Rules for SNAT/Floating IPs */"
+
+    @staticmethod
+    def snat_rule_comment():
+        return "/* Traffic Inbound Rule */"
+
+    @staticmethod
+    def dnat_rule_comment():
+        return "/* Traffic Outbound Rule */"
+
+    @staticmethod
+    def routing_options_comment():
+        return "/* Global Routing Options */"
+
+    @staticmethod
+    def policy_options_comment():
+        return "/* Policy Options */"
+
+    @staticmethod
+    def forwarding_options_comment():
+        return "/* Forwarding Options */"
+
+    @staticmethod
+    def firewall_comment():
+        return "/* Firwalls Configuration */"
+
+    @staticmethod
+    def interfaces_comment():
+        return "/* Interfaces Configuration */"
+
+    @staticmethod
+    def protocols_comment():
+        return "/* Protocols Configuration */"
+
+    @staticmethod
+    def routing_instances_comment():
+        return "/* Routing Instances Confguration */"
+
+    @staticmethod
+    def services_comment():
+        return "/* Services Config */"
 
 # end DMUtils
