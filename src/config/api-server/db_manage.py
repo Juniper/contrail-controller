@@ -16,10 +16,6 @@ import kazoo.exceptions
 import cfgm_common
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
-from cfgm_common.ifmap.client import client
-from cfgm_common.ifmap.request import NewSessionRequest
-from cfgm_common.ifmap.response import newSessionResult
-from cfgm_common.imid import ifmap_read, parse_search_result
 from cfgm_common.vnc_cassandra import VncCassandraClient
 import pycassa
 import utils
@@ -44,8 +40,6 @@ class CassWrongRFError(AuditError): pass
 class FQNIndexMissingError(AuditError): pass
 class FQNStaleIndexError(AuditError): pass
 class FQNMismatchError(AuditError): pass
-class IfmapMissingIdentifiersError(AuditError): pass
-class IfmapExtraIdentifiersError(AuditError): pass
 class MandatoryFieldsMissingError(AuditError): pass
 class IpSubnetMissingError(AuditError): pass
 class VirtualNetworkMissingError(AuditError): pass
@@ -136,12 +130,6 @@ class DatabaseManager(object):
         parser.add_argument(
             "--debug", help="Run in debug mode, default False",
             action='store_true', default=False)
-        parser.add_argument(
-            "--ifmap-servers", nargs='*',
-            help="List of ifmap-ip:ifmap-port, default from api-conf")
-        parser.add_argument(
-            "--ifmap-credentials",
-            help="<username>:<password> for read-only user")
         parser.add_argument("--cassandra-user")
         parser.add_argument("--cassandra-password")
 
@@ -481,13 +469,10 @@ class DatabaseChecker(DatabaseManager):
     # end check_rabbitmq_queue
 
     @checker
-    def check_fq_name_uuid_ifmap_match(self):
-        # ensure items in obj-fq-name-table match to
-        # a. obj-uuid-table, b. local ifmap server
+    def check_fq_name_uuid_match(self):
+        # ensure items in obj-fq-name-table match to obj-uuid-table
         ret_errors = []
         logger = self._logger
-
-        self._connect_to_ifmap_servers()
 
         obj_fq_name_table = self._cf_dict['obj_fq_name_table']
         obj_uuid_table = self._cf_dict['obj_uuid_table']
@@ -539,52 +524,8 @@ class DatabaseChecker(DatabaseManager):
                 'Extra object %s %s %s in obj_uuid_table'
                 %(obj_type, fq_name_str, obj_uuid)))
 
-        for mapclient in self._mapclients:
-            all_ifmap_idents = []
-            search_results = parse_search_result(
-                ifmap_read(
-                    mapclient,
-                    'contrail:config-root:root',
-                    srch_meta=None,
-                    result_meta='contrail:id-perms'
-                )
-            )
-            # search_results is in form of
-            # [ ({'config-root': 'root'}, <Element metadata at 0x1e19b48>)
-            # ({'config-root': 'root',
-            #   'global-system-config': 'default-global-system-config'},
-            #   <Element metadata at 0x1e19680>) ]
-            # convert it into set of identifiers
-            for ident_s, meta in search_results:
-                # ref to same type appears as list of idents
-                # flatten so set can be used
-                for ident in ident_s.values():
-                    if type(ident) == list:
-                        all_ifmap_idents.extend(ident)
-                    else:
-                        all_ifmap_idents.append(ident)
-            all_ifmap_idents = set(all_ifmap_idents)
-            all_cassandra_idents = set([item[1] for item in uuid_table_all])
-            logger.debug("Got %d idents from %s server",
-                len(all_ifmap_idents), mapclient._client__url[0])
-
-            extra = all_ifmap_idents - all_cassandra_idents
-            if (len(extra) == 1) and (extra == set(['root'])):
-                pass # good
-            else:
-                ret_errors.append(IfmapExtraIdentifiersError(
-                    'Extra identifiers %s in ifmap %s vs obj_uuid_table'
-                       %(extra, mapclient._client__url[0])))
-
-            extra = all_cassandra_idents - all_ifmap_idents
-            if extra:
-                ret_errors.append(IfmapMissingIdentifiersError(
-                    'Missing identifiers %s in ifmap %s vs obj_uuid_table.\n' \
-                    %(extra, mapclient._client__url[0])))
-
-
         return ret_errors
-    # end check_fq_name_uuid_ifmap_match
+    # end check_fq_name_uuid_match
 
     @checker
     def check_obj_mandatory_fields(self):
@@ -1020,44 +961,6 @@ class DatabaseChecker(DatabaseManager):
         return ret_errors
     # end _addr_alloc_process_ip_objects
 
-    def _connect_to_ifmap_servers(self):
-        self._mapclients = []
-        NAMESPACES = {
-            'env':   "http://www.w3.org/2003/05/soap-envelope",
-            'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
-            'meta':
-            "http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2",
-            'contrail':   "http://www.contrailsystems.com/vnc_cfg.xsd"
-        }
-        # pick ifmap servers from args to this utility and if absent
-        # pick it from contrail-api conf file
-        if self._args.ifmap_servers:
-            ifmap_ips_ports = [(ip_port.split(':'))
-                                   for ip_port in self._args.ifmap_servers]
-        else:
-            ifmap_ips_ports = [(self._api_args.ifmap_listen_ip,
-                                    str(self._api_args.ifmap_listen_port))]
-        if self._args.ifmap_credentials:
-            ifmap_user, ifmap_passwd = self._args.ifmap_credentials.split(':')
-        else:
-            ifmap_user, ifmap_passwd = self._api_args.ifmap_credentials[0]
-
-        for ifmap_ip, ifmap_port in ifmap_ips_ports:
-            mapclient = client((ifmap_ip, ifmap_port),
-                               ifmap_user, ifmap_passwd,
-                               NAMESPACES)
-            connected = False
-            while not connected:
-                try:
-                    result = mapclient.call('newSession', NewSessionRequest())
-                    connected = True
-                except socket.error as e:
-                    time.sleep(3)
-
-            mapclient.set_session_id(newSessionResult(result).get_session_id())
-            mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
-            self._mapclients.append(mapclient)
-    # end _connect_to_ifmap_servers
 # end class DatabaseChecker
 
 
@@ -1439,7 +1342,7 @@ def db_check(args_str=''):
     db_checker.check_zk_mode_and_node_count()
     db_checker.check_cassandra_keyspace_replication()
     db_checker.check_obj_mandatory_fields()
-    db_checker.check_fq_name_uuid_ifmap_match()
+    db_checker.check_fq_name_uuid_match()
     db_checker.check_subnet_uuid()
     db_checker.check_subnet_addr_alloc()
     db_checker.check_route_targets_id()
