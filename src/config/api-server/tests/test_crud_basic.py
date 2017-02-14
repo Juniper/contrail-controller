@@ -39,7 +39,6 @@ import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
 from cfgm_common import vnc_plugin_base
-from cfgm_common import imid
 from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
 vnc_cgitb.enable(format='text')
@@ -281,7 +280,7 @@ class TestCrud(test_case.ApiServerTestCase):
     def test_create_using_lib_api(self):
         vn_obj = VirtualNetwork('vn-%s' %(self.id()))
         self._vnc_lib.virtual_network_create(vn_obj)
-        self.assert_ifmap_has_ident(vn_obj)
+        self.assert_vnc_db_has_ident(vn_obj)
     # end test_create_using_lib_api
 
     def test_create_using_rest_api(self):
@@ -624,7 +623,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 self.assertTill(lambda: publish_captured[0] == True)
             # unpatch err publish
 
-            self.assert_ifmap_has_ident(obj)
+            self.assert_vnc_db_has_ident(obj)
         # end exception types on publish
 
         # fake problem on consume from rabbit
@@ -657,10 +656,10 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 self.assertTill(lambda: consume_captured[0] == True)
             # unpatch err consume
 
-            self.assertTill(self.ifmap_ident_has_link, obj=obj,
-                            link_name='display-name')
-            self.assertTill(lambda: 'test_update' in self.ifmap_ident_has_link(
-                                obj=obj, link_name='display-name')['meta'])
+            self.assertTill(self.vnc_db_ident_has_link, obj=obj,
+                            link_name='display_name')
+            self.assertTill(lambda:'test_update' == self.vnc_db_ident_has_link(
+                            obj=obj, link_name='display_name'))
         # end exception types on consume
 
         # fake problem on consume and publish at same time
@@ -737,10 +736,10 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
             # unpatch connect
         # unpatch err consume
 
-        self.assertTill(self.ifmap_ident_has_link, obj=obj,
-                        link_name='display-name')
-        self.assertTill(lambda: 'test_update_2' in self.ifmap_ident_has_link(
-                            obj=obj, link_name='display-name')['meta'])
+        self.assertTill(self.vnc_db_ident_has_link, obj=obj,
+                        link_name='display_name')
+        self.assertTill(lambda: 'test_update_2' == self.vnc_db_ident_has_link(
+                            obj=obj, link_name='display_name'))
     # end test_reconnect_to_rabbit
 
     def test_handle_trap_on_exception(self):
@@ -777,7 +776,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         api_server = self._server_info['api_server']
         # the test
         test_obj = self._create_test_object()
-        self.assert_ifmap_has_ident(test_obj)
+        self.assert_vnc_db_has_ident(test_obj)
         self._vnc_lib.virtual_network_delete(id=test_obj.uuid)
 
         # and validations
@@ -939,40 +938,6 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     instance_ip_address=ip_allocated,
                     virtual_network_refs=[vn_fixt.getObj()]))
     # end test_aliasip_as_instanceip
-
-    def test_name_with_reserved_xml_char(self, port = '8443'):
-        self.skipTest("Skipping test_name_with_reserved_xml_char")
-        vn_name = self.id()+'-&vn<1>"2\''
-        vn_obj = VirtualNetwork(vn_name)
-        # fq_name, fq_name_str has non-escape val, ifmap-id has escaped val
-        ifmap_id = cfgm_common.imid.get_ifmap_id_from_fq_name(vn_obj.get_type(),
-                       vn_obj.get_fq_name())
-        self.assertIsNot(re.search("&amp;vn&lt;1&gt;&quot;2&apos;", ifmap_id), None)
-        fq_name_str = cfgm_common.imid.get_fq_name_str_from_ifmap_id(ifmap_id)
-        self.assertIsNone(re.search("&amp;vn&lt;1&gt;&quot;2&apos;", fq_name_str))
-
-        self._add_detail('Creating network with name %s expecting success' %(vn_name))
-        self._vnc_lib.virtual_network_create(vn_obj)
-        self.assertTill(self.ifmap_has_ident, obj=vn_obj)
-        ident_str = self.ifmap_has_ident(obj=vn_obj)['ident']
-        mch = re.search("&amp;vn&lt;1&gt;&quot;2&apos;", ident_str)
-        self.assertIsNot(mch, None)
-        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-
-        vn_name = self.id()+'-vn'
-        vn_obj = VirtualNetwork(vn_name)
-        self._add_detail('Creating network with name %s expecting success' %(vn_name))
-        self._vnc_lib.virtual_network_create(vn_obj)
-        self.assert_ifmap_has_ident(vn_obj)
-        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-
-        rt_name = self.id()+'-route-target:1'
-        rt_obj = RouteTarget(rt_name)
-        self._add_detail('Creating network with name %s expecting success' %(rt_name))
-        self._vnc_lib.route_target_create(rt_obj)
-        self.assert_ifmap_has_ident(vn_obj)
-        self._vnc_lib.route_target_delete(id=rt_obj.uuid)
-    # end test_name_with_reserved_xml_char
 
     def test_list_lib_api(self):
         num_objs = 5
@@ -1650,7 +1615,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
     def test_uve_trace_delete_name_from_msg(self):
         test_obj = self._create_test_object()
-        self.assert_ifmap_has_ident(test_obj)
+        self.assert_vnc_db_has_ident(test_obj)
         db_client = self._api_server._db_conn
 
         uve_delete_trace_invoked = []
@@ -1671,7 +1636,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         with test_common.patch(db_client,
             'dbe_uve_trace', spy_uve_trace):
             self._delete_test_object(test_obj)
-            self.assert_ifmap_doesnt_have_ident(test_obj)
+            self.assert_vnc_db_doesnt_have_ident(test_obj)
             self.assertEqual(len(uve_delete_trace_invoked), 1,
                 'uve_trace not invoked on object delete')
             self.assertEqual(len(uuid_to_fq_name_on_delete_invoked), 0,
@@ -3294,10 +3259,6 @@ class TestDBAudit(test_case.ApiServerTestCase):
         super(TestDBAudit, cls).tearDownClass(*args, **kwargs)
     # end tearDownClass
 
-    def setUp(self):
-        super(TestDBAudit, self).setUp()
-        self._args = '--ifmap-servers %s:%s' % (self._api_server_ip,
-                                                self._api_ifmap_port)
     @contextlib.contextmanager
     def audit_mocks(self):
         def fake_ks_prop(*args, **kwargs):
@@ -3333,8 +3294,8 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
-            self.assertTill(self.ifmap_has_ident, obj=test_obj)
-            db_manage.db_check(self._args)
+            self.assertTill(self.vnc_db_has_ident, obj=test_obj)
+            db_manage.db_check()
     # end test_checker
 
     def test_checker_missing_mandatory_fields(self):
@@ -3362,7 +3323,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
-            self.assert_ifmap_has_ident(test_obj)
+            self.assert_vnc_db_has_ident(test_obj)
 
             uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid', 'obj_uuid_table')
             orig_col_val_ts = uuid_cf.get(test_obj.uuid,
@@ -3372,8 +3333,8 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 wrong_col_val_ts['fq_name'][1])
             with uuid_cf.patch_row(
                 test_obj.uuid, wrong_col_val_ts):
-                db_checker = db_manage.DatabaseChecker(self._args)
-                errors = db_checker.check_fq_name_uuid_ifmap_match()
+                db_checker = db_manage.DatabaseChecker()
+                errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNMismatchError, error_types)
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
@@ -3388,8 +3349,8 @@ class TestDBAudit(test_case.ApiServerTestCase):
             uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             fq_name_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_fq_name_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
-                db_checker = db_manage.DatabaseChecker(self._args)
-                errors = db_checker.check_fq_name_uuid_ifmap_match()
+                db_checker = db_manage.DatabaseChecker()
+                errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
     # test_checker_fq_name_mismatch_stale
@@ -3399,7 +3360,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
-            self.assert_ifmap_has_ident(test_obj)
+            self.assert_vnc_db_has_ident(test_obj)
             uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             fq_name_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_fq_name_table')
             test_obj_type = test_obj.get_type().replace('-', '_')
@@ -3409,8 +3370,8 @@ class TestDBAudit(test_case.ApiServerTestCase):
             wrong_col_val_ts = dict((k,v) for k,v in orig_col_val_ts.items()
                 if ':'.join(test_obj.fq_name) not in k)
             with fq_name_cf.patch_row(test_obj_type, new_columns=wrong_col_val_ts):
-                db_checker = db_manage.DatabaseChecker(self._args)
-                errors = db_checker.check_fq_name_uuid_ifmap_match()
+                db_checker = db_manage.DatabaseChecker()
+                errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
     # test_checker_fq_name_mismatch_missing
@@ -3420,19 +3381,18 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
-            self.assert_ifmap_has_ident(test_obj)
+            self.assert_vnc_db_has_ident(test_obj)
 
             uuid_cf = test_common.CassandraCFs.get_cf('config_db_uuid','obj_uuid_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
-                db_checker = db_manage.DatabaseChecker(self._args)
-                errors = db_checker.check_fq_name_uuid_ifmap_match()
+                db_checker = db_manage.DatabaseChecker()
+                errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
-                self.assertIn(db_manage.IfmapExtraIdentifiersError, error_types)
     # test_checker_ifmap_identifier_extra
 
     def test_checker_ifmap_identifier_missing(self):
-        # ifmap has doesn't have an identifier but obj_uuid table
+        # ifmap doesn't have an identifier but obj_uuid table
         # in cassandra does
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
@@ -3441,11 +3401,10 @@ class TestDBAudit(test_case.ApiServerTestCase):
                     new_columns={'type': json.dumps(''),
                                  'fq_name':json.dumps(''),
                                  'prop:id_perms':json.dumps('')}):
-                db_checker = db_manage.DatabaseChecker(self._args)
-                errors = db_checker.check_fq_name_uuid_ifmap_match()
+                db_checker = db_manage.DatabaseChecker()
+                errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
-                self.assertIn(db_manage.IfmapMissingIdentifiersError, error_types)
     # test_checker_ifmap_identifier_missing
 
     def test_checker_useragent_subnet_key_missing(self):
