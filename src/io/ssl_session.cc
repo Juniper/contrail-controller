@@ -86,8 +86,11 @@ Task* SslSession::CreateReaderTask(mutable_buffer buffer,
 
 
 TcpSession::Socket *SslSession::socket() const {
-    // return tcp socket
-    return &ssl_socket_->next_layer();
+    if (ssl_socket_) {
+        // return tcp socket
+        return &ssl_socket_->next_layer();
+    }
+    return NULL;
 }
 
 // Register for data read notification from the tcp socket or from the ssl

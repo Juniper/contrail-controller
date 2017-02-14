@@ -490,6 +490,90 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert analytics.verify_collector_gen(analytics.collectors[0])
     # end test_12_verify_message_non_ascii
 
+    #@unittest.skip('verify sandesh ssl')
+    def test_13_verify_sandesh_ssl(self):
+        '''
+        This test enables sandesh ssl on contrail-collector and all the
+        analytics generators in the AnalyticsFixture and verifies that the
+        secure sandesh connection is established between the Collector and all
+        the Generators.
+        '''
+        logging.info('%%% test_13_verify_sandesh_ssl %%%')
+        sandesh_cfg = {
+            'sandesh_keyfile': builddir+'/opserver/test/data/ssl/server-privkey.pem',
+            'sandesh_certfile': builddir+'/opserver/test/data/ssl/server.pem',
+            'sandesh_ca_cert': builddir+'/opserver/test/data/ssl/ca-cert.pem',
+            'sandesh_ssl_enable': 'True'
+        }
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port,
+                             sandesh_config=sandesh_cfg))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+
+        source = socket.gethostname()
+        exp_genlist = [
+            source+':Analytics:contrail-collector:0',
+            source+':Analytics:contrail-analytics-api:0',
+            source+':Analytics:contrail-query-engine:0'
+        ]
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors,
+                                              exp_genlist)
+
+        # start a python generator without enabling sandesh ssl
+        # and verify that it is not connected to the Collector.
+        test_gen1 = self.useFixture(
+            GeneratorFixture("contrail-test-generator1",
+                vizd_obj.get_collectors(), logging,
+                vizd_obj.get_opserver_port()))
+        assert not test_gen1.verify_on_setup()
+
+        # start a python generator with sandesh_ssl_enable = True
+        # and verify that it is connected to the Collector.
+        test_gen2 = self.useFixture(
+            GeneratorFixture("contrail-test-generator2",
+                vizd_obj.get_collectors(), logging,
+                vizd_obj.get_opserver_port(), sandesh_config=sandesh_cfg))
+        assert test_gen2.verify_on_setup()
+
+        # stop QE and verify the generator list
+        vizd_obj.query_engine.stop()
+        exp_genlist = [
+            source+':Analytics:contrail-collector:0',
+            source+':Analytics:contrail-analytics-api:0',
+            source+':Test:contrail-test-generator2:0'
+        ]
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors,
+                                              exp_genlist)
+
+        # Start QE with sandesh_ssl_enable = False and verify that the
+        # QE is not connected to the Collector
+        vizd_obj.query_engine.set_sandesh_config(None)
+        vizd_obj.query_engine.start()
+        assert not vizd_obj.verify_generator_collector_connection(
+            vizd_obj.query_engine.http_port)
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors,
+                                              exp_genlist)
+
+        # Restart Collector with sandesh_ssl_enable = False and verify the
+        # generator list in the Collector.
+        vizd_obj.collectors[0].stop()
+        vizd_obj.collectors[0].set_sandesh_config(None)
+        vizd_obj.collectors[0].start()
+        assert not vizd_obj.verify_generator_collector_connection(
+            test_gen2._http_port)
+        assert not vizd_obj.verify_generator_collector_connection(
+            vizd_obj.opserver.http_port)
+        exp_genlist = [
+            source+':Analytics:contrail-collector:0',
+            source+':Analytics:contrail-query-engine:0',
+            source+':Test:contrail-test-generator1:0'
+        ]
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors,
+                                              exp_genlist)
+    # end test_13_verify_sandesh_ssl
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

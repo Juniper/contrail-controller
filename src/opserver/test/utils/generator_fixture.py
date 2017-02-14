@@ -38,8 +38,10 @@ class GeneratorFixture(fixtures.Fixture):
     _KSECINMSEC = 1000 * 1000
     _VN_PREFIX = 'default-domain:vn'
 
-    def __init__(self, name, collectors, logger,
-                 opserver_port, start_time=None, node_type="Test", hostname=socket.gethostname(), inst = "0"):
+    def __init__(self, name, collectors, logger, opserver_port,
+                 start_time=None, node_type="Test",
+                 hostname=socket.gethostname(), inst = "0",
+                 sandesh_config=None):
         self._hostname = hostname
         self._name = name
         self._logger = logger
@@ -49,6 +51,14 @@ class GeneratorFixture(fixtures.Fixture):
         self._node_type = node_type
         self._inst = inst
         self._generator_id = self._hostname+':'+self._node_type+':'+self._name+':' + self._inst
+        if sandesh_config:
+            self._sandesh_config = SandeshConfig(
+                sandesh_config.get('sandesh_keyfile'),
+                sandesh_config.get('sandesh_certfile'),
+                sandesh_config.get('sandesh_ca_cert'),
+                sandesh_config.get('sandesh_ssl_enable'))
+        else:
+            self._sandesh_config = None
         self.flow_vmi_uuid = str(uuid.uuid1())
     # end __init__
 
@@ -59,8 +69,9 @@ class GeneratorFixture(fixtures.Fixture):
         sandesh_pkg = ['opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base',
                        'sandesh']
         self._sandesh_instance.init_generator(
-            self._name, self._hostname, self._node_type, self._inst, self._collectors,
-            '', self._http_port, sandesh_req_uve_pkg_list=sandesh_pkg)
+            self._name, self._hostname, self._node_type, self._inst,
+            self._collectors, '', self._http_port,
+            sandesh_req_uve_pkg_list=sandesh_pkg, config=self._sandesh_config)
         self._sandesh_instance.set_logging_params(enable_local_log=True,
                                                   level=SandeshLevel.UT_DEBUG)
     # end setUp

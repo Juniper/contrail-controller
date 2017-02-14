@@ -65,8 +65,9 @@ const std::vector<Sandesh::QueueWaterMarkInfo> Collector::kSmQueueWaterMarkInfo 
         (Collector::kQSizeLowWaterMark, SandeshLevel::INVALID, false, true);
 
 Collector::Collector(EventManager *evm, short server_port,
-        DbHandlerPtr db_handler, OpServerProxy *osp, VizCallback cb) :
-        SandeshServer(evm),
+        const SandeshConfig &sandesh_config, DbHandlerPtr db_handler,
+        OpServerProxy *osp, VizCallback cb) :
+        SandeshServer(evm, sandesh_config),
         db_handler_(db_handler),
         osp_(osp),
         evm_(evm),
@@ -176,8 +177,7 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
     }
 }
 
-
-TcpSession* Collector::AllocSession(Socket *socket) {
+SslSession* Collector::AllocSession(SslSocket *socket) {
     VizSession *session = new VizSession(this, socket, AllocConnectionIndex(),
                                          session_writer_task_id(),
                                          session_reader_task_id());
