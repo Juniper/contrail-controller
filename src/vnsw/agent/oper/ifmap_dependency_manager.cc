@@ -698,6 +698,24 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-qos-config",
                           "qos-config", true));
+
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-bridge-domain",
+                               "virtual-machine-interface-bridge-domain",
+                               true,
+                               "virtual-machine-interface-bridge-domain",
+                               "bridge-domain", true,
+                               "virtual-network-bridge-domain",
+                               "virtual-network", true));
+    //Above rule should suffice for VMI to act on bridge domain
+    //"virtual-machine-interface-bridge-domain" link is used to
+    //link both VMI and bridge domain, so this link could notify
+    //bridge-domain which doesnt have any reaction list as bridge-domain
+    //is not intererested in "virtual-machine-interface-bridge-domain".
+    //VMI ---> VMI-BD Link ---> VMI-BD node ----> VMI-BD link ---> BD
+    //Note that link name is same in above graph
+    //Add the below dummy rule so that VMI-BD link triggers
+    //bridge-domain evaluation its ignored and avoids assert
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-bridge-domain",
                                "virtual-machine-interface-bridge-domain",

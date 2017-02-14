@@ -306,6 +306,8 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
             vrf_flags += "Config; ";
         if (flags() & VrfData::GwVrf)
             vrf_flags += "Gateway; ";
+        if (flags() & VrfData::PbbVrf)
+            vrf_flags += "PBB C-Vrf";
         data.set_source(vrf_flags);
         if (vn_.get()) {
             data.set_vn(vn_->GetName());
@@ -498,6 +500,11 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 
     if (vrf->learning_enabled_ != data->learning_enabled_) {
         vrf->learning_enabled_ = data->learning_enabled_;
+        ret = true;
+    }
+
+    if (vrf->isid_ != data->isid_) {
+        vrf->isid_ = data->isid_;
         ret = true;
     }
 

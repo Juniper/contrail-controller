@@ -2491,6 +2491,19 @@ trace sandesh OperSg {
 }
 
 /**
+ * @description: Trace message for BridgeDomain
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh OperBridgeDomain {
+    /** Message for bridge-domain db entry */
+    1: string message;
+    /** Uuid of bridge-domain db entry */
+    2: string uuid;
+    /** ISID of bridge-domain db entry */
+    3: i32 isid;
+}
+/**
  * Structure definition for PhysicalDevice
  */
 struct SandeshDevice {

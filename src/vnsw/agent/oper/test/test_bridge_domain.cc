@@ -60,6 +60,7 @@ protected:
     Agent *agent;
 };
 
+//Test creation and deletion of bridge-domain
 TEST_F(BridgeDomainTest, Test1) {
     AddBridgeDomain("bridge1", 1, 1);
     client->WaitForIdle();
@@ -68,6 +69,8 @@ TEST_F(BridgeDomainTest, Test1) {
     EXPECT_TRUE(agent->bridge_domain_table()->Size() == 0);
 }
 
+//Check if VRF for PBB gets created upon creating
+//the link from BD-->VN -->VRF
 TEST_F(BridgeDomainTest, Test2) {
     AddBridgeDomain("bridge1", 1, 1);
     client->WaitForIdle();
@@ -84,7 +87,8 @@ TEST_F(BridgeDomainTest, Test2) {
     client->WaitForIdle();
 
     EXPECT_TRUE(bd->vrf() != NULL);
-    EXPECT_TRUE(bd->vrf()->GetName() == "vrf1:1");
+    EXPECT_TRUE(bd->vrf()->GetName() ==
+                "vrf1:00000000-0000-0000-0000-000000000001");
     EXPECT_TRUE(bd->vrf()->IsPbbVrf() == true);
     EXPECT_TRUE(bd->vrf()->bmac_vrf_name() == "vrf1");
     EXPECT_TRUE(bd->vrf()->table_label() != MplsTable::kInvalidLabel);
@@ -98,10 +102,12 @@ TEST_F(BridgeDomainTest, Test2) {
 
     bd = BridgeDomainGet(1);
     EXPECT_TRUE(bd == NULL);
-    EXPECT_FALSE(VrfFind("vrf1:1", true));
+    EXPECT_FALSE(VrfFind("vrf1:00000000-0000-0000-0000-000000000001", true));
     EXPECT_FALSE(VrfFind("vrf1", true));
 }
 
+//Check if learning flag on bridge-domain
+//changes upon config change
 TEST_F(BridgeDomainTest, Test3) {
     AddBridgeDomain("bridge1", 1, 1, false);
     client->WaitForIdle();
@@ -122,6 +128,8 @@ TEST_F(BridgeDomainTest, Test3) {
     client->WaitForIdle();
 }
 
+//Verify that learning flag changes on
+//VRF NH when learning is change on bridge-domain
 TEST_F(BridgeDomainTest, Test4) {
     AddBridgeDomain("bridge1", 1, 1, false);
     AddVn("vn1", 1, true);
@@ -150,6 +158,9 @@ TEST_F(BridgeDomainTest, Test4) {
     client->WaitForIdle();
 }
 
+//Verfify interface bridge domain
+//gets updated upon creating below link
+//VMI--VMI_BD--BD--VN--VRF
 TEST_F(BridgeDomainTest, Test5) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
@@ -181,7 +192,7 @@ TEST_F(BridgeDomainTest, Test5) {
     const VmInterface *vm_intf = static_cast<const VmInterface *>(
             VmPortGet(1));
     EXPECT_TRUE(vm_intf->pbb_interface());
-    const VrfEntry *vrf = VrfGet("vrf1:1");
+    const VrfEntry *vrf = VrfGet("vrf1:00000000-0000-0000-0000-000000000001");
     EXPECT_TRUE(vm_intf->GetPbbVrf() == vrf->vrf_id());
     EXPECT_TRUE(vm_intf->GetIsid() == 1);
     EXPECT_TRUE(vm_intf->flow_key_nh()->learning_enabled() == false);
@@ -210,9 +221,10 @@ TEST_F(BridgeDomainTest, Test5) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 
-    EXPECT_FALSE(VrfFind("vrf1:1", true));
+    EXPECT_FALSE(VrfFind("vrf1:00000000-0000-0000-0000-000000000001", true));
 }
 
+//Verify PBB flag update on bridge-domain
 TEST_F(BridgeDomainTest, Test6) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}

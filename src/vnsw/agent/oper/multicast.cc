@@ -231,7 +231,7 @@ MulticastDBState*
 MulticastHandler::CreateBridgeDomainMG(DBTablePartBase *partition,
                                             BridgeDomainEntry *bd) {
     MulticastDBState *state = new MulticastDBState(bd->vrf()->GetName(),
-                                                   0);
+                                                   bd->isid());
 
     MulticastGroupObject *obj = FindFloodGroupObject(bd->vrf()->GetName());
     if (obj == NULL) {
@@ -244,6 +244,8 @@ MulticastHandler::CreateBridgeDomainMG(DBTablePartBase *partition,
                             state->vxlan_id_);
     }
 
+    obj->set_bridge_domain(bd);
+    obj->set_vxlan_id(bd->isid());
     bd->SetState(partition->parent(), bridge_domain_id_, state);
     return state;
 }
@@ -257,6 +259,10 @@ void MulticastHandler::AddBridgeDomain(DBTablePartBase *partition,
 
     if (e->IsDeleted() || bd->vrf() == NULL || bd->vn() == NULL) {
         if (state) {
+            MulticastGroupObject *obj =
+                FindFloodGroupObject(bd->vrf()->GetName());
+            assert(obj);
+            obj->reset_bridge_domain();
             bd->ClearState(partition->parent(), bridge_domain_id_);
             DeleteBroadcast(agent_->local_vm_peer(),
                             state->vrf_name_, 0, Composite::L2INTERFACE);
@@ -274,6 +280,12 @@ void MulticastHandler::AddBridgeDomain(DBTablePartBase *partition,
     if (obj == NULL) {
         obj = CreateMulticastGroupObject(state->vrf_name_, kBroadcast,
                                          bd->vn(), state->vxlan_id_);
+    }
+
+    if (state->vxlan_id_ != bd->isid()) {
+        state->vxlan_id_ = bd->isid();
+        obj->set_vxlan_id(state->vxlan_id_);
+        Resync(obj);
     }
 
     if (state->learning_enabled_ != bd->learning_enabled()) {
@@ -313,9 +325,21 @@ void MulticastHandler::ChangePbbEtreeMode(MulticastGroupObject *obj,
 }
 
 bool MulticastGroupObject::CanBeDeleted() const {
-    if ((local_olist_.size() == 0) && (vn_.get() == NULL))
+    if ((local_olist_.size() == 0) && (vn_.get() == NULL) &&
+         bridge_domain_.get() == NULL)
         return true;
     return false;
+}
+
+MulticastGroupObject*
+MulticastGroupObject::GetDependentMG(uint32_t isid) {
+    for (MGList::iterator it = mg_list_.begin();
+        it != mg_list_.end(); it++) {
+        if (it->vxlan_id_ == isid) {
+            return it.operator->();
+        }
+    }
+    return NULL;
 }
 
 MulticastGroupObject*
@@ -877,15 +901,10 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
     std::string derived_vrf_name = vrf_name;
 
     if (ethernet_tag) {
-        std::stringstream str;
-        str << vrf_name << ":" << ethernet_tag;
-
-        VrfKey key(str.str());
-        VrfEntry *vrf = static_cast<VrfEntry *>(agent_->vrf_table()->
-                                           Find(&key, true));
-        if (vrf && vrf->isid() == ethernet_tag) {
-            derived_vrf_name = str.str();
-            obj = FindActiveGroupObject(derived_vrf_name, grp);
+        MulticastGroupObject *dependent_mg =
+            obj->GetDependentMG(ethernet_tag);
+        if (dependent_mg) {
+            obj = dependent_mg;
         }
     }
 

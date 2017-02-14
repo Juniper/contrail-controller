@@ -81,7 +81,7 @@ bool BridgeDomainEntry::DBEntrySandesh(Sandesh *sresp,
 
 void BridgeDomainEntry::UpdateVrf(const BridgeDomainData *data) {
     std::ostringstream str;
-    str << data->bmac_vrf_name_ << ":" << isid_;
+    str << data->bmac_vrf_name_ << ":" << UuidToString(uuid_);
 
     bmac_vrf_name_ = data->bmac_vrf_name_;
 
@@ -110,43 +110,47 @@ void BridgeDomainEntry::UpdateVrf(const BridgeDomainData *data) {
     layer2_control_word_ = vn_->layer2_control_word();
 }
 
-bool BridgeDomainEntry::Change(const BridgeDomainData *data) {
+bool BridgeDomainEntry::Change(const BridgeDomainTable *table,
+                               const BridgeDomainData *data) {
     bool ret = false;
+    bool update_vrf = false;
+
+    name_ = data->name_;
     VnEntry *vn = table_->agent()->vn_table()->Find(data->vn_uuid_);
     if (vn_ != vn) {
         vn_ = vn;
+        update_vrf = true;
         ret = true;
     }
 
-    if (isid_ == 0 && data->isid_ && isid_ != data->isid_) {
+    if (data->isid_ && isid_ != data->isid_) {
         isid_ = data->isid_;
+        update_vrf = true;
         ret = true;
     }
 
     if (isid_ == 0) {
+        OPER_TRACE_ENTRY(BridgeDomain, table,
+                         "Ignoring bridge-domain update with ISID 0",
+                         UuidToString(uuid_), isid_);
         return ret;
     }
 
-    if (vn_ && data->bmac_vrf_name_ != Agent::NullString()) {
-        std::ostringstream str;
-        str << data->bmac_vrf_name_ << ":" << isid_;
-
-        if (vrf_.get() == NULL ||
-            mac_aging_time_ != data->mac_aging_time_ ||
-            learning_enabled_ != data->learning_enabled_ ||
-            layer2_control_word_ != vn->layer2_control_word()) {
-            UpdateVrf(data);
-            ret = true;
-        }
+    if (mac_aging_time_ != data->mac_aging_time_) {
+        mac_aging_time_ = data->mac_aging_time_;
+        update_vrf = true;
+        ret = true;
     }
 
     if (learning_enabled_ != data->learning_enabled_) {
         learning_enabled_ = data->learning_enabled_;
-        if (vrf_.get() && vn_.get()) {
-            vrf_->CreateTableLabel(learning_enabled_, true,
-                                   vn->flood_unknown_unicast(),
-                                   vn->layer2_control_word());
-        }
+        update_vrf = true;
+        ret = true;
+    }
+
+    if (vn && layer2_control_word_ != vn->layer2_control_word()) {
+        layer2_control_word_ = vn->layer2_control_word();
+        update_vrf = true;
         ret = true;
     }
 
@@ -155,10 +159,25 @@ bool BridgeDomainEntry::Change(const BridgeDomainData *data) {
         ret = true;
     }
 
+    if (bmac_vrf_name_ != data->bmac_vrf_name_) {
+        bmac_vrf_name_ = data->bmac_vrf_name_;
+        update_vrf = true;
+        ret = true;
+    }
+
+    if (vn_ && data->bmac_vrf_name_ != Agent::NullString() && update_vrf) {
+        OPER_TRACE_ENTRY(BridgeDomain, table, "Creating C-VRF",
+                         UuidToString(uuid_), isid_);
+        UpdateVrf(data);
+    }
+
     return ret;
 }
 
 void BridgeDomainEntry::Delete() {
+    BridgeDomainTable *table = static_cast<BridgeDomainTable *>(get_table());
+    OPER_TRACE_ENTRY(BridgeDomain, table, "Deleting bridge-domain",
+                     UuidToString(uuid_), isid_);
     if (vrf_.get()) {
         table_->agent()->vrf_table()->DeleteVrf(vrf_->GetName(),
                                                 VrfData::PbbVrf);
@@ -192,14 +211,14 @@ DBEntry *BridgeDomainTable::OperDBAdd(const DBRequest *req) {
     BridgeDomainKey *key = static_cast<BridgeDomainKey *>(req->key.get());
     BridgeDomainData *data = static_cast<BridgeDomainData *>(req->data.get());
     BridgeDomainEntry *bd = new BridgeDomainEntry(this, key->uuid_);
-    bd->Change(data);
+    bd->Change(this, data);
     return bd;
 }
 
 bool BridgeDomainTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     BridgeDomainEntry *bd = static_cast<BridgeDomainEntry *>(entry);
     BridgeDomainData *data = dynamic_cast<BridgeDomainData *>(req->data.get());
-    bool ret = bd->Change(data);
+    bool ret = bd->Change(this, data);
     return ret;
 }
 
@@ -266,6 +285,7 @@ static BridgeDomainData *BuildData(Agent *agent, IFMapNode *node,
         }
     }
 
+    bdd->name_ = node->name();
     bdd->isid_ = bd->isid();
     bdd->vn_uuid_ = vn_uuid;
     bdd->learning_enabled_ = bd->mac_learning_enabled();
