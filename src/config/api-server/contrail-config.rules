@@ -1,6 +1,2 @@
-{ "Rules": [
-    {"processname": "contrail-api", "process_state": "PROCESS_STATE_STOPPED", "action": "sudo service ifmap restart"},
-    {"processname": "contrail-api", "process_state": "PROCESS_STATE_EXITED", "action": "sudo service ifmap restart"},
-    {"processname": "contrail-api", "process_state": "PROCESS_STATE_FATAL", "action": "sudo service ifmap restart"}
-     ]
+{ "Rules": [ ]
 }

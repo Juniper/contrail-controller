@@ -1,4 +1,5 @@
 ipdb
+lxml>=2.3.3
 python-subunit
 testrepository
 flexmock

@@ -34,7 +34,6 @@ import uuid
 import copy
 from pprint import pformat
 from cStringIO import StringIO
-from lxml import etree
 # import GreenletProfiler
 
 from cfgm_common import vnc_cgitb
@@ -69,14 +68,13 @@ import vnc_cfg_types
 from vnc_db import VncDbClient
 
 import cfgm_common
-from cfgm_common import ignore_exceptions, imid
+from cfgm_common import ignore_exceptions
 from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
     VncApiDebug, VncApiInfo, VncApiNotice, VncApiError
 from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
-    NodeTypeNames, INSTANCE_ID_DEFAULT, API_SERVER_DISCOVERY_SERVICE_NAME,\
-    IFMAP_SERVER_DISCOVERY_SERVICE_NAME
+    NodeTypeNames, INSTANCE_ID_DEFAULT, API_SERVER_DISCOVERY_SERVICE_NAME
 
 from provision_defaults import Provision
 from vnc_quota import *
@@ -111,7 +109,6 @@ from sandesh.discovery_client_stats import ttypes as sandesh
 from sandesh.traces.ttypes import RestApiTrace
 from vnc_bottle import get_bottle_server
 from cfgm_common.vnc_greenlets import VncGreenlet
-from vnc_ifmap import VncIfmapServer
 
 _ACTION_RESOURCES = [
     {'uri': '/prop-collection-get', 'link_name': 'prop-collection-get',
@@ -126,9 +123,6 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'fq_name_to_id_http_post'},
     {'uri': '/id-to-fqname', 'link_name': 'id-to-name',
      'method': 'POST', 'method_name': 'id_to_fq_name_http_post'},
-    # ifmap-to-id only for ifmap subcribers using rest for publish
-    {'uri': '/ifmap-to-id', 'link_name': 'ifmap-to-id',
-     'method': 'POST', 'method_name': 'ifmap_to_id_http_post'},
     {'uri': '/useragent-kv', 'link_name': 'useragent-keyvalue',
      'method': 'POST', 'method_name': 'useragent_kv_http_post'},
     {'uri': '/db-check', 'link_name': 'database-check',
@@ -934,22 +928,15 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(404, result)
 
         # common handling for all resource delete
-        parent_obj_type = read_result.get('parent_type')
+        parent_uuid = read_result.get('parent_uuid')
         (ok, del_result) = self._delete_common(
-            get_request(), obj_type, id, parent_obj_type)
+            get_request(), obj_type, id, parent_uuid)
         if not ok:
             (code, msg) = del_result
             self.config_object_error(id, None, obj_type, 'http_delete', msg)
             raise cfgm_common.exceptions.HttpError(code, msg)
 
         fq_name = read_result['fq_name']
-        ifmap_id = imid.get_ifmap_id_from_fq_name(resource_type, fq_name)
-        obj_ids['imid'] = ifmap_id
-        if parent_obj_type:
-            parent_res_type, _ = self._validate_resource_type(parent_obj_type)
-            parent_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
-                parent_res_type, fq_name[:-1])
-            obj_ids['parent_imid'] = parent_imid
 
         # fail if non-default children or non-derived backrefs exist
         default_names = {}
@@ -1487,7 +1474,6 @@ class VncApiServer(object):
         self._sandesh.trace_buffer_create(name="DBUVERequestTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
-        self._sandesh.trace_buffer_create(name="IfmapTraceBuf", size=1000)
 
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
@@ -1513,12 +1499,6 @@ class VncApiServer(object):
         else:
             self._db_connect(self._args.reset_config)
             self._db_init_entries()
-
-        if (self._args.ifmap_listen_ip is not None and
-                self._args.ifmap_listen_port is not None):
-            # As DB are synced, we can serve the custom IF-MAP server
-            self._vnc_ifmap_server = VncIfmapServer(self, self._args)
-            gevent.spawn(self._vnc_ifmap_server.run_server)
 
         # API/Permissions check
         # after db init (uses db_conn)
@@ -1768,10 +1748,6 @@ class VncApiServer(object):
     def get_pipe_start_app(self):
         return self._pipe_start_app
     # end get_pipe_start_app
-
-    def get_ifmap_health_check_interval(self):
-        return float(self._args.ifmap_health_check_interval)
-    # end get_ifmap_health_check_interval
 
     def get_rabbit_health_check_interval(self):
         return float(self._args.rabbit_health_check_interval)
@@ -2486,12 +2462,6 @@ class VncApiServer(object):
         return {'fq_name': fq_name, 'type': res_type}
     # end id_to_fq_name_http_post
 
-    def ifmap_to_id_http_post(self):
-        self._post_common(get_request(), None, None)
-        uuid = self._db_conn.ifmap_id_to_uuid(get_request().json['ifmap_id'])
-        return {'uuid': uuid}
-    # end ifmap_to_id_http_post
-
     # Enables a user-agent to store and retrieve key-val pair
     # TODO this should be done only for special/quantum plugin
     def useragent_kv_http_post(self):
@@ -2622,11 +2592,7 @@ class VncApiServer(object):
     # Private Methods
     def _parse_args(self, args_str):
         '''
-        Eg. python vnc_cfg_api_server.py --ifmap_server_ip 192.168.1.17
-                                         --ifmap_server_port 8443
-                                         --ifmap_username test
-                                         --ifmap_password test
-                                         --cassandra_server_list
+        Eg. python vnc_cfg_api_server.py --cassandra_server_list
                                              10.1.2.3:9160 10.1.2.4:9160
                                          --redis_server_ip 127.0.0.1
                                          --redis_server_port 6382
@@ -2653,12 +2619,8 @@ class VncApiServer(object):
                                          --cluster_id <testbed-name>
                                          [--auth keystone]
                                          [--default_encoding ascii ]
-                                         --ifmap_health_check_interval 60
                                          --object_cache_size 10000
                                          --object_cache_exclude_types ''
-                                         --ifmap_listen_ip 0.0.0.0
-                                         --ifmap_listen_port 8443
-                                         --ifmap_credentials control:secret
         '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args
@@ -2718,10 +2680,6 @@ class VncApiServer(object):
     # end _load_extensions
 
     def _db_connect(self, reset_config):
-        ifmap_ip = self._args.ifmap_server_ip
-        ifmap_port = self._args.ifmap_server_port
-        user = self._args.ifmap_username
-        passwd = self._args.ifmap_password
         cass_server_list = self._args.cassandra_server_list
         redis_server_ip = self._args.redis_server_ip
         redis_server_port = self._args.redis_server_port
@@ -2760,13 +2718,10 @@ class VncApiServer(object):
                 cred = {'username': rdbms_user,'password': rdbms_password}
 
         self._db_conn = VncDbClient(
-            self, ifmap_ip, ifmap_port, user, passwd, db_server_list,
-            rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
-            rabbit_vhost, rabbit_ha_mode, reset_config, zk_server,
-            self._args.cluster_id,
-            db_credential=cred,
-            db_engine=db_engine,
-            rabbit_use_ssl=self._args.rabbit_use_ssl,
+            self, db_server_list, rabbit_servers, rabbit_port, rabbit_user,
+            rabbit_password, rabbit_vhost, rabbit_ha_mode, reset_config,
+            zk_server, self._args.cluster_id, db_credential=cred,
+            db_engine=db_engine, rabbit_use_ssl=self._args.rabbit_use_ssl,
             kombu_ssl_version=self._args.kombu_ssl_version,
             kombu_ssl_keyfile= self._args.kombu_ssl_keyfile,
             kombu_ssl_certfile=self._args.kombu_ssl_certfile,
@@ -3314,7 +3269,7 @@ class VncApiServer(object):
 
     # parent_type needed for perms check. None for derived objects (eg.
     # routing-instance)
-    def _http_delete_common(self, request, obj_type, uuid, parent_type):
+    def _http_delete_common(self, request, obj_type, uuid, parent_uuid):
         # If not connected to zookeeper do not allow operations that
         # causes the state change
         if not self._db_conn._zk_db.is_connected():
@@ -3339,22 +3294,15 @@ class VncApiServer(object):
         log.send(sandesh=self._sandesh)
 
         # TODO check api + resource perms etc.
-        if not self.is_multi_tenancy_set() or not parent_type:
+        if not self.is_multi_tenancy_set() or not parent_uuid:
             return (True, '')
 
         """
         Validate parent allows write access. Implicitly trust
         parent info in the object since coming from our DB.
         """
-        parent_fq_name = fq_name[:-1]
-        try:
-            parent_uuid = self._db_conn.fq_name_to_uuid(
-                parent_type, parent_fq_name)
-        except NoIdError:
-            # parent uuid could be null for derived resources such as
-            # routing-instance
-            return (True, '')
-        return self._permissions.check_perms_delete(request, obj_type, uuid, parent_uuid)
+        return self._permissions.check_perms_delete(request, obj_type, uuid,
+                                                    parent_uuid)
     # end _http_delete_common
 
     def _http_post_validate(self, obj_type=None, obj_dict=None):
@@ -3620,61 +3568,6 @@ class VncApiServer(object):
             pass
         return k_v
 
-    def publish_self_to_discovery(self):
-        # publish API server
-        data = {
-            'ip-address': self._args.ifmap_server_ip,
-            'port': self._args.listen_port,
-        }
-        if self._disc:
-            self.api_server_task = self._disc.publish(
-                API_SERVER_DISCOVERY_SERVICE_NAME, data)
-
-    def publish_ifmap_to_discovery(self, state = 'up', msg = ''):
-        # publish ifmap server
-        if (self._args.ifmap_listen_ip is not None and
-                self._args.ifmap_listen_port is not None):
-            data = {
-                'ip-address': self._args.ifmap_listen_ip,
-                'port': self._args.ifmap_listen_port,
-            }
-        else:
-            data = {
-                'ip-address': self._args.ifmap_server_ip,
-                'port': self._args.ifmap_server_port,
-            }
-        if self._disc:
-            self.ifmap_task = self._disc.publish(
-                                  IFMAP_SERVER_DISCOVERY_SERVICE_NAME,
-                                  data, state, msg)
-    # end publish_ifmap_to_discovery
-
-    def un_publish_self_to_discovery(self):
-        # un publish api server
-        data = {
-            'ip-address': self._args.ifmap_server_ip,
-            'port': self._args.listen_port,
-        }
-        if self._disc:
-            self._disc.un_publish(API_SERVER_DISCOVERY_SERVICE_NAME, data)
-
-    def un_publish_ifmap_to_discovery(self):
-        # un publish ifmap server
-        if (self._args.ifmap_listen_ip is not None and
-                self._args.ifmap_listen_port is not None):
-            data = {
-                'ip-address': self._args.ifmap_listen_ip,
-                'port': self._args.ifmap_listen_port,
-            }
-        else:
-            data = {
-                'ip-address': self._args.ifmap_server_ip,
-                'port': self._args.ifmap_server_port,
-            }
-        if self._disc:
-            self._disc.un_publish(IFMAP_SERVER_DISCOVERY_SERVICE_NAME, data)
-    # end un_publish_ifmap_to_discovery
-
 # end class VncApiServer
 
 def main(args_str=None, server=None):
@@ -3683,12 +3576,6 @@ def main(args_str=None, server=None):
     pipe_start_app = vnc_api_server.get_pipe_start_app()
     server_ip = vnc_api_server.get_listen_ip()
     server_port = vnc_api_server.get_server_port()
-
-    # Advertise services
-    if (vnc_api_server._args.disc_server_ip and
-            vnc_api_server._args.disc_server_port and
-            vnc_api_server.get_worker_id() == 0):
-        vnc_api_server.publish_self_to_discovery()
 
     """ @sigchld
     Disable handling of SIG_CHLD for now as every keystone request to validate
