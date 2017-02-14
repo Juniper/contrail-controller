@@ -4,8 +4,6 @@
 import gevent
 import os
 import sys
-import socket
-import errno
 import uuid
 import logging
 import coverage
@@ -15,20 +13,13 @@ import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains
 from testtools import content, content_type, ExpectedException
 import unittest
-import re
 import json
-import copy
-from lxml import etree
-import inspect
-import requests
-import stevedore
 import bottle
 
 from vnc_api.vnc_api import *
 import keystoneclient.exceptions as kc_exceptions
 import keystoneclient.v2_0.client as keystone
 from keystonemiddleware import auth_token
-from cfgm_common import rest, utils
 from cfgm_common.rbaclib import *
 import cfgm_common
 from cfgm_common import vnc_cgitb

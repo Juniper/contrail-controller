@@ -1085,12 +1085,12 @@ class VirtualNetworkST(DBBaseST):
     # end policy_to_acl_rule
 
     def add_acl_rule(self, sa, sp, da, dp, proto, rule_uuid, action, direction,
-                     service_ri = None):
+                     service_ri=None):
         action_list = copy.deepcopy(action)
         action_list.set_assign_routing_instance(service_ri)
         match = MatchConditionType(proto, sa, sp, da, dp)
         acl_direction_comp = self._manager._args.acl_direction_comp
-        if acl_direction_comp: 
+        if acl_direction_comp:
             acl = AclRuleType(match, action_list, rule_uuid, direction)
         else:
             acl = AclRuleType(match, action_list, rule_uuid)
@@ -1230,7 +1230,6 @@ class VirtualNetworkST(DBBaseST):
                 acl_list.append(acl)
                 acl_list.update_acl_entries(static_acl_entries)
             self.acl_rule_count = len(static_acl_entries.get_acl_rule())
-
 
         self.acl = _access_control_list_update(self.acl, self.obj.name,
                                                self.obj, static_acl_entries)
@@ -1931,7 +1930,7 @@ class RoutingInstanceST(DBBaseST):
             for connection in self.connections:
                 remote_ri_fq_name = connection.split(':')
                 if remote_ri_fq_name[-1] == remote_ri_fq_name[-2]:
-                    vn.connections.add(':'.join(remote_ri_fq_name[0:-1] ))
+                    vn.connections.add(':'.join(remote_ri_fq_name[0:-1]))
         vmi_refs = self.obj.get_virtual_machine_interface_back_refs() or []
         self.virtual_machine_interfaces = set([':'.join(ref['to'])
                                               for ref in vmi_refs])
@@ -2433,8 +2432,7 @@ class ServiceChain(DBBaseST):
             # To handle each case, we mark them with two separate flags,
             # which will be reset when appropriate calls are made.
             # Any service chains for which these flags are still set after
-            # all search results are received from ifmap, we will delete/
-            # destroy them
+            # all objects are read from database, we will delete/destroy them
             chain.present_stale = True
             chain.created_stale = chain.created
             if not hasattr(chain, 'partially_created'):
@@ -2905,7 +2903,6 @@ class AclRuleListST(object):
     def _port_is_subset(lhs, rhs):
         return (lhs.start_port >= rhs.start_port and
                 (rhs.end_port == -1 or lhs.end_port <= rhs.end_port))
-
 
     @staticmethod
     def _address_is_subset(lhs, rhs):
@@ -3574,7 +3571,6 @@ class VirtualMachineInterfaceST(DBBaseST):
                     VirtualMachineInterfaceST.delete(self.name)
     # _set_vrf_assign_table
 
-
     def handle_st_object_req(self):
         resp = super(VirtualMachineInterfaceST, self).handle_st_object_req()
         resp.obj_refs = [
@@ -4035,9 +4031,9 @@ class ServiceInstanceST(DBBaseST):
 
     def get_allocated_interface_ip(self, side, version):
         vm_pt_list = []
-        for vm_name in  self.virtual_machines or []:
+        for vm_name in self.virtual_machines or []:
             vm_pt_list.append(VirtualMachineST.get(vm_name))
-        for pt_name in  self.port_tuples or []:
+        for pt_name in self.port_tuples or []:
             vm_pt_list.append(PortTupleST.get(pt_name))
         for vm_pt in vm_pt_list:
             if not vm_pt:
@@ -4265,6 +4261,7 @@ class RoutingPolicyST(DBBaseST):
     # end handle_st_object_req
 # end RoutingPolicyST
 
+
 class RouteAggregateST(DBBaseST):
     _dict = {}
     obj_type = 'route_aggregate'
@@ -4394,6 +4391,7 @@ class PortTupleST(DBBaseST):
         return resp
     # end handle_st_object_req
 # end PortTupleST
+
 
 class BgpvpnST(DBBaseST):
     _dict = {}

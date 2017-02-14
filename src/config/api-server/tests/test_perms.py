@@ -5,24 +5,13 @@
 import gevent
 import os
 import sys
-import socket
-import errno
 import uuid
 import logging
 import coverage
 
-import fixtures
 import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains
 from testtools import content, content_type, ExpectedException
-import unittest
-import re
-import json
-import copy
-from lxml import etree
-import inspect
-import requests
-import stevedore
 
 import keystoneclient.v2_0.client as keystone
 from keystonemiddleware import auth_token
