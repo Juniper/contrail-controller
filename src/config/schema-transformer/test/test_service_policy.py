@@ -410,12 +410,13 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.routing_policy_create(rp)
         self.wait_to_get_object(config_db.RoutingPolicyST,
                                 rp.get_fq_name_str())
-        link_name = ':'.join(self.get_ri_name(vn1_obj, sc_ri_name))
-        self.assertTill(self.ifmap_ident_has_link, obj=rp, link_name=link_name)
+        self.assertTill(lambda: self.get_ri_name(vn1_obj, sc_ri_name) ==
+            self.vnc_db_ident_has_link(
+                obj=rp, link_name='routing_instance_refs')[0]['to'])
         rp.del_service_instance(si_obj)
         self._vnc_lib.routing_policy_update(rp)
-        self.assertTill(self.ifmap_ident_doesnt_have_link, obj=rp,
-                        link_name=link_name)
+        self.assertTill(self.vnc_db_ident_doesnt_have_link, obj=rp,
+                        link_name='routing_instance_refs')
         self._vnc_lib.routing_policy_delete(id=rp.uuid)
 
         rlist = RouteListType(route=['100.0.0.0/24'])
@@ -428,12 +429,13 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                 ra.get_fq_name_str())
         ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
         self.assertEqual(ra.get_aggregate_route_nexthop(), v4_service_chain_address)
-        link_name = ':'.join(self.get_ri_name(vn1_obj, sc_ri_name))
-        self.assertTill(self.ifmap_ident_has_link, obj=ra, link_name=link_name)
+        self.assertTill(lambda: self.get_ri_name(vn1_obj, sc_ri_name) ==
+            self.vnc_db_ident_has_link(
+                obj=ra, link_name='routing_instance_refs')[0]['to'])
         ra.del_service_instance(si_obj)
         self._vnc_lib.route_aggregate_update(ra)
-        self.assertTill(self.ifmap_ident_doesnt_have_link, obj=rp,
-                        link_name=link_name)
+        self.assertTill(self.vnc_db_ident_doesnt_have_link, obj=rp,
+                        link_name='routing_instance_refs')
         self._vnc_lib.route_aggregate_delete(id=ra.uuid)
 
         vn1_obj.del_network_policy(np)
@@ -647,7 +649,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
 
         for obj in [vn1_obj, vn2_obj]:
-            self.assertTill(self.ifmap_has_ident, obj=obj)
+            self.assertTill(self.vnc_db_has_ident, obj=obj)
 
         sc = self.wait_to_get_sc()
         sc_ri_names = ['service-'+sc+'-default-domain_default-project_' + s for s in service_names]
@@ -849,13 +851,13 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             self._vnc_lib.routing_policy_create(rp)
             self.wait_to_get_object(config_db.RoutingPolicyST,
                                     rp.get_fq_name_str())
-            link_name = ':'.join(self.get_ri_name(vn1_obj, sc_ri_name))
-            self.assertTill(self.ifmap_ident_has_link, obj=rp,
-                            link_name=link_name)
+            self.assertTill(lambda: self.get_ri_name(vn1_obj, sc_ri_name) ==
+                self.vnc_db_ident_has_link(
+                    obj=rp, link_name='routing_instance_refs')[0]['to'])
             rp.del_service_instance(si_obj)
             self._vnc_lib.routing_policy_update(rp)
-            self.assertTill(self.ifmap_ident_doesnt_have_link, obj=rp,
-                            link_name=link_name)
+            self.assertTill(self.vnc_db_ident_doesnt_have_link, obj=rp,
+                            link_name='routing_instance_refs')
             self._vnc_lib.routing_policy_delete(id=rp.uuid)
 
             rlist = RouteListType(route=['100.0.0.0/24'])
@@ -869,13 +871,13 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
             self.assertEqual(ra.get_aggregate_route_nexthop(), '10.0.0.%s' % (253-i))
 
-            link_name = ':'.join(self.get_ri_name(vn1_obj, sc_ri_name))
-            self.assertTill(self.ifmap_ident_has_link, obj=ra,
-                            link_name=link_name)
+            self.assertTill(lambda: self.get_ri_name(vn1_obj, sc_ri_name) == 
+                self.vnc_db_ident_has_link(
+                    obj=ra, link_name='routing_instance_refs')[0]['to'])
             ra.del_service_instance(si_obj)
             self._vnc_lib.route_aggregate_update(ra)
-            self.assertTill(self.ifmap_ident_doesnt_have_link, obj=ra,
-                            link_name=link_name)
+            self.assertTill(self.vnc_db_ident_doesnt_have_link, obj=ra,
+                            link_name='routing_instance_refs')
             self._vnc_lib.route_aggregate_delete(id=ra.uuid)
 
         for np in policies:
@@ -990,13 +992,13 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             self._vnc_lib.routing_policy_create(rp)
             self.wait_to_get_object(config_db.RoutingPolicyST,
                                     rp.get_fq_name_str())
-            link_name = ':'.join(self.get_ri_name(vn1_obj, sc_ri_name))
-            self.assertTill(self.ifmap_ident_has_link, obj=rp,
-                            link_name=link_name)
+            self.assertTill(lambda: self.get_ri_name(vn1_obj, sc_ri_name) ==
+                self.vnc_db_ident_has_link(
+                    obj=rp, link_name='routing_instance_refs')[0]['to'])
             rp.del_service_instance(si_obj)
             self._vnc_lib.routing_policy_update(rp)
-            self.assertTill(self.ifmap_ident_doesnt_have_link, obj=rp,
-                            link_name=link_name)
+            self.assertTill(self.vnc_db_ident_doesnt_have_link, obj=rp,
+                            link_name='routing_instance_refs')
             self._vnc_lib.routing_policy_delete(id=rp.uuid)
 
             rlist = RouteListType(route=['100.0.0.0/24'])
@@ -1010,13 +1012,13 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
             self.assertEqual(ra.get_aggregate_route_nexthop(), service_chain_address)
 
-            link_name = ':'.join(self.get_ri_name(vn1_obj, sc_ri_name))
-            self.assertTill(self.ifmap_ident_has_link, obj=ra,
-                            link_name=link_name)
+            self.assertTill(lambda: self.get_ri_name(vn1_obj, sc_ri_name) ==
+                self.vnc_db_ident_has_link(
+                    obj=ra, link_name='routing_instance_refs')[0]['to'])
             ra.del_service_instance(si_obj)
             self._vnc_lib.route_aggregate_update(ra)
-            self.assertTill(self.ifmap_ident_doesnt_have_link, obj=ra,
-                            link_name=link_name)
+            self.assertTill(self.vnc_db_ident_doesnt_have_link, obj=ra,
+                            link_name='routing_instance_refs')
             self._vnc_lib.route_aggregate_delete(id=ra.uuid)
 
         vn1_obj.del_network_policy(np)
@@ -1197,7 +1199,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         vn2_uuid = self._vnc_lib.virtual_network_update(vn2_obj)
 
         for obj in [vn1_obj, vn2_obj]:
-            self.assertTill(self.ifmap_has_ident, obj=obj)
+            self.assertTill(self.vnc_db_has_ident, obj=obj)
 
         svc_ri_fq_name = 'default-domain:default-project:svc-vn-left:svc-vn-left'.split(':')
         self.check_ri_ref_present(svc_ri_fq_name, self.get_ri_name(vn1_obj))
@@ -1330,16 +1332,17 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.floating_ip_update(fip_obj)
 
         fip_obj = self._vnc_lib.floating_ip_read(fip_obj.get_fq_name())
-        self.assertTill(self.ifmap_ident_has_link, obj=fip_obj,
-                        link_name=vmi_fq_name)
+        self.assertTill(lambda: vmi_fq_name.split(':') ==
+            self.vnc_db_ident_has_link(
+                obj=fip_obj, link_name='virtual_machine_interface_refs')[0]['to'])
 
         fip = fip_obj.get_floating_ip_address()
         self.check_vrf_assign_table(vmi.get_fq_name(), fip, True)
 
         fip_fq_name = fip_obj.get_fq_name()
         self._vnc_lib.floating_ip_delete(fip_fq_name)
-        self.assertTill(self.ifmap_ident_doesnt_have_link, obj=fip_obj,
-                        link_name=vmi_fq_name)
+        self.assertTill(self.vnc_db_ident_doesnt_have_link, obj=fip_obj,
+                        link_name='virtual_machine_interface_refs')
         self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
 
         self.delete_network_policy(np)
@@ -1412,7 +1415,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             [('left', vn1_obj)], service_name, False,
             service_mode='transparent', service_type='analyzer')
 
-        self.assertTill(self.ifmap_has_ident, obj=vn1_obj)
+        self.assertTill(self.vnc_db_has_ident, obj=vn1_obj)
 
         # create virtual machine interface with interface mirror property
         vmi_name = self.id() + 'vmi1'

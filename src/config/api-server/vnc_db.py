@@ -3,7 +3,7 @@
 #
 
 """
-Layer that transforms VNC config objects to ifmap representation
+Layer that transforms VNC config objects to databse representation
 """
 from cfgm_common.zkclient import ZookeeperClient, IndexAllocator
 from gevent import ssl, monkey
@@ -43,9 +43,6 @@ import os
 from provision_defaults import *
 from cfgm_common.exceptions import *
 from vnc_quota import *
-from vnc_ifmap import VncIfmapDb
-from vnc_ifmap import VncIfmapServer
-from vnc_ifmap_client import VncIfmapClient
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
@@ -260,12 +257,11 @@ class VncServerCassandraClient(VncCassandraClient):
 
 
 class VncServerKombuClient(VncKombuClient):
-    def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, ifmap_db,
+    def __init__(self, db_client_mgr, rabbit_ip, rabbit_port, 
                  rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
                  rabbit_health_check_interval, **kwargs):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
-        self._ifmap_db = ifmap_db
         listen_port = db_client_mgr.get_server_port()
         q_name = 'vnc_config.%s-%s' %(socket.gethostname(), listen_port)
         super(VncServerKombuClient, self).__init__(
@@ -365,12 +361,7 @@ class VncServerKombuClient(VncKombuClient):
                        str(e))
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise
-        finally:
-            (ok, result) = self._ifmap_db.object_create(obj_info, obj_dict)
-            if not ok:
-                self.config_log(result, level=SandeshLevel.SYS_ERR)
-                raise Exception(result)
-    #end _dbe_create_notification
+    # end _dbe_create_notification
 
     def dbe_update_publish(self, obj_type, obj_ids):
         oper_info = {'oper': 'UPDATE', 'type': obj_type}
@@ -397,11 +388,7 @@ class VncServerKombuClient(VncKombuClient):
             msg = "Failed to invoke type specific dbe_update_notification"
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
-        finally:
-            (ok, result) = self._ifmap_db.object_update(r_class, new_obj_dict)
-            if not ok:
-                raise Exception(result)
-    #end _dbe_update_notification
+    # end _dbe_update_notification
 
     def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
         oper_info = {'oper': 'DELETE', 'type': obj_type, 'obj_dict': obj_dict}
@@ -426,12 +413,7 @@ class VncServerKombuClient(VncKombuClient):
             msg = "Failed to invoke type specific dbe_delete_notification"
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
-        finally:
-            (ok, ifmap_result) = self._ifmap_db.object_delete(obj_info)
-            if not ok:
-                self.config_log(ifmap_result, level=SandeshLevel.SYS_ERR)
-                raise Exception(ifmap_result)
-    #end _dbe_delete_notification
+    # end _dbe_delete_notification
 
 # end class VncKombuClient
 
@@ -514,7 +496,7 @@ class VncZkClient(object):
     def reconnect_zk(self):
         if self._reconnect_zk_greenlet is None:
             self._reconnect_zk_greenlet =\
-                   vnc_greenlets.VncGreenlet("VNC IfMap ZK Reconnect",
+                   vnc_greenlets.VncGreenlet("VNC ZK Reconnect",
                                              self._reconnect_zk)
     # end
 
@@ -639,14 +621,12 @@ class VncZkClient(object):
 
 
 class VncDbClient(object):
-    def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
-                 passwd, db_srv_list,
-                 rabbit_servers, rabbit_port, rabbit_user, rabbit_password,
-                 rabbit_vhost, rabbit_ha_mode, reset_config=False,
-                 zk_server_ip=None, db_prefix='', db_credential=None,
-                 obj_cache_entries=0, obj_cache_exclude_types=None,
-                 db_engine='cassandra', connection=None,
-                 **kwargs):
+    def __init__(self, api_svr_mgr, db_srv_list, rabbit_servers, rabbit_port,
+                 rabbit_user, rabbit_password, rabbit_vhost, rabbit_ha_mode,
+                 reset_config=False, zk_server_ip=None, db_prefix='',
+                 db_credential=None, obj_cache_entries=0,
+                 obj_cache_exclude_types=None, db_engine='cassandra',
+                 connection=None, **kwargs):
         self._db_engine = db_engine
         self._api_svr_mgr = api_svr_mgr
         self._sandesh = api_svr_mgr._sandesh
@@ -664,32 +644,6 @@ class VncDbClient(object):
         }
 
         self._db_resync_done = gevent.event.Event()
-        self._self_managed_ifmap_server = (api_svr_mgr._args.ifmap_listen_ip is not None and
-            api_svr_mgr._args.ifmap_listen_port is not None)
-
-        if api_svr_mgr.get_worker_id() == 0:
-            if self._self_managed_ifmap_server:
-                self._ifmap_db = VncIfmapDb(self)
-            else:
-                msg = "Connecting to ifmap on %s:%s as %s" \
-                      % (ifmap_srv_ip, ifmap_srv_port, uname)
-                self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-
-                # certificate auth
-                ssl_options = None
-                if api_svr_mgr._args.use_certs:
-                    ssl_options = {
-                        'keyfile': api_svr_mgr._args.keyfile,
-                        'certfile': api_svr_mgr._args.certfile,
-                        'ca_certs': api_svr_mgr._args.ca_certs,
-                        'cert_reqs': ssl.CERT_REQUIRED,
-                        'ciphers': 'ALL'
-                    }
-                self._ifmap_db = VncIfmapClient(self, ifmap_srv_ip,
-                                                ifmap_srv_port, uname, passwd,
-                                                ssl_options)
-        else:
-            self._ifmap_db = None
 
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
@@ -721,8 +675,7 @@ class VncDbClient(object):
             self._zk_db = self._object_db
 
         self._msgbus = VncServerKombuClient(self, rabbit_servers,
-            rabbit_port, self._ifmap_db,
-            rabbit_user, rabbit_password,
+            rabbit_port, rabbit_user, rabbit_password,
             rabbit_vhost, rabbit_ha_mode,
             api_svr_mgr.get_rabbit_health_check_interval(),
             **kwargs)
@@ -759,18 +712,14 @@ class VncDbClient(object):
     # end get_api_server
 
     def db_resync(self):
-        # Read contents from cassandra and publish to ifmap
+        # Read contents from cassandra and perform DB update if required
         start_time = datetime.datetime.utcnow()
         self._object_db.walk(self._dbe_resync)
-        if self._self_managed_ifmap_server:
-            self.get_api_server().publish_ifmap_to_discovery()
-        else:
-            self._ifmap_db._publish_to_ifmap_enqueue('publish_discovery', 1)
         self.config_log("Cassandra DB walk completed.",
             level=SandeshLevel.SYS_INFO)
         self._update_default_quota()
         end_time = datetime.datetime.utcnow()
-        msg = "Time elapsed in syncing ifmap: %s" % (str(end_time - start_time))
+        msg = "Time elapsed in resyncing db: %s" % (str(end_time - start_time))
         self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         self._db_resync_done.set()
     # end db_resync
@@ -981,22 +930,6 @@ class VncDbClient(object):
 
                 if obj_type == 'instance_ip' and 'subnet_uuid' not in obj_dict:
                     self.iip_update_subnet_uuid(obj_dict)
-
-                # Ifmap alloc
-                parent_res_type = obj_dict.get('parent_type', None)
-                (ok, result) = self._ifmap_db.object_alloc(
-                    obj_class, parent_res_type, obj_dict['fq_name'])
-                if not ok:
-                    msg = "%s(%s), dbe_resync:ifmap_alloc error: %s" % (
-                            obj_type, obj_uuid, result[1])
-                    self.config_log(msg, level=SandeshLevel.SYS_ERR)
-                    continue
-                (my_imid, parent_imid) = result
-
-                # Ifmap create
-                obj_ids = {'type': obj_type, 'uuid': obj_uuid, 'imid': my_imid,
-                           'parent_imid': parent_imid}
-                (ok, result) = self._ifmap_db.object_create(obj_ids, obj_dict)
             except Exception as e:
                 tb = cfgm_common.utils.detailed_traceback()
                 self.config_log(tb, level=SandeshLevel.SYS_ERR)
@@ -1050,7 +983,7 @@ class VncDbClient(object):
     # end _generate_db_request_trace
 
     # Public Methods
-    # Returns created ifmap_id
+    # Returns created uuid
     def dbe_alloc(self, obj_type, obj_dict, uuid_requested=None):
         try:
             if uuid_requested:
@@ -1062,20 +995,7 @@ class VncDbClient(object):
         except ResourceExistsError as e:
             return (False, (409, str(e)))
 
-        parent_res_type = obj_dict.get('parent_type')
-        obj_class = self.get_resource_class(obj_type)
-        (ok, result) = self._ifmap_db.object_alloc(
-            obj_class, parent_res_type, obj_dict['fq_name'])
-        if not ok:
-            self.dbe_release(obj_type, obj_dict['fq_name'])
-            return False, result
-
-        (my_imid, parent_imid) = result
-        obj_ids = {
-            'uuid': obj_dict['uuid'],
-            'imid': my_imid,
-            'parent_imid': parent_imid
-        }
+        obj_ids = { 'uuid': obj_dict['uuid'] }
 
         return (True, obj_ids)
     # end dbe_alloc
@@ -1085,9 +1005,8 @@ class VncDbClient(object):
             return
 
         if type == 'bgp_router':
-            if 'bgp_router_parameters' not in obj_dict or\
-               'router_type' not in obj_dict['bgp_router_parameters'] or\
-               obj_dict['bgp_router_parameters']['router_type'] != 'control-node':
+            if (obj_dict.get('bgp_router_parameters', {}).get('router_type') !=
+                'control-node'):
                 return
 
         oper = oper.upper()
@@ -1202,13 +1121,13 @@ class VncDbClient(object):
             obj_type, obj_ids['uuid'], obj_dict)
 
         if ok:
-            # publish to ifmap via msgbus
+            # publish to msgbus
             self._msgbus.dbe_create_publish(obj_type, obj_ids, obj_dict)
 
         return (ok, result)
     # end dbe_create
 
-    # input id is ifmap-id + uuid
+    # input id is uuid
     def dbe_read(self, obj_type, obj_ids, obj_fields=None,
                  ret_readonly=False):
         try:
@@ -1269,7 +1188,7 @@ class VncDbClient(object):
         (ok, cassandra_result) = self._object_db.object_update(
             obj_type, obj_ids['uuid'], new_obj_dict)
 
-        # publish to ifmap via message bus (rabbitmq)
+        # publish to message bus (rabbitmq)
         self._msgbus.dbe_update_publish(obj_type, obj_ids)
 
         return (ok, cassandra_result)
@@ -1359,7 +1278,7 @@ class VncDbClient(object):
         (ok, cassandra_result) = self._object_db.object_delete(
             obj_type, obj_ids['uuid'])
 
-        # publish to ifmap via message bus (rabbitmq)
+        # publish to message bus (rabbitmq)
         self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
 
         # finally remove mapping in zk
@@ -1535,11 +1454,6 @@ class VncDbClient(object):
     # end get_shared_objects
 
     def reset(self):
-        if self.get_worker_id() == 0:
-            if self._self_managed_ifmap_server:
-                VncIfmapServer.reset_graph()
-            else:
-                self._ifmap_db.reset()
         self._msgbus.reset()
     # end reset
 

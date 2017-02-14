@@ -2114,7 +2114,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         with test_common.patch(orig_object, method_name,
                                SpyCreateNode(orig_object, method_name)):
             self._vnc_lib.instance_ip_create(iip_obj)
-            self.assertTill(self.ifmap_has_ident, obj=iip_obj)
+            self.assertTill(self.vnc_db_has_ident, obj=iip_obj)
 
     #end test_notify_doesnt_persist
 

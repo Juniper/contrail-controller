@@ -91,14 +91,6 @@ def parse_args(args_str):
         'object_cache_entries': '10000', # max number of objects cached for read
         'object_cache_exclude_types': '', # csv of object types to *not* cache
         'db_engine': 'cassandra',
-        # IF-MAP client options to connect and maintain irond sessions
-        'ifmap_server_ip': '127.0.0.1',
-        'ifmap_server_port': "8443",
-        'ifmap_username': "api-server",
-        'ifmap_password': "api-server",
-        'ifmap_queue_size': 10000,
-        'ifmap_max_message_size': 1024*1024,
-        'ifmap_health_check_interval': '60', # in seconds
     }
     # ssl options
     secopts = {
@@ -123,19 +115,6 @@ def parse_args(args_str):
         'cassandra_user'     : None,
         'cassandra_password' : None
     }
-    # ifmap server options
-    ifmapopts = {
-        # IF-MAP options to start self-managed and minimalist IF-MAP server
-        # Listen IP and port
-        'ifmap_listen_ip': None,
-        'ifmap_listen_port': None,
-        # Key ans certificate files path. If not set automatically create
-        'ifmap_key_path': '/var/lib/contrail/api-server/ifmap-cert/key',
-        'ifmap_cert_path': '/var/lib/contrail/api-server/ifmap-cert/cert',
-        # Credentials: [(user1, password), (user2, password)]
-        'ifmap_credentials': [('control', 'secret')],
-    }
-
     # rdbms options
     rdbmsopts = {
         'rdbms_user'     : None,
@@ -181,8 +160,6 @@ def parse_args(args_str):
                 cassandraopts.update(dict(config.items('CASSANDRA')))
         if 'RDBMS' in config.sections():
                 rdbmsopts.update(dict(config.items('RDBMS')))
-        if 'IFMAP_SERVER' in config.sections():
-                ifmapopts.update(dict(config.items('IFMAP_SERVER')))
         if 'SANDESH' in config.sections():
             sandeshopts.update(dict(config.items('SANDESH')))
     # Override with CLI options
@@ -199,7 +176,6 @@ def parse_args(args_str):
     defaults.update(ksopts)
     defaults.update(cassandraopts)
     defaults.update(rdbmsopts)
-    defaults.update(ifmapopts)
     defaults.update(sandeshopts)
     parser.set_defaults(**defaults)
 
@@ -342,37 +318,6 @@ def parse_args(args_str):
             help="Comma separated values of object types to not cache")
     parser.add_argument("--db_engine",
         help="Database engine to use, default cassandra")
-    parser.add_argument(
-        "--ifmap_server_ip", help="IP address of ifmap server")
-    parser.add_argument(
-        "--ifmap_server_port", help="Port of ifmap server")
-    parser.add_argument(
-        "--ifmap_username", help="Username known to ifmap server")
-    parser.add_argument(
-        "--ifmap_password", help="Password known to ifmap server")
-    parser.add_argument(
-        "--ifmap_queue_size", type=int, help="Size of the queue that holds "
-        "pending messages to be sent to ifmap server")
-    parser.add_argument(
-        "--ifmap_max_message_size", type=int, help="Maximum size of message "
-        "sent to ifmap server")
-    parser.add_argument("--ifmap_health_check_interval",
-            help="Interval seconds to check for ifmap health, default 60")
-    parser.add_argument("--ifmap_listen_ip", default=None,
-                        help="IP to bind IF-MAP server (If not set, the VNC "
-                             "API server will use IF-MAP client to connect to "
-                             " an external IF-MAP server)")
-    parser.add_argument("--ifmap_listen_port",
-                        help="TCP port to bind IF-MAP server (If not set, the "
-                             "VNC API server will use IF-MAP client to connect "
-                             " to an external IF-MAP server)")
-    parser.add_argument("--ifmap_key_path",
-                        help="Key file path to use for IF-MAP server")
-    parser.add_argument("--ifmap_cert_path",
-                        help="Certificate file path to use for IF-MAP server")
-    parser.add_argument('--ifmap_credentials',
-                        help="List of user and password: <username:password>",
-                        type=user_password, nargs='*')
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
     args_obj.config_sections = config
