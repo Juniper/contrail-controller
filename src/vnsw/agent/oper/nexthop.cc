@@ -75,21 +75,6 @@ void TunnelType::DeletePriorityList() {
 /////////////////////////////////////////////////////////////////////////////
 // NextHop routines
 /////////////////////////////////////////////////////////////////////////////
-NextHopTable::NextHopTable(DB *db, const string &name) : AgentDBTable(db, name){
-    // nh-index 0 is reserved by vrouter. So, pre-allocate the first index so
-    // that nh added by agent use index 1 and above
-    int id = index_table_.Insert(NULL);
-    assert(id == 0);
-}
-
-NextHopTable::~NextHopTable() {
-    FreeInterfaceId(0);
-}
-
-uint32_t NextHopTable::ReserveIndex() {
-    return index_table_.Insert(NULL);
-}
-
 void NextHop::SendObjectLog(const NextHopTable *table,
                             AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
@@ -102,6 +87,34 @@ NextHop::~NextHop() {
     if (id_ != kInvalidIndex) {
         static_cast<NextHopTable *>(get_table())->FreeInterfaceId(id_);
     }
+}
+
+void NextHop::SetKey(const DBRequestKey *key) {
+    const NextHopKey *nh_key = static_cast<const NextHopKey *>(key);
+    type_ = nh_key->type_;
+    policy_ = nh_key->policy_;
+};
+
+// Allocate label for nexthop
+MplsLabel *NextHop::AllocateLabel(Agent *agent, const NextHopKey *key) {
+    return agent->mpls_table()->AllocLabel(key);
+}
+
+void NextHop::Add(Agent *agent, const DBRequest *req) {
+    Change(req);
+    // Allocate mpls label if required
+    if (AutoAllocateLabel() && (mpls_label() == NULL)) {
+        const NextHopKey *key =
+            static_cast<const NextHopKey *>(req->key.get());
+        mpls_label_ = AllocateLabel(agent, key);
+    }
+}
+
+bool NextHop::Change(const DBRequest *req) {
+    return false;
+}
+
+void NextHop::Delete(const DBRequest *req) {
 }
 
 void NextHop::FillObjectLog(AgentLogEvent::type event, 
@@ -233,6 +246,24 @@ bool NextHop::NexthopToInterfacePolicy() const {
     return false;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// NextHop routines
+/////////////////////////////////////////////////////////////////////////////
+NextHopTable::NextHopTable(DB *db, const string &name) : AgentDBTable(db, name){
+    // nh-index 0 is reserved by vrouter. So, pre-allocate the first index so
+    // that nh added by agent use index 1 and above
+    int id = index_table_.Insert(NULL);
+    assert(id == 0);
+}
+
+NextHopTable::~NextHopTable() {
+    FreeInterfaceId(0);
+}
+
+uint32_t NextHopTable::ReserveIndex() {
+    return index_table_.Insert(NULL);
+}
+
 std::auto_ptr<DBEntry> NextHopTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(AllocWithKey(k)));
 }
@@ -255,9 +286,30 @@ DBEntry *NextHopTable::Add(const DBRequest *req) {
         return NULL;
     }
     nh->set_id(index_table_.Insert(nh));
-    nh->Change(req);
+    nh->Add(agent(), req);
     nh->SendObjectLog(this, AgentLogEvent::ADD);
     return static_cast<DBEntry *>(nh);
+}
+
+bool NextHopTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    NextHop *nh = static_cast<NextHop *>(entry);
+    bool ret = nh->Change(req);
+    nh->SendObjectLog(this, AgentLogEvent::CHANGE);
+    return ret;
+}
+
+bool NextHopTable::Resync(DBEntry *entry, const DBRequest *req) {
+    NextHop *nh = static_cast<NextHop *>(entry);
+    bool ret = nh->Change(req);
+    nh->SendObjectLog(this, AgentLogEvent::RESYNC);
+    return ret;
+}
+
+bool NextHopTable::Delete(DBEntry *entry, const DBRequest *req) {
+    NextHop *nh = static_cast<NextHop *>(entry);
+    nh->Delete(req);
+    nh->SendObjectLog(this, AgentLogEvent::DELETE);
+    return true;
 }
 
 DBTableBase *NextHopTable::CreateTable(DB *db, const std::string &name) {
@@ -299,12 +351,6 @@ void NextHopTable::OnZeroRefcount(AgentDBEntry *e) {
     req.data.reset(NULL);
     Process(req);
 }
-
-void NextHop::SetKey(const DBRequestKey *key) {
-    const NextHopKey *nh_key = static_cast<const NextHopKey *>(key);
-    type_ = nh_key->type_;
-    policy_ = nh_key->policy_;
-};
 
 /////////////////////////////////////////////////////////////////////////////
 // ARP NH routines
@@ -513,6 +559,14 @@ bool InterfaceNH::Change(const DBRequest *req) {
         ret = true;
     }
 
+    // Allocate mpls label if not set already
+    if (AutoAllocateLabel() && (mpls_label() == NULL)) {
+        const NextHopKey *key =
+            static_cast<const NextHopKey *>(req->key.get());
+        mpls_label_ = AllocateLabel(Agent::GetInstance(), key);
+        return true;
+    }
+
     return ret;
 }
 
@@ -531,6 +585,12 @@ static void AddInterfaceNH(const uuid &intf_uuid, const MacAddress &dmac,
     req.data.reset(new InterfaceNHData(vrf_name, learning_enabled,
                                        etree_leaf, layer2_control_word));
     Agent::GetInstance()->nexthop_table()->Process(req);
+
+    //Update Mpls Label entry with new nh
+    NextHopKey *nh_key = static_cast<NextHopKey *>(req.key.get());
+    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->
+                      FindActiveEntry(nh_key));
+    MplsLabel::Update(nh->mpls_label()->label(), nh_key);
 }
 
 // Create 3 InterfaceNH for every Vm interface. One with policy another without
@@ -618,6 +678,10 @@ void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
     InterfaceNHData *data = new InterfaceNHData(vrf_name);
     req.data.reset(data);
     NextHopTable::GetInstance()->Process(req);
+
+    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->
+                      FindActiveEntry(key));
+    MplsLabel::Update(nh->mpls_label()->label(), key);
 }
 
 void InterfaceNH::DeleteInetInterfaceNextHop(const string &ifname,
@@ -704,6 +768,16 @@ void InterfaceNH::SendObjectLog(const NextHopTable *table,
     OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
+bool InterfaceNH::AutoAllocateLabel() {
+    const Interface *itf = GetInterface();
+    //Label is required only for VMInterface and InetInterface
+    if (dynamic_cast<const VmInterface *>(itf) ||
+        dynamic_cast<const InetInterface *>(itf)) {
+        return true;
+    }
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // VRF NH routines
 /////////////////////////////////////////////////////////////////////////////
@@ -765,6 +839,14 @@ bool VrfNH::Change(const DBRequest *req) {
     if (layer2_control_word_ != data->layer2_control_word_) {
         layer2_control_word_ = data->layer2_control_word_;
         ret = true;
+    }
+
+    // Allocate mpls label if not set already
+    if (AutoAllocateLabel() && (mpls_label() == NULL)) {
+        const NextHopKey *key =
+            static_cast<const NextHopKey *>(req->key.get());
+        mpls_label_ = AllocateLabel(Agent::GetInstance(), key);
+        return true;
     }
 
     return ret;
@@ -1318,6 +1400,14 @@ bool VlanNH::Change(const DBRequest *req) {
     if (dmac_.CompareTo(data->dmac_) != 0) {
         dmac_ = data->dmac_;
         ret = true;
+    }
+
+    // Allocate mpls label if not set already
+    if (AutoAllocateLabel() && (mpls_label() == NULL)) {
+        const NextHopKey *key =
+            static_cast<const NextHopKey *>(req->key.get());
+        mpls_label_ = AllocateLabel(Agent::GetInstance(), key);
+        return true;
     }
 
     return ret;

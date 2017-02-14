@@ -31,14 +31,14 @@ protected:
     // Write the Interface Key to Backup filesystem
     // Delete the Key from In memory before reading the Key.
     void SandeshWriteProcess() {
+        NextHopKey *nh_key = new VrfNHKey("vrf1", false, false);
         ResourceManager::KeyPtr key
-                  (new InterfaceIndexResourceKey(agent->resource_manager(),
-                                                 MakeUuid(1), MacAddress(),
-                                                 true, 2, 1));
+                  (new NexthopIndexResourceKey(agent->resource_manager(),
+                                               nh_key));
+        NextHopKey *nh_key1 = new VrfNHKey("vrf2", false, false);
         ResourceManager::KeyPtr key1
-                  (new InterfaceIndexResourceKey(agent->resource_manager(),
-                                                 MakeUuid(2), MacAddress(),
-                                                 true, 2, 2));
+                  (new NexthopIndexResourceKey(agent->resource_manager(),
+                                               nh_key1));
         label = agent->mpls_table()->AllocLabel(key);
         ResourceTable *table = key.get()->resource_table();
         IndexResourceData *data =
@@ -58,17 +58,17 @@ protected:
    void SandeshReadProcess() {
         struct stat st;
         WAIT_FOR(200000, 1,
-                 stat("/tmp/backup/contrail_interface_resource", &st) != -1);
+                 stat("/tmp/backup/contrail_vrf_resource", &st) != -1);
         agent->resource_manager()->backup_mgr()->Init(); 
         client->WaitForIdle();
+        NextHopKey *nh_key = new VrfNHKey("vrf1", false, false);
         ResourceManager::KeyPtr key
-            (new InterfaceIndexResourceKey(agent->resource_manager(),
-                                                 MakeUuid(1), MacAddress(),
-                                                 true, 2, 1));
+                  (new NexthopIndexResourceKey(agent->resource_manager(),
+                                               nh_key));
+        NextHopKey *nh_key1 = new VrfNHKey("vrf2", false, false);
         ResourceManager::KeyPtr key1
-                  (new InterfaceIndexResourceKey(agent->resource_manager(),
-                                                 MakeUuid(2), MacAddress(),
-                                                 true, 2, 2));
+                  (new NexthopIndexResourceKey(agent->resource_manager(),
+                                               nh_key1));
         ResourceTable *table = key.get()->resource_table();
         IndexResourceData *data =
             static_cast<IndexResourceData *>(table->FindKey(key));

@@ -12,6 +12,7 @@
 #include <oper/vxlan.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
+#include <oper/mpls.h>
 
 using namespace std;
 
@@ -184,6 +185,7 @@ bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
         VrfNHKey nh_key(data->vrf_name(), false, true);
         nh = static_cast<NextHop *>
             (Agent::GetInstance()->nexthop_table()->FindActiveEntry(&nh_key));
+        MplsLabel::Update(nh->mpls_label()->label(), &nh_key);
     }
 
     if (vxlan_id->nh_ != nh) {
@@ -196,6 +198,9 @@ bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
 
 bool VxLanTable::Delete(DBEntry *entry, const DBRequest *req) {
     VxLanId *vxlan_id = static_cast<VxLanId *>(entry);
+    if (vxlan_id->nh_.get()) {
+        vxlan_id->nh_->ResetMplsRef();
+    }
     vxlan_id->SendObjectLog(this, AgentLogEvent::DELETE);
     return true;
 }

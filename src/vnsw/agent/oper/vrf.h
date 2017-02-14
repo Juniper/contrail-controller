@@ -210,6 +210,7 @@ private:
     tbb::atomic<uint32_t> mac_aging_time_;
     bool learning_enabled_;
     bool layer2_control_word_;
+    bool l2_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
