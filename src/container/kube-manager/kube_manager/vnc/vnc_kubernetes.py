@@ -37,6 +37,10 @@ class VncKubernetes(object):
         self._db = db.KubeNetworkManagerDB(self.args, self.logger)
         DBBaseKM.init(self, self.logger, self._db)
 
+        # If nested mode is enabled via config, then record the directive.
+        if self.args.nested_mode is '1':
+            DBBaseKM.set_nested(True)
+
         # init rabbit connection
         self.rabbit = VncAmqpHandle(self.logger, DBBaseKM,
             REACTION_MAP, 'kube_manager', args=self.args)
@@ -56,14 +60,15 @@ class VncKubernetes(object):
             cluster_pod_subnets = self.args.pod_subnets)
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
-            self.label_cache, self.args, self.logger, self.q, self.kube)
+            self.label_cache, self.args, self.logger, self.kube)
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
             self.vnc_lib, self.label_cache, self.logger)
         self.pod_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
-            self.label_cache, self.service_mgr, self.network_policy_mgr,
-            self.q, svc_fip_pool = self._get_cluster_service_fip_pool())
+            self.label_cache, self.args, self.logger, self.service_mgr,
+            self.network_policy_mgr, self.q,
+            svc_fip_pool = self._get_cluster_service_fip_pool())
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints',
             self.vnc_lib, self.logger, self.kube)
@@ -78,7 +83,8 @@ class VncKubernetes(object):
             try:
                 vnc_lib = VncApi(self.args.admin_user,
                     self.args.admin_password, self.args.admin_tenant,
-                    self.args.vnc_endpoint_ip, self.args.vnc_endpoint_port)
+                    self.args.vnc_endpoint_ip, self.args.vnc_endpoint_port,
+                    auth_token_url=self.args.auth_token_url)
                 connected = True
             except requests.exceptions.ConnectionError as e:
                 time.sleep(3)

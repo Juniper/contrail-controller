@@ -15,14 +15,17 @@ from kube_manager.common.kube_config_db import PodKM
 
 class VncPod(object):
 
-    def __init__(self, vnc_lib=None, label_cache=None, service_mgr=None,
-            network_policy_mgr=None, queue=None, svc_fip_pool=None):
+    def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None,
+            service_mgr=None, network_policy_mgr=None, queue=None,
+            svc_fip_pool=None):
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self._service_mgr = service_mgr
         self._network_policy_mgr = network_policy_mgr
         self._queue = queue
         self._service_fip_pool = svc_fip_pool
+        self._args = args
+        self._logger = logger
 
     def _get_network(self, pod_id, pod_namespace):
         """
@@ -48,9 +51,27 @@ class VncPod(object):
     def _is_pod_network_isolated(self, pod_namespace):
         return self._get_namespace(pod_namespace).is_isolated()
 
-    def _create_iip(self, pod_name, vn_obj, vmi_obj):
+
+    def _is_pod_nested(self, pod_name):
+        """ Check if the pod is a nested pod."""
+        pod = PodKM.find_by_name_or_uuid(pod_name)
+        if pod:
+            return pod.is_nested()
+        return False
+
+    def _get_host_ip(self, pod_name):
+        pod = PodKM.find_by_name_or_uuid(pod_name)
+        if pod:
+            return pod.get_host_ip()
+        return None
+
+    def _create_iip(self, pod_name, vn_obj, vmi):
         iip_obj = InstanceIp(name=pod_name)
         iip_obj.add_virtual_network(vn_obj)
+
+        # Creation of iip requires the vmi vnc object.
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                      fq_name=vmi.fq_name)
         iip_obj.add_virtual_machine_interface(vmi_obj)
         try:
             self._vnc_lib.instance_ip_create(iip_obj)
@@ -90,24 +111,37 @@ class VncPod(object):
 
         return
 
-    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj):
+    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj,
+            parent_vmi):
         proj_fq_name = ['default-domain', pod_namespace]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
+        vmi_prop = None
+        if DBBaseKM.is_nested() and self._is_pod_nested(pod_name):
+            # Pod is nested.
+            # Allocate a vlan-id for this pod from the vlan space managed
+            # in the VMI of the underlay VM.
+            parent_vmi = VirtualMachineInterfaceKM.get(parent_vmi.uuid)
+            vlan_id = parent_vmi.alloc_vlan()
+            vmi_prop = VirtualMachineInterfacePropertiesType(
+                sub_interface_vlan_tag=vlan_id)
+
         obj_uuid = str(uuid.uuid1())
         name = 'pod' + '-' + pod_name + '-' + obj_uuid
-        vmi_obj = VirtualMachineInterface(name=name, parent_obj=proj_obj)
+        vmi_obj = VirtualMachineInterface(name=name, parent_obj=proj_obj,
+                      virtual_machine_interface_properties=vmi_prop)
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
         sg_obj = SecurityGroup("default", proj_obj)
         vmi_obj.add_security_group(sg_obj)
         try:
-            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            vmi_uuid = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
         except RefsExistError:
-            self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-        VirtualMachineInterfaceKM.locate(vmi_obj.uuid)
-        return vmi_obj
+            vmi_uuid = self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+
+        VirtualMachineInterfaceKM.locate(vmi_uuid)
+        return vmi_uuid
 
     def _create_vm(self, pod_id, pod_name, labels):
         vm_obj = VirtualMachine(name=pod_name)
@@ -144,7 +178,14 @@ class VncPod(object):
         if vm_uuid != pod_uuid:
             self.vnc_pod_delete(vm_uuid)
 
-    def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, labels):
+    def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, labels,
+            vm_vmi):
+        # If configured in nested mode and the pod is annotated as nested,
+        # proceed only if vmi of the underly vm is available.
+        if DBBaseKM.is_nested() and self._is_pod_nested(pod_name) and\
+            not vm_vmi:
+            return
+
         vm = VirtualMachineKM.get(pod_id)
         if vm:
             vm.pod_labels = labels
@@ -154,11 +195,38 @@ class VncPod(object):
 
         vn_obj = self._get_network(pod_id, pod_namespace)
         vm_obj = self._create_vm(pod_id, pod_name, labels)
-        vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj)
-        self._create_iip(pod_name, vn_obj, vmi_obj)
+
+        vmi_uuid = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj,
+                       vm_vmi)
+
+        vmi = VirtualMachineInterfaceKM.get(vmi_uuid)
+
+        if DBBaseKM.is_nested() and self._is_pod_nested(pod_name) and vm_vmi:
+            # Pod is nested.
+            # Link the pod VMI to the VMI of the underlay VM.
+            self._vnc_lib.ref_update('virtual-machine-interface', vm_vmi.uuid,
+                'virtual-machine-interface', vmi_uuid, None, 'ADD')
+            self._vnc_lib.ref_update('virtual-machine-interface', vmi_uuid,
+                'virtual-machine-interface', vm_vmi.uuid, None, 'ADD')
+
+            # get host id for vm vmi
+            vr_uuid = None
+            for vr in VirtualRouterKM.values():
+                if vr.name == vm_vmi.host_id:
+                    vr_uuid = vr.uuid 
+                    break
+            if not vr_uuid:
+                self._logger.error("No virtual-router object found for host: "
+                        + vm_vmi.host_id + ". Unable to add VM reference to a"
+                        " valid virtual-router")
+                return
+            self._vnc_lib.ref_update('virtual-router', vr_uuid,
+                'virtual-machine', vm_obj.uuid, None, 'ADD')
+
+        self._create_iip(pod_name, vn_obj, vmi)
 
         if self._is_pod_network_isolated(pod_namespace):
-            self._create_cluster_service_fip(pod_name, vmi_obj)
+            self._create_cluster_service_fip(pod_name, vmi)
 
         self._link_vm_to_node(vm_obj, pod_node)
 
@@ -244,22 +312,36 @@ class VncPod(object):
         pod_namespace = event['object']['metadata'].get('namespace')
         labels = event['object']['metadata'].get('labels', {})
 
-        if event['type'] == 'ADDED':
+        if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
+
             pod_node = event['object']['spec'].get('nodeName')
             host_network = event['object']['spec'].get('hostNetwork')
             if host_network:
                 return
-            self.vnc_pod_add(pod_id, pod_name, pod_namespace,
-                pod_node, labels)
-            self._network_policy_mgr.vnc_pod_add(event)
-        elif event['type'] == 'MODIFIED':
-            pod_node = event['object']['spec'].get('nodeName')
-            host_network = event['object']['spec'].get('hostNetwork')
-            if host_network:
-                return
-            self._network_policy_mgr.vnc_pod_update(event)
-            self.vnc_pod_add(pod_id, pod_name, pod_namespace,
-                pod_node, labels)
+
+            vm_vmi = None
+            host_ip = self._get_host_ip(pod_name)
+            if host_ip:
+                iip = InstanceIpKM.get_object(host_ip)
+                if iip:
+                    for vmi_id in iip.virtual_machine_interfaces:
+                        vm_vmi = VirtualMachineInterfaceKM.get(vmi_id)
+                        if not vm_vmi or not vm_vmi.host_id:
+                            self._logger.error("No VMI found for host: "
+                                + host_ip + ". Pod add failed for pod: "
+                                + pod_name)
+                            return
+                        break
+
+            if event['type'] == 'ADDED':
+                self.vnc_pod_add(pod_id, pod_name, pod_namespace,
+                    pod_node, labels, vm_vmi)
+                self._network_policy_mgr.vnc_pod_add(event)
+            else:
+                self._network_policy_mgr.vnc_pod_update(event)
+                self.vnc_pod_add(pod_id, pod_name, pod_namespace,
+                    pod_node, labels, vm_vmi)
+
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
             self._network_policy_mgr.vnc_pod_delete(event)

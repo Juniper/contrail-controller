@@ -36,6 +36,7 @@ def parse_args():
         'api_service_link_local' : 'True',
         'orchestrator' : 'kubernetes',
         'token' : '',
+        'nested_mode': '0',
     }
 
     vnc_opts = {
@@ -81,6 +82,10 @@ def parse_args():
         'introspect_ssl_enable': False
     }
 
+    auth_opts = {
+        'auth_token_url': None
+    }
+
     config = ConfigParser.SafeConfigParser()
     if args.config_file:
         config.read(args.config_file)
@@ -90,6 +95,8 @@ def parse_args():
             k8s_opts.update(dict(config.items("KUBERNETES")))
         if 'SANDESH' in config.sections():
             sandesh_opts.update(dict(config.items('SANDESH')))
+        if 'AUTH' in config.sections():
+            auth_opts.update(dict(config.items("AUTH")))
         if 'DEFAULTS' in config.sections():
             defaults.update(dict(config.items("DEFAULTS")))
 
@@ -101,6 +108,7 @@ def parse_args():
     defaults.update(vnc_opts)
     defaults.update(k8s_opts)
     defaults.update(sandesh_opts)
+    defaults.update(auth_opts)
     parser.set_defaults(**defaults)
     args = parser.parse_args()
 

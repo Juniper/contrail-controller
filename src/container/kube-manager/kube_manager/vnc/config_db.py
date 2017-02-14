@@ -9,10 +9,15 @@ import json
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.vnc_db import DBBase
+from bitstring import BitArray
+ 
+INVALID_VLAN_ID = 4096
+MAX_VLAN_ID = 4095
 
 class DBBaseKM(DBBase):
     obj_type = __name__
     _fq_name_to_uuid = {}
+    _nested_mode = False
 
     def __init__(self, uuid, obj_dict=None):
         self._fq_name_to_uuid[tuple(obj_dict['fq_name'])] = uuid
@@ -31,6 +36,21 @@ class DBBaseKM(DBBase):
     def evaluate(self):
         # Implement in the derived class
         pass
+
+    @staticmethod
+    def is_nested ():
+        """Return nested mode enable/disable config value."""
+
+        return DBBaseKM._nested_mode
+
+    @staticmethod
+    def set_nested (val):
+        """Configured nested mode value.
+
+        True : Enable nested mode.
+        False : Disable nested mode.
+        """
+        DBBaseKM._nested_mode = val
 
 class LoadbalancerKM(DBBaseKM):
     _dict = {}
@@ -297,12 +317,14 @@ class VirtualMachineInterfaceKM(DBBaseKM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
-        self.params = None
-        self.if_type = None
+        self.host_id = None
         self.virtual_network = None
         self.virtual_machine = None
         self.instance_ips = set()
         self.floating_ips = set()
+        self.virtual_machine_interfaces = set()
+        self.vlan_id = None
+        self.vlan_bit_map = None 
         self.security_groups = set()
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
@@ -312,11 +334,63 @@ class VirtualMachineInterfaceKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+
+        # Cache bindings on this VMI.
+        if obj.get('virtual_machine_interface_bindings', None):
+            bindings = obj['virtual_machine_interface_bindings']
+            kvps = bindings.get('key_value_pair', None)
+            for kvp in kvps or []:
+                if kvp['key'] == 'host_id':
+                    self.host_id = kvp['value']
+
         self.update_multiple_refs('instance_ip', obj)
         self.update_multiple_refs('floating_ip', obj)
         self.update_single_ref('virtual_network', obj)
         self.update_single_ref('virtual_machine', obj)
         self.update_multiple_refs('security_group', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
+
+        # Update VMI properties.
+        vlan_id = None
+        if obj.get('virtual_machine_interface_properties', None):
+            props = obj['virtual_machine_interface_properties']
+            # Property: Vlan ID.
+            vlan_id = props.get('sub_interface_vlan_tag', None)
+
+        # If vlan is configured on this interface, cache the appropriate
+        # info.
+        #
+        # In nested mode, if the interface is a sub-interface, the vlan id
+        # space is allocated and managed in the parent interface. So check to
+        # see if the interface has a parent. If it does, invoke the appropriate
+        # method on the parent interface for vlan-id management.
+        if (vlan_id is not None or self.vlan_id is not None) and\
+                vlan_id is not self.vlan_id:
+            # Vlan is configured on this interface.
+
+            if DBBaseKM.is_nested():
+                # We are in nested mode.
+                # Check if this interface has a parent. If yes, this is
+                # is a sub-interface and the vlan-id should be managed on the
+                # vlan-id space of the parent interface.
+                parent_vmis = self.virtual_machine_interfaces
+                for parent_vmi_id in parent_vmis:
+                    parent_vmi = VirtualMachineInterfaceKM.locate(
+                                     parent_vmi_id)
+                    if not parent_vmi:
+                        continue
+                    if self.vlan_id is not None:
+                        parent_vmi.reset_vlan(self.vlan_id)
+                    if vlan_id is not None:
+                        parent_vmi.set_vlan(vlan_id)
+                        # Cache the Vlan-id.
+                    self.vlan_id = vlan_id
+            else:
+                # Nested mode is not configured.
+                # Vlan-id is NOT managed on the parent interface.
+                # Just cache and proceed.
+                self.vlan_id = vlan_id
+
         return obj
 
     @classmethod
@@ -324,14 +398,51 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+
+        # If vlan-id is configured and if we are in nested mode,
+        # free up the vlan-id which was claimed from the parent
+        # interface.
+        if obj.vlan_id and DBBaseKM.is_nested():
+            parent_vmi_ids = obj.virtual_machine_interfaces
+            for parent_vmi_id in parent_vmi_ids:
+                parent_vmi = VirtualMachineInterfaceKM.get(parent_vmi_id)
+                if parent_vmi:
+                    parent_vmi.reset_vlan(obj.vlan_id)
+
         obj.update_multiple_refs('instance_ip', {})
         obj.update_multiple_refs('floating_ip', {})
         obj.update_single_ref('virtual_network', {})
         obj.update_single_ref('virtual_machine', {})
         obj.update_multiple_refs('security_group', {})
+        obj.update_multiple_refs('virtual_machine_interface', {})
+
         obj.remove_from_parent()
         del cls._dict[uuid]
 
+    def set_vlan (self, vlan):
+        if vlan < 0 or vlan > MAX_VLAN_ID:
+            return
+        if not self.vlan_bit_map:
+            self.vlan_bit_map = BitArray(MAX_VLAN_ID + 1)
+        self.vlan_bit_map[vlan] = 1
+
+    def reset_vlan (self, vlan):
+        if vlan < 0 or vlan > MAX_VLAN_ID:
+            return
+        if not self.vlan_bit_map:
+            return
+        self.vlan_bit_map[vlan] = 0
+
+    def alloc_vlan (self):
+        if not self.vlan_bit_map:
+            self.vlan_bit_map = BitArray(MAX_VLAN_ID + 1)
+        vid = self.vlan_bit_map.find('0b0')
+        if vid:
+            return vid[0]
+        return INVALID_VLAN_ID
+
+    def get_vlan (self):
+        return vlan_id
 
 class VirtualNetworkKM(DBBaseKM):
     _dict = {}
@@ -425,6 +536,15 @@ class InstanceIpKM(DBBaseKM):
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('virtual_network', {})
         del cls._dict[uuid]
+
+    @classmethod
+    def get_object(cls, ip):
+        items = cls._dict.items()
+        for uuid, iip_obj in items:
+            if ip == iip_obj.address:
+                return iip_obj
+        return None
+
 # end class InstanceIpKM
 
 class ProjectKM(DBBaseKM):

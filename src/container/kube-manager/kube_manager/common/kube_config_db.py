@@ -37,6 +37,7 @@ class PodKM(KubeDBBase):
         self.name = None
         self.namespace = None
         self.labels = {}
+        self.nested = False
 
         # Spec.
         self.nodename = None
@@ -63,6 +64,16 @@ class PodKM(KubeDBBase):
         self.namespace = md.get('namespace')
         self.labels = md.get('labels')
 
+        # Parse annotations on this namespace.
+        annotations = md.get('annotations', None)
+
+        if annotations:
+            # Nested pod directive.
+            if 'nested' in annotations and annotations['nested'] == "true":
+                self.nested = True
+            else:
+                self.nested = False
+
     def _update_spec(self, spec):
         if spec is None:
             return
@@ -73,6 +84,12 @@ class PodKM(KubeDBBase):
             return
         self.ip = status.get('hostIP')
         self.phase = status.get('phase')
+
+    def is_nested(self):
+        return self.nested
+
+    def get_host_ip(self):
+        return self.ip
 
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):
