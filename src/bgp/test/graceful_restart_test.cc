@@ -288,7 +288,7 @@ typedef std::tr1::tuple<int, int, int, int, int> TestParams;
 
 class SandeshServerTest : public SandeshServer {
 public:
-    SandeshServerTest(EventManager *evm) : SandeshServer(evm) { }
+    SandeshServerTest(EventManager *evm) : SandeshServer(evm, config_) { }
     virtual ~SandeshServerTest() { }
     virtual bool ReceiveSandeshMsg(SandeshSession *session,
                        const SandeshMessage *msg, bool rsc) {
@@ -296,6 +296,7 @@ public:
     }
 
 private:
+    SandeshConfig config_;
 };
 
 boost::scoped_ptr<BgpSandeshContext> sandesh_context_;
