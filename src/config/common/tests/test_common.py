@@ -57,8 +57,15 @@ try:
     if not hasattr(vnc_cfg_api_server, 'main'):
         from vnc_cfg_api_server import vnc_cfg_api_server
 except ImportError:
-    vnc_cfg_api_server = 'vnc_cfg_api_server could not be imported'
-
+    sys.path.insert(0, '../../../../build/debug/api-lib/vnc_api')
+    sys.path.append('../../../../build/debug/config/api-server/vnc_cfg_api_server')
+    sys.path.insert(0, '../../../../build/debug/discovery/discovery')
+    try:
+        import vnc_cfg_api_server
+        if not hasattr(vnc_cfg_api_server, 'main'):
+            from vnc_cfg_api_server import vnc_cfg_api_server
+    except ImportError:
+        vnc_cfg_api_server = 'vnc_cfg_api_server could not be imported'
 try:
     import to_bgp
 except ImportError:

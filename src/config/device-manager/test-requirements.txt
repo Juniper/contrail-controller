@@ -16,3 +16,4 @@ sandesh_common
 vnc_cfg_api_server
 schema_transformer
 xmltodict
+pyOpenSSL
