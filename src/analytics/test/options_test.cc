@@ -138,7 +138,6 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 100);
     EXPECT_EQ(options_.disable_flow_collection(), false);
     EXPECT_EQ(options_.disable_db_messages_writes(), false);
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
