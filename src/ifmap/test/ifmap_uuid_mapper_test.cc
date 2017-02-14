@@ -12,15 +12,20 @@
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "io/event_manager.h"
+#include "io/test/event_manager_test.h"
+#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_exporter.h"
+#include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
+#include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_util.h"
 #include "ifmap/ifmap_update.h"
+#include "ifmap/test/config_cassandra_client_test.h"
 #include "ifmap/test/ifmap_client_mock.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "schema/bgp_schema_types.h"
@@ -28,34 +33,71 @@
 #include "testing/gunit.h"
 
 using namespace std;
+using rapidjson::Document;
+using rapidjson::SizeType;
+using rapidjson::Value;
 
 class IFMapVmUuidMapperTest : public ::testing::Test {
 protected:
     IFMapVmUuidMapperTest() :
+        thread_(&evm_),
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-        server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL) {
+        server_(new IFMapServer(&db_, &db_graph_, evm_.io_service())),
+        config_client_manager_(new ConfigClientManager(&evm_,
+            server_.get(), "localhost", "config-test", config_options_)),
+        ifmap_sandesh_context_(new IFMapSandeshContext(server_.get())) {
+        config_cassandra_client_ = dynamic_cast<ConfigCassandraClientTest *>(
+            config_client_manager_->config_db_client());
+    }
+
+    void SandeshSetup() {
+        if (!getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"))
+            return;
+        int port =
+            strtoul(getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"), NULL, 0);
+        if (!port)
+            port = 5910;
+        boost::system::error_code error;
+        string hostname(boost::asio::ip::host_name(error));
+        Sandesh::set_module_context("IFMap", ifmap_sandesh_context_.get());
+        Sandesh::InitGenerator("ConfigJsonParserTest", hostname, "IFMapTest",
+            "Test", &evm_, port, ifmap_sandesh_context_.get());
+        std::cout << "Introspect at http://localhost:" << Sandesh::http_port()
+            << std::endl;
+    }
+
+    void SandeshTearDown() {
+        if (!getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"))
+            return;
+        Sandesh::Uninit();
+        task_util::WaitForIdle();
     }
 
     virtual void SetUp() {
+        ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
         IFMapLinkTable_Init(&db_, &db_graph_);
-        parser_ = IFMapServerParser::GetInstance("vnc_cfg");
-        vnc_cfg_ParserInit(parser_);
+        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
         vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
-        bgp_schema_ParserInit(parser_);
+        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
         bgp_schema_Server_ModuleInit(&db_, &db_graph_);
-        server_.Initialize();
-        vm_uuid_mapper_ = server_.vm_uuid_mapper();
+        server_->Initialize();
+        vm_uuid_mapper_ = server_->vm_uuid_mapper();
+        task_util::WaitForIdle();
+        SandeshSetup();
+        thread_.Start();
+        task_util::WaitForIdle();
     }
 
     virtual void TearDown() {
-        server_.Shutdown();
+        server_->Shutdown();
         task_util::WaitForIdle();
         IFMapLinkTable_Clear(&db_);
         IFMapTable::ClearTables(&db_);
-        task_util::WaitForIdle();
-        db_.Clear();
-        parser_->MetadataClear("vnc_cfg");
+        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
+        SandeshTearDown();
         evm_.Shutdown();
+        thread_.Join();
+        task_util::WaitForIdle();
     }
 
     string FileRead(const string &filename) {
@@ -67,19 +109,69 @@ protected:
 
     void CheckNodeBits(IFMapNode *node, int index, bool binterest,
                        bool badvertised) {
-        IFMapExporter *exporter = server_.exporter();
+        IFMapExporter *exporter = server_->exporter();
         IFMapNodeState *state = exporter->NodeStateLookup(node);
         TASK_UTIL_EXPECT_TRUE(state->interest().test(index) == binterest);
         TASK_UTIL_EXPECT_TRUE(state->advertised().test(index) == badvertised);
     }
     void SimulateDeleteClient(IFMapClient *c1) {
-        server_.SimulateDeleteClient(c1);
+        server_->SimulateDeleteClient(c1);
     }
 
+    void ParseEventsJson (string eventsFile) {
+        string json_message = FileRead(eventsFile);
+        assert(json_message.size() != 0);
+        config_cassandra_client_->events()->Parse<0>(json_message.c_str());
+        if (config_cassandra_client_->events()->HasParseError()) {
+            size_t pos = config_cassandra_client_->events()->GetErrorOffset();
+            // GetParseError returns const char *
+            std::cout << "Error in parsing JSON message from rabbitMQ at "
+                << pos << "with error description"
+                << config_cassandra_client_->events()->GetParseError()
+                << std::endl;
+            exit(-1);
+        }
+    }
+
+    void FeedEventsJson () {
+        Document *events = config_cassandra_client_->events();
+        while ((*config_cassandra_client_->cevent())++ < events->Size()) {
+            size_t cevent = *config_cassandra_client_->cevent() - 1;
+            if ((*events)[SizeType(cevent)]["operation"].GetString() ==
+                           string("pause")) {
+                break;
+            }
+
+            if ((*events)[SizeType(cevent)]["operation"].GetString() ==
+                           string("db_sync")) {
+                config_cassandra_client_->BulkDataSync();
+                IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+                TASK_UTIL_EXPECT_NE(0, table->Size());
+                task_util::WaitForIdle();
+                if (getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"))
+                    TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
+                break;
+            }
+
+            if ((*events)[SizeType(cevent)]["message"].IsString()) {
+                config_client_manager_->config_amqp_client()->ProcessMessage(
+                    (*events)[SizeType(cevent)]["message"].GetString());
+            }
+        }
+        task_util::WaitForIdle();
+        if (getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"))
+            TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
+    }
+
+    EventManager evm_;
+    ServerThread thread_;
     DB db_;
     DBGraph db_graph_;
-    EventManager evm_;
-    IFMapServer server_;
+    const IFMapConfigOptions config_options_;
+    boost::scoped_ptr<IFMapServer> server_;
+    boost::scoped_ptr<ConfigClientManager> config_client_manager_;
+    boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
+    ConfigCassandraClientTest *config_cassandra_client_;
     IFMapServerParser *parser_;
     IFMapVmUuidMapper *vm_uuid_mapper_;
 };
@@ -91,11 +183,8 @@ class IFMapVmUuidMapperTestWithParam1
 
 // Receive config first and then vm-sub
 TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
-    string filename = GetParam();
-    string content = FileRead(filename);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -109,14 +198,14 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
     // VM Subscribe
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
-    server_.ProcessVmSubscribe(
+    server_->AddClient(&c1);
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -124,28 +213,25 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
     TASK_UTIL_EXPECT_NE(0, c1.count());
     TASK_UTIL_EXPECT_NE(0, c1.node_count());
     TASK_UTIL_EXPECT_NE(0, c1.link_count());
-    TASK_UTIL_EXPECT_TRUE(c1.NodeExists("virtual-network",
-                                        "default-domain:demo:vn27"));
-    TASK_UTIL_EXPECT_FALSE(c1.NodeExists("virtual-network",
-                                         "default-domain:demo:vn28"));
     TASK_UTIL_EXPECT_TRUE(c1.NodeExists("virtual-router",
         "default-global-system-config:a1s27.contrail.juniper.net"));
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 3);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 3);
+    TASK_UTIL_EXPECT_FALSE(c1.NodeExists("virtual-network",
+                                         "default-domain:demo:vn28"));
     EXPECT_EQ(vm_uuid_mapper_->UuidMapperCount(), 3);
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 3);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 3);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
+    TASK_UTIL_EXPECT_TRUE(c1.NodeExists("virtual-network",
+                                        "default-domain:demo:vn27"));
 }
 
 // Add all the config and then simulate receiving a vm-subscribe just after the
 // node was marked deleted.
 TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
-    string filename = GetParam();
-    string content = FileRead(filename);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -159,7 +245,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
 
     IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
+    server_->AddClient(&c1);
 
     IFMapNode *vm = vm_uuid_mapper_->GetVmNodeByUuid(
         "2d308482-c7b3-4e05-af14-e732b7b50117");
@@ -169,7 +255,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
 
     // vm-subscribe for the first VM
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
     task_util::WaitForIdle();
@@ -185,7 +271,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
     ASSERT_TRUE(obj != NULL);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
     vm->MarkDelete();
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
     task_util::WaitForIdle();
@@ -199,7 +285,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
 
     // Send a vm-unsubscribe while the node is deleted. The pending vm-reg
     // should be removed.
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", false, 2);
     task_util::WaitForIdle();
@@ -214,11 +300,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, VmSubUnsubWithDeletedNode) {
 // Vm-sub with deleted node followed by vm_uuid_mapper processing a node-delete
 // followed by processing revival of the node.
 TEST_P(IFMapVmUuidMapperTestWithParam1, DeletedNodeRevival) {
-    string filename = GetParam();
-    string content = FileRead(filename);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -231,7 +314,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, DeletedNodeRevival) {
 
     IFMapClientMock
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
+    server_->AddClient(&c1);
 
     // Simulate receiving a vm-subscribe for a VM *after* the VM node is marked
     // deleted. The VM should show up in the pending list.
@@ -242,7 +325,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, DeletedNodeRevival) {
     ASSERT_TRUE(obj != NULL);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
     vm->MarkDelete();
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
     task_util::WaitForIdle();
@@ -281,11 +364,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, DeletedNodeRevival) {
 
 // Config is received, then client gets deleted, then vm-subscribe is received.
 TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigDeleteClientSubscribe) {
-    string filename = GetParam();
-    string content = FileRead(filename);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -299,13 +379,13 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigDeleteClientSubscribe) {
     // Dont create the client but trigger receiving VM subscribes from that
     // client to simulate the condition where the client is deleted before the
     // subscribe is processed.
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -347,14 +427,14 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeThenConfig) {
     // VM Subscribe
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
-    server_.ProcessVmSubscribe(
+    server_->AddClient(&c1);
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -370,11 +450,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeThenConfig) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
-    string filename = GetParam();
-    string content = FileRead(filename);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -399,13 +476,13 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeDeleteClientThenConfig) {
     // Dont create the client but trigger receiving VM subscribes from that
     // client to simulate the condition where the client is deleted before the
     // subscribe is processed.
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -423,11 +500,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeDeleteClientThenConfig) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 
-    string filename = GetParam();
-    string content = FileRead(filename);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -442,11 +516,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeDeleteClientThenConfig) {
 
 // Receive config first, then vm-sub, then vm-unsub
 TEST_P(IFMapVmUuidMapperTestWithParam1, CfgSubUnsub) {
-    string filename = GetParam();
-    string content = FileRead(filename);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -460,14 +531,14 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, CfgSubUnsub) {
     // VM Subscribe
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
-    server_.ProcessVmSubscribe(
+    server_->AddClient(&c1);
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -490,19 +561,19 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, CfgSubUnsub) {
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 
     // VM Unsubscribe
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", false, 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 2);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", false, 2);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", false, 3);
     task_util::WaitForIdle();
@@ -526,14 +597,14 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeConfigUnsub) {
     // VM Subscribe
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
-    server_.ProcessVmSubscribe(
+    server_->AddClient(&c1);
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -549,11 +620,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeConfigUnsub) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
-    string filename = GetParam();
-    string content = FileRead(filename);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -566,19 +634,19 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeConfigUnsub) {
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 
     // VM Unsubscribe
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", false, 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 2);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", false, 2);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-network"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-machine-interface"), 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", false, 3);
     task_util::WaitForIdle();
@@ -599,14 +667,14 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubUnsub) {
     // VM Subscribe
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
-    server_.ProcessVmSubscribe(
+    server_->AddClient(&c1);
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -619,13 +687,13 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubUnsub) {
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
     // VM Unsubscribe
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", false, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", false, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", false, 0);
     task_util::WaitForIdle();
@@ -640,8 +708,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubUnsub) {
 
 INSTANTIATE_TEST_CASE_P(UuidMapper, IFMapVmUuidMapperTestWithParam1,
     ::testing::Values(
-        "controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml",
-        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.xml"
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add.json",
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add_vmname.json"
         ));
 
 struct ConfigFileNames {
@@ -657,10 +725,8 @@ class IFMapVmUuidMapperTestWithParam2
 // Receive config-add then config-delete - no sub/unsub received
 TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddCfgdel) {
     ConfigFileNames config_files = GetParam();
-    string content = FileRead(config_files.AddConfigFileName);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(config_files.AddConfigFileName);
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -673,7 +739,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddCfgdel) {
 
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
+    server_->AddClient(&c1);
     task_util::WaitForIdle();
 
     EXPECT_EQ(0, c1.count());
@@ -683,10 +749,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddCfgdel) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 
-    content = FileRead(config_files.DeleteConfigFileName);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(config_files.DeleteConfigFileName);
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -706,14 +770,14 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
 
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
-    server_.ProcessVmSubscribe(
+    server_->AddClient(&c1);
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -727,10 +791,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
 
     // Config adds
     ConfigFileNames config_files = GetParam();
-    string content = FileRead(config_files.AddConfigFileName);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(config_files.AddConfigFileName);
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -748,10 +810,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead(config_files.DeleteConfigFileName);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(config_files.DeleteConfigFileName);
+    FeedEventsJson();
 
     EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -771,13 +831,13 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
     c1.PrintLinks();
 
     // VM Unsubscribe
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", false, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", false, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", false, 0);
     task_util::WaitForIdle();
@@ -801,14 +861,12 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, SubCfgaddCfgdelUnsub) {
 TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
+    server_->AddClient(&c1);
 
     // Config adds
     ConfigFileNames config_files = GetParam();
-    string content = FileRead(config_files.AddConfigFileName);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(config_files.AddConfigFileName);
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -826,13 +884,13 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
     c1.PrintLinks();
 
     // Subscribes
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -871,13 +929,13 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
     c1.PrintLinks();
 
     // VM Unsubscribe
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", false, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", false, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", false, 0);
     task_util::WaitForIdle();
@@ -922,10 +980,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead(config_files.DeleteConfigFileName);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(config_files.DeleteConfigFileName);
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -948,14 +1004,11 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubUnsubCfgdel) {
 TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
     IFMapClientMock 
         c1("default-global-system-config:a1s27.contrail.juniper.net");
-    server_.AddClient(&c1);
+    server_->AddClient(&c1);
 
     // Config adds
     ConfigFileNames config_files = GetParam();
-    string content = FileRead(config_files.AddConfigFileName);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(config_files.AddConfigFileName);
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -973,13 +1026,13 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
     c1.PrintLinks();
 
     // Subscribes
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
     task_util::WaitForIdle();
@@ -1018,10 +1071,8 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead(config_files.DeleteConfigFileName);
-    assert(content.size() != 0);
-    parser_->Receive(&db_, content.c_str(), content.size(), 0);
-    task_util::WaitForIdle();
+    ParseEventsJson(config_files.DeleteConfigFileName);
+    FeedEventsJson();
 
     TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
         "2d308482-c7b3-4e05-af14-e732b7b50117"));
@@ -1057,13 +1108,13 @@ TEST_P(IFMapVmUuidMapperTestWithParam2, CfgaddSubCfgdelUnsub) {
     c1.PrintLinks();
 
     // VM Unsubscribe
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "2d308482-c7b3-4e05-af14-e732b7b50117", false, 2);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "93e76278-1990-4905-a472-8e9188f41b2c", false, 1);
-    server_.ProcessVmSubscribe(
+    server_->ProcessVmSubscribe(
         "default-global-system-config:a1s27.contrail.juniper.net",
         "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", false, 0);
     task_util::WaitForIdle();
@@ -1108,6 +1159,9 @@ int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
     ControlNode::SetDefaultSchedulingPolicy();
+    ConfigAmqpClient::set_disable(true);
+    IFMapFactory::Register<ConfigCassandraClient>(
+        boost::factory<ConfigCassandraClientTest *>());
     bool success = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return success;

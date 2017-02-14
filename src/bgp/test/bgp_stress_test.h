@@ -308,7 +308,7 @@ public:
 
 class SandeshServerTest : public SandeshServer {
 public:
-    SandeshServerTest(EventManager *evm) : SandeshServer(evm) { }
+    SandeshServerTest(EventManager *evm) : SandeshServer(evm, config_) { }
     virtual ~SandeshServerTest() { }
     virtual bool ReceiveSandeshMsg(SandeshSession *session,
                        const SandeshMessage *msg, bool rsc) {
@@ -316,6 +316,7 @@ public:
     }
 
 private:
+    SandeshConfig config_;
 };
 
 class BgpNullPeer {
