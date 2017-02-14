@@ -33,11 +33,7 @@ class RunTestsCommand(Command):
 setup(
     name='device_manager',
     version='0.1dev',
-    packages=['device_manager',
-              'device_api',
-              'device_manager.sandesh',
-              'device_manager.sandesh.dm_introspect',
-              ],
+    packages=find_packages(exclude=["*.test", "*.test.*", "test.*", "test"]),
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC Configuration Physical Router Configuration Manager",

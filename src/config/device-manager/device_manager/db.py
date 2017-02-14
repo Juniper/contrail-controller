@@ -575,8 +575,8 @@ class PhysicalRouterDM(DBBaseDM):
                                peer.params.get('autonomous_system'))
                 external = (local_as != peer_as)
                 self.config_manager.add_bgp_peer(peer.params['address'],
-                                                 peer.params, attr, external)
-            self.config_manager.set_bgp_config(bgp_router.params)
+                                                 peer.params, attr, external, peer)
+            self.config_manager.set_bgp_config(bgp_router.params, bgp_router)
             self.config_manager.set_global_routing_options(bgp_router.params)
             bgp_router_ips = bgp_router.get_all_bgp_router_ips()
             tunnel_ip = self.dataplane_ip
@@ -631,7 +631,7 @@ class PhysicalRouterDM(DBBaseDM):
                         if vn_obj.get_forwarding_mode() == 'l2_l3':
                             irb_ips = vn_irb_ip_map['irb'].get(vn_id, [])
 
-                        ri_conf = { 'ri_name': vrf_name_l2 }
+                        ri_conf = { 'ri_name': vrf_name_l2, 'vn': vn_obj }
                         ri_conf['is_l2'] = True
                         ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
                         ri_conf['import_targets'] = import_set
@@ -656,7 +656,7 @@ class PhysicalRouterDM(DBBaseDM):
                                 'l3', 0)]
                         else:
                             lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
-                        ri_conf = { 'ri_name': vrf_name_l3 }
+                        ri_conf = { 'ri_name': vrf_name_l3, 'vn': vn_obj }
                         ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
                         ri_conf['import_targets'] = import_set
                         ri_conf['export_targets'] = export_set
@@ -691,7 +691,7 @@ class PhysicalRouterDM(DBBaseDM):
                         JunosInterface(
                             service_ports[0] + "." + str(service_port_ids[1]),
                             'l3', 0))
-                    ri_conf = { 'ri_name': vrf_name }
+                    ri_conf = { 'ri_name': vrf_name, 'vn': vn_obj }
                     ri_conf['import_targets'] = import_set
                     ri_conf['interfaces'] = interfaces
                     ri_conf['fip_map'] = vn_obj.instance_ip_map
