@@ -33,4 +33,10 @@ class VerificationGenerator(IntrospectUtilBase):
         p = self.dict_get(path, query)
         return EtreeToDict(xpath).get_all_entry(p)
     #end get_uve
+
+    def get_db_read_stats(self):
+        path = 'Snh_ShowQEDbStatsReq?'
+        xpath = '/ShowQEDbStatsResp'
+        p = self.dict_get(path)
+        return EtreeToDict(xpath).get_all_entry(p)
 #end class VerificationGenerator

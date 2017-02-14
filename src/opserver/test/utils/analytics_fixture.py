@@ -2771,6 +2771,24 @@ class AnalyticsFixture(fixtures.Fixture):
         return actual_alarms == expected_alarms
     # end verify_alarm_data
 
+    def get_db_read_stats_from_qe(self, qe, table_name, is_stats_table=False, field_name='reads'):
+        qe_introspect = VerificationGenerator('127.0.0.1', qe.http_port)
+        try:
+            stats_info = qe_introspect.get_db_read_stats()
+            table_stat_info=''
+            if is_stats_table == False:
+                # parse through stats of physical tables
+                table_stat_info = stats_info['table_info']
+            else:
+                # parse through stats of logical tables
+                table_stat_info = stats_info['statistics_table_info']
+            for table in table_stat_info:
+                if (str(table['table_name']).strip() == str(table_name).strip()):
+                    return table[field_name]
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+    # end get_db_read_stats_from_qe
+
     def cleanUp(self):
         self.logger.info('cleanUp started')
 

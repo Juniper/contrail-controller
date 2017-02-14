@@ -13,7 +13,7 @@
 
 #include <io/event_manager.h>
 #include <base/timer.h>
-
+#include <sandesh/sandesh.h>
 #include <database/gendb_if.h>
 #include <database/cassandra/cql/cql_types.h>
 #include <database/cassandra/cql/cql_lib_if.h>
