@@ -201,7 +201,7 @@ class TestBgp(STTestCase, VerifyBgp):
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
-        self.assertTill(self.ifmap_has_ident, obj=vn1_obj)
+        self.assertTill(self.vnc_db_has_ident, obj=vn1_obj)
 
         self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000001')
 
