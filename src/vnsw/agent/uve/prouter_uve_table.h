@@ -20,6 +20,12 @@
 #include <set>
 #include <map>
 
+extern SandeshTraceBufferPtr ProuterUveTraceBuf;
+#define PROUTER_UVE_TRACE(...)\
+do {\
+    ProuterUveTrace::TraceMsg(ProuterUveTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
+} while (false);
+
 // The container class for objects representing Prouter UVEs
 // Defines routines for storing and managing (add, delete, change and send)
 // Prouter UVEs
