@@ -310,6 +310,10 @@ class VncKubernetes(object):
                     event['object'].get('kind'),
                     event['object']['metadata'].get('namespace'),
                     event['object']['metadata'].get('name')))
+                self.logger.debug("\tGot %s %s %s:%s" % (event['type'],
+                    event['object'].get('kind'),
+                    event['object']['metadata'].get('namespace'),
+                    event['object']['metadata'].get('name')))
                 if event['object'].get('kind') == 'Pod':
                     self.pod_mgr.process(event)
                 elif event['object'].get('kind') == 'Service':
