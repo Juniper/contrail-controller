@@ -59,7 +59,7 @@ class UserDefinedCounters {
 
     private:
         void ReadConfig();
-        void UDCHandler(rapidjson::Document &jdoc,
+        void UDCHandler(contrail_rapidjson::Document &jdoc,
                     boost::system::error_code &ec,
                     std::string version, int status, std::string reason,
                     std::map<std::string, std::string> *headers);

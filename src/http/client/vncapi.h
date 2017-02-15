@@ -28,7 +28,7 @@ struct VncApiConfig {
 class RespBlock {
     public:
     RespBlock(HttpConnection *c, std::string uri,
-            boost::function<void(rapidjson::Document&,
+            boost::function<void(contrail_rapidjson::Document&,
                 boost::system::error_code&, std::string, int, std::string,
                 std::map<std::string, std::string>*)> cb);
     HttpConnection *GetConnection();
@@ -37,13 +37,13 @@ class RespBlock {
     std::string GetBody();
     std::string GetUri();
     void ShowDetails();
-    boost::function<void(rapidjson::Document&,
+    boost::function<void(contrail_rapidjson::Document&,
             boost::system::error_code&, std::string, int, std::string,
             std::map<std::string, std::string>*)> GetCallBack();
     private:
     HttpConnection* conn_;
     std::string uri_;
-    boost::function<void(rapidjson::Document&,
+    boost::function<void(contrail_rapidjson::Document&,
             boost::system::error_code&, std::string, int, std::string,
             std::map<std::string, std::string>*)> cb_;
     std::string body_;
@@ -78,7 +78,7 @@ class VncApi : public boost::enable_shared_from_this<VncApi> {
     void GetConfig(std::string type, std::vector<std::string> ids,
             std::vector<std::string> filters, std::vector<std::string> parents,
             std::vector<std::string> refs, std::vector<std::string> fields,
-            boost::function<void(rapidjson::Document&,
+            boost::function<void(contrail_rapidjson::Document&,
                 boost::system::error_code &ec, std::string version, int status,
                 std::string reason,
                 std::map<std::string, std::string> *headers)> cb);

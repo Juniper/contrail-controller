@@ -38,7 +38,7 @@ class PortIpcHandler {
         return interface_stale_cleaner_.get();
     }
 
-    bool AddPortArrayFromJson(const rapidjson::Value &d,
+    bool AddPortArrayFromJson(const contrail_rapidjson::Value &d,
                               const std::string &json,
                               VmiSubscribeEntryPtrList &req_list,
                               bool check_port, std::string &err_msg);
@@ -74,40 +74,40 @@ class PortIpcHandler {
     friend class PortIpcTest;
     bool InterfaceExists(const std::string &name) const;
 
-    VmiSubscribeEntry *MakeAddVmiUuidRequest(const rapidjson::Value &d,
+    VmiSubscribeEntry *MakeAddVmiUuidRequest(const contrail_rapidjson::Value &d,
                                              const std::string &json,
                                              bool check_port,
                                              std::string &err_msg) const;
 
-    VmVnPortSubscribeEntry *MakeAddVmVnPortRequest(const rapidjson::Value &d,
+    VmVnPortSubscribeEntry *MakeAddVmVnPortRequest(const contrail_rapidjson::Value &d,
                                                    const std::string &json,
                                                    bool check_port,
                                                    std::string &err_msg) const;
 
-    bool BuildGateway(const rapidjson::Value &d, const std::string &json,
+    bool BuildGateway(const contrail_rapidjson::Value &d, const std::string &json,
                       std::string &err_msg, VirtualGatewayInfo *req) const;
-    bool HasAllGatewayFields(const rapidjson::Value &d,
+    bool HasAllGatewayFields(const contrail_rapidjson::Value &d,
                              std::string &member_err,
                              VirtualGatewayInfo *req) const;
-    bool ValidGatewayJsonString(const rapidjson::Value &d,
+    bool ValidGatewayJsonString(const contrail_rapidjson::Value &d,
                                 VirtualGatewayConfig::SubnetList *list) const;
-    bool BuildGatewayArrayElement(const rapidjson::Value &d,
+    bool BuildGatewayArrayElement(const contrail_rapidjson::Value &d,
                                   VirtualGatewayConfig::Subnet *entry) const;
 
-    bool AddVmiUuidEntry(PortSubscribeEntryPtr entry, const rapidjson::Value &d,
+    bool AddVmiUuidEntry(PortSubscribeEntryPtr entry, const contrail_rapidjson::Value &d,
                          bool write_file, std::string &err_msg) const;
     bool AddVmVnPortEntry(PortSubscribeEntryPtr entry,
-                          const rapidjson::Value &d, bool write_file,
+                          const contrail_rapidjson::Value &d, bool write_file,
                           std::string &err_msg) const;
 
     bool ValidateMac(const std::string &mac) const;
     bool IsUUID(const std::string &uuid_str) const;
     void ProcessFile(const std::string &file, bool check_port, bool vm_vn_port);
     void AddMember(const char *key, const char *value,
-                   rapidjson::Document *doc) const;
-    bool WriteJsonToFile(const rapidjson::Value &v,
+                   contrail_rapidjson::Document *doc) const;
+    bool WriteJsonToFile(const contrail_rapidjson::Value &v,
                          VmiSubscribeEntry *entry) const;
-    bool WriteJsonToFile(const rapidjson::Value &v,
+    bool WriteJsonToFile(const contrail_rapidjson::Value &v,
                          VmVnPortSubscribeEntry *entry) const;
 
     void MakeVmVnPortJson(const VmVnPortSubscribeEntry *entry, string &info,

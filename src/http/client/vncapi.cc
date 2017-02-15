@@ -20,7 +20,7 @@
 #include "vncapi.h"
 
 RespBlock::RespBlock(HttpConnection *c, std::string uri,
-            boost::function<void(rapidjson::Document&,
+            boost::function<void(contrail_rapidjson::Document&,
                 boost::system::error_code&, std::string, int, std::string,
                 std::map<std::string, std::string>*)> cb):
         conn_(c), uri_(uri), cb_(cb)
@@ -66,7 +66,7 @@ RespBlock::ShowDetails()
         << conn_->Reason() << "(" << conn_->Status() << ")\n";
 }
 
-boost::function<void(rapidjson::Document&, boost::system::error_code&,
+boost::function<void(contrail_rapidjson::Document&, boost::system::error_code&,
         std::string, int, std::string, std::map<std::string, std::string>*)>
 RespBlock::GetCallBack()
 {
@@ -132,7 +132,7 @@ VncApi::CondTest(std::string s)
 }
 
 std::string VncApi::GetToken(RespBlock *rb) const {
-    rapidjson::Document jdoc;
+    contrail_rapidjson::Document jdoc;
     jdoc.Parse<0>(rb->GetBody().c_str());
 
     if (!jdoc.IsObject() || !jdoc.HasMember("access"))
@@ -160,7 +160,7 @@ VncApi::KsRespHandler(RespBlock *rb, RespBlock *orb, std::string &str,
     if (client_) {
         if (str == "") {
             if (rb->GetConnection()->Status() == 200) {
-                rapidjson::Document jdoc;
+                contrail_rapidjson::Document jdoc;
                 jdoc.Parse<0>(rb->GetBody().c_str());
 
                 std::string token = GetToken(rb);
@@ -266,7 +266,7 @@ void
 VncApi::GetConfig(std::string type, std::vector<std::string> ids,
         std::vector<std::string> filters, std::vector<std::string> parents,
         std::vector<std::string> refs, std::vector<std::string> fields,
-        boost::function<void(rapidjson::Document&,
+        boost::function<void(contrail_rapidjson::Document&,
             boost::system::error_code &ec, std::string version, int status,
             std::string reason,
             std::map<std::string, std::string> *headers)> cb)
@@ -298,7 +298,7 @@ VncApi::RespHandler(RespBlock *rb, std::string &str,
                 rb->Clear();
                 Reauthenticate(rb);
             } else {
-                rapidjson::Document jdoc;
+                contrail_rapidjson::Document jdoc;
                 if (rb->GetConnection()->Status() == 200)
                     jdoc.Parse<0>(rb->GetBody().c_str());
                 rb->GetCallBack()(jdoc, ec,

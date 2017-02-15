@@ -80,8 +80,8 @@ NexthopDBClient::FindNexthop(NexthopDBEntry::NexthopPtr nh)
 uint8_t *
 NexthopDBClient::NextMessage(int *data_len)
 {
-    rapidjson::StringBuffer s;
-    rapidjson::Writer <rapidjson::StringBuffer> writer(s);
+    contrail_rapidjson::StringBuffer s;
+    contrail_rapidjson::Writer <contrail_rapidjson::StringBuffer> writer(s);
 
     writer.StartObject();
 

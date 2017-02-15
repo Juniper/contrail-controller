@@ -10,7 +10,7 @@
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
 
-using namespace rapidjson;
+using namespace contrail_rapidjson;
 using namespace std;
 
 ConfigJsonParser::ConfigJsonParser(ConfigClientManager *mgr)
@@ -196,7 +196,7 @@ bool ConfigJsonParser::ParseDocument(const Document &document,
 }
 
 bool ConfigJsonParser::Receive(const string &uuid,
-                               const rapidjson::Document &document,
+                               const contrail_rapidjson::Document &document,
                                IFMapOrigin::Origin origin) {
     ConfigClientManager::RequestList req_list;
 

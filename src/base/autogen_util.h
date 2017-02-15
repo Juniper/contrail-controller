@@ -15,7 +15,7 @@
 #include "rapidjson/rapidjson.h"
 #include "rapidjson/document.h"
 
-using namespace rapidjson;
+using namespace contrail_rapidjson;
 using namespace pugi;
 using namespace std;
 
@@ -28,7 +28,7 @@ namespace autogen {
 
 // Json Parse routines
 
-static bool ParseString(const rapidjson::Value &node, std::string *s) {
+static bool ParseString(const contrail_rapidjson::Value &node, std::string *s) {
     if (node.IsString()) {
         *s = node.GetString();
         return true;
@@ -36,19 +36,19 @@ static bool ParseString(const rapidjson::Value &node, std::string *s) {
 
     std::stringstream ss;
     switch (node.GetType()) {
-    case rapidjson::kNullType:
+    case contrail_rapidjson::kNullType:
         *s = "null";
         break;
-    case rapidjson::kTrueType:
+    case contrail_rapidjson::kTrueType:
         *s = "true";
         break;
-    case rapidjson::kFalseType:
+    case contrail_rapidjson::kFalseType:
         *s = "false";
         break;
-    case rapidjson::kStringType:
+    case contrail_rapidjson::kStringType:
         *s = node.GetString();
         break;
-    case rapidjson::kNumberType:
+    case contrail_rapidjson::kNumberType:
         if (node.IsUint())
             ss << node.GetUint();
         else if (node.IsInt())
@@ -61,9 +61,9 @@ static bool ParseString(const rapidjson::Value &node, std::string *s) {
             ss << node.GetDouble();
         *s = ss.str();
         break;
-    case rapidjson::kObjectType:
+    case contrail_rapidjson::kObjectType:
         return false;
-    case rapidjson::kArrayType:
+    case contrail_rapidjson::kArrayType:
         return false;
     }
     return true;
@@ -156,7 +156,7 @@ static std::string FormatTime(const time_t *valuep) {
 }
 
 // Json Parse routines
-static bool ParseInteger(const rapidjson::Value &node, int *valuep) {
+static bool ParseInteger(const contrail_rapidjson::Value &node, int *valuep) {
     if (node.IsString())
         return ParseInteger(node.GetString(), valuep);
     if (!node.IsInt())
@@ -165,7 +165,7 @@ static bool ParseInteger(const rapidjson::Value &node, int *valuep) {
     return true;
 }
 
-static bool ParseUnsignedLong(const rapidjson::Value &node, uint64_t *valuep) {
+static bool ParseUnsignedLong(const contrail_rapidjson::Value &node, uint64_t *valuep) {
     if (node.IsString())
         return ParseUnsignedLong(node.GetString(), valuep);
     if (!node.IsUint64())
@@ -174,7 +174,7 @@ static bool ParseUnsignedLong(const rapidjson::Value &node, uint64_t *valuep) {
     return true;
 }
 
-static bool ParseBoolean(const rapidjson::Value &node, bool *valuep) {
+static bool ParseBoolean(const contrail_rapidjson::Value &node, bool *valuep) {
     if (node.IsString())
         return ParseBoolean(node.GetString(), valuep);
     if (!node.IsBool())
@@ -183,7 +183,7 @@ static bool ParseBoolean(const rapidjson::Value &node, bool *valuep) {
     return true;
 }
 
-static bool ParseDateTime(const rapidjson::Value &node, time_t *valuep) {
+static bool ParseDateTime(const contrail_rapidjson::Value &node, time_t *valuep) {
     if (!node.IsString())
         return false;
     string value(node.GetString());
@@ -198,7 +198,7 @@ static bool ParseDateTime(const rapidjson::Value &node, time_t *valuep) {
     return true;
 }
 
-static bool ParseTime(const rapidjson::Value &node, time_t *valuep) {
+static bool ParseTime(const contrail_rapidjson::Value &node, time_t *valuep) {
     if (!node.IsString())
         return false;
     string value(node.GetString());

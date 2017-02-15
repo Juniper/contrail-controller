@@ -27,11 +27,11 @@ void SendResponse(HttpSession *session,
 
 void SendErrorResponse(HttpSession *session,
                         const std::string &error_msg, int status_code) {
-    rapidjson::Document document;
+    contrail_rapidjson::Document document;
     document.SetObject();
     document.AddMember("error", error_msg.c_str(), document.GetAllocator());
-    rapidjson::StringBuffer strbuf;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
+    contrail_rapidjson::StringBuffer strbuf;
+    contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(strbuf);
     document.Accept(writer);
     SendResponse(session, strbuf.GetString(), status_code);
 }

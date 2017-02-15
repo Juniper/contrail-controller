@@ -24,7 +24,7 @@ struct AutogenProperty;
 class ConfigJsonParser {
 public:
     typedef boost::function<
-        bool(const rapidjson::Value &, std::auto_ptr<AutogenProperty > *)
+        bool(const contrail_rapidjson::Value &, std::auto_ptr<AutogenProperty > *)
     > MetadataParseFn;
     typedef std::map<std::string, MetadataParseFn> MetadataParseMap;
 
@@ -32,28 +32,28 @@ public:
 
     void MetadataRegister(const std::string &metadata, MetadataParseFn parser);
     void MetadataClear(const std::string &module);
-    bool Receive(const std::string &uuid, const rapidjson::Document &document,
+    bool Receive(const std::string &uuid, const contrail_rapidjson::Document &document,
                  IFMapOrigin::Origin origin);
     ConfigClientManager *config_mgr() const { return mgr_; }
     ConfigClientManager *config_mgr() { return mgr_; }
 
 private:
-    bool ParseDocument(const rapidjson::Document &document,
+    bool ParseDocument(const contrail_rapidjson::Document &document,
         IFMapOrigin::Origin origin, ConfigClientManager::RequestList *req_list,
         IFMapTable::RequestKey *key) const;
-    bool ParseNameType(const rapidjson::Document &document,
+    bool ParseNameType(const contrail_rapidjson::Document &document,
                        IFMapTable::RequestKey *key) const;
-    bool ParseProperties(const rapidjson::Document &document,
+    bool ParseProperties(const contrail_rapidjson::Document &document,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
         ConfigClientManager::RequestList *req_list) const;
-    bool ParseOneProperty(const rapidjson::Value &key_node,
-        const rapidjson::Value &value_node,
+    bool ParseOneProperty(const contrail_rapidjson::Value &key_node,
+        const contrail_rapidjson::Value &value_node,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
         ConfigClientManager::RequestList *req_list) const;
-    bool ParseLinks(const rapidjson::Document &document,
+    bool ParseLinks(const contrail_rapidjson::Document &document,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
         ConfigClientManager::RequestList *req_list) const;
-    bool ParseRef(const rapidjson::Value &ref_entry,
+    bool ParseRef(const contrail_rapidjson::Value &ref_entry,
         IFMapOrigin::Origin origin, const std::string &to_underscore,
         const IFMapTable::RequestKey &key, ConfigClientManager::RequestList *req_list) const;
 

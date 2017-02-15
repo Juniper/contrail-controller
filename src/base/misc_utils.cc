@@ -98,25 +98,25 @@ bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info,
     string build_num;
 
     bool ret = GetContrailVersionInfo(id, rpm_version, build_num);
-    rapidjson::Document d;
+    contrail_rapidjson::Document d;
     if (d.Parse<0>(const_cast<char *>(build_info.c_str())).HasParseError()) {
         result = build_info;
         return false;
     }
-    rapidjson::Value& fields = d["build-info"];
+    contrail_rapidjson::Value& fields = d["build-info"];
     if (!fields.IsArray()) {
         result = build_info;
         return false;
     }
 
-    rapidjson::Value v;
+    contrail_rapidjson::Value v;
     fields[0u].AddMember("build-id",
         v.SetString(rpm_version.c_str(), d.GetAllocator()), d.GetAllocator());
     fields[0u].AddMember("build-number",
         v.SetString(build_num.c_str(), d.GetAllocator()), d.GetAllocator());
 
-    rapidjson::StringBuffer strbuf;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
+    contrail_rapidjson::StringBuffer strbuf;
+    contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(strbuf);
     d.Accept(writer);
     result = strbuf.GetString();
     return ret;

@@ -192,11 +192,11 @@ class StructuredSyslogConfig {
         boost::shared_ptr<TenantApplicationRecord> GetTenantApplicationRecord(const std::string &name);
 
     private:
-        void HostnameRecordsHandler(rapidjson::Document &jdoc,
+        void HostnameRecordsHandler(contrail_rapidjson::Document &jdoc,
                     boost::system::error_code &ec,
                     const std::string &version, int status, const std::string &reason,
                     std::map<std::string, std::string> *headers);
-        void ApplicationRecordsHandler(rapidjson::Document &jdoc,
+        void ApplicationRecordsHandler(contrail_rapidjson::Document &jdoc,
                     boost::system::error_code &ec,
                     const std::string &version, int status, const std::string &reason,
                     std::map<std::string, std::string> *headers);

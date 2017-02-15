@@ -19,10 +19,10 @@
 #include "rapidjson/writer.h"
 
 using boost::assign::list_of;
-using rapidjson::Document;
-using rapidjson::StringBuffer;
-using rapidjson::Value;
-using rapidjson::Writer;
+using contrail_rapidjson::Document;
+using contrail_rapidjson::StringBuffer;
+using contrail_rapidjson::Value;
+using contrail_rapidjson::Writer;
 using std::string;
 using std::set;
 

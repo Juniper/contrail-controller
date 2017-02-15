@@ -45,18 +45,18 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     iter = json_api_data.find(QUERY_SELECT);
     QE_PARSE_ERROR(iter != json_api_data.end());
 
-    rapidjson::Document d;
+    contrail_rapidjson::Document d;
     std::string json_string = "{ \"select\" : " + 
         iter->second + " }";
     json_string_ = json_string;
     QE_TRACE(DEBUG, "parsing through rapidjson: " << json_string);
     d.Parse<0>(const_cast<char *>(json_string.c_str()));
-    const rapidjson::Value& json_select_fields = d["select"]; 
+    const contrail_rapidjson::Value& json_select_fields = d["select"]; 
     QE_PARSE_ERROR(json_select_fields.IsArray());
     QE_TRACE(DEBUG, "# of select fields is " << json_select_fields.Size());
 
     if (m_query->is_stat_table_query(m_query->table())) {
-        for (rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
+        for (contrail_rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
             select_column_fields.push_back(json_select_fields[i].GetString());
         }
         stats_.reset(new StatsSelect(m_query, select_column_fields));
@@ -66,7 +66,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     // whether uuid key was provided in select field
     bool uuid_key_selected = false;
 
-    for (rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) 
+    for (contrail_rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) 
     {
         QE_PARSE_ERROR(json_select_fields[i].IsString());
         QE_TRACE(DEBUG, "Select field string: " << 
@@ -429,7 +429,7 @@ query_status_t SelectQuery::process_query() {
             it->get_stattable_info(json_string, u);
 
             //uint64_t thenj = UTCTimestampUsec();
-            rapidjson::Document d;
+            contrail_rapidjson::Document d;
             if (d.Parse<0>(const_cast<char *>(
                     json_string.c_str())).HasParseError()) {
                 QE_LOG(ERROR, "Error parsing json document: " <<
@@ -440,7 +440,7 @@ query_status_t SelectQuery::process_query() {
 
             std::vector<StatsSelect::StatEntry> attribs;
             {
-                for (rapidjson::Value::ConstMemberIterator itr = d.MemberBegin();
+                for (contrail_rapidjson::Value::ConstMemberIterator itr = d.MemberBegin();
                         itr != d.MemberEnd(); ++itr) {
                     QE_ASSERT(itr->name.IsString());
 
