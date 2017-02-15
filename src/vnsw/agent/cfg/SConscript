@@ -22,5 +22,4 @@ libcfg = env.Library('cfg',
                      sandesh_objs +
                      ['cfg_filter.cc',
                       'cfg_mirror.cc',
-                      'discovery_agent.cc',
                       ])

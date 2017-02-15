@@ -5,6 +5,7 @@
 #ifndef vnsw_agent_metadata_client_session_h_
 #define vnsw_agent_metadata_client_session_h_
 
+#include "http/client/http_client.h"
 #include "http/http_session.h"
 #include "services/metadata_client.h"
 
