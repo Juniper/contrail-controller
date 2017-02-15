@@ -22,8 +22,6 @@ public:
         return randomized_collector_server_list_;
     }
     std::string config_file() const { return config_file_; };
-    std::string discovery_server() const { return discovery_server_; }
-    uint16_t discovery_port() const { return discovery_port_; }
     std::string hostname() const { return hostname_; }
     std::string host_ip() const { return host_ip_; }
     uint16_t http_server_port() const { return http_server_port_; }
@@ -115,8 +113,6 @@ private:
     std::vector<std::string> randomized_collector_server_list_;
     uint32_t collector_chksum_;
     std::string config_file_;
-    std::string discovery_server_;
-    uint16_t discovery_port_;
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;

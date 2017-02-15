@@ -113,13 +113,6 @@ env.Alias('install', env.Install(env['INSTALL_CONF']+
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-discovery/', doc_files))
 
-subdirs = [
-           'client'
-          ]
-
-for dir in subdirs:
-    env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)
-
 buildspace_link = os.environ.get('CONTRAIL_REPO')
 if buildspace_link:
     # in CI environment shebang limit exceeds for python
