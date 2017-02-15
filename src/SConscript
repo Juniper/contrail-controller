@@ -110,8 +110,6 @@ BuildEnv['SANDESH_DOC_FILES'] = sandesh_doc_files
 # Discovery client
 discovery_client_doc_files = []
 discovery_client_doc_target = BuildEnv['TOP'] + '/discovery/client/'
-discovery_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/discovery/client/discovery_client_stats.sandesh', discovery_client_doc_target)
-discovery_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/discovery/client/discovery_client.sandesh', discovery_client_doc_target)
 discovery_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/discovery/discovery_introspect.sandesh', discovery_client_doc_target)
 BuildEnv['DISCOVERY_CLIENT_DOC_FILES'] = discovery_client_doc_files
 

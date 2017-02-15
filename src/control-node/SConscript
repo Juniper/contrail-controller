@@ -85,7 +85,6 @@ env.Prepend(LIBS=['bgp',
                   'ifmap_common',
                   'route',
                   'net',
-                  'ds',
                   'ifmapio',
                   'xmpp',
                   'xml',
@@ -140,15 +139,12 @@ libs = MapBuildDir(['base',
                     'net',
                     'route',
                     'xmpp',
-                    'xml',
-                    'discovery/client',
-                    'http/client'])
+                    'xml'])
 
 env.Append(LIBPATH=libs)
 env.Append(LIBPATH = env['TOP'] + '/schema')
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = env['TOP'] + '/control-node')
-env.Append(CPPPATH = env['TOP'] + '/discovery/client')
 env.Append(CPPPATH = env['TOP'] + '/io')
 
 lib_l3vpn = File('../bgp/l3vpn/libbgp_l3vpn.a')
@@ -212,15 +208,14 @@ buildinfo_dep_libs = ['../bgp/libbgp.a',
 env.GenerateBuildInfoCode(
 	target = ['buildinfo.h', 'buildinfo.cc'],
 	source = ControlNodeSandeshGenSrcs + buildinfo_dep_libs +
-		['main.cc', 'options.cc', 'sandesh/control_node_sandesh.cc'],
+		['main.cc', 'options.cc'],
 	path = Dir('.').path)
 
 ctrlnode = env.Program(target = 'contrail-control',
                        source = ['buildinfo.cc',
                                  'factory.cc',
                                  'main.cc',
-                                 'options.cc',
-                                 'sandesh/control_node_sandesh.cc'])
+                                 'options.cc'])
 
 env.Default(ctrlnode)
 
@@ -250,7 +245,6 @@ doc_files += env['DB_DOC_FILES']
 doc_files += env['XMPP_DOC_FILES']
 doc_files += env['IFMAP_SERVER_DOC_FILES']
 doc_files += env['SANDESH_DOC_FILES']
-doc_files += env['DISCOVERY_CLIENT_DOC_FILES']
 
 # Please update sandesh/common/vns.sandesh on process name change
 env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
