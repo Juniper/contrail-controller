@@ -65,7 +65,6 @@ env.Append(LIBPATH = MapBuildDir([
     'base',
     'bgp',
     'db',
-    'discovery/client',
     'dns/bind',
     'http/client',
     'ifmap',
@@ -112,7 +111,6 @@ env.Prepend(LIBS = [
     'xmpp_enet',
     'xmpp_unicast',
     'xml2',
-    'ds',
     'xml',
     'pugixml',
     'curl',
@@ -362,7 +360,6 @@ AgentCommonDocFiles += AgentEnv['DB_DOC_FILES']
 AgentCommonDocFiles += AgentEnv['IFMAP_CLIENT_DOC_FILES']
 AgentCommonDocFiles += AgentEnv['XMPP_DOC_FILES']
 AgentCommonDocFiles += AgentEnv['SANDESH_DOC_FILES']
-AgentCommonDocFiles += AgentEnv['DISCOVERY_CLIENT_DOC_FILES']
 AgentEnv['AGENT_COMMON_DOC_FILES'] = AgentCommonDocFiles
 
 AgentOvsDocFiles = []

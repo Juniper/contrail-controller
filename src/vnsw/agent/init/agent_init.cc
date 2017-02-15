@@ -100,12 +100,6 @@ int AgentInit::Start() {
     agent_->CopyConfig(agent_param_);
 
     string module_name = ModuleName();
-    /* Discovery client name should have InstanceId as well because multiple
-     * instances of tor-agent can run on a single node.
-     */
-    string ds_client_name =
-        agent_->BuildDiscoveryClientName(module_name, InstanceId());
-    agent_->set_discovery_client_name(ds_client_name);
     agent_->set_agent_name(AgentName());
     agent_->set_instance_id(InstanceId());
     agent_->set_module_type(ModuleType());
@@ -151,7 +145,6 @@ bool AgentInit::InitBase() {
     InitCollectorBase();
     CreateVrfBase();
     CreateNextHopsBase();
-    InitDiscoveryBase();
     CreateInterfacesBase();
     InitDoneBase();
 
@@ -170,7 +163,7 @@ void AgentInit::InitLoggingBase() {
     InitLogging();
 }
 
-// Connect to collector specified in config, if discovery server is not set
+// Connect to collector specified in config
 void AgentInit::InitCollectorBase() {
     agent_->InitCollector();
     InitCollector();
@@ -293,14 +286,6 @@ void AgentInit::CreateNextHopsBase() {
 
 void AgentInit::CreateInterfacesBase() {
     CreateInterfaces();
-}
-
-void AgentInit::InitDiscoveryBase() {
-    if (cfg_.get()) {
-        cfg_->InitDiscovery();
-    }
-
-    InitDiscovery();
 }
 
 void AgentInit::ConnectToControllerBase() {

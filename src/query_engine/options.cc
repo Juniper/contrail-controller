@@ -73,7 +73,6 @@ void Options::Initialize(EventManager &evm,
 
     uint16_t default_redis_port = ContrailPorts::RedisQueryPort();
     uint16_t default_http_server_port = ContrailPorts::HttpPortQueryEngine();
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     vector<string> default_cassandra_server_list;
     default_cassandra_server_list.push_back("127.0.0.1:9160");
@@ -143,12 +142,6 @@ void Options::Initialize(EventManager &evm,
               opt::value<uint32_t>()->default_value(
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
               "Sandesh send rate limit in messages/sec")
-
-        ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
-                                                       default_discovery_port),
-             "Port of Discovery Server")
-        ("DISCOVERY.server", opt::value<string>(),
-             "IP address of Discovery Server")
 
         ("REDIS.port",
              opt::value<uint16_t>()->default_value(default_redis_port),
@@ -284,9 +277,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, max_slice_, "DEFAULT.max_slice");
     GetOptValue<uint32_t>(var_map, send_ratelimit_,
                               "DEFAULT.sandesh_send_rate_limit");
-
-    GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
-    GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
 
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");

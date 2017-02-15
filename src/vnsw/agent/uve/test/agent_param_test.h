@@ -19,7 +19,6 @@ public:
     void set_xmpp_server_2(const char*);
     void set_dns_server_1(const char*);
     void set_dns_server_2(const char*);
-    void set_discovery_server(const char*);
     void set_collector_server_list(const char*);
 private:
     AgentParam *params_;

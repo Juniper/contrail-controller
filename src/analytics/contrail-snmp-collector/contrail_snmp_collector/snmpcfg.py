@@ -102,8 +102,8 @@ Mibs = LldpTable, ArpTable
             'admin_tenant_name': 'default-domain'
         }
         disc_opts = {
-            'disc_server_ip'     : '127.0.0.1',
-            'disc_server_port'   : 5998,
+            'disc_server_ip'     :  None,
+            'disc_server_port'   : None,
         }
         sandesh_opts = {
             'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
