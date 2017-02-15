@@ -19,7 +19,6 @@
 
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
-#include <cfg/discovery_agent.h>
 
 #include <init/agent_param.h>
 

@@ -6,10 +6,10 @@
 #define _ROOT_REST_SERVER_H_
 
 #include <boost/regex.hpp>
+#include "http/http_request.h"
+#include "http/http_session.h"
+#include "http/client/http_client.h"
 
-class HttpServer;
-class HttpSession;
-class HttpRequest;
 class Agent;
 
 class RESTServer {

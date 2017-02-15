@@ -24,9 +24,7 @@ env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/bgp/rtarget', env['TOP'] + '/bgp/security_group',
            env['TOP'] + '/bgp/test', env['TOP'] + '/bgp/tunnel_encap',
            env['TOP'] + '/control-node', env['TOP'] + '/control-node/test',
-           env['TOP'] + '/discovery/test',
            env['TOP'] + '/db', env['TOP'] + '/db/test',
-           env['TOP'] + '/discovery/client', env['TOP'] + '/http/client',
            env['TOP'] + '/ifmap', env['TOP'] + '/ifmap/test',
            env['TOP'] + '/io', env['TOP'] + '/net', env['TOP'] + '/route',
            env['TOP'] + '/schema', env['TOP'] + '/xmpp', env['TOP'] + '/xml'])
@@ -35,8 +33,8 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
                     'bgp_test_factory',
                     'control_node', 'dbtest', 'ifmapio', 'bgp_schema', 'ifmap_vnc',
                     'task_test', 'ifmap_test_util', 'ifmap_test_util_server',
-                    'ifmap_server', 'ifmap_common', 'ifmapio', 'ds',
-                    'pugixml', 'httpc', 'curl', 'crypto', 'ssl', 'sandesh',
+                    'ifmap_server', 'ifmap_common', 'ifmapio',
+                    'pugixml', 'curl', 'crypto', 'ssl', 'sandesh',
                     'http', 'http_parser', 'db', 'sandeshvns', 'io',
                     'process_info', 'base', 'gunit'])
 
@@ -87,8 +85,6 @@ if sys.platform != 'darwin':
                     'rabbitmq',
                     'cassandra',
                     'gendb',
-                    'ds',
-                    'httpc'
                ])
 
 

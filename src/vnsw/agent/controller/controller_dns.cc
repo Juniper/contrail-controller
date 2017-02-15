@@ -12,7 +12,6 @@
 #include "pugixml/pugixml.hpp"
 #include "xml/xml_pugi.h"
 #include "bind/xmpp_dns_agent.h"
-#include <cfg/discovery_agent.h>
 
 using process::ConnectionState;
 using process::ConnectionType;
@@ -109,25 +108,6 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
     if (state == xmps::READY) {
         if (!peer->dns_xmpp_event_handler_cb_.empty())
             peer->dns_xmpp_event_handler_cb_(peer);
-    } else if (state == xmps::TIMEDOUT) {
-        DiscoveryServiceClient *dsc = Agent::GetInstance()->discovery_service_client();
-        if (dsc) {
-            std::vector<DSResponse> resp =
-                Agent::GetInstance()->GetDiscoveryServerResponseList();
-            std::vector<DSResponse>::iterator iter;
-            for (iter = resp.begin(); iter != resp.end(); iter++) {
-                DSResponse dr = *iter;
-                if (peer->GetXmppServer().compare(
-                    dr.ep.address().to_string()) == 0) {
-
-                    // Add the TIMEDOUT server to the end.
-                    if (iter+1 == resp.end()) break;
-                    std::rotate(iter, iter+1, resp.end());
-                    Agent::GetInstance()->controller()->ApplyDiscoveryDnsXmppServices(resp);
-                    break;
-                }
-            }
-        }
     }
 }
 

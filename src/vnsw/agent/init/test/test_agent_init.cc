@@ -43,9 +43,7 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.dns_port_1(), 53);
     EXPECT_EQ(param.dns_server_2().to_ulong(), 0);
     EXPECT_EQ(param.dns_port_2(), 53);
-    EXPECT_STREQ(param.discovery_server().c_str(), "10.3.1.1");
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
-    EXPECT_EQ(param.xmpp_instance_count(), 2);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.metadata_shared_secret().c_str(), "contrail");
