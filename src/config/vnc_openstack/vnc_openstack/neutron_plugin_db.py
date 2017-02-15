@@ -3731,30 +3731,33 @@ class DBInterface(object):
                 self._raise_contrail_exception('BadRequest', resource='port',
                                                msg=str(e))
         elif net_obj.get_network_ipam_refs():
-            msg_str="Virtual-Network("+net_fq_name_str+") has exhausted subnet(all)"
+            ipv4_port_delete = False
+            ipv6_port_delete = False
+            err_msg_str = "unable to create v4 or v6 instance_ip"
             try:
                 self._port_create_instance_ip(net_obj, port_obj,
                      {'fixed_ips':[{'ip_address': None,
                                     'subnet_id':subnet_id}]},
                                               ip_family="v4")
             except BadRequest as e:
-                if e.content != msg_str:
-                    # failure in creating the instance ip. Roll back
-                    self._virtual_machine_interface_delete(port_id=port_id)
-                    self._raise_contrail_exception('BadRequest',
-                                                   resource='port', msg=str(e))
+                ipv4_port_delete = True
+
             try:
                 self._port_create_instance_ip(net_obj, port_obj,
                      {'fixed_ips':[{'ip_address': None,
                                     'subnet_id':subnet_id}]},
                                               ip_family="v6")
             except BadRequest as e:
-                if e.content != msg_str:
-                    # failure in creating the instance ip. Roll back
+                ipv6_port_delete = True
+
+            # if if bad request is for both ipv4 and ipv6
+            # delete the port and Roll back
+            if ipv4_port_delete and ipv6_port_delete:
                     self._virtual_machine_interface_delete(port_id=port_id)
                     self._raise_contrail_exception('BadRequest',
-                                                   resource='port', msg=str(e))
-
+                                                   resource='port',
+                                                   msg=err_msg_str)
+       
         # TODO below reads back default parent name, fix it
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
