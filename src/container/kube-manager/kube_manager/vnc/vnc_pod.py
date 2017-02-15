@@ -24,6 +24,52 @@ class VncPod(object):
         self._queue = queue
         self._service_fip_pool = svc_fip_pool
 
+    def _get_label_diff(self, new_labels, vm):
+        old_labels = vm.pod_labels
+        if old_labels == new_labels:
+            return None
+
+        diff = dict()
+        added = {}
+        removed = {}
+        changed = {}
+        keys = set(old_labels.keys()) | set(new_labels.keys())
+        for k in keys:
+            if k not in old_labels.keys():
+                added[k] = new_labels[k]
+                continue
+            if k not in new_labels.keys():
+                removed[k] = old_labels[k]
+                continue
+            if old_labels[k] == new_labels[k]:
+                continue
+            changed[k] = old_labels[k]
+
+        diff['added'] = added
+        diff['removed'] = removed
+        diff['changed'] = changed
+        return diff
+
+    def _set_label_to_pod_cache(self, new_labels, vm):
+        for label in new_labels.items():        
+            key = self._label_cache._get_key(label)        
+            self._label_cache._locate_label(key,        
+                self._label_cache.pod_label_cache, label, vm.uuid)        
+        vm.pod_labels = new_labels
+
+    def _clear_label_to_pod_cache(self, vm):        
+        if not vm.pod_labels:
+            return
+        for label in vm.pod_labels.items() or []:
+            key = self._label_cache._get_key(label)        
+            self._label_cache._remove_label(key,
+                self._label_cache.pod_label_cache, label, vm.uuid)        
+        vm.pod_labels = None
+
+    def _update_label_to_pod_cache(self, new_labels, vm):        
+        self._clear_label_to_pod_cache(vm)
+        self._set_label_to_pod_cache(new_labels, vm)
+
     def _get_network(self, pod_id, pod_namespace):
         """
         Get network corresponding to this namesapce.
@@ -122,7 +168,6 @@ class VncPod(object):
         except RefsExistError:
             vm_obj = self._vnc_lib.virtual_machine_read(id=pod_id)
         vm = VirtualMachineKM.locate(vm_obj.uuid)
-        vm.pod_labels = labels
         return vm_obj
 
     def _link_vm_to_node(self, vm_obj, pod_node):
@@ -147,7 +192,7 @@ class VncPod(object):
     def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, labels):
         vm = VirtualMachineKM.get(pod_id)
         if vm:
-            vm.pod_labels = labels
+            self._set_label_to_pod_cache(labels, vm)
             return
         if not vm:
             self._check_pod_uuid_change(pod_id, pod_name, pod_namespace)
@@ -161,6 +206,16 @@ class VncPod(object):
             self._create_cluster_service_fip(pod_name, vmi_obj)
 
         self._link_vm_to_node(vm_obj, pod_node)
+
+    def vnc_pod_update(self, pod_id, labels):
+        label_diff = None
+        vm = VirtualMachineKM.get(pod_id)
+        if vm:
+            label_diff = self._get_label_diff(labels, vm)
+            if not label_diff:
+                return label_diff
+            self._update_label_to_pod_cache(labels, vm)
+        return label_diff
 
     def vnc_port_delete(self, vmi_id):
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
@@ -189,6 +244,8 @@ class VncPod(object):
         if not vm:
             return
 
+        self._clear_label_to_pod_cache(vm)
+
         if vm.virtual_router:
             self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
                 'virtual-machine', vm.uuid, None, 'DELETE')
@@ -200,8 +257,6 @@ class VncPod(object):
             self._vnc_lib.virtual_machine_delete(id=pod_id)
         except NoIdError:
             pass
-
-        return
 
     def _create_pod_event(self, event_type, pod_id, vm_obj):
         event = {}
@@ -257,9 +312,8 @@ class VncPod(object):
             host_network = event['object']['spec'].get('hostNetwork')
             if host_network:
                 return
-            self._network_policy_mgr.vnc_pod_update(event)
-            self.vnc_pod_add(pod_id, pod_name, pod_namespace,
-                pod_node, labels)
+            label_diff = self.vnc_pod_update(pod_id, labels)
+            self._network_policy_mgr.vnc_pod_update(event, label_diff)
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
             self._network_policy_mgr.vnc_pod_delete(event)

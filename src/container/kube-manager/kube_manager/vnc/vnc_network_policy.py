@@ -22,14 +22,20 @@ class VncNetworkPolicy(object):
         self.policy_src_label_cache = {}
         self.policy_dest_label_cache = {}
 
-    def _select_pods(self, labels):
+    def _select_pods(self, labels, pod_set=None):
         result = set()
         for label in labels.items():
             key = self._label_cache._get_key(label)
             pod_ids = self._label_cache.pod_label_cache.get(key)
             if not pod_ids:
                 continue
-            result.update(pod_ids)
+            if not result:
+                result = pod_ids.copy()
+            else:
+                result.intersection_update(pod_ids)
+
+        if pod_set:
+            result.intersection_update(pod_set)
         return result
 
     def _add_sg_rule(self, sg, sg_rule):
@@ -65,73 +71,39 @@ class VncNetworkPolicy(object):
             sg_obj.set_security_group_entries(rules)
             self._vnc_lib.security_group_update(sg_obj)
 
-    def _get_src_labels_from_annotations(self, annotations):
-        if not annotations:
-            return
-        for kvp in annotations.get('key_value_pair', []):
-            if kvp.get('key') != 'spec':
+    def _add_src_pod_2_policy(self, pod_id, policy_list):
+        for policy_id in policy_list:
+            sg = SecurityGroupKM.get(policy_id)
+            if not sg:
                 continue
-            specjson = json.loads(kvp.get('value'))
-            return specjson['ingress']
+            if self._select_pods(sg.src_pod_selector, {pod_id}):
+                self._set_sg_rule(sg, pod_id)
 
-    def _get_dst_labels_from_annotations(self, annotations):
-        if not annotations:
-            return
-        for kvp in annotations.get('key_value_pair', []):
-            if kvp.get('key') != 'spec':
+    def _add_dst_pod_2_policy(self, pod_id, policy_list):
+        for policy_id in policy_list:
+            sg = SecurityGroupKM.get(policy_id)
+            if not sg:
                 continue
-            specjson = json.loads(kvp.get('value'))
-            return specjson['podSelector']['matchLabels']
-
-    def _add_src_pod_2_policy(self, pod_id, policy_id):
-        sg = SecurityGroupKM.get(policy_id)
-        if not sg:
-            return
-
-        rules = self._get_src_labels_from_annotations(sg.annotations)
-        for rule in rules:
-            ports = rule.get('ports')
-            self._set_sg_rule(sg, pod_id, ports)
+            if self._select_pods(sg.dst_pod_selector, {pod_id}):
+                self._sg_2_pod_link(pod_id, policy_id, 'ADD')
 
     def vnc_pod_add(self, event):
-        labels = event['object']['metadata'].get('labels', {})
+        labels = event['object']['metadata']['labels']
         pod_id = event['object']['metadata']['uid']
 
+        policy_src_list = set()
+        policy_dst_list = set()
         for label in labels.items():
             key = self._label_cache._get_key(label)
 
             policy_ids = self.policy_src_label_cache.get(key, [])
-            for policy_id in policy_ids:
-                self._add_src_pod_2_policy(pod_id, policy_id)
+            policy_src_list.update(policy_ids)
 
             policy_ids = self.policy_dest_label_cache.get(key, [])
-            for policy_id in policy_ids:
-                self._sg_2_pod_link(pod_id, policy_id, 'ADD')
+            policy_dst_list.update(policy_ids)
 
-    def _get_label_diff(self, old_labels, new_labels):
-        if old_labels == new_labels:
-            return None
-
-        diff = dict()
-        added = {}
-        removed = {}
-        changed = {}
-        keys = set(old_labels.keys()) | set(new_labels.keys())
-        for k in keys:
-            if k not in old_labels.keys():
-                added[k] = new_labels[k]
-                continue
-            if k not in new_labels.keys():
-                removed[k] = old_labels[k]
-                continue
-            if old_labels[k] == new_labels[k]:
-                continue
-            changed[k] = old_labels[k]
-
-        diff['added'] = added
-        diff['removed'] = removed
-        diff['changed'] = changed
-        return diff
+        self._add_src_pod_2_policy(pod_id, policy_src_list)
+        self._add_dst_pod_2_policy(pod_id, policy_dst_list)
 
     def _check_deleted_labels(self, deleted_labels, vm):
         if not deleted_labels:
@@ -146,9 +118,9 @@ class VncNetworkPolicy(object):
         # check if pod link to be deleted
         for sg_id in vmi.security_groups:
             sg = SecurityGroupKM.get(sg_id)
-            if not sg:
+            if not sg or not sg.dst_pod_selector:
                 continue
-            dst_labels = self._get_dst_labels_from_annotations(sg.annotations)
+            dst_labels = sg.dst_pod_selector
             if set(deleted_labels.keys()).intersection(set(dst_labels.keys())):
                 self._sg_2_pod_link(vm.uuid, sg_id, 'DELETE')
 
@@ -173,9 +145,9 @@ class VncNetworkPolicy(object):
         # check if pod link to be deleted
         for sg_id in vmi.security_groups:
             sg = SecurityGroupKM.get(sg_id)
-            if not sg:
+            if not sg or not sg.dst_pod_selector:
                 continue
-            dst_labels = self._get_dst_labels_from_annotations(sg.annotations)
+            dst_labels = sg.dst_pod_selector
             if set(changed_labels.keys()).intersection(set(dst_labels.keys())):
                 self._sg_2_pod_link(vm.uuid, sg_id, 'DELETE')
 
@@ -187,22 +159,22 @@ class VncNetworkPolicy(object):
             for policy_id in policy_ids:
                 self._delete_sg_rule(policy_id, vm.uuid)
 
-    def vnc_pod_update(self, event):
+    def vnc_pod_update(self, event, label_diff):
+        if not label_diff:
+            return
+
         labels = event['object']['metadata']['labels']
         pod_id = event['object']['metadata']['uid']
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             return
-        diff = self._get_label_diff(vm.pod_labels, labels)
-        if not diff:
-            return
 
-        self._check_deleted_labels(diff['removed'], vm)
-        self._check_changed_labels(diff['changed'], vm)
+        self._check_deleted_labels(label_diff['removed'], vm)
+        self._check_changed_labels(label_diff['changed'], vm)
         self.vnc_pod_add(event)
 
     def vnc_pod_delete(self, event):
-        labels = event['object']['metadata'].get('labels', {})
+        labels = event['object']['metadata']['labels']
         pod_id = event['object']['metadata']['uid']
 
         for label in labels.items():
@@ -212,7 +184,7 @@ class VncNetworkPolicy(object):
             for policy_id in policy_ids:
                 self._delete_sg_rule(policy_id, pod_id)
 
-    def _set_sg_rule(self, sg, src_pod, ports):
+    def _set_sg_rule(self, sg, src_pod):
         vm = VirtualMachineKM.get(src_pod)
         if not vm:
             return
@@ -233,7 +205,7 @@ class VncNetworkPolicy(object):
         sgr_uuid = src_pod
         src_addr = AddressType(subnet=SubnetType(ip_addr, 32))
         dst_addr = AddressType(security_group='local')
-        for port in ports:
+        for port in sg.dst_ports:
             proto = port['protocol'].lower()
             rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
                 protocol=proto,
@@ -245,24 +217,15 @@ class VncNetworkPolicy(object):
             self._add_sg_rule(sg, rule)
 
     def _set_sg_rules(self, sg, event):
-        update = False
-        rules = event['object']['spec']['ingress']
-        for rule in rules:
-            ports = rule['ports']
-            src_selectors = rule['from']
-            for src_selector in src_selectors:
-                podSelector = src_selector.get('podSelector', None)
-                if not podSelector:
-                    continue
-
-                src_labels = podSelector['matchLabels']
-                for src_label in src_labels.items():
-                    key = self._label_cache._get_key(src_label)
-                    self._label_cache._locate_label(key,
-                        self.policy_src_label_cache, src_label, sg.uuid)
-                src_pods = self._select_pods(src_labels)
-                for src_pod in src_pods:
-                    self._set_sg_rule(sg, src_pod, ports)
+        if not sg.src_pod_selector:
+            return
+        for src_label in sg.src_pod_selector.items():
+            key = self._label_cache._get_key(src_label)
+            self._label_cache._locate_label(key,
+                self.policy_src_label_cache, src_label, sg.uuid)
+            src_pods = self._select_pods(sg.src_pod_selector)
+            for src_pod in src_pods:
+                self._set_sg_rule(sg, src_pod)
 
     def _sg_2_pod_link(self, pod_id, sg_id, oper):
         vm = VirtualMachineKM.get(pod_id)
@@ -298,21 +261,16 @@ class VncNetworkPolicy(object):
                 (default_oper, pod_id, sg_uuid)) 
 
     def _apply_sg_2_pods(self, sg, event):
-        podSelector = event['object']['spec'].get('podSelector', None)
-        if not podSelector:
-            return
-
-        dest_labels = podSelector['matchLabels']
-        if not dest_labels:
+        if not sg.dst_pod_selector:
             return
 
         uuid = event['object']['metadata'].get('uid')
-        for dest_label in dest_labels.items():
+        for dest_label in sg.dst_pod_selector.items():
             key = self._label_cache._get_key(dest_label)
             self._label_cache._locate_label(key, self.policy_dest_label_cache,
                 dest_label, uuid)
 
-        pod_ids = self._select_pods(dest_labels)
+        pod_ids = self._select_pods(sg.dst_pod_selector)
         for pod_id in pod_ids:
             self._sg_2_pod_link(pod_id, sg.uuid, 'ADD')
 
