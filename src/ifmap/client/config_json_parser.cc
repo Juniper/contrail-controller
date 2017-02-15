@@ -200,7 +200,7 @@ bool ConfigJsonParser::Receive(const string &uuid,
                                IFMapOrigin::Origin origin) {
     ConfigClientManager::RequestList req_list;
 
-    if (document.HasParseError()) {
+    if (document.HasParseError() || !document.IsObject()) {
         size_t pos = document.GetErrorOffset();
         // GetParseError returns const char *
         IFMAP_WARN(IFMapJsonLoadError,
