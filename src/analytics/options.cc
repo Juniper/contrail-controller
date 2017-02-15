@@ -84,7 +84,6 @@ void Options::Initialize(EventManager &evm,
         ContrailPorts::CollectorStructuredSyslogPort();
     uint16_t default_partitions = 15;
     uint16_t default_http_server_port = ContrailPorts::HttpPortCollector();
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
     uint32_t default_disk_usage_percentage_high_watermark0 = 90;
     uint32_t default_disk_usage_percentage_low_watermark0 = 85;
     uint32_t default_disk_usage_percentage_high_watermark1 = 80;
@@ -325,11 +324,6 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.disable_flow_collection",
             opt::bool_switch(&disable_flow_collection_),
             "Disable flow message collection")
-        ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
-                                                       default_discovery_port),
-             "Port of Discovery Server")
-        ("DISCOVERY.server", opt::value<string>()->default_value(""),
-             "IP address of Discovery Server")
         ;
 
     // Command line and config file options.
@@ -630,9 +624,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, ipfix_port_, "DEFAULT.ipfix_port");
     GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,
                               "DEFAULT.sandesh_send_rate_limit");
-
-    GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
-    GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
 
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");

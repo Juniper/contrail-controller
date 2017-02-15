@@ -33,7 +33,6 @@ env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
 env.Append(LIBPATH = env['TOP'] + '/bgp/security_group')
 env.Append(LIBPATH = env['TOP'] + '/bgp/tunnel_encap')
 env.Append(LIBPATH = env['TOP'] + '/control-node')
-env.Append(LIBPATH = env['TOP'] + '/discovery/client')
 env.Append(LIBPATH = env['TOP'] + '/db')
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/ifmap')
@@ -95,8 +94,6 @@ env.Prepend(LIBS = [
                     'rabbitmq',
                     'cassandra',
                     'gendb',
-                    'ds',
-                    'httpc',
                     ])
 
 if sys.platform != 'darwin':
