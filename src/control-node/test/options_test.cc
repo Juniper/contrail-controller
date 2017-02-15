@@ -22,7 +22,6 @@ using namespace boost::asio::ip;
 static uint16_t default_bgp_port = ContrailPorts::ControlBgp();
 static uint16_t default_http_server_port = ContrailPorts::HttpPortControl();
 static uint16_t default_xmpp_port = ContrailPorts::ControlXmpp();
-static uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
 class OptionsTest : public ::testing::Test {
 protected:
@@ -59,8 +58,6 @@ TEST_F(OptionsTest, NoArguments) {
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -102,8 +99,6 @@ TEST_F(OptionsTest, DefaultConfFile) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -147,8 +142,6 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -188,8 +181,6 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "controller/src/control-node/contrail-control.conf");
-    EXPECT_EQ(options_.discovery_server(), "");
-    EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
@@ -240,9 +231,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "xmpp_server_port=100\n"
         "sandesh_send_rate_limit=5\n"
         "\n"
-        "[DISCOVERY]\n"
-        "port=100\n"
-        "server=1.0.0.1 # discovery_server IP address\n"
         "\n"
         "[IFMAP]\n"
         "certs_store=test-store\n"
@@ -278,8 +266,6 @@ TEST_F(OptionsTest, CustomConfigFile) {
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
               "./options_test_config_file.conf");
-    EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
     EXPECT_EQ(options_.host_ip(), "1.2.3.4");
     EXPECT_EQ(options_.http_server_port(), 800);
@@ -332,10 +318,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "xmpp_server_port=100\n"
         "sandesh_send_rate_limit=5\n"
         "\n"
-        "[DISCOVERY]\n"
-        "port=100\n"
-        "server=1.0.0.1 # discovery_server IP address\n"
-        "\n"
         "[IFMAP]\n"
         "certs_store=test-store\n"
         "password=test-password\n"
@@ -384,8 +366,6 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
 
     EXPECT_EQ(options_.config_file(),
               "./options_test_config_file.conf");
-    EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
-    EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
     EXPECT_EQ(options_.host_ip(), "1.2.3.4");
     EXPECT_EQ(options_.http_server_port(), 800);

@@ -93,10 +93,6 @@ public:
     virtual void CreateInterfacesBase();
     virtual void CreateInterfaces() { }
 
-    // Init Discovery process
-    virtual void InitDiscoveryBase();
-    virtual void InitDiscovery() { }
-
     // Connect to controller. Should be called after IP address is known
     // for vhost0 interface
     virtual void ConnectToControllerBase();

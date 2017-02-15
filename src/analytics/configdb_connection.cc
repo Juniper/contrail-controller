@@ -36,12 +36,7 @@ boost::shared_ptr<VncApi> ConfigDBConnection::GetVnc() {
     return vnc_;
 }
 
-void
-ConfigDBConnection::Update(Options *o, DiscoveryServiceClient *c) {
-    c->Subscribe(g_vns_constants.API_SERVER_DISCOVERY_SERVICE_NAME,
-            0, boost::bind(&ConfigDBConnection::APIfromDisc, this, o, _1));
-}
-
+#if SUNDAR_TOFIX_PARSING_APISERVER_FROM_CONFIG
 void
 ConfigDBConnection::APIfromDisc(Options *o, std::vector<DSResponse> response) {
     tbb::mutex::scoped_lock lock(mutex_);
@@ -63,10 +58,12 @@ ConfigDBConnection::APIfromDisc(Options *o, std::vector<DSResponse> response) {
         api_svr_list_ = response;
     }
 }
+#endif
 
 void
 ConfigDBConnection::RetryNextApi() {
     tbb::mutex::scoped_lock lock(mutex_);
+#if SUNDAR_TOFIX_PARSING_APISERVER_FROM_CONFIG
     if (!api_svr_list_.empty()) {
         DSResponse api = api_svr_list_.back();
         api_svr_list_.pop_back();
@@ -75,4 +72,5 @@ ConfigDBConnection::RetryNextApi() {
         vnccfg_.cfg_srv_port       = api.ep.port();
         InitVnc(evm_, &vnccfg_);
     }
+#endif
 }

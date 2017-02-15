@@ -58,7 +58,6 @@ void Options::Initialize(EventManager &evm,
 
     uint16_t default_dns_server_port = ContrailPorts::DnsServerPort();
     uint16_t default_http_server_port = ContrailPorts::HttpPortDns();
-    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort();
 
     default_collector_server_list_.push_back("127.0.0.1:8086");
 
@@ -146,12 +145,6 @@ void Options::Initialize(EventManager &evm,
               opt::value<uint32_t>()->default_value(
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
               "Sandesh send rate limit in messages/sec")
-
-        ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
-                                                       default_discovery_port),
-             "Port of Discovery Server")
-        ("DISCOVERY.server", opt::value<string>(),
-             "IP address of Discovery Server")
 
         ("IFMAP.certs_store",  opt::value<string>(),
              "Certificates store to use for communication with IFMAP server")
@@ -370,9 +363,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<uint32_t>(var_map, send_ratelimit_,
                               "DEFAULT.sandesh_send_rate_limit");
-
-    GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
-    GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
 
     GetOptValue<string>(var_map, ifmap_config_options_.password,
                         "IFMAP.password");
