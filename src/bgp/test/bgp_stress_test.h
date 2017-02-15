@@ -308,7 +308,8 @@ public:
 
 class SandeshServerTest : public SandeshServer {
 public:
-    SandeshServerTest(EventManager *evm) : SandeshServer(evm) { }
+    SandeshServerTest(EventManager *evm) :
+            SandeshServer(evm, SandeshConfig()) { }
     virtual ~SandeshServerTest() { }
     virtual bool ReceiveSandeshMsg(SandeshSession *session,
                        const SandeshMessage *msg, bool rsc) {
