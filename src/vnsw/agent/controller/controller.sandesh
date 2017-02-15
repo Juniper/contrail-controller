@@ -155,16 +155,6 @@ struct AgentXmppDnsData {
 }
 
 /**
- * Sandesh definition for xmpp channel between agent and discovery service
- */
-struct AgentDiscoveryXmppConnections {
-    /** Discovery Controller IP */
-    1: string discovery_controller_ip;
-    /** Discovery Controller Port */
-    2: u32 discovery_controller_port;
-}
-
-/**
  * Sandesh definition for xmpp connection in use by agent.
  */
 struct AgentXmppInUseConnections {
@@ -392,41 +382,4 @@ request sandesh AgentDnsXmppConnectionStatusReq {
 response sandesh AgentDnsXmppConnectionStatus {
     /** Dns Xmmp Connection status response from agent */
     1: list<AgentXmppDnsData>peer;
-}
-
-
-/**
- * Request message for agent discovery subscription status
- */
-request sandesh AgentDiscoveryXmppConnectionsRequest {
-}
-
-/**
- * Response for agent discovery subscription status
- */
-response sandesh AgentDiscoveryXmppConnectionsResponse {
-    /** Discovery list response from agent */
-    1: list<AgentDiscoveryXmppConnections>xmpp_discovery_list;
-    /** Randomized Control-Node Server list */
-    3: list<AgentRandomizedXmppConfigConnections>xmpp_config_list;
-    /** Xmpp in use connections response from agent */
-    2: list<AgentXmppInUseConnections>xmpp_inuse_connections;
-}
-
-/**
- * Request message for agent dns node info provided by discovery
- */
-request sandesh AgentDiscoveryDnsXmppConnectionsRequest {
-}
-
-/**
- * Response message for agent dns node info provided by discovery
- */
-response sandesh AgentDiscoveryDnsXmppConnectionsResponse {
-    /** Discovery list response from agent */
-    1: list<AgentDiscoveryXmppConnections>xmpp_discovery_list;
-    /** Dns Server list */
-    3: list<AgentRandomizedXmppConfigConnections>dns_config_list;
-    /** Xmpp in use connections response from agent */
-    2: list<AgentXmppInUseConnections>xmpp_inuse_connections;
 }

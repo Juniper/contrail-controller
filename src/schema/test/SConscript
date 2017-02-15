@@ -17,12 +17,11 @@ env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/schema')
 env.Append(LIBPATH = env['TOP'] + '/bgp')
 env.Append(LIBPATH = env['TOP'] + '/xml')
-env.Append(LIBPATH = env['TOP'] + '/discovery/client')
 
 env.Prepend(LIBS = ['db', 'xmpp', 'peer_sandesh', 'sandesh', 'sandeshvns',
                     'process_info', 'io', 'crypto', 'ssl', 'base', 'gunit',
                     'pugixml', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
-                    'cassandra', 'gendb', 'ds', 'http', 'http_parser', 'httpc',
+                    'cassandra', 'gendb', 'http', 'http_parser',
                     'curl', 'ifmap_vnc', 'bgp_schema', 'boost_regex', 'xml'])
 
 lib_ifmap_server = File('../../ifmap/libifmap_server.a')
