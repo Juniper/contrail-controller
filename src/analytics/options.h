@@ -163,8 +163,6 @@ public:
     const DbWriteOptions get_db_write_options() const {
         return db_write_options_;
     }
-    const std::string discovery_server() const { return discovery_server_; }
-    const uint16_t discovery_port() const { return discovery_port_; }
     const std::string redis_server() const { return redis_server_; }
     const uint16_t redis_port() const { return redis_port_; }
     const std::string redis_password() const { return redis_password_; }
@@ -244,8 +242,6 @@ private:
     uint16_t collector_structured_syslog_port_;
     bool collector_structured_syslog_port_configured_;
     std::vector<std::string> config_file_;
-    std::string discovery_server_;
-    uint16_t discovery_port_;
     std::string redis_server_;
     uint16_t redis_port_;
     std::string redis_password_;
