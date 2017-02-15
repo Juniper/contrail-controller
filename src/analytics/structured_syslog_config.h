@@ -9,7 +9,6 @@
 #include <tbb/atomic.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/regex.hpp>
-#include "discovery/client/discovery_client.h"
 #include "http/client/vncapi.h"
 #include "parser_util.h"
 #include "configdb_connection.h"
@@ -36,7 +35,6 @@ class HostnameRecord {
         const std::string device() const { return device_; }
 
         bool IsMe(const std::string &name) const { return name == name_; }
-        void Update(Options *o, DiscoveryServiceClient *c);
         void Refresh(const std::string &name, const std::string &hostaddr,
                      const std::string &tenant, const std::string &location,
                      const std::string &device) {
@@ -86,7 +84,6 @@ class ApplicationRecord {
         const std::string app_service_tags() const { return app_service_tags_; }
 
         bool IsMe(const std::string &name) const { return name == name_; }
-        void Update(Options *o, DiscoveryServiceClient *c);
         void Refresh(const std::string &name, const std::string &app_category,
                      const std::string &app_subcategory, const std::string &app_groups,
                      const std::string &app_risk, const std::string &app_service_tags) {
@@ -140,7 +137,6 @@ class TenantApplicationRecord {
         const std::string tenant_app_service_tags() const { return tenant_app_service_tags_; }
 
         bool IsMe(const std::string &name) const { return name == name_; }
-        void Update(Options *o, DiscoveryServiceClient *c);
         void Refresh(const std::string &name, const std::string &tenant_app_category,
                      const std::string &tenant_app_subcategory, const std::string &tenant_app_groups,
                      const std::string &tenant_app_risk, const std::string &tenant_app_service_tags) {

@@ -10,6 +10,7 @@
 #include <sstream>
 
 #include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/bind.hpp>
 
 #include "net/address.h"
 #include "net/mac_address.h"

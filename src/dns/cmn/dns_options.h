@@ -22,8 +22,6 @@ public:
     }
     std::string dns_config_file() const { return dns_config_file_; }
     std::string config_file() const { return config_file_; };
-    std::string discovery_server() const { return discovery_server_; }
-    uint16_t discovery_port() const { return discovery_port_; }
     const std::string & named_config_file() const { return named_config_file_; }
     const std::string & named_config_dir() const { return named_config_dir_; }
     const std::string & named_log_file() const { return named_log_file_; }
@@ -106,8 +104,6 @@ private:
     uint32_t collector_chksum_;
     std::string dns_config_file_;
     std::string config_file_;
-    std::string discovery_server_;
-    uint16_t discovery_port_;
 
     std::string named_config_file_;
     std::string named_config_dir_;
