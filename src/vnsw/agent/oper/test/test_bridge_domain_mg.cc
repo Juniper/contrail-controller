@@ -203,6 +203,7 @@ TEST_F(BridgeDomainMGTest, Test3) {
 
     EXPECT_TRUE(fcnh->ComponentNHCount() == 1);
     EXPECT_TRUE(fcnh->GetNH(0)->GetType() == NextHop::TUNNEL);
+    EXPECT_TRUE(fcnh->pbb_nh() == true);
 
     EXPECT_TRUE(icnh->composite_nh_type() == Composite::L2INTERFACE);
     EXPECT_TRUE(icnh->ComponentNHCount() == 2);
@@ -302,6 +303,7 @@ TEST_F(BridgeDomainMGTest, Test5) {
 
     EXPECT_TRUE(fcnh->ComponentNHCount() == 1);
     EXPECT_TRUE(fcnh->GetNH(0)->GetType() == NextHop::TUNNEL);
+    EXPECT_TRUE(fcnh->pbb_nh() == true);
 
     str.clear();
     str << "<pbb-etree-enable>"<< "true" << "</pbb-etree-enable>";
