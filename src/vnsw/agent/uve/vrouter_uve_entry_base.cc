@@ -515,12 +515,13 @@ void VrouterUveEntryBase::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     vrouter_agent.set_hostname_cfg(param->host_name());
     vrouter_agent.set_flow_cache_timeout_cfg(param->flow_cache_timeout());
 
-    dns_list.push_back(param->dns_server_1().to_string());
-    dns_list.push_back(param->dns_server_2().to_string());
+    
+    dns_list.push_back(agent_->dns_server(0));
+    dns_list.push_back(agent_->dns_server(1));
     vrouter_agent.set_dns_server_list_cfg(dns_list);
 
-    control_node_list.push_back(param->xmpp_server_1().to_string());
-    control_node_list.push_back(param->xmpp_server_2().to_string());
+    control_node_list.push_back(agent_->controller_ifmap_xmpp_server(0));
+    control_node_list.push_back(agent_->controller_ifmap_xmpp_server(1));
     vrouter_agent.set_control_node_list_cfg(control_node_list);
 
     vrouter_agent.set_ll_max_system_flows_cfg(param->linklocal_system_flows());
@@ -550,9 +551,6 @@ void VrouterUveEntryBase::BuildAgentConfig(VrouterAgent &vrouter_agent) {
         vrouter_agent.set_vmware_cfg(vmware_cfg);
     }
     vrouter_agent.set_hypervisor(hypervisor);
-
-    vrouter_agent.set_ds_addr(param->discovery_server());
-    vrouter_agent.set_ds_xs_instances(param->xmpp_instance_count());
 
     VirtualGatewayConfigTable *table = param->vgw_config_table();
     VirtualGatewayConfigTable::Table::iterator it = table->table().begin();

@@ -363,15 +363,6 @@ void AgentParam::ParseDns() {
     GetValueFromTree<uint32_t>(dns_max_retries_, "DNS.dns_max_retries");
 }
 
-void AgentParam::ParseDiscovery() {
-    GetValueFromTree<string>(dss_server_, "DISCOVERY.server");
-    GetValueFromTree<uint32_t>(dss_port_, "DISCOVERY.port");
-    if (!GetValueFromTree<uint16_t>(xmpp_instance_count_,
-                                    "DISCOVERY.max_control_nodes")) {
-        xmpp_instance_count_ = MAX_XMPP_SERVERS;
-    }
-}
-
 void AgentParam::ParseNetworks() {
     ParseIp("NETWORKS.control_network_ip", &mgmt_ip_);
 }
@@ -869,14 +860,6 @@ void AgentParam::ParseDnsArguments
     GetOptValue<uint32_t>(var_map, dns_max_retries_, "DNS.dns_max_retries");
 }
 
-void AgentParam::ParseDiscoveryArguments
-    (const boost::program_options::variables_map &var_map) {
-    GetOptValue<string>(var_map, dss_server_, "DISCOVERY.server");
-    GetOptValue<uint32_t>(var_map, dss_port_, "DISCOVERY.port");
-    GetOptValue<uint16_t>(var_map, xmpp_instance_count_,
-                          "DISCOVERY.max_control_nodes");
-}
-
 void AgentParam::ParseNetworksArguments
     (const boost::program_options::variables_map &var_map) {
     ParseIpArgument(var_map, mgmt_ip_, "NETWORKS.control_network_ip");
@@ -1187,7 +1170,6 @@ void AgentParam::InitFromConfig() {
     ParseControllerServers();
     ParseDnsServers();
 
-    ParseDiscovery();
     ParseNetworks();
     ParseHypervisor();
     ParseDefaultSection();
@@ -1214,7 +1196,6 @@ void AgentParam::InitFromArguments() {
     ParseServerListArguments(var_map_, xmpp_server_1_, xmpp_server_2_,
                              "CONTROL-NODE.server");
     ParseDnsArguments(var_map_);
-    ParseDiscoveryArguments(var_map_);
     ParseNetworksArguments(var_map_);
     ParseHypervisorArguments(var_map_);
     ParseDefaultSectionArguments(var_map_);
@@ -1501,8 +1482,6 @@ void AgentParam::LogConfig() const {
         LOG(DEBUG, "Xmpp CA Certificate     : " << xmpp_ca_cert_);
     }
 
-    LOG(DEBUG, "Discovery Server:Port       : " << dss_server_ << ":" << dss_port_);
-    LOG(DEBUG, "Controller Instances        : " << xmpp_instance_count_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
     LOG(DEBUG, "Metadata-Proxy Port         : " << metadata_proxy_port_);
@@ -1635,12 +1614,11 @@ AgentParam::AgentParam(bool enable_flow_options,
         measure_queue_delay_(false),
         agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(),
-        xmpp_instance_count_(),
         dns_port_1_(ContrailPorts::DnsServerPort()),
         dns_port_2_(ContrailPorts::DnsServerPort()),
         dns_client_port_(0), dns_timeout_(3000),
         dns_max_retries_(2), mirror_client_port_(0),
-        dss_server_(), dss_port_(0), mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
+        mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
         xen_ll_(), tunnel_type_(), metadata_shared_secret_(),
         metadata_proxy_port_(0), metadata_use_ssl_(false),
         metadata_client_cert_(""), metadata_client_cert_type_("PEM"),
@@ -1738,14 +1716,6 @@ AgentParam::AgentParam(bool enable_flow_options,
           "Set gateway mode to server/ vcpe")
         ("DEFAULT.agent_base_directory", opt::value<string>(),
          "Base directory used by the agent")
-        ("DISCOVERY.port", opt::value<uint32_t>()->default_value(DISCOVERY_SERVER_PORT),
-         "Listen port of discovery server")
-        ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
-         "IP address of discovery server")
-        ("DISCOVERY.max_control_nodes", 
-         opt::value<uint16_t>()->default_value(MAX_XMPP_SERVERS),
-         "Maximum number of control node info to be provided by discovery "
-         "service <1|2>")
         ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
         ("DNS.servers",

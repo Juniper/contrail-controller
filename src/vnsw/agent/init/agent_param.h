@@ -211,9 +211,7 @@ public:
             return 0;
         return mirror_client_port_;
     }
-    const std::string &discovery_server() const { return dss_server_; }
     const Ip4Address &mgmt_ip() const { return mgmt_ip_; }
-    const int xmpp_instance_count() const { return xmpp_instance_count_; }
     const std::string &tunnel_type() const { return tunnel_type_; }
     const std::string &metadata_shared_secret() const { return metadata_shared_secret_; }
     uint16_t metadata_proxy_port() const {
@@ -281,7 +279,6 @@ public:
         return derived_stats_map_;
     }
     uint16_t http_server_port() const { return http_server_port_; }
-    uint32_t discovery_server_port() const { return dss_port_; }
     const std::string &host_name() const { return host_name_; }
     int agent_stats_interval() const { return agent_stats_interval_; }
     int flow_stats_interval() const { return flow_stats_interval_; }
@@ -579,7 +576,6 @@ private:
     std::string eth_port_;
     bool eth_port_no_arp_;
     std::string eth_port_encap_type_;
-    uint16_t xmpp_instance_count_;
     std::vector<std::string> controller_server_list_;
     std::vector<std::string> dns_server_list_;
     Ip4Address xmpp_server_1_;
@@ -592,8 +588,6 @@ private:
     uint32_t dns_timeout_;
     uint32_t dns_max_retries_;
     uint16_t mirror_client_port_;
-    std::string dss_server_;
-    uint32_t dss_port_;
     Ip4Address mgmt_ip_;
     HypervisorMode hypervisor_mode_;
     PortInfo xen_ll_;
