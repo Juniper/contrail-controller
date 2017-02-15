@@ -62,6 +62,9 @@ public:
         UUIDIndexMap::iterator it = db_index_[idx].find(uuid);
         int index = it->second;
 
+        if (!events_[contrail_rapidjson::SizeType(index)]["db"].HasMember(
+                    uuid.c_str()))
+            return true;
         for (contrail_rapidjson::Value::ConstMemberIterator k =
              events_[contrail_rapidjson::SizeType(index)]["db"]
                 [uuid.c_str()].MemberBegin();
@@ -69,7 +72,11 @@ public:
                 [uuid.c_str()].MemberEnd();
              ++k) {
             const char *k1 = k->name.GetString();
-            const char *v1 = k->value.GetString();
+            const char *v1;
+            if (k->value.IsArray())
+                v1 = k->value[contrail_rapidjson::SizeType(0)].GetString();
+            else
+                v1 = k->value.GetString();
             ParseUuidTableRowJson(uuid, k1, v1, 0, cass_data_vec, context);
         }
         db_index_[idx].erase(it);
