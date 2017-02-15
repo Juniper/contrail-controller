@@ -45,7 +45,3 @@ void AgentParamTest::set_collector_server_list(const char *ip) {
         params_->collector_server_list_.clear();
     }
 }
-
-void AgentParamTest::set_discovery_server(const char *ip) {
-    params_->dss_server_ = ip;
-}

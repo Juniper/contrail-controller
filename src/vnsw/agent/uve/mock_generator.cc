@@ -68,10 +68,9 @@ public:
 
     bool Run() {
         // Initialize Sandesh
-        Sandesh::CollectorSubFn csf = 0;
         Sandesh::InitGenerator(module_name_, hostname_,
             node_type_name_, instance_id_, evm_, http_server_port_,
-            csf, collectors_, NULL);
+            collectors_, NULL);
         // Enqueue send flow task
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         if (num_flow_samples_per_sec_) {

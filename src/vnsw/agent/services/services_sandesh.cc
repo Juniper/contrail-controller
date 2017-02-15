@@ -228,22 +228,11 @@ void ServicesSandesh::DnsStatsSandesh(std::string ctxt, bool more) {
     std::vector<string> &list =
         const_cast<std::vector<string>&>(dns->get_dns_resolver());
 
-    std::vector<DSResponse> ds_reponse =
-        Agent::GetInstance()->GetDiscoveryDnsServerResponseList();
-
-    if (ds_reponse.size()) {
-        std::vector<DSResponse>::iterator iter;
-        for (iter = ds_reponse.begin(); iter != ds_reponse.end(); iter++) {
-            DSResponse dr = *iter;
-            list.push_back(dr.ep.address().to_string());
+    while (count < MAX_XMPP_SERVERS) {
+        if (!Agent::GetInstance()->dns_server(count).empty()) {
+            list.push_back(Agent::GetInstance()->dns_server(count));
         }
-    } else {
-        while (count < MAX_XMPP_SERVERS) {
-            if (!Agent::GetInstance()->dns_server(count).empty()) {
-                list.push_back(Agent::GetInstance()->dns_server(count));
-            }
-            count++;
-        }
+        count++;
     }
     dns->set_dns_requests(nstats.requests);
     dns->set_dns_resolved(nstats.resolved);
