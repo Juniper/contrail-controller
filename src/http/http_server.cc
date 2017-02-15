@@ -32,7 +32,8 @@ HttpServer::HttpServer(EventManager *evm, const SslConfig &config)
         if (!ca_cert_filename.empty()) {
 
             // Verify peer has CA signed certificate
-            ctx->set_verify_mode(boost::asio::ssl::verify_peer, ec);
+            ctx->set_verify_mode(boost::asio::ssl::verify_peer |
+		    boost::asio::ssl::verify_fail_if_no_peer_cert, ec);
             if (ec.value() != 0) {
                 exit(EINVAL);
             }

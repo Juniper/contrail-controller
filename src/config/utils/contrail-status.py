@@ -164,11 +164,13 @@ class EtreeToDict(object):
 #end class EtreeToDict
 
 class IntrospectUtil(object):
-    def __init__(self, ip, port, debug, timeout):
+    def __init__(self, ip, port, debug, timeout, keyfile, certfile):
         self._ip = ip
         self._port = port
         self._debug = debug
         self._timeout = timeout
+        self._certfile = certfile
+        self._keyfile = keyfile
     #end __init__
 
     def _mk_url_str(self, path, secure=False):
@@ -183,7 +185,8 @@ class IntrospectUtil(object):
             resp = requests.get(url, timeout=self._timeout)
         except requests.ConnectionError:
             url = self._mk_url_str(path, True)
-            resp = requests.get(url, timeout=self._timeout, verify=False)
+            resp = requests.get(url, timeout=self._timeout, \
+                    cert=(self._certfile, self._keyfile))
         if resp.status_code == requests.codes.ok:
             return etree.fromstring(resp.text)
         else:
@@ -329,14 +332,14 @@ def get_http_server_port(svc_name, debug):
         http_server_port = get_default_http_server_port(svc_name, debug)
     return http_server_port
 
-def get_svc_uve_status(svc_name, debug, timeout):
+def get_svc_uve_status(svc_name, debug, timeout, keyfile, certfile):
     # Get the HTTP server (introspect) port for the service
     http_server_port = get_http_server_port(svc_name, debug)
     if http_server_port == -1:
         return None, None
     # Now check the NodeStatus UVE
-    svc_introspect = IntrospectUtil('localhost', http_server_port, debug,
-                                    timeout)
+    svc_introspect = IntrospectUtil('localhost', http_server_port, debug, \
+                                    timeout, keyfile, certfile)
     node_status = svc_introspect.get_uve('NodeStatus')
     if node_status is None:
         if debug:
@@ -359,7 +362,7 @@ def get_svc_uve_status(svc_name, debug, timeout):
             description = 'ToR:%s connection %s' % (connection_info['name'], connection_info['status'].lower())
     return process_status_info[0]['state'], description
 
-def check_svc_status(service_name, debug, detail, timeout):
+def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile):
     service_sock = service_name.replace('-', '_')
     service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
     service_sock = "/var/run/%s" % service_sock
@@ -390,7 +393,9 @@ def check_svc_status(service_name, debug, detail, timeout):
                 if (svc_name in NodeUVEImplementedServices or
                     svc_name.rsplit('-', 1)[0] in NodeUVEImplementedServices) and svc_status == 'active':
                     try:
-                        svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug, timeout)
+                        svc_uve_status, svc_uve_description = \
+                        get_svc_uve_status(svc_name, debug, timeout, keyfile,\
+                                certfile)
                     except requests.ConnectionError, e:
                         if debug:
                             print 'Socket Connection error : %s' % (str(e))
@@ -424,7 +429,8 @@ def check_svc_status(service_name, debug, detail, timeout):
 def check_status(svc_name, options):
     check_svc(svc_name)
     if init_sys_used not in ['systemd']:
-        check_svc_status(svc_name, options.debug, options.detail, options.timeout)
+        check_svc_status(svc_name, options.debug, options.detail, \
+                options.timeout, options.keyfile, options.certfile)
 
 def contrail_service_status(nodetype, options):
     if nodetype == 'compute':
@@ -484,6 +490,12 @@ def main():
     parser.add_option('-t', '--timeout', dest='timeout', type="float",
                       default=2,
                       help="timeout in seconds to use for HTTP requests to services")
+    parser.add_option('-k', '--keyfile', dest='keyfile', type="string",
+                      default="/etc/contrail/ssl/private/server-privkey.pem",
+                      help="ssl key file to use for HTTP requests to services")
+    parser.add_option('-c', '--certfile', dest='certfile', type="string",
+                      default="/etc/contrail/ssl/certs/server.pem",
+                      help="certificate file to use for HTTP requests to services")
 
     (options, args) = parser.parse_args()
     if args:
