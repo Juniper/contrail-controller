@@ -5,9 +5,9 @@
 #ifndef vnsw_agent_metadata_proxy_h_
 #define vnsw_agent_metadata_proxy_h_
 
-class EventManager;
-class HttpSession;
-class HttpRequest;
+#include "http/client/http_client.h"
+#include "http/http_session.h"
+
 class MetadataServer;
 class MetadataClient;
 

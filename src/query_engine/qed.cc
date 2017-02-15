@@ -25,7 +25,6 @@
 #include "nodeinfo_types.h"
 #include "query_engine/options.h"
 #include "query.h"
-#include "qe_sandesh.h"
 #include <base/misc_utils.h>
 #include <query_engine/buildinfo.h>
 #include <sandesh/sandesh_http.h>
@@ -54,10 +53,7 @@ bool QedVersion(std::string &version) {
 #include <csignal>
 
 static EventManager * pevm = NULL;
-static DiscoveryServiceClient *ds_client = NULL;
 static Options options;
-static TaskTrigger *qe_dbstats_task_trigger;
-static Timer *qe_dbstats_timer;
 
 static void WaitForIdle() {
     static const int kTimeout = 15;
@@ -86,16 +82,6 @@ static bool OptionsParse(Options &options, EventManager &evm,
 }
 
 static void ShutdownQe() {
-    if (ds_client) {
-        ds_client->Shutdown();
-        delete ds_client;
-    }
-    WaitForIdle();
-    if (qe_dbstats_timer) {
-        TimerManager::DeleteTimer(qe_dbstats_timer);
-        delete qe_dbstats_task_trigger;
-        qe_dbstats_timer = NULL;
-    }
     Sandesh::Uninit();
     ConnectionStateManager::
         GetInstance()->Shutdown();
@@ -110,62 +96,6 @@ static void terminate_qe (int param)
 
 static void reconfig_qe(int signum) {
     options.ParseReConfig();
-}
-
-static bool QEDbStatsTrigger() {
-    qe_dbstats_task_trigger->Set();
-    return false;
-}
-
-/*
- * Send the database stats to the collector periodically
- */
-static bool SendQEDbStats(QESandeshContext &ctx) {
-    // DB stats
-    std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
-    GenDb::DbErrors dbe;
-    QueryEngine *qe = ctx.QE();
-    if ((qe->GetDbHandler()).get() != NULL) {
-        qe->GetDiffStats(&vdbti, &dbe, &vstats_dbti);
-    }
-    map<string,GenDb::DbTableStat> mtstat, msstat;
-
-    for (size_t idx=0; idx<vdbti.size(); idx++) {
-        GenDb::DbTableStat dtis;
-        dtis.set_reads(vdbti[idx].get_reads());
-        dtis.set_read_fails(vdbti[idx].get_read_fails());
-        dtis.set_writes(vdbti[idx].get_writes());
-        dtis.set_write_fails(vdbti[idx].get_write_fails());
-        dtis.set_write_back_pressure_fails(vdbti[idx].get_write_back_pressure_fails());
-        mtstat.insert(make_pair(vdbti[idx].get_table_name(), dtis));
-    }
-
-    for (size_t idx=0; idx<vstats_dbti.size(); idx++) {
-        GenDb::DbTableStat dtis;
-        dtis.set_reads(vstats_dbti[idx].get_reads());
-        dtis.set_read_fails(vstats_dbti[idx].get_read_fails());
-        dtis.set_writes(vstats_dbti[idx].get_writes());
-        dtis.set_write_fails(vstats_dbti[idx].get_write_fails());
-        dtis.set_write_back_pressure_fails(
-            vstats_dbti[idx].get_write_back_pressure_fails());
-        msstat.insert(make_pair(vstats_dbti[idx].get_table_name(), dtis));
-    }
-
-    QEDbStats qe_db_stats;
-    qe_db_stats.set_table_info(mtstat);
-    qe_db_stats.set_errors(dbe);
-    qe_db_stats.set_stats_info(msstat);
-
-    cass::cql::DbStats cql_stats;
-    if (qe->GetCqlStats(&cql_stats)) {
-        qe_db_stats.set_cql_stats(cql_stats);
-    }
-    qe_db_stats.set_name(Sandesh::source());
-    QEDbStatsUve::Send(qe_db_stats);
-    qe_dbstats_timer->Cancel();
-    qe_dbstats_timer->Start(60*1000, boost::bind(&QEDbStatsTrigger),
-                               NULL);
-    return true;
 }
 
 int
@@ -203,22 +133,6 @@ main(int argc, char *argv[]) {
     }
     error_code error;
     ip::tcp::endpoint dss_ep;
-    Sandesh::CollectorSubFn csf = 0;
-
-    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        options.discovery_server(), options.discovery_port(), &dss_ep)) {
-
-            string subscriber_name =
-                g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
-            ds_client = new DiscoveryServiceClient(&evm, dss_ep, 
-                                                   subscriber_name);
-            ds_client->Init();
-            csf = boost::bind(&DiscoveryServiceClient::Subscribe, 
-                              ds_client, _1, _2, _3);
-    } else {
-        LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
-                    options.discovery_server());
-    }
 
     int max_tasks = options.max_tasks();
     // Tune max_tasks 
@@ -262,13 +176,8 @@ main(int argc, char *argv[]) {
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::COLLECTOR)->second, ""));
     bool use_collector_list = true;
-    if (!options.collectors_configured() && csf) {
-        // Use discovery to connect to collector
+    if (!options.collectors_configured()) {
         use_collector_list = false;
-        expected_connections.push_back(ConnectionTypeName(
-            g_process_info_constants.ConnectionTypeNames.find(
-                ConnectionType::DISCOVERY)->second,
-            g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME));
     }
     ConnectionStateManager::
         GetInstance()->Init(*evm.io_service(),
@@ -278,8 +187,6 @@ main(int argc, char *argv[]) {
             expected_connections), "ObjectCollectorInfo");
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success;
-    // subscribe to the collector service with discovery only if the
-    // collector list is not configured.
     if (use_collector_list) {
         std::vector<std::string> collectors(
             options.randomized_collector_server_list());
@@ -288,14 +195,14 @@ main(int argc, char *argv[]) {
         }
         success = Sandesh::InitGenerator(module_name, options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
-                    instance_id, &evm, options.http_server_port(), 0,
+                    instance_id, &evm, options.http_server_port(),
                     collectors, NULL, Sandesh::DerivedStats(),
                     options.sandesh_config());
     } else {
         const std::vector<std::string> collectors;
         success = Sandesh::InitGenerator(module_name, options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
-                    instance_id, &evm, options.http_server_port(), csf,
+                    instance_id, &evm, options.http_server_port(),
                     collectors, NULL, Sandesh::DerivedStats(),
                     options.sandesh_config());
     }
@@ -360,15 +267,6 @@ main(int argc, char *argv[]) {
             options.cassandra_password(),
             options.cluster_id()));
     }
-    QESandeshContext qec(qe.get());
-    Sandesh::set_client_context(&qec);
-    qe_dbstats_task_trigger =
-        new TaskTrigger(boost::bind(&SendQEDbStats, qec),
-                    TaskScheduler::GetInstance()->GetTaskId("QE::DBStats"), 0);
-    qe_dbstats_timer = TimerManager::CreateTimer(*evm.io_service(),
-        "QE Db stats timer",
-        TaskScheduler::GetInstance()->GetTaskId("QE::DBStats"), 0);
-    qe_dbstats_timer->Start(5*1000, boost::bind(&QEDbStatsTrigger), NULL);
 
     signal(SIGTERM, terminate_qe);
     signal(SIGHUP, reconfig_qe);
@@ -376,4 +274,3 @@ main(int argc, char *argv[]) {
 
     return 0;
 }
-

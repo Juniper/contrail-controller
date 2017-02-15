@@ -83,46 +83,6 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
         structured_syslog_collector_.reset(new StructuredSyslogCollector(evm,
             structured_syslog_listen_port, db_initializer_->GetDbHandler()));
     }
-    CollectorPublish();
-}
-
-void
-VizCollector::CollectorPublish()
-{
-    if (!collector_) return;
-    DiscoveryServiceClient *ds_client = Collector::GetCollectorDiscoveryServiceClient();
-    if (!ds_client) return;
-    string service_name = g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME;
-    stringstream pub_ss;
-    pub_ss << "<" << service_name << "><ip-address>" << Collector::GetSelfIp() <<
-            "</ip-address><port>" << collector_->GetPort() <<
-            "</port><pid>" << getpid() << 
-            "</pid><redis-gen>" << redis_gen_ <<
-            "</redis-gen><partcount>{ \"1\":[" <<
-                           VizCollector::PartitionRange(
-                    PartType::PART_TYPE_CNODES,partitions_).first <<
-            "," << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_CNODES,partitions_).second << 
-            "], \"2\":[" << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_PNODES,partitions_).first <<
-            "," << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_PNODES,partitions_).second << 
-            "], \"3\":[" << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_VMS,partitions_).first <<
-            "," << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_VMS,partitions_).second << 
-            "], \"4\":[" << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_IFS,partitions_).first <<
-            "," << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_IFS,partitions_).second << 
-            "], \"5\":[" << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_OTHER,partitions_).first <<
-            "," << VizCollector::PartitionRange(
-                    PartType::PART_TYPE_OTHER,partitions_).second << 
-            "]}</partcount></"  << service_name << ">";
-    std::string pub_msg;
-    pub_msg = pub_ss.str();
-    ds_client->Publish(service_name, pub_msg);
 }
 
 VizCollector::VizCollector(EventManager *evm, DbHandlerPtr db_handler,
