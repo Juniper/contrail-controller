@@ -14,7 +14,7 @@ setup( name=PROJECT,
         version=VERSION,
         description='Contrail Config Command Line Interface',
         platforms=['Any'],
-        install_requires=['cliff>=2.2.0'],
+        install_requires=['cliff'],
         entry_points=entry_points_dict,
         zip_safe=False,
     )
