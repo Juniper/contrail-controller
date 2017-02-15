@@ -16,7 +16,7 @@ class VncEndpoints(object):
 
     def __init__(self, vnc_lib=None, logger=None, kube=None):
         self._vnc_lib = vnc_lib
-        self._logger = logger
+        self.logger = logger
         self._kube = kube
 
         self.service_lb_pool_mgr = importutils.import_object(
@@ -35,7 +35,8 @@ class VncEndpoints(object):
         return member_obj
 
     def _is_service_exists(self, service_name, service_namespace):
-        lb_fq_name = ['default-domain', service_namespace, service_name]
+        name = 'service' + '-' + service_name
+        lb_fq_name = ['default-domain', service_namespace, name]
         try:
             lb_obj = self._vnc_lib.loadbalancer_read(fq_name=lb_fq_name)
         except NoIdError:
@@ -91,6 +92,8 @@ class VncEndpoints(object):
                         target_port = ll.params['protocol_port']
                     else:
                         target_port = ll.target_port
+                    self.logger.debug("Create LB member for Pod: %s in LB: %s with target-port: %s" 
+                                       % (vm.fq_name, lb.name, target_port))
                     member_obj = self._vnc_create_member(pool, pod_id, vmi_id,
                                                          target_port)
                     LoadbalancerMemberKM.locate(member_obj.uuid)
@@ -129,6 +132,8 @@ class VncEndpoints(object):
                     member_match = True
                     break
             if member_match:
+                self.logger.debug("Delete LB member for Pod: %s from LB: %s" 
+                                   % (pod_id, lb.name))
                 self.service_lb_member_mgr.delete(member_id)
                 LoadbalancerMemberKM.delete(member.uuid)
 
@@ -140,7 +145,7 @@ class VncEndpoints(object):
 
         # No listeners on LB. Error condition. Handle gracefully..
         if len(lb.loadbalancer_listeners) == 0:
-            self._logger.warning("No listeners on LB (" + lb.name + ")")
+            self.logger.warning("No listeners on LB (" + lb.name + ")")
             return pod_members
 
         for ll_id in list(lb.loadbalancer_listeners):
@@ -181,7 +186,7 @@ class VncEndpoints(object):
         # If No, create Service and then continue.
         exists, service_id = self._is_service_exists(name, namespace)
         if exists == False:
-            self._logger.warning("Add/Modify endpoint event when service "
+            self.logger.warning("Add/Modify endpoint event when service "
                 + name + " not existing");
             return
 
@@ -209,8 +214,8 @@ class VncEndpoints(object):
         # If No, create Service and then continue.
         exists, service_id = self._is_service_exists(name, namespace)
         if exists is False:
-            self._logger.warning("Delete endpoint event when service "
-                + name + " not existing");
+            self.logger.warning("Delete endpoint event when service "
+                + name + " doesn't exist.. ignore endpoint delete");
             return
 
         # Get list of Pods attached to the Service.

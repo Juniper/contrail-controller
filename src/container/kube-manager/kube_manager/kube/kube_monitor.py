@@ -37,8 +37,8 @@ class KubeMonitor(object):
 
         if self.cloud_orchestrator == "openshift":
             protocol = "https"
-            headers = {'Authorization': "Bearer " + self.token}
-            self.header.update(headers)
+            header = {'Authorization': "Bearer " + self.token}
+            self.headers.update(header)
             self.verify = False
         else: # kubernetes
             protocol = "http"

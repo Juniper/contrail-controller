@@ -184,14 +184,14 @@ class VncService(object):
         annotations = {}
         annotations['device_owner'] = 'K8S:SERVICE'
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj, service_id,
-                                     name, proj_obj, annotations=annotations)
+                                     name, proj_obj, service_ip, annotations=annotations)
         return lb_obj
 
     def _lb_create(self, service_id, service_name,
             service_namespace, service_ip, ports):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
-            lb_obj = self._vnc_create_lb( service_id, service_name,
+            lb_obj = self._vnc_create_lb(service_id, service_name,
                                         service_namespace, service_ip)
             lb = LoadbalancerKM.locate(service_id)
 
@@ -343,8 +343,13 @@ class VncService(object):
                                    svc_namespace, ports):
         lb_fq_name = ['default-domain', svc_namespace, svc_name]
         lb_uuid = LoadbalancerKM.get_fq_name_to_uuid(lb_fq_name)
-        if lb_uuid != svc_uuid:
+        if lb_uuid is None:
+            return
+
+        if svc_uuid != lb_uuid:
             self.vnc_service_delete(lb_uuid, svc_name, svc_namespace, ports)
+            self.logger.notice("Uuid change detected for service %s. "
+                               "Deleteing old service" % lb_fq_name);
 
     def vnc_service_add(self, service_id, service_name,
                         service_namespace, service_ip, selectors, ports,
@@ -389,10 +394,14 @@ class VncService(object):
                         member = LoadbalancerMemberKM.get(member_id)
                         if member:
                             self.service_lb_member_mgr.delete(member_id)
+                            self.logger.debug("Deleting LB member %s" % member.name)
                             LoadbalancerMemberKM.delete(member_id)
 
                 self._vnc_delete_pool(pool_id)
+                self.logger.debug("Deleting LB pool %s" % pool.name)
                 LoadbalancerPoolKM.delete(pool_id)
+
+            self.logger.debug("Deleting LB listener %s" % ll.name)
             self._vnc_delete_listener(ll_id)
             LoadbalancerListenerKM.delete(ll_id)
 
@@ -403,7 +412,10 @@ class VncService(object):
                    service_namespace):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
+            self.logger.debug("LB doesnot exist for (%s,%s) in cfg db, return" %
+                              (service_namespace, service_name))
             return
+
         self._vnc_delete_listeners(lb)
         self._vnc_delete_lb(service_id)
         LoadbalancerKM.delete(service_id)
