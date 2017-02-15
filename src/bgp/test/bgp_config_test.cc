@@ -2831,7 +2831,7 @@ TEST_F(BgpConfigTest, AddressFamilies1) {
 // The address-families config for the local bgp-router should  be used when
 // there's no per session address-families configuration.
 //
-TEST_F(BgpConfigTest, AddressFamilies2) {
+TEST_F(BgpConfigTest, AddressFamilies2a) {
     string content = FileRead("controller/src/bgp/testdata/config_test_13.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -2856,10 +2856,39 @@ TEST_F(BgpConfigTest, AddressFamilies2) {
 }
 
 //
+// The address-families config for the local bgp-router should  be used when
+// there's no per session address-families configuration.
+// Families that are not configured on the remote bgp-router should not be
+// included in the configured family list.
+//
+TEST_F(BgpConfigTest, AddressFamilies2b) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_44.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    BgpPeer *peer = rti->peer_manager()->PeerFind("10.1.1.1");
+    TASK_UTIL_ASSERT_TRUE(peer != NULL);
+
+    TASK_UTIL_EXPECT_EQ(2, peer->configured_families().size());
+    TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::RTARGET));
+    TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::EVPN));
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+//
 // The default family should be used if there's no address-families config
 // for the session or the local bgp-router.
 //
-TEST_F(BgpConfigTest, AddressFamilies3) {
+TEST_F(BgpConfigTest, AddressFamilies3a) {
     string content = FileRead("controller/src/bgp/testdata/config_test_14.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -2872,6 +2901,34 @@ TEST_F(BgpConfigTest, AddressFamilies3) {
 
     TASK_UTIL_EXPECT_EQ(2, peer->configured_families().size());
     TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::INET));
+    TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::INETVPN));
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+//
+// The default family should be used if there's no address-families config
+// for the session or the local bgp-router.
+// Families that are not configured on the remote bgp-router should not be
+// included in the configured family list.
+//
+TEST_F(BgpConfigTest, AddressFamilies3b) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_45.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    BgpPeer *peer = rti->peer_manager()->PeerFind("10.1.1.1");
+    TASK_UTIL_ASSERT_TRUE(peer != NULL);
+
+    TASK_UTIL_EXPECT_EQ(1, peer->configured_families().size());
     TASK_UTIL_EXPECT_TRUE(peer->LookupFamily(Address::INETVPN));
 
     boost::replace_all(content, "<config>", "<delete>");
