@@ -421,8 +421,14 @@ void Interface::GetOsParams(Agent *agent) {
     //will not be present
     if (transport_ == TRANSPORT_PMD) {
         if (type_ == PHYSICAL || type_ == INET) {
-            mac_ = *ether_aton(agent->params()->
-                               physical_interface_mac_addr().c_str());
+            struct ether_addr *addr = ether_aton(agent->params()->
+                                      physical_interface_mac_addr().c_str());
+            if (addr) {
+                mac_ = *addr;
+            } else {
+                LOG(ERROR,
+                    "Physical interface MAC not set in DPDK vrouter agent");
+            }
         }
     }
 
