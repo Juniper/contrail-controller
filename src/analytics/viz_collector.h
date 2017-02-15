@@ -27,7 +27,6 @@ class StructuredSyslogCollector;
 class SFlowCollector;
 class IpfixCollector;
 class Options;
-class DiscoveryServiceClient;
 
 class VizCollector {
 public:
@@ -77,13 +76,11 @@ public:
         collector_->RedisUpdate(rsc);
         if (rsc) {
             redis_gen_ ++;
-            CollectorPublish();
         }
     }
     void SendDbStatistics();
     void SendProtobufCollectorStatistics();
     void SendGeneratorStatistics();
-    void CollectorPublish();
     bool GetCqlMetrics(cass::cql::Metrics *metrics);
 
     static const unsigned int kPartCountCnodes = 1;
@@ -128,9 +125,6 @@ public:
             break;
         }
         return std::make_pair(bpart, npart);
-    }
-    void UpdateConfigDBConnection(Options *o, DiscoveryServiceClient *c) {
-        GetDbHandler()->UpdateConfigDBConnection(o, c);
     }
 private:
     std::string DbGlobalName(bool dup=false);
