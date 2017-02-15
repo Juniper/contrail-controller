@@ -9,6 +9,8 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/bind.hpp>
+#include "io/event_manager.h"
 
 #include <map>
 #include <set>

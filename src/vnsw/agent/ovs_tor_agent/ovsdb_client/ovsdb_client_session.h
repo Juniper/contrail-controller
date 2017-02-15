@@ -11,6 +11,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
+#include <io/tcp_session.h>
 
 class OvsPeer;
 class OvsPeerManager;

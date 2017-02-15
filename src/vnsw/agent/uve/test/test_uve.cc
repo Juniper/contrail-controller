@@ -558,7 +558,6 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_1) {
     Agent *agent = Agent::GetInstance();
     AgentParamTest params(agent->params());
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
-    params.set_discovery_server("0.0.0.0");
     params.set_xmpp_server_1("1.1.1.1");
     params.set_xmpp_server_2("1.1.1.2");
     params.set_dns_server_1("1.1.1.1");
@@ -576,7 +575,6 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_2) {
     Agent *agent = Agent::GetInstance();
     AgentParamTest params(agent->params());
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
-    params.set_discovery_server("1.1.1.1");
     params.set_xmpp_server_1("0.0.0.0");
     params.set_xmpp_server_2("0.0.0.0");
     params.set_dns_server_1("0.0.0.0");
@@ -594,7 +592,6 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_3) {
     Agent *agent = Agent::GetInstance();
     AgentParamTest params(agent->params());
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
-    params.set_discovery_server("1.1.1.1");
     params.set_xmpp_server_1("1.1.1.1");
     params.set_xmpp_server_2("1.1.1.2");
     params.set_dns_server_1("1.1.1.1");
