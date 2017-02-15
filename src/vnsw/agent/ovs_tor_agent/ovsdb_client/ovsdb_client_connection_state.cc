@@ -4,6 +4,7 @@
 
 #include <base/string_util.h>
 #include "ovsdb_client_connection_state.h"
+#include <ovsdb_types.h>
 #include "ha_stale_dev_vn.h"
 
 using namespace OVSDB;
@@ -200,11 +201,23 @@ void ConnectionStateTable::UpdateConnectionInfo(ConnectionStateEntry *entry,
 void ConnectionStateTable::NotifyUve(ConnectionStateEntry *entry,
                                      bool deleted) {
     /* If device uuid is not available we cannot notify Uve Module */
-    if (entry->device_uuid_ == boost::uuids::nil_uuid())
+    if (entry->device_uuid_ == boost::uuids::nil_uuid()) {
+        OVSDB_TRACE(Trace, "UVE notification failed for " +
+                    entry->device_name_ + " No UUID yet");
         return;
+    }
 
-    if (agent_->uve() == NULL || agent_->uve()->prouter_uve_table() == NULL)
+    if (agent_->uve() == NULL) {
+        OVSDB_TRACE(Trace, "UVE notification failed for " +
+                    entry->device_name_ + " UVE object absent");
         return;
+    }
+
+    if (agent_->uve()->prouter_uve_table() == NULL) {
+        OVSDB_TRACE(Trace, "UVE notification failed for " +
+                    entry->device_name_ + " Prouter UVE object absent");
+        return;
+    }
 
     ProuterUveTable *ptable = agent_->uve()->prouter_uve_table();
     if (deleted) {
