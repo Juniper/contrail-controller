@@ -109,5 +109,49 @@ request sandesh NetworkPolicyDatabaseList {
 }
 
 response sandesh NetworkPolicyDatabaseListResp {
-    1: list<ServiceInstance> network_policies;
+    1: list<NetworkPolicyInstance> network_policies;
+}
+
+//
+// Ingress DB Introspect datastructures.
+//
+struct IngressLabels {
+    1: map<string, string> labels;
+}
+
+struct IngressBackend {
+    1: string name;
+    2: string port;
+}
+
+struct IngressRuleProtoPath {
+    1: IngressBackend backend;
+    2: string path;
+}
+
+struct IngressProtoSpec {
+    1: string proto;
+    2: list<IngressRuleProtoPath> paths;
+}
+
+struct IngressRule {
+    1: string host;
+    2: list<IngressProtoSpec> spec;
+}
+
+struct IngressInstance {
+    1: string uuid;
+    2: string name;
+    3: string name_space;
+    4: map<string, string> labels;
+    5: IngressBackend default_backend;
+    6: list<IngressRule> rules;
+}
+
+request sandesh IngressDatabaseList {
+    1: string ingress_uuid;
+}
+
+response sandesh IngressDatabaseListResp {
+    1: list<IngressInstance> ingress;
 }

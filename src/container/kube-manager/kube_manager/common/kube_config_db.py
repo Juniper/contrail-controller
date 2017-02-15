@@ -377,7 +377,7 @@ class IngressKM(KubeDBBase):
 
         # Spec.
         self.rules = []
-        self.default_backend = None
+        self.default_backend = {}
 
         # If an object is provided, update self with contents of object.
         if obj:
@@ -394,9 +394,68 @@ class IngressKM(KubeDBBase):
             return
         self.name = md.get('name')
         self.namespace = md.get('namespace')
-        self.labels = md.get('labels')
+        self.labels = md.get('labels', {})
 
     def _update_spec(self, spec):
         if spec is None:
             return
-        self.rules = spec.get('rules')
+        self.rules = spec.get('rules', {})
+        self.default_backend = spec.get('backend', {})
+
+    @staticmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Ingress DB lookup/introspect request. """
+        ingress_resp = introspect.IngressDatabaseListResp(ingress=[])
+
+        # Iterate through all elements of Ingress DB.
+        for ingress in IngressKM.values():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.ingress_uuid and req.ingress_uuid != ingress.uuid:
+                continue
+
+            # Get default backend info.
+            def_backend = introspect.IngressBackend(
+                name=ingress.default_backend.get('serviceName'),
+                port=str(ingress.default_backend.get('servicePort')))
+
+            # Get rules.
+            rules = []
+            for rule in ingress.rules:
+                ingress_rule = introspect.IngressRule(spec=[])
+                for key,value in rule.iteritems():
+                    if key == 'host':
+                        # Get host info from rule.
+                        ingress_rule.host = value
+                    else:
+                        # Get proto spec from rule.
+                        proto_spec = introspect.IngressProtoSpec(paths=[])
+                        proto_spec.proto = key
+                        for path in value.get('paths', []):
+                            backend = path.get('backend')
+                            proto_backend = None
+                            if backend:
+                                proto_backend = introspect.IngressBackend(
+                                    name=backend.get('serviceName'),
+                                    port=str(backend.get('servicePort')))
+
+                            proto_path = introspect.IngressRuleProtoPath(
+                                backend=proto_backend, path=path.get('path'))
+
+                            proto_spec.paths.append(proto_path)
+
+                        ingress_rule.spec.append(proto_spec)
+
+                rules.append(ingress_rule)
+
+            # Construct response for an element.
+            ingress_instance = introspect.IngressInstance(
+                uuid=ingress.uuid, name=ingress.name,
+                labels=ingress.labels, name_space=ingress.namespace,
+                rules=rules, default_backend=def_backend)
+
+            # Append the constructed element info to the response.
+            ingress_resp.ingress.append(ingress_instance)
+
+        # Send the reply out.
+        ingress_resp.response(req.context())
