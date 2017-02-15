@@ -50,6 +50,20 @@ public:
     uint64_t delete_enqueue_time() const { return delete_enqueue_time_; }
     void set_evict_enqueue_time(uint64_t value) { evict_enqueue_time_ = value; }
     uint64_t evict_enqueue_time() const { return evict_enqueue_time_; }
+    uint8_t gen_id() const { return gen_id_; }
+    void set_gen_id(uint8_t value) { gen_id_ = value; }
+    uint32_t flow_handle() const { return flow_handle_; }
+    void set_flow_handle(uint32_t value) { flow_handle_ = value; }
+    const boost::uuids::uuid &uuid() const { return uuid_; }
+    const boost::uuids::uuid &rev_flow_egress_uuid() const {
+        return rev_flow_egress_uuid_;
+    }
+    uint32_t flags() const { return flags_; }
+    bool is_flags_set(const FlowEntry::FlowEntryFlags &flags) const {
+        return (flags_ & flags);
+    }
+    void CopyFlowInfo(FlowEntry *fe);
+    void ResetStats();
 private:
     FlowEntryPtr flow_;
     uint64_t setup_time_;
@@ -67,6 +81,11 @@ private:
     uint64_t delete_enqueue_time_;
     uint64_t evict_enqueue_time_;
     bool exported_atleast_once_;
+    uint8_t gen_id_;
+    uint32_t flow_handle_;
+    boost::uuids::uuid uuid_;
+    boost::uuids::uuid rev_flow_egress_uuid_;
+    uint32_t flags_;
 };
 
 #endif //  __AGENT_FLOW_EXPORT_INFO_H__
