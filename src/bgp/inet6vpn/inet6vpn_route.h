@@ -78,6 +78,7 @@ public:
     virtual u_int16_t Afi() const { return BgpAf::IPv6; }
     virtual u_int8_t Safi() const { return BgpAf::Vpn; }
     virtual bool IsMoreSpecific(const std::string &other) const;
+    virtual bool IsLessSpecific(const std::string &other) const;
 
 private:
     Inet6VpnPrefix prefix_;

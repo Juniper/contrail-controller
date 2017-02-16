@@ -193,6 +193,20 @@ TEST_F(InetRouteTest, IsMoreSpecific2) {
     EXPECT_FALSE(route.IsMoreSpecific("240.0.0.0/4"));
 }
 
+TEST_F(InetRouteTest, IsLessSpecific) {
+    string prefix_str = "240.240.0.0/16";
+    InetRoute route(Ip4Prefix::FromString(prefix_str));
+    EXPECT_TRUE(route.IsLessSpecific("240.240.240.240/32"));
+    EXPECT_TRUE(route.IsLessSpecific("240.240.240.240/28"));
+    EXPECT_TRUE(route.IsLessSpecific("240.240.240.0/24"));
+    EXPECT_TRUE(route.IsLessSpecific("240.240.240.0/20"));
+    EXPECT_TRUE(route.IsLessSpecific("240.240.0.0/16"));
+    EXPECT_FALSE(route.IsLessSpecific("240.240.0.0/12"));
+    EXPECT_FALSE(route.IsLessSpecific("240.0.0.0/8"));
+    EXPECT_FALSE(route.IsLessSpecific("240.0.0.0/4"));
+    EXPECT_FALSE(route.IsLessSpecific("0.0.0.0/0"));
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);

@@ -36,6 +36,22 @@ TEST_F(Inet6RouteTest, IsMoreSpecific) {
     EXPECT_EQ(route2.IsMoreSpecific(prefix_str), true);
 }
 
+TEST_F(Inet6RouteTest, IsLessSpecific) {
+    std::string prefix_str1 = "2001:db8:85a3:aaaa::b:c:d/128";
+    Inet6Route route1(Inet6Prefix::FromString(prefix_str1));
+    EXPECT_EQ(route1.IsLessSpecific(prefix_str1), true);
+
+    // Compare against route with prefixlen 64
+    std::string prefix_str2 = "2001:db8:85a3:aaaa::/64";
+    Inet6Route route2(Inet6Prefix::FromString(prefix_str2));
+    EXPECT_EQ(route2.IsLessSpecific(prefix_str1), true);
+
+    // Compare against route with prefixlen 48
+    std::string prefix_str3 = "2001:db8:85a3::/48";
+    Inet6Route route3(Inet6Prefix::FromString(prefix_str3));
+    EXPECT_EQ(route3.IsLessSpecific(prefix_str1), true);
+}
+
 TEST_F(Inet6RouteTest, SetKey) {
     Inet6Prefix null_prefix;
     Inet6Route route(null_prefix);

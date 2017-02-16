@@ -339,6 +339,70 @@ TEST_F(Inet6VpnRouteTest, FromProtoPrefixError2) {
     EXPECT_NE(0, result);
 }
 
+TEST_F(Inet6VpnRouteTest, IsMoreSpecific1) {
+    string prefix_str("10.1.1.1:65535:2001:0db8:85a3:f85d:a:b:c:d/128");
+    Inet6VpnPrefix prefix(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix);
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d:a:b:c:d/128"));
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d:a:b:c::/112"));
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d:a:b::/96"));
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d:a::/80"));
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d::/64"));
+}
+
+TEST_F(Inet6VpnRouteTest, IsMoreSpecific2) {
+    string prefix_str("10.1.1.1:65535:2001:0db8:85a3:f85d:a:b:c:d/128");
+    Inet6VpnPrefix prefix(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix);
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d:a:b:c:d/128"));
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d:a:b:c::/112"));
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d:a:b::/96"));
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d:a::/80"));
+    EXPECT_TRUE(route.IsMoreSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d::/64"));
+}
+
+TEST_F(Inet6VpnRouteTest, IsLessSpecific1) {
+    string prefix_str("10.1.1.1:65535:2001:0db8:85a3:f85d:a:b::/96");
+    Inet6VpnPrefix prefix(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix);
+    EXPECT_TRUE(route.IsLessSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d:a:b:c:d/128"));
+    EXPECT_TRUE(route.IsLessSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d:a:b:c::/112"));
+    EXPECT_TRUE(route.IsLessSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d:a:b::/96"));
+    EXPECT_FALSE(route.IsLessSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d:a::/80"));
+    EXPECT_FALSE(route.IsLessSpecific(
+        "10.1.1.1:65535:2001:0db8:85a3:f85d::/64"));
+}
+
+TEST_F(Inet6VpnRouteTest, IsLessSpecific2) {
+    string prefix_str("10.1.1.1:65535:2001:0db8:85a3:f85d:a:b::/96");
+    Inet6VpnPrefix prefix(Inet6VpnPrefix::FromString(prefix_str));
+    Inet6VpnRoute route(prefix);
+    EXPECT_TRUE(route.IsLessSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d:a:b:c:d/128"));
+    EXPECT_TRUE(route.IsLessSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d:a:b:c::/112"));
+    EXPECT_TRUE(route.IsLessSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d:a:b::/96"));
+    EXPECT_FALSE(route.IsLessSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d:a::/80"));
+    EXPECT_FALSE(route.IsLessSpecific(
+        "20.1.1.1:255:2001:0db8:85a3:f85d::/64"));
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);
