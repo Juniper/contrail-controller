@@ -1704,10 +1704,6 @@ AgentParam::AgentParam(bool enable_flow_options,
          opt::value<string>()->default_value(Agent::config_file_),
          "Configuration file")
         ("version", "Display version information")
-        ("CONTROL-NODE.server",
-         opt::value<std::vector<std::string> >()->multitoken(),
-         "IP addresses of control nodes."
-         " Max of 2 Ip addresses can be configured")
         ("CONTROL-NODE.servers",
          opt::value<std::vector<std::string> >()->multitoken(),
          "List of IPAddress:Port of Control node Servers")
@@ -1746,8 +1742,6 @@ AgentParam::AgentParam(bool enable_flow_options,
          opt::value<uint16_t>()->default_value(MAX_XMPP_SERVERS),
          "Maximum number of control node info to be provided by discovery "
          "service <1|2>")
-        ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
-         "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
         ("DNS.servers",
          opt::value<std::vector<std::string> >()->multitoken(),
          "List of IPAddress:Port of DNS node Servers")
