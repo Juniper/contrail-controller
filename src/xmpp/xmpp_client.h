@@ -68,6 +68,7 @@ private:
 
     ConnectionMap connection_map_;
     ConnectionEventCbMap connection_event_map_;
+    tbb::mutex connection_event_map_mutex_;
 
     boost::scoped_ptr<XmppConfigManager> config_mgr_;
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
