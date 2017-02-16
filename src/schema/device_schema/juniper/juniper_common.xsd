@@ -4,6 +4,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Address">
     <xsd:all>
+       <xsd:element name="comment" type="xsd:string"/>
        <xsd:element name="name" type="xsd:string"/>
        <xsd:element name="virtual-gateway-address" type="xsd:string"/>
        <xsd:element name="primary"/>
@@ -71,6 +72,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="Unit">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="family" type="Family"/>
         <xsd:element name="vlan-id" type="xsd:string"/>
