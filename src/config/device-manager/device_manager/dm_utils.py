@@ -6,7 +6,7 @@
 This file contains  utility methods used by device manager module
 """
 
-from netaddr import *
+from netaddr import IPNetwork
 
 class DMUtils(object):
 
@@ -187,7 +187,7 @@ class DMUtils(object):
             vrf_type = "L2"
             fwd_mode = "L2"
         if is_l2_l3:
-            fw_mode = "L2-L3"
+            fwd_mode = "L2-L3"
         if not is_nat:
             return "/* Virtual Network: %s, UUID: %s, VRF Type: %s, Forwarding Mode: %s */"%(
                                                   vn.fq_name[-1], vn.uuid, vrf_type, fwd_mode)
@@ -201,7 +201,7 @@ class DMUtils(object):
 
     @staticmethod
     def public_vrf_filter_comment():
-        return "/* Public VRF Filter for Floating IPs*/"
+        return "/* Public VRF Filter for Floating IPs */"
 
     @staticmethod
     def vn_ps_comment(vn, target_type):
@@ -220,7 +220,12 @@ class DMUtils(object):
         return "/* Virtual Network: %s, UUID: %s, Encapsulation: %s */"%(vn.fq_name[-1], vn.uuid, encap)
 
     @staticmethod
-    def vn_irb_comment(vn, vrf_type):
+    def vn_irb_comment(vn, is_l2, is_l2_l3):
+        vrf_type = "L3"
+        if is_l2:
+            vrf_type = "L2"
+        if is_l2_l3:
+            vrf_type = "L2-L3"
         return "/* Virtual Network: %s, UUID: %s, VRF Type: %s */"%(vn.fq_name[-1], vn.uuid, vrf_type)
 
     @staticmethod
@@ -257,7 +262,7 @@ class DMUtils(object):
 
     @staticmethod
     def firewall_comment():
-        return "/* Firwalls Configuration */"
+        return "/* Firewalls Configuration */"
 
     @staticmethod
     def interfaces_comment():
@@ -274,5 +279,52 @@ class DMUtils(object):
     @staticmethod
     def services_comment():
         return "/* Services Config */"
+
+    @staticmethod
+    def vn_irb_fip_inet_comment(vn):
+        return "/* Routing Interface For Floating IPs, Virtual Network: %s, "\
+               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+
+    @staticmethod
+    def l2_evpn_intf_unit_comment(vn, is_tagged, tag=None):
+        if is_tagged:
+            return "/* L2 EVPN Tagged Interface, Virtual Network: %s, "\
+                   "UUID: %s, VLAN Tag: %s */"%(vn.fq_name[-1], vn.uuid, str(tag))
+        return "/* L2 EVPN Untagged Interface, Virtual Network: %s, "\
+               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+
+    @staticmethod
+    def l3_lo_intf_comment(vn):
+        return "/* L3 Gateway Interface, Virtual Network: %s, "\
+               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+
+    @staticmethod
+    def service_ifd_comment():
+        return "/* Service Interface */"
+
+    @staticmethod
+    def service_intf_comment(direction):
+        return "/* Service %s Interface */"%(direction)
+
+    @staticmethod
+    def irb_ip_comment(irb_ip):
+        ip = IPNetwork(irb_ip)
+        return "/* Allocated IPv%s Address from Subnet: %s/%s */"%(str(ip.version),
+                                                    ip.network, str(ip.prefixlen))
+
+    @staticmethod
+    def lo0_ip_comment(lo_ip):
+        ip = netaddr.IPNetwork(lo_ip)
+        return "/* Allocated IPv%s Address from Subnet: %s/%s */"%(str(ip.version),
+                                                    ip.network, str(ip.prefixlen))
+
+    @staticmethod
+    def lo0_ri_intf_comment(vn):
+        return "/* Routing Interface for lo0 IPs of L3 Virtual Network: %s, "\
+               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+
+    @staticmethod
+    def lo0_unit_0_comment():
+        return "/* Routing Interface For L2 EVPNs */"
 
 # end DMUtils

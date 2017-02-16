@@ -421,7 +421,7 @@ class PhysicalRouterConfig(object):
 
         # add policies for export route targets
         ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
-        ps.set_comment(DMUtils.vn_ps_comment(vn, "Import"))
+        ps.set_comment(DMUtils.vn_ps_comment(vn, "Export"))
         then = Then()
         ps.set_term(Term(name="t1", then=then))
         for route_target in export_targets:
@@ -437,7 +437,7 @@ class PhysicalRouterConfig(object):
 
         # add policies for import route targets
         ps = PolicyStatement(name=DMUtils.make_import_name(ri_name))
-        ps.set_comment(DMUtils.vn_ps_comment(vn, "Export"))
+        ps.set_comment(DMUtils.vn_ps_comment(vn, "Import"))
         from_ = From()
         term = Term(name="t1", fromxx=from_)
         ps.set_term(term)
@@ -508,7 +508,8 @@ class PhysicalRouterConfig(object):
             irb_intf = Interface(name="irb")
             interfaces_config.add_interface(irb_intf)
 
-            intf_unit = Unit(name=str(network_id))
+            intf_unit = Unit(name=str(network_id),
+                             comment=DMUtils.vn_irb_fip_inet_comment(vn))
             if restrict_proxy_arp:
                 intf_unit.set_proxy_arp(ProxyArp(restricted=''))
             inet = FamilyInet()
@@ -550,10 +551,10 @@ class PhysicalRouterConfig(object):
             interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
             if is_l2_l3:
                 irb_intf = Interface(name='irb', gratuitous_arp_reply='')
-                irb_intf.set_comment(DMUtils.vn_irb_comment(vn, "L2 L3"))
                 interfaces_config.add_interface(irb_intf)
                 if gateways is not None:
-                    intf_unit = Unit(name=str(network_id))
+                    intf_unit = Unit(name=str(network_id),
+                                     comment=DMUtils.vn_irb_comment(vn, False, is_l2_l3))
                     irb_intf.add_unit(intf_unit)
                     family = Family()
                     intf_unit.set_family(family)
@@ -573,6 +574,7 @@ class PhysicalRouterConfig(object):
                             addr = Address()
                             inet.add_address(addr)
                         addr.set_name(irb_ip)
+                        addr.set_comment(DMUtils.irb_ip_comment(irb_ip))
                         if len(gateway) and gateway != '0.0.0.0':
                             addr.set_virtual_gateway_address(gateway)
 
@@ -580,17 +582,18 @@ class PhysicalRouterConfig(object):
             interfaces_config.add_interface(lo_intf)
             fam_inet = FamilyInet(address=[Address(name=self.bgp_params['address'] + "/32",
                                                    primary='', preferred='')])
-            intf_unit = Unit(name="0", family=Family(inet=fam_inet))
+            intf_unit = Unit(name="0", family=Family(inet=fam_inet),
+                             comment=DMUtils.lo0_unit_0_comment())
             lo_intf.add_unit(intf_unit)
 
-            self.build_l2_evpn_interface_config(interfaces_config, interfaces)
+            self.build_l2_evpn_interface_config(interfaces_config, interfaces, vn)
 
         if (not is_l2 and not is_l2_l3 and gateways):
             interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
             ifl_num = str(1000 + int(network_id))
             lo_intf = Interface(name="lo0")
             interfaces_config.add_interface(lo_intf)
-            intf_unit = Unit(name=ifl_num)
+            intf_unit = Unit(name=ifl_num, comment=DMUtils.l3_lo_intf_comment(vn))
             lo_intf.add_unit(intf_unit)
             family = Family()
             intf_unit.set_family(family)
@@ -613,7 +616,9 @@ class PhysicalRouterConfig(object):
                     inet.add_address(addr)
                     lo_ip = ip + '/' + '32'
                 addr.set_name(lo_ip)
-            ri.add_interface(Interface(name="lo0." + ifl_num))
+                addr.set_comment(DMUtils.lo0_ip_comment(lo0_ip))
+            ri.add_interface(Interface(name="lo0." + ifl_num,
+                                       comment=DMUtils.lo0_ri_intf_comment(vn)))
 
         # fip services config
         services_config = self.services_config
@@ -673,16 +678,19 @@ class PhysicalRouterConfig(object):
                 then_.set_translated(translated)
 
             interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
-            si_intf = Interface(name=interfaces[0].ifd_name)
+            si_intf = Interface(name=interfaces[0].ifd_name,
+                                comment=DMUtils.service_ifd_comment())
             interfaces_config.add_interface(si_intf)
 
-            intf_unit = Unit(name=interfaces[0].unit)
+            intf_unit = Unit(name=interfaces[0].unit,
+                             comment=DMUtils.service_intf_comment("Ingress"))
             si_intf.add_unit(intf_unit)
             family = Family(inet=FamilyInet())
             intf_unit.set_family(family)
             intf_unit.set_service_domain("inside")
 
-            intf_unit = Unit(name=interfaces[1].unit)
+            intf_unit = Unit(name=interfaces[1].unit,
+                             comment=DMUtils.service_intf_comment("Egress"))
             si_intf.add_unit(intf_unit)
             family = Family(inet=FamilyInet())
             intf_unit.set_family(family)
@@ -698,7 +706,7 @@ class PhysicalRouterConfig(object):
         self.ri_config = ri_config
     # end add_routing_instance
 
-    def build_l2_evpn_interface_config(self, interfaces_config, interfaces):
+    def build_l2_evpn_interface_config(self, interfaces_config, interfaces, vn=None):
         ifd_map = {}
         for interface in interfaces:
             ifd_map.setdefault(interface.ifd_name, []).append(interface)
@@ -713,13 +721,18 @@ class PhysicalRouterConfig(object):
                             ifd_name))
                     continue
                 intf.set_encapsulation("ethernet-bridge")
-                intf.add_unit(Unit(name=interface_list[0].unit, family=Family(bridge='')))
+                intf.add_unit(Unit(name=interface_list[0].unit,
+                                   comment=DMUtils.l2_evpn_intf_unit_comment(vn, False),
+                                   family=Family(bridge='')))
             else:
                 intf.set_flexible_vlan_tagging('')
                 intf.set_encapsulation("flexible-ethernet-services")
                 for interface in interface_list:
-                    intf.add_unit(Unit(name=interface.unit, encapsulation='vlan-bridge',
-                                       vlan_id=str(interface.vlan_tag)))
+                    intf.add_unit(Unit(name=interface.unit,
+                               comment=DMUtils.l2_evpn_intf_unit_comment(vn,
+                                                     True, interface.vlan_tag),
+                               encapsulation='vlan-bridge',
+                               vlan_id=str(interface.vlan_tag)))
     # end build_l2_evpn_interface_config
 
     def set_global_routing_options(self, bgp_params):
