@@ -124,7 +124,8 @@ class PhysicalRouterConfig(object):
     def get_xml_data(self, config):
         xml_data = StringIO()
         config.export(xml_data, 1)
-        return xml_data.getvalue()
+        xml_str = xml_data.getvalue()
+        return xml_str.replace("comment>", "junos:comment>", -1)
     # end get_xml_data
 
     def build_netconf_config(self, groups, operation='replace'):
@@ -188,7 +189,7 @@ class PhysicalRouterConfig(object):
     def add_pnf_logical_interface(self, junos_interface):
 
         if not self.interfaces_config:
-            self.interfaces_config = Interfaces()
+            self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
         family = Family(inet=FamilyInet([Address(name=junos_interface.ip)]))
         unit = Unit(name=junos_interface.unit, vlan_id=junos_interface.vlan_tag, family=family)
         interface = Interface(name=junos_interface.ifd_name, unit=unit)
@@ -232,7 +233,7 @@ class PhysicalRouterConfig(object):
         dynamic_tunnels = DynamicTunnels()
         dynamic_tunnels.add_dynamic_tunnel(dynamic_tunnel)
         if self.global_routing_options_config is None:
-            self.global_routing_options_config = RoutingOptions()
+            self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
         self.global_routing_options_config.set_dynamic_tunnels(dynamic_tunnels)
     # end add_dynamic_tunnels
 
@@ -247,6 +248,7 @@ class PhysicalRouterConfig(object):
         forwarding_options_config.add_family(fo)
 
         f = FirewallFilter(name=DMUtils.make_public_vrf_filter_name(inet_type))
+        f.set_comment(DMUtils.public_vrf_filter_comment())
         ff = firewall_config.get_family()
         if not ff:
             ff = FirewallFamily()
@@ -305,6 +307,7 @@ class PhysicalRouterConfig(object):
 
     def add_routing_instance(self, ri_conf):
         ri_name = ri_conf.get("ri_name")
+        vn = ri_conf.get("vn")
         is_l2 = ri_conf.get("is_l2", False)
         is_l2_l3 = ri_conf.get("is_l2_l3", False)
         import_targets = ri_conf.get("import_targets", set())
@@ -323,9 +326,12 @@ class PhysicalRouterConfig(object):
                   ri_conf.get("highest_enapsulation_priority") or "MPLSoGRE"
 
         self.routing_instances[ri_name] = ri_conf
-        ri_config = self.ri_config or RoutingInstances()
-        policy_config = self.policy_config or PolicyOptions()
+        ri_config = self.ri_config or RoutingInstances(comment=DMUtils.routing_instances_comment())
+        policy_config = self.policy_config or PolicyOptions(comment=DMUtils.policy_options_comment())
         ri = Instance(name=ri_name)
+        if vn:
+            is_nat = True if fip_map else False
+            ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat))
         ri_config.add_instance(ri)
         ri_opt = None
         if router_external and is_l2 == False:
@@ -415,6 +421,7 @@ class PhysicalRouterConfig(object):
 
         # add policies for export route targets
         ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
+        ps.set_comment(DMUtils.vn_ps_comment(vn, "Import"))
         then = Then()
         ps.set_term(Term(name="t1", then=then))
         for route_target in export_targets:
@@ -430,6 +437,7 @@ class PhysicalRouterConfig(object):
 
         # add policies for import route targets
         ps = PolicyStatement(name=DMUtils.make_import_name(ri_name))
+        ps.set_comment(DMUtils.vn_ps_comment(vn, "Export"))
         from_ = From()
         term = Term(name="t1", fromxx=from_)
         ps.set_term(term)
@@ -444,8 +452,8 @@ class PhysicalRouterConfig(object):
         firewall_config = self.firewall_config
         if router_external and is_l2 == False:
             forwarding_options_config = (self.forwarding_options_config or
-                                           ForwardingOptions())
-            firewall_config = self.firewall_config or Firewall()
+                                           ForwardingOptions(DMUtils.forwarding_options_comment()))
+            firewall_config = self.firewall_config or Firewall(DMUtils.firewall_comment())
             if has_ipv4_prefixes and not self.inet4_forwarding_filter:
                 #create single instance inet4 filter
                 self.inet4_forwarding_filter = self.add_inet_public_vrf_filter(
@@ -472,8 +480,9 @@ class PhysicalRouterConfig(object):
                 self.inet6_forwarding_filter.set_term(terms)
 
         if fip_map is not None:
-            firewall_config = firewall_config or Firewall()
+            firewall_config = firewall_config or Firewall(DMUtils.firewall_comment())
             f = FirewallFilter(name=DMUtils.make_private_vrf_filter_name(ri_name))
+            f.set_comment(DMUtils.vn_firewall_comment(vn, "private"))
             ff = firewall_config.get_family()
             if not ff:
                 ff = FirewallFamily()
@@ -495,7 +504,7 @@ class PhysicalRouterConfig(object):
             term = Term(name="default-term", then=Then(accept=''))
             f.add_term(term)
 
-            interfaces_config = self.interfaces_config or Interfaces()
+            interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
             irb_intf = Interface(name="irb")
             interfaces_config.add_interface(irb_intf)
 
@@ -518,6 +527,7 @@ class PhysicalRouterConfig(object):
                 bd_config = BridgeDomains()
                 ri.set_bridge_domains(bd_config)
                 bd = Domain(name=DMUtils.make_bridge_name(vni), vlan_id='none', vxlan=VXLan(vni=vni))
+                bd.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
                 bd_config.add_domain(bd)
                 for interface in interfaces:
                      bd.add_interface(Interface(name=interface.name))
@@ -532,13 +542,15 @@ class PhysicalRouterConfig(object):
                     # network_id is unique, hence irb
                     ri.set_routing_interface("irb." + str(network_id))
                 evpn = Evpn()
+                evpn.set_comment(DMUtils.vn_evpn_comment(vn, highest_enapsulation_priority))
                 for interface in interfaces:
                      evpn.add_interface(Interface(name=interface.name))
                 ri.set_protocols(RoutingInstanceProtocols(evpn=evpn))
 
-            interfaces_config = self.interfaces_config or Interfaces()
+            interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
             if is_l2_l3:
                 irb_intf = Interface(name='irb', gratuitous_arp_reply='')
+                irb_intf.set_comment(DMUtils.vn_irb_comment(vn, "L2 L3"))
                 interfaces_config.add_interface(irb_intf)
                 if gateways is not None:
                     intf_unit = Unit(name=str(network_id))
@@ -574,7 +586,7 @@ class PhysicalRouterConfig(object):
             self.build_l2_evpn_interface_config(interfaces_config, interfaces)
 
         if (not is_l2 and not is_l2_l3 and gateways):
-            interfaces_config = self.interfaces_config or Interfaces()
+            interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
             ifl_num = str(1000 + int(network_id))
             lo_intf = Interface(name="lo0")
             interfaces_config.add_interface(lo_intf)
@@ -607,23 +619,30 @@ class PhysicalRouterConfig(object):
         services_config = self.services_config
         if fip_map is not None:
             services_config = self.services_config or Services()
+            services_config.set_comment(DMUtils.services_comment())
             service_name = DMUtils.make_services_set_name(ri_name)
             service_set = ServiceSet(name=service_name)
+            service_set.set_comment(DMUtils.service_set_comment(vn))
             services_config.add_service_set(service_set)
             nat_rule = NATRules(name=service_name + "-sn-rule")
-            service_set.add_nat_rules(NATRules(name=DMUtils.make_snat_rule_name(ri_name)))
-            service_set.add_nat_rules(NATRules(name=DMUtils.make_dnat_rule_name(ri_name)))
+            service_set.add_nat_rules(NATRules(name=DMUtils.make_snat_rule_name(ri_name),
+                                               comment=DMUtils.service_set_nat_rule_comment(vn, "SNAT")))
+            service_set.add_nat_rules(NATRules(name=DMUtils.make_dnat_rule_name(ri_name),
+                                               comment=DMUtils.service_set_nat_rule_comment(vn, "DNAT")))
             next_hop_service = NextHopService(inside_service_interface = interfaces[0].name,
                                               outside_service_interface = interfaces[1].name)
             service_set.set_next_hop_service(next_hop_service)
 
             nat = NAT(allow_overlapping_nat_pools='')
+            nat.set_comment(DMUtils.nat_comment())
             services_config.add_nat(nat)
             snat_rule = Rule(name=DMUtils.make_snat_rule_name(ri_name),
                              match_direction="input")
+            snat_rule.set_comment(DMUtils.snat_rule_comment())
             nat.add_rule(snat_rule)
             dnat_rule = Rule(name=DMUtils.make_dnat_rule_name(ri_name),
                              match_direction="output")
+            snat_rule.set_comment(DMUtils.dnat_rule_comment())
             nat.add_rule(dnat_rule)
 
             for pip, fip_vn in fip_map.items():
@@ -653,7 +672,7 @@ class PhysicalRouterConfig(object):
                                         translation_type=TranslationType(dnat_44=''))
                 then_.set_translated(translated)
 
-            interfaces_config = self.interfaces_config or Interfaces()
+            interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
             si_intf = Interface(name=interfaces[0].ifd_name)
             interfaces_config.add_interface(si_intf)
 
@@ -706,7 +725,7 @@ class PhysicalRouterConfig(object):
     def set_global_routing_options(self, bgp_params):
         if bgp_params['address'] is not None:
             if not self.global_routing_options_config:
-                self.global_routing_options_config = RoutingOptions()
+                self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
             self.global_routing_options_config.set_router_id(bgp_params['address'])
     # end set_global_routing_options
 
@@ -714,7 +733,7 @@ class PhysicalRouterConfig(object):
         if not prefix:
             return
         if self.global_routing_options_config is None:
-            self.global_routing_options_config = RoutingOptions()
+            self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
         static_config = Static()
         if ':' in prefix:
             rib_config_v6 = RIB(name='inet6.0')
@@ -763,14 +782,16 @@ class PhysicalRouterConfig(object):
             return
         bgp_config.set_hold_time(bgp_params.get('hold_time'))
 
-    def set_bgp_config(self, params):
+    def set_bgp_config(self, params, bgp_obj):
         self.bgp_params = params
+        self.bgp_obj = bgp_obj
     # end set_bgp_config
 
     def _get_bgp_config_xml(self, external=False):
         if self.bgp_params is None:
             return None
         bgp_group = BgpGroup()
+        bgp_group.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
         if external:
             bgp_group.set_name(DMUtils.make_bgp_group_name(True))
             bgp_group.set_type('external')
@@ -788,6 +809,7 @@ class PhysicalRouterConfig(object):
     def reset_bgp_config(self):
         self.routing_instances = {}
         self.bgp_params = None
+        self.bgp_obj = None
         self.ri_config = None
         self.interfaces_config = None
         self.services_config = None
@@ -809,10 +831,11 @@ class PhysicalRouterConfig(object):
         self.send_netconf(Groups(), default_operation="none", operation="delete")
     # end delete_config
 
-    def add_bgp_peer(self, router, params, attr, external):
+    def add_bgp_peer(self, router, params, attr, external, peer):
         peer_data = {}
         peer_data['params'] = params
         peer_data['attr'] = attr
+        peer_data['obj'] = peer
         if external:
             self.external_peers[router] = peer_data
         else:
@@ -821,9 +844,11 @@ class PhysicalRouterConfig(object):
 
     def _get_neighbor_config_xml(self, bgp_config, peers):
         for peer, peer_data in peers.items():
+            obj = peer_data.get('obj')
             params = peer_data.get('params', {})
             attr = peer_data.get('attr', {})
             nbr = BgpGroup(name=peer)
+            nbr.set_comment(DMUtils.bgp_group_comment(obj))
             bgp_config.add_neighbor(nbr)
             bgp_sessions = attr.get('session')
             if bgp_sessions:
@@ -842,7 +867,7 @@ class PhysicalRouterConfig(object):
 
     def set_as_config(self):
         if self.global_routing_options_config is None:
-            self.global_routing_options_config = RoutingOptions()
+            self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
         self.global_routing_options_config.set_route_distinguisher_id(self.bgp_params['identifier'])
         local_as = self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
         self.global_routing_options_config.set_autonomous_system(str(local_as))
@@ -850,7 +875,7 @@ class PhysicalRouterConfig(object):
 
     def set_route_targets_config(self):
         if self.policy_config is None:
-            self.policy_config = PolicyOptions()
+            self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
         for route_target in self.route_targets:
             comm = CommunityType(name=DMUtils.make_community_name(route_target),
                                  members=route_target)
@@ -862,7 +887,7 @@ class PhysicalRouterConfig(object):
         if bgp_config is None:
             return False
         if self.proto_config is None:
-            self.proto_config = Protocols()
+            self.proto_config = Protocols(comment=DMUtils.protocols_comment())
         bgp = Bgp()
         self.proto_config.set_bgp(bgp)
         bgp.add_group(bgp_config)
@@ -882,6 +907,7 @@ class PhysicalRouterConfig(object):
         self.set_route_targets_config()
 
         groups = Groups()
+        groups.set_comment(DMUtils.groups_comment())
         groups.set_routing_instances(self.ri_config)
         groups.set_interfaces(self.interfaces_config)
         groups.set_services(self.services_config)

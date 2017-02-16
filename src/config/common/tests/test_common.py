@@ -45,13 +45,6 @@ def lineno():
 # end lineno
 
 
-# import from package for non-api server test or directly from file
-sys.path.insert(0, '../../../../build/production/api-lib/vnc_api')
-sys.path.insert(0, '../../../../distro/openstack/')
-sys.path.append('../../../../build/production/config/api-server/vnc_cfg_api_server')
-sys.path.append("../config/api-server/vnc_cfg_api_server")
-sys.path.insert(0, '../../../../build/production/discovery/discovery')
-
 try:
     import vnc_cfg_api_server
     if not hasattr(vnc_cfg_api_server, 'main'):
