@@ -165,7 +165,10 @@ protected:
 };
 
 TEST_F(ConfigJsonParserTest, BulkSync) {
-    ParseEventsJson("controller/src/ifmap/client/testdata/bulk_sync.json");
+    if (getenv("CONFIG_JSON_PARSER_TEST_DATA_FILE"))
+        ParseEventsJson(getenv("CONFIG_JSON_PARSER_TEST_DATA_FILE"));
+    else
+        ParseEventsJson("controller/src/ifmap/client/testdata/bulk_sync.json");
     FeedEventsJson();
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_NE(0, table->Size());
