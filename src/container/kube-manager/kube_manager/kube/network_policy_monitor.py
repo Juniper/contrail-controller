@@ -12,13 +12,11 @@ class NetworkPolicyMonitor(KubeMonitor):
         self.logger.info("NetworkPolicyMonitor init done.");
 
     def process_event(self, event):
-        print("Put %s %s %s:%s" % (event['type'],
-            event['object'].get('kind'),
-            event['object']['metadata'].get('namespace'),
-            event['object']['metadata'].get('name')))
-
         np_data = event['object']
         event_type = event['type']
+        kind = event['object'].get('kind')
+        namespace = event['object']['metadata'].get('namespace')
+        name = event['object']['metadata'].get('name')
 
         if self.db:
             np_uuid = self.db.get_uuid(np_data)
@@ -30,6 +28,10 @@ class NetworkPolicyMonitor(KubeMonitor):
                 # Remove the entry from Network Policy DB.
                 self.db.delete(np_uuid)
 
+        print("%s - Got %s %s %s:%s"
+              %(self.name, event_type, kind, namespace, name))
+        self.logger.debug("%s - Got %s %s %s:%s"
+              %(self.name, event_type, kind, namespace, name))
         self.q.put(event)
 
     def event_callback(self):
