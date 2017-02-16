@@ -63,7 +63,7 @@ class CniTest(unittest.TestCase):
         self.assertEquals(c.container_vn, "e")
         c.update("f", None, "g")
         self.assertEquals(c.container_uuid, "f")
-        self.assertEquals(c.container_name, "d")
+        self.assertEquals(c.container_name, "f")
         self.assertEquals(c.container_vn, "g")
 
     @patch('sys.exit')
