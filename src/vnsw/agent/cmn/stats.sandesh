@@ -13,7 +13,8 @@
  */
 
 /**
- * Request message to get agent stats in agent introspect
+ * @description: Request message to get agent stats in agent introspect
+ * @cli_name: read agent stats
  */
 request sandesh AgentStatsReq {
 }

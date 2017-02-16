@@ -367,7 +367,8 @@ trace sandesh AgentXmppMessage {
 }
 
 /**
- * Request message for agent xmpp connection status request with controller
+ * @description: Request message for agent xmpp connection status request with controller
+ * @cli_name: read agent xmpp connection status
  */
 request sandesh AgentXmppConnectionStatusReq {
 }
@@ -381,7 +382,8 @@ response sandesh AgentXmppConnectionStatus {
 }
 
 /**
- * Request message for agent dns subscription status
+ * @description: Request message for agent dns subscription status
+ * @cli_name: read agent dns subscription status
  */
 request sandesh AgentDnsXmppConnectionStatusReq {
 }
@@ -396,7 +398,8 @@ response sandesh AgentDnsXmppConnectionStatus {
 
 
 /**
- * Request message for agent discovery subscription status
+ * @description: Request message for agent discovery subscription status
+ * @cli_name: read agent discovery subscription status
  */
 request sandesh AgentDiscoveryXmppConnectionsRequest {
 }
@@ -414,7 +417,8 @@ response sandesh AgentDiscoveryXmppConnectionsResponse {
 }
 
 /**
- * Request message for agent dns node info provided by discovery
+ * @description: Request message for agent dns node info provided by discovery
+ * @cli_name: read agent dns node info provided by discovery
  */
 request sandesh AgentDiscoveryDnsXmppConnectionsRequest {
 }
