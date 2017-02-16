@@ -23,6 +23,8 @@ env.Prepend(LIBS=[  'io',
                     'cassandra_cql',
                     'gendb',
                     'cassandra',
+                    'ssl',
+                    'crypto',
                     'gunit'])
 
 libs = MapBuildDir([
