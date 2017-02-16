@@ -25,5 +25,3 @@ class LabelCache(object):
                 cache[key].remove(uuid)
             except KeyError:
                 pass
-
-        cache[key] = set()

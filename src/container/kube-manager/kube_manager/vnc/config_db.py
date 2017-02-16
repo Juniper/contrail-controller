@@ -482,6 +482,10 @@ class SecurityGroupKM(DBBaseKM):
         self.virtual_machine_interfaces = set()
         self.annotations = None
         self.rule_entries = None
+        self.src_ns_selector = None
+        self.src_pod_selector = None
+        self.dst_pod_selector = None
+        self.dst_ports = None
         obj_dict = self.update(obj_dict)
         super(SecurityGroupKM, self).__init__(uuid, obj_dict)
 
@@ -492,8 +496,38 @@ class SecurityGroupKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.annotations = obj.get('annotations', None)
+        self._set_selectors(self.annotations)
         self.rule_entries = obj.get('security_group_entries', None)
         return obj
+
+    def _set_selectors(self, annotations):
+        if not annotations:
+            return
+        for kvp in annotations.get('key_value_pair', []):
+            if kvp.get('key') == 'spec':
+                break
+        specjson = json.loads(kvp.get('value'))
+
+        pod_selector = specjson.get('podSelector')
+        if pod_selector:
+            self.dst_pod_selector = pod_selector.get('matchLabels')
+
+        ingress = specjson.get('ingress')
+        if not ingress:
+            return
+        for rule in ingress:
+            self.dst_ports = rule.get('ports')
+            from_rule = rule.get('from')
+            if not from_rule:
+                continue
+            for item in from_rule or []:
+                ns_selector = item.get('namespaceSelector')
+                if ns_selector:
+                    self.src_ns_selector = ns_selector.get('matchLabels')
+                    continue
+                pod_selector = item.get('podSelector')
+                if pod_selector:
+                    self.src_pod_selector = pod_selector.get('matchLabels')
 
     @classmethod
     def delete(cls, uuid):
