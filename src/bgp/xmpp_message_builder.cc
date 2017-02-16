@@ -166,13 +166,16 @@ void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
     item_nexthop.label = nexthop.label();
     item_nexthop.virtual_network = GetVirtualNetwork(nexthop);
 
-    // If encap list is empty use mpls over gre as default encap.
-    vector<string> &encap_list =
-        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation;
-    if (nexthop.encap().empty()) {
-        encap_list.push_back(string("gre"));
-    } else {
-        encap_list = nexthop.encap();
+    // If there's a non-zero label and encap list is empty use mpls over gre
+    // as default encap.
+    if (item_nexthop.label) {
+        vector<string> &encap_list =
+            item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation;
+        if (nexthop.encap().empty()) {
+            encap_list.push_back(string("gre"));
+        } else {
+            encap_list = nexthop.encap();
+        }
     }
 
     item->entry.next_hops.next_hop.push_back(item_nexthop);

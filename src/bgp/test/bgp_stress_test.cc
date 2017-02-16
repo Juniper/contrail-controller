@@ -1683,7 +1683,7 @@ void BgpStressTest::AddXmppRoute(int instance_id, int agent_id, int route_id) {
                                                      route_id);
         test::NextHops agent_nexthop;
         agent_nexthop.push_back(
-            test::NextHop(GetAgentNexthop(agent_id, route_id), 0));
+            test::NextHop(GetAgentNexthop(agent_id, route_id)));
         xmpp_agents_[agent_id]->AddInet6Route(GetInstanceName(instance_id),
                                              prefix6.ToString(), agent_nexthop,
                                              attributes);
