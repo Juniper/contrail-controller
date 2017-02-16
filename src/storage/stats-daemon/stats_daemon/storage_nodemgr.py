@@ -850,8 +850,8 @@ def parse_args(args_str):
         'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
         'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
         'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-        'sandesh_ssl_enable': False
-        'introspect_ssl_enable': False
+        'sandesh_ssl_enable': False,
+        'introspect_ssl_enable': False,
     }
 
     if args.conf_file:
