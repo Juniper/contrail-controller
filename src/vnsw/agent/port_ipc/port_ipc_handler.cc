@@ -279,11 +279,6 @@ VmiSubscribeEntry *PortIpcHandler::MakeAddVmiUuidRequest
             err_msg = "Invalid VN uuid";
             return NULL;
         }
-
-        if (project_uuid == nil_uuid()) {
-            err_msg = "Invalid VM project uuid";
-            return NULL;
-        }
     }
 
     string ifname;
