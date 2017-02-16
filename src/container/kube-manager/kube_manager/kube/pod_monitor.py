@@ -14,6 +14,7 @@ class PodMonitor(KubeMonitor):
     def process_event(self, event):
         pod_data = event['object']
         event_type = event['type']
+        kind = event['object'].get('kind')
 
         if event_type != 'DELETED':
             if pod_data['spec'].get('hostNetwork'):
@@ -36,10 +37,10 @@ class PodMonitor(KubeMonitor):
         if not pod_name or not namespace:
             return
 
-        print("Put %s %s %s:%s" % (event['type'],
-            event['object'].get('kind'),
-            event['object']['metadata'].get('namespace'),
-            event['object']['metadata'].get('name')))
+        print("%s - Got %s %s %s:%s"
+              %(self.name, event_type, kind, namespace, pod_name))
+        self.logger.info("%s - Got %s %s %s:%s"
+              %(self.name, event_type, kind, namespace, pod_name))
         self.q.put(event)
 
     def event_callback(self):

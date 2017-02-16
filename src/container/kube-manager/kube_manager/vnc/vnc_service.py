@@ -17,6 +17,7 @@ class VncService(object):
 
     def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None,
                  queue=None, kube=None):
+        self._name = type(self).__name__
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self._args = args
@@ -466,6 +467,8 @@ class VncService(object):
         return
 
     def process(self, event):
+        event_type = event['type']
+        kind = event['object'].get('kind')
         service_id = event['object']['metadata'].get('uid')
         service_name = event['object']['metadata'].get('name')
         service_namespace = event['object']['metadata'].get('namespace')
@@ -475,6 +478,12 @@ class VncService(object):
         service_type  = event['object']['spec'].get('type')
         loadBalancerIp  = event['object']['spec'].get('loadBalancerIP', None)
         externalIps  = event['object']['spec'].get('externalIPs', None)
+
+        print("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, service_namespace, service_name))
+        self.logger.debug("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, service_namespace, service_name))
+
         if externalIps is not None:
             externalIp = externalIps[0]
         else:

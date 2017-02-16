@@ -18,10 +18,12 @@ from cfgm_common import importutils
 class VncIngress(object):
     def __init__(self, args=None, queue=None, vnc_lib=None,
                  label_cache=None, logger=None, kube=None):
+        self._name = type(self).__name__
         self._args = args
-        self._kube = kube
-        self._vnc_lib = vnc_lib
         self._queue = queue
+        self._vnc_lib = vnc_lib
+        self._logger = logger
+        self._kube = kube
         self._vn_obj = None
         self._service_subnet_uuid = None
         self._fip_pool_obj = None
@@ -479,8 +481,16 @@ class VncIngress(object):
         self._sync_ingress_lb()
 
     def process(self, event):
+        event_type = event['type']
+        kind = event['object'].get('kind')
         name = event['object']['metadata'].get('name')
         uid = event['object']['metadata'].get('uid')
+        namespace = event['object']['metadata'].get('namespace')
+
+        print("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, namespace, name))
+        self._logger.debug("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, namespace, name))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self._update_ingress(name, uid, event)

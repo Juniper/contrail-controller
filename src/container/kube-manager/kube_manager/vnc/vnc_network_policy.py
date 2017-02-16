@@ -15,6 +15,7 @@ from config_db import *
 class VncNetworkPolicy(object):
 
     def __init__(self, vnc_lib=None, label_cache=None, logger=None):
+        self._name = type(self).__name__
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self.logger = logger
@@ -360,6 +361,17 @@ class VncNetworkPolicy(object):
         self._vnc_lib.security_group_delete(id=sg.uuid)
 
     def process(self, event):
+        event_type = event['type']
+        kind = event['object'].get('kind')
+        name = event['object']['metadata'].get('name')
+        uid = event['object']['metadata'].get('uid')
+        namespace = event['object']['metadata'].get('namespace')
+
+        print("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, namespace, name))
+        self.logger.debug("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, namespace, name))
+
         if event['object'].get('kind') == 'NetworkPolicy':
             if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
                 self.vnc_network_policy_add(event)
