@@ -34,18 +34,25 @@ public:
                            ConfigCassandraClient *cassandra_client,
                            const std::string &obj_type,
                            const CassColumnKVVec &cdvec);
-    const contrail_rapidjson::Document &document() { return json_document_; }
+    const contrail_rapidjson::Document &document() const {
+        return json_document_;
+    }
+    static bool assert_on_parse_error() { return assert_on_parse_error_; }
     static void set_assert_on_parse_error(bool flag) {
         assert_on_parse_error_ = flag;
     }
+    const std::string &uuid() const { return uuid_; }
+    const std::string &type() const { return type_; }
 
 private:
     void CreateJsonString(const std::string &obj_type,
                           const CassColumnKVVec &cdvec);
-    void AddOneEntry(contrail_rapidjson::Value *jsonObject, const std::string &obj_type,
+    void AddOneEntry(contrail_rapidjson::Value *jsonObject,
+                     const std::string &obj_type,
                      const JsonAdapterDataType &c,
                      contrail_rapidjson::Document::AllocatorType &a);
-    static std::string GetJsonString(const contrail_rapidjson::Value &attr_value);
+    static std::string GetJsonString(
+            const contrail_rapidjson::Value &attr_value);
 
     ConfigCassandraClient *cassandra_client_;
     std::string uuid_;
