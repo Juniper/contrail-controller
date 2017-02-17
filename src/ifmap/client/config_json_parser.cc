@@ -234,8 +234,10 @@ bool ConfigJsonParser::Receive(const ConfigCass2JsonAdapter &adapter,
         return false;
     } else {
         auto_ptr<IFMapTable::RequestKey> key(new IFMapTable::RequestKey());
-        if (!ParseDocument(adapter, origin, &req_list, key.get()))
+        if (!ParseDocument(adapter, origin, &req_list, key.get())) {
+            STLDeleteValues(&req_list);
             return false;
+        }
         config_mgr()->config_db_client()->FormDeleteRequestList(
                 adapter.uuid(), &req_list, key.get(), true);
         config_mgr()->EnqueueListToTables(&req_list);
