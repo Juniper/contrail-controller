@@ -139,7 +139,7 @@ IFMapTable::RequestKey *ConfigClientManager::CloneKey(
 }
 
 string ConfigClientManager::GetLinkName(const string &left,
-                                     const string &right) const {
+                                        const string &right) const {
     LinkNameMap::const_iterator it =
         link_name_map_.find(make_pair(left, right));
     if (it == link_name_map_.end())
@@ -148,7 +148,7 @@ string ConfigClientManager::GetLinkName(const string &left,
 }
 
 bool ConfigClientManager::IsLinkWithAttr(const string &left,
-                                      const string &right) const {
+                                         const string &right) const {
     LinkNameMap::const_iterator it =
         link_name_map_.find(make_pair(left, right));
     if (it == link_name_map_.end())

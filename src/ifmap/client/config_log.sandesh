@@ -24,8 +24,6 @@ systemlog sandesh ConfigurationMalformedProperty {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -44,8 +42,6 @@ trace sandesh ConfigurationMalformedPropertyTrace {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -64,8 +60,6 @@ systemlog sandesh ConfigurationMalformedPropertyList {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -84,8 +78,6 @@ trace sandesh ConfigurationMalformedPropertyListTrace {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -104,8 +96,6 @@ systemlog sandesh ConfigurationMalformedPropertyMap {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -124,8 +114,6 @@ trace sandesh ConfigurationMalformedPropertyMapTrace {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -144,8 +132,6 @@ systemlog sandesh ConfigurationMalformedReference {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -164,8 +150,6 @@ trace sandesh ConfigurationMalformedReferenceTrace {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -184,8 +168,6 @@ systemlog sandesh ConfigurationMalformedReferenceLinkAttributes {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -204,8 +186,6 @@ trace sandesh ConfigurationMalformedReferenceLinkAttributesTrace {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -224,8 +204,6 @@ systemlog sandesh ConfigurationMalformedParent {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -244,8 +222,6 @@ trace sandesh ConfigurationMalformedParentTrace {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -264,8 +240,6 @@ systemlog sandesh ConfigurationMalformedFqName {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -284,8 +258,6 @@ trace sandesh ConfigurationMalformedFqNameTrace {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -304,8 +276,6 @@ systemlog sandesh ConfigurationMalformedType {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -324,8 +294,6 @@ trace sandesh ConfigurationMalformedTypeTrace {
     3: string type
     /** UUID of the object */
     4: string uuid
-    /** Object Type */
-    5: string object_type
 }
 
 /**
@@ -338,7 +306,7 @@ trace sandesh ConfigurationMalformedTypeTrace {
 systemlog sandesh ConfigurationMissingType {
     /** UUID of the object */
     1: string uuid
-    2: string object_type
+    2: string type
 }
 
 /**
@@ -351,5 +319,5 @@ systemlog sandesh ConfigurationMissingType {
 trace sandesh ConfigurationMissingTypeTrace {
     /** UUID of the object */
     1: string uuid
-    2: string object_type
+    2: string type
 }
