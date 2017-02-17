@@ -416,7 +416,7 @@ class TestCrud(test_case.ApiServerTestCase):
             raise Exception("ERROR: physical-router: password should be hidden")
        #end test_physical_router_credentials
 
-    def test_bridge_domain_with_vmi_ref_multiple_bd(self):
+    def test_bridge_domain_with_multiple_bd_in_vn(self):
         vn1_name = self.id() + '-vn-1'
         vn1 = VirtualNetwork(vn1_name)
         logger.info('Creating VN %s', vn1_name)
@@ -438,26 +438,48 @@ class TestCrud(test_case.ApiServerTestCase):
         bd2 = BridgeDomain(bd2_name, parent_obj=vn1)
         bd2.set_isid(300300)
         logger.info('Creating Bridge Domain %s', bd2_name)
-        self._vnc_lib.bridge_domain_create(bd2)
-
-        bd_ref_data1 = BridgeDomainMembershipType();
-        bd_ref_data1.set_vlan_tag(0);
-
-        # VMI is referring to two bridge domain(bd1 and bd2) for vlan tag = 0
-        vmi.add_bridge_domain(bd1, bd_ref_data1);
-        vmi.add_bridge_domain(bd2, bd_ref_data1);
         with ExpectedException(BadRequest) as e:
-            self._vnc_lib.virtual_machine_interface_update(vmi)
+            self._vnc_lib.bridge_domain_create(bd2)
+        # end test_bridge_domain_with_multiple_bd_in_vn
 
-        # Link the VMI to two bridge domain for different vlan tags(0, 1)
-        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi.uuid)
-        bd_ref_data1 = BridgeDomainMembershipType(vlan_tag=1);
-        bd_ref_data2 = BridgeDomainMembershipType(vlan_tag=2);
-        vmi_obj.add_bridge_domain(bd1, bd_ref_data1);
-        vmi_obj.add_bridge_domain(bd2, bd_ref_data2);
-        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
-        # end test_bridge_domain_with_vmi_ref_multiple_bd
+    def test_bridge_domain_link_vmi_and_bd_in_different_vn(self):
+        vn1_name = self.id() + '-vn-1'
+        vn1 = VirtualNetwork(vn1_name)
+        logger.info('Creating VN %s', vn1_name)
+        self._vnc_lib.virtual_network_create(vn1)
 
+        vn2_name = self.id() + '-vn-2'
+        vn2 = VirtualNetwork(vn2_name)
+        logger.info('Creating VN %s', vn2_name)
+        self._vnc_lib.virtual_network_create(vn2)
+
+        vmi1_name = self.id() + '-port-1'
+        logger.info('Creating port %s', vmi1_name)
+        vmi1 = VirtualMachineInterface(vmi1_name, parent_obj=Project())
+        vmi1.add_virtual_network(vn1)
+        self._vnc_lib.virtual_machine_interface_create(vmi1)
+
+        vmi2_name = self.id() + '-port-2'
+        logger.info('Creating port %s', vmi2_name)
+        vmi2 = VirtualMachineInterface(vmi2_name, parent_obj=Project())
+        vmi2.add_virtual_network(vn2)
+        self._vnc_lib.virtual_machine_interface_create(vmi2)
+
+        bd1_name = self.id() + '-bd-1'
+        bd1 = BridgeDomain(bd1_name, parent_obj=vn1)
+        bd1.set_isid(200200)
+        logger.info('Creating Bridge Domain %s', bd1_name)
+        self._vnc_lib.bridge_domain_create(bd1)
+
+        bd_ref_data1 = BridgeDomainMembershipType(vlan_tag=0)
+        vmi2.add_bridge_domain(bd1, bd_ref_data1)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_machine_interface_update(vmi2)
+
+        bd_ref_data2 = BridgeDomainMembershipType(vlan_tag=0)
+        vmi1.add_bridge_domain(bd1, bd_ref_data2)
+        self._vnc_lib.virtual_machine_interface_update(vmi1)
+        # end test_bridge_domain_link_vmi_and_bd_in_different_vn
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):

@@ -777,12 +777,18 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     # end _check_vrouter_link
 
     @classmethod
-    def _check_bridge_domain_vmi_association(cls, obj_dict,
-                                             db_conn, create):
+    def _check_bridge_domain_vmi_association(cls, obj_dict, db_conn, vn_uuid,
+                                             create):
+        vn_fq_name = db_conn.uuid_to_fq_name(vn_uuid)
         bridge_domain_links = {}
         bd_refs = obj_dict.get('bridge_domain_refs') or []
         for bd in bd_refs:
             bd_fq_name = bd['to']
+            if bd_fq_name[0:3] != vn_fq_name:
+                msg = "Virtual machine interface(%s) can only refer to bridge "\
+                      "domain belonging to virtual network(%s)"\
+                      %(obj_dict['uuid'], vn_uuid)
+                return (False, msg)
             bd_uuid = bd.get('uuid')
             if not bd_uuid:
                 bd_uuid = db_conn.fq_name_to_uuid('bridge_domain', bd_fq_name)
@@ -820,7 +826,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         vn_dict = result
 
         (ok, error) = cls._check_bridge_domain_vmi_association(obj_dict,
-                                                               db_conn, True)
+                                                       db_conn, vn_uuid, True)
         if not ok:
             return (False, (400, error))
 
@@ -912,7 +918,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             return ok, read_result
 
         (ok, error) = cls._check_bridge_domain_vmi_association(obj_dict,
-                                                               db_conn, False)
+                db_conn, read_result['virtual_network_refs'][0]['uuid'], False)
         if not ok:
             return (False, (400, error))
 
@@ -1004,6 +1010,25 @@ class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
         return True, ""
     # end pre_dbe_update
 # end class ServiceApplianceSetServer
+
+
+class BridgeDomainServer(Resource, BridgeDomain):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        vn_uuid = obj_dict.get('parent_uuid')
+        if vn_uuid is None:
+            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', obj_dict['fq_name'][0:3])
+        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid, obj_fields=['bridge_domains'])
+        if not ok:
+            return ok, result
+        if 'bridge_domains' in result and len(result['bridge_domains']) == 1:
+            msg = "Virtual network(%s) can have only one bridge domain. Bridge"\
+                  " domain(%s) is already created under this virtual network" %\
+                  (vn_uuid, result['bridge_domains'][0]['uuid'])
+            return (False, (400, msg))
+        return True, ""
+    # end pre_dbe_create
+# end class BridgeDomainServer
 
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
