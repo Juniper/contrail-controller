@@ -284,7 +284,7 @@ class FlowQuerier(object):
         if self._args.vmi_uuid is not None:
             vmi_match = OpServerUtils.Match(
                 name=self._VMI_UUID,
-                value=uuid.UUID(self._args.vmi_uuid),
+                value=str(uuid.UUID(self._args.vmi_uuid)),
                 op=OpServerUtils.MatchOp.EQUAL)
             filter.append(vmi_match.__dict__)
 
