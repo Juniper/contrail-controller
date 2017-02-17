@@ -14,6 +14,7 @@
 #include "base/parse_object.h"
 #include <cstdlib>
 #include <utility>
+#include <pthread.h>
 #include "hiredis/hiredis.h"
 #include "hiredis/base64.h"
 #include "hiredis/boostasio.hpp"
@@ -42,6 +43,69 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
+/* This the consumer for Agg Kafka Topics
+  
+   TODO: Parse the XML contents and run aggregation
+         using dervied stats
+*/
+class KafkaWorker {
+ public:
+    KafkaWorker(shared_ptr<RdKafka::KafkaConsumer> consumer) :
+        thread_id_(pthread_self()),
+        disable_(false),
+        consumer_(consumer) {
+    }
+    static void *ThreadRun(void *objp) {
+        KafkaWorker *obj = reinterpret_cast<KafkaWorker *>(objp);
+        uint64_t monot = 0;
+        while (!obj->disable_) {
+            /* The consume calls blocks for the timeout
+               if these are no messages to read.
+               Due to this blocking behaviour, pthread is being
+               used instead of a TBB Task */
+            RdKafka::Message *message = obj->consumer_->consume(1000);
+            if (message->err() ==  RdKafka::ERR_NO_ERROR) {
+                LOG(INFO, "Consuming topic=" << message->topic_name() << 
+                        " partition " << message->partition() << 
+                        " offset " << message->offset() <<
+                        " key " << *(message->key()));
+                uint64_t monot_new = ClockMonotonicUsec();
+                if ((monot == 0) || ((monot_new - monot) > 30000000)) {
+                    std::vector<RdKafka::TopicPartition*> pts;
+                    obj->consumer_->assignment(pts);
+                    std::stringstream ss;
+                    for (size_t idx=0; idx<pts.size(); idx++) {
+                        if (message->topic_name() == pts[idx]->topic()) {
+                            ss << pts[idx]->partition() << " ";
+                        }
+                    }
+                    LOG(INFO, "Assigment " << ss.str());
+                    monot = monot_new;
+                }
+            } else if (message->err() ==  RdKafka::ERR__TIMED_OUT) {
+                LOG(DEBUG, "Consuming Timeout");
+            } else {
+                LOG(ERROR, "Message consume failed : " << message->errstr());
+            }
+            delete message;
+        }
+        return NULL;
+    }
+    void Start() {
+        int res = pthread_create(&thread_id_, NULL, &ThreadRun, this);
+        assert(res == 0);
+    }
+    void Join() {
+        disable_ = true;
+        int res = pthread_join(thread_id_, NULL);
+        consumer_->close();
+        assert(res == 0);
+    }
+ private:
+    pthread_t thread_id_;
+    bool disable_;
+    shared_ptr<RdKafka::KafkaConsumer> consumer_;
+};
 
 class KafkaDeliveryReportCb : public RdKafka::DeliveryReportCb {
  public:
@@ -98,6 +162,26 @@ static inline unsigned int djb_hash (const char *str, size_t len) {
     return hash;
 }
 
+class KafkaPartitionerCb : public RdKafka::PartitionerCb {
+  public:
+    int32_t partitioner_cb (const RdKafka::Topic *topic,
+                                  const std::string *key,
+                                  int32_t partition_cnt,
+                                  void *msg_opaque) {
+        int32_t pt = djb_hash(key->c_str(), key->size()) % partition_cnt;
+        LOG(DEBUG,"PartitionerCb key " << key->c_str()  << " len " << key->size() <<
+                 key->size() << " count " << partition_cnt << " pt " << pt); 
+        return pt;
+    }
+};
+
+// These are the UVEStruct/attr elements that will go on the UVE Aggregation topic
+// TODO: get these elements from conf file or from config
+// e.g.  ("ModuleClientState-session_stats", "")
+static std::map<std::string, std::string> aggconf = boost::assign::map_list_of
+("UveVirtualNetworkAgent-ingress_flow_count", "")
+("UveVirtualNetworkAgent-egress_flow_count", "");
+
 class OpServerProxy::OpServerImpl {
     public:
         enum RacConnType {
@@ -127,6 +211,7 @@ class OpServerProxy::OpServerImpl {
         }
 
         string name(void) { return collector_->name(); }
+        
 
         void KafkaPub(unsigned int pt,
                           const string& skey,
@@ -146,6 +231,24 @@ class OpServerProxy::OpServerImpl {
                     RdKafka::Producer::MSG_COPY,
                     const_cast<char *>(value.c_str()), value.length(),
                     &skey, (void *)gn);
+            }
+        }
+
+        void KafkaPub(const string& astream, const string& skey,const string& value) {
+            if (k_event_cb.disableKafka) {
+                LOG(INFO, "Kafka ignoring Agg KafkaPub");
+                return;
+            }
+            if (producer_) {
+                std::map<std::string,shared_ptr<RdKafka::Topic> >::const_iterator ait =
+                    aggtopic_.find(astream); 
+                if (ait!=aggtopic_.end()) {
+                    int32_t pt = k_part_cb.partitioner_cb(NULL, &skey, partitions_ ,NULL); 
+                    producer_->produce(ait->second.get(), pt,
+                        RdKafka::Producer::MSG_COPY,
+                        const_cast<char *>(value.c_str()), value.length(),
+                        &skey, 0);
+                }
             }
         }
 
@@ -543,6 +646,7 @@ class OpServerProxy::OpServerImpl {
             redis_password_(redis_password),
             k_event_cb(),
             k_dr_cb(),
+            k_part_cb(),
             brokers_(brokers),
             topicpre_(topic),
             redis_up_(false),
@@ -581,11 +685,22 @@ class OpServerProxy::OpServerImpl {
         }
 
         void StopKafka(void) {
+            if (kafkaworker_) {
+                kafkaworker_->Join();
+                kafkaworker_.reset();
+            }
             if (producer_) {
                 for (unsigned int i=0; i<partitions_; i++) {
                     topic_[i].reset();
                 }
                 topic_.clear();
+                for (map<string,shared_ptr<RdKafka::Topic> >::iterator
+                        it = aggtopic_.begin();
+                        it != aggtopic_.end(); it++) {
+                    it->second.reset();
+                }
+                aggtopic_.clear();
+   
                 producer_.reset();
 
                 assert(RdKafka::wait_destroyed(8000) == 0);
@@ -601,8 +716,10 @@ class OpServerProxy::OpServerImpl {
             conf->set("dr_cb", &k_dr_cb, errstr);
             producer_.reset(RdKafka::Producer::create(conf, errstr));
             LOG(ERROR, "Kafka new Prod " << errstr);
-            if (!producer_) 
+            delete conf;
+            if (!producer_) { 
                 return false;
+            }
             for (unsigned int i=0; i<partitions_; i++) {
                 std::stringstream ss;
                 ss << topicpre_;
@@ -615,7 +732,36 @@ class OpServerProxy::OpServerImpl {
                 if (!topic_[i])
                     return false;
             }
-            delete conf;
+            vector<string> subs;
+            for (map<string,string>::const_iterator it = aggconf.begin();
+                    it != aggconf.end(); it++) {
+                std::stringstream ss;
+                ss << topicpre_;
+                ss << "agg-";
+                ss << it->first;
+                std::stringstream ps;
+                ps << partitions_;
+                errstr = string();
+                shared_ptr<RdKafka::Topic> sr(RdKafka::Topic::create(producer_.get(), ss.str(), NULL, errstr));
+                LOG(ERROR,"Kafka new topic " << ss.str() << " Err" << errstr);
+                if (!sr) return false;
+                aggtopic_.insert(std::make_pair(it->first,sr));
+                subs.push_back(ss.str());
+            }
+            RdKafka::Conf *cconf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
+            cconf->set("metadata.broker.list", brokers_, errstr);
+            cconf->set("event_cb", &k_event_cb, errstr);
+            cconf->set("group.id", "agg", errstr);
+            // TODO : This can be based on aggconf
+            cconf->set("auto.commit.interval.ms", "60000", errstr);
+            shared_ptr<RdKafka::KafkaConsumer> consumer(RdKafka::KafkaConsumer::create(cconf, errstr));
+            LOG(ERROR,"Kafka consumer Err " << errstr);
+            delete cconf;
+            if (!consumer)
+                return false;
+            consumer->subscribe(subs);
+            kafkaworker_.reset(new KafkaWorker(consumer));
+            kafkaworker_->Start();
             return true;
         }
 
@@ -643,9 +789,12 @@ class OpServerProxy::OpServerImpl {
         tbb::mutex rac_mutex_;
         const std::string redis_password_;
         shared_ptr<RdKafka::Producer> producer_;
+        shared_ptr<KafkaWorker> kafkaworker_;
         std::vector<shared_ptr<RdKafka::Topic> > topic_;
+        std::map<std::string,shared_ptr<RdKafka::Topic> > aggtopic_;
         KafkaEventCb k_event_cb;
         KafkaDeliveryReportCb k_dr_cb;
+        KafkaPartitionerCb k_part_cb;
         std::string brokers_;
         std::string topicpre_;
         bool redis_up_;
@@ -719,13 +868,21 @@ OpServerProxy::UVENotif(const std::string &type,
     } else {
         contrail_rapidjson::Document dd;
         dd.SetObject();
-        for (map<string,string>::const_iterator it = value.begin();
-                    it != value.end(); it++) {
-            contrail_rapidjson::Value sval(contrail_rapidjson::kStringType);
-            sval.SetString((it->second).c_str(), dd.GetAllocator());
-            contrail_rapidjson::Value skey(contrail_rapidjson::kStringType);
-            dd.AddMember(skey.SetString(it->first.c_str(), dd.GetAllocator()),
-                         sval, dd.GetAllocator());
+        if (type != "UVEAlarms") {
+            for (map<string,string>::const_iterator it = value.begin();
+                        it != value.end(); it++) {
+                // Send the attribute out on a Aggregated Topic if needed
+                std::string astream(type + std::string("-") + it->first);
+                if (aggconf.find(astream) != aggconf.end()) {
+                    impl_->KafkaPub(astream, key, it->second);
+                }
+                // TODO: don't sent attribute on UVE topic if it goes on Aggregate topic
+                contrail_rapidjson::Value sval(contrail_rapidjson::kStringType);
+                sval.SetString((it->second).c_str(), dd.GetAllocator());
+                contrail_rapidjson::Value skey(contrail_rapidjson::kStringType);
+                dd.AddMember(skey.SetString(it->first.c_str(), dd.GetAllocator()),
+                             sval, dd.GetAllocator());      
+            }
         }
         contrail_rapidjson::StringBuffer sb;
         contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(sb);
