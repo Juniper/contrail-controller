@@ -14,6 +14,7 @@ class ServiceMonitor(KubeMonitor):
     def process_event(self, event):
         service_data = event['object']
         event_type = event['type']
+        kind = event['object'].get('kind')
 
         service_name = service_data['metadata'].get('name')
         namespace = service_data['metadata'].get('namespace')
@@ -30,10 +31,10 @@ class ServiceMonitor(KubeMonitor):
                 # Remove the entry from Service DB.
                 self.db.delete(service_uuid)
 
-        print("Put %s %s %s:%s" % (event['type'],
-            event['object'].get('kind'),
-            event['object']['metadata'].get('namespace'),
-            event['object']['metadata'].get('name')))
+        print("%s - Got %s %s %s:%s"
+              %(self.name, event_type, kind, namespace, service_name))
+        self.logger.debug("%s - Got %s %s %s:%s"
+              %(self.name, event_type, kind, namespace, service_name))
         self.q.put(event)
 
     def event_callback(self):

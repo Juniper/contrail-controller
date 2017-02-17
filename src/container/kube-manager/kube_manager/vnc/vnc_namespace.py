@@ -14,8 +14,10 @@ from kube_manager.common.kube_config_db import NamespaceKM
 
 class VncNamespace(object):
 
-    def __init__(self, cluster_pod_subnets=None, vnc_lib=None):
+    def __init__(self, cluster_pod_subnets=None, logger=None, vnc_lib=None):
+        self._name = type(self).__name__
         self._vnc_lib = vnc_lib
+        self._logger = logger
 
         # Cache user specified subnet directive to be used for pods iip's
         # in this namespace.
@@ -275,9 +277,16 @@ class VncNamespace(object):
             pass
 
     def process(self, event):
+        event_type = event['type']
+        kind = event['object'].get('kind')
         name = event['object']['metadata'].get('name')
         ns_id = event['object']['metadata'].get('uid')
         annotations = event['object']['metadata'].get('annotations')
+        print("%s - Got %s %s %s"
+              %(self._name, event_type, kind, name))
+        self._logger.debug("%s - Got %s %s %s"
+              %(self._name, event_type, kind, name))
+
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_namespace_add(ns_id, name, annotations)

@@ -25,6 +25,7 @@ from reaction_map import REACTION_MAP
 class VncKubernetes(object):
 
     def __init__(self, args=None, logger=None, q=None, kube=None):
+        self._name = type(self).__name__
         self.args = args
         self.logger = logger
         self.q = q
@@ -57,7 +58,7 @@ class VncKubernetes(object):
         self.label_cache = label_cache.LabelCache()
         self.namespace_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_namespace.VncNamespace',vnc_lib=self.vnc_lib,
-            cluster_pod_subnets = self.args.pod_subnets)
+            logger=self.logger, cluster_pod_subnets = self.args.pod_subnets)
         self.service_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
             self.label_cache, self.args, self.logger, self.kube)
@@ -312,25 +313,27 @@ class VncKubernetes(object):
         while True:
             try:
                 event = self.q.get()
-                print("\tGot %s %s %s:%s" % (event['type'],
-                    event['object'].get('kind'),
-                    event['object']['metadata'].get('namespace'),
-                    event['object']['metadata'].get('name')))
-                self.logger.debug("\tGot %s %s %s:%s" % (event['type'],
-                    event['object'].get('kind'),
-                    event['object']['metadata'].get('namespace'),
-                    event['object']['metadata'].get('name')))
-                if event['object'].get('kind') == 'Pod':
+                event_type = event['type']
+                kind = event['object'].get('kind')
+                metadata = event['object']['metadata']
+                namespace = metadata.get('namespace')
+                name = metadata.get('name')
+                if kind == 'Pod':
                     self.pod_mgr.process(event)
-                elif event['object'].get('kind') == 'Service':
+                elif kind == 'Service':
                     self.service_mgr.process(event)
-                elif event['object'].get('kind') == 'Namespace':
+                elif kind == 'Namespace':
                     self.namespace_mgr.process(event)
-                elif event['object'].get('kind') == 'NetworkPolicy':
+                elif kind == 'NetworkPolicy':
                     self.network_policy_mgr.process(event)
-                elif event['object'].get('kind') == 'Endpoints':
+                elif kind == 'Endpoints':
                     self.endpoints_mgr.process(event)
-                elif event['object'].get('kind') == 'Ingress':
+                elif kind == 'Ingress':
                     self.ingress_mgr.process(event)
+                else:
+                    print("$s - Event %s %s %s:%s not handled"
+                        %(self._name, event_type, kind, namespace, name))
+                    self.logger.error("%s - Event %s %s %s:%s not handled"
+                        %(self._name, event_type, kind, namespace, name))
             except Empty:
                 gevent.sleep(0)

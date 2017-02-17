@@ -22,22 +22,25 @@ class NamespaceMonitor(KubeMonitor):
         return self.v1_url + "/namespaces/" +  entry['metadata']['name']
 
     def process_event(self, event):
-        namespce_data = event['object']
+        namespace_data = event['object']
         event_type = event['type']
+        kind = event['object'].get('kind')
+        name = event['object']['metadata'].get('name')
 
         if self.db:
             namespace_uuid = self.db.get_uuid(event['object'])
             if event_type != 'DELETED':
                 # Update Namespace DB.
                 namespace = self.db.locate(namespace_uuid)
-                namespace.update(namespce_data)
+                namespace.update(namespace_data)
             else:
                 # Remove the entry from Namespace DB.
                 self.db.delete(namespace_uuid)
 
-        print("Put %s %s %s" % (event['type'],
-            event['object'].get('kind'),
-            event['object']['metadata'].get('name')))
+        print("%s - Got %s %s %s"
+              %(self.name, event_type, kind, name))
+        self.logger.debug("%s - Got %s %s %s"
+              %(self.name, event_type, kind, name))
         self.q.put(event)
 
     def event_callback(self):

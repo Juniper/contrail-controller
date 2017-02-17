@@ -15,6 +15,7 @@ from cfgm_common import importutils
 class VncEndpoints(object):
 
     def __init__(self, vnc_lib=None, logger=None, kube=None):
+        self._name = type(self).__name__
         self._vnc_lib = vnc_lib
         self.logger = logger
         self._kube = kube
@@ -233,9 +234,16 @@ class VncEndpoints(object):
             remove_pod_from_service(service_id, pod_id)
 
     def process(self, event):
+        event_type = event['type']
+        kind = event['object'].get('kind')
         uid = event['object']['metadata'].get('uid')
         name = event['object']['metadata'].get('name')
         namespace = event['object']['metadata'].get('namespace')
+
+        print("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, namespace, name))
+        self.logger.debug("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, namespace, name))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_endpoint_add(uid, name, namespace, event)

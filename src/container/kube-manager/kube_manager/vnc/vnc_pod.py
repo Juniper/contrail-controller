@@ -18,6 +18,7 @@ class VncPod(object):
     def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None,
             service_mgr=None, network_policy_mgr=None, queue=None,
             svc_fip_pool=None):
+        self._name = type(self).__name__
         self._vnc_lib = vnc_lib
         self._label_cache = label_cache
         self._service_mgr = service_mgr
@@ -372,10 +373,17 @@ class VncPod(object):
         return
 
     def process(self, event):
+        event_type = event['type']
+        kind = event['object'].get('kind')
         pod_id = event['object']['metadata'].get('uid')
         pod_name = event['object']['metadata'].get('name')
         pod_namespace = event['object']['metadata'].get('namespace')
         labels = event['object']['metadata'].get('labels', {})
+
+        print("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, pod_namespace, pod_name))
+        self._logger.debug("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, pod_namespace, pod_name))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
 
