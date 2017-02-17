@@ -13,8 +13,7 @@ from pysandesh.sandesh_base import sandesh_global
 from sandesh_common.vns.ttypes import Module
 
 class ConfigEventManager(EventManager):
-    def __init__(self, rule_file, unit_names, discovery_server,
-                 discovery_port, collector_addr,
+    def __init__(self, rule_file, unit_names, collector_addr,
                  sandesh_config,
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
@@ -29,8 +28,7 @@ class ConfigEventManager(EventManager):
             supervisor_serverurl = supervisor_serverurl,
             unit_names = unit_names)
         EventManager.__init__(
-            self, type_info, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global,
+            self, type_info, rule_file, collector_addr, sandesh_global,
             sandesh_config)
         self.cassandra_repair_interval = cassandra_repair_interval
         self.cassandra_repair_logdir = cassandra_repair_logdir

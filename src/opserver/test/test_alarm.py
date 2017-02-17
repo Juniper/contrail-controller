@@ -280,7 +280,6 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         config = CfgParser('--http_server_port 0 '
                            '--zk_list 127.0.0.1:0 '
                            '--redis_uve_list 127.0.0.1:0 '
-                           '--disc_server_ip 127.0.0.1 '
                            '--redis_server_port 0')
         config.parse()
         self._ag = Controller(config, logging)

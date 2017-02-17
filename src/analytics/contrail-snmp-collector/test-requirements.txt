@@ -14,5 +14,4 @@ stevedore
 ../tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz
 ../config/common/dist/cfgm_common-0.1dev.tar.gz
 ../api-lib/dist/vnc_api-0.1dev.tar.gz
-../discovery/client/dist/discoveryclient-0.1dev.tar.gz
 ../config/common/dist/cfgm_common-0.1dev.tar.gz
