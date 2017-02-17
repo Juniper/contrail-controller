@@ -85,15 +85,15 @@ class BgpRouterDM(DBBaseDM):
         resp.response(req.context())
 
     def get_all_bgp_router_ips(self):
+        bgp_router_ips = {}
         if self.params['address'] is not None:
-            bgp_router_ips = set([self.params['address']])
-        else:
-            bgp_router_ips = set()
+            bgp_router_ips[self.name] = self.params['address']
+
         for peer_uuid in self.bgp_routers:
             peer = BgpRouterDM.get(peer_uuid)
             if peer is None or peer.params['address'] is None:
                 continue
-            bgp_router_ips.add(peer.params['address'])
+            bgp_router_ips[peer.name] = peer.params['address']
         return bgp_router_ips
     # end get_all_bgp_router_ips
 
