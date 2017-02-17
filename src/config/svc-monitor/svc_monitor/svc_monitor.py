@@ -741,6 +741,7 @@ def parse_args(args_str):
         'analytics_server_port': '8081',
         'availability_zone': None,
         'netns_availability_zone': None,
+        'aaa_mode': cfgm_common.AAA_MODE_DEFAULT_VALUE,
     }
     cassandraopts = {
         'cassandra_user': None,
@@ -828,6 +829,9 @@ def parse_args(args_str):
                         help="Use syslog for logging")
     parser.add_argument("--syslog_facility",
                         help="Syslog facility to receive log lines")
+    parser.add_argument("--aaa_mode",
+                        choices=cfgm_common.AAA_MODE_VALID_VALUES,
+                        help="AAA mode")
     parser.add_argument("--admin_user",
                         help="Name of keystone admin user")
     parser.add_argument("--admin_password",

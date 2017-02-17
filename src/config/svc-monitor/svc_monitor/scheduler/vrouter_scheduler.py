@@ -87,30 +87,27 @@ class VRouterScheduler(object):
         return az_vr_list
 
     def get_analytics_client(self):
-       try:
-           sub_obj = self._disc.subscribe(analytics_svc_name, 0)
-           slist = sub_obj.info
-       except Exception as ex:
-           self._logger.error('Failed to get analytics api from discovery')
-           return None
-       else:
-           if not slist:
-               self._logger.error('No analytics api client in discovery')
-               return None
-           analytics_api = random.choice(slist)
-           endpoint = "http://%s:%s" % (analytics_api['ip-address'],
+       analytics_api = {}
+       analytics_api['ip-address'] = self._args.analytics_server_ip
+       analytics_api['port'] = self._args.analytics_server_port
+       endpoint = "http://%s:%s" % (analytics_api['ip-address'],
                str(analytics_api['port']))
-           return analytics_client.Client(endpoint)
+       return analytics_client.Client(endpoint)
 
     def query_uve(self, filter_string):
         path = "/analytics/uves/vrouter/"
         response_dict = {}
         try:
+            if self._args.aaa_mode == 'no-auth':
+                user_token = None
+            else:
+                user_token = self._vnc_lib.get_auth_token()
             response = self._analytics.request(path, filter_string,
-                user_token=self._vnc_lib.get_auth_token())
+                user_token=user_token)
             for values in response['value']:
                 response_dict[values['name']] = values['value']
         except Exception as e:
+            self._logger.error(str(e))
             pass
         return response_dict
 
