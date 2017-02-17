@@ -64,8 +64,6 @@ from sandesh.analytics.ttypes import *
 from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh.nodeinfo.cpuinfo.ttypes import *
 from sandesh.nodeinfo.process_info.ttypes import *
-from sandesh.discovery.ttypes import CollectorTrace
-import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
 from opserver_util import AnalyticsDiscovery
 from sandesh_req_impl import OpserverSandeshReqImpl
@@ -466,12 +464,6 @@ class OpServer(object):
         if self._args.sandesh_send_rate_limit is not None:
             SandeshSystem.set_sandesh_send_rate_limit( \
                 self._args.sandesh_send_rate_limit)
-        self.disc = None
-        if self._args.disc_server_ip:
-           self.disc = discovery_client.DiscoveryClient(
-                            self._args.disc_server_ip,
-                            self._args.disc_server_port,
-                            ModuleNames[Module.OPSERVER])
 
         self.random_collectors = self._args.collectors
         if self._args.collectors:
@@ -482,7 +474,7 @@ class OpServer(object):
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self.random_collectors, 'opserver_context',
             int(self._args.http_server_port), ['opserver.sandesh'],
-            self.disc, logger_class=self._args.logger_class,
+            logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)
         self._sandesh.set_logging_params(
@@ -857,10 +849,6 @@ class OpServer(object):
             'redis_password'       : None,
             'redis_uve_list'     : ['127.0.0.1:6379'],
         }
-        disc_opts = {
-            'disc_server_ip'     : None,
-            'disc_server_port'   : 5998,
-        }
         database_opts = {
             'cluster_id'     : '',
         }
@@ -893,8 +881,6 @@ class OpServer(object):
                 defaults.update(dict(config.items("DEFAULTS")))
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
-            if 'DISCOVERY' in config.sections():
-                disc_opts.update(dict(config.items('DISCOVERY')))
             if 'CASSANDRA' in config.sections():
                 cassandra_opts.update(dict(config.items('CASSANDRA')))
             if 'KEYSTONE' in config.sections():
@@ -914,7 +900,6 @@ class OpServer(object):
             description=__doc__,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         defaults.update(redis_opts)
-        defaults.update(disc_opts)
         defaults.update(cassandra_opts)
         defaults.update(database_opts)
         defaults.update(keystone_opts)
@@ -957,11 +942,6 @@ class OpServer(object):
             help="Use syslog for logging")
         parser.add_argument("--syslog_facility",
             help="Syslog facility to receive log lines")
-        parser.add_argument("--disc_server_ip",
-            help="Discovery Server IP address")
-        parser.add_argument("--disc_server_port",
-            type=int,
-            help="Discovery Server port")
         parser.add_argument("--dup", action="store_true",
             help="Internal use")
         parser.add_argument("--redis_uve_list",

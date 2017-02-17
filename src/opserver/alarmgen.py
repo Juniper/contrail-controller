@@ -69,7 +69,6 @@ from opserver_util import AnalyticsDiscovery
 from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
 from libpartition.libpartition import PartitionClient
-import discoveryclient.client as client 
 from kafka import KafkaClient, SimpleProducer
 import redis
 from collections import namedtuple
@@ -875,16 +874,9 @@ class Controller(object):
         self._instance_id = self._conf.worker_id()
         self._disable_cb = False
 
-        self.disc = None
         self._libpart_name = self._conf.host_ip() + ":" + self._instance_id
         self._libpart = None
         self._partset = set()
-        if self._conf.discovery()['server']:
-            self.disc = client.DiscoveryClient(
-                self._conf.discovery()['server'],
-                self._conf.discovery()['port'],
-                ModuleNames[Module.ALARM_GENERATOR],
-                '%s-%s' % (self._hostname, self._instance_id))
 
         is_collector = True
         if test_logger is not None:
@@ -906,7 +898,6 @@ class Controller(object):
                                       self._conf.http_port(),
                                       ['opserver.sandesh', 'sandesh'],
                                       host_ip=self._conf.host_ip(),
-                                      discovery_client=self.disc,
                                       connect_to_collector = is_collector,
                                       alarm_ack_callback=self.alarm_ack_callback,
                                       config=self._conf.sandesh_config())

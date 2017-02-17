@@ -33,7 +33,6 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
-import discoveryclient.client as client
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
@@ -153,16 +152,8 @@ class SchemaTransformer(object):
         self._args = args
         self._fabric_rt_inst_obj = None
 
-        # Initialize discovery client
-        self._disc = None
-        if self._args.disc_server_ip and self._args.disc_server_port:
-            self._disc = client.DiscoveryClient(
-                self._args.disc_server_ip,
-                self._args.disc_server_port,
-                ModuleNames[Module.SCHEMA_TRANSFORMER])
-
         # Initialize logger
-        self.logger = SchemaTransformerLogger(self._disc, args)
+        self.logger = SchemaTransformerLogger(args)
 
         # Initialize amqp
         self._vnc_amqp = STAmqpHandle(self.logger,
@@ -390,8 +381,6 @@ def parse_args(args_str):
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
         'collectors': None,
-        'disc_server_ip': None,
-        'disc_server_port': None,
         'http_server_port': '8087',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
@@ -494,10 +483,6 @@ def parse_args(args_str):
     parser.add_argument("--collectors",
                         help="List of VNC collectors in ip:port format",
                         nargs="+")
-    parser.add_argument("--disc_server_ip",
-                        help="IP address of the discovery server")
-    parser.add_argument("--disc_server_port",
-                        help="Port of the discovery server")
     parser.add_argument("--http_server_port",
                         help="Port of local HTTP server")
     parser.add_argument("--log_local", action="store_true",

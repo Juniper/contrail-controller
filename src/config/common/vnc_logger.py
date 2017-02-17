@@ -39,8 +39,7 @@ class ConfigServiceLogger(object):
         logging.DEBUG: SandeshLevel.SYS_DEBUG
     }
 
-    def __init__(self, discovery, module, module_pkg, args=None):
-        self.discovery = discovery
+    def __init__(self, module, module_pkg, args=None):
         self.module_pkg = module_pkg
         if not hasattr(self, 'context'):
             self.context = module_pkg
@@ -119,7 +118,7 @@ class ConfigServiceLogger(object):
             self._module_name, self._hostname, self._node_type_name,
             self._instance_id, self._args.random_collectors,
             '%s_context' % self.context, int(self._args.http_server_port),
-            ['cfgm_common', '%s.sandesh' % self.module_pkg], self.discovery,
+            ['cfgm_common', '%s.sandesh' % self.module_pkg],
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)

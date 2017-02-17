@@ -469,7 +469,7 @@ class VncIfmapClient(object):
                 self.config_log(tb, level=SandeshLevel.SYS_ERR)
 
     def _publish_to_ifmap_dequeue(self):
-        def _publish(requests, traces, publish_discovery=False):
+        def _publish(requests, traces):
             if not requests:
                 return
             ok = False
@@ -482,8 +482,7 @@ class VncIfmapClient(object):
                 else:
                     trace_msg(traces, 'IfmapTraceBuf', self._sandesh,
                               error_msg=err_msg)
-                if publish_discovery and ok:
-                    self._get_api_server().publish_ifmap_to_discovery()
+                if ok:
                     self._is_ifmap_up = True
                 if not ok:
                     msg = ("%s. IF-MAP sending queue size: %d/%d" %
@@ -504,7 +503,7 @@ class VncIfmapClient(object):
                 # or change of oper because ifmap does not like
                 # different operations in same message
                 if oper == 'publish_discovery':
-                    _publish(requests, traces, True)
+                    _publish(requests, traces)
                     break
                 if do_trace:
                     trace = self._generate_ifmap_trace(oper, oper_body)
@@ -566,9 +565,6 @@ class VncIfmapClient(object):
                         self.config_log(msg, level=SandeshLevel.SYS_ERR)
 
                         self.reset()
-                        self._get_api_server().publish_ifmap_to_discovery(
-                            'down', msg)
-
                         self._publish_config_root()
                         self._db_client_mgr.db_resync()
                         self._publish_to_ifmap_enqueue('publish_discovery', 1)
@@ -759,10 +755,7 @@ class VncIfmapClient(object):
                     if not entity_is_present(self._mapclient, type, fq_name):
                         raise Exception("%s not found in IFMAP DB" % ':'.join(fq_name))
 
-                # If we had unpublished the IFMAP server to discovery server earlier
-                # publish it back now since it is valid now.
                 if not self._is_ifmap_up:
-                    self._get_api_server().publish_ifmap_to_discovery('up', '')
                     self._is_ifmap_up = True
                     ConnectionState.update(conn_type = ConnType.IFMAP,
                                            name = 'IfMap',
@@ -774,8 +767,6 @@ class VncIfmapClient(object):
                 log_str = 'IFMAP Healthcheck failed: %s' %(str(e))
                 self.config_log(log_str, level=SandeshLevel.SYS_ERR)
                 if self._is_ifmap_up:
-                    self._get_api_server().publish_ifmap_to_discovery('down',
-                                                   'IFMAP DB - Invalid state')
                     self._is_ifmap_up = False
                     ConnectionState.update(conn_type = ConnType.IFMAP,
                                            name = 'IfMap',

@@ -46,7 +46,6 @@ class SnmpUve(object):
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['contrail_snmp_collector.sandesh'],
-                                      self._conf._disc,
                                       config=self._conf.sandesh_config())
         sandesh_global.set_logging_params(
             enable_local_log=self._conf.log_local(),
@@ -84,8 +83,6 @@ class SnmpUve(object):
 
     def killall(self):
         sandesh_global.uninit()
-        if self._conf._disc:
-            self._conf._disc.uninit()
 
     def delete(self, dev):
         PRouterUVE(data=PRouterEntry(**dict(

@@ -83,14 +83,12 @@ cfixture_rule = env.Install("vnc_cfg_api_server/gen", "../common/cfixture.py")
 
 doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
 
-discovery_client_stats_pkg = env.SandeshGenPy('discovery_client_stats.sandesh', 'vnc_cfg_api_server/sandesh/', False)
 sandesh_trace_pkg = env.SandeshGenPy('traces.sandesh', 'vnc_cfg_api_server/sandesh/', False)
 
 sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(doc_sources_rules)
-sdist_depends.extend(discovery_client_stats_pkg)
 sdist_depends.extend(sandesh_trace_pkg)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
@@ -111,7 +109,6 @@ env.Depends(sdist_gen, sdist_depends)
 # Documentation
 doc_files = []
 doc_files += env.SandeshGenDoc('traces.sandesh')
-doc_files += env.SandeshGenDoc('discovery_client_stats.sandesh')
 doc_files += env['CFGM_DOC_FILES']
 
 if 'install' in BUILD_TARGETS:
@@ -160,7 +157,6 @@ test_cmd = env.Command('test.log', sdist_gen,
 
 test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
                 '/api-lib/dist/vnc_api-0.1dev.tar.gz',
-                '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
                 '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
                 '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',]
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
