@@ -18,6 +18,7 @@
 #include <base/string_util.h>
 #include <io/event_manager.h>
 #include <database/gendb_if.h>
+#include <database/gendb_constants.h>
 #include <database/cassandra/cql/cql_if.h>
 #include <database/cassandra/cql/cql_if_impl.h>
 #include <database/cassandra/cql/cql_lib_if.h>
@@ -326,6 +327,8 @@ static const char * kQCompactionStrategy(
     "compaction = {'class': "
     "'org.apache.cassandra.db.compaction.%s'}");
 static const std::string kQGCGraceSeconds("gc_grace_seconds = 0");
+static const std::string kQReadRepairChanceDTCS(
+             "read_repair_chance = 0.0");
 
 //
 // Cf2CassCreateTableIfNotExists
@@ -353,8 +356,21 @@ std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     int n(snprintf(cbuf, sizeof(cbuf), kQCompactionStrategy,
        compaction_strategy.c_str()));
     assert(!(n < 0 || n >= (int)sizeof(cbuf)));
-    query << ") WITH " << std::string(cbuf) << " AND " <<
-        kQGCGraceSeconds;
+
+    // The compaction strategy DateTieredCompactionStrategy precludes 
+    // using read repair, because of the way timestamps are checked for 
+    // DTCS compaction.In this case, you must set read_repair_chance to 
+    // zero. For other compaction strategies, read repair should be 
+    // enabled with a read_repair_chance value of 0.2 being typical
+    if (compaction_strategy == 
+        GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY) {
+        query << ") WITH " << std::string(cbuf) << " AND " <<
+            kQReadRepairChanceDTCS << " AND " << kQGCGraceSeconds;
+    } else {
+        query << ") WITH " << std::string(cbuf) << " AND " << 
+            kQGCGraceSeconds;
+    }
+
     return query.str();
 }
 
@@ -415,8 +431,20 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     int n(snprintf(cbuf, sizeof(cbuf), kQCompactionStrategy,
        compaction_strategy.c_str()));
     assert(!(n < 0 || n >= (int)sizeof(cbuf)));
-    query << ")) WITH " << std::string(cbuf) << " AND " <<
-        kQGCGraceSeconds;
+
+    // The compaction strategy DateTieredCompactionStrategy precludes
+    // using read repair, because of the way timestamps are checked for
+    // DTCS compaction.In this case, you must set read_repair_chance to
+    // zero. For other compaction strategies, read repair should be
+    // enabled with a read_repair_chance value of 0.2 being typical
+    if (compaction_strategy == 
+        GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY) {
+        query << ")) WITH " << std::string(cbuf) << " AND " <<
+            kQReadRepairChanceDTCS << " AND " << kQGCGraceSeconds;
+    } else {
+        query << ")) WITH " << std::string(cbuf) << " AND " <<
+            kQGCGraceSeconds;
+    }
     return query.str();
 }
 
