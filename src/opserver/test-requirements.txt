@@ -24,7 +24,6 @@ kombu==3.0.9
 ../api-lib/dist/vnc_api-0.1dev.tar.gz
 ../nodemgr/dist/nodemgr-0.1dev.tar.gz
 ../libpartition/dist/libpartition-0.1dev.tar.gz
-../discovery/client/dist/discoveryclient-0.1dev.tar.gz
 ../config/common/dist/cfgm_common-0.1dev.tar.gz
 ../opserver/plugins/test/alarm_partial_sysinfo/dist/alarm_partial_sysinfo-0.1dev.tar.gz
 ../opserver/plugins/test/alarm_process_status/dist/alarm_process_status-0.1dev.tar.gz
