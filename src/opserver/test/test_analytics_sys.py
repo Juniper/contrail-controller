@@ -620,6 +620,33 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert(new_reads > old_reads)
     # end test_14_verify_qe_stats_collection
 
+    #@unittest.skip('verify introspect ssl')
+    def test_15_verify_introspect_ssl(self):
+        '''
+        This test enables introspect ssl and starts all the analytics
+        generators in the AnalyticsFixture and verifies that the introspect
+        port is accessible with https.
+        '''
+        logging.info('%%% test_13_verify_sandesh_ssl %%%')
+        sandesh_cfg = {
+            'sandesh_keyfile': builddir+'/opserver/test/data/ssl/server-privkey.pem',
+            'sandesh_certfile': builddir+'/opserver/test/data/ssl/server.pem',
+            'sandesh_ca_cert': builddir+'/opserver/test/data/ssl/ca-cert.pem',
+            'introspect_ssl_enable': 'True'
+        }
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port,
+                             sandesh_config=sandesh_cfg))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+
+        # remove the config from vizd so that it tries to access introspect
+        # with http, it should fail
+        vizd_obj.set_sandesh_config(None)
+        assert not vizd_obj.verify_collector_gen(vizd_obj.collectors[0])
+    # end test_15_verify_introspect_ssl
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

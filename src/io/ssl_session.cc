@@ -122,7 +122,15 @@ size_t SslSession::ReadSome(mutable_buffer buffer, error_code *error) {
         return TcpSession::ReadSome(buffer, error);
 
     // do ssl read here in IO context, ignore errors
-    return ssl_socket_->read_some(mutable_buffers_1(buffer), *error);
+    error_code ec = boost::system::error_code(
+                   ERR_PACK(ERR_LIB_SSL, 0, SSL_R_SHORT_READ),
+                   boost::asio::error::get_ssl_category());
+    size_t rc = ssl_socket_->read_some(mutable_buffers_1(buffer), *error);
+    // eof gets mapped to short read error 
+    if (*error == ec) {
+	*error = boost::asio::error::eof;
+    }
+    return rc;
 }
 
 size_t SslSession::WriteSome(const uint8_t *data, size_t len,
