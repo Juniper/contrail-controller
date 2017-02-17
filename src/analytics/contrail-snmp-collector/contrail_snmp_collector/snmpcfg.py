@@ -5,10 +5,9 @@ import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from device_config import DeviceConfig
-import discoveryclient.client as client
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, \
-         API_SERVER_DISCOVERY_SERVICE_NAME, HttpPortSnmpCollector
+         HttpPortSnmpCollector
 
 class CfgParser(object):
     CONF_DEFAULT_PATH = '/etc/contrail/contrail-snmp-collector.conf'
@@ -18,7 +17,6 @@ class CfgParser(object):
         self.__pat = None
         self._argv = argv or ' '.join(sys.argv[1:])
         self._name = ModuleNames[Module.CONTRAIL_SNMP_COLLECTOR]
-        self._disc = None
         self._cb = None
 
     def set_cb(self, cb=None):
@@ -33,8 +31,6 @@ contrail-snmp-scanner --log_level SYS_DEBUG
                       --log_file <stdout>
                       --use_syslog
                       --syslog_facility LOG_USER
-                      --disc_server_ip 127.0.0.1
-                      --disc_server_port 5998
                       --conf_file /etc/contrail/contrail-snmp-scanner.conf
 
             conf file example:
@@ -101,10 +97,6 @@ Mibs = LldpTable, ArpTable
             'admin_password': 'password1',
             'admin_tenant_name': 'default-domain'
         }
-        disc_opts = {
-            'disc_server_ip'     : '127.0.0.1',
-            'disc_server_port'   : 5998,
-        }
         sandesh_opts = {
             'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
             'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
@@ -122,8 +114,6 @@ Mibs = LldpTable, ArpTable
                 defaults.update(dict(config.items("DEFAULTS")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
-            if 'DISCOVERY' in config.sections():
-                disc_opts.update(dict(config.items('DISCOVERY')))
             if 'SANDESH' in config.sections():
                 sandesh_opts.update(dict(config.items('SANDESH')))
         # Override with CLI options
@@ -137,7 +127,6 @@ Mibs = LldpTable, ArpTable
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         defaults.update(ksopts)
-        defaults.update(disc_opts)
         defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--collectors",
@@ -181,10 +170,6 @@ Mibs = LldpTable, ArpTable
             help="ip:port of zookeeper server")
         parser.add_argument("--cluster_id",
             help="Used for database keyspace separation")
-        parser.add_argument("--disc_server_ip",
-            help="Discovery Server IP address")
-        parser.add_argument("--disc_server_port", type=int,
-            help="Discovery Server port")
         parser.add_argument("--sandesh_keyfile",
             help="Sandesh ssl private key")
         parser.add_argument("--sandesh_certfile",
@@ -207,7 +192,6 @@ Mibs = LldpTable, ArpTable
             self._args.collectors = self._args.collectors.split()
         self._args.config_sections = config
         self._args.conf_file = args.conf_file
-        self._disc = client.DiscoveryClient(*self.discovery_params())
 
     def devices(self):
         if self._args.device_config_file:
@@ -220,37 +204,7 @@ Mibs = LldpTable, ArpTable
                     self._args.admin_tenant_name,
                     self._args.auth_host, self._args.auth_port,
                     self._args.auth_protocol, self._cb)
-        elif self._args.disc_server_port:
-            apis = self.get_api_svrs()
-            if apis:
-                self._devices = DeviceConfig.fom_api_server(
-                    self.get_api_svrs(), self._args.admin_user,
-                    self._args.admin_password, self._args.admin_tenant_name,
-                    self._args.auth_host, self._args.auth_port,
-                    self._args.auth_protocol, self._cb)
-            else:
-                self._devices = []
         return self._devices
-
-    def get_api_svrs(self):
-        if self._disc is None:
-            p = self.discovery_params()
-            try:
-              self._disc = client.DiscoveryClient(*p)
-            except Exception as e:
-              import traceback; traceback.print_exc()
-              return []
-        a = self._disc.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 0)
-        x = a.read()
-        return map(lambda d:d['ip-address'] + ':' + d['port'], x)
-
-    def discovery_params(self):
-        if self._args.disc_server_ip:
-            ip, port = self._args.disc_server_ip, \
-                       self._args.disc_server_port
-        else:
-            ip, port = '127.0.0.1', self._args.disc_server_port
-        return ip, port, self._name
 
     def collectors(self):
         return self._args.collectors

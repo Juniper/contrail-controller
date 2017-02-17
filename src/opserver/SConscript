@@ -67,7 +67,6 @@ cpuinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh',
 process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'opserver/sandesh/nodeinfo/', False)
 nodeinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'opserver/sandesh/', False)
 redis_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh', 'opserver/sandesh/', False)
-discovery_pkg = OpEnv.SandeshGenPy('discovery.sandesh', 'opserver/sandesh/', False)
 analytics_database_pkg = OpEnv.SandeshGenPy('analytics_database.sandesh', 'opserver/sandesh/', False)
 alarmgen_pkg = OpEnv.SandeshGenPy('alarmgen_ctrl.sandesh', 'opserver/sandesh/', False)
 alarm_sandesh_base_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', 'opserver/sandesh/alarmgen_ctrl/', False)
@@ -78,7 +77,7 @@ OpEnv.Depends(derived_stats_pkg, analytics_pkg)
 
 sdist_depends = [setup_sources_rules, local_sources_rules,
                  viz_pkg, analytics_pkg, cpuinfo_pkg, redis_pkg,
-                 process_info_pkg, discovery_pkg, analytics_database_pkg,
+                 process_info_pkg, analytics_database_pkg,
                  alarmgen_pkg, database_pkg, alarm_sandesh_base_pkg,
                  derived_stats_pkg, nodeinfo_pkg, cpuinfo_pkg2,
                  process_info_pkg2]
@@ -93,13 +92,11 @@ OpEnv.Depends(sdist_gen, sdist_depends)
 opserver_doc_files = []
 opserver_doc_files += OpEnv['BASE_DOC_FILES']
 opserver_doc_files += OpEnv['ANALYTICS_DOC_FILES']
-opserver_doc_files += OpEnv.SandeshGenDoc('discovery.sandesh')
 opserver_doc_files += OpEnv.SandeshGenDoc('analytics_database.sandesh')
 
 alarmgen_doc_files = []
 alarmgen_doc_files += OpEnv['BASE_DOC_FILES']
 alarmgen_doc_files += OpEnv['ANALYTICS_DOC_FILES']
-alarmgen_doc_files += OpEnv.SandeshGenDoc('discovery.sandesh')
 alarmgen_doc_files += OpEnv.SandeshGenDoc('alarmgen_ctrl.sandesh')
 alarmgen_doc_files += OpEnv.SandeshGenDoc('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', OpEnv['TOP'] + '/opserver/')
 
@@ -246,7 +243,6 @@ test_depends = [
         '/api-lib/dist/vnc_api-0.1dev.tar.gz',
         '/nodemgr/dist/nodemgr-0.1dev.tar.gz',
         '/libpartition/dist/libpartition-0.1dev.tar.gz',
-        '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
         '/analytics/vizd',
         '/query_engine/qedt',
         '/opserver/plugins/test/alarm_partial_sysinfo/dist/alarm_partial_sysinfo-0.1dev.tar.gz',
