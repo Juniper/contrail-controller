@@ -120,13 +120,15 @@ class VncMesos(object):
         vm = VirtualMachineMM.locate(vm_obj.uuid)
         return vm_obj
 
-    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj, sg_tags):
+    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj, 
+                    sg_tags, fip_pool_name):
         proj_fq_name = ['default-domain', pod_namespace]
         proj_obj = self.vnc_lib.project_read(fq_name=proj_fq_name)
 
         vmi_obj = VirtualMachineInterface(name=pod_name, parent_obj=proj_obj)
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
+
         if sg_tags != "": 
             sg_strings = sg_tags.split(",")
             for sg_string in sg_strings:
@@ -137,6 +139,19 @@ class VncMesos(object):
         except RefsExistError:
             self.vnc_lib.virtual_machine_interface_update(vmi_obj)
         VirtualMachineInterfaceMM.locate(vmi_obj.uuid)
+        
+        #Creation of floating-ip
+        if fip_pool_name != "": 
+            fip_pool_fq_name = fip_pool_name.split(':')
+            fip_pool_obj = self.vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
+            fip_obj = FloatingIp(name="mesos-svc-fip-%s"% (pod_name),
+                parent_obj=fip_pool_obj)
+            fip_obj.set_project(proj_obj)
+            fip_obj.set_virtual_machine_interface(vmi_obj)
+            try:
+                fip_uuid = self.vnc_lib.floating_ip_create(fip_obj)
+            except RefsExistError:
+                fip_uuid = self.vnc_lib.floating_ip_update(fip_obj)
         return vmi_obj
 
     def _create_iip(self, pod_name, vn_obj, vmi_obj):
@@ -171,11 +186,15 @@ class VncMesos(object):
             sg_tags = labels['sg_tags'] 
         else:
             sg_tags = ''
+        if 'fip_pool' in labels.keys():
+            fip_pool = labels['fip_pool'] 
+        else:
+            fip_pool = ''
         mesos_proj_obj = self._create_project(pod_namespace)
         vn_obj = self._create_network(labels, mesos_proj_obj)
         vm_obj = self._create_vm(pod_id, pod_name)
         vmi_obj = self._create_vmi(pod_name, pod_namespace, vm_obj, 
-                                   vn_obj, sg_tags)
+                                   vn_obj, sg_tags, fip_pool)
         self._create_iip(pod_name, vn_obj, vmi_obj)
         self._link_vm_to_node(vm_obj, cluster_name)
 
@@ -188,6 +207,12 @@ class VncMesos(object):
                 self.vnc_lib.instance_ip_delete(id=iip_id)
             except NoIdError:
                 pass
+        for fip_id in list(vmi.floating_ips):
+            try:
+                self.vnc_lib.floating_ip_delete(id=fip_id)
+            except NoIdError:
+                pass
+
         try:
             self.vnc_lib.virtual_machine_interface_delete(id=vmi_id)
         except NoIdError:
@@ -210,7 +235,7 @@ class VncMesos(object):
         vn = VirtualNetworkMM.find_by_name_or_uuid(task_uuid_str)
         if not vn:
             return
-        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self.vnc_lib.virtual_network_delete(id=vn.uuid)
         VirtualNetworkMM.delete(vn.uuid)
 
     def process_q_event(self, event):
