@@ -856,6 +856,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<!-- Value to be slapped on DSCP field of IP header for various traffic types-->
+<xsd:complexType name="ControlTrafficDscpType">
+    <xsd:all>
+    <xsd:element name="control"   type="xsd:integer" required='optional'
+         description='DSCP value for control protocols traffic'/>
+    <xsd:element name="analytics" type="xsd:integer" required='optional'
+         description='DSCP value for traffic towards analytics'/>
+    <xsd:element name="dns"  type="xsd:integer" required='optional'
+         description='DSCP value for DNS traffic'/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:simpleType name="EndOfRibTimeType">
      <xsd:restriction base="xsd:integer">
          <xsd:minInclusive value="0"/>
@@ -1100,6 +1112,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('global-qos-config-qos-config',
           'global-qos-config', 'qos-config', ['has'], 'optional', 'CRUD',
           'Global system QoS config for vhost and fabric traffic .') -->
+
+<xsd:element name="control-traffic-dscp" type="ControlTrafficDscpType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('control-traffic-dscp', 'global-qos-config', 'required', 'CRUD',
+              'DSCP value of IP header for control traffic') -->
 
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
 <xsd:element name="config-root-domain"/>
