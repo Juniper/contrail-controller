@@ -25,11 +25,11 @@ from config_db import ServiceInstanceSM, ServiceTemplateSM,\
 
 class ServiceMonitorLogger(ConfigServiceLogger):
 
-    def __init__(self, discovery, args=None):
+    def __init__(self, args=None):
         module = Module.SVC_MONITOR
         module_pkg = 'svc_monitor'
         super(ServiceMonitorLogger, self).__init__(
-                discovery, module, module_pkg, args)
+               module, module_pkg, args)
 
     def log(self, log_msg, level=SandeshLevel.SYS_DEBUG, fun=None):
         if fun:

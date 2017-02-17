@@ -259,8 +259,6 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     def setUpClass(cls):
         cls._pc = mock.patch('opserver.alarmgen.PartitionClient', autospec=True)
         cls._pc.start()
-        cls._dc = mock.patch('opserver.alarmgen.client.DiscoveryClient', autospec=True)
-        cls._dc.start()
         cls._kc = mock.patch('opserver.partition_handler.KafkaClient', autospec=True)
         cls._kc.start()
         cls._ac = mock.patch('opserver.alarmgen.KafkaClient', autospec=True)
@@ -270,7 +268,6 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 
     @classmethod
     def tearDownClass(cls):
-        cls._dc.stop()
         cls._pc.stop()
         cls._kc.stop()
         cls._ac.stop()
@@ -280,7 +277,6 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         config = CfgParser('--http_server_port 0 '
                            '--zk_list 127.0.0.1:0 '
                            '--redis_uve_list 127.0.0.1:0 '
-                           '--disc_server_ip 127.0.0.1 '
                            '--redis_server_port 0')
         config.parse()
         self._ag = Controller(config, logging)

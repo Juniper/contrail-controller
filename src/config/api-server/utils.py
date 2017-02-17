@@ -64,8 +64,6 @@ def parse_args(args_str):
         'logger_class': None,
         'multi_tenancy': None,
         'aaa_mode': cfgm_common.AAA_MODE_DEFAULT_VALUE,
-        'disc_server_ip': None,
-        'disc_server_port': '5998',
         'zk_server_ip': '127.0.0.1:2181',
         'worker_id': '0',
         'rabbit_server': 'localhost',
@@ -178,12 +176,6 @@ def parse_args(args_str):
     parser.add_argument(
         "--rdbms_connection",
         help="DB Connection string")
-    parser.add_argument(
-        "--disc_server_ip",
-        help="IP address of discovery server")
-    parser.add_argument(
-        "--disc_server_port",
-        help="Port of discovery server")
     parser.add_argument(
         "--redis_server_ip",
         help="IP address of redis server")
