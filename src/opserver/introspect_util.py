@@ -12,7 +12,7 @@ from requests.auth import HTTPBasicAuth
 
 class JsonDrv (object):
 
-    def load(self, url, user, password):
+    def load(self, url, user, password, cert, ca_cert):
         try:
             if user and password:
                 auth=HTTPBasicAuth(user, password)
@@ -26,26 +26,38 @@ class JsonDrv (object):
 
 class XmlDrv (object):
 
-    def load(self, url, user, password):
+    def load(self, url, user, password, cert, ca_cert):
+        import traceback
         try:
             if user and password:
                 auth=HTTPBasicAuth(user, password)
             else:
                 auth=None
-            resp = requests.get(url, auth=auth)
+            resp = requests.get(url, auth=auth, timeout=10, verify=ca_cert, cert=cert)
             return etree.fromstring(resp.text)
         except requests.ConnectionError, e:
             print "Socket Connection error : " + str(e)
+            traceback.print_exc()
             return None
 
 
 class IntrospectUtilBase (object):
 
-    def __init__(self, ip, port, drv=JsonDrv):
+    def __init__(self, ip, port, drv=JsonDrv, config=None):
         self._ip = ip
         self._port = port
         self._drv = drv()
         self._force_refresh = False
+        self._config = config
+        self._http_str = "http"
+        self._cert = tuple()
+        self._ca_cert = False
+        if drv == XmlDrv and self._config is not None:
+            if self._config['introspect_ssl_enable']:
+                self._http_str = "https"
+                self._cert = (self._config['sandesh_certfile'], \
+                        self._config['sandesh_keyfile'])
+                self._ca_cert = self._config['sandesh_ca_cert']
 
     def get_force_refresh(self):
         return self._force_refresh
@@ -59,18 +71,19 @@ class IntrospectUtilBase (object):
             query_str = ''
             if query:
                 query_str = '?'+urllib.urlencode(query)
-            if path.startswith('http:'):
+            if path.startswith('http:') or path.startswith('https:'):
                 return path+query_str
-            return "http://%s:%d/%s%s" % (self._ip, self._port, path, query_str)
+            url = self._http_str + "://%s:%d/%s%s" % (self._ip, self._port, path, query_str)
+            return url
 
     def dict_get(self, path='', query=None, drv=None, user=None,
                  password=None):
         if path:
             if drv is not None:
                 return drv().load(self._mk_url_str(path, query), user,
-                    password)
+                    password, self._cert, self._ca_cert)
             return self._drv.load(self._mk_url_str(path, query), user,
-                password)
+                password, self._cert, self._ca_cert)
     # end dict_get
 
 
