@@ -25,8 +25,6 @@ class CfgParser(object):
                     --log_file <stdout>
                     --use_syslog
                     --syslog_facility LOG_USER
-                    --disc_server_ip 127.0.0.1
-                    --disc_server_port 5998
                     --worker_id 0
                     --partitions 5
                     --redis_password
@@ -84,11 +82,6 @@ class CfgParser(object):
             'redis_uve_list'    : ['127.0.0.1:6379'],
         }
 
-        disc_opts = {
-            'disc_server_ip'     : None,
-            'disc_server_port'   : 5998,
-        }
-
         keystone_opts = {
             'auth_host': '127.0.0.1',
             'auth_protocol': 'http',
@@ -115,8 +108,6 @@ class CfgParser(object):
                 defaults.update(dict(config.items('DEFAULTS')))
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
-            if 'DISCOVERY' in config.sections():
-                disc_opts.update(dict(config.items('DISCOVERY')))
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
             if 'SANDESH' in config.sections():
@@ -133,7 +124,6 @@ class CfgParser(object):
         )
 
         defaults.update(redis_opts)
-        defaults.update(disc_opts)
         defaults.update(keystone_opts)
         defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
@@ -164,11 +154,6 @@ class CfgParser(object):
             help="Worker Id")
         parser.add_argument("--partitions", type=int,
             help="Number of partitions for hashing UVE keys")
-        parser.add_argument("--disc_server_ip",
-            help="Discovery Server IP address")
-        parser.add_argument("--disc_server_port",
-            type=int,
-            help="Discovery Server port")
         parser.add_argument("--redis_server_port",
             type=int,
             help="Redis server port")
@@ -251,10 +236,6 @@ class CfgParser(object):
 
     def alarmgen_list(self):
         return self._args.alarmgen_list
-
-    def discovery(self):
-        return {'server':self._args.disc_server_ip,
-            'port':self._args.disc_server_port }
 
     def collectors(self):
         return self._args.collectors

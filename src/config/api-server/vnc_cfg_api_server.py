@@ -74,7 +74,7 @@ from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
 from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
-    NodeTypeNames, INSTANCE_ID_DEFAULT, API_SERVER_DISCOVERY_SERVICE_NAME
+    NodeTypeNames, INSTANCE_ID_DEFAULT
 
 from provision_defaults import Provision
 from vnc_quota import *
@@ -98,14 +98,12 @@ from cfgm_common.vnc_api_stats import log_api_stats
 
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-import discoveryclient.client as client
 # from gen_py.vnc_api.ttypes import *
 import netifaces
 from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
-from sandesh.discovery_client_stats import ttypes as sandesh
 from sandesh.traces.ttypes import RestApiTrace
 from vnc_bottle import get_bottle_server
 from cfgm_common.vnc_greenlets import VncGreenlet
@@ -1433,22 +1431,12 @@ class VncApiServer(object):
             self._random_collectors = random.sample(self._args.collectors, \
                                                     len(self._args.collectors))
 
-        # Initialize discovery client
-        self._disc = None
-        if self._args.disc_server_ip and self._args.disc_server_port:
-            self._disc = client.DiscoveryClient(self._args.disc_server_ip,
-                                                self._args.disc_server_port,
-                                                ModuleNames[Module.API_SERVER])
-
         # sandesh init
         self._sandesh = Sandesh()
         # Reset the sandesh send rate limit  value
         if self._args.sandesh_send_rate_limit is not None:
             SandeshSystem.set_sandesh_send_rate_limit(
                 self._args.sandesh_send_rate_limit)
-        sandesh.DiscoveryClientStatsReq.handle_request = self.sandesh_disc_client_stats_handle_request
-        sandesh.DiscoveryClientSubscribeInfoReq.handle_request = self.sandesh_disc_client_subinfo_handle_request
-        sandesh.DiscoveryClientPublishInfoReq.handle_request = self.sandesh_disc_client_pubinfo_handle_request
         module = Module.API_SERVER
         module_name = ModuleNames[Module.API_SERVER]
         node_type = Module2NodeType[module]
@@ -1464,7 +1452,7 @@ class VncApiServer(object):
                                      self._random_collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
-                                     ['cfgm_common', 'vnc_cfg_api_server.sandesh'], self._disc,
+                                     ['cfgm_common', 'vnc_cfg_api_server.sandesh'],
                                      logger_class=self._args.logger_class,
                                      logger_config_file=self._args.logging_conf,
                                      config=self._args.sandesh_config)
@@ -1558,66 +1546,6 @@ class VncApiServer(object):
             '^/$',              # allow discovery
         ]
     # end __init__
-
-    def sandesh_disc_client_subinfo_handle_request(self, req):
-        stats = self._disc.get_stats()
-        resp = sandesh.DiscoveryClientSubscribeInfoResp(Subscribe=[])
-
-        for sub in stats['subs']:
-            info = sandesh.SubscribeInfo(service_type=sub['service_type'])
-            info.instances   = sub['instances']
-            info.ttl         = sub['ttl']
-            info.blob        = sub['blob']
-            resp.Subscribe.append(info)
-
-        resp.response(req.context())
-    # end
-
-    def sandesh_disc_client_pubinfo_handle_request(self, req):
-        stats = self._disc.get_stats()
-        resp = sandesh.DiscoveryClientPublishInfoResp(Publish=[])
-
-        for service_type, pub in stats['pubs'].items():
-            info = sandesh.PublishInfo(service_type=service_type)
-            info.blob        = pub['blob']
-            resp.Publish.append(info)
-
-        resp.response(req.context())
-    # end
-
-    # Return discovery client stats
-    def sandesh_disc_client_stats_handle_request(self, req):
-        stats = self._disc.get_stats()
-        resp = sandesh.DiscoveryClientStatsResp(Subscribe=[], Publish=[])
-
-        # pub stats
-        for service_type, pub in stats['pubs'].items():
-            pub_stats = sandesh.PublisherStats(service_type=service_type)
-            pub_stats.Request     = pub['request']
-            pub_stats.Response     = pub['response']
-            pub_stats.ConnError   = pub['conn_error']
-            pub_stats.Timeout   = pub['timeout']
-            pub_stats.unknown_exceptions = pub['exc_unknown']
-            pub_stats.exception_info    = pub['exc_info']
-            xxx = ['%s:%d' % (k[3:], v) for k, v in pub.items() if 'sc_' in k]
-            pub_stats.HttpError = ", ".join(xxx)
-            resp.Publish.append(pub_stats)
-
-        # sub stats
-        for sub in stats['subs']:
-            sub_stats = sandesh.SubscriberStats(service_type=sub['service_type'])
-            sub_stats.Request   = sub['request']
-            sub_stats.Response   = sub['response']
-            sub_stats.ConnError   = sub['conn_error']
-            sub_stats.Timeout   = sub['timeout']
-            sub_stats.unknown_exceptions = sub['exc_unknown']
-            sub_stats.exception_info    = sub['exc_info']
-            xxx = ['%s:%d' % (k[3:], v) for k, v in sub.items() if 'sc_' in k]
-            sub_stats.HttpError = ", ".join(xxx)
-            resp.Subscribe.append(sub_stats)
-
-        resp.response(req.context())
-    # end sandesh_disc_client_stats_handle_request
 
     def _extensions_transform_request(self, request):
         extensions = self._extension_mgrs.get('resourceApi')
@@ -2611,8 +2539,6 @@ class VncApiServer(object):
                                          --trace_file /var/log/contrail/vnc_openstack.err
                                          --use_syslog
                                          --syslog_facility LOG_USER
-                                         --disc_server_ip 127.0.0.1
-                                         --disc_server_port 5998
                                          --worker_id 1
                                          --rabbit_max_pending_updates 4096
                                          --rabbit_health_check_interval 120.0
@@ -3568,6 +3494,7 @@ class VncApiServer(object):
             pass
         return k_v
 
+<<<<<<< HEAD
     def publish_self_to_discovery(self):
         # publish API server
         data = {
@@ -3578,6 +3505,8 @@ class VncApiServer(object):
             self.api_server_task = self._disc.publish(
                 API_SERVER_DISCOVERY_SERVICE_NAME, data)
 
+=======
+>>>>>>> Removal of python Discovery client references from daemons
 # end class VncApiServer
 
 def main(args_str=None, server=None):
@@ -3586,12 +3515,6 @@ def main(args_str=None, server=None):
     pipe_start_app = vnc_api_server.get_pipe_start_app()
     server_ip = vnc_api_server.get_listen_ip()
     server_port = vnc_api_server.get_server_port()
-
-    # Advertise services
-    if (vnc_api_server._args.disc_server_ip and
-            vnc_api_server._args.disc_server_port and
-            vnc_api_server.get_worker_id() == 0):
-        vnc_api_server.publish_self_to_discovery()
 
     """ @sigchld
     Disable handling of SIG_CHLD for now as every keystone request to validate

@@ -10,7 +10,6 @@ import logging
 import socket
 
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
-import discoveryclient.client as client
 from mesos_manager.sandesh.mesos_manager import ttypes as sandesh
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
@@ -38,12 +37,6 @@ class MesosManagerLogger(object):
             self.module["instance_id"] = self._args.worker_id
         else:
             self.module["instance_id"] = INSTANCE_ID_DEFAULT
-
-        # Initialize discovery client
-        if self._args.disc_server_ip and self._args.disc_server_port:
-            self.module["discovery"] = client.DiscoveryClient(
-                self._args.disc_server_ip, self._args.disc_server_port,
-                self.module["name"])
 
         # Init Sandesh.
         self.sandesh_init()
@@ -160,7 +153,7 @@ class MesosManagerLogger(object):
             self._args.collectors, 'mesos_manager_context',
             int(self._args.http_server_port),
             ['cfgm_common', 'mesos_manager.sandesh'],
-            self.module['discovery'], logger_class=self._args.logger_class,
+            logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)
 
