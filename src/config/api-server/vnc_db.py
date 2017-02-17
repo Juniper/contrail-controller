@@ -762,9 +762,7 @@ class VncDbClient(object):
         # Read contents from cassandra and publish to ifmap
         start_time = datetime.datetime.utcnow()
         self._object_db.walk(self._dbe_resync)
-        if self._self_managed_ifmap_server:
-            self.get_api_server().publish_ifmap_to_discovery()
-        else:
+        if not self._self_managed_ifmap_server:
             self._ifmap_db._publish_to_ifmap_enqueue('publish_discovery', 1)
         self.config_log("Cassandra DB walk completed.",
             level=SandeshLevel.SYS_INFO)

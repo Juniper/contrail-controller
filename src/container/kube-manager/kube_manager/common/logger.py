@@ -13,7 +13,6 @@ import socket
 from vnc_api.vnc_api import *
 
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
-import discoveryclient.client as client
 from kube_manager.sandesh.kube_manager import ttypes as sandesh
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
 from kube_manager.common.kube_config_db import (
@@ -44,13 +43,6 @@ class KubeManagerLogger(object):
             self._module["instance_id"] = self._args.worker_id
         else:
             self._module["instance_id"] = INSTANCE_ID_DEFAULT
-
-        # Initialize discovery client
-        self._disc = None
-        if self._args.disc_server_ip and self._args.disc_server_port:
-            self._module["discovery"] = client.DiscoveryClient(
-                self._args.disc_server_ip, self._args.disc_server_port,
-                self._module["name"])
 
         # Init Sandesh.
         self.sandesh_init()
@@ -194,7 +186,7 @@ class KubeManagerLogger(object):
             self._args.collectors, 'kube_manager_context',
             int(self._args.http_server_port),
             ['cfgm_common', 'kube_manager'],
-            self._module["discovery"], logger_class=self._args.logger_class,
+            logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)
 

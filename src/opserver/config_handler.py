@@ -19,11 +19,10 @@ from sandesh_common.vns.constants import API_SERVER_DISCOVERY_SERVICE_NAME
 
 class ConfigHandler(object):
 
-    def __init__(self, service_id, logger, discovery_client,
+    def __init__(self, service_id, logger,
                  keystone_info, rabbitmq_info, config_types=None):
         self._service_id = service_id
         self._logger = logger
-        self._discovery_client = discovery_client
         self._keystone_info = keystone_info
         self._rabbitmq_info = rabbitmq_info
         self._config_types = config_types
@@ -39,9 +38,6 @@ class ConfigHandler(object):
 
     def start(self):
         # Subscribe for contrail-api service with Discovery
-        self._discovery_client.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 2,
-            self._apiserver_subscribe_callback)
-        self._update_apiserver_connection_status('', ConnectionStatus.INIT)
         # Connect to rabbitmq for config update notifications
         rabbitmq_qname = self._service_id
         self._rabbitmq_client = VncKombuClient(self._rabbitmq_info['servers'],
@@ -105,36 +101,6 @@ class ConfigHandler(object):
             self._handle_config_update(cfg_type, fq_name_str, None,
                 notify_msg['oper'])
     # end _rabbitmq_subscribe_callback
-
-    def _apiserver_subscribe_callback(self, api_server_info):
-        self._logger('Received discovery update for contrail-api: %s'
-            % (str(api_server_info)), SandeshLevel.SYS_INFO)
-        if isinstance(api_server_info, list):
-            self._api_servers = []
-            if not len(api_server_info):
-                self._active_api_server = None
-                self._api_client = None
-                if self._api_client_connection_task:
-                    self._api_client_connection_task.kill()
-                    self._api_client_connection_task = None
-                self._update_apiserver_connection_status('',
-                    ConnectionStatus.INIT)
-            for api_server in api_server_info:
-                try:
-                    self._api_servers.append((api_server['ip-address'],
-                        api_server['port']))
-                except KeyError:
-                    self._logger('Failed to parse contrail-api ip/port '
-                        'discovery update', SandeshLevel.SYS_ERR)
-            if self._active_api_server is None or \
-               self._active_api_server not in self._api_servers:
-                if not self._api_client_connection_task:
-                    self._api_client_connection_task = \
-                        gevent.spawn(self._connect_to_api_server)
-        else:
-            self._logger('Failed to parse discovery update for '
-                'contrail-api service', SandeshLevel.SYS_ERR)
-    # end _apiserver_subscribe_callback
 
     def _connect_to_api_server(self):
         self._active_api_server = None

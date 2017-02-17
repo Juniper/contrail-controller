@@ -1,6 +1,5 @@
 cfgm_common
 vnc_api
-discoveryclient
 sandesh
 sandesh-common
 lxml>=2.3.3
