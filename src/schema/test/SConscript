@@ -25,6 +25,8 @@ env.Prepend(LIBS = ['db', 'xmpp', 'peer_sandesh', 'sandesh', 'sandeshvns',
                     'cassandra', 'gendb', 'ds', 'http', 'http_parser', 'httpc',
                     'curl', 'ifmap_vnc', 'bgp_schema', 'boost_regex', 'xml'])
 
+lib_ifmap_server = File('../../ifmap/libifmap_server.a')
+
 if sys.platform != 'darwin':
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive', '-lifmap_server', '-Wl,--no-whole-archive'])
