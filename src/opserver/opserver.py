@@ -50,8 +50,8 @@ from pysandesh.connection_info import ConnectionState
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
-     INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
-     ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_GENERATOR_SERVICE_NAME, \
+     INSTANCE_ID_DEFAULT, ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME \
+     ALARM_GENERATOR_SERVICE_NAME, \
      OpServerAdminPort, CLOUD_ADMIN_ROLE, APIAAAModes, \
      AAA_MODE_CLOUD_ADMIN, AAA_MODE_NO_AUTH
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
@@ -64,8 +64,6 @@ from sandesh.analytics.ttypes import *
 from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from sandesh.nodeinfo.cpuinfo.ttypes import *
 from sandesh.nodeinfo.process_info.ttypes import *
-from sandesh.discovery.ttypes import CollectorTrace
-import discoveryclient.client as discovery_client
 from opserver_util import OpServerUtils
 from opserver_util import AnalyticsDiscovery
 from sandesh_req_impl import OpserverSandeshReqImpl
@@ -396,21 +394,6 @@ class OpServer(object):
         * ``/analytics/query``:
         * ``/analytics/operation/database-purge``:
     """
-    def disc_publish(self):
-        data = {
-            'ip-address': self._args.host_ip,
-            'port': self._args.rest_api_port,
-        }
-        if self.disc:
-            self.disc.set_sandesh(self._sandesh)
-            self._logger.info("Disc Publish to %s : %d - %s" % \
-                (self._args.disc_server_ip,
-                self._args.disc_server_port, str(data)))
-            self.disc.publish(ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, data)
-        if self._ad is not None:
-            self._ad.publish(json.dumps(data))
-    # end disc_publish
-
     def validate_user_token(func):
         @wraps(func)
         def _impl(self, *f_args, **f_kwargs):
@@ -466,12 +449,6 @@ class OpServer(object):
         if self._args.sandesh_send_rate_limit is not None:
             SandeshSystem.set_sandesh_send_rate_limit( \
                 self._args.sandesh_send_rate_limit)
-        self.disc = None
-        if self._args.disc_server_ip:
-           self.disc = discovery_client.DiscoveryClient(
-                            self._args.disc_server_ip,
-                            self._args.disc_server_port,
-                            ModuleNames[Module.OPSERVER])
 
         self.random_collectors = self._args.collectors
         if self._args.collectors:
@@ -482,7 +459,7 @@ class OpServer(object):
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self.random_collectors, 'opserver_context',
             int(self._args.http_server_port), ['opserver.sandesh'],
-            self.disc, logger_class=self._args.logger_class,
+            logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
             config=self._args.sandesh_config)
         self._sandesh.set_logging_params(
@@ -598,8 +575,6 @@ class OpServer(object):
                                   instance_id = "0",
                                   port = int(redis_ip_port[1]))
                     self.agp[part] = pi
-
-        self.disc_publish()
 
 
         self._uve_server = UVEServer(self.redis_uve_list,
@@ -857,10 +832,6 @@ class OpServer(object):
             'redis_password'       : None,
             'redis_uve_list'     : ['127.0.0.1:6379'],
         }
-        disc_opts = {
-            'disc_server_ip'     : None,
-            'disc_server_port'   : 5998,
-        }
         database_opts = {
             'cluster_id'     : '',
         }
@@ -893,8 +864,6 @@ class OpServer(object):
                 defaults.update(dict(config.items("DEFAULTS")))
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
-            if 'DISCOVERY' in config.sections():
-                disc_opts.update(dict(config.items('DISCOVERY')))
             if 'CASSANDRA' in config.sections():
                 cassandra_opts.update(dict(config.items('CASSANDRA')))
             if 'KEYSTONE' in config.sections():
@@ -914,7 +883,6 @@ class OpServer(object):
             description=__doc__,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         defaults.update(redis_opts)
-        defaults.update(disc_opts)
         defaults.update(cassandra_opts)
         defaults.update(database_opts)
         defaults.update(keystone_opts)
@@ -957,11 +925,6 @@ class OpServer(object):
             help="Use syslog for logging")
         parser.add_argument("--syslog_facility",
             help="Syslog facility to receive log lines")
-        parser.add_argument("--disc_server_ip",
-            help="Discovery Server IP address")
-        parser.add_argument("--disc_server_port",
-            type=int,
-            help="Discovery Server port")
         parser.add_argument("--dup", action="store_true",
             help="Internal use")
         parser.add_argument("--redis_uve_list",

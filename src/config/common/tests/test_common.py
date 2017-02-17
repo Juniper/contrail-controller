@@ -21,7 +21,6 @@ from netaddr import IPNetwork, IPAddress
 
 from vnc_api.vnc_api import *
 import kombu
-import discoveryclient.client as disc_client
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
 from cfgm_common import imid

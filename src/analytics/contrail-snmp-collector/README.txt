@@ -25,7 +25,7 @@ usage: contrail-snmp-collector [-h] [-c FILE]
                              [--syslog_facility SYSLOG_FACILITY]
                              [--scan_frequency SCAN_FREQUENCY]
                              [--http_server_port HTTP_SERVER_PORT]
-                             (--file FILE | --api_serever API_SEREVER | --discovery_serever DISCOVERY_SEREVER)
+                             (--file FILE | --api_serever API_SEREVER )
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -49,8 +49,6 @@ optional arguments:
   --file FILE           where to look for snmp credentials
   --api_serever API_SEREVER
                         ip:port of api-server for snmp credentials
-  --discovery_serever DISCOVERY_SEREVER
-                        ip:port of dicovery to get api-sever snmp credentials
 
 
 Device File
