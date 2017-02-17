@@ -36,12 +36,12 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogS
   /*
   syslog format: <14>1 2016-12-06T11:38:19.818+02:00 csp-ucpe-bglr51 RT_FLOW: APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26
   reason="TCP RST" source-address="4.0.0.3" source-port="13175" destination-address="5.0.0.7"
-  destination-port="48334" service-name="None" application="MTV" nested-application="None"
+  destination-port="48334" service-name="None" application="HTTP" nested-application="Facebook"
   nat-source-address="10.110.110.10" nat-source-port="13175" destination-address="96.9.139.213"
   nat-destination-port="48334" src-nat-rule-name="None" dst-nat-rule-name="None" protocol-id="6"
   policy-name="dmz-out" source-zone-name="DMZ" destination-zone-name="Internet" session-id-32="44292"
   packets-from-client="7" bytes-from-client="1421" packets-from-server="6" bytes-from-server="1133"
-  elapsed-time="4" username="Frank" roles="Engineering"]
+  elapsed-time="4" username="Frank" roles="Engineering" rule="rule1"]
   */
 
   /*
@@ -271,39 +271,40 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogServ
                 v.insert(std::pair<std::string, SyslogParser::Holder>("device",
                 SyslogParser::Holder("device", device)));
             }
-            std::string an = SyslogParser::GetMapVals(v, "application", "");
-            std::string tar_name = tenant + '-' + an;
-            boost::shared_ptr<TenantApplicationRecord> tar =
-                    config_obj->structured_syslog_config_->GetTenantApplicationRecord(tar_name);
+            std::string an = SyslogParser::GetMapVals(v, "nested-application", "");
+            std::string rule = SyslogParser::GetMapVals(v, "rule", "None");
+            std::string rule_ar_name = tenant + '/' + rule + '/' + device + '/' + an;
+            boost::shared_ptr<TenantApplicationRecord> rar =
+                    config_obj->structured_syslog_config_->GetTenantApplicationRecord(rule_ar_name);
             boost::shared_ptr<ApplicationRecord> ar =
                     config_obj->structured_syslog_config_->GetApplicationRecord(an);
-            if (tar != NULL) {
-                LOG(DEBUG, "StructuredSyslogDecorate tenant application record: " << tar_name);
-                const std::string tenant_app_category = tar->tenant_app_category();
+            if (rar != NULL) {
+                LOG(DEBUG, "StructuredSyslogDecorate device application record: " << rule_ar_name);
+                const std::string tenant_app_category = rar->tenant_app_category();
                 if (!tenant_app_category.empty()) {
                     v.erase("app-category");
                     v.insert(std::pair<std::string, SyslogParser::Holder>("app-category",
                     SyslogParser::Holder("app-category", tenant_app_category)));
                 }
-                const std::string tenant_app_subcategory = tar->tenant_app_subcategory();
+                const std::string tenant_app_subcategory = rar->tenant_app_subcategory();
                 if (!tenant_app_subcategory.empty()) {
                     v.erase("app-subcategory");
                     v.insert(std::pair<std::string, SyslogParser::Holder>("app-subcategory",
                     SyslogParser::Holder("app-subcategory", tenant_app_subcategory)));
                 }
-                const std::string tenant_app_groups = tar->tenant_app_groups();
+                const std::string tenant_app_groups = rar->tenant_app_groups();
                 if (!tenant_app_groups.empty()) {
                     v.erase("app-groups");
                     v.insert(std::pair<std::string, SyslogParser::Holder>("app-groups",
                     SyslogParser::Holder("app-groups", tenant_app_groups)));
                 }
-                const std::string tenant_app_risk = tar->tenant_app_risk();
+                const std::string tenant_app_risk = rar->tenant_app_risk();
                 if (!tenant_app_risk.empty()) {
                     v.erase("app-risk");
                     v.insert(std::pair<std::string, SyslogParser::Holder>("app-risk",
                     SyslogParser::Holder("app-risk", tenant_app_risk)));
                 }
-                const std::string tenant_app_service_tags = tar->tenant_app_service_tags();
+                const std::string tenant_app_service_tags = rar->tenant_app_service_tags();
                 if (!tenant_app_service_tags.empty()) {
                     v.erase("app-service-tags");
                     v.insert(std::pair<std::string, SyslogParser::Holder>("app-service-tags",
@@ -337,7 +338,7 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogServ
                     SyslogParser::Holder("app-risk", app_risk)));
                 }
                 const std::string app_service_tags = ar->app_service_tags();
-                if (!app_risk.empty()) {
+                if (!app_service_tags.empty()) {
                     v.erase("app-service-tags");
                     v.insert(std::pair<std::string, SyslogParser::Holder>("app-service-tags",
                     SyslogParser::Holder("app-service-tags", app_service_tags)));
@@ -649,7 +650,7 @@ void StructuredSyslogServerConfig::Init() {
     tagged_fields = boost::assign::list_of ("tenant") ("source-address") ("tag")
                  ("location") ("app-category") ("app-groups") ("service-tags")
                  ("application") ("nested-application") ("destination-zone-name")
-                 ("source-zone-name") ("username") ("roles") ("hostname")
+                 ("source-zone-name") ("username") ("roles") ("hostname") ("rule")
                  ("session-id-32");
     int_fields = boost::assign::list_of ("packets-from-client") ("bytes-from-client")
                  ("packets-from-server") ("bytes-from-server") ("session-id-32") ("source-port")
