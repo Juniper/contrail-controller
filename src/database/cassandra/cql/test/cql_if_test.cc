@@ -167,6 +167,7 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "column8, column9, column10, column11)) "
         "WITH compaction = {'class': "
         "'org.apache.cassandra.db.compaction.DateTieredCompactionStrategy'} "
+        "AND read_repair_chance = 0.0 "
         "AND gc_grace_seconds = 0");
     EXPECT_EQ(expected_qstring1, actual_qstring1);
 }
