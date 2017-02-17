@@ -11,9 +11,12 @@ import platform
 import ConfigParser
 import socket
 import requests
-from urllib3.exceptions import InsecureRequestWarning
+from requests.packages.urllib3.exceptions import SubjectAltNameWarning
 import warnings
-warnings.simplefilter('ignore', InsecureRequestWarning)
+warnings.filterwarnings('ignore', ".*SNIMissingWarning.*")
+warnings.filterwarnings('ignore', ".*InsecurePlatformWarning.*")
+warnings.filterwarnings('ignore', ".*SubjectAltNameWarning.*")
+warnings.filterwarnings('ignore', category=SubjectAltNameWarning)
 from StringIO import StringIO
 from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
@@ -164,13 +167,14 @@ class EtreeToDict(object):
 #end class EtreeToDict
 
 class IntrospectUtil(object):
-    def __init__(self, ip, port, debug, timeout, keyfile, certfile):
+    def __init__(self, ip, port, debug, timeout, keyfile, certfile, cacert):
         self._ip = ip
         self._port = port
         self._debug = debug
         self._timeout = timeout
         self._certfile = certfile
         self._keyfile = keyfile
+        self._cacert = cacert
     #end __init__
 
     def _mk_url_str(self, path, secure=False):
@@ -183,10 +187,12 @@ class IntrospectUtil(object):
         url = self._mk_url_str(path)
         try:
             resp = requests.get(url, timeout=self._timeout)
+            if resp.status_code == requests.codes.ok:
+                return etree.fromstring(resp.text)
         except requests.ConnectionError:
             url = self._mk_url_str(path, True)
-            resp = requests.get(url, timeout=self._timeout, \
-                    cert=(self._certfile, self._keyfile))
+            resp = requests.get(url, timeout=self._timeout, verify=\
+                    self._cacert, cert=(self._certfile, self._keyfile))
         if resp.status_code == requests.codes.ok:
             return etree.fromstring(resp.text)
         else:
@@ -332,14 +338,14 @@ def get_http_server_port(svc_name, debug):
         http_server_port = get_default_http_server_port(svc_name, debug)
     return http_server_port
 
-def get_svc_uve_status(svc_name, debug, timeout, keyfile, certfile):
+def get_svc_uve_status(svc_name, debug, timeout, keyfile, certfile, cacert):
     # Get the HTTP server (introspect) port for the service
     http_server_port = get_http_server_port(svc_name, debug)
     if http_server_port == -1:
         return None, None
     # Now check the NodeStatus UVE
-    svc_introspect = IntrospectUtil('localhost', http_server_port, debug, \
-                                    timeout, keyfile, certfile)
+    svc_introspect = IntrospectUtil('127.0.0.1', http_server_port, debug, \
+                                    timeout, keyfile, certfile, cacert)
     node_status = svc_introspect.get_uve('NodeStatus')
     if node_status is None:
         if debug:
@@ -362,7 +368,7 @@ def get_svc_uve_status(svc_name, debug, timeout, keyfile, certfile):
             description = 'ToR:%s connection %s' % (connection_info['name'], connection_info['status'].lower())
     return process_status_info[0]['state'], description
 
-def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile):
+def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile, cacert):
     service_sock = service_name.replace('-', '_')
     service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
     if os.path.exists('/tmp/' + service_sock):
@@ -395,7 +401,7 @@ def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile):
                     try:
                         svc_uve_status, svc_uve_description = \
                         get_svc_uve_status(svc_name, debug, timeout, keyfile,\
-                                certfile)
+                                certfile, cacert)
                     except requests.ConnectionError, e:
                         if debug:
                             print 'Socket Connection error : %s' % (str(e))
@@ -430,7 +436,8 @@ def check_status(svc_name, options):
     check_svc(svc_name)
     if init_sys_used not in ['systemd']:
         check_svc_status(svc_name, options.debug, options.detail, \
-                options.timeout, options.keyfile, options.certfile)
+                options.timeout, options.keyfile, options.certfile, \
+                options.cacert)
 
 def contrail_service_status(nodetype, options):
     if nodetype == 'compute':
@@ -496,6 +503,9 @@ def main():
     parser.add_option('-c', '--certfile', dest='certfile', type="string",
                       default="/etc/contrail/ssl/certs/server.pem",
                       help="certificate file to use for HTTP requests to services")
+    parser.add_option('-a', '--cacert', dest='cacert', type="string",
+                      default="/etc/contrail/ssl/certs/ca-cert.pem",
+                      help="ca-certificate file to use for HTTP requests to services")
 
     (options, args) = parser.parse_args()
     if args:
