@@ -174,7 +174,11 @@ struct Dhcpv6Hdr {
 };
 
 struct Dhcpv6Ia {
-    Dhcpv6Ia(Dhcpv6Ia *ptr) : iaid(ptr->iaid), t1(ptr->t1), t2(ptr->t2) {}
+    void Assign(Dhcpv6Ia *ptr) {
+        iaid = ptr->iaid;
+        t1 = ptr->t1;
+        t2 = ptr->t2;
+    }
 
     uint32_t iaid;
     uint32_t t1;
@@ -212,11 +216,25 @@ public:
     typedef boost::scoped_array<uint8_t> Duid;
 
     struct Dhcpv6IaData {
-        Dhcpv6IaData(Dhcpv6Ia *ia_ptr, Dhcpv6IaAddr *ia_addr_ptr) :
-            ia(ia_ptr), ia_addr(ia_addr_ptr) {}
+        void AddIa(Dhcpv6Ia *ia_ptr) {
+            ia.Assign(ia_ptr);
+        }
+        void AddIaAddr(Dhcpv6IaAddr *ia_addr_ptr) {
+            ia_addr.push_back(Dhcpv6IaAddr(ia_addr_ptr));
+        }
+        bool DelIaAddr(const Dhcpv6IaAddr &addr) {
+            for (std::vector<Dhcpv6IaAddr>::iterator it = ia_addr.begin();
+                 it != ia_addr.end(); ++it) {
+                if (memcmp(it->address, addr.address, 16) == 0) {
+                    ia_addr.erase(it);
+                    return true;
+                }
+            }
+            return false;
+        }
 
         Dhcpv6Ia ia;
-        Dhcpv6IaAddr ia_addr;
+        std::vector<Dhcpv6IaAddr> ia_addr;
     };
 
     struct Dhcpv6OptionHandler : DhcpOptionHandler {
@@ -262,7 +280,7 @@ private:
     uint16_t FillDhcpv6Hdr();
     Ip6Address GetNextV6Address(uint8_t addr[]);
     void IncrementByteInAddress(boost::array<uint8_t,16> &bytes, uint8_t index);
-    void WriteIaOption(const Dhcpv6Ia &ia, uint16_t &optlen);
+    void WriteIaOption(uint16_t &optlen);
     uint16_t FillDhcpResponse(const MacAddress &dest_mac,
                               Ip6Address src_ip, Ip6Address dest_ip);
     void SendDhcpResponse();
@@ -287,8 +305,8 @@ private:
     uint16_t server_duid_len_;
     Duid client_duid_;    // client duid
     Duid server_duid_;    // server duid received in the request
-    std::vector<Dhcpv6IaData> iana_;
-    std::vector<Dhcpv6IaData> iata_;
+    bool is_ia_na_;       // true if ia_na, false if ia_ta
+    boost::scoped_ptr<Dhcpv6IaData> ia_na_;
 
     DISALLOW_COPY_AND_ASSIGN(Dhcpv6Handler);
 };
