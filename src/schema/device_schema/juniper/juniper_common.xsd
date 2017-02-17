@@ -141,6 +141,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="DestinationNetworks">
     <xsd:all>
+        <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
