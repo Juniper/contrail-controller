@@ -14,7 +14,6 @@ import traceback
 import uuid
 import struct
 import socket
-import discoveryclient.client as client 
 from pysandesh.util import UTCTimestampUsec
 import select
 import redis
@@ -660,7 +659,6 @@ class UveStreamProc(PartitionHandler):
     #              and get sync contents for new collectors
     #  aginst    : instance_id of alarmgen
     #  rport     : redis server port
-    #  disc      : discovery client to publish to
     def __init__(self, brokers, partition, uve_topic, logger, callback,
             host_ip, rsc, aginst, rport, group="-workers"):
         super(UveStreamProc, self).__init__(brokers, group, 
@@ -672,7 +670,6 @@ class UveStreamProc(PartitionHandler):
         self._host_ip = host_ip
         self._ip_code, = struct.unpack('>I', socket.inet_pton(
                                         socket.AF_INET, host_ip))
-        self.disc_rset = set()
         self._resource_cb = rsc
         self._aginst = aginst
         self._acq_time = UTCTimestampUsec() 
@@ -690,13 +687,12 @@ class UveStreamProc(PartitionHandler):
         This function compares the known collectors with the
         list from discovery, and syncs UVE keys accordingly
         '''
-        newset , coll_delete, chg_res = self._resource_cb(self._partno, self.disc_rset, msgs)
+        newset , coll_delete, chg_res = self._resource_cb(self._partno, msgs)
         for coll in coll_delete:
             self._logger.error("Part %d lost collector %s" % (self._partno, coll))
             self.stop_partition(coll)
         if len(chg_res):
             self.start_partition(chg_res)
-        self.disc_rset = newset
         
     def stop_partition(self, kcoll=None):
         clist = []
@@ -727,7 +723,6 @@ class UveStreamProc(PartitionHandler):
             self._callback(self._partno, chg)
         else:
             # If all collectors are being cleared, clear resoures too
-            self.disc_rset = set()
             self._up = False
 
         return partdb

@@ -837,8 +837,6 @@ def parse_args(args_str):
     args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
     defaults = {
-        'disc_server_ip': '127.0.0.1',
-        'disc_server_port': 5998,
         'node_type': 'storage-compute',
         'log_local': True,
         'log_level': 'SYS_NOTICE',
@@ -875,10 +873,6 @@ def parse_args(args_str):
     defaults.update(sandesh_opts)
     parser.set_defaults(**defaults)
 
-    parser.add_argument("--disc_server_ip",
-                        help="IP address of the discovery server")
-    parser.add_argument("--disc_server_port",
-                        help="Port of the discovery server")
     parser.add_argument("--log_local", action="store_true",
                         help="Enable local logging of sandesh messages")
     parser.add_argument("--node_type",
@@ -916,20 +910,12 @@ def main(args_str=None):
 
     collector_addr = []
     if (args.node_type == 'storage-compute' or args.node_type == 'storage-master'):
-        try:
-            import discovery.client as client
-        except:
-            import discoveryclient.client as client
-
         #storage node module initialization part
         module = Module.STORAGE_STATS_MGR
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
         instance_id = INSTANCE_ID_DEFAULT
-        _disc = client.DiscoveryClient(args.disc_server_ip,
-                                       args.disc_server_port,
-                                       module_name)
         #if args.sandesh_send_rate_limit is not None:
         #    SandeshSystem.set_sandesh_send_rate_limit( \
         #        args.sandesh_send_rate_limit)
@@ -945,7 +931,6 @@ def main(args_str=None):
             module_name,
             HttpPortStorageStatsmgr,
             ['stats_daemon.sandesh.storage'],
-            _disc,
             config=sandesh_config)
 
         sandesh_global.set_logging_params(
