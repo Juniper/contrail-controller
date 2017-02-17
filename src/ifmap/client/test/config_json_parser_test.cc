@@ -165,15 +165,18 @@ protected:
 };
 
 TEST_F(ConfigJsonParserTest, BulkSync) {
-    if (getenv("CONFIG_JSON_PARSER_TEST_DATA_FILE"))
+    if (getenv("CONFIG_JSON_PARSER_TEST_DATA_FILE")) {
+        ConfigCass2JsonAdapter::set_assert_on_parse_error(false);
         ParseEventsJson(getenv("CONFIG_JSON_PARSER_TEST_DATA_FILE"));
-    else
+    } else {
         ParseEventsJson("controller/src/ifmap/client/testdata/bulk_sync.json");
+    }
     FeedEventsJson();
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_NE(0, table->Size());
     if (getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"))
         TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
+    ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
 }
 
 // In a single message, adds vn1, vn2, vn3.
