@@ -331,10 +331,10 @@ bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &obj_type,
         ConfigCass2JsonAdapter ccja(uuid_key, this, obj_type, cass_data_vec);
 
         // Enqueue Json document to the parser here.
-        parser_->Receive(uuid_key, ccja.document(), IFMapOrigin::CASSANDRA);
+        parser_->Receive(ccja, IFMapOrigin::CASSANDRA);
     } else {
         IFMAP_WARN(IFMapGetRowError, "Parsing row response failed for table",
-                   kUuidTableName);
+                   kUuidTableName, uuid_key);
         return false;
     }
 
@@ -401,7 +401,8 @@ bool ConfigCassandraClient::ReadUuidTableRow(const string &obj_type,
         }
     } else {
         HandleCassandraConnectionStatus(false);
-        IFMAP_WARN(IFMapGetRowError, "GetRow failed for table", kUuidTableName);
+        IFMAP_WARN(IFMapGetRowError, "GetRow failed for table", kUuidTableName,
+                   uuid_key);
         //
         // Task is rescheduled to read the request queue
         // Due to a bug CQL driver from datastax, connection status is
@@ -459,7 +460,7 @@ bool ConfigCassandraClient::ReadAllFqnTableRows() {
         } else {
             HandleCassandraConnectionStatus(false);
             IFMAP_WARN(IFMapGetRowError, "GetAllRows failed for table. Retry !",
-                       kFqnTableName);
+                       kFqnTableName, "");
             sleep(kInitRetryTimeSec);
         }
     }
