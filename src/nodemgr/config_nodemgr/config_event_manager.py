@@ -2,6 +2,7 @@
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
+import os
 from gevent import monkey
 monkey.patch_all()
 
@@ -17,10 +18,15 @@ class ConfigEventManager(EventManager):
                  sandesh_config,
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
+
+        if os.path.exists('/tmp/supervisord_config.sock'):
+            supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
+        else:
+            supervisor_serverurl = "unix:///var/run/supervisord_config.sock"
         type_info = EventManagerTypeInfo(package_name = 'contrail-config',
             module_type = Module.CONFIG_NODE_MGR,
             object_table = 'ObjectConfigNode',
-            supervisor_serverurl = 'unix:///var/run/supervisord_config.sock',
+            supervisor_serverurl = supervisor_serverurl,
             unit_names = unit_names)
         EventManager.__init__(
             self, type_info, rule_file, discovery_server,
