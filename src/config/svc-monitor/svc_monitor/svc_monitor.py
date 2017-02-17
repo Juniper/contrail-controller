@@ -717,6 +717,7 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'auth': 'keystone',
     }
     secopts = {
         'use_certs': False,
@@ -828,6 +829,8 @@ def parse_args(args_str):
                         help="Use syslog for logging")
     parser.add_argument("--syslog_facility",
                         help="Syslog facility to receive log lines")
+    parser.add_argument("--auth",
+                        help="Type of authentication")
     parser.add_argument("--admin_user",
                         help="Name of keystone admin user")
     parser.add_argument("--admin_password",
