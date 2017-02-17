@@ -8,7 +8,7 @@ def init_globals
     @db = Hash.new
     @events = [ ]
     @seen = Hash.new(false)
-    @only_initial_sync = true
+    @only_initial_sync = false
 end
 
 def get_uuid (u)
@@ -154,6 +154,7 @@ def parse_nodes (record)
     return if !record.key? "identity" or !record["identity"].key? "name"
     return if record["identity"]["name"] !~ /contrail:(.*?):(.*$)/
     fq_name = $2; type = $1.gsub("-", "_")
+    return if record["metadata"]["id_perms"]["uuid"].nil?
     uuid = get_uuid(record["metadata"]["id_perms"]["uuid"])
     obj = @db[uuid] ||
         ({"uuid" => uuid, "fq_name" => fq_name.split(/:/).to_json,
@@ -165,6 +166,22 @@ def parse_nodes (record)
         if v.kind_of? Hash and v.key? "mac_address" and \
             !v["mac_address"].kind_of? Array
             v["mac_address"] = [v["mac_address"]]
+        end
+        if v.kind_of? Hash and v.key? "policy_rule" and \
+            !v["policy_rule"].kind_of? Array
+            if v["policy_rule"].kind_of? Hash
+                new_v = { }
+                v["policy_rule"].each { |k2, v2|
+                    if !v2.kind_of? Array then
+                        new_v[k2] = [v2] \
+                            if k2 == "src_addresses" or k2 == "dst_addresses"
+                    else
+                        new_v[k2] = v2
+                    end
+                }
+                v["policy_rule"] = new_v
+            end
+            v["policy_rule"] = [v["policy_rule"]]
         end
         obj["prop:" + k] = v
     }
@@ -181,6 +198,7 @@ def parse_nodes (record)
     # uuid = obj["uuid"]
     obj.each {|k, v|
         if v.class == String
+            next if k.nil?
             if k == "fq_name" or k == "uuid" or k.start_with?("ref:")
                 n[k] = v
             else

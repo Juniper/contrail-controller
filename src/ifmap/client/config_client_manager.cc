@@ -151,7 +151,8 @@ bool ConfigClientManager::IsLinkWithAttr(const string &left,
                                       const string &right) const {
     LinkNameMap::const_iterator it =
         link_name_map_.find(make_pair(left, right));
-    assert(it != link_name_map_.end());
+    if (it == link_name_map_.end())
+        return false;
     return it->second.second;
 }
 

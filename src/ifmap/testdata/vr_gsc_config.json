@@ -1,0 +1,26 @@
+[
+  {
+    "operation": "db_sync",
+    "OBJ_FQ_NAME_TABLE": {
+      "global_system_config": {
+        "gsc1:0efbbfc7-059e-4151-a387-501187df6e1e": "null"
+      },
+      "virtual_router": {
+        "vr1:0efbbfc7-059e-4150-a387-501187df6e1d": "null"
+      }
+    },
+    "db": {
+      "0efbbfc7-059e-4151-a387-501187df6e1e": {
+        "fq_name": "[\"gsc1\"]",
+        "type": "\"global_system_config\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"1079667397199020369\",\"uuid_lslong\":\"11783474986262425118\"}}",
+        "ref:virtual_router:0efbbfc7-059e-4150-a387-501187df6e1d": "{\"attr\":{}}"
+      },
+      "0efbbfc7-059e-4150-a387-501187df6e1d": {
+        "fq_name": "[\"vr1\"]",
+        "type": "\"virtual_router\"",
+        "prop:id_perms": "{\"uuid\":{\"uuid_mslong\":\"1079667397199020368\",\"uuid_lslong\":\"11783474986262425117\"}}"
+      }
+    }
+  }
+]
