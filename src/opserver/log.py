@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import argparse
 import json
 import datetime
@@ -44,6 +45,7 @@ class LogQuerier(object):
             'analytics_api_port': '8181',
             'username': 'admin',
             'password': 'contrail123',
+            'configfile': '/etc/contrail/contrail-keystone-auth.conf',
         }
     # end __init__
 
@@ -52,8 +54,9 @@ class LogQuerier(object):
             index = 0
             analytics_api_ip = self._defaults['analytics_api_ip']
             analytics_api_port = self._defaults['analytics_api_port']
-            username = self._defaults['username']
-            password = self._defaults['password']
+            username = ''
+            password = ''
+            configfile = self._defaults['configfile']
             for arg in sys.argv:
                 index = index + 1
                 if arg == "--analytics-api-ip":
@@ -64,6 +67,29 @@ class LogQuerier(object):
                     username = sys.argv[index]
                 elif arg == "--admin-password":
                     password = sys.argv[index]
+                elif arg == "--conf-file":
+                    configfile = sys.argv[index]
+
+            if configfile:
+                config = ConfigParser.SafeConfigParser()
+                config.read(configfile)
+                if 'KEYSTONE' in config.sections():
+                    if username == '':
+                        username = config.get('KEYSTONE', 'admin_user')
+                    if password == '':
+                        password = config.get('KEYSTONE','admin_password')
+
+            if username == '':
+                username = self._defaults['username']
+            if password == '':
+                password = self._defaults['password']
+
+            if self.parse_args() != 0:
+                return
+
+            self._args.admin_user = username
+            self._args.admin_password = password
+
             tab_url = "http://" + analytics_api_ip + ":" +\
                 analytics_api_port + "/analytics/tables"
             tables = OpServerUtils.get_url_http(tab_url,
@@ -78,8 +104,7 @@ class LogQuerier(object):
                             # For object table the mapping between the actual table
                             # name and the table name used in help msg are the same
                             OBJECT_TABLE_MAP[table['name']]=table['name']
-            if self.parse_args() != 0:
-                return
+
             if self._args.tail:
                 start_time = UTCTimestampUsec() - 10*pow(10,6)
                 while True:
@@ -199,6 +224,8 @@ class LogQuerier(object):
             default=self._defaults['username'])
         parser.add_argument("--admin-password", help="Password of admin user",
             default=self._defaults['password'])
+        parser.add_argument("--conf-file", help="Configuration file",
+            default=self._defaults['configfile'])
         self._args = parser.parse_args()
         return 0
     # end parse_args

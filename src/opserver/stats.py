@@ -11,6 +11,7 @@
 #
 
 import sys
+import ConfigParser
 import os
 import argparse
 import json
@@ -26,6 +27,7 @@ class StatQuerier(object):
             'analytics_api_port': '8181',
             'username': 'admin',
             'password': 'contrail123',
+            'configfile': '/etc/contrail/contrail-keystone-auth.conf',
         }
     # end __init__
 
@@ -34,8 +36,9 @@ class StatQuerier(object):
         index = 0
         analytics_api_ip = self._defaults['analytics_api_ip']
         analytics_api_port = self._defaults['analytics_api_port']
-        username = self._defaults['username']
-        password = self._defaults['password']
+        username = ''
+        password = ''
+        configfile = self._defaults['configfile']
         stat_table_list = [xx.stat_type + "." + xx.stat_attr for xx in VizConstants._STAT_TABLES]
         stat_schema_files = []
         for arg in sys.argv:
@@ -48,6 +51,29 @@ class StatQuerier(object):
                 username = sys.argv[index]
             elif arg == "--admin-password":
                 password = sys.argv[index]
+            elif arg == "--conf-file":
+                configfile = sys.argv[index]
+
+        if configfile:
+            config = ConfigParser.SafeConfigParser()
+            config.read(configfile)
+            if 'KEYSTONE' in config.sections():
+                if username == '':
+                    username = config.get('KEYSTONE', 'admin_user')
+                if password == '':
+                    password = config.get('KEYSTONE','admin_password')
+
+        if username == '':
+            username = self._defaults['username']
+        if password == '':
+            password = self._defaults['password']
+
+        if self.parse_args(stat_table_list) != 0:
+            return
+
+        self._args.admin_user = username
+        self._args.admin_password = password
+
         tab_url = "http://" + analytics_api_ip + ":" +\
             analytics_api_port + "/analytics/tables"
         tables = OpServerUtils.get_url_http(tab_url,
@@ -60,9 +86,6 @@ class StatQuerier(object):
                     # append to stat_table_list only if not existing
                     if table_name not in stat_table_list:
                         stat_table_list.append(table_name)
-
-        if self.parse_args(stat_table_list) != 0:
-            return
 
         if len(self._args.select)==0 and self._args.dtable is None: 
             tab_url = "http://" + self._args.analytics_api_ip + ":" +\
@@ -134,6 +157,8 @@ class StatQuerier(object):
         parser.add_argument(
             "--admin-password", help="Password of admin user",
             default="contrail123")
+        parser.add_argument("--conf-file", help="Configuration file",
+            default=self._defaults['configfile'])
         self._args = parser.parse_args()
 
         if self._args.table is None and self._args.dtable is None:
