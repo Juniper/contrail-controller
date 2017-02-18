@@ -11,13 +11,13 @@
 struct FlowLogData {
     1: string             flowuuid;
     2: byte               direction_ing;
-    3: optional string    sourcevn;
-    4: optional ipaddr    sourceip;
-    5: optional string    destvn;
-    6: optional ipaddr    destip;
-    7: optional byte      protocol;
-    8: optional i16       sport;
-    9: optional i16       dport;
+    3: string    sourcevn;
+    4: ipaddr    sourceip;
+    5: string    destvn;
+    6: ipaddr    destip;
+    7: byte      protocol;
+    8: i16       sport;
+    9: i16       dport;
     11: optional u16      tcp_flags;
     12: optional string    vm;
     16: optional string    reverse_uuid;
