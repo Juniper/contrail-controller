@@ -288,7 +288,22 @@ int main(int argc, char *argv[])
     // 6. Kafka Pub
     // 7. Database protobuf if enabled
 
-    std::vector<ConnectionTypeName> expected_connections = boost::assign::list_of
+    std::vector<ConnectionTypeName> expected_connections; 
+    if (options.discovery_server().empty()) {
+        expected_connections = boost::assign::list_of
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::COLLECTOR)->second, ""))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::REDIS_UVE)->second, "To"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::REDIS_UVE)->second, "From"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second,
+                             hostname+":Global"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::KAFKA_PUB)->second, kstr));
+    } else {
+        expected_connections = boost::assign::list_of
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::COLLECTOR)->second, ""))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
@@ -306,6 +321,8 @@ int main(int argc, char *argv[])
                              hostname+":Global"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::KAFKA_PUB)->second, kstr));
+    }
+
     ConnectionStateManager::
         GetInstance()->Init(*a_evm->io_service(),
             hostname, module_id, instance_id,
