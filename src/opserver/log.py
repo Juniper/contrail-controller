@@ -64,6 +64,10 @@ class LogQuerier(object):
                     username = sys.argv[index]
                 elif arg == "--admin-password":
                     password = sys.argv[index]
+            
+            if self.parse_args() != 0:
+                return
+
             tab_url = "http://" + analytics_api_ip + ":" +\
                 analytics_api_port + "/analytics/tables"
             tables = OpServerUtils.get_url_http(tab_url,
@@ -78,8 +82,7 @@ class LogQuerier(object):
                             # For object table the mapping between the actual table
                             # name and the table name used in help msg are the same
                             OBJECT_TABLE_MAP[table['name']]=table['name']
-            if self.parse_args() != 0:
-                return
+
             if self._args.tail:
                 start_time = UTCTimestampUsec() - 10*pow(10,6)
                 while True:
