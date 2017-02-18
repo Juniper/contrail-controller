@@ -114,8 +114,6 @@ class LoadbalancerPoolKM(DBBaseKM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.members = set()
-        self.loadbalancer_healthmonitors = set()
-        self.virtual_machine_interface = None
         self.loadbalancer_listener = None
         self.custom_attributes = []
         self.update(obj_dict)
@@ -138,7 +136,6 @@ class LoadbalancerPoolKM(DBBaseKM):
         self.parent_uuid = obj['parent_uuid']
         self.display_name = obj.get('display_name', None)
         self.update_single_ref('loadbalancer_listener', obj)
-        self.update_multiple_refs('loadbalancer_healthmonitor', obj)
     # end update
 
     @classmethod
@@ -147,7 +144,6 @@ class LoadbalancerPoolKM(DBBaseKM):
             return
         obj = cls._dict[uuid]
         obj.update_single_ref('loadbalancer_listener', {})
-        obj.update_multiple_refs('loadbalancer_healthmonitor', {})
         del cls._dict[uuid]
     # end delete
 # end class LoadbalancerPoolKM
