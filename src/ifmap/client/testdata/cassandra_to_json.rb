@@ -81,7 +81,9 @@ def get_json (file, prefix_index = "")
 end
 
 def convert_to_json
-    File.open("controller/src/ifmap/client/testdata/bulk_sync.json", "w") { |fp|
+    ENV["CONFIG_JSON_PARSER_TEST_DATA_FILE"] =
+        "/tmp/cassandra_db_#{@host}_config_#{Process.pid}.json"
+    File.open(ENV["CONFIG_JSON_PARSER_TEST_DATA_FILE"], "w") { |fp|
         fp.puts JSON.pretty_generate([{
             "operation"=>"db_sync",
             "OBJ_FQ_NAME_TABLE" => get_json(@fq_file),
@@ -91,11 +93,10 @@ def convert_to_json
 end
 
 def main
-    get_cassandra_data
+    get_cassandra_data if ENV["CONFIG_JSON_PARSER_TEST_DATA_FILE"].nil?
     ENV["CONFIG_JSON_PARSER_TEST_INTROSPECT"] ||= "0"
     cmd = "build/debug/ifmap/client/test/config_json_parser_test --gtest_filter=ConfigJsonParserTest.BulkSync"
-    print "CONFIG_JSON_PARSER_TEST_INTROSPECT="
-    puts "#{ENV["CONFIG_JSON_PARSER_TEST_INTROSPECT"]} #{cmd}"
+    puts "CONFIG_JSON_PARSER_TEST_INTROSPECT=#{ENV["CONFIG_JSON_PARSER_TEST_INTROSPECT"]} CONFIG_JSON_PARSER_TEST_DATA_FILE=#{ENV["CONFIG_JSON_PARSER_TEST_DATA_FILE"]} #{cmd}"
     exec(ENV, cmd)
 end
 

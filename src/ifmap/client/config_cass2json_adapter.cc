@@ -38,7 +38,8 @@ const set<string> ConfigCass2JsonAdapter::allowed_properties =
              list_of(prop_prefix)(map_prop_prefix)
                     (list_prop_prefix)(ref_prefix)(parent_prefix);
 
-bool ConfigCass2JsonAdapter::assert_on_parse_error_;
+bool ConfigCass2JsonAdapter::assert_on_parse_error_ =
+    getenv("CONTRAIL_CONFIG_ASSERT_ON_PARSE_ERROR") != NULL;
 
 #define CONFIG_PARSE_ASSERT(t, condition)                                      \
     do {                                                                       \
