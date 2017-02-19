@@ -14,11 +14,10 @@
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/mpls_index.h"
 #include <boost/filesystem.hpp>
-
 BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                          const std::string &name) :
     backup_manager_(manager), agent_(manager->agent()), name_(name),
-    last_modified_time_(UTCTimestampUsec()), audit_required_(true) {
+    last_modified_time_(UTCTimestampUsec()) {
     backup_dir_ = agent_->params()->restart_backup_dir();
     backup_idle_timeout_ = agent_->params()
         ->restart_backup_idle_timeout();
@@ -37,11 +36,6 @@ BackUpResourceTable::~BackUpResourceTable() {
 }
 
 bool BackUpResourceTable::TimerExpiry() {
-    // temporary Code to trigger Audit
-    if (audit_required_ == true) {
-        audit_required_ = false;
-        agent_->resource_manager()->Audit();
-    }
     // Check for Update required otherwise wait for fallback time.
     if (UpdateRequired() || fall_back_count_ >= kFallBackCount) {
         if (WriteToFile()) {
@@ -85,11 +79,64 @@ void BackUpResourceTable::EnqueueRestore(ResourceManager::KeyPtr key,
                                          ResourceManager::DataPtr data) {
     backup_manager()->resource_manager()->EnqueueRestore(key, data);
 }
+
 const std::string
 BackUpResourceTable::FilePath(const std::string &file_name) {
     std::stringstream file_stream;
     file_stream << backup_dir_ << file_name;
     return file_stream.str();
+}
+
+static const std::string TempFilePath(const std::string &file_name) {
+    std::stringstream temp_file_stream;
+    temp_file_stream << file_name << ".tmp";
+    std::ofstream output;
+    output.open(temp_file_stream.str().c_str(),
+            std::ofstream::binary | std::ofstream::trunc);
+    if (!output.good()) {
+       LOG(ERROR, "File open failed" << temp_file_stream.str());
+       output.close();
+       return std::string();
+    }
+
+    output.close();
+    return temp_file_stream.str();
+}
+
+static bool RenameFile(const std::string &file_tmp_name,
+                     const std::string &file_name) {
+    boost::system::error_code ec;
+    boost::filesystem::path tmp_file_path(file_tmp_name.c_str());
+    boost::filesystem::path backup_file_path(file_name.c_str());
+    boost::filesystem::rename(tmp_file_path, backup_file_path, ec);
+    if (ec != 0) {
+        LOG(ERROR, "Resource backup mgr Rename file failed" << ec);
+        return false;
+    }
+    return true;
+}
+// Type T1 is Final output sandesh structure writes in to file
+// Type T2 index map for the specific table
+template <typename T1, typename T2>
+static bool WriteMapToFile(T1* sandesh_data, const T2& index_map,
+                           const std::string &file_name) {
+    uint32_t write_buff_size = 0;
+    int error = 0;
+
+    const std::string temp_file = TempFilePath(file_name);
+    if (temp_file.empty()) {
+        return false;
+    }
+
+    sandesh_data->set_index_map(index_map);
+    sandesh_data->set_time_stamp(UTCTimestampUsec());
+    write_buff_size = sandesh_data->WriteBinaryToFile(temp_file, &error);
+    if (error != 0) {
+        LOG(ERROR, "Sandesh Write Binary failed " << write_buff_size);
+        return false;
+    }
+
+    return RenameFile(temp_file, file_name);
 }
 
 VrfMplsBackUpResourceTable::VrfMplsBackUpResourceTable
@@ -102,34 +149,9 @@ VrfMplsBackUpResourceTable::~VrfMplsBackUpResourceTable() {
 }
 
 bool VrfMplsBackUpResourceTable::WriteToFile() {
-    std::auto_ptr<uint8_t>write_buf;
-    uint32_t write_buff_size = 0;
-    uint32_t size = 0;
-    int error = 0;
-
-    VrfMplsResourceMapSandesh map;
-    map.set_index_map(map_);
-    map.set_time_stamp(UTCTimestampUsec());
-    // calculating some heuristic size for the buffer
-    // Can be enhanced by giving the Stream as argument to WriteBinary
-    size = map_.size() * kVrfMplsRecordSize + kSandeshMetaDataSize;
-    write_buf.reset(new uint8_t [size]);
-    error = 0;
-    write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-    if (error != 0) {
-        //calculating size by encoding the Sandesh structure
-        size = map.ToString().size();
-        write_buf.reset(new uint8_t [size]);
-        write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-        if (error != 0) {
-            LOG(ERROR, "Sandesh Write Binary failed ");
-            return false;
-        }
-    }
-
-    return backup_manager()->SaveResourceDataToFile(vrf_file_name_str_,
-                                                    write_buf.get(),
-                                                    write_buff_size);
+    VrfMplsResourceMapSandesh sandesh_data;
+    return WriteMapToFile<VrfMplsResourceMapSandesh, Map>
+        (&sandesh_data, map_, vrf_file_name_str_);
 }
 
 void VrfMplsBackUpResourceTable::ReadFromFile() {
@@ -178,34 +200,9 @@ RouteMplsBackUpResourceTable::~RouteMplsBackUpResourceTable() {
 }
 
 bool  RouteMplsBackUpResourceTable::WriteToFile() {
-    std::auto_ptr<uint8_t>write_buf;
-    uint32_t write_buff_size = 0;
-    uint32_t size = 0;
-    int error = 0;
-
-    RouteMplsResourceMapSandesh map;
-    map.set_index_map(map_);
-    map.set_time_stamp(UTCTimestampUsec());
-    // calculating some heuristic size for the buffer
-    // Can be enhanced by giving the Stream as argument to WriteBinary
-    size = map_.size() * KRouteMplsRecordSize + kSandeshMetaDataSize;
-    write_buf.reset(new uint8_t [size]);
-    error = 0;
-    write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-    if (error != 0) {
-        //Calculating size by encoding Sandesh structure again
-        size = map.ToString().size();
-        write_buf.reset(new uint8_t [size]);
-        write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-        if (error != 0) {
-            LOG(ERROR, "Sandesh Write Binary failed ");
-            return false;
-        }
-    }
-    
-    return backup_manager()->SaveResourceDataToFile(route_file_name_str_,
-                                                    write_buf.get(),
-                                                    write_buff_size);
+    RouteMplsResourceMapSandesh sandesh_data;
+    return WriteMapToFile<RouteMplsResourceMapSandesh, Map>
+        (&sandesh_data, map_, route_file_name_str_);
 }
 
 void RouteMplsBackUpResourceTable::ReadFromFile() {
@@ -255,34 +252,9 @@ InterfaceMplsBackUpResourceTable::~InterfaceMplsBackUpResourceTable() {
 }
 
 bool InterfaceMplsBackUpResourceTable::WriteToFile() {
-    std::auto_ptr<uint8_t>write_buf;
-    uint32_t write_buff_size = 0;
-    uint32_t size = 0;
-    int error = 0;
-
-    InterfaceIndexResourceMapSandesh map;
-    map.set_index_map(map_);
-    map.set_time_stamp(UTCTimestampUsec());
-    // calculating some heuristic size for the buffer
-    // Can be enhanced by giving the Stream as argument to WriteBinary
-    size = map_.size() * KInterfaceMplsRecordSize + kSandeshMetaDataSize;
-    write_buf.reset(new uint8_t [size]);
-    error = 0;
-    write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-    if (error != 0) {
-        //Calculating size by encoding Sandesh structure again
-        size = map.ToString().size();
-        write_buf.reset(new uint8_t [size]);
-        write_buff_size = map.WriteBinary(write_buf.get(), size, &error);
-        if (error != 0) {
-            LOG(ERROR, "Sandesh Write Binary failed ");
-            return false;
-        }
-    }
-
-    return backup_manager()->SaveResourceDataToFile(interface_file_name_str_,
-                                                    write_buf.get(),
-                                                    write_buff_size);
+    InterfaceIndexResourceMapSandesh sandesh_data;
+    return WriteMapToFile<InterfaceIndexResourceMapSandesh, Map>
+        (&sandesh_data, map_, interface_file_name_str_);
 }
 
 void InterfaceMplsBackUpResourceTable::ReadFromFile() {

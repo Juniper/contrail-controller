@@ -47,9 +47,6 @@ public:
 
     void Init();
     ResourceSandeshMaps& sandesh_maps();
-    bool SaveResourceDataToFile(const std::string &file_name,
-                                const uint8_t *buffer,
-                                uint32_t size);
     uint32_t ReadResourceDataFromFile(const std::string &file_name,
                                       uint8_t **buf);
 
