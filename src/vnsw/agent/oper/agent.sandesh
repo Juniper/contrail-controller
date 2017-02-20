@@ -312,6 +312,8 @@ struct VnIpamData {
     5: string dhcp_enable;
     /** Ip address of dns server for virtual-network ipam */
     6: string dns_server;
+    /** List of Community values attached to Subnet*/
+    7: list<string> community_list;
 }
 
 /**

@@ -969,6 +969,61 @@ TEST_F(IntfTest, VmPortPolicy_2) {
 
 }
 
+TEST_F(IntfTest, IntfRouteCommunities) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.10");
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    // Add ipam for subnet 1.1.1.0/24 with community values
+    std::vector<std::string> communities = list_of("64512:200")("64512:500");
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.1", true, 1, communities},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    InetUnicastRouteEntry *rt;
+    const AgentPath *path;
+    WAIT_FOR(1000, 1000,
+             ((rt = RouteGet("vrf1", ip, 32)) != NULL &&
+              (path = rt->GetActivePath()) != NULL));
+    // Validate the community values in the route path
+    EXPECT_EQ(path->communities().size(), 2);
+    EXPECT_EQ(path->communities(), communities);
+
+    // trigger update to community values
+    std::vector<std::string> communities_2 = list_of("64512:200");
+    IpamInfo ipam_info_2[] = {
+        {"1.1.1.0", 24, "1.1.1.1", true, 1, communities_2},
+    };
+
+    AddIPAM("vn1", ipam_info_2, 1);
+    client->WaitForIdle();
+
+    rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    path = rt->GetActivePath();
+    EXPECT_TRUE(path != NULL);
+    WAIT_FOR(100, 1000, (path->communities().size() == 1));
+    // validate path with updated communities
+    EXPECT_EQ(path->communities(), communities_2);
+
+    DelIPAM("vn1");
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+}
+
 // Floating IP add
 TEST_F(IntfTest, VmPortFloatingIp_1) {
     client->Reset();
@@ -1038,6 +1093,84 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     client->WaitForIdle();
     ConfigDel(1);
     client->WaitForIdle();
+}
+
+TEST_F(IntfTest, VmPortFloatingIpCommunities) {
+    AddVn("default-project:vn2", 2);
+    AddVrf("default-project:vn2:vn2", 2);
+    AddLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    client->WaitForIdle();
+
+    // Add ipam for subnet 2.1.1.0/24 with community values
+    std::vector<std::string> communities = list_of("64512:200")("64512:500");
+    IpamInfo ipam_info[] = {
+        {"2.1.1.0", 24, "2.1.1.1", true, 1, communities},
+    };
+
+    AddIPAM("default-project:vn2", ipam_info, 1);
+    client->WaitForIdle();
+
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    Ip4Address ip = Ip4Address::from_string("2.1.1.100");
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "2.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    InetUnicastRouteEntry *rt;
+    const AgentPath *path;
+    WAIT_FOR(1000, 1000,
+             ((rt = RouteGet("default-project:vn2:vn2", ip, 32)) != NULL &&
+              (path = rt->GetActivePath()) != NULL));
+    // validate relavant communities in the route path
+    EXPECT_EQ(path->communities().size(), 2);
+    EXPECT_EQ(path->communities(), communities);
+
+    // trigger update to communities attached to subnet
+    std::vector<std::string> communities_2 = list_of("64512:200");
+    IpamInfo ipam_info_2[] = {
+        {"2.1.1.0", 24, "2.1.1.1", true, 1, communities_2},
+    };
+
+    AddIPAM("default-project:vn2", ipam_info_2, 1);
+    client->WaitForIdle();
+
+    rt = RouteGet("default-project:vn2:vn2", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    path = rt->GetActivePath();
+    EXPECT_TRUE(path != NULL);
+    // validate the updated communities in route path
+    WAIT_FOR(100, 1000, (path->communities().size() == 1));
+    EXPECT_EQ(path->communities(), communities_2);
+
+    DelIPAM("default-project:vn2");
+    client->WaitForIdle();
+
+    DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    DelLink("virtual-machine-interface", "intf1", "floating-ip", "fip1");
+    DelLink("virtual-network", "default-project:vn2", "routing-instance",
+            "default-project:vn2:vn2");
+    DelVn("default-project:vn2");
+    DelVrf("default-project:vn2:vn2");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
 }
 
 // Floating IP add
