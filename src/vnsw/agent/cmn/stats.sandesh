@@ -13,7 +13,8 @@
  */
 
 /**
- * Request message to get agent stats in agent introspect
+ * @description: Request message to get stats for pkt traps, flow, xmpp conection, ipc
+ * @cli_name: read agent stats
  */
 request sandesh AgentStatsReq {
 }

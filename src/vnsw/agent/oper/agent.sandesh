@@ -25,9 +25,6 @@ enum AgentConsts {
     MAX_SANDESH_COUNT = 256
 }
 
-/**
- * Request for oper table
- */
 request sandesh PageReq {
     /** key for oper table */
     1: string key;
@@ -801,7 +798,8 @@ struct MirrorEntrySandeshData {
 }
 
 /**
- * Request message for agent init state
+ * @description: Request message for agent init state
+ * @cli_name: read agent init state
  */
 request sandesh AgentInitStateReq {
 }
@@ -857,7 +855,8 @@ traceobject sandesh SgObjectTrace {
 }
 
 /**
- * Request message for security group request
+ * @description: Request message for security group request
+ * @cli_name: read agent operdb sg list
  */
 request sandesh SgListReq {
     /** Security group name */
@@ -873,7 +872,8 @@ response sandesh SgListResp {
 }
 
 /**
- * Request message for virtual network list from oper db
+ * @description: Request message for virtual network list from oper db
+ * @cli_name: read agent operdb vn list
  */
 request sandesh VnListReq {
     /** Name of virtual network */
@@ -895,7 +895,8 @@ response sandesh VnListResp {
 }
 
 /**
- * Request message for virtual machine list from oper db
+ * @description: Request message for virtual machine list from oper db
+ * @cli_name: read agent operdb vm list
  */
 request sandesh VmListReq {
     /** Uuid of virtual machine */
@@ -911,7 +912,8 @@ response sandesh VmListResp {
 }
 
 /**
- * Request message for next hop list from oper db
+ * @description: Request message for next hop list from oper db
+ * @cli_name: read agent operdb nexthop list
  */
 request sandesh NhListReq {
     /** Type of next-hop */
@@ -931,7 +933,8 @@ response sandesh NhListResp {
 }
 
 /**
- * Request message for vrf list from oper db
+ * @description: Request message for vrf list from oper db
+ * @cli_name: read agent operdb vrf list
  */
 request sandesh VrfListReq {
     /** Name of vrf */
@@ -947,7 +950,8 @@ response sandesh VrfListResp {
 }
 
 /**
- * Request message for Inet4 Unicast routes from oper db
+ * @description: Request message for Inet4 Unicast routes from oper db
+ * @cli_name: read agent operdb inet4route list
  */
 request sandesh Inet4UcRouteReq {
     /** Vrf index associated with unicast route entries */
@@ -969,7 +973,8 @@ response sandesh Inet4UcRouteResp {
 }
 
 /**
- * Request message for Inet6 Unicast routes from oper db
+ * @description: Request message for Inet6 Unicast routes from oper db
+ * @cli_name: read agent operdb inet6route list
  */
 request sandesh Inet6UcRouteReq {
     /** Vrf index associated with inet6 unicast route entries */
@@ -991,7 +996,8 @@ response sandesh Inet6UcRouteResp {
 }
 
 /**
- * Request message for Inet4 multicast routes from oper db
+ * @description: Request message for Inet4 multicast routes from oper db
+ * @cli_name: read agent operdb mcastroute list
  */
 request sandesh Inet4McRouteReq {
     /** Vrf index associated with multicast route entries */
@@ -1009,7 +1015,8 @@ response sandesh Inet4McRouteResp {
 }
 
 /**
- * Request message for L2 routes from oper db
+ * @description: Request message for L2 routes from oper db
+ * @cli_name: read agent operdb l2route list
  */
 request sandesh Layer2RouteReq {
     /** Vrf index associated with l2 route entries */
@@ -1029,7 +1036,8 @@ response sandesh Layer2RouteResp {
 }
 
 /**
- * Request message for bridge routes from oper db
+ * @description: Request message for bridge routes from oper db
+ * @cli_name: read agent operdb bridgeroute list
  */
 request sandesh BridgeRouteReq {
     /** Vrf index associated with bridge route entries */
@@ -1049,7 +1057,8 @@ response sandesh BridgeRouteResp {
 }
 
 /**
- * Request message for evpn routes from oper db
+ * @description: Request message for evpn routes from oper db
+ * @cli_name: read agent operdb evpnroute list
  */
 request sandesh EvpnRouteReq {
     /** Vrf index associated with evpn route entries */
@@ -1069,7 +1078,8 @@ response sandesh EvpnRouteResp {
 }
 
 /**
- * Request message for interface details from oper db
+ * @description: Request message for interface details from oper db
+ * @cli_name: read agent operdb interface list
  */
 request sandesh ItfReq {
     /** Name of the interface */
@@ -1105,7 +1115,8 @@ response sandesh ItfResp {
 }
 
 /**
- * Request message for mpls label list from oper db
+ * @description: Request message for mpls label list from oper db
+ * @cli_name: read agent operdb mplslabel list
  */
 request sandesh MplsReq {
     /** Mpls label type - invalid/vport_nh/mcast_nh */
@@ -1137,7 +1148,8 @@ struct VrfAssignSandeshData {
 }
 
 /**
- * Request message for vrf assignment list
+ * @description: Request message for vrf assignment list
+ * @cli_name: read agent operdb vrfassign list
  */
 request sandesh VrfAssignReq {
     /** Uuid of vrf assignment entry */
@@ -1153,7 +1165,8 @@ response sandesh VrfAssignResp {
 }
 
 /**
- * Request message for mirror entry
+ * @description: Request message for mirror entry
+ * @cli_name: read agent operdb mirror list
  */
 request sandesh MirrorEntryReq {
     /** Name of analyzer to mirror entry */
@@ -1177,7 +1190,8 @@ response sandesh ErrorResp {
 }
 
 /**
- * Request message for LinkLocalServiceInfo
+ * @description: Request message for LinkLocalServiceInfo
+ * @cli_name: read agent operdb linklocalservice list
  */
 request sandesh LinkLocalServiceInfo {
 }
@@ -1407,7 +1421,8 @@ struct AclSandeshData {
 }
 
 /**
- * Request Acl object with given uuid
+ * @description: Request Acl object with given uuid
+ * @cli_name: read agent operdb acl list
  */
 request sandesh AclReq {
     /** Uuid of acl entry */
@@ -1423,16 +1438,14 @@ response sandesh AclResp {
 }
 
 /**
- * Request message for flow_entries per acl 
+ * @description: Request message for flow_entries per acl
+ * @cli_name: read agent operdb aclflow list
  */
 request sandesh AclFlowReq {
     /** Uuid of flow entry per acl */
     1: string uuid;
 }
 
-/**
- * Request message for next flow_entry with iteration_key 
- */
 request sandesh NextAclFlowReq {
     /** Iteration key for next flow acl entry */
     1: string iteration_key;
@@ -1453,16 +1466,14 @@ response sandesh AclFlowResp {
 }
 
 /**
- * Get flow count for an acl with given uuid
+ * @description: Get flow count for an acl with given uuid
+ * @cli_name: read agent operdb acl flowcount list
  */
 request sandesh AclFlowCountReq {
     /** Uuid of acl flow entry */
     1: string uuid;
 }
 
-/**
- * Get next flow entry for an acl with given iteration_key
- */
 request sandesh NextAclFlowCountReq {
     /** Iteration key for next acl flow count entry */
     1: string iteration_key;
@@ -1552,7 +1563,8 @@ traceobject sandesh PathPreferenceTrace {
 }
 
 /**
- * Request for mirror create from agent introspect
+ * @description: Request for mirror create from agent introspect
+ * @cli_name: create mirror
  */ 
 request sandesh MirrorCreateReq {
     /** Handle for mirror create request */
@@ -1577,15 +1589,13 @@ request sandesh MirrorCreateReq {
 
     /** Source port start value for mirroring, -1 for any */
     9: i32 start_src_port;
-    /** Source port end value for mirroring, will be same as start value if
-     * not provided
+    /** Source port end value for mirroring, will be same as start value if not provided
      */
     10: i32 end_src_port;
 
     /** Destination port start value for mirroring, -1 for any */
     11: i32 start_dst_port;
-    /** Destination port end value for mirroring, will be same as start value if
-     * not provided
+    /** Destination port end value for mirroring, will be same as start value if not provided
      */
     12: i32 end_dst_port;
 
@@ -1602,13 +1612,11 @@ request sandesh MirrorCreateReq {
     17: string mirror_vrf;
     /** Mode of next-hop associated with mirroring - dynamic/static */
     18: optional string nhmode;
-    /** Boolean field which indicates presence of juniper header in mirror
-     * packets */
+    /** Boolean field which indicates presence of juniper header in mirror packets */
     19: optional bool juniperheader;
     /** Mac address of analyzer vm for mirroring */
     20: optional string analyzer_vm_mac;
-    /** Ip address of tunnel-endpoint where tunnel is terminated for
-     * mirror packets */
+    /** Ip address of tunnel-endpoint where tunnel is terminated for mirror packets */
     21: optional string vtep_dst_ip;
     /** Mpls label for mirroring */
     22: optional i32 vni;
@@ -1627,7 +1635,8 @@ response sandesh MirrorCfgResp {
 }
 
 /**
- * Request mirror delete from agent introspect
+ * @description: Request mirror delete from agent introspect
+ * @cli_name: delete mirror
  */
 request sandesh MirrorDeleteReq {
     /** Handle for mirror delete request */
@@ -1635,7 +1644,8 @@ request sandesh MirrorDeleteReq {
 }
 
 /**
- * Mirror cfg display
+ * @description: Mirror cfg display
+ * @cli_name: read agent operdb mirrorcfg list
  */
 request sandesh MirrorCfgDisplayReq {
     /** Handle for mirror configuration display request */
@@ -1643,7 +1653,8 @@ request sandesh MirrorCfgDisplayReq {
 }
 
 /**
- * Request for VxLan info
+ * @description: Request for VxLan info
+ * @cli_name: read agent operdb vxlan list
  */
 request sandesh VxLanReq {
     /** Id of vxlan entry */
@@ -1676,7 +1687,8 @@ response sandesh VxLanConfigResp {
 }
 
 /**
- * Response for VxLan config 
+ * @description: Response for VxLan config
+ * @cli_name: read agent operdb vxlan config list
  */
 request sandesh VxLanConfigReq {
     /** Id of vxlan entry */
@@ -1696,7 +1708,8 @@ response sandesh VxLanResp {
 }
 
 /**
- * Request for ServiceInstance list with given uuid
+ * @description: Request for ServiceInstance list with given uuid
+ * @cli_name: read agent operdb si list
  */
 request sandesh ServiceInstanceReq {
     /** Uuid of service instance */
@@ -1771,7 +1784,8 @@ response sandesh MirrorCfgDisplayResp {
 }
 
 /**
- * Request for mirror cfg vn info
+ * @description: Request for mirror cfg vn info
+ * @cli_name: read agent operdb mirrorconfig vn list
  */
 request sandesh MirrorCfgVnInfoReq {
     /** Name of vn associated with mirror config */
@@ -1821,7 +1835,8 @@ struct IntfMirrorCfgSandesh {
 }
 
 /**
- * Request for Interface Mirror Create
+ * @description: Request for Interface Mirror Create
+ * @cli_name: create interface mirror
  */
 request sandesh IntfMirrorCreateReq {
     /** Handle for interface mirror create request */
@@ -1840,13 +1855,11 @@ request sandesh IntfMirrorCreateReq {
     7: optional string mirror_vrf;
     /** Mode of next-hop associated with mirroring - dynamic/static */
     8: optional string nhmode;
-    /** Boolean field which indicates presence of juniper header in mirror
-     * packets */
+    /** Boolean field which indicates presence of juniper header in mirror packets */
     9: optional bool juniperheader;
    /** Mac address of analyzer vm for mirroring */
    10: optional string analyzer_vm_mac;
-   /** Ip address of tunnel-endpoint where tunnel is terminated for
-     * mirror packets */
+   /** Ip address of tunnel-endpoint where tunnel is terminated for mirror packets */
    11: optional string vtep_dst_ip;
    /** Mpls label for mirroring */
    12: optional i32 vni;
@@ -1857,7 +1870,8 @@ request sandesh IntfMirrorCreateReq {
 }
 
 /**
- * Request for Interface Mirror Delete
+ * @description: Request for Interface Mirror Delete
+ * @cli_name: delete interface mirror
  */
 request sandesh IntfMirrorDeleteReq {
     /** Handle for interface mirror delete request */
@@ -1865,7 +1879,8 @@ request sandesh IntfMirrorDeleteReq {
 }
 
 /**
- * Request for Interface Mirror Config
+ * @description: Request for Interface Mirror Config
+ * @cli_name: read agent operdb intfmirrorconfig list
  */
 request sandesh IntfMirrorCfgDisplayReq {
     /** Handle for interface mirror display request */
@@ -1911,13 +1926,15 @@ response sandesh UnresolvedRouteResp {
 }
 
 /**
- * Request message for unresolved nexthop list
+ * @description: Request message for unresolved nexthop list
+ * @cli_name: read agent operdb unresolvednh list
  */
 request sandesh UnresolvedNH {
 }
 
 /**
- * Get unresolved routes
+ * @description: Get unresolved routes
+ * @cli_name: read agent operdb unresolvedroute list
  */
 request sandesh UnresolvedRoute {
 }
@@ -2532,7 +2549,8 @@ response sandesh SandeshDeviceListResp {
 }
 
 /**
- * Request physical device list
+ * @description: Request physical device list
+ * @cli_name: read agent operdb physicaldevice list
  */
 request sandesh SandeshDeviceReq {
     /** Name of physical device */
@@ -2598,7 +2616,8 @@ response sandesh SandeshPhysicalDeviceVnListResp {
 }
 
 /**
- * Request physical device vn list
+ * @description: Request physical device vn list
+ * @cli_name: read agent operdb physicaldevvn list
  */
 request sandesh SandeshPhysicalDeviceVnReq {
     /** Name of physical device */
@@ -2632,7 +2651,8 @@ response sandesh SandeshConfigPhysicalDeviceVnListResp {
 }
 
 /**
- * Request for physical device vn list config
+ * @description: Request for physical device vn list config
+ * @cli_name: read agent operdb physicaldevvnconfig list
  */
 request sandesh SandeshConfigPhysicalDeviceVnReq {
     /** Name of physical device */
@@ -2695,7 +2715,8 @@ struct VrouterObjectLimits {
 }
 
 /**
- * Request vrouter limit parameters
+ * @description: Request vrouter limit parameters
+ * @cli_name: read agent operdb vrouter object limits
  */
 request sandesh VrouterObjectLimitsReq {
 }
@@ -2737,7 +2758,8 @@ response sandesh IFMapNodePolicyResp {
 }
 
 /**
- * Request message for if map node policy list
+ * @description: Request message for if map node policy list
+ * @cli_name: read agent operdb ifnode policy list
  */
 request sandesh IFMapNodePolicyReq {
     /** Name of ifmap node */
@@ -2801,7 +2823,8 @@ struct HealthCheckSandeshData {
 }
 
 /**
- * Request health check instances list
+ * @description: Request health check instances list
+ * @cli_name: read agent operdb healthcheck instances list
  */
 request sandesh HealthCheckSandeshReq {
     /** Uuid of health check instance */
@@ -2829,7 +2852,8 @@ struct BgpAsAServiceSandeshList {
 }
 
 /**
- * Request bgp service list
+ * @description: Request bgp service list
+ * @cli_name: read agent operdb bgp service list
  */
 request sandesh BgpAsAServiceSandeshReq {
 }
@@ -2875,7 +2899,8 @@ struct QosQueueSandeshData {
 }
 
 /**
- * Sandesh request for QOS queue
+ * @description: Sandesh request for QOS queue
+ * @cli_name: read agent operdb qosqueue list
  */
 request sandesh QosQueueSandeshReq {
     /** Uuid of qos queue */
@@ -2915,7 +2940,8 @@ struct ForwardingClassSandeshData {
 }
 
 /**
- * Request QOS config instances list
+ * @description: Request QOS forwarding class list
+ * @cli_name: read agent operdb fc list
  */
 request sandesh ForwardingClassSandeshReq {
     /** Uuid of qos config instance */
@@ -2967,7 +2993,8 @@ struct AgentQosConfigSandeshData {
 }
 
 /**
- * Request QOS config instances list
+ * @description: Request QOS config instances list
+ * @cli_name: read agent operdb qc instances list
  */
 request sandesh AgentQosConfigSandeshReq {
     /** Uuid of qos config instance */
@@ -3003,6 +3030,10 @@ struct BridgeDomainSandeshData {
     7: string pbb_etree_enabled;
 }
 
+/**
+ * @description: Request message to get operdb bridge domain list
+ * @cli_name: read agent operdb bridgedoamin list
+ */
 request sandesh BridgeDomainSandeshReq {
     /** UUID of bridge domain to query for */
     1: string uuid;
@@ -3016,7 +3047,8 @@ response sandesh BridgeDomainSandeshResp {
 }
 
 /**
- * Request to add QOS queue
+ * @description: Request to add QOS queue
+ * @cli_name: create qos queue
  */
 request sandesh AddQosQueue {
     /** Uuid of qos queue to be added */
@@ -3028,7 +3060,8 @@ request sandesh AddQosQueue {
 }
 
 /**
- * Request to delete QOS queue
+ * @description: Request to delete QOS queue
+ * @cli_name: delete qos queue
  */
 request sandesh DeleteQosQueue {
     /** Uuid of qos queue to be deleted */
@@ -3036,7 +3069,8 @@ request sandesh DeleteQosQueue {
 }
 
 /**
- * Request to add QOS forwarding class
+ * @description: Request to add QOS forwarding class
+ * @cli_name: create forwarding class
  */
 request sandesh AddForwardingClass {
     /** Uuid of qos forwarding class to be added */
@@ -3056,7 +3090,8 @@ request sandesh AddForwardingClass {
 }
 
 /**
- * Request to delete QOS forwarding class
+ * @description: Request to delete QOS forwarding class
+ * @cli_name: delete forwarding class
  */
 request sandesh DeleteForwardingClass {
     /** Uuid of qos forwarding class to be deleted */
@@ -3064,7 +3099,8 @@ request sandesh DeleteForwardingClass {
 }
 
 /**
- * Request to add QOS config
+ * @description: Request to add QOS config
+ * @cli_name: create qos config
  */
 request sandesh AddQosConfig {
     /** Uuid of qos config to be added */
@@ -3088,7 +3124,8 @@ request sandesh AddQosConfig {
 }
 
 /**
- * Request to delete QOS config
+ * @description: Request to delete QOS config
+ * @cli_name: delete qos config
  */
 request sandesh DeleteQosConfig {
     /** Uuid of qos config to be deleted */
@@ -3096,7 +3133,8 @@ request sandesh DeleteQosConfig {
 }
 
 /**
- * Request to add vmi QOS config
+ * @description: Request to add vmi QOS config
+ * @cli_name: create vmi qos config
  */
 request sandesh AddVmiQosConfig {
     /** Uuid of vmi associated with qos config to be added */

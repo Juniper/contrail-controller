@@ -23,12 +23,19 @@ struct SandeshMacEntry {
     7: i32 partition;
 }
 
+/**
+ * @description: Request message to get vrf mac entry
+ * @cli_name: read vrfmac list
+ */
 request sandesh FetchMacEntry {
+    /** vrf id */
     1: i32 vrf_id;
+    /** mac address */
     2: string mac;
 }
 
 request sandesh NextMacEntrySet {
+    /** mac entry key */
     1: string mac_entry_key;
 }
 

@@ -59,7 +59,8 @@ response sandesh OvsdbClientResp {
 }
 
 /**
- * Request message to get ovsdb client configuration
+ * @description: Request message to get ovsdb client configuration
+ * @cli_name: read ovsdb client info
  */
 request sandesh OvsdbClientReq {
 }
@@ -82,9 +83,6 @@ traceobject sandesh OvsdbError {
     1: string error;
 }
 
-/**
- * Request message to get ovsdb table entries filtered by given key
- */
 request sandesh OvsdbPageReq {
     1: string key;
 }
@@ -125,7 +123,8 @@ response sandesh OvsdbPhysicalSwitchResp {
 }
 
 /**
- * Request message for ovsdb physical switch list
+ * @description: Request message for ovsdb physical switch list
+ * @cli_name: read ovsdb physical switch list
  */
 request sandesh OvsdbPhysicalSwitchReq {
     1: string session_remote_ip;
@@ -178,7 +177,8 @@ response sandesh OvsdbPhysicalPortResp {
 }
 
 /**
- * Request message for ovsdb physical port entry list
+ * @description: Request message for ovsdb physical port entry list
+ * @cli_name: read ovsdb physical port list
  */
 request sandesh OvsdbPhysicalPortReq {
     1: string session_remote_ip;
@@ -209,7 +209,8 @@ response sandesh OvsdbLogicalSwitchResp {
 }
 
 /**
- * Request message for ovsdb logical switch entry list
+ * @description: Request message for ovsdb logical switch entry list
+ * @cli_name: read ovsdb logical switch list
  */
 request sandesh OvsdbLogicalSwitchReq {
     1: string session_remote_ip;
@@ -259,7 +260,8 @@ response sandesh OvsdbVlanPortBindingResp {
 }
 
 /**
- * Request message to get ovsdb port binding entry list
+ * @description: Request message to get ovsdb port binding entry list
+ * @cli_name: read ovsdb port binding list
  */
 request sandesh OvsdbVlanPortBindingReq {
     1: string session_remote_ip;
@@ -289,7 +291,8 @@ response sandesh OvsdbUnicastMacLocalResp {
 }
 
 /**
- * Request message to get unicast local mac entry list
+ * @description: Request message to get unicast local mac entry list
+ * @cli_name: read local mac list
  */
 request sandesh OvsdbUnicastMacLocalReq {
     1: string session_remote_ip;
@@ -319,7 +322,8 @@ response sandesh OvsdbVrfResp {
 }
 
 /**
- * Request message for ovsdb vrf entry list
+ * @description: Request message for ovsdb vrf entry list
+ * @cli_name: read ovsdb vrf list
  */
 request sandesh OvsdbVrfReq {
     1: string session_remote_ip;
@@ -354,7 +358,8 @@ response sandesh OvsdbUnicastMacRemoteResp {
 }
 
 /**
- * Request message for ovsdb remote unicast mac entry list
+ * @description: Request message for ovsdb remote unicast mac entry list
+ * @cli_name: read ovsdb remote mac list
  */
 request sandesh OvsdbUnicastMacRemoteReq {
     1: string session_remote_ip;
@@ -405,7 +410,8 @@ response sandesh OvsdbMulticastMacLocalResp {
 }
 
 /**
- * Request message to get ovsdb multicat local mac entries list
+ * @description: Request message to get ovsdb multicast local mac entries list
+ * @cli_name: read ovsdb mcastmac list
  */
 request sandesh OvsdbMulticastMacLocalReq {
     1: string session_remote_ip;
@@ -434,7 +440,8 @@ response sandesh OvsdbHaStaleDevVnExportResp {
 }
 
 /**
- *  Request message for HA Stale Dev VN list
+ *  @description: Request message for HA Stale Dev VN list
+ *  @cli_name: read ovsdb hastale devvn list
  */
 request sandesh OvsdbHaStaleDevVnExportReq {
     1: string dev_name;
@@ -462,7 +469,8 @@ response sandesh OvsdbHaStaleL2RouteExportResp {
 }
 
 /**
- * Request message for HA Stale L2 route list
+ * @description: Request message for HA Stale L2 route list
+ * @cli_name: read ovsdb hastale l2route list
  */
 request sandesh OvsdbHaStaleL2RouteExportReq {
     1: string dev_name;
