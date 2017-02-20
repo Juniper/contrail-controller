@@ -21,61 +21,71 @@ enum ServicesConsts {
 }       
 
 /**
- * Request message to get dhcp info from services introspect
+ * @description: Request message to get dhcp info from services introspect
+ * @cli_name: read agent dhcp service info
  */
 request sandesh DhcpInfo {
 }
 
 /**
- * Request message to get dhcp info v6 from services introspect
+ * @description: Request message to get dhcp info v6 from services introspect
+ * @cli_name: read agent dhcpv6 service info
  */
 request sandesh Dhcpv6Info {
 }
 
 /**
- * Request message to get arp info from agent
+ * @description: Request message to get arp info from agent
+ * @cli_name: read agent arp info
  */
 request sandesh ArpInfo {
 }
 
 /**
- * Request message to get dns info from agent
+ * @description: Request message to get dns info from agent
+ * @cli_name: read agent dns info
  */
 request sandesh DnsInfo {
 }
 
 /**
- * Request message to get icmp info from agent
+ * @description: Request message to get icmp info from agent
+ * @cli_name: read agent icmp info
  */
 request sandesh IcmpInfo {
 }
 
 /**
- * Request message to get icmp v6 info from agent
+ * @description: Request message to get icmp v6 info from agent
+ * @cli_name: read agent icmpv6 info
  */
 request sandesh Icmpv6Info {
 }
 
 /**
- * Request message to get meta data info from agent
+ * @description: Request message to get meta data info from agent
+ * @cli_name: read agent metadata info
  */
 request sandesh MetadataInfo {
 }
 
 /**
- * Request message to get mac learning info from agent
+ * @description: Request message to get mac learning info from agent
+ * @cli_name: read agent mac learning info
  */
 request sandesh MacLearningInfo {
 }
 
 /**
- * Request message to get all services info from agent along with packet stats
+ * @description: Request message to get all services info from agent along with packet stats
+ * @cli_name: read agent all services
  */
 request sandesh ShowAllInfo {
 }
 
 /**
- * Request to reset all services info
+ * @description: Request to reset all services info
+ * @cli_name: update agent all services
  */
 request sandesh ClearAllInfo {
 }
@@ -91,17 +101,22 @@ struct InterfaceArpStats {
 }
 
 /**
- * Request message for interface arp stats
+ * @description: Request message for interface arp stats
+ * @cli_name: read agent interface arp stats
  */
 request sandesh InterfaceArpStatsReq {
+    /** Interface Index */
     1: i32 interface_index = -1;
 }
 
 /**
- * Request info for pkt trace
+ * @description: Request info for pkt trace
+ * @cli_name: read agent pkt trace info
  */
 request sandesh PktTraceInfo {
+    /** number of buffers */
     1: u32 num_buffers = 16;
+    /** number of flow buffers */
     2: u32 flow_num_buffers = 16;
 }
 
@@ -266,9 +281,11 @@ struct InterfaceIcmpv6Stats {
 }
 
 /**
- * Request message for icmp6 stats on interface
+ * @description: Request message for icmpv6 stats on interface
+ * @cli_name: read agent interface icmpv6 stats
  */
 request sandesh InterfaceIcmpv6StatsReq {
+    /** Interface Index */
     1: i32 interface_index = -1;
 }
 
@@ -593,7 +610,8 @@ struct VmDnsSandesh {
 }
 
 /**
- * Request to get agent dns entries
+ * @description: Request to get agent dns entries
+ * @cli_name: read agent dns entries
  */
 request sandesh ShowDnsEntries {
 }
@@ -614,9 +632,11 @@ struct VmVdnsDataEntry {
 }
 
 /**
- * Request message for vm vdns data
+ * @description: Request message for vm vdns data
+ * @cli_name: read vm vdns data
  */
 request sandesh VmVdnsDataReq {
+    /** virtual machine interface index */
     1: u32 vm_interface_index;
 }
 
@@ -636,7 +656,8 @@ struct VmVdnsListEntry {
 }
 
 /**
- * Request message for vm vdns list
+ * @description: Request message for vm vdns list
+ * @cli_name: read agent vmvdns list
  */
 request sandesh VmVdnsListReq {
 }
@@ -659,7 +680,8 @@ struct FipVdnsEntry {
 }
 
 /**
- * Request message for fip vdns
+ * @description: Request message for fip vdns
+ * @cli_name: read agent fipvdns data
  */
 request sandesh FipVdnsDataReq {
 }
@@ -684,7 +706,8 @@ struct ArpSandeshData {
 }
 
 /**
- * Request message to show cached arp
+ * @description: Request message to show cached arp
+ * @cli_name: read agent arp cache
  */
 request sandesh ShowArpCache {
 }
@@ -699,7 +722,8 @@ response sandesh ArpCacheResp {
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * Request message for gateway dhcp lease
+ * @description: Request message for gateway dhcp lease
+ * @cli_name: read agent gw dhcp leases
  */
 request sandesh ShowGwDhcpLeases {
 }

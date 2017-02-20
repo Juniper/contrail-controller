@@ -177,10 +177,12 @@ struct KVxLanInfo {
 }
 
 /**
- * Request message to get interface list from kernel in agent introspect
+ * @description: Request message to get interface list from kernel in agent introspect
+ * @cli_name: read kernel interface list
  */
 request sandesh KInterfaceReq {
-    1: i32 if_id = -1             // send data for given if-id, send all if -1
+    /** send data for given if-id, send all if -1 */
+    1: i32 if_id = -1
 }
 
 /**
@@ -191,10 +193,13 @@ response sandesh KInterfaceResp {
 }
 
 /**
- * Request message to get route list from kernel in agent introspect
+ * @description: Request message to get route list from kernel in agent introspect
+ * @cli_name: read kernel route list
  */
 request sandesh KRouteReq {
-    1: u32 vrf_id = 0;            // Send routes of vrf 0 if not specified
+    /** send routes of vrf 0 if not specified */
+    1: u32 vrf_id = 0;
+    /** family type default is inet */
     2: string family = "inet";
 }
 
@@ -206,33 +211,41 @@ response sandesh KRouteResp {
 }
 
 /**
- * Request message to get route details from kernel in agent introspect
+ * @description: Request message to get route details from kernel in agent introspect
+ * @cli_name: read kernel route details
  */
 request sandesh KRouteGetReq {
-    1:  u32 vrf_id = 0;           // Send routes of vrf 0 if not specified
+    /** send routes of vrf 0 if not specified */
+    1:  u32 vrf_id = 0;
+    /** ip address prefix */
     2:  string prefix;
+    /** ip address prefix length */
     3:  u16 prefix_len;
 }
 
 /**
- * Request message to get nexthop list from kernel in agent introspect
+ * @description: Request message to get nexthop list from kernel in agent introspect
+ * @cli_name: read kernel nexthop list
  */
 request sandesh KNHReq {
-    1: i32 nh_id = -1;           // send data for given nh, send all if -1
+    /** send data for given nh, send all if -1 */
+    1: i32 nh_id = -1;
 }
 
 /**
- * Request message for nexthop list from kernel in agent introspect
+ * Response message for nexthop list from kernel in agent introspect
  */
 response sandesh KNHResp {
     1: list<KNHInfo> nh_list;
 }
 
 /**
- * Request message to get mpls list from kernel in agent introspect
+ * @description: Request message to get mpls list from kernel in agent introspect
+ * @cli_name: read kernel mpls list
  */
 request sandesh KMplsReq {
-    1: i16 mpls_label = -1;      // send data for given mpls label, send all if -1
+    /** send data for given mpls label, send all if -1 */
+    1: i16 mpls_label = -1;
 }
 
 /**
@@ -243,9 +256,11 @@ response sandesh KMplsResp {
 }
 
 /**
- * Request message to get mirror list from kernel in agent introspect
+ * @description: Request message to get mirror list from kernel in agent introspect
+ * @cli_name: read kernel mirror list
  */
 request sandesh KMirrorReq {
+        /** mirror id */
         1: i32 mirror_id = -1;
 }
 
@@ -256,18 +271,23 @@ response sandesh KMirrorResp { 1: list<KMirrorInfo> mirror_list;
 }
 
 /**
- * Request message to get next flow from kernel in agent introspect
+ * @description: Request message to get next flow from kernel in agent introspect
+ * @cli_name: read kernel next flow info
  */
 request sandesh NextKFlowReq {
+    /** flow key */
     1: string flow_handle;
 }
 
 /**
- * Request message to get flow from kernel in agent introspect
+ * @description: Request message to get flow from kernel in agent introspect
+ * @cli_name: read kernel flow info
  */
 request sandesh KFlowReq {
-    1: i32 flow_idx = -1;        // send data for given flow index, send all if -1
-    2: bool show_evicted = 0;        //show evicted flows if flag is set
+    /** send data for given flow index, send all if -1 */
+    1: i32 flow_idx = -1;
+    /** show evicted flows if flag is set */
+    2: bool show_evicted = 0;
 }
 
 /**
@@ -279,10 +299,12 @@ response sandesh KFlowResp {
 }
 
 /**
- * Request message to get vxlan list from kernel in agent introspect
+ * @description: Request message to get vxlan list from kernel in agent introspect
+ * @cli_name: read kernel vxlan list
  */
 request sandesh KVxLanReq {
-    1: i16 vxlan_label = 0;      // send data for given vxlan label, send all if -1
+    /** send data for given vxlan label, send all if -1 */
+    1: i16 vxlan_label = 0;
 }
 
 /**
@@ -318,10 +340,12 @@ struct KVrfAssignInfo {
 }
 
 /**
- * Request message to get vrf assign list from kernel in agent introspect
+ * @description: Request message to get vrf assign list from kernel in agent introspect
+ * @cli_name: read kernel vrf assign list
  */
 request sandesh KVrfAssignReq {
-    1: i32 vif_index = -1;      // send vrf assign rules for an index. Send all if -1
+    /** send vrf assign rules for an index. Send all if -1 */
+    1: i32 vif_index = -1;
 }
 
 /**
@@ -366,10 +390,12 @@ struct KVrfStatsInfo {
 }
 
 /**
- * Request message to get vrf stats list from kernel in agent introspect
+ * @description: Request message to get vrf stats list from kernel in agent introspect
+ * @cli_name: read kernel vrf stats list
  */
 request sandesh KVrfStatsReq {
-    1: i32 vrf_index = -1;      // send vrf stats for an index. Send all if -1
+    /** send vrf stats for an index. Send all if -1 */
+    1: i32 vrf_index = -1;
 }
 
 /**
@@ -380,7 +406,8 @@ response sandesh KVrfStatsResp {
 }
 
 /**
- * Request drop stats from kernel
+ * @description: Request drop stats from kernel
+ * @cli_name: read kernel drop stats
  */
 request sandesh KDropStatsReq {
 }
@@ -455,14 +482,16 @@ struct KQosConfig {
 }
 
 /**
- * Request message to get vrf stats list from kernel in agent introspect
+ * @description: Request message to get qos config from kernel
+ * @cli_name: read kernel qos config
  */
 request sandesh KQosConfigReq {
+    /** qos index default is -1 */
     1: i32 index = -1;
 }
 
 /**
- * Response message for vrf stats list from kernel
+ * Response message for qos config from kernel
  */
 response sandesh KQosConfigResp {
     1: list<KQosConfig> qos_config_list;
@@ -478,14 +507,16 @@ struct KForwardingClass {
 }
 
 /**
- * Request message to get vrf stats list from kernel in agent introspect
+ * @description: Request message to get qos forwarding class from kernel in agent introspect
+ * @cli_name: read kernel qos forwarding class
  */
 request sandesh KForwardingClassReq {
+    /** forwarding class id */
     1: i32 index = -1;
 }
 
 /**
- * Response message for vrf stats list from kernel
+ * Response message for qos forwarding class from kernel
  */
 response sandesh KForwardingClassResp {
     1: list<KForwardingClass> forwarding_class_list;
