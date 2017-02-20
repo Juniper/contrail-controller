@@ -228,7 +228,7 @@ Dhcpv6Handler::Dhcpv6Handler(Agent *agent, boost::shared_ptr<PktInfo> info,
           msg_type_(DHCPV6_UNKNOWN), out_msg_type_(DHCPV6_UNKNOWN),
           rapid_commit_(false), reconfig_accept_(false),
           client_duid_len_(0), server_duid_len_(0),
-          client_duid_(NULL), server_duid_(NULL) {
+          client_duid_(NULL), server_duid_(NULL), is_ia_na_(true) {
     memset(xid_, 0, sizeof(xid_));
     option_.reset(new Dhcpv6OptionHandler(NULL));
 }
@@ -379,7 +379,12 @@ void Dhcpv6Handler::ReadOptions(int16_t opt_rem_len) {
                 break;
 
             case DHCPV6_OPTION_IA_NA:
+                is_ia_na_ = true;
+                ReadIA(opt->data, option_len, option_code);
+                break;
+
             case DHCPV6_OPTION_IA_TA:
+                is_ia_na_ = false;
                 ReadIA(opt->data, option_len, option_code);
                 break;
 
@@ -414,8 +419,12 @@ void Dhcpv6Handler::ReadOptions(int16_t opt_rem_len) {
 }
 
 bool Dhcpv6Handler::ReadIA(uint8_t *ptr, uint16_t len, uint16_t code) {
-    Dhcpv6Ia *iana = (Dhcpv6Ia *)ptr;
-    Dhcpv6IaAddr *addr = NULL;
+    if (ia_na_.get() == NULL) {
+        ia_na_.reset(new Dhcpv6IaData());
+    }
+
+    ia_na_->AddIa((Dhcpv6Ia *)ptr);
+
     int16_t iana_rem_len = len - sizeof(Dhcpv6Ia);
     Dhcpv6Options *iana_option = (Dhcpv6Options *)(ptr + sizeof(Dhcpv6Ia));
     while (iana_rem_len > 0) {
@@ -423,7 +432,7 @@ bool Dhcpv6Handler::ReadIA(uint8_t *ptr, uint16_t len, uint16_t code) {
         uint16_t iana_option_len = ntohs(iana_option->len);
         switch (iana_option_code) {
             case DHCPV6_OPTION_IAADDR: {
-                addr = (Dhcpv6IaAddr *)iana_option->data;
+                ia_na_->AddIaAddr((Dhcpv6IaAddr *)iana_option->data);
                 break;
             }
 
@@ -449,10 +458,6 @@ bool Dhcpv6Handler::ReadIA(uint8_t *ptr, uint16_t len, uint16_t code) {
         iana_option = (Dhcpv6Options *)((uint8_t *)iana_option + 4 + iana_option_len);
     }
 
-    if (code == DHCPV6_OPTION_IA_NA)
-        iana_.push_back(Dhcpv6IaData(iana, addr));
-    else
-        iata_.push_back(Dhcpv6IaData(iana, addr));
     return true;
 }
 
@@ -561,20 +566,9 @@ uint16_t Dhcpv6Handler::FillDhcpv6Hdr() {
                            (void *)client_duid_.get(), &opt_len);
     }
 
-    // IA for non-temporary address
-    // TODO : we currently give one IPv6 IP per interface; update when we
-    // have to handle multiple iana / iata in a single request
-    for (std::vector<Dhcpv6IaData>::iterator it = iana_.begin();
-         it != iana_.end(); ++it) {
-        option_->SetNextOptionPtr(opt_len);
-        WriteIaOption(it->ia, opt_len);
-    }
-
-    for (std::vector<Dhcpv6IaData>::iterator it = iata_.begin();
-         it != iata_.end(); ++it) {
-        option_->SetNextOptionPtr(opt_len);
-        WriteIaOption(it->ia, opt_len);
-    }
+    // IA
+    option_->SetNextOptionPtr(opt_len);
+    WriteIaOption(opt_len);
 
     // Add dhcp options coming from Config
     opt_len = AddConfigDhcpOptions(opt_len, true);
@@ -620,10 +614,14 @@ Ip6Address Dhcpv6Handler::GetNextV6Address(uint8_t addr[16]) {
     return Ip6Address(bytes);
 }
 
-void Dhcpv6Handler::WriteIaOption(const Dhcpv6Ia &ia,
-                                  uint16_t &optlen) {
+void Dhcpv6Handler::WriteIaOption(uint16_t &optlen) {
+    if (ia_na_.get() == NULL) {
+        return;
+    }
+
     uint32_t alloc_unit = 1;
-    if (vm_itf_ && vm_itf_->vn()) {
+    // for ia_ta, send only one address
+    if (vm_itf_ && vm_itf_->vn() && is_ia_na_) {
         alloc_unit = vm_itf_->vn()->GetAllocUnitFromIpam(config_.ip_addr);
     }
     if (alloc_unit > 128) {
@@ -636,14 +634,40 @@ void Dhcpv6Handler::WriteIaOption(const Dhcpv6Ia &ia,
                          config_.preferred_time,
                          config_.valid_time);
 
-    option_->WriteData(DHCPV6_OPTION_IA_NA, sizeof(Dhcpv6Ia), (void *)&ia, &optlen);
+    uint16_t ia_option = (is_ia_na_)? DHCPV6_OPTION_IA_NA : DHCPV6_OPTION_IA_TA;
+    uint16_t ia_option_length = (is_ia_na_)? sizeof(Dhcpv6Ia) : 16;
+    option_->WriteData(ia_option, ia_option_length, (void *)&ia_na_->ia, &optlen);
+
     for (uint32_t i = 0; i < alloc_unit; i++) {
         Dhcpv6Options *ia_addr_opt = GetNextOptionPtr(optlen);
-        ia_addr_opt->WriteData(DHCPV6_OPTION_IAADDR, sizeof(Dhcpv6IaAddr),
-                               (void *)&ia_addr, &optlen);
-        option_->AddLen(sizeof(Dhcpv6IaAddr) + 4);
+        if (msg_type_ != DHCPV6_CONFIRM ||
+            (msg_type_ == DHCPV6_CONFIRM && ia_na_->DelIaAddr(ia_addr))) {
+            ia_addr_opt->WriteData(DHCPV6_OPTION_IAADDR, sizeof(Dhcpv6IaAddr),
+                                   (void *)&ia_addr, &optlen);
+            option_->AddLen(sizeof(Dhcpv6IaAddr) + 4);
+        }
         Ip6Address next_ip = GetNextV6Address(ia_addr.address);
         memcpy(ia_addr.address, next_ip.to_bytes().data(), 16);
+    }
+
+    // in case of confirm, if there are any remaining addresses in ia_na_
+    // add them with status as "NotOnLink".
+    if (msg_type_ == DHCPV6_CONFIRM && !ia_na_->ia_addr.empty()) {
+        for (std::vector<Dhcpv6IaAddr>::iterator it = ia_na_->ia_addr.begin();
+             it != ia_na_->ia_addr.end(); ++it) {
+            memcpy(ia_addr.address, it->address, 16);
+            Dhcpv6Options *ia_addr_opt = GetNextOptionPtr(optlen);
+            ia_addr_opt->WriteData(DHCPV6_OPTION_IAADDR, sizeof(Dhcpv6IaAddr),
+                                   (void *)&ia_addr, &optlen);
+            option_->AddLen(sizeof(Dhcpv6IaAddr) + 4);
+            ia_addr_opt = GetNextOptionPtr(optlen);
+            std::string message = "Some of the addresses are not on link";
+            uint16_t status_code = htons(DHCPV6_NOT_ON_LINK);
+            ia_addr_opt->WriteData(DHCPV6_OPTION_STATUS_CODE, 2,
+                                   (void *)&status_code, &optlen);
+            ia_addr_opt->AppendData(message.length(), message.c_str(), &optlen);
+            option_->AddLen(message.length() + 6);
+        }
     }
 }
 
