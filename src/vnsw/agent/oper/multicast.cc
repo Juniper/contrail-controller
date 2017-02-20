@@ -900,11 +900,12 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
     MulticastGroupObject *obj = FindActiveGroupObject(vrf_name, grp);
     std::string derived_vrf_name = vrf_name;
 
-    if (ethernet_tag) {
+    if (ethernet_tag && obj) {
         MulticastGroupObject *dependent_mg =
             obj->GetDependentMG(ethernet_tag);
         if (dependent_mg) {
             obj = dependent_mg;
+            derived_vrf_name = obj->vrf_name();
         }
     }
 
@@ -921,7 +922,7 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
     TriggerRemoteRouteChange(obj, peer, derived_vrf_name, olist,
                              peer_identifier, delete_op, Composite::EVPN,
                              MplsTable::kInvalidLabel, false, ethernet_tag);
-    MCTRACE(Log, "Add EVPN TOR Olist ", vrf_name, grp.to_string(), 0);
+    MCTRACE(Log, "Add EVPN TOR Olist ", derived_vrf_name, grp.to_string(), 0);
 }
 
 void MulticastHandler::ModifyTorMembers(const Peer *peer,
@@ -959,9 +960,9 @@ void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
         (peer_identifier == INVALID_PEER_IDENTIFIER)) {
         agent->oper_db()->multicast()->DeleteBroadcast(peer, vrf_name_, 0,
                                                        Composite::FABRIC);
+        MCTRACE(Log, "Delete broadcast route", vrf_name_,
+                grp_address_.to_string(), 0);
     }
-    MCTRACE(Log, "Delete broadcast route", vrf_name_,
-            grp_address_.to_string(), 0);
 }
 
 MulticastHandler::MulticastHandler(Agent *agent)

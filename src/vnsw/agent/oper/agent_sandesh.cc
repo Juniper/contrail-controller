@@ -1222,7 +1222,7 @@ bool QosQueueSandesh::FilterToArgs(AgentSandeshArguments *args) {
 BridgeDomainSandesh::BridgeDomainSandesh(const std::string &context,
                                          const std::string &u,
                                          const std::string &name) :
-    AgentSandesh(context, ""), name_(name) {
+    AgentSandesh(context, ""), uuid_str_(u), name_(name) {
     boost::system::error_code ec;
     uuid_ = StringToUuid(u);
 }
