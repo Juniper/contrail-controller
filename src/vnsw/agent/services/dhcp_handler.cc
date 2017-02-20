@@ -372,6 +372,14 @@ bool DhcpHandler::HandleVmRequest() {
         return true;
     }
 
+    if (vm_itf_->vm_mac() != request_.mac_addr) {
+        DHCP_TRACE(Error, "DHCP request for incorrect MAC: interface = "
+                   << GetInterfaceIndex() << " interface MAC = "
+                   << vm_itf_->vm_mac().ToString() << " requested MAC = "
+                   << request_.mac_addr.ToString());
+        return true;
+    }
+
     // For VM interfaces in default VRF, if the config doesnt have IP address,
     // send the request to fabric
     if (dhcp_proto->dhcp_relay_mode() &&
