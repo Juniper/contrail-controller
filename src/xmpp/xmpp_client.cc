@@ -202,10 +202,12 @@ XmppClient::ConfigUpdate(const XmppConfigData *cfg) {
 
 void XmppClient::RegisterConnectionEvent(xmps::PeerId id,
     ConnectionEventCb cb) {
+    tbb::mutex::scoped_lock lock(connection_event_map_mutex_);
     connection_event_map_.insert(make_pair(id, cb));
 }
 
 void XmppClient::UnRegisterConnectionEvent(xmps::PeerId id) {
+    tbb::mutex::scoped_lock lock(connection_event_map_mutex_);
     ConnectionEventCbMap::iterator it =  connection_event_map_.find(id);
     if (it != connection_event_map_.end())
         connection_event_map_.erase(it);
@@ -213,6 +215,7 @@ void XmppClient::UnRegisterConnectionEvent(xmps::PeerId id) {
 
 void XmppClient::NotifyConnectionEvent(XmppChannelMux *mux,
     xmps::PeerState state) {
+    tbb::mutex::scoped_lock lock(connection_event_map_mutex_);
     ConnectionEventCbMap::iterator iter = connection_event_map_.begin();
     for (; iter != connection_event_map_.end(); ++iter) {
         ConnectionEventCb cb = iter->second;
