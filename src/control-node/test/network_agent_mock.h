@@ -183,14 +183,17 @@ public:
 };
 
 struct NextHop {
-    NextHop() : label_(0) { }
+    NextHop() : no_label_(false), label_(0) { }
     NextHop(std::string address) :
-            address_(address), label_(0) {
+            address_(address), no_label_(false), label_(0) {
         tunnel_encapsulations_.push_back("gre");
+    }
+    NextHop(bool no_label, std::string address) :
+            address_(address), no_label_(no_label), label_(0) {
     }
     NextHop(std::string address, uint32_t label, std::string tun1 = "gre",
             const std::string virtual_network = "") :
-                address_(address), label_(label),
+                address_(address), no_label_(false), label_(label),
                 virtual_network_(virtual_network) {
         if (tun1 == "all") {
             tunnel_encapsulations_.push_back("gre");
@@ -205,6 +208,7 @@ struct NextHop {
 
     bool operator==(NextHop other) {
         if (address_ != other.address_) return false;
+        if (no_label_ != other.no_label_) return false;
         if (label_ != other.label_) return false;
         if (tunnel_encapsulations_.size() !=
                 other.tunnel_encapsulations_.size()) {
@@ -225,6 +229,7 @@ struct NextHop {
     }
 
     std::string address_;
+    bool no_label_;
     int label_;
     std::vector<std::string> tunnel_encapsulations_;
     std::string virtual_network_;
@@ -483,6 +488,8 @@ public:
                   int local_pref = 0, int med = 0);
     void AddRoute(const std::string &network, const std::string &prefix,
                   const NextHops &nexthops, int local_pref = 0);
+    void AddRoute(const std::string &network, const std::string &prefix,
+                  const NextHop &nexthop, const RouteAttributes &attributes);
     void AddRoute(const std::string &network, const std::string &prefix,
                   const NextHops &nexthops, const RouteAttributes &attributes);
     void AddRoute(const string &network_name, const string &prefix,

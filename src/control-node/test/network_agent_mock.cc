@@ -412,8 +412,10 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
                 item_nexthop.af = BgpAf::IPv4;
                 assert(!nexthop.address_.empty());
                 item_nexthop.address = nexthop.address_;
-                item_nexthop.label =
-                    nexthop.label_ ? nexthop.label_ : label_alloc_++;
+                if (!nexthop.no_label_) {
+                    item_nexthop.label =
+                        nexthop.label_ ? nexthop.label_ : label_alloc_++;
+                }
                 item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
                     nexthop.tunnel_encapsulations_;
                 rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
@@ -1026,6 +1028,19 @@ void NetworkAgentMock::AddRoute(const string &network_name,
     RouteAttributes attributes(
         local_pref, med, RouteAttributes::GetDefaultSequence());
 
+    AgentPeer *peer = GetAgent();
+    xml_document *xdoc =
+        impl_->RouteAddXmlDoc(network_name, prefix, nexthops, attributes);
+    peer->SendDocument(xdoc);
+    route_mgr_->AddOriginated(network_name, prefix);
+}
+
+void NetworkAgentMock::AddRoute(const string &network_name,
+                                const string &prefix,
+                                const NextHop &nexthop,
+                                const RouteAttributes &attributes) {
+    NextHops nexthops;
+    nexthops.push_back(nexthop);
     AgentPeer *peer = GetAgent();
     xml_document *xdoc =
         impl_->RouteAddXmlDoc(network_name, prefix, nexthops, attributes);

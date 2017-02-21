@@ -323,6 +323,10 @@ bgp_xmpp_deferq_test = env.UnitTest('bgp_xmpp_deferq_test',
                              ['bgp_xmpp_deferq_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_deferq_test', bgp_xmpp_deferq_test)
 
+bgp_xmpp_inet_test = env.UnitTest('bgp_xmpp_inet_test',
+                                  ['bgp_xmpp_inet_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_inet_test', bgp_xmpp_inet_test)
+
 bgp_xmpp_inetvpn_test = env.UnitTest('bgp_xmpp_inetvpn_test',
                                      ['bgp_xmpp_inetvpn_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_inetvpn_test', bgp_xmpp_inetvpn_test)
@@ -621,6 +625,7 @@ test_suite = [
     bgp_xmpp_deferq_test,
     bgp_xmpp_evpn_mcast_test,
     bgp_xmpp_evpn_test,
+    bgp_xmpp_inet_test,
     bgp_xmpp_inetvpn_test,
     bgp_xmpp_inet6vpn_test,
     bgp_xmpp_mcast_test,

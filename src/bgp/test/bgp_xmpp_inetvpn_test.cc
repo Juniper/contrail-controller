@@ -818,7 +818,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteWithCommunity) {
     community_a.push_back("no-reoriginate");
     test::RouteAttributes attr_a(community_a);
     test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1", 0));
+    nexthops_a.push_back(test::NextHop("192.168.1.1"));
     agent_a_->AddRoute("blue", route_a.str(), nexthops_a, attr_a);
     task_util::WaitForIdle();
 
@@ -884,7 +884,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteWithNoExportCommunity) {
     community_a.push_back("no-export");
     test::RouteAttributes attr_a(community_a);
     test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1", 0));
+    nexthops_a.push_back(test::NextHop("192.168.1.1"));
     agent_a_->AddRoute("blue", route_a.str(), nexthops_a, attr_a);
     task_util::WaitForIdle();
 
@@ -3389,7 +3389,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RoutingPolicy_UpdateLocalPref) {
     community_a.push_back("22:13");
     test::RouteAttributes attr_a(community_a);
     test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1", 0));
+    nexthops_a.push_back(test::NextHop("192.168.1.1"));
     agent_a_->AddRoute("blue", route_a.str(), nexthops_a, attr_a);
     agent_b_->AddRoute("blue", route_a.str(), nexthops_a, attr_a);
     task_util::WaitForIdle();
