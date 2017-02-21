@@ -3763,7 +3763,7 @@ class DBInterface(object):
                                               ip_family="v4")
             except BadRequest as e:
                 ipv4_port_delete = True
-            except vnc_exc.HttpError:
+            except vnc_exc.HttpError as e:
                 # failure in creating the instance ip. Roll back
                 self._virtual_machine_interface_delete(port_id=port_id)
                 self._raise_contrail_exception('IpAddressGenerationFailure',
@@ -3776,7 +3776,7 @@ class DBInterface(object):
                                               ip_family="v6")
             except BadRequest as e:
                 ipv6_port_delete = True
-            except vnc_exc.HttpError:
+            except vnc_exc.HttpError as e:
                 # failure in creating the instance ip. Roll back
                 self._virtual_machine_interface_delete(port_id=port_id)
                 self._raise_contrail_exception('IpAddressGenerationFailure',
