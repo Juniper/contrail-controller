@@ -896,7 +896,7 @@ test::NextHops GracefulRestartTest::GetNextHops (test::NetworkAgentMock *agent,
     test::NextHops nexthops;
     nexthops.push_back(test::NextHop("100.100.100." +
                            boost::lexical_cast<string>(agent->id()),
-                           10000 + instance_id));
+                           10000 + instance_id, "gre"));
     return nexthops;
 }
 
