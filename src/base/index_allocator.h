@@ -18,7 +18,6 @@ public:
 
     size_t AllocIndex();
     void FreeIndex(size_t index);
-
 private:
     BitSet bitset_;
     size_t max_index_;
