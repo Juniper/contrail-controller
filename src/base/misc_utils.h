@@ -59,6 +59,9 @@ public:
     static void GetHostIp(const std::string name, std::vector<std::string> &ip_list);
     static void LogVersionInfo(const std::string str, Category::type categ);
     static bool GetPlatformInfo(std::string &distro, std::string &code_name);
+    static std::vector<uint16_t> GetDerivedBgpaasServicePort(
+                                        const std::vector<uint16_t> &ports,
+                                        const uint32_t max_session);
 private:
     static bool GetContrailVersionInfo(BuildModule id, std::string &rpm_version, std::string &build_num);
     static std::string BaseName(std::string filename);

@@ -360,6 +360,9 @@ public:
         return bgp_as_a_service_port_range_value_;
     }
     uint32_t services_queue_limit() { return services_queue_limit_; }
+    uint32_t bgpaas_max_shared_vmis() const { return bgpaas_max_shared_vmis_; }
+    void set_bgpaas_max_shared_vmis(uint32_t val) { bgpaas_max_shared_vmis_ = val; }
+
 
     const SandeshConfig &sandesh_config() const { return sandesh_config_; }
 
@@ -514,6 +517,7 @@ protected:
 private:
     friend class AgentParamTest;
     void UpdateBgpAsaServicePortRange();
+    void UpdateBgpAsaServicePortRangeValue();
     void ComputeFlowLimits();
     static std::map<string, std::map<string, string> > ParseDerivedStats(
         const std::vector<std::string> &dsvec);
@@ -676,6 +680,7 @@ private:
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;
     uint32_t services_queue_limit_;
+    uint32_t bgpaas_max_shared_vmis_;
 
     // Sandesh config options
     SandeshConfig sandesh_config_;
