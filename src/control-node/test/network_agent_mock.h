@@ -191,18 +191,20 @@ struct NextHop {
     NextHop(bool no_label, std::string address) :
             address_(address), no_label_(no_label), label_(0) {
     }
-    NextHop(std::string address, uint32_t label, std::string tun1 = "gre",
+    NextHop(std::string address, uint32_t label, std::string tunnel,
             const std::string virtual_network = "") :
                 address_(address), no_label_(false), label_(label),
                 virtual_network_(virtual_network) {
-        if (tun1 == "all") {
+        if (tunnel.empty()) {
+            tunnel_encapsulations_.push_back("gre");
+        } else if (tunnel == "all") {
             tunnel_encapsulations_.push_back("gre");
             tunnel_encapsulations_.push_back("udp");
-        } else if (tun1 == "all_ipv6") {
+        } else if (tunnel == "all_ipv6") {
             tunnel_encapsulations_.push_back("gre");
             tunnel_encapsulations_.push_back("udp");
         } else {
-            tunnel_encapsulations_.push_back(tun1);
+            tunnel_encapsulations_.push_back(tunnel);
         }
     }
 
