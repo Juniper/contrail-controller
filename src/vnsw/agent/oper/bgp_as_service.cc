@@ -117,7 +117,8 @@ static const std::string GetBgpRouterVrfName(const Agent *agent,
 
 void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                            BgpAsAServiceEntryList &new_list,
-                                           const std::string &vm_vrf_name) {
+                                           const std::string &vm_vrf_name,
+                                           size_t   vmi_id) {
     IFMapAgentTable *table =
         static_cast<IFMapAgentTable *>(bgp_as_a_service_node->table());
     autogen::BgpAsAService *bgp_as_a_service =
@@ -150,8 +151,18 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                 BGPASASERVICETRACE(Trace, ss.str().c_str());
                 continue;
             }
+            uint32_t source_port;
+            if (IsBgpServicePortUsed(bgp_router->parameters().source_port)) {
+                source_port = ((bgp_router->parameters().source_port <<
+                    agent_->params()->bgpaas_shift_bits()) |
+                    vmi_id);
+            } else {
+                source_port = bgp_router->parameters().source_port;
+            }
+
             new_list.insert(BgpAsAServiceEntry(peer_ip,
-                                               bgp_router->parameters().source_port));
+                                        source_port,
+                                        bgp_router->parameters().source_port));
         }
     }
 }
@@ -162,9 +173,19 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
     std::list<IFMapNode *>::const_iterator it =
         node_map.begin();
     BgpAsAServiceEntryList new_bgp_as_a_service_entry_list;
+
+    InterfaceConstRef intf_ref = agent_->interface_table()->FindVmi(vm_uuid);
+    const VmInterface *vmi = static_cast<const VmInterface *>(intf_ref.get());
+    if (vmi == NULL) {
+        std::stringstream ss;
+        ss << "VMinterface is not found";
+        BGPASASERVICETRACE(Trace, ss.str().c_str());
+        return;
+    }
+
     while (it != node_map.end()) {
         BuildBgpAsAServiceInfo(*it, new_bgp_as_a_service_entry_list,
-                               vrf_name);
+                               vrf_name,vmi->id());
         it++;
     }
 
@@ -253,6 +274,22 @@ bool BgpAsAService::IsBgpService(const VmInterface *vm_intf,
     return ret;
 }
 
+bool BgpAsAService::IsBgpServicePortUsed(const uint32_t sport) const {
+    BgpAsAServiceEntryMapConstIterator map_it =
+        bgp_as_a_service_entry_map_.begin();
+    while (map_it != bgp_as_a_service_entry_map_.end()) {
+        BgpAsAServiceEntryListConstIterator it = map_it->second->list_.begin();
+        while (it != map_it->second->list_.end()) {
+            if (sport == it->original_source_port_) {
+                return true;
+            }
+            it++;
+        }
+        map_it++;
+    }
+    return false;
+}
+
 bool BgpAsAService::GetBgpRouterServiceDestination(const VmInterface *vm_intf,
                                                    const IpAddress &source_ip,
                                                    const IpAddress &dest,
@@ -314,20 +351,25 @@ bool BgpAsAService::GetBgpRouterServiceDestination(const VmInterface *vm_intf,
 ////////////////////////////////////////////////////////////////////////////
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry() :
     VmInterface::ListEntry(),
-    local_peer_ip_(), source_port_(0) {
+    local_peer_ip_(), source_port_(0),
+    original_source_port_(0) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
 (const BgpAsAService::BgpAsAServiceEntry &rhs) :
     VmInterface::ListEntry(rhs.installed_, rhs.del_pending_),
-    local_peer_ip_(rhs.local_peer_ip_), source_port_(rhs.source_port_) {
+    local_peer_ip_(rhs.local_peer_ip_), 
+    source_port_(rhs.source_port_),
+    original_source_port_(rhs.original_source_port_) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry(const IpAddress &local_peer_ip,
-                                                      uint32_t source_port) :
+                                                      uint32_t source_port,
+                                                      uint32_t original_source_port) :
     VmInterface::ListEntry(),
     local_peer_ip_(local_peer_ip),
-    source_port_(source_port) {
+    source_port_(source_port),
+    original_source_port_(original_source_port) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::~BgpAsAServiceEntry() {
@@ -336,7 +378,7 @@ BgpAsAService::BgpAsAServiceEntry::~BgpAsAServiceEntry() {
 bool BgpAsAService::BgpAsAServiceEntry::operator ==
     (const BgpAsAServiceEntry &rhs) const {
     return ((source_port_ == rhs.source_port_) &&
-        (local_peer_ip_ == rhs.local_peer_ip_));
+            (local_peer_ip_ == rhs.local_peer_ip_));
 }
 
 bool BgpAsAService::BgpAsAServiceEntry::operator()

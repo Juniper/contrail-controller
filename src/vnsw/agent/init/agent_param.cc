@@ -668,6 +668,8 @@ void AgentParam::ParseServicesArguments
     GetOptValue<string>(v, bgp_as_a_service_port_range_,
                         "SERVICES.bgp_as_a_service_port_range");
     GetOptValue<uint32_t>(v, services_queue_limit_, "SERVICES.queue_limit");
+    GetOptValue<uint32_t>(v, bgpaas_shift_bits_,
+                          "SERVICES.bgpaas_shift_bits");
 }
 
 void AgentParam::ParseSandeshArguments
@@ -1109,6 +1111,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance lbaas auth : " << si_lbaas_auth_conf_);
     LOG(DEBUG, "Bgp as a service port range : " << bgp_as_a_service_port_range_);
     LOG(DEBUG, "Services queue limit        : " << services_queue_limit_);
+    LOG(DEBUG, "BGPAAS shift bits for service port  : " << bgpaas_shift_bits_);
 
     LOG(DEBUG, "Sandesh Key file            : " << sandesh_config_.keyfile);
     LOG(DEBUG, "Sandesh Cert file           : " << sandesh_config_.certfile);
@@ -1233,6 +1236,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         subnet_hosts_resolvable_(true),
         services_queue_limit_(1024),
+        bgpaas_shift_bits_(0),
         sandesh_config_(),
         restart_backup_enable_(true),
         restart_backup_idle_timeout_(CFG_BACKUP_IDLE_TIMEOUT),
@@ -1521,6 +1525,8 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Port range for BgPass ")
             ("SERVICES.queue_limit", opt::value<uint32_t>()->default_value(1024),
              "Work queue for different services")
+            ("SERVICES.bgpaas_shift_bits", opt::value<uint32_t>()->default_value(0),
+             "BGPAAS shift bits for service port")
             ("SERVICE-INSTANCE.lbaas_auth_conf", opt::value<string>(),
              "Credentials fo ssl certificates and private-keys")
             ;
