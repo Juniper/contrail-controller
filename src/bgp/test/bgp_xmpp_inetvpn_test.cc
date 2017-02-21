@@ -169,6 +169,13 @@ static const char *config_2_control_nodes = "\
             </address-families>\
         </session>\
     </bgp-router>\
+    <virtual-network name='default-domain:default-project:ip-fabric'>\
+        <network-id>100</network-id>\
+    </virtual-network>\
+    <routing-instance name='default-domain:default-project:ip-fabric:ip-fabric'>\
+        <virtual-network>default-domain:default-project:ip-fabric</virtual-network>\
+        <vrf-target>target:1:100</vrf-target>\
+    </routing-instance>\
     <virtual-network name='blue'>\
         <network-id>1</network-id>\
     </virtual-network>\
@@ -2638,6 +2645,66 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, SecurityGroupsDifferentAsn) {
     // Verify that route is deleted at agents A and B.
     VerifyRouteNoExists(agent_a_, "blue", route_a.str());
     VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+TEST_F(BgpXmppInetvpn2ControlNodeTest, IpFabricVrf) {
+    string ip_fabric_ri("default-domain:default-project:ip-fabric:ip-fabric");
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe(ip_fabric_ri, 1);
+    agent_b_->Subscribe(ip_fabric_ri, 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    test::NextHops next_hops;
+    test::NextHop next_hop("192.168.1.1");
+    next_hops.push_back(next_hop);
+    vector<int> sgids = list_of
+        (SecurityGroup::kMaxGlobalId - 1)(SecurityGroup::kMaxGlobalId + 1)
+        (SecurityGroup::kMaxGlobalId - 2)(SecurityGroup::kMaxGlobalId + 2);
+    test::RouteAttributes attributes(sgids);
+    agent_a_->AddRoute(ip_fabric_ri, route_a.str(), next_hops, attributes);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with expected sgids.
+    sort(sgids.begin(), sgids.end());
+    VerifyRouteExists(
+        agent_a_, ip_fabric_ri, route_a.str(), "192.168.1.1", sgids);
+    VerifyRouteExists(
+        agent_b_, ip_fabric_ri, route_a.str(), "192.168.1.1", sgids);
+
+    // Verify that routes on agents A and B have correct origin VN.
+    VerifyPath(agent_a_, ip_fabric_ri, route_a.str(), "192.168.1.1",
+        "default-domain:default-project:ip-fabric");
+    VerifyPath(agent_b_, ip_fabric_ri, route_a.str(), "192.168.1.1",
+        "default-domain:default-project:ip-fabric");
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute(ip_fabric_ri, route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, ip_fabric_ri, route_a.str());
+    VerifyRouteNoExists(agent_b_, ip_fabric_ri, route_a.str());
 
     // Close the sessions.
     agent_a_->SessionDown();
