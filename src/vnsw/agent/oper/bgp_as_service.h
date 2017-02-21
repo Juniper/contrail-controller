@@ -6,6 +6,7 @@
 #define vnsw_agent_bgp_as_service_hpp
 
 #include "oper/interface_common.h"
+#include <base/index_allocator.h>
 
 ////////////////////////////////////////////////////////////////////////////
 // BGP as a service
@@ -72,7 +73,7 @@ public:
         BgpAsAServiceEntry();
         BgpAsAServiceEntry(const BgpAsAServiceEntry &rhs);
         BgpAsAServiceEntry(const IpAddress &local_peer_ip,
-                           uint32_t source_port);
+                           uint32_t source_port, uint32_t original_source_port);
         ~BgpAsAServiceEntry();
         bool operator == (const BgpAsAServiceEntry &rhs) const;
         bool operator() (const BgpAsAServiceEntry &lhs,
@@ -81,6 +82,7 @@ public:
 
         IpAddress local_peer_ip_;
         uint32_t source_port_;
+        uint32_t original_source_port_;
     };
     typedef std::set<BgpAsAServiceEntry, BgpAsAServiceEntry> BgpAsAServiceEntryList;
     typedef BgpAsAServiceEntryList::iterator BgpAsAServiceEntryListIterator;
@@ -113,6 +115,10 @@ public:
                                         const IpAddress &dest,
                                         IpAddress *nat_server,
                                         uint32_t *sport) const;
+    bool IsBgpServicePortUsed(const uint32_t sport) const;
+    size_t AllocateBgpVmiServicePortIndex(const uint32_t sport);
+    void FreeBgpVmiServicePortIndex(const uint32_t orig_sport,
+                                    const uint32_t sport);
     void ProcessConfig(const std::string &vrf_name,
                        std::list<IFMapNode *> &node_list,
                        const boost::uuids::uuid &vmi_uuid);
@@ -126,11 +132,13 @@ private:
     void BindBgpAsAServicePorts(const std::vector<uint16_t> &ports);
     void BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                 BgpAsAServiceEntryList &new_list,
-                                const std::string &vrf_name);
+                                const std::string &vrf_name,
+                                size_t   vmi_id);
 
     const Agent *agent_;
     BgpAsAServiceEntryMap bgp_as_a_service_entry_map_;
     ServiceDeleteCb service_delete_cb_;
+    uint32_t bgp_as_a_service_port_max_index_;
     DISALLOW_COPY_AND_ASSIGN(BgpAsAService);
 };
 #endif
