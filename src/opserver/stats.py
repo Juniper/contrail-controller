@@ -12,6 +12,7 @@
 
 import sys
 import os
+import ConfigParser
 import argparse
 import json
 from opserver_util import OpServerUtils
@@ -21,47 +22,11 @@ class StatQuerier(object):
 
     def __init__(self):
         self._args = None
-        self._defaults = {
-            'analytics_api_ip': '127.0.0.1',
-            'analytics_api_port': '8181',
-            'username': 'admin',
-            'password': 'contrail123',
-        }
     # end __init__
 
     # Public functions
     def run(self):
-        index = 0
-        analytics_api_ip = self._defaults['analytics_api_ip']
-        analytics_api_port = self._defaults['analytics_api_port']
-        username = self._defaults['username']
-        password = self._defaults['password']
-        stat_table_list = [xx.stat_type + "." + xx.stat_attr for xx in VizConstants._STAT_TABLES]
-        stat_schema_files = []
-        for arg in sys.argv:
-            index = index + 1
-            if arg == "--analytics-api-ip":
-                analytics_api_ip = sys.argv[index]
-            elif arg == "--analytics-api-port":
-                analytics_api_port = sys.argv[index]
-            elif arg == "--admin-user":
-                username = sys.argv[index]
-            elif arg == "--admin-password":
-                password = sys.argv[index]
-        tab_url = "http://" + analytics_api_ip + ":" +\
-            analytics_api_port + "/analytics/tables"
-        tables = OpServerUtils.get_url_http(tab_url,
-            username, password)
-        if tables != {}:
-            table_list = json.loads(tables.text)
-            for table in table_list:
-                if table['type'] == 'STAT':
-                    table_name = '.'.join(table['name'].split('.')[1:])
-                    # append to stat_table_list only if not existing
-                    if table_name not in stat_table_list:
-                        stat_table_list.append(table_name)
-
-        if self.parse_args(stat_table_list) != 0:
+        if self.parse_args() != 0:
             return
 
         if len(self._args.select)==0 and self._args.dtable is None: 
@@ -87,7 +52,7 @@ class StatQuerier(object):
             result = self.query()
             self.display(result)
 
-    def parse_args(self, stat_table_list):
+    def parse_args(self):
         """ 
         Eg. python stats.py --analytics-api-ip 127.0.0.1
                           --analytics-api-port 8181
@@ -106,14 +71,64 @@ class StatQuerier(object):
             'end_time': 'now',
             'select' : [],
             'where' : ['Source=*'],
-            'sort': []
+            'sort': [],
+            'admin_user': 'admin',
+            'admin_password': 'contrail123',
+            'conf_file': '/etc/contrail/contrail-keystone-auth.conf',
         }
 
+        conf_parser = argparse.ArgumentParser(add_help=False)
+        conf_parser.add_argument("--admin-user", help="Name of admin user")
+        conf_parser.add_argument("--admin-password", help="Password of admin user")
+        conf_parser.add_argument("--conf-file", help="Configuration file")
+        conf_parser.add_argument("--analytics-api-ip", help="IP address of Analytics API Server")
+        conf_parser.add_argument("--analytics-api-port", help="Port of Analytcis API Server")
+        args, remaining_argv = conf_parser.parse_known_args();
+
+        configfile = defaults['conf_file']
+        if args.conf_file:
+            configfile = args.conf_file
+
+        config = ConfigParser.SafeConfigParser()
+        config.read(configfile)
+        if 'KEYSTONE' in config.sections():
+            if args.admin_user == None:
+                args.admin_user = config.get('KEYSTONE', 'admin_user')
+            if args.admin_password == None:
+                args.admin_password = config.get('KEYSTONE','admin_password')
+
+        if args.admin_user == None:
+            args.admin_user = defaults['admin_user']
+        if args.admin_password == None:
+            args.admin_password = defaults['admin_password']
+
+        if args.analytics_api_ip == None:
+            args.analytics_api_ip = defaults['analytics_api_ip']
+        if args.analytics_api_port == None:
+            args.analytics_api_port = defaults['analytics_api_port']
+
+        stat_table_list = [xx.stat_type + "." + xx.stat_attr for xx in VizConstants._STAT_TABLES]
+        tab_url = "http://" + args.analytics_api_ip + ":" +\
+            args.analytics_api_port + "/analytics/tables"
+        tables = OpServerUtils.get_url_http(tab_url,
+            args.admin_user, args.admin_password)
+        if tables != {}:
+            if tables.status_code == 200:
+                table_list = json.loads(tables.text)
+                for table in table_list:
+                    if table['type'] == 'STAT':
+                        table_name = '.'.join(table['name'].split('.')[1:])
+                        # append to stat_table_list only if not existing
+                        if table_name not in stat_table_list:
+                            stat_table_list.append(table_name)
+
         parser = argparse.ArgumentParser(
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+                  # Inherit options from config_parser
+                  parents=[conf_parser],
+                  # print script description with -h/--help
+                  description=__doc__,
+                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.set_defaults(**defaults)
-        parser.add_argument("--analytics-api-ip", help="IP address of Analytics API Server")
-        parser.add_argument("--analytics-api-port", help="Port of Analytcis API Server")
         parser.add_argument(
             "--start-time", help="Logs start time (format now-10m, now-1h)")
         parser.add_argument("--end-time", help="Logs end time")
@@ -129,12 +144,12 @@ class StatQuerier(object):
             "--where", help="List of Where Terms to be ANDed", nargs='+')
         parser.add_argument(
             "--sort", help="List of Sort Terms", nargs='+')
-        parser.add_argument(
-            "--admin-user", help="Name of admin user", default="admin")
-        parser.add_argument(
-            "--admin-password", help="Password of admin user",
-            default="contrail123")
-        self._args = parser.parse_args()
+        self._args = parser.parse_args(remaining_argv)
+
+        self._args.admin_user = args.admin_user
+        self._args.admin_password = args.admin_password
+        self._args.analytics_api_ip = args.analytics_api_ip
+        self._args.analytics_api_port = args.analytics_api_port
 
         if self._args.table is None and self._args.dtable is None:
             return -1
