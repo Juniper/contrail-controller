@@ -50,6 +50,7 @@ public:
     static const int kInitRetryTimeSec = 5;
     static const int kMaxRequestsToYield = 512;
     static const int kMaxNumUUIDToRead = 64;
+    static const int kNumFQNameEntriesToRead = 4096;
 
     typedef boost::scoped_ptr<GenDb::GenDbIf> GenDbIfPtr;
     typedef std::pair<std::string, std::string> ObjTypeFQNPair;
@@ -166,14 +167,16 @@ private:
     typedef std::map<string, FieldDetailMap> ObjectCacheMap;
 
     typedef boost::shared_ptr<WorkQueue<ObjectProcessReq *> > ObjProcessWorkQType;
+
     void InitRetry();
     virtual bool ParseUuidTableRowResponse(const std::string &uuid,
         const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
         ConfigCassandraParseContext &context);
     void AddUuidEntry(const string &uuid);
-    bool ReadAllFqnTableRows();
-    bool ParseFQNameRowGetUUIDList(const GenDb::ColList &col_list,
-                                   ObjTypeUUIDList &uuid_list);
+    bool FQNameReader();
+    bool ParseFQNameRowGetUUIDList(const std::string &obj_type,
+               const GenDb::ColList &col_list, ObjTypeUUIDList &uuid_list,
+               std::string &last_column);
     bool ConfigReader(int worker_id);
     void AddUUIDToRequestList(int worker_id, const string &oper,
                               const string &obj_type, const string &uuid_str);
