@@ -66,7 +66,6 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(expected_conf_files_,
                      options_.config_file());
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -119,7 +118,6 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
                                passed_conf_files);
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -174,7 +172,6 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
                                passed_conf_files);
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
@@ -234,7 +231,6 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.collector_port(), default_collector_port);
     TASK_UTIL_EXPECT_VECTOR_EQ(options_.config_file(),
                                passed_conf_files);
-    EXPECT_EQ(options_.discovery_server(), "127.0.0.1");
     EXPECT_EQ(options_.discovery_port(), default_discovery_port);
     EXPECT_EQ(options_.hostname(), hostname_);
     EXPECT_EQ(options_.host_ip(), host_ip_);
