@@ -52,16 +52,15 @@ class ContrailVRouterApi(object):
 
             if 'vm_project_id' in kwargs:
                 vm_project_id = kwargs['vm_project_id']
-            if ('port_type' in kwargs and
-                kwargs['port_type'] in [0,1]):
+            if ('port_type' in kwargs):
                 if (kwargs['port_type'] == 0):
                     port_type = "NovaVMPort"
                 elif (kwargs['port_type'] == 1):
                     port_type = "NameSpacePort"
-                elif (kwargs['port_type'] == 'NameSpacePort'):
-                    port_type = "NameSpacePort"
-                else:
+                elif (kwargs['port_type'] == 'NovaVMPort'):
                     port_type = "NovaVMPort"
+                else:
+                    port_type = "NameSpacePort"
             else:
                 port_type = "NameSpacePort"
 
