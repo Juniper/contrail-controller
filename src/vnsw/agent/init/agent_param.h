@@ -285,6 +285,8 @@ public:
         return bgp_as_a_service_port_range_value_;
     }
     uint32_t services_queue_limit() { return services_queue_limit_; }
+    uint32_t no_of_bits_for_bgp_as_a_service_port() const { 
+        return no_of_bits_for_bgp_as_a_service_port_; }
 
     const SandeshConfig &sandesh_config() const { return sandesh_config_; }
 
@@ -589,6 +591,7 @@ private:
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;
     uint32_t services_queue_limit_;
+    uint32_t no_of_bits_for_bgp_as_a_service_port_;
 
     // Sandesh config options
     SandeshConfig sandesh_config_;

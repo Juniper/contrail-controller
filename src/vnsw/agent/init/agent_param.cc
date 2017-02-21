@@ -722,6 +722,8 @@ void AgentParam::ParseServices() {
     GetValueFromTree<string>(bgp_as_a_service_port_range_,
                              "SERVICES.bgp_as_a_service_port_range");
     GetValueFromTree<uint32_t>(services_queue_limit_, "SERVICES.queue_limit");
+    GetValueFromTree<uint32_t>(no_of_bits_for_bgp_as_a_service_port_, 
+                               "SERVICES.no_of_bits_for_bgp_as_a_service_port");
 }
 
 void AgentParam::ParseSandesh() {
@@ -1082,6 +1084,8 @@ void AgentParam::ParseServicesArguments
     GetOptValue<string>(v, bgp_as_a_service_port_range_,
                         "SERVICES.bgp_as_a_service_port_range");
     GetOptValue<uint32_t>(v, services_queue_limit_, "SERVICES.queue_limit");
+    GetOptValue<uint32_t>(v, no_of_bits_for_bgp_as_a_service_port_, 
+                          "SERVICES.no_of_bits_for_bgp_as_a_service_port");
 }
 
 void AgentParam::ParseSandeshArguments
@@ -1522,6 +1526,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance lbaas auth : " << si_lbaas_auth_conf_);
     LOG(DEBUG, "Bgp as a service port range : " << bgp_as_a_service_port_range_);
     LOG(DEBUG, "Services queue limit        : " << services_queue_limit_);
+    LOG(DEBUG, "No of bits for BGPAAS Port  : " << no_of_bits_for_bgp_as_a_service_port_);
 
     LOG(DEBUG, "Sandesh Key file            : " << sandesh_config_.keyfile);
     LOG(DEBUG, "Sandesh Cert file           : " << sandesh_config_.certfile);
@@ -1648,6 +1653,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         subnet_hosts_resolvable_(true),
         services_queue_limit_(1024),
+        no_of_bits_for_bgp_as_a_service_port_(4),
         sandesh_config_(),
         restart_backup_enable_(true),
         restart_backup_idle_timeout_(CFG_BACKUP_IDLE_TIMEOUT),
