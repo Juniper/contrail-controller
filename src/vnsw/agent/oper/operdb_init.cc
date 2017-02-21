@@ -40,6 +40,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/vrouter.h>
 #include <oper/bgp_as_service.h>
+#include <oper/agent_route_walker.h>
 #include <nexthop_server/nexthop_manager.h>
 #include <oper/forwarding_class.h>
 #include <oper/qos_config.h>
