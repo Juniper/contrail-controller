@@ -1,3 +1,6 @@
+#
+# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+#
 import json
 import gevent
 from kube_monitor import KubeMonitor
