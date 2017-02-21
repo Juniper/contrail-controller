@@ -399,3 +399,19 @@ void AgentRouteWalker::WalkDoneCallback(WalkDone cb) {
 void AgentRouteWalker::RouteWalkDoneForVrfCallback(RouteWalkDoneCb cb) {
     route_walk_done_for_vrf_cb_ = cb;
 }
+
+//Call walk cancel on all walk id.
+//Note: Caller should be in exclusion with dbtask/AgentRouteWalker
+void AgentRouteWalker::StopAllWalks() {
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    CancelVrfWalkInternal();
+    for (uint8_t type = (Agent::INVALID + 1); type < Agent::ROUTE_TABLE_MAX;
+         type++) {
+        for (VrfRouteWalkerIdMapIterator iter = route_walkid_[type].begin();
+             iter != route_walkid_[type].end(); iter++) {
+            if (iter != route_walkid_[type].end()) {
+                walker->WalkCancel(iter->second);
+            }
+        }
+    }
+}
