@@ -1005,9 +1005,9 @@ class Controller(object):
         # Create config handler to read/update alarm config
         rabbitmq_params = self._conf.rabbitmq_params()
         self._config_handler = AlarmGenConfigHandler(self._sandesh,
-            self._moduleid, self._instance_id, self.config_log, self.disc,
-            self._conf.keystone_params(), rabbitmq_params, self.mgrs,
-            self.alarm_config_change_callback)
+            self._moduleid, self._instance_id, self.config_log,
+            self._conf.api_server_list(), self._conf.keystone_params(),
+            rabbitmq_params, self.mgrs, self.alarm_config_change_callback)
         if rabbitmq_params['servers'] and self.disc:
             self._config_handler.start()
         else:

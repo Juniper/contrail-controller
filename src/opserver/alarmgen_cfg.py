@@ -66,6 +66,7 @@ class CfgParser(object):
             'kombu_ssl_certfile': '',
             'kombu_ssl_ca_certs': '',
             'alarmgen_list'     : ['127.0.0.1:0'],
+            'api_server_list'     : ['127.0.0.1:8082'],
             'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
             'kafka_prefix'     :'',
         }
@@ -217,6 +218,9 @@ class CfgParser(object):
             help="Enable ssl for sandesh connection")
         parser.add_argument("--introspect_ssl_enable", action="store_true",
             help="Enable ssl for introspect connection")
+        parser.add_argument("--api_server_list",
+            help="List of api-servers in ip:port format separated by space",
+            nargs="+")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -228,6 +232,8 @@ class CfgParser(object):
             self._args.redis_uve_list = self._args.redis_uve_list.split()
         if type(self._args.alarmgen_list) is str:
             self._args.alarmgen_list = self._args.alarmgen_list.split()
+        if type(self._args.api_server_list) is str:
+            self._args.api_server_list = self._args.api_server_list.split()
         self._args.conf_file = args.conf_file
 
     def _pat(self):
@@ -256,6 +262,9 @@ class CfgParser(object):
 
     def zk_list(self):
         return self._args.zk_list;
+
+    def api_server_list(self):
+        return self._args.api_server_list
 
     def log_local(self):
         return self._args.log_local

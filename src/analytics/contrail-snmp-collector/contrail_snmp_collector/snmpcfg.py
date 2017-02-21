@@ -7,8 +7,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from device_config import DeviceConfig
 import discoveryclient.client as client
 from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames, \
-         API_SERVER_DISCOVERY_SERVICE_NAME, HttpPortSnmpCollector
+from sandesh_common.vns.constants import ModuleNames, HttpPortSnmpCollector
 
 class CfgParser(object):
     CONF_DEFAULT_PATH = '/etc/contrail/contrail-snmp-collector.conf'
@@ -90,6 +89,7 @@ Mibs = LldpTable, ArpTable
             'fast_scan_frequency' : 60,
             'http_server_port'    : HttpPortSnmpCollector,
             'zookeeper'           : '127.0.0.1:2181',
+            'api_server_list'     : ['127.0.0.1:8082'],
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
             'cluster_id'          :'',
         }
@@ -195,16 +195,19 @@ Mibs = LldpTable, ArpTable
             help="Enable ssl for sandesh connection")
         parser.add_argument("--introspect_ssl_enable", action="store_true",
             help="Enable ssl for introspect connection")
+        parser.add_argument("--api_server_list",
+            help="List of api-servers in ip:port format separated by space",
+            nargs="+")
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument("--device-config-file",
             help="where to look for snmp credentials")
-        group.add_argument("--api_server",
-            help="ip:port of api-server for snmp credentials")
         group.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
+        if type(self._args.api_server_list) is str:
+            self._args.api_server_list = self._args.api_server_list.split()
         self._args.config_sections = config
         self._args.conf_file = args.conf_file
         self._disc = client.DiscoveryClient(*self.discovery_params())
@@ -213,36 +216,14 @@ Mibs = LldpTable, ArpTable
         if self._args.device_config_file:
             self._devices = DeviceConfig.fom_file(
                     self._args.device_config_file)
-        elif self._args.api_server:
+        elif self._args.api_server_list:
             self._devices = DeviceConfig.fom_api_server(
-                    [self._args.api_server],
+                    self._args.api_server_list,
                     self._args.admin_user, self._args.admin_password,
                     self._args.admin_tenant_name,
                     self._args.auth_host, self._args.auth_port,
                     self._args.auth_protocol, self._cb)
-        elif self._args.disc_server_port:
-            apis = self.get_api_svrs()
-            if apis:
-                self._devices = DeviceConfig.fom_api_server(
-                    self.get_api_svrs(), self._args.admin_user,
-                    self._args.admin_password, self._args.admin_tenant_name,
-                    self._args.auth_host, self._args.auth_port,
-                    self._args.auth_protocol, self._cb)
-            else:
-                self._devices = []
         return self._devices
-
-    def get_api_svrs(self):
-        if self._disc is None:
-            p = self.discovery_params()
-            try:
-              self._disc = client.DiscoveryClient(*p)
-            except Exception as e:
-              import traceback; traceback.print_exc()
-              return []
-        a = self._disc.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 0)
-        x = a.read()
-        return map(lambda d:d['ip-address'] + ':' + d['port'], x)
 
     def discovery_params(self):
         if self._args.disc_server_ip:
