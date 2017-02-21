@@ -36,6 +36,8 @@ public:
     static const std::set<std::string> skip_properties;
 
     typedef std::list<struct DBRequest *> RequestList;
+    typedef std::set<std::string> ObjectTypeList;
+
     ConfigClientManager(EventManager *evm, IFMapServer *ifmap_server,
                         std::string hostname, std::string module_name,
                         const IFMapConfigOptions& config_options);
@@ -75,6 +77,9 @@ public:
     void WaitForEndOfConfig();
     void GetPeerServerInfo(IFMapPeerServerInfoUI *server_info);
     void GetClientManagerInfo(ConfigClientManagerInfo &info) const;
+    const ObjectTypeList &ObjectTypeListToRead() const {
+        return obj_type_to_read_;
+    }
 
 private:
     typedef std::pair<std::string, std::string> LinkMemberPair;
@@ -92,6 +97,7 @@ private:
     boost::scoped_ptr<ConfigAmqpClient> config_amqp_client_;
     int thread_count_;
     WrapperFieldMap wrapper_field_map_;
+    ObjectTypeList obj_type_to_read_;
 
     mutable tbb::mutex end_of_rib_sync_mutex_;
     tbb::interface5::condition_variable cond_var_;

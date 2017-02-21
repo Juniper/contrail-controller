@@ -65,6 +65,10 @@ ConfigCassandraClient::ConfigCassandraClient(ConfigClientManager *mgr,
                       WorkQueue<ObjectProcessReq *>::kMaxSize, 512);
         obj_process_queue_.push_back(ObjProcessWorkQType(tmp_work_q));
     }
+
+    fq_name_reader_.reset(new
+         TaskTrigger(boost::bind(&ConfigCassandraClient::FQNameReader, this),
+         TaskScheduler::GetInstance()->GetTaskId("cassandra::FQNameReader"), 0));
 }
 
 ConfigCassandraClient::~ConfigCassandraClient() {
@@ -371,23 +375,21 @@ void ConfigCassandraClient::UpdateCache(const std::string &key,
     AddFQNameCache(uuid_str, obj_type, key.substr(0, key.rfind(':')));
 }
 
-bool ConfigCassandraClient::ParseFQNameRowGetUUIDList(
-                  const GenDb::ColList &col_list, ObjTypeUUIDList &uuid_list) {
-    GenDb::Blob dname_blob(boost::get<GenDb::Blob>(col_list.rowkey_[0]));
-    string obj_type(reinterpret_cast<const char *>(dname_blob.data()),
-               dname_blob.size());
+bool ConfigCassandraClient::ParseFQNameRowGetUUIDList(const string &obj_type,
+                  const GenDb::ColList &col_list, ObjTypeUUIDList &uuid_list,
+                  string *last_column) {
+    string column_name;
     BOOST_FOREACH(const GenDb::NewCol &ncol, col_list.columns_) {
         assert(ncol.name->size() == 1);
-        assert(ncol.value->size() == 1);
-
         const GenDb::DbDataValue &dname(ncol.name->at(0));
         assert(dname.which() == GenDb::DB_VALUE_BLOB);
         GenDb::Blob dname_blob(boost::get<GenDb::Blob>(dname));
-        string key(reinterpret_cast<const char *>(dname_blob.data()),
+        column_name = string(reinterpret_cast<const char *>(dname_blob.data()),
                    dname_blob.size());
-        UpdateCache(key, obj_type, uuid_list);
+        UpdateCache(column_name, obj_type, uuid_list);
     }
 
+    *last_column = column_name;
     return true;
 }
 
@@ -549,40 +551,85 @@ void ConfigCassandraClient::HandleCassandraConnectionStatus(bool success) {
     }
 }
 
-bool ConfigCassandraClient::ReadAllFqnTableRows() {
-    GenDb::ColListVec cl_vec_fq_name;
-
-    ObjTypeUUIDList uuid_list;
-    while (true) {
-        if (dbif_->Db_GetAllRows(&cl_vec_fq_name, kFqnTableName,
-                                 GenDb::DbConsistency::QUORUM)) {
-            HandleCassandraConnectionStatus(true);
-            BOOST_FOREACH(const GenDb::ColList &cl_list, cl_vec_fq_name) {
-                assert(cl_list.rowkey_.size() == 1);
-                assert(cl_list.rowkey_[0].which() == GenDb::DB_VALUE_BLOB);
-
-                if (cl_list.columns_.size()) {
-                    ParseFQNameRowGetUUIDList(cl_list, uuid_list);
-                }
-            }
-            break;
-        } else {
-            HandleCassandraConnectionStatus(false);
-            IFMAP_WARN(IFMapGetRowError, "GetAllRows failed for table. Retry !",
-                       kFqnTableName, "");
-            sleep(kInitRetryTimeSec);
-        }
-    }
-    return EnqueueUUIDRequest(uuid_list);
-}
-
 bool ConfigCassandraClient::EnqueueUUIDRequest(
         const ObjTypeUUIDList &uuid_list) {
     for (ObjTypeUUIDList::const_iterator it = uuid_list.begin();
          it != uuid_list.end(); it++) {
         EnqueueUUIDRequest("CREATE", it->first, it->second);
     }
+    return true;
+}
 
+bool ConfigCassandraClient::FQNameReader() {
+    for (ConfigClientManager::ObjectTypeList::const_iterator it =
+         mgr()->ObjectTypeListToRead().begin();
+         it != mgr()->ObjectTypeListToRead().end(); it++) {
+        string column_name;
+        while (true) {
+            // Rowkey is obj-type
+            GenDb::DbDataValueVec key;
+            key.push_back(GenDb::Blob(reinterpret_cast<const uint8_t *>
+                                      (it->c_str()), it->size()));
+            GenDb::ColumnNameRange crange;
+            if (!column_name.empty()) {
+                GenDb::Blob col_filter(reinterpret_cast<const uint8_t *>
+                                   (column_name.c_str()), column_name.size());
+                //
+                // Start reading the next set of entries from where we ended in
+                // last read
+                //
+                crange.start_ =
+                    boost::assign::list_of(GenDb::DbDataValue(col_filter));
+            }
+            //
+            // Read kNumFQNameEntriesToRead entries at a time.
+            // In a scaled setup, each object type may have large number of
+            // entries. So read each obj-type fq-name entries in chunk of
+            // kNumFQNameEntriesToRead rows at a time
+            //
+            crange.count_ = kNumFQNameEntriesToRead;
+
+            GenDb::FieldNamesToReadVec field_vec;
+            field_vec.push_back(boost::make_tuple("key", true, false, false));
+            field_vec.push_back(boost::make_tuple("column1", false, true, false));
+
+            GenDb::ColList col_list;
+            if (dbif_->Db_GetRow(&col_list, kFqnTableName, key,
+                     GenDb::DbConsistency::QUORUM, crange, field_vec)) {
+                HandleCassandraConnectionStatus(true);
+                if (col_list.columns_.size()) {
+                    ObjTypeUUIDList uuid_list;
+                    string last_column;
+                    ParseFQNameRowGetUUIDList(*it, col_list, uuid_list,
+                                              &last_column);
+                    //
+                    // If the last_column we read this time is same as
+                    // where we started the current read, move to next obj-type
+                    //
+                    if (last_column == column_name)
+                        break;
+                    EnqueueUUIDRequest(uuid_list);
+                    //
+                    // If we read less than kNumFQNameEntriesToRead entries,
+                    // it means there are no more entries for current obj-type.
+                    // We move to next obj-type
+                    //
+                    if (col_list.columns_.size() < kNumFQNameEntriesToRead)
+                        break;
+                    column_name = last_column;
+                } else {
+                    // No entries for this obj-type
+                    break;
+                }
+            } else {
+                HandleCassandraConnectionStatus(false);
+                IFMAP_WARN(IFMapGetRowError, "GetRow failed for table",
+                           kFqnTableName, *it);
+                sleep(kInitRetryTimeSec);
+            }
+        }
+    }
+    // At the end of task trigger
     for (int i = 0; i < num_workers_; i++) {
         ObjectProcessReq *req = new ObjectProcessReq("EndOfConfig","", "");
         Enqueue(i, req);
@@ -593,7 +640,7 @@ bool ConfigCassandraClient::EnqueueUUIDRequest(
 
 bool ConfigCassandraClient::BulkDataSync() {
     bulk_sync_status_ = num_workers_;
-    ReadAllFqnTableRows();
+    fq_name_reader_->Set();
     return true;
 }
 
