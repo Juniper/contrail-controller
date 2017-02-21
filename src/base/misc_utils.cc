@@ -160,3 +160,26 @@ bool MiscUtils::GetPlatformInfo(std::string &distro, std::string &code_name) {
     }
     return true;
 }
+
+std::vector<uint16_t> MiscUtils::GetDerivedBgpaasServicePort(
+                        const std::vector<uint16_t> &ports,
+                        const uint32_t max_session) {
+    uint16_t  port_range_start = ports[0];
+    uint16_t  port_range_end = ports[1];
+    uint16_t  bgpaas_der_port_start;
+    uint16_t  bgpaas_der_port_end;
+    uint32_t total_der_ports = (port_range_end - port_range_start) *
+                                 max_session;
+    if ( (total_der_ports + port_range_end + 1) > USHRT_MAX) {
+        bgpaas_der_port_start = port_range_start - 1;
+        bgpaas_der_port_end = bgpaas_der_port_start - total_der_ports;
+    } else {
+        bgpaas_der_port_start = port_range_end + 1;
+        bgpaas_der_port_end = bgpaas_der_port_start + total_der_ports;
+    }
+    std::vector<uint16_t> bgpaas_der_port_range;
+    bgpaas_der_port_range.push_back(bgpaas_der_port_start);
+    bgpaas_der_port_range.push_back(bgpaas_der_port_end);
+    return bgpaas_der_port_range;
+}
+
