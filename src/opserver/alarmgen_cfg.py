@@ -70,6 +70,10 @@ class CfgParser(object):
             'cluster_id'     :'',
         }
 
+        api_opts = {
+            'api_server_list' : ['127.0.0.1:8082']
+        }
+
         redis_opts = {
             'redis_server_port'  : 6379,
             'redis_password'     : None,
@@ -105,6 +109,8 @@ class CfgParser(object):
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items('DEFAULTS')))
+            if 'API_SERVER' in config.sections():
+                api_opts.update(dict(config.items('API_SERVER')))
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
@@ -124,6 +130,7 @@ class CfgParser(object):
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
 
+        defaults.update(api_opts)
         defaults.update(redis_opts)
         defaults.update(disc_opts)
         defaults.update(keystone_opts)
@@ -217,6 +224,9 @@ class CfgParser(object):
             help="Enable ssl for sandesh connection")
         parser.add_argument("--introspect_ssl_enable", action="store_true",
             help="Enable ssl for introspect connection")
+        parser.add_argument("--api_server_list",
+            help="List of api-servers in ip:port format separated by space",
+            nargs="+")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -228,6 +238,8 @@ class CfgParser(object):
             self._args.redis_uve_list = self._args.redis_uve_list.split()
         if type(self._args.alarmgen_list) is str:
             self._args.alarmgen_list = self._args.alarmgen_list.split()
+        if type(self._args.api_server_list) is str:
+            self._args.api_server_list = self._args.api_server_list.split()
         self._args.conf_file = args.conf_file
 
     def _pat(self):
@@ -256,6 +268,9 @@ class CfgParser(object):
 
     def zk_list(self):
         return self._args.zk_list;
+
+    def api_server_list(self):
+        return self._args.api_server_list
 
     def log_local(self):
         return self._args.log_local

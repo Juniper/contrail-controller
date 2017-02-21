@@ -23,12 +23,12 @@ _INVERSE_UVE_MAP = inverse_dict(UVE_MAP)
 class AlarmGenConfigHandler(ConfigHandler):
 
     def __init__(self, sandesh_instance, module_id, instance_id, logger,
-                 discovery_client, keystone_info, rabbitmq_info,
+                 api_server_list, keystone_info, rabbitmq_info,
                  alarm_plugins, alarm_config_change_callback):
         service_id = socket.gethostname()+':'+module_id+':'+instance_id
         config_types = ['global-system-config', 'alarm']
         super(AlarmGenConfigHandler, self).__init__(service_id, logger,
-            discovery_client, keystone_info, rabbitmq_info, config_types)
+            api_server_list, keystone_info, rabbitmq_info, config_types)
         self._sandesh_instance = sandesh_instance
         self._alarm_plugins = alarm_plugins
         self._alarm_config_change_callback = alarm_config_change_callback

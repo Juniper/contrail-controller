@@ -92,12 +92,8 @@ class DeviceConfig(object):
         while True:
           for api_server in api_servers:
             srv = api_server.split(':')
-            if len(srv) == 2:
-                ip, port = srv[0], int(srv[1])
-            else:
-                ip, port = '127.0.0.1', int(srv[0])
             try:
-                vnc = VncApi(usr, passwd, tenant, ip, port,
+                vnc = VncApi(usr, passwd, tenant, srv[0], srv[1],
                         auth_host=auth_host, auth_port=auth_port,
                         auth_protocol=auth_protocol)
                 if callable(notifycb):

@@ -5,7 +5,7 @@ import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import ModuleNames, HttpPortTopology, \
-    API_SERVER_DISCOVERY_SERVICE_NAME, OpServerAdminPort
+    OpServerAdminPort
 from sandesh_common.vns.ttypes import Module
 import discoveryclient.client as discovery_client
 import traceback
@@ -83,6 +83,9 @@ optional arguments:
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
             'cluster_id'      : '',
         }
+        api_opts = {
+            'api_server_list' : ['127.0.0.1:8082']
+        }
         disc_opts = {
             'disc_server_ip'     : '127.0.0.1',
             'disc_server_port'   : 5998,
@@ -110,6 +113,8 @@ optional arguments:
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
+            if 'API_SERVER' in config.sections():
+                api_opts.update(dict(config.items("API_SERVER")))
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
             if 'KEYSTONE' in config.sections():
@@ -126,6 +131,7 @@ optional arguments:
             # Don't mess with format of description
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
+        defaults.update(api_opts)
         defaults.update(disc_opts)
         defaults.update(ksopts)
         defaults.update(sandesh_opts)
@@ -188,12 +194,17 @@ optional arguments:
             help="Enable ssl for sandesh connection")
         parser.add_argument("--introspect_ssl_enable", action="store_true",
             help="Enable ssl for introspect connection")
+        parser.add_argument("--api_server_list",
+            help="List of api-servers in ip:port format separated by space",
+            nargs="+")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         if type(self._args.analytics_api) is str:
             self._args.analytics_api = self._args.analytics_api.split()
+        if type(self._args.api_server_list) is str:
+            self._args.api_server_list = self._args.api_server_list.split()
 
         self._args.config_sections = config
         self._disc = discovery_client.DiscoveryClient(
@@ -262,24 +273,16 @@ optional arguments:
                              self._args.sandesh_ssl_enable,
                              self._args.introspect_ssl_enable)
 
-    def api_svrs(self):
-        a = self._disc.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 0)
-        x = a.read()
-        return map(lambda d:d['ip-address'] + ':' + d['port'], x)
-
     def vnc_api(self, notifycb=None):
         e = SystemError('Cant connect to API server')
         for rt in (5, 2, 7, 9, 16, 25):
-            for api_server in self.api_svrs():
+            for api_server in self._args.api_server_list:
                 srv = api_server.split(':')
-                if len(srv) == 2:
-                    ip, port = srv[0], int(srv[1])
-                else:
-                    ip, port = '127.0.0.1', int(srv[0])
                 try:
                     vnc = VncApi(self._args.admin_user,
                                  self._args.admin_password,
                                  self._args.admin_tenant_name,
+                                 srv[0], srv[1],
                                  auth_host=self._args.auth_host,
                                  auth_port=self._args.auth_port,
                                  auth_protocol=self._args.auth_protocol)
