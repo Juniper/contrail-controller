@@ -348,9 +348,10 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             //TODO Seperate flags for BgpRouterService??
             if (nat_flow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) ||
                 nat_flow->is_flags_set(FlowEntry::BgpRouterService)) {
-                flags |= VR_FLOW_FLAG_LINK_LOCAL;
                 if (nat_flow->is_flags_set(FlowEntry::BgpRouterService)) {
                     flags |= VR_FLOW_BGP_SERVICE;
+                } else {
+                    flags |= VR_FLOW_FLAG_LINK_LOCAL;
                 }
             }
 
