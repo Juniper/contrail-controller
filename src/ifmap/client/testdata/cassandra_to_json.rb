@@ -5,6 +5,7 @@ require 'json'
 require 'tempfile'
 
 @host = ENV["CONFIG_JSON_PARSER_TEST_DB"] || "10.204.216.23"
+@password = ENV["CONFIG_JSON_PARSER_TEST_PASSWORD"] || "c0ntrail123"
 @cass=<<EOF
 cqlsh #{@host}
 use config_db_uuid;
@@ -13,7 +14,7 @@ EOF
 
 def get_py_cmd (table = "OBJ_UUID_TABLE")
     run_py=<<EOF
-for r,c in #{table}.get_range():
+for r,c in #{table}.get_range(column_count=10000000):
     print "\\nOrderedDict([('UUID', u'" + r + "')])"
     print "\\n"
     print c
@@ -32,20 +33,20 @@ def get_cassandra_data (host = @host)
     fq_cmd = t.path
     t.close
     tf1 = "/tmp/#{File.basename t.path}"
-    run("sshpass -p c0ntrail123 scp -q #{t.path} root@#{host}:#{tf1}")
+    run("sshpass -p #{@password} scp -q #{t.path} root@#{host}:#{tf1}")
 
     t = Tempfile.new(["data", ".py"])
     t.puts get_py_cmd("OBJ_UUID_TABLE")
     db_cmd = t.path
     t.close
     tf2 = "/tmp/#{File.basename t.path}"
-    run("sshpass -p c0ntrail123 scp -q #{t.path} root@#{host}:#{tf2}")
+    run("sshpass -p #{@password} scp -q #{t.path} root@#{host}:#{tf2}")
 
-    c1 = "cat #{fq_cmd} | sshpass -p c0ntrail123 ssh -q root@#{host} pycassaShell -H #{@host} -k config_db_uuid -f #{tf1}| grep OrderedDict"
+    c1 = "cat #{fq_cmd} | sshpass -p #{@password} ssh -q root@#{host} pycassaShell -H #{@host} -k config_db_uuid -f #{tf1}| grep OrderedDict"
     puts "Retrieving OBJ_FQ_NAME_TABLE from #{@host} cassandra db"
     o1 = run(c1)
 
-    c2 = "cat #{db_cmd} | sshpass -p c0ntrail123 ssh -q root@#{host} pycassaShell -H #{@host} -k config_db_uuid -f #{tf2}| grep OrderedDict"
+    c2 = "cat #{db_cmd} | sshpass -p #{@password} ssh -q root@#{host} pycassaShell -H #{@host} -k config_db_uuid -f #{tf2}| grep OrderedDict"
     puts "Retrieving OBJ_UUID_TABLE from #{@host} cassandra db"
     o2 = run(c2)
 
