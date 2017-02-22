@@ -190,7 +190,7 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
     if (r.vn_id.length() != 0) {
         vn_uuid = StringToUuid(r.vn_id);
     }
-    /* VM Project UUID is optional for CfgIntNameSpacePort */
+    /* VM Project UUID is optional */
     uuid vm_project_uuid = nil_uuid();
     if (r.vm_project_id.length() != 0) {
         vm_project_uuid = StringToUuid(r.vm_project_id);
@@ -224,11 +224,6 @@ bool PortIpcHandler::AddPort(const PortIpcHandler::AddPortParams &r,
     }
     if ((intf_type == CfgIntEntry::CfgIntVMPort) && (vn_uuid == nil_uuid())) {
         resp_str += "invalid VN uuid, ";
-        err = true;
-    }
-    if ((intf_type == CfgIntEntry::CfgIntVMPort) &&
-        (vm_project_uuid == nil_uuid())) {
-        resp_str += "invalid VM project uuid, ";
         err = true;
     }
     if (!ValidateMac(r.mac_address)) {
