@@ -468,7 +468,7 @@ void TcpSession::AsyncReadHandler(TcpSessionPtr session) {
     if (IsSocketErrorHard(error)) {
         session->ReleaseBufferLocked(buffer);
         // eof is returned when the peer closed the socket, no need to log error
-        if (error != eof) {
+        if ((error != eof) && (strncmp(error.category().name(), "asio.ssl", 8) != 0)) {
             TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
                     "Read failed due to error " << error.value()
                     << " : " << error.message());
