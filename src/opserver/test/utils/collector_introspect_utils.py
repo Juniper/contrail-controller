@@ -15,8 +15,8 @@ from opserver.introspect_util import *
 
 
 class VerificationCollector(IntrospectUtilBase):
-    def __init__(self, ip, port):
-        super(VerificationCollector, self).__init__(ip, port, XmlDrv)
+    def __init__(self, ip, port, config):
+        super(VerificationCollector, self).__init__(ip, port, XmlDrv, config)
     #end __init__
 
     def get_generators(self):
