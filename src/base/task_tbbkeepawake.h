@@ -5,7 +5,8 @@
 
 class TaskTbbKeepAwake {
 public:
-    TaskTbbKeepAwake() : tbb_awake_count_(0), tbb_awake_timer_(NULL) { }
+    TaskTbbKeepAwake() : tbb_awake_count_(0), tbb_awake_val_(0),
+                         timeout_changed_(false), tbb_awake_timer_(NULL) { }
 
     bool StartTbbKeepAwakeTask(TaskScheduler *ts, EventManager *event_mgr,
                                const std::string task_name,
@@ -14,14 +15,26 @@ public:
         tbb_awake_timer_ = TimerManager::CreateTimer(*event_mgr->io_service(),
                                                      "TBB Keep Awake",
                                                      task_id, 0);
-
+        tbb_awake_val_ = tbbKeepawakeTimeout;
         bool ret = tbb_awake_timer_->Start(tbbKeepawakeTimeout,
                        boost::bind(&TaskTbbKeepAwake::TbbKeepAwake, this));
         return ret;
     }
 
+    void ModifyTbbKeepAwakeTimeout(uint32_t timeout) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        if (tbb_awake_val_ != timeout) {
+            timeout_changed_ = true;
+            tbb_awake_val_ = timeout;
+        }
+    }
+
     bool TbbKeepAwake() {
         tbb_awake_count_++;
+        if (timeout_changed_) {
+            tbb_awake_timer_->Reschedule(tbb_awake_val_);
+            timeout_changed_ = false;
+        }
         return true;
     }
 
@@ -34,5 +47,8 @@ public:
 
 private:
     uint64_t tbb_awake_count_;
+    uint32_t tbb_awake_val_;
+    bool timeout_changed_;
     Timer *tbb_awake_timer_;
+    tbb::mutex mutex_;
 };
