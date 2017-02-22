@@ -11,8 +11,8 @@ from introspect_util import IntrospectUtilBase, XmlDrv, EtreeToDict
 
 
 class GeneratorIntrospectUtil(IntrospectUtilBase):
-    def __init__(self, ip, port):
-        super(GeneratorIntrospectUtil, self).__init__(ip, port, XmlDrv)
+    def __init__(self, ip, port, config=None):
+        super(GeneratorIntrospectUtil, self).__init__(ip, port, XmlDrv, config)
     # end __init__
 
     def send_alarm_ack_request(self, table, name, alarm_type, timestamp):
