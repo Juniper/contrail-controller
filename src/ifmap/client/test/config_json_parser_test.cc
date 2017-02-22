@@ -101,15 +101,42 @@ protected:
     void ParseEventsJson (string eventsFile) {
         string json_message = FileRead(eventsFile);
         assert(json_message.size() != 0);
-        config_cassandra_client_->events()->Parse<0>(json_message.c_str());
-        if (config_cassandra_client_->events()->HasParseError()) {
-            size_t pos = config_cassandra_client_->events()->GetErrorOffset();
+        Document *doc = config_cassandra_client_->events();
+        doc->Parse<0>(json_message.c_str());
+        if (doc->HasParseError()) {
+            size_t pos = doc->GetErrorOffset();
             // GetParseError returns const char *
             std::cout << "Error in parsing JSON message from rabbitMQ at "
                 << pos << "with error description"
-                << config_cassandra_client_->events()->GetParseError()
+                << doc->GetParseError()
                 << std::endl;
             exit(-1);
+        }
+
+        if (doc->IsObject() && doc->HasMember("cassandra") &&
+                (*doc)["cassandra"].HasMember("config_db_uuid")) {
+            Document *db_load = config_cassandra_client_->db_load();
+            Document::AllocatorType &a = db_load->GetAllocator();
+            db_load->SetArray();
+            Value v;
+            db_load->PushBack(v.SetObject(), a);
+            (*db_load)[0].AddMember("operation", "db_sync", a);
+            (*db_load)[0].AddMember("OBJ_FQ_NAME_TABLE",
+                (*doc)["cassandra"]["config_db_uuid"]["obj_fq_name_table"], a);
+            (*db_load)[0].AddMember("db",
+                (*doc)["cassandra"]["config_db_uuid"]["obj_uuid_table"], a);
+        } else if (doc->IsObject() && doc->HasMember("cassandra") &&
+                (*doc)["cassandra"].HasMember("obj_fq_name_table")) {
+            Document *db_load = config_cassandra_client_->db_load();
+            Document::AllocatorType &a = db_load->GetAllocator();
+            db_load->SetArray();
+            Value v;
+            db_load->PushBack(v.SetObject(), a);
+            (*db_load)[0].AddMember("operation", "db_sync", a);
+            (*db_load)[0].AddMember("OBJ_FQ_NAME_TABLE",
+                (*doc)["cassandra"]["obj_fq_name_table"], a);
+            (*db_load)[0].AddMember("db",
+                (*doc)["cassandra"]["obj_uuid_table"], a);
         }
     }
 
