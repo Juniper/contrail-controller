@@ -230,11 +230,11 @@ class DMUtils(object):
 
     @staticmethod
     def service_set_comment(vn):
-        return "/* Virtual Network: %s, UUID: %s, VRF Type: %s */"%(vn.fq_name[-1], vn.uuid)
+        return "/* Virtual Network: %s, UUID: %s */"%(vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def service_set_nat_rule_comment(vn, nat_type):
-        return "/* %s Rules for Virtual Network: %s, UUID: %sType: %s */"%(nat_type, vn.fq_name[-1], vn.uuid)
+        return "/* %s Rules for Virtual Network: %s, UUID: %s*/"%(nat_type, vn.fq_name[-1], vn.uuid)
 
     @staticmethod
     def nat_comment():
@@ -326,5 +326,25 @@ class DMUtils(object):
     @staticmethod
     def lo0_unit_0_comment():
         return "/* Routing Interface For L2 EVPNs */"
+
+    @staticmethod
+    def ip_fabric_subnet_comment():
+        return "/* IP Fabric Subnet */"
+
+    @staticmethod
+    def bgp_router_subnet_comment(name):
+        return "/* BGP Router : %s */"%(name)
+
+    @staticmethod
+    def public_vrf_route_comment():
+        return "/* Static Route for Public L3 VRF */"
+
+    @staticmethod
+    def fip_ingress_comment():
+        return "/* Static Route for Floating IP ingress */"
+
+    @staticmethod
+    def fip_egress_comment():
+        return "/* Static Route for Floating IP egress */"
 
 # end DMUtils

@@ -224,11 +224,13 @@ class PhysicalRouterConfig(object):
             for subnet in ip_fabric_nets.get("subnet", []):
                 dest_net = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len'])
                 dynamic_tunnel.add_destination_networks(
-                    DestinationNetworks(name=dest_net))
+                    DestinationNetworks(name=dest_net,
+                                        comment=DMUtils.ip_fabric_subnet_comment()))
 
-        for bgp_router_ip in bgp_router_ips or []:
+        for r_name, bgp_router_ip in bgp_router_ips.items():
             dynamic_tunnel.add_destination_networks(
-                DestinationNetworks(name=bgp_router_ip + '/32'))
+                DestinationNetworks(name=bgp_router_ip + '/32',
+                                    comment=DMUtils.bgp_router_subnet_comment(r_name)))
 
         dynamic_tunnels = DynamicTunnels()
         dynamic_tunnels.add_dynamic_tunnel(dynamic_tunnel)
@@ -336,7 +338,9 @@ class PhysicalRouterConfig(object):
         ri_opt = None
         if router_external and is_l2 == False:
             ri_opt = RoutingInstanceRoutingOptions(
-                         static=Static(route=[Route(name="0.0.0.0/0", next_table="inet.0")]))
+                         static=Static(route=[Route(name="0.0.0.0/0",
+                                                    next_table="inet.0",
+                                                    comment=DMUtils.public_vrf_route_comment())]))
             ri.set_routing_options(ri_opt)
 
         # for both l2 and l3
@@ -396,7 +400,9 @@ class PhysicalRouterConfig(object):
             if not static_config:
                 static_config = Static()
                 ri_opt.set_static(static_config)
-            static_config.add_route(Route(name="0.0.0.0/0", next_hop=interfaces[0].name))
+            static_config.add_route(Route(name="0.0.0.0/0",
+                                          next_hop=interfaces[0].name,
+                                          comment=DMUtils.fip_ingress_comment()))
             ri.add_interface(Interface(name=interfaces[0].name))
 
             public_vrf_ips = {}
@@ -417,7 +423,8 @@ class PhysicalRouterConfig(object):
 
                 for fip in fips:
                     static_config.add_route(Route(name=fip + "/32",
-                                                  next_hop=interfaces[1].name))
+                                                  next_hop=interfaces[1].name,
+                                                  comment=DMUtils.fip_egress_comment()))
 
         # add policies for export route targets
         ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
@@ -647,7 +654,7 @@ class PhysicalRouterConfig(object):
             nat.add_rule(snat_rule)
             dnat_rule = Rule(name=DMUtils.make_dnat_rule_name(ri_name),
                              match_direction="output")
-            snat_rule.set_comment(DMUtils.dnat_rule_comment())
+            dnat_rule.set_comment(DMUtils.dnat_rule_comment())
             nat.add_rule(dnat_rule)
 
             for pip, fip_vn in fip_map.items():
