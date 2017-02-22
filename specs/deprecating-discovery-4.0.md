@@ -174,7 +174,11 @@ None
 ================================================================================
  CONFIG PARAMETER              CHANGES
 ================================================================================
-[DISCOVERY]                    DEPRECATE DISCOVERY SECTION 
+[DISCOVERY]                    DEPRECATE DISCOVERY SECTION
+
+[API_SERVER].api_server_list   Provision list of api-servers [role=config] in
+                               ip-address:port format
+                               Eg: 10.1.1.1:8082 10.1.1.2:8082
 
 ```
 
@@ -184,15 +188,19 @@ None
 ================================================================================
  CONFIG PARAMETER          CHANGES
 ================================================================================
-[DISCOVERY]                DEPRECATE DISCOVERY SECTION  
+[DISCOVERY]                   DEPRECATE DISCOVERY SECTION
 
 
-[DEFAULTS].collectors      Provision list of Collector [role=collector] service
-                           providers in ip-address:port ip-address2:port format
-                           Eg: 10.1.1.1:8086 10.1.1.2:8086
+[DEFAULTS].collectors         Provision list of Collector [role=collector] service
+                              providers in ip-address:port ip-address2:port format
+                              Eg: 10.1.1.1:8086 10.1.1.2:8086
 
-[REDIS].redis_uve_list     Provision list of redis instances [role=collector]
-                           Eg: 192.168.0.29:6379 192.168.0.30:6379
+[API_SERVER].api_server_list  Provision list of api-servers [role=config] in
+                              ip-address:port format
+                              Eg: 10.1.1.1:8082 10.1.1.2:8082
+
+[REDIS].redis_uve_list        Provision list of redis instances [role=collector]
+                              Eg: 192.168.0.29:6379 192.168.0.30:6379
 
 ```
 
@@ -358,11 +366,16 @@ None
 ================================================================================
  CONFIG PARAMETER               CHANGES
 ================================================================================
-[DISCOVERY]                DEPRECATE DISCOVERY SECTION  
+[DISCOVERY]                    DEPRECATE DISCOVERY SECTION
 
-[DEFAULTS].collectors      Provision list of Collector [role=collector] service
-                           providers in ip-address:port ip-address2:port format
-                           Eg: 10.1.1.1:8086 10.1.1.2:8086
+[DEFAULTS].collectors          Provision list of Collector [role=collector] service
+                               providers in ip-address:port ip-address2:port format
+                               Eg: 10.1.1.1:8086 10.1.1.2:8086
+
+[API_SERVER].api_server_list   Provision list of api-servers [role=config] in
+                               ip-address:port format
+                               Eg: 10.1.1.1:8082 10.1.1.2:8082
+
 ```
 
 ###3.2.18  Provisioning Changes for contrail-topology (contrail-topology.conf)
@@ -371,11 +384,15 @@ None
 ================================================================================
  CONFIG PARAMETER               CHANGES
 ================================================================================
-[DISCOVERY]                DEPRECATE DISCOVERY SECTION  
+[DISCOVERY]                   DEPRECATE DISCOVERY SECTION
 
-[DEFAULTS].collectors      Provision list of Collector [role=collector] service
-                           providers in ip-address:port ip-address2:port format
-                           Eg: 10.1.1.1:8086 10.1.1.2:8086
+[DEFAULTS].collectors         Provision list of Collector [role=collector] service
+                              providers in ip-address:port ip-address2:port format
+                              Eg: 10.1.1.1:8086 10.1.1.2:8086
+
+[API_SERVER].api_server_list  Provision list of api-servers [role=config] in
+                              ip-address:port format
+                              Eg: 10.1.1.1:8082 10.1.1.2:8082
 
 ```
 
