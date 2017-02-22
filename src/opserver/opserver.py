@@ -1923,7 +1923,7 @@ class OpServer(object):
             return bottle.HTTPError(_ERRORS[errno.EINVAL],
                 'Invalid token value')
         generator_introspect = GeneratorIntrospectUtil(token['host_ip'],
-                                                       token['http_port'])
+                                 token['http_port'], self._args.sandesh_config)
         try:
             res = generator_introspect.send_alarm_ack_request(
                 table, bottle.request.json['name'],
