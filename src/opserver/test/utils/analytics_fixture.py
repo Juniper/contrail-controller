@@ -186,6 +186,9 @@ class Collector(object):
             if 'sandesh_ssl_enable' in self.sandesh_config:
                 args.append('--SANDESH.sandesh_ssl_enable')
                 args.append(self.sandesh_config['sandesh_ssl_enable'])
+            if 'introspect_ssl_enable' in self.sandesh_config:
+                args.append('--SANDESH.introspect_ssl_enable')
+                args.append(self.sandesh_config['introspect_ssl_enable'])
             if 'sandesh_keyfile' in self.sandesh_config:
                 args.append('--SANDESH.sandesh_keyfile')
                 args.append(self.sandesh_config['sandesh_keyfile'])
@@ -293,6 +296,9 @@ class AlarmGen(object):
             if 'sandesh_ssl_enable' in self.sandesh_config and \
                 self.sandesh_config['sandesh_ssl_enable']:
                 args.append('--sandesh_ssl_enable')
+            if 'introspect_ssl_enable' in self.sandesh_config and \
+                self.sandesh_config['introspect_ssl_enable']:
+                args.append('--introspect_ssl_enable')
             if 'sandesh_keyfile' in self.sandesh_config:
                 args.append('--sandesh_keyfile')
                 args.append(self.sandesh_config['sandesh_keyfile'])
@@ -417,6 +423,9 @@ class OpServer(object):
             if 'sandesh_ssl_enable' in self.sandesh_config and \
                 self.sandesh_config['sandesh_ssl_enable']:
                 args.append('--sandesh_ssl_enable')
+            if 'introspect_ssl_enable' in self.sandesh_config and \
+                self.sandesh_config['introspect_ssl_enable']:
+                args.append('--introspect_ssl_enable')
             if 'sandesh_keyfile' in self.sandesh_config:
                 args.append('--sandesh_keyfile')
                 args.append(self.sandesh_config['sandesh_keyfile'])
@@ -517,6 +526,9 @@ class QueryEngine(object):
             if 'sandesh_ssl_enable' in self.sandesh_config:
                 args.append('--SANDESH.sandesh_ssl_enable')
                 args.append(self.sandesh_config['sandesh_ssl_enable'])
+            if 'introspect_ssl_enable' in self.sandesh_config:
+                args.append('--SANDESH.introspect_ssl_enable')
+                args.append(self.sandesh_config['introspect_ssl_enable'])
             if 'sandesh_keyfile' in self.sandesh_config:
                 args.append('--SANDESH.sandesh_keyfile')
                 args.append(self.sandesh_config['sandesh_keyfile'])
@@ -652,6 +664,9 @@ class AnalyticsFixture(fixtures.Fixture):
         self.cluster_id = cluster_id
         self.sandesh_config = sandesh_config
 
+    def set_sandesh_config(self, config):
+        self.sandesh_config = sandesh_config
+
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
 
@@ -740,7 +755,8 @@ class AnalyticsFixture(fixtures.Fixture):
 
     def get_generator_list(self, collector):
         generator_list = []
-        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        vcl = VerificationCollector('127.0.0.1', collector.http_port, \
+                self.sandesh_config)
         try:
            genlist = vcl.get_generators()['generators']
            self.logger.info('Generator list from collector %s -> %s' %
@@ -785,7 +801,8 @@ class AnalyticsFixture(fixtures.Fixture):
         See if the SandeshClient within vizd has been able to register
         with the collector within vizd
         '''
-        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        vcl = VerificationCollector('127.0.0.1', collector.http_port, \
+                self.sandesh_config)
         self.logger.info("verify_collector_gen port %s : %s" % \
             (collector.http_port, str(vcl)))
         try:
@@ -2131,7 +2148,8 @@ class AnalyticsFixture(fixtures.Fixture):
     @retry(delay=2, tries=5)
     def verify_collector_redis_uve_connection(self, collector, connected=True):
         self.logger.info('verify_collector_redis_uve_connection')
-        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        vcl = VerificationCollector('127.0.0.1', collector.http_port,
+                self.sandesh_config)
         try:
             redis_uve = vcl.get_redis_uve_info()['RedisUveInfo']
             if redis_uve['status'] == 'Connected':
@@ -2149,7 +2167,8 @@ class AnalyticsFixture(fixtures.Fixture):
                                  pending_compaction_tasks_level_out = None):
 
         self.logger.info('verify_collector_db_info')
-        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        vcl = VerificationCollector('127.0.0.1', collector.http_port,
+                self.sandesh_config)
         try:
             db_info_dict = vcl.get_db_info()
             db_info = (db_info_dict['db_info'])['DbInfo']
