@@ -191,7 +191,7 @@ class KubeMonitor(object):
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               resource_type, resource_name)
 
-        headers = {'Accept': 'application/json/', \
+        headers = {'Accept': 'application/json', \
                    'Content-Type': 'application/strategic-merge-patch+json'}
         headers.update(self.headers)
 
