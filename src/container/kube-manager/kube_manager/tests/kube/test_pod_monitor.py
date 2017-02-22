@@ -1,3 +1,7 @@
+#
+# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+#
+
 import mock
 import unittest
 from mock import patch
