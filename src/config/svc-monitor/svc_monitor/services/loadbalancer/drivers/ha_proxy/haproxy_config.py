@@ -353,7 +353,7 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
                             conf.append('acl %s hdr(host) -i %s' %(host_cdn, acl['host']))
                         if 'path' in acl:
                             path_cdn = "%s_path" % pool.uuid
-                            conf.append('acl %s_path path_beg %s' %(pool.uuid, acl['path']))
+                            conf.append('acl %s_path path %s' %(pool.uuid, acl['path']))
                         acl_cdn = host_cdn + " " + path_cdn
                         conf.append('use_backend %s if %s' %(pool.uuid, acl_cdn))
                 else:

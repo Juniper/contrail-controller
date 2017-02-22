@@ -150,7 +150,7 @@ class VncIngress(object):
 
     def _vnc_create_lb(self, uid, name, namespace):
         lb_provider = 'opencontrail'
-        name = 'ingress' + '-' + name
+        lb_name = 'ingress' + '-' + name
         proj_obj = self._get_project(namespace)
         vn_obj = self._get_network()
         if proj_obj is None or vn_obj is None:
@@ -161,12 +161,12 @@ class VncIngress(object):
         annotations = {}
         annotations['device_owner'] = 'K8S:INGRESS'
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj,
-                            uid, name, proj_obj, vip_address,
+                            uid, lb_name, proj_obj, vip_address,
                             service_subnet_uuid, annotations=annotations)
         if lb_obj:
             vip_info = {}
             vip_info['clusterIP'] = lb_obj._loadbalancer_properties.vip_address
-            fip_obj = self._allocate_floating_ip(lb_obj, name, proj_obj)
+            fip_obj = self._allocate_floating_ip(lb_obj, lb_name, proj_obj)
             if fip_obj:
                 vip_info['externalIP'] = fip_obj.address
             patch = {'metadata': {'annotations': vip_info}}
