@@ -48,7 +48,7 @@ public:
         boost::split(tokens, uuid_key, boost::is_any_of(":"));
         int index = atoi(tokens[0].c_str());
         std::string u = tokens[1];
-        assert(events_[index].IsObject());
+        assert((*events())[index].IsObject());
         int idx = HashUUID(u);
         db_index_[idx].insert(make_pair(u, index));
         return ParseRowAndEnqueueToParser(obj_type, u, GenDb::ColList());
@@ -62,13 +62,13 @@ public:
         UUIDIndexMap::iterator it = db_index_[idx].find(uuid);
         int index = it->second;
 
-        if (!events_[contrail_rapidjson::SizeType(index)]["db"].HasMember(
+        if (!(*events())[contrail_rapidjson::SizeType(index)]["db"].HasMember(
                     uuid.c_str()))
             return true;
         for (contrail_rapidjson::Value::ConstMemberIterator k =
-             events_[contrail_rapidjson::SizeType(index)]["db"]
+             (*events())[contrail_rapidjson::SizeType(index)]["db"]
                 [uuid.c_str()].MemberBegin();
-             k != events_[contrail_rapidjson::SizeType(index)]["db"]
+             k != (*events())[contrail_rapidjson::SizeType(index)]["db"]
                 [uuid.c_str()].MemberEnd();
              ++k) {
             const char *k1 = k->name.GetString();
@@ -93,15 +93,15 @@ public:
     bool BulkDataSync() {
         ConfigCassandraClient::ObjTypeUUIDList uuid_list;
         for (contrail_rapidjson::Value::ConstMemberIterator k =
-             events_[contrail_rapidjson::SizeType(cevent_-1)]
+             (*events())[contrail_rapidjson::SizeType(cevent_-1)]
                 ["OBJ_FQ_NAME_TABLE"].MemberBegin();
-             k != events_[contrail_rapidjson::SizeType(cevent_-1)]
+             k != (*events())[contrail_rapidjson::SizeType(cevent_-1)]
                 ["OBJ_FQ_NAME_TABLE"].  MemberEnd(); ++k) {
             std::string obj_type = k->name.GetString();
             for (contrail_rapidjson::Value::ConstMemberIterator l =
-                    events_[contrail_rapidjson::SizeType(cevent_-1)]
+                    (*events())[contrail_rapidjson::SizeType(cevent_-1)]
                         ["OBJ_FQ_NAME_TABLE"][obj_type.c_str()].MemberBegin();
-                 l != events_[contrail_rapidjson::SizeType(cevent_-1)]
+                 l != (*events())[contrail_rapidjson::SizeType(cevent_-1)]
                     ["OBJ_FQ_NAME_TABLE"][obj_type.c_str()].MemberEnd(); l++) {
                 UpdateCache(l->name.GetString(), obj_type, uuid_list);
             }
@@ -109,13 +109,19 @@ public:
         return EnqueueUUIDRequest(uuid_list);
     }
 
-    contrail_rapidjson::Document *events() { return &events_; }
+    contrail_rapidjson::Document *events() {
+        if (db_load_.IsArray())
+            return &db_load_;
+        return &events_;
+    }
+    contrail_rapidjson::Document *db_load() { return &db_load_; }
     size_t *cevent() { return &cevent_; }
 
 private:
     typedef std::map<std::string, int> UUIDIndexMap;
     std::vector<UUIDIndexMap> db_index_;
     contrail_rapidjson::Document events_;
+    contrail_rapidjson::Document db_load_;
     size_t cevent_;
 };
 
