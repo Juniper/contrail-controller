@@ -14,8 +14,10 @@
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
 
-using namespace contrail_rapidjson;
-using namespace std;
+using contrail_rapidjson::Value;
+using std::cout;
+using std::endl;
+using std::string;
 
 #define CONFIG_PARSE_ASSERT(t, condition, key, value)                          \
     do {                                                                       \
@@ -23,6 +25,9 @@ using namespace std;
             break;                                                             \
         IFMAP_WARN(ConfigurationMalformed ## t, key, value, adapter.type(),    \
                    adapter.uuid());                                            \
+        cout << "CONFIG_PARSE_ERROR " << __FILE__ << ":" << __LINE__ << " ";   \
+        cout << adapter.type() << " " << key << " " << value << " ";           \
+        cout << adapter.uuid() << endl;                                        \
         if (ConfigCass2JsonAdapter::assert_on_parse_error())                   \
             assert(false);                                                     \
         return false;                                                          \
