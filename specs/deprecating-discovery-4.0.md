@@ -176,6 +176,10 @@ None
 ================================================================================
 [DISCOVERY]                    DEPRECATE DISCOVERY SECTION 
 
+[DEFAULT].api_server_list      Provision list of api-servers [role=config] in
+                               ip-address:port format
+                               Eg: 10.1.1.1:8082 10.1.1.2:8082
+
 ```
 
 ###3.2.5   Provisioning Changes for contrail-alarm-gen (contrail-alarm-gen.conf)
@@ -190,6 +194,10 @@ None
 [DEFAULTS].collectors      Provision list of Collector [role=collector] service
                            providers in ip-address:port ip-address2:port format
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
+
+[DEFAULTS].api_server_list Provision list of api-servers [role=config] in
+                           ip-address:port format
+                           Eg: 10.1.1.1:8082 10.1.1.2:8082
 
 [REDIS].redis_uve_list     Provision list of redis instances [role=collector]
                            Eg: 192.168.0.29:6379 192.168.0.30:6379
@@ -363,6 +371,11 @@ None
 [DEFAULTS].collectors      Provision list of Collector [role=collector] service
                            providers in ip-address:port ip-address2:port format
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
+
+[DEFAULTS].api_server_list Provision list of api-servers [role=config] in
+                           ip-address:port format
+                           Eg: 10.1.1.1:8082 10.1.1.2:8082
+
 ```
 
 ###3.2.18  Provisioning Changes for contrail-topology (contrail-topology.conf)
@@ -376,6 +389,10 @@ None
 [DEFAULTS].collectors      Provision list of Collector [role=collector] service
                            providers in ip-address:port ip-address2:port format
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
+
+[DEFAULTS].api_server_list Provision list of api-servers [role=config] in
+                           ip-address:port format
+                           Eg: 10.1.1.1:8082 10.1.1.2:8082
 
 ```
 
