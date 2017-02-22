@@ -63,21 +63,21 @@ class CniMacVlanTest(unittest.TestCase):
     def test_locate_vlan_interface(self):
         mvlan = CniMacVlan(self.mock_cni, "aa:bb:cc:dd:ee:ff", "veth1", "tag")
         self.assertIsNone(NetnsMock.get("cn-tag", HOST_NS_PID))
-        idx = mvlan._locate_vlan_interface(IPRoute(), 2)
+        idx = mvlan._locate_vlan_interface(IPRouteMock(), 2)
         iface = NetnsMock.get("cn-tag", HOST_NS_PID)
         self.assertIsNotNone(iface)
         self.assertEquals("cn-tag", iface["name"])
         self.assertEquals("vlan", iface["kind"])
         self.assertEquals("tag", iface["vlan_id"])
         self.assertEquals(2, iface["link"])
-        idx2 = mvlan._locate_vlan_interface(IPRoute(), 3)
+        idx2 = mvlan._locate_vlan_interface(IPRouteMock(), 3)
         self.assertEquals(idx, idx2)
         self.assertEquals(2, iface["link"])
 
     @patch("os.getpid", new=NetnsMock.getpid)
     @patch("cni.common.macvlan.CniNamespace", new=NetnsMock)
     @patch("cni.common.macvlan.IPRoute", new=IPRouteMock)
-    def test_locate_vlan_interface(self):
+    def test_locate_peer_vlan_interface(self):
         mvlan = CniMacVlan(self.mock_cni, "aa:bb:cc:dd:ee:ff", "veth1", "tag")
         self.assertIsNone(NetnsMock.get("cn-ifname", CONTAINER_NS_PID))
         idx = mvlan._locate_peer_vlan_interface(
