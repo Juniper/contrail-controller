@@ -4,6 +4,13 @@ require 'pp'
 require 'json'
 require 'tempfile'
 
+# e.g.
+
+# LOG_DISABLE=1 CONFIG_JSON_PARSER_TEST_DB=10.87.28.249 CONFIG_JSON_PARSER_TEST_PASSWORD=c0ntrail123 CONFIG_JSON_PARSER_TEST_INTROSPECT=5910 controller/src/ifmap/client/testdata/cassandra_to_json.rb
+# LOG_DISABLE=1 CONFIG_JSON_PARSER_TEST_DATA_FILE=/cs-shared/db_dumps/att_contrail_db.json CONFIG_JSON_PARSER_TEST_INTROSPECT=5910 controller/src/ifmap/client/testdata/cassandra_to_json.rb
+# LOG_DISABLE=1 CONFIG_JSON_PARSER_TEST_DATA_FILE=/cs-shared/db_dumps/sb_tb1_10.87.28.249.json CONFIG_JSON_PARSER_TEST_INTROSPECT=5910 controller/src/ifmap/client/testdata/cassandra_to_json.rb
+# LOG_DISABLE=1 CONFIG_JSON_PARSER_TEST_DATA_FILE=/cs-shared/db_dumps/workday.json CONFIG_JSON_PARSER_TEST_INTROSPECT=5910 controller/src/ifmap/client/testdata/cassandra_to_json.rb
+
 @host = ENV["CONFIG_JSON_PARSER_TEST_DB"] || "10.204.216.23"
 @password = ENV["CONFIG_JSON_PARSER_TEST_PASSWORD"] || "c0ntrail123"
 @cass=<<EOF

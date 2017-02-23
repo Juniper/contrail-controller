@@ -23,8 +23,10 @@ using contrail_rapidjson::Document;
 using contrail_rapidjson::StringBuffer;
 using contrail_rapidjson::Value;
 using contrail_rapidjson::Writer;
-using std::string;
+using std::cout;
+using std::endl;
 using std::set;
+using std::string;
 
 const string ConfigCass2JsonAdapter::fq_name_prefix = "fq_name";
 const string ConfigCass2JsonAdapter::prop_prefix = "prop:";
@@ -46,6 +48,9 @@ bool ConfigCass2JsonAdapter::assert_on_parse_error_ =
         if (condition)                                                         \
             break;                                                             \
         IFMAP_WARN(ConfigurationMalformed ## t, c.key, c.value, type_, uuid_); \
+        cout << "CONFIG_PARSE_ERROR " << __FILE__ << ":" << __LINE__ << " ";   \
+        cout << type_ << " " << c.key << " " << c.value << " ";                \
+        cout << uuid_ << endl;                                                 \
         if (assert_on_parse_error_)                                            \
             assert(false);                                                     \
         return;                                                                \
