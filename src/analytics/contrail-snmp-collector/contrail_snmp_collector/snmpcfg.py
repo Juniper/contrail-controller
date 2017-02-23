@@ -8,10 +8,12 @@ from device_config import DeviceConfig
 import discoveryclient.client as client
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, \
-         API_SERVER_DISCOVERY_SERVICE_NAME, HttpPortSnmpCollector
+    API_SERVER_DISCOVERY_SERVICE_NAME, HttpPortSnmpCollector, \
+    ServicesDefaultConfigurationFiles, SERVICE_SNMP_COLLECTOR
 
 class CfgParser(object):
-    CONF_DEFAULT_PATH = '/etc/contrail/contrail-snmp-collector.conf'
+    CONF_DEFAULT_PATHS = ServicesDefaultConfigurationFiles.get(
+        SERVICE_SNMP_COLLECTOR, None)
     def __init__(self, argv):
         self._devices = []
         self._args = None
@@ -72,9 +74,7 @@ Mibs = LldpTable, ArpTable
         conf_parser = argparse.ArgumentParser(add_help=False)
 
         kwargs = {'help': "Specify config file", 'metavar':"FILE",
-                'action':'append'}
-        if os.path.exists(self.CONF_DEFAULT_PATH):
-            kwargs['default'] = [self.CONF_DEFAULT_PATH]
+                'action':'append', 'default':self.CONF_DEFAULT_PATHS}
         conf_parser.add_argument("-c", "--conf_file", **kwargs)
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
@@ -134,7 +134,7 @@ Mibs = LldpTable, ArpTable
             # print script description with -h/--help
             description=__doc__,
             # Don't mess with format of description
-            formatter_class=argparse.RawDescriptionHelpFormatter,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
         defaults.update(ksopts)
         defaults.update(disc_opts)

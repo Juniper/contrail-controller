@@ -17,7 +17,7 @@ warnings.simplefilter('ignore', InsecureRequestWarning)
 from StringIO import StringIO
 from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
-    NodeUVEImplementedServices, ServicesDefaultConfigurationFile, \
+    NodeUVEImplementedServices, ServicesDefaultConfigurationFiles, \
     BackupImplementedServices
 
 DPDK_NETLINK_TCP_PORT = 20914
@@ -268,22 +268,13 @@ def check_svc(svc, initd_svc=False):
         status='inactive'
     print '%-30s%s%s' %(psvc, status, bootstatus)
 
-_DEFAULT_CONF_FILE_DIR = '/etc/contrail/'
-_DEFAULT_CONF_FILE_EXTENSION = '.conf'
-
-def get_http_server_port_from_conf(svc_name, debug):
-    # Open and extract conf file
-    if svc_name in ServicesDefaultConfigurationFile:
-        default_conf_file = ServicesDefaultConfigurationFile[svc_name]
-    else:
-        default_conf_file = _DEFAULT_CONF_FILE_DIR + svc_name + \
-            _DEFAULT_CONF_FILE_EXTENSION
+def _get_http_server_port_from_conf(svc_name, conf_file, debug):
     try:
-        fp = open(default_conf_file)
+        fp = open(conf_file)
     except IOError as e:
         if debug:
             print '{0}: Could not read filename {1}'.format(\
-                svc_name, default_conf_file)
+                svc_name, conf_file)
         return -1
     else:
         data = StringIO('\n'.join(line.strip() for line in fp))
@@ -317,6 +308,22 @@ def get_http_server_port_from_conf(svc_name, debug):
     else:
         fp.close()
         return http_server_port
+
+_DEFAULT_CONF_FILE_DIR = '/etc/contrail/'
+_DEFAULT_CONF_FILE_EXTENSION = '.conf'
+
+def get_http_server_port_from_conf(svc_name, debug):
+    # Open and extract conf file
+    if svc_name in ServicesDefaultConfigurationFiles:
+        default_conf_files = ServicesDefaultConfigurationFiles[svc_name]
+    else:
+        default_conf_files = [_DEFAULT_CONF_FILE_DIR + svc_name + \
+            _DEFAULT_CONF_FILE_EXTENSION]
+    for conf_file in default_conf_files:
+        http_server_port = _get_http_server_port_from_conf(svc_name, conf_file,
+                                                           debug)
+        if http_server_port != -1:
+            return http_server_port
 
 def get_default_http_server_port(svc_name, debug):
     if svc_name in ServiceHttpPortMap:
