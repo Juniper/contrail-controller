@@ -183,7 +183,7 @@ class VncPod(object):
                 sub_interface_vlan_tag=vlan_id)
 
         obj_uuid = str(uuid.uuid1())
-        name = 'pod' + '-' + pod_name + '-' + obj_uuid
+        name = 'pod' + '-' + pod_name
         vmi_obj = VirtualMachineInterface(name=name, parent_obj=proj_obj,
                       virtual_machine_interface_properties=vmi_prop)
         vmi_obj.uuid = obj_uuid
