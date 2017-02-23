@@ -574,6 +574,10 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
         if (delete_label) {
             agent->mpls_table()->DeleteMcastLabel(path->label());
             FreeMplsLabel(path->label());
+            //Reset evpn label to invalid as it is freed
+            if (*evpn_label == path->label()) {
+                *evpn_label = MplsTable::kInvalidLabel;
+            }
         }
 
         return;
@@ -632,6 +636,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     AgentPath *tor_peer_path = NULL;
     AgentPath *local_peer_path = NULL;
     bool tor_path = false;
+    uint32_t old_fabric_mpls_label = 0;
 
     const CompositeNH *cnh =
          static_cast<const CompositeNH *>(path->nexthop());
@@ -683,6 +688,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         } else if (it_path->peer()->GetType() ==
                    Peer::MULTICAST_FABRIC_TREE_BUILDER) {
             fabric_peer_path = it_path;
+            old_fabric_mpls_label = fabric_peer_path->label();
         } else if (it_path->peer() == agent->multicast_peer()) {
             multicast_peer_path = it_path;
         } else if (it_path->peer() == agent->local_peer()) {
@@ -715,12 +721,9 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
 
     bool learning_enabled = false;
     bool pbb_nh = false;
-    uint32_t old_fabric_mpls_label = 0;
     if (multicast_peer_path == NULL) {
         multicast_peer_path = new AgentPath(agent->multicast_peer(), NULL);
         InsertPath(multicast_peer_path);
-    } else {
-        old_fabric_mpls_label = multicast_peer_path->label();
     }
 
     ComponentNHKeyList component_nh_list;
