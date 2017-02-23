@@ -89,6 +89,9 @@ class ContrailVRouterApi(object):
                 self._ports[vif_uuid_str] = cmd
 
             self._resynchronize()
+            if (ret_code != 0):
+                return False
+            return True
 
         finally:
             if self._semaphore:
