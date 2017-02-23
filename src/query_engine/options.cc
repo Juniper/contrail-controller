@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <boost/asio/ip/host_name.hpp>
+#include <boost/foreach.hpp>
 
 #include "base/contrail_ports.h"
 #include "base/logging.h"
@@ -57,16 +58,29 @@ void Options::Initialize(EventManager &evm,
         exit(-1);
     }
 
-    vector<string> conf_files;
-    conf_files.push_back("/etc/contrail/contrail-query-engine.conf");
+    map<string, vector<string> >::const_iterator it =
+        g_vns_constants.ServicesDefaultConfigurationFiles.find(
+            g_vns_constants.SERVICE_QUERY_ENGINE);
+    assert(it != g_vns_constants.ServicesDefaultConfigurationFiles.end());
+    const vector<string> &conf_files(it->second);
 
     opt::options_description generic("Generic options");
 
     // Command line only options.
+    ostringstream conf_files_oss;
+    bool first = true;
+    BOOST_FOREACH(const string &cfile, conf_files) {
+        if (first) {
+            conf_files_oss << cfile;
+            first = false;
+        } else {
+            conf_files_oss << ", " << cfile;
+        }
+    }
     generic.add_options()
         ("conf_file", opt::value<vector<string> >()->default_value(
-                                               conf_files,
-             "Configuration file"))
+             conf_files, conf_files_oss.str()),
+             "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
     ;
@@ -149,7 +163,11 @@ void Options::Initialize(EventManager &evm,
              "Port of Discovery Server")
         ("DISCOVERY.server", opt::value<string>(),
              "IP address of Discovery Server")
+        ;
 
+    // Command line and config file options.
+    opt::options_description redis_config("Redis Configuration options");
+    redis_config.add_options()
         ("REDIS.port",
              opt::value<uint16_t>()->default_value(default_redis_port),
              "Port of Redis-uve server")
@@ -157,7 +175,11 @@ void Options::Initialize(EventManager &evm,
              "IP address of Redis Server")
         ("REDIS.password", opt::value<string>()->default_value(""),
              "password for Redis Server")
+        ;
 
+    // Command line and config file options.
+    opt::options_description sandesh_config("Sandesh Configuration options");
+    sandesh_config.add_options()
         ("SANDESH.sandesh_keyfile", opt::value<string>()->default_value(
             "/etc/contrail/ssl/private/server-privkey.pem"),
             "Sandesh ssl private key")
@@ -173,13 +195,19 @@ void Options::Initialize(EventManager &evm,
         ("SANDESH.introspect_ssl_enable",
              opt::bool_switch(&sandesh_config_.introspect_ssl_enable),
              "Enable ssl for introspect connection")
+        ;
 
+    // Command line and config file options.
+    opt::options_description database_config("Database Configuration options");
+    database_config.add_options()
         ("DATABASE.cluster_id", opt::value<string>()->default_value(""),
              "Analytics Cluster Id")
         ;
 
-    config_file_options_.add(config).add(cassandra_config);
-    cmdline_options.add(generic).add(config).add(cassandra_config);
+    config_file_options_.add(config).add(cassandra_config)
+        .add(redis_config).add(sandesh_config).add(database_config);
+    cmdline_options.add(generic).add(config).add(cassandra_config)
+        .add(redis_config).add(sandesh_config).add(database_config);
 }
 
 template <typename ValueType>
