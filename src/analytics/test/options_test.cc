@@ -55,9 +55,11 @@ TEST_F(OptionsTest, NoArguments) {
     argv[0] = argv_0;
 
     options_.Parse(evm_, argc, argv);
-    vector<string> expected_conf_files_;
-    expected_conf_files_.push_back("/etc/contrail/contrail-collector.conf");
-    expected_conf_files_.push_back("/etc/contrail/contrail-keystone-auth.conf");
+    map<string, vector<string> >::const_iterator it =
+        g_vns_constants.ServicesDefaultConfigurationFiles.find(
+            g_vns_constants.SERVICE_COLLECTOR);
+    assert(it != g_vns_constants.ServicesDefaultConfigurationFiles.end());
+    const vector<string> &expected_conf_files_(it->second);
     TASK_UTIL_EXPECT_VECTOR_EQ(default_cassandra_server_list_,
                      options_.cassandra_server_list());
     EXPECT_EQ(options_.redis_server(), "127.0.0.1");

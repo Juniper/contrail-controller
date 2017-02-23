@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/contrail-alarm-gen -c /etc/contrail/contrail-alarm-gen.conf
+ExecStart=/usr/bin/contrail-alarm-gen
 PIDFile=/var/run/contrail/contrail-alarm-gen.pid
 TimeoutStopSec=0
 Restart=always
