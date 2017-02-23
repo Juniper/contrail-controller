@@ -196,6 +196,20 @@ class PhysicalRouterConfig(object):
         self.interfaces_config.add_interface(interface)
     # end add_pnf_logical_interface
 
+    def add_lo0_unit_0_interface(self):
+        if not self.bgp_params or not self.bgp_params.get('address'):
+            return
+        if not self.interfaces_config:
+            self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
+        lo_intf = Interface(name="lo0")
+        self.interfaces_config.add_interface(lo_intf)
+        fam_inet = FamilyInet(address=[Address(name=self.bgp_params['address'] + "/32",
+                                                   primary='', preferred='')])
+        intf_unit = Unit(name="0", family=Family(inet=fam_inet),
+                             comment=DMUtils.lo0_unit_0_comment())
+        lo_intf.add_unit(intf_unit)
+    # end add_lo0_unit_0_interface
+
     def add_static_routes(self, parent, static_routes):
         static_config = parent.get_static()
         if not static_config:
@@ -584,14 +598,6 @@ class PhysicalRouterConfig(object):
                         addr.set_comment(DMUtils.irb_ip_comment(irb_ip))
                         if len(gateway) and gateway != '0.0.0.0':
                             addr.set_virtual_gateway_address(gateway)
-
-            lo_intf = Interface(name="lo0")
-            interfaces_config.add_interface(lo_intf)
-            fam_inet = FamilyInet(address=[Address(name=self.bgp_params['address'] + "/32",
-                                                   primary='', preferred='')])
-            intf_unit = Unit(name="0", family=Family(inet=fam_inet),
-                             comment=DMUtils.lo0_unit_0_comment())
-            lo_intf.add_unit(intf_unit)
 
             self.build_l2_evpn_interface_config(interfaces_config, interfaces, vn)
 

@@ -588,6 +588,8 @@ class PhysicalRouterDM(DBBaseDM):
                     GlobalSystemConfigDM.ip_fabric_subnets,
                     bgp_router_ips)
 
+        self.config_manager.add_lo0_unit_0_interface()
+
         vn_dict = self.get_vn_li_map()
         self.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
         self.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
