@@ -341,6 +341,7 @@ int main(int argc, char *argv[]) {
     }
     Dns::SetDiscoveryServiceClient(ds_client);
 
+    Dns::SetSelfIp(options.host_ip());
     ifmap_server.set_config_manager(config_client_manager);
 
     //
