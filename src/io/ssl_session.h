@@ -54,6 +54,7 @@ public:
        ssl_handshake_in_progress_ = state;
     }
 
+    static bool IsSocketErrorHard(const boost::system::error_code &ec);
 protected:
     virtual ~SslSession();
 

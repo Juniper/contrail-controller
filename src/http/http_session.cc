@@ -293,13 +293,11 @@ void HttpSession::OnRead(Buffer buffer) {
     size_t size = BufferSize(buffer);
     std::stringstream msg;
 
-    // No need to proceed if size is 0 which can be the case with ssl
-    if (size == 0)
-	return;
     msg << "HttpSession::Read " << size << " bytes";
     HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_DEBUG, msg.str());
 
-    if (context_str_.size() == 0) {
+    // No need to proceed if size is 0 which can be the case with ssl
+    if (size == 0 || context_str_.size() == 0) {
         ReleaseBuffer(buffer);
         return;
     }
