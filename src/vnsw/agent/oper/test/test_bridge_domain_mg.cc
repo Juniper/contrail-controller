@@ -414,6 +414,58 @@ TEST_F(BridgeDomainMGTest, Test8) {
     EXPECT_TRUE(l2_rt->GetActivePath()->vxlan_id() == 2);
 }
 
+//Verify that MPLS label points to
+//multicast NH upon EVPN bgp peer path delete and readd
+TEST_F(BridgeDomainMGTest, Test9) {
+    std::stringstream str;
+    //Add a peer and enqueue path add in multicast route.
+    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    agent->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
+                                       oper_db()->multicast());
+
+    CreateBridgeDomain(input[0].name, 1);
+    client->WaitForIdle();
+
+    //Modify olist for pbb VRF and B component VRF
+    //and verify it gets updated for cmac vrf
+    TunnelOlist olist;
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::MplsType()));
+    mc_handler->ModifyEvpnMembers(bgp_peer_ptr,
+                                  "vrf1", olist, 1, 1);
+    mc_handler->ModifyEvpnMembers(bgp_peer_ptr, "vrf1",
+                                  olist, 0, 1);
+    client->WaitForIdle();
+
+    BridgeRouteEntry *l2_rt =
+        L2RouteGet("vrf1:00000000-0000-0000-0000-000000000001",
+                   MacAddress("FF:FF:FF:FF:FF:FF"));
+    NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
+    const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(l2_nh);
+
+    uint32_t label = l2_rt->FindPath(agent->local_vm_peer())->label();
+    EXPECT_TRUE(MplsToNextHop(label) == cnh);
+
+    //Flush the BGP path
+    mc_handler->ModifyEvpnMembers(bgp_peer_ptr,
+                                  "vrf1", olist, 1,
+                                  ControllerPeerPath::kInvalidPeerIdentifier);
+    client->WaitForIdle();
+
+    l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
+    cnh = dynamic_cast<const CompositeNH *>(l2_nh);
+    EXPECT_TRUE(MplsToNextHop(label) == cnh);
+
+    l2_rt = L2RouteGet("vrf1", MacAddress("FF:FF:FF:FF:FF:FF"));
+    EXPECT_TRUE(l2_rt->FindPath(bgp_peer_ptr));
+
+    DeleteBridgeDomain(input[0].name);
+    DeleteBgpPeer(bgp_peer_ptr);
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
