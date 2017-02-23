@@ -192,12 +192,6 @@ TEST_F(BgpServiceTest, Test_1) {
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
 
 
-    FlowEntry *rfe = FlowGet(fe->reverse_flow_entry()->key().nh,
-                            "127.0.0.1", "10.1.1.1", 6, 179, 1000);
-    EXPECT_TRUE(rfe != NULL);
-    EXPECT_TRUE(rfe->reverse_flow_entry() != NULL);
-    EXPECT_TRUE(rfe->is_flags_set(FlowEntry::BgpRouterService));
-
     TxTcpPacket(VmInterfaceGet(2)->id(), "2.2.2.20", "2.2.2.2", 20000, 179,
                 false);
     client->WaitForIdle();
@@ -225,12 +219,6 @@ TEST_F(BgpServiceTest, Test_1) {
     EXPECT_TRUE(fe3->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe3->is_flags_set(FlowEntry::BgpRouterService));
 
-
-    FlowEntry *rfe1 = FlowGet(fe3->reverse_flow_entry()->key().nh,
-                            "127.0.0.1", "10.1.1.1", 6, 179, 2000);
-    EXPECT_TRUE(rfe1 != NULL);
-    EXPECT_TRUE(rfe1->reverse_flow_entry() != NULL);
-    EXPECT_TRUE(rfe1->is_flags_set(FlowEntry::BgpRouterService));
 
     TxTcpPacket(VmInterfaceGet(5)->id(), "5.5.5.50", "5.5.5.5", 21000, 179,
                 false);
