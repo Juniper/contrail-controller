@@ -10,6 +10,7 @@ import sys
 from instance_provisioner import Provisioner
 from lxc_manager import LxcManager
 from vrouter_control import interface_register
+from monitor import NetnsMonitor
 
 
 def build_network_name(project_name, network_name):
@@ -49,11 +50,6 @@ def daemon_start():
     parser.add_argument("--project", help="OpenStack project name")
     parser.add_argument("-n", "--network", help="Primary network")
     parser.add_argument("-o", "--outbound", help="Outbound traffic network")
-    '''
-    --monitor is maintained only for backward compatibility. Replug of vif's
-    across vrouter-agent is not required anymore as vif info is persisted in
-    files which are read upon vrouter-agent start.
-    '''
     parser.add_argument("-M", "--monitor", action='store_true',
                         help="Monitor the vrouter agent connection to replug the vif's.")
     parser.add_argument("daemon", help="Deamon Name")
@@ -100,6 +96,10 @@ def daemon_start():
     if vmi_out:
         manager.interface_config(arguments.daemon, 'veth1')
 
+    if arguments.monitor:
+        netns_monitor = NetnsMonitor(project, vm, vmi, ifname,
+                                     **vmi_out_kwargs)
+        netns_monitor.monitor()
 # end daemon_start
 
 
