@@ -120,12 +120,12 @@ class VncIngress(object):
         fip = self._get_floating_ip(name, proj_obj, vmi_obj)
         return fip
 
-    def _deallocate_floating_ip(self, lb_obj):
-        vmi_id = lb_obj.virtual_machine_interfaces.pop()
+    def _deallocate_floating_ip(self, lb):
+        vmi_id = lb.virtual_machine_interfaces.pop()
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
         if vmi is None:
             self._logger.error("%s - %s Vmi %s Not Found" \
-                 %(self._name, lb_obj.name, vmi_id))
+                 %(self._name, lb.name, vmi_id))
             return
         fip_list = vmi.floating_ips.copy()
         for fip_id in fip_list or []:
@@ -168,10 +168,9 @@ class VncIngress(object):
             return None
 
         vip_address = None
-        service_subnet_uuid = self._get_service_subnet_uuid()
-        service_subnet_uuid = None
         annotations = {}
         annotations['device_owner'] = 'K8S:INGRESS'
+        service_subnet_uuid = self._get_service_subnet_uuid()
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj,
                             uid, lb_name, proj_obj, vip_address,
                             service_subnet_uuid, annotations=annotations)
@@ -198,9 +197,9 @@ class VncIngress(object):
     def _vnc_delete_listener(self, ll_id):
         self.service_ll_mgr.delete(ll_id)
 
-    def _vnc_delete_lb(self, lb_obj):
-        self._deallocate_floating_ip(lb_obj)
-        self.service_lb_mgr.delete(lb_obj.uuid)
+    def _vnc_delete_lb(self, lb):
+        self._deallocate_floating_ip(lb)
+        self.service_lb_mgr.delete(lb.uuid)
 
     def _get_old_backend_list(self, lb):
         backend_list = []
@@ -303,7 +302,8 @@ class VncIngress(object):
         service_port = backend_member['servicePort']
         service_info = self._kube.get_resource(resource_type,
                        service_name, namespace)
-        if 'clusterIP' in service_info['spec']:
+        member = None
+        if service_info and 'clusterIP' in service_info['spec']:
             service_ip = service_info['spec']['clusterIP']
             self._logger.debug("%s - clusterIP for service %s - %s" \
                  %(self._name, service_name, service_ip))
@@ -323,12 +323,14 @@ class VncIngress(object):
                     member = LoadbalancerMemberKM.locate(member_obj.uuid)
                 else:
                     self._logger.error(
-                         "%s - %s %s Member Not Created for listener" \
+                         "%s - %s %s Member Not Created for listener %s" \
                          %(self._name, service_name,
                          str(service_port), listener_name))
         else:
+            self._logger.error("%s - clusterIP for Service %s Not Found" \
+                 %(self._name, service_name))
             self._logger.error(
-                 "%s - %s %s Member Not Created for listener" \
+                 "%s - %s %s Member Not Created for listener %s" \
                  %(self._name, service_name,
                  str(service_port), listener_name))
         return member
@@ -442,6 +444,13 @@ class VncIngress(object):
             pool = self._create_pool(namespace, ll, port, lb_algorithm, annotations)
             backend_member = backend['member']
             member = self._create_member(namespace, backend_member, pool, ll.name)
+            if member is None:
+                self._logger.error("%s - Deleting Listener %s and Pool %s" \
+                     %(self._name, ll.name, pool.name))
+                self._vnc_delete_pool(pool.uuid)
+                LoadbalancerPoolKM.delete(pool.uuid)
+                self._vnc_delete_listener(ll.uuid)
+                LoadbalancerListenerKM.delete(ll.uuid)
 
         return lb
 
@@ -476,11 +485,11 @@ class VncIngress(object):
         LoadbalancerListenerKM.delete(ll_id)
 
     def _delete_lb(self, uid):
-        lb_obj = LoadbalancerKM.get(uid)
-        if not lb_obj:
+        lb = LoadbalancerKM.get(uid)
+        if not lb:
             return
-        self._delete_all_listeners(lb_obj)
-        self._vnc_delete_lb(lb_obj)
+        self._delete_all_listeners(lb)
+        self._vnc_delete_lb(lb)
         LoadbalancerKM.delete(uid)
 
     def _update_ingress(self, name, uid, event):
