@@ -117,6 +117,12 @@ def main(args_str=' '.join(sys.argv[1:])):
             pass
     if 'SANDESH' in config.sections():
         sandesh_opts.update(dict(config.items('SANDESH')))
+        if 'sandesh_ssl_enable' in config.options('SANDESH'):
+            sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
+                'SANDESH', 'sandesh_ssl_enable')
+        if 'introspect_ssl_enable' in config.options('SANDESH'):
+            sandesh_opts['introspect_ssl_enable'] = config.getboolean(
+                'SANDESH', 'introspect_ssl_enable')
     parser = argparse.ArgumentParser(parents=[node_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     default.update(disc_options)
