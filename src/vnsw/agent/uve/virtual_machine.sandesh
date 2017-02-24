@@ -63,6 +63,14 @@ struct UveVirtualMachineAgent {
      * any of the VMIs of this VM
      */
     16: optional string vm_name;
+    /** The VM state as shown by orchestration system. Currently shown states
+     * are ACTIVE, PAUSED and SHUTDOWN
+     */
+    17: optional string vm_state;
+    /** The VCPU count specified while launching the VM. This field is sent
+     * only for KVM hypervisor
+     */
+    18: optional u16 vm_cpu_count;
 }
 
 /**

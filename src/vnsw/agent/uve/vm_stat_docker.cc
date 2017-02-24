@@ -129,14 +129,31 @@ void VmStatDocker::GetMemStat() {
 
 void VmStatDocker::GetPid() {
     std::ostringstream cmd;
-    cmd << "docker inspect " << container_id_
-        << "| grep \\\"Pid\\\": | awk '{print $2}'";
+    cmd << "docker inspect " << container_id_ << "| grep -A3 \\\"Paused\\\":";
     ExecCmd(cmd.str(), boost::bind(&VmStatDocker::ReadPid, this));
 }
 
 void VmStatDocker::ReadPid() {
-    std::string pid_str;
-    data_ >> pid_str;
+    /* Expecting data_ to have the following content
+     *     "Paused": false,
+     *     "Pid": 24430,
+     *     "Restarting": false,
+     *     "Running": true,
+     */
+    string tmp, paused_str, pid_str, running_str;
+    while (data_ >> tmp) {
+        if (tmp.find("Paused") != std::string::npos) {
+            data_ >> paused_str;
+        }
+        if (tmp.find("Pid") != std::string::npos) {
+            data_ >> pid_str;
+        }
+        if (tmp.find("Running") != std::string::npos) {
+            data_ >> running_str;
+            break;
+        }
+    }
+
     //Remove the last character from 'pid_str'
     if (pid_str.size() >= 2) {
         pid_str.erase(pid_str.size() - 1);
@@ -145,6 +162,14 @@ void VmStatDocker::ReadPid() {
         ss >> pid_;
     }
 
+    vm_state_ = VrouterAgentVmState::VROUTER_AGENT_VM_UNKNOWN;
+    if (paused_str == "true,") {
+        vm_state_ = VrouterAgentVmState::VROUTER_AGENT_VM_PAUSED;
+    } else if (running_str == "false,") {
+        vm_state_ = VrouterAgentVmState::VROUTER_AGENT_VM_SHUTDOWN;
+    } else if (running_str == "true,") {
+        vm_state_ = VrouterAgentVmState::VROUTER_AGENT_VM_ACTIVE;
+    }
     data_.str(" ");
     data_.clear();
     GetMemStat();

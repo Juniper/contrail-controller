@@ -44,14 +44,38 @@ void VmStatKvm::ReadCpuStat() {
 
     //Get 'CPU time' from the output
     double cpu_stat = 0;
-    std::string cpu_stat_str;
+    std::string cpu_stat_str, state_str, cpu_count_str;
+
     while (data_ >> tmp) {
+        if (tmp == "State:") {
+            data_ >> state_str;
+        }
+        if (tmp == "CPU(s):") {
+            data_ >> cpu_count_str;
+        }
         if (tmp == "time:") {
             data_ >> cpu_stat_str;
+            /* We expect 'State' and 'CPU(s)' fields to be present before
+             * 'CPU time' field. So break from the loop when we are done with
+             * reading of 'CPU time' field. */
             break;
         }
     }
 
+    vm_state_ = VrouterAgentVmState::VROUTER_AGENT_VM_UNKNOWN;
+    if (state_str.size()) {
+        if (state_str == "running") {
+            vm_state_ = VrouterAgentVmState::VROUTER_AGENT_VM_ACTIVE;
+        } else if (state_str == "paused") {
+            vm_state_ = VrouterAgentVmState::VROUTER_AGENT_VM_PAUSED;
+        } else if (state_str == "shut") {
+            vm_state_ = VrouterAgentVmState::VROUTER_AGENT_VM_SHUTDOWN;
+        }
+    }
+    vm_cpu_count_ = kInvalidCpuCount;
+    if (cpu_count_str.size()) {
+        stringToInteger(cpu_count_str, vm_cpu_count_);
+    }
     //Remove the last character from 'cpu_stat_str'
     if (cpu_stat_str.size() >= 2) {
         cpu_stat_str.erase(cpu_stat_str.size() - 1);
