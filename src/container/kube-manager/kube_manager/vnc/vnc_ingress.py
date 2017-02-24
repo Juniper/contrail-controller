@@ -121,7 +121,7 @@ class VncIngress(object):
         return fip
 
     def _deallocate_floating_ip(self, lb):
-        vmi_id = lb.virtual_machine_interfaces.pop()
+        vmi_id = list(lb.virtual_machine_interfaces)[0]
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
         if vmi is None:
             self._logger.error("%s - %s Vmi %s Not Found" \

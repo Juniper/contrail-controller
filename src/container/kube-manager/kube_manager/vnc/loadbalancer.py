@@ -60,6 +60,7 @@ class ServiceLbManager(object):
             pass
 
         #Create LB VMI
+        vmi_obj.name = service_name
         vmi_obj.uuid = str(uuid.uuid4())
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
@@ -80,9 +81,7 @@ class ServiceLbManager(object):
             return None, None
 
         #Create InstanceIP <--- LB VMI
-        iip_uuid = str(uuid.uuid4())
-        iip_obj = InstanceIp(name=iip_uuid)
-        iip_obj.uuid = iip_uuid
+        iip_obj = InstanceIp(name=service_name)
         iip_obj.set_virtual_network(vn_obj)
         if subnet_uuid:
             iip_obj.set_subnet_uuid(subnet_uuid)
