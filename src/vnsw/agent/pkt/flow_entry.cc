@@ -2077,11 +2077,6 @@ bool FlowEntry::ActionRecompute() {
         }
     }
 
-    // Force short flows to DROP
-    if (is_flags_set(FlowEntry::ShortFlow)) {
-        action |= (1 << TrafficAction::DENY);
-    }
-
     if (SetQosConfigIndex()) {
         ret = true;
     }
