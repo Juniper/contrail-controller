@@ -232,7 +232,7 @@ class PhysicalRouterConfig(object):
 
     def add_dynamic_tunnels(self, tunnel_source_ip,
                              ip_fabric_nets, bgp_router_ips):
-        dynamic_tunnel = DynamicTunnel(name="__contrail__",
+        dynamic_tunnel = DynamicTunnel(name=DMUtils.dynamic_tunnel_name(self.get_asn()),
                                        source_address=tunnel_source_ip, gre='')
         if ip_fabric_nets is not None:
             for subnet in ip_fabric_nets.get("subnet", []):
@@ -819,11 +819,11 @@ class PhysicalRouterConfig(object):
         bgp_group = BgpGroup()
         bgp_group.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
         if external:
-            bgp_group.set_name(DMUtils.make_bgp_group_name(True))
+            bgp_group.set_name(DMUtils.make_bgp_group_name(self.get_asn(), True))
             bgp_group.set_type('external')
             bgp_group.set_multihop('')
         else:
-            bgp_group.set_name(DMUtils.make_bgp_group_name(False))
+            bgp_group.set_name(DMUtils.make_bgp_group_name(self.get_asn(), False))
             bgp_group.set_type('internal')
         bgp_group.set_local_address(self.bgp_params['address'])
         self.add_families(bgp_group, self.bgp_params)
@@ -891,12 +891,14 @@ class PhysicalRouterConfig(object):
             nbr.set_peer_as(peer_as)
     # end _get_neighbor_config_xml
 
+    def get_asn(self):
+        return self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
+
     def set_as_config(self):
         if self.global_routing_options_config is None:
             self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
         self.global_routing_options_config.set_route_distinguisher_id(self.bgp_params['identifier'])
-        local_as = self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
-        self.global_routing_options_config.set_autonomous_system(str(local_as))
+        self.global_routing_options_config.set_autonomous_system(str(self.get_asn()))
     # end set_as_config
 
     def set_route_targets_config(self):
