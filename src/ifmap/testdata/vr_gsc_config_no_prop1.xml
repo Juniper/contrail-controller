@@ -1,0 +1,17 @@
+<ns3:Envelope xmlns:ns2="http://www.trustedcomputinggroup.org/2010/IFMAP/2" xmlns:ns3="http://www.w3.org/2003/05/soap-envelope">
+  <ns3:Body>
+    <ns2:response>
+      <pollResult>
+        <updateResult name="root">
+          <resultItem>
+            <identity other-type-definition="extended" type="other" name="contrail:virtual-router:vr1"/>
+            <identity other-type-definition="extended" type="other" name="contrail:global-system-config:gsc1"/>
+            <metadata>
+              <contrail:global-system-config-virtual-router xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-03T20:33:33+00:00"/>
+            </metadata>
+          </resultItem>
+        </updateResult>
+      </pollResult>
+    </ns2:response>
+  </ns3:Body>
+</ns3:Envelope>

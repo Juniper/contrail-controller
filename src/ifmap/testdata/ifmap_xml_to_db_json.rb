@@ -29,6 +29,7 @@ def read_xml_to_json (file_name)
     }
     xml = x.join
     puts xml if @debug
+    pp file_name
     json = JSON.pretty_generate(Hash.from_xml(xml))
     return JSON.parse(json)
 end
