@@ -198,16 +198,16 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
                 oper = itr->value.GetString();
             } else if (key == "type") {
                 obj_type = itr->value.GetString();
-            } else if (key == "imid") {
-                string temp_imid = itr->value.GetString();
-                iterator_range<string::iterator> r = find_nth(temp_imid, ":", 1);
-                if (r.empty()) {
-                    std::cout << "Failed to get fetch name from ampq message"
-                        << std::endl;
-                    continue;
+            } else if (key == "obj_dict") {
+                ostringstream os;
+                size_t sz = itr->value["fq_name"].GetArray().Size();
+                for (size_t i=0; i<sz; i++) {
+                    os << itr->value["fq_name"][SizeType(i)].GetString();
+                    if (i < sz-1) {
+                        os << ":";
+                    }
                 }
-                obj_name =
-                    temp_imid.substr(distance(temp_imid.begin(), r.begin())+1);
+                obj_name = os.str();
             } else if (key == "uuid") {
                 uuid_str = itr->value.GetString();
             }

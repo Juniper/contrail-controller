@@ -26,7 +26,6 @@ local_sources = [
                   'utils.py',
                   'rbaclib.py',
                   'jsonutils.py',
-                  'imid.py',
                   'svc_info.py',
                   'rest.py',
                   'vnc_plugin_base.py',

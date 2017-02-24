@@ -27,7 +27,6 @@ import os
 import logging
 import logging.handlers
 
-from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
 from cfgm_common import vnc_cgitb
