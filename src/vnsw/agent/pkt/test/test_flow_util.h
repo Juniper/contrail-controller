@@ -304,10 +304,8 @@ public:
 
     virtual void Verify(FlowEntry *fe) {
         EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
-        EXPECT_TRUE((fe->data().match_p.action_info.action & (1 << TrafficAction::DENY)) != 0);
         FlowEntry *rev = fe->reverse_flow_entry();
         EXPECT_TRUE(rev->is_flags_set(FlowEntry::ShortFlow) == true);
-        EXPECT_TRUE((rev->data().match_p.action_info.action & (1 << TrafficAction::DENY)) != 0);
     }
 private:
 };

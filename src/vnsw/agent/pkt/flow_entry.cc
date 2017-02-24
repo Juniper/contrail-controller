@@ -1977,11 +1977,6 @@ bool FlowEntry::ActionRecompute() {
         }
     }
 
-    // Force short flows to DROP
-    if (is_flags_set(FlowEntry::ShortFlow)) {
-        action |= (1 << TrafficAction::DENY);
-    }
-
     // check for conflicting actions and remove allowed action
     if (ShouldDrop(action)) {
         action = (action & ~TrafficAction::DROP_FLAGS &
