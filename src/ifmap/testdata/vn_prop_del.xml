@@ -8,6 +8,10 @@
             <identity other-type-definition="extended" type="other" name="contrail:virtual-network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1"/>
             <metadata>
               <contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-03T20:33:29+00:00">
+                <uuid>
+                  <uuid-mslong>12304109646464961225</uuid-mslong>
+                  <uuid-lslong>13217762531529978255</uuid-lslong>
+                </uuid>
                 <enable>true</enable>
                 <created/>
                 <last-modified/>
