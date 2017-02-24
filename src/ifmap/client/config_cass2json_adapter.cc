@@ -47,7 +47,10 @@ bool ConfigCass2JsonAdapter::assert_on_parse_error_ =
     do {                                                                       \
         if (condition)                                                         \
             break;                                                             \
-        IFMAP_WARN(ConfigurationMalformed ## t, c.key, c.value, type_, uuid_); \
+        IFMAP_WARN_LOG(ConfigurationMalformed ## t ## Warning ## Log,          \
+                       Category::IFMAP, c.key, c.value, type_, uuid_);         \
+        IFMAP_TRACE(ConfigurationMalformed ## t ## Warning ## Trace,           \
+                    c.key, c.value, type_, uuid_);                             \
         cout << "CONFIG_PARSE_ERROR " << __FILE__ << ":" << __LINE__ << " ";   \
         cout << type_ << " " << c.key << " " << c.value << " ";                \
         cout << uuid_ << endl;                                                 \
@@ -225,7 +228,9 @@ void ConfigCass2JsonAdapter::CreateJsonString(const string &obj_type,
     }
 
     if (type_.empty()) {
-        IFMAP_WARN(ConfigurationMissingType, uuid_, obj_type);
+        IFMAP_WARN_LOG(ConfigurationMissingTypeWarningLog, Category::IFMAP,
+                       uuid_, obj_type);
+        IFMAP_TRACE(ConfigurationMissingTypeWarningTrace, uuid_, obj_type);
         return;
     }
 

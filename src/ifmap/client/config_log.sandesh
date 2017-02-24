@@ -15,7 +15,7 @@
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMalformedProperty {
+systemlog sandesh ConfigurationMalformedPropertyWarningLog {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -33,7 +33,7 @@ systemlog sandesh ConfigurationMalformedProperty {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMalformedPropertyTrace {
+trace sandesh ConfigurationMalformedPropertyWarningTrace {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -51,7 +51,7 @@ trace sandesh ConfigurationMalformedPropertyTrace {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMalformedPropertyList {
+systemlog sandesh ConfigurationMalformedPropertyListWarningLog {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -69,7 +69,7 @@ systemlog sandesh ConfigurationMalformedPropertyList {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMalformedPropertyListTrace {
+trace sandesh ConfigurationMalformedPropertyListWarningTrace {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -87,7 +87,7 @@ trace sandesh ConfigurationMalformedPropertyListTrace {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMalformedPropertyMap {
+systemlog sandesh ConfigurationMalformedPropertyMapWarningLog {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -105,7 +105,7 @@ systemlog sandesh ConfigurationMalformedPropertyMap {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMalformedPropertyMapTrace {
+trace sandesh ConfigurationMalformedPropertyMapWarningTrace {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -123,7 +123,7 @@ trace sandesh ConfigurationMalformedPropertyMapTrace {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMalformedReference {
+systemlog sandesh ConfigurationMalformedReferenceWarningLog {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -141,7 +141,7 @@ systemlog sandesh ConfigurationMalformedReference {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMalformedReferenceTrace {
+trace sandesh ConfigurationMalformedReferenceWarningTrace {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -159,7 +159,7 @@ trace sandesh ConfigurationMalformedReferenceTrace {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMalformedReferenceLinkAttributes {
+systemlog sandesh ConfigurationMalformedReferenceLinkAttributesWarningLog {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -177,7 +177,7 @@ systemlog sandesh ConfigurationMalformedReferenceLinkAttributes {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMalformedReferenceLinkAttributesTrace {
+trace sandesh ConfigurationMalformedReferenceLinkAttributesWarningTrace {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -195,7 +195,7 @@ trace sandesh ConfigurationMalformedReferenceLinkAttributesTrace {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMalformedParent {
+systemlog sandesh ConfigurationMalformedParentWarningLog {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -213,7 +213,7 @@ systemlog sandesh ConfigurationMalformedParent {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMalformedParentTrace {
+trace sandesh ConfigurationMalformedParentWarningTrace {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -231,7 +231,7 @@ trace sandesh ConfigurationMalformedParentTrace {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMalformedFqName {
+systemlog sandesh ConfigurationMalformedFqNameWarningLog {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -249,7 +249,7 @@ systemlog sandesh ConfigurationMalformedFqName {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMalformedFqNameTrace {
+trace sandesh ConfigurationMalformedFqNameWarningTrace {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -267,7 +267,7 @@ trace sandesh ConfigurationMalformedFqNameTrace {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMalformedType {
+systemlog sandesh ConfigurationMalformedTypeWarningLog {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -285,7 +285,7 @@ systemlog sandesh ConfigurationMalformedType {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMalformedTypeTrace {
+trace sandesh ConfigurationMalformedTypeWarningTrace {
     /** Column Name Key **/
     1: string key
     /** Column Name Value **/
@@ -303,7 +303,7 @@ trace sandesh ConfigurationMalformedTypeTrace {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-systemlog sandesh ConfigurationMissingType {
+systemlog sandesh ConfigurationMissingTypeWarningLog {
     /** UUID of the object */
     1: string uuid
     2: string type
@@ -316,7 +316,7 @@ systemlog sandesh ConfigurationMissingType {
  * @action: Delete the offending property. service supervisor-config restart
             and service supervisor-control may also assist in recovery
  */
-trace sandesh ConfigurationMissingTypeTrace {
+trace sandesh ConfigurationMissingTypeWarningTrace {
     /** UUID of the object */
     1: string uuid
     2: string type
