@@ -364,6 +364,10 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             req.set_fr_rindex(rev_flow->flow_handle());
         }
 
+        if (flow_entry_->IsShortFlow()) {
+            action = VR_FLOW_ACTION_DROP;
+        }
+
         req.set_fr_flags(flags);
         req.set_fr_action(action);
         req.set_fr_drop_reason(drop_reason);
