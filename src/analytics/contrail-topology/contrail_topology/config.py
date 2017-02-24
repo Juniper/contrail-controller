@@ -5,14 +5,16 @@ import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import ModuleNames, HttpPortTopology, \
-    API_SERVER_DISCOVERY_SERVICE_NAME, OpServerAdminPort
+    API_SERVER_DISCOVERY_SERVICE_NAME, OpServerAdminPort, \
+    ServicesDefaultConfigurationFiles, SERVICE_TOPOLOGY
 from sandesh_common.vns.ttypes import Module
 import discoveryclient.client as discovery_client
 import traceback
 from vnc_api.vnc_api import VncApi
 
 class CfgParser(object):
-    CONF_DEFAULT_PATH = '/etc/contrail/contrail-topology.conf'
+    CONF_DEFAULT_PATHS = ServicesDefaultConfigurationFiles.get(
+        SERVICE_TOPOLOGY, None)
     def __init__(self, argv):
         self._args = None
         self.__pat = None
@@ -61,10 +63,8 @@ optional arguments:
         conf_parser = argparse.ArgumentParser(add_help=False)
 
         kwargs = {'help': "Specify config file", 'metavar':"FILE",
-                  'action':'append'
+                  'action':'append', 'default': self.CONF_DEFAULT_PATHS,
                  }
-        if os.path.exists(self.CONF_DEFAULT_PATH):
-            kwargs['default'] = [self.CONF_DEFAULT_PATH]
         conf_parser.add_argument("-c", "--conf_file", **kwargs)
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
@@ -124,7 +124,7 @@ optional arguments:
             # print script description with -h/--help
             description=__doc__,
             # Don't mess with format of description
-            formatter_class=argparse.RawDescriptionHelpFormatter,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
         defaults.update(disc_opts)
         defaults.update(ksopts)

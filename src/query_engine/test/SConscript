@@ -53,7 +53,7 @@ query_test = env.UnitTest('query_test',
 options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
                                      '../../analytics/viz_constants.o',
                                              'options_test.cc'],
-			    platform_exclude=[('Ubuntu','14.04')])
+			    )
 env.Alias('src/query_engine:options_test', options_test)
 
 utils_test = env.UnitTest('utils_test', ['../utils.o',

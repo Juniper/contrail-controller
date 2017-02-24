@@ -53,7 +53,8 @@ from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
      ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_GENERATOR_SERVICE_NAME, \
      OpServerAdminPort, CLOUD_ADMIN_ROLE, APIAAAModes, \
-     AAA_MODE_CLOUD_ADMIN, AAA_MODE_NO_AUTH
+     AAA_MODE_CLOUD_ADMIN, AAA_MODE_NO_AUTH, \
+     ServicesDefaultConfigurationFiles, SERVICE_OPSERVER
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -815,7 +816,9 @@ class OpServer(object):
         conf_parser = argparse.ArgumentParser(add_help=False)
 
         conf_parser.add_argument("-c", "--conf_file", action='append',
-                                 help="Specify config file", metavar="FILE")
+                                 help="Specify config file", metavar="FILE",
+                                 default=ServicesDefaultConfigurationFiles.get(
+                                     SERVICE_OPSERVER, None))
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         defaults = {

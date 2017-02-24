@@ -1,6 +1,12 @@
+#
+# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+#
+
 import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from sandesh_common.vns.constants import SERVICE_ALARM_GENERATOR, \
+    ServicesDefaultConfigurationFiles
 
 class CfgParser(object):
 
@@ -37,7 +43,9 @@ class CfgParser(object):
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help=False)
         conf_parser.add_argument("-c", "--conf_file", action="append",
-            help="Specify config file", metavar="FILE")
+            help="Specify config file", metavar="FILE",
+            default=ServicesDefaultConfigurationFiles.get(
+                SERVICE_ALARM_GENERATOR, None))
         args, remaining_argv = conf_parser.parse_known_args(self._argv.split())
 
         defaults = {
@@ -121,7 +129,7 @@ class CfgParser(object):
             # print script description with -h/--help
             description=__doc__,
             # Don't mess with format of description
-            formatter_class=argparse.RawDescriptionHelpFormatter,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
 
         defaults.update(redis_opts)
