@@ -200,12 +200,17 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
                 obj_type = itr->value.GetString();
             } else if (key == "obj_dict") {
                 ostringstream os;
+                if (!itr->value.HasMember("fq_name"))
+                    continue;
+                if (!itr->value["fq_name"].IsArray())
+                    continue;
                 size_t sz = itr->value["fq_name"].GetArray().Size();
                 for (size_t i=0; i<sz; i++) {
+                    if (!itr->value["fq_name"][SizeType(i)].IsString())
+                        continue;
                     os << itr->value["fq_name"][SizeType(i)].GetString();
-                    if (i < sz-1) {
+                    if (i < sz-1)
                         os << ":";
-                    }
                 }
                 obj_name = os.str();
             } else if (key == "uuid") {
