@@ -769,7 +769,7 @@ TEST_F(BgpConfigListenerTest, BgpRouterInstanceLinkChange) {
     TASK_UTIL_EXPECT_EQ(1, GetEdgeListCount());
 
     // Perform propagation and verify change list.
-    // The bgp-routers are on the change list since the propagate list for
+    // The bgp-peerings are on the change list since the propagate list for
     // instance-bgp-router in bgp-router contains bgp-peering.
     PerformChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(3, GetChangeListCount());
@@ -780,11 +780,12 @@ TEST_F(BgpConfigListenerTest, BgpRouterInstanceLinkChange) {
 }
 
 //
-// Node event for a routing-instance object without any connections.
+// Node event for a routing-instance object with bgp-routers and bgp-peerings.
 //
 TEST_F(BgpConfigListenerTest, RoutingInstanceChange1) {
 
-    // Initialize config with local router and 3 remote routers.
+    // Initialize config with local router and 3 remote routers, hence 6
+    // peerings.
     string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -795,17 +796,20 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceChange1) {
     string id_name(BgpConfigManager::kMasterInstance);
     ifmap_test_util::IFMapNodeNotify(&db_, "routing-instance", id_name);
 
-    // The routing-instance should be on the change list but not on the node
-    // list since there's no entry for self in the reaction map.
+    // The routing-instance should be on the change list and on the node list
+    // since there's an entry for self in the reaction map.
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
 
     // Perform propagation and verify change list.
-    // Nothing else should get added since the node and edge lists are empty.
+    // The bgp-peerings are on the change list since the propagate list for
+    // self in routing-instance contains instance-bgp-router and propagate
+    // list for instance-bgp-router in bgp-router contains bgp-peering.
     PerformChangeListPropagation();
-    TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
+    TASK_UTIL_EXPECT_EQ(7, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
+    TASK_UTIL_EXPECT_EQ(6, GetChangeListCount("bgp-peering"));
 
     ResumeChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -833,14 +837,15 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceChange2) {
     string id_name("red");
     ifmap_test_util::IFMapNodeNotify(&db_, "routing-instance", id_name);
 
-    // The routing-instance should be on the change list but not on the node
-    // list since there's no entry for self in the reaction map.
+    // The routing-instance should be on the change list and on the node list
+    // since there's an entry for self in the reaction map.
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
 
     // Perform propagation and verify change list.
-    // Nothing else should get added since the node and edge lists are empty.
+    // Nothing else should get added since the routing-instance doesn't have
+    // any bgp-routers and bgp-peerings.
     PerformChangeListPropagation();
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount("routing-instance"));
@@ -1659,7 +1664,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_1) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
 
     PerformChangeListPropagation();
@@ -1904,7 +1909,7 @@ TEST_F(BgpConfigListenerTest, RoutingPolicyUpdate_8) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(1, GetChangeListCount());
-    TASK_UTIL_EXPECT_EQ(0, GetNodeListCount());
+    TASK_UTIL_EXPECT_EQ(1, GetNodeListCount());
     TASK_UTIL_EXPECT_EQ(0, GetEdgeListCount());
 
     PerformChangeListPropagation();
