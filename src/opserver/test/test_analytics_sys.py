@@ -645,6 +645,16 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         # with http, it should fail
         vizd_obj.set_sandesh_config(None)
         assert not vizd_obj.verify_collector_gen(vizd_obj.collectors[0])
+
+        # start a python generator with introspect_ssl_enable = True
+        # and verify that its introspect page is accessible.
+        vizd_obj.set_sandesh_config(sandesh_cfg)
+        test_gen = self.useFixture(
+            GeneratorFixture("contrail-test-generator",
+                vizd_obj.get_collectors(), logging,
+                vizd_obj.get_opserver_port(), sandesh_config=sandesh_cfg))
+        assert test_gen.verify_on_setup()
+
     # end test_15_verify_introspect_ssl
 
     @staticmethod

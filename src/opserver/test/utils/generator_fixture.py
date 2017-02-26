@@ -56,7 +56,8 @@ class GeneratorFixture(fixtures.Fixture):
                 sandesh_config.get('sandesh_keyfile'),
                 sandesh_config.get('sandesh_certfile'),
                 sandesh_config.get('sandesh_ca_cert'),
-                sandesh_config.get('sandesh_ssl_enable'))
+                sandesh_config.get('sandesh_ssl_enable', False),
+                sandesh_config.get('introspect_ssl_enable', False))
         else:
             self._sandesh_config = None
         self.flow_vmi_uuid = str(uuid.uuid1())
@@ -96,7 +97,8 @@ class GeneratorFixture(fixtures.Fixture):
     @retry(delay=2, tries=5)
     def verify_on_setup(self):
         try:
-            vg = VerificationGenerator('127.0.0.1', self._http_port)
+            vg = VerificationGenerator('127.0.0.1', self._http_port, \
+                            self._sandesh_config)
             conn_status = vg.get_collector_connection_status()
         except:
             return False

@@ -46,17 +46,14 @@ class IntrospectUtilBase (object):
         self._port = port
         self._drv = drv()
         self._force_refresh = False
-        self._config = config
         self._http_str = "http"
         self._cert = tuple()
         self._ca_cert = False
-        if drv == XmlDrv and self._config is not None:
-            if 'introspect_ssl_enable' in self._config.keys() and \
-                    self._config['introspect_ssl_enable']:
-                self._http_str = "https"
-                self._cert = (self._config['sandesh_certfile'], \
-                        self._config['sandesh_keyfile'])
-                self._ca_cert = self._config['sandesh_ca_cert']
+        ssl_enabled = config.introspect_ssl_enable if config else False
+        if ssl_enabled:
+            self._http_str = "https"
+            self._cert = (config.certfile, config.keyfile)
+            self._ca_cert = config.ca_cert
 
     def get_force_refresh(self):
         return self._force_refresh

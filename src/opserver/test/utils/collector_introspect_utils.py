@@ -15,7 +15,7 @@ from opserver.introspect_util import *
 
 
 class VerificationCollector(IntrospectUtilBase):
-    def __init__(self, ip, port, config):
+    def __init__(self, ip, port, config=None):
         super(VerificationCollector, self).__init__(ip, port, XmlDrv, config)
     #end __init__
 
