@@ -328,6 +328,7 @@ def get_http_server_port_from_conf(svc_name, debug):
                                                            debug)
         if http_server_port != -1:
             return http_server_port
+    return -1
 
 def get_default_http_server_port(svc_name, debug):
     if svc_name in ServiceHttpPortMap:
