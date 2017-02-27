@@ -381,6 +381,50 @@ TEST_F(EcmpTest, EcmpTest_7) {
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
 }
 
+//Flow move from remote destination to local compute node
+//1> Initially flow are setup from MX to local source VM
+//2> Move the flow from MX to local destination VM to local source VM
+//3> Verify that old flow from MX would be marked as short flow
+//   and new set of local flows are marked as forward
+TEST_F(EcmpTest, EcmpTest_8) {
+    struct PortInfo input[] = {
+        {"vnet2", 2, "1.1.1.100", "00:00:00:01:01:02", 1, 1},
+    };
+    CreateVmportWithEcmp(input, 1);
+    client->WaitForIdle();
+
+    AddRemoteEcmpRoute("vrf1", "1.1.1.100", 32, "vn1", 4);
+    TxIpMplsPacket(eth_intf_id, MX_0, router_id, vm1_label,
+                   "1.1.1.100", "1.1.1.1", 1, 10);
+    client->WaitForIdle();
+
+    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+            "1.1.1.1", "1.1.1.100", 1, 0, 0, GetFlowKeyNH(1));
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->IsShortFlow() == false);
+    EXPECT_TRUE(rev_entry->IsShortFlow() == false);
+
+    TxIpPacket(VmPortGetId(2), "1.1.1.100", "1.1.1.1", 1);
+    client->WaitForIdle();
+
+    entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+                    "1.1.1.1", "1.1.1.100", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->IsShortFlow() == false);
+    EXPECT_TRUE(rev_entry->IsShortFlow() == true);
+    EXPECT_TRUE(entry->reverse_flow_entry()->IsShortFlow() == false);
+
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+
+    DeleteRoute("vrf1", "1.1.1.100", 32, bgp_peer);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);

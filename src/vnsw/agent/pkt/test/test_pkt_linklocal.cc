@@ -443,9 +443,10 @@ TEST_F(FlowTest, LinkLocalFlow_update) {
         fabric_port
     };
     AddLinkLocalConfig(&service, 1);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
     client->WaitForIdle();
 
-    WAIT_FOR(1000, 1000, fe->IsShortFlow());
+    WAIT_FOR(1000, 1000, fe->is_flags_set(FlowEntry::LinkLocalFlow));
     fe = NULL;
     FlushFlowTable();
     client->WaitForIdle();
