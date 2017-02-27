@@ -194,6 +194,40 @@ TEST_F(AnalyticsQueryTest, ApplyLimitTest) {
     delete q;
 }
 
+TEST_F(AnalyticsQueryTest, TestQueryTimeAdjustment) {
+    // Create the query first
+    std::string qid("TestQueryTimeAdjustment");
+    std::map<std::string, std::string> json_api_data;
+    json_api_data.insert(std::pair<std::string, std::string>(
+                "table", "\"StatTable.FieldNames.fields\""
+    ));
+
+    uint64_t et = UTCTimestampUsec() - 10*60*1000*1000; /* keep endtime 10min */
+    uint64_t st = et-30*1000*1000;
+    std::string et_s = integerToString(et);
+    std::string st_s = integerToString(st);
+
+    json_api_data.insert(std::pair<std::string, std::string>(
+    "start_time", st_s
+    ));
+    json_api_data.insert(std::pair<std::string, std::string>(
+    "end_time",   et_s
+    ));
+    json_api_data.insert(std::pair<std::string, std::string>(
+    "select_fields", "[\"fields.value\"]"
+    ));
+    // 2 results are passed to AnalyticsQuery with limit 1 to make sure
+    // that output result count is 1
+    TtlMap ttlmap_ = g_viz_constants.TtlValuesDefault;
+    AnalyticsQuery *q = new AnalyticsQuery(qid, (boost::shared_ptr<GenDb::GenDbIf>)dbif_mock_, json_api_data, -1, 0, ttlmap_, 0, 1, NULL);
+    uint64_t diff_usec = (1<<(g_viz_constants.RowTimeInBits + g_viz_constants.CacheTimeInAdditionalBits)) - (et-st);
+    uint64_t st_exp = st - diff_usec;
+    EXPECT_EQ(q->from_time(), st_exp);
+    EXPECT_EQ(q->end_time(), et);
+
+    delete q;
+}
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);

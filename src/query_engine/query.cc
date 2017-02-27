@@ -492,9 +492,6 @@ void AnalyticsQuery::Init(std::string qid,
 
     // End time
     {
-        struct timeval curr_time; 
-        gettimeofday(&curr_time, NULL);
-
         iter = json_api_data.find(QUERY_END_TIME);
         QE_PARSE_ERROR(iter != json_api_data.end());
         QE_PARSE_ERROR(parse_time(iter->second, &req_end_time_));
@@ -505,6 +502,18 @@ void AnalyticsQuery::Init(std::string qid,
             QE_TRACE(DEBUG, "updated end_time to:" << end_time_);
         } else {
             end_time_ = req_end_time_;
+        }
+    }
+
+    if (is_stat_fieldnames_table_query(table_)) {
+        uint64_t time_period = (end_time_ - from_time_); /* in usec */
+        uint64_t cache_time = (1 << (g_viz_constants.RowTimeInBits + g_viz_constants.CacheTimeInAdditionalBits));
+        if (time_period < cache_time) {
+            uint64_t diff_time_usec = (cache_time - time_period);
+            from_time_ = from_time_ - diff_time_usec;
+            if (from_time_ < min_start_time) {
+                from_time_ = min_start_time;
+            }
         }
     }
 
@@ -1428,6 +1437,15 @@ bool
 AnalyticsQuery::is_stat_table_query(const std::string & tname) {
     if (tname.compare(0, g_viz_constants.STAT_VT_PREFIX.length(),
             g_viz_constants.STAT_VT_PREFIX)) {
+        return false;
+    }
+    return true;
+}
+
+bool
+AnalyticsQuery::is_stat_fieldnames_table_query(const std::string & tname) {
+    if (tname.compare(0, g_viz_constants.STAT_VT_FIELDNAMES_PREFIX.length(),
+            g_viz_constants.STAT_VT_FIELDNAMES_PREFIX)) {
         return false;
     }
     return true;
