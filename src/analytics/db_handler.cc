@@ -53,11 +53,8 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
-uint32_t DbHandler::field_cache_t2_ = 0;
-std::set<std::string> DbHandler::field_cache_set_[2];
-uint32_t DbHandler::field_cache_old_t2_ = 0;
-uint8_t DbHandler::old_t2_index_ = 0;
-uint8_t DbHandler::new_t2_index_ = 1;
+uint32_t DbHandler::field_cache_index_ = 0;
+std::set<std::string> DbHandler::field_cache_set_;
 tbb::mutex DbHandler::fmutex_;
 
 DbHandler::DbHandler(EventManager *evm,
@@ -951,33 +948,23 @@ void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
  */
 bool DbHandler::CanRecordDataForT2(uint32_t temp_u32, std::string fc_entry) {
     bool record = false;
-    if (temp_u32 > field_cache_t2_) {
-            // swap old and new index; clear the old cache
-            old_t2_index_ = new_t2_index_;
-            new_t2_index_ = (new_t2_index_ == 1)?0:1;
-            field_cache_old_t2_ = field_cache_t2_;
-            field_cache_set_[new_t2_index_].clear();
-            field_cache_t2_ = temp_u32;
-        } else if (temp_u32 > field_cache_old_t2_ && temp_u32 != field_cache_t2_){
-            field_cache_set_[old_t2_index_].clear();
-            field_cache_old_t2_ = temp_u32;
+
+    uint32_t cacheindex = temp_u32 >> g_viz_constants.CacheTimeInAdditionalBits;
+    if (cacheindex > field_cache_index_) {
+            field_cache_index_ = cacheindex;
+            field_cache_set_.clear();
+            field_cache_set_.insert(fc_entry);
+            record = true;
+    } else if (cacheindex == field_cache_index_) {
+        if (field_cache_set_.find(fc_entry) ==
+            field_cache_set_.end()) {
+            field_cache_set_.insert(fc_entry);
+            record = true;
         }
-        // Record only if not found in last or last but one T2 cache.
-        if (temp_u32 == field_cache_t2_) {
-            if (field_cache_set_[new_t2_index_].find(fc_entry) ==
-                field_cache_set_[new_t2_index_].end()) {
-                field_cache_set_[new_t2_index_].insert(fc_entry);
-                record = true;
-            }
-        } else if (temp_u32 == field_cache_old_t2_) {
-            if (field_cache_set_[old_t2_index_].find(fc_entry) ==
-                    field_cache_set_[old_t2_index_].end()) {
-                field_cache_set_[old_t2_index_].insert(fc_entry);
-                record = true;
-            }
-        }
-        return record;
+    }
+    return record;
 }
+
 void DbHandler::GetRuleMap(RuleMap& rulemap) {
 }
 
