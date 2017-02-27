@@ -190,8 +190,6 @@ public:
     // Test code only used method
     void DeleteFlow(const AclDBEntry *acl, const FlowKey &key,
                     AclEntryIDList &id_list);
-    bool ValidFlowMove(const FlowEntry *new_flow,
-                       const FlowEntry *old_flow) const;
 
     // Accessor routines
     Agent *agent() const { return agent_; }
