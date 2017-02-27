@@ -337,3 +337,5 @@ class VncKubernetes(object):
                         %(self._name, event_type, kind, namespace, name))
             except Empty:
                 gevent.sleep(0)
+            except Exception as e:
+                self.logger.error("%s - %s" %(self._name, e))
