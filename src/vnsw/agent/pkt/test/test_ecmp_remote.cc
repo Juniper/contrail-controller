@@ -882,7 +882,7 @@ TEST_F(RemoteEcmpTest, INVALID_EcmpTest_17) {
     client->WaitForIdle();
     entry = FlowGet(VrfGet("vrf2")->vrf_id(),
                     "1.1.1.1", "2.1.1.1", 1, 0, 0, GetFlowKeyNH(1));
-    EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == true);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
 }
 
 TEST_F(RemoteEcmpTest, DISABLED_EcmpReEval_1) {
