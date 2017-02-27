@@ -363,6 +363,7 @@ private:
 // Instance configuration.
 class BgpInstanceConfig {
 public:
+    typedef std::set<std::string> NeighborList;
     typedef std::set<std::string> RouteTargetList;
     typedef std::vector<StaticRouteConfig> StaticRouteList;
     typedef std::vector<ServiceChainConfig> ServiceChainList;
@@ -372,6 +373,14 @@ public:
     virtual ~BgpInstanceConfig();
 
     const std::string &name() const { return name_; }
+
+    const NeighborList &neighbor_list() const { return neighbor_list_; }
+    void add_neighbor(const std::string &neighbor) {
+        neighbor_list_.insert(neighbor);
+    }
+    void delete_neighbor(const std::string &neighbor) {
+        neighbor_list_.erase(neighbor);
+    }
 
     const RouteTargetList &import_list() const { return import_list_; }
     void set_import_list(const RouteTargetList &import_list) {
@@ -435,6 +444,7 @@ private:
     friend class BgpInstanceConfigTest;
 
     std::string name_;
+    NeighborList neighbor_list_;
     RouteTargetList import_list_;
     RouteTargetList export_list_;
     bool has_pnf_;

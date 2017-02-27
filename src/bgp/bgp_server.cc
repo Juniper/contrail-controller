@@ -175,11 +175,14 @@ public:
         string instance_name = neighbor_config->instance_name();
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
         RoutingInstance *rti = ri_mgr->GetRoutingInstance(instance_name);
-        assert(rti);
-        PeerManager *peer_manager = rti->LocatePeerManager();
+        if (!rti)
+            return;
 
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
+            if (rti->deleted())
+                return;
+            PeerManager *peer_manager = rti->LocatePeerManager();
             BgpPeer *peer = peer_manager->PeerLocate(server_, neighbor_config);
             if (peer) {
                 server_->RemovePeer(peer->endpoint(), peer);
@@ -187,6 +190,7 @@ public:
                 server_->InsertPeer(peer->endpoint(), peer);
             }
         } else if (event == BgpConfigManager::CFG_DELETE) {
+            PeerManager *peer_manager = rti->peer_manager();
             BgpPeer *peer = peer_manager->TriggerPeerDeletion(neighbor_config);
             if (peer) {
                 server_->RemovePeer(peer->endpoint(), peer);
