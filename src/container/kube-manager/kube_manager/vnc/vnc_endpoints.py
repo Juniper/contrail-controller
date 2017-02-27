@@ -89,11 +89,11 @@ class VncEndpoints(object):
                         member_match = True
                         break
                 if not member_match:
-                    if isinstance(ll.target_port, basestring):
-                        target_port = ll.params['protocol_port']
-                    else:
+                    if ll.target_port:
                         target_port = ll.target_port
-                    self.logger.debug("Create LB member for Pod: %s in LB: %s with target-port: %s" 
+                    else:
+                        target_port = ll.params['protocol_port']
+                    self.logger.debug("Create LB member for Pod: %s in LB: %s with target-port: %s"
                                        % (vm.fq_name, lb.name, target_port))
                     member_obj = self._vnc_create_member(pool, pod_id, vmi_id,
                                                          target_port)
