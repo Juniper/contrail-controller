@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<delete>
+    <routing-instance name="test">
+        <vrf-target>target:64512:1</vrf-target>
+        <bgp-router name='bgpaas-server'>
+            <router-type>bgpaas-server</router-type>
+            <autonomous-system>64512</autonomous-system>
+            <session to='vm1:0'>
+                <family-attributes>
+                    <address-family>inet</address-family>
+                </family-attributes>
+                <family-attributes>
+                    <address-family>inet6</address-family>
+                </family-attributes>
+                <family-attributes>
+                    <address-family>inet-vpn</address-family>
+                </family-attributes>
+            </session>
+            <session to='vm2:0'>
+                <family-attributes>
+                    <address-family>inet</address-family>
+                </family-attributes>
+                <family-attributes>
+                    <address-family>inet6</address-family>
+                </family-attributes>
+                <family-attributes>
+                    <address-family>inet-vpn</address-family>
+                </family-attributes>
+            </session>
+        </bgp-router>
+        <bgp-router name='vm1'>
+            <router-type>bgpaas-client</router-type>
+            <autonomous-system>65001</autonomous-system>
+            <address>10.0.0.1</address>
+            <source-port>1024</source-port>
+            <session to='bgpaas-server:0'>
+                <family-attributes>
+                    <address-family>inet</address-family>
+                </family-attributes>
+                <family-attributes>
+                    <address-family>inet6</address-family>
+                </family-attributes>
+                <family-attributes>
+                    <address-family>inet-vpn</address-family>
+                </family-attributes>
+            </session>
+        </bgp-router>
+        <bgp-router name='vm2'>
+            <router-type>bgpaas-client</router-type>
+            <autonomous-system>65002</autonomous-system>
+            <address>10.0.0.2</address>
+            <source-port>1025</source-port>
+            <session to='bgpaas-server:0'>
+                <family-attributes>
+                    <address-family>inet</address-family>
+                </family-attributes>
+                <family-attributes>
+                    <address-family>inet6</address-family>
+                </family-attributes>
+                <family-attributes>
+                    <address-family>inet-vpn</address-family>
+                </family-attributes>
+            </session>
+        </bgp-router>
+    </routing-instance>
+</delete>
