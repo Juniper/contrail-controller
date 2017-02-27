@@ -139,6 +139,11 @@ void RouteExport::Notify(const Agent *agent,
             return;
     }
 
+    //If channel is no more active, ignore any updates.
+    //It may happen that notify is enqueued before channel is removed.
+    if (!AgentXmppChannel::IsBgpPeerActive(agent, bgp_xmpp_peer))
+        return;
+
     if (route->is_multicast()) {
         MulticastNotify(bgp_xmpp_peer, associate, partition, e);
     } else {
