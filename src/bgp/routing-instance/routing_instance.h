@@ -130,6 +130,8 @@ public:
     // and Leave corresponding RtGroup
     void ClearRouteTarget();
 
+    void CreateNeighbors();
+
     IStaticRouteMgr *static_route_mgr(Address::Family family) {
         if (family == Address::INET)
             return inet_static_route_mgr_.get();
