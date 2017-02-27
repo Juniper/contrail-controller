@@ -8,7 +8,8 @@ import sys
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 import mesos_manager.mesos_consts as mesos_consts
-from sandesh_common.vns.constants import HttpPortMesosManager
+from sandesh_common.vns.constants import (HttpPortMesosManager,\
+                                          DiscoveryServerPort)
 
 
 def parse_args():
@@ -30,6 +31,8 @@ def parse_args():
         'log_category': '',
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
+        'disc_server_ip': 'localhost',
+        'disc_server_port': DiscoveryServerPort,
     }
 
     vnc_opts = {
