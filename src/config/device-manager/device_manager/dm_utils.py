@@ -17,19 +17,33 @@ class DMUtils(object):
     LO0_INTF_UNIT_START_ID = 1000
 
     @staticmethod
+    def contrail_prefix(name=''):
+        return "_contrail_" + name
+
+    @staticmethod
     def make_vrf_name(name, network_id, vrf_type, is_nat=False):
-        vrf_name = ''
-        if not vrf_type:
-            vrf_name = '_contrail_' + \
-                str(network_id) + '_' + name
-        else:
-            vrf_name = '_contrail_' + vrf_type + '_' + \
-                str(network_id) + '_' + name
+        vrf_name = DMUtils.contrail_prefix(name)
+        network_id_str = '-' + str(network_id)
+        nat_postfix = '-nat'
+        vrf_type_str = '-' + str(vrf_type)
         # mx has limitation for vrf name, allowed max 127 chars
-        if is_nat:
-            return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - 4] + '-nat'
-        return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH]
+        if not vrf_type:
+            if is_nat:
+                post_len = len(network_id_str) + len(nat_postfix)
+                return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - post_len] + network_id_str + nat_postfix
+            post_len = len(network_id_str)
+            return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - post_len] + network_id_str
+        else:
+            if is_nat:
+                post_len = len(network_id_str) + len(nat_postfix) + len(vrf_type_str)
+                return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - post_len] + vrf_type_str + network_id_str + nat_postfix
+            post_len = len(network_id_str) + len(vrf_type_str)
+            return vrf_name[:DMUtils.MAX_VRF_NAME_LENGTH - post_len] + vrf_type_str + network_id_str
     #end make_vrf_name
+
+    @staticmethod
+    def dynamic_tunnel_name(asn):
+        return DMUtils.contrail_prefix() + "asn-" + str(asn)
 
     @staticmethod
     def get_network_gateways(ipam_refs=[]):
@@ -59,7 +73,7 @@ class DMUtils(object):
 
     @staticmethod
     def make_community_name(rt_name):
-        return rt_name.replace(':', '_')
+        return DMUtils.contrail_prefix(rt_name.replace(':', '_'))
     # end make_community_name
 
     @staticmethod
@@ -86,15 +100,15 @@ class DMUtils(object):
 
     @staticmethod
     def make_private_vrf_filter_name(ri_name):
-        ri_prefix = ri_name[:DMUtils.MAX_FILTER_NAME_LENGTH - len('redirect_to_') - len('_vrf')]
-        return 'redirect_to_' + ri_prefix + '_vrf'
+        ri_prefix = ri_name[:DMUtils.MAX_FILTER_NAME_LENGTH - len('redirect-to-') - len('-vrf')]
+        return 'redirect-to-' + ri_prefix + '-vrf'
     # end make_private_vrf_filter_name
 
     @staticmethod
     def make_public_vrf_filter_name(inet_type):
         if inet_type == 'inet':
             inet_type = 'inet4'
-        return 'redirect_to_public_vrf_filter_' + inet_type
+        return DMUtils.contrail_prefix('redirect-to-public-vrfs-' + inet_type)
     # end make_public_filter_name
 
     @staticmethod
@@ -116,10 +130,11 @@ class DMUtils(object):
     # end make_vrf_term_name
 
     @staticmethod
-    def make_bgp_group_name(is_external=False):
+    def make_bgp_group_name(asn, is_external=False):
+        name = DMUtils.contrail_prefix() + "asn-" + str(asn)
         if is_external:
-            return '__contrail_external__'
-        return '__contrail__'
+            return name + "-external"
+        return name
     # end make_bgp_group_name
 
     @staticmethod
