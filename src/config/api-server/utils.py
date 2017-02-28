@@ -151,6 +151,12 @@ def parse_args(args_str):
                 rdbmsopts.update(dict(config.items('RDBMS')))
         if 'SANDESH' in config.sections():
             sandeshopts.update(dict(config.items('SANDESH')))
+            if 'sandesh_ssl_enable' in config.options('SANDESH'):
+                sandeshopts['sandesh_ssl_enable'] = config.getboolean(
+                    'SANDESH', 'sandesh_ssl_enable')
+            if 'introspect_ssl_enable' in config.options('SANDESH'):
+                sandeshopts['introspect_ssl_enable'] = config.getboolean(
+                    'SANDESH', 'introspect_ssl_enable')
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(

@@ -95,6 +95,12 @@ def parse_args():
             k8s_opts.update(dict(config.items("KUBERNETES")))
         if 'SANDESH' in config.sections():
             sandesh_opts.update(dict(config.items('SANDESH')))
+            if 'sandesh_ssl_enable' in config.options('SANDESH'):
+                sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
+                    'SANDESH', 'sandesh_ssl_enable')
+            if 'introspect_ssl_enable' in config.options('SANDESH'):
+                sandesh_opts['introspect_ssl_enable'] = config.getboolean(
+                    'SANDESH', 'introspect_ssl_enable')
         if 'AUTH' in config.sections():
             auth_opts.update(dict(config.items("AUTH")))
         if 'DEFAULTS' in config.sections():

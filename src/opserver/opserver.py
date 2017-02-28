@@ -904,6 +904,12 @@ class OpServer(object):
                 keystone_opts.update(dict(config.items('KEYSTONE')))
             if 'SANDESH' in config.sections():
                 sandesh_opts.update(dict(config.items('SANDESH')))
+                if 'sandesh_ssl_enable' in config.options('SANDESH'):
+                    sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
+                        'SANDESH', 'sandesh_ssl_enable')
+                if 'introspect_ssl_enable' in config.options('SANDESH'):
+                    sandesh_opts['introspect_ssl_enable'] = config.getboolean(
+                        'SANDESH', 'introspect_ssl_enable')
             if 'DATABASE' in config.sections():
                 database_opts.update(dict(config.items('DATABASE')))
 
