@@ -1206,7 +1206,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors14) {
 // Disable processing of instance neighbor configs when instance is created.
 // Delete the routing instance with instance neighbor config processing still
 // disabled i.e. before the instance neighbors can be created. Make sure the
-// instance does not get destroyed by pausing it's delet actor's deletion.
+// instance does not get destroyed by pausing it's delete actor's deletion.
 // There should not be any issues when instance neighbor config processing
 // is later enabled.
 //
@@ -1245,6 +1245,93 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors15) {
 
     // Resume deletion of the routing instance.
     ResumeDelete(rti->deleter());
+}
+
+//
+// Config for neighbor is re-added before the previous incarnation of the
+// routing-instance has been destroyed.  The peer should get resurrected
+// after the old incarnation of the routing-instance has been destroyed.
+//
+TEST_F(BgpConfigTest, BGPaaSNeighbors16) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(2, server_.num_bgpaas_peer());
+
+    // Verify that peers got created.
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_EQ(1024, peer1->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
+
+    // Pause deletion of the routing-instance.
+    PauseDelete(rti->deleter());
+    task_util::WaitForIdle();
+
+    // Delete the routing-instance and neighbor config.
+    // The routing-instance can't get destroyed as deletion has been paused
+    // but the peers will get destroyed.
+    content = FileRead("controller/src/bgp/testdata/config_test_36f.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(rti->deleted());
+    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
+
+    // Recreate routing-instance and neighbor config.
+    // Peers can't get recreated as previous incarnation of routing-instance
+    // is still present.
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(rti->deleted());
+    TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
+
+    // Resume deletion of the routing-instance.
+    ResumeDelete(rti->deleter());
+    task_util::WaitForIdle();
+
+    // Make sure the routing-instance and peers got resurrected.
+    rti = server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_EQ(1024, peer1->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
+
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
+
+    // Get rid of the peers.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
 TEST_F(BgpConfigTest, MasterNeighborAttributes) {
