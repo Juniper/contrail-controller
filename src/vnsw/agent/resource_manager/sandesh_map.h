@@ -36,7 +36,19 @@ public:
     void EnqueueRestore(ResourceManager::KeyPtr key,
                         ResourceManager:: DataPtr data);
     const std::string FilePath(const std::string &file_name);
+    const std::string & backup_dir() {return backup_dir_;}
+    static const std::string FindFile(const std::string &root,
+                                      const std::string & file_ext);
+    static bool CalculateHashSum(const std::string &file_name,
+                                 uint32_t *hashsum);
 protected:
+    template <typename T1, typename T2>
+    bool WriteMapToFile(T1* sandesh_data, const T2& index_map,
+                        const std::string &file_name,
+                        const std::string & file_ext);
+    template <typename T>
+    void ReadMapFromFile(T* sandesh_data, const std::string &root,
+                         const std::string& file_ext);
     std::string backup_dir_;
 
 private:
@@ -54,7 +66,6 @@ class VrfMplsBackUpResourceTable : public BackUpResourceTable {
 public:
     typedef std::map<uint32_t, VrfMplsResource> Map;
     typedef Map::iterator MapIter;
-
     VrfMplsBackUpResourceTable(ResourceBackupManager *manager);
     virtual ~VrfMplsBackUpResourceTable();
 
@@ -65,6 +76,7 @@ public:
 private:
     Map map_;
     const std::string vrf_file_name_str_;
+    const std::string vrf_file_name_prefix_;
 };
 
 // Interface backup resource table to maintains sandesh encode data for
@@ -73,7 +85,6 @@ class InterfaceMplsBackUpResourceTable : public BackUpResourceTable {
 public:
     typedef std::map<uint32_t, InterfaceIndexResource> Map;
     typedef Map::iterator MapIter;
-
     InterfaceMplsBackUpResourceTable(ResourceBackupManager *manager);
     virtual ~InterfaceMplsBackUpResourceTable();
 
@@ -84,6 +95,7 @@ public:
 private:
     Map map_;
     const std::string interface_file_name_str_;
+    std::string interface_file_name_prefix_;
 };
 
 // Route backup resource table to maintains sandesh encoded data for route info
@@ -91,7 +103,6 @@ class RouteMplsBackUpResourceTable : public BackUpResourceTable {
 public:
     typedef std::map<uint32_t, RouteMplsResource> Map;
     typedef Map::iterator MapIter;
-
     RouteMplsBackUpResourceTable(ResourceBackupManager *manager);
     virtual ~RouteMplsBackUpResourceTable();
 
@@ -102,6 +113,7 @@ public:
 private:
     Map map_;
     const std::string route_file_name_str_;
+    const std::string route_file_name_prefix_;
 };
 // Maintians all the Sandesh encoded structures
 class ResourceSandeshMaps {

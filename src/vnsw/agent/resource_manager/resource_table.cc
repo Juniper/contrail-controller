@@ -62,6 +62,7 @@ ResourceData* ResourceTable::FindKey(KeyPtr key) {
     return (FindKeyPtr(key).get());
 }
 
+// Walk all the etries remove keys are not usable.
 void ResourceTable::FlushStale() {
     for (KeyDataMapIter it = key_data_map_.begin();
         it != key_data_map_.end();) {
@@ -75,6 +76,7 @@ void ResourceTable::FlushStale() {
     }
 }
 
+// Allocate the resource and mark the key usable
 ResourceTable::DataPtr ResourceTable::Allocate(KeyPtr key) {
     ResourceManager::DataPtr data = FindKeyPtr(key);
     if (data.get() == NULL) {
