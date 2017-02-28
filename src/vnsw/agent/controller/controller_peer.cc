@@ -663,6 +663,16 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
             continue;
         }
 
+        if (comp_nh_list.size() >= maximum_ecmp_paths) {
+            std::stringstream msg;
+            msg << "Nexthop paths for prefix "
+                << prefix_addr.to_string() << "/" << prefix_len
+                << " (" << item->entry.next_hops.next_hop.size()
+                << ") exceed the maximum supported, ignoring them";
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name, msg.str());
+            break;
+        }
+
         uint32_t label = item->entry.next_hops.next_hop[i].label;
         if (agent_->router_id() == addr.to_v4()) {
             //Get local list of interface and append to the list

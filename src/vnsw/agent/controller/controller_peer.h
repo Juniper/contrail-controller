@@ -32,6 +32,8 @@ class EndOfRibRxTimer;
 
 class AgentXmppChannel {
 public:
+    static const uint32_t maximum_ecmp_paths = 128;
+
     AgentXmppChannel(Agent *agent,
                      const std::string &xmpp_server, 
                      const std::string &label_range, uint8_t xs_idx);

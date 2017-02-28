@@ -50,10 +50,7 @@ public:
 
     int MsgLen() {
         // for larger component NH lists, increase message length
-        if (component_nh_list_.size() < 256)
-            return kDefaultNhMsgSize;
-        else
-            return 2 * kDefaultNhMsgSize;
+        return kDefaultNhMsgSize * ((component_nh_list_.size() / 128) + 1);
     }
     uint8_t SetEcmpFieldsToUse();
 private:
