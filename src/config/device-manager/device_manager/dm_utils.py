@@ -21,7 +21,14 @@ class DMUtils(object):
         return "_contrail_" + name
 
     @staticmethod
+    def sanitize_name(name):
+        if name:
+            return name.replace(' ', '_', -1)
+        return name
+
+    @staticmethod
     def make_vrf_name(name, network_id, vrf_type, is_nat=False):
+        name = DMUtils.sanitize_name(name)
         vrf_name = DMUtils.contrail_prefix(name)
         network_id_str = '-' + str(network_id)
         nat_postfix = '-nat'
