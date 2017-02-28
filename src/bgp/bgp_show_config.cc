@@ -41,6 +41,10 @@ static void FillBgpInstanceConfigInfo(ShowBgpInstanceConfig *sbic,
     sbic->set_pbb_evpn_enable(instance->virtual_network_pbb_evpn_enable());
     sbic->set_last_change_at(UTCUsecToString(instance->last_change_at()));
 
+    vector<string> neighbors(
+        instance->neighbor_list().begin(), instance->neighbor_list().end());
+    sbic->set_neighbors(neighbors);
+
     vector<ShowBgpServiceChainConfig> sbscc_list;
     BOOST_FOREACH(const ServiceChainConfig &sc_config,
         instance->service_chain_list()) {
