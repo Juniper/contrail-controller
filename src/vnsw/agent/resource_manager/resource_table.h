@@ -62,7 +62,7 @@ public:
     }
 };
 // This class is resposible for allocating & restoring the the resources.
-// maintains the Key data value pairs.
+// maintains the Resource Key and resource data value pairs.
 class ResourceTable {
 public:
     typedef boost::shared_ptr<ResourceKey> KeyPtr;

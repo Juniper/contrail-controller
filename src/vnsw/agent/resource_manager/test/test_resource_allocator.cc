@@ -56,9 +56,8 @@ protected:
     }
     // Restore the Data  from file and delete it.
    void SandeshReadProcess() {
-        struct stat st;
-        WAIT_FOR(200000, 1,
-                 stat("/tmp/backup/contrail_interface_resource", &st) != -1);
+        WAIT_FOR(200000, 1, BackUpResourceTable::FindFile("/tmp/backup", 
+                "contrail_interface_resource-").empty() != true);
         agent->resource_manager()->backup_mgr()->Init(); 
         client->WaitForIdle();
         ResourceManager::KeyPtr key
@@ -99,11 +98,65 @@ TEST_F(SandeshReadWriteUnitTest, StructBinaryWrite) {
 
 TEST_F(SandeshReadWriteUnitTest, StructBinaryRead) {
     SandeshReadProcess();
+    system("rm /tmp/backup/*");
+}
+// Create VM Port & delete Port.
+// This make sure that file created. and take the size & md5sum.
+// Delete the port this should update the file with new md5.
+// size of a file should be less than that of with vm_port
+TEST_F(SandeshReadWriteUnitTest, SandesMd5_verification) {
+
+    struct PortInfo input1[] = {
+            {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+        };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+    // interface nh, 1 vrf nh and 1 for bridge route
+    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 3);
+    WAIT_FOR(200000, 1, BackUpResourceTable::FindFile("/tmp/backup",
+             "contrail_interface_resource-").empty() != true);
+    std::string file_name = "/tmp/backup/" +
+        BackUpResourceTable::FindFile("/tmp/backup",
+                "contrail_interface_resource-"); 
+    struct stat st;
+    EXPECT_TRUE(stat(file_name.c_str(), &st) != -1);
+    uint32_t size_with_port = (uint32_t)st.st_size;
+    uint32_t  md5sum;
+    // Take the md5sum before port delete
+    EXPECT_TRUE(BackUpResourceTable::CalculateHashSum(file_name, &md5sum));
+    system("rm -rf /tmp/backup/*");
+    client->WaitForIdle();
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 0);
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    WAIT_FOR(100, 1000,(Agent::GetInstance()->interface_table()->Find(&key, true)
+                                == NULL));
+    WAIT_FOR(200000, 1, BackUpResourceTable::FindFile("/tmp/backup",
+             "contrail_interface_resource-").empty() != true);
+    std::string file_name1 = "/tmp/backup/" +
+        BackUpResourceTable::FindFile("/tmp/backup",
+                "contrail_interface_resource-");
+    struct stat st1;
+    EXPECT_TRUE(stat(file_name1.c_str(), &st1) != -1);
+    // Make sure that MD5 sum changes after port delete.
+    std::stringstream ss;
+    ss << md5sum;
+    EXPECT_TRUE(file_name1.find(ss.str()) == std::string::npos);
+    uint32_t size_with_out_port = (uint32_t)st1.st_size;
+    EXPECT_TRUE(size_with_port > size_with_out_port);
+    client->Reset();
 }
 
 
 int main(int argc, char **argv) {
-    LoggingInit();
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true,
                       30000, 1000, true, true, 30000, true);
@@ -113,9 +166,10 @@ int main(int argc, char **argv) {
     bool success = RUN_ALL_TESTS();
     client->WaitForIdle();
     param->set_restart_backup_enable(false);
-    TestShutdown();
     system("rm -rf /tmp/backup");
+    client->WaitForIdle();
+    TestShutdown();
     delete client;
-    TaskScheduler::GetInstance()->Terminate();
+    usleep(100000);
     return success;
 }
