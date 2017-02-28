@@ -223,7 +223,9 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
         if (oper == "CREATE") {
             assert(obj_name != "");
             config_manager()->config_db_client()->AddFQNameCache(uuid_str,
-                                                                 obj_name);
+                                                            obj_type, obj_name);
+        } else if (oper == "DELETE") {
+            config_manager()->config_db_client()->InvalidateFQNameCache(uuid_str);
         }
         EnqueueUUIDRequest(oper, obj_type, uuid_str);
     }

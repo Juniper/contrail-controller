@@ -137,7 +137,7 @@ void ConfigCass2JsonAdapter::AddOneEntry(Value *jsonObject,
                                        from_back_pos-from_front_pos - 1);
         string ref_uuid = c.key.substr(from_back_pos + 1);
 
-        string fq_name_ref = cassandra_client_->UUIDToFQName(ref_uuid);
+        string fq_name_ref = cassandra_client_->UUIDToFQName(ref_uuid).second;
         if (fq_name_ref == "ERROR")
             return;
         string r = ref_type + "_refs";

@@ -51,16 +51,14 @@ public:
         return ConfigCassandraClient::HashUUID(uuid_str);
     }
 
-    virtual void HandleObjectDelete(const std::string &obj_type,
-                            const std::string &uuid) {
-        ConfigCassandraClient::HandleObjectDelete(obj_type, uuid);
+    virtual void HandleObjectDelete(const std::string &uuid) {
+        ConfigCassandraClient::HandleObjectDelete(uuid);
     }
 
-    virtual bool ParseRowAndEnqueueToParser(const string &obj_type,
-                                            const string &uuid_key,
+    virtual bool ParseRowAndEnqueueToParser(const string &uuid_key,
                                             const GenDb::ColList &col_list) {
-        return ConfigCassandraClient::ParseRowAndEnqueueToParser(obj_type,
-                                          uuid_key, col_list);
+        return ConfigCassandraClient::ParseRowAndEnqueueToParser(uuid_key,
+                                                                 col_list);
     }
 };
 
@@ -188,7 +186,7 @@ public:
         ConfigCassandraClientTest *cassandra_client =
             dynamic_cast<IFMapServerTest *>(ifmap_server_)->cassandra_client();
         if (!action.compare("unsubscribe")) {
-            cassandra_client->HandleObjectDelete(id_type, uuid_key);
+            cassandra_client->HandleObjectDelete(uuid_key);
             return;
         }
 
@@ -231,8 +229,7 @@ public:
         col_list.columns_.push_back(
             new GenDb::NewCol(names3, values3, 100, timestamps3));
 
-        cassandra_client->ParseRowAndEnqueueToParser(id_type, uuid_key,
-                                                     col_list);
+        cassandra_client->ParseRowAndEnqueueToParser(uuid_key, col_list);
     }
 
 private:
