@@ -230,13 +230,15 @@ class KubeMonitor(object):
         except StopIteration:
             return
         except requests.exceptions.ChunkedEncodingError as e:
-            self.logger.error("%s - %s" % (self.name, e))
+            self.logger.error("%s - %s" %(self.name, e))
             return
 
         try:
             self.process_event(json.loads(line))
         except ValueError:
             self.logger.error("Invalid JSON data from response stream:%s" % line)
+        except Exception as e:
+            self.logger.error("%s - %s" %(self.name, e))
 
     def process_event(self, event):
         """Process an event."""
