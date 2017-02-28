@@ -14,6 +14,9 @@
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/mpls_index.h"
 #include <boost/filesystem.hpp>
+#include <openssl/md5.h>
+#include <dirent.h>
+
 BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                          const std::string &name) :
     backup_manager_(manager), agent_(manager->agent()), name_(name),
@@ -53,7 +56,6 @@ void BackUpResourceTable::StartTimer() {
                   boost::bind(&BackUpResourceTable::TimerExpiry, this));
 }
 
-
 // Don't Update the file if there is any activity seen with in
 // backup_idle_timeout_ and start the fallback count so that
 // after 6th itteration file can be updated.
@@ -86,11 +88,12 @@ BackUpResourceTable::FilePath(const std::string &file_name) {
     file_stream << backup_dir_ << file_name;
     return file_stream.str();
 }
-
+// Write the content to file temprory file and rename the file
 static const std::string TempFilePath(const std::string &file_name) {
     std::stringstream temp_file_stream;
     temp_file_stream << file_name << ".tmp";
     std::ofstream output;
+    // Trunctate the file as it is a fresh write for the modified Map
     output.open(temp_file_stream.str().c_str(),
             std::ofstream::binary | std::ofstream::trunc);
     if (!output.good()) {
@@ -102,7 +105,7 @@ static const std::string TempFilePath(const std::string &file_name) {
     output.close();
     return temp_file_stream.str();
 }
-
+// Rename the Temp file
 static bool RenameFile(const std::string &file_tmp_name,
                      const std::string &file_name) {
     boost::system::error_code ec;
@@ -115,11 +118,51 @@ static bool RenameFile(const std::string &file_tmp_name,
     }
     return true;
 }
+// Calulate the MD5 Sum for the stored file
+// This MD5 sum will be validated while reading the content.
+bool BackUpResourceTable::CalculateMd5Sum(const std::string &file_name,
+                                          uint8_t *md5sum) {
+    std::stringstream error_str;
+    uint32_t size;
+    std::auto_ptr<uint8_t>buf;
+    std::ifstream input(file_name.c_str(), std::ofstream::binary);
+    if (!input.good()) {
+        error_str << "Open failed to read file";
+        goto error;
+    }
+    struct stat st;
+    if (stat(file_name.c_str(), &st) == -1) {
+        error_str << "Get size from file failed";
+        goto error;
+    }
+    size = (uint32_t) st.st_size;
+    buf.reset(new uint8_t [size]());
+    input.read((char *)(buf.get()), size);
+
+    if (!input.good()) {
+        error_str << "reading file failed";
+        goto error;
+    }
+
+    MD5(buf.get(), size, md5sum);
+    input.close();
+    return true;
+    error: {
+        error_str << file_name; 
+        LOG(ERROR, error_str.str());
+        input.close();
+        return false;
+    }
+}
 // Type T1 is Final output sandesh structure writes in to file
 // Type T2 index map for the specific table
+// Write the Map to file
+// Calculate the md5sum and append that to file name
+// so that validated while reading file
 template <typename T1, typename T2>
-static bool WriteMapToFile(T1* sandesh_data, const T2& index_map,
-                           const std::string &file_name) {
+bool BackUpResourceTable::WriteMapToFile(T1* sandesh_data, const T2& index_map,
+                                         const std::string &file_name,
+                                         const std::string &file_prefix) {
     uint32_t write_buff_size = 0;
     int error = 0;
 
@@ -136,7 +179,76 @@ static bool WriteMapToFile(T1* sandesh_data, const T2& index_map,
         return false;
     }
 
-    return RenameFile(temp_file, file_name);
+    uint8_t md5sum[MD5_DIGEST_LENGTH];
+    memset(md5sum, 0, MD5_DIGEST_LENGTH);
+    if (CalculateMd5Sum(temp_file, md5sum)) {
+        // remove the file  with existing md5sum extention.
+        std::string file = FindFile(backup_dir(), file_prefix);
+        if (!file.empty()) {
+            std::string file_path = backup_dir_ + "/" + file;
+            std::remove(file_path.c_str());
+        }
+        // rename the tmp file to new file by appending md5sum
+        std::string file_path;
+        file_path = file_name + "_" + std::string((const char *)md5sum);
+        return RenameFile(temp_file, file_path);
+    }
+
+    return false;
+}
+// Find the file with the prefix.
+const std::string BackUpResourceTable::FindFile(const std::string &root,
+                                                const std::string & file_prefix) {
+    DIR *dir_path;
+    struct dirent *dir;
+    if ((dir_path = opendir(root.c_str())) == NULL) {
+        return std::string();
+    }
+    while ((dir = readdir(dir_path)) != NULL) {
+        std::string file_name = dir->d_name;
+        // Match with the file prefix name if is not there return empty string
+        if (file_name.find(file_prefix) != std::string::npos) {
+            closedir(dir_path);
+            return file_name;
+        }
+    }
+    closedir(dir_path);
+    return std::string();
+}
+// Read Map from the file.
+// First read the file to a buffer
+// verify that MD5 sum matches
+template <typename T>
+void BackUpResourceTable::ReadMapFromFile(T* sandesh_data,
+                                          const std::string &root,
+                                          const std::string& file_prefix) {
+    // Find the File with prefix name
+    const std::string file_name = FindFile(root, file_prefix);
+    int error = 0;
+    if (file_name.empty())
+        return;
+    // Make the complete file path with mds5sum
+    std::stringstream file_path;
+    file_path << root << "/"<< file_name;
+    uint8_t *buffer;
+    uint32_t size = backup_manager()->ReadResourceDataFromFile(file_path.str(),
+                                                               &(buffer));
+    if (buffer) {
+        if (size) {
+            uint8_t md5sum[MD5_DIGEST_LENGTH];
+            memset(md5sum, 0, MD5_DIGEST_LENGTH);
+            // calculate md5sum and verify it matches.
+            MD5(buffer, size, md5sum);
+            if (std::string::npos !=
+                    file_name.find(std::string((const char*) md5sum))) {
+                sandesh_data->ReadBinary(buffer, size, &error);
+                if (error != 0) {
+                    LOG(ERROR, "Sandesh Read Binary failed ");
+                }
+            }
+        }
+        delete [] buffer;
+    }
 }
 
 VrfMplsBackUpResourceTable::VrfMplsBackUpResourceTable
@@ -151,28 +263,15 @@ VrfMplsBackUpResourceTable::~VrfMplsBackUpResourceTable() {
 bool VrfMplsBackUpResourceTable::WriteToFile() {
     VrfMplsResourceMapSandesh sandesh_data;
     return WriteMapToFile<VrfMplsResourceMapSandesh, Map>
-        (&sandesh_data, map_, vrf_file_name_str_);
+        (&sandesh_data, map_, vrf_file_name_str_, "contrail_vrf_resource_");
 }
 
 void VrfMplsBackUpResourceTable::ReadFromFile() {
-    uint32_t size = 0;
-    int error = 0;
-    uint8_t *vrf_read_buf = NULL;
-    size = backup_manager()->ReadResourceDataFromFile(vrf_file_name_str_,
-                                 &(vrf_read_buf));
-    if (vrf_read_buf) {
-        if (size) {
-            VrfMplsResourceMapSandesh map;
-            map.ReadBinary(vrf_read_buf, size, &error);
-            if (error != 0) {
-                LOG(ERROR, "Sandesh Read Binary failed ");
-                delete vrf_read_buf;
-                return;
-            }
-            map_ = map.get_index_map();
-        }
-        delete vrf_read_buf;
-    }
+    VrfMplsResourceMapSandesh sandesh_data;
+    ReadMapFromFile<VrfMplsResourceMapSandesh>(&sandesh_data,
+                                               backup_dir(),
+                                               "contrail_vrf_resource_");
+    map_ = sandesh_data.get_index_map();
 }
 
 void VrfMplsBackUpResourceTable::RestoreResource() {
@@ -193,8 +292,8 @@ void VrfMplsBackUpResourceTable::RestoreResource() {
 RouteMplsBackUpResourceTable::RouteMplsBackUpResourceTable
 (ResourceBackupManager *manager) :
     BackUpResourceTable(manager, "RouteMplsBackUpResourceTable"),
-    route_file_name_str_(FilePath("/contrail_route_resource")){
-}
+    route_file_name_str_(FilePath("/contrail_route_resource")) {
+ }
 
 RouteMplsBackUpResourceTable::~RouteMplsBackUpResourceTable() {
 }
@@ -202,29 +301,14 @@ RouteMplsBackUpResourceTable::~RouteMplsBackUpResourceTable() {
 bool  RouteMplsBackUpResourceTable::WriteToFile() {
     RouteMplsResourceMapSandesh sandesh_data;
     return WriteMapToFile<RouteMplsResourceMapSandesh, Map>
-        (&sandesh_data, map_, route_file_name_str_);
+        (&sandesh_data, map_, route_file_name_str_, "contrail_route_resource_");
 }
 
 void RouteMplsBackUpResourceTable::ReadFromFile() {
-    uint32_t size = 0;
-    int error = 0;
-    uint8_t *route_read_buf = NULL;
-    size = backup_manager()->
-        ReadResourceDataFromFile(route_file_name_str_,
-                                 &(route_read_buf));
-    if (route_read_buf) {
-        if (size) {
-            RouteMplsResourceMapSandesh map;
-            map.ReadBinary(route_read_buf, size, &error);
-            if (error != 0) {
-                LOG(ERROR, "Sandesh Read Binary failed ");
-                delete route_read_buf;
-                return;
-            }
-            map_ = map.get_index_map();
-        }
-        delete route_read_buf;
-    }
+    RouteMplsResourceMapSandesh sandesh_data;
+    ReadMapFromFile<RouteMplsResourceMapSandesh>(&sandesh_data, backup_dir(),
+                                                 "contrail_route_resource_");
+    map_ = sandesh_data.get_index_map();
 }
 
 void RouteMplsBackUpResourceTable::RestoreResource() {
@@ -254,30 +338,15 @@ InterfaceMplsBackUpResourceTable::~InterfaceMplsBackUpResourceTable() {
 bool InterfaceMplsBackUpResourceTable::WriteToFile() {
     InterfaceIndexResourceMapSandesh sandesh_data;
     return WriteMapToFile<InterfaceIndexResourceMapSandesh, Map>
-        (&sandesh_data, map_, interface_file_name_str_);
+        (&sandesh_data, map_, interface_file_name_str_,
+         "contrail_interface_resource_");
 }
 
 void InterfaceMplsBackUpResourceTable::ReadFromFile() {
-    uint32_t size = 0;
-    int error = 0;
-    uint8_t *interface_read_buf = NULL;
-    size = backup_manager()->
-        ReadResourceDataFromFile(interface_file_name_str_,
-                                 &(interface_read_buf));
-    if (interface_read_buf) {
-        if (size) {
-            InterfaceIndexResourceMapSandesh map;
-            map.ReadBinary(interface_read_buf, size, &error);
-            if (error != 0) {
-                LOG(ERROR, "Sandesh Read Binary failed ");
-                delete interface_read_buf;
-                return;
-            }
-            map_ = map.get_index_map();
-        }
-        delete interface_read_buf;
-    }
-
+    InterfaceIndexResourceMapSandesh sandesh_data;
+    ReadMapFromFile<InterfaceIndexResourceMapSandesh>
+        (&sandesh_data, backup_dir(), "contrail_interface_resource_");
+    map_ = sandesh_data.get_index_map();
 }
 
 void InterfaceMplsBackUpResourceTable::RestoreResource() {
@@ -299,7 +368,7 @@ void InterfaceMplsBackUpResourceTable::RestoreResource() {
 }
 
 ResourceSandeshMaps::ResourceSandeshMaps(ResourceBackupManager *manager) :
-    backup_manager_(manager), agent_(manager->agent()), 
+    backup_manager_(manager), agent_(manager->agent()),
     interface_mpls_index_table_(manager), vrf_mpls_index_table_(manager),
     route_mpls_index_table_(manager) {
 }
