@@ -15,8 +15,8 @@ from opserver.introspect_util import *
 
 
 class VerificationGenerator(IntrospectUtilBase):
-    def __init__(self, ip, port):
-        super(VerificationGenerator, self).__init__(ip, port, XmlDrv)
+    def __init__(self, ip, port, config=None):
+        super(VerificationGenerator, self).__init__(ip, port, XmlDrv, config)
     #end __init__
 
     def get_collector_connection_status(self):
