@@ -8,6 +8,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/regex.hpp>
 #include "base/logging.h"
 #include "db/db.h"
 #include "db/db_graph.h"
@@ -34,6 +35,8 @@
 
 #include <pugixml/pugixml.hpp>
 
+using boost::regex;
+using boost::regex_search;
 using namespace boost::assign;
 using namespace std;
 using namespace pugi;
@@ -165,7 +168,6 @@ public:
 bool ShowIFMapTable::TableToBuffer(const IFMapTableShowReq *request,
         IFMapTable *table, IFMapServer *server, const string &last_node_name,
         ShowData *show_data) {
-
     DBEntryBase *src = NULL;
     if (last_node_name.length()) {
         // If the last_node_name is set, it was the last node printed in the
@@ -181,20 +183,20 @@ bool ShowIFMapTable::TableToBuffer(const IFMapTableShowReq *request,
     }
 
     bool buffer_full = false;
-    string search_string = request->get_search_string();
+    regex search_expr(request->get_search_string());
     DBTablePartBase *partition = table->GetTablePartition(0);
     if (!src) {
         src = partition->GetFirst();
     }
     for (; src != NULL; src = partition->GetNext(src)) {
         IFMapNode *src_node = static_cast<IFMapNode *>(src);
-        if (!search_string.empty() &&
-            (src_node->ToString().find(search_string) == string::npos)) {
+        if (!regex_search(src_node->ToString(), search_expr)) {
             continue;
         }
         IFMapNodeShowInfo dest;
         IFMapNodeCopier copyNode(&dest, src, server);
         show_data->send_buffer.push_back(dest);
+
         // If we have picked up enough nodes for this round...
         if (show_data->send_buffer.size() == kMaxElementsPerRound) {
             // Save the values needed for the next round. When we come
@@ -479,7 +481,8 @@ public:
     }
 
     static bool IncludeLink(DBEntryBase *src, const string &search_string,
-                            const string &metadata);
+                            const regex &search_expr, const string &metadata,
+                            const regex &metadata_expr);
     static void CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
                          IFMapServer *server);
     static bool BufferStageCommon(const IFMapLinkTableShowReq *request,
@@ -507,23 +510,25 @@ public:
 };
 
 bool ShowIFMapLinkTable::IncludeLink(DBEntryBase *src,
-        const string &search_string, const string &metadata) {
+        const string &search_string, const regex &search_expr,
+        const string &metadata, const regex &metadata_expr) {
     IFMapLink *link = static_cast<IFMapLink *>(src);
     IFMapNode *left = link->left();
     IFMapNode *right = link->right();
 
-    // If we do not find the search string in the names of either of the 2 ends,
-    // do not include the link
+    // If we do not find the search string in the names of either of the
+    // two ends, do not include the link.
     if (!search_string.empty() &&
-        (!left || (left->ToString().find(search_string) == string::npos)) &&
-        (!right || (right->ToString().find(search_string) == string::npos))) {
+        (!left || !regex_search(left->ToString(), search_expr)) &&
+        (!right || !regex_search(right->ToString(), search_expr))) {
         return false;
     }
-    // If the metadata does not match, do not include the link
-    if (!metadata.empty() &&
-        (link->metadata().find(metadata) == string::npos)) {
+
+    // If the metadata does not match, do not include the link.
+    if (!metadata.empty() && !regex_search(link->metadata(), metadata_expr)) {
         return false;
     }
+
     return true;
 }
 
@@ -619,6 +624,8 @@ bool ShowIFMapLinkTable::BufferStageCommon(const IFMapLinkTableShowReq *request,
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
         sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
     if (table) {
+        regex search_expr(request->get_search_string());
+        regex metadata_expr(request->get_metadata());
         ShowData *show_data = static_cast<ShowData *>(data);
         show_data->send_buffer.reserve(kMaxElementsPerRound);
         show_data->table_size = table->Size();
@@ -631,8 +638,8 @@ bool ShowIFMapLinkTable::BufferStageCommon(const IFMapLinkTableShowReq *request,
             src = partition->GetFirst();
         }
         for (; src != NULL; src = partition->GetNext(src)) {
-            if (IncludeLink(src, request->get_search_string(),
-                            request->get_metadata())) {
+            if (IncludeLink(src, request->get_search_string(), search_expr,
+                            request->get_metadata(), metadata_expr)) {
                 IFMapLinkShowInfo dest;
                 CopyNode(&dest, src, sctx->ifmap_server());
                 show_data->send_buffer.push_back(dest);
