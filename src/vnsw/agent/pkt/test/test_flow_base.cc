@@ -107,24 +107,6 @@ PhysicalInterface *eth;
 static void NHNotify(DBTablePartBase *partition, DBEntryBase *entry) {
 }
 
-static bool FlowStatsTimerStartStopTrigger (bool stop) {
-    FlowStatsCollectorObject *obj = Agent::GetInstance()->flow_stats_manager()->
-        default_flow_stats_collector_obj();
-    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
-        FlowStatsCollector *fsc = obj->GetCollector(i);
-        fsc->TestStartStopTimer(stop);
-    }
-    return true;
-}
-
-static void FlowStatsTimerStartStop (bool stop) {
-    int task_id = TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsCollector);
-    std::auto_ptr<TaskTrigger> trigger_
-        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, stop), task_id, 0));
-    trigger_->Set();
-    client->WaitForIdle();
-}
-
 class FlowTest : public ::testing::Test {
 public:
     FlowTest() : peer_(NULL), agent_(Agent::GetInstance()) {
@@ -704,7 +686,7 @@ protected:
                 gw_ip, 32, "vn5", false);
         client->WaitForIdle();
 
-        FlowStatsTimerStartStop(true);
+        FlowStatsTimerStartStop(agent_, true);
         client->WaitForIdle();
     }
 
@@ -751,7 +733,7 @@ protected:
         EXPECT_EQ(0U, agent()->acl_table()->Size());
         EXPECT_EQ(1U, agent()->vrf_table()->Size());
         DeleteBgpPeer(peer_);
-        FlowStatsTimerStartStop(false);
+        FlowStatsTimerStartStop(agent_, false);
         client->WaitForIdle(3);
         WAIT_FOR(100, 1, (0U == get_flow_proto()->FlowCount()));
     }

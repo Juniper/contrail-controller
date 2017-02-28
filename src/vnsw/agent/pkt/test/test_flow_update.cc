@@ -330,7 +330,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     FlowEntry *fe = 
         FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0,
                 GetFlowKeyNH(input[0].intf_id));
-    const NextHop *nh = fe->data().nh.get();
+    const NextHop *nh = fe->data().rpf_nh.get();
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
     const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
@@ -340,8 +340,8 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     client->WaitForIdle();
     fe = FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0,
                  GetFlowKeyNH(input[0].intf_id));
-    EXPECT_TRUE(fe->data().nh.get() != NULL);
-    nh = fe->data().nh.get();
+    EXPECT_TRUE(fe->data().rpf_nh.get() != NULL);
+    nh = fe->data().rpf_nh.get();
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
     tnh = static_cast<const TunnelNH *>(nh);
@@ -351,8 +351,8 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     client->WaitForIdle();
     fe = FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0,
                  GetFlowKeyNH(input[0].intf_id));
-    EXPECT_TRUE(fe->data().nh.get() != NULL);
-    nh = fe->data().nh.get();
+    EXPECT_TRUE(fe->data().rpf_nh.get() != NULL);
+    nh = fe->data().rpf_nh.get();
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
     tnh = static_cast<const TunnelNH *>(nh);
@@ -362,8 +362,8 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     client->WaitForIdle();
     fe = FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0,
                  GetFlowKeyNH(input[0].intf_id));
-    EXPECT_TRUE(fe->data().nh.get() != NULL);
-    nh = fe->data().nh.get();
+    EXPECT_TRUE(fe->data().rpf_nh.get() != NULL);
+    nh = fe->data().rpf_nh.get();
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
     tnh = static_cast<const TunnelNH *>(nh);
@@ -373,8 +373,8 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     client->WaitForIdle();
     fe = FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0,
                  GetFlowKeyNH(input[0].intf_id));
-    EXPECT_TRUE(fe->data().nh.get() != NULL);
-    nh = fe->data().nh.get();
+    EXPECT_TRUE(fe->data().rpf_nh.get() != NULL);
+    nh = fe->data().rpf_nh.get();
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
     tnh = static_cast<const TunnelNH *>(nh);

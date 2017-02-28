@@ -1422,6 +1422,57 @@ const NextHop* CompositeNH::GetLocalNextHop() const {
     return NULL;
 }
 
+bool CompositeNH::HasVmInterface(const VmInterface *vmi) const {
+    ComponentNHList::const_iterator comp_nh_it =
+        component_nh_list_.begin();
+    for(;comp_nh_it != component_nh_list_.end(); comp_nh_it++) {
+        if ((*comp_nh_it) == NULL) {
+            continue;
+        }
+
+        if ((*comp_nh_it)->nh()->GetType() == NextHop::INTERFACE) {
+            const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>
+                ((*comp_nh_it)->nh());
+            if (intf_nh->GetInterface() == vmi)
+                return true;
+        }
+        if ((*comp_nh_it)->nh()->GetType() == NextHop::VLAN) {
+            const VlanNH *vlan_nh = dynamic_cast<const VlanNH *>
+                ((*comp_nh_it)->nh());
+            if (vlan_nh->GetInterface() == vmi)
+                return true;
+        }
+    }
+    return false;
+}
+
+uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index) const {
+    uint32_t idx = kInvalidComponentNHIdx;
+    size_t size = component_nh_list_.size();
+    if (size == 0) {
+        return idx;
+    }
+
+    if (affinity_index != kInvalidComponentNHIdx) {
+        const NextHop *nh = GetNH(affinity_index);
+        if (nh != NULL && nh->IsActive()) {
+            return affinity_index;
+        }
+    }
+
+    idx = seed % size;
+    while (component_nh_list_[idx].get() == NULL ||
+           component_nh_list_[idx]->nh() == NULL ||
+           component_nh_list_[idx]->nh()->IsActive() == false) {
+        idx = (idx + 1) % size;
+        if (idx == seed % size) {
+            idx = kInvalidComponentNHIdx;
+            break;
+        }
+    }
+    return idx;
+}
+
 NextHop *CompositeNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));

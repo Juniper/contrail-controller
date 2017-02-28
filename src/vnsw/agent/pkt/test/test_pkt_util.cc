@@ -59,17 +59,6 @@ void TxL2Packet(int ifindex, const char *smac, const char *dmac,
     delete pkt;
 }
 
-void TxIpPacketEcmp(int ifindex, const char *sip, const char *dip,
-                    int proto, int hash_id) {
-    PktGen *pkt = new PktGen();
-    MakeIpPacket(pkt, ifindex, sip, dip, proto, hash_id, AgentHdr::TRAP_ECMP_RESOLVE);
-    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
-    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
-                                                    pkt->GetBuffLen());
-    delete pkt;
-}
-
 void MakeUdpPacket(PktGen *pkt, int ifindex, const char *sip,
 		   const char *dip, uint16_t sport, uint16_t dport,
 		   int hash_id, uint32_t vrf_id) {
@@ -130,8 +119,8 @@ void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
 		      const char *sip, const char *dip, uint8_t proto,
 		      int hash_id) {
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id, MplsToVrfId(label),
-                     label);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id,
+                     MplsToVrfId(label), label);
     pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
     pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
     pkt->AddGreHdr();
@@ -149,6 +138,40 @@ void TxIpMplsPacket(int ifindex, const char *out_sip,
     PktGen *pkt = new PktGen();
     MakeIpMplsPacket(pkt, ifindex, out_sip, out_dip, label, sip, dip, proto,
                      hash_id);
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
+                                                    pkt->GetBuffLen());
+    delete pkt;
+}
+
+void MakeL2IpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
+                        const char *out_dip, uint32_t label,
+                        const char *smac, const char *dmac,
+                        const char *sip, const char *dip, uint8_t proto,
+                        int hash_id) {
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(ifindex, AgentHdr::TRAP_FLOW_MISS, hash_id,
+                     MplsToVrfId(label), label);
+    pkt->AddEthHdr("00:00:5E:00:01:00", "00:00:00:00:00:01", 0x800);
+    pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
+    pkt->AddGreHdr();
+    pkt->AddMplsHdr(label, true);
+    pkt->AddEthHdr(dmac, smac, 0x800);
+    pkt->AddIpHdr(sip, dip, proto);
+    if (proto == 1) {
+        pkt->AddIcmpHdr();
+    }
+}
+
+void TxL2IpMplsPacket(int ifindex, const char *out_sip,
+                      const char *out_dip, uint32_t label,
+                      const char *smac, const char *dmac,
+                      const char *sip, const char *dip, uint8_t proto,
+                      int hash_id) {
+    PktGen *pkt = new PktGen();
+    MakeL2IpMplsPacket(pkt, ifindex, out_sip, out_dip, label, smac, dmac, sip,
+                       dip, proto, hash_id);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
@@ -259,18 +282,6 @@ void TxIp6Packet(int ifindex, const char *sip, const char *dip, int proto,
     PktGen *pkt = new PktGen();
     MakeIp6Packet(pkt, ifindex, sip, dip, proto, hash_id, AGENT_TRAP_FLOW_MISS, 
                   vrf);
-    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
-    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
-                                                    pkt->GetBuffLen());
-    delete pkt;
-}
-
-void TxIp6PacketEcmp(int ifindex, const char *sip, const char *dip,
-                     int proto, int hash_id) {
-    PktGen *pkt = new PktGen();
-    MakeIp6Packet(pkt, ifindex, sip, dip, proto, hash_id,
-                  AGENT_TRAP_ECMP_RESOLVE);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
@@ -432,4 +443,23 @@ void TxL2Ip6Packet(int ifindex, const char *smac, const char *dmac,
     client->agent_init()->pkt0()->ProcessFlowPacket(ptr, pkt->GetBuffLen(),
                                                     pkt->GetBuffLen());
     delete pkt;
+}
+
+static bool FlowStatsTimerStartStopTrigger (Agent *agent, bool stop) {
+    FlowStatsCollectorObject *obj = agent->flow_stats_manager()->
+        default_flow_stats_collector_obj();
+    for (int i = 0; i < FlowStatsCollectorObject::kMaxCollectors; i++) {
+        FlowStatsCollector *fsc = obj->GetCollector(i);
+        fsc->TestStartStopTimer(stop);
+    }
+    return true;
+}
+
+void FlowStatsTimerStartStop(Agent *agent, bool stop) {
+    int task_id = agent->task_scheduler()->GetTaskId(kTaskFlowStatsCollector);
+    std::auto_ptr<TaskTrigger> trigger_
+        (new TaskTrigger(boost::bind(FlowStatsTimerStartStopTrigger, agent,
+                                     stop), task_id, 0));
+    trigger_->Set();
+    client->WaitForIdle();
 }

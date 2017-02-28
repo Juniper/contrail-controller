@@ -274,7 +274,7 @@ struct FlowData {
     InterfaceConstRef intf_entry;
     VmFlowRef  in_vm_entry;
     VmFlowRef  out_vm_entry;
-    NextHopConstRef nh;
+    NextHopConstRef src_ip_nh;
     uint32_t vrf;
     uint32_t mirror_vrf;
     uint32_t dest_vrf;
@@ -294,10 +294,18 @@ struct FlowData {
     // on route add. key for the map is vrf and data is prefix length
     FlowRouteRefMap     flow_source_plen_map;
     FlowRouteRefMap     flow_dest_plen_map;
+
+    // RPF related
     bool enable_rpf;
-    uint8_t l2_rpf_plen;
+    // RPF NH for the flow
+    NextHopConstRef rpf_nh;
+    // When RPF is derived from a INET route, flow-management uses VRF and plen
+    // below to track the route for any NH change
+    // rpf_vrf will be VrfEntry::kInvalidIndex if flow uses l2-route for RPF
+    uint32_t rpf_vrf;
+    uint8_t rpf_plen;
+
     std::string vm_cfg_name;
-    uint32_t ecmp_rpf_nh_;
     uint32_t acl_assigned_vrf_index_;
     uint32_t qos_config_idx;
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
@@ -568,7 +576,9 @@ class FlowEntry {
     VmFlowRef *in_vm_flow_ref() { return &(data_.in_vm_entry); }
     const VmEntry *in_vm_entry() const { return data_.in_vm_entry.vm(); }
     const VmEntry *out_vm_entry() const { return data_.out_vm_entry.vm(); }
-    const NextHop *nh() const { return data_.nh.get(); }
+    const NextHop *src_ip_nh() const { return data_.src_ip_nh.get(); }
+    const NextHop *rpf_nh() const { return data_.rpf_nh.get(); }
+    uint32_t GetEcmpIndex() const { return data_.component_nh_idx; }
     const uint32_t bgp_as_a_service_port() const {
         if (is_flags_set(FlowEntry::BgpRouterService))
             return data_.bgp_as_a_service_port;
@@ -586,9 +596,12 @@ class FlowEntry {
     }
     bool deleted() { return deleted_; }
 
-    bool IsShortFlow() { return is_flags_set(FlowEntry::ShortFlow); }
+    bool IsShortFlow() const { return is_flags_set(FlowEntry::ShortFlow); }
+    bool IsEcmpFlow() const { return is_flags_set(FlowEntry::EcmpFlow); }
+    bool IsNatFlow() const { return is_flags_set(FlowEntry::NatFlow); }
     // Flow action routines
     void ResyncFlow();
+    void RpfUpdate();
     bool ActionRecompute();
     bool DoPolicy();
     void MakeShortFlow(FlowShortReason reason);
@@ -600,7 +613,7 @@ class FlowEntry {
                       bool add_implicit_allow, FlowPolicyInfo *info);
     void ResetPolicy();
 
-    void FillFlowInfo(FlowInfo &info);
+    void FillFlowInfo(FlowInfo &info) const;
     void GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow);
     void GetPolicyInfo(const FlowEntry *rflow);
     void GetPolicyInfo(const VnEntry *vn);
@@ -665,24 +678,22 @@ private:
 
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
-    bool SetRpfNH(FlowTable *ft, const AgentRoute *rt);
-    bool SetEcmpRpfNH(FlowTable*, uint32_t);
-    bool SetRpfNHState(FlowTable*, const NextHop*);
+
+    void RpfInit(const AgentRoute *rt);
+    void RpfSetRpfNhFields(const NextHop *rpf_nh);
+    void RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh);
+    void RpfSetSrcIpNhFields(const AgentRoute *rt, const NextHop *src_ip_nh);
+    bool RpfFromSrcIpNh() const;
+    void RpfComputeEgress();
+    void RpfComputeIngress();
+
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl, FlowEntry *rflow);
+    VmInterfaceKey InterfaceIdToKey(Agent *agent, uint32_t id);
     void GetSourceRouteInfo(const AgentRoute *rt);
     void GetDestRouteInfo(const AgentRoute *rt);
-    void UpdateRpf();
-    VmInterfaceKey InterfaceIdToKey(Agent *agent, uint32_t id);
     const std::string InterfaceIdToVmCfgName(Agent *agent, uint32_t id);
-    void SetComponentIndex(const NextHopKey *nh_key,
-                           uint32_t label, bool mpls_path);
-    const VrfEntry *GetDestinationVrf();
-    void set_ecmp_rpf_nh(uint32_t id);
-    void UpdateEcmpInfo();
-    void SetRemoteFlowEcmpIndex();
-    void SetLocalFlowEcmpIndex();
-    void set_ecmp_rpf_nh() const;
+    const VrfEntry *GetDestinationVrf() const;
     bool SetQosConfigIndex();
     void SetSgAclInfo(const FlowPolicyInfo &fwd_flow_info,
                       const FlowPolicyInfo &rev_flow_info, bool tcp_rev_sg);

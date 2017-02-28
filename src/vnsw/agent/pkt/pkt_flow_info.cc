@@ -167,6 +167,55 @@ static bool IsVgwOrVmInterface(const Interface *intf) {
     return false;
 }
 
+static bool PickEcmpMember(const NextHop **nh, const PktInfo *pkt,
+                           PktFlowInfo *info,
+                           const EcmpLoadBalance &ecmp_load_balance) {
+    // We dont support ECMP in L2 yet. Return failure to drop packet
+    if (pkt->l3_forwarding == false) {
+        info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
+        return true;
+    }
+
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(*nh);
+    // ECMP supported only if composite-type is ECMP or LOCAL_ECMP
+    if (comp_nh->composite_nh_type() != Composite::ECMP &&
+        comp_nh->composite_nh_type() != Composite::LOCAL_ECMP) {
+        info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
+        return true;
+    }
+
+    info->ecmp = true;
+    // If this is flow revluation,
+    // 1. If flow transitions from non-ECMP to ECMP, the old-nh will be first
+    //    member in the composite-nh. So set affinity-nh index to 0
+    // 2. If flow is already ECMP, the out-component-nh-idx is retained as
+    //    affinity
+    if (pkt->type == PktType::MESSAGE &&
+        info->out_component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
+        info->out_component_nh_idx = 0;
+    }
+
+    // Compute out_component_nh_idx,
+    // 1. In case of non-ECMP to ECMP transition, component-nh-index and
+    //    in-turn affinity-nh is set to 0
+    // 2. In case of MESSAGE, the old component-nh-index is used as affinity-nh
+    // 3. In case of new flows, new index is allocated
+    //
+    // If affinity-nh is set but points to deleted NH, then affinity is ignored
+    // and new index is allocated
+    info->out_component_nh_idx =
+        comp_nh->PickMember(pkt->hash(ecmp_load_balance),
+                            info->out_component_nh_idx);
+    *nh = comp_nh->GetNH(info->out_component_nh_idx);
+
+    // TODO: Should we re-hash here?
+    if (!(*nh) || (*nh)->IsActive() == false) {
+        return false;
+    }
+
+    return true;
+}
+
 // Get interface from a NH. Also, decode ECMP information from NH
 // Responsible to set following fields,
 // out->nh_ : outgoing Nexthop Index. Will also be used to set reverse flow-key
@@ -184,49 +233,10 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
     if (!nh->IsActive())
         return false;
 
-    // If its composite NH, find interface information from the component NH
-    const CompositeNH *comp_nh = NULL;
-
-    // Out NH points to Composite. We only expect ECMP Composite-NH
-    // Find the out_component_nh_idx
-    if (nh->GetType() == NextHop::COMPOSITE) {
-        // We dont expect L2 multicast packets. Return failure to drop packet
-        if (pkt->l3_forwarding == false)
-            return false;
-        comp_nh = static_cast<const CompositeNH *>(nh);
-        if (comp_nh->composite_nh_type() == Composite::ECMP ||
-            comp_nh->composite_nh_type() == Composite::LOCAL_ECMP) {
-            info->ecmp = true;
-            const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-
-            if (pkt->type == PktType::MESSAGE &&
-                info->out_component_nh_idx ==
-                CompositeNH::kInvalidComponentNHIdx) {
-                info->out_component_nh_idx = 0;
-            }
-
-            // Compute out_component_nh_idx if,
-            // 1. out_compoenent_nh_idx was set, but points to a deleted NH
-            //    This can happen if flow is trapped for ECMP resolution from
-            //    vrouter
-            // 2. New flow being setup
-            // 3. If flow transitions from Non-ECMP to ECMP, the
-            //    out_component_nh_idx is set in RewritePktInfo. We want to
-            //    retain the index
-            if (info->out_component_nh_idx ==
-                CompositeNH::kInvalidComponentNHIdx ||
-                (comp_nh->GetNH(info->out_component_nh_idx) == NULL)) {
-                info->out_component_nh_idx = comp_nh->hash(pkt->
-                                             hash(ecmp_load_balance));
-            }
-            nh = comp_nh->GetNH(info->out_component_nh_idx);
-            // TODO: Should we re-hash here?
-            if (!nh || nh->IsActive() == false) {
-                return false;
-            }
-        }
-    } else {
-        info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
+    // If nh is Composite, pick the ECMP first. The nh index and vrf used
+    // in reverse flow will depend on the ECMP member picked
+    if (PickEcmpMember(&nh, pkt, info, ecmp_load_balance) == false) {
+        return false;
     }
 
     NextHopTable *nh_table = info->agent->nexthop_table();
@@ -285,40 +295,44 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         // have MPLS label. The MPLS label can point to
         // 1. In case of non-ECMP, label will points to local interface
         // 2. In case of ECMP, label will point to ECMP of local-composite members
+        // Setup the NH for reverse flow appropriately
     case NextHop::TUNNEL: {
-        if (pkt->l3_forwarding) {
-            const InetUnicastRouteEntry *rt =
-                static_cast<const InetUnicastRouteEntry *>(in->rt_);
-            if (rt != NULL && rt->GetLocalNextHop()) {
-                const NextHop *local_nh = rt->GetLocalNextHop();
-                out->nh_ = local_nh->id();
-                if (local_nh->GetType() == NextHop::INTERFACE) {
-                    const Interface *local_intf =
-                        static_cast<const InterfaceNH*>(local_nh)->GetInterface();
-                    //Get policy enabled nexthop only for
-                    //vm interface, in case of vgw or service interface in
-                    //transparent mode we should still
-                    //use policy disabled interface
-                    if (local_intf &&
-                            local_intf->type() == Interface::VM_INTERFACE) {
-                        if (local_nh->IsActive()) {
-                            out->nh_ = local_intf->flow_key_nh()->id();
-                        } else {
-                            LogError(pkt, "Invalid or Inactive ifindex");
-                            info->short_flow = true;
-                            info->short_flow_reason =
-                                FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
-                        }
-                    }
-                }
-            } else {
-                out->nh_ = in->nh_;
-            }
-        } else {
-            // Bridged flow. ECMP not supported for L2 flows
-            out->nh_ = in->nh_;
-        }
+        // out->intf_ is invalid for packets going out on tunnel. Reset it.
         out->intf_ = NULL;
+
+        // Packet going out on tunnel. Assume NH in reverse flow is same as
+        // that of forward flow. It can be over-written down if route for
+        // source-ip is ECMP
+        out->nh_ = in->nh_;
+
+        // The NH in reverse flow can change only if ECMP-NH is used. There is
+        // no ECMP for layer2 flows
+        if (pkt->l3_forwarding == false) {
+            break;
+        }
+
+        // If source-ip is in ECMP, reverse flow would use ECMP-NH as key
+        const InetUnicastRouteEntry *rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(in->rt_);
+        if (rt == NULL) {
+            break;
+        }
+
+        // Get only local-NH from route
+        const NextHop *local_nh = rt->GetLocalNextHop();
+        if (local_nh && local_nh->IsActive() == false) {
+            LogError(pkt, "Invalid or Inactive local nexthop ");
+            info->short_flow = true;
+            info->short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
+            break;
+        }
+
+        // Change NH in reverse flow if route points to composite-NH
+        const CompositeNH *comp_nh = dynamic_cast<const CompositeNH *>
+            (local_nh);
+        if (comp_nh != NULL) {
+            out->nh_ = comp_nh->id();
+        }
         break;
     }
 
@@ -489,91 +503,6 @@ static const VnListType *RouteToVn(const AgentRoute *rt) {
     }
 
     return &path->dest_vn_list();
-}
-
-static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
-                           PktControlInfo *in, PktControlInfo *out) {
-    if (!in->rt_) {
-        return;
-    }
-
-    if (in->rt_->GetActiveNextHop()->GetType() != NextHop::COMPOSITE) {
-        return;
-    }
-
-    Agent *agent = flow_info->agent;
-    const InetUnicastRouteEntry *rt =
-        static_cast<const InetUnicastRouteEntry *>(in->rt_);
-    NextHop *component_nh_ptr = NULL;
-    uint32_t label;
-    //Frame key for component NH
-    if (flow_info->ingress) {
-        //Ingress flow
-        const VmInterface *vm_port = static_cast<const VmInterface *>(in->intf_);
-        const VrfEntry *vrf = agent->vrf_table()->FindVrfFromId(pkt->vrf);
-        if (vm_port->HasServiceVlan() && vm_port->vrf() != vrf) {
-            //Packet came on service VRF
-            label = vm_port->GetServiceVlanLabel(vrf);
-            uint32_t vlan = vm_port->GetServiceVlanTag(vrf);
-
-            const VlanNH key(const_cast<VmInterface *>(vm_port), vlan);
-            component_nh_ptr = static_cast<NextHop *>
-                (agent->nexthop_table()->FindActiveEntryNoLock(&key));
-        } else {
-            InterfaceNH key(const_cast<VmInterface *>(vm_port), false,
-                            InterfaceNHFlags::INET4,
-                            vm_port->vm_mac());
-            component_nh_ptr = static_cast<NextHop *>
-                (agent->nexthop_table()->FindActiveEntryNoLock(&key));
-            label = vm_port->label();
-        }
-    } else {
-        //Packet from fabric
-        Ip4Address dest_ip(pkt->tunnel.ip_saddr);
-        TunnelNH key(agent->fabric_vrf(), agent->router_id(), dest_ip, false,
-                     pkt->tunnel.type);
-        //Get component NH pointer
-        component_nh_ptr = static_cast<NextHop *>
-            (agent->nexthop_table()->FindActiveEntryNoLock(&key));
-        //Get Label to be used to reach destination server
-        const CompositeNH *nh = 
-            static_cast<const CompositeNH *>(rt->GetActiveNextHop());
-        label = nh->GetRemoteLabel(dest_ip);
-    }
-
-    const NextHop *nh = NULL;
-    if (out->intf_) {
-        //Local destination, use active path
-        nh = rt->GetActiveNextHop();
-    } else {
-        //Destination on remote server
-        //Choose local path, which will also pointed by MPLS label
-        if (rt->FindPath(agent->ecmp_peer())) {
-            nh = rt->FindPath(agent->ecmp_peer())->ComputeNextHop(agent);
-        } else {
-            //Aggregarated routes may not have local path
-            //Derive local path
-            nh = rt->GetLocalNextHop();
-        }
-    }
-
-    flow_info->ecmp = true;
-    if (nh && nh->GetType() == NextHop::COMPOSITE) {
-        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-        //Find component entry index in composite NH
-        uint32_t idx = 0;
-        if (label != MplsTable::kInvalidLabel) {
-            ComponentNH component_nh(label, component_nh_ptr);
-            if (comp_nh->GetIndex(component_nh, idx)) {
-                flow_info->in_component_nh_idx = idx;
-                flow_info->ecmp = true;
-            }
-        }
-    } else {
-        //Ideally this case is not ecmp, as on reverse flow we are hitting 
-        //a interface NH and not composite NH, install reverse flow for consistency
-        flow_info->ecmp = true;
-    }
 }
 
 bool PktFlowInfo::RouteAllowNatLookupCommon(const AgentRoute *rt,
@@ -1458,10 +1387,6 @@ bool PktFlowInfo::UnknownUnicastFlow(const PktInfo *pkt,
 
 bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
                           PktControlInfo *out) {
-    if (pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) {
-        RewritePktInfo(pkt->agent_hdr.cmd_param);
-    }
-
     in->intf_ = agent->interface_table()->FindInterface(pkt->agent_hdr.ifindex);
     out->nh_ = in->nh_ = pkt->agent_hdr.nh;
 
@@ -1548,7 +1473,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     //to the component index
     if (in->rt_->GetActiveNextHop() &&
         in->rt_->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
-        SetInEcmpIndex(pkt, this, in, out);
+        ecmp = true;
     }
 
     if (out->rt_ && out->rt_->GetActiveNextHop() &&
@@ -1720,8 +1645,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if ((pkt->type == PktType::MESSAGE &&
-        pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS) ||
-        pkt->agent_hdr.cmd == AgentHdr::TRAP_ECMP_RESOLVE) {
+        pkt->agent_hdr.cmd == AgentHdr::TRAP_FLOW_MISS)) {
         update = true;
     }
 
@@ -1791,6 +1715,12 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     if (rflow != NULL) {
         rflow->ResyncFlow();
     }
+
+    // RPF computation can be done only after policy processing.
+    // Do RPF computation now
+    flow->RpfUpdate();
+    if (rflow)
+        rflow->RpfUpdate();
 
     /* Fip stats info in not updated in InitFwdFlow and InitRevFlow because
      * both forward and reverse flows are not not linked to each other yet.
@@ -1863,51 +1793,6 @@ void PktFlowInfo::UpdateFipStatsInfo
     }
 }
 
-//If a packet is trapped for ecmp resolve, dp might have already
-//overwritten original packet(NAT case), hence get actual packet by
-//overwritting packet with data in flow entry.
-void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
-
-    std::ostringstream ostr;
-    ostr << "ECMP Resolve for flow index " << flow_index;
-    PKTFLOW_TRACE(Err,ostr.str());
-    KSyncFlowMemory *obj = 
-        flow_table->agent()->ksync()->ksync_flow_memory();
-
-    FlowKey key;
-    if (!obj->GetFlowKey(flow_index, &key)) {
-        std::ostringstream ostr;
-        ostr << "ECMP Resolve: unable to find flow index " << flow_index;
-        PKTFLOW_TRACE(Err,ostr.str());
-        return;
-    }
-
-    FlowEntry *flow = flow_table->Find(key);
-    if (!flow) {
-        std::ostringstream ostr;  
-        ostr << "ECMP Resolve: unable to find flow index " << flow_index;
-        PKTFLOW_TRACE(Err,ostr.str());
-        return;
-    }
-
-    pkt->ip_saddr = key.src_addr;
-    pkt->ip_daddr = key.dst_addr;
-    pkt->ip_proto = key.protocol;
-    pkt->sport = key.src_port;
-    pkt->dport = key.dst_port;
-    pkt->agent_hdr.vrf = flow->data().vrf;
-    pkt->vrf = flow->data().vrf;
-    pkt->agent_hdr.nh = key.nh;
-    // If component_nh_idx is not set, assume that NH transitioned from 
-    // Non ECMP to ECMP. The old Non-ECMP NH would always be placed at index 0
-    // in this case. So, set ECMP index 0 in this case
-    if (flow->data().component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
-        out_component_nh_idx = 0;
-    } else {
-        out_component_nh_idx = flow->data().component_nh_idx;
-    }
-    return;
-}
 void PktFlowInfo::SetPktInfo(boost::shared_ptr<PktInfo> pkt_info) {
      l3_flow = pkt_info->l3_forwarding;
      family = pkt_info->family;
