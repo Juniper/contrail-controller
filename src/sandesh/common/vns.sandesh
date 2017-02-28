@@ -270,6 +270,20 @@ const map<byte, string> VrouterAgentPlatformTypeMap = {
     VrouterAgentPlatformType.VROUTER_AGENT_ON_HOST       : 'HOST'
 }
 
+enum VrouterAgentVmState {
+    VROUTER_AGENT_VM_ACTIVE,
+    VROUTER_AGENT_VM_PAUSED,
+    VROUTER_AGENT_VM_SHUTDOWN,
+    VROUTER_AGENT_VM_UNKNOWN
+}
+
+const map<byte, string> VrouterAgentVmStateMap = {
+    VrouterAgentVmState.VROUTER_AGENT_VM_ACTIVE     : 'ACTIVE',
+    VrouterAgentVmState.VROUTER_AGENT_VM_PAUSED     : 'PAUSED',
+    VrouterAgentVmState.VROUTER_AGENT_VM_SHUTDOWN   : 'SHUT OFF',
+    VrouterAgentVmState.VROUTER_AGENT_VM_UNKNOWN    : 'UNKNOWN'
+}
+
 const string MODULE_CONTROL_NODE_NAME = SERVICE_CONTROL_NODE
 const string MODULE_VROUTER_AGENT_NAME = SERVICE_VROUTER_AGENT
 const string MODULE_API_SERVER_NAME = SERVICE_API_SERVER

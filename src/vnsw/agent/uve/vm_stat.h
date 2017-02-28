@@ -9,6 +9,7 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh.h>
+#include <sandesh/common/vns_types.h>
 #include <virtual_machine_types.h>
 #include <boost/uuid/uuid_io.hpp>
 #include "base/timer.h"
@@ -21,6 +22,7 @@ public:
     static const size_t kBufLen = 4098;
     static const uint32_t kTimeout = 60 * 1000;
     static const uint32_t kRetryCount = 3;
+    static const uint16_t kInvalidCpuCount = 0xFFFF;
     typedef boost::function<void(void)> DoneCb;
 
     VmStat(Agent *agent, const boost::uuids::uuid &vm_uuid);
@@ -65,6 +67,10 @@ protected:
     uint32_t virtual_size_;
     uint32_t disk_size_;
     std::string disk_name_;
+    VrouterAgentVmState::type vm_state_;
+    VrouterAgentVmState::type prev_vm_state_;
+    uint16_t vm_cpu_count_;
+    uint16_t prev_vm_cpu_count_;
     DISALLOW_COPY_AND_ASSIGN(VmStat);
 };
 #endif // vnsw_agent_vm_stat_h

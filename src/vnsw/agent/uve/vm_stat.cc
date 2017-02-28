@@ -31,7 +31,10 @@ VmStat::VmStat(Agent *agent, const uuid &vm_uuid):
     input_(*(agent_->event_manager()->io_service())),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
     "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0), virtual_size_(0),
-    disk_size_(0), disk_name_() {
+    disk_size_(0), disk_name_(),
+    vm_state_(VrouterAgentVmState::VROUTER_AGENT_VM_UNKNOWN),
+    prev_vm_state_(VrouterAgentVmState::VROUTER_AGENT_VM_UNKNOWN),
+    vm_cpu_count_(kInvalidCpuCount), prev_vm_cpu_count_(kInvalidCpuCount) {
 }
 
 VmStat::~VmStat() {
@@ -153,6 +156,21 @@ bool VmStat::BuildVmMsg(UveVirtualMachineAgent *uve) {
 
     uve->set_cpu_info(stats);
 
+    vnsConstants vns;
+    if (vm_state_ != VrouterAgentVmState::VROUTER_AGENT_VM_UNKNOWN) {
+        if (vm_state_ != prev_vm_state_) {
+            uve->set_vm_state(vns.VrouterAgentVmStateMap.at(vm_state_));
+            prev_vm_state_ = vm_state_;
+        }
+    }
+
+    if (vm_cpu_count_ != kInvalidCpuCount) {
+        if (vm_cpu_count_ != prev_vm_cpu_count_) {
+            uve->set_vm_cpu_count(vm_cpu_count_);
+            prev_vm_cpu_count_ = vm_cpu_count_;
+        }
+    }
+
     return true;
 }
 
@@ -162,8 +180,10 @@ void VmStat::SendVmCpuStats() {
     //stats-oracle infra and other one does not use it. We need two because
     //stats-oracle infra returns only SUM of cpu-info over a period of time
     //and current value is returned using non-stats-oracle version. Using
-    //stats oracle infra we can still query the current value but it is not
-    //simple and hence we sending current value in separate UVE.
+    //stats oracle infra we can still query the current value but for simpler
+    //interface we are sending current value in separate UVE.
+    //Also the non-stats oracle version has additional fields of vm_state and
+    //vm_cpu_count which are not sent in stats-oracle version.
     VirtualMachineStats vm_agent;
     if (BuildVmStatsMsg(&vm_agent)) {
         VmUveTable *vmt = static_cast<VmUveTable *>
