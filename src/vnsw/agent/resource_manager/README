@@ -1,0 +1,74 @@
+ResourceManager
+---------------
+This module mainly responsible for storing the MPLS label data to file using Sandesh encoding.
+This needs to be extended for config and routing modules.
+
+Functionality:
+-------------
+    1) Resource manager is split in to 2 modules Resotore & Backup modules.
+    2) ResourceTable this is resposible to maintain Key & data pair.
+    3) Index resource Table allocate unique index this will be used to reresent resource index. 
+        for further reference.
+    4) Sandesh module this is mainly to encode the data and store in to file in binary format.
+                 ------------------------
+        +--------| ResourceManager       |------------+
+        |        -----------------------              |
+        |                                             |
+        |                                             |
+        |                                             |
+        |                                          -------------
+    ---------------------                         |ResourceTable|
+    |ResourceBackupManager|------+                 -----^-------
+    ---------------------        |                       |
+                                 |                       |
+                                 |                --------------------
+                                 |               |Index ResourceTable|
+                                 |                --------^------------
+                            -------------------
+                            |ResourceSandeshMaps|------+
+                            --------------------       |
+                                                       |
+                                                       |
+                                            ------------------------
+                                            |    BackUpResourceTable|
+                                            -----------^------------
+                                                       |
+                                                       |
+                                            ^--------------------^-------------^--------
+                                            |                    |             | 
+                                        Interfaceresource   routeresource  VRFResource 
+modules:
+
+ResourceManager:
+---------------
+This class is responsible for restoring the resources. and retain the config's upon reading.
+it also triggers the resource allocation by using the key defind by the feature.
+Maintains the Restore WorkQueue to restore the data from file
+
+ResourceTable:
+-------------
+This class is resposible for allocating & restoring the the resources.
+it maintains Key data Map. this Key & data will be used to audit the resource data.
+and deletes the if there are any stale entries after restoring the data
+
+IndexResourceTable:
+------------------
+ This Class maintains the index resource vector for resourcekey.
+ For every resource key  unique index will be allocated which will be
+ represented as MPLS label currently.  or it can be represented as respective 
+ resource Index
+
+ResourceBackupManager:
+---------------------
+This Class maintains the WorKQueue for backup the data.
+it reads the data from WorkQueue and Triggers the backup of data to fileis
+
+BackUpResourceTable:
+------------------
+Backup Resource Table maintains all the Sandesh data to
+resource index in a map. Timer is maintained per Backup Resource table.
+will be used to trigger Write to file based on idle time out logic.
+Trigger will be intiated Only when we don't see any frequent Changes
+in the Data modifications with in the idle time out range if we see any change 
+Write will be postponed to next time slot otherwise Write to file will happens upon 
+fallback time period

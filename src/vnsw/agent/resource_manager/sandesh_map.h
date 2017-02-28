@@ -36,7 +36,18 @@ public:
     void EnqueueRestore(ResourceManager::KeyPtr key,
                         ResourceManager:: DataPtr data);
     const std::string FilePath(const std::string &file_name);
+    const std::string & backup_dir() {return backup_dir_;}
+    static const std::string FindFile(const std::string &root,
+                                      const std::string & file_ext);
+    static bool CalculateMd5Sum(const std::string &file_name, uint8_t *md5sum);
 protected:
+    template <typename T1, typename T2>
+    bool WriteMapToFile(T1* sandesh_data, const T2& index_map,
+                        const std::string &file_name,
+                        const std::string & file_ext);
+    template <typename T>
+    void ReadMapFromFile(T* sandesh_data, const std::string &root,
+                         const std::string& file_ext);
     std::string backup_dir_;
 
 private:
