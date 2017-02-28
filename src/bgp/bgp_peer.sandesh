@@ -480,6 +480,7 @@ struct ShowBgpInstanceConfig {
     4: list<string> export_target;
     10: bool has_pnf;
     9: string last_change_at;
+    15: list<string> neighbors;
     5: list<ShowBgpServiceChainConfig> service_chain_infos;
     6: list<ShowBgpStaticRouteConfig> static_routes;
     11: list<ShowBgpRouteAggregateConfig> aggregate_routes;
