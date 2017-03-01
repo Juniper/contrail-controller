@@ -18,7 +18,6 @@
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/test/event_manager_test.h"
 #include "schema/bgp_schema_types.h"
@@ -178,10 +177,6 @@ protected:
     }
 
     virtual void SetUp() {
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        bgp_schema_ParserInit(parser);
-        vnc_cfg_ParserInit(parser);
-
         cn1_.reset(new BgpServerTest(&evm_, "CN1"));
         cn1_->session_manager()->Initialize(0);
         LOG(DEBUG, "Created Control-Node 1 at port: " <<
@@ -275,9 +270,6 @@ protected:
         agent_b_1_->Delete();
         agent_a_2_->Delete();
         agent_b_2_->Delete();
-
-        IFMapCleanUp();
-        task_util::WaitForIdle();
 
         evm_.Shutdown();
         thread_.Join();
@@ -392,11 +384,6 @@ protected:
         agent_b_2_->Unsubscribe(network, -1);
     }
 
-    void IFMapCleanUp() {
-        IFMapServerParser::GetInstance("vnc_cfg")->MetadataClear("vnc_cfg");
-        IFMapServerParser::GetInstance("schema")->MetadataClear("schema");
-    }
-
     void VerifyAllPeerUp(BgpServerTest *server, uint32_t num) {
         TASK_UTIL_EXPECT_EQ_MSG(num, server->num_bgp_peer(),
                                 "Wait for all peers to get configured");
@@ -460,13 +447,10 @@ protected:
 
     void NetworkConfig(const vector<string> &instance_names,
         const multimap<string, string> &connections) {
-        string netconf(
-            bgp_util::NetworkConfigGenerate(instance_names, connections));
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        parser->Receive(cn1_->config_db(), netconf.data(), netconf.length(), 0);
-        task_util::WaitForIdle();
-        parser->Receive(cn2_->config_db(), netconf.data(), netconf.length(), 0);
-        task_util::WaitForIdle();
+        bgp_util::NetworkConfigGenerate(cn1_->config_db(), instance_names,
+                                        connections);
+        bgp_util::NetworkConfigGenerate(cn2_->config_db(), instance_names,
+                                        connections);
     }
 
     void UnconfigureBgpPeering(BgpServerTest *server1, BgpServerTest *server2) {

@@ -21,7 +21,6 @@
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_util.h"
 #include "ifmap/ifmap_update.h"
@@ -166,7 +165,6 @@ protected:
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
     ConfigCassandraClientTest *config_cassandra_client_;
-    IFMapServerParser *parser_;
     IFMapVmUuidMapper *vm_uuid_mapper_;
 };
 

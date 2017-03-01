@@ -13,7 +13,6 @@
 #include "io/event_manager.h"
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_update_queue.h"
 #include "ifmap/test/ifmap_client_mock.h"
@@ -38,14 +37,12 @@ class IFMapServerTest : public ::testing::Test {
   protected:
     IFMapServerTest()
             : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-              server_(&db_, &db_graph_, evm_.io_service()), parser_(NULL) {
+              server_(&db_, &db_graph_, evm_.io_service()) {
     }
 
     virtual void SetUp() {
         xmpp_server_ = new XmppServer(&evm_, "bgp.contrail.com");
         IFMapLinkTable_Init(&db_, &db_graph_);
-        parser_ = IFMapServerParser::GetInstance("vnc_cfg");
-        vnc_cfg_ParserInit(parser_);
         vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
         server_.Initialize();
         ifmap_channel_mgr_.reset(new IFMapChannelManagerMock(xmpp_server_,
@@ -60,7 +57,6 @@ class IFMapServerTest : public ::testing::Test {
         IFMapTable::ClearTables(&db_);
         task_util::WaitForIdle();
         db_.Clear();
-        parser_->MetadataClear("vnc_cfg");
         task_util::WaitForIdle();
         TcpServerManager::DeleteServer(xmpp_server_);
         xmpp_server_ = NULL;
@@ -79,27 +75,9 @@ class IFMapServerTest : public ::testing::Test {
     DBGraph db_graph_;
     EventManager evm_;
     IFMapServer server_;
-    IFMapServerParser *parser_;
     XmppServer *xmpp_server_;
     auto_ptr<IFMapChannelManagerMock> ifmap_channel_mgr_;
 };
-
-TEST_F(IFMapServerTest, DeleteLink) {
-    const char *project = "default-domain:878e80aab0c94284a1305e20e4c3f532";
-    string vn1(project);
-    vn1.append(":vn1");
-    ifmap_test_util::IFMapMsgLink(&db_, "project", project,
-                                  "virtual-network", vn1,
-                                  "project-virtual-network");
-    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
-    task_util::WaitForIdle();
-    EXPECT_EQ(1, table->Size());
-
-    string message(FileRead("controller/src/ifmap/testdata/vn_delete.xml"));
-    parser_->Receive(&db_, message.data(), message.size(), 0);
-    task_util::WaitForIdle();
-    EXPECT_EQ(0, table->Size());
-}
 
 static void IFMapVRouterLink(DB *db, const string &vrouter,
                              const string &network) {

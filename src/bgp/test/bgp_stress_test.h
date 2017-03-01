@@ -18,7 +18,6 @@
 #include "ifmap/client/config_json_parser.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_xmpp.h"
 #include "ifmap/test/ifmap_test_util.h"
@@ -94,15 +93,6 @@ public:
     }
 
     virtual ~IFMapXmppChannelTest() { }
-
-    bool ProcessConfig(const std::string *config) {
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-        parser->Receive(ifmap_server_->database(), config->c_str(),
-                        config->size(), 0);
-
-        delete config;
-        return true;
-    }
 
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         // Inject virtual-machine and virtual-router configurations so that

@@ -16,7 +16,6 @@
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_server_table.h"
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_update_queue.h"
