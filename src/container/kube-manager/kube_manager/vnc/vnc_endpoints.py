@@ -171,9 +171,9 @@ class VncEndpoints(object):
 
     def _get_service_pod_list(self, event):
         pods_in_event = set()
-        subsets = event['object']['subsets']
+        subsets = event['object'].get('subsets', [])
         for subset in subsets:
-            endpoints = subset['addresses']
+            endpoints = subset.get('addresses', [])
             for endpoint in endpoints:
                 pod = endpoint.get('targetRef')
                 if pod and pod.get('uid'):
