@@ -18,6 +18,7 @@ class AgentDnsXmppChannel;
 class AgentIfMapVmExport;
 class BgpPeer;
 class XmlBase;
+class XmppChannelConfig;
 
 class ControllerWorkQueueData {
 public:
@@ -193,6 +194,7 @@ public:
     bool IsWorkQueueEmpty() const;
 
 private:
+    void SetDscpConfig(XmppChannelConfig *xmpp_cfg) const;
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
     AgentDnsXmppChannel *FindAgentDnsXmppChannel(const std::string &server_ip);
     void DeleteConnectionInfo(const std::string &addr, bool is_dns) const;

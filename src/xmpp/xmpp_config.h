@@ -30,6 +30,7 @@ public:
     std::string path_to_ca_cert;
     int tcp_hold_time;
     bool gr_helper_disable;
+    uint8_t dscp_value;
 
     int CompareTo(const XmppChannelConfig &rhs) const;
     static int const default_client_port = 5269;

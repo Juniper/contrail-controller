@@ -29,7 +29,7 @@ DnsManager::DnsManager()
     BindResolver::Init(*Dns::GetEventManager()->io_service(), bind_servers,
                        ContrailPorts::ContrailDnsClientUdpPort(),
                        boost::bind(&DnsManager::HandleUpdateResponse,
-                                   this, _1, _2));
+                                   this, _1, _2), 0);
 
     Dns::SetDnsConfigManager(&config_mgr_);
     DnsConfigManager::Observers obs;

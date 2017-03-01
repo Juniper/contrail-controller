@@ -14,6 +14,7 @@
 #include "ifmap/ifmap_table.h"
 #include "pkt/pkt_init.h"
 #include "controller/controller_dns.h"
+#include "oper/global_qos_config.h"
 #include "oper/vn.h"
 #include "oper/route_common.h"
 #include <fstream>
@@ -46,9 +47,17 @@ void DnsProto::ConfigInit() {
             dns_servers.push_back(BindResolver::DnsServer(
                                   server, agent()->dns_server_port(i)));
     }
+    GlobalQosConfig* qos = NULL;
+    uint8_t dscp = 0;
+    if (agent_->oper_db()) {
+        qos = agent_->oper_db()->global_qos_config();
+    }
+    if (qos && qos->control_dscp() != GlobalQosConfig::kInvalidDscp) {
+        dscp = qos->dns_dscp();
+    }
     BindResolver::Init(*agent()->event_manager()->io_service(), dns_servers,
                        agent()->params()->dns_client_port(),
-                       boost::bind(&DnsProto::SendDnsIpc, this, _1, _2));
+                       boost::bind(&DnsProto::SendDnsIpc, this, _1, _2), dscp);
 }
 
 DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
