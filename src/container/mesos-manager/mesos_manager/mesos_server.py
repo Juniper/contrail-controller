@@ -3,20 +3,24 @@
 #
 
 """
-MESOS CNI Server 
+MESOS CNI Server
 """
 
+# Standard library import
 import bottle
 import json
+
+# Application library import
 from cfgm_common.rest import LinkObject
 from mesos_cni import MESOSCniDataObject
 from vnc_api.vnc_api import *
 
+
 class MesosServer(object):
 
-    def __init__(self, args=None, logger=None, q=None):
+    def __init__(self, args=None, logger=None, queue=None):
         self._args = args
-        self._q = q
+        self._queue = queue
         self.logger = logger
 
         self._homepage_links = []
@@ -32,59 +36,62 @@ class MesosServer(object):
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url , '/add_cni_info', 'Add CNI information'))
+                self._base_url, '/add_cni_info', 'Add CNI information'))
 
         # Del CNI information
         bottle.route('/del_cni_info',  'POST', self.del_cni_info)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url , '/del_cni_info', 'Del CNI information'))
+                self._base_url, '/del_cni_info', 'Del CNI information'))
 
         # Get CNI information
         bottle.route('/get_cni_info', 'GET', self.get_cni_info_all)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url , '/get_cni_info', 'get all CNI information'))
+                self._base_url, '/get_cni_info', 'get all CNI information'))
 
         # get a specific CNI information
-        bottle.route('/get_cni_info/<container_id>', 'GET', self.get_cni_info_all)
+        bottle.route('/get_cni_info/<container_id>', 'GET',
+                     self.get_cni_info_all)
 
         # show config
         bottle.route('/config', 'GET', self.show_config)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url , '/config', 'show cni config'))
+                self._base_url, '/config', 'show cni config'))
 
         # show debug
         bottle.route('/stats', 'GET', self.show_stats)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url , '/stats', 'show cni debug stats'))
+                self._base_url, '/stats', 'show cni debug stats'))
 
         # cleanup
         bottle.route('/cleanup', 'GET', self.cleanup_http_get)
         self._homepage_links.append(LinkObject('action',
-            self._base_url , '/cleanup', 'Purge deleted cni'))
+                                               self._base_url,
+                                               '/cleanup',
+                                               'Purge deleted cni'))
 
         if not self._pipe_start_app:
             self._pipe_start_app = bottle.app()
 
     def process_cni_data(self, container_id, data):
         self.logger.info("Server: Got CNI data for Container Id: %s."
-            %(container_id))
+                         % (container_id))
         print data
         cni_data_obj = MESOSCniDataObject(data)
         cni_conf = cni_data_obj.parse_cni_data()
-        self._q.put(cni_conf)
+        self._queue.put(cni_conf)
         print cni_conf
         pass
 
     def create_cni_data(self, container_id, data):
-        if not container_id in self._cni_data:
+        if container_id not in self._cni_data:
             self._cni_data[container_id] = {}
             self._cni_data[container_id] = data
             self.process_cni_data(container_id, self._cni_data[container_id])
@@ -122,7 +129,7 @@ class MesosServer(object):
                 data = bottle.request.json
             elif 'application/xml' in ctype:
                 data = xmltodict.parse(bottle.request.body.read())
-        except Exception as e:
+        except Exception:
             self.logger.info('Unable to parse publish request')
             self.logger.info(bottle.request.body.buf)
             bottle.abort(415, 'Unable to parse publish request')
@@ -135,14 +142,14 @@ class MesosServer(object):
     # end add_cni_info
 
     def del_cni_info(self):
-	json_req = {}
+        json_req = {}
         ctype = bottle.request.headers['content-type']
         try:
             if 'application/json' in ctype:
                 data = bottle.request.json
             elif 'application/xml' in ctype:
                 data = xmltodict.parse(bottle.request.body.read())
-        except Exception as e:
+        except Exception:
             self.logger.info('Unable to parse publish request')
             self.logger.info(bottle.request.body.buf)
             bottle.abort(415, 'Unable to parse publish request')
@@ -151,8 +158,8 @@ class MesosServer(object):
         container_id = json_req['cid']
         if container_id in self._cni_data:
             del self._cni_data[container_id]
-	    self.process_cni_data(container_id, json_req)
-	return json_req
+        self.process_cni_data(container_id, json_req)
+        return json_req
     # end del_cni_info
 
     def get_cni_info_all(self):
@@ -206,16 +213,15 @@ class MesosServer(object):
 
     def start_server(self):
         self.logger.info("Starting mesos-manager server @ %s:%s."
-        %(self.get_ip_addr(), self.get_port()))
+                         % (self.get_ip_addr(), self.get_port()))
 
         pipe_start_app = self.get_pipe_start_app()
 
         try:
             bottle.run(app=pipe_start_app, host=self.get_ip_addr(),
                        port=self.get_port(), server='gevent')
-        except Exception as e:
+        except Exception:
             self.cleanup()
     # start_server
 
 # end class MesosServer
-

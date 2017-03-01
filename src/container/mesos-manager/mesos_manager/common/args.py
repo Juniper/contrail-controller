@@ -2,10 +2,12 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
+# Standard library import
 import argparse
 import ConfigParser
 import sys
 
+# Application library import
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 import mesos_manager.mesos_consts as mesos_consts
 from sandesh_common.vns.constants import (HttpPortMesosManager,\
@@ -15,7 +17,7 @@ from sandesh_common.vns.constants import (HttpPortMesosManager,\
 def parse_args():
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument("-c", "--config-file", action='append',
-        help="Specify config file", metavar="FILE")
+                             help="Specify config file", metavar="FILE")
     args, remaining_argv = conf_parser.parse_known_args(sys.argv)
 
     defaults = {
@@ -102,6 +104,8 @@ def parse_args():
     if type(args.service_subnets) is str:
         args.service_subnets = args.service_subnets.split()
     args.sandesh_config = SandeshConfig(args.sandesh_keyfile,
-        args.sandesh_certfile, args.sandesh_ca_cert,
-        args.sandesh_ssl_enable, args.introspect_ssl_enable)
+                                        args.sandesh_certfile,
+                                        args.sandesh_ca_cert,
+                                        args.sandesh_ssl_enable,
+                                        args.introspect_ssl_enable)
     return args
