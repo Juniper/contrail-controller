@@ -10,7 +10,6 @@ ncclient
 jsonpickle
 cfgm_common
 vnc_api
-discoveryclient
 sandesh
 sandesh_common
 vnc_cfg_api_server

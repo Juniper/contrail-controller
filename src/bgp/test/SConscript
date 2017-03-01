@@ -26,7 +26,6 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '../../bgp/inet6vpn',
                       '../../bgp/l3vpn',
                       '../../control-node',
-                      '../../discovery/client',
                       '../../db',
                       '../../io',
                       '../../ifmap',
@@ -60,8 +59,6 @@ env.Append(LIBPATH = env['TOP'] + '/base/test')
 env.Append(LIBPATH = env['TOP'] + '/db/test')
 env.Append(LIBPATH = env['TOP'] + '/ifmap/test')
 env.Append(LIBPATH = env['TOP'] + '/control-node/test')
-env.Append(LIBPATH = env['TOP'] + '/discovery/client')
-env.Append(LIBPATH = env['TOP'] + '/http/client')
 
 env.Prepend(LIBS = ['control_test',
                     'bgptest',
@@ -73,7 +70,7 @@ env.Prepend(LIBS = ['control_test',
                     'ifmapio', 'ifmap_vnc', 'bgp_schema', 'task_test',
                     'ifmap_test_util', 'ifmap_test_util_server',
                     'ifmap_server', 'ifmap_common',
-                    'ifmapio', 'ds', 'httpc', 'curl',
+                    'ifmapio', 'curl',
                     'sandesh', 'http', 'http_parser',
                     'xmpp', 'pugixml', 'xml',
                     'db', 'sandeshvns', 'process_info',
@@ -129,8 +126,6 @@ env.Append(LIBS = [
     'rabbitmq',
     'cassandra',
     'gendb',
-    'ds',
-    'httpc',
 ])
 
 env.Append(LIBS = ['route', 'routing_instance', 'routing_policy', 'net'])

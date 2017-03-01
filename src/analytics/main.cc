@@ -33,7 +33,6 @@
 #include "generator.h"
 #include <base/misc_utils.h>
 #include <analytics/buildinfo.h>
-#include <discovery/client/discovery_client.h>
 #include "boost/python.hpp"
 
 using namespace std;
@@ -139,18 +138,8 @@ static void terminate(int param) {
     CollectorShutdown();
 }
 
-static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
-    if (client) {
-        client->Shutdown();
-        delete client;
-    }
-}
-
 // Shutdown various objects used in the collector.
-static void ShutdownServers(VizCollector *viz_collector,
-        DiscoveryServiceClient *client) {
-    // Shutdown discovery client first
-    ShutdownDiscoveryClient(client);
+static void ShutdownServers(VizCollector *viz_collector) {
 
     Sandesh::Uninit();
 
@@ -283,14 +272,12 @@ int main(int argc, char *argv[])
     // 1. Collector client
     // 2. Redis From
     // 3. Redis To
-    // 4. Discovery Collector Publish
-    // 5. Database global
-    // 6. Kafka Pub
-    // 7. Database protobuf if enabled
+    // 4. Database global
+    // 5. Kafka Pub
+    // 6. Database protobuf if enabled
 
     std::vector<ConnectionTypeName> expected_connections; 
-    if (options.discovery_server().empty()) {
-        expected_connections = boost::assign::list_of
+    expected_connections = boost::assign::list_of
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::COLLECTOR)->second, ""))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
@@ -302,26 +289,6 @@ int main(int argc, char *argv[])
                              hostname+":Global"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::KAFKA_PUB)->second, kstr));
-    } else {
-        expected_connections = boost::assign::list_of
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::COLLECTOR)->second, ""))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::REDIS_UVE)->second, "To"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::REDIS_UVE)->second, "From"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DISCOVERY)->second,
-                             g_vns_constants.API_SERVER_DISCOVERY_SERVICE_NAME))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DISCOVERY)->second,
-                             g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second,
-                             hostname+":Global"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::KAFKA_PUB)->second, kstr));
-    }
 
     ConnectionStateManager::
         GetInstance()->Init(*a_evm->io_service(),
@@ -395,7 +362,7 @@ int main(int argc, char *argv[])
             options.http_server_port(), &vsc, options.sandesh_config()));
     if (!success) {
         LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-        ShutdownServers(&analytics, NULL);
+        ShutdownServers(&analytics);
         delete a_evm;
         exit(1);
     }
@@ -412,23 +379,6 @@ int main(int argc, char *argv[])
     // Get local ip address
     Collector::SetSelfIp(options.host_ip());
 
-    //Publish services to Discovery Service Servee
-    DiscoveryServiceClient *ds_client = NULL;
-    tcp::endpoint dss_ep;
-    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        options.discovery_server(), options.discovery_port(), &dss_ep)) {
-
-        string client_name =
-            g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
-        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, client_name);
-        ds_client->Init();
-        analytics.UpdateConfigDBConnection(&options, ds_client);
-    } else {
-        LOG (ERROR, "Invalid Discovery Server hostname or ip " <<
-                     options.discovery_server());
-    }
-    Collector::SetDiscoveryServiceClient(ds_client);
-
     collector_info_trigger =
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
@@ -439,7 +389,7 @@ int main(int argc, char *argv[])
     signal(SIGTERM, terminate);
     a_evm->Run();
 
-    ShutdownServers(&analytics, ds_client);
+    ShutdownServers(&analytics);
 
     delete a_evm;
 

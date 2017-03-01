@@ -8,7 +8,6 @@ kombu
 gevent==1.1a2
 cfgm_common
 vnc_api
-discoveryclient
 sandesh
 sandesh-common
 vnc_cfg_api_server

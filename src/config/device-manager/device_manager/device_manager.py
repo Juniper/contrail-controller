@@ -31,7 +31,6 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-import discoveryclient.client as client
 from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.exceptions import NoIdError
 from vnc_api.vnc_api import VncApi
@@ -139,15 +138,6 @@ class DeviceManager(object):
 
     def __init__(self, args=None):
         self._args = args
-
-        # Initialize discovery client
-        self._disc = None
-        if self._args.disc_server_ip and self._args.disc_server_port:
-            self._disc = client.DiscoveryClient(
-                self._args.disc_server_ip,
-                self._args.disc_server_port,
-                ModuleNames[Module.DEVICE_MANAGER])
-
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
         PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
@@ -165,7 +155,7 @@ class DeviceManager(object):
         # Initialize logger
         module = Module.DEVICE_MANAGER
         module_pkg = "device_manager"
-        self.logger = ConfigServiceLogger(self._disc, module, module_pkg, args)
+        self.logger = ConfigServiceLogger(module, module_pkg, args)
 
         # Retry till API server is up
         connected = False
@@ -302,8 +292,6 @@ def parse_args(args_str):
                          --zk_server_ip 10.1.2.3
                          --zk_server_port 2181
                          --collectors 127.0.0.1:8086
-                         --disc_server_ip 127.0.0.1
-                         --disc_server_port 5998
                          --http_server_port 8090
                          --log_local
                          --log_level SYS_DEBUG
@@ -342,8 +330,6 @@ def parse_args(args_str):
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
         'collectors': None,
-        'disc_server_ip': None,
-        'disc_server_port': None,
         'http_server_port': '8096',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
@@ -445,10 +431,6 @@ def parse_args(args_str):
     parser.add_argument("--collectors",
                         help="List of VNC collectors in ip:port format",
                         nargs="+")
-    parser.add_argument("--disc_server_ip",
-                        help="IP address of the discovery server")
-    parser.add_argument("--disc_server_port",
-                        help="Port of the discovery server")
     parser.add_argument("--http_server_port",
                         help="Port of local HTTP server")
     parser.add_argument("--log_local", action="store_true",

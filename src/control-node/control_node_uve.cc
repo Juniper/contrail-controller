@@ -17,7 +17,6 @@
 std::string ControlNode::hostname_;
 std::string ControlNode::prog_name_;
 std::string ControlNode::self_ip_;
-DiscoveryServiceClient* ControlNode::ds_client_;
 bool ControlNode::test_mode_;
 
 static std::auto_ptr<Timer> node_info_log_timer;

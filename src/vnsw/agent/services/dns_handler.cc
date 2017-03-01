@@ -59,33 +59,10 @@ DnsHandler::~DnsHandler() {
 
 void DnsHandler::BuildDnsResolvers() {
     uint8_t count = 0;
-    std::vector<DSResponse> ds_reponse =
-        agent()->GetDiscoveryDnsServerResponseList();
-    uint8_t resolvers_count = ds_reponse.size();
-    if (resolvers_count == 0) {
-        resolvers_count = MAX_XMPP_SERVERS;
-    }
+    /* NIPA TODO use query-all from the list */
+    uint8_t resolvers_count = MAX_XMPP_SERVERS;
     dns_resolvers_.resize(resolvers_count);
-
-    if (ds_reponse.size()) {
-        std::vector<DSResponse>::iterator iter;
-        for (iter = ds_reponse.begin(); iter != ds_reponse.end(); iter++) {
-            DSResponse dr = *iter;
-
-            DnsResolverInfo *resolver = new DnsResolverInfo();
-            resolver->ep_.address(dr.ep.address());
-            resolver->ep_.port(dr.ep.port());
-            resolver->retries_ = 0;
-            std::stringstream ss;
-            ss << "DnsHandlerTimer " << count;
-            resolver->timer_ = TimerManager::CreateTimer(
-                *(agent()->event_manager()->io_service()), ss.str(),
-                TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
-                PktHandler::DNS);
-            dns_resolvers_[count] = resolver;
-            count++;
-        }
-    } else {
+    {
         while (count < MAX_XMPP_SERVERS) {
 
             if (!agent()->dns_server(count).empty()) {

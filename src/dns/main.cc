@@ -121,13 +121,6 @@ static void IFMap_Initialize(IFMapServer *server, ConfigClientManager *mgr) {
     server->Initialize();
 }
 
-void Dns::ShutdownDiscoveryClient(DiscoveryServiceClient *ds_client) {
-    if (ds_client) {
-        ds_client->Shutdown();
-        delete ds_client;
-    }
-}
-
 static bool OptionsParse(Options &options, int argc, char *argv[]) {
     try {
         options.Parse(*Dns::GetEventManager(), argc, argv);
@@ -196,7 +189,7 @@ int main(int argc, char *argv[]) {
     string hostname = host_name(ec);
     Dns::SetHostName(hostname);
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
-    if (options.discovery_server().empty()) {
+    {
         NodeType::type node_type =
             g_vns_constants.Module2NodeType.find(module)->second;
         bool success(Sandesh::InitGenerator(
@@ -205,7 +198,7 @@ int main(int argc, char *argv[]) {
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     g_vns_constants.INSTANCE_ID_DEFAULT,
                     Dns::GetEventManager(),
-                    options.http_server_port(), 0,
+                    options.http_server_port(),
                     options.randomized_collector_server_list(),
                     NULL,
                     Sandesh::DerivedStats(),
@@ -275,72 +268,6 @@ int main(int argc, char *argv[]) {
         TimerManager::CreateTimer(*(Dns::GetEventManager()->io_service()),
                                                    "Dns Info log timer");
     dns_info_log_timer->Start(60*1000, boost::bind(&DnsInfoLogTimer), NULL);
-
-    //Register services with Discovery Service Server
-    DiscoveryServiceClient *ds_client = NULL;
-    tcp::endpoint dss_ep;
-    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        options.discovery_server(), options.discovery_port(), &dss_ep)) {
-
-        ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep,
-            g_vns_constants.ModuleNames.find(Module::DNS)->second);
-        ds_client->Init();
-
-        // Publish DNServer Service
-        Dns::SetSelfIp(options.host_ip());
-
-        if (!options.host_ip().empty()) {
-            stringstream pub_ss;
-            const std::string &sname(
-                g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME);
-            pub_ss << "<" << sname << "><ip-address>" << options.host_ip() <<
-                      "</ip-address><port>" << options.dns_server_port() <<
-                      "</port></" << sname << ">";
-            std::string pub_msg;
-            pub_msg = pub_ss.str();
-            ds_client->Publish(sname, pub_msg,
-                boost::bind(&DnsServerReEvaluatePublishCb,
-                            &ifmap_server, config_client_manager, _1));
-        }
-
-        //subscribe to collector service if not configured
-        if (!options.collectors_configured()) {
-            Module::type module = Module::DNS;
-            NodeType::type node_type =
-                g_vns_constants.Module2NodeType.find(module)->second;
-            string subscriber_name =
-                g_vns_constants.ModuleNames.find(module)->second;
-            string node_type_name =
-                g_vns_constants.NodeTypeNames.find(node_type)->second;
-            Sandesh::CollectorSubFn csf = 0;
-            csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client,
-                              _1, _2, _3);
-            vector<string> list;
-            list.clear();
-            bool success(Sandesh::InitGenerator(subscriber_name,
-                                   options.hostname(),
-                                   node_type_name,
-                                   g_vns_constants.INSTANCE_ID_DEFAULT,
-                                   Dns::GetEventManager(),
-                                   options.http_server_port(),
-                                   csf,
-                                   list,
-                                   NULL,
-                                   Sandesh::DerivedStats(),
-                                   options.sandesh_config()));
-            if (!success) {
-                LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-                Sandesh::Uninit();
-                Dns::ShutdownDiscoveryClient(ds_client);
-                exit(1);
-            }
-        }
-    } else {
-        LOG(ERROR, "Invalid Discovery Server hostname or ip " <<
-                   options.discovery_server());
-    }
-    Dns::SetDiscoveryServiceClient(ds_client);
-
     Dns::SetSelfIp(options.host_ip());
     ifmap_server.set_config_manager(config_client_manager);
 
@@ -350,29 +277,13 @@ int main(int argc, char *argv[]) {
     // 2. AMQP Server
     //
     std::vector<ConnectionTypeName> expected_connections;
-    if (options.discovery_server().empty()) {
-        expected_connections = boost::assign::list_of
+    expected_connections = boost::assign::list_of
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::COLLECTOR)->second, "Collector"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second, "Cassandra"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second, "RabbitMQ"));
-    } else {
-        expected_connections = boost::assign::list_of
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DISCOVERY)->second,
-                             g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::COLLECTOR)->second, "Collector"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DISCOVERY)->second,
-                             g_vns_constants.DNS_SERVER_DISCOVERY_SERVICE_NAME))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "Cassandra"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "RabbitMQ"));
-    }
 
     ConnectionStateManager::GetInstance()->Init(
         *(Dns::GetEventManager()->io_service()), options.hostname(),
@@ -384,8 +295,6 @@ int main(int argc, char *argv[]) {
     config_client_manager->Initialize();
 
     Dns::GetEventManager()->Run();
-
-    Dns::ShutdownDiscoveryClient(ds_client);
 
     return 0;
 }

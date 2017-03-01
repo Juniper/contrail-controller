@@ -19,12 +19,10 @@ env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
 env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
 env.Prepend(CPPPATH = env['TOP'] + '/bgp')
-env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
-env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
 env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
-                  'xmpp', 'ds', 'sandeshvns', 'peer_sandesh',
-                  'httpc', 'curl', 'process_info',
+                  'xmpp', 'sandeshvns', 'peer_sandesh',
+                  'curl', 'process_info',
                   'db', 'io', 'base', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
                   'cassandra', 'gendb', 'xml', 'pugixml', 'libxml2',
                   'cpuinfo', 'process_info', 'nodeinfo',
@@ -38,8 +36,7 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
 
 libs = MapBuildDir(['base', 'db', 'ifmap', 'io', 'net', 'xml', 'schema', 'xmpp', 'bgp',
-                    'dns/bind', 'dns/cfg', 'dns/cmn', 'dns/mgr', 'dns/agent', 'dns/uve',
-                    'discovery/client', 'http/client'])
+                    'dns/bind', 'dns/cfg', 'dns/cmn', 'dns/mgr', 'dns/agent', 'dns/uve'])
 env.Append(LIBPATH=libs)
 
 if sys.platform != 'darwin':
@@ -60,7 +57,6 @@ doc_files += env['IO_DOC_FILES']
 doc_files += env['DB_DOC_FILES']
 doc_files += env['SANDESH_DOC_FILES']
 doc_files += env['IFMAP_CLIENT_DOC_FILES']
-doc_files += env['DISCOVERY_CLIENT_DOC_FILES']
 doc_files += env['XMPP_DOC_FILES']
 doc_files += env.SandeshGenDoc('uve/uve.sandesh')
 doc_files += env.SandeshGenDoc('bind/bind.sandesh')

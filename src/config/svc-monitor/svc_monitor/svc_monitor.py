@@ -39,11 +39,8 @@ from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames
 
 from vnc_api.vnc_api import *
-
-import discoveryclient.client as client
 
 from agent_manager import AgentManager
 from db import ServiceMonitorDB
@@ -67,16 +64,8 @@ class SvcMonitor(object):
 
     def __init__(self, args=None):
         self._args = args
-
-        # initialize discovery client
-        self._disc = None
-        if self._args.disc_server_ip and self._args.disc_server_port:
-            self._disc = client.DiscoveryClient(
-                self._args.disc_server_ip,
-                self._args.disc_server_port,
-                ModuleNames[Module.SVC_MONITOR])
         # initialize logger
-        self.logger = ServiceMonitorLogger(self._disc, args)
+        self.logger = ServiceMonitorLogger(args)
 
         # rotating log file for catchall errors
         self._err_file = self._args.trace_file
@@ -118,7 +107,7 @@ class SvcMonitor(object):
         self.vrouter_scheduler = importutils.import_object(
             self._args.si_netns_scheduler_driver,
             self._vnc_lib, self._nova_client,
-            self._disc, self.logger, self._args)
+            None, self.logger, self._args)
 
         # load virtual machine instance manager
         self.vm_manager = importutils.import_object(
@@ -656,8 +645,6 @@ def parse_args(args_str):
                          --zk_server_ip 10.1.2.3
                          --zk_server_port 2181
                          --collectors 127.0.0.1:8086
-                         --disc_server_ip 127.0.0.1
-                         --disc_server_port 5998
                          --http_server_port 8090
                          --log_local
                          --log_level SYS_DEBUG
@@ -694,8 +681,6 @@ def parse_args(args_str):
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
         'collectors': None,
-        'disc_server_ip': None,
-        'disc_server_port': None,
         'http_server_port': '8088',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
@@ -811,10 +796,6 @@ def parse_args(args_str):
     parser.add_argument("--collectors",
                         help="List of VNC collectors in ip:port format",
                         nargs="+")
-    parser.add_argument("--disc_server_ip",
-                        help="IP address of the discovery server")
-    parser.add_argument("--disc_server_port",
-                        help="Port of the discovery server")
     parser.add_argument("--http_server_port",
                         help="Port of local HTTP server")
     parser.add_argument(

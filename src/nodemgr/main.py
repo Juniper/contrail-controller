@@ -66,7 +66,6 @@ def main(args_str=' '.join(sys.argv[1:])):
         args, remaining_argv = node_parser.parse_known_args(args_str.split())
     except:
         usage()
-    disc_options = {'server': socket.gethostname(), 'port': 5998}
     default = {'rules': '',
                'collectors': [],
                'hostip': '127.0.0.1',
@@ -105,10 +104,6 @@ def main(args_str=' '.join(sys.argv[1:])):
     config.read([config_file])
     if 'DEFAULTS' in config.sections():
         default.update(dict(config.items('DEFAULTS')))
-    if 'DISCOVERY' in config.sections():
-        disc_options.update(dict(config.items('DISCOVERY')))
-    disc_options['discovery_server'] = disc_options.pop('server')
-    disc_options['discovery_port'] = disc_options.pop('port')
     if 'COLLECTOR' in config.sections():
         try:
             collector = config.get('COLLECTOR', 'server_list')
@@ -125,16 +120,10 @@ def main(args_str=' '.join(sys.argv[1:])):
                 'SANDESH', 'introspect_ssl_enable')
     parser = argparse.ArgumentParser(parents=[node_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    default.update(disc_options)
     default.update(sandesh_opts)
     parser.set_defaults(**default)
     parser.add_argument("--rules",
                         help='Rules file to use for processing events')
-    parser.add_argument("--discovery_server",
-                        help='IP address of Discovery Server')
-    parser.add_argument("--discovery_port",
-                        type=int,
-                        help='Port of Discovery Server')
     parser.add_argument("--collectors",
                         nargs='+',
                         help='Collector addresses in format' +
@@ -172,10 +161,6 @@ def main(args_str=' '.join(sys.argv[1:])):
     except:
         usage()
     rule_file = _args.rules
-    discovery_server = _args.discovery_server
-    sys.stderr.write("Discovery server: " + discovery_server + "\n")
-    discovery_port = _args.discovery_port
-    sys.stderr.write("Discovery port: " + str(discovery_port) + "\n")
     collector_addr = _args.collectors
     sys.stderr.write("Collector address: " + str(collector_addr) + "\n")
 
@@ -210,8 +195,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-analytics-nodemgr.service',
                      ]
         prog = AnalyticsEventManager(
-            rule_file, unit_names, discovery_server,
-            discovery_port, collector_addr, sandesh_config)
+            rule_file, unit_names, collector_addr, sandesh_config)
     elif (node_type == 'contrail-config'):
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_config_files/" + \
@@ -220,15 +204,13 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-schema.service',
                       'contrail-svc-monitor.service',
                       'contrail-device-manager.service',
-                      'contrail-discovery.service',
                       'contrail-config-nodemgr.service',
                       'ifmap.service',
                      ]
         cassandra_repair_interval = _args.cassandra_repair_interval
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = ConfigEventManager(
-            rule_file, unit_names, discovery_server,
-            discovery_port, collector_addr, sandesh_config,
+            rule_file, unit_names, collector_addr, sandesh_config,
             cassandra_repair_interval, cassandra_repair_logdir)
     elif (node_type == 'contrail-control'):
         if not rule_file:
@@ -240,8 +222,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-control-nodemgr.service',
                      ]
         prog = ControlEventManager(
-            rule_file, unit_names, discovery_server,
-            discovery_port, collector_addr, sandesh_config)
+            rule_file, unit_names, collector_addr, sandesh_config)
     elif (node_type == 'contrail-vrouter'):
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_vrouter_files/" + \
@@ -250,8 +231,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-vrouter-nodemgr.service',
                      ]
         prog = VrouterEventManager(
-            rule_file, unit_names, discovery_server,
-            discovery_port, collector_addr, sandesh_config)
+            rule_file, unit_names, collector_addr, sandesh_config)
     elif (node_type == 'contrail-database'):
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_database_files/" + \
@@ -266,8 +246,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         cassandra_repair_interval = _args.cassandra_repair_interval
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
         prog = DatabaseEventManager(
-            rule_file, unit_names, discovery_server,
-            discovery_port, collector_addr, sandesh_config,
+            rule_file, unit_names, collector_addr, sandesh_config, 
             hostip, minimum_diskgb, contrail_databases,
 	    cassandra_repair_interval, cassandra_repair_logdir)
     else:

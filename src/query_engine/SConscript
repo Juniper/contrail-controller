@@ -18,11 +18,9 @@ env.Append(CPPPATH = [env['TOP'],
                      ])
 
 env.Prepend(LIBS=[  'cpuinfo',
-                    'ds',
                     'io',
                     'sandesh',
                     'http',
-                    'httpc',
                     'http_parser',
                     'pugixml',
                     'xml',
@@ -65,7 +63,7 @@ libs = MapBuildDir([
         'sandesh'])
 
 env.Append(LIBPATH=libs)
-env.Append(LIBPATH=['.', SrcBuildDir('base'), SrcBuildDir('discovery/client'),
+env.Append(LIBPATH=['.', SrcBuildDir('base'),
     SrcBuildDir('io'), SrcBuildDir('sandesh')])
 
 includes = MapBuildDir(['analytics', 'query_engine', 'database'])
@@ -190,7 +188,6 @@ doc_files = []
 doc_files += env['BASE_DOC_FILES']
 doc_files += env['IO_DOC_FILES']
 doc_files += env['SANDESH_DOC_FILES']
-doc_files += env['DISCOVERY_CLIENT_DOC_FILES']
 doc_files += env['ANALYTICS_DOC_FILES']
 doc_files += env.SandeshGenDoc('qe.sandesh')
 

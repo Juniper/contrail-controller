@@ -28,7 +28,6 @@ from sandesh.interface.ttypes import \
 from vrouter.ttypes import VrouterStatsAgent, VrouterStats
 from cpuinfo import CpuInfoData
 from sandesh.flow.ttypes import *
-import discoveryclient.client as client
 
 class MockGenerator(object):
 
@@ -47,7 +46,7 @@ class MockGenerator(object):
     def __init__(self, hostname, module_name, node_type_name, instance_id,
                  start_vn, end_vn, other_vn, num_vns, num_vms,
                  num_interfaces_per_vm,
-                 collectors, discovery_server_address, ip_vns, ip_start_index,
+                 collectors, ip_vns, ip_start_index,
                  num_flows_per_network, num_flows_per_sec):
         self._module_name = module_name
         self._hostname = hostname
@@ -69,15 +68,6 @@ class MockGenerator(object):
         self._collectors = collectors
         self._name = self._hostname + ':' + self._node_type_name + ':' + \
             self._module_name + ':' + self._instance_id
-        # Initialize discovery client
-        self._disc = None
-        if discovery_server_address:
-            discovery_server_addr_list = discovery_server_address.split(':')
-            discovery_server_ip = discovery_server_addr_list[0]
-            discovery_server_port = int(discovery_server_addr_list[1])
-            self._disc = client.DiscoveryClient(discovery_server_ip,
-                                                discovery_server_port,
-                                                self._name)
         self._vn_vm_list = {}
         self._vn_vm_list_populated = False
         self._vn_vm_list_sent = False
@@ -85,14 +75,10 @@ class MockGenerator(object):
     #end __init__
 
     def run_generator(self):
-        # Prefer discovery
-        if self._disc:
-            collectors = None
-        else:
-            collectors = self._collectors
+        collectors = self._collectors
         self._sandesh_instance.init_generator(self._module_name, self._hostname,
             self._node_type_name, self._instance_id, collectors,
-            '', -1, ['sandesh', 'vrouter'], self._disc)
+            '', -1, ['sandesh', 'vrouter'])
         self._sandesh_instance.set_logging_params(enable_local_log = False,
            level = SandeshLevel.SYS_DEBUG,
            file = '/var/log/contrail/%s.log' % (self._hostname))
@@ -392,7 +378,6 @@ class MockGeneratorTest(object):
         Eg. python mock_generator.py
                                --num_generators 10
                                --collectors 127.0.0.1:8086
-                               --discovery_server_address 127.0.0.1:5998
                                --num_instances_per_generator 10
                                --num_interfaces_per_instance 1
                                --num_networks 100
@@ -419,9 +404,6 @@ class MockGeneratorTest(object):
             default='127.0.0.1:8086',
             help="List of Collector IP addresses in ip:port format",
             nargs="+")
-        parser.add_argument("--discovery_server_address",
-            default='127.0.0.1:5998',
-            help="Discovery server address in ip:port format")
         parser.add_argument("--num_flows_per_network", type=int,
             default=10,
             help="Number of flows per virtual network")
@@ -439,7 +421,6 @@ class MockGeneratorTest(object):
 
     def setup(self):
         collectors = self._args.collectors
-        discovery_server_address = self._args.discovery_server_address
         ngens = self._args.num_generators
         pid = os.getpid()
         num_instances = self._args.num_instances_per_generator
@@ -476,7 +457,7 @@ class MockGeneratorTest(object):
         self._generators = [MockGenerator(hostnames[x], moduleid, \
             node_type_name, str(x), start_vns[x], end_vns[x], other_vns[x], \
             num_networks, num_instances, num_interfaces, \
-            collectors[x % len(collectors)], discovery_server_address, ip_vns, \
+            collectors[x % len(collectors)], ip_vns, \
             start_ip_index[x], self._args.num_flows_per_network, \
             self._args.num_flows_per_sec) for x in range(ngens)]
         return True
