@@ -2931,9 +2931,15 @@ class VncApiServer(object):
                          req_fields=None, include_shared=False,
                          exclude_hrefs=False):
         resource_type, r_class = self._validate_resource_type(obj_type)
+        is_admin = self.is_admin_request()
+        if is_admin:
+            field_names = req_fields
+        else:
+            field_names = [u'id_perms'] + (req_fields or [])
+
         (ok, result) = self._db_conn.dbe_list(obj_type,
                              parent_uuids, back_ref_uuids, obj_uuids, is_count,
-                             filters, is_detail=is_detail, field_names=req_fields,
+                             filters, is_detail=is_detail, field_names=field_names,
                              include_shared=include_shared)
         if not ok:
             self.config_object_error(None, None, '%ss' %(obj_type),
@@ -2944,12 +2950,9 @@ class VncApiServer(object):
         if is_count:
             return {'%ss' %(resource_type): {'count': result}}
 
-        allowed_fields = ['uuid', 'href', 'fq_name']
-        if req_fields:
-            allowed_fields.extend(req_fields)
-
+        allowed_fields = ['uuid', 'href', 'fq_name'] + (req_fields or [])
         obj_dicts = []
-        if self.is_admin_request():
+        if is_admin:
             for obj_result in result:
                 if not exclude_hrefs:
                     obj_result['href'] = self.generate_url(

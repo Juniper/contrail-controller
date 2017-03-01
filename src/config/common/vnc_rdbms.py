@@ -1029,7 +1029,7 @@ class VncRDBMSClient(object):
 
             if tenant_id or domain:
                 extra_sqa_classes.append(sqa_share_class)
-                extra_join_clauses.append((sqa_shared_class, sqa_class.obj_uuid == sqa_share_class.owner))
+                extra_join_clauses.append((sqa_share_class, sqa_class.obj_uuid == sqa_share_class.owner))
 
             sqa_objs = session.query(sqa_class, *extra_sqa_classes).outerjoin(
                             *extra_join_clauses)
