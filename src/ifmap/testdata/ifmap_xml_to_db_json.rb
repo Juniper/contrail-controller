@@ -8,7 +8,7 @@ def init_globals
     @db = Hash.new
     @events = [ ]
     @seen = Hash.new(false)
-    @only_initial_sync = false
+    @only_initial_sync = true
 end
 
 def get_uuid (u)
@@ -29,7 +29,6 @@ def read_xml_to_json (file_name)
     }
     xml = x.join
     puts xml if @debug
-    pp file_name
     json = JSON.pretty_generate(Hash.from_xml(xml))
     return JSON.parse(json)
 end
@@ -78,8 +77,11 @@ def init_fake_db (records)
     pp @db if @debug
 end
 
-def from_name (fq)
-    @db.each { |k, v| return v if v["fq_name"] == fq.split(/:/).to_json }
+def from_name (fq, type)
+    @db.each { |k, v|
+        return v if v["fq_name"] == fq.split(/:/).to_json and \
+                    v["type"] == "\"#{type}\""
+    }
     return nil
 end
 
@@ -123,8 +125,8 @@ def parse_links (record)
 #   fq2 = $2; t2 = $1.gsub("-", "_")
 
     # Add/Remove ref and back-ref
-    r1 = from_name(fq1)
-    r2 = from_name(fq2)
+    r1 = from_name(fq1, t1)
+    r2 = from_name(fq2, t2)
 
     k1 = "ref:" + t2 + ":" + r2["uuid"] if !r2.nil?
 #   k2 = "backref:" + t1 + ":" + r1["uuid"] if !r1.nil?
@@ -132,12 +134,15 @@ def parse_links (record)
         if !r1.nil?
             a = { }
             if record.include? "metadata"
-                record["metadata"].values.first.each { |k, v|
-                    if !k.start_with?("xmlns:") and !k.start_with?("ifmap_")
-                        v = [v] if k == "ipam_subnets" and !v.kind_of? Array
-                        a[k] = v
-                    end
-                }
+                v = record["metadata"].values.first
+                if !v.nil?
+                    record["metadata"].values.first.each { |k, v|
+                        if !k.start_with?("xmlns:") and !k.start_with?("ifmap_")
+                            v = [v] if k == "ipam_subnets" and !v.kind_of? Array
+                            a[k] = v
+                        end
+                    }
+                end
             end
             r1[k1] = ({ "attr" => a }).to_json
         end
@@ -160,9 +165,6 @@ def parse_nodes (record)
     obj = @db[uuid] ||
         ({"uuid" => uuid, "fq_name" => fq_name.split(/:/).to_json,
           "type" => "\"#{type}\""})
-    # obj = from_name(fq_name)
-    # return if obj.nil?
-
     record["metadata"].each { |k, v|
         if v.kind_of? Hash and v.key? "mac_address" and \
             !v["mac_address"].kind_of? Array
@@ -255,7 +257,6 @@ def process_files (files)
     pp files if @debug
     files.each { |file_name|
         @events.push({"operation" => "pause"}) if !@events.empty?
-        puts file_name
         json = read_xml_to_json(file_name)
         records = read_items(json)
         init_fake_db(records)
@@ -278,7 +279,7 @@ def process_files (files)
     @events = [ @events.first ] if @only_initial_sync
     puts JSON.pretty_generate(@events) if @debug
     File.open(json_file, "w") { |fp| fp.puts JSON.pretty_generate(@events) }
-    puts "Produced #{json_file}"
+    puts "Produced #{json_file}" if @debug
 end
 
 def main

@@ -95,15 +95,6 @@ public:
 
     virtual ~IFMapXmppChannelTest() { }
 
-    bool ProcessConfig(const std::string *config) {
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-        parser->Receive(ifmap_server_->database(), config->c_str(),
-                        config->size(), 0);
-
-        delete config;
-        return true;
-    }
-
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         // Inject virtual-machine and virtual-router configurations so that
         // they get downloaded to agents later on.
