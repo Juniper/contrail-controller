@@ -4,11 +4,15 @@
 
 #include "bgp/bgp_show_handler.h"
 
+#include <boost/regex.hpp>
+
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 
+using boost::regex;
+using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -56,6 +60,7 @@ bool BgpShowHandler<ShowRouteSummaryReq, ShowRouteSummaryReqIterate,
     uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
 
+    regex search_expr(data->search_string);
     RoutingInstanceMgr::const_name_iterator it1 =
         rim->name_clower_bound(data->next_entry);
     for (uint32_t iter_count = 0; it1 != rim->name_cend(); ++it1) {
@@ -64,8 +69,7 @@ bool BgpShowHandler<ShowRouteSummaryReq, ShowRouteSummaryReqIterate,
              rtinstance->GetTables().begin();
              it2 != rtinstance->GetTables().end(); ++it2, ++iter_count) {
             const BgpTable *table = it2->second;
-            if (!data->search_string.empty() &&
-                (table->name().find(data->search_string) == string::npos) &&
+            if ((!regex_search(table->name(), search_expr)) &&
                 (data->search_string != "deleted" || !table->IsDeleted())) {
                 continue;
             }

@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/regex.hpp>
+
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_show_handler.h"
@@ -10,19 +12,21 @@
 #include "bgp/routing-instance/static_route.h"
 #include "bgp/routing-instance/static_route_types.h"
 
+using boost::regex;
+using boost::regex_search;
 using std::string;
 using std::vector;
 
 static bool FillStaticRouteInfo(Address::Family family,
-                                const string search_string,
+                                const string &search_string,
+                                const regex &search_expr,
                                 StaticRouteEntriesInfo &info,
                                 RoutingInstance *rtinstance) {
     const BgpTable *table =
         static_cast<const BgpTable *>(rtinstance->GetTable(family));
     if (!table)
         return false;
-    if (!search_string.empty() &&
-        (table->name().find(search_string) == string::npos) &&
+    if ((!regex_search(table->name(), search_expr)) &&
         (search_string != "deleted" || !table->IsDeleted())) {
         return false;
     }
@@ -42,17 +46,18 @@ bool BgpShowHandler<ShowStaticRouteReq, ShowStaticRouteReqIterate,
     uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
 
+    regex search_expr(data->search_string);
     RoutingInstanceMgr::const_name_iterator it =
         rim->name_clower_bound(data->next_entry);
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
         RoutingInstance *rinstance = it->second;
         StaticRouteEntriesInfo info;
-        if (FillStaticRouteInfo(Address::INET, data->search_string, info,
-                                rinstance)) {
+        if (FillStaticRouteInfo(Address::INET, data->search_string,
+                                search_expr, info, rinstance)) {
             data->show_list.push_back(info);
         }
-        if (FillStaticRouteInfo(Address::INET6, data->search_string, info,
-                                rinstance)) {
+        if (FillStaticRouteInfo(Address::INET6, data->search_string,
+                                search_expr, info, rinstance)) {
             data->show_list.push_back(info);
         }
 

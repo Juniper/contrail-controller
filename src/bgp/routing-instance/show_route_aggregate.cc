@@ -4,6 +4,7 @@
 
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/regex.hpp>
 
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_show_handler.h"
@@ -13,6 +14,8 @@
 #include "bgp/routing-instance/route_aggregate_types.h"
 
 using boost::assign::list_of;
+using boost::regex;
+using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -20,6 +23,7 @@ static bool FillRouteAggregateInfoList(const BgpSandeshContext *bsc,
     bool summary, uint32_t page_limit, uint32_t iter_limit,
     const string &start_instance, const string &search_string,
     vector<AggregateRouteEntriesInfo> *are_list, string *next_instance) {
+    regex search_expr(search_string);
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     RoutingInstanceMgr::const_name_iterator it =
         rim->name_clower_bound(start_instance);
@@ -33,8 +37,7 @@ static bool FillRouteAggregateInfoList(const BgpSandeshContext *bsc,
                 static_cast<const BgpTable *>(rtinstance->GetTable(family));
             if (!table)
                 continue;
-            if (!search_string.empty() &&
-                (table->name().find(search_string) == string::npos) &&
+            if ((!regex_search(table->name(), search_expr)) &&
                 (search_string != "deleted" || !table->IsDeleted())) {
                 continue;
             }
