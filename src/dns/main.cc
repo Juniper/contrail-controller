@@ -19,7 +19,6 @@
 #include <ifmap/client/config_client_manager.h>
 #include <ifmap/ifmap_link_table.h>
 #include "ifmap/ifmap_sandesh_context.h"
-#include <ifmap/ifmap_server_parser.h>
 #include <ifmap/ifmap_server.h>
 #include <ifmap/ifmap_xmpp.h>
 #include <io/event_manager.h>
@@ -110,14 +109,8 @@ static string FileRead(const string &filename) {
 
 static void IFMap_Initialize(IFMapServer *server, ConfigClientManager *mgr) {
     IFMapLinkTable_Init(server->database(), server->graph());
-    // TODO Remove server parser
-    IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-    vnc_cfg_ParserInit(parser);
     vnc_cfg_JsonParserInit(mgr->config_json_parser());
     vnc_cfg_Server_ModuleInit(server->database(), server->graph());
-    // bgp_schema_ParserInit(parser);
-    // bgp_schema_Server_ModuleInit(server->database(), server->graph());
-    // bgp_schema_JsonParserInit(mgr->config_json_parser());
     server->Initialize();
 }
 

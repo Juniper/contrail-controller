@@ -127,12 +127,10 @@ class RtUnicastTest : public ::testing::Test {
     }
 
     void ApplyNetworkConfiguration() {
-        string netconf(
-            bgp_util::NetworkConfigGenerate(instance_names_, connections_));
         for (size_t i = 0; i < control_nodes_.size(); ++i) {
-            control_nodes_[i]->IFMapMessage(netconf);
+            bgp_util::NetworkConfigGenerate(control_nodes_[i]->config_db(),
+                instance_names_, connections_);
         }
-        task_util::WaitForIdle();
     }
 
     void AddConnection(const string &network1, const string &network2) {

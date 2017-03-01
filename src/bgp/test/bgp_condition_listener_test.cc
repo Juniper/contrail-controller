@@ -20,7 +20,6 @@
 #include "db/db_graph.h"
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
@@ -233,12 +232,8 @@ protected:
 
     virtual void SetUp() {
         ConcurrencyScope scope("bgp::Config");
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        vnc_cfg_ParserInit(parser);
-        bgp_schema_ParserInit(parser);
         BgpIfmapConfigManager *config_manager =
-                static_cast<BgpIfmapConfigManager *>(
-                    bgp_server_->config_manager());
+            static_cast<BgpIfmapConfigManager *>(bgp_server_->config_manager());
         config_manager->Initialize(&config_db_, &config_graph_, "localhost");
     }
 
@@ -247,16 +242,12 @@ protected:
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
         db_util::Clear(&config_db_);
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        parser->MetadataClear("schema");
     }
 
     void NetworkConfig(const vector<string> &instance_names,
                        const multimap<string, string> &connections) {
-        string netconf(
-            bgp_util::NetworkConfigGenerate(instance_names, connections));
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
+        bgp_util::NetworkConfigGenerate(&config_db_, instance_names,
+                                        connections);
     }
 
     void AddRoute(const string &instance_name, const string &prefix,

@@ -45,7 +45,6 @@
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
@@ -246,10 +245,6 @@ protected:
     }
 
     virtual void SetUp() {
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        bgp_schema_ParserInit(parser);
-        vnc_cfg_ParserInit(parser);
-
         cn1_.reset(new BgpServerTest(&evm_, "CN1"));
         cn1_->session_manager()->Initialize(0);
         LOG(DEBUG, "Created Control-Node 1 at port: " <<
@@ -389,20 +384,12 @@ protected:
         if (agent_a_2_) { agent_a_2_->Delete(); }
         if (agent_b_2_) { agent_b_2_->Delete(); }
 
-        IFMapCleanUp();
         task_util::WaitForIdle();
 
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
     }
-
-
-    void IFMapCleanUp() {
-        IFMapServerParser::GetInstance("vnc_cfg")->MetadataClear("vnc_cfg");
-        IFMapServerParser::GetInstance("schema")->MetadataClear("schema");
-    }
-
 
     void VerifyAllPeerUp(BgpServerTest *server) {
         TASK_UTIL_EXPECT_EQ_MSG(2, server->num_bgp_peer(),
@@ -501,13 +488,10 @@ protected:
                        const multimap<string, string> &connections,
                        const std::vector<string> &networks,
                        const std::vector<int> &network_ids) {
-        string netconf(bgp_util::NetworkConfigGenerate(
-            instance_names, connections, networks, network_ids));
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        parser->Receive(cn1_->config_db(), netconf.data(), netconf.length(), 0);
-        task_util::WaitForIdle();
-        parser->Receive(cn2_->config_db(), netconf.data(), netconf.length(), 0);
-        task_util::WaitForIdle();
+        bgp_util::NetworkConfigGenerate(cn1_->config_db(), instance_names,
+            connections, networks, network_ids);
+        bgp_util::NetworkConfigGenerate(cn2_->config_db(), instance_names,
+            connections, networks, network_ids);
     }
 
     void VerifyNetworkConfig(BgpServerTest *server,

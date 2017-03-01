@@ -83,9 +83,6 @@ BuildTest(env, 'ifmap_graph_walker_test', ['ifmap_graph_walker_test.cc'], [],
 BuildTest(env, 'ifmap_server_test', ['ifmap_server_test.cc'],
           [], ['schema/ifmap_vnc', 'schema/ifmapio', 'schema/bgp_schema'])
 
-BuildTest(env, 'ifmap_server_parser_test', ['ifmap_server_parser_test.cc'],
-          [], ['schema/ifmap_vnc', 'schema/ifmapio', 'schema/bgp_schema'])
-
 BuildTest(env, 'ifmap_server_table_test', ['ifmap_server_table_test.cc'],
           ['schema/ifmap_vnc', 'schema/ifmapio', 'schema/bgp_schema',
            'xml/xml'], [])

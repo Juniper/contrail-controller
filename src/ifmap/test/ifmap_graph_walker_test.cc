@@ -18,7 +18,6 @@
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_util.h"
 #include "ifmap/test/config_cassandra_client_test.h"

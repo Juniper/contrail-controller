@@ -23,7 +23,6 @@
 #include "db/test/db_test_util.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
@@ -2942,48 +2941,6 @@ TEST_F(BgpIfmapConfigManagerShowTest, RouteAggregate_Show) {
     task_util::WaitForIdle();
     test_ri = FindInstanceConfig("test");
     ASSERT_TRUE(test_ri == NULL);
-}
-
-
-
-class IFMapConfigTest : public ::testing::Test {
-  protected:
-    IFMapConfigTest()
-        : config_db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-          bgp_server_(new BgpServer(&evm_)) {
-    }
-    virtual void SetUp() {
-        IFMapLinkTable_Init(&config_db_, &config_graph_);
-        vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
-        bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        vnc_cfg_ParserInit(parser);
-        bgp_schema_ParserInit(parser);
-    }
-
-    virtual void TearDown() {
-        bgp_server_->Shutdown();
-        task_util::WaitForIdle();
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        parser->MetadataClear("schema");
-        db_util::Clear(&config_db_);
-    }
-
-    EventManager evm_;
-    DB config_db_;
-    DBGraph config_graph_;
-    boost::scoped_ptr<BgpServer> bgp_server_;
-};
-
-TEST_F(IFMapConfigTest, InitialConfig) {
-    BgpIfmapConfigManager *manager =
-            static_cast<BgpIfmapConfigManager *>(bgp_server_->config_manager());
-    manager->Initialize(&config_db_, &config_graph_, "system0001");
-    string content = FileRead("controller/src/bgp/testdata/initial-config.xml");
-    IFMapServerParser *parser =
-        IFMapServerParser::GetInstance("schema");
-    parser->Receive(&config_db_, content.data(), content.length(), 0);
-    task_util::WaitForIdle();
 }
 
 int main(int argc, char **argv) {
