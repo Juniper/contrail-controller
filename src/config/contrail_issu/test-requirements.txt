@@ -10,7 +10,6 @@ kazoo
 jsonpickle
 cfgm_common
 vnc_api
-discoveryclient
 sandesh
 sandesh-common
 vnc_cfg_api_server

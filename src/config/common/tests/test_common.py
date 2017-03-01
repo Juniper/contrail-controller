@@ -20,7 +20,6 @@ from netaddr import IPNetwork, IPAddress
 
 from vnc_api.vnc_api import *
 import kombu
-import discoveryclient.client as disc_client
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
 from cfgm_common import vnc_cgitb
@@ -467,12 +466,6 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         (pycassa.ConnectionPool, '__new__',FakeConnectionPool),
         (pycassa.ColumnFamily, '__new__',FakeCF),
         (pycassa.util, 'convert_uuid_to_time',Fake_uuid_to_time),
-
-        (disc_client.DiscoveryClient, '__init__',stub),
-        (disc_client.DiscoveryClient, 'publish_obj',stub),
-        (disc_client.DiscoveryClient, 'publish',stub),
-        (disc_client.DiscoveryClient, 'subscribe',stub),
-        (disc_client.DiscoveryClient, 'syslog',stub),
 
         (kazoo.client.KazooClient, '__new__',FakeKazooClient),
         (kazoo.handlers.gevent.SequentialGeventHandler, '__init__',stub),

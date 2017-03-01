@@ -34,12 +34,11 @@ def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
 
 AnalyticsEnv.Prepend(LIBS=['cpuinfo',
-        'ds',
         'io',
+        'vncapi',
         'sandesh',
         'httpc',
         'http',
-        'vncapi',
         'http_parser',
         'curl',
         'ruleparser',
@@ -78,7 +77,6 @@ if sys.platform != 'darwin':
 
 libs = MapBuildDir(['sandesh',
         'analytics/ruleparser',
-        'discovery/client',
         'http/client',
         'xml',
 	'database',
@@ -87,7 +85,8 @@ libs = MapBuildDir(['sandesh',
 	'net'])
 AnalyticsEnv.Append(LIBPATH=libs)
 
-includes = MapBuildDir(['http/client', 'discovery/client', 'analytics'])
+includes = MapBuildDir(['http/client', 'analytics'])
+
 AnalyticsEnv.Append(CPPPATH = [
                                includes,
                                AnalyticsEnv['TOP'],
@@ -241,7 +240,6 @@ CollectorDocFiles = []
 CollectorDocFiles += AnalyticsEnv['BASE_DOC_FILES']
 CollectorDocFiles += AnalyticsEnv['IO_DOC_FILES']
 CollectorDocFiles += AnalyticsEnv['SANDESH_DOC_FILES']
-CollectorDocFiles += AnalyticsEnv['DISCOVERY_CLIENT_DOC_FILES']
 CollectorDocFiles += AnalyticsEnv['ANALYTICS_DOC_FILES']
 CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('collector_uve.sandesh')
 CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('uflow.sandesh')

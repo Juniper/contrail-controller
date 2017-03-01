@@ -126,17 +126,9 @@ static void WaitForIdle() {
     }
 }
 
-static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
-    if (client) {
-        client->Shutdown();
-        delete client;
-    }
-}
-
 // Shutdown various server objects used in the control-node.
 static void ShutdownServers(
-    boost::scoped_ptr<BgpXmppChannelManager> *channel_manager,
-    DiscoveryServiceClient *dsclient) {
+    boost::scoped_ptr<BgpXmppChannelManager> *channel_manager) {
 
     // Bring down bgp server, xmpp server, etc. in the right order.
     BgpServer *bgp_server = (*channel_manager)->bgp_server();
@@ -165,9 +157,6 @@ static void ShutdownServers(
     channel_manager->reset();
     TcpServerManager::DeleteServer(xmpp_server);
     ControlNode::Shutdown();
-
-    // Shutdown Discovery Service Client
-    ShutdownDiscoveryClient(dsclient);
 
     ConnectionStateManager::
         GetInstance()->Shutdown();
@@ -211,24 +200,6 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
         state = ProcessState::NON_FUNCTIONAL;
         message = "BGP is administratively down";
     }
-}
-
-static bool ControlNodeReEvalPublishCb(const BgpServer *bgp_server,
-    const ConfigClientManager *config_client_manager, std::string &message) {
-    if (!config_client_manager->GetEndOfRibComputed()) {
-        message = "IFMap Server End-Of-RIB not computed";
-        return false;
-    }
-    if (!bgp_server->HasSelfConfiguration()) {
-        message = "No BGP configuration for self";
-        return false;
-    }
-    if (bgp_server->admin_down()) {
-        message = "BGP is administratively down";
-        return false;
-    }
-    message = "OK";
-    return true;
 }
 
 void ReConfigSignalHandler(int signum) {
@@ -339,39 +310,19 @@ int main(int argc, char *argv[]) {
     Sandesh::set_module_context("IFMap", &ifmap_sandesh_context);
 
     // Determine if the number of connections is as expected. At the moment,
-    // consider connections to collector, discovery server and IFMap (irond)
-    // servers as critical to the normal functionality of control-node.
+    // consider connections to collector, cassandra and rabbit servers
     //
     // 1. Collector client
-    // 2. Discovery Server publish XmppServer
-    // 3. Discovery Server subscribe Collector
-    // 4. Discovery Server subscribe IfmapServer
-    // 5. Cassandra Server
-    // 6. AMQP Server
+    // 2. Cassandra Server
+    // 3. AMQP Server
     std::vector<ConnectionTypeName> expected_connections;
-    if (options.discovery_server().empty()) {
-        expected_connections = boost::assign::list_of
+    expected_connections = boost::assign::list_of
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::COLLECTOR)->second, "Collector"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second, "Cassandra"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
                              ConnectionType::DATABASE)->second, "RabbitMQ"));
-    } else {
-        expected_connections = boost::assign::list_of
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DISCOVERY)->second,
-                             g_vns_constants.COLLECTOR_DISCOVERY_SERVICE_NAME))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::COLLECTOR)->second, "Collector"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DISCOVERY)->second,
-                             g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "Cassandra"))
-         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::DATABASE)->second, "RabbitMQ"));
-    }
 
     ConnectionStateManager::GetInstance()->Init(
         *evm.io_service(), options.hostname(),
@@ -380,113 +331,42 @@ int main(int argc, char *argv[]) {
                     bgp_server.get(), config_client_manager, _1, _2, _3,
                     expected_connections), "ObjectBgpRouter");
 
-    // Parse discovery server configuration.
-    DiscoveryServiceClient *ds_client = NULL;
-    tcp::endpoint dss_ep;
-    if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
-        options.discovery_server(), options.discovery_port(), &dss_ep)) {
+    if (!options.collectors_configured()) {
+        sandesh_generator_init = false;
+    }
 
-        // Create and initialize discovery client.
-        string subscriber_name =
-            g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
-        ds_client = new DiscoveryServiceClient(&evm, dss_ep, subscriber_name);
-        ds_client->Init();
-
-        // Publish xmpp-server service.
-        ControlNode::SetSelfIp(options.host_ip());
-        if (!options.host_ip().empty()) {
-            stringstream pub_ss;
-            const std::string &sname(
-                g_vns_constants.XMPP_SERVER_DISCOVERY_SERVICE_NAME);
-            pub_ss << "<" << sname << "><ip-address>" << options.host_ip() <<
-                "</ip-address><port>" << options.xmpp_port() <<
-                "</port></" << sname << ">";
-            string pub_msg;
-            pub_msg = pub_ss.str();
-            ds_client->Publish(sname, pub_msg,
-                boost::bind(&ControlNodeReEvalPublishCb,
-                    bgp_server.get(), config_client_manager, _1));
+    if (sandesh_generator_init) {
+        NodeType::type node_type = 
+            g_vns_constants.Module2NodeType.find(module)->second;
+        bool success;
+        if (options.collectors_configured()) {
+            success = Sandesh::InitGenerator(
+                    module_name,
+                    options.hostname(),
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    g_vns_constants.INSTANCE_ID_DEFAULT,
+                    &evm,
+                    options.http_server_port(),
+                    options.randomized_collector_server_list(),
+                    &sandesh_context,
+                    Sandesh::DerivedStats(),
+                    options.sandesh_config());
+        } else {
+            success = Sandesh::InitGenerator(
+                    g_vns_constants.ModuleNames.find(module)->second,
+                    options.hostname(),
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    g_vns_constants.INSTANCE_ID_DEFAULT,
+                    &evm,
+                    options.http_server_port(),
+                    &sandesh_context,
+                    Sandesh::DerivedStats(),
+                    options.sandesh_config());
         }
-
-        // Subscribe to collector service if collector isn't explicitly configured.
-        if (!options.collectors_configured()) {
-            Module::type module = Module::CONTROL_NODE;
-            NodeType::type node_type =
-                g_vns_constants.Module2NodeType.find(module)->second;
-            string subscriber_name =
-                g_vns_constants.ModuleNames.find(module)->second;
-            string node_type_name =
-                g_vns_constants.NodeTypeNames.find(node_type)->second;
-            Sandesh::CollectorSubFn csf = 0;
-            csf = boost::bind(&DiscoveryServiceClient::Subscribe,
-                              ds_client, _1, _2, _3);
-            vector<string> list;
-            bool success(Sandesh::InitGenerator(subscriber_name,
-                                   options.hostname(),
-                                   node_type_name,
-                                   g_vns_constants.INSTANCE_ID_DEFAULT,
-                                   &evm,
-                                   options.http_server_port(),
-                                   csf,
-                                   list,
-                                   &sandesh_context,
-                                   Sandesh::DerivedStats(),
-                                   options.sandesh_config()));
-            if (!success) {
-                LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-                ShutdownServers(&bgp_peer_manager, ds_client);
-                exit(1);
-            }
-        }
-        ControlNode::SetDiscoveryServiceClient(ds_client);
-    } else {
-        LOG(ERROR, "No Discovery Server hostname or address " <<
-            options.discovery_server());
-
-        /* If Sandesh initialization is not being done via discovery we need to
-         * initialize here. We need to do sandesh initialization here for cases
-         * (i) When both Discovery and Collectors are configured.
-         * (ii) When both are not configured (to initialize introspect)
-         * (iii) When only collector is configured
-         */
-        if (!options.discovery_server().empty() &&
-            !options.collectors_configured()) {
-            sandesh_generator_init = false;
-        }
-
-        if (sandesh_generator_init) {
-            NodeType::type node_type = 
-                g_vns_constants.Module2NodeType.find(module)->second;
-            bool success;
-            if (options.collectors_configured()) {
-                success = Sandesh::InitGenerator(
-                        module_name,
-                        options.hostname(),
-                        g_vns_constants.NodeTypeNames.find(node_type)->second,
-                        g_vns_constants.INSTANCE_ID_DEFAULT,
-                        &evm,
-                        options.http_server_port(), 0,
-                        options.randomized_collector_server_list(),
-                        &sandesh_context,
-                        Sandesh::DerivedStats(),
-                        options.sandesh_config());
-            } else {
-                success = Sandesh::InitGenerator(
-                        g_vns_constants.ModuleNames.find(module)->second,
-                        options.hostname(),
-                        g_vns_constants.NodeTypeNames.find(node_type)->second,
-                        g_vns_constants.INSTANCE_ID_DEFAULT,
-                        &evm,
-                        options.http_server_port(),
-                        &sandesh_context,
-                        Sandesh::DerivedStats(),
-                        options.sandesh_config());
-            }
-            if (!success) {
-                LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-                Sandesh::Uninit();
-                exit(1);
-            }
+        if (!success) {
+            LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+            Sandesh::Uninit();
+            exit(1);
         }
     }
 
@@ -503,7 +383,7 @@ int main(int argc, char *argv[]) {
     // Event loop.
     evm.Run();
 
-    ShutdownServers(&bgp_peer_manager, ds_client);
+    ShutdownServers(&bgp_peer_manager);
     BgpServer::Terminate();
     return 0;
 }

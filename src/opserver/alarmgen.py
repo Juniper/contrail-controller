@@ -46,8 +46,7 @@ from sandesh.nodeinfo.process_info.ttypes import *
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
-     INSTANCE_ID_DEFAULT, COLLECTOR_DISCOVERY_SERVICE_NAME,\
-     ALARM_GENERATOR_SERVICE_NAME
+     INSTANCE_ID_DEFAULT, ALARM_GENERATOR_SERVICE_NAME
 from alarmgen_cfg import CfgParser
 from uveserver import UVEServer
 from partition_handler import PartitionHandler, UveStreamProc
@@ -64,12 +63,10 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     AlarmStateChangeTrace, UVEQTrace, AlarmConfig, AlarmConfigRequest, \
     AlarmConfigResponse, AlarmgenUVEStats, AlarmgenAlarmStats
 
-from sandesh.discovery.ttypes import CollectorTrace
 from opserver_util import AnalyticsDiscovery
 from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
 from libpartition.libpartition import PartitionClient
-import discoveryclient.client as client 
 from kafka import KafkaClient, SimpleProducer
 import redis
 from collections import namedtuple
@@ -875,16 +872,9 @@ class Controller(object):
         self._instance_id = self._conf.worker_id()
         self._disable_cb = False
 
-        self.disc = None
         self._libpart_name = self._conf.host_ip() + ":" + self._instance_id
         self._libpart = None
         self._partset = set()
-        if self._conf.discovery()['server']:
-            self.disc = client.DiscoveryClient(
-                self._conf.discovery()['server'],
-                self._conf.discovery()['port'],
-                ModuleNames[Module.ALARM_GENERATOR],
-                '%s-%s' % (self._hostname, self._instance_id))
 
         is_collector = True
         if test_logger is not None:
@@ -906,7 +896,6 @@ class Controller(object):
                                       self._conf.http_port(),
                                       ['opserver.sandesh', 'sandesh'],
                                       host_ip=self._conf.host_ip(),
-                                      discovery_client=self.disc,
                                       connect_to_collector = is_collector,
                                       alarm_ack_callback=self.alarm_ack_callback,
                                       config=self._conf.sandesh_config())
@@ -1005,14 +994,13 @@ class Controller(object):
         # Create config handler to read/update alarm config
         rabbitmq_params = self._conf.rabbitmq_params()
         self._config_handler = AlarmGenConfigHandler(self._sandesh,
-            self._moduleid, self._instance_id, self.config_log, self.disc,
+            self._moduleid, self._instance_id, self.config_log,
             self._conf.keystone_params(), rabbitmq_params, self.mgrs,
             self.alarm_config_change_callback)
-        if rabbitmq_params['servers'] and self.disc:
+        if rabbitmq_params['servers']:
             self._config_handler.start()
         else:
-            self._logger.error('Rabbitmq server and/or Discovery server '
-                'not configured')
+            self._logger.error('Rabbitmq server not configured ')
 
         PartitionOwnershipReq.handle_request = self.handle_PartitionOwnershipReq
         PartitionStatusReq.handle_request = self.handle_PartitionStatusReq

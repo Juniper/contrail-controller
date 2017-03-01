@@ -13,7 +13,6 @@ env.Alias('controller/test', [
     'controller/src/bgp:test',
     'controller/src/control-node:test',
     'controller/src/db:test',
-    'controller/src/discovery:test',
     'controller/src/dns:test',
     'controller/src/database/gendb:test',
     'controller/src/ifmap:test',

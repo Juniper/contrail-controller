@@ -23,8 +23,7 @@ from database.sandesh.database.ttypes import \
     CassandraStatusData,CassandraThreadPoolStats, CassandraCompactionTask
 
 class DatabaseEventManager(EventManager):
-    def __init__(self, rule_file, unit_names, discovery_server,
-                 discovery_port, collector_addr, sandesh_config,
+    def __init__(self, rule_file, unit_names, collector_addr, sandesh_config,
                  hostip, minimum_diskgb, contrail_databases,
                  cassandra_repair_interval,
                  cassandra_repair_logdir):
@@ -45,8 +44,8 @@ class DatabaseEventManager(EventManager):
             sandesh_packages = ['database.sandesh'],
             unit_names = unit_names)
         EventManager.__init__(
-            self, type_info, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global, sandesh_config)
+            self, type_info, rule_file,
+            collector_addr, sandesh_global, sandesh_config)
         self.hostip = hostip
         self.minimum_diskgb = minimum_diskgb
         self.contrail_databases = contrail_databases

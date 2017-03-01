@@ -14,7 +14,6 @@ import traceback
 import uuid
 import struct
 import socket
-import discoveryclient.client as client 
 from pysandesh.util import UTCTimestampUsec
 import select
 import redis
@@ -660,7 +659,6 @@ class UveStreamProc(PartitionHandler):
     #              and get sync contents for new collectors
     #  aginst    : instance_id of alarmgen
     #  rport     : redis server port
-    #  disc      : discovery client to publish to
     def __init__(self, brokers, partition, uve_topic, logger, callback,
             host_ip, rsc, aginst, rport, group="-workers"):
         super(UveStreamProc, self).__init__(brokers, group, 

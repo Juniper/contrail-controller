@@ -1,6 +1,5 @@
 cfgm_common
 vnc_api
-discoveryclient
 sandesh
 sandesh-common
 gevent==1.1a2
