@@ -166,7 +166,6 @@ protected:
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
     ConfigCassandraClientTest *config_cassandra_client_;
-    IFMapServerParser *parser_;
     IFMapVmUuidMapper *vm_uuid_mapper_;
 };
 

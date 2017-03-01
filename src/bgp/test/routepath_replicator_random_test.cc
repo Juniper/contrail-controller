@@ -142,9 +142,6 @@ protected:
 
     virtual void SetUp() {
         InitParams();
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        vnc_cfg_ParserInit(parser);
-        bgp_schema_ParserInit(parser);
         BgpIfmapConfigManager *config_manager =
                 static_cast<BgpIfmapConfigManager *>(
                     bgp_server_->config_manager());
@@ -161,9 +158,6 @@ protected:
         task_util::WaitForIdle();
         db_util::Clear(&config_db_);
         task_util::WaitForIdle();
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        parser->MetadataClear("schema");
-        task_util::WaitForIdle();
     }
 
     void InitParams() {
@@ -174,11 +168,8 @@ protected:
 
     void NetworkConfig(const VrfList &instance_names,
                        const ConnectionMap &connections) {
-        string netconf(
-            bgp_util::NetworkConfigGenerate(instance_names, connections));
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("schema");
-        parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
+        bgp_util::NetworkConfigGenerate(&config_db_, instance_names,
+                                        connections);
     }
 
     void DeleteRoutingInstance(string name, bool wait = true) {

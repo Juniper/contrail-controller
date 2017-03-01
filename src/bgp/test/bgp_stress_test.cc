@@ -456,10 +456,6 @@ void BgpStressTest::IFMapInitialize(const string &hostname) {
         set_config_client_manager(config_client_manager_.get());
 
     IFMapLinkTable_Init(ifmap_server_->database(), ifmap_server_->graph());
-    IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-    vnc_cfg_ParserInit(parser);
-    bgp_schema_ParserInit(parser);
-
     vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
     vnc_cfg_Server_ModuleInit(ifmap_server_->database(),
                               ifmap_server_->graph());
@@ -481,7 +477,6 @@ void BgpStressTest::IFMapCleanUp() {
     WaitForIdle();
 
     config_db_->Clear();
-    IFMapServerParser::GetInstance("vnc_cfg")->MetadataClear("vnc_cfg");
 }
 
 void BgpStressTest::SetUp() {
