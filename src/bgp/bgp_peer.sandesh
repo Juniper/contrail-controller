@@ -265,6 +265,7 @@ struct ShowRoutingInstance {
     9: string deleted_at;                           // Delete timestamp
     2: optional list<ShowRoutingInstanceTable> tables;
     11: optional list<ShowInstanceRoutingPolicyInfo> routing_policies;
+    14: optional list<string> neighbors;
 }
 
 response sandesh ShowRoutingInstanceResp {
