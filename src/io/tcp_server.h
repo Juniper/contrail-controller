@@ -93,6 +93,7 @@ public:
                            const std::string &md5_password);
     int SetListenSocketMd5Option(uint32_t peer_ip,
                                  const std::string &md5_password);
+    int SetDscpSocketOption(int fd, uint8_t value);
 
 protected:
     typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;

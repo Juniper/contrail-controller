@@ -55,6 +55,7 @@ XmppConnection::XmppConnection(TcpServer *server,
       from_(config->FromAddr),
       to_(config->ToAddr),
       auth_enabled_(config->auth_enabled),
+      dscp_value_(config->dscp_value),
       state_machine_(XmppObjectFactory::Create<XmppStateMachine>(
           this, config->ClientOnly(), config->auth_enabled)),
       mux_(XmppObjectFactory::Create<XmppChannelMux>(this)) {
@@ -86,6 +87,9 @@ void XmppConnection::set_session(XmppSession *session) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     assert(session);
     session_ = session;
+    if (session_ && dscp_value_) {
+        session_->SetDscpSocketOption(dscp_value_);
+    }
 }
 
 void XmppConnection::clear_session() {
@@ -242,6 +246,15 @@ bool XmppConnection::Send(const uint8_t *data, size_t size,
     stats_[1].update++;
     size_t sent;
     return session_->Send(data, size, &sent);
+}
+
+int XmppConnection::SetDscpValue(uint8_t value) {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    dscp_value_ = value;
+    if (!session_) {
+        return 0;
+    }
+    return session_->SetDscpSocketOption(value);
 }
 
 bool XmppConnection::SendOpen(XmppSession *session) {

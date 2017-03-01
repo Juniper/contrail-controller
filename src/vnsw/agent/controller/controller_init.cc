@@ -13,6 +13,7 @@
 #include "cmn/agent_cmn.h"
 #include "xmpp/xmpp_init.h"
 #include "pugixml/pugixml.hpp"
+#include "oper/global_qos_config.h"
 #include "oper/vrf.h"
 #include "oper/peer.h"
 #include "oper/mirror_table.h"
@@ -130,6 +131,18 @@ void VNController::SetAgentMcastLabelRange(uint8_t idx) {
         str.str();
 }
 
+void VNController::SetDscpConfig(XmppChannelConfig *xmpp_cfg) const {
+    GlobalQosConfig* qos = NULL;
+    if (agent_->oper_db()) {
+        qos = agent_->oper_db()->global_qos_config();
+    }
+    if (qos && qos->control_dscp() != GlobalQosConfig::kInvalidDscp) {
+        xmpp_cfg->dscp_value = qos->control_dscp();
+    } else {
+        xmpp_cfg->dscp_value = 0;
+    }
+}
+
 void VNController::XmppServerConnect() {
 
     uint8_t count = 0;
@@ -167,6 +180,7 @@ void VNController::XmppServerConnect() {
                 port = XMPP_SERVER_PORT;
             }
             xmpp_cfg->endpoint.port(port);
+            SetDscpConfig(xmpp_cfg);
 
             // Create Xmpp Client
             XmppClient *client = new XmppClient(agent_->event_manager(), xmpp_cfg);
@@ -252,6 +266,7 @@ void VNController::DnsXmppServerConnect() {
                 xmpp_cfg_dns->path_to_server_priv_key =  agent_->xmpp_server_key();
                 xmpp_cfg_dns->path_to_ca_cert =  agent_->xmpp_ca_cert();
             }
+            SetDscpConfig(xmpp_cfg_dns);
 
             // Create Xmpp Client
             XmppClient *client_dns = new XmppClient(agent_->event_manager(),

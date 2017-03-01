@@ -213,6 +213,7 @@ public:
     void SwapXmppStateMachine(XmppConnection *other) {
         state_machine_.swap(other->state_machine_);
     }
+    int SetDscpValue(uint8_t value);
 
     void inc_connect_error();
     void inc_session_close();
@@ -259,6 +260,7 @@ private:
     std::string from_; // bare jid
     std::string to_;
     bool auth_enabled_;
+    uint8_t dscp_value_;
     mutable std::string uve_key_str_;
 
     boost::scoped_ptr<XmppStateMachine> state_machine_;

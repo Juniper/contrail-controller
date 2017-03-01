@@ -1105,6 +1105,7 @@ public:
 
     static uint16_t ProtocolStringToInt(const std::string &str);
     VrouterObjectLimits GetVrouterObjectLimits();
+    void SetXmppDscp(uint8_t val);
 
 private:
 
