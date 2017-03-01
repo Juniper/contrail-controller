@@ -15,7 +15,6 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_server_table.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
 #include "schema/vnc_cfg_types.h"

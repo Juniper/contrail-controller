@@ -2,14 +2,8 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_cass2json_adapter.h"
-#include "ifmap/client/config_cassandra_client.h"
-#include "ifmap/client/config_client_manager.h"
-#include "ifmap/client/config_json_parser.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_sandesh_context.h"
-#include <fstream>
 #include <string>
 
 #include <boost/foreach.hpp>
@@ -30,16 +24,11 @@
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/test/event_manager_test.h"
 
-#include "rapidjson/document.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
 
 using namespace std;
-using contrail_rapidjson::Document;
-using contrail_rapidjson::SizeType;
-using contrail_rapidjson::Value;
-
 
 class ConfigJsonParserTest : public ::testing::Test {
 protected:
@@ -50,8 +39,6 @@ protected:
         config_client_manager_(new ConfigClientManager(&evm_,
             ifmap_server_.get(), "localhost", "config-test", config_options_)),
         ifmap_sandesh_context_(new IFMapSandeshContext(ifmap_server_.get())) {
-            config_cassandra_client_=dynamic_cast<ConfigCassandraClientTest *>(
-                config_client_manager_->config_db_client());
     }
 
     void SandeshSetup() {
@@ -101,76 +88,6 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void ParseEventsJson (string eventsFile) {
-        string json_message = FileRead(eventsFile);
-        assert(json_message.size() != 0);
-        Document *doc = config_cassandra_client_->events();
-        doc->Parse<0>(json_message.c_str());
-        if (doc->HasParseError()) {
-            size_t pos = doc->GetErrorOffset();
-            // GetParseError returns const char *
-            std::cout << "Error in parsing JSON message from rabbitMQ at "
-                << pos << "with error description"
-                << doc->GetParseError()
-                << std::endl;
-            exit(-1);
-        }
-
-        if (doc->IsObject() && doc->HasMember("cassandra") &&
-                (*doc)["cassandra"].HasMember("config_db_uuid")) {
-            Document *db_load = config_cassandra_client_->db_load();
-            Document::AllocatorType &a = db_load->GetAllocator();
-            db_load->SetArray();
-            Value v;
-            db_load->PushBack(v.SetObject(), a);
-            (*db_load)[0].AddMember("operation", "db_sync", a);
-            (*db_load)[0].AddMember("OBJ_FQ_NAME_TABLE",
-                (*doc)["cassandra"]["config_db_uuid"]["obj_fq_name_table"], a);
-            (*db_load)[0].AddMember("db",
-                (*doc)["cassandra"]["config_db_uuid"]["obj_uuid_table"], a);
-        } else if (doc->IsObject() && doc->HasMember("cassandra") &&
-                (*doc)["cassandra"].HasMember("obj_fq_name_table")) {
-            Document *db_load = config_cassandra_client_->db_load();
-            Document::AllocatorType &a = db_load->GetAllocator();
-            db_load->SetArray();
-            Value v;
-            db_load->PushBack(v.SetObject(), a);
-            (*db_load)[0].AddMember("operation", "db_sync", a);
-            (*db_load)[0].AddMember("OBJ_FQ_NAME_TABLE",
-                (*doc)["cassandra"]["obj_fq_name_table"], a);
-            (*db_load)[0].AddMember("db",
-                (*doc)["cassandra"]["obj_uuid_table"], a);
-        }
-    }
-
-    void FeedEventsJson () {
-        Document *events = config_cassandra_client_->events();
-        while ((*config_cassandra_client_->cevent())++ < events->Size()) {
-            size_t cevent = *config_cassandra_client_->cevent() - 1;
-            if ((*events)[SizeType(cevent)]["operation"].GetString() ==
-                           string("pause")) {
-                break;
-            }
-
-            if ((*events)[SizeType(cevent)]["operation"].GetString() ==
-                           string("db_sync")) {
-                config_cassandra_client_->BulkDataSync();
-                continue;
-            }
-
-            config_client_manager_->config_amqp_client()->ProcessMessage(
-                (*events)[SizeType(cevent)]["message"].GetString());
-        }
-        task_util::WaitForIdle();
-    }
-
-    string FileRead(const string &filename) {
-        ifstream file(filename.c_str());
-        string content((istreambuf_iterator<char>(file)),
-                       istreambuf_iterator<char>());
-        return content;
-    }
-
     IFMapNode *NodeLookup(const string &type, const string &name) {
         return ifmap_test_util::IFMapNodeLookup(&db_, type, name);
     }
@@ -183,6 +100,15 @@ protected:
         return (link ? (link->IsDeleted() ? NULL : link) : NULL);
     }
 
+    void ParseEventsJson(std::string events_file) {
+        ConfigCassandraClientTest::ParseEventsJson(config_client_manager_.get(),
+                events_file);
+    }
+
+    void FeedEventsJson() {
+        ConfigCassandraClientTest::FeedEventsJson(config_client_manager_.get());
+    }
+
     EventManager evm_;
     ServerThread thread_;
     DB db_;
@@ -191,7 +117,6 @@ protected:
     boost::scoped_ptr<IFMapServer> ifmap_server_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
-    ConfigCassandraClientTest *config_cassandra_client_;
 };
 
 TEST_F(ConfigJsonParserTest, BulkSync) {
@@ -1320,7 +1245,8 @@ TEST_F(ConfigJsonParserTest, MissingFQNameField) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
 
-    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test17_1.json");
+    ParseEventsJson(
+        "controller/src/ifmap/testdata/server_parser_test17_1.json");
     FeedEventsJson();
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);

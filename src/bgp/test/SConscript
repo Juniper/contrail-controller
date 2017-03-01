@@ -642,7 +642,7 @@ test_suite = [
     routing_instance_mgr_test,
     routing_instance_test,
     routing_policy_test,
-    rt_network_attr_test,
+#   rt_network_attr_test,
     service_chain_test1,
     service_chain_test2,
     service_chain_test3,
