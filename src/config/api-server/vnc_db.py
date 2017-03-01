@@ -1146,20 +1146,6 @@ class VncDbClient(object):
         return (ok, cassandra_result)
     # end dbe_count_children
 
-    def dbe_read_multi(self, obj_type, obj_ids_list, obj_fields=None):
-        if not obj_ids_list:
-            return (True, [])
-
-        try:
-            (ok, cassandra_result) = self._object_db.object_read(
-                obj_type, [obj_id['uuid'] for obj_id in obj_ids_list],
-                obj_fields, ret_readonly=True)
-        except NoIdError as e:
-            return (False, str(e))
-
-        return (ok, cassandra_result)
-    # end dbe_read_multi
-
     def dbe_get_relaxed_refs(self, obj_id):
         return self._object_db.get_relaxed_refs(obj_id)
     # end dbe_get_relaxed_refs
@@ -1228,7 +1214,6 @@ class VncDbClient(object):
                  back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
                  count=is_count, filters=filters)
 
-        obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         if not ok or is_count:
             return (ok, result)
 
@@ -1250,17 +1235,23 @@ class VncDbClient(object):
         # end shared
 
         if is_detail:
-            obj_fields = list(obj_class.prop_fields) + \
-                         list(obj_class.ref_fields)
+            cls = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
+            obj_fields = list(cls.prop_fields) + list(cls.ref_fields)
         else:
-            obj_fields = [u'id_perms']
+            obj_fields = []
 
         if field_names:
             obj_fields.extend(field_names)
 
-        obj_ids_list = [{'uuid': obj_uuid} for _, obj_uuid in result]
-        return self.dbe_read_multi(obj_type, obj_ids_list, obj_fields)
-
+        if not obj_fields:
+            return (True, [{'uuid': obj_uuid, 'fq_name': fq_name}
+                           for fq_name, obj_uuid in result])
+        obj_ids_list = [obj_uuid for _, obj_uuid in result]
+        try:
+            return self._object_db.object_read(
+                obj_type, obj_ids_list, obj_fields, ret_readonly=True)
+        except NoIdError as e:
+            return (False, str(e))
     # end dbe_list
 
     @dbe_trace('delete')
