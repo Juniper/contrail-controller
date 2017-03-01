@@ -363,6 +363,9 @@ const string ANALYTICS_START        = "ANALYTICS_START_TIME"
 const i32 RowTimeInBits             = 23
 const i32 RowTimeInMask             = 0x7fffff
 
+// this is equivalent of 2^(23+5) = 268435456 usec
+const i32 CacheTimeInAdditionalBits = 5
+
 enum PartType {
     PART_TYPE_INVALID= 0,
     PART_TYPE_CNODES = 1,
@@ -672,6 +675,7 @@ const string STAT_TIME_FIELD     = "T";
 const string STAT_TIMEBIN_FIELD  = "T=";
 const string STAT_UUID_FIELD     = "UUID";
 const string STAT_VT_PREFIX      = "StatTable";
+const string STAT_VT_FIELDNAMES_PREFIX = "StatTable.FieldNames.";
 
 const list<table_schema> _VIZD_TABLE_SCHEMA = [
 {
