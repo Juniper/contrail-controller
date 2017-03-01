@@ -8,7 +8,6 @@ import sys
 env = BuildEnv.Clone()
 
 env.Append(CPPPATH = env['TOP'])
-env.Append(CPPPATH = env['TOP'] + '/discovery/client')
 env.Append(CPPPATH = env['TOP'] + '/ifmap/client/test')
 
 env.Append(LIBPATH = env['TOP'] + '/io')
@@ -22,11 +21,10 @@ env.Append(LIBPATH = env['TOP'] + '/ifmap/test')
 env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/schema')
-env.Append(LIBPATH = env['TOP'] + '/discovery/client')
 
 env.Prepend(LIBS = [
                     'ifmapio', 'bgp_schema', 'ifmap_vnc', 'ifmap_server',
-                    'ds', 'xmpp', 'peer_sandesh',
+                    'xmpp', 'peer_sandesh',
                     'sandesh', 'http', 'http_parser', 'httpc',
                     'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
                     'ifmap_common', 'bgp_schema', 'ifmap_vnc', 
@@ -35,7 +33,7 @@ env.Prepend(LIBS = [
                     'base', 'gunit', 'crypto', 'ssl', 'boost_regex',
                     'ifmapio', 'libbgp_schema',
                     'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
-                    'cassandra', 'gendb', 'ds', 'httpc',
+                    'cassandra', 'gendb', 'httpc',
                     'SimpleAmqpClient', 'rabbitmq'
                    ])
 

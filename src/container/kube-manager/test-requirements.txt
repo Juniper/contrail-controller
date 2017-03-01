@@ -13,3 +13,4 @@ sandesh-common
 vnc_cfg_api_server
 urllib3
 bitstring
+pycassa>=1.7.2
