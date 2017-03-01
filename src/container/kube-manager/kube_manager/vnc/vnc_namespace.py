@@ -159,8 +159,7 @@ class VncNamespace(object):
         # Clear network info from namespace entry.
         self._set_namespace_virtual_network(ns_name, None)
 
-    def _create_default_security_group(self, proj_obj, network_policy):
-        DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
+    def _create_security_groups(self, ns_name, proj_obj, network_policy):
         def _get_rule(ingress, sg, prefix, ethertype):
             sgr_uuid = str(uuid.uuid4())
             if sg:
@@ -194,20 +193,31 @@ class VncNamespace(object):
                 if isolation == 'DefaultDeny':
                     ingress = False
         if ingress:
-            rules.append(_get_rule(True, 'default', None, 'IPv4'))
-            rules.append(_get_rule(True, 'default', None, 'IPv6'))
+            rules.append(_get_rule(True, None, '0.0.0.0', 'IPv4'))
+            rules.append(_get_rule(True, None, '::', 'IPv6'))
         if egress:
             rules.append(_get_rule(False, None, '0.0.0.0', 'IPv4'))
             rules.append(_get_rule(False, None, '::', 'IPv6'))
         sg_rules = PolicyEntriesType(rules)
 
-        # create security group
+        # create default security group
+        DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
         id_perms = IdPermsType(enable=True,
                                description=DEFAULT_SECGROUP_DESCRIPTION)
         sg_obj = SecurityGroup(name='default', parent_obj=proj_obj,
                                id_perms=id_perms,
                                security_group_entries=sg_rules)
+        self._vnc_lib.security_group_create(sg_obj)
+        self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
 
+        # create namespace security group
+        NAMESPACE_SECGROUP_DESCRIPTION = "Namespace security group"
+        id_perms = IdPermsType(enable=True,
+                               description=NAMESPACE_SECGROUP_DESCRIPTION)
+        ns_sg_name = "ns-" + ns_name
+        sg_obj = SecurityGroup(name=ns_sg_name, parent_obj=proj_obj,
+                               id_perms=id_perms,
+                               security_group_entries=None)
         self._vnc_lib.security_group_create(sg_obj)
         self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
 
@@ -228,7 +238,7 @@ class VncNamespace(object):
             if annotations and \
                'net.beta.kubernetes.io/network-policy' in annotations:
                 network_policy = json.loads(annotations['net.beta.kubernetes.io/network-policy'])
-            self._create_default_security_group(proj_obj, network_policy)
+            self._create_security_groups(name, proj_obj, network_policy)
         except RefsExistError:
             pass
 
