@@ -159,7 +159,7 @@ class VncNamespace(object):
         # Clear network info from namespace entry.
         self._set_namespace_virtual_network(ns_name, None)
 
-    def _create_default_security_group(self, proj_obj, network_policy):
+    def _create_default_security_group(self, ns_name, proj_obj, network_policy):
         DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
         def _get_rule(ingress, sg, prefix, ethertype):
             sgr_uuid = str(uuid.uuid4())
@@ -194,8 +194,12 @@ class VncNamespace(object):
                 if isolation == 'DefaultDeny':
                     ingress = False
         if ingress:
-            rules.append(_get_rule(True, 'default', None, 'IPv4'))
-            rules.append(_get_rule(True, 'default', None, 'IPv6'))
+            if self._is_namespace_isolated(ns_name):
+                rules.append(_get_rule(True, 'default', None, 'IPv4'))
+                rules.append(_get_rule(True, 'default', None, 'IPv6'))
+            else:
+                rules.append(_get_rule(True, None, '0.0.0.0', 'IPv4'))
+                rules.append(_get_rule(True, None, '::', 'IPv6'))
         if egress:
             rules.append(_get_rule(False, None, '0.0.0.0', 'IPv4'))
             rules.append(_get_rule(False, None, '::', 'IPv6'))
@@ -228,7 +232,7 @@ class VncNamespace(object):
             if annotations and \
                'net.beta.kubernetes.io/network-policy' in annotations:
                 network_policy = json.loads(annotations['net.beta.kubernetes.io/network-policy'])
-            self._create_default_security_group(proj_obj, network_policy)
+            self._create_default_security_group(name, proj_obj, network_policy)
         except RefsExistError:
             pass
 
