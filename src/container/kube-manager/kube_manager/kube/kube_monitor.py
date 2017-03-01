@@ -10,6 +10,9 @@ import eventlet
 import json
 import requests
 
+from cStringIO import StringIO
+from cfgm_common.utils import cgitb_hook
+
 class KubeMonitor(object):
 
     def __init__(self, args=None, logger=None, q=None, db=None,
@@ -238,7 +241,10 @@ class KubeMonitor(object):
         except ValueError:
             self.logger.error("Invalid JSON data from response stream:%s" % line)
         except Exception as e:
-            self.logger.error("%s - %s" %(self.name, e))
+            string_buf = StringIO()
+            cgitb_hook(file=string_buf, format="text")
+            err_msg = string_buf.getvalue()
+            self.logger.error("%s - %s" %(self.name, err_msg))
 
     def process_event(self, event):
         """Process an event."""

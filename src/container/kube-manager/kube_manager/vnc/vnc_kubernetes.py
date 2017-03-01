@@ -13,8 +13,10 @@ import requests
 import argparse
 import uuid
 
+from cStringIO import StringIO
 from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
+from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api.vnc_api import *
 from config_db import *
@@ -293,4 +295,7 @@ class VncKubernetes(object):
             except Empty:
                 gevent.sleep(0)
             except Exception as e:
-                self.logger.error("%s - %s" %(self._name, e))
+                string_buf = StringIO()
+                cgitb_hook(file=string_buf, format="text")
+                err_msg = string_buf.getvalue()
+                self.logger.error("%s - %s" %(self._name, err_msg))
