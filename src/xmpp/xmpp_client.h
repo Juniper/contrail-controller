@@ -12,6 +12,7 @@
 #include "xmpp/xmpp_config.h"
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_connection_manager.h"
+#include "xmpp/xmpp_init.h"
 
 class LifetimeActor;
 class LifetimeManager;
@@ -50,6 +51,7 @@ public:
 
     LifetimeManager *lifetime_manager();
     virtual LifetimeActor *deleter();
+    int SetDscpValue(uint8_t value);
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);

@@ -37,6 +37,7 @@
 #include <oper/mirror_table.h>
 #include <oper/mpls.h>
 #include <oper/peer.h>
+#include <xmpp/xmpp_client.h>
 
 #include <filter/acl.h>
 
@@ -1010,6 +1011,19 @@ bool Agent::MeasureQueueDelay() {
 
 void Agent::SetMeasureQueueDelay(bool val) {
     return params_->set_measure_queue_delay(val);
+}
+
+void Agent::SetXmppDscp(uint8_t val) {
+    for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
+        XmppClient *client = xmpp_client_[count];
+        if (client) {
+            client->SetDscpValue(val);
+        }
+        client = dns_xmpp_client_[count];
+        if (client) {
+            client->SetDscpValue(val);
+        }
+    }
 }
 
 VrouterObjectLimits Agent::GetVrouterObjectLimits() {

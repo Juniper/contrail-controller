@@ -27,20 +27,22 @@ public:
 
     BindResolver(boost::asio::io_service &io, 
                  const std::vector<DnsServer> &dns_servers,
-                 uint16_t client_port, Callback cb);
+                 uint16_t client_port, Callback cb, uint8_t dscp);
     virtual ~BindResolver();
     void SetupResolver(const DnsServer &server, uint8_t idx);
     bool DnsSend(uint8_t *pkt, unsigned int dns_srv_index, std::size_t len);
     bool DnsSend(uint8_t *pkt, boost::asio::ip::udp::endpoint ep,
                  std::size_t len);
+    void SetDscpValue(uint8_t val);
 
     static void Init(boost::asio::io_service &io,
                      const std::vector<DnsServer> &dns_servers,
-                     uint16_t client_port, Callback cb);
+                     uint16_t client_port, Callback cb, uint8_t dscp);
     static void Shutdown();
     static BindResolver *Resolver() { return resolver_; }
 
 private:
+    void SetDscpSocketOption();
     void AsyncRead();
     void DnsSendHandler(const boost::system::error_code &error,
                         std::size_t length, uint8_t *pkt);
@@ -51,6 +53,7 @@ private:
     Callback cb_;
     boost::asio::ip::udp::socket sock_;
     std::vector<boost::asio::ip::udp::endpoint *> dns_ep_;
+    uint8_t dscp_value_;
     static BindResolver *resolver_;
 
     DISALLOW_COPY_AND_ASSIGN(BindResolver);

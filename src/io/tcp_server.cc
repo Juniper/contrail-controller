@@ -482,6 +482,21 @@ int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
     return retval;
 }
 
+int TcpServer::SetDscpSocketOption(int fd, uint8_t value) {
+    int retval = setsockopt(fd, IPPROTO_IP, IP_TOS, &value, sizeof(value));
+    if (retval < 0) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+            "Failure in setting DSCP value on the socket " +
+            integerToString(fd) + " for value " + integerToString(value) +
+            " with errno " + strerror(errno));
+    } else {
+        TCP_SERVER_LOG_DEBUG(this, TCP_DIR_NA,
+            "Success in setting md5 key on the socket " +
+            integerToString(fd) + " for value " + integerToString(value));
+    }
+    return retval;
+}
+
 void TcpServer::GetRxSocketStats(SocketIOStats *socket_stats) const {
     stats_.GetRxStats(socket_stats);
 }

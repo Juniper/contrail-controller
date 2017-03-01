@@ -15,7 +15,7 @@ XmppChannelConfig::XmppChannelConfig(bool isClient) :
      ToAddr(""), FromAddr(""), NodeAddr(""), logUVE(false), auth_enabled(false),
      path_to_server_cert(""), path_to_server_priv_key(""), path_to_ca_cert(""),
      tcp_hold_time(XmppChannelConfig::kTcpHoldTime), gr_helper_disable(false),
-     isClient_(isClient)  {
+     dscp_value(0), isClient_(isClient)  {
 }
 
 int XmppChannelConfig::CompareTo(const XmppChannelConfig &rhs) const {

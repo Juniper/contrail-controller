@@ -530,6 +530,14 @@ int TcpSession::ClearMd5SocketOption(uint32_t peer_ip) {
     return server()->SetMd5SocketOption(socket_->native_handle(), peer_ip, "");
 }
 
+int TcpSession::SetDscpSocketOption(uint8_t value) {
+    return server()->SetDscpSocketOption(socket()->native_handle(), value);
+}
+
+int TcpSession::ClearDscpSocketOption() {
+    return server()->SetDscpSocketOption(socket()->native_handle(), 0);
+}
+
 TcpMessageReader::TcpMessageReader(TcpSession *session,
                                    ReceiveCallback callback)
     : session_(session), callback_(callback), offset_(0), remain_(-1) {

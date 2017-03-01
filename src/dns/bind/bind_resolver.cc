@@ -10,9 +10,9 @@ BindResolver *BindResolver::resolver_;
 
 void BindResolver::Init(boost::asio::io_service &io,
                         const std::vector<DnsServer> &dns_servers,
-                        uint16_t client_port, Callback cb) {
+                        uint16_t client_port, Callback cb, uint8_t dscp) {
     assert(resolver_ == NULL);
-    resolver_ = new BindResolver(io, dns_servers, client_port, cb);
+    resolver_ = new BindResolver(io, dns_servers, client_port, cb, dscp);
 }
 
 void BindResolver::Shutdown() {
@@ -24,8 +24,9 @@ void BindResolver::Shutdown() {
 
 BindResolver::BindResolver(boost::asio::io_service &io,
                            const std::vector<DnsServer> &dns_servers,
-                           uint16_t client_port, Callback cb)
-               : pkt_buf_(NULL), cb_(cb), sock_(io) {
+                           uint16_t client_port, Callback cb,
+                           uint8_t dscp)
+               : pkt_buf_(NULL), cb_(cb), sock_(io), dscp_value_(dscp) {
 
     boost::system::error_code ec;
     uint8_t size = (dns_servers.size() > max_dns_servers) ? 
@@ -51,7 +52,24 @@ BindResolver::BindResolver(boost::asio::io_service &io,
         sock_.bind(local_ep, ec);
         assert(ec.value() == 0);
     }
+    if (dscp_value_) {
+        SetDscpSocketOption();
+    }
     AsyncRead();
+}
+
+void BindResolver::SetDscpSocketOption() {
+    int retval = setsockopt(sock_.native_handle(), IPPROTO_IP, IP_TOS,
+                            &dscp_value_, sizeof(dscp_value_));
+    if (retval < 0) {
+        DNS_BIND_TRACE(DnsBindError, "Setting DSCP bits on socket failed for "
+                       << dscp_value_ << " with errno " << strerror(errno));
+    }
+}
+
+void BindResolver::SetDscpValue(uint8_t val) {
+    dscp_value_ = val;
+    SetDscpSocketOption();
 }
 
 BindResolver::~BindResolver() {

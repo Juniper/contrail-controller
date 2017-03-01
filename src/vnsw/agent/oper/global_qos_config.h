@@ -11,13 +11,22 @@
 class IFMapNode;
 class GlobalQosConfig : public OperIFMapTable {
 public:
+    static const uint8_t kInvalidDscp = 0xFF;
     GlobalQosConfig(Agent *agent);
     virtual ~GlobalQosConfig();
 
     void ConfigDelete(IFMapNode *node);
     void ConfigAddChange(IFMapNode *node);
     void ConfigManagerEnqueue(IFMapNode *node);
+    uint8_t control_dscp() const { return control_dscp_; }
+    uint8_t dns_dscp() const { return dns_dscp_; }
+    uint8_t analytics_dscp() const { return analytics_dscp_; }
 private:
+    void ResetDscp();
+    uint8_t control_dscp_;
+    uint8_t dns_dscp_;
+    uint8_t analytics_dscp_;
+
     DISALLOW_COPY_AND_ASSIGN(GlobalQosConfig);
 };
 #endif

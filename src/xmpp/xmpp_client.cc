@@ -278,3 +278,12 @@ XmppChannel *XmppClient::FindChannel(const string &address) {
     XmppClientConnection *connection = FindConnection(address);
     return (connection ? connection->ChannelMux() : NULL);
 }
+
+int XmppClient::SetDscpValue(uint8_t value) {
+    XmppClientConnection *connection =
+        FindConnection(XmppInit::kControlNodeJID);
+    if (connection) {
+        return connection->SetDscpValue(value);
+    }
+    return 0;
+}

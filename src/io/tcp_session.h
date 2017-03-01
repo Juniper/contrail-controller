@@ -166,6 +166,8 @@ public:
 
     int SetMd5SocketOption(uint32_t peer_ip, const std::string &md5_password);
     int ClearMd5SocketOption(uint32_t peer_ip);
+    int SetDscpSocketOption(uint8_t value);
+    int ClearDscpSocketOption();
 
 protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
