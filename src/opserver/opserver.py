@@ -759,7 +759,8 @@ class OpServer(object):
         bottle.route('/analytics/table/<table>/schema',
                      'GET', self.table_schema_process)
         for i in range(0, len(self._VIRTUAL_TABLES)):
-            if len(self._VIRTUAL_TABLES[i].columnvalues) > 0:
+            if len(self._VIRTUAL_TABLES[i].columnvalues) > 0 \
+               and self._VIRTUAL_TABLES[i].name = COLLECTOR_GLOBAL_TABLE:
                 bottle.route('/analytics/table/<table>/column-values',
                              'GET', self.column_values_process)
                 bottle.route('/analytics/table/<table>/column-values/<column>',
@@ -2310,7 +2311,8 @@ class OpServer(object):
             if (self._VIRTUAL_TABLES[i].name == table):
                 link = LinkObject('schema', base_url + 'schema')
                 json_links.append(obj_to_dict(link))
-                if len(self._VIRTUAL_TABLES[i].columnvalues) > 0:
+                if len(self._VIRTUAL_TABLES[i].columnvalues) > 0 \
+                    and self._VIRTUAL_TABLES[i].name = COLLECTOR_GLOBAL_TABLE:
                     link = LinkObject(
                         'column-values', base_url + 'column-values')
                     json_links.append(obj_to_dict(link))
@@ -2321,8 +2323,6 @@ class OpServer(object):
             tables = self._uve_server.get_tables()
             if table in tables:
                 link = LinkObject('schema', base_url + 'schema')
-                json_links.append(obj_to_dict(link))
-                link = LinkObject('column-values', base_url + 'column-values')
                 json_links.append(obj_to_dict(link))
 
         bottle.response.set_header('Content-Type', 'application/json')
