@@ -22,8 +22,9 @@ env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/net')
 
 env.Prepend(LIBS = ['gunit', 'io', 'sandesh', 'http', 'net',
-                    'sandeshvns', 'process_info', 'io', 'base', 'http_parser', 'curl',
-                    'ssl', 'crypto', 'boost_filesystem', 'boost_program_options', 'pugixml'])
+                    'process_info', 'io', 'base', 'http_parser', 'curl',
+                    'ssl', 'crypto', 'boost_filesystem',
+                    'boost_program_options', 'pugixml', 'sandeshvns'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
