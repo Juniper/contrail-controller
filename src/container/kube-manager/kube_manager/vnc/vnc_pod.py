@@ -191,6 +191,8 @@ class VncPod(object):
         vmi_obj.set_virtual_machine(vm_obj)
         sg_obj = SecurityGroup("default", proj_obj)
         vmi_obj.add_security_group(sg_obj)
+        sg_obj = SecurityGroup(pod_namespace, proj_obj)
+        vmi_obj.add_security_group(sg_obj)
         try:
             vmi_uuid = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
         except RefsExistError:
