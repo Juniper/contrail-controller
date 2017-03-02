@@ -16,7 +16,9 @@ class DbHandlerMock : public DbHandler {
             "localhost",
             cassandra_options, "",
             false, false,
-            DbWriteOptions()) {
+            DbWriteOptions(),
+            ConfigDBConnection::ApiServerList(),
+            VncApiConfig()) {
 
     }
     void StartDbifReinit() {

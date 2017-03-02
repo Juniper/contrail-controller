@@ -64,7 +64,9 @@ DbHandler::DbHandler(EventManager *evm,
         const std::string &zookeeper_server_list,
         bool use_zookeeper,
         bool use_db_write_options,
-        const DbWriteOptions &db_write_options) :
+        const DbWriteOptions &db_write_options,
+        const ConfigDBConnection::ApiServerList &api_server_list,
+        const VncApiConfig &api_config) :
     dbif_(new cass::cql::CqlIf(evm, cassandra_options.cassandra_ips_,
         cassandra_options.cassandra_ports_[0], cassandra_options.user_,
         cassandra_options.password_)),
@@ -86,7 +88,8 @@ DbHandler::DbHandler(EventManager *evm,
         "udc config poll timer",
         TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))),
     use_db_write_options_(use_db_write_options) {
-    cfgdb_connection_.reset(new ConfigDBConnection(evm, 0));
+    cfgdb_connection_.reset(new ConfigDBConnection(evm, api_server_list,
+                                                   api_config));
     udc_.reset(new UserDefinedCounters(cfgdb_connection_));
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);
@@ -165,9 +168,9 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     disable_messages_keyword_writes_(false),
     udc_cfg_poll_timer_(NULL),
     use_db_write_options_(false) {
-    cfgdb_connection_.reset(new ConfigDBConnection(0, 0));
+    cfgdb_connection_.reset(new ConfigDBConnection(NULL,
+        ConfigDBConnection::ApiServerList(), VncApiConfig()));
     udc_.reset(new UserDefinedCounters(cfgdb_connection_));
-
 }
 
 DbHandler::~DbHandler() {
@@ -1887,13 +1890,15 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const Options::Cassandra &cassandra_options,
     const std::string &zookeeper_server_list,
     bool use_zookeeper,
-    const DbWriteOptions &db_write_options) :
+    const DbWriteOptions &db_write_options,
+    const ConfigDBConnection::ApiServerList &api_server_list,
+    const VncApiConfig &api_config) :
     db_name_(db_name),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
         db_name,
         cassandra_options, zookeeper_server_list, use_zookeeper,
-        true, db_write_options)),
+        true, db_write_options, api_server_list, api_config)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",

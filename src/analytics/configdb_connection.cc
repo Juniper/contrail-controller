@@ -13,64 +13,44 @@
 #include "options.h"
 
 ConfigDBConnection::ConfigDBConnection(EventManager *evm,
-        VncApiConfig *vnccfg) : evm_(evm) {
-    InitVnc(evm_, vnccfg);
+        const ApiServerList &api_servers,
+        const VncApiConfig &api_config)
+    : evm_(evm), api_server_list_(api_servers), vnccfg_(api_config),
+      api_server_index_(-1) {
+    if (!api_server_list_.empty()) {
+        api_server_index_ = 0;
+        vnccfg_.cfg_srv_ip = api_server_list_[0].first;
+        vnccfg_.cfg_srv_port = api_server_list_[0].second;
+        InitVnc();
+    }
 }
 
 void
-ConfigDBConnection::InitVnc(EventManager *evm, VncApiConfig *vnccfg) {
-    if (vnccfg) {
-        if (!vnc_) {
-            vnc_.reset(new VncApi(evm, vnccfg));
-        } else {
-            vnc_->SetApiServerAddress();
-        }
+ConfigDBConnection::InitVnc() {
+    if (!vnc_) {
+        vnc_.reset(new VncApi(evm_, &vnccfg_));
+    } else {
+        vnc_->SetApiServerAddress();
     }
 }
 
 ConfigDBConnection::~ConfigDBConnection() {
 }
 
-
 boost::shared_ptr<VncApi> ConfigDBConnection::GetVnc() {
     return vnc_;
 }
 
-#if SUNDAR_TOFIX_PARSING_APISERVER_FROM_CONFIG
-void
-ConfigDBConnection::APIfromDisc(Options *o, std::vector<DSResponse> response) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (api_svr_list_.empty()) {
-        api_svr_list_ = response;
-        if (!api_svr_list_.empty()) {
-            lock.release();
-            vnccfg_.ks_srv_ip          = o->auth_host();
-            vnccfg_.ks_srv_port        = o->auth_port();
-            vnccfg_.protocol           = o->auth_protocol();
-            vnccfg_.user               = o->auth_user();
-            vnccfg_.password           = o->auth_passwd();
-            vnccfg_.tenant             = o->auth_tenant();
-
-            RetryNextApi();
-        }
-    } else {
-        api_svr_list_.erase(api_svr_list_.begin(), api_svr_list_.end());
-        api_svr_list_ = response;
-    }
-}
-#endif
-
 void
 ConfigDBConnection::RetryNextApi() {
     tbb::mutex::scoped_lock lock(mutex_);
-#if SUNDAR_TOFIX_PARSING_APISERVER_FROM_CONFIG
-    if (!api_svr_list_.empty()) {
-        DSResponse api = api_svr_list_.back();
-        api_svr_list_.pop_back();
+    if (!api_server_list_.empty()) {
+        if (++api_server_index_ == static_cast<int>(api_server_list_.size())) {
+            api_server_index_ = 0;
+        }
+        vnccfg_.cfg_srv_ip = api_server_list_[api_server_index_].first;
+        vnccfg_.cfg_srv_port = api_server_list_[api_server_index_].second;
         lock.release();
-        vnccfg_.cfg_srv_ip         = api.ep.address().to_string();
-        vnccfg_.cfg_srv_port       = api.ep.port();
-        InitVnc(evm_, &vnccfg_);
+        InitVnc();
     }
-#endif
 }

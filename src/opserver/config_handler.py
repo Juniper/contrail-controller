@@ -19,14 +19,14 @@ from sandesh_common.vns.constants import API_SERVER_DISCOVERY_SERVICE_NAME
 
 class ConfigHandler(object):
 
-    def __init__(self, service_id, logger,
+    def __init__(self, service_id, logger, api_server_list,
                  keystone_info, rabbitmq_info, config_types=None):
         self._service_id = service_id
         self._logger = logger
+        self._api_servers = [tuple(s.split(':')) for s in api_server_list]
         self._keystone_info = keystone_info
         self._rabbitmq_info = rabbitmq_info
         self._config_types = config_types
-        self._api_servers = []
         self._active_api_server = None
         self._api_client_connection_task = None
         self._api_client = None
@@ -37,7 +37,10 @@ class ConfigHandler(object):
     # Public methods
 
     def start(self):
-        # Subscribe for contrail-api service with Discovery
+        self._update_apiserver_connection_status('', ConnectionStatus.INIT)
+        if self._api_servers:
+            self._api_client_connection_task = gevent.spawn(
+                self._connect_to_api_server)
         # Connect to rabbitmq for config update notifications
         rabbitmq_qname = self._service_id
         self._rabbitmq_client = VncKombuClient(self._rabbitmq_info['servers'],
@@ -66,6 +69,29 @@ class ConfigHandler(object):
 
         return json.loads(json.dumps(obj, default=to_json))
     # end obj_to_dict
+
+    def update_api_server_list(self, api_server_list):
+        self._logger('Received update for api_server_list: %s'
+            % (str(api_server_list)), SandeshLevel.SYS_INFO)
+        if isinstance(api_server_list, list):
+            self._api_servers = [tuple(s.split(':')) for s in api_server_list]
+            if not len(api_server_list):
+                self._active_api_server = None
+                self._api_client = None
+                if self._api_client_connection_task:
+                    self._api_client_connection_task.kill()
+                    self._api_client_connection_task = None
+                self._update_apiserver_connection_status('',
+                    ConnectionStatus.INIT)
+            elif self._active_api_server is None or \
+               self._active_api_server not in self._api_servers:
+                if not self._api_client_connection_task:
+                    self._api_client_connection_task = \
+                        gevent.spawn(self._connect_to_api_server)
+        else:
+            self._logger('Invalid api_server_list received %s'
+                % (str(api_server_list)), SandeshLevel.SYS_ERR)
+    # end update_api_server_list
 
     # Private methods
 
@@ -123,13 +149,16 @@ class ConfigHandler(object):
                         (api_server[0], api_server[1]),
                         ConnectionStatus.DOWN, str(e))
                 else:
-                    self._active_api_server = api_server
-                    self._update_apiserver_connection_status('%s:%s' %
-                        (api_server[0], api_server[1]),
-                        ConnectionStatus.UP)
-                    # TODO: Handle error from sync_config
-                    self._sync_config()
-                    break
+                    if self._sync_config():
+                        self._active_api_server = api_server
+                        self._update_apiserver_connection_status('%s:%s' %
+                            (api_server[0], api_server[1]),
+                            ConnectionStatus.UP)
+                        break
+                    else:
+                        self._update_apiserver_connection_status('%s:%s' %
+                            (api_server[0], api_server[1]),
+                            ConnectionStatus.DOWN, 'Config sync failed')
             if not self._active_api_server:
                 gevent.sleep(2)
         self._api_client_connection_task = None

@@ -89,6 +89,9 @@ Mibs = LldpTable, ArpTable
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
             'cluster_id'          :'',
         }
+        api_opts = {
+            'api_server_list' : ['127.0.0.1:8082']
+        }
         ksopts = {
             'auth_host': '127.0.0.1',
             'auth_protocol': 'http',
@@ -112,6 +115,8 @@ Mibs = LldpTable, ArpTable
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
+            if 'API_SERVER' in config.sections():
+                api_opts.update(dict(config.items("API_SERVER")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
             if 'SANDESH' in config.sections():
@@ -132,6 +137,7 @@ Mibs = LldpTable, ArpTable
             # Don't mess with format of description
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
+        defaults.update(api_opts)
         defaults.update(ksopts)
         defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
@@ -186,16 +192,19 @@ Mibs = LldpTable, ArpTable
             help="Enable ssl for sandesh connection")
         parser.add_argument("--introspect_ssl_enable", action="store_true",
             help="Enable ssl for introspect connection")
+        parser.add_argument("--api_server_list",
+            help="List of api-servers in ip:port format separated by space",
+            nargs="+")
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument("--device-config-file",
             help="where to look for snmp credentials")
-        group.add_argument("--api_server",
-            help="ip:port of api-server for snmp credentials")
         group.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
+        if type(self._args.api_server_list) is str:
+            self._args.api_server_list = self._args.api_server_list.split()
         self._args.config_sections = config
         self._args.conf_file = args.conf_file
 
@@ -203,14 +212,13 @@ Mibs = LldpTable, ArpTable
         if self._args.device_config_file:
             self._devices = DeviceConfig.fom_file(
                     self._args.device_config_file)
-        elif self._args.api_server:
+        elif self._args.api_server_list:
             self._devices = DeviceConfig.fom_api_server(
-                    [self._args.api_server],
+                    self._args.api_server_list,
                     self._args.admin_user, self._args.admin_password,
                     self._args.admin_tenant_name,
                     self._args.auth_host, self._args.auth_port,
                     self._args.auth_protocol, self._cb)
-        #TODO SUNDAR_TO_ADD_API_SERVERS_LIST
         return self._devices
 
     def collectors(self):
