@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 #include <boost/asio/ip/host_name.hpp>
 
 #include "analytics/buildinfo.h"
@@ -19,6 +20,7 @@
 
 using namespace std;
 using namespace boost::asio::ip;
+using namespace boost::assign;
 namespace opt = boost::program_options;
 
 // Process command line options for collector   .
@@ -111,6 +113,9 @@ void Options::Initialize(EventManager &evm,
 
     vector<string> default_kafka_broker_list;
     default_kafka_broker_list.push_back("");
+
+    string default_api_server("127.0.0.1:8082");
+    vector<string> default_api_server_list = list_of(default_api_server);
 
     // Command line and config file options.
     opt::options_description cassandra_config("Cassandra Configuration options");
@@ -386,6 +391,15 @@ void Options::Initialize(EventManager &evm,
         ("SANDESH.introspect_ssl_enable",
              opt::bool_switch(&sandesh_config_.introspect_ssl_enable),
              "Enable ssl for introspect connection")
+        ;
+
+    // Command line and config file options for api-server
+    opt::options_description api_server_config("Api-Server Configuration options");
+    api_server_config.add_options()
+        ("API_SERVER.api_server_list",
+         opt::value<vector<string> >()->default_value(
+            default_api_server_list, default_api_server),
+            "Api-Server list")
         ;
 
     config_file_options_.add(config).add(cassandra_config)
@@ -672,4 +686,7 @@ void Options::Process(int argc, char *argv[],
                       "SANDESH.sandesh_ssl_enable");
     GetOptValue<bool>(var_map, sandesh_config_.introspect_ssl_enable,
                       "SANDESH.introspect_ssl_enable");
+
+    GetOptValue< vector<string> >(var_map, api_server_list_,
+                                  "API_SERVER.api_server_list");
 }
