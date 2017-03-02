@@ -71,13 +71,6 @@ try:
 except ImportError:
     device_manager = 'device_manager could not be imported'
 
-try:
-    from discovery import disc_server
-    if not hasattr(disc_server, 'main'):
-        from disc_server import disc_server
-except ImportError:
-    disc_server = 'disc_server could not be imported'
-
 def generate_conf_file_contents(conf_sections):
     cfg_parser = ConfigParser.RawConfigParser()
     for (section, var, val) in conf_sections:
@@ -128,32 +121,6 @@ def generate_logconf_file_contents():
 
     return cfg_parser
 # end generate_logconf_file_contents
-
-def launch_disc_server(test_id, listen_ip, listen_port, http_server_port, conf_sections):
-    args_str = ""
-    args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
-    args_str = args_str + "--listen_port %s " % (listen_port)
-    args_str = args_str + "--http_server_port %s " % (http_server_port)
-    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
-    args_str = args_str + "--ttl_min 30 "
-    args_str = args_str + "--ttl_max 60 "
-    args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file discovery_server_%s.log " % test_id
-
-    vnc_cgitb.enable(format='text')
-
-    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
-        cfg_parser = generate_conf_file_contents(conf_sections)
-        cfg_parser.write(conf)
-        conf.flush()
-
-        cfg_parser = generate_logconf_file_contents()
-        cfg_parser.write(logconf)
-        logconf.flush()
-
-        args_str = args_str + "--conf_file %s " %(conf.name)
-        disc_server.main(args_str)
-#end launch_disc_server
 
 def retry_exc_handler(tries_remaining, exception, delay):
     print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
@@ -341,9 +308,6 @@ def kill_svc_monitor(glet):
 def kill_schema_transformer(glet):
     glet.kill()
     to_bgp.transformer.reset()
-
-def kill_disc_server(glet):
-    glet.kill()
 
 def launch_schema_transformer(test_id, api_server_ip, api_server_port, extra_args=None):
     args_str = ""

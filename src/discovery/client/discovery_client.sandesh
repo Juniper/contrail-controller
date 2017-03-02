@@ -1,7 +1,0 @@
-/*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
- */
-
-systemlog sandesh discClientLog {
-    1: string log_msg;
-}

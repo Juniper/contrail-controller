@@ -18,7 +18,6 @@ subdirs = [
            'control-node',
            'container',
            'db',
-           'discovery',
            'dns',
            'database',
            'http',
@@ -106,12 +105,6 @@ sandesh_doc_files = []
 sandesh_doc_target = BuildEnv['TOP'] + '/sandesh/common/'
 sandesh_doc_files += BuildEnv.SandeshGenDoc('#controller/src/sandesh/common/vns.sandesh', sandesh_doc_target)
 BuildEnv['SANDESH_DOC_FILES'] = sandesh_doc_files
-
-# Discovery client
-discovery_client_doc_files = []
-discovery_client_doc_target = BuildEnv['TOP'] + '/discovery/client/'
-discovery_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/discovery/discovery_introspect.sandesh', discovery_client_doc_target)
-BuildEnv['DISCOVERY_CLIENT_DOC_FILES'] = discovery_client_doc_files
 
 # Ksync
 ksync_doc_files = []
