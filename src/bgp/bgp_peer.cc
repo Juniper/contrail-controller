@@ -493,7 +493,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_peer_port(peer_port_);
     peer_info.set_hold_time(hold_time_);
     peer_info.set_local_id(local_bgp_id_);
-    peer_info.set_configured_families(config->GetAddressFamilies());
+    peer_info.set_configured_families(configured_families_);
     peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
     BGPPeerInfoSend(peer_info);
 }
