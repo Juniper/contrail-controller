@@ -328,6 +328,10 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
         import_rt, export_rt,
         rtinstance->virtual_network(), rtinstance->virtual_network_index());
 
+    // Create any neighbors that belong to the routing-instance.
+    if (!rtinstance->IsMasterRoutingInstance())
+        rtinstance->CreateNeighbors();
+
     return rtinstance;
 }
 
@@ -502,6 +506,17 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
 }
 
 RoutingInstance::~RoutingInstance() {
+}
+
+void RoutingInstance::CreateNeighbors() {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    if (config_->neighbor_list().empty())
+        return;
+    PeerManager *peer_manager = LocatePeerManager();
+    BOOST_FOREACH(const string &name, config_->neighbor_list()) {
+        peer_manager->PeerResurrect(name);
+    }
 }
 
 void RoutingInstance::ProcessRoutingPolicyConfig() {

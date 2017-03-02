@@ -1155,6 +1155,7 @@ void BgpIfmapInstanceConfig::AddNeighbor(BgpConfigManager *manager,
         neighbor->GetAddressFamilies(), neighbor->AuthKeyTypeToString(),
         neighbor->AuthKeysToString());
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
+    data_.add_neighbor(neighbor->name());
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
 }
 
@@ -1193,6 +1194,7 @@ void BgpIfmapInstanceConfig::DeleteNeighbor(BgpConfigManager *manager,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
     manager->Notify(neighbor, BgpConfigManager::CFG_DELETE);
     neighbors_.erase(neighbor->name());
+    data_.delete_neighbor(neighbor->name());
 }
 
 //
