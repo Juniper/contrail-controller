@@ -63,13 +63,64 @@ None
 
 #4. Implementation
 ## Phase 1:
-1. Currently VNC API provides obj_perms function which takes object
+* Currently VNC API provides obj_perms function which takes object
    UUID and token and returns the permissions. obj_perms will be
    modified to also accept fq-object-name parameter and pass that to
    API server. API server will use the fq-name-to-uuid mapping table
    returns permissions configured.
-2. Mapping between the UVE name and the configuration object fq-name
-   might be needed.
+* For every UVE, fq-name or UUID of corresponding config object will be
+  derived from its contents. All the UVEs will be divided in few categories
+  for this purpose:
+    * UVEs having ContrailConfig structure :
+
+      This cateogory contains most of the UVEs that this this project aims to protect :
+        * virtual_network
+        * service_instance
+        * virtual_router
+        * analytics_node
+        * database_node
+        * config_node
+        * service_chain
+        * physical_router
+        * bgp_router
+
+      For these UVEs, UUID of corresponding config object object is
+      available in ContrailConfig structure which will be used to query API server
+      to get corresponding permissions.
+
+    * Infrastructure UVEs :
+
+      This category contains the UVEs which are corresponding to internal
+      objects:
+        * storage-pools
+        * servers
+        * storage-disks
+        * generators
+        * storage-clusters
+        * storage-osds
+        * loadbalancers
+        * user-defined-log-statistics
+
+      For these UVEs, analytics-api will allow cloud-admin roles and won't
+      check object level permissions
+
+    * Other UVEs with fq-name:
+
+      There are some other UVEs which use fq-name of corresponding config
+object as UVE name. This fq-name will be used to get user permissions. Here are
+some example UVEs which fall in this category:
+        * bgp-peer
+        * virtual_machine
+        * virtual-machine-interface
+
+    * Other UVEs without fq-name:
+
+      All the remaining UVEs don't have fq-name. There is no way to deduce
+      it form UVE contents. In these case, either the owners need to change
+      the name to include fq-name in UVE or treat them as infrastructure UVEs.
+      Here are some examples:
+        * xmpp-peers
+        * prouters
 
 #5. Performance and scaling impact
 ##5.1 API and control plane
