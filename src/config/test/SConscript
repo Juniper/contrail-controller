@@ -39,8 +39,6 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17', 'coverage',
         Dir(env['TOP']).abspath + '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/api-lib/dist/vnc_api-0.1dev.tar.gz',
-        Dir(env['TOP']).abspath + '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
-        Dir(env['TOP']).abspath + '/discovery/dist/discovery-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz']
 
 build_pkgs = [
@@ -53,8 +51,6 @@ build_pkgs = [
 #venv that we are building is in env['config_test']
 #
 env.Depends (env['config_test'], env['TOP']+'/config/api-server/dist')
-env.Depends (env['config_test'], env['TOP']+'/discovery/client/dist/')
-env.Depends (env['config_test'], env['TOP']+'/discovery/dist/')
 env.Depends (env['config_test'], env['TOP']+'/api-lib/dist/')
 env.Depends (env['config_test'], env['TOP']+'/config/common/dist/')
 env.Depends (env['config_test'], env['TOP']+'/config/schema-transformer/dist/')
