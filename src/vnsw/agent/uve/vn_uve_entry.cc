@@ -152,26 +152,6 @@ bool VnUveEntry::UveInterVnInStatsChanged(const vector<UveInterVnStats>
     return false;
 }
 
-bool VnUveEntry::UveVnInFlowCountChanged(uint32_t size) {
-    if (!uve_info_.__isset.ingress_flow_count) {
-        return true;
-    }
-    if (size != uve_info_.get_ingress_flow_count()) {
-        return true;
-    }
-    return false;
-}
-
-bool VnUveEntry::UveVnOutFlowCountChanged(uint32_t size) {
-    if (!uve_info_.__isset.egress_flow_count) {
-        return true;
-    }
-    if (size != uve_info_.get_egress_flow_count()) {
-        return true;
-    }
-    return false;
-}
-
 bool VnUveEntry::UveInterVnOutStatsChanged(const vector<UveInterVnStats>
                                            &new_list) const {
     if (!uve_info_.__isset.out_stats) {
@@ -185,20 +165,18 @@ bool VnUveEntry::UveInterVnOutStatsChanged(const vector<UveInterVnStats>
 
 bool VnUveEntry::UpdateVnFlowCount(const VnEntry *vn,
                                    UveVirtualNetworkAgent &s_vn) {
-    bool changed = false;
+    /* Ingress and Egress flow counts should be sent always regardless of
+     * whether it has changed or not. This is required for collector to do
+     * anomaly detection. The anomaly detection done at collector is based on
+     * streaming of UVE messages */
     uint32_t in_count, out_count;
     agent_->pkt()->get_flow_proto()->VnFlowCounters(vn, &in_count, &out_count);
-    if (UveVnInFlowCountChanged(in_count)) {
-        s_vn.set_ingress_flow_count(in_count);
-        uve_info_.set_ingress_flow_count(in_count);
-        changed = true;
-    }
-    if (UveVnOutFlowCountChanged(out_count)) {
-        s_vn.set_egress_flow_count(out_count);
-        uve_info_.set_egress_flow_count(out_count);
-        changed = true;
-    }
-    return changed;
+    s_vn.set_ingress_flow_count(in_count);
+    uve_info_.set_ingress_flow_count(in_count); //required only for UT
+
+    s_vn.set_egress_flow_count(out_count);
+    uve_info_.set_egress_flow_count(out_count); //required only for UT
+    return true;
 }
 
 bool VnUveEntry::UpdateVnFipCount(int count, UveVirtualNetworkAgent &s_vn) {
