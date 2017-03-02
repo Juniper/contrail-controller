@@ -9,6 +9,7 @@
 
 #include <boost/asio/io_service.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/regex.hpp>
 
 #include "base/logging.h"
 #include "base/task_annotations.h"
@@ -37,6 +38,8 @@
 #include "sandesh/sandesh.h"
 #include "control-node/sandesh/control_node_types.h"
 
+using boost::regex;
+using boost::regex_search;
 using std::make_pair;
 
 class IFMapServer::IFMapVmSubscribe : public Task {
@@ -339,15 +342,12 @@ IFMapNode *IFMapServer::GetVmNodeByUuid(const std::string &vm_uuid) {
 
 void IFMapServer::FillClientMap(IFMapServerShowClientMap *out_map,
                                 const std::string &search_string) {
+    regex search_expr(search_string);
     out_map->set_table_count(client_map_.size());
-    if (search_string.empty()) {
-        out_map->clients.reserve(client_map_.size());
-    }
     for (ClientMap::const_iterator iter = client_map_.begin();
          iter != client_map_.end(); ++iter) {
         IFMapClient *client = iter->second;
-        if (!search_string.empty() &&
-            (client->identifier().find(search_string) == std::string::npos)) {
+        if (!regex_search(client->identifier(), search_expr)) {
             continue;
         }
         IFMapServerClientMapShowEntry entry;
@@ -363,15 +363,12 @@ void IFMapServer::FillClientMap(IFMapServerShowClientMap *out_map,
 
 void IFMapServer::FillIndexMap(IFMapServerShowIndexMap *out_map,
                                const std::string &search_string) {
+    regex search_expr(search_string);
     out_map->set_table_count(index_map_.size());
-    if (search_string.empty()) {
-        out_map->clients.reserve(index_map_.size());
-    }
     for (IndexMap::const_iterator iter = index_map_.begin();
          iter != index_map_.end(); ++iter) {
         IFMapClient *client = iter->second;
-        if (!search_string.empty() &&
-            (client->identifier().find(search_string) == std::string::npos)) {
+        if (!regex_search(client->identifier(), search_expr)) {
             continue;
         }
         IFMapServerIndexMapShowEntry entry;
@@ -392,15 +389,12 @@ const std::string IFMapServer::ClientHistoryInfo::history_created_at_str() const
 
 void IFMapServer::FillClientHistory(IFMapServerClientHistoryList *out_list,
                                     const std::string &search_string) {
+    regex search_expr(search_string);
     out_list->set_table_count(client_history_.size());
-    if (search_string.empty()) {
-        out_list->clients.reserve(client_history_.size());
-    }
     for (ClientHistory::const_iterator iter = client_history_.begin();
          iter != client_history_.end(); ++iter) {
         ClientHistoryInfo info = *iter;
-        if (!search_string.empty() &&
-            (info.client_name.find(search_string) == std::string::npos)) {
+        if (!regex_search(info.client_name, search_expr)) {
             continue;
         }
         IFMapServerClientHistoryEntry entry;
