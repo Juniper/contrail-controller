@@ -24,7 +24,6 @@ test_sources = sources
 packages = [
     '%s/api-lib/dist/vnc_api-0.1dev.tar.gz' % env['TOP'],
     '%s/config/common/dist/cfgm_common-0.1dev.tar.gz' % env['TOP'],
-    '%s/discovery/client/dist/discoveryclient-0.1dev.tar.gz' % env['TOP'],
     '%s/sandesh/common/dist/sandesh-common-0.1dev.tar.gz' % env['TOP'],
     '%s/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz' % env['TOP'],
 ]

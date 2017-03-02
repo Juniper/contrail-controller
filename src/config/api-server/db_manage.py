@@ -22,7 +22,6 @@ import utils
 
 from vnc_db import VncServerCassandraClient
 import schema_transformer.db
-import discovery.disc_cassdb
 
 MAX_COL = 10000000
 
@@ -444,8 +443,7 @@ class DatabaseChecker(DatabaseManager):
         for server in self._cassandra_servers:
             sys_mgr = pycassa.SystemManager(server, credentials=cred)
             db_info = VncCassandraClient.get_db_info() + \
-                schema_transformer.db.SchemaTransformerDB.get_db_info() + \
-                discovery.disc_cassdb.DiscoveryCassandraClient.get_db_info()
+                schema_transformer.db.SchemaTransformerDB.get_db_info()
             for ks_name, _ in db_info:
                 logger.debug("Reading keyspace properties for %s on %s: ",
                              ks_name, server)
