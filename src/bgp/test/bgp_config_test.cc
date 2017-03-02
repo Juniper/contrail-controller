@@ -70,6 +70,10 @@ protected:
         db_util::Clear(&config_db_);
     }
 
+    const BgpInstanceConfig *GetInstanceConfig(const string &name) {
+        return server_.config_manager()->FindInstance(name);
+    }
+
     void DisableRoutingInstanceConfigProcessing() {
         RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
         mgr->DisableInstanceConfigListProcessing();
@@ -1288,6 +1292,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors16) {
     content = FileRead("controller/src/bgp/testdata/config_test_36f.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(GetInstanceConfig("test") == NULL);
     TASK_UTIL_EXPECT_TRUE(rti->deleted());
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
@@ -1299,6 +1304,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors16) {
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(GetInstanceConfig("test") != NULL);
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceConfig("test")->neighbor_list().size());
     TASK_UTIL_EXPECT_TRUE(rti->deleted());
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
@@ -1376,6 +1383,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors17) {
     content = FileRead("controller/src/bgp/testdata/config_test_36f.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(GetInstanceConfig("test") == NULL);
     TASK_UTIL_EXPECT_TRUE(rti->deleted());
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
@@ -1387,6 +1395,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors17) {
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(GetInstanceConfig("test") != NULL);
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceConfig("test")->neighbor_list().size());
     TASK_UTIL_EXPECT_TRUE(rti->deleted());
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
@@ -1398,6 +1408,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors17) {
     content = FileRead("controller/src/bgp/testdata/config_test_36f.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(GetInstanceConfig("test") == NULL);
     TASK_UTIL_EXPECT_TRUE(rti->deleted());
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
@@ -1409,6 +1420,8 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors17) {
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(GetInstanceConfig("test") != NULL);
+    TASK_UTIL_EXPECT_EQ(2, GetInstanceConfig("test")->neighbor_list().size());
     TASK_UTIL_EXPECT_TRUE(rti->deleted());
     TASK_UTIL_EXPECT_EQ(0, rti->peer_manager()->size());
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
