@@ -15,15 +15,13 @@ env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
 env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
 env.Prepend(CPPPATH = '#/third_party/thrift-0.8.0/lib/cpp/src/')
-env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
-env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
 env.Prepend(LIBS=['thrift','xmpp', 'peer_sandesh',
-                  'xmpp_unicast', 'xmpp_multicast', 'ds', 'services',
+                  'xmpp_unicast', 'xmpp_multicast', 'services',
                   'xml', 'pugixml', 'route',
                   'bgp_schema', 'ifmap_vnc', 'ifmap_agent', 'ifmap_common',
                   'ifmapio',
-                  'sandeshflow', 'sandesh', 'httpc', 'http', 'http_parser', 'curl',
+                  'sandeshflow', 'sandesh', 'http', 'http_parser', 'curl',
                   'process_info', 'db', 'base', 'task_test', 'io', 'sandeshvns', 'net',
                   'ssl', 'crypto', 'gunit', 'boost_regex', 'boost_filesystem',
                   'cpuinfo', 'pugixml'])
@@ -34,7 +32,7 @@ if sys.platform != 'darwin':
 
 libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
                     'base', 'base/test', 'boost_regex', 'route', 'schema',
-                    'ifmap', 'net', 'net', 'discovery/client', 'http/client'])
+                    'ifmap', 'net', 'net'])
 
 env.Append(LIBPATH=libs)
 

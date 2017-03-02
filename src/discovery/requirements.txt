@@ -1,4 +1,0 @@
-gevent==1.1a2
-pycassa
-ConfigParser
-xmltodict
