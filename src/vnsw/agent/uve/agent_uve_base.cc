@@ -16,6 +16,7 @@
 #include <uve/stats_interval_types.h>
 #include <init/agent_param.h>
 #include <oper/mirror_table.h>
+#include <oper/global_vrouter.h>
 #include <uve/vrouter_stats_collector.h>
 #include <cmn/agent_stats.h>
 
@@ -109,6 +110,13 @@ void AgentUveBase::UpdateMessage(const ConnectionInfo &cinfo,
     }
 }
 
+bool AgentUveBase::HasSelfConfiguration() const {
+    if (!agent_ || !agent_->oper_db() || !agent_->oper_db()->global_vrouter()) {
+        return false;
+    }
+    return agent_->oper_db()->global_vrouter()->configured();
+}
+
 void AgentUveBase::VrouterAgentProcessState
     (const std::vector<ConnectionInfo> &cinfos,
      ProcessState::type &pstate, std::string &message) {
@@ -162,6 +170,15 @@ void AgentUveBase::VrouterAgentProcessState
     }
     if (!is_cup) {
         message += " connection down";
+    }
+    if (!HasSelfConfiguration()) {
+        // waiting for Global vrouter config
+        pstate = ProcessState::NON_FUNCTIONAL;
+        if (message.empty()) {
+            message = "No Configuration for self";
+        } else {
+            message += ", No Configuration for self";
+        }
     }
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
         if (!agent_->controller_ifmap_xmpp_server(i).empty()) {
