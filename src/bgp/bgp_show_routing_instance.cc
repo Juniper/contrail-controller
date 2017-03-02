@@ -7,9 +7,11 @@
 #include <boost/foreach.hpp>
 
 #include "bgp/bgp_membership.h"
+#include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-policy/routing_policy.h"
 
@@ -65,27 +67,39 @@ static void FillRoutingInstanceInfo(ShowRoutingInstance *sri,
     sri->set_export_target(export_rt);
     sri->set_always_subscribe(rtinstance->always_subscribe());
 
-    if (!summary) {
-        const BgpMembershipManager *bmm = bsc->bgp_server->membership_mgr();
-        vector<ShowRoutingInstanceTable> srit_list;
-        const RoutingInstance::RouteTableList &tables = rtinstance->GetTables();
-        for (RoutingInstance::RouteTableList::const_iterator it =
-             tables.begin(); it != tables.end(); ++it) {
-            ShowRoutingInstanceTable srit;
-            FillRoutingInstanceTableInfo(&srit, bsc, it->second);
-            bmm->FillRoutingInstanceTableInfo(&srit, it->second);
-            srit_list.push_back(srit);
+    if (summary)
+        return;
+
+    const BgpMembershipManager *bmm = bsc->bgp_server->membership_mgr();
+    vector<ShowRoutingInstanceTable> srit_list;
+    const RoutingInstance::RouteTableList &tables = rtinstance->GetTables();
+    for (RoutingInstance::RouteTableList::const_iterator it =
+        tables.begin(); it != tables.end(); ++it) {
+        ShowRoutingInstanceTable srit;
+        FillRoutingInstanceTableInfo(&srit, bsc, it->second);
+        bmm->FillRoutingInstanceTableInfo(&srit, it->second);
+        srit_list.push_back(srit);
+    }
+    sri->set_tables(srit_list);
+
+    vector<ShowInstanceRoutingPolicyInfo> policy_list;
+    BOOST_FOREACH(RoutingPolicyInfo info, rtinstance->routing_policies()) {
+        ShowInstanceRoutingPolicyInfo show_policy_info;
+        RoutingPolicyPtr policy = info.first;
+        show_policy_info.set_policy_name(policy->name());
+        show_policy_info.set_generation(info.second);
+        policy_list.push_back(show_policy_info);
+    }
+    sri->set_routing_policies(policy_list);
+
+    const PeerManager *peer_manager = rtinstance->peer_manager();
+    if (peer_manager) {
+        vector<string> neighbors;
+        for (const BgpPeer *peer = peer_manager->NextPeer(BgpPeerKey());
+            peer != NULL; peer = peer_manager->NextPeer(peer->peer_key())) {
+            neighbors.push_back(peer->peer_name());
         }
-        sri->set_tables(srit_list);
-        vector<ShowInstanceRoutingPolicyInfo> policy_list;
-        BOOST_FOREACH(RoutingPolicyInfo info, rtinstance->routing_policies()) {
-            ShowInstanceRoutingPolicyInfo show_policy_info;
-            RoutingPolicyPtr policy = info.first;
-            show_policy_info.set_policy_name(policy->name());
-            show_policy_info.set_generation(info.second);
-            policy_list.push_back(show_policy_info);
-        }
-        sri->set_routing_policies(policy_list);
+        sri->set_neighbors(neighbors);
     }
 }
 
