@@ -4,6 +4,7 @@
 
 #include <fstream>
 
+#include <boost/foreach.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
@@ -315,6 +316,27 @@ int main(int argc, char *argv[])
 
     std::string zookeeper_server_list(options.zookeeper_server_list());
     bool use_zookeeper = !zookeeper_server_list.empty();
+
+    ConfigDBConnection::ApiServerList api_server_list;
+    BOOST_FOREACH(const std::string &api_server, options.api_server_list()) {
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep(":");
+        tokenizer tokens(api_server, sep);
+        tokenizer::iterator tit = tokens.begin();
+        string api_server_ip(*tit);
+        int api_server_port;
+        stringToInteger(*++tit, api_server_port);
+        api_server_list.push_back(std::make_pair(api_server_ip,
+                                                 api_server_port));
+    }
+    VncApiConfig api_config;
+    api_config.ks_srv_ip = options.auth_host();
+    api_config.ks_srv_port = options.auth_port();
+    api_config.protocol = options.auth_protocol();
+    api_config.user = options.auth_user();
+    api_config.password = options.auth_passwd();
+    api_config.tenant = options.auth_tenant();
+
     VizCollector analytics(a_evm,
             options.collector_port(),
             protobuf_server_enabled,
@@ -335,7 +357,9 @@ int main(int argc, char *argv[])
             zookeeper_server_list,
             use_zookeeper,
             options.get_db_write_options(),
-            options.sandesh_config());
+            options.sandesh_config(),
+            api_server_list,
+            api_config);
 #if 0
     // initialize python/c++ API
     Py_InitializeEx(0);
