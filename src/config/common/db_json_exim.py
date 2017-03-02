@@ -216,9 +216,9 @@ def main(args_str):
     except InvalidArguments as e:
         print str(e)
         return
-    if 'import_from' in args_str:
+    if 'import-from' in args_str:
         db_exim.db_import()
-    if 'export_to' in args_str:
+    if 'export-to' in args_str:
         db_exim.db_export()
 # end main
 
