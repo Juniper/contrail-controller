@@ -578,23 +578,22 @@ int main(int argc, char *argv[]) {
     sock3.bind(udp::endpoint(udp::v4(), 0), ec);
     ep3 = sock3.local_endpoint(ec);
 
-    // Discovery learnt response for DNS Resolvers
-    std::vector<DSResponse> ds_response;
-    DSResponse resp;
-    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
-    resp.ep.port(ep.port());
-    ds_response.push_back(resp);
+    stringstream dns_server1, dns_server2, dns_server3;
+    dns_server1 << "127.0.0.1:" << ep.port();
+    dns_server2 << "127.0.0.2:" << ep2.port();
+    dns_server3 << "127.0.0.3:" << ep3.port();
 
-    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
-    resp.ep.port(ep2.port());
-    ds_response.push_back(resp);
+    int num_args= 5; 
+    char *arg_vars[] = {
+        (char *) "",
+        (char *) "--DNS.servers", (char *)dns_server1.str().c_str(),
+                                  (char *)dns_server2.str().c_str(), 
+                                  (char *)dns_server3.str().c_str(),
+    };
 
-    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
-    resp.ep.port(ep3.port());
-    ds_response.push_back(resp);
-
-    Agent::GetInstance()->UpdateDiscoveryDnsServerResponseList(ds_response);
-    client->WaitForIdle();
+    AgentParam param;
+    param.ParseArguments(num_args, arg_vars);
+    param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-dns");
 
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();

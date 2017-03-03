@@ -15,11 +15,9 @@ public:
     AgentParamTest(AgentParam *ap);
     virtual ~AgentParamTest();
     Ip4Address StrToIp(const char *ip);
-    void set_xmpp_server_1(const char*);
-    void set_xmpp_server_2(const char*);
-    void set_dns_server_1(const char*);
-    void set_dns_server_2(const char*);
     void set_collector_server_list(const char*);
+    void set_controller_server_list(const char*); 
+    void set_dns_server_list(const char*);
 private:
     AgentParam *params_;
 };
