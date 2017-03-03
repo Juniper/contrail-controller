@@ -57,34 +57,37 @@ DnsHandler::~DnsHandler() {
     def_dns_resolvers_.clear();
 }
 
+
 void DnsHandler::BuildDnsResolvers() {
+
     uint8_t count = 0;
-    /* NIPA TODO use query-all from the list */
-    uint8_t resolvers_count = MAX_XMPP_SERVERS;
+    uint8_t resolvers_count = Agent::GetInstance()->GetDnslist().size();
     dns_resolvers_.resize(resolvers_count);
-    {
-        while (count < MAX_XMPP_SERVERS) {
+    
+    std::vector<string>dns_servers;
+    while (count < resolvers_count) {
+   
+        boost::split(dns_servers, Agent::GetInstance()->GetDnslist()[count], 
+                     boost::is_any_of(":"));
+        DnsResolverInfo *resolver = new DnsResolverInfo();
 
-            if (!agent()->dns_server(count).empty()) {
-                DnsResolverInfo *resolver = new DnsResolverInfo();
+        boost::system::error_code ec;
+        resolver->ep_.address(boost::asio::ip::address::from_string(
+                              dns_servers[0], ec));
+        assert(ec.value() == 0);
+        uint8_t dns_port = strtoul(dns_servers[1].c_str(), NULL, 10);
+        resolver->ep_.port(dns_port);
+        resolver->retries_ = 0;
+        std::stringstream ss;
+        ss << "DnsHandlerTimer " << count;
+        resolver->timer_ = TimerManager::CreateTimer(
+                *(agent()->event_manager()->io_service()), ss.str(),
+                TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
+                PktHandler::DNS);
+        dns_resolvers_[count] = resolver;
+        std::cout << "\n\n DNS RESOLVERS:" << dns_resolvers_[count] << "\n\n";
 
-                boost::system::error_code ec;
-                resolver->ep_.address(boost::asio::ip::address::from_string(
-                    agent_->dns_server(count), ec));
-                resolver->ep_.port(agent_->dns_server_port(count));
-                assert(ec.value() == 0);
-
-                resolver->retries_ = 0;
-                std::stringstream ss;
-                ss << "DnsHandlerTimer " << count;
-                resolver->timer_ = TimerManager::CreateTimer(
-                    *(agent()->event_manager()->io_service()), ss.str(),
-                    TaskScheduler::GetInstance()->GetTaskId("Agent::Services"),
-                    PktHandler::DNS);
-                dns_resolvers_[count] = resolver;
-            }
-            count++;
-        }
+        count++;
     }
 }
 

@@ -12,6 +12,7 @@ AgentEnv.MakeTestEnv(env)
 init_test_suite = []
 init_flaky_test_suite = []
 test_agent_init = AgentEnv.MakeTestCmd(env, 'test_agent_init', init_test_suite)
+env.Alias('agent:test_agent_init', test_agent_init)
 test_vmware = AgentEnv.MakeTestCmd(env, 'test_vmware', init_test_suite)
 
 test = env.TestSuite('agent-test', init_test_suite)
