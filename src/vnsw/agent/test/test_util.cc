@@ -3450,6 +3450,11 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
     if (entry->match_p().action_info.action & (1 << SimpleAction::PASS)) {
         flow_fwd = true;
     }
+
+    if (entry->IsShortFlow()) {
+        flow_fwd = false;
+    }
+
     EXPECT_EQ(flow_fwd, fwd);
     if (flow_fwd != fwd) {
         ret = false;

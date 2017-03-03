@@ -141,6 +141,7 @@ TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_EcmpTransition_2) {
 
     // Delete vif11 and vif12
     DeleteVmportEnv(input10_1, 2, false);
+    client->WaitForIdle();
 
     TxIpPacket(vmi_[1]->id(), "1.1.1.1", "1.1.1.10", 1);
     client->WaitForIdle();
