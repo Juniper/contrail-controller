@@ -130,11 +130,11 @@ ConfigCassandraClient::ObjTypeFQNPair ConfigCassandraClient::UUIDToFQName(
 }
 
 bool ConfigCassandraClient::BunchReadReq(const UUIDProcessList &req_list) {
-    vector<string> uuid_list;
+    set<string> uuid_list;
     BOOST_FOREACH(ObjectProcessRequestType *req, req_list) {
-        uuid_list.push_back(req->uuid);
+        uuid_list.insert(req->uuid);
     }
-    if (!ReadUuidTableRows(uuid_list)) {
+    if (!ReadUuidTableRows(&uuid_list)) {
         return false;
     }
     return true;
@@ -407,6 +407,9 @@ bool ConfigCassandraClient::ParseRowAndEnqueueToParser(const string &uuid_key,
         //
         if (context.obj_type.empty() || !context.fq_name_present) {
             // Handle as delete
+            IFMAP_WARN(IFMapGetRowError,
+                "Parsing row response for type/fq_name failed for table",
+                kUuidTableName, uuid_key);
             HandleObjectDelete(uuid_key);
             return false;
         }
@@ -467,12 +470,12 @@ void ConfigCassandraClient::InitDatabase() {
     BulkDataSync();
 }
 
-bool ConfigCassandraClient::ReadUuidTableRows(const vector<string> &uuid_list) {
+bool ConfigCassandraClient::ReadUuidTableRows(set<string> *uuid_list) {
     GenDb::ColListVec col_list_vec;
 
     std::vector<GenDb::DbDataValueVec> keys;
-    for (vector<string>::const_iterator it = uuid_list.begin();
-         it != uuid_list.end(); it++) {
+    for (set<string>::const_iterator it = uuid_list->begin();
+         it != uuid_list->end(); it++) {
         GenDb::DbDataValueVec key;
         key.push_back(GenDb::Blob(reinterpret_cast<const uint8_t *>
                                   (it->c_str()), it->size()));
@@ -490,15 +493,9 @@ bool ConfigCassandraClient::ReadUuidTableRows(const vector<string> &uuid_list) {
 
     if (dbif_->Db_GetMultiRow(&col_list_vec, kUuidTableName, keys,
                          crange, field_vec)) {
-        //
-        // If the UUID doesn't exist in the table, read will return success with
-        // empty columns as output
-        // Failure is returned only due to connectivity issue or consistency
+        // Failure is returned due to connectivity issue or consistency
         // issues in reading from cassandra
-        //
         HandleCassandraConnectionStatus(true);
-        assert(uuid_list.size() == col_list_vec.size());
-
         BOOST_FOREACH(const GenDb::ColList &col_list, col_list_vec) {
             assert(col_list.rowkey_.size() == 1);
             assert(col_list.rowkey_[0].which() == GenDb::DB_VALUE_BLOB);
@@ -507,6 +504,7 @@ bool ConfigCassandraClient::ReadUuidTableRows(const vector<string> &uuid_list) {
                 string uuid_str(reinterpret_cast<const char *>(uuid.data()),
                                 uuid.size());
                 ParseRowAndEnqueueToParser(uuid_str, col_list);
+                uuid_list->erase(uuid_str);
             }
         }
     } else {
@@ -523,6 +521,14 @@ bool ConfigCassandraClient::ReadUuidTableRows(const vector<string> &uuid_list) {
         // TODO: Sleep or No Sleep?
         //
         return false;
+    }
+
+    // Delete all stale entries from the data base.
+    BOOST_FOREACH(string uuid_key, *uuid_list) {
+        IFMAP_WARN(IFMapGetRowError, "Missing row in the table", kUuidTableName,
+                   uuid_key);
+        MarkCacheDirty(uuid_key);
+        HandleObjectDelete(uuid_key);
     }
 
     return true;

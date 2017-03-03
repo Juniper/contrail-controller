@@ -102,7 +102,7 @@ protected:
         bool fq_name_present;
     };
 
-    virtual bool ReadUuidTableRows(const vector<string> &uuid_list);
+    virtual bool ReadUuidTableRows(std::set<std::string> *uuid_list);
     void ParseUuidTableRowJson(const string &uuid, const string &key,
            const string &value, uint64_t timestamp,
            CassColumnKVVec *cass_data_vec, ConfigCassandraParseContext &context);

@@ -55,8 +55,8 @@ public:
         return ConfigCassandraClient::HashUUID(u);
     }
 
-    virtual bool ReadUuidTableRows(const vector<string> &uuid_list) {
-        BOOST_FOREACH(std::string uuid_key, uuid_list) {
+    virtual bool ReadUuidTableRows(std::set<std::string> *uuid_list) {
+        BOOST_FOREACH(std::string uuid_key, *uuid_list) {
             vector<string> tokens;
             boost::split(tokens, uuid_key, boost::is_any_of(":"));
             int index = atoi(tokens[0].c_str());
