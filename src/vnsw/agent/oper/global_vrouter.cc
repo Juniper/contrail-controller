@@ -469,7 +469,7 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
                            *(oper->agent()->event_manager()->io_service()))),
       agent_route_resync_walker_(new AgentRouteResync(oper->agent())),
       forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
-      ecmp_load_balance_() {
+      ecmp_load_balance_(), configured_(false) {
 
     DBTableBase *cfg_db = IFMapTable::FindTable(oper->agent()->db(),
               "global-vrouter-config");
@@ -505,6 +505,8 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
     bool resync_route = false;
 
     if (node->IsDeleted() == false) {
+        configured_ = true;
+        oper_->agent()->connection_state()->Update();
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
         resync_route =
@@ -544,6 +546,8 @@ void GlobalVrouter::GlobalVrouterConfig(DBTablePartBase *partition,
         resync_route = true;
         flow_export_rate_ = kDefaultFlowExportRate;
         DeleteFlowAging();
+        configured_ = false;
+        oper_->agent()->connection_state()->Update();
     }
 
     if (cfg_vxlan_network_identifier_mode !=                             

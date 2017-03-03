@@ -616,6 +616,11 @@ TEST_F(UveTest, NodeStatus_Functional_1) {
          "control-node:1.1.1.2", "1.1.1.2:0",
          g_process_info_constants.ConnectionStatusNames.find(ConnectionStatus::UP)->second},
     };
+    /* DelLinkLocalConfig will add emply global-vrouter-config stanza.
+     * global-vrouter-config is required to make process state as functional
+     */
+    DelLinkLocalConfig();
+    client->WaitForIdle();
     std::vector<ConnectionInfo> cinfos;
     ProcessState::type pstate;
     std::string msg;
@@ -623,6 +628,10 @@ TEST_F(UveTest, NodeStatus_Functional_1) {
     EXPECT_EQ(2U, cinfos.size());
     GetProcessState(cinfos, pstate, msg);
     EXPECT_EQ(pstate, ProcessState::FUNCTIONAL);
+
+    //cleanup
+    DeleteGlobalVrouterConfig();
+    client->WaitForIdle();
 }
 
 /* Only one control-node connection up. Agent should be functional */
@@ -635,6 +644,11 @@ TEST_F(UveTest, NodeStatus_Functional_2) {
          "control-node:1.1.1.2", "1.1.1.2:0",
          g_process_info_constants.ConnectionStatusNames.find(ConnectionStatus::UP)->second},
     };
+    /* DelLinkLocalConfig will add emply global-vrouter-config stanza.
+     * global-vrouter-config is required to make process state as functional
+     */
+    DelLinkLocalConfig();
+    client->WaitForIdle();
     std::vector<ConnectionInfo> cinfos;
     ProcessState::type pstate;
     std::string msg;
@@ -642,6 +656,10 @@ TEST_F(UveTest, NodeStatus_Functional_2) {
     EXPECT_EQ(2U, cinfos.size());
     GetProcessState(cinfos, pstate, msg);
     EXPECT_EQ(pstate, ProcessState::FUNCTIONAL);
+
+    //cleanup
+    DeleteGlobalVrouterConfig();
+    client->WaitForIdle();
 }
 
 /* Both control-node connections down. Agent should be non-functional */
