@@ -2122,7 +2122,13 @@ class RoutingInstanceST(DBBaseST):
                             self.stale_route_targets.remove(vn.get_route_target())
                 update_ri |= self.import_default_ri_route_target_to_service_ri()
                 if update_ri:
-                    self._vnc_lib.routing_instance_update(self.obj)
+                    try:
+                        self._vnc_lib.routing_instance_update(self.obj)
+                    except Exception as e:
+                        # error due to inconsistency in db
+                        self._logger.error(
+                            "Error while updating routing instance: " + str(e))
+                    return
         except NoIdError as e:
             self._logger.error(
                 "Error while updating routing instance: " + str(e))
@@ -3874,6 +3880,11 @@ class LogicalRouterST(DBBaseST):
             vn_obj = VirtualNetworkST.get(vn)
             if vn_obj is not None:
                 ri_obj = vn_obj.get_primary_routing_instance()
+                # error due to inconsistency in db
+                if ri_obj is None:
+                    self._logger.error(
+                        "Primary RI is None for VN: " + str(vn_obj.name))
+                    continue
                 rt_del = (set([self.route_target]) |
                           self.rt_list |
                           self.bgpvpn_rt_list |
