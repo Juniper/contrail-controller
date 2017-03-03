@@ -521,7 +521,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors2) {
     TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
 }
 
-TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
+TEST_F(BgpConfigTest, BGPaaSNeighbors3a) {
     string content;
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -548,8 +548,75 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
     TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
     TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
 
-    // Save the old endpoint for peer1.
-    TcpSession::Endpoint old_peer1_endpoint = peer1->endpoint();
+    // Set test::vm1 port to be same as port for test:vm2.
+    content = FileRead("controller/src/bgp/testdata/config_test_36c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Verify that the port is updated for test:vm1.
+    TASK_UTIL_EXPECT_EQ(1025, peer1->peer_port());
+
+    // Verify that the port is identical for test:vm2.
+    TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
+
+    // Verify that test:vm1 is inserted into BgpServer::EndpointPeerList.
+    // Verify that test:vm2 is inserted into BgpServer::EndpointPeerList.
+    // Both peers have the same endpoint.
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindExactPeer(peer1));
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindExactPeer(peer2));
+
+    // Set test::vm2 port to be same as old port for test:vm1.
+    content = FileRead("controller/src/bgp/testdata/config_test_36d.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Verify that the port is updated for test:vm2.
+    TASK_UTIL_EXPECT_EQ(1024, peer2->peer_port());
+
+    // Verify that test:vm1 is inserted into BgpServer::EndpointPeerList.
+    // Verify that test:vm2 is inserted into BgpServer::EndpointPeerList.
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
+
+    // Cleanup.
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    // Ensure that the instance is deleted
+    TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
+            server_.routing_instance_mgr()->GetRoutingInstance("test"));
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgpaas_peer());
+}
+
+TEST_F(BgpConfigTest, BGPaaSNeighbors3b) {
+    string content;
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti =
+        server_.routing_instance_mgr()->GetRoutingInstance("test");
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager_size());
+    TASK_UTIL_EXPECT_EQ(0, server_.num_bgp_peer());
+    TASK_UTIL_EXPECT_EQ(2, server_.num_bgpaas_peer());
+
+    // Verify that the port is set for test:vm1.
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm1:0") != NULL);
+    BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
+    TASK_UTIL_EXPECT_EQ(1024, peer1->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
+
+    // Verify that the port is set for test:vm2.
+    TASK_UTIL_EXPECT_TRUE(
+        rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
+    BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
+    TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
 
     // Set test::vm1 port to be same as port for test:vm2.
     content = FileRead("controller/src/bgp/testdata/config_test_36c.xml");
@@ -562,23 +629,25 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors3) {
     // Verify that the port is identical for test:vm2.
     TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
 
-    // Verify that test:vm1 is inserted into BgpServer::EndpointToBgpPeerList.
-    // Verify that there's no entry for the old remote endpoint for test:vm1.
-    // Note that test:vm2 is removed from BgpServer::EndpointToBgpPeerList when
-    // test:vm1 is inserted with the same remote endpoint.
-    TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
-    TASK_UTIL_EXPECT_TRUE(server_.FindPeer(old_peer1_endpoint) == NULL);
+    // Verify that test:vm1 is inserted into BgpServer::EndpointPeerList.
+    // Verify that test:vm2 is inserted into BgpServer::EndpointPeerList.
+    // Both peers have the same endpoint.
+    TASK_UTIL_EXPECT_EQ(peer1, server_.FindExactPeer(peer1));
+    TASK_UTIL_EXPECT_EQ(peer2, server_.FindExactPeer(peer2));
 
-    // Set test::vm2 port to be same as old port for test:vm1.
-    content = FileRead("controller/src/bgp/testdata/config_test_36d.xml");
+    // Set test::vm1 port back to be same as original port for test:vm1.
+    content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
-    // Verify that the port is updated for test:vm2.
-    TASK_UTIL_EXPECT_EQ(1024, peer2->peer_port());
+    // Verify that the port is updated for test:vm1.
+    TASK_UTIL_EXPECT_EQ(1024, peer1->peer_port());
 
-    // Verify that test:vm1 is inserted into BgpServer::EndpointToBgpPeerList.
-    // Verify that test:vm2 is inserted into BgpServer::EndpointToBgpPeerList.
+    // Verify that the port is unchanged for test:vm2.
+    TASK_UTIL_EXPECT_EQ(1025, peer2->peer_port());
+
+    // Verify that test:vm1 is inserted into BgpServer::EndpointPeerList.
+    // Verify that test:vm2 is inserted into BgpServer::EndpointPeerList.
     TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
     TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
 
@@ -922,7 +991,7 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors9) {
     TASK_UTIL_EXPECT_TRUE(server_.FindPeer(peer2->endpoint()) == NULL);
 
     // Recreate neighbor config. The old peers should still be around
-    // but should not be in the BgpServer::EndpointToBgpPeerList.
+    // but should not be in the BgpServer::EndpointPeerList.
     content = FileRead("controller/src/bgp/testdata/config_test_36a.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
