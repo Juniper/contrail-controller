@@ -16,16 +16,23 @@ class Options;
 
 class ConfigDBConnection {
     public:
-        ConfigDBConnection(EventManager *evm, VncApiConfig *vnccfg);
+        typedef std::vector<std::pair<std::string, int> > ApiServerList;
+
+        ConfigDBConnection(EventManager *evm,
+            const ApiServerList &api_servers,
+            const VncApiConfig &api_config);
         ~ConfigDBConnection();
         boost::shared_ptr<VncApi> GetVnc();
         void RetryNextApi();
 
     private:
-        void InitVnc(EventManager *evm, VncApiConfig *vnccfg);
+        void InitVnc();
+
         boost::shared_ptr<VncApi> vnc_;
         EventManager *evm_;
+        ApiServerList api_server_list_;
         VncApiConfig vnccfg_;
+        int api_server_index_;
         mutable tbb::mutex mutex_;
 };
 

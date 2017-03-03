@@ -79,6 +79,9 @@ optional arguments:
             'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
             'cluster_id'      : '',
         }
+        api_opts = {
+            'api_server_list' : ['127.0.0.1:8082']
+        }
         ksopts = {
             'auth_host': '127.0.0.1',
             'auth_protocol': 'http',
@@ -102,6 +105,8 @@ optional arguments:
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
+            if 'API_SERVER' in config.sections():
+                api_opts.update(dict(config.items("API_SERVER")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
             if 'SANDESH' in config.sections():
@@ -122,6 +127,7 @@ optional arguments:
             # Don't mess with format of description
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
+        defaults.update(api_opts)
         defaults.update(ksopts)
         defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
@@ -179,12 +185,17 @@ optional arguments:
             help="Enable ssl for sandesh connection")
         parser.add_argument("--introspect_ssl_enable", action="store_true",
             help="Enable ssl for introspect connection")
+        parser.add_argument("--api_server_list",
+            help="List of api-servers in ip:port format separated by space",
+            nargs="+")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         if type(self._args.analytics_api) is str:
             self._args.analytics_api = self._args.analytics_api.split()
+        if type(self._args.api_server_list) is str:
+            self._args.api_server_list = self._args.api_server_list.split()
 
         self._args.config_sections = config
         self._args.conf_file = args.conf_file
@@ -249,24 +260,16 @@ optional arguments:
                              self._args.sandesh_ssl_enable,
                              self._args.introspect_ssl_enable)
 
-    def api_svrs(self):
-        a = self._disc.subscribe(API_SERVER_DISCOVERY_SERVICE_NAME, 0)
-        x = a.read()
-        return map(lambda d:d['ip-address'] + ':' + d['port'], x)
-
     def vnc_api(self, notifycb=None):
         e = SystemError('Cant connect to API server')
         for rt in (5, 2, 7, 9, 16, 25):
-            for api_server in self.api_svrs():
+            for api_server in self._args.api_server_list:
                 srv = api_server.split(':')
-                if len(srv) == 2:
-                    ip, port = srv[0], int(srv[1])
-                else:
-                    ip, port = '127.0.0.1', int(srv[0])
                 try:
                     vnc = VncApi(self._args.admin_user,
                                  self._args.admin_password,
                                  self._args.admin_tenant_name,
+                                 srv[0], srv[1],
                                  auth_host=self._args.auth_host,
                                  auth_port=self._args.auth_port,
                                  auth_protocol=self._args.auth_protocol)
