@@ -10,9 +10,17 @@
 #include "control-node/control_node.h"
 #include "control-node/test/control_node_test.h"
 #include "control-node/test/network_agent_mock.h"
+#include "ifmap/client/config_amqp_client.h"
+#include "ifmap/client/config_cass2json_adapter.h"
+#include "ifmap/client/config_cassandra_client.h"
+#include "ifmap/client/config_client_manager.h"
+#include "ifmap/client/config_json_parser.h"
+#include "ifmap/ifmap_factory.h"
+#include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_parser.h"
+#include "ifmap/test/config_cassandra_client_test.h"
 #include "ifmap/test/ifmap_test_util.h"
+#include "rapidjson/document.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 
@@ -23,44 +31,51 @@ protected:
     NetworkConfigTest()
         : bgp_server_(&evm_, "localhost"),
           map_server_(bgp_server_.config_db(), bgp_server_.config_graph(),
-                      evm_.io_service()) {
+                      evm_.io_service()),
+          config_client_manager_(new ConfigClientManager(&evm_,
+              &map_server_, "localhost", "config-test", config_options_)) {
+        config_cassandra_client_=dynamic_cast<ConfigCassandraClientTest *>(
+            config_client_manager_->config_db_client());
     }
 
     virtual void SetUp() {
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-        vnc_cfg_ParserInit(parser);
-        bgp_schema_ParserInit(parser);
-        map_server_.Initialize();
+        ConfigCass2JsonAdapter::set_assert_on_parse_error(false);
+        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
+        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
+        task_util::WaitForIdle();
     }
 
     virtual void TearDown() {
         bgp_server_.Shutdown();
         task_util::WaitForIdle();
         map_server_.Shutdown();
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-        parser->MetadataClear("vnc_cfg");
+        task_util::WaitForIdle();
+        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
+        evm_.Shutdown();
+        task_util::WaitForIdle();
+    }
+
+    void ParseEventsJson (string events_file) {
+        ConfigCassandraClientTest::ParseEventsJson(config_client_manager_.get(),
+                events_file);
+    }
+
+    void FeedEventsJson () {
+        ConfigCassandraClientTest::FeedEventsJson(config_client_manager_.get());
     }
 
     EventManager evm_;
     BgpServerTest bgp_server_;
+    const IFMapConfigOptions config_options_;
     IFMapServer map_server_;
+    boost::scoped_ptr<ConfigClientManager> config_client_manager_;
+    ConfigCassandraClientTest *config_cassandra_client_;
 };
-
-static string FileRead(const string &filename) {
-    ifstream file(filename.c_str());
-    string content((istreambuf_iterator<char>(file)),
-                   istreambuf_iterator<char>());
-    return content;
-}
 
 TEST_F(NetworkConfigTest, SoapMessage1) {
     SCOPED_TRACE(__FUNCTION__);
-    string content = FileRead("controller/src/bgp/testdata/network_test_1.xml");
-    IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-    parser->Receive(bgp_server_.config_db(), content.data(), content.length(),
-                    0);
-    task_util::WaitForIdle();
-
+    ParseEventsJson("controller/src/bgp/testdata/network_test_1.json");
+    FeedEventsJson();
     RoutingInstanceMgr *manager = bgp_server_.routing_instance_mgr();
 
     RouteTarget tgt1 = RouteTarget::FromString("target:1:84");
@@ -98,12 +113,8 @@ TEST_F(NetworkConfigTest, SoapMessage1) {
 
 TEST_F(NetworkConfigTest, SoapMessage2) {
     SCOPED_TRACE(__FUNCTION__);
-    string content = FileRead("controller/src/bgp/testdata/network_test_2.xml");
-    IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-    parser->Receive(bgp_server_.config_db(), content.data(), content.length(),
-                    0);
-    task_util::WaitForIdle();
-
+    ParseEventsJson("controller/src/bgp/testdata/network_test_2.json");
+    FeedEventsJson();
     RoutingInstanceMgr *manager = bgp_server_.routing_instance_mgr();
 
     RouteTarget tgt1 = RouteTarget::FromString("target:1:6");
@@ -242,13 +253,8 @@ TEST_F(MiniSystemTest, DifferentNodes) {
     const char *net_1 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1";
     const char *net_2 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn2";
 
-    string content = FileRead("controller/src/bgp/testdata/network_test_1.xml");
-    ASSERT_NE(0, content.size());
-
-    node_a_->IFMapMessage(content);
-    task_util::WaitForIdle();
-    node_b_->IFMapMessage(content);
-    task_util::WaitForIdle();
+    node_a_->IFMapMessage("controller/src/bgp/testdata/network_test_1.json");
+    node_b_->IFMapMessage("controller/src/bgp/testdata/network_test_1.json");
 
     const char *ri_1 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1";
     const char *ri_2 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn2";
@@ -298,14 +304,8 @@ TEST_F(MiniSystemTest, SameNode) {
     SCOPED_TRACE(__FUNCTION__);
     const char *net_1 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
     const char *net_2 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
-
-    string content = FileRead("controller/src/bgp/testdata/network_test_2.xml");
-    ASSERT_NE(0, content.size());
-
-    node_a_->IFMapMessage(content);
-    task_util::WaitForIdle();
-    node_b_->IFMapMessage(content);
-    task_util::WaitForIdle();
+    node_a_->IFMapMessage("controller/src/bgp/testdata/network_test_2.json");
+    node_b_->IFMapMessage("controller/src/bgp/testdata/network_test_2.json");
 
     const char *ri_1 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
     const char *ri_2 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
@@ -349,6 +349,8 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
         boost::factory<BgpXmppMessageBuilder *>());
+    IFMapFactory::Register<ConfigCassandraClient>(
+        boost::factory<ConfigCassandraClientTest *>());
 }
 
 static void TearDown() {

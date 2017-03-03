@@ -119,41 +119,13 @@ protected:
         server_->SimulateDeleteClient(c1);
     }
 
-    void ParseEventsJson (string eventsFile) {
-        string json_message = FileRead(eventsFile);
-        assert(json_message.size() != 0);
-        config_cassandra_client_->events()->Parse<0>(json_message.c_str());
-        if (config_cassandra_client_->events()->HasParseError()) {
-            size_t pos = config_cassandra_client_->events()->GetErrorOffset();
-            // GetParseError returns const char *
-            std::cout << "Error in parsing JSON message from rabbitMQ at "
-                << pos << "with error description"
-                << config_cassandra_client_->events()->GetParseError()
-                << std::endl;
-            exit(-1);
-        }
+    void ParseEventsJson (string events_file) {
+        ConfigCassandraClientTest::ParseEventsJson(config_client_manager_.get(),
+                events_file);
     }
 
     void FeedEventsJson () {
-        Document *events = config_cassandra_client_->events();
-        while ((*config_cassandra_client_->cevent())++ < events->Size()) {
-            size_t cevent = *config_cassandra_client_->cevent() - 1;
-            if ((*events)[SizeType(cevent)]["operation"].GetString() ==
-                           string("pause")) {
-                break;
-            }
-
-            if ((*events)[SizeType(cevent)]["operation"].GetString() ==
-                           string("db_sync")) {
-                config_cassandra_client_->BulkDataSync();
-            } else if ((*events)[SizeType(cevent)]["message"].IsString()) {
-                config_client_manager_->config_amqp_client()->ProcessMessage(
-                    (*events)[SizeType(cevent)]["message"].GetString());
-            }
-        }
-        task_util::WaitForIdle();
-        if (getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"))
-            TASK_UTIL_EXEC_AND_WAIT(evm_, "/usr/bin/python");
+        ConfigCassandraClientTest::FeedEventsJson(config_client_manager_.get());
     }
 
     EventManager evm_;

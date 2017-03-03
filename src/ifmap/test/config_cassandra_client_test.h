@@ -5,6 +5,7 @@
 #define ctrlplane_config_cassandra_client_test_h
 
 #include <boost/foreach.hpp>
+#include <fstream>
 #include "ifmap/client/config_amqp_client.h"
 #include "ifmap/client/config_cass2json_adapter.h"
 #include "ifmap/client/config_cassandra_client.h"
@@ -19,7 +20,7 @@ public:
             num_workers), db_index_(num_workers), cevent_(0) {
     }
 
-    virtual void HandleObjectDelete(const string &uuid) {
+    virtual void HandleObjectDelete(const std::string &uuid) {
         std::vector<std::string> tokens;
         boost::split(tokens, uuid, boost::is_any_of(":"));
         std::string u;
@@ -31,14 +32,15 @@ public:
         ConfigCassandraClient::HandleObjectDelete(u);
     }
 
-    virtual void AddFQNameCache(const std::string &uuid, const string &obj_type,
+    virtual void AddFQNameCache(const std::string &uuid,
+                                const std::string &obj_type,
                                 const std::string &obj_name) {
         std::vector<std::string> tokens;
         boost::split(tokens, uuid, boost::is_any_of(":"));
         ConfigCassandraClient::AddFQNameCache(tokens[1], obj_type, obj_name);
     }
 
-    virtual void InvalidateFQNameCache(const string &uuid) {
+    virtual void InvalidateFQNameCache(const std::string &uuid) {
         vector<string> tokens;
         boost::split(tokens, uuid, boost::is_any_of(":"));
         ConfigCassandraClient::InvalidateFQNameCache(tokens[1]);
@@ -54,11 +56,11 @@ public:
     }
 
     virtual bool ReadUuidTableRows(const vector<string> &uuid_list) {
-        BOOST_FOREACH(string uuid_key, uuid_list) {
+        BOOST_FOREACH(std::string uuid_key, uuid_list) {
             vector<string> tokens;
             boost::split(tokens, uuid_key, boost::is_any_of(":"));
             int index = atoi(tokens[0].c_str());
-            string u = tokens[1];
+            std::string u = tokens[1];
             assert((*events())[index].IsObject());
             int idx = HashUUID(u);
             db_index_[idx].insert(make_pair(u, index));
@@ -96,9 +98,9 @@ public:
         return true;
     }
 
-    string GetUUID(const string &key) const {
+    std::string GetUUID(const std::string &key) const {
         size_t temp = key.rfind(':');
-        return (temp == string::npos) ? key : key.substr(temp+1);
+        return (temp == std::string::npos) ? key : key.substr(temp+1);
     }
 
     std::string FetchUUIDFromFQNameEntry(const std::string &key) const {
@@ -134,6 +136,90 @@ public:
     }
     contrail_rapidjson::Document *db_load() { return &db_load_; }
     size_t *cevent() { return &cevent_; }
+
+    static void ParseEventsJson(
+            ConfigClientManager *config_client_manager,
+            std::string events_file) {
+        ConfigCassandraClientTest *config_cassandra_client =
+            dynamic_cast<ConfigCassandraClientTest *>(
+                    config_client_manager->config_db_client());
+        std::string json_message = FileRead(events_file);
+        assert(json_message.size() != 0);
+        contrail_rapidjson::Document *doc = config_cassandra_client->events();
+        doc->Parse<0>(json_message.c_str());
+        if (doc->HasParseError()) {
+            size_t pos = doc->GetErrorOffset();
+            // GetParseError returns const char *
+            std::cout << "Error in parsing JSON message from rabbitMQ at "
+                << pos << "with error description"
+                << doc->GetParseError()
+                << std::endl;
+            exit(-1);
+        }
+
+        if (doc->IsObject() && doc->HasMember("cassandra") &&
+                (*doc)["cassandra"].HasMember("config_db_uuid")) {
+            contrail_rapidjson::Document *db_load =
+                config_cassandra_client->db_load();
+            contrail_rapidjson::Document::AllocatorType &a =
+                db_load->GetAllocator();
+            db_load->SetArray();
+            contrail_rapidjson::Value v;
+            db_load->PushBack(v.SetObject(), a);
+            (*db_load)[0].AddMember("operation", "db_sync", a);
+            (*db_load)[0].AddMember("OBJ_FQ_NAME_TABLE",
+                (*doc)["cassandra"]["config_db_uuid"]["obj_fq_name_table"], a);
+            (*db_load)[0].AddMember("db",
+                (*doc)["cassandra"]["config_db_uuid"]["obj_uuid_table"], a);
+        } else if (doc->IsObject() && doc->HasMember("cassandra") &&
+                (*doc)["cassandra"].HasMember("obj_fq_name_table")) {
+            contrail_rapidjson::Document *db_load =
+                config_cassandra_client->db_load();
+            contrail_rapidjson::Document::AllocatorType &a =
+                db_load->GetAllocator();
+            db_load->SetArray();
+            contrail_rapidjson::Value v;
+            db_load->PushBack(v.SetObject(), a);
+            (*db_load)[0].AddMember("operation", "db_sync", a);
+            (*db_load)[0].AddMember("OBJ_FQ_NAME_TABLE",
+                (*doc)["cassandra"]["obj_fq_name_table"], a);
+            (*db_load)[0].AddMember("db",
+                (*doc)["cassandra"]["obj_uuid_table"], a);
+        }
+    }
+
+    static void FeedEventsJson(ConfigClientManager *config_client_manager) {
+        ConfigCassandraClientTest *config_cassandra_client =
+            dynamic_cast<ConfigCassandraClientTest *>(
+                    config_client_manager->config_db_client());
+        contrail_rapidjson::Document *events =
+            config_cassandra_client->events();
+        while ((*config_cassandra_client->cevent())++ < events->Size()) {
+            size_t cevent = *config_cassandra_client->cevent() - 1;
+            if ((*events)[contrail_rapidjson::SizeType(cevent)]["operation"]
+                    .GetString() == std::string("pause")) {
+                break;
+            }
+
+            if ((*events)[contrail_rapidjson::SizeType(cevent)]["operation"]
+                    .GetString() == std::string("db_sync")) {
+                config_cassandra_client->BulkDataSync();
+                continue;
+            }
+
+            config_client_manager->config_amqp_client()->ProcessMessage(
+                (*events)[contrail_rapidjson::SizeType(cevent)]["message"]
+                    .GetString());
+        }
+        task_util::WaitForIdle();
+    }
+
+    static std::string FileRead(const std::string &filename) {
+        std::ifstream file(filename.c_str());
+        std::string content((std::istreambuf_iterator<char>(file)),
+                       std::istreambuf_iterator<char>());
+        return content;
+    }
 
 private:
     typedef std::map<std::string, int> UUIDIndexMap;

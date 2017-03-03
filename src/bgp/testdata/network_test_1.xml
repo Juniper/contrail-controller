@@ -734,6 +734,22 @@
           <resultItem>
             <identity other-type-definition="extended" type="other" name="contrail:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn2:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn2"/>
             <metadata>
+              <contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-10T18:53:38-05:00">
+                <permissions>
+                  <owner>cloud-admin</owner>
+                  <owner-access>7</owner-access>
+                  <group>cloud-admin-group</group>
+                  <group-access>7</group-access>
+                  <other-access>7</other-access>
+                </permissions>
+                <uuid>
+                  <uuid-mslong>5430618211411380304</uuid-mslong>
+                  <uuid-lslong>11057378706761622342</uuid-lslong>
+                </uuid>
+                <enable>true</enable>
+                <created/>
+                <last-modified/>
+              </contrail:id-perms>
               <contrail:access-control-list-entries xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-10-31T18:37:54+00:00">
                 <acl-rule>
                   <match-condition>
@@ -792,6 +808,22 @@
           <resultItem>
             <identity other-type-definition="extended" type="other" name="contrail:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1"/>
             <metadata>
+              <contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-10T18:53:39-05:00">
+                <permissions>
+                  <owner>cloud-admin</owner>
+                  <owner-access>7</owner-access>
+                  <group>cloud-admin-group</group>
+                  <group-access>7</group-access>
+                  <other-access>7</other-access>
+                </permissions>
+                <uuid>
+                  <uuid-mslong>10057215260110438607</uuid-mslong>
+                  <uuid-lslong>10778626348777328581</uuid-lslong>
+                </uuid>
+                <enable>true</enable>
+                <created/>
+                <last-modified/>
+              </contrail:id-perms>
               <contrail:access-control-list-entries xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-10-31T18:37:54+00:00">
                 <acl-rule>
                   <match-condition>

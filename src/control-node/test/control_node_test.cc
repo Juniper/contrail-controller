@@ -14,9 +14,10 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
+#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_xmpp.h"
+#include "ifmap/test/config_cassandra_client_test.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "xmpp/xmpp_server.h"
@@ -34,10 +35,10 @@ ControlNodeTest::ControlNodeTest(EventManager *evm, const std::string &hostname)
       map_server_(new IFMapServer(bgp_server_->config_db(),
                                   bgp_server_->config_graph(),
                                   evm->io_service())),
-      xmpp_manager_(
-            new BgpXmppChannelManager(xmpp_server_, bgp_server_.get())),
-      map_manager_(
-            new IFMapChannelManager(xmpp_server_, map_server_.get())) {
+      xmpp_manager_(new BgpXmppChannelManager(xmpp_server_, bgp_server_.get())),
+      map_manager_(new IFMapChannelManager(xmpp_server_, map_server_.get())),
+      config_client_manager_(new ConfigClientManager(evm, map_server_.get(),
+            "localhost", "config-test", config_options_)) {
     ControlNode::SetDefaultSchedulingPolicy();
     bgp_server_->session_manager()->Initialize(0);
     xmpp_server_->Initialize(0, false);
@@ -100,8 +101,9 @@ void ControlNodeTest::BgpConfig(const std::string &config) {
 }
 
 void ControlNodeTest::IFMapMessage(const std::string &msg) {
-    IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-    parser->Receive(bgp_server_->config_db(), msg.data(), msg.length(), 0);
+    ConfigCassandraClientTest::ParseEventsJson(config_client_manager_.get(),
+            msg);
+    ConfigCassandraClientTest::FeedEventsJson(config_client_manager_.get());
 }
 
 void ControlNodeTest::VerifyRoutingInstance(const std::string instance,
@@ -150,17 +152,12 @@ void ControlNodeTest::SetUp() {
     if (node_count_++) {
         return;
     }
-    IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-    vnc_cfg_ParserInit(parser);
-    bgp_schema_ParserInit(parser);    
 }
 
 void ControlNodeTest::TearDown() {
     if (--node_count_) {
         return;
     }
-    IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-    parser->MetadataClear("vnc_cfg");
 }
 
 }  // namespace test

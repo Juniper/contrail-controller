@@ -160,6 +160,7 @@ def parse_nodes (record)
     return if !record.key? "identity" or !record["identity"].key? "name"
     return if record["identity"]["name"] !~ /contrail:(.*?):(.*$)/
     fq_name = $2; type = $1.gsub("-", "_")
+    pp record["metadata"] if record["metadata"]["id_perms"].nil?
     return if record["metadata"]["id_perms"]["uuid"].nil?
     uuid = get_uuid(record["metadata"]["id_perms"]["uuid"])
     obj = @db[uuid] ||

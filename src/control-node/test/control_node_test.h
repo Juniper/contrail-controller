@@ -6,10 +6,13 @@
 #define __ctrlplane__control_node_test__
 
 #include <boost/scoped_ptr.hpp>
+#include <vector>
+#include "ifmap/ifmap_config_options.h"
 
 class BgpServer;
 class BgpServerTest;
 class DB;
+class ConfigClientManager;
 class EventManager;
 class IFMapChannelManager;
 class IFMapServer;
@@ -57,6 +60,8 @@ private:
     boost::scoped_ptr<IFMapServer> map_server_;
     boost::scoped_ptr<BgpXmppChannelManager> xmpp_manager_;
     boost::scoped_ptr<IFMapChannelManager> map_manager_;
+    const IFMapConfigOptions config_options_;
+    boost::scoped_ptr<ConfigClientManager> config_client_manager_;
 };
 
 }  // test
