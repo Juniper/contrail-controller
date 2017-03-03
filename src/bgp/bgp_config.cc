@@ -15,6 +15,7 @@ using std::copy;
 using std::endl;
 using std::ostringstream;
 using std::ostream_iterator;
+using std::sort;
 using std::string;
 using std::swap;
 using std::vector;
@@ -239,6 +240,7 @@ BgpNeighborConfig::GetAddressFamilies() const {
         family_attributes_list_) {
         family_list.push_back(family_config.family);
     }
+    sort(family_list.begin(), family_list.end());
     return family_list;
 }
 
