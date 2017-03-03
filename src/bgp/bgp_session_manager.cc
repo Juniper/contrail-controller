@@ -99,7 +99,7 @@ bool BgpSessionManager::ProcessWriteReady(TcpSessionPtr tcp_session) {
 //
 // Search for a matching BgpPeer.
 // First look for a matching address in the master instance.
-// Then look for a matching port in the EndpointToBgpPeerList in BgpServer.
+// Then look for a matching port in the EndpointPeerList in BgpServer.
 //
 BgpPeer *BgpSessionManager::FindPeer(Endpoint remote) {
     BgpPeer *peer = NULL;
