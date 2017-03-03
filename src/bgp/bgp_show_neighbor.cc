@@ -18,30 +18,25 @@ using std::string;
 using std::vector;
 
 //
-// Build the list of BgpPeers in one shot for now. Look at the master instance
-// and at all peers in the BgpServer's EndpointToBgpPeerList. The latter is the
-// list of all bgpaas peers in non-master instances.
+// Build the list of BgpPeers in one shot for now.
 //
 static bool FillBgpNeighborInfoList(const BgpSandeshContext *bsc,
     bool summary, uint32_t page_limit, uint32_t iter_limit,
     const string &start_neighbor, const string &search_string,
     vector<BgpNeighborResp> *show_list, string *next_instance) {
-    const RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
-    const RoutingInstance *rtinstance = rim->GetDefaultRoutingInstance();
-    rtinstance->peer_manager()->FillBgpNeighborInfo(
-        bsc, show_list, search_string, summary);
-
     regex search_expr(search_string);
-    const BgpPeer *peer = bsc->bgp_server->FindNextPeer();
-    while (peer) {
-        if ((regex_search(peer->peer_basename(), search_expr)) ||
-            (regex_search(peer->peer_address_string(), search_expr)) ||
-            (search_string == "deleted" && peer->IsDeleted())) {
-            BgpNeighborResp bnr;
-            peer->FillNeighborInfo(bsc, &bnr, summary);
-            show_list->push_back(bnr);
+
+    for (const BgpPeer *peer = bsc->bgp_server->FindNextPeer(); peer != NULL;
+         peer = bsc->bgp_server->FindNextPeer(peer->peer_name())) {
+        if ((!regex_search(peer->peer_basename(), search_expr)) &&
+            (!regex_search(peer->peer_address_string(), search_expr)) &&
+            (search_string != "deleted" || !peer->IsDeleted())) {
+            continue;
         }
-        peer = bsc->bgp_server->FindNextPeer(peer->endpoint());
+
+        BgpNeighborResp bnr;
+        peer->FillNeighborInfo(bsc, &bnr, summary);
+        show_list->push_back(bnr);
     }
     return true;
 }
