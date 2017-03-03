@@ -166,6 +166,12 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     data.set_transport(r->get_vifr_transport());
     data.set_src_mac(MacToString(r->get_vifr_src_mac()));
     data.set_fat_flow_protocol_port(ist->SetItfSandesh(r->get_vifr_fat_flow_protocol_port()));
+    if (r->get_vifr_isid()) {
+        data.set_isid(r->get_vifr_isid());
+    }
+    if (r->get_vifr_pbb_mac().size()) {
+        data.set_pbb_bmac(MacToString(r->get_vifr_pbb_mac()));
+    }
     list.push_back(data);
 
     UpdateContext(reinterpret_cast<void *>(r->get_vifr_idx()));
