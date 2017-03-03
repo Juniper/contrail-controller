@@ -490,15 +490,9 @@ bool ConfigCassandraClient::ReadUuidTableRows(const vector<string> &uuid_list) {
 
     if (dbif_->Db_GetMultiRow(&col_list_vec, kUuidTableName, keys,
                          crange, field_vec)) {
-        //
-        // If the UUID doesn't exist in the table, read will return success with
-        // empty columns as output
-        // Failure is returned only due to connectivity issue or consistency
+        // Failure is returned due to connectivity issue or consistency
         // issues in reading from cassandra
-        //
         HandleCassandraConnectionStatus(true);
-        assert(uuid_list.size() == col_list_vec.size());
-
         BOOST_FOREACH(const GenDb::ColList &col_list, col_list_vec) {
             assert(col_list.rowkey_.size() == 1);
             assert(col_list.rowkey_[0].which() == GenDb::DB_VALUE_BLOB);
