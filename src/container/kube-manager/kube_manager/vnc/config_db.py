@@ -449,6 +449,7 @@ class VirtualNetworkKM(DBBaseKM):
         self.virtual_machine_interfaces = set()
         self.instance_ips = set()
         self.network_ipams = set()
+        self.network_ipam_subnets = {}
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
 
@@ -457,6 +458,24 @@ class VirtualNetworkKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+
+        # Cache ipam-subnet-uuid to ipam-fq-name mapping.
+        # This is useful when we would like to locate an ipam in a VN,
+        # from which we would like to request ip allocation.
+        self.network_ipam_subnets = {}
+        # Iterate through ipam's on this VN.
+        for ipam in obj.get('network_ipam_refs', []):
+            # Get the ipam's attributes.
+            ipam_attr = ipam.get('attr', None)
+            # Get the ipam fq-name.
+            ipam_fq_name = ipam['to']
+            if ipam_attr:
+                # Iterate through ipam subnets to cache uuid - fqname mapping.
+                for subnet in ipam_attr.get('ipam_subnets', []):
+                    subnet_uuid = subnet.get('subnet_uuid', None)
+                    if subnet_uuid:
+                        self.network_ipam_subnets[subnet_uuid] = ipam_fq_name
+
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('instance_ip', obj)
         self.update_multiple_refs('network_ipam', obj)
@@ -472,6 +491,13 @@ class VirtualNetworkKM(DBBaseKM):
         obj.update_multiple_refs('network_ipam', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
+
+    # Given an ipam-fq-name, return its subnet uuid on this VN.
+    def get_ipam_subnet_uuid(self, ipam_fq_name):
+        for subnet_uuid, fq_name in self.network_ipam_subnets.iteritems():
+            if fq_name == ipam_fq_name:
+                return subnet_uuid
+        return None
 
 class FloatingIpKM(DBBaseKM):
     _dict = {}

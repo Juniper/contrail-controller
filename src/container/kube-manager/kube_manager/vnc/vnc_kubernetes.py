@@ -23,6 +23,7 @@ from config_db import *
 import db
 import label_cache
 from reaction_map import REACTION_MAP
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 class VncKubernetes(object):
 
@@ -32,6 +33,7 @@ class VncKubernetes(object):
         self.logger = logger
         self.q = q
         self.kube = kube
+        self._cluster_pod_ipam_fq_name = None
 
         # init vnc connection
         self.vnc_lib = self._vnc_connect()
@@ -58,26 +60,27 @@ class VncKubernetes(object):
 
         # handle events
         self.label_cache = label_cache.LabelCache()
+
+        # Cache common config.
+        self.vnc_kube_config = vnc_kube_config(logger=self.logger,
+            vnc_lib=self.vnc_lib, label_cache=self.label_cache, args=self.args,
+            queue=self.q, kube=self.kube,
+            cluster_pod_ipam_fq_name=self._get_cluster_pod_ipam_fq_name(),
+            cluster_service_fip_pool=self._get_cluster_service_fip_pool())
+
         self.namespace_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_namespace.VncNamespace',vnc_lib=self.vnc_lib,
-            logger=self.logger, cluster_pod_subnets = self.args.pod_subnets)
+            'kube_manager.vnc.vnc_namespace.VncNamespace')
         self.service_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_service.VncService', self.vnc_lib,
-            self.label_cache, self.args, self.logger, self.kube)
+            'kube_manager.vnc.vnc_service.VncService')
         self.network_policy_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy',
-            self.vnc_lib, self.label_cache, self.logger)
+            'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy')
         self.pod_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_pod.VncPod', self.vnc_lib,
-            self.label_cache, self.args, self.logger, self.service_mgr,
-            self.network_policy_mgr, self.q,
-            svc_fip_pool = self._get_cluster_service_fip_pool())
+            'kube_manager.vnc.vnc_pod.VncPod', self.service_mgr,
+            self.network_policy_mgr)
         self.endpoints_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_endpoints.VncEndpoints',
-            self.vnc_lib, self.logger, self.kube)
+            'kube_manager.vnc.vnc_endpoints.VncEndpoints')
         self.ingress_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_ingress.VncIngress', self.args, self.q,
-            self.vnc_lib, self.label_cache, self.logger, self.kube)
+            'kube_manager.vnc.vnc_ingress.VncIngress')
 
     def _vnc_connect(self):
         # Retry till API server connection is up
@@ -131,10 +134,15 @@ class VncKubernetes(object):
             ipam_obj.set_ipam_subnets(IpamSubnets(ipam_subnets))
 
         try:
-            self.vnc_lib.network_ipam_create(ipam_obj)
+            ipam_uuid = self.vnc_lib.network_ipam_create(ipam_obj)
         except RefsExistError:
             ipam_obj = self.vnc_lib.network_ipam_read(
                 fq_name=ipam_obj.get_fq_name())
+            ipam_uuid = ipam_obj.get_uuid()
+
+        # Cache ipam info.
+        NetworkIpamKM.locate(ipam_uuid)
+
         return ipam_obj, ipam_subnets
 
     def _create_cluster_network(self, vn_name, proj_obj):
@@ -142,24 +150,28 @@ class VncKubernetes(object):
             address_allocation_mode='user-defined-subnet-only')
 
         # Create Pod IPAM.
-        ipam_obj, ipam_subnets= self._create_ipam('pod-ipam',
-            self.args.pod_subnets, proj_obj)
+        pod_ipam_obj, pod_ipam_subnets= self._create_ipam('pod-ipam',
+            self.args.pod_subnets, proj_obj, type='flat-subnet')
 
-        # Attach Pod IPAM to virtual-network.
-        vn_obj.add_network_ipam(ipam_obj, VnSubnetsType(ipam_subnets))
+        # Cache cluster pod ipam name.
+        # This will be referenced by ALL pods that are spawned in the cluster.
+        self._cluster_pod_ipam_fq_name = pod_ipam_obj.get_fq_name()
 
-        #
-        # Create Service IPAM.
-        #
-        svc_ipam_obj, ipam_subnets = self._create_ipam('service-ipam',
-            self.args.service_subnets, proj_obj, type='flat-subnet')
-
-        # Attach Service IPAM to virtual-network.
+        # Attach Pod IPAM to cluster virtual network.
         #
         # For flat-subnets, the subnets are specified on the IPAM and
         # not on the virtual-network to IPAM link. So pass an empty
         # list of VnSubnetsType.
-        vn_obj.add_network_ipam(svc_ipam_obj, VnSubnetsType([]))
+        vn_obj.add_network_ipam(pod_ipam_obj, VnSubnetsType([]))
+
+        #
+        # Create Service IPAM.
+        #
+        svc_ipam_obj, svc_ipam_subnets = self._create_ipam('service-ipam',
+            self.args.service_subnets, proj_obj)
+
+        # Attach Service IPAM to virtual-network.
+        vn_obj.add_network_ipam(svc_ipam_obj, VnSubnetsType(svc_ipam_subnets))
 
         vn_obj.set_virtual_network_properties(
              VirtualNetworkType(forwarding_mode='l3'))
@@ -173,7 +185,7 @@ class VncKubernetes(object):
             fq_name=vn_obj.get_fq_name())
 
         # Create service floating ip pool.
-        self._create_cluster_service_fip_pool(vn_obj, svc_ipam_obj)
+        self._create_cluster_service_fip_pool(vn_obj, pod_ipam_obj)
 
         return vn_obj.uuid
 
@@ -194,7 +206,7 @@ class VncKubernetes(object):
     def _create_cluster_service_fip_pool(self, vn_obj, ipam_obj):
         # Create a floating-ip-pool in cluster service network.
         #
-        # Service IP's in the k8s cluster are allocated from service
+        # Service IP's in the k8s cluster are allocated from pod
         # IPAM in the cluster network. All pods spawned in isolated
         # virtual networks will be allocated an IP from this floating-ip-
         # pool. These pods, in those isolated virtual networks, will use this
@@ -260,6 +272,9 @@ class VncKubernetes(object):
 
     def _get_cluster_network(self):
         return VirtualNetworkKM.find_by_name_or_uuid('cluster-network')
+
+    def _get_cluster_pod_ipam_fq_name(self):
+        return self._cluster_pod_ipam_fq_name
 
     def vnc_timer(self):
         self.ingress_mgr.ingress_timer()
