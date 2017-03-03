@@ -18,9 +18,6 @@ env.Alias('src/vnsw:dns_test', dns_test)
 dns_resolver_test = AgentEnv.MakeTestCmd(env, 'dns_resolver_test', 
                                          service_flaky_test_suite) 
 env.Alias('src/vnsw:dns_resolver_test', dns_resolver_test)
-dns_resolver_discovery_test = AgentEnv.MakeTestCmd(env, 'dns_resolver_discovery_test',
-                                                   service_flaky_test_suite)
-env.Alias('src/vnsw:dns_resolver_discovery_test', dns_resolver_discovery_test)
 arp_test = AgentEnv.MakeTestCmd(env, 'arp_test', service_flaky_test_suite)
 icmp_test = AgentEnv.MakeTestCmd(env, 'icmp_test', service_test_suite)
 icmpv6_test = AgentEnv.MakeTestCmd(env, 'icmpv6_test', service_flaky_test_suite)
