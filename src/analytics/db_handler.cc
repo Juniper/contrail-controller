@@ -884,6 +884,9 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
         FieldNamesTableInsert(header.get_Timestamp(),
             g_viz_constants.COLLECTOR_GLOBAL_TABLE,
             ":Source", header.get_Source(), ttl, db_cb);
+        FieldNamesTableInsert(header.get_Timestamp(),
+            g_viz_constants.COLLECTOR_GLOBAL_TABLE,
+            ":Category", header.get_Category(), ttl, db_cb);
     }
 }
 
