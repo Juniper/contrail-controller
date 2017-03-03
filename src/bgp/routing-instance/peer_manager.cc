@@ -55,7 +55,7 @@ BgpPeer *PeerManager::PeerLocate(BgpServer *server,
 
 //
 // Resurrect the BgpPeer with given name if we have configuration for it.
-// Also insert it into the BgpServer's EndpointToBgpPeerList - in case it's
+// Also insert it into the BgpServer's EndpointPeerList - in case it is
 // a BGPaaS peer. This needs to happen here since we would not have been
 // able to do it from BgpServer::ConfigUpdater::ProcessNeighborConfig since
 // old incarnation of the BgpPeer still existed at that point.
@@ -255,21 +255,4 @@ const string &PeerManager::name() const {
 
 BgpServer *PeerManager::server() const {
     return instance_->server();
-}
-
-void PeerManager::FillBgpNeighborInfo(const BgpSandeshContext *bsc,
-        vector<BgpNeighborResp> *bnr_list, const string &search_string,
-        bool summary) const {
-    BgpPeerKey key = BgpPeerKey();
-    while (const BgpPeer *peer = NextPeer(key)) {
-        if (search_string.empty() ||
-            (peer->peer_basename().find(search_string) != string::npos) ||
-            (peer->peer_address_string().find(search_string) != string::npos) ||
-            (search_string == "deleted" && peer->IsDeleted())) {
-            BgpNeighborResp bnr;
-            peer->FillNeighborInfo(bsc, &bnr, summary);
-            bnr_list->push_back(bnr);
-        }
-        key = peer->peer_key();
-    }
 }
