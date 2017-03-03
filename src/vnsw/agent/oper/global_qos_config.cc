@@ -29,7 +29,12 @@ void GlobalQosConfig::ResetDscp() {
         }
         dns_dscp_ = kInvalidDscp;
     }
-    analytics_dscp_ = kInvalidDscp;
+    if (analytics_dscp_ != kInvalidDscp) {
+        if (analytics_dscp_ != 0) {
+            Sandesh::SetDscpValue(0);
+        }
+        analytics_dscp_ = kInvalidDscp;
+    }
 }
 
 void GlobalQosConfig::SetDnsDscp(uint8_t value) {
@@ -62,6 +67,7 @@ void GlobalQosConfig::ConfigAddChange(IFMapNode *node) {
         }
         if (analytics_dscp_ != dscp.analytics) {
             analytics_dscp_ = dscp.analytics;
+            Sandesh::SetDscpValue(analytics_dscp_);
         }
     } else {
         ResetDscp();
