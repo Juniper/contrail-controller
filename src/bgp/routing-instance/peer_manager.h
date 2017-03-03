@@ -41,10 +41,6 @@ public:
     virtual BgpPeer *NextPeer(BgpPeerKey &key);
     virtual const BgpPeer *NextPeer(BgpPeerKey &key) const;
 
-    void FillBgpNeighborInfo(const BgpSandeshContext *bsc,
-        std::vector<BgpNeighborResp> *sbnr_list,
-        const std::string &search_string, bool summary) const;
-
     size_t GetNeighborCount(std::string up_or_down);
 
     size_t size() { return peers_by_key_.size(); }

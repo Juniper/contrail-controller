@@ -436,35 +436,42 @@ BgpPeer *BgpServer::FindPeer(const string &name) {
     return (loc != peer_list_.end() ? loc->second : NULL);
 }
 
+BgpPeer *BgpServer::FindNextPeer(const string &name) {
+    BgpPeerList::iterator loc = peer_list_.upper_bound(name);
+    return (loc != peer_list_.end() ? loc->second : NULL);
+}
+
 void BgpServer::InsertPeer(TcpSession::Endpoint remote, BgpPeer *peer) {
     if (!remote.port() && remote.address().is_unspecified())
         return;
-
-    EndpointToBgpPeerList::iterator loc = endpoint_peer_list_.find(remote);
-    if (loc != endpoint_peer_list_.end()) {
-        loc->second->Clear(BgpProto::Notification::PeerDeconfigured);
-        endpoint_peer_list_.erase(loc);
-    }
     endpoint_peer_list_.insert(make_pair(remote, peer));
 }
 
 void BgpServer::RemovePeer(TcpSession::Endpoint remote, BgpPeer *peer) {
-    EndpointToBgpPeerList::iterator loc = endpoint_peer_list_.find(remote);
-    if (loc != endpoint_peer_list_.end() && loc->second == peer) {
-        endpoint_peer_list_.erase(loc);
+    EndpointPeerList::iterator loc = endpoint_peer_list_.lower_bound(remote);
+    while (loc != endpoint_peer_list_.end() && loc->first == remote) {
+        if (loc->second == peer) {
+            endpoint_peer_list_.erase(loc);
+            break;
+        }
+        ++loc;
     }
 }
 
 BgpPeer *BgpServer::FindPeer(TcpSession::Endpoint remote) const {
-    EndpointToBgpPeerList::const_iterator loc =
-        endpoint_peer_list_.find(remote);
+    EndpointPeerList::const_iterator loc = endpoint_peer_list_.find(remote);
     return (loc == endpoint_peer_list_.end() ? NULL : loc->second);
 }
 
-BgpPeer *BgpServer::FindNextPeer(TcpSession::Endpoint remote) const {
-    EndpointToBgpPeerList::const_iterator loc =
-        endpoint_peer_list_.upper_bound(remote);
-    return (loc == endpoint_peer_list_.end() ? NULL : loc->second);
+BgpPeer *BgpServer::FindExactPeer(const BgpPeer *peer) const {
+    EndpointPeerList::const_iterator loc =
+        endpoint_peer_list_.lower_bound(peer->endpoint());
+    while (loc != endpoint_peer_list_.end() && loc->first == peer->endpoint()) {
+        if (loc->second == peer)
+            return loc->second;
+        ++loc;
+    }
+    return NULL;
 }
 
 const string &BgpServer::localname() const {
