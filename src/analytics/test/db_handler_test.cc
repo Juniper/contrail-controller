@@ -508,7 +508,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
                               g_viz_constants.STATS_TABLE_BY_STR_TAG),
                         _,
                         _))))
-        .Times(6)
+        .Times(8)
         .WillRepeatedly(Return(true));
 
     MessageTableInsert(&vmsgp);
