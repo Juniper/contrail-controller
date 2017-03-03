@@ -167,6 +167,15 @@ class VncPod(object):
 
         return
 
+    def _associate_security_groups(self, vmi_obj, proj_obj, ns=None):
+        sg_obj = SecurityGroup("default", proj_obj)
+        vmi_obj.add_security_group(sg_obj)
+        if ns:
+            ns_sg_name = "ns-" + ns
+            sg_obj = SecurityGroup(ns_sg_name, proj_obj)
+            vmi_obj.add_security_group(sg_obj)
+        return
+
     def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj,
             parent_vmi):
         proj_fq_name = ['default-domain', pod_namespace]
@@ -189,6 +198,7 @@ class VncPod(object):
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
+        self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
         sg_obj = SecurityGroup("default", proj_obj)
         vmi_obj.add_security_group(sg_obj)
         ns_sg_name = "ns-" + pod_namespace
