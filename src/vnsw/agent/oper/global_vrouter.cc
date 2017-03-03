@@ -465,7 +465,7 @@ GlobalVrouter::GlobalVrouter(Agent *agent) :
                          (this, *(agent->event_manager()->io_service()))),
     agent_route_resync_walker_(new AgentRouteResync(agent)),
     forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
-    ecmp_load_balance_() {
+    ecmp_load_balance_(), configured_(false) {
 }
 
 GlobalVrouter::~GlobalVrouter() {
@@ -482,11 +482,15 @@ void GlobalVrouter::CreateDBClients() {
 
 void GlobalVrouter::ConfigDelete(IFMapNode *node) {
     GlobalVrouterConfig(node);
+    configured_ = false;
+    agent()->connection_state()->Update();
     return;
 }
 
 void GlobalVrouter::ConfigAddChange(IFMapNode *node) {
     GlobalVrouterConfig(node);
+    configured_ = true;
+    agent()->connection_state()->Update();
     return;
 }
 
