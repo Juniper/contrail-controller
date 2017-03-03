@@ -79,6 +79,7 @@ private:
         process::ProcessState::type &state, std::string &message);
     void UpdateMessage(const process::ConnectionInfo &info,
                        std::string &message);
+    bool HasSelfConfiguration() const;
 
     Agent *agent_;
     uint64_t bandwidth_intvl_; //in microseconds
