@@ -345,6 +345,7 @@ private:
     void AddVmInterfaceInFloodGroup(const VmInterface *vm_itf,
                                     const std::string &vrf_name);
     void Resync(MulticastGroupObject *obj);
+    void DeleteEvpnPath(MulticastGroupObject *obj);
 
     //broadcast rt add /delete
     void AddL2BroadcastRoute(MulticastGroupObject *obj,

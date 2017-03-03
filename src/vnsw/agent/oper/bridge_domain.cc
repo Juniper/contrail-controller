@@ -123,7 +123,7 @@ bool BridgeDomainEntry::Change(const BridgeDomainTable *table,
         ret = true;
     }
 
-    if (data->isid_ && isid_ != data->isid_) {
+    if (isid_ != data->isid_) {
         isid_ = data->isid_;
         update_vrf = true;
         ret = true;

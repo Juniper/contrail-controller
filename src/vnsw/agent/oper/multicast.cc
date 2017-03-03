@@ -283,6 +283,7 @@ void MulticastHandler::AddBridgeDomain(DBTablePartBase *partition,
     }
 
     if (state->vxlan_id_ != bd->isid()) {
+        DeleteEvpnPath(obj);
         state->vxlan_id_ = bd->isid();
         obj->set_vxlan_id(state->vxlan_id_);
         Resync(obj);
@@ -1066,4 +1067,32 @@ void MulticastHandler::Resync(MulticastGroupObject *obj) {
                             dependent_mg->peer_identifier());
     }
     TriggerLocalRouteChange(obj, agent_->local_vm_peer());
+}
+
+void MulticastHandler::DeleteEvpnPath(MulticastGroupObject *obj) {
+    VrfKey key(obj->vrf_name());
+    VrfEntry *vrf =
+        static_cast <VrfEntry *>(agent_->vrf_table()->FindActiveEntry(&key));
+    if (vrf == NULL) {
+        return;
+    }
+
+    BridgeAgentRouteTable *br_table =
+        static_cast<BridgeAgentRouteTable *>(vrf->GetBridgeRouteTable());
+    BridgeRouteEntry *bridge_route =
+        br_table->FindRoute(MacAddress::BroadcastMac());
+    if (bridge_route == NULL){
+        return;
+    }
+
+    for(Route::PathList::iterator it = bridge_route->GetPathList().begin();
+        it != bridge_route->GetPathList().end();it++) {
+        AgentPath *path =
+            static_cast<AgentPath *>(it.operator->());
+        const Peer *peer = path->peer();
+        if (peer && peer->GetType() == Peer::BGP_PEER) {
+            DeleteBroadcast(peer, obj->vrf_name(), obj->vxlan_id(),
+                            Composite::EVPN);
+        }
+    }
 }
