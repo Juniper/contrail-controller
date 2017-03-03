@@ -68,6 +68,7 @@ test_ecmp_service_vlan = AgentEnv.MakeTestCmd(env, 'test_ecmp_service_vlan',
                                               pkt_test_suite)
 test_bgp_service = AgentEnv.MakeTestCmd(env, 'test_bgp_service',
                                        pkt_test_suite);
+env.Alias('controller/agent:test_bgp_service', test_bgp_service)
 test_flow_qos = AgentEnv.MakeTestCmd(env, 'test_flow_qos',
                                      pkt_test_suite);
 

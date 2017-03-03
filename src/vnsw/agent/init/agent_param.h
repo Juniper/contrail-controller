@@ -193,12 +193,6 @@ public:
     const std::vector<std::string> dns_server_list() const {
         return dns_server_list_;
     }
-    const Ip4Address &xmpp_server_1() const { return xmpp_server_1_; }
-    const Ip4Address &xmpp_server_2() const { return xmpp_server_2_; }
-    const Ip4Address &dns_server_1() const { return dns_server_1_; }
-    const Ip4Address &dns_server_2() const { return dns_server_2_; }
-    const uint16_t dns_port_1() const { return dns_port_1_; }
-    const uint16_t dns_port_2() const { return dns_port_2_; }
     const uint16_t dns_client_port() const {
         if (test_mode_)
             return 0;
@@ -497,7 +491,6 @@ private:
     void ParseCollector();
     void ParseVirtualHost();
     void ParseDns();
-    void ParseDiscovery();
     void ParseNetworks();
     void ParseHypervisor();
     void ParseDefaultSection();
@@ -522,9 +515,9 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseVirtualHostArguments
         (const boost::program_options::variables_map &v);
-    void ParseDnsArguments
+    void ParseControllerArguments
         (const boost::program_options::variables_map &v);
-    void ParseDiscoveryArguments
+    void ParseDnsArguments
         (const boost::program_options::variables_map &v);
     void ParseNetworksArguments
         (const boost::program_options::variables_map &v);
@@ -578,12 +571,6 @@ private:
     std::string eth_port_encap_type_;
     std::vector<std::string> controller_server_list_;
     std::vector<std::string> dns_server_list_;
-    Ip4Address xmpp_server_1_;
-    Ip4Address xmpp_server_2_;
-    Ip4Address dns_server_1_;
-    Ip4Address dns_server_2_;
-    uint16_t dns_port_1_;
-    uint16_t dns_port_2_;
     uint16_t dns_client_port_;
     uint32_t dns_timeout_;
     uint32_t dns_max_retries_;
