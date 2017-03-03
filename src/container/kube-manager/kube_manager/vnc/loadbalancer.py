@@ -5,15 +5,16 @@
 from vnc_api.vnc_api import *
 from kube_manager.vnc.config_db import *
 import uuid
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 LOG = logging.getLogger(__name__)
 
 
 class ServiceLbManager(object):
 
-    def __init__(self, vnc_lib=None, logger=None):
-        self._vnc_lib = vnc_lib
-        self.logger = logger
+    def __init__(self):
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self.logger = vnc_kube_config.logger()
 
     def read(self, id):
         try:
@@ -171,9 +172,9 @@ class ServiceLbManager(object):
 
 class ServiceLbListenerManager(object):
 
-    def __init__(self, vnc_lib=None, logger=None):
-        self._vnc_lib = vnc_lib
-        self.logger = logger
+    def __init__(self):
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self.logger = vnc_kube_config.logger()
 
     def read(self, id):
         return self._vnc_lib.loadbalancer_listener_read(id=id)
@@ -221,9 +222,9 @@ class ServiceLbListenerManager(object):
 
 class ServiceLbPoolManager(object):
 
-    def __init__(self, vnc_lib=None, logger=None):
-        self._vnc_lib = vnc_lib
-        self.logger = logger
+    def __init__(self):
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self.logger = vnc_kube_config.logger()
 
     def read(self, id):
         return self._vnc_lib.loadbalancer_pool_read(id=id)
@@ -272,9 +273,9 @@ class ServiceLbPoolManager(object):
 
 class ServiceLbMemberManager(object):
 
-    def __init__(self, vnc_lib=None, logger=None):
-        self._vnc_lib = vnc_lib
-        self.logger = logger
+    def __init__(self):
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self.logger = vnc_kube_config.logger()
 
     def read(self, id):
         return self._vnc_lib.loadbalancer_member_read(id=id)

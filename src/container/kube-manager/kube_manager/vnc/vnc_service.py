@@ -12,30 +12,31 @@ from loadbalancer import *
 from kube_manager.common.kube_config_db import ServiceKM
 from cfgm_common import importutils
 import link_local_manager as ll_mgr
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 class VncService(object):
 
-    def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None,
-                 queue=None, kube=None):
+    def __init__(self):
         self._name = type(self).__name__
-        self._vnc_lib = vnc_lib
-        self._label_cache = label_cache
-        self._args = args
-        self.logger = logger
-        self._queue = queue
-        self.kube = kube
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self._label_cache = vnc_kube_config.label_cache()
+        self._args = vnc_kube_config.args()
+        self.logger = vnc_kube_config.logger()
+        self._queue = vnc_kube_config.queue()
+        self.kube = vnc_kube_config.kube()
 
         self._fip_pool_obj = None
 
         # Cache kubernetes API server params.
-        self._kubernetes_api_secure_ip = args.kubernetes_api_secure_ip
-        self._kubernetes_api_secure_port = int(args.kubernetes_api_secure_port)
+        self._kubernetes_api_secure_ip = self._args.kubernetes_api_secure_ip
+        self._kubernetes_api_secure_port =\
+            int(self._args.kubernetes_api_secure_port)
 
         # Cache kuberneter service name.
-        self._kubernetes_service_name = args.kubernetes_service_name
+        self._kubernetes_service_name = self._args.kubernetes_service_name
 
         # Config knob to control enable/disable of link local service.
-        if args.api_service_link_local == 'True':
+        if self._args.api_service_link_local == 'True':
             api_service_ll_enable = True
         else:
             api_service_ll_enable = False
@@ -49,13 +50,13 @@ class VncService(object):
             self._create_linklocal = api_service_ll_enable
                                         
         self.service_lb_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbManager', vnc_lib, logger)
+            'kube_manager.vnc.loadbalancer.ServiceLbManager')
         self.service_ll_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbListenerManager', vnc_lib, logger)
+            'kube_manager.vnc.loadbalancer.ServiceLbListenerManager')
         self.service_lb_pool_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbPoolManager', vnc_lib, logger)
+            'kube_manager.vnc.loadbalancer.ServiceLbPoolManager')
         self.service_lb_member_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbMemberManager', vnc_lib, logger)
+            'kube_manager.vnc.loadbalancer.ServiceLbMemberManager')
 
     def _get_project(self, service_namespace):
         proj_fq_name = ['default-domain', service_namespace]

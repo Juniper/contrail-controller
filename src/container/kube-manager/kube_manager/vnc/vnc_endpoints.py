@@ -11,19 +11,19 @@ import uuid
 from vnc_api.vnc_api import *
 from config_db import *
 from cfgm_common import importutils
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 class VncEndpoints(object):
-
-    def __init__(self, vnc_lib=None, logger=None, kube=None):
+    def __init__(self):
         self._name = type(self).__name__
-        self._vnc_lib = vnc_lib
-        self.logger = logger
-        self._kube = kube
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self.logger = vnc_kube_config.logger()
+        self._kube = vnc_kube_config.kube()
 
         self.service_lb_pool_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbPoolManager', vnc_lib, logger)
+            'kube_manager.vnc.loadbalancer.ServiceLbPoolManager')
         self.service_lb_member_mgr = importutils.import_object(
-            'kube_manager.vnc.loadbalancer.ServiceLbMemberManager', vnc_lib, logger)
+            'kube_manager.vnc.loadbalancer.ServiceLbMemberManager')
 
     def _vnc_create_member(self, pool, pod_id, vmi_id, protocol_port):
         pool_obj = self.service_lb_pool_mgr.read(pool.uuid)

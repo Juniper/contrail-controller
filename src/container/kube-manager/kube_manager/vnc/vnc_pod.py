@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
 """
@@ -12,21 +12,20 @@ from vnc_api.vnc_api import *
 from config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
 from kube_manager.common.kube_config_db import PodKM
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 class VncPod(object):
 
-    def __init__(self, vnc_lib=None, label_cache=None, args=None, logger=None,
-            service_mgr=None, network_policy_mgr=None, queue=None,
-            svc_fip_pool=None):
+    def __init__(self, service_mgr, network_policy_mgr):
         self._name = type(self).__name__
-        self._vnc_lib = vnc_lib
-        self._label_cache = label_cache
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self._label_cache = vnc_kube_config.label_cache()
         self._service_mgr = service_mgr
         self._network_policy_mgr = network_policy_mgr
-        self._queue = queue
-        self._service_fip_pool = svc_fip_pool
-        self._args = args
-        self._logger = logger
+        self._queue = vnc_kube_config.queue()
+        self._service_fip_pool = vnc_kube_config.service_fip_pool()
+        self._args = vnc_kube_config.args()
+        self._logger = vnc_kube_config.logger()
 
     def _get_label_diff(self, new_labels, vm):
         old_labels = vm.pod_labels
@@ -110,7 +109,15 @@ class VncPod(object):
         return None
 
     def _create_iip(self, pod_name, vn_obj, vmi):
-        iip_obj = InstanceIp(name=pod_name)
+        # Instance-ip for pods are ALWAYS allocated from pod ipam on this
+        # VN. Get the subnet uuid of the pod ipam on this VN, so we can request
+        # an IP from it.
+        vn = VirtualNetworkKM.find_by_name_or_uuid(vn_obj.get_uuid())
+        pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(
+            vnc_kube_config.pod_ipam_fq_name())
+
+        # Create instance-ip.
+        iip_obj = InstanceIp(name=pod_name, subnet_uuid=pod_ipam_subnet_uuid)
         iip_obj.add_virtual_network(vn_obj)
 
         # Creation of iip requires the vmi vnc object.
@@ -136,7 +143,7 @@ class VncPod(object):
 
         return None
 
-    def _create_cluster_service_fip(self, pod_name, vmi_obj):
+    def _create_cluster_service_fip(self, pod_name, vmi_uuid):
         """
         Isolated Pods in the cluster will be allocated a floating ip
         from the cluster service network, so that the pods can talk
@@ -155,6 +162,10 @@ class VncPod(object):
         fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (pod_name),
                              parent_obj=fip_pool_obj,
                              floating_ip_traffic_direction='egress')
+
+        # Creation of fip requires the vmi vnc object.
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                      id=vmi_uuid)
         fip_obj.set_virtual_machine_interface(vmi_obj)
 
         try:
@@ -278,7 +289,7 @@ class VncPod(object):
         self._create_iip(pod_name, vn_obj, vmi)
 
         if self._is_pod_network_isolated(pod_namespace):
-            self._create_cluster_service_fip(pod_name, vmi)
+            self._create_cluster_service_fip(pod_name, vmi_uuid)
 
         self._link_vm_to_node(vm_obj, pod_node)
 

@@ -10,15 +10,15 @@ import uuid
 
 from vnc_api.vnc_api import *
 from config_db import *
-
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 class VncNetworkPolicy(object):
 
-    def __init__(self, vnc_lib=None, label_cache=None, logger=None):
+    def __init__(self):
         self._name = type(self).__name__
-        self._vnc_lib = vnc_lib
-        self._label_cache = label_cache
-        self.logger = logger
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self._label_cache = vnc_kube_config.label_cache()
+        self.logger = vnc_kube_config.logger()
         self.logger.info("VncNetworkPolicy init done.")
         self.policy_src_label_cache = {}
         self.policy_dest_label_cache = {}

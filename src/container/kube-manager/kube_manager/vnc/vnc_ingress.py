@@ -16,23 +16,23 @@ from kube_manager.vnc.loadbalancer import ServiceLbManager
 from kube_manager.vnc.loadbalancer import ServiceLbListenerManager
 from kube_manager.vnc.loadbalancer import ServiceLbPoolManager
 from kube_manager.vnc.loadbalancer import ServiceLbMemberManager
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 class VncIngress(object):
-    def __init__(self, args=None, queue=None, vnc_lib=None,
-                 label_cache=None, logger=None, kube=None):
+    def __init__(self):
         self._name = type(self).__name__
-        self._args = args
-        self._queue = queue
-        self._vnc_lib = vnc_lib
-        self._logger = logger
-        self._kube = kube
+        self._args = vnc_kube_config.args()
+        self._queue = vnc_kube_config.queue()
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self._logger = vnc_kube_config.logger()
+        self._kube = vnc_kube_config.kube()
         self._vn_obj = None
         self._service_subnet_uuid = None
         self._fip_pool_obj = None
-        self.service_lb_mgr = ServiceLbManager(vnc_lib, logger)
-        self.service_ll_mgr = ServiceLbListenerManager(vnc_lib, logger)
-        self.service_lb_pool_mgr = ServiceLbPoolManager(vnc_lib, logger)
-        self.service_lb_member_mgr = ServiceLbMemberManager(vnc_lib, logger)
+        self.service_lb_mgr = ServiceLbManager()
+        self.service_ll_mgr = ServiceLbListenerManager()
+        self.service_lb_pool_mgr = ServiceLbPoolManager()
+        self.service_lb_member_mgr = ServiceLbMemberManager()
 
     def _get_project(self, namespace):
         proj_fq_name = ['default-domain', namespace]

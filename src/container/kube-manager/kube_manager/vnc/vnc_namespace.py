@@ -11,17 +11,14 @@ import uuid
 from vnc_api.vnc_api import *
 from config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 
 class VncNamespace(object):
 
-    def __init__(self, cluster_pod_subnets=None, logger=None, vnc_lib=None):
+    def __init__(self):
         self._name = type(self).__name__
-        self._vnc_lib = vnc_lib
-        self._logger = logger
-
-        # Cache user specified subnet directive to be used for pods iip's
-        # in this namespace.
-        self._cluster_pod_subnets = cluster_pod_subnets
+        self._vnc_lib = vnc_kube_config.vnc_lib()
+        self._logger = vnc_kube_config.logger()
 
     def _get_namespace(self, ns_name):
         """
@@ -91,41 +88,38 @@ class VncNamespace(object):
         # Remove the ipam from cache.
         NetworkIpamSM.delete(ipam['uuid'])
 
-    def _create_virtual_network(self, ns_name, vn_name, proj_obj, subnets=None):
+    def _create_virtual_network(self, ns_name, vn_name, proj_obj):
         """
         Create a virtual network for this namespace.
         """
         vn = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
             address_allocation_mode='flat-subnet-only')
+
         try:
+            vn_uuid = self._vnc_lib.virtual_network_create(vn)
+        except RefsExistError:
             vn_obj = self._vnc_lib.virtual_network_read(
                 fq_name=vn.get_fq_name())
+            vn_uuid = vn_obj.uuid
 
-        except NoIdError:
-            # Virtual network does not exist. Create one.
-            self._vnc_lib.virtual_network_create(vn)
-
-        if not subnets:
-            # If subnet info is not specified in namespace configuration,
-            # this namespace will use kubernetes cluster pod network subnet.
-            subnets = self._cluster_pod_subnets
-
-        # Create the ipam object.
-        ipam_obj, ipam_subnets= self._create_ipam('pod-ipam-%s' % (vn_name),
-            subnets=subnets, proj_obj=proj_obj, type='flat-subnet')
-
-        # Attach the ipam object to the virtual network.
+        # Instance-Ip for pods on this VN, should be allocated from
+        # cluster pod ipam. Attach the cluster podipam object
+        # to this virtual network.
+        ipam_obj = self._vnc_lib.network_ipam_read(
+            fq_name=vnc_kube_config.pod_ipam_fq_name())
         vn.add_network_ipam(ipam_obj, VnSubnetsType([]))
+
+        # Update VN.
         self._vnc_lib.virtual_network_update(vn)
 
         # Cache the virtual network.
-        VirtualNetworkKM.locate(vn.uuid)
+        VirtualNetworkKM.locate(vn_uuid)
 
         # Cache network info in namespace entry.
-        self._set_namespace_virtual_network(ns_name, vn.fq_name)
+        self._set_namespace_virtual_network(ns_name, vn.get_fq_name())
 
-        return
+        return vn_uuid
 
     def _delete_virtual_network(self, ns_name, vn_name, proj):
         """
