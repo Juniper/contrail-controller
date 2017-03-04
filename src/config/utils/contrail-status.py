@@ -27,16 +27,19 @@ DPDK_NETLINK_TCP_PORT = 20914
 
 CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                   'upstart' : ['supervisor-vrouter'],
+                                  'supervisor' : ['supervisor-vrouter'],
                                   'systemd' : ['contrail-vrouter-agent',
                                                'contrail-vrouter-nodemgr']},
                      'control' : {'sysv' : ['supervisor-control'],
                                   'upstart' : ['supervisor-control'],
+                                  'supervisor' : ['supervisor-control'],
                                   'systemd' :['contrail-control',
                                               'contrail-named',
                                               'contrail-dns',
                                               'contrail-control-nodemgr']},
                      'config' : {'sysv' : ['supervisor-config'],
                                  'upstart' : ['supervisor-config'],
+                                 'supervisor' : ['supervisor-config'],
                                  'systemd' :['contrail-api',
                                              'contrail-schema',
                                              'contrail-svc-monitor',
@@ -44,6 +47,7 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                              'contrail-config-nodemgr']},
                      'analytics' : {'sysv' : ['supervisor-analytics'],
                                     'upstart' : ['supervisor-analytics'],
+                                    'supervisor' : ['supervisor-analytics'],
                                     'systemd' :['contrail-collector',
                                                 'contrail-analytics-api',
                                                 'contrail-query-engine',
@@ -53,14 +57,17 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                                 'contrail-analytics-nodemgr',]},
                      'database' : {'sysv' : ['supervisor-database'],
                                    'upstart' : ['supervisor-database'],
+                                   'supervisor' : ['supervisor-database'],
                                   'systemd' :['kafka',
                                               'contrail-database-nodemgr']},
                      'webui' : {'sysv' : ['supervisor-webui'],
                                 'upstart' : ['supervisor-webui'],
+                                'supervisor' : ['supervisor-webui'],
                                 'systemd' :['contrail-webui',
                                             'contrail-webui-middleware']},
                      'support-service' : {'sysv' : ['supervisor-support-service'],
                                           'upstart' : ['supervisor-support-service'],
+                                          'supervisor' : ['supervisor-support-service'],
                                           'systemd' :['rabbitmq-server',
                                                       'zookeeper']},
                     }
@@ -72,6 +79,7 @@ elif distribution.startswith('ubuntu'):
     distribution = 'debian'
 
 def get_init_systems():
+    init_sys_used = None
     try:
         with open(os.devnull, "w") as fnull:
             subprocess.check_call(["pidof", "systemd"], stdout=fnull,
@@ -91,13 +99,15 @@ def get_init_systems():
                     subprocess.check_call(["initctl", "fake"], stdout=fnull,
                             stderr=fnull)
                 init = 'sysv'
+                init_sys_used = 'supervisor'
             except:
                 pass
         except:
             init = 'sysv'
 
     # contrail services in redhat system uses sysv, though systemd is default.
-    init_sys_used = init
+    if not init_sys_used:
+        init_sys_used = init
     if distribution in ['redhat']:
         init_sys_used = 'sysv'
     return (init, init_sys_used)
@@ -471,7 +481,11 @@ def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile, ca
         print
 
 def check_status(svc_name, options):
-    check_svc(svc_name)
+    do_check_svc = True
+    if init_sys_used in ['supervisor'] and svc_name.startswith('supervisor'):
+        do_check_svc = False
+    if do_check_svc:
+        check_svc(svc_name)
     if init_sys_used not in ['systemd']:
         check_svc_status(svc_name, options.debug, options.detail, \
                 options.timeout, options.keyfile, options.certfile, \
