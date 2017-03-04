@@ -56,7 +56,8 @@ class UVEServer(object):
             test_elem = RedisInstKey(ip=new_elem[0], port=new_elem[1])
             self._redis_uve_map[test_elem] = RedisInst()
             ConnectionState.update(ConnectionType.REDIS_UVE,\
-                test_elem.ip+":"+str(test_elem.port), ConnectionStatus.INIT)
+                test_elem.ip+":"+str(test_elem.port), ConnectionStatus.INIT,
+                [test_elem.ip+":"+str(test_elem.port)])
     #end __init__
 
     def fill_redis_uve_info(self, redis_uve_info):
@@ -116,10 +117,12 @@ class UVEServer(object):
                     # Update redis/collector health
                     if old_pid is None and rinst.collector_pid is not None:
 	                ConnectionState.update(ConnectionType.REDIS_UVE,\
-		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.UP)
+		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.UP,
+                        [rkey.ip+":"+str(rkey.port)])
                     if old_pid is not None and rinst.collector_pid is None:
 	                ConnectionState.update(ConnectionType.REDIS_UVE,\
-		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.DOWN)
+		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.DOWN,
+                        [rkey.ip+":"+str(rkey.port)])
                 if not exitrun:
                     gevent.sleep(self._freq)
 
