@@ -71,22 +71,39 @@ if distribution.startswith('centos') or \
 elif distribution.startswith('ubuntu'):
     distribution = 'debian'
 
-try:
-    with open(os.devnull, "w") as fnull:
-        subprocess.check_call(["pidof", "systemd"], stdout=fnull, stderr=fnull)
-    init = 'systemd'
-except:
+def get_init_systems():
     try:
         with open(os.devnull, "w") as fnull:
-            subprocess.check_call(["initctl", "list"], stdout=fnull, stderr=fnull)
-        init = 'upstart'
+            subprocess.check_call(["pidof", "systemd"], stdout=fnull,
+                    stderr=fnull)
+        init = 'systemd'
     except:
-        init = 'sysv'
+        try:
+            with open(os.devnull, "w") as fnull:
+                subprocess.check_call(["initctl", "list"], stdout=fnull,
+                       stderr=fnull)
+            init = 'upstart'
+            # On docker initctl is redirected to /bin/true and so we need to use
+            # sysv. Verify that some fake command also returns success to
+            # determine.
+            try:
+                with open(os.devnull, "w") as fnull:
+                    subprocess.check_call(["initctl", "fake"], stdout=fnull,
+                            stderr=fnull)
+                init = 'sysv'
+            except:
+                pass
+        except:
+            init = 'sysv'
 
-# contrail services in redhat system uses sysv, though systemd is default.
-init_sys_used = init
-if distribution in ['redhat']:
-    init_sys_used = 'sysv'
+    # contrail services in redhat system uses sysv, though systemd is default.
+    init_sys_used = init
+    if distribution in ['redhat']:
+        init_sys_used = 'sysv'
+    return (init, init_sys_used)
+# end get_init_systems
+
+(init, init_sys_used) = get_init_systems()
 
 class EtreeToDict(object):
     """Converts the xml etree to dictionary/list of dictionary."""
@@ -214,44 +231,59 @@ class IntrospectUtil(object):
 #end class IntrospectUtil
 
 def service_installed(svc, initd_svc):
-    if (distribution == 'debian' and not init == 'systemd'):
-        if initd_svc:
-            return os.path.exists('/etc/init.d/' + svc)
-        cmd = 'initctl show-config ' + svc
+    si_init = init
+    if initd_svc:
+        si_init = 'sysv'
+    if distribution == 'redhat':
+        cmd = 'chkconfig --list %s' % svc
     else:
-        cmd = 'chkconfig --list ' + svc
+        if si_init == 'systemd':
+            cmd = 'systemctl cat %s' % svc
+        elif si_init == 'upstart':
+            cmd = 'initctl show-config %s' % svc
+        else:
+            return os.path.exists('/etc/init.d/%s' % svc)
     with open(os.devnull, "w") as fnull:
         return not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull)
+# end service_installed
 
 def service_bootstatus(svc, initd_svc):
-    if (distribution == 'debian' and not init == 'systemd'):
-        # On ubuntu/debian there does not seem to be an easy way to find
-        # the boot status for init.d services without going through the
-        # /etc/rcX.d level
-        if initd_svc:
-            if glob.glob('/etc/rc*.d/S*' + svc):
+    sb_init = init
+    if initd_svc:
+        sb_init = 'sysv'
+    if distribution == 'redhat':
+        cmd = 'chkconfig %s' % svc
+    else:
+        if sb_init == 'systemd':
+            cmd = 'systemctl is-enabled %s' % svc
+        elif sb_init == 'upstart':
+            cmd = 'initctl show-config %s' % svc
+            cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
+            if cmdout.find('  start on') != -1:
                 return ''
             else:
                 return ' (disabled on boot)'
-        cmd = 'initctl show-config ' + svc
-        cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
-        if cmdout.find('  start on') != -1:
+        else:
+            # On ubuntu/debian there does not seem to be an easy way to find
+            # the boot status for init.d services without going through the
+            # /etc/rcX.d level
+            if glob.glob('/etc/rc*.d/S*%s' % svc):
+                return ''
+            else:
+                return ' (disabled on boot)'
+
+    with open(os.devnull, "w") as fnull:
+        if not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull):
             return ''
         else:
             return ' (disabled on boot)'
-    else:
-        cmd = 'chkconfig ' + svc
-        with open(os.devnull, "w") as fnull:
-            if not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull):
-                return ''
-            else:
-                return ' (disabled on boot)'
+ # end service_bootstatus
 
-def service_status(svc, initd_svc):
+def service_status(svc, check_return_code):
     cmd = 'service ' + svc + ' status'
     p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
     cmdout = p.communicate()[0]
-    if initd_svc:
+    if check_return_code:
         if p.returncode == 0 or 'Active: active' in cmdout:
             return 'active'
         else:
@@ -260,6 +292,7 @@ def service_status(svc, initd_svc):
         return 'active'
     else:
         return 'inactive'
+# end service_status
 
 def check_svc(svc, initd_svc=False):
     psvc = svc + ':'
@@ -463,7 +496,8 @@ def contrail_service_status(nodetype, options):
             check_status(svc_name, options)
     elif nodetype == 'database':
         print "== Contrail Database =="
-        check_svc('contrail-database', initd_svc=True)
+        initd_svc = init == 'sysv' or init == 'upstart'
+        check_svc('contrail-database', initd_svc=initd_svc)
         print ""
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
             check_status(svc_name, options)
@@ -527,10 +561,21 @@ def main():
     storage = package_installed('contrail-storage')
 
     vr = False
-    lsmodout = subprocess.Popen('lsmod', stdout=subprocess.PIPE).communicate()[0]
-    lsofvrouter = (subprocess.Popen(['lsof', '-ni:{0}'.format(DPDK_NETLINK_TCP_PORT),
+    lsmodout = None
+    lsofvrouter = None
+    try:
+        lsmodout = subprocess.Popen('lsmod', stdout=subprocess.PIPE).communicate()[0]
+    except Exception as lsmode:
+        if options.debug:
+            print 'lsmod FAILED: {0}'.format(str(lsmode))
+    try:
+        lsofvrouter = (subprocess.Popen(['lsof', '-ni:{0}'.format(DPDK_NETLINK_TCP_PORT),
                    '-sTCP:LISTEN'], stdout=subprocess.PIPE).communicate()[0])
-    if lsmodout.find('vrouter') != -1:
+    except Exception as lsofe:
+        if options.debug:
+            print 'lsof -ni:{0} FAILED: {1}'.format(DPDK_NETLINK_TCP_PORT, str(lsofe))
+
+    if lsmodout and lsmodout.find('vrouter') != -1:
         vr = True
 
     elif lsofvrouter:
