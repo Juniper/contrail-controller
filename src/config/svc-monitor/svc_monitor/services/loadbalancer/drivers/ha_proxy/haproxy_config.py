@@ -114,8 +114,8 @@ def set_globals(uuid, custom_attr_dict, custom_attrs):
     conf = [
         'global',
         'daemon',
-        'user nobody',
-        'group nogroup',
+        'user haproxy',
+        'group haproxy',
         'log /dev/log local0',
         'log /dev/log local1 notice',
         'tune.ssl.default-dh-param 2048',
