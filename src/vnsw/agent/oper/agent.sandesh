@@ -584,6 +584,8 @@ struct NhSandeshData {
    28: bool etree_leaf;
    /** Layer 2 control word */
    29: bool layer2_control_word;
+   /** PBB B-MAC for PBB NH */
+   30: optional string pbb_bmac;
 }
 
 /**

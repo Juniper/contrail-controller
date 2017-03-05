@@ -2777,7 +2777,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
         case PBB: {
              data.set_type("PBB Tunnel");
              const PBBNH *pbb_nh = static_cast<const PBBNH *>(this);
-             data.set_mac(pbb_nh->dest_bmac().ToString());
+             data.set_pbb_bmac(pbb_nh->dest_bmac().ToString());
              data.set_vrf(pbb_nh->vrf()->GetName());
              data.set_isid(pbb_nh->isid());
              std::vector<McastData> data_list;
