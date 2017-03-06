@@ -10,6 +10,8 @@
 #include "base/queue_task.h"
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
+#include "pkt/flow_token.h"
+#include "mac_learning_event.h"
 
 class MacLearningPartition;
 class MacAgingTable;
@@ -40,9 +42,28 @@ public:
     uint32_t size() {
         return mac_learning_partition_list_.size();
     }
+
+    TokenPool* add_tokens() {
+        return &add_tokens_;
+    }
+
+    TokenPool* change_tokens() {
+        return &change_tokens_;
+    }
+
+    TokenPool* delete_tokens() {
+        return &delete_tokens_;
+    }
+
+    TokenPtr GetToken(MacLearningEntryRequest::Event event);
+    virtual void TokenAvailable(TokenPool *pool);
+
 private:
     tbb::mutex::scoped_lock mutex_;
     MacLearningPartitionList mac_learning_partition_list_;
+    TokenPool add_tokens_;
+    TokenPool change_tokens_;
+    TokenPool delete_tokens_;
     DISALLOW_COPY_AND_ASSIGN(MacLearningProto);
 };
 #endif

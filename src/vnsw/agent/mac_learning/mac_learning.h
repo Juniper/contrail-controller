@@ -7,6 +7,9 @@
 
 #include "cmn/agent.h"
 #include "mac_learning_key.h"
+#include "mac_learning_base.h"
+#include "mac_learning_event.h"
+#include "pkt/flow_token.h"
 class MacEntryResp;
 /*
  * High level mac learning modules
@@ -70,48 +73,6 @@ class MacEntryResp;
 class MacLearningPartition;
 class MacAgingTable;
 class MacAgingPartition;
-class MacLearningEntry {
-public:
-    MacLearningEntry(MacLearningPartition *table, uint32_t vrf_id,
-                     const MacAddress &mac, uint32_t index);
-    virtual ~MacLearningEntry() {}
-    virtual void Add() = 0;
-    virtual void Delete();
-    virtual void Resync() { Add(); }
-
-    MacLearningPartition* mac_learning_table() const {
-        return mac_learning_table_;
-    }
-
-    uint32_t index() const {
-        return index_;
-    }
-
-    const MacAddress& mac() const {
-        return key_.mac_;
-    }
-
-    VrfEntry* vrf() const {
-        return vrf_.get();
-    }
-
-    uint32_t vrf_id() const {
-        return key_.vrf_id_;
-    }
-
-    const MacLearningKey& key() const {
-        return key_;
-    }
-
-protected:
-    MacLearningPartition *mac_learning_table_;
-    MacLearningKey key_;
-    uint32_t index_;
-    uint32_t ethernet_tag_;
-    VrfEntryRef vrf_;
-private:
-    DISALLOW_COPY_AND_ASSIGN(MacLearningEntry);
-};
 
 //Structure used to hold MAC entry learned
 //on local interface
@@ -172,63 +133,6 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MacLearningEntryPBB);
 };
 
-typedef boost::shared_ptr<MacLearningEntry> MacLearningEntryPtr;
-
-class MacLearningEntryRequest {
-public:
-     enum Event {
-         INVALID,
-         VROUTER_MSG,
-         ADD_MAC,
-         RESYNC_MAC,
-         DELETE_MAC,
-         FREE_DB_ENTRY,
-         DELETE_VRF
-     };
-
-     MacLearningEntryRequest(Event event, PktInfoPtr pkt):
-         event_(event), pkt_info_(pkt) {}
-     MacLearningEntryRequest(Event event, MacLearningEntryPtr ptr):
-         event_(event), mac_learning_entry_(ptr) {
-     }
-
-     MacLearningEntryRequest(Event event, uint32_t vrf_id):
-         event_(event), vrf_id_(vrf_id) {
-     }
-
-     MacLearningEntryRequest(Event event, const DBEntry *entry):
-         event_(event), db_entry_(entry) {}
-
-     MacLearningEntryPtr mac_learning_entry() {
-         return mac_learning_entry_;
-     }
-
-     Event event() {
-         return event_;
-     }
-
-     const DBEntry *db_entry() {
-         return db_entry_;
-     }
-
-     PktInfoPtr pkt_info() {
-         return pkt_info_;
-     }
-
-     uint32_t vrf_id() {
-         return vrf_id_;
-     }
-
-private:
-    Event event_;
-    MacLearningEntryPtr mac_learning_entry_;
-    PktInfoPtr pkt_info_;
-    uint32_t vrf_id_;
-    const DBEntry *db_entry_;
-};
-typedef boost::shared_ptr<MacLearningEntryRequest> MacLearningEntryRequestPtr;
-typedef WorkQueue<MacLearningEntryRequestPtr> MacLearningRequestQueue;
-
 //Mac learning Parition holds all the mac entries hashed
 //based on VRF + MAC, and corresponding to each partition
 //there will be a aging partition holding all the MAC entries
@@ -241,7 +145,8 @@ public:
                      MacLearningEntryPtr,
                      MacLearningKeyCmp> MacLearningEntryTable;
 
-    MacLearningPartition(Agent *agent, uint32_t id);
+    MacLearningPartition(Agent *agent, MacLearningProto *proto,
+                         uint32_t id);
     virtual ~MacLearningPartition();
     void Add(MacLearningEntryPtr ptr);
     void Resync(MacLearningEntryPtr ptr);
@@ -257,14 +162,22 @@ public:
         return aging_partition_.get();
     }
 
+    uint32_t id() const {
+        return id_;
+    }
+
     void Enqueue(MacLearningEntryRequestPtr req);
     void EnqueueMgmtReq(MacLearningEntryPtr ptr, bool add);
+    void MayBeStartRunner(TokenPool *pool);
+
 private:
     friend class MacLearningSandeshResp;
     Agent *agent_;
     uint32_t id_;
     MacLearningEntryTable mac_learning_table_;
-    MacLearningRequestQueue request_queue_;
+    MacLearningRequestQueue add_request_queue_;
+    MacLearningRequestQueue change_request_queue_;
+    MacLearningRequestQueue delete_request_queue_;
     boost::shared_ptr<MacAgingPartition> aging_partition_;
     DISALLOW_COPY_AND_ASSIGN(MacLearningPartition);
 };

@@ -22,6 +22,7 @@
 #include <pkt/pkt_handler.h>
 #include <pkt/pkt_init.h>
 #include <pkt/pkt_flow_info.h>
+#include <pkt/flow_token.h>
 #include <sandesh/sandesh_trace.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
@@ -37,7 +38,7 @@ class FlowTableKSyncEntry;
 class FlowEntry;
 struct FlowExportInfo;
 class FlowStatsCollector;
-class FlowToken;
+class Token;
 class FlowMgmtRequest;
 class FlowEntryInfo;
 typedef std::auto_ptr<FlowEntryInfo> FlowMgmtEntryInfoPtr;
@@ -406,7 +407,7 @@ private:
     bool revaluate_;
 };
 
-class FlowEntry {
+class FlowEntry : public TokenHolder {
     public:
     enum FlowShortReason {
         /* Please update FlowEntry::FlowDropReasonStr whenever entries are added

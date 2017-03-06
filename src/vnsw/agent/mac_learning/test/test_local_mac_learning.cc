@@ -24,7 +24,7 @@
 #include <test/pkt_gen.h>
 #include "vr_types.h"
 #include <services/services_sandesh.h>
-
+#include "mac_learning/mac_learning_proto.h"
 // Create vm-port and vn
 struct PortInfo input[] = {
     {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
@@ -138,6 +138,79 @@ TEST_F(MacLearningTest, Test2) {
                         MakeUuid(2), VmInterface::INSTANCE_MSG);
     client->WaitForIdle();
     EXPECT_TRUE(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL);
+}
+
+//Test token allocation and relinquishing
+TEST_F(MacLearningTest, Test4) {
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    const VmInterface *intf2 = static_cast<const VmInterface *>(VmPortGet(2));
+
+    int32_t tokens = agent_->mac_learning_proto()->add_tokens()->token_count();
+
+    //Same MAC entry uses 100 token
+    for (uint32_t i = 0; i < 99; i++) {
+        MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, i);
+        TxL2Packet(intf->id(), smac.ToString().c_str(), "00:00:00:33:22:11",
+                "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
+        TxL2Packet(intf2->id(), smac.ToString().c_str(), "00:00:00:33:22:11",
+                "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
+    }
+    client->WaitForIdle();
+
+    MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, 0x33);
+    WAIT_FOR(1000, 1000, (EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) != NULL));
+
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
+                         MakeUuid(1), VmInterface::INSTANCE_MSG);
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
+                         MakeUuid(2), VmInterface::INSTANCE_MSG);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000,(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL));
+    EXPECT_TRUE(agent_->mac_learning_proto()->add_tokens()->token_count() ==
+                tokens);
+}
+
+//Stop DB processing and verify DB processing stops after tokens
+//are exhausted
+TEST_F(MacLearningTest, Test5) {
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    const VmInterface *intf2 = static_cast<const VmInterface *>(VmPortGet(2));
+
+    int32_t tokens = agent_->mac_learning_proto()->add_tokens()->token_count();
+
+    agent_->db()->SetQueueDisable(true);
+    //Same MAC entry uses 100 token
+    for (int32_t i = 0; i < 2 * tokens; i++) {
+        TxL2Packet(intf->id(),  "00:00:00:11:22:33", "00:00:00:33:22:11",
+                "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
+        TxL2Packet(intf2->id(), "00:00:00:11:22:33", "00:00:00:33:22:11",
+                "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
+    }
+    client->WaitForIdle();
+    EXPECT_TRUE(agent_->mac_learning_proto()->add_tokens()->TokenCheck() == false);
+
+    agent_->db()->SetQueueDisable(false);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000,
+             (agent_->mac_learning_proto()->add_tokens()->TokenCheck() == true));
+    WAIT_FOR(1000, 1000,
+             (agent_->mac_learning_proto()->add_tokens()->token_count() == tokens));
+
+    MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, 0x33);
+    WAIT_FOR(1000, 1000, (EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) != NULL));
+
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
+                         MakeUuid(1), VmInterface::INSTANCE_MSG);
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
+                        MakeUuid(2), VmInterface::INSTANCE_MSG);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000,(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL);
+    EXPECT_TRUE(agent_->mac_learning_proto()->add_tokens()->token_count() ==
+                tokens);
 }
 
 int main(int argc, char *argv[]) {

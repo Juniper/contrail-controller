@@ -1,17 +1,18 @@
 #include "flow_token.h"
 #include "flow_proto.h"
 
-FlowToken::FlowToken(FlowTokenPool *pool, FlowEntry *flow) :
-    flow_(flow), pool_(pool) {
+Token::Token(TokenPool *pool, TokenHolder *token_holder) :
+    pool_(pool), token_holder_(token_holder) {
 }
 
-FlowToken::~FlowToken() {
+Token::~Token() {
     if (pool_)
         pool_->FreeToken();
-    flow_ = NULL;
+    token_holder_ = NULL;
+    LOG(ERROR, "Releasing token");
 }
 
-FlowTokenPool::FlowTokenPool(const std::string &name, FlowProto *proto,
+TokenPool::TokenPool(const std::string &name, Proto *proto,
                              int count) :
     name_(name), max_tokens_(count), min_tokens_(count),
     low_water_mark_((count * 10)/100), failures_(0), restarts_(0),
@@ -19,17 +20,10 @@ FlowTokenPool::FlowTokenPool(const std::string &name, FlowProto *proto,
     token_count_ = count;
 }
 
-FlowTokenPool::~FlowTokenPool() {
+TokenPool::~TokenPool() {
 }
 
-FlowTokenPtr FlowTokenPool::GetToken(FlowEntry *flow) {
-    int val = token_count_.fetch_and_decrement();
-    if (val < min_tokens_)
-        min_tokens_ = val;
-    return FlowTokenPtr(new FlowToken(this, flow));
-}
-
-void FlowTokenPool::FreeToken() {
+void TokenPool::FreeToken() {
     int val = token_count_.fetch_and_increment();
     assert(val <= max_tokens_);
     if (val == low_water_mark_) {
@@ -37,11 +31,18 @@ void FlowTokenPool::FreeToken() {
     }
 }
 
-bool FlowTokenPool::TokenCheck() const {
+bool TokenPool::TokenCheck() const {
     if (token_count_ > 0) {
         return true;
     }
 
     failures_++;
     return false;
+}
+
+TokenPtr TokenPool::GetToken(TokenHolder *token_holder) {
+    int val = token_count_.fetch_and_decrement();
+    if (val < min_tokens_)
+        min_tokens_ = val;
+    return TokenPtr(new Token(this, token_holder));
 }

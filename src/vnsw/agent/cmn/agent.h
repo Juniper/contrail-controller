@@ -321,6 +321,7 @@ public:
     static const uint32_t kFlowKSyncTokens = 25;
     static const uint32_t kFlowDelTokens = 16;
     static const uint32_t kFlowUpdateTokens = 16;
+    static const uint32_t kMacLearningDefaultTokens = 256;
     static const uint8_t kInvalidQueueId = 255;
     static const int kInvalidCpuId = -1;
     enum ForwardingMode {

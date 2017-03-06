@@ -101,18 +101,51 @@ void MacLearningEntryPBB::Add() {
                                              mac(), Ip4Address(0), 0, data);
 }
 
-MacLearningPartition::MacLearningPartition(Agent *agent, uint32_t id):
+MacLearningRequestQueue::MacLearningRequestQueue(MacLearningPartition *partition,
+                                                 TokenPool *pool):
+    partition_(partition), pool_(pool),
+    queue_(partition_->agent()->task_scheduler()->GetTaskId(kTaskMacLearning),
+           partition->id(),
+           boost::bind(&MacLearningRequestQueue::HandleEvent, this, _1)) {
+    queue_.SetStartRunnerFunc(boost::bind(&MacLearningRequestQueue::TokenCheck,
+                                          this));
+}
+
+bool MacLearningRequestQueue::TokenCheck() {
+    if (pool_) {
+        return pool_->TokenCheck();
+    }
+
+    return true;
+}
+
+bool MacLearningRequestQueue::HandleEvent(MacLearningEntryRequestPtr ptr) {
+    return partition_->RequestHandler(ptr);
+}
+
+MacLearningPartition::MacLearningPartition(Agent *agent,
+                                           MacLearningProto *proto,
+                                           uint32_t id):
     agent_(agent), id_(id),
-    request_queue_(agent_->task_scheduler()->GetTaskId(kTaskMacLearning), id,
-                   boost::bind(&MacLearningPartition::RequestHandler,
-                               this, _1)) {
-        aging_partition_.reset(new MacAgingPartition(agent, id));
+    add_request_queue_(this, proto->add_tokens()),
+    change_request_queue_(this, proto->change_tokens()),
+    delete_request_queue_(this, proto->delete_tokens()) {
+    aging_partition_.reset(new MacAgingPartition(agent, id));
 }
 
 MacLearningPartition::~MacLearningPartition() {
     assert(mac_learning_table_.size() == 0);
 }
 
+void MacLearningPartition::MayBeStartRunner(TokenPool *pool) {
+    if (agent_->mac_learning_proto()->add_tokens() == pool) {
+        add_request_queue_.MayBeStartRunner();
+    } else if (agent_->mac_learning_proto()->change_tokens() == pool) {
+        change_request_queue_.MayBeStartRunner();
+    } else {
+        delete_request_queue_.MayBeStartRunner();
+    }
+}
 
 bool MacLearningPartition::RequestHandler(MacLearningEntryRequestPtr ptr) {
     switch(ptr->event()) {
@@ -134,7 +167,8 @@ bool MacLearningPartition::RequestHandler(MacLearningEntryRequestPtr ptr) {
 
     case MacLearningEntryRequest::FREE_DB_ENTRY:
         agent()->mac_learning_module()->
-            mac_learning_db_client()->FreeDBState(ptr->db_entry());
+            mac_learning_db_client()->FreeDBState(ptr->db_entry(),
+                                                  ptr->gen_id());
         break;
 
     default:
@@ -154,10 +188,20 @@ void MacLearningPartition::EnqueueMgmtReq(MacLearningEntryPtr ptr, bool add) {
 
 void MacLearningPartition::Add(MacLearningEntryPtr ptr) {
     MacLearningKey key(ptr->vrf_id(), ptr->mac());
+
+    if (mac_learning_table_[key] != NULL) {
+        ptr->CopyToken(mac_learning_table_[key].get());
+        MacLearningEntryRequestPtr aging_req(new MacLearningEntryRequest(
+                    MacLearningEntryRequest::DELETE_MAC,
+                    mac_learning_table_[key]));
+        aging_partition_->Enqueue(aging_req);
+    }
+
+    ptr->AddToken(agent()->mac_learning_proto()->
+                      GetToken(MacLearningEntryRequest::ADD_MAC));
     mac_learning_table_[key] = ptr;
     ptr->Add();
     EnqueueMgmtReq(ptr, true);
-
     MacLearningEntryRequestPtr aging_req(new MacLearningEntryRequest(
                                    MacLearningEntryRequest::ADD_MAC, ptr));
     aging_partition_->Enqueue(aging_req);
@@ -169,9 +213,10 @@ void MacLearningPartition::Delete(const MacLearningEntryPtr ptr) {
         return;
     }
 
+    ptr->AddToken(agent()->mac_learning_proto()->
+                      GetToken(MacLearningEntryRequest::DELETE_MAC));
     mac_learning_table_.erase(key);
     ptr->Delete();
-    EnqueueMgmtReq(ptr, false);
 
     MacLearningEntryRequestPtr aging_req(new MacLearningEntryRequest(
                                          MacLearningEntryRequest::DELETE_MAC,
@@ -184,11 +229,32 @@ void MacLearningPartition::Resync(MacLearningEntryPtr ptr) {
     if (mac_learning_table_.find(key) == mac_learning_table_.end()) {
         return;
     }
+    ptr->AddToken(agent()->mac_learning_proto()->
+                  GetToken(MacLearningEntryRequest::RESYNC_MAC));
     ptr->Resync();
 }
 
 void MacLearningPartition::Enqueue(MacLearningEntryRequestPtr req) {
-    request_queue_.Enqueue(req);
+    switch(req->event()) {
+    case MacLearningEntryRequest::VROUTER_MSG:
+    case MacLearningEntryRequest::ADD_MAC:
+    case MacLearningEntryRequest::FREE_DB_ENTRY:
+    case MacLearningEntryRequest::DELETE_VRF:
+        add_request_queue_.Enqueue(req);
+        break;
+
+    case MacLearningEntryRequest::RESYNC_MAC:
+        change_request_queue_.Enqueue(req);
+        break;
+
+    case MacLearningEntryRequest::DELETE_MAC:
+        delete_request_queue_.Enqueue(req);
+        break;
+
+    default:
+        assert(0);
+    }
+    return;
 }
 
 MacLearningSandeshResp::MacLearningSandeshResp(Agent *agent,

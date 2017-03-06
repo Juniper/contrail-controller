@@ -91,7 +91,8 @@ bool MacLearningMgmtDBEntry::TryDelete() {
 
     if (db_entry_ == NULL || deleted_ == true) {
         MacLearningEntryRequestPtr req_ptr(new MacLearningEntryRequest(
-                    MacLearningEntryRequest::FREE_DB_ENTRY, db_entry_));
+                    MacLearningEntryRequest::FREE_DB_ENTRY, db_entry_,
+                    gen_id_));
         Agent::GetInstance()->mac_learning_proto()->
             Find(0)->Enqueue(req_ptr);
         tree_->Erase(this);
@@ -214,8 +215,23 @@ MacLearningMgmtManager::AddMacLearningEntry(MacLearningMgmtRequestPtr ptr) {
 }
 
 void
+MacLearningMgmtManager::ReleaseToken(MacLearningMgmtRequestPtr ptr) {
+    MacLearningNodeTree::iterator it =
+        mac_learning_node_tree_.find(ptr->key());
+    if (it != mac_learning_node_tree_.end()) {
+        it->second->mac_learning_entry()->ReleaseToken();
+    }
+}
+
+void
 MacLearningMgmtManager::DeleteMacLearningEntry(MacLearningMgmtRequestPtr ptr) {
-    mac_learning_node_tree_.erase(ptr->mac_learning_entry()->key());
+    MacLearningNodeTree::iterator it =
+        mac_learning_node_tree_.find(ptr->key());
+    if (it != mac_learning_node_tree_.end()) {
+        if (it->second->mac_learning_entry()->HasTokens() == false) {
+            mac_learning_node_tree_.erase(ptr->key());
+        }
+    }
 }
 
 void MacLearningMgmtManager::AddDBEntry(MacLearningMgmtRequestPtr ptr) {
@@ -228,6 +244,7 @@ void MacLearningMgmtManager::DeleteDBEntry(MacLearningMgmtRequestPtr ptr) {
     MacLearningMgmtDBEntry *entry = Find(ptr->db_entry());
     if (entry) {
         entry->Delete(true);
+        entry->set_gen_id(ptr->gen_id());
         entry->tree()->TryDelete(entry);
     }
 }
@@ -245,6 +262,10 @@ MacLearningMgmtManager::RequestHandler(MacLearningMgmtRequestPtr ptr) {
     case MacLearningMgmtRequest::ADD_MAC:
     case MacLearningMgmtRequest::CHANGE_MAC:
         AddMacLearningEntry(ptr);
+        break;
+
+    case MacLearningMgmtRequest::RELEASE_TOKEN:
+        ReleaseToken(ptr);
         break;
 
     case MacLearningMgmtRequest::DELETE_MAC:
