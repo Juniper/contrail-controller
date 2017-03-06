@@ -78,6 +78,13 @@ try:
 except ImportError:
     disc_server = 'disc_server could not be imported'
 
+try:
+    from kube_manager import kube_manager
+    if not hasattr(kube_manager, 'main'):
+        from kube_manager import kube_manager
+except ImportError:
+    kube_manager = 'kube_manager could not be imported'
+
 def generate_conf_file_contents(conf_sections):
     cfg_parser = ConfigParser.RawConfigParser()
     for (section, var, val) in conf_sections:
@@ -128,6 +135,23 @@ def generate_logconf_file_contents():
 
     return cfg_parser
 # end generate_logconf_file_contents
+
+def launch_kube_manager(test_id, conf_sections, kube_api_skip, event_queue):
+    args_str = ""
+    vnc_cgitb.enable(format='text')
+
+    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+        cfg_parser = generate_conf_file_contents(conf_sections)
+        cfg_parser.write(conf)
+        conf.flush()
+
+        cfg_parser = generate_logconf_file_contents()
+        cfg_parser.write(logconf)
+        logconf.flush()
+
+        args_str= ["-c", conf.name]
+        kube_manager.main(args_str, kube_api_skip=kube_api_skip, event_queue=event_queue)
+#end launch_kube_manager
 
 def launch_disc_server(test_id, listen_ip, listen_port, http_server_port, conf_sections):
     args_str = ""

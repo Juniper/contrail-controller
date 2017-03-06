@@ -11,11 +11,13 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import (HttpPortKubeManager,ApiServerPort,\
     DiscoveryServerPort)
 
-def parse_args():
+def parse_args(args_str=None):
+    if not args_str:
+        args_str = ' '.join(sys.argv[1:])
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument("-c", "--config-file", action='append',
         help="Specify config file", metavar="FILE")
-    args, remaining_argv = conf_parser.parse_known_args(sys.argv)
+    args, remaining_argv = conf_parser.parse_known_args(args_str)
 
     defaults = {
         'http_server_port': HttpPortKubeManager,
@@ -67,7 +69,7 @@ def parse_args():
     k8s_opts = {
         'kubernetes_api_server': 'localhost',
         'kubernetes_api_port': '8080',
-        'kubernetes_api_secure_port': None,
+        'kubernetes_api_secure_port': 8443,
         'kubernetes_api_secure_ip': None,
         'kubernetes_service_name': 'kubernetes',
         'service_subnets': '',
@@ -116,7 +118,7 @@ def parse_args():
     defaults.update(sandesh_opts)
     defaults.update(auth_opts)
     parser.set_defaults(**defaults)
-    args = parser.parse_args()
+    args = parser.parse_args(args_str)
 
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
