@@ -1292,10 +1292,10 @@ class VncApiServer(VncApiServerGen):
             err_str = str(MaxRabbitPendingError(npending))
             return (False, (500, err_str))
 
-        fq_name_str = ":".join(self._db_conn.uuid_to_fq_name(uuid))
+        fq_name = self._db_conn.uuid_to_fq_name(uuid)
         apiConfig = VncApiCommon()
         apiConfig.object_type=obj_type.replace('-', '_')
-        apiConfig.identifier_name=fq_name_str
+        apiConfig.identifier_name=":".join(fq_name)
         apiConfig.identifier_uuid = uuid
         apiConfig.operation = 'delete'
         self._set_api_audit_info(apiConfig)
@@ -1310,8 +1310,7 @@ class VncApiServer(VncApiServerGen):
         Validate parent allows write access. Implicitly trust
         parent info in the object since coming from our DB.
         """
-        obj_dict = self._db_conn.uuid_to_obj_dict(uuid)
-        parent_fq_name = json.loads(obj_dict['fq_name'])[:-1]
+        parent_fq_name = fq_name[:-1]
         try:
             parent_uuid = self._db_conn.fq_name_to_uuid(
                 parent_type, parent_fq_name)
