@@ -345,6 +345,9 @@ def kill_schema_transformer(glet):
 def kill_disc_server(glet):
     glet.kill()
 
+def reinit_schema_transformer():
+    to_bgp.transformer.reinit()
+
 def launch_schema_transformer(test_id, api_server_ip, api_server_port, extra_args=None):
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
