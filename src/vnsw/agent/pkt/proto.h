@@ -9,6 +9,7 @@
 
 class Agent;
 class ProtoHandler;
+class TokenPool;
 
 // Protocol task (work queue for each protocol)
 class Proto {
@@ -31,6 +32,7 @@ public:
     void set_free_buffer(bool val) { free_buffer_ = val; }
     Agent *agent() const { return agent_; }
     const ProtoWorkQueue *work_queue() const { return &work_queue_; }
+    virtual void TokenAvailable(TokenPool *pool) {}
 protected:
     Agent *agent_;
     PktHandler::PktModuleName module_;

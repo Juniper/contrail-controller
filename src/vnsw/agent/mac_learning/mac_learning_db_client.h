@@ -35,6 +35,7 @@ public:
     struct MacLearningDBState : public DBState {
         MacLearningDBState(): deleted_(false){}
        bool deleted_;
+       uint32_t gen_id_;
     };
 
     struct MacLearningIntfState: public MacLearningDBState {
@@ -62,11 +63,12 @@ public:
     virtual ~MacLearningDBClient();
     void Init();
     void Shutdown();
-    void FreeDBState(const DBEntry *db_entry);
+    void FreeDBState(const DBEntry *db_entry, uint32_t gen_id);
 private:
     void AddEvent(const DBEntry *entry, MacLearningDBState *state);
     void DeleteEvent(const DBEntry *entry, MacLearningDBState *state);
     void ChangeEvent(const DBEntry *entry, MacLearningDBState *state);
+    void ReleaseToken(const DBEntry *entry);
     void DeleteAllMac(const DBEntry *entry, MacLearningDBState *state);
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
     void VrfNotify(DBTablePartBase *part, DBEntryBase *e);
@@ -74,7 +76,7 @@ private:
                      Agent::RouteTableType type,
                      DBTablePartBase *partition,
                      DBEntryBase *e);
-    void FreeRouteState(const DBEntry *e);
+    void FreeRouteState(const DBEntry *e, uint32_t gen_id);
     void EnqueueAgingTableDelete(const VrfEntry *vrf);
     Agent *agent_;
     DBTableBase::ListenerId interface_listener_id_;

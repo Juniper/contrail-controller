@@ -477,6 +477,8 @@ bool EvpnDerivedPathData::AddChangePathExtended(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    path->set_unresolved(false);
+
     return ret;
 }
 
@@ -826,6 +828,7 @@ bool PBBRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    path->set_unresolved(false);
     return ret;
 }
 

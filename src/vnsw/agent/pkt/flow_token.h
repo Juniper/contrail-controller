@@ -5,39 +5,38 @@
 #include <tbb/atomic.h>
 #include <base/util.h>
 
-class FlowToken;
-class FlowTokenPool;
+class Token;
+class TokenPool;
 class FlowEntry;
-class FlowProto;
+class Proto;
 
-typedef std::auto_ptr<FlowToken> FlowTokenPtr;
+typedef boost::shared_ptr<Token> TokenPtr;
 
-class FlowToken {
+class Token {
 public:
-    FlowToken(FlowTokenPool *pool, FlowEntry *flow);
-    virtual ~FlowToken();
+    Token(TokenPool *pool);
+    virtual ~Token();
 
-private:
-    FlowEntry *flow_;
-    FlowTokenPool *pool_;
-    DISALLOW_COPY_AND_ASSIGN(FlowToken);
+protected:
+    TokenPool *pool_;
+    DISALLOW_COPY_AND_ASSIGN(Token);
 };
 
-class FlowTokenPool {
+class TokenPool {
 public:
-    FlowTokenPool(const std::string &name, FlowProto *proto, int count);
-    virtual ~FlowTokenPool();
+    TokenPool(const std::string &name, Proto *proto, int count);
+    virtual ~TokenPool();
 
-    FlowTokenPtr GetToken(FlowEntry *flow);
+    virtual TokenPtr GetToken();
     int token_count() const { return token_count_; }
     bool TokenCheck() const;
     uint64_t failures() const { return failures_; }
     void IncrementRestarts() { restarts_++; }
     uint64_t restarts() const { return restarts_; }
-private:
-    friend class FlowToken;
+protected:
+    friend class Token;
 
-    // FlowToken destructor invokes this
+    // Token destructor invokes this
     void FreeToken();
 
     std::string name_;
@@ -47,7 +46,24 @@ private:
     tbb::atomic<int> token_count_;
     mutable uint64_t failures_;
     uint64_t restarts_;
-    FlowProto *proto_;
-    DISALLOW_COPY_AND_ASSIGN(FlowTokenPool);
+    Proto *proto_;
+    DISALLOW_COPY_AND_ASSIGN(TokenPool);
+};
+
+class FlowTokenPool : public TokenPool {
+public:
+    FlowTokenPool(const std::string &name, Proto *proto, int count):
+        TokenPool(name, proto, count) {}
+    virtual ~FlowTokenPool() {}
+    TokenPtr GetToken(FlowEntry *entry);
+};
+
+class FlowToken : public Token {
+public:
+    FlowToken(TokenPool *pool, FlowEntry *entry):
+        Token(pool), flow_entry_(entry) {}
+    virtual ~FlowToken() {}
+private:
+    FlowEntry *flow_entry_;
 };
 #endif //  __AGENT_PKT_FLOW_TOKEN_H__

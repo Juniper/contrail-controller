@@ -22,6 +22,7 @@
 #include <pkt/pkt_handler.h>
 #include <pkt/pkt_init.h>
 #include <pkt/pkt_flow_info.h>
+#include <pkt/flow_token.h>
 #include <sandesh/sandesh_trace.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
@@ -37,7 +38,7 @@ class FlowTableKSyncEntry;
 class FlowEntry;
 struct FlowExportInfo;
 class FlowStatsCollector;
-class FlowToken;
+class Token;
 class FlowMgmtRequest;
 class FlowEntryInfo;
 typedef std::auto_ptr<FlowEntryInfo> FlowMgmtEntryInfoPtr;

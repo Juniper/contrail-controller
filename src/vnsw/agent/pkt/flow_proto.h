@@ -113,7 +113,7 @@ public:
     }
     bool EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
                           uint8_t table_index);
-    FlowTokenPtr GetToken(FlowEvent::Event event);
+    TokenPtr GetToken(FlowEvent::Event event);
     void TokenAvailable(FlowTokenPool *pool);
     bool TokenCheck(const FlowTokenPool *pool);
     bool ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow);

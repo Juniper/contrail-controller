@@ -669,7 +669,7 @@ bool FlowProto::ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow) {
 //////////////////////////////////////////////////////////////////////////////
 // Token Management routines
 //////////////////////////////////////////////////////////////////////////////
-FlowTokenPtr FlowProto::GetToken(FlowEvent::Event event) {
+TokenPtr FlowProto::GetToken(FlowEvent::Event event) {
     switch (event) {
     case FlowEvent::VROUTER_FLOW_MSG:
     case FlowEvent::AUDIT_FLOW:
@@ -701,7 +701,7 @@ FlowTokenPtr FlowProto::GetToken(FlowEvent::Event event) {
         break;
     }
 
-    return FlowTokenPtr(NULL);
+    return add_tokens_.GetToken(NULL);
 }
 
 bool FlowProto::TokenCheck(const FlowTokenPool *pool) {
