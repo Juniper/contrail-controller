@@ -14,6 +14,7 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType,
 from test_case import STTestCase, retries, VerifyCommon
 sys.path.append("../common/tests")
 import test_common
+from schema_transformer.to_bgp import DBBaseST
 
 
 class VerifyPolicy(VerifyCommon):
@@ -380,6 +381,50 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # check if ri is deleted
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn))
     # test_vn_delete
+
+    def schema_transformer_restart(self):
+        def mock_acl_update(*args, **kwargs):
+            self.assertTrue(False, 'Error: Should not have updated acl entries')
+        old_acl_update = DBBaseST._vnc_lib.access_control_list_update
+        DBBaseST._vnc_lib.access_control_list_update = mock_acl_update
+        test_common.reinit_schema_transformer()
+        DBBaseST._vnc_lib.access_control_list_update = old_acl_update
+
+
+    def test_acl_hash_entries(self):
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
+        vn1_obj = self.create_virtual_network(vn1_name, "10.2.1.0/24")
+        vn2_obj = self.create_virtual_network(vn2_name, "20.2.1.0/24")
+
+        np = self.create_network_policy(vn1_obj, vn2_obj)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        gevent.sleep(5)
+        acl = self._vnc_lib.access_control_list_read(fq_name=self.get_ri_name(vn1_obj))
+        acl2 = self._vnc_lib.access_control_list_read(fq_name=self.get_ri_name(vn2_obj))
+        acl_hash = acl.access_control_list_hash
+        acl_hash2 = acl2.access_control_list_hash
+
+        self.assertEqual(acl_hash, hash(acl.access_control_list_entries))
+        self.assertEqual(acl_hash2, hash(acl2.access_control_list_entries))
+
+        self.schema_transformer_restart()
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+    #end test_acl_hash_entries
 
 class TestCompressPolicy(TestPolicy):
 
