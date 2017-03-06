@@ -81,6 +81,9 @@ ConfigClientManager::ConfigClientManager(EventManager *evm,
 
     bgp_schema_Server_GenerateWrapperPropertyInfo(&wrapper_field_map_);
     vnc_cfg_Server_GenerateWrapperPropertyInfo(&wrapper_field_map_);
+
+    bgp_schema_Server_GenerateObjectTypeList(&obj_type_to_read_);
+    vnc_cfg_Server_GenerateObjectTypeList(&obj_type_to_read_);
 }
 
 void ConfigClientManager::Initialize() {
