@@ -718,11 +718,11 @@ void BgpTable::UpdatePathCount(const BgpPath *path, int count) {
         infeasible_path_count_ += count;
     }
 
-    if (!path->IsStale()) {
+    if (path->IsStale()) {
         stale_path_count_ += count;
     }
 
-    if (!path->IsLlgrStale()) {
+    if (path->IsLlgrStale()) {
         llgr_stale_path_count_ += count;
     }
 }
