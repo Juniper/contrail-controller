@@ -59,8 +59,8 @@ def set_globals(sock_path):
     conf = [
         'global',
         'daemon',
-        'user nobody',
-        'group nogroup',
+        'user haproxy',
+        'group haproxy',
         'log /dev/log local0',
         'log /dev/log local1 notice',
         'tune.ssl.default-dh-param 2048',
