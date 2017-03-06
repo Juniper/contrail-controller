@@ -119,7 +119,7 @@
             "controller/src/container"
         ],
         "scons_test_targets" : [
-            "controller/src/container/kube_manager:test"
+            "controller/src/container/kube-manager:test"
         ],
         "misc_test_targets" : [ ]
     },

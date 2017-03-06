@@ -72,6 +72,7 @@ class ServiceLbManager(object):
             self._vnc_lib.virtual_machine_interface_create(vmi_obj)
             VirtualMachineInterfaceKM.locate(vmi_obj.uuid)
         except BadRequest as e:
+            self.logger.warning("LB (%s) Interface create failed %s " % (service_name, str(e)))
             return None, None
 
         try:
@@ -155,6 +156,9 @@ class ServiceLbManager(object):
 
         vmi_obj, vip_address = self._create_virtual_interface(proj_obj,
             vn_obj, service_name, vip_address, subnet_uuid)
+        if vmi_obj is None:
+            return None
+
         lb_obj.set_virtual_machine_interface(vmi_obj)
 
         id_perms = IdPermsType(enable=True)
