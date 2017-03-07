@@ -139,6 +139,9 @@ public:
     const std::string zookeeper_server_list() const {
         return zookeeper_server_list_;
     }
+    const std::vector<std::string> uve_proxy_list() const {
+        return uve_proxy_list_;
+    }
     const std::vector<std::string> kafka_broker_list() const {
         return kafka_broker_list_;
     }
@@ -274,6 +277,7 @@ private:
     uint64_t analytics_statistics_ttl_;
     std::vector<std::string> cassandra_server_list_;
     std::string zookeeper_server_list_;
+    std::vector<std::string> uve_proxy_list_;
     std::vector<std::string> kafka_broker_list_;
     uint16_t partitions_;
     uint32_t sandesh_ratelimit_;

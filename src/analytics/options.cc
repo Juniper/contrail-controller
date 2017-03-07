@@ -8,6 +8,7 @@
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/asio/ip/host_name.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include "analytics/buildinfo.h"
 #include "base/contrail_ports.h"
@@ -110,6 +111,17 @@ void Options::Initialize(EventManager &evm,
     default_cassandra_server_list.push_back(default_cassandra_server);
 
     string default_zookeeper_server("127.0.0.1:2181");
+
+    // e.g. "ModuleClientState-max_sm_queue_count:AggProxySumAnomalyEWM01:AggProxySum"
+    vector<string> default_uve_proxy_list = list_of
+("UveVirtualNetworkAgent-egress_flow_count:AggProxySumAnomalyEWM01:AggProxySum")
+("UveVirtualNetworkAgent-ingress_flow_count:AggProxySumAnomalyEWM01:AggProxySum");
+
+    string default_uve_proxy;
+    for (vector<string>::const_iterator it = default_uve_proxy_list.begin();
+            it != default_uve_proxy_list.end(); it++) {
+        default_uve_proxy = default_uve_proxy + (*it) + std::string(" ");
+    }
 
     vector<string> default_kafka_broker_list;
     default_kafka_broker_list.push_back("");
@@ -279,6 +291,10 @@ void Options::Initialize(EventManager &evm,
            opt::value<vector<string> >()->default_value(
                default_kafka_broker_list, ""),
              "Kafka Broker List")
+        ("DEFAULT.uve_proxy_list",
+           opt::value<vector<string> >()->default_value(
+               default_uve_proxy_list, default_uve_proxy),
+             "UVE Proxy List")
         ("DEFAULT.partitions",
             opt::value<uint16_t>()->default_value(
                 default_partitions),
@@ -616,6 +632,8 @@ void Options::Process(int argc, char *argv[],
                                   "DEFAULT.cassandra_server_list");
     GetOptValue<string>(var_map, zookeeper_server_list_,
                         "DEFAULT.zookeeper_server_list");
+    GetOptValue< vector<string> >(var_map, uve_proxy_list_,
+                                  "DEFAULT.uve_proxy_list");
     GetOptValue< vector<string> >(var_map, kafka_broker_list_,
                                   "DEFAULT.kafka_broker_list");
     GetOptValue<uint16_t>(var_map, partitions_, "DEFAULT.partitions");

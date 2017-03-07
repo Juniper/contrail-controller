@@ -28,6 +28,7 @@ public:
     OpServerProxy(EventManager *evm, VizCollector *collector,
             const std::string& redis_uve_ip, unsigned short redis_uve_port,
             const std::string& redis_uve_password,
+            const std::map<std::string, std::string>& aggconf,
             const std::string& brokers,
             uint16_t partitions, const std::string& kafka_prefix);
     OpServerProxy() : impl_(NULL) { }

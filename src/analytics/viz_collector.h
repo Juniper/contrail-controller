@@ -37,6 +37,7 @@ public:
             unsigned short structured_syslog_listen_port,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
             const std::string &redis_password,
+            const std::map<std::string, std::string>& aggconf,
             const std::string &brokers,
             int syslog_port, int sflow_port, int ipfix_port,
             uint16_t partitions, bool dup,
