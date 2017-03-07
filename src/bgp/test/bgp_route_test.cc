@@ -9,6 +9,7 @@
 #include "bgp/extended-community/etree.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/inet/inet_route.h"
+#include "bgp/inet/inet_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "control-node/control_node.h"
 #include "net/community_type.h"
@@ -66,7 +67,7 @@ private:
 class BgpRouteTest : public ::testing::Test {
 protected:
     BgpRouteTest()
-        : server_(&evm_) {
+        : server_(&evm_), table_(&db_, "test.inet.0") {
     }
 
     void TearDown() {
@@ -76,6 +77,8 @@ protected:
 
     EventManager evm_;
     BgpServer server_;
+    DB db_;
+    InetTable table_;
 };
 
 TEST_F(BgpRouteTest, Paths) {
@@ -875,6 +878,200 @@ TEST_F(BgpRouteTest, PathCompareMed4) {
     EXPECT_EQ(-1, path2.PathCompare(path1, false));
     EXPECT_EQ(0, path1.PathCompare(path2, true));
     EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
+TEST_F(BgpRouteTest, CheckPrimaryPathsCountInTable1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    path.SetStale();
+    path.SetLlgrStale();
+    path.SetPolicyReject(); // Make the path infeasible.
+
+    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    int stale_path_count = table_.GetStalePathCount();
+    int infeasible_path_count = table_.GetInfeasiblePathCount();
+    int primary_path_count = table_.GetPrimaryPathCount();
+    int secondary_path_count = table_.GetSecondaryPathCount();
+
+    table_.UpdatePathCount(&path, +1);
+    EXPECT_EQ(llgr_stale_path_count + 1, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count + 1, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count + 1, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count + 1, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
+
+    table_.UpdatePathCount(&path, -1);
+    EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
+}
+
+TEST_F(BgpRouteTest, CheckPrimaryPathsCountInTable2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    path.SetStale();
+    path.SetPolicyReject(); // Make the path infeasible.
+
+    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    int stale_path_count = table_.GetStalePathCount();
+    int infeasible_path_count = table_.GetInfeasiblePathCount();
+    int primary_path_count = table_.GetPrimaryPathCount();
+    int secondary_path_count = table_.GetSecondaryPathCount();
+
+    table_.UpdatePathCount(&path, +1);
+    EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count + 1, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count + 1, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count + 1, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
+
+    table_.UpdatePathCount(&path, -1);
+    EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
+}
+
+TEST_F(BgpRouteTest, CheckPrimaryPathsCountInTable3) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpPath path(&peer1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    path.SetLlgrStale();
+    path.SetPolicyReject(); // Make the path infeasible.
+
+    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    int stale_path_count = table_.GetStalePathCount();
+    int infeasible_path_count = table_.GetInfeasiblePathCount();
+    int primary_path_count = table_.GetPrimaryPathCount();
+    int secondary_path_count = table_.GetSecondaryPathCount();
+
+    table_.UpdatePathCount(&path, +1);
+    EXPECT_EQ(llgr_stale_path_count + 1, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count + 1, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count + 1, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
+
+    table_.UpdatePathCount(&path, -1);
+    EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
+}
+
+TEST_F(BgpRouteTest, CheckSecondaryPathsCountInTable1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpSecondaryPath path(&peer1, 1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    path.SetStale();
+    path.SetLlgrStale();
+    path.SetPolicyReject(); // Make the path infeasible.
+
+    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    int stale_path_count = table_.GetStalePathCount();
+    int infeasible_path_count = table_.GetInfeasiblePathCount();
+    int primary_path_count = table_.GetPrimaryPathCount();
+    int secondary_path_count = table_.GetSecondaryPathCount();
+
+    table_.UpdatePathCount(&path, +1);
+    EXPECT_EQ(llgr_stale_path_count + 1, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count + 1, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count + 1, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count + 1, table_.GetSecondaryPathCount());
+
+    table_.UpdatePathCount(&path, -1);
+    EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
+}
+
+TEST_F(BgpRouteTest, CheckSecondaryPathsCountInTable2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpSecondaryPath path(&peer1, 1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    path.SetStale();
+    path.SetLlgrStale();
+
+    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    int stale_path_count = table_.GetStalePathCount();
+    int infeasible_path_count = table_.GetInfeasiblePathCount();
+    int primary_path_count = table_.GetPrimaryPathCount();
+    int secondary_path_count = table_.GetSecondaryPathCount();
+
+    table_.UpdatePathCount(&path, +1);
+    EXPECT_EQ(llgr_stale_path_count + 1, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count + 1, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count + 1, table_.GetSecondaryPathCount());
+
+    table_.UpdatePathCount(&path, -1);
+    EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
+}
+
+TEST_F(BgpRouteTest, CheckSecondaryPathsCountInTable3) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+    BgpAttrSpec spec1;
+    BgpAttrPtr attr1 = db->Locate(spec1);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    BgpSecondaryPath path(&peer1, 1, BgpPath::BGP_XMPP, attr1, 0, 0);
+
+    path.SetStale();
+    path.SetPolicyReject(); // Make the path infeasible.
+
+    int llgr_stale_path_count = table_.GetLlgrStalePathCount();
+    int stale_path_count = table_.GetStalePathCount();
+    int infeasible_path_count = table_.GetInfeasiblePathCount();
+    int primary_path_count = table_.GetPrimaryPathCount();
+    int secondary_path_count = table_.GetSecondaryPathCount();
+
+    table_.UpdatePathCount(&path, +1);
+    EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count + 1, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count + 1, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count + 1, table_.GetSecondaryPathCount());
+
+    table_.UpdatePathCount(&path, -1);
+    EXPECT_EQ(llgr_stale_path_count, table_.GetLlgrStalePathCount());
+    EXPECT_EQ(stale_path_count, table_.GetStalePathCount());
+    EXPECT_EQ(infeasible_path_count, table_.GetInfeasiblePathCount());
+    EXPECT_EQ(primary_path_count, table_.GetPrimaryPathCount());
+    EXPECT_EQ(secondary_path_count, table_.GetSecondaryPathCount());
 }
 
 //
