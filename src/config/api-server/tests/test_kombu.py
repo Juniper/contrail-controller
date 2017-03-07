@@ -164,7 +164,7 @@ class TestVncKombuClient(unittest.TestCase):
                                   self.username, self.password, self.vhost, 0,
                                   False)
         gevent.sleep(0)
-        kc.dbe_create_publish("network", [], {})
+        kc.dbe_create_publish("network", [], {'fq_name': ['vn1']})
         _lock.wait()
 
         # check if message is not missed out by publish error
