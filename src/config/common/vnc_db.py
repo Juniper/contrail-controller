@@ -353,14 +353,6 @@ class DBBase(object):
         return dict((x.obj_type, x) for x in module_base[0].__subclasses__())
 
     @classmethod
-    def get_key_from_dict(cls, obj_dict):
-        if cls._indexed_by_name:
-            obj_key = ':'.join(obj_dict['fq_name'])
-        else:
-            obj_key = obj_dict['uuid']
-        return obj_key
-
-    @classmethod
     def get_by_uuid(cls, uuid, *args):
         name_or_uuid = uuid
         try:

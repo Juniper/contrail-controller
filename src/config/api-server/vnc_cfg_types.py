@@ -105,17 +105,17 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
+    def dbe_create_notification(cls, obj_id, obj_dict):
         pass
     #end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
+    def dbe_update_notification(cls, obj_id):
         pass
     #end dbe_update_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         pass
     #end dbe_delete_notification
 
@@ -135,8 +135,7 @@ class Resource(ResourceDbMixin):
     @classmethod
     def dbe_read(cls, db_conn, res_type, obj_uuid, obj_fields=None):
         try:
-            ok, result = db_conn.dbe_read(res_type,
-                                          {'uuid': obj_uuid}, obj_fields)
+            ok, result = db_conn.dbe_read(res_type, obj_uuid, obj_fields)
         except cfgm_common.exceptions.NoIdError:
             return (False, (404, 'No %s: %s' %(res_type, obj_uuid)))
         if not ok:
@@ -227,8 +226,7 @@ class FloatingIpServer(Resource, FloatingIp):
         fip_pool_fq_name = fip_obj_dict['fq_name'][:-1]
         fip_pool_uuid = db_conn.fq_name_to_uuid('floating_ip_pool',
             fip_pool_fq_name)
-        ok, res = cls.dbe_read(db_conn, 'floating_ip_pool',
-            fip_pool_uuid)
+        ok, res = cls.dbe_read(db_conn, 'floating_ip_pool', fip_pool_uuid)
         if ok:
             # Successful read returns fip pool.
             fip_pool_dict = res
@@ -338,7 +336,7 @@ class FloatingIpServer(Resource, FloatingIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
+    def dbe_create_notification(cls, obj_id, obj_dict):
         if obj_dict['parent_type'] == 'instance-ip':
             return
 
@@ -348,7 +346,7 @@ class FloatingIpServer(Resource, FloatingIp):
     # end dbe_create_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         if obj_dict['parent_type'] == 'instance-ip':
             return
 
@@ -406,14 +404,14 @@ class AliasIpServer(Resource, AliasIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
+    def dbe_create_notification(cls, obj_id, obj_dict):
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_alloc_notify(aip_addr, vn_fq_name)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_free_notify(aip_addr, vn_fq_name)
@@ -554,8 +552,7 @@ class InstanceIpServer(Resource, InstanceIp):
         if req_ip_addr and req_ip_addr != db_ip_addr:
             return (False, (400, 'Instance IP Address can not be changed'))
 
-        ok, result = cls.dbe_read(db_conn, 'virtual_network',
-                                  vn_uuid,
+        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
                                   obj_fields=['network_ipam_refs'])
         if not ok:
             return ok, result
@@ -594,14 +591,14 @@ class InstanceIpServer(Resource, InstanceIp):
     # end post_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
+    def dbe_create_notification(cls, obj_id, obj_dict):
         ip_addr = obj_dict['instance_ip_address']
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         try:
             ip_addr = obj_dict['instance_ip_address']
         except KeyError:
@@ -661,9 +658,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
         if lr_id:
             if ('virtual_network_refs' in obj_dict or
                     'virtual_machine_interface_refs' in obj_dict):
-                ok, read_result = cls.dbe_read(db_conn,
-                                               'logical_router',
-                                               lr_id)
+                ok, read_result = cls.dbe_read(db_conn, 'logical_router', lr_id)
                 if not ok:
                     return ok, read_result
             if 'virtual_network_refs' in obj_dict:
@@ -923,8 +918,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                        prop_collection_updates=None, **kwargs):
 
-        ok, read_result = cls.dbe_read(
-                              db_conn, 'virtual_machine_interface', id)
+        ok, read_result = cls.dbe_read(db_conn, 'virtual_machine_interface', id)
         if not ok:
             return ok, read_result
 
@@ -1032,7 +1026,8 @@ class BridgeDomainServer(Resource, BridgeDomain):
         vn_uuid = obj_dict.get('parent_uuid')
         if vn_uuid is None:
             vn_uuid = db_conn.fq_name_to_uuid('virtual_network', obj_dict['fq_name'][0:3])
-        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid, obj_fields=['bridge_domains'])
+        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
+                                  obj_fields=['bridge_domains'])
         if not ok:
             return ok, result
         if 'bridge_domains' in result and len(result['bridge_domains']) == 1:
@@ -1156,9 +1151,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
                                                     ipam_fq_name)
 
-            (ok, ipam_dict) = db_conn.dbe_read(
-                               obj_type='network_ipam',
-                               obj_ids={'uuid': ipam_uuid})
+            (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
+                                               obj_id=ipam_uuid)
             if not ok:
                 return (ok, 400, ipam_dict)
 
@@ -1286,9 +1280,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 if not ipam_uuid:
                     ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
                                                         ipam_fq_name)
-                (ok, ipam_dict) = db_conn.dbe_read(
-                                      obj_type='network_ipam',
-                                      obj_ids={'uuid': ipam_uuid})
+                (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
+                                                   obj_id=ipam_uuid)
                 if not ok:
                     return (ok, (400, ipam_dict))
 
@@ -1420,9 +1413,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 ipam_fq_name = ipam['to']
                 ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
                                                     ipam_fq_name)
-                (ok, ipam_dict) = db_conn.dbe_read(
-                                      obj_type='network_ipam',
-                                      obj_ids={'uuid': ipam_uuid})
+                (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
+                                                   obj_id=ipam_uuid)
                 if not ok:
                     return (ok, (409, ipam_dict))
 
@@ -1472,8 +1464,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         backref_fields = RoutingInstance.backref_fields
         children_fields = RoutingInstance.children_fields
-        ok, result = cls.dbe_read(db_conn,
-                                  'routing_instance', ri_uuid,
+        ok, result = cls.dbe_read(db_conn, 'routing_instance', ri_uuid,
                                   obj_fields=backref_fields|children_fields)
         if not ok:
             return ok, result
@@ -1541,18 +1532,18 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end subnet_ip_count
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.net_create_notify(obj_ids, obj_dict)
+    def dbe_create_notification(cls, obj_id, obj_dict):
+        cls.addr_mgmt.net_create_notify(obj_id, obj_dict)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
-        cls.addr_mgmt.net_update_notify(obj_ids)
+    def dbe_update_notification(cls, obj_id):
+        cls.addr_mgmt.net_update_notify(obj_id)
     # end dbe_update_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.net_delete_notify(obj_ids, obj_dict)
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        cls.addr_mgmt.net_delete_notify(obj_id, obj_dict)
     # end dbe_delete_notification
 
 # end class VirtualNetworkServer
@@ -1653,8 +1644,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
             for ref in vn_refs:
                 vn_id = ref.get('uuid')
                 try:
-                    (ok, vn_dict) = db_conn.dbe_read('virtual_network',
-                                                     {'uuid':vn_id})
+                    (ok, vn_dict) = db_conn.dbe_read('virtual_network', vn_id)
                 except cfgm_common.exceptions.NoIdError:
                     continue
                 if not ok:
@@ -1755,18 +1745,18 @@ class NetworkIpamServer(Resource, NetworkIpam):
     # end pre_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.ipam_create_notify(obj_ids, obj_dict)
+    def dbe_create_notification(cls, obj_id, obj_dict):
+        cls.addr_mgmt.ipam_create_notify(obj_id, obj_dict)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
-        cls.addr_mgmt.ipam_update_notify(obj_ids)
+    def dbe_update_notification(cls, obj_id):
+        cls.addr_mgmt.ipam_update_notify(obj_id)
     # end dbe_update_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.ipam_delete_notify(obj_ids, obj_dict)
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        cls.addr_mgmt.ipam_delete_notify(obj_id, obj_dict)
     # end dbe_update_notification
 
     @classmethod
@@ -2457,7 +2447,7 @@ class LoadbalancerMemberServer(Resource, LoadbalancerMember):
 
         for pool in lb_pools:
             ok, result = cls.dbe_read(db_conn, 'loadbalancer_pool',
-                                       pool['uuid'])
+                                      pool['uuid'])
             if not ok:
                 code, msg = result
                 if code == 404:
