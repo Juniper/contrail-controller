@@ -242,6 +242,12 @@ TEST_F(EcmpTest, EcmpTest_5) {
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
+    const NextHop *nh = rev_entry->data().nh_state_->nh();
+
+    AddRemoteEcmpRoute("vrf2", "0.0.0.0", 0, "vn2", 8, true);
+    client->WaitForIdle();
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() == rt->GetActiveNextHop());
+    EXPECT_TRUE(rev_entry->data().nh_state_->nh() != nh);
 
     DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
     DeleteRoute("vrf2", "0.0.0.0", 0, bgp_peer);
@@ -373,6 +379,58 @@ TEST_F(EcmpTest, EcmpTest_7) {
     DelVn("default-project:fip");
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (0U == agent_->pkt()->flow_table()->Size()));
+}
+
+//Flow move from remote destination to local compute node
+//1> Initially flow are setup from MX to local source VM
+//2> Move the flow from MX to local destination VM to local source VM
+//3> Verify that old flow from MX would be marked as short flow
+//   and new set of local flows are marked as forward
+TEST_F(EcmpTest, EcmpTest_8) {
+    struct PortInfo input[] = {
+        {"vnet2", 2, "1.1.1.100", "00:00:00:01:01:02", 1, 1},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    AddRemoteEcmpRoute("vrf1", "0.0.0.0", 0, "vn2", 4);
+    //Reverse all the nexthop in vrf2
+    AddRemoteEcmpRoute("vrf2", "0.0.0.0", 0, "vn2", 4, true);
+
+    AddVrfAssignNetworkAcl("Acl", 10, "vn1", "vn2", "pass", "vrf2");
+    AddLink("virtual-network", "vn1", "access-control-list", "Acl");
+    client->WaitForIdle();
+
+    AddInterfaceVrfAssignRule("vnet2", 2, "8.8.8.0", "1.1.1.0", 1,
+                              "vrf2", "true");
+    client->WaitForIdle();
+
+    TxIpMplsPacket(eth_intf_id, MX_0, router_id, vm1_label,
+                   "8.8.8.8", "1.1.1.1", 1, 10);
+    client->WaitForIdle();
+
+    FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+            "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
+
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(rev_entry->is_flags_set(FlowEntry::ShortFlow) == false);
+
+    TxIpPacket(VmPortGetId(2), "8.8.8.8", "1.1.1.1", 1);
+    client->WaitForIdle();
+
+    entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+                    "1.1.1.1", "8.8.8.8", 1, 0, 0, GetFlowKeyNH(1));
+    EXPECT_TRUE(entry != NULL);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::ShortFlow) == false);
+    EXPECT_TRUE(entry->reverse_flow_entry()->
+                is_flags_set(FlowEntry::ShortFlow) == false);
+
+    DeleteVmportEnv(input, 1, false);
+    DeleteRoute("vrf1", "0.0.0.0", 0, bgp_peer);
+    DeleteRoute("vrf2", "0.0.0.0", 0, bgp_peer);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

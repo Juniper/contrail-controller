@@ -1060,25 +1060,15 @@ bool FlowTable::ValidFlowMove(const FlowEntry *new_flow,
         return false;
     }
 
-    if (new_flow->data().flow_source_vrf == old_flow->data().flow_source_vrf &&
-        new_flow->key().src_addr == old_flow->key().src_addr &&
-        new_flow->data().source_plen == old_flow->data().source_plen) {
-        // Check if both flow originate from same source route
-        // valid move for ecmp flow
-        if (new_flow->is_flags_set(FlowEntry::EcmpFlow)) {
-            return true;
-        }
-
-        // if all the fields for flow Key remains same except NH
-        // consider it a valid move to handle VRRP master switch-over
-        // cases with AAP.
-        if (new_flow->key().family == old_flow->key().family &&
-            new_flow->key().dst_addr == old_flow->key().dst_addr &&
-            new_flow->key().protocol == old_flow->key().protocol &&
-            new_flow->key().src_port == old_flow->key().src_port &&
-            new_flow->key().dst_port == old_flow->key().dst_port) {
-            return true;
-        }
+    // if all the fields for flow Key remains same except NH
+    // consider it a valid move to handle VRRP master switch-over
+    // cases with AAP.
+    if (new_flow->key().family == old_flow->key().family &&
+        new_flow->key().dst_addr == old_flow->key().dst_addr &&
+        new_flow->key().protocol == old_flow->key().protocol &&
+        new_flow->key().src_port == old_flow->key().src_port &&
+        new_flow->key().dst_port == old_flow->key().dst_port) {
+        return true;
     }
 
     return false;
