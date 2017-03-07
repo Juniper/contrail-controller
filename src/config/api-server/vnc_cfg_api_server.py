@@ -506,7 +506,6 @@ class VncApiServer(object):
 
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
-        obj_ids = {}
 
         def stateful_create():
             # Alloc and Store id-mappings before creating entry on pubsub store.
@@ -517,8 +516,7 @@ class VncApiServer(object):
                 return (ok, result)
             get_context().push_undo(db_conn.dbe_release, obj_type, fq_name)
 
-            obj_ids.update(result)
-
+            obj_id = result
             env = get_request().headers.environ
             tenant_name = env.get(hdr_server_tenant()) or 'default-project'
 
@@ -550,7 +548,7 @@ class VncApiServer(object):
                         ret['ok'] = ok
                         ret['result'] = result
                         return
-                    (_ok, _result) = db_conn.dbe_create(obj_type, obj_ids,
+                    (_ok, _result) = db_conn.dbe_create(obj_type, obj_id,
                                                         obj_dict)
                     ret['ok'] = _ok
                     ret['result'] = _result
@@ -561,8 +559,7 @@ class VncApiServer(object):
                     return ret['ok'], ret['result']
             else:
                 #normal execution
-                (ok, result) = db_conn.dbe_create(obj_type, obj_ids,
-                                                  obj_dict)
+                (ok, result) = db_conn.dbe_create(obj_type, obj_id, obj_dict)
                 if not ok:
                     return (ok, result)
 
@@ -573,14 +570,14 @@ class VncApiServer(object):
             except Exception as e:
                 ok = False
                 err_msg = '%s:%s post_dbe_create had an exception: %s' %(
-                    obj_type, obj_ids['uuid'], str(e))
+                    obj_type, obj_id, str(e))
                 err_msg += cfgm_common.utils.detailed_traceback()
 
             if not ok:
                 # Create is done, log to system, no point in informing user
                 self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
-            return True, ''
+            return True, obj_id
         # end stateful_create
 
         try:
@@ -598,8 +595,8 @@ class VncApiServer(object):
         rsp_body = {}
         rsp_body['name'] = name
         rsp_body['fq_name'] = fq_name
-        rsp_body['uuid'] = obj_ids['uuid']
-        rsp_body['href'] = self.generate_url(resource_type, obj_ids['uuid'])
+        rsp_body['uuid'] = result
+        rsp_body['href'] = self.generate_url(resource_type, result)
         if parent_class:
             # non config-root child, send back parent uuid/href
             rsp_body['parent_uuid'] = parent_uuid
@@ -651,8 +648,7 @@ class VncApiServer(object):
 
         db_conn = self._db_conn
         if etag:
-            obj_ids = {'uuid': id}
-            (ok, result) = db_conn.dbe_is_latest(obj_ids, etag.strip('"'))
+            (ok, result) = db_conn.dbe_is_latest(id, etag.strip('"'))
             if not ok:
                 # Not present in DB
                 self.config_object_error(
@@ -664,9 +660,7 @@ class VncApiServer(object):
                 # send Not-Modified, caches use this for read optimization
                 bottle.response.status = 304
                 return
-        #end if etag
-
-        obj_ids = {'uuid': id}
+        # end if etag
 
         # Generate field list for db layer
         obj_fields = r_class.prop_fields | r_class.ref_fields
@@ -678,13 +672,13 @@ class VncApiServer(object):
             if 'exclude_children' not in get_request().query:
                 obj_fields |= r_class.children_fields
 
-        (ok, result) = r_class.pre_dbe_read(obj_ids['uuid'], db_conn)
+        (ok, result) = r_class.pre_dbe_read(id, db_conn)
         if not ok:
             (code, msg) = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
         try:
-            (ok, result) = db_conn.dbe_read(obj_type, obj_ids,
+            (ok, result) = db_conn.dbe_read(obj_type, id,
                 list(obj_fields), ret_readonly=True)
             if not ok:
                 self.config_object_error(id, None, obj_type, 'http_get', result)
@@ -776,8 +770,7 @@ class VncApiServer(object):
             if req_obj_type != obj_type:
                 raise cfgm_common.exceptions.HttpError(
                     404, 'No %s object found for id %s' %(resource_type, id))
-            obj_ids = {'uuid': id}
-            (read_ok, read_result) = db_conn.dbe_read(obj_type, obj_ids)
+            (read_ok, read_result) = db_conn.dbe_read(obj_type, id)
             if not read_ok:
                 bottle.abort(
                     404, 'No %s object found for id %s' %(resource_type, id))
@@ -822,9 +815,7 @@ class VncApiServer(object):
 
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
-        obj_ids = {'uuid': id}
-        if 'uuid' not in obj_dict:
-            obj_dict['uuid'] = id
+        obj_dict['uuid'] = id
 
         def stateful_update():
             get_context().set_state('PRE_DBE_UPDATE')
@@ -835,8 +826,7 @@ class VncApiServer(object):
                 return (ok, result)
 
             get_context().set_state('DBE_UPDATE')
-            (ok, result) = db_conn.dbe_update(obj_type, obj_ids,
-                                              obj_dict)
+            (ok, result) = db_conn.dbe_update(obj_type, id, obj_dict)
             if not ok:
                 return (ok, result)
 
@@ -908,9 +898,8 @@ class VncApiServer(object):
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         # read in obj from db (accepting error) to get details of it
-        obj_ids = {'uuid': id}
         try:
-            (read_ok, read_result) = db_conn.dbe_read(obj_type, obj_ids)
+            (read_ok, read_result) = db_conn.dbe_read(obj_type, id)
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
         if not read_ok:
@@ -996,8 +985,7 @@ class VncApiServer(object):
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
 
             get_context().set_state('DBE_DELETE')
-            (ok, del_result) = db_conn.dbe_delete(
-                obj_type, obj_ids, read_result)
+            (ok, del_result) = db_conn.dbe_delete(obj_type, id, read_result)
             if not ok:
                 return (ok, del_result)
 
@@ -1225,14 +1213,14 @@ class VncApiServer(object):
             (ok, result) = self._db_conn.dbe_alloc(child_obj_type, child_dict)
             if not ok:
                 return (ok, result)
-            obj_ids = result
+            obj_id = result
 
             # For virtual networks, allocate an ID
             if child_obj_type == 'virtual_network':
-                child_dict['virtual_network_network_id'] =\
-                    self.alloc_vn_id(child_obj.get_fq_name_str())
+                child_dict['virtual_network_network_id'] = self.alloc_vn_id(
+                    child_obj.get_fq_name_str())
 
-            (ok, result) = self._db_conn.dbe_create(child_obj_type, obj_ids,
+            (ok, result) = self._db_conn.dbe_create(child_obj_type, obj_id,
                                                     child_dict)
             if not ok:
                 # DB Create failed, log and stop further child creation.
@@ -1835,10 +1823,10 @@ class VncApiServer(object):
         if not 'RW' in perms:
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
-        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
-                             obj_fields=['perms2'])
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
+                                                obj_fields=['perms2'])
         obj_dict['perms2']['owner'] = owner
-        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
+        self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
 
         msg = "chown: %s owner set to %s" % (obj_uuid, owner)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
@@ -1874,7 +1862,7 @@ class VncApiServer(object):
         owner_access  = request_params.get('owner_access')
         global_access = request_params.get('global_access')
 
-        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
                              obj_fields=['perms2', 'is_shared'])
         obj_perms = obj_dict['perms2']
         old_perms = '%s/%d %d %s' % (obj_perms['owner'],
@@ -1916,12 +1904,12 @@ class VncApiServer(object):
             obj_perms['owner_access'], obj_perms['global_access'],
             ['%s:%d' % (item['tenant'], item['tenant_access']) for item in obj_perms['share']])
 
-        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
+        self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
         msg = "chmod: %s perms old=%s, new=%s" % (obj_uuid, old_perms, new_perms)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         return {}
-    #end obj_chmod_http_post
+    # end obj_chmod_http_post
 
     def prop_collection_http_get(self):
         if 'uuid' not in get_request().query:
@@ -2061,8 +2049,7 @@ class VncApiServer(object):
         # Validations over. Invoke type specific hook and extension manager
         try:
             fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
-            (read_ok, read_result) = self._db_conn.dbe_read(
-                                         obj_type, {'uuid':obj_uuid})
+            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, obj_uuid)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
                 404, 'Object Not Found: '+obj_uuid)
@@ -2200,7 +2187,7 @@ class VncApiServer(object):
         if operation == 'ADD':
             try:
                 (read_ok, read_result) = self._db_conn.dbe_read(
-                    ref_obj_type, {'uuid': ref_uuid}, obj_fields=['fq_name'])
+                    ref_obj_type, ref_uuid, obj_fields=['fq_name'])
             except NoIdError:
                 raise cfgm_common.exceptions.HttpError(
                     404, 'Object Not Found: ' + ref_uuid)
@@ -2211,7 +2198,7 @@ class VncApiServer(object):
         # To invoke type specific hook and extension manager
         try:
             (read_ok, read_result) = self._db_conn.dbe_read(
-                                         obj_type, get_request().json)
+                                         obj_type, get_request().json['uuid'])
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
                 404, 'Object Not Found: '+obj_uuid)
@@ -2816,10 +2803,10 @@ class VncApiServer(object):
         obj_type = 'network_ipam'
         fq_name = ['default-domain', 'default-project', 'default-network-ipam']
         obj_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
-        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':obj_uuid},
-                              obj_fields=['perms2'])
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
+                                                obj_fields=['perms2'])
         obj_dict['perms2']['global_access'] = PERMS_RX
-        self._db_conn.dbe_update(obj_type, {'uuid': obj_uuid}, obj_dict)
+        self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
     # end _db_init_entries
 
     # generate default rbac group rule
@@ -2914,12 +2901,12 @@ class VncApiServer(object):
             obj_dict['id_perms'] = self._get_default_id_perms()
             obj_dict['perms2'] = self._get_default_perms2()
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
-            obj_ids = result
+            obj_id = result
             # For virtual networks, allocate an ID
             if obj_type == 'virtual_network':
                 vn_id = self.alloc_vn_id(s_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
-            self._db_conn.dbe_create(obj_type, obj_ids, obj_dict)
+            self._db_conn.dbe_create(obj_type, obj_id, obj_dict)
             self.create_default_children(obj_type, s_obj)
 
         return s_obj
@@ -3395,7 +3382,7 @@ class VncApiServer(object):
         # expected format {"subnet_list" : ["2.1.1.0/24", "1.1.1.0/24"]
         req_dict = get_request().json
         try:
-            (ok, result) = self._db_conn.dbe_read('virtual_network', {'uuid': id})
+            (ok, result) = self._db_conn.dbe_read('virtual_network', id)
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
         except Exception as e:

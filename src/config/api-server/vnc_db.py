@@ -6,7 +6,7 @@
 Layer that transforms VNC config objects to database representation
 """
 from cfgm_common.zkclient import ZookeeperClient, IndexAllocator
-from gevent import ssl, monkey
+from gevent import monkey
 monkey.patch_all()
 import gevent
 import gevent.event
@@ -25,6 +25,7 @@ from cfgm_common.vnc_cassandra import VncCassandraClient
 from vnc_rdbms import VncServerRDBMSClient
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.utils import cgitb_hook
+from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 
@@ -263,7 +264,7 @@ class VncServerKombuClient(VncKombuClient):
         self._db_client_mgr = db_client_mgr
         self._sandesh = db_client_mgr._sandesh
         listen_port = db_client_mgr.get_server_port()
-        q_name = 'vnc_config.%s-%s' %(socket.gethostname(), listen_port)
+        q_name = 'vnc_config.%s-%s' % (socket.gethostname(), listen_port)
         super(VncServerKombuClient, self).__init__(
             rabbit_ip, rabbit_port, rabbit_user, rabbit_password, rabbit_vhost,
             rabbit_ha_mode, q_name, self._dbe_subscribe_callback,
@@ -330,19 +331,21 @@ class VncServerKombuClient(VncKombuClient):
                               sandesh=self._sandesh, error_msg=errmsg)
     #end _dbe_subscribe_callback
 
-    def dbe_create_publish(self, obj_type, obj_ids, obj_dict):
+    def dbe_create_publish(self, obj_type, obj_id, obj_dict):
         req_id = get_trace_id()
         oper_info = {'request-id': req_id,
                      'oper': 'CREATE',
                      'type': obj_type,
+                     'uuid': obj_id,
+                     'fq_name': obj_dict['fq_name'],
                      'obj_dict': obj_dict}
-        oper_info.update(obj_ids)
         self.publish(oper_info)
     # end dbe_create_publish
 
     def _dbe_create_notification(self, obj_info):
         try:
-            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'],
+                                                        obj_info['uuid'])
             if not ok:
                 raise Exception(result)
             obj_dict = result
@@ -355,7 +358,7 @@ class VncServerKombuClient(VncKombuClient):
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
-                r_class.dbe_create_notification(obj_info, obj_dict)
+                r_class.dbe_create_notification(obj_info['uuid'], obj_dict)
         except Exception as e:
             err_msg = ("Failed in type specific dbe_create_notification " +
                        str(e))
@@ -363,36 +366,34 @@ class VncServerKombuClient(VncKombuClient):
             raise
     # end _dbe_create_notification
 
-    def dbe_update_publish(self, obj_type, obj_ids):
-        oper_info = {'oper': 'UPDATE', 'type': obj_type}
-        oper_info.update(obj_ids)
+    def dbe_update_publish(self, obj_type, obj_id):
+        oper_info = {'oper': 'UPDATE', 'type': obj_type, 'uuid': obj_id}
         self.publish(oper_info)
     # end dbe_update_publish
 
     def _dbe_update_notification(self, obj_info):
         try:
-            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'],
+                                                        obj_info['uuid'])
         except NoIdError as e:
             # No error, we will hear a delete shortly
             return
 
-        new_obj_dict = result
-
-        self.dbe_uve_trace("UPDATE", obj_info['type'], obj_info['uuid'], new_obj_dict)
+        self.dbe_uve_trace("UPDATE", obj_info['type'], obj_info['uuid'], result)
 
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
-                r_class.dbe_update_notification(obj_info)
+                r_class.dbe_update_notification(obj_info['uuid'])
         except:
             msg = "Failed to invoke type specific dbe_update_notification"
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_update_notification
 
-    def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
-        oper_info = {'oper': 'DELETE', 'type': obj_type, 'obj_dict': obj_dict}
-        oper_info.update(obj_ids)
+    def dbe_delete_publish(self, obj_type, obj_id, obj_dict):
+        oper_info = {'oper': 'DELETE', 'type': obj_type, 'uuid': obj_id,
+                     'fq_name': obj_dict['fq_name'], 'obj_dict': obj_dict}
         self.publish(oper_info)
     # end dbe_delete_publish
 
@@ -408,7 +409,7 @@ class VncServerKombuClient(VncKombuClient):
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
             if r_class:
-                r_class.dbe_delete_notification(obj_info, obj_dict)
+                r_class.dbe_delete_notification(obj_info['uuid'], obj_dict)
         except:
             msg = "Failed to invoke type specific dbe_delete_notification"
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
@@ -632,14 +633,14 @@ class VncDbClient(object):
         self._sandesh = api_svr_mgr._sandesh
 
         self._UVEMAP = {
-            "virtual_network" : ("ObjectVNTable", False),
-            "service_instance" : ("ObjectSITable", False),
-            "virtual_router" : ("ObjectVRouter", True),
-            "analytics_node" : ("ObjectCollectorInfo", True),
-            "database_node" : ("ObjectDatabaseInfo", True),
-            "config_node" : ("ObjectConfigNode", True),
-            "service_chain" : ("ServiceChain", False),
-            "physical_router" : ("ObjectPRouter", True),
+            "virtual_network": ("ObjectVNTable", False),
+            "service_instance": ("ObjectSITable", False),
+            "virtual_router": ("ObjectVRouter", True),
+            "analytics_node": ("ObjectCollectorInfo", True),
+            "database_node": ("ObjectDatabaseInfo", True),
+            "config_node": ("ObjectConfigNode", True),
+            "service_chain": ("ServiceChain", False),
+            "physical_router": ("ObjectPRouter", True),
             "bgp_router": ("ObjectBgpRouter", True),
         }
 
@@ -691,7 +692,7 @@ class VncDbClient(object):
         proj_id = self.fq_name_to_uuid('project',
                                        ['default-domain', 'default-project'])
         try:
-            (ok, result) = self.dbe_read('project', {'uuid':proj_id})
+            (ok, result) = self.dbe_read('project', proj_id)
         except NoIdError as e:
             ok = False
             result = 'Project Not Found: %s' %(proj_id)
@@ -701,10 +702,8 @@ class VncDbClient(object):
             return
 
         proj_dict = result
-        quota = QuotaType()
-
         proj_dict['quota'] = default_quota
-        self.dbe_update('project', {'uuid':proj_id}, proj_dict)
+        self.dbe_update('project', proj_id, proj_dict)
     # end _update_default_quota
 
     def get_api_server(self):
@@ -960,12 +959,12 @@ class VncDbClient(object):
     # end _dbe_read
 
     @ignore_exceptions
-    def _generate_db_request_trace(self, oper, obj_type, obj_ids, obj_dict):
+    def _generate_db_request_trace(self, oper, obj_type, obj_id, obj_dict):
         req_id = get_trace_id()
 
         body = dict(obj_dict)
         body['type'] = obj_type
-        body.update(obj_ids)
+        body['uuid'] = obj_id
         db_trace = DBRequestTrace(request_id=req_id)
         db_trace.operation = oper
         db_trace.body = json.dumps(body)
@@ -985,9 +984,7 @@ class VncDbClient(object):
         except ResourceExistsError as e:
             return (False, (409, str(e)))
 
-        obj_ids = { 'uuid': obj_dict['uuid'] }
-
-        return (True, obj_ids)
+        return (True, obj_dict['uuid'])
     # end dbe_alloc
 
     def dbe_uve_trace(self, oper, type, uuid, obj_dict):
@@ -1027,11 +1024,11 @@ class VncDbClient(object):
 
     def dbe_trace(oper):
         def wrapper1(func):
-            def wrapper2(self, obj_type, obj_ids, obj_dict):
+            def wrapper2(self, obj_type, obj_id, obj_dict):
                 trace = self._generate_db_request_trace(oper, obj_type,
-                                                        obj_ids, obj_dict)
+                                                        obj_id, obj_dict)
                 try:
-                    ret = func(self, obj_type, obj_ids, obj_dict)
+                    ret = func(self, obj_type, obj_id, obj_dict)
                     trace_msg([trace], 'DBRequestTraceBuf',
                               self._sandesh)
                     return ret
@@ -1047,18 +1044,16 @@ class VncDbClient(object):
     # create/update indexes if object is shared
     def build_shared_index(oper):
         def wrapper1(func):
-            def wrapper2(self, obj_type, obj_ids, obj_dict):
+            def wrapper2(self, obj_type, obj_id, obj_dict):
 
-                obj_uuid = obj_ids['uuid']
                 # fetch current share information to identify what might have changed
                 try:
-                    cur_perms2 = self.uuid_to_obj_perms2(obj_uuid)
+                    cur_perms2 = self.uuid_to_obj_perms2(obj_id)
                 except Exception as e:
                     cur_perms2 = self.get_default_perms2()
-                    pass
 
                 # don't build sharing indexes if operation (create/update) failed
-                (ok, result) = func(self, obj_type, obj_ids, obj_dict)
+                (ok, result) = func(self, obj_type, obj_id, obj_dict)
                 if not ok:
                     return (ok, result)
 
@@ -1076,9 +1071,9 @@ class VncDbClient(object):
                 # change in global access?
                 if cur_perms2['global_access'] != global_access:
                     if global_access:
-                        self._object_db.set_shared(obj_type, obj_uuid, rwx = global_access)
+                        self._object_db.set_shared(obj_type, obj_id, rwx = global_access)
                     else:
-                        self._object_db.del_shared(obj_type, obj_uuid)
+                        self._object_db.del_shared(obj_type, obj_id)
 
                 # change in shared list? Construct temporary sets to compare
                 cur_shared_list = set(item['tenant']+':'+str(item['tenant_access']) for item in cur_perms2['share'])
@@ -1089,15 +1084,15 @@ class VncDbClient(object):
                 # delete sharing if no longer in shared list
                 for share_info in cur_shared_list - new_shared_list:
                     # sharing information => [share-type, uuid, rwx bits]
-                    (share_type, share_id, share_perms)  = cfgm_common.utils.shareinfo_from_perms2(share_info)
-                    self._object_db.del_shared(obj_type, obj_uuid,
-                        share_id = share_id, share_type = share_type)
+                    (share_type, share_id, share_perms)  = shareinfo_from_perms2(share_info)
+                    self._object_db.del_shared(obj_type, obj_id,
+                        share_id=share_id, share_type=share_type)
 
                 # share this object with specified tenants
                 for share_info in new_shared_list - cur_shared_list:
                     # sharing information => [share-type, uuid, rwx bits]
-                    (share_type, share_id, share_perms)  = cfgm_common.utils.shareinfo_from_perms2(share_info)
-                    self._object_db.set_shared(obj_type, obj_uuid,
+                    (share_type, share_id, share_perms)  = shareinfo_from_perms2(share_info)
+                    self._object_db.set_shared(obj_type, obj_id,
                         share_id = share_id, share_type = share_type, rwx = int(share_perms))
 
                 return (ok, result)
@@ -1106,29 +1101,27 @@ class VncDbClient(object):
 
     @dbe_trace('create')
     @build_shared_index('create')
-    def dbe_create(self, obj_type, obj_ids, obj_dict):
-        (ok, result) = self._object_db.object_create(
-            obj_type, obj_ids['uuid'], obj_dict)
+    def dbe_create(self, obj_type, obj_id, obj_dict):
+        (ok, result) = self._object_db.object_create(obj_type, obj_id, obj_dict)
 
         if ok:
             # publish to msgbus
-            self._msgbus.dbe_create_publish(obj_type, obj_ids, obj_dict)
+            self._msgbus.dbe_create_publish(obj_type, obj_id, obj_dict)
 
         return (ok, result)
     # end dbe_create
 
     # input id is uuid
-    def dbe_read(self, obj_type, obj_ids, obj_fields=None,
+    def dbe_read(self, obj_type, obj_id, obj_fields=None,
                  ret_readonly=False):
         try:
             (ok, cassandra_result) = self._object_db.object_read(
-                obj_type, [obj_ids['uuid']], obj_fields,
-                ret_readonly=ret_readonly)
+                obj_type, [obj_id], obj_fields, ret_readonly=ret_readonly)
         except NoIdError as e:
             # if NoIdError is for obj itself (as opposed to say for parent
             # or ref), let caller decide if this can be handled gracefully
             # by re-raising
-            if e._unknown_id == obj_ids['uuid']:
+            if e._unknown_id == obj_id:
                 raise
 
             return (False, str(e))
@@ -1150,9 +1143,9 @@ class VncDbClient(object):
         return self._object_db.get_relaxed_refs(obj_id)
     # end dbe_get_relaxed_refs
 
-    def dbe_is_latest(self, obj_ids, tstamp):
+    def dbe_is_latest(self, obj_id, tstamp):
         try:
-            is_latest = self._object_db.is_latest(obj_ids['uuid'], tstamp)
+            is_latest = self._object_db.is_latest(obj_id, tstamp)
             return (True, is_latest)
         except Exception as e:
             return (False, str(e))
@@ -1160,12 +1153,12 @@ class VncDbClient(object):
 
     @dbe_trace('update')
     @build_shared_index('update')
-    def dbe_update(self, obj_type, obj_ids, new_obj_dict):
+    def dbe_update(self, obj_type, obj_id, new_obj_dict):
         (ok, cassandra_result) = self._object_db.object_update(
-            obj_type, obj_ids['uuid'], new_obj_dict)
+            obj_type, obj_id, new_obj_dict)
 
         # publish to message bus (rabbitmq)
-        self._msgbus.dbe_update_publish(obj_type, obj_ids)
+        self._msgbus.dbe_update_publish(obj_type, obj_id)
 
         return (ok, cassandra_result)
     # end dbe_update
@@ -1183,7 +1176,7 @@ class VncDbClient(object):
                     domain = 'default-domain'
                 domain = self._db_conn.fq_name_to_uuid('domain', [domain])
         if domain:
-            domain = domain.replace('-','')
+            domain = domain.replace('-', '')
         return domain, tenant_uuid
 
     def dbe_list_rdbms(self, obj_type, parent_uuids=None, back_ref_uuids=None,
@@ -1198,7 +1191,8 @@ class VncDbClient(object):
         return self._object_db.object_list(
                  obj_type, parent_uuids=parent_uuids,
                  back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-                 count=is_count, filters=filters, is_detail=is_detail, field_names=field_names, tenant_id=tenant_id, domain=domain)
+                 count=is_count, filters=filters, is_detail=is_detail,
+                 field_names=field_names, tenant_id=tenant_id, domain=domain)
 
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                  obj_uuids=None, is_count=False, filters=None,
@@ -1255,12 +1249,12 @@ class VncDbClient(object):
     # end dbe_list
 
     @dbe_trace('delete')
-    def dbe_delete(self, obj_type, obj_ids, obj_dict):
+    def dbe_delete(self, obj_type, obj_id, obj_dict):
         (ok, cassandra_result) = self._object_db.object_delete(
-            obj_type, obj_ids['uuid'])
+            obj_type, obj_id)
 
         # publish to message bus (rabbitmq)
-        self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
+        self._msgbus.dbe_delete_publish(obj_type, obj_id, obj_dict)
 
         # finally remove mapping in zk
         self.dbe_release(obj_type, obj_dict['fq_name'])
@@ -1364,7 +1358,7 @@ class VncDbClient(object):
             return
 
         self._object_db.prop_collection_update(obj_type, obj_uuid, updates)
-        self._msgbus.dbe_update_publish(obj_type, {'uuid': obj_uuid})
+        self._msgbus.dbe_update_publish(obj_type, obj_uuid)
         return True, ''
     # end prop_collection_update
 
@@ -1372,7 +1366,7 @@ class VncDbClient(object):
                    operation):
         self._object_db.ref_update(obj_type, obj_uuid, ref_obj_type,
                                       ref_uuid, ref_data, operation)
-        self._msgbus.dbe_update_publish(obj_type, {'uuid': obj_uuid})
+        self._msgbus.dbe_update_publish(obj_type, obj_uuid)
     # ref_update
 
     def ref_relax_for_delete(self, obj_uuid, ref_uuid):

@@ -527,10 +527,10 @@ class AddrMgmt(object):
 
         (ok, obj_dict) = db_conn.dbe_read(
                              obj_type=req_obj_type,
-                             obj_ids={'uuid':obj_uuid},
+                             obj_id=obj_uuid,
                              obj_fields=req_fields)
         return (ok, obj_dict)
-    #end _uuid_to_obj_dict
+    # end _uuid_to_obj_dict
 
     def _fq_name_to_obj_dict(self, req_obj_type, fq_name, req_fields=None):
         db_conn = self._get_db_conn()
@@ -689,12 +689,12 @@ class AddrMgmt(object):
                                      obj_dict, should_persist=True)
     # end net_create_req
 
-    def net_create_notify(self, obj_ids, obj_dict):
+    def net_create_notify(self, obj_id, obj_dict):
         db_conn = self._get_db_conn()
         try:
             (ok, result) = db_conn.dbe_read(
                                'virtual_network',
-                               obj_ids={'uuid': obj_ids['uuid']},
+                               obj_id=obj_id,
                                obj_fields=['fq_name', 'network_ipam_refs'])
         except cfgm_common.exceptions.NoIdError:
             return
@@ -705,9 +705,8 @@ class AddrMgmt(object):
             return
 
         vn_dict = result
-        vn_uuid = obj_ids['uuid']
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
-        self._create_net_subnet_objs(vn_fq_name_str, vn_uuid, vn_dict,
+        self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False)
     # end net_create_notify
 
@@ -757,12 +756,12 @@ class AddrMgmt(object):
                                      should_persist=True)
     # end net_update_req
 
-    def net_update_notify(self, obj_ids):
+    def net_update_notify(self, obj_id):
         db_conn = self._get_db_conn()
         try:
             (ok, result) = db_conn.dbe_read(
                                 obj_type='virtual_network',
-                                obj_ids={'uuid': obj_ids['uuid']},
+                                obj_id=obj_id,
                                 obj_fields=['fq_name', 'network_ipam_refs'])
         except cfgm_common.exceptions.NoIdError:
             return
@@ -774,8 +773,7 @@ class AddrMgmt(object):
 
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
-        vn_uuid = obj_ids['uuid']
-        self._create_net_subnet_objs(vn_fq_name_str, vn_uuid, vn_dict,
+        self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False)
     # end net_update_notify
 
@@ -795,10 +793,9 @@ class AddrMgmt(object):
             pass
     # end net_delete_req
 
-    def net_delete_notify(self, obj_ids, obj_dict):
+    def net_delete_notify(self, obj_id, obj_dict):
         try:
-            vn_uuid = obj_dict['uuid']
-            del self._subnet_objs[vn_uuid]
+            del self._subnet_objs[obj_id]
         except KeyError:
             pass
     # end net_delete_notify
@@ -1000,8 +997,7 @@ class AddrMgmt(object):
         instip_refs = vn_dict.get('instance_ip_back_refs') or []
         for ref in instip_refs:
             try:
-                (ok, result) = db_conn.dbe_read(
-                    'instance_ip', {'uuid': ref['uuid']})
+                (ok, result) = db_conn.dbe_read('instance_ip', ref['uuid'])
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -1024,8 +1020,7 @@ class AddrMgmt(object):
         fip_pool_refs = vn_dict.get('floating_ip_pools') or []
         for ref in fip_pool_refs:
             try:
-                (ok, result) = db_conn.dbe_read(
-                    'floating_ip_pool', {'uuid': ref['uuid']})
+                (ok, result) = db_conn.dbe_read('floating_ip_pool', ref['uuid'])
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -1039,7 +1034,7 @@ class AddrMgmt(object):
             for floating_ip in floating_ips:
                 try:
                     (read_ok, read_result) = db_conn.dbe_read(
-                        'floating_ip', {'uuid': floating_ip['uuid']})
+                        'floating_ip', floating_ip['uuid'])
                 except cfgm_common.exceptions.NoIdError:
                     continue
                 if not read_ok:
@@ -1064,8 +1059,7 @@ class AddrMgmt(object):
         aip_pool_refs = vn_dict.get('alias_ip_pools') or []
         for ref in aip_pool_refs:
             try:
-                (ok, result) = db_conn.dbe_read(
-                    'alias_ip_pool', {'uuid': ref['uuid']})
+                (ok, result) = db_conn.dbe_read('alias_ip_pool', ref['uuid'])
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -1081,7 +1075,7 @@ class AddrMgmt(object):
                 # new subnet_list
                 try:
                     (read_ok, read_result) = db_conn.dbe_read(
-                        'alias_ip', {'uuid': floating_ip['uuid']})
+                        'alias_ip', floating_ip['uuid'])
                 except cfgm_common.exceptions.NoIdError:
                     continue
                 if not read_ok:
@@ -1136,8 +1130,7 @@ class AddrMgmt(object):
         for ref in vn_refs:
             vn_id = ref.get('uuid')
             try:
-                (ok, read_result) = db_conn.dbe_read('virtual_network',
-                                                     {'uuid':vn_id})
+                (ok, read_result) = db_conn.dbe_read('virtual_network', vn_id)
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -1668,9 +1661,9 @@ class AddrMgmt(object):
                                           should_persist=True)
     # end ipam_create_req
 
-    def ipam_create_notify(self, obj_ids, obj_dict):
+    def ipam_create_notify(self, obj_id, obj_dict):
         if obj_dict.get('ipam_subnet_method') == 'flat-subnet':
-            self._create_ipam_subnet_objs(obj_ids['uuid'], obj_dict,
+            self._create_ipam_subnet_objs(obj_id, obj_dict,
                                           should_persist=False)
     # end ipam_create_notify
 
@@ -1695,10 +1688,9 @@ class AddrMgmt(object):
             pass
     # end ipam_delete_req
 
-    def ipam_delete_notify(self, obj_ids, obj_dict):
+    def ipam_delete_notify(self, obj_id, obj_dict):
         try:
-            ipam_uuid = obj_dict['uuid']
-            del self._subnet_objs[ipam_uuid]
+            del self._subnet_objs[obj_id]
         except KeyError:
             pass
     # end ipam_delete_notify
@@ -1751,12 +1743,10 @@ class AddrMgmt(object):
                                       should_persist=True)
     # end ipam_update_req
 
-    def ipam_update_notify(self, obj_ids):
+    def ipam_update_notify(self, obj_id):
         db_conn = self._get_db_conn()
         try:
-            (ok, result) = db_conn.dbe_read(
-                               'network_ipam',
-                               obj_ids={'uuid': obj_ids['uuid']})
+            (ok, result) = db_conn.dbe_read('network_ipam', obj_id=obj_id)
         except cfgm_common.exceptions.NoIdError:
             return
 
@@ -1766,8 +1756,7 @@ class AddrMgmt(object):
             return
 
         ipam_dict = result
-        ipam_uuid = obj_ids['uuid']
-        self._create_ipam_subnet_objs(ipam_uuid, ipam_dict,
+        self._create_ipam_subnet_objs(obj_id, ipam_dict,
                                      should_persist=False)
     # end ipam_update_notify
 
