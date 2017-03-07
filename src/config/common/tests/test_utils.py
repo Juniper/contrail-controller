@@ -271,8 +271,7 @@ class FakeCF(object):
         return True
     # end _column_within_range
 
-    def get(
-        self, key, columns=None, column_start=None, column_finish=None,
+    def get(self, key, columns=None, column_start=None, column_finish=None,
             column_count=0, include_timestamp=False, include_ttl=False):
         if not key in self._rows:
             raise pycassa.NotFoundException
