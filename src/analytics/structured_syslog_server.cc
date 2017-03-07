@@ -7,6 +7,7 @@
 #include <vector>
 #include <boost/asio/buffer.hpp>
 #include <boost/intrusive_ptr.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -272,6 +273,9 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogServ
                 SyslogParser::Holder("device", device)));
             }
             std::string an = SyslogParser::GetMapVals(v, "nested-application", "");
+            if (boost::iequals(an, "unknown")) {
+                an = SyslogParser::GetMapVals(v, "application", "");
+            }
             std::string rule = SyslogParser::GetMapVals(v, "rule", "None");
             std::string rule_ar_name = tenant + '/' + rule + '/' + device + '/' + an;
             boost::shared_ptr<TenantApplicationRecord> rar =
@@ -584,7 +588,7 @@ private:
                 LOG(DEBUG, "ProcessStructuredSyslog TCP SUCCESS for : " << remote_endpoint);
             }
 
-            sess->server()->DeleteSession (sess.get());
+            //sess->server()->DeleteSession (sess.get());
             sess->ReleaseBuffer(recv_buffer);
         }
 
