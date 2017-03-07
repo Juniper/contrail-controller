@@ -3998,6 +3998,10 @@ void AddStaticPreference(std::string intf_name, int intf_id,
 }
 
 bool VnMatch(VnListType &vn_list, std::string &vn) {
+    if (vn == "" || vn == unknown_vn_) {
+        return true;
+    }
+
     for (VnListType::iterator it = vn_list.begin();
          it != vn_list.end(); ++it) {
         if (*it == vn)
