@@ -75,10 +75,9 @@ class VncRbac(object):
         return rbac_rules
 
     def get_rbac_rules_object(self, obj_type, obj_uuid):
-        obj_ids = {'uuid' : obj_uuid}
         obj_fields = ['api_access_lists']
         try:
-            (ok, result) = self._db_conn.dbe_read(obj_type, obj_ids, obj_fields)
+            (ok, result) = self._db_conn.dbe_read(obj_type, obj_uuid, obj_fields)
         except NoIdError:
             ok = False
         if not ok or 'api_access_lists' not in result:
@@ -86,8 +85,8 @@ class VncRbac(object):
         api_access_lists = result['api_access_lists']
 
         obj_fields = ['api_access_list_entries']
-        obj_ids = {'uuid' : api_access_lists[0]['uuid']}
-        (ok, result) = self._db_conn.dbe_read('api_access_list', obj_ids, obj_fields)
+        (ok, result) = self._db_conn.dbe_read(
+            'api_access_list', api_access_lists[0]['uuid'], obj_fields)
         if not ok or 'api_access_list_entries' not in result:
             return []
         # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
@@ -106,7 +105,7 @@ class VncRbac(object):
         if domain_id is None:
             ok = False
             try:
-                (ok, result) = self._db_conn.dbe_read('project', {'uuid' : project_id},  ['fq_name'])
+                (ok, result) = self._db_conn.dbe_read('project', project_id,  ['fq_name'])
             except Exception as e:
                 ok = False
                 pass
