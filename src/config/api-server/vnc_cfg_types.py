@@ -105,17 +105,17 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
+    def dbe_create_notification(cls, obj_id, obj_dict):
         pass
     #end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
+    def dbe_update_notification(cls, obj_id):
         pass
     #end dbe_update_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         pass
     #end dbe_delete_notification
 
@@ -135,8 +135,7 @@ class Resource(ResourceDbMixin):
     @classmethod
     def dbe_read(cls, db_conn, res_type, obj_uuid, obj_fields=None):
         try:
-            ok, result = db_conn.dbe_read(res_type,
-                                          {'uuid': obj_uuid}, obj_fields)
+            ok, result = db_conn.dbe_read(res_type, obj_uuid, obj_fields)
         except cfgm_common.exceptions.NoIdError:
             return (False, (404, 'No %s: %s' %(res_type, obj_uuid)))
         if not ok:
@@ -338,7 +337,7 @@ class FloatingIpServer(Resource, FloatingIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
+    def dbe_create_notification(cls, obj_id, obj_dict):
         if obj_dict['parent_type'] == 'instance-ip':
             return
 
@@ -348,7 +347,7 @@ class FloatingIpServer(Resource, FloatingIp):
     # end dbe_create_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         if obj_dict['parent_type'] == 'instance-ip':
             return
 
@@ -406,14 +405,14 @@ class AliasIpServer(Resource, AliasIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
+    def dbe_create_notification(cls, obj_id, obj_dict):
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_alloc_notify(aip_addr, vn_fq_name)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_free_notify(aip_addr, vn_fq_name)
@@ -594,14 +593,14 @@ class InstanceIpServer(Resource, InstanceIp):
     # end post_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
+    def dbe_create_notification(cls, obj_id, obj_dict):
         ip_addr = obj_dict['instance_ip_address']
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
+    def dbe_delete_notification(cls, obj_id, obj_dict):
         try:
             ip_addr = obj_dict['instance_ip_address']
         except KeyError:
@@ -1158,7 +1157,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
             (ok, ipam_dict) = db_conn.dbe_read(
                                obj_type='network_ipam',
-                               obj_ids={'uuid': ipam_uuid})
+                               obj_id=ipam_uuid)
             if not ok:
                 return (ok, 400, ipam_dict)
 
@@ -1288,7 +1287,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                                                         ipam_fq_name)
                 (ok, ipam_dict) = db_conn.dbe_read(
                                       obj_type='network_ipam',
-                                      obj_ids={'uuid': ipam_uuid})
+                                      obj_id=ipam_uuid)
                 if not ok:
                     return (ok, (400, ipam_dict))
 
@@ -1422,7 +1421,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                                                     ipam_fq_name)
                 (ok, ipam_dict) = db_conn.dbe_read(
                                       obj_type='network_ipam',
-                                      obj_ids={'uuid': ipam_uuid})
+                                      obj_id=ipam_uuid)
                 if not ok:
                     return (ok, (409, ipam_dict))
 
@@ -1541,18 +1540,18 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end subnet_ip_count
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.net_create_notify(obj_ids, obj_dict)
+    def dbe_create_notification(cls, obj_id, obj_dict):
+        cls.addr_mgmt.net_create_notify(obj_id, obj_dict)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
-        cls.addr_mgmt.net_update_notify(obj_ids)
+    def dbe_update_notification(cls, obj_id):
+        cls.addr_mgmt.net_update_notify(obj_id)
     # end dbe_update_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.net_delete_notify(obj_ids, obj_dict)
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        cls.addr_mgmt.net_delete_notify(obj_id, obj_dict)
     # end dbe_delete_notification
 
 # end class VirtualNetworkServer
@@ -1755,18 +1754,18 @@ class NetworkIpamServer(Resource, NetworkIpam):
     # end pre_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.ipam_create_notify(obj_ids, obj_dict)
+    def dbe_create_notification(cls, obj_id, obj_dict):
+        cls.addr_mgmt.ipam_create_notify(obj_id, obj_dict)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
-        cls.addr_mgmt.ipam_update_notify(obj_ids)
+    def dbe_update_notification(cls, obj_id):
+        cls.addr_mgmt.ipam_update_notify(obj_id)
     # end dbe_update_notification
 
     @classmethod
-    def dbe_delete_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.ipam_delete_notify(obj_ids, obj_dict)
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        cls.addr_mgmt.ipam_delete_notify(obj_id, obj_dict)
     # end dbe_update_notification
 
     @classmethod
