@@ -85,9 +85,9 @@ class SnmpUve(object):
 
     def delete(self, dev):
         PRouterUVE(data=PRouterEntry(**dict(
-                    name=dev, deleted=True))).send()
+                    name=dev['fq_name'][-1], deleted=True))).send()
         PRouterFlowUVE(data=PRouterFlowEntry(**dict(
-                    name=dev, deleted=True))).send()
+                    name=dev['fq_name'][-1], deleted=True))).send()
 
     def logger(self):
         return self._logger
