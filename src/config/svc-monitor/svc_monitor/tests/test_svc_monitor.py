@@ -15,24 +15,12 @@ from cfgm_common.vnc_kombu import VncKombuClient
 
 si_add_info = {
     u'oper': u'CREATE', u'uuid': u'fake-instance', u'type': u'service-instance',
-    u'obj_dict': {
-        u'fq_name': [u'fake-domain', u'fake-project', u'fake-instance'],
-        u'uuid': u'fake-instance',
-        u'parent_uuid': u'fake-domain:fake-project',
-        u'service_instance_properties': {
-            u'scale_out': {u'max_instances': 2},
-            u'interface_list': [
-                {u'virtual_network': u''},
-                {u'virtual_network': u'fake-domain:fake-project:left_vn'},
-                {u'virtual_network': u'fake-domain:fake-project:right_vn'}
-            ]
-        },
-        u'parent_type': u'project'
-    }
+    u'fq_name': [u'fake-domain', u'fake-project', u'fake-instance']
 }
 
 si_del_info = {
     u'oper': u'DELETE', u'uuid': u'fake-instance', u'type': u'service-instance',
+    u'fq_name': [u'fake-domain', u'fake-project', u'fake-instance'],
     u'obj_dict': {
         u'virtual_machine_back_refs': [{u'to': [u'fake-vm'], u'uuid': u'fake-vm'}],
         u'fq_name': [u'fake-domain', u'fake-project', u'fake-instance'],
@@ -54,26 +42,17 @@ si_del_info = {
 
 vn_add_info = {
     u'oper': u'CREATE', u'uuid': u'left-vn', u'type': u'virtual-network',
-    u'obj_dict': {
-        u'uuid': u'left-vn',
-        u'fq_name': [u'fake-domain', u'fake-project', u'left-vn'],
-        u'parent_uuid': u'fake-domain:fake-project',
-        u'parent_type': u'project'
-    }
+    u'fq_name': [u'fake-domain', u'fake-project', u'left-vn'],
 }
 
 vmi_add_info = {
     u'oper': u'CREATE', u'uuid': u'left-vmi', u'type': u'virtual-machine-interface',
-    u'obj_dict': {
-        u'fq_name': [u'fake-domain', u'fake-project', u'fake-domain__fake-project__fake-instance__1__left__0'],
-        u'uuid': u'left-vmi',
-        u'parent_uuid': u'fake-domain:fake-project',
-        u'parent_type': u'project'
-    }
+    u'fq_name': [u'fake-domain', u'fake-project', u'fake-domain__fake-project__fake-instance__1__left__0'],
 }
 
 vmi_del_info = {
     u'oper': u'DELETE', u'uuid': u'left-vmi', u'type': u'virtual-machine-interface',
+    u'fq_name': [u'fake-domain', u'fake-project', u'left-vmi'],
     u'obj_dict': {
         u'fq_name': [u'fake-domain', u'fake-project', u'left-vmi'],
         u'uuid': u'left-vmi',
@@ -83,44 +62,15 @@ vmi_del_info = {
 }
 
 sas_add_info = {
-    u'imid': u'contrail:service-appliance-set:default-global-system-config:Test-SAS',
-    u'obj_dict': {
-        u'display_name': u'Test-SAS',
-        u'fq_name': [u'default-global-system-config', u'Test-SAS'],
-        u'id_perms': {u'created': u'2015-09-23T10:24:56.464362',
-            u'creator': None,
-            u'description': None,
-            u'enable': True,
-            u'last_modified': u'2015-09-23T10:24:56.464362',
-            u'permissions': {u'group': u'admin',
-                u'group_access': 7,
-                u'other_access': 7,
-                u'owner': u'admin',
-                u'owner_access': 7},
-            u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 11604282682608356844L,
-                u'uuid_mslong': 11461005920023169084L}},
-        u'parent_type': u'global-system-config',
-        u'service_appliance_driver': u'svc_monitor.tests.fake_lb_driver.OpencontrailFakeLoadbalancerDriver',
-        u'service_appliance_set_properties': {u'key_value_pair': [{u'key': u'sync_mode',
-            u'value': u'replication'},
-        {u'key': u'num_snat',
-            u'value': u'1'},
-        {u'key': u'use_snat',
-            u'value': u'True'},
-        {u'key': u'global_routed_mode',
-            u'value': u'True'}]},
-        u'uuid': u'sas'
-    },
+    u'fq_name': [u'default-global-system-config', u'Test-SAS'],
     u'oper': u'CREATE',
-    u'parent_imid': u'contrail:global-system-config:default-global-system-config',
     u'request-id': u'req-9977e0e7-910e-41e5-9378-974d2a1820ef',
     u'type': u'service-appliance-set',
     u'uuid': u'sas'
 }
 
 sas_del_info = {
-    u'imid': u'contrail:service-appliance-set:default-global-system-config:Test-SAS',
+    u'fq_name': [u'default-global-system-config', u'Test-SAS'],
     u'obj_dict': {
         u'display_name': u'Test-SAS',
         u'fq_name': [u'default-global-system-config', u'Test-SAS'],
@@ -150,46 +100,21 @@ sas_del_info = {
         u'uuid': u'sas'
     },
     u'oper': u'DELETE',
-    u'parent_imid': u'contrail:global-system-config:default-global-system-config',
     u'request-id': u'req-9977e0e7-910e-41e5-9378-974d2a1820ef',
     u'type': u'service-appliance-set',
     u'uuid': u'sas'
 }
 
 sa_add_info = {
-    u'imid': u'contrail:service-appliance:default-global-system-config:Test-SAS:Test-SA',
-    u'obj_dict': {
-        u'display_name': u'Test-SA',
-        u'fq_name': [u'default-global-system-config', u'Test-SAS', u'Test-SA'],
-        u'id_perms': {u'created': u'2015-09-23T10:24:59.261198',
-            u'creator': None,
-            u'description': None,
-            u'enable': True,
-            u'last_modified': u'2015-09-23T10:24:59.261198',
-            u'permissions': {u'group': u'admin',
-                u'group_access': 7,
-                u'other_access': 7,
-                u'owner': u'admin',
-                u'owner_access': 7},
-            u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 10774623880662702549L,
-                u'uuid_mslong': 1841697908979158050}},
-        u'parent_type': u'service-appliance-set',
-        u'service_appliance_ip_address': u'10.102.44.30',
-        u'service_appliance_properties': {u'key_value_pair': []},
-        u'service_appliance_user_credentials': {u'password': u'Bond',
-            u'username': u'James'},
-        u'uuid': u'sa'
-    },
+    u'fq_name': [u'default-global-system-config', u'Test-SAS', u'Test-SA'],
     u'oper': u'CREATE',
-    u'parent_imid': u'contrail:service-appliance-set:default-global-system-config:Test-SAS',
     u'request-id': u'req-3cd178f7-9662-48ad-8cb5-984c02d4d981',
     u'type': u'service-appliance',
     u'uuid': u'sa'
 }
 
 sa_del_info = {
-    u'imid': u'contrail:service-appliance:default-global-system-config:Test-SAS:Test-SA',
+    u'fq_name': [u'default-global-system-config', u'Test-SAS', u'Test-SA'],
     u'obj_dict': {
         u'display_name': u'Test-SA',
         u'fq_name': [u'default-global-system-config', u'Test-SAS', u'Test-SA'],
@@ -214,46 +139,14 @@ sa_del_info = {
         u'uuid': u'sa'
     },
     u'oper': u'DELETE',
-    u'parent_imid': u'contrail:service-appliance-set:default-global-system-config:Test-SAS',
     u'request-id': u'req-3cd178f7-9662-48ad-8cb5-984c02d4d981',
     u'type': u'service-appliance',
     u'uuid': u'sa'
 }
 
 pool_add_info = {
-    u'imid': u'contrail:loadbalancer-pool:default-domain:admin:mypool',
-    u'obj_dict': {
-        u'display_name': u'Test-pool',
-        u'fq_name': [u'default-domain', u'admin', u'Test-pool'],
-        u'id_perms': {u'created': u'2015-09-23T10:17:26.193693',
-            u'creator': None,
-            u'description': u'Test pool',
-            u'enable': True,
-            u'last_modified': u'2015-09-23T10:17:26.193693',
-            u'permissions': {u'group': u'admin',
-                u'group_access': 7,
-                u'other_access': 7,
-                u'owner': u'neutron',
-                u'owner_access': 7},
-            u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 12634730708897037914L,
-                u'uuid_mslong': 8496742968641014440}},
-        u'loadbalancer_pool_properties': {u'admin_state': True,
-            u'loadbalancer_method': u'ROUND_ROBIN',
-            u'protocol': u'TCP',
-            u'status': None,
-            u'status_description': None,
-            u'subnet_id': u'subnet-id'},
-        u'loadbalancer_pool_provider': u'Test-SAS',
-        u'parent_type': u'project',
-        u'parent_uuid': u'fakeproject',
-        u'service_appliance_set_refs': [{u'to': [u'default-global-system-config',
-            u'Test-SAS'],
-            u'uuid': u'sas'}],
-        u'uuid': u'pool'
-    },
+    u'fq_name': [u'default-domain', u'admin', u'Test-pool'],
     u'oper': u'CREATE',
-    u'parent_imid': u'contrail:project:default-domain:fakeproject',
     u'request-id': u'req-fad2a313-ed58-48cc-a2b1-3f03a6ca8ca7',
     u'type': u'loadbalancer-pool',
     u'uuid': u'pool'
@@ -266,7 +159,7 @@ pool_update_info = {
 }
 
 pool_del_info = {
-    u'imid': u'contrail:loadbalancer-pool:default-domain:admin:mypool',
+    u'fq_name': [u'default-domain', u'admin', u'Test-pool'],
     u'obj_dict': {
         u'display_name': u'Test-pool',
         u'fq_name': [u'default-domain', u'admin', u'Test-pool'],
@@ -301,43 +194,14 @@ pool_del_info = {
         u'uuid': u'pool'
     },
     u'oper': u'DELETE',
-    u'parent_imid': u'contrail:project:default-domain:fakeproject',
     u'type': u'loadbalancer-pool',
     u'uuid': u'pool'
 }
 
 member_add_info = {
-    u'imid': u'contrail:loadbalancer-member:default-domain:admin:mypool:058f2511-08af-4330-9ea3-119e09408969',
-    u'obj_dict': {
-        u'display_name': u'058f2511-08af-4330-9ea3-119e09408969',
-        u'fq_name': [u'default-domain',
-            u'admin',
-            u'mypool',
-            u'058f2511-08af-4330-9ea3-119e09408969'],
-        u'id_perms': {u'created': u'2015-09-23T10:29:24.359873',
-            u'creator': None,
-            u'description': u'Test Pool member',
-            u'enable': True,
-            u'last_modified': u'2015-09-23T10:29:24.359873',
-            u'permissions': {u'group': u'admin',
-                u'group_access': 7,
-                u'other_access': 7,
-                u'owner': u'neutron',
-                u'owner_access': 7},
-            u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 11430999649654180201L,
-                u'uuid_mslong': 400579646949638960}},
-            u'loadbalancer_member_properties': {u'address': u'1.1.4.5',
-                u'admin_state': True,
-                u'protocol_port': 91,
-                u'status': None,
-                u'status_description': None,
-                u'weight': 1},
-            u'parent_type': u'loadbalancer-pool',
-            u'uuid': u'member'
-    },
+    u'fq_name': [u'default-domain', u'admin', u'mypool',
+                 u'058f2511-08af-4330-9ea3-119e09408969'],
     u'oper': u'CREATE',
-    u'parent_imid': u'contrail:loadbalancer-pool:default-domain:admin:Test-pool',
     u'request-id': u'req-5f243860-8512-4ae0-9ff3-55c4fe8844d9',
     u'type': u'loadbalancer-member',
     u'uuid': u'member'
@@ -350,7 +214,8 @@ member_update_info = {
 }
 
 member_del_info = {
-    u'imid': u'contrail:loadbalancer-member:default-domain:admin:mypool:058f2511-08af-4330-9ea3-119e09408969',
+    u'fq_name': [u'default-domain', u'admin', u'mypool',
+                 u'058f2511-08af-4330-9ea3-119e09408969'],
     u'obj_dict': {
         u'display_name': u'058f2511-08af-4330-9ea3-119e09408969',
         u'fq_name': [u'default-domain',
@@ -380,53 +245,14 @@ member_del_info = {
             u'uuid': u'member'
     },
     u'oper': u'DELETE',
-    u'parent_imid': u'contrail:loadbalancer-pool:default-domain:admin:Test-pool',
     u'request-id': u'req-5f243860-8512-4ae0-9ff3-55c4fe8844d9',
     u'type': u'loadbalancer-member',
     u'uuid': u'member'
 }
 
 vip_add_info = {
-    u'imid': u'contrail:virtual-ip:default-domain:admin:myvip1_ftp',
-    u'obj_dict': {
-        u'display_name': u'Test-vip',
-        u'fq_name': [u'default-domain', u'admin', u'Test-vip'],
-        u'id_perms': {u'created': u'2015-09-23T10:32:33.447634',
-            u'creator': None,
-            u'description': u'Test vip',
-            u'enable': True,
-            u'last_modified': u'2015-09-23T10:32:33.447634',
-            u'permissions': {u'group': u'admin',
-                u'group_access': 7,
-                u'other_access': 7,
-                u'owner': u'neutron',
-                u'owner_access': 7},
-            u'user_visible': True,
-            u'uuid': {u'uuid_lslong': 9959603007601504245L,
-                u'uuid_mslong': 16499857160913372641L}},
-            u'loadbalancer_pool_refs': [{u'to': [u'default-domain',
-                u'admin',
-                u'Test-pool'],
-                u'uuid': u'pool'}],
-            u'parent_type': u'project',
-            u'uuid': u'vip',
-            u'virtual_ip_properties': {u'address': u'4.4.4.3',
-                u'admin_state': True,
-                u'connection_limit': -1,
-                u'persistence_cookie_name': None,
-                u'persistence_type': None,
-                u'protocol': u'TCP',
-                u'protocol_port': 91,
-                u'status': None,
-                u'status_description': None,
-                u'subnet_id': u'subnet_id'},
-            u'virtual_machine_interface_refs': [{u'to': [u'default-domain',
-                u'admin',
-                u'e4fb44aa-f8ed-45e1-8a37-9e2acbffeff5'],
-                u'uuid': u'dda69314-cb20-486f-a108-5f1067c60c6a'}]
-    },
+    u'fq_name': [u'default-domain', u'admin', u'Test-vip'],
     u'oper': u'CREATE',
-    u'parent_imid': u'contrail:project:default-domain:fakeproject',
     u'request-id': u'req-eee836f8-9fd4-4d52-aa73-579afe8c830a',
     u'type': u'virtual-ip',
     u'uuid': u'vip'
@@ -439,7 +265,7 @@ vip_update_info = {
 }
 
 vip_del_info = {
-    u'imid': u'contrail:virtual-ip:default-domain:admin:Test-vip',
+    u'fq_name': [u'default-domain', u'admin', u'Test-vip'],
     u'obj_dict': {
         u'display_name': u'Test-vip',
         u'fq_name': [u'default-domain', u'admin', u'Test-vip'],
@@ -478,7 +304,6 @@ vip_del_info = {
                 u'uuid': u'dda69314-cb20-486f-a108-5f1067c60c6a'}]
     },
     u'oper': u'DELETE',
-    u'parent_imid': u'contrail:project:default-domain:admin',
     u'request-id': u'req-eee836f8-9fd4-4d52-aa73-579afe8c830a',
     u'type': u'virtual-ip',
     u'uuid': u'vip'
