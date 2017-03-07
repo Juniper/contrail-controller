@@ -12,7 +12,7 @@ import signal
 from gevent.queue import Queue
 try:
     from gevent.lock import Semaphore
-except ImportError: 
+except ImportError:
     # older versions of gevent
     from gevent.coros import Semaphore
 
@@ -73,11 +73,11 @@ class VncKombuClientBase(object):
         # override this method
         return
 
-    def _reconnect(self, delete_old_q=False):
+    def _reconnect(self):
         if self._conn_lock.locked():
             # either connection-monitor or publisher should have taken
             # the lock. The one who acquired the lock would re-establish
-            # the connection and releases the lock, so the other one can 
+            # the connection and releases the lock, so the other one can
             # just wait on the lock, till it gets released
             self._conn_lock.wait()
             if self._conn_state == ConnectionStatus.UP:
@@ -101,23 +101,14 @@ class VncKombuClientBase(object):
 
             self._channel = self._conn.channel()
             if self._subscribe_cb is not None:
-                if delete_old_q:
-                    # delete the old queue in first-connect context
-                    # as db-resync would have caught up with history.
-                    try:
-                        bound_q = self._update_queue_obj(self._channel)
-                        bound_q.delete()
-                    except Exception as e:
-                        msg = 'Unable to delete the old ampq queue: %s' %(str(e))
-                        self._logger(msg, level=SandeshLevel.SYS_ERR)
-
                 self._consumer = kombu.Consumer(self._channel,
-                                               queues=self._update_queue_obj,
-                                               callbacks=[self._subscribe])
-            else: # only a producer
+                                                queues=self._update_queue_obj,
+                                                callbacks=[self._subscribe])
+            else:  # only a producer
                 self._consumer = None
 
-            self._producer = kombu.Producer(self._channel, exchange=self.obj_upd_exchange)
+            self._producer = kombu.Producer(self._channel,
+                                            exchange=self.obj_upd_exchange)
     # end _reconnect
 
     def _delete_queue(self):
@@ -203,7 +194,7 @@ class VncKombuClientBase(object):
 
 
     def _start(self, client_name):
-        self._reconnect(delete_old_q=True)
+        self._reconnect()
 
         self._publisher_greenlet = vnc_greenlets.VncGreenlet(
                                                'Kombu ' + client_name,
@@ -288,7 +279,8 @@ class VncKombuClientV1(VncKombuClientBase):
                                       password=self._rabbit_password,
                                       virtual_host=self._rabbit_vhost)
         if q_name:
-            self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange, durable=False)
+            self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange,
+                                                 exclusive=True, durable=False)
         self._start(q_name)
     # end __init__
 
@@ -339,7 +331,7 @@ class VncKombuClientV2(VncKombuClientBase):
         queue_args = {"x-ha-policy": "all"} if rabbit_ha_mode else None
         if q_name:
             self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange,
-                                                 durable=False,
+                                                 durable=False, exclusive=True,
                                                  queue_arguments=queue_args)
         self._start(q_name)
     # end __init__
