@@ -23,15 +23,18 @@ import kube.endpoint_monitor as endpoint_monitor
 import kube.ingress_monitor as ingress_monitor
 
 class KubeNetworkManager(object):
-    def __init__(self, args=None):
+    def __init__(self, args=None, kube_api_connected=False, queue=None):
         self.args = args
         if 'kube_timer_interval' not in self.args:
             self.args.kube_timer_interval = '60'
         self.logger = logger.KubeManagerLogger(args)
-        self.q = Queue()
+        if queue:
+            self.q = queue
+        else:
+            self.q = Queue()
         # All monitors supported by this manager.
         self.monitors = {}
-        kube_api_connected = False
+        self.kube = None
         while not kube_api_connected:
             try:
                 self.kube = kube_monitor.KubeMonitor(
@@ -100,9 +103,9 @@ class KubeNetworkManager(object):
         greenlets.append(gevent.spawn(self.launch_timer))
         gevent.joinall(greenlets)
 
-def main():
-    args = kube_args.parse_args()
-    kube_nw_mgr = KubeNetworkManager(args)
+def main(args_str=None, kube_api_skip=False, event_queue=None):
+    args = kube_args.parse_args(args_str)
+    kube_nw_mgr = KubeNetworkManager(args,kube_api_connected=kube_api_skip, queue=event_queue)
     kube_nw_mgr.start_tasks()
 
 if __name__ == '__main__':
