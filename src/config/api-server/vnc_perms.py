@@ -237,7 +237,7 @@ class VncPermissions(object):
         if self._rbac:
             # delete only allowed for owner
             (ok, obj_dict) = self._server_mgr._db_conn.dbe_read(obj_type,
-                             {'uuid':obj_uuid}, obj_fields=['perms2'])
+                             obj_uuid, obj_fields=['perms2'])
             obj_owner=obj_dict['perms2']['owner']
             return self.validate_perms_rbac(request, parent_uuid, PERMS_W, obj_owner_for_delete = obj_owner)
         elif self._multi_tenancy:
