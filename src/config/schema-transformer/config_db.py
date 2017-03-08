@@ -390,10 +390,12 @@ class VirtualNetworkST(DBBaseST):
                     si_name = sc.service_list[0]
                     other_vn_name = sc.right_vn
                     other_si_name = sc.service_list[-1]
+                    right_si = ServiceInstanceST.get(other_si_name)
                 elif sc.right_vn == self.name:
                     si_name = sc.service_list[-1]
                     other_vn_name = sc.left_vn
                     other_si_name = sc.service_list[0]
+                    right_si = ServiceInstanceST.get(si_name)
                 else:
                     continue
                 other_vn = VirtualNetworkST.get(other_vn_name)
@@ -401,7 +403,8 @@ class VirtualNetworkST(DBBaseST):
                     continue
                 multi_policy_enabled = (
                     self.multi_policy_service_chains_enabled and
-                    other_vn.multi_policy_service_chains_enabled)
+                    other_vn.multi_policy_service_chains_enabled and
+                    right_si.get_service_mode() != 'in-network-nat')
                 self._update_primary_ri_to_service_ri_connection(
                     sc, si_name, multi_policy_enabled)
                 other_vn._update_primary_ri_to_service_ri_connection(
@@ -1170,7 +1173,21 @@ class VirtualNetworkST(DBBaseST):
                             other_vn = VirtualNetworkST.get(connected_network)
                             if not other_vn:
                                 continue
-                            if other_vn.multi_policy_service_chains_enabled:
+                            # check to see if service chain(s) between the two
+                            # networks associated with a policy has service of
+                            # type 'in-network-nat, in which case we shouldn't
+                            # connect the two networks directly
+                            nat_service = False
+                            sc_list = self.service_chains[connected_network]
+                            for sc in sc_list:
+                                if sc is not None:
+                                    right_si_name = sc.service_list[-1]
+                                    right_si = ServiceInstanceST.get(right_si_name)
+                                    if right_si.get_service_mode() == 'in-network-nat':
+                                        nat_service = True
+                                        break
+
+                            if other_vn.multi_policy_service_chains_enabled and not nat_service:
                                 self.add_connection(connected_network)
                         continue
 
@@ -2040,9 +2057,13 @@ class RoutingInstanceST(DBBaseST):
             self._logger.debug("left or right vn not found for RI " + self.name)
             return update_ri
 
+        right_si_name = sc.service_list[-1]
+        right_si = ServiceInstanceST.get(right_si_name)
         multi_policy_enabled = (
             left_vn.multi_policy_service_chains_enabled and
-            right_vn.multi_policy_service_chains_enabled)
+            right_vn.multi_policy_service_chains_enabled and
+            right_si.get_service_mode() != 'in-network-nat')
+
         if not multi_policy_enabled:
             return update_ri
         vn = VirtualNetworkST.get(self.virtual_network)
@@ -2684,8 +2705,11 @@ class ServiceChain(DBBaseST):
             self.log_error("vn1_obj or vn2_obj is None")
             return
 
+        right_si_name = self.service_list[-1]
+        right_si = ServiceInstanceST.get(right_si_name)
         multi_policy_enabled = (vn1_obj.multi_policy_service_chains_enabled and
-                                vn2_obj.multi_policy_service_chains_enabled)
+                                vn2_obj.multi_policy_service_chains_enabled and
+                                right_si.get_service_mode() != 'in-network-nat')
         service_ri2 = None
         if not multi_policy_enabled:
             service_ri2 = vn1_obj.get_primary_routing_instance()

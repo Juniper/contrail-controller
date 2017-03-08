@@ -1886,4 +1886,41 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_update(vn3_obj)
         self._vnc_lib.network_policy_delete(id=np.uuid)
     #end test_service_policy_vmi_with_multi_port_tuples
+
+    def test_mps_with_nat(self, version=2):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, ['1.0.0.0/24'])
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, ['2.0.0.0/24'])
+
+        service_name = self.id() + 'nat'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name],
+                                        version=version, service_mode='in-network-nat')
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        vn1_obj.set_multi_policy_service_chains_enabled(True)
+        vn2_obj.set_multi_policy_service_chains_enabled(True)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc()
+
+        self.check_ri_ref_not_present(self.get_ri_name(vn1_obj),
+                                      self.get_ri_name(vn2_obj))
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        self.delete_network_policy(np)
+
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+    # end test_mps_with_nat
 # end class TestServicePolicy
