@@ -118,6 +118,7 @@ public:
     uint64_t PendingFabricDnsRequests() const;
     void ResyncRoutes();
     const EcmpLoadBalance &ecmp_load_balance() const;
+    bool configured() const { return configured_; }
 
     friend class AgentUtXmlFlowThreshold;
 private:
@@ -147,6 +148,7 @@ private:
     int32_t flow_export_rate_;
     FlowAgingTimeoutMap flow_aging_timeout_map_;
     EcmpLoadBalance ecmp_load_balance_;
+    bool configured_; //true when global-vrouter-config stanza is present
 };
 
 #endif // vnsw_agent_global_router_h_
