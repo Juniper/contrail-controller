@@ -180,6 +180,24 @@ class SchemaTransformer(object):
         BgpRouterST.reinit()
         BgpvpnST.reinit()
         LogicalRouterST.reinit()
+        gevent.sleep(0.001)
+        for si in ServiceInstanceST.list_vnc_obj():
+            try:
+                si_st = ServiceInstanceST.locate(si.get_fq_name_str(), si)
+                if si_st is None:
+                    continue
+                for ref in si.get_virtual_machine_back_refs() or []:
+                    vm_name = ':'.join(ref['to'])
+                    vm = VirtualMachineST.locate(vm_name)
+                    si_st.virtual_machines.add(vm_name)
+                props = si.get_service_instance_properties()
+                if not props.auto_policy:
+                    continue
+                si_st.add_properties(props)
+            except Exception as e:
+                self.logger.error("Error in reinit service instance %s: %s" % (
+                    si.get_fq_name_str(), str(e)))
+
         vn_list = list(VirtualNetworkST.list_vnc_obj())
         vn_id_list = set([vn.uuid for vn in vn_list])
         ri_dict = {}
@@ -301,24 +319,6 @@ class SchemaTransformer(object):
         gevent.sleep(0.001)
         FloatingIpST.reinit()
         AliasIpST.reinit()
-
-        gevent.sleep(0.001)
-        for si in ServiceInstanceST.list_vnc_obj():
-            try:
-                si_st = ServiceInstanceST.locate(si.get_fq_name_str(), si)
-                if si_st is None:
-                    continue
-                for ref in si.get_virtual_machine_back_refs() or []:
-                    vm_name = ':'.join(ref['to'])
-                    vm = VirtualMachineST.locate(vm_name)
-                    si_st.virtual_machines.add(vm_name)
-                props = si.get_service_instance_properties()
-                if not props.auto_policy:
-                    continue
-                si_st.add_properties(props)
-            except Exception as e:
-                self.logger.error("Error in reinit service instance %s: %s" % (
-                    si.get_fq_name_str(), str(e)))
 
         gevent.sleep(0.001)
         RoutingPolicyST.reinit()
