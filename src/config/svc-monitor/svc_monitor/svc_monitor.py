@@ -899,7 +899,8 @@ def run_svc_monitor(args=None):
             monitor.logger.api_conn_status_update(
                 ConnectionStatus.DOWN, str(e))
             time.sleep(3)
-        except ResourceExhaustionError:  # haproxy throws 503
+        except (RuntimeError, ResourceExhaustionError):
+            # auth failure or haproxy throws 503
             time.sleep(3)
 
     monitor.post_init(vnc_api, args)
