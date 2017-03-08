@@ -123,7 +123,7 @@ class PhysicalRouterConfig(object):
 
     def get_xml_data(self, config):
         xml_data = StringIO()
-        config.export(xml_data, 1)
+        config.export_xml(xml_data, 1)
         xml_str = xml_data.getvalue()
         return xml_str.replace("comment>", "junos:comment>", -1)
     # end get_xml_data
@@ -301,6 +301,33 @@ class PhysicalRouterConfig(object):
         return Term(name=DMUtils.make_vrf_term_name(ri_name),
                                         fromxx=from_, then=then_)
     # end add_inet_filter_term
+
+    def add_ibgp_export_policy(self, params):
+        if params.get('address_families') is None:
+            return
+        families = params['address_families'].get('family', [])
+        if not families:
+            return
+        if self.policy_config is None:
+            self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
+        ps = PolicyStatement(name=DMUtils.make_ibgp_export_policy_name())
+        self.policy_config.add_policy_statement(ps)
+        ps.set_comment(DMUtils.ibgp_export_policy_comment())
+        vpn_types = []
+        for family in ['inet-vpn', 'inet6-vpn']:
+            if family in families:
+                vpn_types.append(family)
+        for vpn_type in vpn_types:
+            is_v6 = True if vpn_type == 'inet6-vpn' else False
+            term = Term(name=DMUtils.make_ibgp_export_policy_term_name(is_v6))
+            ps.set_term(term)
+            then = Then()
+            from_ = From()
+            term.set_from(from_)
+            term.set_then(then)
+            from_.set_family(DMUtils.get_inet_family_name(is_v6))
+            then.set_next_hop(NextHop(selfxx=''))
+    # end add_ibgp_export_policy
 
     '''
      ri_name: routing instance name to be configured on mx
@@ -825,6 +852,8 @@ class PhysicalRouterConfig(object):
         else:
             bgp_group.set_name(DMUtils.make_bgp_group_name(self.get_asn(), False))
             bgp_group.set_type('internal')
+            self.add_ibgp_export_policy(self.bgp_params)
+            bgp_group.set_export(DMUtils.make_ibgp_export_policy_name())
         bgp_group.set_local_address(self.bgp_params['address'])
         self.add_families(bgp_group, self.bgp_params)
         self.add_bgp_auth_config(bgp_group, self.bgp_params)
