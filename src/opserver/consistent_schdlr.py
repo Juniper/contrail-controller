@@ -3,10 +3,12 @@
 #
 from consistent_hash import ConsistentHash
 import gevent
+import os
 import hashlib
 import logging
 from kazoo.client import KazooClient
 from kazoo.client import KazooState
+from kazoo.handlers.gevent import SequentialGeventHandler
 from random import randint
 import struct
 import traceback
@@ -48,7 +50,8 @@ class ConsistentScheduler(object):
             self._zk_path = '/'+self._cluster_id + '/contrail_cs' + '/'+self._service_name
         else:
             self._zk_path = '/'.join(['/contrail_cs', self._service_name])
-        self._zk = KazooClient(self._zookeeper_srvr)
+        self._zk = KazooClient(self._zookeeper_srvr,
+            handler=SequentialGeventHandler())
         self._zk.add_listener(self._zk_lstnr)
         self._conn_state = None
         while True:
@@ -115,7 +118,8 @@ class ConsistentScheduler(object):
         gevent.sleep(0)
         ret = False
         if self._pc.failed:
-            raise Exception("Lost or unable to acquire partition")
+            self._logger.error('Lost or unable to acquire partition')
+            os._exit(2)
         elif self._pc.release:
             self._supress_log('Releasing...')
             self._release()
@@ -125,8 +129,9 @@ class ConsistentScheduler(object):
             if self._wait_allocation < self._MAX_WAIT_4_ALLOCATION:
                 self._wait_allocation += 1
             else:
-                raise StopIteration('Giving up after %d tries!' % (
-                            self._wait_allocation))
+                self._logger.error('Giving up after %d tries!' %
+                    (self._wait_allocation))
+                os._exit(2)
         elif self._pc.acquired:
             self._supress_log('got work: ', list(self._pc))
             ret = True
