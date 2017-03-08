@@ -1372,7 +1372,8 @@ class Controller(object):
                             db=7)
                     self.reconnect_agg_uve(lredis)
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                          name = 'AggregateRedis', status = ConnectionStatus.UP)
+                          name = 'AggregateRedis', status = ConnectionStatus.UP,
+                          server_addrs = ['127.0.0.1:'+str(self._conf.redis_server_port)])
                 else:
                     if not lredis.exists(self._moduleid+':'+self._instance_id):
                         self._logger.error('Identified redis restart')
@@ -1467,7 +1468,8 @@ class Controller(object):
 
                 lredis = None
                 ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
-                      name = 'AggregateRedis', status = ConnectionStatus.DOWN)
+                      name = 'AggregateRedis', status = ConnectionStatus.DOWN,
+                      server_addrs = ['127.0.0.1:'+str(self._conf.redis_server_port)])
                         
                 if self._ad:
                     self._ad.publish(None)
