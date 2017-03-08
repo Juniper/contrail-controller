@@ -106,7 +106,6 @@ void RedisAsyncConnection::RAC_ConnectCallbackProcess(const struct redisAsyncCon
         reconnect_timer_.async_wait(boost::bind(&RedisAsyncConnection::RAC_Reconnect, this, boost::asio::placeholders::error));
         return;
     }
-    state_ = REDIS_ASYNC_CONNECTION_CONNECTED;
     LOG(DEBUG, "Connected to REDIS...\n");
 
     if (client_connect_cb_)

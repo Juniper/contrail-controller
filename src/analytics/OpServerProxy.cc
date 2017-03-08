@@ -183,6 +183,7 @@ class OpServerProxy::OpServerImpl {
                                               redis_uve_.GetPort(),
                                               redis_password_);
                 started_=true;
+                to_ops_conn_.get()->state_ = REDIS_ASYNC_CONNECTION_CONNECTED;
             }
             if (collector_) {
                 collector_->RedisUpdate(true);
