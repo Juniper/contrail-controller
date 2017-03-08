@@ -185,6 +185,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="family" type="Family"/>
         <xsd:element name="neighbor" type="BgpGroup" maxOccurs="unbounded"/>
         <xsd:element name="multihop"/>
+        <xsd:element name="export" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -235,6 +236,12 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="NextHop">
+    <xsd:all>
+        <xsd:element name="self"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Then">
     <xsd:all>
         <xsd:element name="community" type="Community" maxOccurs="unbounded"/>
@@ -242,6 +249,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="translated" type="Translated"/>
         <xsd:element name="accept"/>
         <xsd:element name="reject"/>
+        <xsd:element name="next-hop" type="NextHop"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -250,6 +258,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="community" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="destination-address" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="source-address" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="family" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
