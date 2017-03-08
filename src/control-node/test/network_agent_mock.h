@@ -499,6 +499,8 @@ public:
     void DeleteRoute(const std::string &network, const std::string &prefix);
 
     void AddInet6Route(const std::string &network, const std::string &prefix,
+        const NextHop &nexthop, const RouteAttributes &attributes);
+    void AddInet6Route(const std::string &network, const std::string &prefix,
         const NextHops &nexthops = NextHops(),
         const RouteAttributes &attributes = RouteAttributes());
     void AddInet6Route(const std::string &network, const std::string &prefix,
