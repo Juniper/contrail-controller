@@ -12,14 +12,17 @@
 #include "base/util.h"
 #include "base/logging.h"
 #include "base/parse_object.h"
+#include <set>
 #include <cstdlib>
 #include <utility>
-#include <pthread.h>
+#include <algorithm>
+#include <iterator>
 #include "hiredis/hiredis.h"
 #include "hiredis/base64.h"
 #include "hiredis/boostasio.hpp"
 #include <librdkafka/rdkafkacpp.h>
 #include <sandesh/sandesh.h>
+#include <sandesh/sandesh_uve.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 
@@ -32,10 +35,14 @@
 #include "redis_processor_vizd.h"
 #include "viz_sandesh.h"
 #include "viz_collector.h"
+#include "kafka_processor.h"
 
 using std::map;
 using std::string;
 using std::vector;
+using std::pair;
+using std::make_pair;
+using std::set;
 using boost::shared_ptr;
 using boost::assign::list_of;
 using boost::system::error_code;
@@ -43,117 +50,6 @@ using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
 
-/* This the consumer for Agg Kafka Topics
-  
-   TODO: Parse the XML contents and run aggregation
-         using dervied stats
-*/
-class KafkaWorker {
- public:
-    KafkaWorker(shared_ptr<RdKafka::KafkaConsumer> consumer) :
-        thread_id_(pthread_self()),
-        disable_(false),
-        consumer_(consumer) {
-    }
-    static void *ThreadRun(void *objp) {
-        KafkaWorker *obj = reinterpret_cast<KafkaWorker *>(objp);
-        uint64_t monot = 0;
-        while (!obj->disable_) {
-            /* The consume calls blocks for the timeout
-               if these are no messages to read.
-               Due to this blocking behaviour, pthread is being
-               used instead of a TBB Task */
-            RdKafka::Message *message = obj->consumer_->consume(1000);
-            if (message->err() ==  RdKafka::ERR_NO_ERROR) {
-                LOG(INFO, "Consuming topic=" << message->topic_name() << 
-                        " partition " << message->partition() << 
-                        " offset " << message->offset() <<
-                        " key " << *(message->key()));
-                uint64_t monot_new = ClockMonotonicUsec();
-                if ((monot == 0) || ((monot_new - monot) > 30000000)) {
-                    std::vector<RdKafka::TopicPartition*> pts;
-                    obj->consumer_->assignment(pts);
-                    std::stringstream ss;
-                    for (size_t idx=0; idx<pts.size(); idx++) {
-                        if (message->topic_name() == pts[idx]->topic()) {
-                            ss << pts[idx]->partition() << " ";
-                        }
-                    }
-                    LOG(INFO, "Assigment " << ss.str());
-                    monot = monot_new;
-                }
-            } else if (message->err() ==  RdKafka::ERR__TIMED_OUT) {
-                LOG(DEBUG, "Consuming Timeout");
-            } else {
-                LOG(ERROR, "Message consume failed : " << message->errstr());
-            }
-            delete message;
-        }
-        return NULL;
-    }
-    void Start() {
-        int res = pthread_create(&thread_id_, NULL, &ThreadRun, this);
-        assert(res == 0);
-    }
-    void Join() {
-        disable_ = true;
-        int res = pthread_join(thread_id_, NULL);
-        consumer_->close();
-        assert(res == 0);
-    }
- private:
-    pthread_t thread_id_;
-    bool disable_;
-    shared_ptr<RdKafka::KafkaConsumer> consumer_;
-};
-
-class KafkaDeliveryReportCb : public RdKafka::DeliveryReportCb {
- public:
-  unsigned int count;
-  // This is to count the number of successful
-  // kafka operations
-  KafkaDeliveryReportCb() : count(0) {}
-
-  void dr_cb (RdKafka::Message &message) {
-    if (message.err() != RdKafka::ERR_NO_ERROR) {
-        LOG(ERROR, "Message delivery for " << message.key() << " " <<
-            message.errstr() << " gen " <<
-            string((char *)(message.msg_opaque())));
-    } else {
-        count++;
-    }
-    char * cc = (char *)message.msg_opaque();
-    delete[] cc;
-  }
-};
-
-
-class KafkaEventCb : public RdKafka::EventCb {
- public:
-  bool disableKafka;
-  KafkaEventCb() : disableKafka(false) {}
-
-  void event_cb (RdKafka::Event &event) {
-    switch (event.type())
-    {
-      case RdKafka::Event::EVENT_ERROR:
-        LOG(ERROR, RdKafka::err2str(event.err()) << " : " << event.str());
-        if (event.err() == RdKafka::ERR__ALL_BROKERS_DOWN) disableKafka = true;
-        break;
-
-      case RdKafka::Event::EVENT_LOG:
-        LOG(INFO, "LOG-" << event.severity() << "-" << event.fac().c_str() <<
-            ": " << event.str().c_str());
-        break;
-
-      default:
-        LOG(INFO, "EVENT " << event.type() <<
-            " (" << RdKafka::err2str(event.err()) << "): " <<
-            event.str());
-        break;
-    }
-  }
-};
 
 static inline unsigned int djb_hash (const char *str, size_t len) {
     unsigned int hash = 5381;
@@ -161,26 +57,6 @@ static inline unsigned int djb_hash (const char *str, size_t len) {
         hash = ((hash << 5) + hash) + str[i];
     return hash;
 }
-
-class KafkaPartitionerCb : public RdKafka::PartitionerCb {
-  public:
-    int32_t partitioner_cb (const RdKafka::Topic *topic,
-                                  const std::string *key,
-                                  int32_t partition_cnt,
-                                  void *msg_opaque) {
-        int32_t pt = djb_hash(key->c_str(), key->size()) % partition_cnt;
-        LOG(DEBUG,"PartitionerCb key " << key->c_str()  << " len " << key->size() <<
-                 key->size() << " count " << partition_cnt << " pt " << pt); 
-        return pt;
-    }
-};
-
-// These are the UVEStruct/attr elements that will go on the UVE Aggregation topic
-// TODO: get these elements from conf file or from config
-// e.g.  ("ModuleClientState-session_stats", "")
-static std::map<std::string, std::string> aggconf = boost::assign::map_list_of
-("UveVirtualNetworkAgent-ingress_flow_count", "")
-("UveVirtualNetworkAgent-egress_flow_count", "");
 
 class OpServerProxy::OpServerImpl {
     public:
@@ -195,9 +71,8 @@ class OpServerProxy::OpServerImpl {
             RAC_DOWN = 2
         };
 
-        static const int kActivityCheckPeriod_ms_ = 30000;
-
         const unsigned int partitions_;
+        const std::map<std::string, std::string> aggconf_;
 
         static const char* RacStatusToString(RacStatus status) {
             switch(status) {
@@ -211,45 +86,20 @@ class OpServerProxy::OpServerImpl {
         }
 
         string name(void) { return collector_->name(); }
-        
 
         void KafkaPub(unsigned int pt,
                           const string& skey,
                           const string& gen,
                           const string& value) {
-            if (k_event_cb.disableKafka) {
-                LOG(INFO, "Kafka ignoring KafkaPub");
-                return;
-            }
-
-            if (producer_) {
-                char* gn = new char[gen.length()+1];
-                strcpy(gn,gen.c_str());
-
-                // Key in Kafka Topic includes UVE Key, Type
-                producer_->produce(topic_[pt].get(), 0, 
-                    RdKafka::Producer::MSG_COPY,
-                    const_cast<char *>(value.c_str()), value.length(),
-                    &skey, (void *)gn);
-            }
+            assert(kafka_proc_);
+            kafka_proc_->KafkaPub(pt, skey, gen, value);
         }
 
-        void KafkaPub(const string& astream, const string& skey,const string& value) {
-            if (k_event_cb.disableKafka) {
-                LOG(INFO, "Kafka ignoring Agg KafkaPub");
-                return;
-            }
-            if (producer_) {
-                std::map<std::string,shared_ptr<RdKafka::Topic> >::const_iterator ait =
-                    aggtopic_.find(astream); 
-                if (ait!=aggtopic_.end()) {
-                    int32_t pt = k_part_cb.partitioner_cb(NULL, &skey, partitions_ ,NULL); 
-                    producer_->produce(ait->second.get(), pt,
-                        RdKafka::Producer::MSG_COPY,
-                        const_cast<char *>(value.c_str()), value.length(),
-                        &skey, 0);
-                }
-            }
+        void KafkaPub(const string& astream,
+                const string& skey,
+                const string& value) {
+            assert(kafka_proc_);
+            kafka_proc_->KafkaPub(astream, skey, value);
         }
 
         struct RedisInfo {
@@ -336,7 +186,7 @@ class OpServerProxy::OpServerImpl {
             }
             if (collector_) {
                 collector_->RedisUpdate(true);
-                redis_up_ = true;
+                kafka_proc_->SetRedisState(true);
             }
         }
 
@@ -445,7 +295,7 @@ class OpServerProxy::OpServerImpl {
                 redis_uve_.RedisStatusUpdate(RAC_DOWN);
             }
             collector_->RedisUpdate(false);
-            redis_up_ = false;
+            kafka_proc_->SetRedisState(false);
 
             // Update connection info
             ConnectionState::GetInstance()->Update(ConnectionType::REDIS_UVE,
@@ -564,66 +414,6 @@ class OpServerProxy::OpServerImpl {
             tbb::mutex::scoped_lock lock(rac_mutex_);
             return from_ops_conn_;
         }
-        bool KafkaTimer() {
-            
-            {
-		uint64_t new_tick_time = UTCTimestampUsec() / 1000;
-		// We track how long it has been since the timer was last called
-		// This is because the execution time of this function is highly variable.
-		// StartKafka can take several seconds
-		kafka_elapsed_ms_ += (new_tick_time - kafka_tick_ms_);
-		kafka_tick_ms_ = new_tick_time;
-            }
-
-            // Connection Status is periodically updated
-            // based on Kafka piblish activity.
-            // Update Connection Status more often during startup or during failures
-            if ((((kafka_tick_ms_ - kafka_start_ms_) < kActivityCheckPeriod_ms_) &&
-                 (kafka_elapsed_ms_ >= kActivityCheckPeriod_ms_/3)) ||
-                (k_event_cb.disableKafka &&
-                 (kafka_elapsed_ms_ >= kActivityCheckPeriod_ms_/3)) ||
-                (kafka_elapsed_ms_ > kActivityCheckPeriod_ms_)) {
-                
-                kafka_elapsed_ms_ = 0;
-
-                if (k_dr_cb.count==0) {
-                    LOG(ERROR, "No Kafka Callbacks");
-                    ConnectionState::GetInstance()->Update(ConnectionType::KAFKA_PUB,
-                        brokers_, ConnectionStatus::DOWN, process::Endpoint(), std::string());
-                } else {
-                    ConnectionState::GetInstance()->Update(ConnectionType::KAFKA_PUB,
-                        brokers_, ConnectionStatus::UP, process::Endpoint(), std::string());
-                    LOG(INFO, "Got Kafka Callbacks " << k_dr_cb.count);
-                }
-                k_dr_cb.count = 0;
-
-		if (k_event_cb.disableKafka) {
-		    LOG(ERROR, "Kafka Needs Restart");
-                    class RdKafka::Metadata *metadata;
-                    /* Fetch metadata */
-                    RdKafka::ErrorCode err = producer_->metadata(true, NULL,
-                                          &metadata, 5000);
-                    if (err != RdKafka::ERR_NO_ERROR) {
-                        LOG(ERROR, "Failed to acquire metadata: " << RdKafka::err2str(err));
-                    } else {
-                        LOG(ERROR, "Kafka Metadata Detected");
-                        LOG(ERROR, "Metadata for " << metadata->orig_broker_id() <<
-                            ":" << metadata->orig_broker_name());
-
-                        if (collector_ && redis_up_) {
-                            LOG(ERROR, "Kafka Restarting Redis");
-                            collector_->RedisUpdate(true);
-                            k_event_cb.disableKafka = false;
-                        }
-                    }
-		}
-            } 
-
-            if (producer_) {
-                producer_->poll(0);
-            }
-            return true;
-        }
 
         const string get_redis_password() {
             return redis_password_;
@@ -633,30 +423,23 @@ class OpServerProxy::OpServerImpl {
                      const std::string redis_uve_ip, 
                      unsigned short redis_uve_port,
                      const std::string redis_password,
+                     const std::map<std::string, std::string>& aggconf,
                      const std::string brokers,
                      const std::string topic, 
                      uint16_t partitions) :
-            partitions_(partitions),
-            redis_uve_(redis_uve_ip, redis_uve_port),
-            evm_(evm),
-            collector_(collector),
-            started_(false),
-            analytics_cb_proc_fn(NULL),
-            processor_cb_proc_fn(NULL),
-            redis_password_(redis_password),
-            k_event_cb(),
-            k_dr_cb(),
-            k_part_cb(),
-            brokers_(brokers),
-            topicpre_(topic),
-            redis_up_(false),
-            kafka_elapsed_ms_(0),
-            kafka_start_ms_(UTCTimestampUsec()/1000),
-            kafka_tick_ms_(0),
-            kafka_timer_(TimerManager::CreateTimer(*evm->io_service(),
-                         "Kafka Timer", 
-                         TaskScheduler::GetInstance()->GetTaskId(
-                         "Kafka Timer"))) {
+                partitions_(partitions),
+                aggconf_(aggconf),
+                redis_uve_(redis_uve_ip, redis_uve_port),
+                evm_(evm),
+                collector_(collector),
+                started_(false),
+                analytics_cb_proc_fn(NULL),
+                processor_cb_proc_fn(NULL),
+                redis_password_(redis_password) {
+
+            kafka_proc_.reset(new KafkaProcessor(evm_, collector,
+                aggconf, brokers, topic, partitions));
+
             to_ops_conn_.reset(new RedisAsyncConnection(evm_, 
                 redis_uve_ip, redis_uve_port, 
                 boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUp, this),
@@ -675,144 +458,39 @@ class OpServerProxy::OpServerImpl {
                 "From", ConnectionStatus::INIT, from_ops_conn_->Endpoint(),
                 std::string());
             from_ops_conn_.get()->RAC_Connect();
-
-            kafka_timer_->Start(1000,
-                boost::bind(&OpServerImpl::KafkaTimer, this), NULL);
-            if (brokers.empty()) return;
-	    ConnectionState::GetInstance()->Update(ConnectionType::KAFKA_PUB,
-		brokers_, ConnectionStatus::INIT, process::Endpoint(), std::string());
-            assert(StartKafka());
-        }
-
-        void StopKafka(void) {
-            if (kafkaworker_) {
-                kafkaworker_->Join();
-                kafkaworker_.reset();
-            }
-            if (producer_) {
-                for (unsigned int i=0; i<partitions_; i++) {
-                    topic_[i].reset();
-                }
-                topic_.clear();
-                for (map<string,shared_ptr<RdKafka::Topic> >::iterator
-                        it = aggtopic_.begin();
-                        it != aggtopic_.end(); it++) {
-                    it->second.reset();
-                }
-                aggtopic_.clear();
-   
-                producer_.reset();
-
-                assert(RdKafka::wait_destroyed(8000) == 0);
-                LOG(ERROR, "Kafka Stopped");
-            }
-        }
-
-        bool StartKafka(void) {
-            string errstr;
-            RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-            conf->set("metadata.broker.list", brokers_, errstr);
-            conf->set("event_cb", &k_event_cb, errstr);
-            conf->set("dr_cb", &k_dr_cb, errstr);
-            producer_.reset(RdKafka::Producer::create(conf, errstr));
-            LOG(ERROR, "Kafka new Prod " << errstr);
-            delete conf;
-            if (!producer_) { 
-                return false;
-            }
-            for (unsigned int i=0; i<partitions_; i++) {
-                std::stringstream ss;
-                ss << topicpre_;
-                ss << i;
-                errstr = string();
-                shared_ptr<RdKafka::Topic> sr(RdKafka::Topic::create(producer_.get(), ss.str(), NULL, errstr));
-                LOG(ERROR,"Kafka new topic " << ss.str() << " Err" << errstr);
-         
-                topic_.push_back(sr);
-                if (!topic_[i])
-                    return false;
-            }
-            vector<string> subs;
-            for (map<string,string>::const_iterator it = aggconf.begin();
-                    it != aggconf.end(); it++) {
-                std::stringstream ss;
-                ss << topicpre_;
-                ss << "agg-";
-                ss << it->first;
-                std::stringstream ps;
-                ps << partitions_;
-                errstr = string();
-                shared_ptr<RdKafka::Topic> sr(RdKafka::Topic::create(producer_.get(), ss.str(), NULL, errstr));
-                LOG(ERROR,"Kafka new topic " << ss.str() << " Err" << errstr);
-                if (!sr) return false;
-                aggtopic_.insert(std::make_pair(it->first,sr));
-                subs.push_back(ss.str());
-            }
-            RdKafka::Conf *cconf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
-            cconf->set("metadata.broker.list", brokers_, errstr);
-            cconf->set("event_cb", &k_event_cb, errstr);
-            cconf->set("group.id", "agg", errstr);
-            // TODO : This can be based on aggconf
-            cconf->set("auto.commit.interval.ms", "60000", errstr);
-            shared_ptr<RdKafka::KafkaConsumer> consumer(RdKafka::KafkaConsumer::create(cconf, errstr));
-            LOG(ERROR,"Kafka consumer Err " << errstr);
-            delete cconf;
-            if (!consumer)
-                return false;
-            consumer->subscribe(subs);
-            kafkaworker_.reset(new KafkaWorker(consumer));
-            kafkaworker_->Start();
-            return true;
         }
 
         void Shutdown() {
-            TimerManager::DeleteTimer(kafka_timer_);
-            kafka_timer_ = NULL;
-            StopKafka();
-        }
-
-        ~OpServerImpl() {
-            assert(kafka_timer_ == NULL);
+            if (kafka_proc_) kafka_proc_->Shutdown();
         }
 
         RedisInfo redis_uve_;
+
     private:
-        /* these are made public, so they are accessed by OpServerProxy */
         EventManager *evm_;
         VizCollector *collector_;
         
         bool started_;
+        shared_ptr<KafkaProcessor> kafka_proc_;
         shared_ptr<RedisAsyncConnection> to_ops_conn_;
         shared_ptr<RedisAsyncConnection> from_ops_conn_;
         RedisAsyncConnection::ClientAsyncCmdCbFn analytics_cb_proc_fn;
         RedisAsyncConnection::ClientAsyncCmdCbFn processor_cb_proc_fn;
         tbb::mutex rac_mutex_;
         const std::string redis_password_;
-        shared_ptr<RdKafka::Producer> producer_;
-        shared_ptr<KafkaWorker> kafkaworker_;
-        std::vector<shared_ptr<RdKafka::Topic> > topic_;
-        std::map<std::string,shared_ptr<RdKafka::Topic> > aggtopic_;
-        KafkaEventCb k_event_cb;
-        KafkaDeliveryReportCb k_dr_cb;
-        KafkaPartitionerCb k_part_cb;
-        std::string brokers_;
-        std::string topicpre_;
-        bool redis_up_;
-        uint64_t kafka_elapsed_ms_;
-        const uint64_t kafka_start_ms_;
-        uint64_t kafka_tick_ms_;
-        Timer *kafka_timer_;
 };
 
 OpServerProxy::OpServerProxy(EventManager *evm, VizCollector *collector,
                              const std::string& redis_uve_ip,
                              unsigned short redis_uve_port,
                              const std::string& redis_password, 
+                             const std::map<std::string, std::string>& aggconf,
                              const std::string& brokers,
                              uint16_t partitions,
                              const std::string& kafka_prefix=std::string()) {
     impl_ = new OpServerImpl(evm, collector, redis_uve_ip, redis_uve_port,
                              redis_password,
+                             aggconf,
                              brokers, kafka_prefix + string("-uve-"), partitions);
 }
 
@@ -868,20 +546,20 @@ OpServerProxy::UVENotif(const std::string &type,
     } else {
         contrail_rapidjson::Document dd;
         dd.SetObject();
-        if (type != "UVEAlarms") {
-            for (map<string,string>::const_iterator it = value.begin();
-                        it != value.end(); it++) {
-                // Send the attribute out on a Aggregated Topic if needed
-                std::string astream(type + std::string("-") + it->first);
-                if (aggconf.find(astream) != aggconf.end()) {
-                    impl_->KafkaPub(astream, key, it->second);
-                }
-                // TODO: don't sent attribute on UVE topic if it goes on Aggregate topic
+        for (map<string,string>::const_iterator it = value.begin();
+                    it != value.end(); it++) {
+            // Send the attribute out on a Aggregated Topic if needed
+            std::string astream(type + std::string("-") + it->first);
+            if (impl_->aggconf_.find(astream) != impl_->aggconf_.end()) {
+                impl_->KafkaPub(astream, key, it->second);
+            }
+            // TODO: don't sent attribute on UVE topic if it goes on Aggregate topic
+            if (type == "UVEAlarms") {
                 contrail_rapidjson::Value sval(contrail_rapidjson::kStringType);
                 sval.SetString((it->second).c_str(), dd.GetAllocator());
                 contrail_rapidjson::Value skey(contrail_rapidjson::kStringType);
                 dd.AddMember(skey.SetString(it->first.c_str(), dd.GetAllocator()),
-                             sval, dd.GetAllocator());      
+                             sval, dd.GetAllocator());
             }
         }
         contrail_rapidjson::StringBuffer sb;

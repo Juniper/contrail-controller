@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "sandesh/library/common/derived_stats_results.sandesh"
+
+typedef u64 asa_u64
+
+struct asa_u64_P_ {
+ 1: optional asa_u64 staging
+ 2: optional asa_u64 value
+}
+
+struct AggProxySum {
+ 1: string name (key="")
+ /* e.g. proxy="UveVirtualNetworkAgent-ingress_flow_count" */
+ 2: string proxy
+ 3: optional bool deleted 
+ 4: optional u64 raw (hidden="yes")
+ 5: optional asa_u64_P_ value (stats="1-raw:DSSum", tags="proxy")
+} (period="60", timeout="1")
+
+uve sandesh AggProxySumTrace {
+ 1: AggProxySum data
+}
+
+struct AggProxySumAnomalyEWM01 {
+ 1: string name (key="")
+ /* e.g. proxy="UveVirtualNetworkAgent-ingress_flow_count" */
+ 2: string proxy
+ 3: optional bool deleted 
+ 4: optional u64 raw (hidden="yes")
+ 5: optional derived_stats_results.AnomalyResult value (stats="1.DSSum-raw:DSAnomaly:EWM:0.1", tags="proxy")
+} (period="60", timeout="1")
+
+uve sandesh AggProxySumAnomalyEWM01Trace {
+ 1: AggProxySumAnomalyEWM01 data
+}

@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ */
+
+/**
+ *  Definitions of structures used to report UVE Aggregate topic stats
+ *  stats 
+ */
+
+struct KafkaAggPartOffset {
+    1: i32 partition
+    2: u64 offset
+}
+
+struct KafkaAggTopicOffsets {
+    1: list<KafkaAggPartOffset> topic_offsets
+}
+
+struct KafkaAggStatus {
+    1: string  name (key="ObjectCollectorInfo")
+    2: optional bool deleted
+    3: optional map<string, KafkaAggTopicOffsets> assign_offsets
+    4: optional map<string, KafkaAggTopicOffsets> commit_offsets
+    5: optional map<string, u64> message_counts_1m
+    6: optional map<string, u64> message_counts_10m (mstats="message_counts_1m:DSSum:600")
+}
+
+uve sandesh KafkaAggStatusTrace {
+    1: KafkaAggStatus data
+}
+

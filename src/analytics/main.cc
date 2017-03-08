@@ -255,12 +255,22 @@ int main(int argc, char *argv[])
     string kstr("");
     vector<string> kbl = options.kafka_broker_list();
     for (vector<string>::const_iterator st = kbl.begin();
-         st != kbl.end(); st++) {
-         if (st != kbl.begin()) {
-             kstr += string(",");
-         }
-         kstr += *st;
+            st != kbl.end(); st++) {
+        if (st != kbl.begin()) {
+            kstr += string(",");
+        }
+        kstr += *st;
     }
+    std::map<std::string, std::string> aggconf;
+    vector<string> upl = options.uve_proxy_list();
+    for (vector<string>::const_iterator st = upl.begin();
+            st != upl.end(); st++) {
+        size_t spos = st->find(':');
+        string key = st->substr(0, spos);
+        string val = st->substr(spos+1, string::npos);
+        aggconf[key] = val;
+    }
+
     LOG(INFO, "KAFKA BROKERS: " << kstr);
     std::string hostname;
     boost::system::error_code error;
@@ -346,6 +356,7 @@ int main(int argc, char *argv[])
             string("127.0.0.1"),
             options.redis_port(),
             options.redis_password(),
+            aggconf,
             kstr,
             options.syslog_port(),
             options.sflow_port(),

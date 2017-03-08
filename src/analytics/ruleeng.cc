@@ -6,6 +6,7 @@
 #include <exception>
 #include <cstdlib>
 #include <algorithm>
+#include <string>
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/tuple/tuple.hpp>
@@ -679,10 +680,12 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     const char *tempstr;
     std::string rowkey;
     std::string table;
+    std::string object_name(object.name());
 
     bool deleted = false;
     for (pugi::xml_node node = object.first_child(); node;
             node = node.next_sibling()) {
+        
         tempstr = node.attribute("key").value();
         if (strcmp(tempstr, "")) {
             rowkey = std::string(node.child_value());
@@ -693,13 +696,16 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
             } else {
                 table = std::string(tempstr);
                 barekey.append(rowkey);
-                
             }
         }
         if (!strcmp(node.name(), "deleted")) {
             if (!strcmp(node.child_value(), "true")) {
                 deleted = true;
             }
+        }
+        if (!strcmp(node.name(), "proxy")) {
+            object_name = object_name +
+                    string("-") + node.child_value();
         }
     }
 
@@ -714,17 +720,17 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
     map<string,string> vmap;
     if (deleted) {
-        if (!osp_->UVEDelete(object.name(), source, node_type, module, 
+        if (!osp_->UVEDelete(object_name, source, node_type, module, 
                              instance_id, key, seq, is_alarm)) {
             LOG(ERROR, __func__ << " Cannot Delete " << key);
-            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
+            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, object_name, key,
                 seq, false, node_type, instance_id);
         } else {
-            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
+            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, object_name, key,
                 seq, true, node_type, instance_id);
         }
         LOG(DEBUG, __func__ << " Deleted " << key);
-        osp_->UVENotif(object.name(), 
+        osp_->UVENotif(object_name,
             source, node_type, module, instance_id, table, barekey, vmap ,deleted);
         return true;
     }
@@ -732,6 +738,9 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     for (pugi::xml_node node = object.first_child(); node;
            node = node.next_sibling()) {
         std::ostringstream ostr; 
+        std::ostringstream tstr;
+        tstr << UTCTimestampUsec();
+        node.append_attribute("timestamp") = tstr.str().c_str();
         node.print(ostr, "", pugi::format_raw | pugi::format_no_escapes);
         std::string agg;
         std::string atyp;
@@ -774,7 +783,7 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
 
         }
         
-        if (!osp_->UVEUpdate(object.name(), node.name(),
+        if (!osp_->UVEUpdate(object_name, node.name(),
                              source, node_type, module, instance_id,
                              table, barekey, ostr.str(), seq,
                              agg, ts,
@@ -782,16 +791,16 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
             LOG(ERROR, __func__ << " Message: "  << type << " : " << source <<
               ":" << node_type << ":" << module << ":" << instance_id <<
               " Name: " << object.name() <<  " UVEUpdate Failed"); 
-            PUBLISH_UVE_UPDATE_TRACE(UVETraceBuf, source, module, type, key, 
+            PUBLISH_UVE_UPDATE_TRACE(UVETraceBuf, source, module, object_name, key, 
                 node.name(), false, node_type, instance_id);
         } else {
-            PUBLISH_UVE_UPDATE_TRACE(UVETraceBuf, source, module, type, key,
+            PUBLISH_UVE_UPDATE_TRACE(UVETraceBuf, source, module, object_name, key,
                 node.name(), true, node_type, instance_id);
         }
     }
 
     // Publish on the Kafka bus that this UVE has changed
-    osp_->UVENotif(object.name(), 
+    osp_->UVENotif(object_name, 
         source, node_type, module, instance_id, table, barekey, vmap, deleted);
     return true;
 }
