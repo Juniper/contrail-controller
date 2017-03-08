@@ -374,4 +374,24 @@ class DMUtils(object):
     def fip_egress_comment():
         return "/* Static Route for Floating IP egress */"
 
+    @staticmethod
+    def make_ibgp_export_policy_name():
+        return "_contrail_ibgp_export_policy"
+
+    @staticmethod
+    def ibgp_export_policy_comment():
+        return "/* iBGP Export Policy */"
+
+    @staticmethod
+    def make_ibgp_export_policy_term_name(is_v6=False):
+        if is_v6:
+            return "inet6-vpn"
+        return "inet-vpn"
+
+    @staticmethod
+    def get_inet_family_name(is_v6=False):
+        if is_v6:
+            return "inet6-vpn"
+        return "inet-vpn"
+
 # end DMUtils
