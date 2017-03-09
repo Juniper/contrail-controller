@@ -2684,7 +2684,7 @@ class AnalyticsFixture(fixtures.Fixture):
             actual_uves = vns.uve_query(table_query, filters)
         except Exception as err:
             self.logger.error('Failed to get response for %s:%s [%s]' % \
-                (query, str(filters), str(err)))
+                (table_query, str(filters), str(err)))
             assert(False)
         return self._verify_uves(exp_uves, actual_uves)
     # end verify_multi_uve_get
