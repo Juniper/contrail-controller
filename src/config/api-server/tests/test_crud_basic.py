@@ -3322,11 +3322,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with test_common.patch_imports(
             [('schema_transformer.db',
               flexmock(db=flexmock(
-                  SchemaTransformerDB=flexmock(get_db_info=lambda: [])))),
-             ('discovery.disc_cassdb',
-              flexmock(disc_cassdb=flexmock(
-                  DiscoveryCassandraClient=flexmock(
-                      get_db_info=lambda: []))))]):
+                  SchemaTransformerDB=flexmock(get_db_info=lambda: []))))]):
             with test_common.flexmocks([
                 (pycassa.SystemManager, 'get_keyspace_properties',
                  fake_ks_prop)]):

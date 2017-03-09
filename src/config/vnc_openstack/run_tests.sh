@@ -86,7 +86,6 @@ installvenvopts=
 installvenvopts="${installvenvopts} --find-links ${build_top}/config/common/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/api-lib/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/config/api-server/dist/"
-installvenvopts="${installvenvopts} --find-links ${build_top}/discovery/client/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/tools/sandesh/library/python/dist/"
 installvenvopts="${installvenvopts} --find-links ${build_top}/sandesh/common/dist/"
 testrargs=
