@@ -590,7 +590,8 @@ class VncApiServer(object):
             self.config_object_error(id, None, obj_type, 'http_get', result)
             raise cfgm_common.exceptions.HttpError(404, result)
 
-        result = self.obj_view(resource_type, result)
+        if not self.is_admin_request():
+            result = self.obj_view(resource_type, result)
 
         rsp_body = {}
         rsp_body['uuid'] = id
@@ -3015,7 +3016,10 @@ class VncApiServer(object):
                 obj_dict['name'] = obj_result['fq_name'][-1]
                 obj_dict['href'] = self.generate_url(
                                         resource_type, obj_result['uuid'])
-                obj_dict.update(self.obj_view(resource_type, obj_result))
+                if self.is_admin_request():
+                    obj_dict.update(obj_result)
+                else:
+                    obj_dict.update(self.obj_view(resource_type, obj_result))
                 if 'id_perms' not in obj_dict:
                     # It is possible that the object was deleted, but received
                     # an update after that. We need to ignore it for now. In
