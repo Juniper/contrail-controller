@@ -27,7 +27,11 @@ class OpencontrailLoadbalancerDriver(
         try:
             if iip_id:
                 iip = self._api.instance_ip_read(id=iip_id)
-                fip_id = iip.get_floating_ips()[0]['uuid']
+                fip_list = iip.get_floating_ips()
+                if fip_list or []:
+                    fip_id = fip_list[0]['uuid']
+                else:
+                    return None
             fip = self._api.floating_ip_read(id=fip_id)
         except NoIdError:
             fip = None
@@ -295,9 +299,13 @@ class OpencontrailLoadbalancerDriver(
         for iip_id in lb.instance_ips or []:
             fip = self._get_floating_ip(iip_id=iip_id)
             if fip:
-                fip.set_virtual_machine_interface_list([])
-                self._api.floating_ip_update(fip)
-                self._api.floating_ip_delete(id=fip.uuid)
+                try:
+                    fip.set_virtual_machine_interface_list([])
+                    self._api.floating_ip_update(fip)
+                    self._api.floating_ip_delete(id=fip.uuid)
+                except NoIdError:
+                    # probably deleted by the lb creator
+                    pass
 
         vmi = self._api.virtual_machine_interface_read(id=driver_data['vmi'])
         lb.floating_ips = driver_data['lb_floating_ips']
