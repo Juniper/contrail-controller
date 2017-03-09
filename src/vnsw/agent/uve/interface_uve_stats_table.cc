@@ -207,6 +207,7 @@ void InterfaceUveStatsTable::UpdatePortBitmap
 
 InterfaceUveTable::FloatingIp * InterfaceUveStatsTable::FipEntry
     (uint32_t fip, const string &vn, Interface *intf) {
+    tbb::mutex::scoped_lock lock(interface_tree_mutex_);
     VmInterface *vmi = static_cast<VmInterface *>(intf);
     InterfaceMap::iterator intf_it = interface_tree_.find(vmi->cfg_name());
 
