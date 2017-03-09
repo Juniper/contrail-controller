@@ -56,6 +56,7 @@ local_sources = [
     'device_manager/dm_utils.py',
     'device_manager/dm_amqp.py',
     'device_manager/physical_router_config.py',
+    'device_manager/logger.py',
 ]
 
 local_sources_rules = []
@@ -130,5 +131,7 @@ env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 
 env.Alias('flaky-test', test_cmd)
 env.Alias('coverage', cov_cmd)
+env.Alias('test', test_cmd)
 env.Alias('controller/src/config/device-manager:flaky-test', test_cmd)
 env.Alias('controller/src/config/device-manager:coverage', cov_cmd)
+env.Alias('controller/src/config/device-manager:test', test_cmd)

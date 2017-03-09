@@ -55,7 +55,7 @@ class TestNetworkDM(TestCommonDM):
 
     # test vn  flat subnet lo0 ip allocation
     def test_dm_lo0_flat_subnet_ip_alloc(self):
-        vn1_name = 'vn1'
+        vn1_name = 'vn1' + self.id()
         vn1_obj = VirtualNetwork(vn1_name, address_allocation_mode='flat-subnet-only')
         vn1_obj_properties = VirtualNetworkType()
         vn1_obj_properties.set_forwarding_mode('l3')
@@ -72,13 +72,12 @@ class TestNetworkDM(TestCommonDM):
         vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
 
-        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
         pr.set_virtual_network(vn1_obj)
         self._vnc_lib.physical_router_update(pr)
         vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_uuid)
         vrf_name_l3 = DMUtils.make_vrf_name(vn1_obj.fq_name[-1], vn1_obj.virtual_network_network_id, 'l3')
 
-        gevent.sleep(2)
         self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id)
 
         #set fwd mode l2 and check lo0 ip alloc, should not be allocated
@@ -87,7 +86,6 @@ class TestNetworkDM(TestCommonDM):
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
         self._vnc_lib.virtual_network_update(vn1_obj)
 
-        gevent.sleep(2)
         self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id, True)
 
         #set fwd mode l2_l3 and check lo0 ip alloc
@@ -96,13 +94,11 @@ class TestNetworkDM(TestCommonDM):
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
         self._vnc_lib.virtual_network_update(vn1_obj)
 
-        gevent.sleep(2)
         self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id, True)
 
         #detach vn from PR and check
         pr.del_virtual_network(vn1_obj)
         self._vnc_lib.physical_router_update(pr)
-        gevent.sleep(2)
 
         self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id, True)
 
@@ -110,26 +106,25 @@ class TestNetworkDM(TestCommonDM):
 
     # test vn  lo0 ip allocation
     def test_dm_lo0_ip_alloc(self):
-        vn1_name = 'vn1'
+        vn1_name = 'vn1' + self.id()
         vn1_obj = VirtualNetwork(vn1_name)
         vn1_obj_properties = VirtualNetworkType()
         vn1_obj_properties.set_forwarding_mode('l3')
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
 
-        ipam_obj = NetworkIpam('ipam1')
+        ipam_obj = NetworkIpam('ipam1' + self.id())
         self._vnc_lib.network_ipam_create(ipam_obj)
         vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
             [IpamSubnetType(SubnetType("10.0.0.0", 24)), IpamSubnetType(SubnetType("20.0.0.0", 16))]))
 
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
 
-        bgp_router, pr = self.create_router('router1', '1.1.1.1')
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
         pr.set_virtual_network(vn1_obj)
         self._vnc_lib.physical_router_update(pr)
         vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_uuid)
         vrf_name_l3 = DMUtils.make_vrf_name(vn1_obj.fq_name[-1], vn1_obj.virtual_network_network_id, 'l3')
 
-        gevent.sleep(2)
         self.check_interface_ip_config('lo0', vrf_name_l3, '10.0.0.252/32', 'v4', vn1_obj.virtual_network_network_id)
         self.check_interface_ip_config('lo0', vrf_name_l3, '20.0.255.252/32', 'v4', vn1_obj.virtual_network_network_id)
 
@@ -139,7 +134,6 @@ class TestNetworkDM(TestCommonDM):
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
         self._vnc_lib.virtual_network_update(vn1_obj)
 
-        gevent.sleep(2)
         self.check_interface_ip_config('lo0', vrf_name_l3, '10.0.0.252/32', 'v4', vn1_obj.virtual_network_network_id, True)
         self.check_interface_ip_config('lo0', vrf_name_l3, '20.0.255.252/32', 'v4', vn1_obj.virtual_network_network_id, True)
 
@@ -149,14 +143,12 @@ class TestNetworkDM(TestCommonDM):
         vn1_obj.set_virtual_network_properties(vn1_obj_properties)
         self._vnc_lib.virtual_network_update(vn1_obj)
 
-        gevent.sleep(2)
         self.check_interface_ip_config('lo0', vrf_name_l3, '10.0.0.252/32', 'v4', vn1_obj.virtual_network_network_id, True)
         self.check_interface_ip_config('lo0', vrf_name_l3, '20.0.255.252/32', 'v4', vn1_obj.virtual_network_network_id, True)
 
         #detach vn from PR and check
         pr.del_virtual_network(vn1_obj)
         self._vnc_lib.physical_router_update(pr)
-        gevent.sleep(2)
 
         self.check_interface_ip_config('lo0', vrf_name_l3, '10.0.0.252/32', 'v4', vn1_obj.virtual_network_network_id, True)
         self.check_interface_ip_config('lo0', vrf_name_l3, '20.0.255.252/32', 'v4', vn1_obj.virtual_network_network_id, True)
@@ -212,9 +204,9 @@ class TestNetworkDM(TestCommonDM):
             self._vnc_lib.global_vrouter_config_update(gv)
 
     def test_evpn_config(self):
-        vn1_name = 'vn1'
+        vn1_name = 'vn1' + self.id()
         vn1_obj = VirtualNetwork(vn1_name)
-        ipam_obj = NetworkIpam('ipam1')
+        ipam_obj = NetworkIpam('ipam1' + self.id())
         self._vnc_lib.network_ipam_create(ipam_obj)
         vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
@@ -255,19 +247,15 @@ class TestNetworkDM(TestCommonDM):
         li2_id = self._vnc_lib.logical_interface_create(li2)
 
         self.set_global_vrouter_config(["VXLAN", "MPLSoGRE"])
-        gevent.sleep(2)
         self.check_evpn_config("VXLAN", vn1_obj, ["li.1", "li.2"])
 
         self.set_global_vrouter_config(["MPLSoGRE", "VXLAN"])
-        gevent.sleep(2)
         self.check_evpn_config("MPLSoGRE", vn1_obj, ["li.1", "li.2"])
 
         self.set_global_vrouter_config(["MPLSoUDP", "VXLAN", "MPLSoGRE"])
-        gevent.sleep(2)
         self.check_evpn_config("MPLSoUDP", vn1_obj, ["li.1", "li.2"])
 
         self.set_global_vrouter_config([])
-        gevent.sleep(2)
         # DM defaults to MPLSoGRE
         self.check_evpn_config("MPLSoGRE", vn1_obj, ["li.1", "li.2"])
 

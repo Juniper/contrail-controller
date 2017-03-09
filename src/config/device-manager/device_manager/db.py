@@ -64,26 +64,6 @@ class BgpRouterDM(DBBaseDM):
                 peer.bgp_routers[self.uuid] = attrs
         self.bgp_routers = new_peers
 
-    def sandesh_build(self):
-        return sandesh.BgpRouter(name=self.name, uuid=self.uuid,
-                                 peers=self.bgp_routers,
-                                 physical_router=self.physical_router)
-
-    @classmethod
-    def sandesh_request(cls, req):
-        # Return the list of BGP routers
-        resp = sandesh.BgpRouterListResp(bgp_routers=[])
-        if req.name_or_uuid is None:
-            for router in cls.values():
-                sandesh_router = router.sandesh_build()
-                resp.bgp_routers.extend(sandesh_router)
-        else:
-            router = cls.find_by_name_or_uuid(req.name_or_uuid)
-            if router:
-                sandesh_router = router.sandesh_build()
-                resp.bgp_routers.extend(sandesh_router)
-        resp.response(req.context())
-
     def get_all_bgp_router_ips(self):
         bgp_router_ips = {}
         if self.params['address'] is not None:
