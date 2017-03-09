@@ -34,7 +34,6 @@ for k,v in pairs(typ) do
         st,en = string.find(deluve,":")
         local deltbl = string.sub(deluve, 1, st-1)
 
-        local dkey = "DEL:"..deluve..":"..sm..":"..deltyp..":"..delseq
 	local part = redis.call('hget',"KEY2PART:"..sm..":"..deltyp, deluve)
 	if not part then
 	   part = "NULL"
@@ -44,10 +43,7 @@ for k,v in pairs(typ) do
 	end
 
         local dval = "VALUES:"..deluve..":"..sm..":"..deltyp
-        local lttt = redis.call('exists', dval)
-        if lttt == 1 then
-            redis.call('rename', dval, dkey)
-        end
+        redis.call('del', dval)
 
         dval = "ORIGINS:"..deluve
         if redis.call('srem', dval, sm..":"..deltyp) == 1 then
@@ -60,9 +56,6 @@ for k,v in pairs(typ) do
             redis.call('srem', dval, deluve..":"..sm..":"..deltyp)
         end
 
-        if lttt == 1 then
-            redis.call('lpush',"DELETED", dkey)
-        end 
         iter = iter + 2
 
         if citer > 100 then
