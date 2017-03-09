@@ -1092,12 +1092,32 @@ void ShowArpCache::HandleRequest() const {
     delete arp_sandesh;
 }
 
+void ShowGratuitousArpCache::HandleRequest() const {
+    ArpCacheResp *resp = new ArpCacheResp();
+    resp->set_context(context());
+    ArpSandesh *arp_sandesh = new ArpSandesh(resp);
+    const ArpProto::GratuitousArpCache &cache =
+              (Agent::GetInstance()->GetArpProto()->gratuitous_arp_cache());
+    for (ArpProto::GratuitousArpCache::const_iterator it = cache.begin();
+         it != cache.end(); it++) {
+        for (ArpProto::ArpEntrySet::iterator sit = it->second.begin();
+             sit != it->second.end(); sit++) {
+            arp_sandesh->SetArpEntry(it->first, *sit);
+        }
+    }
+
+    arp_sandesh->Response();
+    delete arp_sandesh;
+}
+
 bool ArpSandesh::SetArpEntry(const ArpKey &key, const ArpEntry *entry) {
     ArpCacheResp *vresp = static_cast<ArpCacheResp *>(resp_);
     ArpSandeshData data;
     boost::asio::ip::address_v4 ip(key.ip);
     data.set_ip(ip.to_string());
     data.set_vrf(key.vrf->GetName());
+    if (entry->interface())
+        data.set_interface_name(entry->interface()->name());
     std::string mac_str;
     ServicesSandesh::MacToString(entry->mac_address(), mac_str);
     data.set_mac(mac_str);
