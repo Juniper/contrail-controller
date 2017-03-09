@@ -13,7 +13,7 @@ from sandesh_common.vns.constants import (HttpPortKubeManager,ApiServerPort,\
 
 def parse_args(args_str=None):
     if not args_str:
-        args_str = ' '.join(sys.argv[1:])
+        args_str = sys.argv
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument("-c", "--config-file", action='append',
         help="Specify config file", metavar="FILE")
