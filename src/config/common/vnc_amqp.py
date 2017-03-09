@@ -103,11 +103,15 @@ class VncAmqpHandle(object):
             return
         self.evaluate_dependency()
 
+    def _get_key_from_oper_info(self):
+        if self.db_cls._indexed_by_name:
+            return ':'.join(self.oper_info['fq_name'])
+        return self.oper_info['uuid']
+
     def handle_create(self):
-        obj_dict = self.oper_info['obj_dict']
-        obj_key = self.db_cls.get_key_from_dict(obj_dict)
+        obj_key = self._get_key_from_oper_info()
         obj_id = self.oper_info['uuid']
-        obj_fq_name = obj_dict['fq_name']
+        obj_fq_name = self.oper_info['fq_name']
         self.db_cls._object_db.cache_uuid_to_fq_name_add(
                 obj_id, obj_fq_name, self.obj_type)
         self.obj = self.obj_class.locate(obj_key)
@@ -161,7 +165,7 @@ class VncAmqpHandle(object):
         self.dependency_tracker = DependencyTracker(
             self.db_cls.get_obj_type_map(), self.reaction_map)
         self.dependency_tracker.evaluate(self.obj_type, self.obj)
-        obj_key = self.db_cls.get_key_from_dict(self.oper_info['obj_dict'])
+        obj_key = self._get_key_from_oper_info()
         self.obj_class.delete(obj_key)
 
     def handle_unknown(self):
