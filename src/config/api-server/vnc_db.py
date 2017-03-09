@@ -633,6 +633,8 @@ class VncDbClient(object):
 
         self._UVEMAP = {
             "virtual_network" : ("ObjectVNTable", False),
+            "virtual_machine" : ("ObjectVMTable", False),
+            "virtual_machine_interface" : ("ObjectVMITable", False),
             "service_instance" : ("ObjectSITable", False),
             "virtual_router" : ("ObjectVRouter", True),
             "analytics_node" : ("ObjectCollectorInfo", True),

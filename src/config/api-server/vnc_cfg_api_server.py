@@ -1766,6 +1766,9 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(
                 400, 'User token needed for validation')
         user_token = get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
+        obj_uuid = None
+        if 'uuid' in get_request().query:
+            obj_uuid = get_request().query.uuid
 
         # get permissions in internal context
         try:
@@ -1781,29 +1784,28 @@ class VncApiServer(object):
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
             set_context(context.ApiContext(internal_req=i_req))
             token_info = self._auth_svc.validate_user_token(get_request())
+
+            # roles in result['token_info']['access']['user']['roles']
+            if token_info:
+                result = {'token_info' : token_info}
+                # Handle v2 and v3 responses
+                roles_list = []
+                if 'access' in token_info:
+                    roles_list = [roles['name'] for roles in \
+                        token_info['access']['user']['roles']]
+                elif 'token' in token_info:
+                    roles_list = [roles['name'] for roles in \
+                        token_info['token']['roles']]
+                result['is_cloud_admin_role'] = self.cloud_admin_role in roles_list
+                result['is_global_read_only_role'] = self.global_read_only_role in roles_list
+                if obj_uuid:
+                    result['permissions'] = self._permissions.obj_perms(get_request(), obj_uuid)
+            else:
+                raise cfgm_common.exceptions.HttpError(403, " Permission denied")
         finally:
             set_context(orig_context)
-
-        # roles in result['token_info']['access']['user']['roles']
-        if token_info:
-            result = {'token_info' : token_info}
-            # Handle v2 and v3 responses
-            roles_list = []
-            if 'access' in token_info:
-                roles_list = [roles['name'] for roles in \
-                    token_info['access']['user']['roles']]
-            elif 'token' in token_info:
-                roles_list = [roles['name'] for roles in \
-                    token_info['token']['roles']]
-            result['is_cloud_admin_role'] = self.cloud_admin_role in roles_list
-            result['is_global_read_only_role'] = self.global_read_only_role in roles_list
-            if 'uuid' in get_request().query:
-                obj_uuid = get_request().query.uuid
-                result['permissions'] = self._permissions.obj_perms(get_request(), obj_uuid)
-        else:
-            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
         return result
-    #end check_obj_perms_http_get
+    #end obj_perms_http_get
 
     def invalid_uuid(self, uuid):
         return self.re_uuid.match(uuid) == None
