@@ -674,12 +674,19 @@ struct ArpSandeshData {
     2: string vrf;               // VRF name
     3: string mac;               // MAC Address
     4: string state;             // Active / Static / Permanent / Resolving
+    5: string interface_name;    // interface
 }
 
 /**
- * Request message to show cached arp
+ * Request message to show arp cache
  */
 request sandesh ShowArpCache {
+}
+
+/**
+ * Request message to show gratuitous arp cache
+ */
+request sandesh ShowGratuitousArpCache {
 }
 
 /**
