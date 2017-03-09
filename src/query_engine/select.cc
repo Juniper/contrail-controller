@@ -564,12 +564,22 @@ query_status_t SelectQuery::process_query() {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
 
-        for (std::vector<query_result_unit_t>::iterator it = query_result.begin();
+         /*
+          * In case of objecttable queries, if object_id is also part of
+          * select field, then construct a map between the object_id and
+          * uuid and populate the select field based on this map
+          */
+        std::map<boost::uuids::uuid, std::string> uuid_to_object_id;
+        for (std::vector<query_result_unit_t>::const_iterator it = query_result.begin();
                 it != query_result.end(); it++) {
             boost::uuids::uuid u;
 
             it->get_uuid(u);
-
+            if (m_query->is_object_table_query(m_query->table())) {
+                std::string object_id;
+                it->get_objectid(object_id);
+                uuid_to_object_id.insert(std::make_pair(u, object_id));
+            }
             GenDb::DbDataValueVec a_key;
             a_key.push_back(u);
             keys.push_back(a_key);
@@ -594,18 +604,25 @@ query_status_t SelectQuery::process_query() {
 
                 col_res_map.insert(std::make_pair(col_name, jt->value->at(0)));
             }
+            boost::uuids::uuid uuid_rkey;
             if (!col_res_map.size()) {
-                boost::uuids::uuid u;
                 assert(it->rowkey_.size() > 0);
                 try {
-                    u = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
+                    uuid_rkey = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
                 } catch (boost::bad_get& ex) {
                     QE_LOG(ERROR, "Invalid rowkey/uuid");
                     QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
                 }
-                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(u) <<
+                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(uuid_rkey) <<
                        " in Analytics db");
                 continue;
+            } else {
+                try {
+                    uuid_rkey = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
+                } catch (boost::bad_get& ex) {
+                    QE_LOG(ERROR, "Invalid rowkey/uuid");
+                    QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
+                }
             }
 
             std::map<std::string, std::string> cmap;
@@ -616,7 +633,8 @@ query_status_t SelectQuery::process_query() {
                 if (kt == col_res_map.end()) {
                     if (m_query->is_object_table_query(m_query->table())) {
                         if (process_object_query_specific_select_params(
-                                        *jt, col_res_map, cmap) == false) {
+                            *jt, col_res_map, cmap, uuid_rkey,
+                            uuid_to_object_id ) == false) {
                             // Exit the loop. User is not interested 
                             // in this object log. 
                             break;
@@ -658,7 +676,10 @@ query_status_t SelectQuery::process_query() {
 bool SelectQuery::process_object_query_specific_select_params(
                         const std::string& sel_field,
                         std::map<std::string, GenDb::DbDataValue>& col_res_map,
-                        std::map<std::string, std::string>& cmap) {
+                        std::map<std::string, std::string>& cmap,
+                        const boost::uuids::uuid& uuid,
+                        std::map<boost::uuids::uuid, std::string>&
+                        uuid_to_objectid) {
     std::map<std::string, GenDb::DbDataValue>::iterator cit;
     cit = col_res_map.find(g_viz_constants.SANDESH_TYPE);
     QE_ASSERT(cit != col_res_map.end());
@@ -692,6 +713,14 @@ bool SelectQuery::process_object_query_specific_select_params(
             QE_ASSERT(0);
         }
         cmap.insert(std::make_pair(sel_field, xml_data));
+    } else if (sel_field == "ObjectId") {
+        // Look up the object_id corresponding to the uuid
+        std::map<boost::uuids::uuid, std::string>::iterator uuid_iter;
+        uuid_iter = uuid_to_objectid.find(uuid);
+        QE_ASSERT(uuid_iter != uuid_to_objectid.end());
+        std::string object_id_val(uuid_iter->second);
+        cmap.insert(std::make_pair(sel_field,
+            object_id_val));
     } else if (is_present_in_select_column_fields(sandesh_type)) {
         cmap.insert(std::make_pair(sel_field, std::string("")));
     } else {
