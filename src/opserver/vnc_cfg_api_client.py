@@ -25,9 +25,9 @@ class VncCfgApiClient(object):
             status=status, message=message, server_addrs=server_addrs)
     # end _update_connection_state
 
-    def _get_user_token_info(self, user_token):
+    def _get_user_token_info(self, user_token, uuid=None):
         if self._vnc_api_client:
-             return self._vnc_api_client.obj_perms(user_token)
+             return self._vnc_api_client.obj_perms(user_token, uuid)
         else:
             self._logger.error('VNC Config API Client NOT FOUND')
             return None
@@ -56,6 +56,15 @@ class VncCfgApiClient(object):
                 self._update_connection_state(ConnectionStatus.DOWN, str(e))
                 time.sleep(3)
     # end connect
+
+    def is_read_permission(self, user_token, uuid):
+        result = self._get_user_token_info(user_token, uuid)
+        if not result or 'permissions' not in result:
+            self._logger.error('Permissions for token %s NOT FOUND' % \
+                (str(user_token)))
+            return False
+        return 'R' in result['permissions']
+    # end is_read_permission
 
     def is_role_cloud_admin(self, user_token):
         result = self._get_user_token_info(user_token)
