@@ -46,6 +46,7 @@ from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_logger import ConfigServiceLogger
+from logger import DeviceManagerLogger
 
 
 class DeviceManager(object):
@@ -153,9 +154,7 @@ class DeviceManager(object):
                                                       len(self._args.collectors))
     
         # Initialize logger
-        module = Module.DEVICE_MANAGER
-        module_pkg = "device_manager"
-        self.logger = ConfigServiceLogger(module, module_pkg, args)
+        self.logger = DeviceManagerLogger(args)
 
         # Retry till API server is up
         connected = False
