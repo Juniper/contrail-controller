@@ -249,15 +249,24 @@ bool ArpHandler::HandleMessage() {
 
         case ArpProto::ARP_SEND_GRATUITOUS: {
             bool key_valid = false;
-            ArpProto::ArpIterator it =
-            arp_proto->GratiousArpEntryIterator(ipc->key, &key_valid);
+            ArpProto::GratuitousArpIterator it =
+            arp_proto->GratuitousArpEntryIterator(ipc->key, &key_valid);
             if (key_valid && !ipc->interface->IsDeleted()) {
-                if (it->second == NULL) {
-                    it->second = new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
-                                              ArpEntry::ACTIVE, ipc->interface.get());
+                ArpEntry *entry = NULL;
+                ArpProto::ArpEntrySet::iterator sit = it->second.begin();
+                for (; sit != it->second.end(); sit++) {
+                    entry = *sit;
+                    if (entry->interface() == ipc->interface.get())
+                        break;
+                }
+                if (sit == it->second.end()) {
+                    entry = new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
+                                         ArpEntry::ACTIVE, ipc->interface.get());
+                    it->second.insert(entry);
                     ret = false;
                 }
-                it->second->SendGratuitousArp();
+                if (entry)
+                    entry->SendGratuitousArp();
                 break;
             }
         }
@@ -284,7 +293,8 @@ bool ArpHandler::HandleMessage() {
         }
 
         case ArpProto::GRATUITOUS_TIMER_EXPIRED: {
-            ArpEntry *entry = arp_proto->GratiousArpEntry(ipc->key);
+            ArpEntry *entry =
+                arp_proto->GratuitousArpEntry(ipc->key, ipc->interface.get());
             if (entry && entry->retry_count() <= ArpProto::kGratRetries) {
                 entry->SendGratuitousArp();
             } else {
