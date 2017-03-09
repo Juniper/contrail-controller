@@ -388,6 +388,7 @@ class OpServer(object):
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--log_level', "SYS_INFO",
+                '--aaa_mode', "no-auth",
                 '--rest_api_port', str(self.rest_api_port),
                 '--admin_port', str(self.admin_port),
                 '--admin_user', self.admin_user,
@@ -2684,7 +2685,7 @@ class AnalyticsFixture(fixtures.Fixture):
             actual_uves = vns.uve_query(table_query, filters)
         except Exception as err:
             self.logger.error('Failed to get response for %s:%s [%s]' % \
-                (query, str(filters), str(err)))
+                (table_query, str(filters), str(err)))
             assert(False)
         return self._verify_uves(exp_uves, actual_uves)
     # end verify_multi_uve_get
