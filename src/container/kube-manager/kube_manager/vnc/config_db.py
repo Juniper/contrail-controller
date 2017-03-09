@@ -548,7 +548,8 @@ class InstanceIpKM(DBBaseKM):
         self.address = obj.get('instance_ip_address', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_network', obj)
-        self.update_multiple_refs('floating_ip', obj)
+        self.floating_ips = set([fip['uuid']
+                            for fip in obj.get('floating_ips', [])])
 
     @classmethod
     def delete(cls, uuid):
@@ -713,9 +714,13 @@ class FloatingIpKM(DBBaseKM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.address = None
+        self.instance_ip = None
         self.virtual_machine_interfaces = set()
         self.virtual_ip = None
         self.update(obj_dict)
+        if self.instance_ip:
+            iip = InstanceIpKM.get(self.instance_ip)
+            iip.floating_ips.add(self.uuid)
     # end __init__
 
     def update(self, obj=None):
@@ -725,6 +730,7 @@ class FloatingIpKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.address = obj['floating_ip_address']
         self.update_multiple_refs('virtual_machine_interface', obj)
+        self.instance_ip = self.get_parent_uuid(obj)
     # end update
 
     @classmethod
