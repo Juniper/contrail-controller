@@ -233,7 +233,11 @@ protected:
 
     const autogen::ItemType *FindRoute(test::NetworkAgentMockPtr agent,
         const string &prefix) {
-        return agent->RouteLookup(master_, prefix);
+        if (family_ == Address::INET) {
+            return agent->RouteLookup(master_, prefix);
+        } else {
+            return agent->Inet6RouteLookup(master_, prefix);
+        }
     }
 
     bool CheckRoute(test::NetworkAgentMockPtr agent, string prefix,
@@ -303,7 +307,7 @@ Address::Family BgpXmppIpTest<Inet6Definition>::GetFamily() const {
 }
 
 // Instantiate fixture class template for each TypeDefinition.
-typedef ::testing::Types<InetDefinition> TypeDefinitionList;
+typedef ::testing::Types<InetDefinition, Inet6Definition> TypeDefinitionList;
 TYPED_TEST_CASE(BgpXmppIpTest, TypeDefinitionList);
 
 //

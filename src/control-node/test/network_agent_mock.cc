@@ -452,6 +452,7 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
 
     if (oper == ADD || oper == CHANGE) {
         rt_entry.entry.local_preference = attributes.local_pref;
+        rt_entry.entry.med = attributes.med;
         rt_entry.entry.mobility.seqno = attributes.mobility.seqno;
         rt_entry.entry.mobility.sticky = attributes.mobility.sticky;
         if (attributes.sgids.size()) {
@@ -481,9 +482,13 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
             BOOST_FOREACH(NextHop nexthop, nexthops) {
                 autogen::NextHopType item_nexthop;
 
-                item_nexthop.af = BgpAf::IPv4;
                 assert(!nexthop.address_.empty());
                 item_nexthop.address = nexthop.address_;
+                if (nexthop.address_.find(':') == string::npos) {
+                    item_nexthop.af = BgpAf::IPv4;
+                } else {
+                    item_nexthop.af = BgpAf::IPv6;
+                }
                 if (!nexthop.no_label_) {
                     if (oper == ADD) {
                         item_nexthop.label = (nexthop.label_ ?: label_alloc_++);

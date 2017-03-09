@@ -601,23 +601,15 @@ TcpSession::Endpoint BgpXmppChannel::endpoint() const {
 
 bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
                                        IpAddress *addrp, bool zero_ok) {
-    switch (af) {
-    case BgpAf::IPv4:
-        break;
-    default:
+    if (af != BgpAf::IPv4 && af != BgpAf::IPv6)
         return false;
-    }
 
     error_code error;
     *addrp = IpAddress::from_string(address, error);
-    if (error) {
+    if (error)
         return false;
-    }
-    if (zero_ok) {
-        return true;
-    } else {
-        return (addrp->to_v4().to_ulong() != 0);
-    }
+
+    return (zero_ok ? true : !addrp->is_unspecified());
 }
 
 //
@@ -1400,13 +1392,16 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
                 comm.communities.push_back(rt_community);
             }
 
-            BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
+            BgpAttrNextHop nexthop(nh_address);
             attrs.push_back(&nexthop);
 
-            BgpAttrSourceRd source_rd(
-                RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
-            if (!master)
+            BgpAttrSourceRd source_rd;
+            if (!master) {
+                uint32_t addr = nh_address.to_v4().to_ulong();
+                source_rd =
+                    BgpAttrSourceRd(RouteDistinguisher(addr, instance_id));
                 attrs.push_back(&source_rd);
+            }
 
             // Process security group list.
             const SecurityGroupListType &isg_list =
