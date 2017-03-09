@@ -112,7 +112,12 @@ private:
     void BuildArpStats(const StatsManager::VrfStats *s,
                        UveVrfStats &vrf_stats) const;
 
-    /* For exclusion between kTaskFlowStatsCollector and Agent::Uve */
+    /* For exclusion between kTaskFlowStatsCollector and
+     * Agent::Uve/kTaskDBExclude. This is used to protect port_bitmap_ and
+     * inter_vn_stats_ from parallel access between
+     * 1. kTaskFlowStatsCollector and Agent::Uve
+     * 2. kTaskFlowStatsCollector and kTaskDBExclude
+     */
     tbb::mutex mutex_;
     uint64_t in_bytes_;
     uint64_t out_bytes_;
