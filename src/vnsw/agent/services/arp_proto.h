@@ -28,6 +28,10 @@ public:
     typedef std::pair<ArpKey, ArpEntry *> ArpCachePair;
     typedef std::map<ArpKey, ArpEntry *>::iterator ArpIterator;
     typedef std::set<ArpKey> ArpKeySet;
+    typedef std::set<ArpEntry *> ArpEntrySet;
+    typedef std::map<ArpKey, ArpEntrySet> GratuitousArpCache;
+    typedef std::pair<ArpKey, ArpEntrySet> GratuitousArpCachePair;
+    typedef std::map<ArpKey, ArpEntrySet>::iterator GratuitousArpIterator;
 
     enum ArpMsgType {
         ARP_RESOLVE,
@@ -92,6 +96,7 @@ public:
     ArpEntry *FindArpEntry(const ArpKey &key);
     std::size_t GetArpCacheSize() { return arp_cache_.size(); }
     const ArpCache& arp_cache() { return arp_cache_; }
+    const GratuitousArpCache& gratuitous_arp_cache() { return gratuitous_arp_cache_; }
     const InterfaceArpMap& interface_arp_map() { return interface_arp_map_; }
 
     Interface *ip_fabric_interface() const { return ip_fabric_interface_; }
@@ -111,9 +116,9 @@ public:
 
     void  AddGratuitousArpEntry(ArpKey &key);
     void DeleteGratuitousArpEntry(ArpEntry *entry);
-    ArpEntry* GratiousArpEntry (const ArpKey &key);
-    ArpProto::ArpIterator GratiousArpEntryIterator(const ArpKey & key,
-                                                   bool *key_valid);
+    ArpEntry* GratuitousArpEntry (const ArpKey &key, const Interface *intf);
+    ArpProto::GratuitousArpIterator
+        GratuitousArpEntryIterator(const ArpKey &key, bool *key_valid);
     void IncrementStatsArpReq() { arp_stats_.arp_req++; }
     void IncrementStatsArpReplies() { arp_stats_.arp_replies++; }
     void IncrementStatsGratuitous() { arp_stats_.arp_gratuitous++; }
@@ -174,7 +179,7 @@ private:
 
     ArpCache arp_cache_;
     ArpStats arp_stats_;
-    ArpCache gratuitous_arp_cache_;
+    GratuitousArpCache gratuitous_arp_cache_;
     bool run_with_vrouter_;
     uint32_t ip_fabric_interface_index_;
     MacAddress ip_fabric_interface_mac_;
