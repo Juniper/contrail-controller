@@ -25,7 +25,7 @@ class UVEAggregator {
 public:
     static const uint64_t kCommitPeriod_us = 3600000000;
 
-    typedef boost::function<int32_t (RdKafka::Message *message)> commitCb;
+    typedef boost::function<RdKafka::ErrorCode (RdKafka::Message *message)> commitCb;
     UVEAggregator(const std::string& proxy, const std::string& conf,
             commitCb commit_cb, uint64_t partitions):
             topic_(proxy),

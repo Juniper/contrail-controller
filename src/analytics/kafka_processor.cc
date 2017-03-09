@@ -536,7 +536,9 @@ KafkaProcessor::StartKafka(void) {
         ss << it->first;
         aggs.insert(make_pair(ss.str(),
                 new UVEAggregator(it->first, it->second,
-                        boost::bind(&RdKafka::KafkaConsumer::commitSync,
+                        boost::bind(static_cast<
+                            RdKafka::ErrorCode (RdKafka::KafkaConsumer::*)(RdKafka::Message*)>
+                            (&RdKafka::KafkaConsumer::commitSync),
                                     consumer, _1),
                         SandeshUVETypeMaps::kProxyPartitions)));
     }
