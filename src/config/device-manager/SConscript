@@ -56,6 +56,7 @@ local_sources = [
     'device_manager/dm_utils.py',
     'device_manager/dm_amqp.py',
     'device_manager/physical_router_config.py',
+    'device_manager/logger.py',
 ]
 
 local_sources_rules = []
@@ -113,10 +114,9 @@ else:
     top_dir = Dir('.')
 
 cov_cmd = env.Command('coveragetest.log', sdist_gen,
-                       'cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log')
-
+          'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log"')
 test_cmd = env.Command('test.log', sdist_gen,
-                       'cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log')
+          'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log"')
 
 test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
                 '/api-lib/dist/vnc_api-0.1dev.tar.gz',
@@ -130,5 +130,7 @@ env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 
 env.Alias('flaky-test', test_cmd)
 env.Alias('coverage', cov_cmd)
+env.Alias('test', test_cmd)
 env.Alias('controller/src/config/device-manager:flaky-test', test_cmd)
 env.Alias('controller/src/config/device-manager:coverage', cov_cmd)
+env.Alias('controller/src/config/device-manager:test', test_cmd)

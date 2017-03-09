@@ -33,6 +33,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 from cfgm_common.exceptions import ResourceExhaustionError
 from cfgm_common.exceptions import NoIdError
+from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
@@ -46,6 +47,7 @@ from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_logger import ConfigServiceLogger
+from logger import DeviceManagerLogger
 
 
 class DeviceManager(object):
@@ -136,6 +138,8 @@ class DeviceManager(object):
         },
     }
 
+    _device_manager = None
+
     def __init__(self, args=None):
         self._args = args
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
@@ -153,9 +157,7 @@ class DeviceManager(object):
                                                       len(self._args.collectors))
     
         # Initialize logger
-        module = Module.DEVICE_MANAGER
-        module_pkg = "device_manager"
-        self.logger = ConfigServiceLogger(module, module_pkg, args)
+        self.logger = DeviceManagerLogger(args)
 
         # Retry till API server is up
         connected = False
@@ -187,7 +189,7 @@ class DeviceManager(object):
         self._vnc_amqp.establish()
 
         # Initialize cassandra
-        self._object_db = DMCassandraDB.getInstance(self, _zookeeper_client)
+        self._object_db = DMCassandraDB.get_instance(self, _zookeeper_client)
         DBBaseDM.init(self, self.logger, self._object_db)
         DBBaseDM._sandesh = self.logger._sandesh
 
@@ -197,21 +199,30 @@ class DeviceManager(object):
         for obj in GlobalVRouterConfigDM.list_obj():
             GlobalVRouterConfigDM.locate(obj['uuid'], obj)
 
-        for obj in VirtualNetworkDM.list_obj():
-            vn = VirtualNetworkDM.locate(obj['uuid'], obj)
-            if vn is not None and vn.routing_instances is not None:
-                for ri_id in vn.routing_instances:
-                    ri_obj = RoutingInstanceDM.locate(ri_id)
+        for obj in RoutingInstanceDM.list_obj():
+            RoutingInstanceDM.locate(obj['uuid'], obj)
 
         for obj in BgpRouterDM.list_obj():
             BgpRouterDM.locate(obj['uuid'], obj)
 
         pr_obj_list = PhysicalRouterDM.list_obj()
+        for obj in pr_obj_list:
+            PhysicalRouterDM.locate(obj['uuid'],obj)
+
         pr_uuid_set = set([pr_obj['uuid'] for pr_obj in pr_obj_list])
         self._object_db.handle_pr_deletes(pr_uuid_set)
 
         for obj in PortTupleDM.list_obj():
             PortTupleDM.locate(obj['uuid'],obj)
+
+        for obj in PhysicalInterfaceDM.list_obj():
+            PhysicalInterfaceDM.locate(obj['uuid'],obj)
+
+        for obj in LogicalInterfaceDM.list_obj():
+            LogicalInterfaceDM.locate(obj['uuid'],obj)
+
+        for obj in VirtualMachineInterfaceDM.list_obj():
+            VirtualMachineInterfaceDM.locate(obj['uuid'],obj)
 
         for obj in pr_obj_list:
             pr = PhysicalRouterDM.locate(obj['uuid'], obj)
@@ -248,9 +259,27 @@ class DeviceManager(object):
         for pr in PhysicalRouterDM.values():
             pr.set_config_state()
 
+        DeviceManager._device_manager = self
         self._vnc_amqp._db_resync_done.set()
         gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
     # end __init__
+
+    @classmethod
+    def get_instance(cls):
+        return cls._device_manager
+
+    @classmethod
+    def destroy_instance(cls):
+        inst = cls.get_instance()
+        if not inst:
+            return
+        inst._vnc_amqp.close()
+        for cls in DBBaseDM.get_obj_type_map().values():
+            cls.reset()
+        DBBase.clear()
+        DMCassandraDB.clear_instance()
+        inst._object_db = None
+        cls._device_manager = None
 
     def connection_state_update(self, status, message=None):
         ConnectionState.update(

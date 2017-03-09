@@ -17,6 +17,7 @@ from vnc_api.vnc_api import *
 import copy
 import socket
 import gevent
+import traceback
 from gevent import queue
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from netaddr import IPAddress
@@ -63,26 +64,6 @@ class BgpRouterDM(DBBaseDM):
             if peer:
                 peer.bgp_routers[self.uuid] = attrs
         self.bgp_routers = new_peers
-
-    def sandesh_build(self):
-        return sandesh.BgpRouter(name=self.name, uuid=self.uuid,
-                                 peers=self.bgp_routers,
-                                 physical_router=self.physical_router)
-
-    @classmethod
-    def sandesh_request(cls, req):
-        # Return the list of BGP routers
-        resp = sandesh.BgpRouterListResp(bgp_routers=[])
-        if req.name_or_uuid is None:
-            for router in cls.values():
-                sandesh_router = router.sandesh_build()
-                resp.bgp_routers.extend(sandesh_router)
-        else:
-            router = cls.find_by_name_or_uuid(req.name_or_uuid)
-            if router:
-                sandesh_router = router.sandesh_build()
-                resp.bgp_routers.extend(sandesh_router)
-        resp.response(req.context())
 
     def get_all_bgp_router_ips(self):
         bgp_router_ips = {}
@@ -189,7 +170,8 @@ class PhysicalRouterDM(DBBaseDM):
             try:
                 self.push_config()
             except Exception as e:
-                self._logger.error("Exception: " + str(e))
+                tb = traceback.format_exc()
+                self._logger.error("Exception: " + str(e) + tb)
     # end
 
     def is_valid_ip(self, ip_str):
@@ -207,7 +189,7 @@ class PhysicalRouterDM(DBBaseDM):
             ip_used_for = vn_subnet[1]
             ip = self._object_db.get_ip(self.uuid + ':' + subnet, ip_used_for)
             if ip:
-                self.vn_ip_map[ip_used_for][subnet] = ip['ip_address']
+                self.vn_ip_map[ip_used_for][subnet] = ip
     # end init_cs_state
 
     def reserve_ip(self, vn_uuid, subnet_uuid):
@@ -228,6 +210,7 @@ class PhysicalRouterDM(DBBaseDM):
         try:
             vn = VirtualNetwork()
             vn.set_uuid(vn_uuid)
+            ip_addr = ip_addr.split('/')[0]
             self._manager._vnc_lib.virtual_network_ip_free(
                 vn, [ip_addr])
             return True
@@ -1313,10 +1296,15 @@ class DMCassandraDB(VncObjectDBClient):
     dm_object_db_instance = None
 
     @classmethod
-    def getInstance(cls, manager=None, zkclient=None):
+    def get_instance(cls, manager=None, zkclient=None):
         if cls.dm_object_db_instance == None:
             cls.dm_object_db_instance = DMCassandraDB(manager, zkclient)
         return cls.dm_object_db_instance
+    # end
+
+    @classmethod
+    def clear_instance(cls):
+        cls.dm_object_db_instance = None
     # end
 
     def __init__(self, manager, zkclient):
@@ -1463,7 +1451,7 @@ class DMCassandraDB(VncObjectDBClient):
         self.add(self._PR_VN_IP_CF, key, {DMUtils.get_ip_cs_column_name(ip_used_for): ip})
     # end
 
-    def delete_ip(self, ip_used_for):
+    def delete_ip(self, key, ip_used_for):
         self.delete(self._PR_VN_IP_CF, key, [DMUtils.get_ip_cs_column_name(ip_used_for)])
     # end
 
