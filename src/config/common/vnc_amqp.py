@@ -98,8 +98,8 @@ class VncAmqpHandle(object):
             self.handle_unknown()
             return
         if self.obj is None:
-            self.logger.error('Error while accessing %s uuid %s' % (
-                self.obj_type, obj_id))
+            self.logger.warning("Object %s uuid %s was not found for operation %s" % (
+                 self. obj_type, obj_id, oper))
             return
         self.evaluate_dependency()
 

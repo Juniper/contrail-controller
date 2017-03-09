@@ -331,7 +331,11 @@ def kill_svc_monitor(glet):
 
 def kill_schema_transformer(glet):
     glet.kill()
-    to_bgp.transformer.reset()
+    to_bgp.SchemaTransformer.destroy_instance()
+
+def kill_device_manager(glet):
+    glet.kill()
+    device_manager.DeviceManager.destroy_instance()
 
 def kill_kube_manager(glet):
     glet.kill()
@@ -341,6 +345,7 @@ def reinit_schema_transformer():
     to_bgp.transformer.reinit()
 
 def launch_schema_transformer(test_id, api_server_ip, api_server_port, extra_args=None):
+    wait_for_schema_transformer_down()
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
@@ -355,6 +360,7 @@ def launch_schema_transformer(test_id, api_server_ip, api_server_port, extra_arg
 # end launch_schema_transformer
 
 def launch_device_manager(test_id, api_server_ip, api_server_port):
+    wait_for_device_manager_down()
     args_str = ""
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
@@ -364,6 +370,26 @@ def launch_device_manager(test_id, api_server_ip, api_server_port):
     args_str = args_str + "--log_file device_manager_%s.log " %(test_id)
     device_manager.main(args_str)
 # end launch_device_manager
+
+@retries(5, hook=retry_exc_handler)
+def wait_for_schema_transformer_up():
+    if not to_bgp.SchemaTransformer.get_instance():
+        raise Exception("ST instance is not up")
+
+@retries(5, hook=retry_exc_handler)
+def wait_for_schema_transformer_down():
+    if to_bgp.SchemaTransformer.get_instance():
+        raise Exception("ST instance is up, no new instances allowed")
+
+@retries(5, hook=retry_exc_handler)
+def wait_for_device_manager_up():
+    if not device_manager.DeviceManager.get_instance():
+        raise Exception("DM instance is not up")
+
+@retries(5, hook=retry_exc_handler)
+def wait_for_device_manager_down():
+    if device_manager.DeviceManager.get_instance():
+        raise Exception("DM instance is up, no new instances allowed")
 
 @contextlib.contextmanager
 def flexmocks(mocks):
