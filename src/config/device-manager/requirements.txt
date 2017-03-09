@@ -5,6 +5,7 @@ pycassa>=1.7.2
 netaddr>=0.7.5
 bitarray>=0.8.0
 psutil>=0.6.0
+netaddr>=0.7.5
 python-novaclient
 kombu
 netifaces

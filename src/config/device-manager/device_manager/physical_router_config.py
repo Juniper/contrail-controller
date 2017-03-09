@@ -656,7 +656,7 @@ class PhysicalRouterConfig(object):
                     inet.add_address(addr)
                     lo_ip = ip + '/' + '32'
                 addr.set_name(lo_ip)
-                addr.set_comment(DMUtils.lo0_ip_comment(lo0_ip))
+                addr.set_comment(DMUtils.lo0_ip_comment(lo_ip))
             ri.add_interface(Interface(name="lo0." + ifl_num,
                                        comment=DMUtils.lo0_ri_intf_comment(vn)))
 
