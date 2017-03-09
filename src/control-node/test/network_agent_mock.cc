@@ -484,21 +484,26 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
                 item_nexthop.af = BgpAf::IPv4;
                 assert(!nexthop.address_.empty());
                 item_nexthop.address = nexthop.address_;
-                if (oper == ADD) {
-                    item_nexthop.label = (nexthop.label_ ?: label_alloc_++);
-                } else {
-                    item_nexthop.label = label_alloc_;
+                if (!nexthop.no_label_) {
+                    if (oper == ADD) {
+                        item_nexthop.label = (nexthop.label_ ?: label_alloc_++);
+                    } else {
+                        item_nexthop.label = label_alloc_;
+                    }
                 }
                 item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
                     nexthop.tunnel_encapsulations_;
-                if (nexthop.tunnel_encapsulations_[0] == "all_ipv6") {
-                    item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
-                    push_back("gre");
-                    item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
-                    push_back("udp");
-                } else {
-                    item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
-                    push_back(nexthop.tunnel_encapsulations_[0]);
+                if (!nexthop.tunnel_encapsulations_.empty()) {
+                    if (nexthop.tunnel_encapsulations_[0] == "all_ipv6") {
+                        item_nexthop.tunnel_encapsulation_list.
+                        tunnel_encapsulation.push_back("gre");
+                        item_nexthop.tunnel_encapsulation_list.
+                        tunnel_encapsulation.push_back("udp");
+                    } else {
+                        item_nexthop.tunnel_encapsulation_list.
+                        tunnel_encapsulation.push_back(
+                            nexthop.tunnel_encapsulations_[0]);
+                    }
                 }
                 rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
             }
@@ -1096,6 +1101,19 @@ void NetworkAgentMock::AddInet6Route(const string &network,
     if (!nexthop.empty())
         nexthops.push_back(NextHop(nexthop));
     AddInet6Route(network, prefix, nexthops, attributes);
+}
+
+void NetworkAgentMock::AddInet6Route(const string &network,
+                                     const string &prefix,
+                                     const NextHop &nexthop,
+                                     const RouteAttributes &attributes) {
+    NextHops nexthops;
+    nexthops.push_back(nexthop);
+    AgentPeer *peer = GetAgent();
+    xml_document *xdoc =
+        impl_->Inet6RouteAddXmlDoc(network, prefix, nexthops, attributes);
+    peer->SendDocument(xdoc);
+    inet6_route_mgr_->AddOriginated(network, prefix);
 }
 
 void NetworkAgentMock::AddInet6Route(const string &network,
