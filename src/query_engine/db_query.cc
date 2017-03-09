@@ -263,7 +263,7 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
     } catch (boost::bad_get& ex) {
         assert(0);
     }
-    if (dresult == GenDb::DbOpResult::ERROR) {
+    if (dresult != GenDb::DbOpResult::OK) {
        // Dont issue any more requests
        query_fetch_error = true;
        ExternalProcIf<q_result> * rpi(
