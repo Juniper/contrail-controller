@@ -574,10 +574,15 @@ class FakeKombu(object):
 
         def __call__(self, *args):
             class BoundQueue(object):
+
+                def __init__(self, parent):
+                    self.parent_q = parent
+
                 def delete(self):
+                    self.parent_q.clear()
                     pass
                 # end delete
-            return BoundQueue()
+            return BoundQueue(self)
         # end __call__
 
         def put(self, msg_dict, serializer):
@@ -592,6 +597,13 @@ class FakeKombu(object):
             return rv
         # end get
 
+        def clear(self):
+            try:
+                while True:
+                    self._sync_q.get_nowait()
+            except Queue.Empty:
+                pass
+            self._sync_q = gevent.queue.Queue()
     # end class Queue
 
     class FakeChannel(object):
@@ -652,6 +664,8 @@ class FakeKombu(object):
         # end __init__
 
         def consume(self):
+            if not self.queues:
+                return
             while True:
                 msg = self.queues.get()
                 try:
@@ -662,6 +676,10 @@ class FakeKombu(object):
         # end consume
 
         def close(self):
+            if self.queues:
+                self.queues.clear()
+                del self.queues
+                self.queues = None
             pass
         # end close
 
@@ -677,9 +695,16 @@ class FakeKombu(object):
             for q in FakeKombu._exchange[self.vhost].values():
                 msg_obj = FakeKombu.Queue.Message(payload)
                 q.put(msg_obj, None)
+            return
         #end publish
 
         def close(self):
+            for q in FakeKombu._exchange[self.vhost].values():
+                while True:
+                    try:
+                        q.get_nowait()
+                    except Queue.Empty:
+                        break
             pass
         # end close
 
@@ -687,7 +712,10 @@ class FakeKombu(object):
     @classmethod
     def reset(cls, vhost):
         _vhost = ''.join(vhost)
+        for name, gevent_q in cls._exchange[_vhost].items():
+            del FakeKombu._exchange[_vhost][name]
         cls._exchange[_vhost].clear()
+        cls._exchange = defaultdict(dict)
         pass
 # end class FakeKombu
 
@@ -1324,9 +1352,9 @@ class FakeDeviceConnect(object):
     parms = {}
 
     @staticmethod
-    def get_xml_data(self, config):
+    def get_xml_data(config):
         xml_data = StringIO()
-        config.export(xml_data, 1)
+        config.export_xml(xml_data, 1)
         return xml_data.getvalue()
     # end get_xml_data
 
@@ -1344,6 +1372,11 @@ class FakeDeviceConnect(object):
     @staticmethod
     def get_xml_config():
         return FakeDeviceConnect.params.get('config')
+    # end get_xml_config
+
+    @staticmethod
+    def reset():
+        FakeDeviceConnect.params = {}
     # end get_xml_config
 # end
 

@@ -73,10 +73,9 @@ class STTestCase(test_common.TestCase):
             self.id(), self._api_server_ip, self._api_server_port)
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             self.id(), self._api_server_ip, self._api_server_port, extra_config_knobs)
+        test_common.wait_for_schema_transformer_up()
 
     def tearDown(self):
-        self.check_ri_is_deleted(fq_name=['default-domain', 'default-project', 'svc-vn-left', 'svc-vn-left'])
-        self.check_ri_is_deleted(fq_name=['default-domain', 'default-project', 'svc-vn-right', 'svc-vn-right'])
         test_common.kill_svc_monitor(self._svc_mon_greenlet)
         test_common.kill_schema_transformer(self._st_greenlet)
         super(STTestCase, self).tearDown()

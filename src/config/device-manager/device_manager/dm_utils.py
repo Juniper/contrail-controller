@@ -341,7 +341,7 @@ class DMUtils(object):
 
     @staticmethod
     def lo0_ip_comment(lo_ip):
-        ip = netaddr.IPNetwork(lo_ip)
+        ip = IPNetwork(lo_ip)
         return "/* Allocated IPv%s Address from Subnet: %s/%s */"%(str(ip.version),
                                                     ip.network, str(ip.prefixlen))
 

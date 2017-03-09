@@ -147,6 +147,8 @@ class SchemaTransformer(object):
         },
     }
 
+    _schema_transformer = None
+
     def __init__(self, args=None):
         self._args = args
         self._fabric_rt_inst_obj = None
@@ -166,11 +168,13 @@ class SchemaTransformer(object):
             DBBaseST._vnc_lib = _vnc_lib
             ServiceChain.init()
             self.reinit()
+            SchemaTransformer._schema_transformer = self
             self._vnc_amqp._db_resync_done.set()
         except Exception as e:
             # If any of the above tasks like CassandraDB read fails, cleanup
             # the RMQ constructs created earlier and then give up.
-            self._vnc_amqp.close()
+            self.reset()
+            SchemaTransformer._schema_transformer = None
             raise e
     # end __init__
 
@@ -366,10 +370,27 @@ class SchemaTransformer(object):
                             rt_del=rinst.stale_route_targets)
     # end process_stale_objects
 
+    @classmethod
+    def get_instance(cls):
+        return cls._schema_transformer
+
+    @classmethod
+    def clear_instance(cls):
+        cls._schema_transformer = None
+        return
+
+    @classmethod
+    def destroy_instance(cls):
+        cls.get_instance().reset()
+        cls.clear_instance()
+        return
+
     def reset(self):
+        self._vnc_amqp.close()
         for cls in DBBaseST.get_obj_type_map().values():
             cls.reset()
-        self._vnc_amqp.close()
+        DBBase.clear()
+        self._object_db = None
     # end reset
 
     def sighup_handler(self):
