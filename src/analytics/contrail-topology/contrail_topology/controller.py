@@ -12,6 +12,7 @@ import ConfigParser
 import signal
 import random
 import hashlib
+from sandesh.topology_info.ttypes import TopologyInfo, TopologyUVE
 
 class PRouter(object):
     def __init__(self, name, data):
@@ -21,7 +22,7 @@ class PRouter(object):
 class Controller(object):
     def __init__(self, config):
         self._config = config
-        self._me = socket.gethostname() + ':' + str(os.getpid())
+        self._hostname = socket.gethostname()
         self.analytic_api = AnalyticApiClient(self._config)
         self._config.random_collectors = self._config.collectors()
         self._chksum = ""
@@ -30,9 +31,13 @@ class Controller(object):
             self._config.random_collectors = random.sample(self._config.collectors(), \
                                                            len(self._config.collectors()))
         self.uve = LinkUve(self._config)
+        self._logger = self.uve.logger()
         self.sleep_time()
         self._keep_running = True
         self._vnc = None
+        self._members = None
+        self._partitions = None
+        self._prouters = None
 
     def stop(self):
         self._keep_running = False
@@ -127,6 +132,22 @@ class Controller(object):
                 if d['ifIndex'] == index:
                     return d['ifOperStatus'] == 1
         return False
+
+    def _send_topology_uve(self, members, partitions, prouters):
+        topology_info = TopologyInfo()
+        if self._members != members:
+            self._members = members
+            topology_info.members = members
+        if self._partitions != partitions:
+            self._partitions = partitions
+            topology_info.partitions = partitions
+        if self._prouters != prouters:
+            self._prouters = prouters
+            topology_info.prouters = prouters
+        if topology_info != TopologyInfo():
+            topology_info.name = self._hostname
+            TopologyUVE(data=topology_info).send()
+    # end _send_topology_uve
 
     def bms_links(self, prouter, ifm):
         if not self._vnc:
@@ -317,11 +338,17 @@ class Controller(object):
                             self.uve._moduleid,
                             zookeeper=self._config.zookeeper_server(),
                             delete_hndlr=self._del_uves,
+                            logger=self._logger,
                             cluster_id=self._config.cluster_id())
 
         while self._keep_running:
             self.scan_data()
             if self.constnt_schdlr.schedule(self.prouters):
+                members = self.constnt_schdlr.members()
+                partitions = self.constnt_schdlr.partitions()
+                prouters = map(lambda x: x.name,
+                    self.constnt_schdlr.work_items())
+                self._send_topology_uve(members, partitions, prouters)
                 try:
                     with self._sem:
                         self.compute()

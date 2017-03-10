@@ -26,6 +26,7 @@ sources = [
     ]
 
 src_sandesh = env.SandeshGenPy('link.sandesh', 'contrail_topology/sandesh/', False)
+topology_info_pkg = env.SandeshGenPy('topology_info.sandesh', 'contrail_topology/sandesh/', False)
 cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'contrail_topology/sandesh/nodeinfo/', False)
 process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'contrail_topology/sandesh/nodeinfo/', False)
 nodeinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'contrail_topology/sandesh/', False)
@@ -36,7 +37,7 @@ version = '0.0.1'
 #    version = f.read().split(",")[0][1:]
 
 sdist_depends = [ nodeinfo_pkg, cpuinfo_pkg, process_info_pkg,
-                  derived_stats_pkg]
+                  derived_stats_pkg, topology_info_pkg ]
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/contrail-topology-' \
         + version + '.tar.gz',
@@ -114,6 +115,7 @@ doc_files += env['BASE_DOC_FILES']
 doc_files += env['SANDESH_DOC_FILES']
 doc_files += env['ANALYTICS_DOC_FILES']
 doc_files += env.SandeshGenDoc('link.sandesh')
+doc_files += env.SandeshGenDoc('topology_info.sandesh')
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, sources + src_sandesh,

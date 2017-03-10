@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ */
+
+/**
+ *  Definitions of structures used by contrail-snmp-collector to send
+ *  information to the contrail-collector
+ */
+
+/**
+ * stores topology information
+ */
+struct TopologyInfo {
+    1: string name (key="ObjectCollectorInfo")
+    2: optional bool deleted
+    3: list<string> members
+    4: list<string> partitions
+    5: list<string> prouters
+}
+
+/**
+ * @description: uve to send topology information
+ * @object: analytics-node
+ */
+uve sandesh TopologyUVE {
+    1: TopologyInfo data
+}
