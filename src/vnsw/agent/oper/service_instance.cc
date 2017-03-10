@@ -111,12 +111,12 @@ static IFMapNode *FindAndSetVirtualMachine(
     return NULL;
 }
 
-static IFMapNode *FindNetworkSubnets(DBGraph *graph, IFMapNode *vn_node) {
-    for (DBGraphVertex::adjacency_iterator iter = vn_node->begin(graph);
-             iter != vn_node->end(graph); ++iter) {
+static IFMapNode *FindNetworkIpam(DBGraph *graph, IFMapNode *vn_ipam_node) {
+    for (DBGraphVertex::adjacency_iterator iter = vn_ipam_node->begin(graph);
+             iter != vn_ipam_node->end(graph); ++iter) {
         IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
 
-        if (IsNodeType(adj, "virtual-network-network-ipam")) {
+        if (IsNodeType(adj, "network-ipam")) {
             return adj;
         }
     }
@@ -220,34 +220,49 @@ static void FindAndSetInterfaces(
             properties->ip_addr_management = FindInterfaceIp(graph, adj);
         }
 
-        IFMapNode *ipam_node = FindNetworkSubnets(graph, vn_node);
-        if (ipam_node == NULL) {
-            continue;
-        }
-
-        autogen::VirtualNetworkNetworkIpam *ipam =
-            static_cast<autogen::VirtualNetworkNetworkIpam *> (ipam_node->GetObject());
-        const autogen::VnSubnetsType &subnets = ipam->data();
-        for (unsigned int i = 0; i < subnets.ipam_subnets.size(); ++i) {
-
-            int prefix_len = subnets.ipam_subnets[i].subnet.ip_prefix_len;
-
-            if (vmi_props.service_interface_type == "left" &&
-                SubNetContainsIpv4(subnets.ipam_subnets[i],
-                        properties->ip_addr_inside)) {
-                properties->ip_prefix_len_inside = prefix_len;
-                if (properties->service_type == ServiceInstance::SourceNAT)
-                    properties->gw_ip = subnets.ipam_subnets[i].default_gateway;
-            } else if (vmi_props.service_interface_type == "right" &&
-                       SubNetContainsIpv4(subnets.ipam_subnets[i],
-                                properties->ip_addr_outside)) {
-                if (properties->service_type == ServiceInstance::LoadBalancer)
-                    properties->gw_ip = subnets.ipam_subnets[i].default_gateway;
-                properties->ip_prefix_len_outside = prefix_len;
-            } else if (vmi_props.service_interface_type == "management" &&
-                SubNetContainsIpv4(subnets.ipam_subnets[i],
-                        properties->ip_addr_management)) {
-                properties->ip_prefix_len_management = prefix_len;
+        for (DBGraphVertex::adjacency_iterator iter = vn_node->begin(graph);
+             iter != vn_node->end(graph); ++iter) {
+            IFMapNode *vn_ipam_node =
+                static_cast<IFMapNode *>(iter.operator->());
+            if (!IsNodeType(vn_ipam_node, "virtual-network-network-ipam")) {
+                continue;
+            }
+            autogen::VirtualNetworkNetworkIpam *ipam =
+                static_cast<autogen::VirtualNetworkNetworkIpam *>
+                    (vn_ipam_node->GetObject());
+            IFMapNode *ipam_node = FindNetworkIpam(graph, vn_ipam_node);
+            if (ipam_node == NULL) {
+                continue;
+            }
+            autogen::NetworkIpam *network_ipam =
+                static_cast<autogen::NetworkIpam *>(ipam_node->GetObject());
+            const std::string subnet_method =
+                boost::to_lower_copy(network_ipam->ipam_subnet_method());
+            const std::vector<autogen::IpamSubnetType> &subnets =
+                (subnet_method == "flat-subnet") ?
+                    network_ipam->ipam_subnets() : ipam->data().ipam_subnets;
+            for (unsigned int i = 0; i < subnets.size(); ++i) {
+                int prefix_len = subnets[i].subnet.ip_prefix_len;
+                int service_type = properties->service_type;
+                if (vmi_props.service_interface_type == "left") {
+                    std::string &ip_addr = properties->ip_addr_inside;
+                    if (SubNetContainsIpv4(subnets[i], ip_addr)) {
+                        properties->ip_prefix_len_inside = prefix_len;
+                        if (service_type == ServiceInstance::SourceNAT)
+                            properties->gw_ip = subnets[i].default_gateway;
+                    }
+                } else if (vmi_props.service_interface_type == "right") {
+                    std::string &ip_addr = properties->ip_addr_outside;
+                    if (SubNetContainsIpv4(subnets[i], ip_addr)) {
+                        properties->ip_prefix_len_outside = prefix_len;
+                        if (service_type == ServiceInstance::LoadBalancer)
+                            properties->gw_ip = subnets[i].default_gateway;
+                    }
+                } else if (vmi_props.service_interface_type == "management") {
+                    std::string &ip_addr = properties->ip_addr_management;
+                    if (SubNetContainsIpv4(subnets[i], ip_addr))
+                        properties->ip_prefix_len_management = prefix_len;
+                }
             }
         }
     }
