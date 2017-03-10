@@ -74,6 +74,9 @@ def parse_args(args_str=None):
         'kubernetes_service_name': 'kubernetes',
         'service_subnets': '',
         'pod_subnets': '',
+        'kubernetes_cluster_owner': 'k8s',
+        'kubernetes_cluster_domain' : 'default-domain',
+        'kubernetes_cluster_name': None,
     }
 
     sandesh_opts = {

@@ -12,9 +12,11 @@ from vnc_api.vnc_api import *
 from config_db import *
 from cfgm_common import importutils
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_common import VncCommon
 
-class VncEndpoints(object):
+class VncEndpoints(VncCommon):
     def __init__(self):
+        super(VncEndpoints,self).__init__('Endpoint')
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self.logger = vnc_kube_config.logger()
@@ -37,7 +39,8 @@ class VncEndpoints(object):
 
     def _is_service_exists(self, service_name, service_namespace):
         name = 'service' + '-' + service_name
-        lb_fq_name = ['default-domain', service_namespace, name]
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(service_namespace)
+        lb_fq_name = proj_fq_name + [name]
         try:
             lb_obj = self._vnc_lib.loadbalancer_read(fq_name=lb_fq_name)
         except NoIdError:
