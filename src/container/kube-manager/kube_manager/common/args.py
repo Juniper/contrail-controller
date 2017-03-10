@@ -13,7 +13,7 @@ from sandesh_common.vns.constants import (HttpPortKubeManager,ApiServerPort,\
 
 def parse_args(args_str=None):
     if not args_str:
-        args_str = ' '.join(sys.argv[1:])
+        args_str = sys.argv[1:]
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument("-c", "--config-file", action='append',
         help="Specify config file", metavar="FILE")
@@ -74,6 +74,10 @@ def parse_args(args_str=None):
         'kubernetes_service_name': 'kubernetes',
         'service_subnets': '',
         'pod_subnets': '',
+        'kubernetes_cluster_owner': 'k8s',
+        'kubernetes_cluster_domain' : 'default-domain',
+        'cluster_name': None,
+        'cluster_project' : None,
     }
 
     sandesh_opts = {

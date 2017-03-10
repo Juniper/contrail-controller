@@ -16,22 +16,52 @@ MAX_VLAN_ID = 4095
 
 class DBBaseKM(DBBase):
     obj_type = __name__
-    _fq_name_to_uuid = {}
     _nested_mode = False
 
     def __init__(self, uuid, obj_dict=None):
-        self._fq_name_to_uuid[tuple(obj_dict['fq_name'])] = uuid
+        self.kube_fq_name = self.get_kube_fq_name(obj_dict)
+        self.update_kube_fq_name_to_uuid(uuid, self.kube_fq_name)
 
     @classmethod
-    def get_fq_name_to_uuid(cls, fq_name):
-        return cls._fq_name_to_uuid.get(tuple(fq_name))
+    def get_kube_fq_name(cls, obj_dict):
+        """Get the kubernetes fully qualified name for this object.
+
+        If the object specifies a custom format for fully qualified name,
+        construct the name as such. If not, the fq name from object dictionary
+        is used.
+        """
+        if hasattr(cls, 'kube_fq_name_key'):
+            # Object has a custom fq name format specified.
+            fq_name = []
+            if obj_dict.get('annotations', None) and\
+              obj_dict['annotations'].get('key_value_pair', None):
+                kvps = obj_dict['annotations']['key_value_pair']
+                for elem in cls.kube_fq_name_key:
+                    for kvp in kvps:
+                        if kvp.get("key") != elem:
+                            continue
+                        fq_name.append(kvp.get("value"))
+                        break
+        else:
+            # Object does not have custom fq-name format specified.
+            # Use the fq name from object.
+            fq_name = obj_dict['fq_name']
+        return fq_name
+
+    @classmethod
+    def update_kube_fq_name_to_uuid(cls, uuid, kube_fq_name):
+        cls._kube_fq_name_to_uuid[tuple(kube_fq_name)] = uuid
+
+    @classmethod
+    def get_kube_fq_name_to_uuid(cls, fq_name):
+        return cls._kube_fq_name_to_uuid.get(tuple(fq_name))
 
     @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        del cls._fq_name_to_uuid[tuple(obj.fq_name)]
+        del cls._kube_fq_name_to_uuid[tuple(obj.kube_fq_name)]
 
     def evaluate(self):
         # Implement in the derived class
@@ -54,6 +84,7 @@ class DBBaseKM(DBBase):
 class LoadbalancerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -88,6 +119,7 @@ class LoadbalancerKM(DBBaseKM):
 class LoadbalancerListenerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_listener'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -129,6 +161,7 @@ class LoadbalancerListenerKM(DBBaseKM):
 class LoadbalancerPoolKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_pool'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -170,6 +203,7 @@ class LoadbalancerPoolKM(DBBaseKM):
 class LoadbalancerMemberKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_member'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -215,6 +249,7 @@ class LoadbalancerMemberKM(DBBaseKM):
 class HealthMonitorKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_healthmonitor'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -247,6 +282,9 @@ class HealthMonitorKM(DBBaseKM):
 class VirtualMachineKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_machine'
+    _kube_fq_name_to_uuid = {}
+    display_name_format = ["cluster","namespace","kind","name"]
+    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -284,6 +322,7 @@ class VirtualMachineKM(DBBaseKM):
 class VirtualRouterKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_router'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -309,6 +348,8 @@ class VirtualRouterKM(DBBaseKM):
 class VirtualMachineInterfaceKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
+    _kube_fq_name_to_uuid = {}
+    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -323,6 +364,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         self.security_groups = set()
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
+        super(VirtualMachineInterfaceKM, self).__init__(uuid, obj_dict)
 
     def update(self, obj=None):
         if obj is None:
@@ -443,6 +485,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
 class VirtualNetworkKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_network'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -499,36 +542,11 @@ class VirtualNetworkKM(DBBaseKM):
                 return subnet_uuid
         return None
 
-class FloatingIpKM(DBBaseKM):
-    _dict = {}
-    obj_type = 'floating_ip'
-
-    def __init__(self, uuid, obj_dict=None):
-        self.uuid = uuid
-        self.address = None
-        self.virtual_machine_interfaces = set()
-        self.update(obj_dict)
-
-    def update(self, obj=None):
-        if obj is None:
-            obj = self.read_obj(self.uuid)
-        self.name = obj['fq_name'][-1]
-        self.fq_name = obj['fq_name']
-        self.address = obj['floating_ip_address']
-        self.update_multiple_refs('virtual_machine_interface', obj)
-
-    @classmethod
-    def delete(cls, uuid):
-        if uuid not in cls._dict:
-            return
-        obj = cls._dict[uuid]
-        obj.update_multiple_refs('virtual_machine_interface', {})
-        del cls._dict[uuid]
-# end class FloatingIpKM
-
 class InstanceIpKM(DBBaseKM):
     _dict = {}
     obj_type = 'instance_ip'
+    _kube_fq_name_to_uuid = {}
+    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -538,6 +556,7 @@ class InstanceIpKM(DBBaseKM):
         self.virtual_networks = set()
         self.floating_ips = set()
         self.update(obj_dict)
+        super(InstanceIpKM, self).__init__(uuid, obj_dict)
 
     def update(self, obj=None):
         if obj is None:
@@ -572,6 +591,7 @@ class InstanceIpKM(DBBaseKM):
 class ProjectKM(DBBaseKM):
     _dict = {}
     obj_type = 'project'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -597,6 +617,7 @@ class ProjectKM(DBBaseKM):
 class DomainKM(DBBaseKM):
     _dict = {}
     obj_type = 'domain'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -618,6 +639,7 @@ class DomainKM(DBBaseKM):
 class SecurityGroupKM(DBBaseKM):
     _dict = {}
     obj_type = 'security_group'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -683,6 +705,7 @@ class SecurityGroupKM(DBBaseKM):
 class FloatingIpPoolKM(DBBaseKM):
     _dict = {}
     obj_type = 'floating_ip_pool'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -709,6 +732,8 @@ class FloatingIpPoolKM(DBBaseKM):
 class FloatingIpKM(DBBaseKM):
     _dict = {}
     obj_type = 'floating_ip'
+    _kube_fq_name_to_uuid = {}
+    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -740,6 +765,7 @@ class FloatingIpKM(DBBaseKM):
 class NetworkIpamKM(DBBaseKM):
     _dict = {}
     obj_type = 'network_ipam'
+    _kube_fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid

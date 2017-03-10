@@ -13,10 +13,12 @@ from kube_manager.common.kube_config_db import ServiceKM
 from cfgm_common import importutils
 import link_local_manager as ll_mgr
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_common import VncCommon
 
-class VncService(object):
+class VncService(VncCommon):
 
     def __init__(self):
+        super(VncService,self).__init__('Service')
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
@@ -59,15 +61,17 @@ class VncService(object):
             'kube_manager.vnc.loadbalancer.ServiceLbMemberManager')
 
     def _get_project(self, service_namespace):
-        proj_fq_name = ['default-domain', service_namespace]
+        proj_fq_name =\
+            vnc_kube_config.cluster_project_fq_name(service_namespace)
         try:
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
             return proj_obj
         except NoIdError:
             return None
 
-    def _get_network(self):
-        vn_fq_name = ['default-domain', 'default', 'cluster-network']
+    def _get_cluster_network(self):
+        vn_fq_name = vnc_kube_config.cluster_default_project_fq_name() +\
+            [vnc_kube_config.cluster_default_network_name()]
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         except NoIdError:
@@ -77,9 +81,9 @@ class VncService(object):
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
             return self._fip_pool_obj
-        fip_pool_fq_name = ['default-domain', 'default', 
-                            self._args.public_network_name, 
-                            self._args.public_fip_pool_name]
+        fip_pool_fq_name = vnc_kube_config.cluster_default_project_fq_name() +\
+                            [self._args.public_network_name,
+                             self._args.public_fip_pool_name]
         try:
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
         except NoIdError:
@@ -181,12 +185,13 @@ class VncService(object):
                        service_namespace, service_ip):
         name = 'service' + '-' + service_name
         proj_obj = self._get_project(service_namespace)
-        vn_obj = self._get_network()
+        vn_obj = self._get_cluster_network()
         lb_provider = 'native'
         annotations = {}
         annotations['device_owner'] = 'K8S:SERVICE'
-        lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj, service_id,
-                                     name, proj_obj, service_ip, annotations=annotations)
+        lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj,
+            service_namespace, service_id, name, proj_obj, service_ip,
+            annotations=annotations)
         return lb_obj
 
     def _lb_create(self, service_id, service_name,
@@ -343,8 +348,9 @@ class VncService(object):
 
     def _check_service_uuid_change(self, svc_uuid, svc_name, 
                                    svc_namespace, ports):
-        lb_fq_name = ['default-domain', svc_namespace, svc_name]
-        lb_uuid = LoadbalancerKM.get_fq_name_to_uuid(lb_fq_name)
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(svc_namespace)
+        lb_fq_name = proj_fq_name + [svc_name]
+        lb_uuid = LoadbalancerKM.get_kube_fq_name_to_uuid(lb_fq_name)
         if lb_uuid is None:
             return
 

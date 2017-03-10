@@ -13,10 +13,12 @@ from config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
 from kube_manager.common.kube_config_db import PodKM
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_common import VncCommon
 
-class VncPod(object):
+class VncPod(VncCommon):
 
     def __init__(self, service_mgr, network_policy_mgr):
+        super(VncPod,self).__init__('Pod')
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
@@ -86,7 +88,8 @@ class VncPod(object):
         # If no network was found on the namesapce, default to the cluster
         # pod network.
         if not vn_fq_name:
-            vn_fq_name = ['default-domain', 'default', 'cluster-network']
+            vn_fq_name = vnc_kube_config.cluster_default_project_fq_name() +\
+                [vnc_kube_config.cluster_default_network_name()]
 
         vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         return vn_obj
@@ -108,7 +111,7 @@ class VncPod(object):
             return pod.get_host_ip()
         return None
 
-    def _create_iip(self, pod_name, vn_obj, vmi):
+    def _create_iip(self, pod_name, pod_namespace, vn_obj, vmi):
         # Instance-ip for pods are ALWAYS allocated from pod ipam on this
         # VN. Get the subnet uuid of the pod ipam on this VN, so we can request
         # an IP from it.
@@ -124,6 +127,11 @@ class VncPod(object):
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(
                       fq_name=vmi.fq_name)
         iip_obj.add_virtual_machine_interface(vmi_obj)
+
+        self.add_annotations(iip_obj, InstanceIpKM.kube_fq_name_key,
+            project=vnc_kube_config.cluster_project_name(pod_namespace),
+            name=pod_name, namespace=pod_namespace)
+
         try:
             self._vnc_lib.instance_ip_create(iip_obj)
         except RefsExistError:
@@ -143,7 +151,7 @@ class VncPod(object):
 
         return None
 
-    def _create_cluster_service_fip(self, pod_name, vmi_uuid):
+    def _create_cluster_service_fip(self, pod_name, pod_namespace, vmi_uuid):
         """
         Isolated Pods in the cluster will be allocated a floating ip
         from the cluster service network, so that the pods can talk
@@ -168,6 +176,10 @@ class VncPod(object):
                       id=vmi_uuid)
         fip_obj.set_virtual_machine_interface(vmi_obj)
 
+        self.add_annotations(fip_obj, FloatingIpKM.kube_fq_name_key,
+            project=vnc_kube_config.cluster_default_project_name(),
+            name=pod_name, namespace=pod_namespace)
+
         try:
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
         except RefsExistError:
@@ -178,18 +190,18 @@ class VncPod(object):
 
         return
 
-    def _associate_security_groups(self, vmi_obj, proj_obj, ns=None):
-        sg_obj = SecurityGroup("default", proj_obj)
+    def _associate_security_groups(self, vmi_obj, proj_obj, ns):
+        sg_name = "-".join([vnc_kube_config.cluster_name(), ns, 'default'])
+        sg_obj = SecurityGroup(sg_name, proj_obj)
         vmi_obj.add_security_group(sg_obj)
-        if ns:
-            ns_sg_name = "ns-" + ns
-            sg_obj = SecurityGroup(ns_sg_name, proj_obj)
-            vmi_obj.add_security_group(sg_obj)
+        ns_sg_name = "-".join([vnc_kube_config.cluster_name(), ns, 'sg'])
+        sg_obj = SecurityGroup(ns_sg_name, proj_obj)
+        vmi_obj.add_security_group(sg_obj)
         return
 
     def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj,
             parent_vmi):
-        proj_fq_name = ['default-domain', pod_namespace]
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
         vmi_prop = None
@@ -210,6 +222,12 @@ class VncPod(object):
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
         self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
+
+        self.add_annotations(vmi_obj,
+            VirtualMachineInterfaceKM.kube_fq_name_key,
+            project=vnc_kube_config.cluster_project_name(pod_namespace),
+            name=pod_name, namespace=pod_namespace)
+
         try:
             vmi_uuid = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
         except RefsExistError:
@@ -218,14 +236,20 @@ class VncPod(object):
         VirtualMachineInterfaceKM.locate(vmi_uuid)
         return vmi_uuid
 
-    def _create_vm(self, pod_id, pod_name, labels):
-        vm_obj = VirtualMachine(name=pod_name)
+    def _create_vm(self, pod_namespace, pod_id, pod_name, labels):
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
+        vm_name = proj_fq_name + [pod_id, pod_name]
+        vm_obj = VirtualMachine(name="-".join(vm_name))
         vm_obj.uuid = pod_id
-        annotations = {}
-        annotations['device_owner'] = 'K8S:POD'
-        for key in annotations:
-            vm_obj.add_annotations(KeyValuePair(key=key, value=annotations[key]))
-        vm_obj.add_annotations(KeyValuePair(key='labels', value=json.dumps(labels)))
+
+        self.add_annotations(vm_obj, VirtualMachineKM.kube_fq_name_key,
+            project=vnc_kube_config.cluster_project_name(pod_namespace),
+            k8s_uuid=pod_id, labels=json.dumps(labels),
+            name=pod_name, namespace=pod_namespace)
+
+        self.add_display_name(vm_obj, VirtualMachineKM.display_name_format,
+            namespace=pod_namespace, name=pod_name)
+
         try:
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
@@ -248,7 +272,7 @@ class VncPod(object):
 
     def _check_pod_uuid_change(self, pod_uuid, pod_name, pod_namespace):
         vm_fq_name = [pod_name]
-        vm_uuid = LoadbalancerKM.get_fq_name_to_uuid(vm_fq_name)
+        vm_uuid = LoadbalancerKM.get_kube_fq_name_to_uuid(vm_fq_name)
         if vm_uuid != pod_uuid:
             self.vnc_pod_delete(vm_uuid)
 
@@ -262,8 +286,7 @@ class VncPod(object):
             self._check_pod_uuid_change(pod_id, pod_name, pod_namespace)
 
         vn_obj = self._get_network(pod_id, pod_namespace)
-        vm_obj = self._create_vm(pod_id, pod_name, labels)
-
+        vm_obj = self._create_vm(pod_namespace, pod_id, pod_name, labels)
         vmi_uuid = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj,
                        vm_vmi)
 
@@ -291,10 +314,10 @@ class VncPod(object):
             self._vnc_lib.ref_update('virtual-router', vr_uuid,
                 'virtual-machine', vm_obj.uuid, None, 'ADD')
 
-        self._create_iip(pod_name, vn_obj, vmi)
+        self._create_iip(pod_name, pod_namespace, vn_obj, vmi)
 
         if self._is_pod_network_isolated(pod_namespace):
-            self._create_cluster_service_fip(pod_name, vmi_uuid)
+            self._create_cluster_service_fip(pod_name, pod_namespace, vmi_uuid)
 
         self._link_vm_to_node(vm_obj, pod_node)
 
