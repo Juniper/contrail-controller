@@ -516,6 +516,44 @@ class TestCrud(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_machine_interface_update(vmi)
         # end test_bridge_domain_with_multiple_bd_in_vn
 
+    def test_sub_interfaces_with_same_vlan_tags(self):
+        vn = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+
+        id_perms = IdPermsType(enable=True)
+        vmi_prop = VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=256)
+
+        port_obj = VirtualMachineInterface(
+                   str(uuid.uuid4()), parent_obj=Project(),
+                   id_perms=id_perms)
+
+        port_obj.uuid = port_obj.name
+        port_obj.set_virtual_network(vn)
+
+        ref_obj = VirtualMachineInterface(
+                   str(uuid.uuid4()), parent_obj=Project(),
+                   virtual_machine_interface_properties=vmi_prop,
+                   id_perms=id_perms)
+        ref_obj.uuid = ref_obj.name
+        ref_obj.set_virtual_network(vn)
+        ref_port_id = self._vnc_lib.virtual_machine_interface_create(ref_obj)
+
+        ref_obj2 = VirtualMachineInterface(
+                   str(uuid.uuid4()), parent_obj=Project(),
+                   virtual_machine_interface_properties=vmi_prop,
+                   id_perms=id_perms)
+        ref_obj2.uuid = ref_obj2.name
+        ref_obj2.set_virtual_network(vn)
+        ref_port2_id = self._vnc_lib.virtual_machine_interface_create(ref_obj2)
+
+        port_obj.add_virtual_machine_interface(ref_obj)
+        port_obj.add_virtual_machine_interface(ref_obj2)
+
+        #creating port with sub interfacs with same vlan_tag
+        #should give an error
+        with ExpectedException(BadRequest) as e:
+        port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
+        # end test_sub_interfaces_with_same_vlan_tags
 
 # end class TestCrud
 
