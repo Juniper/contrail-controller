@@ -439,6 +439,12 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
         state->label_ = active_path->GetActiveLabel();
     }
 
+    if (route->vrf()->IsPbbVrf()) {
+        if (active_path->vxlan_id() == 0) {
+            return;
+        }
+    }
+
     //Subcribe if:
     //- Bridging is enabled
     //- First time (ingress_replication_exported is false)
