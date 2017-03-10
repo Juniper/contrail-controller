@@ -831,6 +831,35 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         vn_dict = result
 
+        vlan_tag = ((obj_dict.get('virtual_machine_interface_properties') or {})
+                     .get('sub_interface_vlan_tag'))
+        if vlan_tag != None:
+            if 'virtual_machine_interface_refs' in obj_dict:
+                primary_vmi_ref = obj_dict['virtual_machine_interface_refs']
+                ok, primary_vmi = cls.dbe_read(db_conn, 'virtual_machine_interface',
+                                                primary_vmi_ref[0]['uuid'],
+                                                obj_fields=['virtual_machine_interface_refs'])
+                if not ok:
+                    return ok, primary_vmi
+
+                sub_vmi_refs = primary_vmi.get('virtual_machine_interface_refs') or []
+
+                sub_vmi_uuids = []
+                for vmi_ref in sub_vmi_refs:
+                    sub_vmi_uuids.append(vmi_ref['uuid'])
+
+                ok, sub_vmis = db_conn.dbe_list('virtual_machine_interface', obj_uuids=sub_vmi_uuids,
+                                                    field_names=['virtual_machine_interface_properties'])
+                if not ok:
+                    return ok, sub_vmis
+
+                for vmi in sub_vmis:
+                    sub_vmi_vlan_tag = ((vmi.get('virtual_machine_interface_properties') or {})
+                                        .get('sub_interface_vlan_tag'))
+                    if sub_vmi_vlan_tag == vlan_tag:
+                        return (False, (400,
+                                "Two sub interfaces under same primary port can't have same Vlan tag"))
+
         (ok, error) = cls._check_bridge_domain_vmi_association(obj_dict,
                                                        db_conn, vn_uuid, True)
         if not ok:
