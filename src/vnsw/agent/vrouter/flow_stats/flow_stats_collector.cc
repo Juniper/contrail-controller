@@ -793,7 +793,7 @@ void FlowStatsCollector::SourceIpOverride(FlowExportInfo *info,
     }
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
-    if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
+    if (info->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
         rflow) {
         const FlowKey *nat_key = &rflow->key();
         if (flow->key().src_addr != nat_key->dst_addr) {
@@ -972,7 +972,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
 
     FlowLogData &s_flow = msg_list_[GetFlowMsgIdx()];
 
-    s_flow.set_flowuuid(to_string(flow->uuid()));
+    s_flow.set_flowuuid(to_string(info->uuid()));
     s_flow.set_bytes(info->bytes());
     s_flow.set_packets(info->packets());
     s_flow.set_diff_bytes(diff_bytes);
@@ -983,15 +983,24 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     }
     info->set_changed(false);
 
-    if (read_flow) {
+    s_flow.set_sourceip(flow->key().src_addr);
+    s_flow.set_destip(flow->key().dst_addr);
+    s_flow.set_protocol(flow->key().protocol);
+    s_flow.set_sport(flow->key().src_port);
+    s_flow.set_dport(flow->key().dst_port);
+    if (!read_flow) {
+        s_flow.set_sourcevn(info->last_exported_source_vn());
+        s_flow.set_destvn(info->last_exported_dest_vn());
+    } else {
         s_flow.set_tcp_flags(info->tcp_flags());
-        s_flow.set_sourceip(flow->key().src_addr);
-        s_flow.set_destip(flow->key().dst_addr);
-        s_flow.set_protocol(flow->key().protocol);
-        s_flow.set_sport(flow->key().src_port);
-        s_flow.set_dport(flow->key().dst_port);
         s_flow.set_sourcevn(flow->data().source_vn_match);
         s_flow.set_destvn(flow->data().dest_vn_match);
+        /* Save the last exported Source VN and Destination VN for the flow
+         * This can be used during export of flow-delete messages when flow
+         * pointer is reused for different flow(detected by change of flow uuid)
+         */
+        info->set_last_exported_source_vn(flow->data().source_vn_match);
+        info->set_last_exported_dest_vn(flow->data().dest_vn_match);
         s_flow.set_vm(flow->data().vm_cfg_name);
         if (info->is_flags_set(FlowEntry::ReverseFlow)) {
             s_flow.set_forward_flow(false);
@@ -1032,8 +1041,8 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
         s_flow.set_direction_ing(1);
         if (read_flow) {
             s_flow.set_reverse_uuid(to_string(flow->egress_uuid()));
-            SourceIpOverride(info, s_flow, params);
         }
+        SourceIpOverride(info, s_flow, params);
         EnqueueFlowMsg();
 
         FlowLogData &s_flow2 = msg_list_[GetFlowMsgIdx()];
@@ -1063,9 +1072,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     } else {
         if (info->is_flags_set(FlowEntry::IngressDir)) {
             s_flow.set_direction_ing(1);
-            if (read_flow) {
-                SourceIpOverride(info, s_flow, params);
-            }
+            SourceIpOverride(info, s_flow, params);
         } else {
             s_flow.set_direction_ing(0);
         }
