@@ -24,8 +24,9 @@ import db
 import label_cache
 from reaction_map import REACTION_MAP
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_common import VncCommon
 
-class VncKubernetes(object):
+class VncKubernetes(VncCommon):
 
     def __init__(self, args=None, logger=None, q=None, kube=None):
         self._name = type(self).__name__
@@ -51,6 +52,10 @@ class VncKubernetes(object):
             REACTION_MAP, 'kube_manager', args=self.args)
         self.rabbit.establish()
 
+        # Cache common config.
+        self.vnc_kube_config = vnc_kube_config(logger=self.logger,
+            vnc_lib=self.vnc_lib, args=self.args, queue=self.q, kube=self.kube)
+
         # sync api server db in local cache
         self._sync_km()
         self.rabbit._db_resync_done.set()
@@ -61,10 +66,8 @@ class VncKubernetes(object):
         # handle events
         self.label_cache = label_cache.LabelCache()
 
-        # Cache common config.
-        self.vnc_kube_config = vnc_kube_config(logger=self.logger,
-            vnc_lib=self.vnc_lib, label_cache=self.label_cache, args=self.args,
-            queue=self.q, kube=self.kube,
+        # Update common config.
+        self.vnc_kube_config.update(label_cache=self.label_cache,
             cluster_pod_ipam_fq_name=self._get_cluster_pod_ipam_fq_name(),
             cluster_service_fip_pool=self._get_cluster_service_fip_pool())
 
@@ -109,8 +112,8 @@ class VncKubernetes(object):
             cls.reset()
 
     def _create_project(self, project_name):
-        proj_fq_name = ['default-domain', project_name]
-        proj_obj = Project(name=project_name, fq_name=proj_fq_name)
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(project_name)
+        proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name)
         try:
             self.vnc_lib.project_create(proj_obj)
         except RefsExistError:
@@ -267,11 +270,14 @@ class VncKubernetes(object):
 
     def _provision_cluster(self):
         self._create_project('kube-system')
-        proj_obj = self._create_project('default')
-        self._create_cluster_network('cluster-network', proj_obj)
+        proj_obj = self._create_project(\
+            vnc_kube_config.cluster_default_project_name())
+        self._create_cluster_network(\
+            vnc_kube_config.cluster_default_network_name(), proj_obj)
 
     def _get_cluster_network(self):
-        return VirtualNetworkKM.find_by_name_or_uuid('cluster-network')
+        return VirtualNetworkKM.find_by_name_or_uuid(
+            vnc_kube_config.cluster_default_network_name())
 
     def _get_cluster_pod_ipam_fq_name(self):
         return self._cluster_pod_ipam_fq_name
