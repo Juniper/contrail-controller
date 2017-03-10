@@ -99,7 +99,9 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         instance_(session->GetSessionInstance()),
         process_rules_cb_(
             boost::bind(&SandeshGenerator::ProcessRulesCb, this, _1)),
-        sm_back_pressure_timer_(NULL) {
+        sm_defer_timer_(NULL),
+        sm_defer_timer_expiry_time_usec_(0),
+        sm_defer_time_msec_(0) {
         //Use collector db_handler
         db_handler_ = global_db_handler;
         disconnected_ = false;
@@ -107,11 +109,11 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         gen_attr_.set_connect_time(UTCTimestampUsec());
     	// Update state machine
         state_machine_->SetGeneratorKey(name_);
-        CreateStateMachineBackPressureTimer();
+        CreateStateMachineDeferTimer();
 }
 
 SandeshGenerator::~SandeshGenerator() {
-    DeleteStateMachineBackPressureTimer();
+    DeleteStateMachineDeferTimer();
 }
 
 void SandeshGenerator::set_session(VizSession *session) {
@@ -148,8 +150,10 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
         gen_attr_.set_resets(tmp+1);
         gen_attr_.set_reset_time(UTCTimestampUsec());
         state_machine_->ResetQueueWaterMarkInfo();
-        StopStateMachineBackPressureTimer();
-        DeleteStateMachineBackPressureTimer();
+        StopStateMachineDeferTimer();
+        DeleteStateMachineDeferTimer();
+        sm_defer_timer_expiry_time_usec_ = 0;
+        sm_defer_time_msec_ = 0;
         viz_session_ = NULL;
         state_machine_ = NULL;
         vsession->set_generator(NULL);
@@ -164,53 +168,101 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
     }
 }
 
-bool SandeshGenerator::StateMachineBackPressureTimerExpired() {
+bool SandeshGenerator::StateMachineDeferTimerExpired() {
     tbb::mutex::scoped_lock lock(mutex_);
+    sm_defer_timer_expiry_time_usec_ = UTCTimestampUsec();
     if (state_machine_) {
         state_machine_->SetDeferDequeue(false);
     }
     return false;
 }
 
-void SandeshGenerator::CreateStateMachineBackPressureTimer() {
+void SandeshGenerator::CreateStateMachineDeferTimer() {
     // Run in the context of sandesh state machine task
-    assert(sm_back_pressure_timer_ == NULL);
-    sm_back_pressure_timer_ = TimerManager::CreateTimer(
+    assert(sm_defer_timer_ == NULL);
+    sm_defer_timer_ = TimerManager::CreateTimer(
         *collector_->event_manager()->io_service(),
-        "SandeshGenerator SM Backpressure Timer: " + name_,
+        "SandeshGenerator SM Defer Timer: " + name_,
         state_machine_->connection()->GetTaskId(), instance_);
 }
 
-void SandeshGenerator::StartStateMachineBackPressureTimer() {
-    sm_back_pressure_timer_->Start(Collector::kSmBackPressureTimeMSec,
+void SandeshGenerator::StartStateMachineDeferTimer(int time_msec) {
+    sm_defer_timer_->Start(time_msec,
             boost::bind(
-                &SandeshGenerator::StateMachineBackPressureTimerExpired, this),
+                &SandeshGenerator::StateMachineDeferTimerExpired, this),
             boost::bind(&SandeshGenerator::TimerErrorHandler, this, _1, _2));
 }
 
-void SandeshGenerator::StopStateMachineBackPressureTimer() {
-    assert(sm_back_pressure_timer_->Cancel());
+void SandeshGenerator::StopStateMachineDeferTimer() {
+    assert(sm_defer_timer_->Cancel());
 }
 
-void SandeshGenerator::DeleteStateMachineBackPressureTimer() {
-    TimerManager::DeleteTimer(sm_back_pressure_timer_);
-    sm_back_pressure_timer_ = NULL;
+void SandeshGenerator::DeleteStateMachineDeferTimer() {
+    TimerManager::DeleteTimer(sm_defer_timer_);
+    sm_defer_timer_ = NULL;
 }
 
-bool SandeshGenerator::IsStateMachineBackPressureTimerRunning() const {
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (sm_back_pressure_timer_) {
-        return sm_back_pressure_timer_->running();
+bool SandeshGenerator::IsStateMachineDeferTimerRunningUnlocked() const {
+    if (sm_defer_timer_) {
+        return sm_defer_timer_->running();
     }
     return false;
 }
 
+bool SandeshGenerator::IsStateMachineDeferTimerRunning() const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return IsStateMachineDeferTimerRunningUnlocked();
+}
+
+int SandeshGenerator::GetStateMachineDeferTimeMSec() const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return sm_defer_time_msec_;
+}
+
+int GetDeferTimeMSec(uint64_t event_time_usec,
+    uint64_t last_expiry_time_usec, uint64_t last_defer_time_usec) {
+    // If this is the first time, then defer the state machine with
+    // initial defer time
+    if (last_defer_time_usec == 0 || last_expiry_time_usec == 0) {
+        return SandeshGenerator::kInitialSmDeferTimeMSec;
+    }
+    assert(event_time_usec >= last_expiry_time_usec);
+    uint64_t time_since_expiry_usec(event_time_usec - last_expiry_time_usec);
+    // We will double the defer time if we get a back pressure
+    // event within 2 * last defer time. If the back pressure
+    // event is between 2 * last defer time and 4 * last defer
+    // time, then the defer time will be same as the current
+    // defer time. If the back pressure event is after  4 * last
+    // defer time, then we will reset the defer time to the
+    // initial defer time
+    if (time_since_expiry_usec <= 2 * last_defer_time_usec) {
+        uint64_t ndefer_time_msec((2 * last_defer_time_usec)/1000);
+        return std::min(ndefer_time_msec,
+            static_cast<uint64_t>(SandeshGenerator::kMaxSmDeferTimeMSec));
+    } else if ((2 * last_defer_time_usec <= time_since_expiry_usec) &&
+        (time_since_expiry_usec <= 4 * last_defer_time_usec)) {
+        return last_defer_time_usec/1000;
+    } else {
+        return SandeshGenerator::kInitialSmDeferTimeMSec;
+    }
+}
+
 void SandeshGenerator::ProcessRulesCb(GenDb::DbOpResult::type dresult) {
+    tbb::mutex::scoped_lock lock(mutex_);
     if (dresult == GenDb::DbOpResult::BACK_PRESSURE) {
-        tbb::mutex::scoped_lock lock(mutex_);
         if (state_machine_) {
+            // If state mchine defer timer is running just return to
+            // avoid increasing the defer time more than once every
+            // timer expiry
+            if (IsStateMachineDeferTimerRunningUnlocked()) {
+                return;
+            }
             state_machine_->SetDeferDequeue(true);
-            StartStateMachineBackPressureTimer();
+            uint64_t now_usec(UTCTimestampUsec());
+            int defer_time_msec(GetDeferTimeMSec(now_usec,
+                sm_defer_timer_expiry_time_usec_, sm_defer_time_msec_ * 1000));
+            sm_defer_time_msec_ = defer_time_msec;
+            StartStateMachineDeferTimer(sm_defer_time_msec_);
         }
     }
 }
@@ -247,25 +299,6 @@ bool SandeshGenerator::GetSandeshStateMachineStats(
     return state_machine_->GetStatistics(sm_stats, sm_msg_stats);
 }
 
-bool SandeshGenerator::GetDbStats(uint64_t *queue_count, uint64_t *enqueues,
-    std::string *drop_level, std::vector<SandeshStats> *vdropmstats) const {
-    db_handler_->GetSandeshStats(drop_level, vdropmstats);
-    return db_handler_->GetStats(queue_count, enqueues);
-}
-
-void SandeshGenerator::SendDbStatistics() {
-    // DB stats
-    std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
-    GenDb::DbErrors dbe;
-    db_handler_->GetStats(&vdbti, &dbe, &vstats_dbti);
-    GeneratorDbStats * snh = GENERATOR_DB_STATS_CREATE();
-    snh->set_name(name_);
-    snh->set_table_info(vdbti);
-    snh->set_errors(dbe);
-    snh->set_statistics_table_info(vstats_dbti);
-    GENERATOR_DB_STATS_SEND_SANDESH(snh);
-}
-
 void SandeshGenerator::GetGeneratorInfo(ModuleServerState &genlist) const {
     vector<GeneratorInfo> giv;
     GeneratorInfo gi;
@@ -293,7 +326,7 @@ void SandeshGenerator::ConnectSession(VizSession *session,
     uint32_t tmp = gen_attr_.get_connects();
     gen_attr_.set_connects(tmp+1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
-    CreateStateMachineBackPressureTimer();
+    CreateStateMachineDeferTimer();
 }
 
 void SandeshGenerator::SetDbQueueWaterMarkInfo(

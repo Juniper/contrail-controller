@@ -26,6 +26,11 @@ while env_noWerror['CCFLAGS'].count('-Werror') > 0:
 env_noWerror_excep = env_noWerror.Clone()
 env_noWerror_excep.CppEnableExceptions()
 
+collector_uve_request_obj = env.Object('collector_uve_request_skeleton.o',
+                                       '../collector_uve_request_skeleton.cpp')
+analytics_request_obj = env.Object('analytics_request_skeleton.o',
+                                   '../analytics_request_skeleton.cpp')
+
 stat_walker_test = env.UnitTest('stat_walker_test',
                               ['stat_walker_test.cc',
                                '../stat_walker.o'])
@@ -58,7 +63,9 @@ syslog_test = env.UnitTest('syslog_test',
                                   '../viz_constants.o',
                                   '../collector_uve_types.o',
                                   '../collector_uve_html.o',
-                                  '../collector_uve_constants.o'])
+                                  '../collector_uve_constants.o',
+                                  analytics_request_obj,
+                                  collector_uve_request_obj])
 env.Alias('src/analytics:syslog_test', syslog_test)
 
 #ruleeng_test = env.UnitTest('ruleeng_test',
@@ -74,8 +81,6 @@ env.Alias('src/analytics:syslog_test', syslog_test)
 #                              )
 #env.Alias('src/analytics:ruleeng_test', ruleeng_test)
 
-analytics_request_obj = env.Object('analytics_request_skeleton.o',
-                                   '../analytics_request_skeleton.cpp')
 db_handler_test_obj = env_noWerror_excep.Object('db_handler_test.o', 'db_handler_test.cc')
 db_handler_test = env.UnitTest('db_handler_test',
                               AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] + 
@@ -133,7 +138,9 @@ structured_syslog_test = structured_syslogEnv.UnitTest('structured_syslog_test',
                                   '../viz_constants.o',
                                   '../collector_uve_types.o',
                                   '../collector_uve_html.o',
-                                  '../collector_uve_constants.o'])
+                                  '../collector_uve_constants.o',
+                                  analytics_request_obj,
+                                  collector_uve_request_obj])
 structured_syslogEnv.Alias('src/analytics:structured_syslog_test', structured_syslog_test)
 
 sflow_parser_test_obj = env_noWerror_excep.Object('sflow_parser_test.o',
@@ -142,6 +149,29 @@ sflow_parser_test = env.UnitTest('sflow_parser_test',
     [sflow_parser_test_obj, '../sflow.o', '../sflow_parser.o',
      '../sflow_types.o'])
 env.Alias('src/analytics:sflow_parser_test', sflow_parser_test)
+
+generator_test_env = env.Clone()
+generator_test = generator_test_env.UnitTest('generator_test',
+                     ['generator_test.cc',
+                      '../generator.o',
+                      '../collector.o',
+                      '../vizd_table_desc.o',
+                      '../viz_message.o',
+                      '../ruleeng.o',
+                      '../stat_walker.o',
+                      '../db_handler.o',
+                      '../configdb_connection.o',
+                      '../usrdef_counters.o',
+                      '../analytics_types.o',
+                      '../analytics_html.o',
+                      '../parser_util.o',
+                      '../viz_constants.o',
+                      '../collector_uve_types.o',
+                      '../collector_uve_html.o',
+                      '../collector_uve_constants.o',
+                      collector_uve_request_obj,
+                      analytics_request_obj])
+generator_test_env.Alias('src/analytics:generator_test', generator_test)
 
 test_suite = [ 
                options_test,
@@ -152,6 +182,7 @@ test_suite = [
                syslog_test,
                sflow_parser_test,
                db_handler_test,
+               generator_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)
 
