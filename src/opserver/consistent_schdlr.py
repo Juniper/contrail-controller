@@ -143,6 +143,12 @@ class ConsistentScheduler(object):
                               self._items2name(items))
         return ret
 
+    def members(self):
+        return list(self._con_hash.nodes)
+
+    def partitions(self):
+        return list(self._pc)
+
     def work_items(self):
         return sum(self._partitions.values(), [])
 
@@ -171,16 +177,16 @@ class ConsistentScheduler(object):
     def _consistent_hash(self, members):
         if self._con_hash is None:
             self._con_hash = ConsistentHash(members)
-            self._supress_log('members:', self._con_hash.nodes)
+            self._logger.error('members: %s' % (str(self._con_hash.nodes)))
         cur, updtd = set(self._con_hash.nodes), set(members)
         if cur != updtd:
             newm = updtd - cur
             rmvd = cur - updtd
             if newm:
-                self._supress_log('new workers:', newm)
+                self._logger.error('new members: %s' % (str(newm)))
                 self._con_hash.add_nodes(list(newm))
             if rmvd:
-                self._supress_log('workers left:', rmvd)
+                self._logger.error('members left: %s' % (str(rmvd)))
                 self._con_hash.del_nodes(list(rmvd))
         return self._con_hash
 
@@ -188,8 +194,10 @@ class ConsistentScheduler(object):
         return self._consistent_hash(members).get_node(partition)
 
     def _partitioner_func(self, identifier, members, _partitions):
-        return [p for p in _partitions \
-                if self._consistent_hash_get_node(members, p) == identifier]
+        partitions = [p for p in _partitions \
+            if self._consistent_hash_get_node(members, p) == identifier]
+        self._logger.error('partitions: %s' % (str(partitions)))
+        return partitions
 
     def _release(self):
         old = set(self._pc)

@@ -41,7 +41,12 @@ class LinkUve(object):
             self._instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus)
+        self._logger = sandesh_global.logger()
         # end __init__
+
+    def logger(self):
+        return self._logger
+    # end logger
 
     def send(self, data):
         pprint.pprint(data)
