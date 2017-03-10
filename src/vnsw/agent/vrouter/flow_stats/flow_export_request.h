@@ -20,20 +20,23 @@ public:
         UPDATE_FLOW_STATS
     };
 
-    FlowExportReq(Event event, const FlowExportInfo &info) :
-        event_(event), info_(info), time_(0) {
+    FlowExportReq(Event event, const FlowExportInfo &info,
+                  const PreviousFlowVnInfo &prev_vn) :
+        event_(event), info_(info), time_(0), prev_flow_vn_info_(prev_vn) {
     }
 
     FlowExportReq(Event event, const FlowExportInfo &info, uint64_t time,
+                  const PreviousFlowVnInfo &prev_vn,
                   const RevFlowDepParams &p) :
-        event_(event), info_(info), time_(time), params_(p) {
+        event_(event), info_(info), time_(time), params_(p),
+        prev_flow_vn_info_(prev_vn) {
     }
 
     FlowExportReq(Event event, const FlowExportInfo &info, uint32_t bytes,
                   uint32_t packets, uint32_t oflow_bytes,
-                  const boost::uuids::uuid &u) :
+                  const PreviousFlowVnInfo &prev_vn) :
                   event_(event), info_(info), bytes_(bytes), packets_(packets),
-                  oflow_bytes_(oflow_bytes), uuid_(u) {
+                  oflow_bytes_(oflow_bytes), prev_flow_vn_info_(prev_vn) {
     }
 
     ~FlowExportReq() { }
@@ -45,7 +48,9 @@ public:
     uint32_t packets() const { return packets_;}
     uint32_t oflow_bytes() const { return oflow_bytes_;}
     const RevFlowDepParams& params() const { return params_; }
-    boost::uuids::uuid uuid() const { return uuid_; }
+    const PreviousFlowVnInfo& prev_flow_vn_info() const {
+        return prev_flow_vn_info_;
+    }
 
 private:
     Event event_;
@@ -55,7 +60,7 @@ private:
     uint32_t packets_;
     uint32_t oflow_bytes_;
     RevFlowDepParams params_;
-    boost::uuids::uuid uuid_;
+    PreviousFlowVnInfo prev_flow_vn_info_;
     DISALLOW_COPY_AND_ASSIGN(FlowExportReq);
 };
 #endif //  __AGENT_FLOW_EXPORT_REQUEST_H__

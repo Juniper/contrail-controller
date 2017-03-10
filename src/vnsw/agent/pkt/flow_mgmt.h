@@ -1108,7 +1108,7 @@ public:
     void DeleteEvent(FlowEntry *flow, const RevFlowDepParams &params);
     void FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes, uint32_t packets,
                               uint32_t oflow_bytes,
-                              const boost::uuids::uuid &u);
+                              const PreviousFlowVnInfo &prev_vn);
     void AddDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
     void ChangeDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
     void DeleteDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
@@ -1145,7 +1145,7 @@ private:
     // Handle Delete of a flow. Updates FlowMgmtKeyTree for all objects
     void DeleteFlow(FlowEntryPtr &flow, const RevFlowDepParams &p);
     void UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes, uint32_t packets,
-                         uint32_t oflow_bytes, const boost::uuids::uuid &u);
+                         uint32_t oflow_bytes, const PreviousFlowVnInfo &prev);
 
     // Add a FlowMgmtKey into the FlowMgmtKeyTree for an object
     // The FlowMgmtKeyTree for object is passed as argument

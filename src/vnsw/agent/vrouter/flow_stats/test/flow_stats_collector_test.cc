@@ -25,6 +25,11 @@ void FlowStatsCollectorTest::DispatchFlowMsg
     std::vector<FlowLogData>::const_iterator it = msg_list.begin();
     while (it != msg_list.end()) {
         flow_log_ = *it;
+        flow_log_valid_ = true;
+        if (flow_log_.get_teardown_time()) {
+            flow_del_log_ = flow_log_;
+            flow_del_log_valid_ = true;
+        }
         if (flow_log_.get_direction_ing()) {
             ingress_flow_log_list_.push_back(flow_log_);
         }
@@ -36,9 +41,17 @@ FlowLogData FlowStatsCollectorTest::last_sent_flow_log() const {
     return flow_log_;
 }
 
+FlowLogData FlowStatsCollectorTest::last_sent_flow_del_log() const {
+    return flow_del_log_;
+}
+
 void FlowStatsCollectorTest::ClearList() {
     if (ingress_flow_log_list_.size()) {
         ingress_flow_log_list_.clear();
     }
 }
 
+void FlowStatsCollectorTest::ResetLastSentLog() {
+    flow_log_valid_ = false;
+    flow_del_log_valid_ = false;
+}

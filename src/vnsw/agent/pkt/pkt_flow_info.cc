@@ -1628,9 +1628,12 @@ void PktFlowInfo::UpdateEvictedFlowStats(const PktInfo *pkt) {
 
     /* Enqueue stats update request with UUID of the flow */
     if (flow.get() && flow->deleted() == false) {
+        PreviousFlowVnInfo prev_vn = PreviousFlowVnInfo(flow->uuid(),
+                                                   flow->data().source_vn_match,
+                                                   flow->data().dest_vn_match);
         mgr->FlowStatsUpdateEvent(flow.get(), pkt->agent_hdr.cmd_param_2,
                                   pkt->agent_hdr.cmd_param_3,
-                                  pkt->agent_hdr.cmd_param_4, flow->uuid());
+                                  pkt->agent_hdr.cmd_param_4, prev_vn);
     }
 }
 

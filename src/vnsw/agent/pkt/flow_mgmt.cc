@@ -133,6 +133,13 @@ void FlowMgmtManager::AddEvent(FlowEntry *flow) {
         req = new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW, flow);
         flow->set_flow_mgmt_request(req);
         request_queue_.Enqueue(FlowMgmtRequestPtr(req));
+    } else {
+        const PreviousFlowVnInfo& prev_vn = req->prev_flow_vn_info();
+        if (!prev_vn.is_valid_) {
+            PreviousFlowVnInfo new_obj;
+            flow->FillPreviousFlowVnInfo(&new_obj);
+            req->set_prev_flow_vn_info(new_obj);
+        }
     }
 }
 
@@ -146,6 +153,13 @@ void FlowMgmtManager::DeleteEvent(FlowEntry *flow,
         req = new FlowMgmtRequest(FlowMgmtRequest::UPDATE_FLOW, flow);
         flow->set_flow_mgmt_request(req);
         request_queue_.Enqueue(FlowMgmtRequestPtr(req));
+    } else {
+        const PreviousFlowVnInfo& prev_vn = req->prev_flow_vn_info();
+        if (!prev_vn.is_valid_) {
+            PreviousFlowVnInfo new_obj;
+            flow->FillPreviousFlowVnInfo(&new_obj);
+            req->set_prev_flow_vn_info(new_obj);
+        }
     }
 
     req->set_params(params);
@@ -154,7 +168,7 @@ void FlowMgmtManager::DeleteEvent(FlowEntry *flow,
 void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
                                            uint32_t packets,
                                            uint32_t oflow_bytes,
-                                           const boost::uuids::uuid &u) {
+                                           const PreviousFlowVnInfo &prev_vn) {
     if (bytes == 0 && packets == 0 && oflow_bytes == 0) {
         return;
     }
@@ -165,7 +179,7 @@ void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
     }
     FlowMgmtRequestPtr req(new FlowMgmtRequest
                            (FlowMgmtRequest::UPDATE_FLOW_STATS, flow,
-                            bytes, packets, oflow_bytes, u));
+                            bytes, packets, oflow_bytes, prev_vn));
     request_queue_.Enqueue(req);
 }
 
@@ -439,14 +453,15 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
         }
 
         // Update flow-mgmt information based on flow-state
-        if (req->flow()->deleted() == false) {
+        if (flow->deleted() == false) {
             FlowMgmtRequestPtr log_req(new FlowMgmtRequest
                                        (FlowMgmtRequest::ADD_FLOW,
                                         req->flow().get()));
             log_queue_->Enqueue(log_req);
 
             //Enqueue Add request to flow-stats-collector
-            agent_->flow_stats_manager()->AddEvent(req->flow());
+            agent_->flow_stats_manager()->AddEvent(req->flow(),
+                                                   req->prev_flow_vn_info());
 
             //Enqueue Add request to UVE module for ACE stats
             EnqueueUveAddEvent(flow);
@@ -456,11 +471,13 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
         } else {
             FlowMgmtRequestPtr log_req(new FlowMgmtRequest
                                        (FlowMgmtRequest::DELETE_FLOW,
-                                        req->flow().get(), req->params()));
+                                        req->flow().get()));
             log_queue_->Enqueue(log_req);
 
             //Enqueue Delete request to flow-stats-collector
-            agent_->flow_stats_manager()->DeleteEvent(flow, req->params());
+            agent_->flow_stats_manager()->DeleteEvent(flow,
+                                                      req->prev_flow_vn_info(),
+                                                      req->params());
 
             //Enqueue Delete request to UVE module for ACE stats
             EnqueueUveDeleteEvent(flow);
@@ -473,7 +490,7 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
     case FlowMgmtRequest::UPDATE_FLOW_STATS: {
         //Handle Flow stats update for flow-mgmt
         UpdateFlowStats(req->flow(), req->bytes(), req->packets(),
-                        req->oflow_bytes(), req->flow_uuid());
+                        req->oflow_bytes(), req->prev_flow_vn_info());
         break;
     }
 
@@ -689,10 +706,10 @@ void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow,
 
 void FlowMgmtManager::UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes,
                                       uint32_t packets, uint32_t oflow_bytes,
-                                      const boost::uuids::uuid &u) {
+                                      const PreviousFlowVnInfo &prev_vn) {
     //Enqueue Flow Index Update Event request to flow-stats-collector
     agent_->flow_stats_manager()->UpdateStatsEvent(flow, bytes, packets,
-                                                   oflow_bytes, u);
+                                                   oflow_bytes, prev_vn);
 }
 
 bool FlowMgmtManager::HasVrfFlows(uint32_t vrf_id) {

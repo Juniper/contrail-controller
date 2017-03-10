@@ -141,8 +141,9 @@ public:
     void UpdateFloatingIpStats(const FlowEntry *flow, uint64_t bytes,
                                uint64_t pkts);
     void Shutdown();
-    void AddEvent(const FlowEntryPtr &flow);
-    void DeleteEvent(const FlowEntryPtr &flow, const RevFlowDepParams &params);
+    void AddEvent(const FlowEntryPtr &flow, const PreviousFlowVnInfo &prev_vn);
+    void DeleteEvent(const FlowEntryPtr &flow, const PreviousFlowVnInfo &prev_vn
+                     , const RevFlowDepParams &params);
     void SourceIpOverride(FlowExportInfo *info, FlowLogData &s_flow,
                           const RevFlowDepParams *params);
     void SetImplicitFlowDetails(FlowExportInfo *info, FlowLogData &s_flow,
@@ -158,7 +159,7 @@ public:
                                uint64_t bytes, uint64_t pkts);
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
                           uint32_t packets, uint32_t oflow_bytes,
-                          const boost::uuids::uuid &u);
+                          const PreviousFlowVnInfo &prev_vn);
     size_t Size() const { return flow_tree_.size(); }
     size_t AgeTreeSize() const { return flow_export_info_list_.size(); }
     void NewFlow(FlowEntry *flow);
@@ -191,10 +192,11 @@ private:
     uint32_t TimersPerScan();
     void UpdateEntriesToVisit();
     void UpdateStatsAndExportFlow(FlowExportInfo *info, uint64_t teardown_time,
+                                  const PreviousFlowVnInfo &prev_vn,
                                   const RevFlowDepParams *params);
     void EvictedFlowStatsUpdate(const FlowEntryPtr &flow, uint32_t bytes,
                                 uint32_t packets, uint32_t oflow_bytes,
-                                const boost::uuids::uuid &u);
+                                const PreviousFlowVnInfo &prev_vn);
     void UpdateAndExportInternal(FlowExportInfo *info,
                                  uint32_t bytes,
                                  uint16_t oflow_bytes,
@@ -247,7 +249,7 @@ private:
     bool RequestHandler(boost::shared_ptr<FlowExportReq> req);
     bool RequestHandlerEntry();
     void RequestHandlerExit(bool done);
-    void AddFlow(FlowExportInfo info);
+    void AddFlow(FlowExportInfo info, const PreviousFlowVnInfo &prev_vn);
     void DeleteFlow(FlowEntryTree::iterator &it);
     void UpdateFlowIterationKey(const FlowEntry *del_flow,
                                 FlowEntryTree::iterator &tree_it);

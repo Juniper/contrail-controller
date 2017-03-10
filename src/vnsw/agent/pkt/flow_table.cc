@@ -730,11 +730,13 @@ void FlowTable::ProcessKSyncFlowEvent(const FlowEventKSync *req,
         FlowEntryPtr evicted_flow = imgr->FindByIndex(req->flow_handle());
         if (evicted_flow.get() && evicted_flow->deleted() == false) {
             FlowMgmtManager *mgr = agent()->pkt()->flow_mgmt_manager(table_index_);
+            PreviousFlowVnInfo prev_vn = PreviousFlowVnInfo(evicted_flow->uuid(),
+                                           evicted_flow->data().source_vn_match,
+                                           evicted_flow->data().dest_vn_match);
             mgr->FlowStatsUpdateEvent(evicted_flow.get(),
                                       req->evict_flow_bytes(),
                                       req->evict_flow_packets(),
-                                      req->evict_flow_oflow(),
-                                      evicted_flow->uuid());
+                                      req->evict_flow_oflow(), prev_vn);
         }
     }
 

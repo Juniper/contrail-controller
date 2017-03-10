@@ -67,6 +67,25 @@ public:
     }
     void CopyFlowInfo(FlowEntry *fe);
     void ResetStats();
+    const PreviousFlowVnInfo &prev_flow_vn_info() const {
+        return prev_flow_vn_info_;
+    }
+    void set_prev_flow_vn_info(const PreviousFlowVnInfo &info) {
+        prev_flow_vn_info_ = info;
+    }
+    const std::string &last_exported_source_vn() const {
+        return last_exported_source_vn_;
+    }
+    const std::string &last_exported_dest_vn() const {
+        return last_exported_dest_vn_;
+    }
+    void set_last_exported_source_vn(const std::string &svn) {
+        last_exported_source_vn_ = svn;
+    }
+    void set_last_exported_dest_vn(const std::string &dvn) {
+        last_exported_dest_vn_ = dvn;
+    }
+
 private:
     FlowEntryPtr flow_;
     uint64_t setup_time_;
@@ -90,6 +109,9 @@ private:
     boost::uuids::uuid uuid_;
     boost::uuids::uuid rev_flow_egress_uuid_;
     uint32_t flags_;
+    PreviousFlowVnInfo prev_flow_vn_info_;
+    std::string last_exported_source_vn_;
+    std::string last_exported_dest_vn_;
 };
 
 typedef boost::intrusive::list<FlowExportInfo> FlowExportInfoList;

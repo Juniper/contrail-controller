@@ -448,7 +448,6 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
         data_.in_vm_entry.Move(&rhs->data_.in_vm_entry);
         data_.out_vm_entry.Move(&rhs->data_.out_vm_entry);
     }
-    data_ = rhs->data_;
     flags_ = rhs->flags_;
     short_flow_reason_ = rhs->short_flow_reason_;
     sg_rule_uuid_ = rhs->sg_rule_uuid_;
@@ -463,9 +462,22 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     if (update == false) {
         gen_id_ = rhs->gen_id_;
         flow_handle_ = rhs->flow_handle_;
+        prev_vn_info_ = PreviousFlowVnInfo(uuid_, data_.source_vn_match,
+                                           data_.dest_vn_match);
         /* Flow Entry is being re-used. Generate a new UUID for it. */
         uuid_ = flow_table_->rand_gen();
         egress_uuid_ = flow_table_->rand_gen();
+    }
+    /* Copy data after taking backup of source_vn_match, dest_vn_match & uuid */
+    data_ = rhs->data_;
+}
+
+void FlowEntry::FillPreviousFlowVnInfo(PreviousFlowVnInfo *info) {
+    if (prev_vn_info_.is_valid_) {
+        *info = prev_vn_info_;
+        /* Reset the field after this is used, to avoid passing this field
+         * again in messages from FlowMgmt to FlowStatsManager */
+        prev_vn_info_.is_valid_ = false;
     }
 }
 

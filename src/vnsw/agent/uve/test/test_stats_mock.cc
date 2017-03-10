@@ -1066,6 +1066,58 @@ TEST_F(StatsTestMock, Underlay_3) {
     util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);
     client->WaitForIdle();
 }
+
+TEST_F(StatsTestMock, FlowReuse_1) {
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf5",
+                        flow0->id()),
+            {
+                new VerifyVn("vn5", "vn5"),
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(2U, flow_proto_->FlowCount());
+
+    FlowEntry *fe = flow[0].pkt_.FlowFetch();
+    EXPECT_TRUE(fe != NULL);
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(fe != NULL);
+
+    FlowStatsCollector *fsc = fe->fsc();
+    EXPECT_TRUE(fsc != NULL);
+    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>(fsc);
+    boost::uuids::uuid u = fe->uuid();
+    boost::uuids::uuid u_r = rfe->uuid();
+    boost::uuids::uuid u_e = fe->egress_uuid();
+    boost::uuids::uuid u_r_e = rfe->egress_uuid();
+    f->ResetLastSentLog();
+    client->WaitForIdle();
+    usleep(100000);
+    CreateFlow(flow, 1);
+    client->WaitForIdle();
+    fe = flow[0].pkt_.FlowFetch();
+    EXPECT_TRUE((u != fe->uuid()));
+
+    WAIT_FOR(1000, 10000, (f->flow_del_log_valid() == true));
+    FlowLogData flow_log = f->last_sent_flow_del_log();
+    EXPECT_TRUE((flow_log.get_flowuuid() == to_string(u)) ||
+                (flow_log.get_flowuuid() == to_string(u_r)) ||
+                (flow_log.get_flowuuid() == to_string(u_e)) ||
+                (flow_log.get_flowuuid() == to_string(u_r_e)));
+    EXPECT_TRUE((!flow_log.get_sourcevn().empty()));
+    EXPECT_TRUE((!flow_log.get_destvn().empty()));
+
+    DeleteFlow(flow, 1);
+    client->WaitForIdle();
+    EXPECT_EQ(0U, flow_proto_->FlowCount());
+    f->ResetLastSentLog();
+}
+
 #if 0
 TEST_F(StatsTestMock, FlowTcpClosedFlow) {
     VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");

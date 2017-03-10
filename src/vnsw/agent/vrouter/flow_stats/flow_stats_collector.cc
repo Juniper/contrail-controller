@@ -310,8 +310,9 @@ void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
 }
 
 void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
-                                                  uint64_t teardown_time,
-                                                  const RevFlowDepParams *p) {
+                                              uint64_t teardown_time,
+                                              const PreviousFlowVnInfo& prev_vn,
+                                              const RevFlowDepParams *p) {
     if (!info) {
         return;
     }
@@ -319,7 +320,23 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
     bool read_flow = true;
     if (info->uuid() != fe->uuid()) {
         /* If UUID for a flow has changed, don't read fields of FlowEntry while
-         * sending FlowExport message to collector */
+         * sending FlowExport message to collector as it points to different
+         * flow. Source VN and Destination VN required for exporting flows are
+         * picked from prev_flow_vn_info field of FlowExportInfo */
+        if (prev_vn.is_valid_) {
+            if (prev_vn.uuid_ != info->uuid()) {
+                assert(0);
+            }
+            info->set_prev_flow_vn_info(prev_vn);
+        } else {
+            /* We can be here in the following scenario.
+             * (1) Flow is marked for delete and enqueued to FlowMgmt. This
+             *     message will have PreviousFlowVnInfo.is_valid_ == false
+             * (2) FlowMgmt has enqueued the request to FlowStatsCollector
+             * (3) Delete marked flow is reused (Gets new UUID)
+             * (4) FlowStatsCollector processes this delete request
+             */
+        }
         read_flow = false;
     }
     KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
@@ -731,19 +748,21 @@ bool FlowStatsCollector::RunAgeingTask() {
 /////////////////////////////////////////////////////////////////////////////
 // Utility methods to enqueue events into work-queue
 /////////////////////////////////////////////////////////////////////////////
-void FlowStatsCollector::AddEvent(const FlowEntryPtr &flow) {
+void FlowStatsCollector::AddEvent(const FlowEntryPtr &flow,
+                                  const PreviousFlowVnInfo &prev_vn) {
     FlowExportInfo info(flow, GetCurrentTime());
     boost::shared_ptr<FlowExportReq>
-        req(new FlowExportReq(FlowExportReq::ADD_FLOW, info));
+        req(new FlowExportReq(FlowExportReq::ADD_FLOW, info, prev_vn));
     request_queue_.Enqueue(req);
 }
 
 void FlowStatsCollector::DeleteEvent(const FlowEntryPtr &flow,
+                                     const PreviousFlowVnInfo &prev_vn,
                                      const RevFlowDepParams &params) {
     FlowExportInfo info(flow);
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::DELETE_FLOW, info,
-                              GetCurrentTime(), params));
+                              GetCurrentTime(), prev_vn, params));
     request_queue_.Enqueue(req);
 }
 
@@ -751,11 +770,11 @@ void FlowStatsCollector::UpdateStatsEvent(const FlowEntryPtr &flow,
                                           uint32_t bytes,
                                           uint32_t packets,
                                           uint32_t oflow_bytes,
-                                          const boost::uuids::uuid &u) {
+                                          const PreviousFlowVnInfo &prev_vn) {
     FlowExportInfo info(flow);
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, info, bytes,
-                              packets, oflow_bytes, u));
+                              packets, oflow_bytes, prev_vn));
     request_queue_.Enqueue(req);
 }
 
@@ -793,7 +812,7 @@ void FlowStatsCollector::SourceIpOverride(FlowExportInfo *info,
     }
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
-    if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
+    if (info->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
         rflow) {
         const FlowKey *nat_key = &rflow->key();
         if (flow->key().src_addr != nat_key->dst_addr) {
@@ -972,7 +991,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
 
     FlowLogData &s_flow = msg_list_[GetFlowMsgIdx()];
 
-    s_flow.set_flowuuid(to_string(flow->uuid()));
+    s_flow.set_flowuuid(to_string(info->uuid()));
     s_flow.set_bytes(info->bytes());
     s_flow.set_packets(info->packets());
     s_flow.set_diff_bytes(diff_bytes);
@@ -983,15 +1002,30 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     }
     info->set_changed(false);
 
-    if (read_flow) {
+    s_flow.set_sourceip(flow->key().src_addr);
+    s_flow.set_destip(flow->key().dst_addr);
+    s_flow.set_protocol(flow->key().protocol);
+    s_flow.set_sport(flow->key().src_port);
+    s_flow.set_dport(flow->key().dst_port);
+    if (!read_flow) {
+        const PreviousFlowVnInfo &prev_vn = info->prev_flow_vn_info();
+        if (prev_vn.is_valid_) {
+            s_flow.set_sourcevn(prev_vn.source_vn_match_);
+            s_flow.set_destvn(prev_vn.dest_vn_match_);
+        } else {
+            s_flow.set_sourcevn(info->last_exported_source_vn());
+            s_flow.set_destvn(info->last_exported_dest_vn());
+        }
+    } else {
         s_flow.set_tcp_flags(info->tcp_flags());
-        s_flow.set_sourceip(flow->key().src_addr);
-        s_flow.set_destip(flow->key().dst_addr);
-        s_flow.set_protocol(flow->key().protocol);
-        s_flow.set_sport(flow->key().src_port);
-        s_flow.set_dport(flow->key().dst_port);
         s_flow.set_sourcevn(flow->data().source_vn_match);
         s_flow.set_destvn(flow->data().dest_vn_match);
+        /* Save the last exported Source VN and Destination VN for the flow
+         * This can be used during export of flow-delete messages when flow
+         * pointer is reused for different flow(detected by change of flow uuid)
+         */
+        info->set_last_exported_source_vn(flow->data().source_vn_match);
+        info->set_last_exported_dest_vn(flow->data().dest_vn_match);
         s_flow.set_vm(flow->data().vm_cfg_name);
         if (info->is_flags_set(FlowEntry::ReverseFlow)) {
             s_flow.set_forward_flow(false);
@@ -1032,8 +1066,8 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
         s_flow.set_direction_ing(1);
         if (read_flow) {
             s_flow.set_reverse_uuid(to_string(flow->egress_uuid()));
-            SourceIpOverride(info, s_flow, params);
         }
+        SourceIpOverride(info, s_flow, params);
         EnqueueFlowMsg();
 
         FlowLogData &s_flow2 = msg_list_[GetFlowMsgIdx()];
@@ -1063,9 +1097,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     } else {
         if (info->is_flags_set(FlowEntry::IngressDir)) {
             s_flow.set_direction_ing(1);
-            if (read_flow) {
-                SourceIpOverride(info, s_flow, params);
-            }
+            SourceIpOverride(info, s_flow, params);
         } else {
             s_flow.set_direction_ing(0);
         }
@@ -1175,11 +1207,12 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     const FlowExportInfo &info = req->info();
     FlowEntry *flow = info.flow();
     FlowEntry *rflow = info.reverse_flow();
+    const PreviousFlowVnInfo &prev_vn = req->prev_flow_vn_info();
     FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
 
     switch (req->event()) {
     case FlowExportReq::ADD_FLOW: {
-        AddFlow(req->info());
+        AddFlow(req->info(), prev_vn);
         break;
     }
 
@@ -1196,7 +1229,8 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
              * and export the flow. So delete handling for evicted flows need
              * not update stats and export flow */
             if (!info->teardown_time()) {
-                UpdateStatsAndExportFlow(info, req->time(), &req->params());
+                UpdateStatsAndExportFlow(info, req->time(), prev_vn,
+                                         &req->params());
             }
         }
         /* Remove the entry from our tree */
@@ -1206,7 +1240,7 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
 
     case FlowExportReq::UPDATE_FLOW_STATS: {
         EvictedFlowStatsUpdate(flow, req->bytes(), req->packets(),
-                               req->oflow_bytes(), req->uuid());
+                               req->oflow_bytes(), prev_vn);
         break;
     }
 
@@ -1282,7 +1316,8 @@ void FlowStatsCollector::NewFlow(FlowEntry *flow) {
     vmt->UpdateBitmap(vm, proto, sport, dport);
 }
 
-void FlowStatsCollector::AddFlow(FlowExportInfo info) {
+void FlowStatsCollector::AddFlow(FlowExportInfo info,
+                                 const PreviousFlowVnInfo& prev_vn) {
     /* Before inserting update the gen_id and flow_handle in FlowExportInfo.
      * Locks for accessing fields of flow are taken in calling function.
      */
@@ -1302,7 +1337,8 @@ void FlowStatsCollector::AddFlow(FlowExportInfo info) {
              * comes before this duplicate add.
              */
             if (!prev.teardown_time()) {
-                UpdateStatsAndExportFlow(&prev, info.setup_time(), NULL);
+                UpdateStatsAndExportFlow(&prev, info.setup_time(), prev_vn,
+                                         NULL);
             }
             /* After sending Delete to collector (if required), reset the stats
              */
@@ -1376,16 +1412,22 @@ void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
                                                 uint32_t bytes,
                                                 uint32_t packets,
                                                 uint32_t oflow_bytes,
-                                                const boost::uuids::uuid &u) {
+                                            const PreviousFlowVnInfo &prev_vn) {
     FlowExportInfo *info = FindFlowExportInfo(flow.get());
     if (info) {
+        assert(prev_vn.is_valid_);
         /* Ignore stats update request for Evicted flow, if we don't have
          * FlowEntry corresponding to the Evicted Flow. The match is done using
          * UUID
          */
-        if (info->uuid() != u) {
+        if (info->uuid() != prev_vn.uuid_) {
             return;
         }
+        /* Source VN and Destination VN required for exporting flows are
+         * picked from prev_flow_vn_info field of FlowExportInfo. FlowEntry
+         * pointer should not be read as it points to different Flow */
+        info->set_prev_flow_vn_info(prev_vn);
+
         /* We are updating stats of evicted flow. Set teardown_time here.
          * When delete event is being handled we don't export flow if
          * teardown time is set */

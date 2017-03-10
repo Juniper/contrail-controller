@@ -95,11 +95,12 @@ public:
     void Free(const FlowAgingTableKey &key);
 
     //Add flow entry to particular aging table
-    void AddEvent(FlowEntryPtr &flow);
-    void DeleteEvent(const FlowEntryPtr &flow, const RevFlowDepParams &params);
+    void AddEvent(FlowEntryPtr &flow, const PreviousFlowVnInfo &prev_vn);
+    void DeleteEvent(const FlowEntryPtr &flow, const PreviousFlowVnInfo &prev_vn
+                     , const RevFlowDepParams &params);
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
                           uint32_t packets, uint32_t oflow_bytes,
-                          const boost::uuids::uuid &u);
+                          const PreviousFlowVnInfo &prev_vn);
 
     void Init(uint64_t flow_stats_interval, uint64_t flow_cache_timeout);
     void InitDone();

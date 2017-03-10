@@ -72,6 +72,27 @@ struct RevFlowDepParams {
 };
 
 ////////////////////////////////////////////////////////////////////////////
+// This is helper struct to carry VN info of previous flow for reused FlowEntry
+// from flow-mgmt to FlowStatsCollector. FlowStatsCollector uses this info while
+// exporting flow delete messages for flow, since flow pointer would point to
+// new flow.
+////////////////////////////////////////////////////////////////////////////
+struct PreviousFlowVnInfo {
+    bool is_valid_;
+    boost::uuids::uuid uuid_;
+    std::string source_vn_match_;
+    std::string dest_vn_match_;
+    PreviousFlowVnInfo() : is_valid_(false), uuid_(), source_vn_match_(),
+                           dest_vn_match_() {
+    }
+    PreviousFlowVnInfo(const boost::uuids::uuid &u,
+                       const std::string &svn, const std::string &dvn) :
+                       is_valid_(true), uuid_(u), source_vn_match_(svn),
+                       dest_vn_match_(dvn) {
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////
 // Helper class to manage following,
 // 1. VM referred by the flow
 // 2. Per VM flow counters to apply per-vm flow limits
@@ -670,6 +691,7 @@ class FlowEntry {
     void set_flow_mgmt_info(FlowEntryInfo *info) {
         flow_mgmt_info_.reset(info);
     }
+    void FillPreviousFlowVnInfo(PreviousFlowVnInfo *info);
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -746,6 +768,7 @@ private:
     // Field used by flow-mgmt module. Its stored here to optimize flow-mgmt
     // and avoid lookups
     FlowMgmtEntryInfoPtr flow_mgmt_info_;
+    PreviousFlowVnInfo prev_vn_info_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };
