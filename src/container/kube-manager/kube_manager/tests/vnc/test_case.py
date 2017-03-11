@@ -30,11 +30,11 @@ class KMTestCase(test_common.TestCase):
 
     def setUp(self, extra_config_knobs=None):
         super(KMTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
-        #self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
-        #    self.id(), self._api_server_ip, self._api_server_port)
+        self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
+            self.id(), self._api_server_ip, self._api_server_port)
 
-        #self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-        #    self.id(), self._api_server_ip, self._api_server_port, extra_config_knobs)
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+            self.id(), self._api_server_ip, self._api_server_port, extra_config_knobs)
 
         kube_config = [
             ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
@@ -49,8 +49,9 @@ class KMTestCase(test_common.TestCase):
             self.id(), kube_config, True, self.event_queue)
 
     def tearDown(self):
-        #test_common.kill_svc_monitor(self._svc_mon_greenlet)
-        #test_common.kill_schema_transformer(self._st_greenlet)
+        test_common.kill_svc_monitor(self._svc_mon_greenlet)
+        test_common.kill_schema_transformer(self._st_greenlet)
+        test_common.kill_kube_manager(self._km_greenlet)
         super(KMTestCase, self).tearDown()
 
     def enqueue_event(self, event):

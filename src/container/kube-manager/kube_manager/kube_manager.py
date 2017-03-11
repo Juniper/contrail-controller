@@ -103,6 +103,10 @@ class KubeNetworkManager(object):
         greenlets.append(gevent.spawn(self.launch_timer))
         gevent.joinall(greenlets)
 
+    def reset(self):
+        for cls in DBBaseST.get_obj_type_map().values():
+            cls.reset()
+
 def main(args_str=None, kube_api_skip=False, event_queue=None):
     args = kube_args.parse_args(args_str)
     kube_nw_mgr = KubeNetworkManager(args,kube_api_connected=kube_api_skip, queue=event_queue)

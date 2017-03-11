@@ -15,7 +15,6 @@ bitstring
 pycassa>=1.7.2
 sandesh
 sandesh_common
-discoveryclient
 kazoo
 flexmock
 lxml
