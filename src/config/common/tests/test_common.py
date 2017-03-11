@@ -333,6 +333,10 @@ def kill_schema_transformer(glet):
     glet.kill()
     to_bgp.transformer.reset()
 
+def kill_kube_manager(glet):
+    glet.kill()
+    #kube_manager.reset()
+
 def reinit_schema_transformer():
     to_bgp.transformer.reinit()
 
