@@ -6,13 +6,14 @@ PROJECT = 'ContrailConfigCli'
 
 VERSION = '0.1'
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 from entry_points import entry_points_dict
 
 setup( name=PROJECT,
         version=VERSION,
         description='Contrail Config Command Line Interface',
+        packages=find_packages(),
         platforms=['Any'],
         install_requires=['cliff'],
         entry_points=entry_points_dict,
