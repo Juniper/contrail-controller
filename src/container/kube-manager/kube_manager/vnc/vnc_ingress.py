@@ -18,9 +18,11 @@ from kube_manager.vnc.loadbalancer import ServiceLbListenerManager
 from kube_manager.vnc.loadbalancer import ServiceLbPoolManager
 from kube_manager.vnc.loadbalancer import ServiceLbMemberManager
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_common import VncCommon
 
-class VncIngress(object):
+class VncIngress(VncCommon):
     def __init__(self):
+        super(VncIngress,self).__init__('Ingress')
         self._name = type(self).__name__
         self._args = vnc_kube_config.args()
         self._queue = vnc_kube_config.queue()
@@ -38,7 +40,7 @@ class VncIngress(object):
         return NamespaceKM.find_by_name_or_uuid(ns_name)
 
     def _get_project(self, ns_name):
-        proj_fq_name = ['default-domain', ns_name]
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(ns_name)
         try:
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         except NoIdError:
@@ -53,7 +55,9 @@ class VncIngress(object):
         else:
             if self._default_vn_obj:
                 return self._default_vn_obj
-            vn_fq_name = ['default-domain', 'default', 'cluster-network']
+            proj_fq_name = vnc_kube_config.cluster_default_project_fq_name()
+            vn_fq_name = proj_fq_name +\
+                [vnc_kube_config.cluster_default_network_name()]
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         except NoIdError:
@@ -75,8 +79,9 @@ class VncIngress(object):
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
             return self._fip_pool_obj
-        fip_pool_fq_name = ['default-domain', 'default',
-                            self._args.public_network_name,
+        def_proj_fq_name = vnc_kube_config.cluster_default_project_fq_name()
+        fip_pool_fq_name = def_proj_fq_name + \
+                           [self._args.public_network_name,
                             self._args.public_fip_pool_name]
         try:
             fip_pool_obj = self._vnc_lib. \
@@ -169,7 +174,7 @@ class VncIngress(object):
         annotations['device_owner'] = 'K8S:INGRESS'
         pod_ipam_subnet_uuid = self._get_pod_ipam_subnet_uuid(vn_obj)
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj,
-                            uid, lb_name, proj_obj, vip_address,
+                            ns_name, uid, lb_name, proj_obj, vip_address,
                             pod_ipam_subnet_uuid, annotations=annotations)
         if lb_obj:
             vip_info = {}

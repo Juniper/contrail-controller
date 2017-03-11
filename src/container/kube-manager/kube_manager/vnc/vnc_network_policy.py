@@ -11,10 +11,12 @@ import uuid
 from vnc_api.vnc_api import *
 from config_db import *
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_common import VncCommon
 
-class VncNetworkPolicy(object):
+class VncNetworkPolicy(VncCommon):
 
     def __init__(self):
+        super(VncNetworkPolicy,self).__init__('NetworkPolicy')
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
@@ -64,7 +66,7 @@ class VncNetworkPolicy(object):
             if self._find_pods(sg.src_pod_selector, {pod_id}):
                 sg_name = 'from-' + sg.name
                 sg_fq_name = ":".join(sg.fq_name[:-1]) + ":" + sg_name
-                sg_id = SecurityGroupKM.get_fq_name_to_uuid(sg_fq_name)
+                sg_id = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
                 if sg_id:
                     self._sg_2_pod_link(pod_id, sg_id, 'ADD', False)
 
@@ -124,7 +126,7 @@ class VncNetworkPolicy(object):
                     continue
                 sg_name = 'from-' + sg.name
                 sg_fq_name = [sg.fq_name[0], sg.fq_name[1], sg_name]
-                sg_id = SecurityGroupKM.get_fq_name_to_uuid(src_sg_fq_name)
+                sg_id = SecurityGroupKM.get_kube_fq_name_to_uuid(src_sg_fq_name)
                 if sg_id:
                     self._sg_2_pod_link(pod_id, sg_id, 'DELETE', False)
 
@@ -158,7 +160,7 @@ class VncNetworkPolicy(object):
                     continue
                 sg_name = 'from-' + sg.name
                 sg_fq_name = [sg.fq_name[0], sg.fq_name[1], sg_name]
-                sg_id = SecurityGroupKM.get_fq_name_to_uuid(src_sg_fq_name)
+                sg_id = SecurityGroupKM.get_kube_fq_name_to_uuid(src_sg_fq_name)
                 if sg_id:
                     self._sg_2_pod_link(pod_id, sg_id, 'DELETE', False)
 
@@ -219,7 +221,7 @@ class VncNetworkPolicy(object):
 
         if toggle_default_sg:
             sg_fq_name = ['default-domain', vmi.fq_name[-2], 'default']
-            sg_uuid = SecurityGroupKM.get_fq_name_to_uuid(sg_fq_name)
+            sg_uuid = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
             sg = SecurityGroupKM.get(sg_uuid)
             try:
                 self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
@@ -307,7 +309,7 @@ class VncNetworkPolicy(object):
         name = event['object']['metadata'].get('name')
         namespace = event['object']['metadata'].get('namespace')
         sg_fq_name = ['default-domain', namespace, name]
-        sg_uuid = SecurityGroupKM.get_fq_name_to_uuid(sg_fq_name)
+        sg_uuid = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
         if sg_uuid != uuid:
             self.vnc_network_policy_delete(event, sg_uuid)
 
@@ -316,7 +318,7 @@ class VncNetworkPolicy(object):
         src_sg_name = 'from-' + name
         namespace = event['object']['metadata'].get('namespace')
         sg_fq_name = ['default-domain', namespace, src_sg_name]
-        sg_uuid = SecurityGroupKM.get_fq_name_to_uuid(sg_fq_name)
+        sg_uuid = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
         if not sg_uuid:
             sg = self._create_sg(event, src_sg_name)
         else:
@@ -355,7 +357,7 @@ class VncNetworkPolicy(object):
 
         sg_name = 'from-' + sg.name
         sg_fq_name = [sg.fq_name[0], sg.fq_name[1], sg_name]
-        sg_id = SecurityGroupKM.get_fq_name_to_uuid(sg_fq_name)
+        sg_id = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
         src_sg = SecurityGroupKM.get(sg_id)
         if src_sg:
             for vmi_id in list(src_sg.virtual_machine_interfaces):

@@ -14,6 +14,10 @@ class VncKubernetesConfig(object):
         VncKubernetesConfig.vnc_kubernetes_config = kwargs
 
     @classmethod
+    def update(cls, **kwargs):
+        VncKubernetesConfig.vnc_kubernetes_config.update(kwargs)
+
+    @classmethod
     def logger(cls):
         return cls.vnc_kubernetes_config.get("logger", None)
 
@@ -44,3 +48,41 @@ class VncKubernetesConfig(object):
     @classmethod
     def service_fip_pool(cls):
         return cls.vnc_kubernetes_config.get("cluster_service_fip_pool", None)
+
+    @classmethod
+    def cluster_owner(cls):
+        return cls.args().kubernetes_cluster_owner
+
+    @classmethod
+    def cluster_name(cls):
+        return cls.args().cluster_name
+
+    @classmethod
+    def cluster_domain(cls):
+        return cls.args().kubernetes_cluster_domain
+
+    @classmethod
+    def cluster_project_name(cls, namespace):
+        args = cls.args()
+        if args.cluster_project:
+            return args.cluster_project
+        return namespace
+
+    @classmethod
+    def cluster_project_fq_name(cls, namespace):
+        return [cls.cluster_domain(), cls.cluster_project_name(namespace)]
+
+    @classmethod
+    def cluster_default_project_name(cls):
+        args = cls.args()
+        if args.cluster_project:
+            return args.cluster_project
+        return "default"
+
+    @classmethod
+    def cluster_default_project_fq_name(cls):
+        return [cls.cluster_domain(), cls.cluster_default_project_name()]
+
+    @classmethod
+    def cluster_default_network_name(cls):
+        return "cluster-network"

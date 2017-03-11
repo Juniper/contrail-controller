@@ -12,10 +12,12 @@ from vnc_api.vnc_api import *
 from config_db import *
 from kube_manager.common.kube_config_db import NamespaceKM
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_common import VncCommon
 
-class VncNamespace(object):
+class VncNamespace(VncCommon):
 
     def __init__(self):
+        super(VncNamespace,self).__init__('Namespace')
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._logger = vnc_kube_config.logger()
@@ -95,7 +97,6 @@ class VncNamespace(object):
         vn = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
             address_allocation_mode='flat-subnet-only')
-
         try:
             vn_uuid = self._vnc_lib.virtual_network_create(vn)
         except RefsExistError:
@@ -198,9 +199,10 @@ class VncNamespace(object):
         DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
         id_perms = IdPermsType(enable=True,
                                description=DEFAULT_SECGROUP_DESCRIPTION)
-        sg_obj = SecurityGroup(name='default', parent_obj=proj_obj,
-                               id_perms=id_perms,
-                               security_group_entries=sg_rules)
+        sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name,
+            'default'])
+        sg_obj = SecurityGroup(name=sg_name, parent_obj=proj_obj,
+            id_perms=id_perms, security_group_entries=sg_rules)
         self._vnc_lib.security_group_create(sg_obj)
         self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
 
@@ -208,7 +210,7 @@ class VncNamespace(object):
         NAMESPACE_SECGROUP_DESCRIPTION = "Namespace security group"
         id_perms = IdPermsType(enable=True,
                                description=NAMESPACE_SECGROUP_DESCRIPTION)
-        ns_sg_name = "ns-" + ns_name
+        ns_sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'sg'])
         sg_obj = SecurityGroup(name=ns_sg_name, parent_obj=proj_obj,
                                id_perms=id_perms,
                                security_group_entries=None)
@@ -216,8 +218,8 @@ class VncNamespace(object):
         self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
 
     def vnc_namespace_add(self, namespace_id, name, annotations):
-        proj_fq_name = ['default-domain', name]
-        proj_obj = Project(name=name, fq_name=proj_fq_name)
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
+        proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name)
 
         try:
             self._vnc_lib.project_create(proj_obj)
@@ -225,9 +227,6 @@ class VncNamespace(object):
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
         try:
-            security_groups = proj_obj.get_security_groups()
-            for sg in security_groups or []:
-                self._vnc_lib.security_group_delete(id=sg['uuid'])
             network_policy = None
             if annotations and \
                'net.beta.kubernetes.io/network-policy' in annotations:
@@ -247,23 +246,7 @@ class VncNamespace(object):
         return proj_obj
 
     def vnc_namespace_delete(self,namespace_id,  name):
-        proj_fq_name = ['default-domain', name]
-        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        try:
-            # If the namespace is isolated, delete its virtual network.
-            if self._is_namespace_isolated(name) == True:
-                self._delete_virtual_network(vn_name=name, proj=proj_obj)
-            # delete all security groups
-            security_groups = proj_obj.get_security_groups()
-            for sg in security_groups or []:
-                self._vnc_lib.security_group_delete(id=sg['uuid'])
-            self._vnc_lib.project_delete(id=proj_obj.uuid)
-            self._delete_namespace(name)
-        except NoIdError:
-            pass
-
-    def vnc_namespace_delete(self,namespace_id,  name):
-        proj_fq_name = ['default-domain', name]
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         try:
             # If the namespace is isolated, delete its virtual network.
@@ -274,7 +257,7 @@ class VncNamespace(object):
             for sg in security_groups or []:
                 self._vnc_lib.security_group_delete(id=sg['uuid'])
             # delete the project
-            self._vnc_lib.project_delete(fq_name=['default-domain', name])
+            self._vnc_lib.project_delete(fq_name=proj_fq_name)
             # delete the namespace
             self._delete_namespace(name)
         except NoIdError:
