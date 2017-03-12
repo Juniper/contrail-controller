@@ -124,7 +124,11 @@ class ServiceLbManager(VncCommon):
                         fip_ids = ip.floating_ips.copy()
                         for fip_id in fip_ids:
                             # Delete vmi-->instance-ip-->floating-ip
-                            self._vnc_lib.floating_ip_delete(id=fip_id)
+                            try:
+                                self._vnc_lib.floating_ip_delete(id=fip_id)
+                            except NoIdError:
+                                # deleted by svc-monitor
+                                pass
 
                         # Delete vmi-->instance-ip
                         self._vnc_lib.instance_ip_delete(id=ip_id)
