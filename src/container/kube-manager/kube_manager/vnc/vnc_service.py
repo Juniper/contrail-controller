@@ -253,8 +253,8 @@ class VncService(VncCommon):
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
             self.logger.warning("public_fip_pool [%s, %s] doesn't exists" %
-                                 (self.config.public_network_name,
-                                 self.config.public_fip_pool_name))
+                                 (self._args.public_network_name,
+                                 self._args.public_fip_pool_name))
             return None
 
         fip_obj = FloatingIp(lb.name + "-externalIP", fip_pool)
