@@ -1586,9 +1586,10 @@ void BgpPeer::ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
         PrefixT prefix;
         BgpAttrPtr new_attr(attr);
         uint32_t label = 0;
+        uint32_t l3_label = 0;
         int result = PrefixT::FromProtoPrefix(server_, **it,
             (oper == DBRequest::DB_ENTRY_ADD_CHANGE ? attr.get() : NULL),
-            &prefix, &new_attr, &label);
+            &prefix, &new_attr, &label, &l3_label);
         if (result) {
             BGP_LOG_PEER_WARNING(Message, this,
                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,

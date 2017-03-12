@@ -37,7 +37,8 @@ public:
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
                                const BgpAttr *attr, Inet6Prefix *prefix,
-                               BgpAttrPtr *new_attr, uint32_t *label);
+                               BgpAttrPtr *new_attr, uint32_t *label,
+                               uint32_t *l3_label);
     static Inet6Prefix FromString(const std::string &str,
                                   boost::system::error_code *errorp = NULL);
     std::string ToString() const;
@@ -82,7 +83,8 @@ public:
 
     virtual void BuildProtoPrefix(BgpProtoPrefix *prefix,
                                   const BgpAttr *attr = NULL,
-                                  uint32_t label = 0) const;
+                                  uint32_t label = 0,
+                                  uint32_t l3_label = 0) const;
     virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
                                       IpAddress nexthop) const;
 

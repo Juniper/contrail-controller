@@ -28,7 +28,8 @@ public:
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
                                const BgpAttr *attr, Inet6VpnPrefix *prefix,
-                               BgpAttrPtr *new_attr, uint32_t *label);
+                               BgpAttrPtr *new_attr, uint32_t *label,
+                               uint32_t *l3_label);
     static Inet6VpnPrefix FromString(const std::string &str,
                                      boost::system::error_code *errorp = NULL);
 
@@ -64,8 +65,8 @@ public:
 
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
-    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix, const BgpAttr*,
-                                  uint32_t label) const;
+    virtual void BuildProtoPrefix(BgpProtoPrefix *prefix, const BgpAttr *attr,
+                                  uint32_t label, uint32_t l3_label = 0) const;
     virtual void BuildBgpProtoNextHop(std::vector<uint8_t> &nh,
                                       IpAddress nexthop) const;
 

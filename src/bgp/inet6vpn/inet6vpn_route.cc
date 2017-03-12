@@ -45,7 +45,8 @@ int Inet6VpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
 int Inet6VpnPrefix::FromProtoPrefix(BgpServer *server,
                                     const BgpProtoPrefix &proto_prefix,
                                     const BgpAttr *attr, Inet6VpnPrefix *prefix,
-                                    BgpAttrPtr *new_attr, uint32_t *label) {
+                                    BgpAttrPtr *new_attr, uint32_t *label,
+                                    uint32_t *l3_label) {
     return FromProtoPrefix(proto_prefix, prefix, label);
 }
 
@@ -174,7 +175,8 @@ void Inet6VpnRoute::SetKey(const DBRequestKey *reqkey) {
 
 void Inet6VpnRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
                                      const BgpAttr*,
-                                    uint32_t label) const {
+                                    uint32_t label,
+                                    uint32_t l3_label) const {
     prefix_.BuildProtoPrefix(label, prefix);
 }
 
