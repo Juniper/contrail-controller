@@ -60,8 +60,9 @@ void VnUveEntry::UpdateInterVnStats(const string &dst_vn, uint64_t bytes,
     }
 }
 
+/* Remove all the elements of map entry value which is a set */
 void VnUveEntry::ClearInterVnStats() {
-    /* Remove all the elements of map entry value which is a set */
+    tbb::mutex::scoped_lock lock(mutex_);
     VnStatsSet::iterator stats_it = inter_vn_stats_.begin();
     VnStatsSet::iterator del_it;
     while(stats_it != inter_vn_stats_.end()) {
