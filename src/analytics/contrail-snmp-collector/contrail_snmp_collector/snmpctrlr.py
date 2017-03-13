@@ -13,6 +13,8 @@ import ConfigParser
 import signal
 import random
 import hashlib
+from sandesh.snmp_collector_info.ttypes import SnmpCollectorInfo, \
+    SnmpCollectorUVE
 
 class MaxNinTtime(object):
     def __init__(self, n, t, default=0):
@@ -54,6 +56,7 @@ class Controller(object):
              self._config.random_collectors = random.sample(self._config.collectors(), \
                                                             len(self._config.collectors()))
         self.uve = SnmpUve(self._config)
+        self._hostname = socket.gethostname()
         self._logger = self.uve.logger()
         self.sleep_time()
         self._keep_running = True
@@ -64,6 +67,9 @@ class Controller(object):
         self._state = 'full_scan' # replace it w/ fsm
         self._if_data = None # replace it w/ fsm
         self._cleanup = None
+        self._members = None
+        self._partitions = None
+        self._prouters = None
 
     def _make_if_cdata(self, data):
         if_cdata = {}
@@ -228,6 +234,22 @@ class Controller(object):
                 self.find_fix_name(data['name'], dev)
         self._logger.debug('@send_uve:Processed %d!' % (len(d)))
 
+    def _send_snmp_collector_uve(self, members, partitions, prouters):
+        snmp_collector_info = SnmpCollectorInfo()
+        if self._members != members:
+            self._members = members
+            snmp_collector_info.members = members
+        if self._partitions != partitions:
+            self._partitions = partitions
+            snmp_collector_info.partitions = partitions
+        if self._prouters != prouters:
+            self._prouters = prouters
+            snmp_collector_info.prouters = prouters
+        if snmp_collector_info != SnmpCollectorInfo():
+            snmp_collector_info.name = self._hostname
+            SnmpCollectorUVE(data=snmp_collector_info).send()
+    # end _send_snmp_collector_uve
+
     def _del_uves(self, l):
         with self._sem:
             for dev in l:
@@ -300,10 +322,12 @@ class Controller(object):
         while self._keep_running:
             self._logger.debug('@run: ittr(%d)' % i)
             if constnt_schdlr.schedule(self._config.devices()):
+                members = constnt_schdlr.members()
+                partitions = constnt_schdlr.partitions()
+                prouters = map(lambda x: x.name, constnt_schdlr.work_items())
+                self._send_snmp_collector_uve(members, partitions, prouters)
                 sleep_time = self.do_work(i, constnt_schdlr.work_items())
-                self._logger.debug('done work %s' % str(
-                            map(lambda x: x.name,
-                            constnt_schdlr.work_items())))
+                self._logger.debug('done work %s' % str(prouters))
                 i += 1
                 gevent.sleep(sleep_time)
             else:
