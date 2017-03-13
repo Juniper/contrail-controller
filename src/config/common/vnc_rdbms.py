@@ -1520,10 +1520,12 @@ class VncRDBMSClient(object):
                 max_alloc=self._MAX_SUBNET_ADDR_ALLOC/alloc_unit)
     # end create_subnet_allocator
 
-    def delete_subnet_allocator(self, subnet):
-        self._subnet_allocators.pop(subnet, None)
-        RDBMSIndexAllocator.delete_all(self.db,
-                                  self._subnet_path+'/'+subnet+'/')
+    def delete_subnet_allocator(self, subnet, notify=True):
+        if subnet in self._subnet_allocators:
+            self._subnet_allocators.pop(subnet, None)
+        if not notify:
+            RDBMSIndexAllocator.delete_all(self.db,
+                    self._subnet_path+'/'+subnet+'/')
     # end delete_subnet_allocator
 
     def _get_subnet_allocator(self, subnet):
