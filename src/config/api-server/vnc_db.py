@@ -489,6 +489,7 @@ class VncZkClient(object):
                                 addr_from_start, should_persist,
                                 start_subnet, size, alloc_unit):
         # TODO handle subnet resizing change, ignore for now
+
         if subnet not in self._subnet_allocators:
             if addr_from_start is None:
                 addr_from_start = False
@@ -501,10 +502,12 @@ class VncZkClient(object):
                 max_alloc=self._MAX_SUBNET_ADDR_ALLOC/alloc_unit)
     # end create_subnet_allocator
 
-    def delete_subnet_allocator(self, subnet):
-        self._subnet_allocators.pop(subnet, None)
-        IndexAllocator.delete_all(self._zk_client,
-                                  self._subnet_path+'/'+subnet+'/')
+    def delete_subnet_allocator(self, subnet_name, notified=True):
+        if notified:
+            self._subnet_allocators.pop(subnet_name, None)
+        else:
+            IndexAllocator.delete_all(self._zk_client,
+                                   self._subnet_path+'/'+subnet_name+'/')
     # end delete_subnet_allocator
 
     def _get_subnet_allocator(self, subnet):
@@ -1310,8 +1313,8 @@ class VncDbClient(object):
                                should_persist, start_subnet, size, alloc_unit)
     # end subnet_create_allocator
 
-    def subnet_delete_allocator(self, subnet):
-        return self._zk_db.delete_subnet_allocator(subnet)
+    def subnet_delete_allocator(self, subnet, notified=True):
+        return self._zk_db.delete_subnet_allocator(subnet, notified)
     # end subnet_delete_allocator
 
     def uuid_vnlist(self):
