@@ -168,11 +168,11 @@ public:
     }
 
     bool PeerHasPendingInstanceMembershipRequests(BgpXmppChannel *channel) {
-        return (!channel->vrf_membership_request_map_.empty());
+        return (!channel->instance_membership_request_map_.empty());
     }
 
     bool PeerHasPendingMembershipRequests(BgpXmppChannel *channel) {
-        return (channel->routingtable_membership_request_map_.size() != 0);
+        return (channel->table_membership_request_map_.size() != 0);
     }
 
     bool PeerCloseIsDeferred(BgpXmppChannel *channel) {
