@@ -378,10 +378,15 @@ class Subnet(object):
     # end __init__
 
     @classmethod
-    def delete_cls(cls, subnet_name):
+    def delete_cls(cls, subnet_name, notified=True):
         # deletes the index allocator
-        cls._db_conn.subnet_delete_allocator(subnet_name)
+        cls._db_conn.subnet_delete_allocator(subnet_name, notified)
     # end delete_cls
+
+    @classmethod
+    def get_subnet_allocators(cls, vn_fq_name):
+        return cls._db_conn.vn_get_allocators(vn_fq_name)
+    # end get_subnet_allocators
 
     def get_name(self):
         return self._name
@@ -725,11 +730,7 @@ class AddrMgmt(object):
 
         del_subnet_names = db_subnet_names - req_subnet_names
         for subnet_name in del_subnet_names:
-            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
-            try:
-                del self._subnet_objs[vn_uuid][subnet_name]
-            except KeyError:
-                pass
+            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name), notified=False)
 
         # check db_subnet_dicts and req_subnet_dicts
         # following parameters are same for subnets present in both dicts
@@ -773,6 +774,19 @@ class AddrMgmt(object):
 
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
+
+        # Gets vn's subnets list
+        vn_list_subnets = self._vn_to_subnets(vn_dict) or []
+        # Creates subnet_fq_name
+        subnets_fq_names = ['%s:%s' % (vn_fq_name_str, prefix) for prefix in vn_list_subnets]
+        # Compares "vn_dict" data with data from zookeeper
+        subnet_allocators = Subnet.get_subnet_allocators(vn_fq_name_str)
+        for key in set(subnet_allocators.keys()) - set(subnets_fq_names):
+            if key not in subnets_fq_names:
+                Subnet.delete_cls(key)
+                subnet_name = key.split(':', 3)[-1] # extract subnet name
+                del self._subnet_objs[obj_id][subnet_name]
+
         self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False)
     # end net_update_notify
@@ -785,19 +799,18 @@ class AddrMgmt(object):
         subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
 
         for subnet_name in subnet_dicts:
-            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
+            Subnet.delete_cls(subnet_name, notified=False)
 
-        try:
-            del self._subnet_objs[vn_uuid]
-        except KeyError:
-            pass
     # end net_delete_req
 
     def net_delete_notify(self, obj_id, obj_dict):
-        try:
-            del self._subnet_objs[obj_id]
-        except KeyError:
-            pass
+        vn_fq_name = obj_dict['fq_name']
+        vn_fq_name_str = ':'.join(vn_fq_name)
+        subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
+
+        for subnet_name in subnet_dicts:
+            Subnet.delete_cls(subnet_name)
+        del self._subnet_objs[obj_id]
     # end net_delete_notify
 
     def _ipam_to_subnets(self, ipam_dict):
@@ -1686,8 +1699,8 @@ class AddrMgmt(object):
 
         if subnet_objs is None:
             subnet_objs = {}
-        for subnet_name in subnet_objs:
-            Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name))
+        Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name),
+                    notified=False)
         try:
             del self._subnet_objs[ipam_uuid]
         except KeyError:
@@ -1715,7 +1728,8 @@ class AddrMgmt(object):
 
         del_subnet_names = db_subnet_names - req_subnet_names
         for subnet_name in del_subnet_names:
-            Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name))
+            Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name),
+                    notified=False)
             try:
                 del self._subnet_objs[obj_uuid][subnet_name]
             except KeyError:
