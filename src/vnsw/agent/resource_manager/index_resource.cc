@@ -51,7 +51,7 @@ void IndexResourceTable::Release(uint32_t index) {
         resource_manager()->Release(key);
     }
 }
-
+// Allocate the Index resource data.
 ResourceTable::DataPtr IndexResourceTable::AllocateData(ResourceKeyPtr key) {
     uint32_t index = AllocateIndex(key);
     ResourceTable::DataPtr data(static_cast<ResourceData *>
@@ -59,24 +59,23 @@ ResourceTable::DataPtr IndexResourceTable::AllocateData(ResourceKeyPtr key) {
     return data;
 }
 
-
+// Restore resource Index.
 void IndexResourceTable::RestoreIndex(uint32_t index, ResourceKeyPtr key) {
     index_vector_.InsertAtIndex(index, key);
 }
 
 uint32_t IndexResourceTable::AllocateIndex(ResourceKeyPtr key) {
     //Get the index, populate resource data
-    //TODO pass if rollover or use the first free index.
     uint32_t index = index_vector_.AllocIndex(key);
     return index;
 }
-
+// Restore the Key and Index
 void IndexResourceTable::RestoreKey(KeyPtr key, DataPtr data) {
    IndexResourceData *index_data = static_cast<IndexResourceData *>(data.get());
    RestoreIndex(index_data->index(), key);
    InsertKey(key, data);
 }
-
+// Release the Key.
 void  IndexResourceTable::ReleaseKey(KeyPtr key, DataPtr data) {
    IndexResourceData *index_data = static_cast<IndexResourceData *>(data.get());
    ReleaseIndex(index_data->index());
