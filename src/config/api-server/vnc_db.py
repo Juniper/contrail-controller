@@ -459,6 +459,7 @@ class VncZkClient(object):
                                 addr_from_start, should_persist,
                                 start_subnet, size, alloc_unit):
         # TODO handle subnet resizing change, ignore for now
+
         if subnet not in self._subnet_allocators:
             if addr_from_start is None:
                 addr_from_start = False
@@ -472,9 +473,11 @@ class VncZkClient(object):
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet):
-        self._subnet_allocators.pop(subnet, None)
+
+        if self._subnet_allocators[subnet]:
+            self._subnet_allocators.pop(subnet, None)
         IndexAllocator.delete_all(self._zk_client,
-                                  self._subnet_path+'/'+subnet+'/')
+                                   self._subnet_path+'/'+subnet+'/')
     # end delete_subnet_allocator
 
     def _get_subnet_allocator(self, subnet):
