@@ -49,7 +49,7 @@ setuptools.setup(
     entry_points = {
         # Please update sandesh/common/vns.sandesh on process name change
         'console_scripts' : [
-            'contrail-cni = cni.mesos_cni.contrail_mesos_cni:main',
+            'contrail-cni = cni.contrail_cni:main',
         ],
     },
     cmdclass={

@@ -6,7 +6,7 @@
 #
 
 """
-Contrail CNI plugin for Kubernetes
+Contrail CNI plugin for MESOS
 """
 
 import inspect

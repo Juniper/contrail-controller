@@ -25,6 +25,7 @@ for file in setup_sources:
 
 local_sources = [
     './cni/__init__.py',
+    './cni/contrail_cni.py',
     './cni/common/__init__.py',
     './cni/common/cni.py',
     './cni/common/interface.py',
