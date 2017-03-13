@@ -501,14 +501,26 @@ class VncZkClient(object):
                                              self._reconnect_zk)
     # end
 
+    @staticmethod
+    def subnet_to_vn(subnet):
+        # extract vn_fq_name form subnet_fq_name
+        return subnet.rsplit(':', 1)[0]
+    #end subnet_to_vn
+
     def create_subnet_allocator(self, subnet, subnet_alloc_list,
                                 addr_from_start, should_persist,
                                 start_subnet, size, alloc_unit):
         # TODO handle subnet resizing change, ignore for now
-        if subnet not in self._subnet_allocators:
+     
+        vn_fq_name = self.subnet_to_vn(subnet)
+        # init _subnet_allocators
+        if vn_fq_name not in self._subnet_allocators:
+            self._subnet_allocators[vn_fq_name] = {}
+
+        if subnet not in self._subnet_allocators[vn_fq_name]:
             if addr_from_start is None:
                 addr_from_start = False
-            self._subnet_allocators[subnet] = IndexAllocator(
+            self._subnet_allocators[vn_fq_name][subnet] = IndexAllocator(
                 self._zk_client, self._subnet_path+'/'+subnet+'/',
                 size=size/alloc_unit, start_idx=start_subnet/alloc_unit,
                 reverse=not addr_from_start,
@@ -518,13 +530,21 @@ class VncZkClient(object):
     # end create_subnet_allocator
 
     def delete_subnet_allocator(self, subnet):
-        self._subnet_allocators.pop(subnet, None)
+        vn_fq_name = self.subnet_to_vn(subnet)
+
+        self._subnet_allocators[vn_fq_name].pop(subnet, None)
         IndexAllocator.delete_all(self._zk_client,
                                   self._subnet_path+'/'+subnet+'/')
     # end delete_subnet_allocator
 
+    def _get_vn_subnet_allocators(self, vn_fq_name):
+        return self._subnet_allocators[vn_fq_name]
+    # end _get_vn_subnet_allocators
+
     def _get_subnet_allocator(self, subnet):
-        return self._subnet_allocators.get(subnet)
+        vn_fq_name = self.subnet_to_vn(subnet)
+
+        return self._subnet_allocators[vn_fq_name].get(subnet)
     # end _get_subnet_allocator
 
     def subnet_is_addr_allocated(self, subnet, addr):
@@ -1321,6 +1341,10 @@ class VncDbClient(object):
     def subnet_delete_allocator(self, subnet):
         return self._zk_db.delete_subnet_allocator(subnet)
     # end subnet_delete_allocator
+
+    def vn_get_allocators(self, vn_fq_name):
+        return self._zk_db._get_vn_subnet_allocators(vn_fq_name)
+    # end vn_get_allocator
 
     def uuid_vnlist(self):
         return self._object_db.uuid_vnlist()

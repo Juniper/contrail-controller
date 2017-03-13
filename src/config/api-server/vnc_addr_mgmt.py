@@ -383,6 +383,11 @@ class Subnet(object):
         cls._db_conn.subnet_delete_allocator(subnet_name)
     # end delete_cls
 
+    @classmethod
+    def get_subnet_allocators(cls, vn_fq_name):
+        return cls._db_conn.vn_get_allocators(vn_fq_name)
+    # end get_subnet_allocators
+
     def get_name(self):
         return self._name
     # end get_name
@@ -773,8 +778,24 @@ class AddrMgmt(object):
 
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
-        self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
-                                     should_persist=False)
+        vn_uuid = obj_ids['uuid']
+
+        # Gets vn's subnets list
+        vn_list_subnets = self._vn_to_subnets(vn_dict) or []
+        # Creates subnet_fq_name
+        subnets_fq_names = ['%s:%s' % (vn_fq_name_str, prefix) for prefix in vn_list_subnets]
+        # Compares "vn_dict" data with data from zookeeper
+        subnet_allocators = Subnet.get_subnet_allocators(vn_fq_name_str)
+        if len(subnet_allocators.keys()) > len(subnets_fq_names):
+            for key in subnet_allocators.keys():
+                if key not in subnets_fq_names:
+                    Subnet.delete_cls(key)
+                    subnet_name = key.split(':')[-1] # extract subnet name
+                    try:
+                        del self._subnet_objs[vn_uuid][subnet_name]
+                    except KeyError:
+                        pass
+
     # end net_update_notify
 
     # purge all subnets associated with a virtual network
