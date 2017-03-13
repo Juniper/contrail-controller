@@ -1,7 +1,7 @@
 [
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]},\"type\":\"virtual_router\",\"uuid\":\"0:284defcc-4a97-4d8b-9c4d-46a5f5e4cd46\",\"imid\":\"contrail:virtual_router:default-global-system-config:a1s27.contrail.juniper.net\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"],\"type\":\"virtual_router\",\"uuid\":\"0:284defcc-4a97-4d8b-9c4d-46a5f5e4cd46\"}",
     "db": {
       "284defcc-4a97-4d8b-9c4d-46a5f5e4cd46": {
         "fq_name": "[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]",
@@ -24,7 +24,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"93e76278-1990-4905-a472-8e9188f41b2c\"]},\"type\":\"virtual_machine\",\"uuid\":\"1:93e76278-1990-4905-a472-8e9188f41b2c\",\"imid\":\"contrail:virtual_machine:93e76278-1990-4905-a472-8e9188f41b2c\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"93e76278-1990-4905-a472-8e9188f41b2c\"],\"type\":\"virtual_machine\",\"uuid\":\"1:93e76278-1990-4905-a472-8e9188f41b2c\"}",
     "db": {
       "284defcc-4a97-4d8b-9c4d-46a5f5e4cd46": {
         "fq_name": "[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]",
@@ -48,7 +48,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"2d308482-c7b3-4e05-af14-e732b7b50117\"]},\"type\":\"virtual_machine\",\"uuid\":\"2:2d308482-c7b3-4e05-af14-e732b7b50117\",\"imid\":\"contrail:virtual_machine:2d308482-c7b3-4e05-af14-e732b7b50117\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"2d308482-c7b3-4e05-af14-e732b7b50117\"],\"type\":\"virtual_machine\",\"uuid\":\"2:2d308482-c7b3-4e05-af14-e732b7b50117\"}",
     "db": {
       "284defcc-4a97-4d8b-9c4d-46a5f5e4cd46": {
         "fq_name": "[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]",
@@ -73,7 +73,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"]},\"type\":\"virtual_machine\",\"uuid\":\"3:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\",\"imid\":\"contrail:virtual_machine:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"],\"type\":\"virtual_machine\",\"uuid\":\"3:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"}",
     "db": {
       "284defcc-4a97-4d8b-9c4d-46a5f5e4cd46": {
         "fq_name": "[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]",
@@ -102,7 +102,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"default-global-system-config\\\",\\\"a1s27.contrail.juniper.net\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"5:284defcc-4a97-4d8b-9c4d-46a5f5e4cd46\",\"imid\":\"contrail:virtual_router:default-global-system-config:a1s27.contrail.juniper.net\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"default-global-system-config\\\",\\\"a1s27.contrail.juniper.net\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"5:284defcc-4a97-4d8b-9c4d-46a5f5e4cd46\"}",
     "db": {
       "93e76278-1990-4905-a472-8e9188f41b2c": {
         "fq_name": "[\"93e76278-1990-4905-a472-8e9188f41b2c\"]",
@@ -123,7 +123,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"93e76278-1990-4905-a472-8e9188f41b2c\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"6:93e76278-1990-4905-a472-8e9188f41b2c\",\"imid\":\"contrail:virtual_machine:93e76278-1990-4905-a472-8e9188f41b2c\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"93e76278-1990-4905-a472-8e9188f41b2c\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"6:93e76278-1990-4905-a472-8e9188f41b2c\"}",
     "db": {
       "2d308482-c7b3-4e05-af14-e732b7b50117": {
         "fq_name": "[\"2d308482-c7b3-4e05-af14-e732b7b50117\"]",
@@ -139,7 +139,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"2d308482-c7b3-4e05-af14-e732b7b50117\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"7:2d308482-c7b3-4e05-af14-e732b7b50117\",\"imid\":\"contrail:virtual_machine:2d308482-c7b3-4e05-af14-e732b7b50117\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"2d308482-c7b3-4e05-af14-e732b7b50117\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"7:2d308482-c7b3-4e05-af14-e732b7b50117\"}",
     "db": {
       "43d086ab-52c4-4a1f-8c3d-63b321e36e8a": {
         "fq_name": "[\"43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"]",
@@ -150,7 +150,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"43d086ab-52c4-4a1f-8c3d-63b321e36e8a\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"8:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\",\"imid\":\"contrail:virtual_machine:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"43d086ab-52c4-4a1f-8c3d-63b321e36e8a\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"8:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"}",
     "db": {
     }
   },
@@ -159,7 +159,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]},\"type\":\"virtual_router\",\"uuid\":\"10:284defcc-4a97-4d8b-9c4d-46a5f5e4cd46\",\"imid\":\"contrail:virtual_router:default-global-system-config:a1s27.contrail.juniper.net\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"],\"type\":\"virtual_router\",\"uuid\":\"10:284defcc-4a97-4d8b-9c4d-46a5f5e4cd46\"}",
     "db": {
       "284defcc-4a97-4d8b-9c4d-46a5f5e4cd46": {
         "fq_name": "[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]",
@@ -182,7 +182,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"93e76278-1990-4905-a472-8e9188f41b2c\"]},\"type\":\"virtual_machine\",\"uuid\":\"11:93e76278-1990-4905-a472-8e9188f41b2c\",\"imid\":\"contrail:virtual_machine:93e76278-1990-4905-a472-8e9188f41b2c\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"93e76278-1990-4905-a472-8e9188f41b2c\"],\"type\":\"virtual_machine\",\"uuid\":\"11:93e76278-1990-4905-a472-8e9188f41b2c\"}",
     "db": {
       "284defcc-4a97-4d8b-9c4d-46a5f5e4cd46": {
         "fq_name": "[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]",
@@ -206,7 +206,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"2d308482-c7b3-4e05-af14-e732b7b50117\"]},\"type\":\"virtual_machine\",\"uuid\":\"12:2d308482-c7b3-4e05-af14-e732b7b50117\",\"imid\":\"contrail:virtual_machine:2d308482-c7b3-4e05-af14-e732b7b50117\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"2d308482-c7b3-4e05-af14-e732b7b50117\"],\"type\":\"virtual_machine\",\"uuid\":\"12:2d308482-c7b3-4e05-af14-e732b7b50117\"}",
     "db": {
       "284defcc-4a97-4d8b-9c4d-46a5f5e4cd46": {
         "fq_name": "[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]",
@@ -231,7 +231,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"]},\"type\":\"virtual_machine\",\"uuid\":\"13:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\",\"imid\":\"contrail:virtual_machine:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"],\"type\":\"virtual_machine\",\"uuid\":\"13:43d086ab-52c4-4a1f-8c3d-63b321e36e8a\"}",
     "db": {
       "284defcc-4a97-4d8b-9c4d-46a5f5e4cd46": {
         "fq_name": "[\"default-global-system-config\",\"a1s27.contrail.juniper.net\"]",
