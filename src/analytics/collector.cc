@@ -234,7 +234,10 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
             snh->get_source() << ":" << snh->get_module_name());
         return false;
     }
-
+    if (!osp_->IsRedisInitDone()) {
+        LOG(ERROR, "Collector connection to redis is not establised and flush done");
+        return false;
+    }
     SandeshGenerator::GeneratorId id(boost::make_tuple(snh->get_source(),
             snh->get_module_name(), snh->get_instance_id_name(),
             snh->get_node_type_name()));
