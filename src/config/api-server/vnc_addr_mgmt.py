@@ -362,9 +362,9 @@ class Subnet(object):
     # end __init__
 
     @classmethod
-    def delete_cls(cls, subnet_name):
+    def delete_cls(cls, subnet_name, notify=True):
         # deletes the index allocator
-        cls._db_conn.subnet_delete_allocator(subnet_name)
+        cls._db_conn.subnet_delete_allocator(subnet_name, notify)
     # end delete_cls
 
     def get_name(self):
@@ -694,7 +694,6 @@ class AddrMgmt(object):
     # end net_create_notify
 
     def net_update_req(self, vn_fq_name, db_vn_dict, req_vn_dict, obj_uuid=None):
-
         if 'network_ipam_refs' not in req_vn_dict:
             return
 
@@ -708,11 +707,7 @@ class AddrMgmt(object):
 
         del_subnet_names = db_subnet_names - req_subnet_names
         for subnet_name in del_subnet_names:
-            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
-            try:
-                del self._subnet_objs[vn_uuid][subnet_name]
-            except KeyError:
-                pass
+            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name), False)
 
         # check db_subnet_dicts and req_subnet_dicts
         # following parameters are same for subnets present in both dicts
@@ -758,6 +753,19 @@ class AddrMgmt(object):
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
         vn_uuid = obj_ids['uuid']
         self._create_net_subnet_objs(vn_fq_name_str, vn_uuid, vn_dict,
+
+        # Gets vn's subnets list
+        vn_list_subnets = self._vn_to_subnets(vn_dict) or []
+        if vn_uuid in self._subnet_objs.keys():
+            del_subnet_names = set(self._subnet_objs[vn_uuid]) - set(vn_list_subnets)
+            for subnet_name in del_subnet_names:
+                Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
+                try:
+                    del self._subnet_objs[vn_uuid][subnet_name]
+                except KeyError:
+                    pass
+
+        self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False)
     # end net_update_notify
 
@@ -769,20 +777,20 @@ class AddrMgmt(object):
         subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
 
         for subnet_name in subnet_dicts:
-            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
-
-        try:
-            del self._subnet_objs[vn_uuid]
-        except KeyError:
-            pass
+            Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name), False)
     # end net_delete_req
 
-    def net_delete_notify(self, obj_ids, obj_dict):
-        try:
-            vn_uuid = obj_dict['uuid']
-            del self._subnet_objs[vn_uuid]
-        except KeyError:
-            pass
+    def net_delete_notify(self, obj_id, obj_dict):
+        vn_list_subnets = self._vn_to_subnets(obj_dict) or []
+        if obj_id in self._subnet_objs:
+            del_subnet_names = set(self._subnet_objs[obj_id]) - set(vn_list_subnets)
+            vn_fq_name_str = ':'.join(obj_dict['fq_name'])
+            for subnet_name in del_subnet_names:
+                Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
+            try:
+                del self._subnet_objs[obj_id]
+            except KeyError:
+                pass
     # end net_delete_notify
 
     def _ipam_to_subnets(self, ipam_dict):
@@ -1165,7 +1173,8 @@ class AddrMgmt(object):
     # end net_check_subnet_delete
 
     # validate any change in subnet and reject if
-    # dns server and gw_ip got changed 
+    # dns server and gw_ip got changed
+
     def _validate_subnet_update(self, req_subnets, db_subnets):
         for req_subnet in req_subnets:
             req_cidr = req_subnet.get('subnet')
@@ -1198,7 +1207,7 @@ class AddrMgmt(object):
 
                     if ((req_df_gw != None) and (req_df_gw != df_gw_ip)):
                         invalid_update = True
-                    if invalid_update is True: 
+                    if invalid_update is True:
                         err_msg = "default gateway change is not allowed" +\
                                   " orig:%s, new: %s" \
                                   %(db_df_gw, req_df_gw)
@@ -1213,7 +1222,7 @@ class AddrMgmt(object):
 
                     if ((req_dns != None) and (req_dns != df_dns)):
                         invalid_update = True
-                    if invalid_update is True: 
+                    if invalid_update is True:
                         err_msg = "dns server change is not allowed" +\
                                   " orig:%s, new: %s" \
                                   %(db_dns, req_dns)
@@ -1267,11 +1276,11 @@ class AddrMgmt(object):
                 (ok, result) = self._validate_subnet_update(req_subnets, db_subnets)
                 if not ok:
                     return ok, result
-               
+
         return True, ""
     # end net_validate_subnet_update
 
-                                
+
     # return number of ip address currently allocated for a subnet
     # count will also include reserved ips
     def ip_count_req(self, vn_fq_name, subnet_uuid):
@@ -1762,19 +1771,19 @@ class AddrMgmt(object):
         if subnet_objs is None:
             subnet_objs = {}
         for subnet_name in subnet_objs:
-            Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name))
-        try:
-            del self._subnet_objs[ipam_uuid]
-        except KeyError:
-            pass
+            Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name), False)
     # end ipam_delete_req
 
-    def ipam_delete_notify(self, obj_ids, obj_dict):
-        try:
-            ipam_uuid = obj_dict['uuid']
-            del self._subnet_objs[ipam_uuid]
-        except KeyError:
-            pass
+    def ipam_delete_notify(self, obj_id, obj_dict):
+        ipam_list_subnets = self._ipam_to_subnets(obj_dict) or []
+        if obj_id in self._subnet_objs:
+            ipam_fq_name_str = ':'.join(obj_dict['fq_name'])
+            for subnet_name in ipam_list_subnets:
+                Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name))
+            try:
+                del self._subnet_objs[obj_id]
+            except KeyError:
+                pass
     # end ipam_delete_notify
 
     def ipam_update_req(self, ipam_fq_name, db_ipam_dict, req_ipam_dict,
@@ -1791,11 +1800,7 @@ class AddrMgmt(object):
 
         del_subnet_names = db_subnet_names - req_subnet_names
         for subnet_name in del_subnet_names:
-            Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name))
-            try:
-                del self._subnet_objs[obj_uuid][subnet_name]
-            except KeyError:
-                pass
+            Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name), False)
 
         # check db_subnet_dicts and req_subnet_dicts
         # following parameters are same for subnets present in both dicts
@@ -1840,7 +1845,18 @@ class AddrMgmt(object):
             return
 
         ipam_dict = result
-        ipam_uuid = obj_ids['uuid']
+        ipam_uuid = ipam_dict['uuid']
+        ipam_fq_name_str = ':'.join(ipam_dict['fq_name'])
+        ipam_list_subnets = self._ipam_to_subnets(ipam_dict) or []
+        if ipam_uuid in self._subnet_objs:
+            del_subnet_names = set(self._subnet_objs[ipam_uuid]) - set(ipam_list_subnets)
+            for subnet_name in del_subnet_names:
+                Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name))
+                try:
+                    del self._subnet_objs[ipam_uuid][subnet_name]
+                except KeyError:
+                    pass
+
         self._create_ipam_subnet_objs(ipam_uuid, ipam_dict,
                                      should_persist=False)
     # end ipam_update_notify
