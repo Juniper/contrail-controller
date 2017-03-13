@@ -12,6 +12,7 @@
 #include <oper/vxlan.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
+#include <oper/mpls.h>
 
 using namespace std;
 

@@ -2231,7 +2231,7 @@ TEST_F(RouteTest, EcmpTest_1) {
     //Attach CNH to MPLS
     DBRequest req1;
     req1.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    MplsLabelKey *key1 = new MplsLabelKey(MplsLabel::VPORT_NH, label);
+    MplsLabelKey *key1 = new MplsLabelKey(label);
     req1.key.reset(key1);
     MplsLabelData *data1 = new MplsLabelData(Composite::LOCAL_ECMP, true,
                                              component_nh_list,
@@ -2266,7 +2266,7 @@ TEST_F(RouteTest, EcmpTest_1) {
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     MacAddress vm_mac = MacAddress::FromString("00:00:01:01:01:10");
-    MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
+    MplsLabelKey *key = new MplsLabelKey(label);
     req.key.reset(key);
 
     MplsLabelData *data = new MplsLabelData("vnet1", false,

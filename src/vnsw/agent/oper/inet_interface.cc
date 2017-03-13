@@ -105,17 +105,6 @@ void InetInterface::ActivateSimpleGateway() {
     InterfaceNH::CreateInetInterfaceNextHop(name(), vrf()->GetName(),
                                             agent->pkt_interface_mac());
 
-    if (label_ == MplsTable::kInvalidLabel) {
-        ResourceManager::KeyPtr mpls_key(new InterfaceIndexResourceKey
-                                         (agent->resource_manager(), GetUuid(),
-                                          mac_, false, 0, 0));
-        label_ = agent->mpls_table()->AllocLabel(mpls_key);
-        // Create MPLS entry pointing to virtual host interface-nh
-        MplsLabel::CreateInetInterfaceLabel(agent, label_, name(), false,
-                                            InterfaceNHFlags::INET4,
-                                            agent->pkt_interface_mac());
-    }
-
     //There is no policy enabled nexthop created for VGW interface,
     //hence use interface nexthop without policy as flow key index
     InterfaceNHKey key(new InetInterfaceKey(name()),
@@ -124,6 +113,7 @@ void InetInterface::ActivateSimpleGateway() {
     flow_key_nh_ = static_cast<const NextHop *>(
             agent->nexthop_table()->FindActiveEntry(&key));
     assert(flow_key_nh_);
+    label_ = flow_key_nh_->mpls_label()->label();
 }
 
 void InetInterface::DeActivateSimpleGateway() {
@@ -144,9 +134,7 @@ void InetInterface::DeActivateSimpleGateway() {
     // Delete NH
     InterfaceNH::DeleteInetInterfaceNextHop(name(), agent->pkt_interface_mac());
 
-    // Delete MPLS Label
-    agent->mpls_table()->FreeLabel(label_);
-    MplsLabel::DeleteReq(agent, label_);
+    // Reset Label
     label_ = MplsTable::kInvalidLabel;
     flow_key_nh_ = NULL;
 }

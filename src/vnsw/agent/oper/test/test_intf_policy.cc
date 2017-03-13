@@ -718,7 +718,7 @@ TEST_F(PolicyTest, EcmpNH_1) {
     //Get the MPLS label corresponding to this path and verify
     //that mpls label also has 2 component NH
     uint32_t mpls_label = rt->GetActiveLabel();
-    EXPECT_TRUE(FindMplsLabel(MplsLabel::VPORT_NH, mpls_label));
+    EXPECT_TRUE(FindMplsLabel(mpls_label));
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
@@ -761,7 +761,7 @@ TEST_F(PolicyTest, EcmpNH_1) {
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
 
     //Expect MPLS label to be not present
-    EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, mpls_label));
+    EXPECT_FALSE(FindMplsLabel(mpls_label));
 }
 
 //When policy is enabled/disabled on VMI, label of VMI changes. When a VMI

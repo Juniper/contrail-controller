@@ -7,6 +7,7 @@
 #include <cmn/agent.h>
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>
+#include <resource_manager/index_resource.h>
 
 ResourceKey::ResourceKey(ResourceManager *rm, Resource::Type type) :
     rm_(rm), dirty_(false),

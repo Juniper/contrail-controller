@@ -360,8 +360,8 @@ TEST_F(MulticastTest, L2Broadcast_1) {
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
-    WAIT_FOR(1000, 1000, FindMplsLabel(MplsLabel::MCAST_NH, 1111));
-	MplsLabel *mpls = GetActiveLabel(MplsLabel::MCAST_NH, 1111);
+    WAIT_FOR(1000, 1000, FindMplsLabel(1111));
+	MplsLabel *mpls = GetActiveLabel(1111);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 3);
     EXPECT_TRUE(cnh->ComponentNHCount() == 2);
     EXPECT_TRUE(cnh->composite_nh_type() == Composite::L3COMP);

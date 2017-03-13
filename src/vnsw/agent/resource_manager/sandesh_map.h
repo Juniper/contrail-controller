@@ -62,6 +62,7 @@ private:
     std::string file_name_prefix_;
     DISALLOW_COPY_AND_ASSIGN(BackUpResourceTable);
 };
+
 // Vrf backup resource table to maintains Sandesh encoded data VrfMpls info
 class VrfMplsBackUpResourceTable : public BackUpResourceTable {
 public:
@@ -69,6 +70,22 @@ public:
     typedef Map::iterator MapIter;
     VrfMplsBackUpResourceTable(ResourceBackupManager *manager);
     virtual ~VrfMplsBackUpResourceTable();
+
+    bool WriteToFile();
+    void ReadFromFile();
+    void RestoreResource();
+    Map& map() {return map_;}
+private:
+    Map map_;
+};
+
+// Vlan backup resource table to maintains Sandesh encoded data VlanMpls info
+class VlanMplsBackUpResourceTable : public BackUpResourceTable {
+public:
+    typedef std::map<uint32_t, VlanMplsResource> Map;
+    typedef Map::iterator MapIter;
+    VlanMplsBackUpResourceTable(ResourceBackupManager *manager);
+    virtual ~VlanMplsBackUpResourceTable();
 
     bool WriteToFile();
     void ReadFromFile();
@@ -114,6 +131,7 @@ private:
 class ResourceSandeshMaps {
 public:
     typedef pair<uint32_t, VrfMplsResource> VrfMplsResourcePair;
+    typedef pair<uint32_t, VlanMplsResource> VlanMplsResourcePair;
     typedef pair<uint32_t, InterfaceIndexResource>
         InterfaceMplsResourcePair;
     typedef pair<uint32_t, RouteMplsResource> RouteMplsResourcePair;
@@ -128,6 +146,9 @@ public:
     void AddVrfMplsResourceEntry(uint32_t index,
                                  VrfMplsResource data);
     void DeleteVrfMplsResourceEntry(uint32_t index);
+    void AddVlanMplsResourceEntry(uint32_t index,
+                                 VlanMplsResource data);
+    void DeleteVlanMplsResourceEntry(uint32_t index);
     void AddRouteMplsResourceEntry(uint32_t index,
                                    RouteMplsResource data);
     void DeleteRouteMplsResourceEntry(uint32_t index);
@@ -139,6 +160,10 @@ public:
         return vrf_mpls_index_table_;
     }
 
+    VlanMplsBackUpResourceTable& vlan_mpls_index_table() {
+        return vlan_mpls_index_table_;
+    }
+
     RouteMplsBackUpResourceTable& route_mpls_index_table() {
         return route_mpls_index_table_;
     }
@@ -148,6 +173,7 @@ private:
     Agent *agent_;
     InterfaceMplsBackUpResourceTable interface_mpls_index_table_;
     VrfMplsBackUpResourceTable vrf_mpls_index_table_;
+    VlanMplsBackUpResourceTable vlan_mpls_index_table_;
     RouteMplsBackUpResourceTable route_mpls_index_table_;
     DISALLOW_COPY_AND_ASSIGN(ResourceSandeshMaps);
 };

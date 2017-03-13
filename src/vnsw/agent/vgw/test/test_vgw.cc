@@ -313,7 +313,7 @@ TEST_F(VgwTest, EgressFlow_1) {
     CreateFlow(flow, 1);
     client->WaitForIdle();
 
-    MplsLabel *label = GetActiveLabel(MplsLabel::VPORT_NH, gw->label());
+    MplsLabel *label = GetActiveLabel(gw->label());
     FlowEntry *fe = FlowGet(vmi->vrf_id(), "100.100.100.100", "2.2.2.2",
                               1, 0, 0, label->nexthop()->id());
     EXPECT_TRUE(fe != NULL);

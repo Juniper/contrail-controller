@@ -118,12 +118,12 @@ public:
             WAIT_FOR(1000, 1000, ((oper_if_count) ==
                                 Agent::GetInstance()->interface_table()->Size()));
         }
-        //One EVPN label for VN
-        WAIT_FOR(1000, 1000, (((num_ports * 2) + 1 ==
+        //One EVPN label for VN, One for Vrf, 4 per VM port
+        WAIT_FOR(1000, 1000, (((num_ports * 4) + 2 ==
                             (Agent::GetInstance()->mpls_table()->Size()))));
         if (!ksync_init_) {
-            //One EVPN label for VN
-            WAIT_FOR(1000, 1000, ((num_ports * 2) + 1 ==
+            //One EVPN label for VN, One for Vrf, 4 per VM port
+            WAIT_FOR(1000, 1000, ((num_ports * 4) + 2 ==
                                   (uint32_t)(KSyncSockTypeMap::MplsCount())));
             if (if_count) {
                 WAIT_FOR(1000, 1000, ((num_ports + if_count) ==
@@ -319,8 +319,7 @@ TEST_F(KStateTest, MplsDumpTest) {
     mpls_count = TestKStateBase::fetched_count_;
 
     CreatePorts(0, 0, 0);
-    CreatePorts(0, 0, 0);
-    TestMplsKState::Init(-1, true, mpls_count + (2 * MAX_TEST_FD) + 1);
+    TestMplsKState::Init(-1, true, mpls_count + (4 * MAX_TEST_FD) + 2);
     client->WaitForIdle(3);
     client->KStateResponseWait(1);
 
