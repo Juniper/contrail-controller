@@ -68,6 +68,7 @@ public:
                             const std::string &instance_id);
     
     void FillRedisUVEInfo(RedisUveInfo& redis_uve_info);
+    virtual bool IsRedisFlushDone();
 private:
     class OpServerImpl;
     OpServerImpl *impl_;

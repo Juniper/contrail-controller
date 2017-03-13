@@ -466,6 +466,9 @@ class OpServerProxy::OpServerImpl {
 
         RedisInfo redis_uve_;
 
+        // Has Flush completed, after post connection to redis is called?
+        bool IsFlushDone() { return started_;}
+
     private:
         EventManager *evm_;
         VizCollector *collector_;
@@ -702,5 +705,10 @@ RedisUVERequest::HandleRequest() const {
     resp->set_redis_uve_info(redis_uve_info);
     resp->set_context(context());
     resp->Response();
+}
+
+bool
+OpServerProxy::IsRedisFlushDone() {
+    return impl_->IsFlushDone();
 }
 
