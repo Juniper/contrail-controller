@@ -378,11 +378,16 @@ class Subnet(object):
     # end __init__
 
     @classmethod
-    def delete_cls(cls, subnet_name):
+    def delete_cls(cls, subnet_name, clean_alloc=None):
         # deletes the index allocator
-        cls._db_conn.subnet_delete_allocator(subnet_name)
+        cls._db_conn.subnet_delete_allocator(subnet_name, clean_alloc)
     # end delete_cls
 
+    @classmethod
+    def get_subnet_allocators(cls, vn_fq_name):
+        return cls._db_conn.vn_get_allocators(vn_fq_name)
+    # end get_subnet_allocators
+                        
     def get_name(self):
         return self._name
     # end get_name
@@ -757,6 +762,7 @@ class AddrMgmt(object):
     # end net_update_req
 
     def net_update_notify(self, obj_id):
+        import pdb; pdb.set_trace()
         db_conn = self._get_db_conn()
         try:
             (ok, result) = db_conn.dbe_read(
@@ -773,7 +779,24 @@ class AddrMgmt(object):
 
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
-        self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
+
+        # Gets vn's subnets list
+        vn_list_subnets = self._vn_to_subnets(vn_dict) or []
+        # Creates subnet_fq_name
+        subnets_fq_names = ['%s:%s' % (vn_fq_name_str, prefix) for prefix in vn_list_subnets]
+        # Compares "vn_dict" data with data from zookeeper
+        subnet_allocators = Subnet.get_subnet_allocators(vn_fq_name_str)
+        if sorted(subnet_allocators.keys()) != sorted(subnets_fq_names):
+            for key in subnet_allocators.keys():
+                if key not in subnets_fq_names:
+                    Subnet.delete_cls(key)
+                    subnet_name = key.split(':', 3)[-1] # extract subnet name
+                    try:
+                        del self._subnet_objs[obj_id][subnet_name]
+                    except KeyError:
+                        pass
+        else:
+            self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
                                      should_persist=False)
     # end net_update_notify
 
