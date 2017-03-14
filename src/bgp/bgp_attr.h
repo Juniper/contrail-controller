@@ -820,7 +820,10 @@ public:
     friend std::size_t hash_value(BgpAttr const &attr);
 
     BgpAttrOrigin::OriginType origin() const { return origin_; }
+    static std::string OriginToString(BgpAttrOrigin::OriginType origin);
+    static BgpAttrOrigin::OriginType OriginFromString(const std::string &bgp_origin_type);
     std::string origin_string() const;
+
     const IpAddress &nexthop() const { return nexthop_; }
     Address::Family nexthop_family() const;
     uint32_t med() const { return med_; }
@@ -925,6 +928,8 @@ public:
                                       AsPathPtr aspath);
     BgpAttrPtr ReplaceCommunityAndLocate(const BgpAttr *attr,
                                          CommunityPtr community);
+    BgpAttrPtr ReplaceOriginAndLocate(const BgpAttr *attr,
+                                      BgpAttrOrigin::OriginType origin);
     BgpAttrPtr ReplaceExtCommunityAndLocate(const BgpAttr *attr,
                                             ExtCommunityPtr extcomm);
     BgpAttrPtr ReplaceOriginVnPathAndLocate(const BgpAttr *attr,

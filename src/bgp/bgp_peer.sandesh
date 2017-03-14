@@ -86,6 +86,8 @@ struct BgpNeighborResp {
     47: bool admin_down;
     48: bool passive;
     55: bool as_override;
+    63: string route_origin;
+    64: bool origin_override;
     61: string private_as_action;
     62: bool send_ready;
     50: u32 peer_port;
@@ -639,6 +641,8 @@ struct ShowBgpNeighborConfig {
     13: bool admin_down;
     15: bool passive;
     20: bool as_override;
+    22: string route_origin;
+    23: bool origin_override;
     21: string private_as_action;
     18: string router_type;
     8: string local_identifier;
@@ -693,6 +697,8 @@ struct BgpPeerInfoData {
     23: optional bool admin_down;
     24: optional bool passive;
     27: optional bool as_override;
+    32: optional string route_origin;
+    33: optional bool origin_override;
     25: optional string router_type;      // bgp_schema.xsd:BgpRouterType
     3: optional string peer_type;         // internal/external
     20: optional string peer_address;

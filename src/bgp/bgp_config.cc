@@ -147,6 +147,23 @@ vector<string> AuthenticationData::KeysToStringDetail() const {
     return auth_keys;
 }
 
+BgpNeighborConfig::OriginOverrideConfig::OriginOverrideConfig()
+        : origin_override(false), origin("IGP") {
+}
+
+bool BgpNeighborConfig::OriginOverrideConfig::operator<(
+                const OriginOverrideConfig &rhs) const {
+    if (origin_override == rhs.origin_override) {
+        if (origin_override) {
+            // chek origin value only if override is set
+            return origin < rhs.origin;
+        }
+        return false;
+    }
+
+    return origin_override < rhs.origin_override;
+}
+
 BgpNeighborConfig::BgpNeighborConfig()
         : type_(UNSPECIFIED),
           admin_down_(false),
@@ -160,7 +177,8 @@ BgpNeighborConfig::BgpNeighborConfig()
           loop_count_(0),
           local_as_(0),
           local_identifier_(0),
-          last_change_at_(UTCTimestampUsec()) {
+          last_change_at_(UTCTimestampUsec()),
+          origin_override_() {
 }
 
 void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
@@ -184,6 +202,7 @@ void BgpNeighborConfig::CopyValues(const BgpNeighborConfig &rhs) {
     local_identifier_ = rhs.local_identifier_;
     auth_data_ = rhs.auth_data_;
     family_attributes_list_ = rhs.family_attributes_list_;
+    origin_override_ = rhs.origin_override_;
 }
 
 int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
@@ -194,6 +213,7 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
     KEY_COMPARE(admin_down_, rhs.admin_down_);
     KEY_COMPARE(passive_, rhs.passive_);
     KEY_COMPARE(as_override_, rhs.as_override_);
+    KEY_COMPARE(origin_override_, rhs.origin_override_);
     KEY_COMPARE(private_as_action_, rhs.private_as_action_);
     KEY_COMPARE(peer_as_, rhs.peer_as_);
     KEY_COMPARE(identifier_, rhs.identifier_);
@@ -211,6 +231,12 @@ int BgpNeighborConfig::CompareTo(const BgpNeighborConfig &rhs) const {
         family_attributes_list_.begin(), family_attributes_list_.end(),
         rhs.family_attributes_list_.begin(), rhs.family_attributes_list_.end(),
         BgpFamilyAttributesConfigCompare());
+}
+
+void BgpNeighborConfig::SetOriginOverride(bool origin_override,
+                                          std::string origin) {
+    origin_override_.origin_override = origin_override;
+    origin_override_.origin = origin;
 }
 
 const IpAddress &BgpNeighborConfig::gateway_address(
