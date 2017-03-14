@@ -612,9 +612,7 @@ class VncApiServer(object):
     # filter object references based on permissions
     def obj_view(self, resource_type, obj_dict):
         r_class = self.get_resource_class(resource_type)
-        obj_fields = list(r_class.ref_fields) + list(r_class.backref_fields) + \
-                     list(r_class.children_fields)
-        obj_fields = [field for field in obj_fields if field in obj_dict]
+        obj_fields = r_class.obj_links & set(obj_dict.keys())
         for field in obj_fields:
             refs = obj_dict[field]
             for ref in list(refs):
@@ -1499,6 +1497,8 @@ class VncApiServer(object):
         self._permissions = vnc_perms.VncPermissions(self, self._args)
         if self.is_rbac_enabled():
             self._create_default_rbac_rule()
+        if self.is_multi_tenancy_set():
+            self._generate_obj_view_links()
 
         # Cpuinfo interface
         sysinfo_req = True
@@ -1747,6 +1747,11 @@ class VncApiServer(object):
                 roles = env[field].split(',')
                 return self.cloud_admin_role in [x.lower() for x in roles]
         return False
+
+    def _generate_obj_view_links(self):
+        for resource_type in gen.vnc_api_server_gen.all_resource_types:
+            r_class = self.get_resource_class(resource_type)
+            r_class.obj_links = (r_class.ref_fields | r_class.backref_fields | r_class.children_fields)
 
     # Check for the system created VN. Disallow such VN delete
     def virtual_network_http_delete(self, id):
