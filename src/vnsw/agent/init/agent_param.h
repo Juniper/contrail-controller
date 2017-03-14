@@ -467,7 +467,7 @@ protected:
     virtual void InitFromSystem();
     virtual void InitFromConfig();
     virtual void ReInitFromConfig();
-    virtual void InitFromArguments();
+    virtual void ProcessArguments();
     boost::property_tree::ptree &tree() { return tree_; }
     template <typename ValueType>
     bool GetOptValue(const boost::program_options::variables_map &var_map, 
@@ -480,7 +480,7 @@ protected:
     bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
                          ValueType &var, const std::string &val, ValueType*) {
         // Check if the value is present.
-        if (var_map.count(val) && !var_map[val].defaulted()) {
+        if (var_map.count(val)) {
             var = var_map[val].as<ValueType>();
             return true;
         }
@@ -523,36 +523,18 @@ private:
     void ComputeFlowLimits();
     static std::map<string, std::map<string, string> > ParseDerivedStats(
         const std::vector<std::string> &dsvec);
-    void ParseCollectorDS();
-    void ParseControllerServers();
-    void ParseDnsServers();
-    void ParseCollector();
-    void ParseVirtualHost();
-    void ParseDns();
-    void ParseDiscovery();
-    void ParseNetworks();
-    void ParseHypervisor();
-    void ParseDefaultSection();
-    void ParseTaskSection();
-    void ParseMetadataProxy();
-    void ParseFlows();
-    void ParseDhcpRelayMode();
-    void ParseSimulateEvpnTor();
-    void ParseServiceInstance();
-    void ParseAgentInfo();
-    void ParseNexthopServer();
-    void ParsePlatform();
-    void ParseServices();
-    void ParseSandesh();
     void ParseQueue();
-    void ParseRestart();
-    void ParseLlgr();
-    void ParseMacLearning();
     void set_agent_mode(const std::string &mode);
     void set_gateway_mode(const std::string &mode);
 
     void ParseCollectorDSArguments
         (const boost::program_options::variables_map &v);
+    void ParseCollectorArguments
+        (const boost::program_options::variables_map &var_map);
+    void ParseControllerServersArguments
+        (const boost::program_options::variables_map &var_map);
+    void ParseDnsServersArguments
+        (const boost::program_options::variables_map &var_map);
     void ParseVirtualHostArguments
         (const boost::program_options::variables_map &v);
     void ParseDnsArguments
@@ -572,6 +554,8 @@ private:
     void ParseFlowArguments
         (const boost::program_options::variables_map &v);
     void ParseDhcpRelayModeArguments
+        (const boost::program_options::variables_map &var_map);
+    void ParseSimulateEvpnTorArguments
         (const boost::program_options::variables_map &var_map);
     void ParseServiceInstanceArguments
         (const boost::program_options::variables_map &v);
@@ -594,6 +578,7 @@ private:
 
     boost::program_options::variables_map var_map_;
     boost::program_options::options_description options_;
+    boost::program_options::options_description config_file_options_;
     bool enable_flow_options_;
     bool enable_vhost_options_;
     bool enable_hypervisor_options_;
@@ -643,7 +628,7 @@ private:
     uint32_t flow_ksync_tokens_;
     uint32_t flow_del_tokens_;
     uint32_t flow_update_tokens_;
-    int flow_netlink_pin_cpuid_;
+    uint32_t flow_netlink_pin_cpuid_;
     uint32_t stale_interface_cleanup_timeout_;
 
     // Parameters configured from command line arguments only (for now)
