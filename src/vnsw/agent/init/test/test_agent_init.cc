@@ -483,6 +483,20 @@ TEST_F(AgentParamTest, Restart_1) {
     EXPECT_EQ(param.restart_restore_audit_timeout(), 20);
 }
 
+TEST_F(AgentParamTest, Agent_Mac_Learning_Option_1) {
+    int argc = 1;
+    char *argv[] = {
+        (char *) "",
+    };
+
+    AgentParam param;
+    param.ParseArguments(argc, argv);
+    param.Init("controller/src/vnsw/agent/init/test/mac_learning.ini", "test-param");
+    EXPECT_EQ(param.mac_learning_thread_count(), 10);
+    EXPECT_EQ(param.mac_learning_add_tokens(), 500);
+    EXPECT_EQ(param.mac_learning_update_tokens(), 510);
+    EXPECT_EQ(param.mac_learning_delete_tokens(), 520);
+}
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();

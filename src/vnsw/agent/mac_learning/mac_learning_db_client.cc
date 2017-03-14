@@ -114,8 +114,11 @@ void MacLearningDBClient::RouteNotify(MacLearningVrfState *vrf_state,
                     vrf_state->bridge_listener_id_));
     AgentRoute *route = static_cast<AgentRoute *>(e);
 
+    ReleaseToken(route);
+
     if (route->IsDeleted() && route->is_multicast() == false) {
         if (vrf_state && rt_state) {
+            rt_state->gen_id_++;
             DeleteEvent(route, rt_state);
         }
         return;
@@ -190,7 +193,7 @@ void MacLearningDBClient::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
     }
 }
 
-void MacLearningDBClient::FreeRouteState(const DBEntry *ce) {
+void MacLearningDBClient::FreeRouteState(const DBEntry *ce, uint32_t gen_id) {
     DBEntry *e = const_cast<DBEntry *>(ce);
     AgentRoute *rt = static_cast<AgentRoute *>(e);
     if (rt->IsDeleted() == false) {
@@ -207,6 +210,10 @@ void MacLearningDBClient::FreeRouteState(const DBEntry *ce) {
     MacLearningRouteState *state =
         static_cast<MacLearningRouteState *>(rt->GetState(rt->get_table(),
             vrf_state->bridge_listener_id_));
+    if (state->gen_id_ != gen_id) {
+        return;
+    }
+
     rt->ClearState(rt->get_table(), vrf_state->bridge_listener_id_);
     delete state;
 }
@@ -220,8 +227,7 @@ void MacLearningDBClient::EnqueueAgingTableDelete(const VrfEntry *vrf) {
     }
 }
 
-void MacLearningDBClient::FreeDBState(const DBEntry *entry) {
-
+void MacLearningDBClient::FreeDBState(const DBEntry *entry, uint32_t gen_id) {
     if (dynamic_cast<const Interface *>(entry)) {
         DBTable *table = agent_->interface_table();
         Interface *intf = static_cast<Interface *>(table->Find(entry));
@@ -250,7 +256,7 @@ void MacLearningDBClient::FreeDBState(const DBEntry *entry) {
     }
 
     if (dynamic_cast<const AgentRoute *>(entry)) {
-        FreeRouteState(entry);
+        FreeRouteState(entry, gen_id);
         return;
     }
 }
@@ -258,26 +264,44 @@ void MacLearningDBClient::FreeDBState(const DBEntry *entry) {
 void MacLearningDBClient::AddEvent(const DBEntry *entry,
                                    MacLearningDBState *state) {
     MacLearningMgmtRequestPtr ptr(new MacLearningMgmtRequest(
-                MacLearningMgmtRequest::ADD_DBENTRY, entry));
+                MacLearningMgmtRequest::ADD_DBENTRY, entry, state->gen_id_));
     agent_->mac_learning_module()->mac_learning_mgmt()->Enqueue(ptr);
 }
 
 void MacLearningDBClient::ChangeEvent(const DBEntry *entry,
                                       MacLearningDBState *state) {
     MacLearningMgmtRequestPtr ptr(new MacLearningMgmtRequest(
-                MacLearningMgmtRequest::CHANGE_DBENTRY, entry));
+                MacLearningMgmtRequest::CHANGE_DBENTRY, entry, state->gen_id_));
     agent_->mac_learning_module()->mac_learning_mgmt()->Enqueue(ptr);
 }
 
 void MacLearningDBClient::DeleteEvent(const DBEntry *entry,
                                       MacLearningDBState *state) {
     MacLearningMgmtRequestPtr ptr(new MacLearningMgmtRequest(
-                MacLearningMgmtRequest::DELETE_DBENTRY, entry));
+                MacLearningMgmtRequest::DELETE_DBENTRY, entry,
+                state->gen_id_));
     agent_->mac_learning_module()->mac_learning_mgmt()->Enqueue(ptr);
 }
 
 void MacLearningDBClient::DeleteAllMac(const DBEntry *entry, MacLearningDBState *state) {
     MacLearningMgmtRequestPtr ptr(new MacLearningMgmtRequest(
-                MacLearningMgmtRequest::DELETE_ALL_MAC, entry));
+                MacLearningMgmtRequest::DELETE_ALL_MAC, entry,
+                state->gen_id_));
     agent_->mac_learning_module()->mac_learning_mgmt()->Enqueue(ptr);
+}
+
+void MacLearningDBClient::ReleaseToken(const DBEntry *entry) {
+    const BridgeRouteEntry *brt =
+        dynamic_cast<const BridgeRouteEntry *>(entry);
+
+    //Get the partition id for mac of interest
+    uint32_t id = agent_->mac_learning_proto()->Hash(brt->vrf()->vrf_id(),
+                                                     brt->mac());
+    MacLearningPartition *partition =
+        agent_->mac_learning_proto()->Find(id);
+    assert(partition);
+
+    //Release the token
+    MacLearningKey key(brt->vrf()->vrf_id(), brt->mac());
+    partition->ReleaseToken(key);
 }

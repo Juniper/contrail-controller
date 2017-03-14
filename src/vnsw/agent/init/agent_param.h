@@ -430,6 +430,38 @@ public:
     }
     const LlgrParams &llgr_params() const {return llgr_params_;}
 
+    void set_mac_learning_thread_count(uint32_t threads) {
+        mac_learning_thread_count_ = threads;
+    }
+
+    uint32_t mac_learning_thread_count() const {
+        return mac_learning_thread_count_;
+    }
+
+    void set_mac_learning_add_tokens(uint32_t add_tokens) {
+        mac_learning_add_tokens_ = add_tokens;
+    }
+
+    uint32_t mac_learning_add_tokens() const {
+        return mac_learning_add_tokens_;
+    }
+
+    void set_mac_learning_update_tokens(uint32_t update_tokens) {
+        mac_learning_update_tokens_ = update_tokens;
+    }
+
+    uint32_t mac_learning_update_tokens() const {
+        return mac_learning_update_tokens_;
+    }
+
+    void set_mac_learning_delete_tokens(uint32_t delete_tokens) {
+        mac_learning_delete_tokens_ = delete_tokens;
+    }
+
+    uint32_t mac_learning_delete_tokens() {
+        return mac_learning_delete_tokens_;
+    }
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -515,6 +547,7 @@ private:
     void ParseQueue();
     void ParseRestart();
     void ParseLlgr();
+    void ParseMacLearning();
     void set_agent_mode(const std::string &mode);
     void set_gateway_mode(const std::string &mode);
 
@@ -555,6 +588,8 @@ private:
     void ParseRestartArguments
         (const boost::program_options::variables_map &v);
     void ParseLlgrArguments
+        (const boost::program_options::variables_map &v);
+    void ParseMacLearning
         (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
@@ -698,6 +733,10 @@ private:
     std::set<uint16_t> nic_queue_list_;
     uint16_t default_nic_queue_;
     LlgrParams llgr_params_;
+    uint32_t mac_learning_thread_count_;
+    uint32_t mac_learning_add_tokens_;
+    uint32_t mac_learning_update_tokens_;
+    uint32_t mac_learning_delete_tokens_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 

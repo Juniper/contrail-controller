@@ -99,12 +99,22 @@ public:
      MacLearningMgmtDBTree* tree() const {
          return tree_;
      }
+
+     void set_gen_id(uint32_t gen_id) {
+         gen_id_ = gen_id;
+     }
+
+     uint32_t gen_id() const {
+         return gen_id_;
+     }
+
 protected:
      Type type_;
      const DBEntry* db_entry_;
      bool deleted_;
      DEPENDENCY_LIST(MacLearningMgmtNode, MacLearningMgmtDBEntry, mac_entry_list_);
      MacLearningMgmtDBTree *tree_;
+     uint32_t gen_id_;
      DISALLOW_COPY_AND_ASSIGN(MacLearningMgmtDBEntry);
 };
 
@@ -205,15 +215,17 @@ public:
         ADD_DBENTRY,
         CHANGE_DBENTRY,
         DELETE_DBENTRY,
-        DELETE_ALL_MAC
+        DELETE_ALL_MAC,
+        RELEASE_TOKEN,
     };
 
     MacLearningMgmtRequest(Event event, MacLearningEntryPtr ptr):
         event_(event), mac_learning_entry_(ptr) {
     }
 
-    MacLearningMgmtRequest(Event event, const DBEntry *db_entry):
-        event_(event), db_entry_(db_entry) {
+    MacLearningMgmtRequest(Event event, const DBEntry *db_entry,
+                           uint32_t gen_id):
+        event_(event), db_entry_(db_entry), gen_id_(gen_id) {
     }
 
     MacLearningEntryPtr mac_learning_entry() {
@@ -227,10 +239,20 @@ public:
     const DBEntry *db_entry() {
         return db_entry_;
     }
+
+    uint32_t gen_id() const {
+        return gen_id_;
+    }
+
+    void set_gen_id(uint32_t gen_id) {
+        gen_id_ = gen_id;
+    }
+
 private:
     Event event_;
     MacLearningEntryPtr mac_learning_entry_;
     const DBEntry *db_entry_;
+    uint32_t gen_id_;
 };
 
 typedef boost::shared_ptr<MacLearningMgmtRequest> MacLearningMgmtRequestPtr;
@@ -248,6 +270,7 @@ public:
     bool RequestHandler(MacLearningMgmtRequestPtr ptr);
 
     void AddMacLearningEntry(MacLearningMgmtRequestPtr ptr);
+    void ReleaseToken(MacLearningMgmtRequestPtr ptr);
     void DeleteMacLearningEntry(MacLearningMgmtRequestPtr ptr);
     void AddDBEntry(MacLearningMgmtRequestPtr ptr);
     void DeleteDBEntry(MacLearningMgmtRequestPtr ptr);

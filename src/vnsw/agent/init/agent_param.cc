@@ -629,6 +629,21 @@ void AgentParam::ParseFlows() {
     GetValueFromTree<uint32_t>(flow_update_tokens_, "FLOWS.update_tokens");
 }
 
+void AgentParam::ParseMacLearning() {
+    if (!GetValueFromTree<uint32_t>(mac_learning_thread_count_,
+                                    "MAC-LEARNING.thread_count")) {
+        mac_learning_thread_count_ = Agent::kDefaultFlowThreadCount;
+    }
+
+    GetValueFromTree<uint32_t>(mac_learning_add_tokens_,
+                               "MAC-LEARNING.add_tokens");
+    GetValueFromTree<uint32_t>(mac_learning_delete_tokens_,
+                               "MAC-LEARNING.del_tokens");
+    GetValueFromTree<uint32_t>(mac_learning_update_tokens_,
+                               "MAC-LEARNING.update_tokens");
+}
+
+
 void AgentParam::ParseDhcpRelayMode() {
     if (!GetValueFromTree<bool>(dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode")) {
         dhcp_relay_mode_ = false;
@@ -1017,6 +1032,18 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.update_tokens");
 }
 
+void AgentParam::ParseMacLearning
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<uint32_t>(var_map, mac_learning_thread_count_,
+                          "MAC-LEARNING.thread_count");
+    GetOptValue<uint32_t>(var_map, mac_learning_add_tokens_,
+                          "MAC-LEARNING.add_tokens");
+    GetOptValue<uint32_t>(var_map, mac_learning_delete_tokens_,
+                          "MAC-LEARNING.del_tokens");
+    GetOptValue<uint32_t>(var_map, mac_learning_update_tokens_,
+                          "MAC-LEARNING.update_tokens");
+}
+
 void AgentParam::ParseDhcpRelayModeArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<bool>(var_map, dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode");
@@ -1186,6 +1213,7 @@ void AgentParam::InitFromConfig() {
     ParseSandesh();
     ParseQueue();
     ParseRestart();
+    ParseMacLearning();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
@@ -1210,6 +1238,7 @@ void AgentParam::InitFromArguments() {
     ParseServicesArguments(var_map_);
     ParseSandeshArguments(var_map_);
     ParseRestartArguments(var_map_);
+    ParseMacLearning(var_map_);
     return;
 }
 
@@ -1673,7 +1702,11 @@ AgentParam::AgentParam(bool enable_flow_options,
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
         default_nic_queue_(Agent::kInvalidQueueId),
-        llgr_params_() {
+        llgr_params_(),
+        mac_learning_thread_count_(Agent::kDefaultFlowThreadCount),
+        mac_learning_add_tokens_(Agent::kMacLearningDefaultTokens),
+        mac_learning_update_tokens_(Agent::kMacLearningDefaultTokens),
+        mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens) {
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()

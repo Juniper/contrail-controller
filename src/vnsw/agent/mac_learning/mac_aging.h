@@ -109,6 +109,7 @@ private:
 class MacAgingPartition {
 public:
     static const uint32_t kMinIterationTimeout = 1 * 100;
+    typedef WorkQueue<MacLearningEntryRequestPtr> MacAgingQueue;
     typedef boost::shared_ptr<MacAgingTable> MacAgingTablePtr;
     typedef std::pair<uint32_t, MacAgingTablePtr> MacAgingTablePair;
     typedef std::map<uint32_t, MacAgingTablePtr> MacAgingTableMap;
@@ -129,7 +130,7 @@ private:
     friend class MacAgingSandeshResp;
     Agent *agent_;
     uint32_t partition_id_;
-    MacLearningRequestQueue request_queue_;
+    MacAgingQueue request_queue_;
     Timer *timer_;
     tbb::mutex mutex_;
     MacAgingTableMap aging_table_map_;

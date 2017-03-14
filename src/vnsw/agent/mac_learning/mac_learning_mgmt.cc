@@ -91,7 +91,8 @@ bool MacLearningMgmtDBEntry::TryDelete() {
 
     if (db_entry_ == NULL || deleted_ == true) {
         MacLearningEntryRequestPtr req_ptr(new MacLearningEntryRequest(
-                    MacLearningEntryRequest::FREE_DB_ENTRY, db_entry_));
+                    MacLearningEntryRequest::FREE_DB_ENTRY, db_entry_,
+                    gen_id_));
         Agent::GetInstance()->mac_learning_proto()->
             Find(0)->Enqueue(req_ptr);
         tree_->Erase(this);
@@ -228,6 +229,7 @@ void MacLearningMgmtManager::DeleteDBEntry(MacLearningMgmtRequestPtr ptr) {
     MacLearningMgmtDBEntry *entry = Find(ptr->db_entry());
     if (entry) {
         entry->Delete(true);
+        entry->set_gen_id(ptr->gen_id());
         entry->tree()->TryDelete(entry);
     }
 }

@@ -136,7 +136,7 @@ private:
     bool enable_rpf_;
     uint32_t src_nh_id_;
     FlowEvent::Event last_event_;
-    std::auto_ptr<FlowToken> token_;
+    boost::shared_ptr<Token> token_;
     FlowKSyncResponseInfo ksync_response_info_;
     FlowTableKSyncObject *ksync_obj_;
     boost::intrusive::list_member_hook<> free_list_node_;
