@@ -198,20 +198,17 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
                 oper = itr->value.GetString();
             } else if (key == "type") {
                 obj_type = itr->value.GetString();
-            } else if (key == "obj_dict") {
+            } else if (key == "fq_name") {
+                if (!itr->value.IsArray())
+                    continue;
                 ostringstream os;
-                if (!itr->value.HasMember("fq_name"))
+                SizeType sz = itr->value.GetArray().Size();
+                if (sz == 0)
                     continue;
-                if (!itr->value["fq_name"].IsArray())
-                    continue;
-                size_t sz = itr->value["fq_name"].GetArray().Size();
-                for (size_t i=0; i<sz; i++) {
-                    if (!itr->value["fq_name"][SizeType(i)].IsString())
-                        continue;
-                    os << itr->value["fq_name"][SizeType(i)].GetString();
-                    if (i < sz-1)
-                        os << ":";
+                for (SizeType i = 0; i < sz-1; i++) {
+                    os << itr->value[i].GetString() << ":";
                 }
+                os << itr->value[sz-1].GetString();
                 obj_name = os.str();
             } else if (key == "uuid") {
                 uuid_str = itr->value.GetString();

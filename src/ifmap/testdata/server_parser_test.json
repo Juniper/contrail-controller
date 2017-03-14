@@ -1,7 +1,7 @@
 [
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"vn1\"]},\"type\":\"virtual_network\",\"uuid\":\"0:634ae160-d3ef-4e81-b58d-d196211eb4d9\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn1\"],\"type\":\"virtual_network\",\"uuid\":\"0:634ae160-d3ef-4e81-b58d-d196211eb4d9\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -28,7 +28,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"vn2\"]},\"type\":\"virtual_network\",\"uuid\":\"1:634ae160-d3ef-4e82-b58d-d196211eb4da\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn2\"],\"type\":\"virtual_network\",\"uuid\":\"1:634ae160-d3ef-4e82-b58d-d196211eb4da\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -56,7 +56,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"vn3\"]},\"type\":\"virtual_network\",\"uuid\":\"2:634ae160-d3ef-4e83-b58d-d196211eb4db\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn3\"],\"type\":\"virtual_network\",\"uuid\":\"2:634ae160-d3ef-4e83-b58d-d196211eb4db\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -85,7 +85,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn3\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"3:634ae160-d3ef-4e83-b58d-d196211eb4db\",\"imid\":\"contrail:virtual_network:vn3\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn3\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"3:634ae160-d3ef-4e83-b58d-d196211eb4db\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -109,7 +109,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"vn4\"]},\"type\":\"virtual_network\",\"uuid\":\"4:634ae160-d3ef-4e84-b58d-d196211eb4dc\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn4\"],\"type\":\"virtual_network\",\"uuid\":\"4:634ae160-d3ef-4e84-b58d-d196211eb4dc\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -134,7 +134,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"obj_dict\":{\"fq_name\":[\"vn5\"]},\"type\":\"virtual_network\",\"uuid\":\"5:634ae160-d3ef-4e85-b58d-d196211eb4dd\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":[\"vn5\"],\"type\":\"virtual_network\",\"uuid\":\"5:634ae160-d3ef-4e85-b58d-d196211eb4dd\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -160,7 +160,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn5\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"6:634ae160-d3ef-4e85-b58d-d196211eb4dd\",\"imid\":\"contrail:virtual_network:vn5\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn5\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"6:634ae160-d3ef-4e85-b58d-d196211eb4dd\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -181,7 +181,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn4\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"7:634ae160-d3ef-4e84-b58d-d196211eb4dc\",\"imid\":\"contrail:virtual_network:vn4\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn4\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"7:634ae160-d3ef-4e84-b58d-d196211eb4dc\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -197,7 +197,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"8:634ae160-d3ef-4e82-b58d-d196211eb4da\",\"imid\":\"contrail:virtual_network:vn2\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"8:634ae160-d3ef-4e82-b58d-d196211eb4da\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",

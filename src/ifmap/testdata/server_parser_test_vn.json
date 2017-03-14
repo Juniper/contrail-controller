@@ -1,7 +1,7 @@
 [
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"dd\\\",\\\"dp\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"0:e6e5609b-64f8-4238-82e6-163e2ec11d21\",\"imid\":\"contrail:virtual_network:dd:dp:vn1\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"dd\\\",\\\"dp\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"0:e6e5609b-64f8-4238-82e6-163e2ec11d21\"}",
     "db": {
       "e6e5609b-64f8-4238-82e6-163e2ec11d21": {
         "fq_name": "[\"dd\",\"dp\",\"vn1\"]",
@@ -17,7 +17,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"dd\\\",\\\"dp\\\"]\",\"type\":\"project\",\"uuid\":\"1:e6e5609b-64f8-4239-82e6-163e2ec11d22\",\"imid\":\"contrail:project:dd:dp\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"dd\\\",\\\"dp\\\"]\",\"type\":\"project\",\"uuid\":\"1:e6e5609b-64f8-4239-82e6-163e2ec11d22\"}",
     "db": {
       "e6e5609b-64f8-4238-82e6-163e2ec11d21": {
         "fq_name": "[\"dd\",\"dp\",\"vn1\"]",
@@ -34,7 +34,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"dd\\\",\\\"dp\\\"]\",\"type\":\"project\",\"uuid\":\"2:e6e5609b-64f8-4239-82e6-163e2ec11d22\",\"imid\":\"contrail:project:dd:dp\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"dd\\\",\\\"dp\\\"]\",\"type\":\"project\",\"uuid\":\"2:e6e5609b-64f8-4239-82e6-163e2ec11d22\"}",
     "db": {
       "e6e5609b-64f8-4238-82e6-163e2ec11d21": {
         "fq_name": "[\"dd\",\"dp\",\"vn1\"]",

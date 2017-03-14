@@ -1,7 +1,7 @@
 [
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\",\\\"323b7882-9bcf-4dc9-9460-48ea68b60ea2\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"0:323b7882-9bcf-4dc9-9460-48ea68b60ea2\",\"imid\":\"contrail:virtual_machine_interface:aad4c946-9390-4a53-8bbd-09d346f5ba6c:323b7882-9bcf-4dc9-9460-48ea68b60ea2\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\",\\\"323b7882-9bcf-4dc9-9460-48ea68b60ea2\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"0:323b7882-9bcf-4dc9-9460-48ea68b60ea2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -152,7 +152,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"target\\\",\\\"1\\\",\\\"173\\\"]\",\"type\":\"route_target\",\"uuid\":\"1:8e176b36-e84d-481a-99ce-42e65f54c57d\",\"imid\":\"contrail:route_target:target:1:173\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"target\\\",\\\"1\\\",\\\"173\\\"]\",\"type\":\"route_target\",\"uuid\":\"1:8e176b36-e84d-481a-99ce-42e65f54c57d\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -304,7 +304,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"target\\\",\\\"1\\\",\\\"175\\\"]\",\"type\":\"route_target\",\"uuid\":\"2:96662ba6-3462-49a2-af22-22168052b32b\",\"imid\":\"contrail:route_target:target:1:175\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"target\\\",\\\"1\\\",\\\"175\\\"]\",\"type\":\"route_target\",\"uuid\":\"2:96662ba6-3462-49a2-af22-22168052b32b\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -457,7 +457,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"target\\\",\\\"1\\\",\\\"174\\\"]\",\"type\":\"route_target\",\"uuid\":\"3:455d67ba-2926-42d1-80d3-ad05325c11c0\",\"imid\":\"contrail:route_target:target:1:174\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"target\\\",\\\"1\\\",\\\"174\\\"]\",\"type\":\"route_target\",\"uuid\":\"3:455d67ba-2926-42d1-80d3-ad05325c11c0\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -611,7 +611,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"4:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"4:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -766,7 +766,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"5:d9f432d5-3702-4932-a78e-5e34815eaf06\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"5:d9f432d5-3702-4932-a78e-5e34815eaf06\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -922,7 +922,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"6:28ddbe81-7f41-4623-8b47-a453a5f9bc72\",\"imid\":\"contrail:routing_instance:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-virtual-network:default-virtual-network\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"6:28ddbe81-7f41-4623-8b47-a453a5f9bc72\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -1079,7 +1079,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-network-ipam\\\"]\",\"type\":\"network_ipam\",\"uuid\":\"7:37c28ecf-6b5e-48c5-9efe-d0249ef5d9df\",\"imid\":\"contrail:network_ipam:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-network-ipam\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-network-ipam\\\"]\",\"type\":\"network_ipam\",\"uuid\":\"7:37c28ecf-6b5e-48c5-9efe-d0249ef5d9df\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -1237,7 +1237,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"pol2\\\"]\",\"type\":\"network_policy\",\"uuid\":\"8:5557d8e6-9e21-439f-ad1f-4d82ab7eec3d\",\"imid\":\"contrail:network_policy:default-domain:0ab190e047004cf4b8b991ffe62ac656:pol2\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"pol2\\\"]\",\"type\":\"network_policy\",\"uuid\":\"8:5557d8e6-9e21-439f-ad1f-4d82ab7eec3d\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -1397,7 +1397,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"9:d9f432d5-3702-4932-a78e-5e34815eaf06\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"9:d9f432d5-3702-4932-a78e-5e34815eaf06\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -1558,7 +1558,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"10:aac0fa88-9300-4ac9-b76e-ecfde14ff18f\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-virtual-network\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"10:aac0fa88-9300-4ac9-b76e-ecfde14ff18f\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -1720,7 +1720,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"11:cf0c5e81-3af0-442b-9bb3-3eaf494d5be6\",\"imid\":\"contrail:access_control_list:default-domain:default-project:default-virtual-network:default-virtual-network\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"11:cf0c5e81-3af0-442b-9bb3-3eaf494d5be6\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -1883,7 +1883,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"pol1\\\"]\",\"type\":\"network_policy\",\"uuid\":\"12:ae2d692a-9d96-495a-bbce-e1003d9fcb3b\",\"imid\":\"contrail:network_policy:default-domain:0ab190e047004cf4b8b991ffe62ac656:pol1\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"pol1\\\"]\",\"type\":\"network_policy\",\"uuid\":\"12:ae2d692a-9d96-495a-bbce-e1003d9fcb3b\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -2048,7 +2048,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-security-group\\\"]\",\"type\":\"security_group\",\"uuid\":\"13:30d24ea6-3ba2-4b59-a93e-0d4fc5edecb2\",\"imid\":\"contrail:security_group:default-domain:default-project:default-security-group\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-security-group\\\"]\",\"type\":\"security_group\",\"uuid\":\"13:30d24ea6-3ba2-4b59-a93e-0d4fc5edecb2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -2214,7 +2214,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"14:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"14:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -2381,7 +2381,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"15:0e49a100-20c7-4858-ab49-69be9e3fe1d2\",\"imid\":\"contrail:project:default-domain:default-project\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"15:0e49a100-20c7-4858-ab49-69be9e3fe1d2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -2549,7 +2549,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\",\\\"323b7882-9bcf-4dc9-9460-48ea68b60ea2\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"16:323b7882-9bcf-4dc9-9460-48ea68b60ea2\",\"imid\":\"contrail:virtual_machine_interface:aad4c946-9390-4a53-8bbd-09d346f5ba6c:323b7882-9bcf-4dc9-9460-48ea68b60ea2\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\",\\\"323b7882-9bcf-4dc9-9460-48ea68b60ea2\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"16:323b7882-9bcf-4dc9-9460-48ea68b60ea2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -2719,7 +2719,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"17:aac0fa88-9300-4ac9-b76e-ecfde14ff18f\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-virtual-network\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"17:aac0fa88-9300-4ac9-b76e-ecfde14ff18f\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -2890,7 +2890,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\",\\\"vn2\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"18:16f1ad9b-4742-4fdc-8b62-5003c31e55dc\",\"imid\":\"contrail:routing_instance:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2:vn2\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\",\\\"vn2\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"18:16f1ad9b-4742-4fdc-8b62-5003c31e55dc\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -3062,7 +3062,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"19:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"19:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -3235,7 +3235,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"20:aad4c946-9390-4a53-8bbd-09d346f5ba6c\",\"imid\":\"contrail:virtual_machine:aad4c946-9390-4a53-8bbd-09d346f5ba6c\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"20:aad4c946-9390-4a53-8bbd-09d346f5ba6c\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -3409,7 +3409,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"21:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"21:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -3584,7 +3584,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"22:0e49a100-20c7-4858-ab49-69be9e3fe1d2\",\"imid\":\"contrail:project:default-domain:default-project\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"22:0e49a100-20c7-4858-ab49-69be9e3fe1d2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -3760,7 +3760,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"23:28ddbe81-7f41-4623-8b47-a453a5f9bc72\",\"imid\":\"contrail:routing_instance:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-virtual-network:default-virtual-network\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"23:28ddbe81-7f41-4623-8b47-a453a5f9bc72\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -3937,7 +3937,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"24:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"24:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -4115,7 +4115,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\",\\\"6d62ada9-4ef4-4220-96bb-27948d4d7670\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"25:6d62ada9-4ef4-4220-96bb-27948d4d7670\",\"imid\":\"contrail:virtual_machine_interface:beab25a4-22b6-407e-943e-831b0b3f2ea2:6d62ada9-4ef4-4220-96bb-27948d4d7670\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\",\\\"6d62ada9-4ef4-4220-96bb-27948d4d7670\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"25:6d62ada9-4ef4-4220-96bb-27948d4d7670\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -4294,7 +4294,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\",\\\"6d62ada9-4ef4-4220-96bb-27948d4d7670\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"26:6d62ada9-4ef4-4220-96bb-27948d4d7670\",\"imid\":\"contrail:virtual_machine_interface:beab25a4-22b6-407e-943e-831b0b3f2ea2:6d62ada9-4ef4-4220-96bb-27948d4d7670\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\",\\\"6d62ada9-4ef4-4220-96bb-27948d4d7670\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"26:6d62ada9-4ef4-4220-96bb-27948d4d7670\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -4475,7 +4475,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\"]\",\"type\":\"domain\",\"uuid\":\"27:7d326288-1837-4048-9f3e-d087453aa0bf\",\"imid\":\"contrail:domain:default-domain\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\"]\",\"type\":\"domain\",\"uuid\":\"27:7d326288-1837-4048-9f3e-d087453aa0bf\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -4657,7 +4657,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"28:aad4c946-9390-4a53-8bbd-09d346f5ba6c\",\"imid\":\"contrail:virtual_machine:aad4c946-9390-4a53-8bbd-09d346f5ba6c\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"28:aad4c946-9390-4a53-8bbd-09d346f5ba6c\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -4840,7 +4840,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"29:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"29:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -5024,7 +5024,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\",\\\"vn2\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"30:16f1ad9b-4742-4fdc-8b62-5003c31e55dc\",\"imid\":\"contrail:routing_instance:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2:vn2\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\",\\\"vn2\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"30:16f1ad9b-4742-4fdc-8b62-5003c31e55dc\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -5209,7 +5209,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\",\\\"vn2\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"31:33e4e652-3c55-41e7-9e35-d6d6faf56b54\",\"imid\":\"contrail:access_control_list:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2:vn2\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\",\\\"vn2\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"31:33e4e652-3c55-41e7-9e35-d6d6faf56b54\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -5396,7 +5396,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\"]\",\"type\":\"domain\",\"uuid\":\"32:7d326288-1837-4048-9f3e-d087453aa0bf\",\"imid\":\"contrail:domain:default-domain\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\"]\",\"type\":\"domain\",\"uuid\":\"32:7d326288-1837-4048-9f3e-d087453aa0bf\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -5584,7 +5584,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\",\\\"vn1\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"33:4a62631e-2ea1-4418-a34b-c59bf3afad03\",\"imid\":\"contrail:routing_instance:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1:vn1\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\",\\\"vn1\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"33:4a62631e-2ea1-4418-a34b-c59bf3afad03\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -5773,7 +5773,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"phys-host-2\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"34:27d5c1e3-9559-440b-b225-d37318ee490f\",\"imid\":\"contrail:virtual_router:phys-host-2\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"phys-host-2\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"34:27d5c1e3-9559-440b-b225-d37318ee490f\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -5963,7 +5963,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\"]\",\"type\":\"domain\",\"uuid\":\"35:7d326288-1837-4048-9f3e-d087453aa0bf\",\"imid\":\"contrail:domain:default-domain\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\"]\",\"type\":\"domain\",\"uuid\":\"35:7d326288-1837-4048-9f3e-d087453aa0bf\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -6154,7 +6154,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-security-group\\\"]\",\"type\":\"security_group\",\"uuid\":\"36:5ff297aa-dc0b-422c-9a7d-93ac2563d733\",\"imid\":\"contrail:security_group:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-security-group\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-security-group\\\"]\",\"type\":\"security_group\",\"uuid\":\"36:5ff297aa-dc0b-422c-9a7d-93ac2563d733\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -6346,7 +6346,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"phys-host-1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"37:4cfe9f76-c76b-4b14-bcb6-fe1c87a38890\",\"imid\":\"contrail:virtual_router:phys-host-1\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"phys-host-1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"37:4cfe9f76-c76b-4b14-bcb6-fe1c87a38890\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -6539,7 +6539,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"38:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"38:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -6733,7 +6733,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"39:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"39:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -6928,7 +6928,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\"]\",\"type\":\"domain\",\"uuid\":\"40:7d326288-1837-4048-9f3e-d087453aa0bf\",\"imid\":\"contrail:domain:default-domain\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\"]\",\"type\":\"domain\",\"uuid\":\"40:7d326288-1837-4048-9f3e-d087453aa0bf\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -7124,7 +7124,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\",\\\"default-virtual-machine-interface\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"41:46cd6720-81a8-444f-9dee-56cce01c8d44\",\"imid\":\"contrail:virtual_machine_interface:beab25a4-22b6-407e-943e-831b0b3f2ea2:default-virtual-machine-interface\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\",\\\"default-virtual-machine-interface\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"41:46cd6720-81a8-444f-9dee-56cce01c8d44\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -7321,7 +7321,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-network-policy\\\"]\",\"type\":\"network_policy\",\"uuid\":\"42:d81dd465-36d9-4911-8798-c6f903bdc63c\",\"imid\":\"contrail:network_policy:default-domain:default-project:default-network-policy\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-network-policy\\\"]\",\"type\":\"network_policy\",\"uuid\":\"42:d81dd465-36d9-4911-8798-c6f903bdc63c\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -7519,7 +7519,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"43:0e49a100-20c7-4858-ab49-69be9e3fe1d2\",\"imid\":\"contrail:project:default-domain:default-project\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"43:0e49a100-20c7-4858-ab49-69be9e3fe1d2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -7718,7 +7718,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"44:aad4c946-9390-4a53-8bbd-09d346f5ba6c\",\"imid\":\"contrail:virtual_machine:aad4c946-9390-4a53-8bbd-09d346f5ba6c\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"44:aad4c946-9390-4a53-8bbd-09d346f5ba6c\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -7918,7 +7918,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"45:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"45:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -8119,7 +8119,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"46:a3c3b0ce-2635-4be5-9f87-0cf2a05b7f4e\",\"imid\":\"contrail:virtual_network:default-domain:default-project:default-virtual-network\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"46:a3c3b0ce-2635-4be5-9f87-0cf2a05b7f4e\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -8321,7 +8321,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"47:cf0c5e81-3af0-442b-9bb3-3eaf494d5be6\",\"imid\":\"contrail:access_control_list:default-domain:default-project:default-virtual-network:default-virtual-network\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"47:cf0c5e81-3af0-442b-9bb3-3eaf494d5be6\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -8524,7 +8524,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"48:0e49a100-20c7-4858-ab49-69be9e3fe1d2\",\"imid\":\"contrail:project:default-domain:default-project\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"48:0e49a100-20c7-4858-ab49-69be9e3fe1d2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -8728,7 +8728,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-network-ipam\\\"]\",\"type\":\"network_ipam\",\"uuid\":\"49:ef4a088d-37f5-4e30-b74b-1546b6249801\",\"imid\":\"contrail:network_ipam:default-domain:default-project:default-network-ipam\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-network-ipam\\\"]\",\"type\":\"network_ipam\",\"uuid\":\"49:ef4a088d-37f5-4e30-b74b-1546b6249801\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -8933,7 +8933,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"50:d9f432d5-3702-4932-a78e-5e34815eaf06\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"50:d9f432d5-3702-4932-a78e-5e34815eaf06\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -9139,7 +9139,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"phys-host-2\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"51:27d5c1e3-9559-440b-b225-d37318ee490f\",\"imid\":\"contrail:virtual_router:phys-host-2\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"phys-host-2\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"51:27d5c1e3-9559-440b-b225-d37318ee490f\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -9346,7 +9346,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"52:d9f432d5-3702-4932-a78e-5e34815eaf06\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"52:d9f432d5-3702-4932-a78e-5e34815eaf06\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -9554,7 +9554,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"53:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"53:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -9763,7 +9763,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"54:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"54:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -9973,7 +9973,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-network-policy\\\"]\",\"type\":\"network_policy\",\"uuid\":\"55:e93e4c1d-5497-4293-b685-9f2895cec710\",\"imid\":\"contrail:network_policy:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-network-policy\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-network-policy\\\"]\",\"type\":\"network_policy\",\"uuid\":\"55:e93e4c1d-5497-4293-b685-9f2895cec710\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -10184,7 +10184,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"56:beab25a4-22b6-407e-943e-831b0b3f2ea2\",\"imid\":\"contrail:virtual_machine:beab25a4-22b6-407e-943e-831b0b3f2ea2\"}",
+    "message": "{\"oper\":\"CREATE\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"56:beab25a4-22b6-407e-943e-831b0b3f2ea2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -10396,7 +10396,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"57:0e49a100-20c7-4858-ab49-69be9e3fe1d2\",\"imid\":\"contrail:project:default-domain:default-project\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\"]\",\"type\":\"project\",\"uuid\":\"57:0e49a100-20c7-4858-ab49-69be9e3fe1d2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -10609,7 +10609,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"target\\\",\\\"1\\\",\\\"176\\\"]\",\"type\":\"route_target\",\"uuid\":\"58:85bc3c72-5ff6-41f2-9fb9-69330572cd49\",\"imid\":\"contrail:route_target:target:1:176\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"target\\\",\\\"1\\\",\\\"176\\\"]\",\"type\":\"route_target\",\"uuid\":\"58:85bc3c72-5ff6-41f2-9fb9-69330572cd49\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -10823,7 +10823,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"59:0162bf1a-7a90-418e-851e-a5beea1bdec5\",\"imid\":\"contrail:routing_instance:default-domain:default-project:default-virtual-network:default-virtual-network\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"59:0162bf1a-7a90-418e-851e-a5beea1bdec5\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -11038,7 +11038,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"60:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"60:24203e3f-20f9-474f-a3dc-5e3d0afdeae3\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -11254,7 +11254,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"61:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"61:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -11471,7 +11471,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"62:608dcc2e-c60c-4943-9cb0-decca8932f18\",\"imid\":\"contrail:project:default-domain:0ab190e047004cf4b8b991ffe62ac656\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\"]\",\"type\":\"project\",\"uuid\":\"62:608dcc2e-c60c-4943-9cb0-decca8932f18\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -11689,7 +11689,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"63:a3c3b0ce-2635-4be5-9f87-0cf2a05b7f4e\",\"imid\":\"contrail:virtual_network:default-domain:default-project:default-virtual-network\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"63:a3c3b0ce-2635-4be5-9f87-0cf2a05b7f4e\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -11908,7 +11908,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-namespace\\\"]\",\"type\":\"namespace\",\"uuid\":\"64:f1c352fc-e6b3-4644-9215-ce08ce9c5d63\",\"imid\":\"contrail:namespace:default-domain:default-namespace\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-namespace\\\"]\",\"type\":\"namespace\",\"uuid\":\"64:f1c352fc-e6b3-4644-9215-ce08ce9c5d63\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -12128,7 +12128,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"65:beab25a4-22b6-407e-943e-831b0b3f2ea2\",\"imid\":\"contrail:virtual_machine:beab25a4-22b6-407e-943e-831b0b3f2ea2\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"65:beab25a4-22b6-407e-943e-831b0b3f2ea2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -12349,7 +12349,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"66:79a84c8b-0393-42b3-a087-d3d65381fa7f\",\"imid\":\"contrail:access_control_list:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-virtual-network:default-virtual-network\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\",\\\"default-virtual-network\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"66:79a84c8b-0393-42b3-a087-d3d65381fa7f\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -12571,7 +12571,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"67:aac0fa88-9300-4ac9-b76e-ecfde14ff18f\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:default-virtual-network\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"67:aac0fa88-9300-4ac9-b76e-ecfde14ff18f\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -12794,7 +12794,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"68:d9f432d5-3702-4932-a78e-5e34815eaf06\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"68:d9f432d5-3702-4932-a78e-5e34815eaf06\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -13018,7 +13018,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\",\\\"vn2\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"69:16f1ad9b-4742-4fdc-8b62-5003c31e55dc\",\"imid\":\"contrail:routing_instance:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn2:vn2\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn2\\\",\\\"vn2\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"69:16f1ad9b-4742-4fdc-8b62-5003c31e55dc\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -13243,7 +13243,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"70:beab25a4-22b6-407e-943e-831b0b3f2ea2\",\"imid\":\"contrail:virtual_machine:beab25a4-22b6-407e-943e-831b0b3f2ea2\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"beab25a4-22b6-407e-943e-831b0b3f2ea2\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"70:beab25a4-22b6-407e-943e-831b0b3f2ea2\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -13469,7 +13469,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"71:a3c3b0ce-2635-4be5-9f87-0cf2a05b7f4e\",\"imid\":\"contrail:virtual_network:default-domain:default-project:default-virtual-network\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"default-project\\\",\\\"default-virtual-network\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"71:a3c3b0ce-2635-4be5-9f87-0cf2a05b7f4e\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -13696,7 +13696,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\",\\\"default-virtual-machine-interface\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"72:8c5eeb87-0b08-472c-b53f-0a03680553c0\",\"imid\":\"contrail:virtual_machine_interface:aad4c946-9390-4a53-8bbd-09d346f5ba6c:default-virtual-machine-interface\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"aad4c946-9390-4a53-8bbd-09d346f5ba6c\\\",\\\"default-virtual-machine-interface\\\"]\",\"type\":\"virtual_machine_interface\",\"uuid\":\"72:8c5eeb87-0b08-472c-b53f-0a03680553c0\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -13924,7 +13924,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\",\\\"vn1\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"73:4a62631e-2ea1-4418-a34b-c59bf3afad03\",\"imid\":\"contrail:routing_instance:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1:vn1\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\",\\\"vn1\\\"]\",\"type\":\"routing_instance\",\"uuid\":\"73:4a62631e-2ea1-4418-a34b-c59bf3afad03\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -14153,7 +14153,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\",\\\"vn1\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"74:cd41c54c-2711-451a-8f82-7f7b688ec9c1\",\"imid\":\"contrail:access_control_list:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1:vn1\"}",
+    "message": "{\"oper\":\"createResult\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\",\\\"vn1\\\"]\",\"type\":\"access_control_list\",\"uuid\":\"74:cd41c54c-2711-451a-8f82-7f7b688ec9c1\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
@@ -14387,7 +14387,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"76:aac0fa88-9300-4ac9-b76e-ecfde14ff18f\",\"imid\":\"contrail:virtual_network:default-domain:0ab190e047004cf4b8b991ffe62ac656:vn1\"}",
+    "message": "{\"oper\":\"DELETE\",\"fq_name\":\"[\\\"default-domain\\\",\\\"0ab190e047004cf4b8b991ffe62ac656\\\",\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"76:aac0fa88-9300-4ac9-b76e-ecfde14ff18f\"}",
     "db": {
       "8e176b36-e84d-481a-99ce-42e65f54c57d": {
         "fq_name": "[\"target\",\"1\",\"173\"]",
