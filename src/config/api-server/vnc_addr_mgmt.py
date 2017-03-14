@@ -689,7 +689,7 @@ class AddrMgmt(object):
                                      obj_dict, should_persist=True)
     # end net_create_req
 
-    def net_create_notify(self, obj_id, obj_dict):
+    def net_create_notify(self, obj_id):
         db_conn = self._get_db_conn()
         try:
             (ok, result) = db_conn.dbe_read(
@@ -1661,7 +1661,13 @@ class AddrMgmt(object):
                                           should_persist=True)
     # end ipam_create_req
 
-    def ipam_create_notify(self, obj_id, obj_dict):
+    def ipam_create_notify(self, obj_id):
+        db_conn = self._get_db_conn()
+        try:
+            (ok, obj_dict) = db_conn.dbe_read('network_ipam', obj_id=obj_id)
+        except cfgm_common.exceptions.NoIdError:
+            return
+
         if obj_dict.get('ipam_subnet_method') == 'flat-subnet':
             self._create_ipam_subnet_objs(obj_id, obj_dict,
                                           should_persist=False)

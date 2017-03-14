@@ -321,15 +321,14 @@ class VncServerKombuClient(VncKombuClient):
                 self._dbe_delete_notification(oper_info)
 
             trace_msg([trace], 'MessageBusNotifyTraceBuf', self._sandesh)
-        except Exception as e:
+        except Exception:
             string_buf = cStringIO.StringIO()
             cgitb_hook(file=string_buf, format="text")
             errmsg = string_buf.getvalue()
-            self.config_log(string_buf.getvalue(),
-                level=SandeshLevel.SYS_ERR)
+            self.config_log(string_buf.getvalue(), level=SandeshLevel.SYS_ERR)
             trace_msg([trace], name='MessageBusNotifyTraceBuf',
-                              sandesh=self._sandesh, error_msg=errmsg)
-    #end _dbe_subscribe_callback
+                      sandesh=self._sandesh, error_msg=errmsg)
+    # end _dbe_subscribe_callback
 
     def dbe_create_publish(self, obj_type, obj_id, obj_dict):
         req_id = get_trace_id()
@@ -337,31 +336,21 @@ class VncServerKombuClient(VncKombuClient):
                      'oper': 'CREATE',
                      'type': obj_type,
                      'uuid': obj_id,
-                     'fq_name': obj_dict['fq_name'],
-                     'obj_dict': obj_dict}
+                     'fq_name': obj_dict['fq_name']}
         self.publish(oper_info)
     # end dbe_create_publish
 
     def _dbe_create_notification(self, obj_info):
-        try:
-            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'],
-                                                        obj_info['uuid'])
-            if not ok:
-                raise Exception(result)
-            obj_dict = result
-        except NoIdError as e:
-            # No error, we will hear a delete shortly
-            return
-
-        self.dbe_uve_trace("CREATE", obj_info['type'], obj_info['uuid'], obj_dict)
+        obj_type = obj_info['type']
+        obj_uuid = obj_info['uuid']
+        self.dbe_uve_trace("CREATE", obj_type, obj_uuid)
 
         try:
-            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+            r_class = self._db_client_mgr.get_resource_class(obj_type)
             if r_class:
-                r_class.dbe_create_notification(obj_info['uuid'], obj_dict)
+                r_class.dbe_create_notification(obj_uuid)
         except Exception as e:
-            err_msg = ("Failed in type specific dbe_create_notification " +
-                       str(e))
+            err_msg = ("Failed in dbe_create_notification " + str(e))
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_create_notification
@@ -372,21 +361,16 @@ class VncServerKombuClient(VncKombuClient):
     # end dbe_update_publish
 
     def _dbe_update_notification(self, obj_info):
-        try:
-            (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'],
-                                                        obj_info['uuid'])
-        except NoIdError as e:
-            # No error, we will hear a delete shortly
-            return
-
-        self.dbe_uve_trace("UPDATE", obj_info['type'], obj_info['uuid'], result)
+        obj_type = obj_info['type']
+        obj_uuid = obj_info['uuid']
+        self.dbe_uve_trace("UPDATE", obj_type, obj_uuid)
 
         try:
-            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+            r_class = self._db_client_mgr.get_resource_class(obj_type)
             if r_class:
-                r_class.dbe_update_notification(obj_info['uuid'])
-        except:
-            msg = "Failed to invoke type specific dbe_update_notification"
+                r_class.dbe_update_notification(obj_uuid)
+        except Exception as e:
+            msg = "Failure in dbe_update_notification" + str(e)
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_update_notification
@@ -398,20 +382,20 @@ class VncServerKombuClient(VncKombuClient):
     # end dbe_delete_publish
 
     def _dbe_delete_notification(self, obj_info):
+        obj_type = obj_info['type']
+        obj_uuid = obj_info['uuid']
         obj_dict = obj_info['obj_dict']
-
-        self.dbe_uve_trace(
-            "DELETE", obj_info['type'], obj_info['uuid'], obj_dict)
+        self.dbe_uve_trace("DELETE", obj_type, obj_uuid, obj_dict)
 
         db_client_mgr = self._db_client_mgr
-        db_client_mgr._object_db.cache_uuid_to_fq_name_del(obj_dict['uuid'])
+        db_client_mgr._object_db.cache_uuid_to_fq_name_del(obj_uuid)
 
         try:
-            r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+            r_class = self._db_client_mgr.get_resource_class(obj_type)
             if r_class:
-                r_class.dbe_delete_notification(obj_info['uuid'], obj_dict)
-        except:
-            msg = "Failed to invoke type specific dbe_delete_notification"
+                r_class.dbe_delete_notification(obj_uuid, obj_dict)
+        except Exception as e:
+            msg = "Failure in dbe_delete_notification" + str(e)
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_delete_notification
@@ -987,9 +971,17 @@ class VncDbClient(object):
         return (True, obj_dict['uuid'])
     # end dbe_alloc
 
-    def dbe_uve_trace(self, oper, type, uuid, obj_dict):
+    def dbe_uve_trace(self, oper, type, uuid, obj_dict=None):
         if type not in self._UVEMAP:
             return
+
+        if obj_dict is None:
+            try:
+                (ok, obj_dict) = self._db_client_mgr.dbe_read(type, uuid)
+                if not ok:
+                    return
+            except NoIdError:
+                return
 
         if type == 'bgp_router':
             if (obj_dict.get('bgp_router_parameters', {}).get('router_type') !=
