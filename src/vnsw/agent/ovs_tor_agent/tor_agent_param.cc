@@ -47,29 +47,13 @@ void TorAgentParam::AddOptions() {
     AgentParam::AddOptions(tor);
 }
 
-void TorAgentParam::InitFromConfig() {
-    // Parse common config elements
-    AgentParam::InitFromConfig();
-
-    // Parse ToR specific arguments
-    ParseIp("TOR.tor_ip", &tor_info_.ip_);
-    ParseIp("TOR.tsn_ip", &tor_info_.tsn_ip_);
-    GetValueFromTree<string>(tor_info_.id_, "TOR.tor_id");
-    GetValueFromTree<string>(tor_info_.type_, "TOR.tor_type");
-    GetValueFromTree<string>(tor_info_.protocol_, "TOR.tor_ovs_protocol");
-    GetValueFromTree<int>(tor_info_.port_, "TOR.tor_ovs_port");
-    GetValueFromTree<string>(tor_info_.ssl_cert_,"TOR.ssl_cert");
-    GetValueFromTree<string>(tor_info_.ssl_privkey_,"TOR.ssl_privkey");
-    GetValueFromTree<string>(tor_info_.ssl_cacert_,"TOR.ssl_cacert");
-    GetValueFromTree<int>(tor_info_.keepalive_interval_,
-                          "TOR.tor_keepalive_interval");
-    GetValueFromTree<int>(tor_info_.ha_stale_route_interval_,
-                          "TOR.tor_ha_stale_route_interval");
+void TorAgentParam::ProcessArguments() {
+    // Parse common arguments
+    AgentParam::ProcessArguments();
+    ParseTorArguments();
 }
 
-void TorAgentParam::InitFromArguments() {
-    // Parse common arguments
-    AgentParam::InitFromArguments();
+void TorAgentParam::ParseTorArguments() {
 
     // Parse ToR specific arguments
     boost::program_options::variables_map vars = var_map();
