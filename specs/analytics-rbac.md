@@ -63,13 +63,26 @@ None
 
 #4. Implementation
 ## Phase 1:
-1. Currently VNC API provides obj_perms function which takes object
-   UUID and token and returns the permissions. obj_perms will be
-   modified to also accept fq-object-name parameter and pass that to
-   API server. API server will use the fq-name-to-uuid mapping table
-   returns permissions configured.
-2. Mapping between the UVE name and the configuration object fq-name
-   might be needed.
+* Currently VNC API provides obj_perms function which takes object
+  UUID and token, and returns the permissions. 
+* For every UVE, UUID of corresponding config object will be retrieved from
+  ContrailConfig struct of UVE, wherever present. All other UVEs will be
+  treated as infrastructure UVEs for which analytics-api will allow cloud-admin
+  roles and won't check object level permissions. Here is the list of UVEs
+  having ContrailConfig structure:
+
+        * virtual_network
+        * virtual_machine
+        * virtual_machine_interface
+        * service_instance
+        * virtual_router
+        * analytics_node
+        * database_node
+        * config_node
+        * service_chain
+        * physical_router
+        * bgp_router
+
 
 #5. Performance and scaling impact
 ##5.1 API and control plane
