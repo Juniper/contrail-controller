@@ -58,8 +58,8 @@ class TorAgentParam : public AgentParam  {
     }
 
  private:
-    virtual void InitFromConfig();
-    virtual void InitFromArguments();
+    virtual void ProcessArguments();
+    virtual void ParseTorArguments();
 
     TorInfo tor_info_;
     uint16_t local_port_;

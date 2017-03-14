@@ -186,6 +186,7 @@ bool AgentParam::ParseServerListArguments
 
     if (var_map.count(key)) {
         vector<string> value = var_map[key].as<vector<string> >();
+        boost::split(value, value[0], boost::is_any_of(" \t"));
         if (value.size() > 2) {
             cout << "Error in Arguments. Cannot have more than 2 servers for "
                  << key << "\n";
@@ -215,6 +216,7 @@ bool AgentParam::ParseServerListArguments
 
     if (var_map.count(key)) {
         vector<string> value = var_map[key].as<vector<string> >();
+        boost::split(value, value[0], boost::is_any_of(" \t"));
         if (value.size() > 2) {
             LOG(ERROR, "Error in Arguments. Cannot have more than 2 servers "
                     "for " << key );
@@ -259,44 +261,6 @@ AgentParam::ParseDerivedStats(const std::vector<std::string> &dsvec) {
     return dsmap;
 }
 
-void AgentParam::ParseCollectorDS() {
-    optional<string> opt_str;
-    if (opt_str = tree_.get_optional<string>("DEFAULT.collectors")) {
-        boost::split(collector_server_list_, opt_str.get(),
-                     boost::is_any_of(" "));
-    }
-    if (opt_str = tree_.get_optional<string>("DEFAULT.derived_stats")) {
-        vector<string> dsvec;
-        boost::split(dsvec, opt_str.get(),
-                     boost::is_any_of(" "));
-        derived_stats_map_ = ParseDerivedStats(dsvec);
-    }
-}
-
-void AgentParam::ParseCollector() {
-    optional<string> opt_str;
-    if (opt_str = tree_.get_optional<string>("DEFAULT.collectors")) {
-        boost::split(collector_server_list_, opt_str.get(),
-                     boost::is_any_of(" "));
-    }
-}
-
-void AgentParam::ParseControllerServers() {
-    optional<string> opt_str;
-    if (opt_str = tree_.get_optional<string>("CONTROL-NODE.servers")) {
-        boost::split(controller_server_list_, opt_str.get(),
-                     boost::is_any_of(" "));
-    }
-}
-
-void AgentParam::ParseDnsServers() {
-    optional<string> opt_str;
-    if (opt_str = tree_.get_optional<string>("DNS.servers")) {
-        boost::split(dns_server_list_, opt_str.get(),
-                     boost::is_any_of(" "));
-    }
-}
-
 void AgentParam::BuildAddressList(const string &val) {
     compute_node_address_list_.clear();
     if (val.empty()) {
@@ -320,383 +284,6 @@ void AgentParam::BuildAddressList(const string &val) {
     }
 }
 
-void AgentParam::ParseVirtualHost() {
-    boost::system::error_code ec;
-    optional<string> opt_str;
-
-    GetValueFromTree<string>(vhost_.name_, "VIRTUAL-HOST-INTERFACE.name");
-
-    if (opt_str = tree_.get_optional<string>("VIRTUAL-HOST-INTERFACE.ip")) {
-        ec = Ip4PrefixParse(opt_str.get(), &vhost_.addr_, &vhost_.plen_);
-        if (ec != 0 || vhost_.plen_ > 32) {
-            cout << "Error in config file <" << config_file_
-                    << ">. Error parsing vhost ip-address from <"
-                    << opt_str.get() << ">\n";
-        }
-    }
-
-    if (opt_str = tree_.get_optional<string>("VIRTUAL-HOST-INTERFACE.gateway")) {
-        if (GetIpAddress(opt_str.get(), &vhost_.gw_) == false) {
-            cout << "Error in config file <" << config_file_
-                    << ">. Error parsing vhost gateway address from <"
-                    << opt_str.get() << ">\n";
-        }
-    }
-
-    GetValueFromTree<string>(eth_port_,
-                             "VIRTUAL-HOST-INTERFACE.physical_interface");
-
-    if (opt_str = tree_.get_optional<string>
-        ("VIRTUAL-HOST-INTERFACE.compute_node_address")) {
-        BuildAddressList(opt_str.get());
-    }
-}
-
-void AgentParam::ParseDns() {
-    ParseServerList("DNS.server", &dns_server_1_, &dns_port_1_,
-                    &dns_server_2_, &dns_port_2_);
-    if (!GetValueFromTree<uint16_t>(dns_client_port_,
-                                    "DNS.dns_client_port")) {
-        dns_client_port_ = ContrailPorts::VrouterAgentDnsClientUdpPort();
-    }
-    GetValueFromTree<uint32_t>(dns_timeout_, "DNS.dns_timeout");
-    GetValueFromTree<uint32_t>(dns_max_retries_, "DNS.dns_max_retries");
-}
-
-void AgentParam::ParseNetworks() {
-    ParseIp("NETWORKS.control_network_ip", &mgmt_ip_);
-}
-
-void AgentParam::ParseHypervisor() {
-    optional<string> opt_str;
-    if (opt_str = tree_.get_optional<string>("HYPERVISOR.type")) {
-        // Initialize mode to KVM. Will be overwritten for XEN later
-        hypervisor_mode_ = AgentParam::MODE_KVM;
-
-        if (opt_str.get() == "xen") {
-            hypervisor_mode_ = AgentParam::MODE_XEN;
-            GetValueFromTree<string>(xen_ll_.name_,
-                                     "HYPERVISOR.xen_ll_interface");
-
-            boost::system::error_code ec;
-            if (opt_str = tree_.get_optional<string>
-                    ("HYPERVISOR.xen_ll_ip")) {
-                ec = Ip4PrefixParse(opt_str.get(), &xen_ll_.addr_,
-                                    &xen_ll_.plen_);
-                if (ec != 0 || xen_ll_.plen_ >= 32) {
-                    cout << "Error in config file <" << config_file_
-                            << ">. Error parsing Xen Link-local ip-address from <"
-                            << opt_str.get() << ">\n";
-                    return;
-                }
-            }
-        } else if (opt_str.get() == "vmware") {
-            hypervisor_mode_ = AgentParam::MODE_VMWARE;
-            GetValueFromTree<string>(vmware_physical_port_,
-                                     "HYPERVISOR.vmware_physical_interface");
-        } else if (opt_str.get() == "docker") {
-            hypervisor_mode_ = AgentParam::MODE_DOCKER;
-        } else {
-            hypervisor_mode_ = AgentParam::MODE_KVM;
-        }
-    }
-
-    if ((opt_str = tree_.get_optional<string>("HYPERVISOR.vmware_mode")) && opt_str.get() != "") {
-        if (opt_str.get() == "vcenter") {
-            vmware_mode_ = VCENTER;
-        } else if (opt_str.get() == "esxi_neutron") {
-            vmware_mode_ = ESXI_NEUTRON;
-        } else {
-            cout << "Error in config file <" << config_file_ <<
-                ">. Error parsing vmware_mode from <"
-                << opt_str.get() << ">\n";
-            return;
-        }
-    }
-}
-
-void AgentParam::ParsePlatform() {
-    std::string vrouter_platform;
-    GetValueFromTree<string>(vrouter_platform, "DEFAULT.platform");
-    if (vrouter_platform=="nic") {
-        platform_ = AgentParam::VROUTER_ON_NIC;
-    } else if (vrouter_platform=="dpdk") {
-        platform_ = AgentParam::VROUTER_ON_HOST_DPDK;
-        GetValueFromTree<string>(physical_interface_pci_addr_,
-                                 "DEFAULT.physical_interface_address");
-        GetValueFromTree<string>(physical_interface_mac_addr_,
-                                 "DEFAULT.physical_interface_mac");
-    } else {
-        platform_ = AgentParam::VROUTER_ON_HOST;
-    }
-}
-
-void AgentParam::ParseDefaultSection() {
-    optional<string> opt_str;
-    optional<unsigned int> opt_uint;
-
-    GetValueFromTree<string>(host_name_, "DEFAULT.hostname");
-    GetValueFromTree<string>(agent_name_, "DEFAULT.agent_name");
-
-    if (!GetValueFromTree<uint16_t>(http_server_port_,
-                                    "DEFAULT.http_server_port")) {
-        http_server_port_ = ContrailPorts::HttpPortAgent();
-    }
-
-    GetValueFromTree<string>(tunnel_type_, "DEFAULT.tunnel_type");
-    if ((tunnel_type_ != "MPLSoUDP") && (tunnel_type_ != "VXLAN"))
-        tunnel_type_ = "MPLSoGRE";
-
-    if (!GetValueFromTree<uint16_t>(flow_cache_timeout_,
-                                    "DEFAULT.flow_cache_timeout")) {
-        flow_cache_timeout_ = Agent::kDefaultFlowCacheTimeout;
-    }
-
-    if (!GetValueFromTree<uint32_t>(stale_interface_cleanup_timeout_,
-                                   "DEFAULT.stale_interface_cleanup_timeout")) {
-        stale_interface_cleanup_timeout_ =
-            Agent::kDefaultStaleInterfaceCleanupTimeout;
-    }
-
-    if (!GetValueFromTree<string>(log_level_, "DEFAULT.log_level")) {
-        log_level_ = "SYS_DEBUG";
-    }
-    if (!GetValueFromTree<string>(log_file_, "DEFAULT.log_file")) {
-        log_file_ = Agent::GetInstance()->log_file();
-    }
-    if (!GetValueFromTree<int>(log_files_count_, "DEFAULT.log_files_count")) {
-        log_files_count_ = 10;
-    }
-    if (!GetValueFromTree<long>(log_file_size_, "DEFAULT.log_file_size")) {
-        log_file_size_ = 1024*1024;
-    }
-
-    if (!GetValueFromTree<string>(log_category_, "DEFAULT.log_category")) {
-        log_category_ = "";
-    }
-
-    if (optional<bool> log_local_opt =
-        tree_.get_optional<bool>("DEFAULT.log_local")) {
-        log_local_ = true;
-    } else {
-        log_local_ = false;
-    }
-
-    GetValueFromTree<bool>(use_syslog_, "DEFAULT.use_syslog");
-    if (!GetValueFromTree<string>(syslog_facility_, "DEFAULT.syslog_facility")) {
-        syslog_facility_ = "LOG_LOCAL0";
-    }
-
-    if (optional<bool> log_flow_opt =
-        tree_.get_optional<bool>("DEFAULT.log_flow")) {
-        log_flow_ = true;
-    } else {
-        log_flow_ = false;
-    }
-
-    if (!GetValueFromTree<string>(log_property_file_, "DEFAULT.log_property_file")) {
-        log_property_file_ = "";
-    }
-
-    if (!GetValueFromTree<bool>(xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable")) {
-        // set defaults
-        xmpp_auth_enable_ = false;
-    }
-
-    if (!GetValueFromTree<string>(xmpp_server_cert_, "DEFAULT.xmpp_server_cert")) {
-        // set defaults
-        xmpp_server_cert_ = "/etc/contrail/ssl/certs/server.pem";
-    }
-
-    if (!GetValueFromTree<string>(xmpp_server_key_, "DEFAULT.xmpp_server_key")) {
-        // set defaults
-        xmpp_server_key_ = "/etc/contrail/ssl/private/server-privkey.pem";
-    }
-
-    if (!GetValueFromTree<string>(xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert")) {
-        // set defaults
-        xmpp_ca_cert_ = "/etc/contrail/ssl/certs/ca-cert.pem";
-    }
-
-    if (!GetValueFromTree<bool>(xmpp_dns_auth_enable_,
-                                "DEFAULT.xmpp_dns_auth_enable")) {
-        // set defaults
-        xmpp_dns_auth_enable_ = false;
-    }
-
-    if (!GetValueFromTree<uint32_t>(send_ratelimit_,
-                                    "DEFAULT.sandesh_send_rate_limit")) {
-        send_ratelimit_ = Sandesh::get_send_rate_limit();
-    }
-
-    if (optional<bool> subnet_hosts_resolvable_opt =
-            tree_.get_optional<bool>("DEFAULT.subnet_hosts_resolvable")) {
-        subnet_hosts_resolvable_ = *subnet_hosts_resolvable_opt;
-    } else {
-        subnet_hosts_resolvable_ = true;
-    }
-
-    if (!GetValueFromTree<uint16_t>(mirror_client_port_,
-                                    "DEFAULT.mirror_client_port")) {
-        mirror_client_port_ = ContrailPorts::VrouterAgentMirrorClientUdpPort();
-    }
-
-    if (!GetValueFromTree<uint32_t>(pkt0_tx_buffer_count_,
-                                    "DEFAULT.pkt0_tx_buffers")) {
-        pkt0_tx_buffer_count_ = Agent::kPkt0TxBufferCount;
-    }
-    if (!GetValueFromTree<bool>(measure_queue_delay_,
-                                "DEFAULT.measure_queue_delay")) {
-        measure_queue_delay_ = false;
-    }
-}
-
-void AgentParam::ParseTaskSection() {
-    GetValueFromTree<uint32_t>(tbb_thread_count_, "TASK.thread_count");
-    GetValueFromTree<uint32_t>(tbb_exec_delay_, "TASK.log_exec_threshold");
-    GetValueFromTree<uint32_t>(tbb_schedule_delay_,
-                               "TASK.log_schedule_threshold");
-    if (!GetValueFromTree<uint32_t>(tbb_keepawake_timeout_,
-                                    "TASK.tbb_keepawake_timeout")) {
-        tbb_keepawake_timeout_ = Agent::kDefaultTbbKeepawakeTimeout;
-    }
-    GetValueFromTree<string>(ksync_thread_cpu_pin_policy_,
-                             "TASK.ksync_thread_cpu_pin_policy");
-}
-
-void AgentParam::ParseMetadataProxy() {
-    GetValueFromTree<string>(metadata_shared_secret_,
-                             "METADATA.metadata_proxy_secret");
-    if (!GetValueFromTree<uint16_t>(metadata_proxy_port_,
-                                    "METADATA.metadata_proxy_port")) {
-        metadata_proxy_port_ = ContrailPorts::MetadataProxyVrouterAgentPort();
-    }
-    if (!GetValueFromTree<bool>(metadata_use_ssl_,
-                                "METADATA.metadata_use_ssl")) {
-        // set defaults
-        metadata_use_ssl_ = false;
-    }
-    GetValueFromTree<string>(metadata_client_cert_,
-                             "METADATA.metadata_client_cert");
-    GetValueFromTree<string>(metadata_client_cert_type_,
-                             "METADATA.metadata_client_cert_type");
-    GetValueFromTree<string>(metadata_client_key_,
-                             "METADATA.metadata_client_key");
-    GetValueFromTree<string>(metadata_ca_cert_,
-                             "METADATA.metadata_ca_cert");
-    if (metadata_use_ssl_) {
-        if (metadata_client_cert_.empty() || metadata_client_key_.empty()) {
-            //SSL is enabled and certificate doesnt exist, log an error
-            LOG(ERROR, "SSL Error, certificate/key not provided");
-        }
-    }
-}
-
-void AgentParam::ParseFlows() {
-    if (!GetValueFromTree<uint16_t>(flow_thread_count_,
-                                    "FLOWS.thread_count")) {
-        flow_thread_count_ = Agent::kDefaultFlowThreadCount;
-    }
-
-    if (!GetValueFromTree<uint16_t>(flow_latency_limit_,
-                                    "FLOWS.latency_limit")) {
-        flow_latency_limit_ = Agent::kDefaultFlowLatencyLimit;
-    }
-
-    if (!GetValueFromTree<bool>(flow_trace_enable_, "FLOWS.trace_enable")) {
-        flow_trace_enable_ = true;
-    }
-
-    if (!GetValueFromTree<float>(max_vm_flows_, "FLOWS.max_vm_flows")) {
-        max_vm_flows_ = (float) 100;
-    }
-    if (!GetValueFromTree<uint16_t>(linklocal_system_flows_,
-        "FLOWS.max_system_linklocal_flows")) {
-        linklocal_system_flows_ = Agent::kDefaultMaxLinkLocalOpenFds;
-    }
-    if (!GetValueFromTree<uint16_t>(linklocal_vm_flows_,
-        "FLOWS.max_vm_linklocal_flows")) {
-        linklocal_vm_flows_ = Agent::kDefaultMaxLinkLocalOpenFds;
-    }
-    if (!GetValueFromTree<uint16_t>(flow_index_sm_log_count_,
-                                    "FLOWS.index_sm_log_count")) {
-        flow_index_sm_log_count_ = Agent::kDefaultFlowIndexSmLogCount;
-    }
-
-    GetValueFromTree<uint32_t>(flow_add_tokens_, "FLOWS.add_tokens");
-    GetValueFromTree<uint32_t>(flow_ksync_tokens_, "FLOWS.ksync_tokens");
-    GetValueFromTree<uint32_t>(flow_del_tokens_, "FLOWS.del_tokens");
-    GetValueFromTree<uint32_t>(flow_update_tokens_, "FLOWS.update_tokens");
-}
-
-void AgentParam::ParseMacLearning() {
-    if (!GetValueFromTree<uint32_t>(mac_learning_thread_count_,
-                                    "MAC-LEARNING.thread_count")) {
-        mac_learning_thread_count_ = Agent::kDefaultFlowThreadCount;
-    }
-
-    GetValueFromTree<uint32_t>(mac_learning_add_tokens_,
-                               "MAC-LEARNING.add_tokens");
-    GetValueFromTree<uint32_t>(mac_learning_delete_tokens_,
-                               "MAC-LEARNING.del_tokens");
-    GetValueFromTree<uint32_t>(mac_learning_update_tokens_,
-                               "MAC-LEARNING.update_tokens");
-}
-
-
-void AgentParam::ParseDhcpRelayMode() {
-    if (!GetValueFromTree<bool>(dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode")) {
-        dhcp_relay_mode_ = false;
-    }
-}
-
-void AgentParam::ParseAgentInfo() {
-    std::string mode;
-    GetValueFromTree<string>(mode, "DEFAULT.agent_mode");
-    set_agent_mode(mode);
-
-    GetValueFromTree<string>(mode, "DEFAULT.gateway_mode");
-    set_gateway_mode(mode);
-
-    if (!GetValueFromTree<string>(agent_base_dir_,
-                                  "DEFAULT.agent_base_directory")) {
-        agent_base_dir_ = "/var/lib/contrail";
-    }
-}
-
-void AgentParam::ParseLlgr() {
-    if (!GetValueFromTree<uint16_t>(llgr_params_.stale_config_cleanup_time_,
-                                    "LLGR.stale_config_cleanup_time")) {
-        llgr_params_.stale_config_cleanup_time_ =
-            LlgrParams::kStaleConfigCleanupTime;
-    }
-    if (!GetValueFromTree<uint16_t>(llgr_params_.config_inactivity_time_,
-                                    "LLGR.config_inactivity_time")) {
-        llgr_params_.config_inactivity_time_ =
-            LlgrParams::kConfigInactivityTime;
-    }
-    if (!GetValueFromTree<uint16_t>(llgr_params_.config_fallback_time_,
-                                    "LLGR.config_fallback_time")) {
-        llgr_params_.config_fallback_time_ =
-            LlgrParams::kConfigFallbackTimeOut;
-    }
-    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_rib_tx_fallback_time_,
-                                    "LLGR.end_of_rib_tx_fallback_time")) {
-        llgr_params_.end_of_rib_tx_fallback_time_ =
-            LlgrParams::kEorTxFallbackTimeOut;
-    }
-    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_rib_tx_inactivity_time_,
-                                    "LLGR.end_of_rib_tx_inactivity_time")) {
-        llgr_params_.end_of_rib_tx_inactivity_time_ =
-            LlgrParams::kEorTxInactivityTime;
-    }
-    if (!GetValueFromTree<uint16_t>(llgr_params_.end_of_rib_rx_fallback_time_,
-                                    "LLGR.end_of_rib_rx_fallback_time")) {
-        llgr_params_.end_of_rib_rx_fallback_time_ =
-            LlgrParams::kEorRxFallbackTime;
-    }
-}
-
 void AgentParam::set_agent_mode(const std::string &mode) {
     std::string agent_mode = boost::to_lower_copy(mode);
     if (agent_mode == "tsn")
@@ -715,59 +302,6 @@ void AgentParam::set_gateway_mode(const std::string &mode) {
         gateway_mode_ = VCPE;
     else
         gateway_mode_ = NONE;
-}
-
-void AgentParam::ParseSimulateEvpnTor() {
-    if (!GetValueFromTree<bool>(simulate_evpn_tor_,
-                                "DEFAULT.simulate_evpn_tor")) {
-        simulate_evpn_tor_ = false;
-    }
-}
-
-void AgentParam::ParseServiceInstance() {
-    GetValueFromTree<string>(si_netns_command_,
-                             "SERVICE-INSTANCE.netns_command");
-    GetValueFromTree<string>(si_docker_command_,
-                             "SERVICE-INSTANCE.docker_command");
-    GetValueFromTree<int>(si_netns_workers_,
-                          "SERVICE-INSTANCE.netns_workers");
-    GetValueFromTree<int>(si_netns_timeout_,
-                          "SERVICE-INSTANCE.netns_timeout");
-    GetValueFromTree<string>(si_lb_ssl_cert_path_,
-                         "SERVICE-INSTANCE.lb_ssl_cert_path");
-    GetValueFromTree<string>(si_lbaas_auth_conf_,
-                         "SERVICE-INSTANCE.lbaas_auth_conf");
-}
-
-void AgentParam::ParseNexthopServer() {
-    GetValueFromTree<string>(nexthop_server_endpoint_,
-                             "NEXTHOP-SERVER.endpoint");
-    GetValueFromTree<bool>(nexthop_server_add_pid_,
-                           "NEXTHOP-SERVER.add_pid");
-    if (nexthop_server_add_pid_) {
-        std::stringstream ss;
-        ss << nexthop_server_endpoint_ << "." << getpid();
-        nexthop_server_endpoint_ = ss.str();
-    }
-}
-
-void AgentParam::ParseServices() {
-    GetValueFromTree<string>(bgp_as_a_service_port_range_,
-                             "SERVICES.bgp_as_a_service_port_range");
-    GetValueFromTree<uint32_t>(services_queue_limit_, "SERVICES.queue_limit");
-}
-
-void AgentParam::ParseSandesh() {
-    GetValueFromTree<string>(sandesh_config_.keyfile,
-                             "SANDESH.sandesh_keyfile");
-    GetValueFromTree<string>(sandesh_config_.certfile,
-                             "SANDESH.sandesh_certfile");
-    GetValueFromTree<string>(sandesh_config_.ca_cert,
-                             "SANDESH.sandesh_ca_cert");
-    GetValueFromTree<bool>(sandesh_config_.sandesh_ssl_enable,
-                           "SANDESH.sandesh_ssl_enable");
-    GetValueFromTree<bool>(sandesh_config_.introspect_ssl_enable,
-                           "SANDESH.introspect_ssl_enable");
 }
 
 void AgentParam::ParseQueue() {
@@ -827,15 +361,22 @@ void AgentParam::ParseQueue() {
     }
 }
 
-void AgentParam::ParseRestart() {
-    GetValueFromTree<bool>(restart_backup_enable_, "RESTART.backup_enable");
-    GetValueFromTree<uint64_t>(restart_backup_idle_timeout_,
-                               "RESTART.backup_idle_timeout");
-    GetValueFromTree<string>(restart_backup_dir_, "RESTART.backup_dir");
-    GetValueFromTree<uint16_t>(restart_backup_count_, "RESTART.backup_count");
-    GetValueFromTree<bool>(restart_restore_enable_, "RESTART.restore_enable");
-    GetValueFromTree<uint64_t>(restart_restore_audit_timeout_,
-                               "RESTART.restore_audit_timeout");
+void AgentParam::ParseCollectorArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue< vector<string> >(var_map, collector_server_list_,
+                                  "DEFAULT.collectors");
+}
+
+void AgentParam::ParseControllerServersArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue< vector<string> >(var_map, controller_server_list_,
+                                  "CONTROL-NODE.servers");
+}
+
+void AgentParam::ParseDnsServersArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue< vector<string> >(var_map, dns_server_list_,
+                                  "DNS.servers");
 }
 
 void AgentParam::ParseCollectorDSArguments
@@ -970,6 +511,8 @@ void AgentParam::ParseDefaultSectionArguments
                           "DEFAULT.pkt0_tx_buffers");
     GetOptValue<bool>(var_map, measure_queue_delay_,
                       "DEFAULT.measure_queue_delay");
+    GetOptValue<string>(var_map, tunnel_type_,
+                        "DEFAULT.tunnel_type");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -984,6 +527,8 @@ void AgentParam::ParseTaskSectionArguments
                           "TASK.tbb_keepawake_timeout");
     GetOptValue<string>(var_map, ksync_thread_cpu_pin_policy_,
                         "TASK.ksync_thread_cpu_pin_policy");
+    GetOptValue<uint32_t>(var_map, flow_netlink_pin_cpuid_,
+                        "TASK.flow_netlink_pin_cpuid");
 }
 
 void AgentParam::ParseMetadataProxyArguments
@@ -1032,21 +577,14 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.update_tokens");
 }
 
-void AgentParam::ParseMacLearning
-    (const boost::program_options::variables_map &var_map) {
-    GetOptValue<uint32_t>(var_map, mac_learning_thread_count_,
-                          "MAC-LEARNING.thread_count");
-    GetOptValue<uint32_t>(var_map, mac_learning_add_tokens_,
-                          "MAC-LEARNING.add_tokens");
-    GetOptValue<uint32_t>(var_map, mac_learning_delete_tokens_,
-                          "MAC-LEARNING.del_tokens");
-    GetOptValue<uint32_t>(var_map, mac_learning_update_tokens_,
-                          "MAC-LEARNING.update_tokens");
-}
-
 void AgentParam::ParseDhcpRelayModeArguments
     (const boost::program_options::variables_map &var_map) {
     GetOptValue<bool>(var_map, dhcp_relay_mode_, "DEFAULT.dhcp_relay_mode");
+}
+
+void AgentParam::ParseSimulateEvpnTorArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<bool>(var_map, simulate_evpn_tor_, "DEFAULT.simulate_evpn_tor");
 }
 
 void AgentParam::ParseAgentInfoArguments
@@ -1159,6 +697,18 @@ void AgentParam::ParseLlgrArguments
                           "LLGR.end_of_rib_tx_inactivity_time_");
 }
 
+void AgentParam::ParseMacLearning
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<uint32_t>(var_map, mac_learning_thread_count_,
+                          "MAC-LEARNING.thread_count");
+    GetOptValue<uint32_t>(var_map, mac_learning_add_tokens_,
+                          "MAC-LEARNING.add_tokens");
+    GetOptValue<uint32_t>(var_map, mac_learning_delete_tokens_,
+                          "MAC-LEARNING.del_tokens");
+    GetOptValue<uint32_t>(var_map, mac_learning_update_tokens_,
+                          "MAC-LEARNING.update_tokens");
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -1180,49 +730,33 @@ void AgentParam::InitFromSystem() {
 // Update agent parameters from config file
 void AgentParam::InitFromConfig() {
     // Read and parse INI
-    try {
-        read_ini(config_file_, tree_);
-    } catch (exception &e) {
-        cout <<  "Error reading config file <" << config_file_
-            << ">. INI format error??? <" << e.what() << ">\n";
-        return;
+    ifstream config_file_in;
+    config_file_in.open(config_file_.c_str());
+    if (config_file_in.good()) {
+        opt::basic_parsed_options<char> ParsedOptions = opt::parse_config_file(config_file_in, config_file_options_, true);
+        boost::program_options::store(ParsedOptions,
+                   var_map_);
+        boost::program_options::notify(var_map_);
+        std::vector<boost::program_options::basic_option<char> >::iterator it;
+        for (it=ParsedOptions.options.begin() ; it < ParsedOptions.options.end(); ++it) {
+            if (it->unregistered) {
+                tree_.put(it->string_key,it->value.at(0));
+            }
+
+        }
     }
-
-    ParseCollectorDS();
-    ParseVirtualHost();
-    ParseServerList("CONTROL-NODE.server", &xmpp_server_1_, &xmpp_server_2_);
-    ParseDns();
-
-    // Parse Server List of IpAddress:port format
-    ParseControllerServers();
-    ParseDnsServers();
-
-    ParseNetworks();
-    ParseHypervisor();
-    ParseDefaultSection();
-    ParseTaskSection();
-    ParseMetadataProxy();
-    ParseFlows();
-    ParseDhcpRelayMode();
-    ParseSimulateEvpnTor();
-    ParseServiceInstance();
-    ParseAgentInfo();
-    ParseNexthopServer();
-    ParsePlatform();
-    ParseServices();
-    ParseSandesh();
-    ParseQueue();
-    ParseRestart();
-    ParseMacLearning();
+    config_file_in.close();
     cout << "Config file <" << config_file_ << "> parsing completed.\n";
     return;
 }
 
-void AgentParam::InitFromArguments() {
+void AgentParam::ProcessArguments() {
     ParseCollectorDSArguments(var_map_);
     ParseVirtualHostArguments(var_map_);
     ParseServerListArguments(var_map_, xmpp_server_1_, xmpp_server_2_,
                              "CONTROL-NODE.server");
+    ParseControllerServersArguments(var_map_);
+    ParseDnsServersArguments(var_map_);
     ParseDnsArguments(var_map_);
     ParseNetworksArguments(var_map_);
     ParseHypervisorArguments(var_map_);
@@ -1232,29 +766,23 @@ void AgentParam::InitFromArguments() {
     ParseMetadataProxyArguments(var_map_);
     ParseDhcpRelayModeArguments(var_map_);
     ParseServiceInstanceArguments(var_map_);
+    ParseSimulateEvpnTorArguments(var_map_);
     ParseAgentInfoArguments(var_map_);
     ParseNexthopServerArguments(var_map_);
     ParsePlatformArguments(var_map_);
     ParseServicesArguments(var_map_);
     ParseSandeshArguments(var_map_);
+    ParseQueue();
     ParseRestartArguments(var_map_);
     ParseMacLearning(var_map_);
     return;
 }
 
 void AgentParam::ReInitFromConfig() {
-    // Read and parse INI
-    try {
-        read_ini(config_file_, tree_);
-    } catch (exception &e) {
-        cout <<  "Error reading config file <" << config_file_
-            << ">. INI format error??? <" << e.what() << ">\n";
-        return;
-    }
-
-    ParseControllerServers();
-    ParseDnsServers();
-    ParseCollector();
+    InitFromConfig();
+    ParseControllerServersArguments(var_map_);
+    ParseDnsServersArguments(var_map_);
+    ParseCollectorArguments(var_map_);
     return;
 }
 
@@ -1470,7 +998,7 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
 
     InitFromSystem();
     InitFromConfig();
-    InitFromArguments();
+    ProcessArguments();
     InitVhostAndXenLLPrefix();
     UpdateBgpAsaServicePortRange();
     ComputeFlowLimits();
@@ -1702,11 +1230,21 @@ AgentParam::AgentParam(bool enable_flow_options,
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
         default_nic_queue_(Agent::kInvalidQueueId),
-        llgr_params_(),
-        mac_learning_thread_count_(Agent::kDefaultFlowThreadCount),
-        mac_learning_add_tokens_(Agent::kMacLearningDefaultTokens),
-        mac_learning_update_tokens_(Agent::kMacLearningDefaultTokens),
-        mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens) {
+        llgr_params_() {
+
+    uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
+    uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
+    uint32_t default_flow_update_tokens = Agent::kFlowUpdateTokens;
+    uint32_t default_flow_del_tokens = Agent::kFlowDelTokens;
+    uint32_t default_flow_ksync_tokens = Agent::kFlowKSyncTokens;
+    uint32_t default_flow_add_tokens = Agent::kFlowAddTokens;
+    uint32_t default_tbb_keepawake_timeout = Agent::kDefaultTbbKeepawakeTimeout;
+    uint32_t default_tbb_thread_count = Agent::kMaxTbbThreads;
+    uint32_t default_mac_learning_thread_count = Agent::kDefaultFlowThreadCount;
+    uint32_t default_mac_learning_add_tokens = Agent::kMacLearningDefaultTokens;
+    uint32_t default_mac_learning_update_tokens = Agent::kMacLearningDefaultTokens;
+    uint32_t default_mac_learning_delete_tokens = Agent::kMacLearningDefaultTokens;
+
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()
@@ -1715,6 +1253,10 @@ AgentParam::AgentParam(bool enable_flow_options,
          opt::value<string>()->default_value(Agent::config_file_),
          "Configuration file")
         ("version", "Display version information")
+        ;
+
+    boost::program_options::options_description config("Configuration options");
+    config.add_options()
         ("CONTROL-NODE.server",
          opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of control nodes."
@@ -1732,12 +1274,14 @@ AgentParam::AgentParam(bool enable_flow_options,
          opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
          "Flow aging time in seconds")
         ("DEFAULT.stale_interface_cleanup_timeout",
-         opt::value<uint32_t>(),
+         opt::value<uint32_t>()->default_value(default_stale_interface_cleanup_timeout),
          "Stale Interface cleanup timeout")
         ("DEFAULT.hostname", opt::value<string>(),
          "Hostname of compute-node")
-        ("DEFAULT.dhcp_relay_mode", opt::value<bool>(),
+        ("DEFAULT.dhcp_relay_mode", opt::bool_switch(&dhcp_relay_mode_),
          "Enable / Disable DHCP relay of DHCP packets from virtual instance")
+        ("DEFAULT.agent_name", opt::value<string>(),
+         "Agent Name")
         ("DEFAULT.http_server_port",
          opt::value<uint16_t>()->default_value(ContrailPorts::HttpPortAgent()),
          "Sandesh HTTP listener port")
@@ -1747,15 +1291,22 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Run agent in vrouter / tsn / tor mode")
         ("DEFAULT.gateway_mode", opt::value<string>(),
           "Set gateway mode to server/ vcpe")
-        ("DEFAULT.agent_base_directory", opt::value<string>(),
+        ("DEFAULT.agent_base_directory", opt::value<string>()->default_value("/var/lib/contrail"),
          "Base directory used by the agent")
         ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
          "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
         ("DNS.servers",
-         opt::value<std::vector<std::string> >()->multitoken(),
+         opt::value<vector<string> >()->multitoken(),
          "List of IPAddress:Port of DNS node Servers")
-        ("DEFAULT.xmpp_auth_enable", opt::value<bool>()->default_value(false),
+        ("DEFAULT.xmpp_auth_enable", opt::bool_switch(&xmpp_auth_enable_),
          "Enable Xmpp over TLS")
+        ("DNS.dns_timeout", opt::value<uint32_t>()->default_value(3000),
+         "DNS Timeout")
+        ("DNS.dns_max_retries", opt::value<uint32_t>()->default_value(2),
+         "Dns Max Retries")
+        ("DNS.dns_client_port",
+         opt::value<uint16_t>()->default_value(ContrailPorts::VrouterAgentDnsClientUdpPort()),
+         "Dns client port")
         ("DEFAULT.xmpp_server_cert",
           opt::value<string>()->default_value(
           "/etc/contrail/ssl/certs/server.pem"),
@@ -1768,19 +1319,22 @@ AgentParam::AgentParam(bool enable_flow_options,
           opt::value<string>()->default_value(
           "/etc/contrail/ssl/certs/ca.pem"),
           "XMPP CA ssl certificate")
-        ("DEFAULT.xmpp_dns_auth_enable", opt::value<bool>()->default_value(false),
+        ("DEFAULT.xmpp_dns_auth_enable", opt::bool_switch(&xmpp_dns_auth_enable_),
          "Enable Xmpp over TLS for DNS")
         ("METADATA.metadata_proxy_secret", opt::value<string>(),
          "Shared secret for metadata proxy service")
-        ("METADATA.metadata_use_ssl", opt::value<bool>()->default_value(false),
+        ("METADATA.metadata_proxy_port",
+         opt::value<uint16_t>()->default_value(ContrailPorts::MetadataProxyVrouterAgentPort()),
+        "Metadata proxy port ")
+        ("METADATA.metadata_use_ssl", opt::bool_switch(&metadata_use_ssl_),
          "Enable SSL for Metadata proxy service")
-        ("METADATA.metadata_client_cert", opt::value<string>(),
+        ("METADATA.metadata_client_cert", opt::value<string>()->default_value(""),
           "METADATA Client ssl certificate")
-        ("METADATA.metadata_client_cert_type", opt::value<string>(),
+        ("METADATA.metadata_client_cert_type", opt::value<string>()->default_value("PEM"),
           "METADATA Client ssl certificate type")
-        ("METADATA.metadata_client_key", opt::value<string>(),
+        ("METADATA.metadata_client_key", opt::value<string>()->default_value(""),
           "METADATA Client ssl private key")
-        ("METADATA.metadata_ca_cert", opt::value<string>(),
+        ("METADATA.metadata_ca_cert", opt::value<string>()->default_value(""),
           "METADATA CA ssl certificate")
         ("NETWORKS.control_network_ip", opt::value<string>(),
          "control-channel IP address used by WEB-UI to connect to vnswad")
@@ -1791,34 +1345,53 @@ AgentParam::AgentParam(bool enable_flow_options,
          g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
          "Sandesh send rate limit in messages/sec")
         ("DEFAULT.subnet_hosts_resolvable",
-          opt::value<bool>()->default_value(true))
-        ("DEFAULT.pkt0_tx_buffers", opt::value<uint32_t>(),
+         opt::bool_switch(&subnet_hosts_resolvable_)->default_value(true))
+        ("DEFAULT.pkt0_tx_buffers", opt::value<uint32_t>()->default_value(default_pkt0_tx_buffers),
          "Number of tx-buffers for pkt0 interface")
+        ("DEFAULT.physical_interface_address",
+          opt::value<string>()->default_value(""))
+        ("DEFAULT.physical_interface_mac",
+          opt::value<string>()->default_value(""))
+        ("HYPERVISOR.vmware_physical_interface",
+          opt::value<string>()->default_value(""))
+        ("DEFAULT.mirror_client_port",
+         opt::value<uint16_t>()->default_value(ContrailPorts::VrouterAgentMirrorClientUdpPort()),
+         "Mirror client Port")
+        ("DEFAULT.simulate_evpn_tor", opt::bool_switch(&simulate_evpn_tor_),
+         "Simulate Evpn Tor")
+        ("DEFAULT.measure_queue_delay", opt::bool_switch(&measure_queue_delay_),
+          "Measure flow queue delay")
+        ("NEXTHOP-SERVER.endpoint", opt::value<string>(),
+         "Nexthop Server Endpoint")
+        ("NEXTHOP-SERVER.add_pid", opt::bool_switch(&nexthop_server_add_pid_),
+         "Enable Nh Sever Pid")
         ;
-    options_.add(generic);
+    options_.add(generic).add(config);
+    config_file_options_.add(config);
 
     opt::options_description restart("Restart options");
     restart.add_options()
-        ("RESTART.backup_enable", opt::value<bool>(),
+        ("RESTART.backup_enable", opt::bool_switch(&restart_backup_enable_)->default_value(true),
          "Enable backup of config and resources into a file")
-        ("RESTART.backup_idle_timeout", opt::value<uint64_t>(),
+        ("RESTART.backup_idle_timeout", opt::value<uint64_t>()->default_value(CFG_BACKUP_IDLE_TIMEOUT),
          "Generate backup if no change detected in configured time (in msec)")
-        ("RESTART.backup_dir", opt::value<string>(),
+        ("RESTART.backup_dir", opt::value<string>()->default_value(CFG_BACKUP_DIR),
          "Directory storing backup files for configuraion or resource")
-        ("RESTART.backup_count", opt::value<uint16_t>(),
+        ("RESTART.backup_count", opt::value<uint16_t>()->default_value(CFG_BACKUP_COUNT),
          "Number of backup files")
-        ("RESTART.restore_enable", opt::value<bool>(),
+        ("RESTART.restore_enable", opt::bool_switch(&restart_restore_enable_)->default_value(true),
          "Enable restore of config and resources from backup files")
-        ("RESTART.restore_audit_timeout", opt::value<uint64_t>(),
+        ("RESTART.restore_audit_timeout", opt::value<uint64_t>()->default_value(CFG_RESTORE_AUDIT_TIMEOUT),
          "Audit time for config/resource read from file (in milli-sec)");
     options_.add(restart);
+    config_file_options_.add(restart);
 
     opt::options_description log("Logging options");
     log.add_options()
-        ("DEFAULT.log_category", opt::value<string>()->default_value("*"),
+        ("DEFAULT.log_category", opt::value<string>()->default_value(""),
          "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_file",
-         opt::value<string>()->default_value(Agent::log_file_),
+         opt::value<string>()->default_value(Agent::GetInstance()->log_file()),
          "Filename for the logs to be written to")
         ("DEFAULT.log_files_count", opt::value<int>()->default_value(10),
          "Maximum log file roll over index")
@@ -1826,38 +1399,48 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Maximum size of the log file")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_DEBUG"),
          "Severity level for local logging of sandesh messages")
-        ("DEFAULT.log_local", "Enable local logging of sandesh messages")
-        ("DEFAULT.use_syslog", "Enable logging to syslog")
+        ("DEFAULT.log_local", opt::bool_switch(&log_local_),
+         "Enable local logging of sandesh messages")
+        ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
+         "Enable logging to syslog")
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
          "Syslog facility to receive log lines")
-        ("DEFAULT.log_flow", "Enable local logging of flow sandesh messages")
+        ("DEFAULT.log_flow", opt::bool_switch(&log_flow_),
+         "Enable local logging of flow sandesh messages")
+        ("DEFAULT.log_property_file", opt::value<string>()->default_value(""),
+         "Log Property File")
         ;
     options_.add(log);
+    config_file_options_.add(log);
 
     if (enable_flow_options_) {
         opt::options_description flow("Flow options");
         flow.add_options()
-            ("FLOWS.thread_count", opt::value<uint16_t>(),
+            ("FLOWS.thread_count", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowThreadCount),
              "Number of threads for flow setup")
-            ("FLOWS.max_vm_flows", opt::value<uint16_t>(),
-             "Maximum flows allowed per VM - given as \% (in integer) of "
-             "maximum system flows")
-            ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>(),
+            ("FLOWS.max_vm_flows", opt::value<uint16_t>()->default_value(100),
+             "Maximum flows allowed per VM - given as \% (in integer) of ")
+            ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>()->default_value(Agent::kDefaultMaxLinkLocalOpenFds),
              "Maximum number of link-local flows allowed across all VMs")
-            ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>(),
+            ("FLOWS.max_vm_linklocal_flows", opt::value<uint16_t>()->default_value(Agent::kDefaultMaxLinkLocalOpenFds),
              "Maximum number of link-local flows allowed per VM")
-            ("FLOWS.trace_enable", opt::value<bool>(),
+            ("FLOWS.trace_enable", opt::bool_switch(&flow_trace_enable_)->default_value(true),
              "Enable flow tracing")
-            ("FLOWS.add_tokens", opt::value<uint32_t>(),
+            ("FLOWS.add_tokens", opt::value<uint32_t>()->default_value(default_flow_add_tokens),
              "Number of add-tokens")
-            ("FLOWS.ksync_tokens", opt::value<uint32_t>(),
+            ("FLOWS.ksync_tokens", opt::value<uint32_t>()->default_value(default_flow_ksync_tokens),
              "Number of ksync-tokens")
-            ("FLOWS.del_tokens", opt::value<uint32_t>(),
+            ("FLOWS.del_tokens", opt::value<uint32_t>()->default_value(default_flow_del_tokens),
              "Number of delete-tokens")
-            ("FLOWS.update_tokens", opt::value<uint32_t>(),
+            ("FLOWS.update_tokens", opt::value<uint32_t>()->default_value(default_flow_update_tokens),
              "Number of update-tokens")
+            ("FLOWS.index_sm_log_count", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowIndexSmLogCount),
+             "Index Sm Log Count")
+            ("FLOWS.latency_limit", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowLatencyLimit),
+             "Latency Limit")
             ;
         options_.add(flow);
+        config_file_options_.add(flow);
     }
 
     if (enable_hypervisor_options_) {
@@ -1876,6 +1459,7 @@ AgentParam::AgentParam(bool enable_flow_options,
              "VMWare mode <esxi_neutron|vcenter>")
             ;
         options_.add(hypervisor);
+        config_file_options_.add(hypervisor);
     }
 
     if (enable_vhost_options_) {
@@ -1895,8 +1479,13 @@ AgentParam::AgentParam(bool enable_flow_options,
             ("VIRTUAL-HOST-INTERFACE.physical_port_routes",
              opt::value<std::vector<std::string> >()->multitoken(),
              "Static routes to be added on physical interface")
+            ("VIRTUAL-HOST-INTERFACE.eth_port_no_arp", opt::bool_switch(&eth_port_no_arp_),
+             "Ethernet Port No-ARP")
+            ("VIRTUAL-HOST-INTERFACE.eth_port_encap_type", opt::value<string>(),
+             "Ethernet Port Encap Type")
             ;
         options_.add(vhost);
+        config_file_options_.add(vhost);
     }
 
     if (enable_service_options_) {
@@ -1904,29 +1493,43 @@ AgentParam::AgentParam(bool enable_flow_options,
         service.add_options()
             ("SERVICE-INSTANCE.netns_command", opt::value<string>(),
              "Script path used when a service instance is spawned with network namespace")
-            ("SERVICE-INSTANCE.netns_timeout", opt::value<string>(),
+            ("SERVICE-INSTANCE.netns_timeout", opt::value<int>()->default_value(0),
              "Timeout used to set a netns command as failing and to destroy it")
-            ("SERVICE-INSTANCE.netns_workers", opt::value<string>(),
+            ("SERVICE-INSTANCE.netns_workers", opt::value<int>()->default_value(0),
              "Number of workers used to spawn netns command")
+            ("SERVICE-INSTANCE.docker_command", opt::value<string>(),
+             "Service instance docker command")
+            ("SERVICE-INSTANCE.lb_ssl_cert_path", opt::value<string>(),
+             "Loadbalancer ssl certificate path")
+            ("SERVICES.bgp_as_a_service_port_range", opt::value<string>(),
+             "Port range for BgPass ")
+            ("SERVICES.queue_limit", opt::value<uint32_t>()->default_value(1024),
+             "Work queue for different services")
+            ("SERVICE-INSTANCE.lbaas_auth_conf", opt::value<string>(),
+             "Credentials fo ssl certificates and private-keys")
             ;
         options_.add(service);
+        config_file_options_.add(service);
     }
 
 
     opt::options_description tbb("TBB specific options");
     tbb.add_options()
-        ("TASK.thread_count", opt::value<uint32_t>(),
+        ("TASK.thread_count", opt::value<uint32_t>()->default_value(default_tbb_thread_count),
          "Max number of threads used by TBB")
-        ("TASK.log_exec_threshold", opt::value<uint32_t>(),
+        ("TASK.log_exec_threshold", opt::value<uint32_t>()->default_value(0),
          "Log message if task takes more than threshold (msec) to execute")
-        ("TASK.log_schedule_threshold", opt::value<uint32_t>(),
+        ("TASK.log_schedule_threshold", opt::value<uint32_t>()->default_value(0),
          "Log message if task takes more than threshold (msec) to schedule")
-        ("TASK.tbb_keepawake_timeout", opt::value<uint32_t>(),
+        ("TASK.tbb_keepawake_timeout", opt::value<uint32_t>()->default_value(default_tbb_keepawake_timeout),
          "Timeout for the TBB keepawake timer")
         ("TASK.ksync_thread_cpu_pin_policy", opt::value<string>(),
          "Pin ksync io task to CPU")
+        ("TASK.flow_netlink_pin_cpuid", opt::value<uint32_t>(),
+         "CPU-ID to pin")
         ;
     options_.add(tbb);
+    config_file_options_.add(tbb);
 
     opt::options_description sandesh("Sandesh specific options");
     sandesh.add_options()
@@ -1947,13 +1550,45 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Enable ssl for introspect connection")
         ;
     options_.add(sandesh);
+    config_file_options_.add(sandesh);
 
     opt::options_description llgr("LLGR");
     llgr.add_options()
         ("LLGR.disable", opt::value<bool>()->default_value(false),
          "Disable LLGR")
+        ("LLGR.stale_config_cleanup_time", opt::value<uint16_t>()->default_value(100),
+         "LLGR Stale Config Cleanup Time")
+        ("LLGR.config_poll_time", opt::value<uint16_t>()->default_value(5),
+         "LLGR Config Poll Time")
+        ("LLGR.config_inactivity_time", opt::value<uint16_t>()->default_value(15),
+         "LLGR Config Inactive Time")
+        ("LLGR.config_fallback_time", opt::value<uint16_t>()->default_value(900),
+         "LLGR Config Fallback Time")
+        ("LLGR.end_of_rib_tx_poll_time", opt::value<uint16_t>()->default_value(5),
+         "LLGR End Of Rib Poll Time")
+        ("LLGR.end_of_rib_tx_fallback_time", opt::value<uint16_t>()->default_value(60),
+         "LLGR End Of Rib Tx Fallback Time")
+        ("LLGR.end_of_rib_tx_inactivity_time", opt::value<uint16_t>()->default_value(15),
+         "LLGR End Of Rib Tx Inactivity Time")
+        ("LLGR.end_of_rib_rx_fallback_time", opt::value<uint16_t>()->default_value(60),
+         "LLGR End Of Rib Rx Fallback Time")
         ;
     options_.add(llgr);
+    config_file_options_.add(llgr);
+
+    opt::options_description mac_learn("MAC-LEARNING");
+    mac_learn.add_options()
+        ("MAC-LEARNING.thread_count", opt::value<uint32_t>()->default_value(default_mac_learning_thread_count),
+         "Thread Count")
+        ("MAC-LEARNING.add_tokens", opt::value<uint32_t>()->default_value(default_mac_learning_add_tokens),
+         "Add Tokens")
+        ("MAC-LEARNING.del_tokens", opt::value<uint32_t>()->default_value(default_mac_learning_update_tokens),
+         "Del Tokens")
+        ("MAC-LEARNING.update_tokens", opt::value<uint32_t>()->default_value(default_mac_learning_delete_tokens),
+         "Update Tokens")
+        ;
+    options_.add(mac_learn);
+    config_file_options_.add(mac_learn);
 }
 
 AgentParam::~AgentParam() {
