@@ -104,8 +104,9 @@ public:
     }
 
 private:
-    virtual bool GetMembershipInfo(const string &vrf_name, int *instance_id) {
-        *instance_id = 1;
+    virtual bool GetInstanceMembershipState(const string &vrf_name,
+        InstanceMembershipRequestState *imr_state) {
+        imr_state->instance_id = 1;
         return true;
     }
 };
