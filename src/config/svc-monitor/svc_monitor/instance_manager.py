@@ -572,8 +572,9 @@ class InstanceManager(object):
                 proj_obj.name != 'default-project'):
             if not vmi_sg:
                 sg_obj = self._get_default_security_group(vn_obj)
-                vmi_obj.set_security_group(sg_obj)
-                vmi_updated = True
+                if sg_obj:
+                    vmi_obj.set_security_group(sg_obj)
+                    vmi_updated = True
 
         if nic['static-route-enable']:
             if not vmi_irt:
