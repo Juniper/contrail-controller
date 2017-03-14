@@ -191,25 +191,30 @@ class SchemaTransformer(object):
                 delete = True
                 ri_deleted.setdefault(ri.parent_uuid, []).append(ri.uuid)
             else:
-                # if the RI was for a service chain and service chain no
-                # longer exists, delete the RI
-                sc_id = RoutingInstanceST._get_service_id_from_ri(
-                    ri.get_fq_name_str())
-                if sc_id:
-                    if sc_id not in ServiceChain:
-                        delete = True
-                    else:
-                        service_ri_dict[ri.get_fq_name_str()] = ri
-                else:
-                    ri_dict[ri.get_fq_name_str()] = ri
-            if delete:
                 try:
-                    ri_obj = RoutingInstanceST(ri.get_fq_name_str(), ri)
-                    ri_obj.delete_obj()
-                except NoIdError:
-                    pass
+                    # if the RI was for a service chain and service chain no
+                    # longer exists, delete the RI
+                    sc_id = RoutingInstanceST._get_service_id_from_ri(
+                        ri.get_fq_name_str())
+                    if sc_id:
+                        if sc_id not in ServiceChain:
+                            delete = True
+                        else:
+                            service_ri_dict[ri.get_fq_name_str()] = ri
+                    else:
+                        ri_dict[ri.get_fq_name_str()] = ri
                 except Exception as e:
                     self.logger.error(
+                        "Error while reinitializing routing instance %s: %s"%(
+                        ri.get_fq_name_str(), str(e)))
+                if delete:
+                    try:
+                        ri_obj = RoutingInstanceST(ri.get_fq_name_str(), ri)
+                        ri_obj.delete_obj()
+                    except NoIdError:
+                        pass
+                    except Exception as e:
+                        self.logger.error(
                             "Error while deleting routing instance %s: %s"%(
                             ri.get_fq_name_str(), str(e)))
 
@@ -240,19 +245,26 @@ class SchemaTransformer(object):
                 except NoIdError:
                     pass
                 except Exception as e:
-                    self.logger.error(
-                            "Error while deleting acl %s: %s"%(
+                    self.logger.error("Error while deleting acl %s: %s"%(
                             acl.uuid, str(e)))
         # end for acl
 
         gevent.sleep(0.001)
         for sg in sg_list:
-            SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
+            try:
+                SecurityGroupST.locate(sg.get_fq_name_str(), sg, sg_acl_dict)
+            except Exception as e:
+                self.logger.error("Error in reinit security-group %s: %s" % (
+                    sg.get_fq_name_str(), str(e)))
 
         # update sg rules after all SG objects are initialized to avoid
         # rewriting of ACLs multiple times
         for sg in SecurityGroupST.values():
-            sg.update_policy_entries()
+            try:
+                sg.update_policy_entries()
+            except Exception as e:
+                self.logger.error("Error in updating SG policies %s: %s" % (
+                    sg.get_fq_name_str(), str(e)))
 
         gevent.sleep(0.001)
         RouteTargetST.reinit()
@@ -262,12 +274,24 @@ class SchemaTransformer(object):
                 new_vn_ri_list = [vn_ri for vn_ri in vn_ri_list
                                   if vn_ri['uuid'] not in ri_deleted[vn.uuid]]
                 vn.routing_instances = new_vn_ri_list
-            VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict)
+            try:
+                VirtualNetworkST.locate(vn.get_fq_name_str(), vn, vn_acl_dict)
+            except Exception as e:
+                self.logger.error("Error in reinit virtual network %s: %s" % (
+                    vn.get_fq_name_str(), str(e)))
         for ri_name, ri_obj in ri_dict.items():
-            RoutingInstanceST.locate(ri_name, ri_obj)
+            try:
+                RoutingInstanceST.locate(ri_name, ri_obj)
+            except Exception as e:
+                self.logger.error("Error in reinit routing instance %s: %s" % (
+                    ri_name, str(e)))
         # Initialize service instance RI's after Primary RI's
         for si_ri_name, si_ri_obj in service_ri_dict.items():
-            RoutingInstanceST.locate(si_ri_name, si_ri_obj)
+            try:
+                RoutingInstanceST.locate(si_ri_name, si_ri_obj)
+            except Exception as e:
+                self.logger.error("Error in reinit routing instance %s: %s" % (
+                    si_ri_name, str(e)))
 
         NetworkPolicyST.reinit()
         gevent.sleep(0.001)
@@ -281,17 +305,21 @@ class SchemaTransformer(object):
 
         gevent.sleep(0.001)
         for si in ServiceInstanceST.list_vnc_obj():
-            si_st = ServiceInstanceST.locate(si.get_fq_name_str(), si)
-            if si_st is None:
-                continue
-            for ref in si.get_virtual_machine_back_refs() or []:
-                vm_name = ':'.join(ref['to'])
-                vm = VirtualMachineST.locate(vm_name)
-                si_st.virtual_machines.add(vm_name)
-            props = si.get_service_instance_properties()
-            if not props.auto_policy:
-                continue
-            si_st.add_properties(props)
+            try:
+                si_st = ServiceInstanceST.locate(si.get_fq_name_str(), si)
+                if si_st is None:
+                    continue
+                for ref in si.get_virtual_machine_back_refs() or []:
+                    vm_name = ':'.join(ref['to'])
+                    vm = VirtualMachineST.locate(vm_name)
+                    si_st.virtual_machines.add(vm_name)
+                props = si.get_service_instance_properties()
+                if not props.auto_policy:
+                    continue
+                si_st.add_properties(props)
+            except Exception as e:
+                self.logger.error("Error in reinit service instance %s: %s" % (
+                    si.get_fq_name_str(), str(e)))
 
         gevent.sleep(0.001)
         RoutingPolicyST.reinit()
@@ -305,12 +333,20 @@ class SchemaTransformer(object):
         # evaluate virtual network objects first because other objects,
         # e.g. vmi, depend on it.
         for vn_obj in VirtualNetworkST.values():
-            vn_obj.evaluate()
+            try:
+                vn_obj.evaluate()
+            except Exception as e:
+                self.logger.error("Error in reinit evaluate virtual network %s: %s" % (
+                    vn_obj.get_fq_name_str(), str(e)))
         for cls in DBBaseST.get_obj_type_map().values():
             if cls is VirtualNetworkST:
                 continue
             for obj in cls.values():
-                obj.evaluate()
+                try:
+                    obj.evaluate()
+                except Exception as e:
+                    self.logger.error("Error in reinit evaluate %s %s: %s" % (
+                        cls.obj_type, obj.get_fq_name_str(), str(e)))
         self.process_stale_objects()
     # end reinit
 
