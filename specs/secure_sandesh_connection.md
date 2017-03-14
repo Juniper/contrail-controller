@@ -39,18 +39,22 @@ To enable secure sandesh connection, the following parameters need to be
 configured in all contrail services that connect to the Collector
 (Sandesh Clients) and the Collector (Sandesh Server).
 
-[SANDESH].sandesh_keyfile
-    - path to the node's private key
-    - default path -> /etc/contrail/ssl/private/server-privkey.pem
-[SANDESH].sandesh_certfile
-    - path to the node's public certificate
-    - default path -> /etc/contrail/ssl/certs/server.pem
-[SANDESH].sandesh_ca_cert
-    - path to the CA certificate
-    - default path -> /etc/contrail/ssl/certs/ca-cert.pem
-[SANDESH].sandesh_ssl_enable
-    - Enable/disable secure sandesh connection
-    - default value -> False
+```
+===========================================================================================
+CONFIG PARAMETER               VALUE
+===========================================================================================
+[SANDESH].sandesh_keyfile      Path to the node's private key
+                               default value -> /etc/contrail/ssl/private/server-privkey.pem
+
+[SANDESH].sandesh_certfile     Path to the node's public certificate
+                               default value -> /etc/contrail/ssl/certs/server.pem
+
+[SANDESH].sandesh_ca_cert      Path to the CA certificate
+                               default value -> /etc/contrail/ssl/certs/ca-cert.pem
+
+[SANDESH].sandesh_ssl_enable   Enable/Disable secure sandesh connection
+                               default value -> false
+```
 
 ###4.1.2 Sandesh library
 
