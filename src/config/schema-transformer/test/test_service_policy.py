@@ -251,11 +251,15 @@ class VerifyServicePolicy(VerifyPolicy):
                         (vn1_fq_name, vn2_fq_name, fq_name, sc_ri_fq_name))
 
     @retries(5)
-    def check_all_vmis_are_deleted(self):
+    def check_all_vmis_are_deleted(self, test_name):
         vmi_list = self._vnc_lib.virtual_machine_interfaces_list()
-        if vmi_list['virtual-machine-interfaces']:
-            raise Exception('virtual machine interfaces still exist' + str(vmi_list))
-        print 'all virtual machine interfaces deleted'
+        if not vmi_list['virtual-machine-interfaces']:
+            print 'all virtual machine interfaces deleted'
+            return
+        for vmi in vmi_list:
+            if test_name in vmi['fq_name'][2]:
+                raise Exception('virtual machine interfaces still exist' + str(vmi_list))
+        print 'VMIs related to %s are deleted' % test_name
 
     @retries(5)
     def check_acl_match_subnets(self, fq_name, subnet1, subnet2, sc_ri_fq_name):
@@ -1109,7 +1113,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
 
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
-        self.check_all_vmis_are_deleted()
+        self.check_all_vmis_are_deleted(self.id())
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
