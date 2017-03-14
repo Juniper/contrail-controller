@@ -43,13 +43,16 @@ void ArpProto::Shutdown() {
         it = DeleteArpEntry(it);
     }
 
-    for (ArpIterator it = gratuitous_arp_cache_.begin();
-            it != gratuitous_arp_cache_.end();) {
-        ArpEntry *entry = it->second;
-        gratuitous_arp_cache_.erase(it++);
-        if (entry)
+    for (GratuitousArpIterator it = gratuitous_arp_cache_.begin();
+            it != gratuitous_arp_cache_.end(); it++) {
+        for (ArpEntrySet::iterator sit = it->second.begin();
+             sit != it->second.end();) {
+            ArpEntry *entry = *sit;
+            it->second.erase(sit++);
             delete entry;
+        }
     }
+    gratuitous_arp_cache_.clear();
     agent_->vrf_table()->Unregister(vrf_table_listener_id_);
     agent_->interface_table()->Unregister(interface_table_listener_id_);
     agent_->nexthop_table()->Unregister(nexthop_table_listener_id_);
@@ -369,8 +372,14 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     ArpDBState *state =
         static_cast<ArpDBState *>
         (entry->GetState(part->parent(), route_table_listener_id));
+
+    const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>(
+            route->GetActiveNextHop());
+    const Interface *intf = (intf_nh) ?
+        static_cast<const Interface *>(intf_nh->GetInterface()) : NULL;
+
     ArpKey key(route->addr().to_v4().to_ulong(), route->vrf());
-    ArpEntry *arpentry = arp_proto->GratiousArpEntry(key);
+    ArpEntry *arpentry = arp_proto->GratuitousArpEntry(key, intf);
     if (entry->IsDeleted() || deleted) {
         if (state) {
             arp_proto->DeleteGratuitousArpEntry(arpentry);
@@ -388,18 +397,15 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     }
 
     if (route->vrf()->GetName() == agent->fabric_vrf_name() &&
-        route->GetActiveNextHop()->GetType() == NextHop::RECEIVE) {
+        route->GetActiveNextHop()->GetType() == NextHop::RECEIVE &&
+        arp_proto->agent()->router_id() == route->addr().to_v4()) {
         //Send Grat ARP
         arp_proto->AddGratuitousArpEntry(key);
         arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
                               route->addr().to_v4().to_ulong(), route->vrf(),
                               arp_proto->ip_fabric_interface());
     } else {
-        const InterfaceNH *intf_nh = dynamic_cast<const InterfaceNH *>(
-                route->GetActiveNextHop());
         if (intf_nh) {
-            const Interface *intf =
-                static_cast<const Interface *>(intf_nh->GetInterface());
             if (!intf->IsDeleted() && intf->type() == Interface::VM_INTERFACE) {
                 ArpKey intf_key(route->addr().to_v4().to_ulong(), route->vrf());
                 arp_proto->AddGratuitousArpEntry(intf_key);
@@ -609,37 +615,52 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
 
 bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type,
                            const Interface* itf) {
-    if (arp_cache_.find(key) != arp_cache_.end())
+    if (arp_cache_.find(key) != arp_cache_.end()) {
         SendArpIpc((ArpProto::ArpMsgType)timer_type, key, itf);
+    }
     return false;
 }
 
  void ArpProto::AddGratuitousArpEntry(ArpKey &key) {
-    gratuitous_arp_cache_.insert(ArpCachePair(key, NULL));
+     ArpEntrySet empty_set;
+     gratuitous_arp_cache_.insert(GratuitousArpCachePair(key, empty_set));
 }
 
 void ArpProto::DeleteGratuitousArpEntry(ArpEntry *entry) {
     if (!entry)
         return ;
 
-    ArpProto::ArpIterator iter = gratuitous_arp_cache_.find(entry->key());
+    ArpProto::GratuitousArpIterator iter = gratuitous_arp_cache_.find(entry->key());
     if (iter == gratuitous_arp_cache_.end()) {
         return;
     }
-    gratuitous_arp_cache_.erase(iter);
+
+    iter->second.erase(entry);
     delete entry;
+    if (iter->second.empty()) {
+        gratuitous_arp_cache_.erase(iter);
+    }
 }
 
 ArpEntry *
-ArpProto::GratiousArpEntry(const ArpKey &key) {
-    ArpProto::ArpIterator it = gratuitous_arp_cache_.find(key);
+ArpProto::GratuitousArpEntry(const ArpKey &key, const Interface *intf) {
+    ArpProto::GratuitousArpIterator it = gratuitous_arp_cache_.find(key);
     if (it == gratuitous_arp_cache_.end())
         return NULL;
-    return it->second;
+
+    for (ArpEntrySet::iterator sit = it->second.begin();
+         sit != it->second.end(); sit++) {
+        ArpEntry *entry = *sit;
+        if (entry->interface() == intf)
+            return *sit;
+    }
+
+    return NULL;
 }
-ArpProto::ArpIterator
-ArpProto::GratiousArpEntryIterator(const ArpKey &key, bool *key_valid) {
-    ArpProto::ArpIterator it = gratuitous_arp_cache_.find(key);
+
+ArpProto::GratuitousArpIterator
+ArpProto::GratuitousArpEntryIterator(const ArpKey &key, bool *key_valid) {
+    ArpProto::GratuitousArpIterator it = gratuitous_arp_cache_.find(key);
     if (it == gratuitous_arp_cache_.end())
         return it;
     const VrfEntry *vrf = key.vrf;
