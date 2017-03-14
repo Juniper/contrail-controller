@@ -251,7 +251,7 @@ TEST_F(AgentParamTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(AgentParamTest, Agent_Param_1) {
-    int argc = 25;
+    int argc = 23;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -266,7 +266,6 @@ TEST_F(AgentParamTest, Agent_Param_1) {
         (char *) "--DEFAULT.hostname",     (char *)"vhost-1",
         (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
         (char *) "--DEFAULT.agent_base_directory",     (char *)"/var/run/contrail",
-        (char *) "--DEFAULT.subnet_hosts_resolvable",  (char *)"false",
         (char *) "--DEFAULT.pkt0_tx_buffers",  (char *)"3000",
     };
 
@@ -292,7 +291,7 @@ TEST_F(AgentParamTest, Agent_Param_1) {
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
-    EXPECT_EQ(param.subnet_hosts_resolvable(), false);
+    EXPECT_EQ(param.subnet_hosts_resolvable(), true);
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 3000);
 }
 
@@ -323,11 +322,11 @@ TEST_F(AgentParamTest, Agent_Arg_Override_Config_1) {
 }
 
 TEST_F(AgentParamTest, Agent_Arg_Override_Config_2) {
-    int argc = 7;
+    int argc = 5;
     char *argv[] = {
         (char *) "",
-        (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
-        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1", (char *)"23.1.1.1",
+        (char *) "--DNS.server",    (char *)"20.1.1.1:500 21.1.1.1:15001",
+        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1 23.1.1.1",
     };
 
     AgentParam param;
@@ -472,15 +471,16 @@ TEST_F(AgentParamTest, Restart_1) {
     EXPECT_EQ(param.restart_restore_audit_timeout(), 10);
 
     // Parameters from command line arguments
-    param.ParseArguments(argc, argv);
-    param.Init("controller/src/vnsw/agent/init/test/restart.ini", "test-param");
-    param.ParseArguments(argc, argv);
-    EXPECT_TRUE(param.restart_backup_enable());
-    EXPECT_EQ(param.restart_backup_idle_timeout(), 20);
-    EXPECT_STREQ(param.restart_backup_dir().c_str(), "/tmp/2");
-    EXPECT_EQ(param.restart_backup_count(), 20);
-    EXPECT_TRUE(param.restart_restore_enable());
-    EXPECT_EQ(param.restart_restore_audit_timeout(), 20);
+    AgentParam param1;
+    param1.ParseArguments(argc, argv);
+    param1.Init("controller/src/vnsw/agent/init/test/restart.ini", "test-param");
+    param1.ParseArguments(argc, argv);
+    EXPECT_TRUE(param1.restart_backup_enable());
+    EXPECT_EQ(param1.restart_backup_idle_timeout(), 20);
+    EXPECT_STREQ(param1.restart_backup_dir().c_str(), "/tmp/2");
+    EXPECT_EQ(param1.restart_backup_count(), 20);
+    EXPECT_TRUE(param1.restart_restore_enable());
+    EXPECT_EQ(param1.restart_restore_audit_timeout(), 20);
 }
 
 int main(int argc, char **argv) {
