@@ -105,19 +105,16 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
-    def dbe_create_notification(cls, obj_id, obj_dict):
+    def dbe_create_notification(cls, obj_id):
         pass
-    #end dbe_create_notification
 
     @classmethod
     def dbe_update_notification(cls, obj_id):
         pass
-    #end dbe_update_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
         pass
-    #end dbe_delete_notification
 
     @classmethod
     def pre_dbe_read(cls, id, db_conn):
@@ -235,8 +232,7 @@ class FloatingIpServer(Resource, FloatingIp):
 
         # Get any subnets configured on the floating-ip-pool.
         try:
-            fip_subnets =\
-                fip_pool_dict['floating_ip_pool_subnets']
+            fip_subnets = fip_pool_dict['floating_ip_pool_subnets']
         except KeyError, TypeError:
             # It is acceptable that the prefixes and subnet_list may be absent
             # or may be None.
@@ -336,7 +332,10 @@ class FloatingIpServer(Resource, FloatingIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, obj_id, obj_dict):
+    def dbe_create_notification(cls, obj_id):
+        ok, obj_dict = cls.dbe_read(db_conn, 'floating_ip', obj_id)
+        if not ok:
+            return
         if obj_dict['parent_type'] == 'instance-ip':
             return
 
@@ -404,7 +403,10 @@ class AliasIpServer(Resource, AliasIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, obj_id, obj_dict):
+    def dbe_create_notification(cls, obj_id):
+        ok, obj_dict = cls.dbe_read(db_conn, 'alias_ip', obj_id)
+        if not ok:
+            return
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_alloc_notify(aip_addr, vn_fq_name)
@@ -591,7 +593,10 @@ class InstanceIpServer(Resource, InstanceIp):
     # end post_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, obj_id, obj_dict):
+    def dbe_create_notification(cls, obj_id):
+        ok, obj_dict = cls.dbe_read(db_conn, 'instance_ip', obj_id)
+        if not ok:
+            return
         ip_addr = obj_dict['instance_ip_address']
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name)
@@ -1532,7 +1537,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end subnet_ip_count
 
     @classmethod
-    def dbe_create_notification(cls, obj_id, obj_dict):
+    def dbe_create_notification(cls, obj_id):
+        ok, obj_dict = cls.dbe_read(db_conn, 'virtual_network', obj_id)
+        if not ok:
+            return
         cls.addr_mgmt.net_create_notify(obj_id, obj_dict)
     # end dbe_create_notification
 
@@ -1745,7 +1753,10 @@ class NetworkIpamServer(Resource, NetworkIpam):
     # end pre_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, obj_id, obj_dict):
+    def dbe_create_notification(cls, obj_id):
+        ok, obj_dict = cls.dbe_read(db_conn, 'network_ipam', obj_id)
+        if not ok:
+            return
         cls.addr_mgmt.ipam_create_notify(obj_id, obj_dict)
     # end dbe_create_notification
 
