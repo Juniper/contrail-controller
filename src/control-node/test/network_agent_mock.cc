@@ -314,13 +314,13 @@ pugi::xml_document *XmppDocumentMock::RouteMcastDeleteXmlDoc(
 
 
 pugi::xml_document *XmppDocumentMock::SubscribeXmlDoc(
-        const std::string &network, int id, string type) {
-    return SubUnsubXmlDoc(network, id, true, type);
+        const std::string &network, int id, bool no_ribout, string type) {
+    return SubUnsubXmlDoc(network, id, no_ribout, true, type);
 }
 
 pugi::xml_document *XmppDocumentMock::UnsubscribeXmlDoc(
         const std::string &network, int id, string type) {
-    return SubUnsubXmlDoc(network, id, false, type);
+    return SubUnsubXmlDoc(network, id, false, false, type);
 }
 
 xml_node XmppDocumentMock::PubSubHeader(string type) {
@@ -334,8 +334,8 @@ xml_node XmppDocumentMock::PubSubHeader(string type) {
     return pubsub;
 }
 
-pugi::xml_document *XmppDocumentMock::SubUnsubXmlDoc(
-        const std::string &network, int id, bool sub, string type) {
+pugi::xml_document *XmppDocumentMock::SubUnsubXmlDoc(const std::string &network,
+    int id, bool no_ribout, bool sub, string type) {
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(type);
     xml_node subscribe = pubsub.append_child(
@@ -345,6 +345,10 @@ pugi::xml_document *XmppDocumentMock::SubUnsubXmlDoc(
         xml_node options = pubsub.append_child("options");
         xml_node instance_id = options.append_child("instance-id");
         instance_id.text().set(id);
+        if (no_ribout) {
+            xml_node no_ribout_node = options.append_child("no-ribout");
+            no_ribout_node.text().set(no_ribout);
+        }
     }
     return xdoc_.get();
 }
@@ -1334,7 +1338,7 @@ const T *NetworkAgentMock::Instance<T>::Lookup(const std::string &node) const {
 
 template<typename T>
 void NetworkAgentMock::InstanceMgr<T>::Subscribe(const std::string &network,
-                                                 int id,
+                                                 int id, bool no_ribout,
                                                  bool wait_for_established,
                                                  bool send_subscribe) {
     if (wait_for_established) {
@@ -1354,7 +1358,8 @@ void NetworkAgentMock::InstanceMgr<T>::Subscribe(const std::string &network,
         return;
 
     xml_document *xdoc;
-    xdoc = parent_->GetXmlHandler()->SubscribeXmlDoc(network, id, type_);
+    xdoc = parent_->GetXmlHandler()->SubscribeXmlDoc(
+        network, id, no_ribout, type_);
 
     AgentPeer *peer = parent_->GetAgent();
     assert(peer != NULL);
@@ -1575,7 +1580,7 @@ template void NetworkAgentMock::Instance<T>::Clear(); \
 template int NetworkAgentMock::Instance<T>::Count() const; \
 template const T *NetworkAgentMock::Instance<T>::Lookup(const std::string &node) const; \
  \
-template void NetworkAgentMock::InstanceMgr<T>::Subscribe(const std::string &network, int id, bool wait_for_established, bool send_subscribe); \
+template void NetworkAgentMock::InstanceMgr<T>::Subscribe(const std::string &network, int id, bool no_ribout, bool wait_for_established, bool send_subscribe); \
 template bool NetworkAgentMock::InstanceMgr<T>::HasSubscribed(const std::string &network); \
 template void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network, int id, \
         bool wait_for_established, bool withdraw_routes, bool send_unsubscribe); \

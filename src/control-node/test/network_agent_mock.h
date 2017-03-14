@@ -286,6 +286,7 @@ public:
     pugi::xml_document *RouteMcastDeleteXmlDoc(const std::string &network, 
                                                const std::string &sg);
     pugi::xml_document *SubscribeXmlDoc(const std::string &network, int id,
+                                        bool no_ribout = false,
                                         std::string type = kNetworkServiceJID);
     pugi::xml_document *UnsubscribeXmlDoc(const std::string &network, int id,
                                         std::string type = kNetworkServiceJID);
@@ -298,7 +299,8 @@ public:
 private:
     pugi::xml_node PubSubHeader(std::string type);
     pugi::xml_document *SubUnsubXmlDoc(
-            const std::string &network, int id, bool sub, std::string type);
+            const std::string &network, int id, bool no_ribout, bool sub,
+            std::string type);
     pugi::xml_document *Inet6RouteAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, Oper oper,
             const NextHops &nexthops = NextHops(),
@@ -384,6 +386,7 @@ public:
             bool ipv6 () const { return ipv6_; }
             bool HasSubscribed(const std::string &network);
             void Subscribe(const std::string &network, int id = -1,
+                           bool no_ribout = false,
                            bool wait_for_established = true,
                            bool send_subscribe = true);
             void Unsubscribe(const std::string &network, int id = -1,
@@ -427,11 +430,16 @@ public:
     void SessionUp();
 
     void SubscribeAll(const std::string &network, int id = -1,
+                      bool no_ribout = false,
                       bool wait_for_established = true) {
-        route_mgr_->Subscribe(network, id, wait_for_established, true);
-        inet6_route_mgr_->Subscribe(network, id, wait_for_established, false);
-        enet_route_mgr_->Subscribe(network, id, wait_for_established, false);
-        mcast_route_mgr_->Subscribe(network, id, wait_for_established, false);
+        route_mgr_->Subscribe(network, id, no_ribout,
+                              wait_for_established, true);
+        inet6_route_mgr_->Subscribe(network, id, no_ribout,
+                                    wait_for_established, false);
+        enet_route_mgr_->Subscribe(network, id, no_ribout,
+                                   wait_for_established, false);
+        mcast_route_mgr_->Subscribe(network, id, no_ribout,
+                                    wait_for_established, false);
     }
     void UnsubscribeAll(const std::string &network, int id = -1,
                         bool wait_for_established = true,
@@ -448,8 +456,8 @@ public:
     }
 
     void Subscribe(const std::string &network, int id = -1,
-                   bool wait_for_established = true) {
-        route_mgr_->Subscribe(network, id, wait_for_established);
+                   bool wait_for_established = true, bool no_ribout = false) {
+        route_mgr_->Subscribe(network, id, no_ribout, wait_for_established);
     }
     void Unsubscribe(const std::string &network, int id = -1,
                      bool wait_for_established = true,
@@ -470,8 +478,9 @@ public:
     }
 
     void Inet6Subscribe(const std::string &network, int id = -1,
-                        bool wait_for_established = true) {
-        inet6_route_mgr_->Subscribe(network, id, wait_for_established);
+                        bool wait_for_established = true,
+                        bool no_ribout = false) {
+        inet6_route_mgr_->Subscribe(network, id, no_ribout, wait_for_established);
     }
     void Inet6Unsubscribe(const std::string &network, int id = -1,
                           bool wait_for_established = true) {
@@ -518,7 +527,7 @@ public:
 
     void EnetSubscribe(const std::string &network, int id = -1,
                        bool wait_for_established = true) {
-        enet_route_mgr_->Subscribe(network, id, wait_for_established);
+        enet_route_mgr_->Subscribe(network, id, false, wait_for_established);
     }
     void EnetUnsubscribe(const std::string &network, int id = -1,
                          bool wait_for_established = true) {
@@ -554,7 +563,7 @@ public:
 
     void McastSubscribe(const std::string &network, int id = -1,
                         bool wait_for_established = true) {
-        mcast_route_mgr_->Subscribe(network, id, wait_for_established);
+        mcast_route_mgr_->Subscribe(network, id, false, wait_for_established);
     }
     void McastUnsubscribe(const std::string &network, int id = -1,
                           bool wait_for_established = true) {

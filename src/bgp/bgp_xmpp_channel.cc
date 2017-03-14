@@ -1866,9 +1866,18 @@ void BgpXmppChannel::RegisterTable(int line, BgpTable *table,
     BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG,
                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                  "Subscribe to table " << table->name() <<
+                 (tmr_state->no_ribout ? " (no ribout)" : "") <<
                  " with id " << tmr_state->instance_id);
-    mgr->Register(peer_.get(), table, bgp_policy_, tmr_state->instance_id);
-    channel_stats_.table_subscribe++;
+    if (tmr_state->no_ribout) {
+        mgr->RegisterRibIn(peer_.get(), table);
+        mgr->SetRegistrationInfo(peer_.get(), table, tmr_state->instance_id,
+            manager_->get_subscription_gen_id());
+        channel_stats_.table_subscribe++;
+        MembershipRequestCallback(table);
+    } else {
+        mgr->Register(peer_.get(), table, bgp_policy_, tmr_state->instance_id);
+        channel_stats_.table_subscribe++;
+    }
 
     // If EndOfRib Send timer is running, cancel it and reschedule it after all
     // outstanding membership registrations are complete.
@@ -1992,21 +2001,28 @@ bool BgpXmppChannel::ProcessMembershipResponse(string table_name,
         tmr_state->current_req = UNSUBSCRIBE;
         UnregisterTable(table);
         return true;
+    } else if ((tmr_state->current_req == SUBSCRIBE) &&
+        (tmr_state->pending_req == SUBSCRIBE) &&
+        (mgr->IsRibOutRegistered(peer_.get(), table) == tmr_state->no_ribout)) {
+        // Trigger an unsubscribe so that we can subsequently subscribe with
+        // the updated value of no_ribout.
+        tmr_state->current_req = UNSUBSCRIBE;
+        UnregisterTable(table);
+        return true;
     }
-
-    DeleteTableMembershipState(table_name);
 
     string vrf_name = table->routing_instance()->name();
     VrfTableName vrf_n_table = make_pair(vrf_name, table->name());
 
     if (tmr_state->pending_req == UNSUBSCRIBE) {
-        if (!GetInstanceMembershipState(vrf_name)) {
+        if (!GetInstanceMembershipState(vrf_name))
             assert(defer_q_.count(vrf_n_table) == 0);
-        }
+        DeleteTableMembershipState(table_name);
         return true;
     } else if (tmr_state->pending_req == SUBSCRIBE) {
         mgr->SetRegistrationInfo(peer_.get(), table, tmr_state->instance_id,
             manager_->get_subscription_gen_id());
+        DeleteTableMembershipState(table_name);
     }
 
     for (DeferQ::iterator it = defer_q_.find(vrf_n_table);
@@ -2016,6 +2032,7 @@ bool BgpXmppChannel::ProcessMembershipResponse(string table_name,
 
     // Erase all elements for the table
     defer_q_.erase(vrf_n_table);
+
     return true;
 }
 
@@ -2228,6 +2245,9 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             if (strcmp(node.name(), "instance-id") == 0) {
                 instance_id = node.text().as_int();
             }
+            if (strcmp(node.name(), "no-ribout") == 0) {
+                no_ribout = node.text().as_bool();
+            }
         }
     }
 
@@ -2372,10 +2392,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Flush deferred route requests for table " <<
                              table->name() << " on unsubscribe");
+                FlushDeferQ(vrf_name, table->name());
             }
 
             // Erase all elements for the table.
-            FlushDeferQ(vrf_name, table->name());
 
             TableMembershipRequestState *tmr_state =
                 GetTableMembershipState(table->name());
@@ -2383,12 +2403,12 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                 AddTableMembershipState(table->name(),
                     TableMembershipRequestState(
                         UNSUBSCRIBE, instance_id, no_ribout));
+                UnregisterTable(table);
             } else {
                 tmr_state->instance_id = -1;
                 tmr_state->pending_req = UNSUBSCRIBE;
-                continue;
+                tmr_state->no_ribout = false;
             }
-            UnregisterTable(table);
         }
     }
 }

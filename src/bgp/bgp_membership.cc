@@ -123,7 +123,7 @@ void BgpMembershipManager::Register(IPeer *peer, BgpTable *table,
 // Synchronously register the IPeer to the BgpTable for RIBIN.
 //
 void BgpMembershipManager::RegisterRibIn(IPeer *peer, BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::StateMachine", "xmpp::StateMachine");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     PeerRibState *prs = LocatePeerRibState(peer, table);
@@ -304,7 +304,8 @@ uint32_t BgpMembershipManager::GetRibOutQueueDepth(const IPeer *peer,
     if (!prs || !prs->ribout_registered())
         return 0;
     RibOut *ribout = prs->ribout();
-    assert(ribout);
+    if (!ribout)
+        return 0;
     return ribout->GetQueueSize();
 }
 
@@ -517,6 +518,33 @@ void BgpMembershipManager::DestroyPeerRibState(PeerRibState *prs) {
 }
 
 //
+// Trigger REGISTER_RIB_COMPLETE event.
+//
+void BgpMembershipManager::TriggerRegisterRibCompleteEvent(IPeer *peer,
+    BgpTable *table) {
+    Event *event = new Event(REGISTER_RIB_COMPLETE, peer, table);
+    EnqueueEvent(event);
+}
+
+//
+// Trigger UNREGISTER_RIB_COMPLETE event.
+//
+void BgpMembershipManager::TriggerUnregisterRibCompleteEvent(IPeer *peer,
+    BgpTable *table) {
+    Event *event = new Event(UNREGISTER_RIB_COMPLETE, peer, table);
+    EnqueueEvent(event);
+}
+
+//
+// Trigger WALK_RIB_COMPLETE event.
+//
+void BgpMembershipManager::TriggerWalkRibCompleteEvent(IPeer *peer,
+    BgpTable *table) {
+    Event *event = new Event(WALK_RIB_COMPLETE, peer, table);
+    EnqueueEvent(event);
+}
+
+//
 // Process REGISTER_RIB event.
 //
 void BgpMembershipManager::ProcessRegisterRibEvent(Event *event) {
@@ -528,7 +556,10 @@ void BgpMembershipManager::ProcessRegisterRibEvent(Event *event) {
     prs->set_instance_id(event->instance_id);
 
     // Notify completion right away if the table is marked for deletion.
+    // Mark the ribout as registered even though no RibOut gets created.
+    // The unregister code path handles a PeerRibState without a RibOut.
     if (table->IsDeleted()) {
+        prs->set_ribout_registered(true);
         prs->clear_action();
         peer->MembershipRequestCallback(table);
         current_jobs_count_--;
@@ -911,10 +942,20 @@ void BgpMembershipManager::PeerRibState::RegisterRibOut(
 //
 // Note that this is called before Leave processing for the IPeer is started.
 //
+// Bypass the Walker and directly post an UNREGISTER_RIB_COMPLETE event if
+// there's no RibOut. This happens if the table was marked deleted when the
+// register was processed.
+//
 void BgpMembershipManager::PeerRibState::DeactivateRibOut() {
     CHECK_CONCURRENCY("bgp::PeerMembership");
-    ribout_->Deactivate(ps_->peer());
-    rs_->EnqueuePeerRibState(this);
+    if (ribout_) {
+        ribout_->Deactivate(ps_->peer());
+        rs_->EnqueuePeerRibState(this);
+    } else {
+        assert(ribout_index_ == -1);
+        ribout_registered_ = false;
+        manager_->TriggerUnregisterRibCompleteEvent(ps_->peer(), rs_->table());
+    }
 }
 
 //
@@ -928,7 +969,8 @@ void BgpMembershipManager::PeerRibState::DeactivateRibOut() {
 void BgpMembershipManager::PeerRibState::UnregisterRibOut() {
     CHECK_CONCURRENCY("bgp::PeerMembership");
 
-    assert(ribout_);
+    if (!ribout_)
+        return;
     assert(ribout_index_ != -1);
     ribout_->Unregister(ps_->peer());
     ribout_ = NULL;
@@ -1187,28 +1229,22 @@ void BgpMembershipManager::Walker::WalkFinish() {
         PeerRibState *prs = *it;
         IPeer *peer = prs->peer_state()->peer();
 
-        Event *event = NULL;
         switch (prs->action()) {
         case RIBOUT_ADD:
-            event = new Event(
-                BgpMembershipManager::REGISTER_RIB_COMPLETE, peer, table);
+            manager_->TriggerRegisterRibCompleteEvent(peer, table);
             break;
         case RIBIN_DELETE:
         case RIBIN_WALK:
-            event = new Event(
-                BgpMembershipManager::WALK_RIB_COMPLETE, peer, table);
+            manager_->TriggerWalkRibCompleteEvent(peer, table);
             break;
         case RIBIN_WALK_RIBOUT_DELETE:
         case RIBIN_DELETE_RIBOUT_DELETE:
-            event = new Event(
-                BgpMembershipManager::UNREGISTER_RIB_COMPLETE, peer, table);
+            manager_->TriggerUnregisterRibCompleteEvent(peer, table);
             break;
         default:
             assert(false);
             break;
         }
-        assert(event);
-        manager_->EnqueueEvent(event);
     }
 
     table->ReleaseWalker(walk_ref_);

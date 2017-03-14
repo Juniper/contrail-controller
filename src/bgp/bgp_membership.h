@@ -188,6 +188,10 @@ private:
         const BgpTable *table) const;
     void DestroyPeerRibState(PeerRibState *prs);
 
+    void TriggerRegisterRibCompleteEvent(IPeer *peer, BgpTable *table);
+    void TriggerUnregisterRibCompleteEvent(IPeer *peer, BgpTable *table);
+    void TriggerWalkRibCompleteEvent(IPeer *peer, BgpTable *table);
+
     void ProcessRegisterRibEvent(Event *event);
     void ProcessRegisterRibCompleteEvent(Event *event);
     void ProcessUnregisterRibEvent(Event *event);
