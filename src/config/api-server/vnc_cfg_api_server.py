@@ -726,8 +726,7 @@ class VncApiServer(object):
         ret_obj_dict.update(obj_dict)
 
         r_class = self.get_resource_class(resource_type)
-        obj_links = (r_class.ref_fields | r_class.backref_fields | r_class.children_fields) \
-                     & set(obj_dict.keys())
+        obj_links = r_class.obj_links & set(obj_dict.keys())
         obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
         obj_dicts = self._db_conn._cassandra_db.object_raw_read(obj_uuids, ["perms2"])
         uuid_to_perms2 = dict((o['uuid'], o['perms2']) for o in obj_dicts)
@@ -1517,6 +1516,8 @@ class VncApiServer(object):
         self._permissions = vnc_perms.VncPermissions(self, self._args)
         if self.is_rbac_enabled():
             self._create_default_rbac_rule()
+        if self.is_multi_tenancy_set():
+            self._generate_obj_view_links()
 
         if os.path.exists('/usr/bin/contrail-version'):
             cfgm_cpu_uve = ModuleCpuState()
@@ -1788,6 +1789,11 @@ class VncApiServer(object):
 
         return self._auth_svc.get_auth_headers_from_token(request, token)
     # end get_auth_headers_from_token
+
+    def _generate_obj_view_links(self):
+        for object_type, resource_type in all_resource_type_tuples:
+            r_class = self.get_resource_class(resource_type)
+            r_class.obj_links = (r_class.ref_fields | r_class.backref_fields | r_class.children_fields)
 
     # Check for the system created VN. Disallow such VN delete
     def virtual_network_http_delete(self, id):
