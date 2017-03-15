@@ -838,15 +838,23 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         vlan_tag = ((obj_dict.get('virtual_machine_interface_properties') or
                      {}).get('sub_interface_vlan_tag'))
-        if vlan_tag != None:
+        if vlan_tag:
             if 'virtual_machine_interface_refs' in obj_dict:
                 primary_vmi_ref = obj_dict['virtual_machine_interface_refs']
                 ok, primary_vmi = cls.dbe_read(db_conn,
                                   'virtual_machine_interface',
                                   primary_vmi_ref[0]['uuid'],
-                                  obj_fields=['virtual_machine_interface_refs'])
+                                  obj_fields=['virtual_machine_interface_refs',
+                                  'virtual_machine_interface_properties'])
                 if not ok:
                     return ok, primary_vmi
+
+                primary_vmi_vlan_tag = ((primary_vmi
+                                       .get('virtual_machine_interface_properties')
+                                       or{}).get('sub_interface_vlan_tag'))
+                if primary_vmi_vlan_tag:
+                    return (False, (400, "sub interface can't have another sub "\
+                                         "interface as it's primary port"))
 
                 sub_vmi_refs = (primary_vmi.get('virtual_machine_interface_refs')
                                or [])
