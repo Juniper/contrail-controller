@@ -42,6 +42,17 @@ class VRouterScheduler(object):
         self._nc = nova_client
         self._disc = disc
         self._logger = logger
+        self._analytics_client_list = self._get_analytics_clients()
+
+    def _get_analytics_clients(self):
+        analytics_client_list = []
+        analytics_servers = self._args.analytics_server_list[:]
+        analytics_server_list = analytics_servers.split()
+        for analytics_server in analytics_server_list or []:
+            endpoint = "http://%s" % analytics_server
+            obj = analytics_client.Client(endpoint)
+            analytics_client_list.append(obj)
+        return analytics_client_list
 
     @abc.abstractmethod
     def schedule(self, plugin, context, router_id, candidates=None):
@@ -86,29 +97,17 @@ class VRouterScheduler(object):
 
         return az_vr_list
 
-    def get_analytics_client(self):
-       analytics_api = {}
-       analytics_api['ip-address'] = self._args.analytics_server_ip
-       analytics_api['port'] = self._args.analytics_server_port
-       endpoint = "http://%s:%s" % (analytics_api['ip-address'],
-               str(analytics_api['port']))
-       return analytics_client.Client(endpoint)
-
-    def query_uve(self, filter_string):
+    def query_uve(self, analytics, filter_string):
         path = "/analytics/uves/vrouter/"
         response_dict = {}
-        try:
-            if self._args.aaa_mode == 'no-auth':
-                user_token = None
-            else:
-                user_token = self._vnc_lib.get_auth_token()
-            response = self._analytics.request(path, filter_string,
-                user_token=user_token)
-            for values in response['value']:
-                response_dict[values['name']] = values['value']
-        except Exception as e:
-            self._logger.error(str(e))
-            pass
+        if self._args.aaa_mode == 'no-auth':
+            user_token = None
+        else:
+            user_token = self._vnc_lib.get_auth_token()
+        response = analytics.request(path, filter_string,
+                   user_token=user_token)
+        for values in response['value']:
+            response_dict[values['name']] = values['value']
         return response_dict
 
     def vrouters_running(self):
@@ -116,11 +115,28 @@ class VRouterScheduler(object):
         az_vrs = self._get_az_vrouter_list()
 
         # read all vrouter information
-        self._analytics = self.get_analytics_client()
-        if not self._analytics:
+        client_cnt = len(self._analytics_client_list)
+        analytics_client_list = random.sample(
+                  self._analytics_client_list, client_cnt)
+        analytics_response = False
+        for analytics in analytics_client_list or []:
+            try:
+                vrouters_mode = self.query_uve(
+                       analytics, "*?cfilt=VrouterAgent:mode")
+                agents_status = self.query_uve(
+                       analytics, "*?cfilt=NodeStatus:process_status")
+                analytics_response = True
+                break
+            except Exception as e:
+                error_msg = "Failed to get vrouter and agent info from " + \
+                            "analytics endpoint %s" %analytics.endpoint
+                self._logger.error(error_msg)
+                self._logger.error(str(e))
+
+        if not analytics_response:
+            error_msg = "no response from analytics servers"
+            self._logger.error(error_msg)
             return
-        agents_status = self.query_uve("*?cfilt=NodeStatus:process_status")
-        vrouters_mode = self.query_uve("*?cfilt=VrouterAgent:mode")
 
         for vr in VirtualRouterSM.values():
             if az_vrs and vr.name not in az_vrs:
