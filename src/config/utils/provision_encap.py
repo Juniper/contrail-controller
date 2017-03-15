@@ -116,9 +116,9 @@ class EncapsulationProvision(object):
         parser.add_argument(
             "--oper", default='add',help="Provision operation to be done(add or delete)")
 	parser.add_argument(
-            "--admin_user", help="Name of keystone admin user", required=True)
+            "--admin_user", help="Name of keystone admin user")
         parser.add_argument(
-            "--admin_password", help="Password of keystone admin user", required=True)
+            "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenant name for keystone admin user")
 
