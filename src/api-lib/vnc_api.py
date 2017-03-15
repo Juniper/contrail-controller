@@ -8,7 +8,6 @@ from requests.exceptions import ConnectionError
 import ConfigParser
 import pprint
 from cfgm_common import jsonutils as json
-import sys
 import time
 import platform
 import functools
@@ -17,8 +16,6 @@ import ssl
 import re
 import os
 
-import gen.resource_common
-import gen.vnc_api_client_gen
 from gen.vnc_api_client_gen import all_resource_type_tuples
 from gen.resource_xsd import *
 from gen.resource_client import *
@@ -28,8 +25,6 @@ import cfgm_common
 from cfgm_common import rest, utils
 from cfgm_common.exceptions import *
 from cfgm_common import ssl_adapter
-
-from pprint import pformat
 
 
 def check_homepage(func):
@@ -95,6 +90,51 @@ class ActionUriDict(dict):
                                     retry_on_error=False)
             self.vnc_api._parse_homepage(homepage)
             return dict.__getitem__(self, key)
+
+
+class ApiServerSession(object):
+    def __init__(self, api_server_hosts, max_conns_per_pool, max_pools):
+        self.api_server_hosts = api_server_hosts
+        self.max_conns_per_pool = max_conns_per_pool
+        self.max_pools = max_pools
+        self.api_server_sessions = {}
+        self.create_api_server_sessions()
+
+    def create_api_server_sessions(self):
+        for  api_server_host in self.api_server_hosts:
+            api_server_session = requests.Session()
+
+            adapter = requests.adapters.HTTPAdapter(
+                pool_connections=self.max_conns_per_pool,
+                pool_maxsize=self.max_pools)
+            ssladapter = ssl_adapter.SSLAdapter(ssl.PROTOCOL_SSLv23)
+            ssladapter.init_poolmanager(
+                connections=self.max_conns_per_pool,
+                maxsize=self.max_pools)
+            api_server_session.mount("http://", adapter)
+            api_server_session.mount("https://", ssladapter)
+            self.api_server_sessions.update({api_server_host: api_server_session})
+
+    def crud(self, method, url, *args, **kwargs):
+        for api_server_host, api_server_session in self.api_server_sessions:
+            try:
+                crud_method = getattr(api_server_session, '%s' % method)
+                return crud_method(url, *args, **kwargs)
+            except ConnectionError:
+                continue
+        raise ConnectionError
+
+    def get(self, url, *args, **kwargs):
+        return self.crud('get', url, *args, **kwargs)
+
+    def post(self, url, *args, **kwargs):
+        return self.crud('post', url, *args, **kwargs)
+
+    def put(self, url, *args, **kwargs):
+        return self.crud('put', url, *args, **kwargs)
+
+    def delete(self, url, *args, **kwargs):
+        return self.crud('delete', url, *args, **kwargs)
 
 
 class VncApi(object):
@@ -182,10 +222,14 @@ class VncApi(object):
              self._api_connect_protocol = VncApi._DEFAULT_API_SERVER_SSL_CONNECT
 
         if not api_server_host:
-            self._web_host = _read_cfg(cfg_parser, 'global', 'WEB_SERVER',
-                                       self._DEFAULT_WEB_SERVER)
+            self._web_hosts = _read_cfg(cfg_parser, 'global', 'WEB_SERVER',
+                                        self._DEFAULT_WEB_SERVER).split(',')
+        elif isinstance(api_server_host, list):
+            self._web_hosts = api_server_host
         else:
-            self._web_host = api_server_host
+            self._web_hosts = [api_server_host]
+        self._web_host = self._web_hosts[0]
+
 
         # keystone
         self._authn_type = auth_type or \
@@ -573,17 +617,8 @@ class VncApi(object):
     #end _obj_serializer_all
 
     def _create_api_server_session(self):
-        self._api_server_session = requests.Session()
-
-        adapter = requests.adapters.HTTPAdapter(
-            pool_connections=self._max_conns_per_pool,
-            pool_maxsize=self._max_pools)
-        ssladapter = ssl_adapter.SSLAdapter(ssl.PROTOCOL_SSLv23)
-        ssladapter.init_poolmanager(
-            connections=self._max_conns_per_pool,
-            maxsize=self._max_pools)
-        self._api_server_session.mount("http://", adapter)
-        self._api_server_session.mount("https://", ssladapter)
+        self._api_server_session = ApiServerSession(self._web_hosts,
+                self._max_conns_per_pool, self._max_pools)
     #end _create_api_server_session
 
     # Authenticate with configured service
