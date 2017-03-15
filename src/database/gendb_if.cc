@@ -67,13 +67,30 @@ std::string ColumnNameRange::ToString() const {
     if (!start_.empty()) {
         ss << "Start: " << DbDataValueVecToString(start_);;
     }
+    ss << "Start Op: " << Op::ToString(start_op_);
     if (!finish_.empty()) {
         ss << "Finish: " << DbDataValueVecToString(finish_);
     }
+    ss << "Finish Op: " << Op::ToString(finish_op_);
     if (count_) {
         ss << "Count: " << count_;
     }
     return ss.str();
+}
+
+std::string Op::ToString(Op::type op) {
+    switch (op) {
+      case Op::GE:
+        return ">=";
+      case Op::GT:
+        return ">";
+      case Op::LE:
+        return "<=";
+      case Op::LT:
+        return "<";
+      default:
+        assert(0);
+    }
 }
 
 std::string GenDb::DbDataValueVecToString(

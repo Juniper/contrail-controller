@@ -544,6 +544,37 @@ TEST_F(CqlIfTest, SelectFromTableSlice) {
         "key8=0x303132333435363738393031323334353637383930313233343536373839 "
         "LIMIT 5000");
     EXPECT_EQ(expected_qstring4, actual_string4);
+    // Normal slice with start and finish operatorse
+    GenDb::ColumnNameRange op_crange;
+    op_crange.start_ = all_values;
+    op_crange.finish_ = all_values;
+    op_crange.count_ = 5000;
+    op_crange.start_op_ = GenDb::Op::GT;
+    op_crange.finish_op_ = GenDb::Op::LT;
+    std::string actual_string5(
+        cass::cql::impl::PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
+            table, all_values, op_crange));
+    std::string expected_qstring5(
+        "SELECT * FROM SliceSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839 AND "
+        "(column1, column2, column3, column4, column5, column6, column7, "
+        "column8) > "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839)"
+        " AND "
+        "(column1, column2, column3, column4, column5, column6, column7, "
+        "column8) < "
+        "('Test', 123456789, 123456789, " + tuuid_s_ + ", 128, 65535, 1.123, "
+        "0x303132333435363738393031323334353637383930313233343536373839)"
+        " LIMIT 5000");
+    EXPECT_EQ(expected_qstring5, actual_string5);
 }
 
 TEST_F(CqlIfTest, SelectFromTableReadFields) {
