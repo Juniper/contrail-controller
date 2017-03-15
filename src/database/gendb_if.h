@@ -38,6 +38,16 @@ struct DbConsistency {
     };
 };
 
+struct Op {
+    enum type {
+        GEQ,
+        GT,
+        LEQ,
+        LT,
+    };
+    static std::string ToString(Op::type op);
+};
+
 struct Blob {
     Blob(const uint8_t *data, size_t size) :
         data_(reinterpret_cast<const char *>(data), size) {
@@ -190,7 +200,7 @@ inline bool operator==(const ColList &lhs, const ColList &rhs) {
 typedef boost::ptr_vector<ColList> ColListVec;
 
 struct ColumnNameRange {
-    ColumnNameRange() : count_(0) {
+    ColumnNameRange() : count_(0), start_op_(Op::GEQ), finish_op_(Op::LEQ) {
     }
 
     ~ColumnNameRange() {
@@ -207,6 +217,8 @@ struct ColumnNameRange {
     DbDataValueVec start_;
     DbDataValueVec finish_;
     uint32_t count_;
+    Op::type start_op_;
+    Op::type finish_op_;
 };
 
 // fields to read, whether the field is rowkey, whether the field is column,
