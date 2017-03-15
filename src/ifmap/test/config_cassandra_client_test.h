@@ -69,7 +69,7 @@ public:
         return true;
     }
 
-    bool ParseUuidTableRowResponse(const std::string &uuid,
+    void ParseUuidTableRowResponse(const std::string &uuid,
             const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
             ConfigCassandraParseContext &context) {
         // Retrieve event index prepended to uuid, to get to the correct db.
@@ -79,7 +79,7 @@ public:
 
         if (!(*events())[contrail_rapidjson::SizeType(index)]["db"].HasMember(
                     uuid.c_str()))
-            return true;
+            return;
         for (contrail_rapidjson::Value::ConstMemberIterator k =
              (*events())[contrail_rapidjson::SizeType(index)]["db"]
                 [uuid.c_str()].MemberBegin();
@@ -95,7 +95,6 @@ public:
             ParseUuidTableRowJson(uuid, k1, v1, 0, cass_data_vec, context);
         }
         db_index_[idx].erase(it);
-        return true;
     }
 
     std::string GetUUID(const std::string &key) const {
