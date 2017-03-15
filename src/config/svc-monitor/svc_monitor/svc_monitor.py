@@ -721,8 +721,7 @@ def parse_args(args_str):
     schedops = {
         'si_netns_scheduler_driver':
         'svc_monitor.scheduler.vrouter_scheduler.RandomScheduler',
-        'analytics_server_ip': '127.0.0.1',
-        'analytics_server_port': '8081',
+        'analytics_server_list': '127.0.0.1:8081',
         'availability_zone': None,
         'netns_availability_zone': None,
         'aaa_mode': cfgm_common.AAA_MODE_DEFAULT_VALUE,
