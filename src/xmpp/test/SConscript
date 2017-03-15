@@ -29,10 +29,10 @@ libxmpptest = env.Library('xmpptest',
 env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh', 
                     'http', 'http_parser', 'curl', 'process_info',
                     'io', 'ssl', 'crypto', 'sandeshvns', 'control_node',
-                    'ifmapio', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
-                    'cassandra', 'gendb', 'ifmap_vnc', 'bgp_schema',
-                    'ifmap_server', 'ifmap_common', 'base', 'peer_sandesh',
-                    'boost_regex', 'xmpptest', 'db', 'sandesh'])
+                    'ifmapio', 'ifmap_vnc', 'bgp_schema', 'ifmap_server',
+                    'ifmap_common', 'peer_sandesh', 'cassandra_cql',
+                    'cassandra', 'gendb', 'SimpleAmqpClient', 'rabbitmq',
+                    'base', 'boost_regex', 'xmpptest', 'db', 'sandesh'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])

@@ -47,10 +47,10 @@ public:
     static const std::string kCassClientTaskId;
     static const std::string kObjectProcessTaskId;
     // wait time before retrying in seconds
-    static const int kInitRetryTimeSec = 5;
+    static const uint64_t kInitRetryTimeUSec = 5000000;
     static const int kMaxRequestsToYield = 512;
     static const int kMaxNumUUIDToRead = 64;
-    static const int kNumFQNameEntriesToRead = 4096;
+    static const int kNumFQNameEntriesToRead = 4;
 
     typedef boost::scoped_ptr<GenDb::GenDbIf> GenDbIfPtr;
     typedef std::pair<std::string, std::string> ObjTypeFQNPair;
@@ -91,7 +91,7 @@ public:
 
     virtual void GetConnectionInfo(ConfigDBConnInfo &status) const;
 
-    static uint32_t GetNumReadRequestToBunch();
+    virtual uint32_t GetNumReadRequestToBunch() const;
 
 protected:
     struct ConfigCassandraParseContext {
@@ -117,10 +117,21 @@ protected:
     typedef std::list<ObjTypeUUIDType> ObjTypeUUIDList;
     void UpdateCache(const std::string &key, const std::string &obj_type,
                      ObjTypeUUIDList &uuid_list);
-    bool BulkDataSync();
+    virtual bool BulkDataSync();
     bool EnqueueUUIDRequest(const ObjTypeUUIDList &uuid_list);
     virtual std::string FetchUUIDFromFQNameEntry(const std::string &key) const;
     virtual std::string GetUUID(const std::string &key) const;
+    virtual void PraseAndEnqueueToIFMapTable(const string &uuid_key,
+        const ConfigCassandraParseContext &context,
+        const CassColumnKVVec &cass_data_vec);
+    virtual bool SkipTimeStampCheckForTypeAndFQName() const { return true; }
+    virtual uint32_t GetCRangeCount() const { return kNumFQNameEntriesToRead; }
+    virtual const int getMaxRequestsToYield() const {
+        return kMaxRequestsToYield;
+    }
+    virtual const uint64_t getInitRetryTimeUSec() const {
+        return kInitRetryTimeUSec;
+    }
 
 private:
     class ConfigReader;
@@ -157,6 +168,7 @@ private:
     };
 
     typedef std::list<ObjectProcessRequestType *> UUIDProcessList;
+    typedef std::list<UUIDProcessList::iterator> UUIDProcessIteratorList;
     typedef std::map<std::string, ObjectProcessRequestType *> UUIDProcessSet;
 
 
@@ -169,7 +181,7 @@ private:
     typedef boost::shared_ptr<WorkQueue<ObjectProcessReq *> > ObjProcessWorkQType;
 
     void InitRetry();
-    virtual bool ParseUuidTableRowResponse(const std::string &uuid,
+    virtual void ParseUuidTableRowResponse(const std::string &uuid,
         const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
         ConfigCassandraParseContext &context);
     void AddUuidEntry(const string &uuid);
@@ -192,9 +204,9 @@ private:
        ObjectCacheMap::iterator uuid_iter, const string &lookup_key,
        ConfigClientManager::RequestList *req_list);
 
-    bool BunchReadReq(const UUIDProcessList &req_list);
-    void RemoveObjReqEntries(int worker_id, UUIDProcessList &req_list);
-    void RemoveObjReqEntry(int worker_id, ObjectProcessRequestType *req);
+    bool BunchReadReq(const UUIDProcessIteratorList &req_list);
+    void RemoveObjReqEntries(int worker_id, UUIDProcessIteratorList &req_list);
+    void RemoveObjReqEntry(int worker_id, UUIDProcessList::iterator req_it);
 
     ConfigClientManager *mgr_;
     EventManager *evm_;
