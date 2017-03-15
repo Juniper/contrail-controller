@@ -68,6 +68,22 @@ static inline void TaskUtilPauseTest() {
     waitpid(pid, &status, 0);
 }
 
+// Get all possible sub-sets of a given set of elements
+template <typename T>
+static std::vector<std::vector<T> > GetSubSets(const std::vector<T> &vector) {
+    std::vector<std::vector<T> > subsets;
+
+    for (size_t i = 0; i < (1 << vector.size()); i++) {
+        std::vector<T> subset;
+        for (size_t j = 0; j < vector.size(); j++) {
+            if (i & (1 << j))
+                subset.push_back(vector[j]);
+        }
+        subsets.push_back(subset);
+    }
+    return subsets;
+}
+
 #define TASK_UTIL_WAIT_EQ_NO_MSG(expected, actual, wait, retry, msg)           \
 do {                                                                           \
     bool _satisfied = false;                                                   \
