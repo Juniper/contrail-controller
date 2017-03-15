@@ -19,11 +19,12 @@ logger = logging.getLogger(__name__)
 class NBTestNaming(test_case.NeutronBackendTestCase):
     def _create_project(self, proj_name):
         proj_obj = Project(proj_name)
+        proj_obj.uuid = str(uuid.uuid4())
         self.addDetail('creating-project', content.text_content(proj_name))
-        self._vnc_lib.project_create(proj_obj)
-        #default_sg_obj = SecurityGroup('default', parent_obj=proj_obj)
-        #import pdb; pdb.et_trace()
-        #self._vnc_lib.security_group_create(default_sg_obj)
+        test_case.get_keystone_client().tenants.add_tenant(
+            proj_obj.uuid, proj_name)
+        self._vnc_lib.project_read(id=proj_obj.uuid)
+
         return proj_obj
     # end _create_project
         

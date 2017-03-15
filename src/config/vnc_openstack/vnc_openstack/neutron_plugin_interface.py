@@ -118,6 +118,14 @@ class NeutronPluginInterface(object):
         try:
             if 'application/json' in ctype:
                 req = bottle.request.json
+                context = req['context']
+                if context.get('tenant') and context.get('tenant_id'):
+                    if context['tenant'] != context['tenant_id']:
+                        bottle.abort(400, 'Unable to parse request data')
+                elif context.get('tenant'):
+                    context['tenant_id'] = context['tenant']
+                elif context.get('tenant_id'):
+                    context['tenant'] = context['tenant_id']
                 return req['context'], req['data']
         except Exception as e:
             bottle.abort(400, 'Unable to parse request data')
