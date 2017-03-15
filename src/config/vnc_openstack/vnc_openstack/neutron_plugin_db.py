@@ -652,12 +652,6 @@ class DBInterface(object):
             self._raise_contrail_exception('RouterInUse', router_id=rtr_id)
     #end _logical_router_delete
 
-    def _floatingip_list(self, obj_uuids=None, back_ref_id=None):
-        return self._vnc_lib.floating_ips_list(obj_uuids=obj_uuids,
-                                               back_ref_id=back_ref_id,
-                                               detail=True)
-    #end _floatingip_list
-
     # find floating ip pools a project has access to
     def _fip_pool_refs_project(self, project_id):
         project_obj = self._project_read(proj_id=project_id)
@@ -1770,51 +1764,75 @@ class DBInterface(object):
         return fip_obj
     #end _floatingip_neutron_to_vnc
 
-    def _floatingip_vnc_to_neutron(self, fip_obj):
+    def _floatingip_vnc_to_neutron(self, fip_obj, memo_req=None):
         fip_q_dict = {}
 
-        floating_net_id = self._vnc_lib.fq_name_to_id('virtual-network',
-                                             fip_obj.get_fq_name()[:-2])
+        try:
+            floating_net_id = memo_req['network_fqn'][tuple(fip_obj.get_fq_name()[:-2])]
+        except:
+            floating_net_id = self._vnc_lib.fq_name_to_id('virtual-network',
+                                                 fip_obj.get_fq_name()[:-2])
+
         tenant_id = fip_obj.get_project_refs()[0]['uuid'].replace('-', '')
 
         port_id = None
         router_id = None
         port_obj = None
         port_refs = fip_obj.get_virtual_machine_interface_refs()
-        if port_refs:
-            for port_ref in port_refs:
+
+        for port_ref in port_refs or []:
+            if memo_req:
+                try:
+                    port_obj = memo_req['ports'][port_ref['uuid']]
+                except KeyError:
+                    continue
+            else:
                 try:
                     port_obj = self._virtual_machine_interface_read(
                         port_id=port_ref['uuid'])
-
-                    # In case of floating ip on the Virtual-ip, svc-monitor will
-                    # link floating ip to "right" interface of service VMs
-                    # launched by ha-proxy service instance. Skip them
-                    props = port_obj.get_virtual_machine_interface_properties()
-                    if props:
-                        interface_type = props.get_service_interface_type()
-                        if interface_type == "right":
-                            continue
-
-                    port_id = port_ref['uuid']
-                    break
                 except NoIdError:
-                    pass
+                    continue
+
+            # In case of floating ip on the Virtual-ip, svc-monitor will
+            # link floating ip to "right" interface of service VMs
+            # launched by ha-proxy service instance. Skip them
+            props = port_obj.get_virtual_machine_interface_properties()
+            if props:
+                interface_type = props.get_service_interface_type()
+                if interface_type == "right":
+                    continue
+
+            port_id = port_ref['uuid']
+            break
 
         if port_obj:
             port_net_id = port_obj.get_virtual_network_refs()[0]['uuid']
             # find router_id from port
-            router_list = self._router_list_project(tenant_id, detail=True)
+            if memo_req:
+                router_list = memo_req['routers'].get(tenant_id, [])
+            else:
+                router_list = self._router_list_project(tenant_id, detail=True)
+
+            vmi_routers = {}
             for router_obj in router_list or []:
-                for vmi in (router_obj.get_virtual_machine_interface_refs()
-                            or []):
-                    vmi_obj = self._virtual_machine_interface_read(
-                        port_id=vmi['uuid'])
-                    if (vmi_obj.get_virtual_network_refs()[0]['uuid'] ==
-                        port_net_id):
-                        router_id = router_obj.uuid
-                        break
-                if router_id:
+                vmi_routers.update(dict((vmi_ref['uuid'], router_obj.uuid) for vmi_ref in (router_obj.get_virtual_machine_interface_refs() or [])))
+
+            if memo_req:
+                vmi_obj_list = [memo_req['ports'].get(vmi_id) for vmi_id in vmi_routers]
+            else:
+                if vmi_routers:
+                    vmi_obj_list = self._virtual_machine_interface_list(
+                        obj_uuids=vmi_routers.keys())
+                else:
+                    vmi_obj_list = []
+
+            for vmi_obj in vmi_obj_list:
+                if vmi_obj is None:
+                    continue
+
+                if (vmi_obj.get_virtual_network_refs()[0]['uuid'] ==
+                    port_net_id):
+                    router_id = vmi_routers[vmi_obj.uuid]
                     break
 
         fip_q_dict['id'] = fip_obj.uuid
@@ -3576,9 +3594,44 @@ class DBInterface(object):
             if not context['is_admin']:
                 backref_ids = [str(uuid.UUID(context['tenant']))]
 
-        fip_objs = self._floatingip_list(obj_uuids=fip_ids,
-                                         back_ref_id=backref_ids)
+        memo_req = {'routers': {},
+                    'ports': {},
+                    'network_fqn':{}}
 
+        fip_objs = self._vnc_lib.floating_ips_list(obj_uuids=fip_ids,
+                                               back_ref_id=backref_ids,
+                                               detail=True)
+
+        # prep memo for optimization
+        fip_vn_fqn = set(tuple(fip_obj.fq_name[:-2]) for fip_obj in fip_objs)
+        for vn_fqn in fip_vn_fqn:
+            try:
+                memo_req['network_fqn'][vn_fqn] = self._vnc_lib.fq_name_to_id(
+                    'virtual-network', vn_fqn)
+            except NoIdError:
+                pass
+
+        fip_project_refs = list(set([fip_obj.get_project_refs()[0]['uuid']
+                       for fip_obj in fip_objs]))
+        lr_objs = self._logical_router_list(parent_id=fip_project_refs)
+        for lr_obj in lr_objs:
+            tenant_id = lr_obj.parent_uuid.replace('-','')
+            try:
+                memo_req['routers'][tenant_id].append(lr_obj)
+            except KeyError:
+                memo_req['routers'][tenant_id] = [lr_obj]
+
+        vmi_uuids = []
+        for fip_obj in fip_objs:
+            vmi_uuids.extend([ref['uuid'] for ref in
+                fip_obj.get_virtual_machine_interface_refs() or []])
+        for lr_obj in lr_objs:
+            vmi_uuids.extend([ref['uuid'] for ref in
+                lr_obj.get_virtual_machine_interface_refs() or []])
+        vmi_objs = self._virtual_machine_interface_list(obj_uuids=vmi_uuids)
+        memo_req['ports'] = dict((vmi_obj.uuid, vmi_obj) for vmi_obj in vmi_objs)
+
+        # prepare result in neutron form and return
         for fip_obj in fip_objs:
             if 'floating_ip_address' in filters:
                 if (fip_obj.get_floating_ip_address() not in
@@ -3601,7 +3654,7 @@ class DBInterface(object):
                     continue
 
             try:
-                ret_list.append(self._floatingip_vnc_to_neutron(fip_obj))
+                ret_list.append(self._floatingip_vnc_to_neutron(fip_obj, memo_req))
             except NoIdError:
                 continue
             except Exception as e:

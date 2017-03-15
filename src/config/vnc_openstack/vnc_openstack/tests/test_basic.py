@@ -36,7 +36,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
     # end read_resource
 
     def list_resource(self, url_pfx,
-        proj_uuid=None, req_fields=None, req_filters=None):
+        proj_uuid=None, req_fields=None, req_filters=None,
+        is_admin=False):
         if proj_uuid == None:
             proj_uuid = self._vnc_lib.fq_name_to_id('project',
             fq_name=['default-domain', 'default-project'])
@@ -45,7 +46,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
                    'user_id': '',
                    'tenant_id': proj_uuid,
                    'roles': '',
-                   'is_admin': 'False'}
+                   'is_admin': is_admin}
         data = {'fields': req_fields, 'filters': req_filters or {}}
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json(
@@ -54,10 +55,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
     # end list_resource
 
     def create_resource(self, res_type, proj_id, name=None,
-                        extra_res_fields=None):
+                        extra_res_fields=None, is_admin=False):
         context = {'operation': 'CREATE',
                    'user_id': '',
-                   'is_admin': False,
+                   'is_admin': is_admin,
                    'roles': '',
                    'tenant_id': proj_id}
         if name:
@@ -73,10 +74,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
         resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
         return json.loads(resp.text)
 
-    def delete_resource(self, res_type, proj_id, id):
+    def delete_resource(self, res_type, proj_id, id, is_admin=False):
         context = {'operation': 'DELETE',
                    'user_id': '',
-                   'is_admin': False,
+                   'is_admin': is_admin,
                    'roles': '',
                    'tenant_id': proj_id}
 
@@ -85,10 +86,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
         body = {'context': context, 'data': data}
         self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
 
-    def update_resource(self, res_type, res_id, proj_id, name=None, extra_res_fields=None):
-        context = {'operation': 'UPDATE',
+    def update_resource(self, res_type, res_id, proj_id, name=None, extra_res_fields=None,
+                        is_admin=False, operation=None):
+        context = {'operation': operation or 'UPDATE',
                    'user_id': '',
-                   'is_admin': False,
+                   'is_admin': is_admin,
                    'roles': '',
                    'tenant_id': proj_id}
         if name:
@@ -509,6 +511,130 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.delete_resource('network', proj_obj.uuid, net_q['id'])
         self.delete_resource('security_group', proj_obj.uuid, sg_q['id'])
     # end test_fixed_ip_conflicts_with_floating_ip
+
+    def test_floating_ip_list(self):
+        proj_objs = []
+        for i in range(3):
+            proj_id = str(uuid.uuid4())
+            proj_name = 'proj-%s-%s' %(self.id(), i)
+            test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
+            proj_objs.append(self._vnc_lib.project_read(id=proj_id))
+
+        sg_q_list = [self.create_resource('security_group', proj_objs[i].uuid)
+                     for i in range(3)]
+
+        # public network on last project
+        pub_net1_q = self.create_resource('network', proj_objs[-1].uuid,
+            name='public-network-%s-1' %(self.id()),
+            extra_res_fields={'router:external': True})
+        self.create_resource('subnet', proj_objs[-1].uuid,
+            name='public-subnet-%s-1' %(self.id()),
+            extra_res_fields={
+                'network_id': pub_net1_q['id'],
+                'cidr': '10.1.1.0/24',
+                'ip_version': 4,
+            })
+        pub_net2_q = self.create_resource('network', proj_objs[-1].uuid,
+            name='public-network-%s-2' %(self.id()),
+            extra_res_fields={'router:external': True})
+        self.create_resource('subnet', proj_objs[-1].uuid,
+            name='public-subnet-%s-2' %(self.id()),
+            extra_res_fields={
+                'network_id': pub_net2_q['id'],
+                'cidr': '20.1.1.0/24',
+                'ip_version': 4,
+            })
+
+        def create_net_subnet_port_assoc_fip(i, pub_net_q_list,
+                                             has_routers=True):
+            net_q_list = [self.create_resource('network', proj_objs[i].uuid,
+                name='network-%s-%s-%s' %(self.id(), i, j)) for j in range(2)]
+            subnet_q_list = [self.create_resource('subnet', proj_objs[i].uuid,
+                name='subnet-%s-%s-%s' %(self.id(), i, j),
+                extra_res_fields={
+                    'network_id': net_q_list[j]['id'],
+                    'cidr': '1.%s.%s.0/24' %(i, j),
+                    'ip_version': 4,
+                }) for j in range(2)]
+
+            if has_routers:
+                router_q_list = [self.create_resource('router', proj_objs[i].uuid,
+                    name='router-%s-%s-%s' %(self.id(), i, j),
+                    extra_res_fields={
+                        'external_gateway_info': {
+                            'network_id': pub_net_q_list[j]['id'],
+                        }
+                    }) for j in range(2)]
+                [self.update_resource('router', router_q_list[j]['id'],
+                    proj_objs[i].uuid, is_admin=True, operation='ADDINTERFACE',
+                    extra_res_fields={'subnet_id': subnet_q_list[j]['id']})
+                        for j in range(2)]
+            else:
+                router_q_list = None
+
+            port_q_list = [self.create_resource('port', proj_objs[i].uuid,
+                name='port-%s-%s-%s' %(self.id(), i, j),
+                extra_res_fields={
+                    'network_id': net_q_list[j]['id'],
+                    'security_groups': [sg_q_list[i]['id']],
+                }) for j in range(2)]
+
+            fip_q_list = [self.create_resource('floatingip', proj_objs[i].uuid,
+                name='fip-%s-%s-%s' %(self.id(), i, j),
+                is_admin=True,
+                extra_res_fields={'floating_network_id': pub_net_q_list[j]['id'],
+                                  'port_id': port_q_list[j]['id']}) for j in range(2)]
+
+            return {'network': net_q_list, 'subnet': subnet_q_list,
+                    'ports': port_q_list, 'fips': fip_q_list,
+                    'routers': router_q_list}
+        # end create_net_subnet_port_assoc_fip
+
+        created = []
+        # without routers
+        created.append(create_net_subnet_port_assoc_fip(
+            0, [pub_net1_q, pub_net2_q], has_routers=False))
+
+        # with routers
+        created.append(create_net_subnet_port_assoc_fip(
+            1, [pub_net1_q, pub_net2_q], has_routers=True))
+
+        # 1. list as admin for all routers
+        fip_dicts = self.list_resource('floatingip', is_admin=True)
+        # convert list to dict by id
+        fip_dicts = dict((fip['id'], fip) for fip in fip_dicts)
+        # assert all floatingip we created recevied back
+        for fip in created[0]['fips'] + created[1]['fips']:
+            self.assertIn(fip['id'], fip_dicts.keys())
+
+        # assert router-id present in fips of proj[1]
+        self.assertEqual(created[1]['routers'][0]['id'],
+            fip_dicts[created[1]['fips'][0]['id']]['router_id'])
+        self.assertEqual(created[1]['routers'][1]['id'],
+            fip_dicts[created[1]['fips'][1]['id']]['router_id'])
+
+        # assert router-id not present in fips of proj[0]
+        self.assertEqual(None,
+            fip_dicts[created[0]['fips'][0]['id']]['router_id'])
+        self.assertEqual(None,
+            fip_dicts[created[0]['fips'][1]['id']]['router_id'])
+
+        # 2. list routers within project
+        fip_dicts = self.list_resource(
+            'floatingip', proj_uuid=proj_objs[0].uuid)
+        self.assertEqual(None,
+            fip_dicts[0]['router_id'])
+        self.assertEqual(None,
+            fip_dicts[1]['router_id'])
+        # convert list to dict by port-id
+        fip_dicts = dict((fip['port_id'], fip) for fip in fip_dicts)
+        # assert fips point to right port
+        self.assertEqual(created[0]['ports'][0]['fixed_ips'][0]['ip_address'],
+            fip_dicts[created[0]['ports'][0]['id']]['fixed_ip_address'])
+        self.assertEqual(created[0]['ports'][1]['fixed_ips'][0]['ip_address'],
+            fip_dicts[created[0]['ports'][1]['id']]['fixed_ip_address'])
+    # end test_floating_ip_list
+
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
