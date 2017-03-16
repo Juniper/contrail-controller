@@ -50,7 +50,8 @@ response sandesh SandeshDBTableStatsList {
 }
 
 /**
- * Request messae to get db table entry list from agent introspect
+ * @description: Request messae to get db table entry list from agent introspect
+ * @cli_name: read dbtable stats list
  */
 request sandesh SandeshDBTableStatsRequest {
     /** Data sent for last 'count' entries */
@@ -92,7 +93,8 @@ response sandesh SandeshFlowStatsList {
 }
 
 /**
- * Request message getting for flow stats
+ * @description: Request message to get agent flow stats
+ * @cli_name: read flow stats
  */
 request sandesh SandeshFlowStatsRequest {
     /** Data to be sent for last 'count' entries */
@@ -188,7 +190,8 @@ response sandesh SandeshFlowQueueSummaryResp {
 }
 
 /**
- * Request message to get summary of flow work-queues
+ * @description: Request message to get summary of flow work-queues
+ * @cli_name: read flowqueue list
  */
 request sandesh SandeshFlowQueueSummaryRequest{
 }
@@ -258,7 +261,8 @@ response sandesh SandeshTaskStatsList {
 }
 
 /**
- * Request message to get profile task stats from agent introspect
+ * @description: Request message to get profile task stats from agent introspect
+ * @cli_name: read profile task list
  */
 request sandesh SandeshTaskStatsRequest {
     /** Data sent for last 'count' entries */
@@ -270,12 +274,10 @@ request sandesh SandeshTaskStatsRequest {
  * Shows modified parameters
  */
 response sandesh SandeshProfileParams {
-    /** Value for task execute threshold which indicates maximum time a task
-     * can take to execute
+    /** Maximum time a task can take to execute
      */
     1: u16    task_exec_threshold;
-    /** Value for task schedule threshold which indicates maximum time a task
-     * can take to move to run state from the time it is enqueued
+    /** Maximum time a task can take to move to run state from the time it is enqueued
      */
     2: u16    task_schedule_threshold;
     /** Value for queue delay measure */
@@ -283,15 +285,14 @@ response sandesh SandeshProfileParams {
 }
 
 /**
- * Request to tune to task-profiling parameters
+ * @description: Request to tune to task-profiling parameters
+ * @cli_name: create task profile parameters
  */
 request sandesh SandeshSetProfileParams {
-    /** Value for task execute threshold which indicates maximum time a task
-     * can take to execute
+    /** Maximum time a task can take to execute
      */
     1: u16    task_exec_threshold;
-    /** Value for task schedule threshold which indicates maximum time a task
-     * can take to move to run state from the time it is enqueued
+    /** Maximum time a task can take to move to run state from the time it is enqueued
      */
     2: u16    task_schedule_threshold;
     /** Value for queue delay measure */
