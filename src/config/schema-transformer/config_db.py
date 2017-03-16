@@ -98,8 +98,12 @@ class DBBaseST(DBBase):
     @classmethod
     def reinit(cls):
         for obj in cls.list_vnc_obj():
-            cls.locate(obj.get_fq_name_str(), obj)
-    # reinit
+            try:
+                cls.locate(obj.get_fq_name_str(), obj)
+            except Exception as e:
+                self._logger.error("Error in reinit for %s %s: %s" % (
+                    cls.obj_type, obj.get_fq_name_str(), str(e)))
+    # end reinit
 
     def handle_st_object_req(self):
         st_obj = sandesh.StObject(object_type=self.obj_type,
@@ -131,7 +135,11 @@ class GlobalSystemConfigST(DBBaseST):
     @classmethod
     def reinit(cls):
         for gsc in cls.list_vnc_obj():
-            cls.locate(gsc.get_fq_name_str(), gsc)
+            try:
+                cls.locate(gsc.get_fq_name_str(), gsc)
+            except Exception as e:
+                self._logger.error("Error in reinit for %s %s: %s" % (
+                    cls.obj_type, obj.get_fq_name_str(), str(e)))
     # end reinit
 
     def __init__(self, name, obj):
@@ -1315,11 +1323,15 @@ class RouteTargetST(DBBaseST):
     @classmethod
     def reinit(cls):
         for obj in cls.list_vnc_obj():
-            if (obj.get_routing_instance_back_refs() or
-                    obj.get_logical_router_back_refs()):
-                cls.locate(obj.get_fq_name_str(), obj)
-            else:
-                cls._vnc_lib.route_target_delete(id=obj.uuid)
+            try:
+                if (obj.get_routing_instance_back_refs() or
+                        obj.get_logical_router_back_refs()):
+                    cls.locate(obj.get_fq_name_str(), obj)
+                else:
+                    cls._vnc_lib.route_target_delete(id=obj.uuid)
+            except Exception as e:
+                self._logger.error("Error in reinit for %s %s: %s" % (
+                    cls.obj_type, obj.get_fq_name_str(), str(e)))
         for ri, val in cls._cassandra._rt_cf.get_range():
             rt = val['rtgt_num']
             asn = GlobalSystemConfigST.get_autonomous_system()
@@ -1327,7 +1339,7 @@ class RouteTargetST(DBBaseST):
                 GlobalSystemConfigST.get_autonomous_system(), rt)
             if rt_key not in cls:
                 cls._cassandra.free_route_target(ri)
-    # reinit
+    # end reinit
 
     def __init__(self, rt_key, obj=None):
         self.name = rt_key
