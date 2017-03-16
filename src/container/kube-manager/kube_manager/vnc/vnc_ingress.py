@@ -104,7 +104,10 @@ class VncIngress(VncCommon):
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
             return None
-        fip_obj = FloatingIp(name + "-public-ip", fip_pool)
+        fip_uuid = str(uuid.uuid4())
+        fip_name = VncCommon.make_name(name, fip_uuid)
+        fip_obj = FloatingIp(fip_name, fip_pool)
+        fip_obj.uuid = fip_uuid
         fip_obj.set_project(proj_obj)
         if vmi_obj:
             fip_obj.set_virtual_machine_interface(vmi_obj)
@@ -163,7 +166,6 @@ class VncIngress(VncCommon):
 
     def _vnc_create_lb(self, uid, name, ns_name):
         lb_provider = 'opencontrail'
-        lb_name = 'ingress' + '-' + name
         proj_obj = self._get_project(ns_name)
         vn_obj = self._get_network(ns_name)
         if proj_obj is None or vn_obj is None:
@@ -171,22 +173,22 @@ class VncIngress(VncCommon):
 
         vip_address = None
         annotations = {}
-        annotations['device_owner'] = 'K8S:INGRESS'
+        annotations['owner'] = 'k8s'
         pod_ipam_subnet_uuid = self._get_pod_ipam_subnet_uuid(vn_obj)
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj,
-                            ns_name, uid, lb_name, proj_obj, vip_address,
+                            ns_name, uid, name, proj_obj, vip_address,
                             pod_ipam_subnet_uuid, annotations=annotations)
         if lb_obj:
             vip_info = {}
             vip_info['clusterIP'] = lb_obj._loadbalancer_properties.vip_address
-            fip_obj = self._allocate_floating_ip(lb_obj, lb_name, proj_obj)
+            fip_obj = self._allocate_floating_ip(lb_obj, name, proj_obj)
             if fip_obj:
                 vip_info['externalIP'] = fip_obj.address
             patch = {'metadata': {'annotations': vip_info}}
             self._kube.patch_resource("ingresses", name,
                                       patch, ns_name, beta=True)
         else:
-            self._logger.error("%s - %s LB Not Created" %(self._name, lb_name))
+            self._logger.error("%s - %s LB Not Created" %(self._name, name))
 
         return lb_obj
 
@@ -550,8 +552,8 @@ class VncIngress(VncCommon):
             if not lb.annotations:
                 continue
             for kvp in lb.annotations['key_value_pair'] or []:
-                if kvp['key'] == 'device_owner' \
-                   and kvp['value'] == 'K8S:INGRESS':
+                if kvp['key'] == 'owner' \
+                   and kvp['value'] == 'k8s':
                     self._create_ingress_event('delete', uuid, lb)
                     break
         return

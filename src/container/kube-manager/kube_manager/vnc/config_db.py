@@ -20,18 +20,37 @@ class DBBaseKM(DBBase):
 
     def __init__(self, uuid, obj_dict=None):
         self.kube_fq_name = None
-        if not obj_dict is None:
-            self.kube_fq_name = self.get_kube_fq_name(obj_dict)
+
+    def build_fq_name_to_uuid(self, uuid, obj_dict):
+        """Populate fq-name to uuid tables."""
+        if not obj_dict:
+            return
+
+        # Update k8s-style fully qualified name table.
+        self.kube_fq_name = self._get_obj_kube_fq_name(obj_dict)
+        if self.kube_fq_name:
             self.update_kube_fq_name_to_uuid(uuid, self.kube_fq_name)
 
+        # Update vnc style fully qualified name table.
+        self.update_fq_name_to_uuid(uuid, obj_dict)
+
     @classmethod
-    def get_kube_fq_name(cls, obj_dict):
+    def update_fq_name_to_uuid(cls, uuid, obj_dict):
+        cls._fq_name_to_uuid[tuple(obj_dict['fq_name'])] = uuid
+
+    @classmethod
+    def get_fq_name_to_uuid(cls, fq_name):
+        return cls._fq_name_to_uuid.get(tuple(fq_name))
+
+    @classmethod
+    def _get_obj_kube_fq_name(cls, obj_dict):
         """Get the kubernetes fully qualified name for this object.
 
         If the object specifies a custom format for fully qualified name,
         construct the name as such. If not, the fq name from object dictionary
         is used.
         """
+        fq_name = None
         if hasattr(cls, 'kube_fq_name_key'):
             # Object has a custom fq name format specified.
             fq_name = []
@@ -44,10 +63,21 @@ class DBBaseKM(DBBase):
                             continue
                         fq_name.append(kvp.get("value"))
                         break
-        else:
-            # Object does not have custom fq-name format specified.
-            # Use the fq name from object.
-            fq_name = obj_dict['fq_name']
+        return fq_name
+
+    @staticmethod
+    def get_kube_fq_name(kube_fq_name_key, **kwargs):
+        """Get a kubernetes fq-name.
+
+        Construct a kubernetes fully qualified name from the given collection.
+        """
+        fq_name = []
+        for elem in kube_fq_name_key:
+            for key,value in kwargs.iteritems():
+                if key != elem:
+                    continue
+                fq_name.append(value)
+                break
         return fq_name
 
     @classmethod
@@ -56,7 +86,7 @@ class DBBaseKM(DBBase):
 
     @classmethod
     def get_kube_fq_name_to_uuid(cls, fq_name):
-        return cls._kube_fq_name_to_uuid.get(tuple(fq_name))
+        return cls._kube_fq_name_to_uuid.get(tuple(fq_name), None)
 
     @classmethod
     def delete(cls, uuid):
@@ -65,6 +95,7 @@ class DBBaseKM(DBBase):
         obj = cls._dict[uuid]
         if not obj.kube_fq_name is None:
             del cls._kube_fq_name_to_uuid[tuple(obj.kube_fq_name)]
+        del cls._fq_name_to_uuid[tuple(obj.fq_name)]
 
     def evaluate(self):
         # Implement in the derived class
@@ -88,6 +119,7 @@ class LoadbalancerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -105,6 +137,7 @@ class LoadbalancerKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.parent_uuid = obj['parent_uuid']
         self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('loadbalancer_listener', obj)
         return obj
@@ -123,6 +156,7 @@ class LoadbalancerListenerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_listener'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -143,6 +177,7 @@ class LoadbalancerListenerKM(DBBaseKM):
         self.update_single_ref('loadbalancer', obj)
         self.update_single_ref('loadbalancer_pool', obj)
         self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         if self.annotations:
             for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'targetPort':
@@ -165,6 +200,7 @@ class LoadbalancerPoolKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_pool'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -182,6 +218,7 @@ class LoadbalancerPoolKM(DBBaseKM):
         self.params = obj.get('loadbalancer_pool_properties', None)
         self.provider = obj.get('loadbalancer_pool_provider', None)
         self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         kvpairs = obj.get('loadbalancer_pool_custom_attributes', None)
         if kvpairs:
             self.custom_attributes = kvpairs.get('key_value_pair', [])
@@ -207,6 +244,7 @@ class LoadbalancerMemberKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_member'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -228,6 +266,7 @@ class LoadbalancerMemberKM(DBBaseKM):
         self.loadbalancer_pool = self.get_parent_uuid(obj)
         self.id_perms = obj.get('id_perms', None)
         self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         if self.annotations:
             for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'vmi':
@@ -253,6 +292,7 @@ class HealthMonitorKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_healthmonitor'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -265,6 +305,8 @@ class HealthMonitorKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.params = obj.get('loadbalancer_healthmonitor_properties', None)
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         self.update_multiple_refs('loadbalancer_pool', obj)
         self.id_perms = obj.get('id_perms', None)
         self.parent_uuid = obj['parent_uuid']
@@ -286,8 +328,8 @@ class VirtualMachineKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_machine'
     _kube_fq_name_to_uuid = {}
-    display_name_format = ["cluster","namespace","kind","name"]
     kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -303,6 +345,7 @@ class VirtualMachineKM(DBBaseKM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         if self.annotations:
             for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'labels':
@@ -326,6 +369,7 @@ class VirtualRouterKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_router'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -337,6 +381,8 @@ class VirtualRouterKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         self.update_multiple_refs('virtual_machine', obj)
 
     @classmethod
@@ -353,6 +399,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
     obj_type = 'virtual_machine_interface'
     _kube_fq_name_to_uuid = {}
     kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -374,6 +421,8 @@ class VirtualMachineInterfaceKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
 
         # Cache bindings on this VMI.
         if obj.get('virtual_machine_interface_bindings', None):
@@ -489,6 +538,7 @@ class VirtualNetworkKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_network'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -504,6 +554,8 @@ class VirtualNetworkKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
 
         # Cache ipam-subnet-uuid to ipam-fq-name mapping.
         # This is useful when we would like to locate an ipam in a VN,
@@ -550,6 +602,7 @@ class InstanceIpKM(DBBaseKM):
     obj_type = 'instance_ip'
     _kube_fq_name_to_uuid = {}
     kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -596,6 +649,7 @@ class ProjectKM(DBBaseKM):
     _dict = {}
     obj_type = 'project'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -608,6 +662,8 @@ class ProjectKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         return obj
 
     @classmethod
@@ -622,6 +678,7 @@ class DomainKM(DBBaseKM):
     _dict = {}
     obj_type = 'domain'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -631,6 +688,8 @@ class DomainKM(DBBaseKM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
 
     @classmethod
     def delete(cls, uuid):
@@ -644,6 +703,8 @@ class SecurityGroupKM(DBBaseKM):
     _dict = {}
     obj_type = 'security_group'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -664,6 +725,7 @@ class SecurityGroupKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         self._set_selectors(self.annotations)
         self.rule_entries = obj.get('security_group_entries', None)
         return obj
@@ -710,6 +772,7 @@ class FloatingIpPoolKM(DBBaseKM):
     _dict = {}
     obj_type = 'floating_ip_pool'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -721,6 +784,8 @@ class FloatingIpPoolKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
         self.update_single_ref('virtual_network', obj)
         if 'floating_ip_pool_subnets' in obj:
             self.floating_ip_pool_subnets = obj['floating_ip_pool_subnets']
@@ -738,6 +803,7 @@ class FloatingIpKM(DBBaseKM):
     obj_type = 'floating_ip'
     _kube_fq_name_to_uuid = {}
     kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -760,6 +826,8 @@ class FloatingIpKM(DBBaseKM):
         self.address = obj['floating_ip_address']
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.parent_uuid = self.get_parent_uuid(obj)
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
     # end update
 
     @classmethod
@@ -776,6 +844,7 @@ class NetworkIpamKM(DBBaseKM):
     _dict = {}
     obj_type = 'network_ipam'
     _kube_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -787,6 +856,8 @@ class NetworkIpamKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
     # end update
 
     @classmethod
