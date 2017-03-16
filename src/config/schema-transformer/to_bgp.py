@@ -207,17 +207,16 @@ class SchemaTransformer(object):
                     self.logger.error(
                         "Error while reinitializing routing instance %s: %s"%(
                         ri.get_fq_name_str(), str(e)))
-                if delete:
-                    try:
-                        ri_obj = RoutingInstanceST(ri.get_fq_name_str(), ri)
-                        ri_obj.delete_obj()
-                    except NoIdError:
-                        pass
-                    except Exception as e:
-                        self.logger.error(
-                            "Error while deleting routing instance %s: %s"%(
-                            ri.get_fq_name_str(), str(e)))
-
+            if delete:
+                try:
+                    ri_obj = RoutingInstanceST(ri.get_fq_name_str(), ri)
+                    ri_obj.delete_obj()
+                except NoIdError:
+                    pass
+                except Exception as e:
+                    self.logger.error(
+                        "Error while deleting routing instance %s: %s"%(
+                        ri.get_fq_name_str(), str(e)))
         # end for ri
 
         sg_list = list(SecurityGroupST.list_vnc_obj())
