@@ -187,6 +187,8 @@ TEST_F(BridgeDomainTest, Test5) {
 
     BridgeDomainEntry *bd = BridgeDomainGet(1);
     rt = EvpnRouteGet("vrf1", smac, Ip4Address(0), 0);
+    VrfEntryRef bd_vrf = VrfGet(bd->vrf()->vrf_id());
+
     EXPECT_TRUE(rt->GetActiveLabel() == bd->vrf()->table_label());
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(
@@ -219,6 +221,10 @@ TEST_F(BridgeDomainTest, Test5) {
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(bd_vrf->IsPbbVrf() == true);
+    bd_vrf.reset(NULL);
     client->WaitForIdle();
 
     EXPECT_FALSE(VrfFind("vrf1:00000000-0000-0000-0000-000000000001", true));
@@ -263,6 +269,102 @@ TEST_F(BridgeDomainTest, Test6) {
     EXPECT_TRUE(vm_intf->l2_interface_nh_no_policy()->etree_leaf() == false);
     EXPECT_TRUE(vm_intf->l2_interface_nh_policy()->etree_leaf() == false);
     EXPECT_TRUE(rt->GetActiveNextHop()->etree_leaf() == false);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
+//Check that upon CMAC VRF complete cleanup
+//if the bridge domain is resused CMAC VRF gets recreated
+TEST_F(BridgeDomainTest, Test7) {
+    AddBridgeDomain("bridge1", 1, 1, false);
+    AddVn("vn1", 1, true);
+    AddLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    AddVrf("vrf1", 1);
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+
+    BridgeDomainEntry *bd = BridgeDomainGet(1);
+    EXPECT_TRUE(bd->vrf() != NULL);
+
+    VrfEntryRef bd_vrf = VrfGet(bd->vrf()->vrf_id());
+
+    DelNode("bridge-domain", "bridge1");
+    client->WaitForIdle();
+
+    AddBridgeDomain("bridge1", 1, 1, false);
+    client->WaitForIdle();
+
+    bd = BridgeDomainGet(1);
+    EXPECT_TRUE(bd->vrf() == NULL);
+
+    bd_vrf = NULL;
+    client->WaitForIdle();
+    EXPECT_TRUE(bd->vrf() != NULL);
+
+    DelNode("bridge-domain", "bridge1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelVrf("vrf1");
+    DelVn("vn1");
+    client->WaitForIdle();
+}
+
+//Add VMI to a bridge-domain whose VRF is not present.
+//Verify that upon VRF addition VMI also has bridge domain
+//entry.
+TEST_F(BridgeDomainTest, Test8) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    AddBridgeDomain("bridge1", 1, 1, false);
+    AddLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    AddVmportBridgeDomain(input[0].name, 0);
+    AddLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "bridge-domain", "bridge1",
+            "virtual-machine-interface-bridge-domain");
+    AddLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "virtual-machine-interface", input[0].name,
+            "virtual-machine-interface-bridge-domain");
+    client->WaitForIdle();
+
+    BridgeDomainEntry *bd = BridgeDomainGet(1);
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(
+            VmPortGet(1));
+    VrfEntryRef bd_vrf = VrfGet(bd->vrf()->vrf_id());
+
+    DelNode("bridge-domain", "bridge1");
+    client->WaitForIdle();
+
+    AddBridgeDomain("bridge1", 1, 1, false);
+    client->WaitForIdle();
+
+    bd = BridgeDomainGet(1);
+    EXPECT_TRUE(bd->vrf() == NULL);
+    EXPECT_TRUE(vm_intf->bridge_domain_list().list_.size() == 0);
+
+    bd_vrf = NULL;
+    client->WaitForIdle();
+
+    EXPECT_TRUE(bd->vrf() != NULL);
+    EXPECT_TRUE(vm_intf->bridge_domain_list().list_.size() == 1);
+
+    DelNode("bridge-domain", "bridge1");
+    client->WaitForIdle();
+
+    DelLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "bridge-domain", "bridge1");
+    DelLink("virtual-machine-interface-bridge-domain", input[0].name,
+            "virtual-machine-interface", input[0].name);
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    DelNode("virtual-machine-interface-bridge-domain", input[0].name);
+    DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
+    DelNode("bridge-domain", "bridge1");
+    client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
