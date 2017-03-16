@@ -846,7 +846,7 @@ static std::string CassSelectFromTableInternal(const std::string &table,
         if (!ck_range.start_.empty()) {
             int ck_start_size(ck_range.start_.size());
             std::ostringstream start_ss;
-            start_ss << " >= (";
+            start_ss << " " << GenDb::Op::ToString(ck_range.start_op_) << " (";
             CassQueryPrinter start_vprinter(start_ss);
             query << " AND (";
             for (int i = 0; i < ck_start_size; i++) {
@@ -865,7 +865,8 @@ static std::string CassSelectFromTableInternal(const std::string &table,
         if (!ck_range.finish_.empty()) {
             int ck_finish_size(ck_range.finish_.size());
             std::ostringstream finish_ss;
-            finish_ss << " <= (";
+            finish_ss << " " << GenDb::Op::ToString(ck_range.finish_op_) <<
+                " (";
             CassQueryPrinter finish_vprinter(finish_ss);
             query << " AND (";
             for (int i = 0; i < ck_finish_size; i++) {
