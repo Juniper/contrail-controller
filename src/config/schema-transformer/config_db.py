@@ -101,7 +101,7 @@ class DBBaseST(DBBase):
             try:
                 cls.locate(obj.get_fq_name_str(), obj)
             except Exception as e:
-                self._logger.error("Error in reinit for %s %s: %s" % (
+                cls._logger.error("Error in reinit for %s %s: %s" % (
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
     # end reinit
 
@@ -138,7 +138,7 @@ class GlobalSystemConfigST(DBBaseST):
             try:
                 cls.locate(gsc.get_fq_name_str(), gsc)
             except Exception as e:
-                self._logger.error("Error in reinit for %s %s: %s" % (
+                cls._logger.error("Error in reinit for %s %s: %s" % (
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
     # end reinit
 
@@ -1330,7 +1330,7 @@ class RouteTargetST(DBBaseST):
                 else:
                     cls._vnc_lib.route_target_delete(id=obj.uuid)
             except Exception as e:
-                self._logger.error("Error in reinit for %s %s: %s" % (
+                cls._logger.error("Error in reinit for %s %s: %s" % (
                     cls.obj_type, obj.get_fq_name_str(), str(e)))
         for ri, val in cls._cassandra._rt_cf.get_range():
             rt = val['rtgt_num']
