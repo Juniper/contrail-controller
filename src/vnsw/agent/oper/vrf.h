@@ -43,6 +43,9 @@ struct VrfData : public AgentOperDBData {
         GwVrf     = 1 << 1,     // GW configured for this VRF
         MirrorVrf = 1 << 2,     // internally Created VRF
         PbbVrf    = 1 << 3,     // Per ISID VRF
+        //Note addition of new flag may need update in
+        //ConfigFlags() API, if flag being added is a property
+        //flag(Ex PbbVrf) and not flag indicating Config origination(ex: GwVrf)
     };
 
     VrfData(Agent *agent, IFMapNode *node, uint32_t flags,
@@ -53,6 +56,10 @@ struct VrfData : public AgentOperDBData {
         isid_(isid), bmac_vrf_name_(bmac_vrf_name),
         mac_aging_time_(mac_aging_time), learning_enabled_(learning_enabled) {}
     virtual ~VrfData() {}
+
+    uint32_t ConfigFlags() {
+        return ~(PbbVrf);
+    }
 
     uint32_t flags_;
     boost::uuids::uuid vn_uuid_;

@@ -3915,12 +3915,19 @@ void VmInterface::UpdateBridgeDomain() {
             BridgeDomainKey key(it->uuid_);
             it->bridge_domain_ = static_cast<const BridgeDomainEntry *>(
                   table->agent()->bridge_domain_table()->FindActiveEntry(&key));
-            assert(it->bridge_domain_->vrf());
+            if (it->bridge_domain_->vrf() == NULL) {
+                //Ignore bridge domain without VRF
+                it->del_pending_ = true;
+            }
         }
         it++;
     }
 
     DeleteBridgeDomain();
+
+    if (bridge_domain_list_.list_.size() == 0) {
+        pbb_interface_ = false;
+    }
 }
 
 void VmInterface::DeleteBridgeDomain() {

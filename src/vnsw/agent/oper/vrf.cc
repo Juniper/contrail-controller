@@ -78,12 +78,7 @@ VrfEntry::~VrfEntry() {
         //delete get the bmac VRF and trigger a notify,
         //so that if bridge domain is reused it can be recreated
         if (are_flags_set(VrfData::PbbVrf)) {
-            VrfKey key(bmac_vrf_name_);
-            VrfEntry *bmac_vrf =
-                static_cast<VrfEntry *>(table->FindActiveEntry(&key));
-            if (bmac_vrf) {
-                bmac_vrf->SetNotify();
-            }
+            table->VrfReuse(bmac_vrf_name_);
         }
 
         table->FreeVrfId(id_);
@@ -526,8 +521,10 @@ bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
 
     // VRF can be created by both config and VGW. VRF cannot be deleted till
     // both config and VGW delete it.
-    vrf->flags_ &= ~data->flags_;
-    if (vrf->flags_ != 0)
+    // We want to retain flags like PbbVrf, hence mask only flags which
+    // are needed to delete the VRF
+    vrf->flags_ &= ~(data->flags_ & data->ConfigFlags());
+    if ((vrf->flags_ & data->ConfigFlags()) != 0)
         return false;
 
     // Delete the L2 Receive routes added by default

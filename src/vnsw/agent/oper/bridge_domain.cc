@@ -165,6 +165,10 @@ bool BridgeDomainEntry::Change(const BridgeDomainTable *table,
         ret = true;
     }
 
+    if (vrf_ == NULL) {
+        update_vrf = true;
+    }
+
     if (vn_ && data->bmac_vrf_name_ != Agent::NullString() && update_vrf) {
         OPER_TRACE_ENTRY(BridgeDomain, table, "Creating C-VRF",
                          UuidToString(uuid_), isid_);
