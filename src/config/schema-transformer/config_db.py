@@ -2394,6 +2394,8 @@ class ServiceChain(DBBaseST):
             chain.created_stale = chain.created
             if not hasattr(chain, 'partially_created'):
                 chain.partially_created = False
+            if not hasattr(chain, 'si_info'):
+                chain.si_info = None
             chain.si_info = None
             cls._dict[name] = chain
     # end init
