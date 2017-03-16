@@ -257,29 +257,16 @@ class VncNetworkPolicy(VncCommon):
             self._sg_2_pod_link(pod_id, sg.uuid, 'ADD', False)
 
     def _set_sg_annotations(self, sg_obj, sg, event):
-        update_sg = False
+        namespace = event['object']['metadata'].get('namespace')
         spec_data = json.dumps(event['object']['spec'])
-        kvp = KeyValuePair(key='spec', value=spec_data)
-        kvps = KeyValuePairs([kvp])
-        if not sg:
-            sg_obj.set_annotations(kvps)
-        elif sg.annotations:
-            for kvp in sg.annotations.get('key_value_pair', []):
-                if kvp.get('key') != 'spec':
-                    continue
-                if kvp.get('value') != spec_data:
-                    sg_obj.set_annotations(kvps)
-                    update_sg = True
-                    break
-        return update_sg
+        self.add_annotations(sg_obj, SecurityGroupKM.kube_fq_name_key,
+            namespace=namespace, name=sg_obj.name, spec=spec_data)
+        return
 
     def _update_sg(self, event, sg):
-        sg_obj = SecurityGroup()
+        sg_obj = SecurityGroup(name=sg.name)
         sg_obj.uuid = sg.uuid
-        update_sg = self._set_sg_annotations(sg_obj, sg, event)
-        if not update_sg:
-            return sg
-
+        self._set_sg_annotations(sg_obj, sg, event)
         try:
             self._vnc_lib.security_group_update(sg_obj)
         except Exception as e:
@@ -289,11 +276,12 @@ class VncNetworkPolicy(VncCommon):
 
     def _create_sg(self, event, name, uuid=None):
         namespace = event['object']['metadata'].get('namespace')
-        sg_fq_name = ['default-domain', namespace, name]
-        proj_fq_name = ['default-domain', namespace]
-        proj_obj = Project(name=namespace, fq_name=proj_fq_name,
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(namespace)
+        proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name,
             parent='domain')
-        sg_obj = SecurityGroup(name=name, parent_obj=proj_obj)
+        sg_display_name = VncCommon.make_display_name(namespace, name)
+        sg_obj = SecurityGroup(name=name, parent_obj=proj_obj,
+                    display_name=sg_display_name)
         if uuid:
             sg_obj.uuid = uuid
         self._set_sg_annotations(sg_obj, None, event)
@@ -306,44 +294,44 @@ class VncNetworkPolicy(VncCommon):
         return sg
 
     def _check_sg_uuid_change(self, event, uuid):
-        name = event['object']['metadata'].get('name')
         namespace = event['object']['metadata'].get('namespace')
-        sg_fq_name = ['default-domain', namespace, name]
-        sg_uuid = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
-        if sg_uuid != uuid:
+        name = event['object']['metadata'].get('name')
+        sg_id = self.get_kube_fq_name_to_uuid(SecurityGroupKM, namespace, name)
+        if sg_id and sg_id != uuid:
             self.vnc_network_policy_delete(event, sg_uuid)
 
-    def _create_src_sg(self, event):
-        name = event['object']['metadata'].get('name')
-        src_sg_name = 'from-' + name
+    def _create_src_sg(self, event, dst_uuid):
         namespace = event['object']['metadata'].get('namespace')
-        sg_fq_name = ['default-domain', namespace, src_sg_name]
-        sg_uuid = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
-        if not sg_uuid:
-            sg = self._create_sg(event, src_sg_name)
+        name = event['object']['metadata'].get('name')
+        sg_name = 'from__' + VncCommon.make_name(name, dst_uuid)
+        sg_id = self.get_kube_fq_name_to_uuid(SecurityGroupKM, namespace,
+            sg_name)
+        if not sg_id:
+            sg = self._create_sg(event, sg_name)
         else:
-            sg = SecurityGroupKM.locate(sg_uuid)
+            sg = SecurityGroupKM.locate(sg_id)
         return sg
 
     def _create_dst_sg(self, event):
         uuid = event['object']['metadata'].get('uid')
-        name = event['object']['metadata'].get('name')
         sg = SecurityGroupKM.get(uuid)
         if not sg:
             self._check_sg_uuid_change(event, uuid)
-            sg = self._create_sg(event, name, uuid)
+            name = event['object']['metadata'].get('name')
+            sg_name = VncCommon.make_name(name, uuid)
+            sg = self._create_sg(event, sg_name, uuid)
         else:
             sg = self._update_sg(event, sg)
         return sg
 
     def vnc_network_policy_add(self, event):
-        src_sg = self._create_src_sg(event)
         dst_sg = self._create_dst_sg(event)
+        src_sg = self._create_src_sg(event, dst_sg.uuid)
         self._set_sg_rule(dst_sg, src_sg)
         self._apply_dst_sg(dst_sg, event)
         self._apply_src_sg(src_sg, event)
 
-    def vnc_network_policy_delete(self, event, sg_uuid):
+    def _delete_sg(self, sg_uuid):
         sg = SecurityGroupKM.get(sg_uuid)
         if not sg:
             return
@@ -355,20 +343,20 @@ class VncNetworkPolicy(VncCommon):
             except Exception as e:
                 self.logger.error("Failed to detach SG %s" % str(e))
 
-        sg_name = 'from-' + sg.name
-        sg_fq_name = [sg.fq_name[0], sg.fq_name[1], sg_name]
-        sg_id = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
-        src_sg = SecurityGroupKM.get(sg_id)
-        if src_sg:
-            for vmi_id in list(src_sg.virtual_machine_interfaces):
-                try:
-                    self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
-                        'security-group', src_sg.uuid, None, 'DELETE')
-                except Exception as e:
-                    self.logger.error("Failed to detach SG %s" % str(e))
-            self._vnc_lib.security_group_delete(id=src_sg.uuid)
+        try:
+            self._vnc_lib.security_group_delete(id=sg.uuid)
+        except Exception as e:
+            self.logger.error("Failed to delete SG %s %s" % (sg.uuid, str(e)))
 
-        self._vnc_lib.security_group_delete(id=sg.uuid)
+    def vnc_network_policy_delete(self, event, sg_uuid):
+        self._delete_sg(sg_uuid)
+
+        namespace = event['object']['metadata'].get('namespace')
+        name = event['object']['metadata'].get('name')
+        src_sg_name = 'from__' + VncCommon.make_name(name, sg_uuid)
+        src_sg_uuid = self.get_kube_fq_name_to_uuid(SecurityGroupKM, namespace,
+            src_sg_name)
+        self._delete_sg(src_sg_uuid)
 
     def process(self, event):
         event_type = event['type']

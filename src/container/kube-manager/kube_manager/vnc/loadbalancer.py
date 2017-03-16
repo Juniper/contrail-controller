@@ -10,7 +10,6 @@ from vnc_common import VncCommon
 
 LOG = logging.getLogger(__name__)
 
-
 class ServiceLbManager(VncCommon):
 
     def __init__(self):
@@ -36,15 +35,18 @@ class ServiceLbManager(VncCommon):
             return None
         self._delete_virtual_interface(vmi_ids)
 
-
     def _create_virtual_interface(self, proj_obj, vn_obj, service_ns,
             service_name, vip_address=None, subnet_uuid=None):
+        vmi_uuid = str(uuid.uuid4())
+        vmi_name = VncCommon.make_name(service_name, vmi_uuid)
+        vmi_display_name = VncCommon.make_display_name(service_ns, service_name)
         #Check if VMI exists, if yes, delete it.
-        vmi_obj = VirtualMachineInterface(name=service_name, parent_obj=proj_obj)
+        vmi_obj = VirtualMachineInterface(name=vmi_name, parent_obj=proj_obj,
+                    display_name=vmi_display_name)
         try:
             vmi_id = self._vnc_lib.fq_name_to_id('virtual-machine-interface',vmi_obj.get_fq_name())
             if vmi_id:
-                self.logger.warning("Duplicate LB Interface %s, delete it" %
+                self.logger.error("Duplicate LB Interface %s, delete it" %
                                     vmi_obj.get_fq_name())
                 vmi = VirtualMachineInterfaceKM.get(vmi_id)
                 iip_ids = vmi.instance_ips
@@ -63,8 +65,8 @@ class ServiceLbManager(VncCommon):
             pass
 
         #Create LB VMI
-        vmi_obj.name = service_name
-        vmi_obj.uuid = str(uuid.uuid4())
+        vmi_obj.name = vmi_name
+        vmi_obj.uuid = vmi_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
         sg_name = "-".join([vnc_kube_config.cluster_name(),
@@ -87,7 +89,11 @@ class ServiceLbManager(VncCommon):
             return None, None
 
         #Create InstanceIP <--- LB VMI
-        iip_obj = InstanceIp(name=service_name)
+        iip_uuid = str(uuid.uuid4())
+        iip_name = VncCommon.make_name(service_name, iip_uuid)
+        iip_display_name = VncCommon.make_display_name(service_ns, service_name)
+        iip_obj = InstanceIp(name=iip_name, display_name=iip_display_name)
+        iip_obj.uuid = iip_uuid
         iip_obj.set_virtual_network(vn_obj)
         if subnet_uuid:
             iip_obj.set_subnet_uuid(subnet_uuid)
@@ -155,8 +161,12 @@ class ServiceLbManager(VncCommon):
         """
         Create a loadbalancer.
         """
-        lb_obj = Loadbalancer(name=service_name, parent_obj=proj_obj,
-                              loadbalancer_provider=lb_provider)
+        lb_name = VncCommon.make_name(service_name, service_id)
+        lb_display_name = VncCommon.make_display_name(service_ns, service_name)
+        lb_obj = Loadbalancer(name=lb_name, parent_obj=proj_obj,
+                    loadbalancer_provider=lb_provider,
+                    display_name=lb_display_name)
+
         lb_obj.uuid = service_id
         sas_obj = self._check_provider_exists(loadbalancer_provider=lb_provider)
         if sas_obj is not None:
@@ -197,13 +207,13 @@ class ServiceLbListenerManager(VncCommon):
 
     def create(self, lb_obj, proj_obj, port):
 
-        obj_uuid = str(uuid.uuid4())
-        name = lb_obj.name + "-" + port['protocol'] + "-" + str(port['port']) + "-" + obj_uuid
+        ll_uuid = str(uuid.uuid4())
+        name = lb_obj.name + "-" + port['protocol'] + "-" + str(port['port']) + "-" + ll_uuid
 
         id_perms = IdPermsType(enable=True)
         ll_obj = LoadbalancerListener(name, proj_obj, id_perms=id_perms,
                                   display_name=name)
-        ll_obj.uuid = obj_uuid
+        ll_obj.uuid = ll_uuid
 
         if lb_obj:
             ll_obj.set_loadbalancer(lb_obj)
@@ -302,14 +312,14 @@ class ServiceLbMemberManager(VncCommon):
         """
         Create a loadbalancer_member object.
         """
-        obj_uuid = str(uuid.uuid4())
+        lm_uuid = str(uuid.uuid4())
         props = LoadbalancerMemberType(address=address, protocol_port=port)
         id_perms = IdPermsType(enable=True)
 
         member_obj = LoadbalancerMember(
-            obj_uuid, pool_obj, loadbalancer_member_properties=props,
+            lm_uuid, pool_obj, loadbalancer_member_properties=props,
             id_perms=id_perms)
-        member_obj.uuid = obj_uuid
+        member_obj.uuid = lm_uuid
 
         if annotations:
             for key in annotations:

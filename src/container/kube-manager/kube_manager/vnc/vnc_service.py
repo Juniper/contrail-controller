@@ -50,7 +50,7 @@ class VncService(VncCommon):
             self._create_linklocal = False
         else:
             self._create_linklocal = api_service_ll_enable
-                                        
+
         self.service_lb_mgr = importutils.import_object(
             'kube_manager.vnc.loadbalancer.ServiceLbManager')
         self.service_ll_mgr = importutils.import_object(
@@ -183,15 +183,14 @@ class VncService(VncCommon):
 
     def _vnc_create_lb(self, service_id, service_name,
                        service_namespace, service_ip):
-        name = 'service' + '-' + service_name
         proj_obj = self._get_project(service_namespace)
         vn_obj = self._get_cluster_network()
         lb_provider = 'native'
         annotations = {}
-        annotations['device_owner'] = 'K8S:SERVICE'
+        annotations['owner'] = 'k8s'
         lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj,
-            service_namespace, service_id, name, proj_obj, service_ip,
-            annotations=annotations)
+            service_namespace, service_id, service_name, proj_obj,
+            service_ip, annotations=annotations)
         return lb_obj
 
     def _lb_create(self, service_id, service_name,
@@ -364,7 +363,7 @@ class VncService(VncCommon):
                         service_type, externalIp, loadBalancerIp):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
-            self._check_service_uuid_change(service_id, service_name, 
+            self._check_service_uuid_change(service_id, service_name,
                                             service_namespace, ports)
 
         self._lb_create(service_id, service_name, service_namespace,
@@ -372,7 +371,7 @@ class VncService(VncCommon):
 
         # "kubernetes" service needs a link-local service to be created.
         # This link-local service will steer traffic destined for
-        # "kubernetes" service from slave (compute) nodes to kube-api server 
+        # "kubernetes" service from slave (compute) nodes to kube-api server
         # running on master (control) node.
         if service_name == self._kubernetes_service_name:
             self._create_link_local_service(service_name, service_ip, ports)
@@ -463,8 +462,8 @@ class VncService(VncCommon):
             if not lb.annotations:
                 continue
             for kvp in lb.annotations['key_value_pair'] or []:
-                if kvp['key'] == 'device_owner' \
-                   and kvp['value'] == 'K8S:SERVICE':
+                if kvp['key'] == 'owner' \
+                   and kvp['value'] == 'k8s':
                     self._create_service_event('delete', uuid, lb)
                     break
         return

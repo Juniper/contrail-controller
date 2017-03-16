@@ -243,7 +243,7 @@ class ConfigDBTest(unittest.TestCase):
         vmi_obj = self.add_vmi("kubernetes-lb-vmi", 'vmi', proj_obj, net_obj)
         #LB
         annotations1 = {}
-        annotations1['device_owner'] = 'K8S:SERVICE'
+        annotations1['owner'] = 'k8s'
         lb_obj = self.add_lb("kubernetes", 'loadbalancer', proj_obj, vmi_obj, "10.20.30.40", annotations1)
         ll_obj = self.add_lb_listener("kubernetes-ll", 'listener', lb_obj, proj_obj, "TCP", 80, 3000)
         pool_obj = self.add_lb_pool("kubernetes-pool", 'pool', ll_obj, proj_obj)

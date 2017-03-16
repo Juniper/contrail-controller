@@ -120,7 +120,9 @@ class VncPod(VncCommon):
             vnc_kube_config.pod_ipam_fq_name())
 
         # Create instance-ip.
-        iip_obj = InstanceIp(name=pod_name, subnet_uuid=pod_ipam_subnet_uuid)
+        display_name=VncCommon.make_name(pod_namespace, pod_name)
+        iip_obj = InstanceIp(name=pod_name, subnet_uuid=pod_ipam_subnet_uuid,
+                    display_name=display_name)
         iip_obj.add_virtual_network(vn_obj)
 
         # Creation of iip requires the vmi vnc object.
@@ -129,8 +131,7 @@ class VncPod(VncCommon):
         iip_obj.add_virtual_machine_interface(vmi_obj)
 
         self.add_annotations(iip_obj, InstanceIpKM.kube_fq_name_key,
-            project=vnc_kube_config.cluster_project_name(pod_namespace),
-            name=pod_name, namespace=pod_namespace)
+            pod_namespace, pod_name)
 
         try:
             self._vnc_lib.instance_ip_create(iip_obj)
@@ -167,9 +168,11 @@ class VncPod(VncCommon):
         fip_pool_obj.name = self._service_fip_pool.name
 
         # Create Floating-Ip object.
+        display_name=VncCommon.make_display_name(pod_namespace, pod_name)
         fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (pod_name),
-                             parent_obj=fip_pool_obj,
-                             floating_ip_traffic_direction='egress')
+                    parent_obj=fip_pool_obj,
+                    floating_ip_traffic_direction='egress',
+                    display_name=display_name)
 
         # Creation of fip requires the vmi vnc object.
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(
@@ -177,8 +180,7 @@ class VncPod(VncCommon):
         fip_obj.set_virtual_machine_interface(vmi_obj)
 
         self.add_annotations(fip_obj, FloatingIpKM.kube_fq_name_key,
-            project=vnc_kube_config.cluster_default_project_name(),
-            name=pod_name, namespace=pod_namespace)
+            pod_namespace, pod_name)
 
         try:
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
@@ -215,18 +217,18 @@ class VncPod(VncCommon):
                 sub_interface_vlan_tag=vlan_id)
 
         obj_uuid = str(uuid.uuid1())
-        name = 'pod' + '-' + pod_name
+        name = VncCommon.make_name(pod_name, obj_uuid)
+        display_name=VncCommon.make_display_name(pod_namespace, pod_name)
         vmi_obj = VirtualMachineInterface(name=name, parent_obj=proj_obj,
-                      virtual_machine_interface_properties=vmi_prop)
+                    virtual_machine_interface_properties=vmi_prop,
+                    display_name=display_name)
+
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
         self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
-
         self.add_annotations(vmi_obj,
-            VirtualMachineInterfaceKM.kube_fq_name_key,
-            project=vnc_kube_config.cluster_project_name(pod_namespace),
-            name=pod_name, namespace=pod_namespace)
+            VirtualMachineInterfaceKM.kube_fq_name_key, pod_namespace, pod_name)
 
         try:
             vmi_uuid = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
@@ -238,17 +240,13 @@ class VncPod(VncCommon):
 
     def _create_vm(self, pod_namespace, pod_id, pod_name, labels):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
-        vm_name = proj_fq_name + [pod_id, pod_name]
-        vm_obj = VirtualMachine(name="-".join(vm_name))
+        vm_name = VncCommon.make_name(pod_name, pod_id)
+        display_name=VncCommon.make_display_name(pod_namespace, pod_name)
+        vm_obj = VirtualMachine(name=vm_name,display_name=display_name)
         vm_obj.uuid = pod_id
 
         self.add_annotations(vm_obj, VirtualMachineKM.kube_fq_name_key,
-            project=vnc_kube_config.cluster_project_name(pod_namespace),
-            k8s_uuid=pod_id, labels=json.dumps(labels),
-            name=pod_name, namespace=pod_namespace)
-
-        self.add_display_name(vm_obj, VirtualMachineKM.display_name_format,
-            namespace=pod_namespace, name=pod_name)
+            pod_namespace, pod_name, k8s_uuid=pod_id, labels=json.dumps(labels))
 
         try:
             self._vnc_lib.virtual_machine_create(vm_obj)
@@ -272,7 +270,7 @@ class VncPod(VncCommon):
 
     def _check_pod_uuid_change(self, pod_uuid, pod_name, pod_namespace):
         vm_fq_name = [pod_name]
-        vm_uuid = LoadbalancerKM.get_kube_fq_name_to_uuid(vm_fq_name)
+        vm_uuid = LoadbalancerKM.get_fq_name_to_uuid(vm_fq_name)
         if vm_uuid != pod_uuid:
             self.vnc_pod_delete(vm_uuid)
 
@@ -404,8 +402,8 @@ class VncPod(VncCommon):
             if not vm.annotations:
                 continue
             for kvp in vm.annotations['key_value_pair'] or []:
-                if kvp['key'] == 'device_owner' \
-                   and kvp['value'] == 'K8S:POD':
+                if kvp['key'] == 'owner' \
+                   and kvp['value'] == 'k8s':
                     self._create_pod_event('delete', uuid, vm)
                     break
         return
