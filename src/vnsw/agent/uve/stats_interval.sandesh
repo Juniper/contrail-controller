@@ -3,8 +3,8 @@
  */
 
 /**
- * Request message to get agent stats interval at this interval agent
- * diff stats are sent to collector as uve
+ * @description: Get agent stats interval at this interval agent diff stats are sent to collector as uve
+ * @cli_name: read stats interval
  */
 
 request sandesh GetStatsInterval {

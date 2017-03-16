@@ -8,9 +8,9 @@
  */
 
 /**
- * Request message to get ping statistics in agent introspect
- * 
- */ 
+ * @description: Request message to get ping statistics in agent introspect
+ * @cli_name: create diagnostics ping
+ */
 request sandesh PingReq {
     /** Souce IP Address */
     1: string source_ip;
@@ -33,8 +33,8 @@ request sandesh PingReq {
 }
 
 /**
- * Request message to get trace route information in agent introspect
- *
+ * @description: Request message to get trace route information in agent introspect
+ * @cli_name: create diagnostics traceroute
  */
 request sandesh TraceRouteReq {
     /** Souce IP Address */
@@ -58,8 +58,8 @@ request sandesh TraceRouteReq {
 }
 
 /**
- * Request message to Overlay ping statistics in agent introspect
- *
+ * @description: Request message to get overlay ping statistics in agent introspect
+ * @cli_name: create diagnostics ping overlay
  */
 
 request sandesh OverlayPingReq {
@@ -86,8 +86,8 @@ request sandesh OverlayPingReq {
 }
 
 /**
- * Request message to get Overlay trace route information in agent introspect
- *
+ * @description: Request message to get Overlay trace route information in agent introspect
+ * @cli_name: create diagnostics traceroute overaly
  */
 
 request sandesh OverlayTraceReq {

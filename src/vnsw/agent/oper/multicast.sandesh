@@ -15,7 +15,8 @@ struct PDeviceData {
 }
 
 /**
- * Request message for physical device list from agent introspect
+ * @description: Request message for physical device list from agent introspect
+ * @cli_name: read oper device list
  */
 request sandesh MasterPhysicalDevicesReq {
 }

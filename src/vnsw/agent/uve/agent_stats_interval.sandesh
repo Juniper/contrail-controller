@@ -8,9 +8,11 @@
  */
 
 /**
- * Request message to set frequency of agent stats send to collector
+ * @description: Request message to set frequency of agent stats send to collector
+ * @cli_name: create stats interval
  */
 request sandesh SetAgentStatsInterval_InSeconds {
+    /** Interval in seconds */
     1: byte interval;
 }
 
@@ -29,7 +31,8 @@ response sandesh AgentStatsCfgErrResp {
 }
 
 /**
- * Request message to get frequency of agent stats send to collector
+ * @description: Request message to get frequency of agent stats send to collector
+ * @cli_name: read stats interval
  */
 request sandesh GetAgentStatsInterval {
 }
