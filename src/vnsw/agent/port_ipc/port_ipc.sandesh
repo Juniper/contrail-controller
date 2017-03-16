@@ -103,10 +103,13 @@ trace sandesh ConfigVmVnPortInfo {
 }
 
 /**
- * Introspect request for vmi-based port subscription requests
+ * @description: Introspect request for vmi-based port subscription requests
+ * @cli_name: read vmi port subscription list
  */
 request sandesh FetchVmiPortSubscriptionReq {
+    /** Interface name */
     1: string ifname;
+    /** virtual machine interface uuid */
     2: string vmi_uuid;
 }
 
@@ -135,10 +138,13 @@ response sandesh SandeshVmiPortSubscriptionResp {
 }
 
 /**
- * Introspect request for vmvn-based port subscription requests
+ * @description: Introspect request for vmvn-based port subscription requests
+ * @cli_name: read vmvn port subscription list
  */
 request sandesh FetchVmVnPortSubscriptionReq {
+    /** Interface name */
     1: string ifname;
+    /** virtual machine interface uuid */
     2: string vm_uuid;
 }
 
@@ -166,9 +172,11 @@ response sandesh SandeshVmVnPortSubscriptionResp {
 
 
 /**
- * Introspect request for vmi-uuid to vm-uuid+vn-uuid tree
+ * @description: Introspect request for vmi-uuid to vm-uuid+vn-uuid tree
+ * @cli_name: read vmitovmvn list
  */
 request sandesh FetchVmiToVmVnUuidReq {
+    /** virtual machine interface uuid */
     1: string vmi_uuid;
 }
 
@@ -193,10 +201,13 @@ response sandesh SandeshVmiToVmVnResp {
 }
 
 /**
- * Introspect request for <vm-uuid, vn-uuid> to vmi-uuid to tree
+ *  @description: Introspect request for <vm-uuid, vn-uuid> to vmi-uuid tree
+ *  @cli_name: read vmuuidvnuuid to vmiuuid list
  */
 request sandesh FetchVmVnToVmiUuidReq{
+    /** virtual machine interface uuid */
     1: string vm_uuid;
+    /** virtual network interface uuid */
     2: string vn_uuid;
 }
 

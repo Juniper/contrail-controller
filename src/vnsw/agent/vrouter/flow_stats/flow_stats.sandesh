@@ -19,9 +19,11 @@
 include "vnsw/agent/oper/agent.sandesh"
 
 /**
- * Request message to set time interval for flow update to collector
+ * @description: Request message to set time interval for flow update to collector
+ * @cli_name: create flowstats interval
  */
 request sandesh SetFlowStatsInterval_InSeconds {
+    /** Interval in seconds */
     1: byte interval;
 }
 
@@ -40,7 +42,8 @@ response sandesh FlowStatsCfgErrResp {
 }
 
 /**
- * Request message to get time interval for flow update to collector
+ * @description: Request message to get time interval for flow update to collector
+ * @cli_name: read flowstats interval
  */
 request sandesh GetFlowStatsInterval {
 }
@@ -53,7 +56,8 @@ response sandesh FlowStatsIntervalResp_InSeconds {
 }
 
 /**
- * Request message to get flow stats collection parameters configured for flow sampling
+ * @description: Request message to get flow stats collection parameters configured for flow sampling
+ * @cli_name: read flowstats params
  */
 request sandesh FlowStatsCollectionParamsReq {
 }
@@ -116,7 +120,8 @@ struct FlowStatsRecord {
 }
 
 /**
- * Request flow statistics
+ * @description: Request flow statistics
+ * @cli_name: read flowstats records
  */
 request sandesh FlowStatsRecordsReq {
 }
@@ -129,7 +134,8 @@ response sandesh FlowStatsRecordsResp {
 }
 
 /**
- * Request message to get flow aging parameters
+ * @description: Request message to get flow aging parameters
+ * @cli_name: read aging config list
  */
 request sandesh ShowAgingConfig {
 }
@@ -152,20 +158,28 @@ response sandesh AgingConfigResponse {
 }
 
 /**
- * Request message for configuring flow aging parameters
+ * @description: Request message for configuring flow aging parameters
+ * @cli_name: create aging configuration
  */
 request sandesh AddAgingConfig {
+    /** protocol */
     1: u32 protocol;
+    /** port */
     2: u32 port;
+    /** stats_interval */
     3: optional u32 stats_interval;
+    /** cache_timeout */
     4: optional u32 cache_timeout;
 }
 
 /**
- * Request message to delete flow aging parameters
+ * @description: Request message to delete flow aging parameters
+ * @cli_name: delete aging configuration
  */
 request sandesh DeleteAgingConfig {
+    /** protocol */
     1: u32 protocol;
+    /** port */
     2: u32 port;
 }
 

@@ -9,10 +9,12 @@
  */
 
 /**
- * Request message to set interval for periodic poll for statistics
+ * @description: Request message to set interval for periodic poll for statistics
  * by stats collector module
+ * @cli_name: create stats interval
  */
 request sandesh SetAgentStatsInterval_InSeconds {
+    /** Interval in seconds */
     1: byte interval;
 }
 
@@ -31,7 +33,8 @@ response sandesh AgentStatsCfgErrResp {
 }
 
 /**
- * Request message to get agent stats interval
+ * @description: Request message to get agent stats interval
+ * @cli_name: read stats interval
  */
 request sandesh GetAgentStatsInterval {
 }
