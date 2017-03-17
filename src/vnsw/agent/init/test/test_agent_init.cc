@@ -35,14 +35,16 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.vhost_gw().to_ulong(),
               Ip4Address::from_string("10.1.1.254").to_ulong());
     EXPECT_STREQ(param.eth_port().c_str(), "vnet0");
-    EXPECT_EQ(param.xmpp_server_1().to_ulong(),
-              Ip4Address::from_string("127.0.0.1").to_ulong());
-    EXPECT_EQ(param.xmpp_server_2().to_ulong(), 0);
-    EXPECT_EQ(param.dns_server_1().to_ulong(),
-              Ip4Address::from_string("127.0.0.1").to_ulong());
-    EXPECT_EQ(param.dns_port_1(), 53);
-    EXPECT_EQ(param.dns_server_2().to_ulong(), 0);
-    EXPECT_EQ(param.dns_port_2(), 53);
+
+    EXPECT_EQ(param.controller_server_list().size(), 1); 
+    std::vector<string>servers;
+    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":")); 
+    EXPECT_STREQ("127.0.0.1", servers[0].c_str()); 
+
+    EXPECT_EQ(param.dns_server_list().size(), 1);
+    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":")); 
+    EXPECT_STREQ("127.0.0.1", servers[0].c_str()); 
+
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
@@ -94,16 +96,20 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.max_vm_flows(), 100);
     EXPECT_EQ(param.linklocal_system_flows(), 2048);
     EXPECT_EQ(param.linklocal_vm_flows(), 2048);
-    EXPECT_EQ(param.xmpp_server_1().to_ulong(),
-              Ip4Address::from_string("11.1.1.1").to_ulong());
-    EXPECT_EQ(param.xmpp_server_2().to_ulong(),
-              Ip4Address::from_string("12.1.1.1").to_ulong());
-    EXPECT_EQ(param.dns_server_1().to_ulong(),
-              Ip4Address::from_string("13.1.1.1").to_ulong());
-    EXPECT_EQ(param.dns_port_1(), 9001);
-    EXPECT_EQ(param.dns_server_2().to_ulong(),
-              Ip4Address::from_string("14.1.1.1").to_ulong());
-    EXPECT_EQ(param.dns_port_2(), 12999);
+    
+    std::vector<string>servers;
+    EXPECT_EQ(param.controller_server_list().size(), 2);
+    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":")); 
+    EXPECT_STREQ("11.1.1.1", servers[0].c_str()); 
+    boost::split(servers, param.controller_server_list()[1], boost::is_any_of(":")); 
+    EXPECT_STREQ("12.1.1.1", servers[0].c_str()); 
+  
+    EXPECT_EQ(param.dns_server_list().size(), 2);
+    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":")); 
+    EXPECT_STREQ("13.1.1.1", servers[0].c_str()); 
+    boost::split(servers, param.dns_server_list()[1], boost::is_any_of(":")); 
+    EXPECT_STREQ("14.1.1.1", servers[0].c_str()); 
+
     EXPECT_EQ(param.agent_mode(), AgentParam::VROUTER_AGENT);
     EXPECT_EQ(param.dhcp_relay_mode(), false);
     EXPECT_EQ(param.subnet_hosts_resolvable(), false);
@@ -291,7 +297,6 @@ TEST_F(AgentParamTest, Agent_Param_1) {
     EXPECT_STREQ(param.host_name().c_str(), "vhost-1");
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
-    EXPECT_EQ(param.subnet_hosts_resolvable(), true);
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 3000);
 }
 
@@ -325,23 +330,26 @@ TEST_F(AgentParamTest, Agent_Arg_Override_Config_2) {
     int argc = 7;
     char *argv[] = {
         (char *) "",
-        (char *) "--DNS.server",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001",
-        (char *) "--CONTROL-NODE.server",   (char *)"22.1.1.1", (char *)"23.1.1.1",
+        (char *) "--CONTROL-NODE.servers",    (char *)"20.1.1.1:500", (char *)"21.1.1.1:15001", 
+        (char *) "--DNS.servers",   (char *)"22.1.1.1:53", (char *)"23.1.1.1:53",
     };
 
     AgentParam param;
     param.ParseArguments(argc, argv);
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
-    EXPECT_EQ(param.xmpp_server_1().to_ulong(),
-              Ip4Address::from_string("22.1.1.1").to_ulong());
-    EXPECT_EQ(param.xmpp_server_2().to_ulong(),
-              Ip4Address::from_string("23.1.1.1").to_ulong());
-    EXPECT_EQ(param.dns_server_1().to_ulong(),
-              Ip4Address::from_string("20.1.1.1").to_ulong());
-    EXPECT_EQ(param.dns_port_1(), 500);
-    EXPECT_EQ(param.dns_server_2().to_ulong(),
-              Ip4Address::from_string("21.1.1.1").to_ulong());
-    EXPECT_EQ(param.dns_port_2(), 15001);
+
+    std::vector<string>servers;
+    EXPECT_EQ(param.controller_server_list().size(), 2);
+    boost::split(servers, param.controller_server_list()[0], boost::is_any_of(":")); 
+    EXPECT_STREQ("20.1.1.1", servers[0].c_str()); 
+    boost::split(servers, param.controller_server_list()[1], boost::is_any_of(":")); 
+    EXPECT_STREQ("21.1.1.1", servers[0].c_str()); 
+  
+    EXPECT_EQ(param.dns_server_list().size(), 2);
+    boost::split(servers, param.dns_server_list()[0], boost::is_any_of(":")); 
+    EXPECT_STREQ("22.1.1.1", servers[0].c_str()); 
+    boost::split(servers, param.dns_server_list()[1], boost::is_any_of(":")); 
+    EXPECT_STREQ("23.1.1.1", servers[0].c_str()); 
 }
 
 /* Some command line args have default values. If user has not passed these
@@ -497,7 +505,6 @@ TEST_F(AgentParamTest, Agent_Mac_Learning_Option_1) {
     EXPECT_EQ(param.mac_learning_update_tokens(), 510);
     EXPECT_EQ(param.mac_learning_delete_tokens(), 520);
 }
-
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();

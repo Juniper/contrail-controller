@@ -11,30 +11,22 @@ AgentParamTest::AgentParamTest(AgentParam *ap) {
 AgentParamTest::~AgentParamTest() {
 }
 
-Ip4Address AgentParamTest::StrToIp(const char *ip) {
-    boost::system::error_code ec;
-    Ip4Address addr = Ip4Address::from_string(ip, ec);
-    if (ec.value() == 0) {
-        return addr;
+void AgentParamTest::set_controller_server_list(const char *ip) {
+    std::string element(ip);
+    if (element.length()) {
+        params_->controller_server_list_.push_back(element);
     } else {
-        return Ip4Address(0);
+        params_->controller_server_list_.clear();
     }
 }
 
-void AgentParamTest::set_xmpp_server_1(const char *ip) {
-    params_->xmpp_server_1_ = StrToIp(ip);
-}
-
-void AgentParamTest::set_xmpp_server_2(const char *ip) {
-    params_->xmpp_server_2_ = StrToIp(ip);
-}
-
-void AgentParamTest::set_dns_server_1(const char *ip) {
-    params_->dns_server_1_ = StrToIp(ip);
-}
-
-void AgentParamTest::set_dns_server_2(const char *ip) {
-    params_->dns_server_2_ = StrToIp(ip);
+void AgentParamTest::set_dns_server_list(const char *ip) {
+    std::string element(ip);
+    if (element.length()) {
+        params_->dns_server_list_.push_back(element);
+    } else {
+        params_->dns_server_list_.clear();
+    }
 }
 
 void AgentParamTest::set_collector_server_list(const char *ip) {

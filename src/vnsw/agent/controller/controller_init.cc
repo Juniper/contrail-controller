@@ -155,7 +155,7 @@ void VNController::XmppServerConnect() {
             if (ch) {
                 // Channel is created, do not disturb
                 CONTROLLER_CONNECTIONS_TRACE(DiscoveryConnection, 
-                    "XMPP Server is already present, ignore discovery response",
+                    "XMPP Server is already present, ignore reconfig response",
                     count, ch->GetXmppServer(), "");
                 count++;
                 continue; 
@@ -240,7 +240,7 @@ void VNController::DnsXmppServerConnect() {
             if (ch) {
                 // Channel is up and running, do not disturb
                 CONTROLLER_CONNECTIONS_TRACE(DiscoveryConnection,
-                    "DNS Server is already present, ignore discovery response",
+                    "DNS Server is already present, ignore reconfig response",
                     count, ch->GetXmppServer(), "");
                 count++;
                 continue; 

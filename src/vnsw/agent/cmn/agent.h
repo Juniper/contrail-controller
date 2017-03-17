@@ -235,7 +235,6 @@ extern void RouterIdDepInit(Agent *agent);
 #define MIN_UNICAST_LABEL_RANGE 4098
 #define MAX_XMPP_SERVERS 2
 #define XMPP_SERVER_PORT 5269
-#define DISCOVERY_SERVER_PORT 5998
 #define METADATA_IP_ADDR ntohl(inet_addr("169.254.169.254"))
 #define METADATA_PORT 8775
 #define METADATA_NAT_PORT 80
