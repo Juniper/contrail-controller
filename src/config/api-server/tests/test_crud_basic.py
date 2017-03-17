@@ -1744,8 +1744,8 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         uve_delete_trace_invoked = []
         uuid_to_fq_name_on_delete_invoked = []
         def spy_uve_trace(orig_method, *args, **kwargs):
-            oper = args[0].upper()
-            obj_uuid = args[2]
+            oper = kwargs['oper'].upper()
+            obj_uuid = kwargs['uuid']
             if oper == 'DELETE' and obj_uuid == test_obj.uuid:
                 if not uve_delete_trace_invoked:
                     uve_delete_trace_invoked.append(True)
@@ -1756,9 +1756,9 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                     return orig_method(*args, **kwargs)
             else:
                 return orig_method(*args, **kwargs)
-        with test_common.patch(db_client,
-            'dbe_uve_trace', spy_uve_trace):
+        with test_common.patch(db_client, 'dbe_uve_trace', spy_uve_trace):
             self._delete_test_object(test_obj)
+            gevent.sleep(0.01)
             self.assert_vnc_db_doesnt_have_ident(test_obj)
             self.assertEqual(len(uve_delete_trace_invoked), 1,
                 'uve_trace not invoked on object delete')

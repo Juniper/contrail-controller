@@ -29,18 +29,18 @@ from provision_defaults import *
 
 
 def _parse_rt(rt):
-     (prefix, asn, target) = rt.split(':')
-     if prefix != 'target':
-         raise ValueError()
-     target = int(target)
-     if not asn.isdigit():
-         try:
-             netaddr.IPAddress(asn)
-         except netaddr.core.AddrFormatError:
-             raise ValueError()
-     else:
-         asn = int(asn)
-     return (prefix, asn, target)
+    (prefix, asn, target) = rt.split(':')
+    if prefix != 'target':
+        raise ValueError()
+    target = int(target)
+    if not asn.isdigit():
+        try:
+            netaddr.IPAddress(asn)
+        except netaddr.core.AddrFormatError:
+            raise ValueError()
+    else:
+        asn = int(asn)
+    return (prefix, asn, target)
 
 
 class ResourceDbMixin(object):
@@ -105,7 +105,7 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
-    def dbe_create_notification(cls, obj_id):
+    def dbe_create_notification(cls, db_conn, obj_id):
         pass
 
     @classmethod
@@ -332,7 +332,7 @@ class FloatingIpServer(Resource, FloatingIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, obj_id):
+    def dbe_create_notification(cls, db_conn, obj_id):
         ok, obj_dict = cls.dbe_read(db_conn, 'floating_ip', obj_id)
         if not ok:
             return
@@ -403,7 +403,7 @@ class AliasIpServer(Resource, AliasIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, obj_id):
+    def dbe_create_notification(cls, db_conn, obj_id):
         ok, obj_dict = cls.dbe_read(db_conn, 'alias_ip', obj_id)
         if not ok:
             return
@@ -593,7 +593,7 @@ class InstanceIpServer(Resource, InstanceIp):
     # end post_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, obj_id):
+    def dbe_create_notification(cls, db_conn, obj_id):
         ok, obj_dict = cls.dbe_read(db_conn, 'instance_ip', obj_id)
         if not ok:
             return
@@ -1580,7 +1580,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end subnet_ip_count
 
     @classmethod
-    def dbe_create_notification(cls, obj_id):
+    def dbe_create_notification(cls, db_conn, obj_id):
         cls.addr_mgmt.net_create_notify(obj_id)
     # end dbe_create_notification
 
@@ -1793,7 +1793,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
     # end pre_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, obj_id):
+    def dbe_create_notification(cls, db_conn, obj_id):
         cls.addr_mgmt.ipam_create_notify(obj_id)
     # end dbe_create_notification
 
