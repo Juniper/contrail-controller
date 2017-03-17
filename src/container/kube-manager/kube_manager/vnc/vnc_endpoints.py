@@ -65,8 +65,7 @@ class VncEndpoints(VncCommon):
                 continue
 
             if port:
-                if ll.params['protocol_port'] != port['port'] or \
-                   ll.params['protocol'] != port['protocol']:
+                if ll.params['protocol'] != port['protocol']:
                     listener_found = False
 
             if not listener_found:
@@ -92,12 +91,9 @@ class VncEndpoints(VncCommon):
                         member_match = True
                         break
                 if not member_match:
-                    if ll.target_port:
-                        target_port = ll.target_port
-                    else:
-                        target_port = ll.params['protocol_port']
-                    self.logger.debug("Create LB member for Pod: %s in LB: %s with target-port: %s"
-                                       % (vm.fq_name, lb.name, target_port))
+                    target_port = port['port']
+                    self.logger.debug("Create LB member for Pod: %s in LB: %s with target-port: %s(%d)"
+                                       % (vm.fq_name, lb.name, ll.target_port, target_port))
                     member_obj = self._vnc_create_member(pool, pod_id, vmi_id,
                                                          target_port)
                     LoadbalancerMemberKM.locate(member_obj.uuid)
@@ -174,15 +170,20 @@ class VncEndpoints(VncCommon):
 
     def _get_service_pod_list(self, event):
         pods_in_event = set()
+        port = None
         subsets = event['object'].get('subsets', [])
         for subset in subsets:
+            ports = subset.get('ports', None)
+            if ports:
+                port = ports[0]
             endpoints = subset.get('addresses', [])
             for endpoint in endpoints:
                 pod = endpoint.get('targetRef')
                 if pod and pod.get('uid'):
                     pods_in_event.add(pod.get('uid'))
 
-        return pods_in_event
+        
+        return pods_in_event, port
 
 
     def vnc_endpoint_add(self, uid, name, namespace, event):
@@ -199,14 +200,14 @@ class VncEndpoints(VncCommon):
 
         #Get curr list of Pods matching Service Selector as listed
         # in 'event' elements.
-        cur_pod_ids = self._get_service_pod_list(event)
+        cur_pod_ids, port = self._get_service_pod_list(event)
 
         # Compare. If Pod present in both lists, do nothing
 
         # If Pod present only in cur_pod list, add 'Pod' to 'Service'
         add_pod_members = cur_pod_ids.difference(prev_pod_ids)
         for pod_id in add_pod_members:
-            self._add_pod_to_service(service_id, pod_id)
+            self._add_pod_to_service(service_id, pod_id, port)
 
         # If Pod present only in prev_pod list , delete 'Pod' from 'Service'
         del_pod_members = prev_pod_ids.difference(cur_pod_ids)

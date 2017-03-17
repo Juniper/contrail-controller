@@ -62,8 +62,9 @@ def parse_args(args_str=None):
         'admin_user' : '',
         'admin_password' : '',
         'admin_tenant' : '',
-        'public_network_name':'__public__',
-        'public_fip_pool_name':'__fip_pool_public__',
+        'public_network_project':'default-project',
+        'public_network':'__public__',
+        'public_fip_pool':'__fip_pool_public__',
     }
 
     k8s_opts = {

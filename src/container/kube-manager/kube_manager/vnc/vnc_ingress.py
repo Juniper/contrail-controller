@@ -79,10 +79,10 @@ class VncIngress(VncCommon):
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
             return self._fip_pool_obj
-        def_proj_fq_name = vnc_kube_config.cluster_default_project_fq_name()
-        fip_pool_fq_name = def_proj_fq_name + \
-                           [self._args.public_network_name,
-                            self._args.public_fip_pool_name]
+        fip_pool_fq_name = [vnc_kube_config.cluster_domain(),
+                            self._args.public_network_project,
+                            self._args.public_network,
+                            self._args.public_fip_pool]
         try:
             fip_pool_obj = self._vnc_lib. \
                            floating_ip_pool_read(fq_name=fip_pool_fq_name)
