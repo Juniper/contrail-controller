@@ -99,9 +99,19 @@ class TestDbInterface(unittest.TestCase):
                             get_virtual_network_refs=\
                             lambda: [{'uuid': net_uuid}])
 
+        def fake_virtual_machine_interface_list(*args, **kwargs):
+            if kwargs.get('obj_uuids', []) ==  ['router_port_uuid']:
+                return [flexmock(
+                    uuid='router_port_uuid',
+                    get_virtual_machine_interface_properties=\
+                    fake_virtual_machine_interface_properties,
+                    get_virtual_network_refs=\
+                    lambda: [{'uuid': 'match_vn_uuid'}])]
+
         dbi._vnc_lib = flexmock(
             fq_name_to_id=lambda res, name: 'fip_pool_uuid',
             virtual_machine_interface_read=fake_virtual_machine_read,
+            virtual_machine_interfaces_list=fake_virtual_machine_interface_list,
             logical_routers_list=lambda parent_id, detail: [
                 flexmock(uuid='router_uuid',
                          get_virtual_machine_interface_refs=\
