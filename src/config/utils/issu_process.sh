@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 
 function issu_contrail_switch_compute_node {
@@ -14,9 +13,9 @@ function issu_contrail_switch_compute_node {
 
 function issu_contrail_prepare_compute_node {
             route -n
-            #openstack-config --del /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent autostart
-            #openstack-config --del /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent killasgroup
-            #contrail-status
+            openstack-config --del /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent autostart
+            openstack-config --del /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent killasgroup
+            contrail-status
 }
 
 function issu_contrail_set_supervisord_config_files {
