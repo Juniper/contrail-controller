@@ -139,7 +139,7 @@ class GlobalSystemConfigST(DBBaseST):
                 cls.locate(gsc.get_fq_name_str(), gsc)
             except Exception as e:
                 cls._logger.error("Error in reinit for %s %s: %s" % (
-                    cls.obj_type, obj.get_fq_name_str(), str(e)))
+                    cls.obj_type, gsc.get_fq_name_str(), str(e)))
     # end reinit
 
     def __init__(self, name, obj):
