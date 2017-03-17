@@ -48,16 +48,13 @@ int ConfigClientManager::GetNumConfigReader() {
     return num_config_readers;
 }
 
-ConfigClientManager::ConfigClientManager(EventManager *evm,
-        IFMapServer *ifmap_server, string hostname, string module_name,
-        const IFMapConfigOptions& config_options)
-        : evm_(evm), ifmap_server_(ifmap_server) {
+void ConfigClientManager::SetUp(string hostname, string module_name,
+        const IFMapConfigOptions& config_options) {
     config_json_parser_.reset(new ConfigJsonParser(this));
     thread_count_ = GetNumConfigReader();
-    end_of_rib_computed_ = false;
     end_of_rib_computed_at_ = UTCTimestampUsec();
     config_db_client_.reset(
-            IFMapFactory::Create<ConfigCassandraClient>(this, evm,
+            IFMapFactory::Create<ConfigCassandraClient>(this, evm_,
                 config_options, config_json_parser_.get(), thread_count_));
     config_amqp_client_.reset(new ConfigAmqpClient(this, hostname, module_name,
                                                    config_options));
@@ -84,6 +81,21 @@ ConfigClientManager::ConfigClientManager(EventManager *evm,
 
     bgp_schema_Server_GenerateObjectTypeList(&obj_type_to_read_);
     vnc_cfg_Server_GenerateObjectTypeList(&obj_type_to_read_);
+}
+
+ConfigClientManager::ConfigClientManager(EventManager *evm,
+        IFMapServer *ifmap_server, string hostname, string module_name,
+        const IFMapConfigOptions& config_options, bool end_of_rib_computed)
+                : end_of_rib_computed_(end_of_rib_computed), evm_(evm),
+                  ifmap_server_(ifmap_server) {
+    SetUp(hostname, module_name, config_options);
+}
+
+ConfigClientManager::ConfigClientManager(EventManager *evm,
+        IFMapServer *ifmap_server, string hostname, string module_name,
+        const IFMapConfigOptions& config_options)
+        : end_of_rib_computed_(false), evm_(evm), ifmap_server_(ifmap_server) {
+    SetUp(hostname, module_name, config_options);
 }
 
 void ConfigClientManager::Initialize() {
