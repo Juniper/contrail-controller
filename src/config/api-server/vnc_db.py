@@ -53,7 +53,7 @@ def get_trace_id():
     try:
         req_id = gevent.getcurrent().trace_request_id
     except Exception:
-        req_id = 'req-%s' %(str(uuid.uuid4()))
+        req_id = 'req-%s' % str(uuid.uuid4())
         gevent.getcurrent().trace_request_id = req_id
 
     return req_id
@@ -273,25 +273,9 @@ class VncServerKombuClient(VncKombuClient):
 
     # end __init__
 
-    def prepare_to_consume(self):
-        self._db_client_mgr.wait_for_resync_done()
-    # prepare_to_consume
-
     def config_log(self, msg, level):
         self._db_client_mgr.config_log(msg, level)
     # end config_log
-
-    def uuid_to_fq_name(self, uuid):
-        self._db_client_mgr.uuid_to_fq_name(uuid)
-    # end uuid_to_fq_name
-
-    def dbe_uve_trace(self, oper, typ, uuid, body):
-        self._db_client_mgr.dbe_uve_trace(oper, typ, uuid, body)
-    # end dbe_uve_trace
-
-    def dbe_oper_publish_pending(self):
-        return self.num_pending_messages()
-    # end dbe_oper_publish_pending
 
     @ignore_exceptions
     def _generate_msgbus_notify_trace(self, oper_info):
@@ -313,6 +297,7 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             trace = self._generate_msgbus_notify_trace(oper_info)
 
+            self._db_client_mgr.dbe_uve_trace(**oper_info)
             if oper_info['oper'] == 'CREATE':
                 self._dbe_create_notification(oper_info)
             if oper_info['oper'] == 'UPDATE':
@@ -330,20 +315,22 @@ class VncServerKombuClient(VncKombuClient):
                       sandesh=self._sandesh, error_msg=errmsg)
     # end _dbe_subscribe_callback
 
-    def dbe_create_publish(self, obj_type, obj_id, obj_dict):
+    def dbe_publish(self, oper, obj_type, obj_id, fq_name, obj_dict=None):
         req_id = get_trace_id()
-        oper_info = {'request-id': req_id,
-                     'oper': 'CREATE',
-                     'type': obj_type,
-                     'uuid': obj_id,
-                     'fq_name': obj_dict['fq_name']}
+        oper_info = {
+            'request-id': req_id,
+            'oper': oper,
+            'type': obj_type,
+            'uuid': obj_id,
+            'fq_name': fq_name,
+        }
+        if obj_dict is not None:
+            oper_info['obj_dict'] = obj_dict
         self.publish(oper_info)
-    # end dbe_create_publish
 
     def _dbe_create_notification(self, obj_info):
         obj_type = obj_info['type']
         obj_uuid = obj_info['uuid']
-        self.dbe_uve_trace("CREATE", obj_type, obj_uuid)
 
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_type)
@@ -355,15 +342,9 @@ class VncServerKombuClient(VncKombuClient):
             raise
     # end _dbe_create_notification
 
-    def dbe_update_publish(self, obj_type, obj_id):
-        oper_info = {'oper': 'UPDATE', 'type': obj_type, 'uuid': obj_id}
-        self.publish(oper_info)
-    # end dbe_update_publish
-
     def _dbe_update_notification(self, obj_info):
         obj_type = obj_info['type']
         obj_uuid = obj_info['uuid']
-        self.dbe_uve_trace("UPDATE", obj_type, obj_uuid)
 
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_type)
@@ -375,17 +356,10 @@ class VncServerKombuClient(VncKombuClient):
             raise
     # end _dbe_update_notification
 
-    def dbe_delete_publish(self, obj_type, obj_id, obj_dict):
-        oper_info = {'oper': 'DELETE', 'type': obj_type, 'uuid': obj_id,
-                     'fq_name': obj_dict['fq_name'], 'obj_dict': obj_dict}
-        self.publish(oper_info)
-    # end dbe_delete_publish
-
     def _dbe_delete_notification(self, obj_info):
         obj_type = obj_info['type']
         obj_uuid = obj_info['uuid']
         obj_dict = obj_info['obj_dict']
-        self.dbe_uve_trace("DELETE", obj_type, obj_uuid, obj_dict)
 
         db_client_mgr = self._db_client_mgr
         db_client_mgr._object_db.cache_uuid_to_fq_name_del(obj_uuid)
@@ -971,13 +945,13 @@ class VncDbClient(object):
         return (True, obj_dict['uuid'])
     # end dbe_alloc
 
-    def dbe_uve_trace(self, oper, type, uuid, obj_dict=None):
+    def dbe_uve_trace(self, oper, type, uuid, obj_dict=None, **kwargs):
         if type not in self._UVEMAP:
             return
 
         if obj_dict is None:
             try:
-                (ok, obj_dict) = self._db_client_mgr.dbe_read(type, uuid)
+                (ok, obj_dict) = self.dbe_read(type, uuid)
                 if not ok:
                     return
             except NoIdError:
@@ -1093,12 +1067,13 @@ class VncDbClient(object):
 
     @dbe_trace('create')
     @build_shared_index('create')
-    def dbe_create(self, obj_type, obj_id, obj_dict):
-        (ok, result) = self._object_db.object_create(obj_type, obj_id, obj_dict)
+    def dbe_create(self, obj_type, obj_uuid, obj_dict):
+        (ok, result) = self._object_db.object_create(obj_type, obj_uuid, obj_dict)
 
         if ok:
             # publish to msgbus
-            self._msgbus.dbe_create_publish(obj_type, obj_id, obj_dict)
+            self._msgbus.dbe_publish('CREATE', obj_type, obj_uuid,
+                                     obj_dict['fq_name'], obj_dict)
 
         return (ok, result)
     # end dbe_create
@@ -1145,12 +1120,13 @@ class VncDbClient(object):
 
     @dbe_trace('update')
     @build_shared_index('update')
-    def dbe_update(self, obj_type, obj_id, new_obj_dict):
+    def dbe_update(self, obj_type, obj_uuid, new_obj_dict):
         (ok, cassandra_result) = self._object_db.object_update(
-            obj_type, obj_id, new_obj_dict)
+            obj_type, obj_uuid, new_obj_dict)
 
         # publish to message bus (rabbitmq)
-        self._msgbus.dbe_update_publish(obj_type, obj_id)
+        fq_name = self.uuid_to_fq_name(obj_uuid)
+        self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name)
 
         return (ok, cassandra_result)
     # end dbe_update
@@ -1241,12 +1217,13 @@ class VncDbClient(object):
     # end dbe_list
 
     @dbe_trace('delete')
-    def dbe_delete(self, obj_type, obj_id, obj_dict):
+    def dbe_delete(self, obj_type, obj_uuid, obj_dict):
         (ok, cassandra_result) = self._object_db.object_delete(
-            obj_type, obj_id)
+            obj_type, obj_uuid)
 
         # publish to message bus (rabbitmq)
-        self._msgbus.dbe_delete_publish(obj_type, obj_id, obj_dict)
+        self._msgbus.dbe_publish('DELETE', obj_type, obj_uuid,
+                                 obj_dict['fq_name'], obj_dict)
 
         # finally remove mapping in zk
         self.dbe_release(obj_type, obj_dict['fq_name'])
@@ -1259,7 +1236,7 @@ class VncDbClient(object):
     # end dbe_release
 
     def dbe_oper_publish_pending(self):
-        return self._msgbus.dbe_oper_publish_pending()
+        return self._msgbus.num_pending_messages()
     # end dbe_oper_publish_pending
 
     def useragent_kv_store(self, key, value):
@@ -1350,15 +1327,17 @@ class VncDbClient(object):
             return
 
         self._object_db.prop_collection_update(obj_type, obj_uuid, updates)
-        self._msgbus.dbe_update_publish(obj_type, obj_uuid)
+        fq_name = self.uuid_to_fq_name(obj_uuid)
+        self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name)
         return True, ''
     # end prop_collection_update
 
     def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid, ref_data,
                    operation):
         self._object_db.ref_update(obj_type, obj_uuid, ref_obj_type,
-                                      ref_uuid, ref_data, operation)
-        self._msgbus.dbe_update_publish(obj_type, obj_uuid)
+                                   ref_uuid, ref_data, operation)
+        fq_name = self.uuid_to_fq_name(obj_uuid)
+        self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name)
     # ref_update
 
     def ref_relax_for_delete(self, obj_uuid, ref_uuid):
