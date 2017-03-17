@@ -444,7 +444,7 @@ class SchemaTransformer(object):
                 sg.update_policy_entries()
             except Exception as e:
                 self.config_log("Error in updating SG policies %s: %s" % (
-                    sg.get_fq_name_str(), str(e)), SandeshLevel.SYS_ERR)
+                    sg.name, str(e)), SandeshLevel.SYS_ERR)
 
         gevent.sleep(0.001)
         RouteTargetST.reinit()
@@ -516,7 +516,7 @@ class SchemaTransformer(object):
                 vn_obj.evaluate()
             except Exception as e:
                 self.config_log("Error in reinit evaluate virtual network %s: %s" % (
-                    vn_obj.get_fq_name_str(), str(e)), SandeshLevel.SYS_ERR)
+                    vn_obj.name, str(e)), SandeshLevel.SYS_ERR)
         for cls in DBBaseST.get_obj_type_map().values():
             if cls is VirtualNetworkST:
                 continue
@@ -525,7 +525,7 @@ class SchemaTransformer(object):
                     obj.evaluate()
                 except Exception as e:
                     self.config_log("Error in reinit evaluate %s %s: %s" % (
-                        cls.obj_type, obj.get_fq_name_str(), str(e)), SandeshLevel.SYS_ERR)
+                        cls.obj_type, obj.name, str(e)), SandeshLevel.SYS_ERR)
         self.process_stale_objects()
     # end reinit
 
