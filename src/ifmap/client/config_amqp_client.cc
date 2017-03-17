@@ -17,6 +17,7 @@
 #include "base/task.h"
 #include "base/string_util.h"
 #include "ifmap/ifmap_config_options.h"
+#include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_server_show_types.h"
 #include "config_cassandra_client.h"
 #include "config_client_manager.h"
@@ -30,8 +31,10 @@ bool ConfigAmqpClient::disable_;
 
 class ConfigAmqpClient::RabbitMQReader : public Task {
 public:
-    RabbitMQReader(ConfigAmqpClient *amqpclient)
-        : Task(amqpclient->reader_task_id()), amqpclient_(amqpclient) {
+    RabbitMQReader(ConfigAmqpClient *amqpclient) :
+            Task(amqpclient->reader_task_id()), amqpclient_(amqpclient),
+            channel_(new AmqpClientInterface()) {
+        channel_.reset(IFMapFactory::Create<AmqpClientInterface>());
     }
 
     virtual bool Run();
@@ -39,9 +42,9 @@ public:
 
 private:
     ConfigAmqpClient *amqpclient_;
-    AmqpClient::Channel::ptr_t channel_;
+    boost::scoped_ptr<AmqpClientInterface> channel_;
     string consumer_tag_;
-    bool ConnectToRabbitMQ(bool queue_delete = true);
+    void ConnectToRabbitMQ(bool queue_delete = true);
     bool AckRabbitMessages(AmqpClient::Envelope::ptr_t &envelop);
     bool ReceiveRabbitMessages(AmqpClient::Envelope::ptr_t &envelop);
 };
@@ -93,24 +96,21 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
     scheduler->Enqueue(task);
 }
 
-ConfigAmqpClient::~ConfigAmqpClient() {
-}
-
 void ConfigAmqpClient::EnqueueUUIDRequest(string oper, string obj_type,
                                      string uuid_str) {
     mgr_->EnqueueUUIDRequest(oper, obj_type, uuid_str);
 }
 
 string ConfigAmqpClient::FormAmqpUri() const {
-    string uri = string("amqp://" + rabbitmq_user() + ":" + rabbitmq_password() +
-      "@" + rabbitmq_ip() + ":" +  rabbitmq_port());
-    if (rabbitmq_vhost() != "") {
+    string uri = string("amqp://" + rabbitmq_user() + ":" +
+                        rabbitmq_password() + "@" + rabbitmq_ip() + ":" +
+                        rabbitmq_port());
+    if (!rabbitmq_vhost().empty())
         uri += "/" + rabbitmq_vhost();
-    }
     return uri;
 }
 
-bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
+void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
     // Update connection info
     process::ConnectionState::GetInstance()->Update(
         process::ConnectionType::DATABASE, "RabbitMQ",
@@ -120,7 +120,7 @@ bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
     while (true) {
         string uri = amqpclient_->FormAmqpUri();
         try {
-            channel_ = AmqpClient::Channel::CreateFromUri(uri);
+            channel_->CreateFromUri(uri);
             // passive = false, durable = false, auto_delete = false
             channel_->DeclareExchange("vnc_config.object-update",
               AmqpClient::Channel::EXCHANGE_TYPE_FANOUT, false, false, false);
@@ -159,9 +159,8 @@ bool ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
             process::ConnectionStatus::UP,
             amqpclient_->endpoint(), "RabbitMQ connection established");
         amqpclient_->set_connected(true);
-        return true;
+        break;
     }
-    return false;
 }
 
 void ConfigAmqpClient::set_connected(bool connected) {
@@ -222,7 +221,8 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
             config_manager()->config_db_client()->AddFQNameCache(uuid_str,
                                                             obj_type, obj_name);
         } else if (oper == "DELETE") {
-            config_manager()->config_db_client()->InvalidateFQNameCache(uuid_str);
+            config_manager()->config_db_client()->
+                InvalidateFQNameCache(uuid_str);
         }
         EnqueueUUIDRequest(oper, obj_type, uuid_str);
     }
@@ -268,30 +268,24 @@ bool ConfigAmqpClient::RabbitMQReader::AckRabbitMessages(
 
 
 bool ConfigAmqpClient::RabbitMQReader::Run() {
-    assert(ConnectToRabbitMQ());
+    ConnectToRabbitMQ();
     while (true) {
+        if (amqpclient_->terminate())
+            break;
         AmqpClient::Envelope::ptr_t envelope;
         if (ReceiveRabbitMessages(envelope) == false) {
-            assert(ConnectToRabbitMQ(false));
+            ConnectToRabbitMQ(false);
             continue;
         }
+
+        if (!envelope)
+            continue;
+
         amqpclient_->ProcessMessage(envelope->Message()->Body());
         if (AckRabbitMessages(envelope) == false) {
-            assert(ConnectToRabbitMQ(false));
+            ConnectToRabbitMQ(false);
             continue;
         }
     }
     return true;
-}
-
-int ConfigAmqpClient::reader_task_id() const {
-    return reader_task_id_;
-}
-
-string ConfigAmqpClient::hostname() const {
-    return hostname_;
-}
-
-string ConfigAmqpClient::module_name() const {
-    return module_name_;
 }
