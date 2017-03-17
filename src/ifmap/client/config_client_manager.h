@@ -41,6 +41,10 @@ public:
     ConfigClientManager(EventManager *evm, IFMapServer *ifmap_server,
                         std::string hostname, std::string module_name,
                         const IFMapConfigOptions& config_options);
+    ConfigClientManager(EventManager *evm, IFMapServer *ifmap_server,
+                        std::string hostname, std::string module_name,
+                        const IFMapConfigOptions& config_options,
+                        bool end_of_rib_computed);
     void Initialize();
     ConfigAmqpClient *config_amqp_client() const;
     ConfigDbClient *config_db_client() const;
@@ -91,6 +95,8 @@ private:
     typedef std::map<std::string, std::string> WrapperFieldMap;
 
     IFMapTable::RequestKey *CloneKey(const IFMapTable::RequestKey &src) const;
+    void SetUp(std::string hostname, std::string module_name,
+               const IFMapConfigOptions& config_options);
 
     LinkNameMap link_name_map_;
     EventManager *evm_;
