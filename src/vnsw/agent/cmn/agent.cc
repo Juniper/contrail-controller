@@ -431,36 +431,11 @@ void Agent::CopyFilteredParams() {
 void Agent::CopyConfig(AgentParam *params) {
     params_ = params;
 
-    int count = 0;
-    int dns_count = 0;
-
     xs_auth_enable_ = params_->xmpp_auth_enabled();
     dns_auth_enable_ = params_->xmpp_dns_auth_enabled();
     xs_server_cert_ = params_->xmpp_server_cert();
     xs_server_key_ = params_->xmpp_server_key();
     xs_ca_cert_ = params_->xmpp_ca_cert();
-
-    if (params_->xmpp_server_1().to_ulong()) {
-        xs_addr_[count] = params_->xmpp_server_1().to_string();
-        count++;
-    }
-
-    if (params_->xmpp_server_2().to_ulong()) {
-        xs_addr_[count] = params_->xmpp_server_2().to_string();
-        count++;
-    }
-
-    if (params_->dns_server_1().to_ulong()) {
-        dns_port_[dns_count] = params_->dns_port_1();
-        dns_addr_[dns_count] = params_->dns_server_1().to_string();
-        dns_count++;
-    }
-
-    if (params_->dns_server_2().to_ulong()) {
-        dns_port_[dns_count] = params_->dns_port_2();
-        dns_addr_[dns_count] = params_->dns_server_2().to_string();
-        dns_count++;
-    }
 
     CopyFilteredParams();
     InitializeFilteredParams();

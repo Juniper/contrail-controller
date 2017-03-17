@@ -425,8 +425,6 @@ void AgentParam::ParseVirtualHostArguments
 
 void AgentParam::ParseDnsArguments
     (const boost::program_options::variables_map &var_map) {
-    ParseServerListArguments(var_map_, &dns_server_1_, &dns_port_1_,
-                             &dns_server_2_, &dns_port_2_, "DNS.server");
     GetOptValue<uint16_t>(var_map, dns_client_port_, "DNS.dns_client_port");
     GetOptValue<uint32_t>(var_map, dns_timeout_, "DNS.dns_timeout");
     GetOptValue<uint32_t>(var_map, dns_max_retries_, "DNS.dns_max_retries");
@@ -769,8 +767,6 @@ void AgentParam::InitFromConfig() {
 void AgentParam::ProcessArguments() {
     ParseCollectorDSArguments(var_map_);
     ParseVirtualHostArguments(var_map_);
-    ParseServerListArguments(var_map_, xmpp_server_1_, xmpp_server_2_,
-                             "CONTROL-NODE.server");
     ParseControllerServersArguments(var_map_);
     ParseDnsServersArguments(var_map_);
     ParseDnsArguments(var_map_);
@@ -1032,8 +1028,14 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "vhost gateway               : " << vhost_.gw_.to_string());
     LOG(DEBUG, "Ethernet port               : " << eth_port_);
 
-    LOG(DEBUG, "XMPP Server-1               : " << xmpp_server_1_);
-    LOG(DEBUG, "XMPP Server-2               : " << xmpp_server_2_);
+    std::string concat_servers;
+    std::vector<string> list = controller_server_list();
+    std::vector<string>::iterator iter;
+    for (iter = list.begin();
+         iter != list.end(); iter++) {
+         concat_servers += *iter + " "; 
+    }
+    LOG(DEBUG, "Xmpp Servers                : " << concat_servers);
     LOG(DEBUG, "Xmpp Authentication         : " << xmpp_auth_enable_);
     if (xmpp_auth_enable_) {
         LOG(DEBUG, "Xmpp Server Certificate : " << xmpp_server_cert_);
@@ -1041,10 +1043,13 @@ void AgentParam::LogConfig() const {
         LOG(DEBUG, "Xmpp CA Certificate     : " << xmpp_ca_cert_);
     }
 
-    LOG(DEBUG, "DNS Server-1                : " << dns_server_1_);
-    LOG(DEBUG, "DNS Port-1                  : " << dns_port_1_);
-    LOG(DEBUG, "DNS Server-2                : " << dns_server_2_);
-    LOG(DEBUG, "DNS Port-2                  : " << dns_port_2_);
+    concat_servers.clear();
+    list = dns_server_list();
+    for (iter = list.begin();
+         iter != list.end(); iter++) { 
+         concat_servers += *iter + " ";
+    }
+    LOG(DEBUG, "DNS Servers                 : " << concat_servers);
     LOG(DEBUG, "DNS client port             : " << dns_client_port_);
     LOG(DEBUG, "DNS timeout                 : " << dns_timeout_);
     LOG(DEBUG, "DNS max retries             : " << dns_max_retries_);
@@ -1187,8 +1192,6 @@ AgentParam::AgentParam(bool enable_flow_options,
         measure_queue_delay_(false),
         agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(),
-        dns_port_1_(ContrailPorts::DnsServerPort()),
-        dns_port_2_(ContrailPorts::DnsServerPort()),
         dns_client_port_(0), dns_timeout_(3000),
         dns_max_retries_(2), mirror_client_port_(0),
         mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
@@ -1273,10 +1276,6 @@ AgentParam::AgentParam(bool enable_flow_options,
 
     boost::program_options::options_description config("Configuration options");
     config.add_options()
-        ("CONTROL-NODE.server",
-         opt::value<std::vector<std::string> >()->multitoken(),
-         "IP addresses of control nodes."
-         " Max of 2 Ip addresses can be configured")
         ("CONTROL-NODE.servers",
          opt::value<std::vector<std::string> >()->multitoken(),
          "List of IPAddress:Port of Control node Servers")
@@ -1309,8 +1308,6 @@ AgentParam::AgentParam(bool enable_flow_options,
           "Set gateway mode to server/ vcpe")
         ("DEFAULT.agent_base_directory", opt::value<string>()->default_value("/var/lib/contrail"),
          "Base directory used by the agent")
-        ("DNS.server", opt::value<std::vector<std::string> >()->multitoken(),
-         "IP addresses of dns nodes. Max of 2 Ip addresses can be configured")
         ("DNS.servers",
          opt::value<vector<string> >()->multitoken(),
          "List of IPAddress:Port of DNS node Servers")
