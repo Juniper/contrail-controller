@@ -33,11 +33,13 @@ class IngressMonitor(KubeMonitor):
             else:
                 # Remove the entry from Ingress DB.
                 self.db.delete(uuid)
+        else:
+            uuid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, name))
-        self.logger.debug("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, name, uuid))
+        self.logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, name, uuid))
         self.q.put(event)
 
     def event_callback(self):

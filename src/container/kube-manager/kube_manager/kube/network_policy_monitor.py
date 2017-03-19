@@ -30,11 +30,13 @@ class NetworkPolicyMonitor(KubeMonitor):
             else:
                 # Remove the entry from Network Policy DB.
                 self.db.delete(np_uuid)
+        else:
+            np_uuid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, name))
-        self.logger.debug("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, name, np_uuid))
+        self.logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, name, np_uuid))
         self.q.put(event)
 
     def event_callback(self):

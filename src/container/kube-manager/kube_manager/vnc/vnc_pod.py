@@ -391,11 +391,10 @@ class VncPod(VncCommon):
         return
 
     def _sync_pod_vm(self):
-        vm_uuid_list = list(VirtualMachineKM.keys())
-        pod_uuid_list = list(PodKM.keys())
-        for uuid in vm_uuid_list:
-            if uuid in pod_uuid_list:
-                continue
+        vm_uuid_set = set(VirtualMachineKM.keys())
+        pod_uuid_set = set(PodKM.keys())
+        deleted_pod_set = vm_uuid_set - pod_uuid_set
+        for uuid in deleted_pod_list:
             vm = VirtualMachineKM.get(uuid)
             if not vm:
                 continue
@@ -415,15 +414,15 @@ class VncPod(VncCommon):
     def process(self, event):
         event_type = event['type']
         kind = event['object'].get('kind')
-        pod_id = event['object']['metadata'].get('uid')
-        pod_name = event['object']['metadata'].get('name')
         pod_namespace = event['object']['metadata'].get('namespace')
+        pod_name = event['object']['metadata'].get('name')
+        pod_id = event['object']['metadata'].get('uid')
         labels = event['object']['metadata'].get('labels', {})
 
-        print("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, pod_namespace, pod_name))
-        self._logger.debug("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, pod_namespace, pod_name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind, pod_namespace, pod_name, pod_id))
+        self._logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind, pod_namespace, pod_name, pod_id))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
 

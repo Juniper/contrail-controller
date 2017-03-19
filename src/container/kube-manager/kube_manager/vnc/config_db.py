@@ -118,6 +118,7 @@ class DBBaseKM(DBBase):
 class LoadbalancerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer'
+    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
     _kube_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 

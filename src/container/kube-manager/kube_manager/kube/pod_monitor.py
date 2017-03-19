@@ -25,6 +25,11 @@ class PodMonitor(KubeMonitor):
             if not pod_data['spec'].get('nodeName'):
                 return
 
+        namespace = pod_data['metadata'].get('namespace')
+        pod_name = pod_data['metadata'].get('name')
+        if not namespace or not pod_name:
+            return
+
         if self.db:
             pod_uuid = self.db.get_uuid(event['object'])
             if event_type != 'DELETED':
@@ -34,16 +39,13 @@ class PodMonitor(KubeMonitor):
             else:
                 # Remove the entry from Pod DB.
                 self.db.delete(pod_uuid)
+        else:
+            pod_uuid = pod_data['metadata'].get('uid')
 
-        pod_name = pod_data['metadata'].get('name')
-        namespace = pod_data['metadata'].get('namespace')
-        if not pod_name or not namespace:
-            return
-
-        print("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, pod_name))
-        self.logger.info("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, pod_name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, pod_name, pod_uuid))
+        self.logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, pod_name, pod_uuid))
         self.q.put(event)
 
     def event_callback(self):

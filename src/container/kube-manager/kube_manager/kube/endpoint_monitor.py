@@ -18,18 +18,19 @@ class EndPointMonitor(KubeMonitor):
         event_type = event['type']
         kind = event['object'].get('kind')
 
-        endpoint_name = endpoint_data['metadata'].get('name')
         namespace = endpoint_data['metadata'].get('namespace')
+        endpoint_name = endpoint_data['metadata'].get('name')
+        uid = endpoint_data['metadata'].get('uid')
         if not endpoint_name or not namespace:
             return
 
         if endpoint_name == "kube-controller-manager" or endpoint_name == "kube-scheduler":
             return
 
-        print("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, endpoint_name))
-        self.logger.info("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, endpoint_name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, endpoint_name, uid))
+        self.logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, endpoint_name, uid))
         self.q.put(event)
 
     def event_callback(self):
