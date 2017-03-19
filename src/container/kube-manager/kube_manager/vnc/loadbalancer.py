@@ -156,13 +156,17 @@ class ServiceLbManager(VncCommon):
 
         return sas_obj
 
-    def create(self, lb_provider, vn_obj, service_ns, service_id, service_name,
-               proj_obj, vip_address=None, subnet_uuid=None, annotations=None):
+    def create(self, k8s_event_type, service_ns, service_id, service_name,
+               proj_obj, vn_obj, vip_address=None, subnet_uuid=None):
         """
         Create a loadbalancer.
         """
         lb_name = VncCommon.make_name(service_name, service_id)
         lb_display_name = VncCommon.make_display_name(service_ns, service_name)
+        if k8s_event_type == 'Service':
+            lb_provider = 'native'
+        elif k8s_event_type == 'Ingress':
+            lb_provider = 'opencontrail'
         lb_obj = Loadbalancer(name=lb_name, parent_obj=proj_obj,
                     loadbalancer_provider=lb_provider,
                     display_name=lb_display_name)
@@ -176,16 +180,15 @@ class ServiceLbManager(VncCommon):
             vn_obj, service_ns, service_name, vip_address, subnet_uuid)
         if vmi_obj is None:
             return None
-
         lb_obj.set_virtual_machine_interface(vmi_obj)
 
         id_perms = IdPermsType(enable=True)
         props = LoadbalancerType(provisioning_status='ACTIVE', id_perms=id_perms,
                       operating_status='ONLINE', vip_address=vip_address)
         lb_obj.set_loadbalancer_properties(props)
-        for key in annotations:
-            lb_obj.add_annotations(KeyValuePair(key=key, value=annotations[key]))
 
+        self.add_annotations(lb_obj, LoadbalancerKM.kube_fq_name_key,
+                      service_ns, service_name, k8s_event_type=k8s_event_type)
         try:
             self._vnc_lib.loadbalancer_create(lb_obj)
         except RefsExistError:

@@ -361,14 +361,14 @@ class VncNetworkPolicy(VncCommon):
     def process(self, event):
         event_type = event['type']
         kind = event['object'].get('kind')
+        namespace = event['object']['metadata'].get('namespace')
         name = event['object']['metadata'].get('name')
         uid = event['object']['metadata'].get('uid')
-        namespace = event['object']['metadata'].get('namespace')
 
-        print("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, namespace, name))
-        self.logger.debug("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, namespace, name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind, namespace, name, uid))
+        self.logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind, namespace, name, uid))
 
         if event['object'].get('kind') == 'NetworkPolicy':
             if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':

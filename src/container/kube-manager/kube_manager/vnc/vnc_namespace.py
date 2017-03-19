@@ -269,10 +269,10 @@ class VncNamespace(VncCommon):
         name = event['object']['metadata'].get('name')
         ns_id = event['object']['metadata'].get('uid')
         annotations = event['object']['metadata'].get('annotations')
-        print("%s - Got %s %s %s"
-              %(self._name, event_type, kind, name))
-        self._logger.debug("%s - Got %s %s %s"
-              %(self._name, event_type, kind, name))
+        print("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, name, ns_id))
+        self._logger.debug("%s - Got %s %s %s:%s"
+              %(self._name, event_type, kind, name, ns_id))
 
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
