@@ -10,10 +10,10 @@
 #include <oper/agent_route_walker.h>
 
 class AgentRouteResync : public AgentRouteWalker {
-public:    
+public:
     typedef DBTableWalker::WalkId RouteWalkerIdList[Agent::ROUTE_TABLE_MAX];
-    AgentRouteResync(Agent *agent);
-    virtual ~AgentRouteResync() { }
+    AgentRouteResync(const std::string &name, Agent *agent);
+    virtual ~AgentRouteResync();
 
     void Update();
     void UpdateRoutesInVrf(VrfEntry *vrf);

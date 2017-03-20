@@ -104,53 +104,115 @@ BgpPeer::BgpPeer(AgentXmppChannel *channel, const Ip4Address &server_ip,
                  Peer::Type bgp_peer_type) :
     DynamicPeer(channel->agent(), bgp_peer_type, name, false),
     channel_(channel), server_ip_(server_ip), id_(id),
-    route_walker_(new ControllerRouteWalker(channel->agent(), this)),
-    delete_stale_walker_(new ControllerRouteWalker(channel->agent(), this)),
-    route_walker_cb_(NULL), delete_stale_walker_cb_(NULL) {
+    delete_stale_walker_(NULL), route_walker_cb_(NULL),
+    delete_stale_walker_cb_(NULL) {
+        AllocPeerNotifyWalker();
+        AllocDeleteStaleWalker();
         setup_time_ = UTCTimestampUsec();
 }
 
 BgpPeer::~BgpPeer() {
+    const Agent *agent = route_walker()->agent();
     // TODO verify if this unregister can be done in walkdone callback 
     // for delpeer
-    if ((id_ != -1) && route_walker_->agent()->vrf_table()) {
-        route_walker_->agent()->vrf_table()->Unregister(id_);
+    if ((id_ != -1) && agent->vrf_table()) {
+        agent->vrf_table()->Unregister(id_);
     }
+    ReleaseDeleteStaleWalker();
+    ReleasePeerNotifyWalker();
+}
+
+// Route notify walker routines
+void BgpPeer::AllocPeerNotifyWalker() {
+    if (!route_walker()) {
+        Agent *agent = channel_->agent();
+        route_walker_ = new ControllerRouteWalker(server_ip_.to_string(),
+                                                  this);
+        agent->oper_db()->agent_route_walk_manager()->
+            RegisterWalker(static_cast<AgentRouteWalker *>
+                           (route_walker_.get()));
+    }
+}
+
+void BgpPeer::ReleasePeerNotifyWalker() {
+    if (!route_walker()) {
+        return;
+    }
+
+    Agent *agent = channel_->agent();
+    agent->oper_db()->agent_route_walk_manager()->ReleaseWalker(route_walker());
+    route_walker_.reset();
+}
+
+void BgpPeer::PeerNotifyRoutes(WalkDoneCb cb) {
+    route_walker_cb_ = cb;
+    route_walker()->Start(ControllerRouteWalker::NOTIFYALL, true,
+                          route_walker_cb_);
+}
+
+void BgpPeer::StopPeerNotifyRoutes() {
+    //No implementation of stop, to stop a walk release walker. Re-allocate for
+    //further use.
+    ReleasePeerNotifyWalker();
+    AllocPeerNotifyWalker();
+}
+
+void BgpPeer::PeerNotifyMulticastRoutes(bool associate) {
+    route_walker()->Start(ControllerRouteWalker::NOTIFYMULTICAST, associate, 
+                          NULL);
+}
+
+// Delete stale walker routines
+void BgpPeer::AllocDeleteStaleWalker() {
+    if (!delete_stale_walker()) {
+        Agent *agent = channel_->agent();
+        delete_stale_walker_ = new ControllerRouteWalker(server_ip_.to_string(),
+                                                         this);
+        agent->oper_db()->agent_route_walk_manager()->
+            RegisterWalker(static_cast<AgentRouteWalker *>
+                           (delete_stale_walker_.get()));
+    }
+}
+
+void BgpPeer::ReleaseDeleteStaleWalker() {
+    if (!delete_stale_walker()) {
+        return;
+    }
+
+    Agent *agent = channel_->agent();
+    agent->oper_db()->agent_route_walk_manager()->
+        ReleaseWalker(delete_stale_walker());
+    delete_stale_walker_.reset();
 }
 
 void BgpPeer::DelPeerRoutes(WalkDoneCb walk_done_cb,
                             uint64_t sequence_number) {
     route_walker_cb_ = walk_done_cb;
-    route_walker_->set_sequence_number(sequence_number);
-    route_walker_->Start(ControllerRouteWalker::DELPEER, false,
-                         route_walker_cb_);
-}
-
-void BgpPeer::PeerNotifyRoutes(WalkDoneCb cb) {
-    route_walker_cb_ = cb;
-    route_walker_->Start(ControllerRouteWalker::NOTIFYALL, true,
-                         route_walker_cb_);
-}
-
-void BgpPeer::StopPeerNotifyRoutes() {
-    route_walker_->Cancel();
-}
-
-void BgpPeer::PeerNotifyMulticastRoutes(bool associate) {
-    route_walker_->Start(ControllerRouteWalker::NOTIFYMULTICAST, associate, 
-                         NULL);
+    route_walker()->set_sequence_number(sequence_number);
+    route_walker()->Start(ControllerRouteWalker::DELPEER, false,
+                          route_walker_cb_);
 }
 
 void BgpPeer::DeleteStale() {
-    delete_stale_walker_->set_sequence_number(sequence_number());
-    delete_stale_walker_->Start(ControllerRouteWalker::DELSTALE, false,
+    delete_stale_walker()->set_sequence_number(sequence_number());
+    delete_stale_walker()->Start(ControllerRouteWalker::DELSTALE, false,
                                 delete_stale_walker_cb_);
 }
 
 void BgpPeer::StopDeleteStale() {
-    delete_stale_walker_->Cancel();
+    //No implementation of stop, to stop a walk release walker. Re-allocate for
+    //further use.
+    ReleaseDeleteStaleWalker();
+    AllocDeleteStaleWalker();
 }
 
+ControllerRouteWalker *BgpPeer::route_walker() const {
+    return static_cast<ControllerRouteWalker *>(route_walker_.get());
+}
+
+ControllerRouteWalker *BgpPeer::delete_stale_walker() const {
+    return static_cast<ControllerRouteWalker *>(delete_stale_walker_.get());
+}
 /*
  * Get the VRF state and unregister from all route table using
  * rt_export listener id. This will be called for active and non active bgp
@@ -228,7 +290,7 @@ DBState *BgpPeer::GetRouteExportState(DBTablePartBase *partition,
 }
 
 Agent *BgpPeer::agent() const {
-    return route_walker_.get()->agent();
+    return channel_->agent();
 }
 
 AgentXmppChannel *BgpPeer::GetAgentXmppChannel() const {

@@ -71,9 +71,9 @@ protected:
     bool do_vn_walk_;
     bool do_vm_walk_;
     bool do_interface_walk_;
-    DBTableWalker::WalkId vn_walk_id_;
-    DBTableWalker::WalkId vm_walk_id_;
-    DBTableWalker::WalkId interface_walk_id_;
+    DBTable::DBTableWalkRef vn_walk_ref_;
+    DBTable::DBTableWalkRef vm_walk_ref_;
+    DBTable::DBTableWalkRef interface_walk_ref_;
 
     //The following Dispatch functions are not made const function because
     //in derived class they need to be non-const

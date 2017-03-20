@@ -309,8 +309,8 @@ public:
     LifetimeRef<ArpVrfState> table_delete_ref;
     LifetimeRef<ArpVrfState> evpn_table_delete_ref;
     bool deleted;
-    DBTableWalker::WalkId walk_id_;
-    DBTableWalker::WalkId evpn_walk_id_;
+    DBTable::DBTableWalkRef evpn_walk_ref_;
+    DBTable::DBTableWalkRef managed_delete_walk_ref;
     ArpPathPreferenceStateMap arp_path_preference_map_;
     bool l3_walk_completed_;
     bool evpn_walk_completed_;

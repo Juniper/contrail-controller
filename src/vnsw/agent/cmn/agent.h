@@ -346,6 +346,7 @@ public:
         INET6_UNICAST,
         ROUTE_TABLE_MAX
     };
+    static const uint8_t ROUTE_TABLE_START = (Agent::INVALID + 1);
 
     typedef void (*FlowStatsReqHandler)(Agent *agent,
                        uint32_t proto, uint32_t port,

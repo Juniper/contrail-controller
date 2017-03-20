@@ -7,6 +7,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <oper/ecmp_load_balance.h>
+#include <oper/agent_route_walker.h>
 
 class OperDB;
 class VnEntry;
@@ -63,6 +64,7 @@ public:
                          uint16_t fabric_port);
         bool operator==(const LinkLocalService &rhs) const;
         bool IsAddressInUse(const Ip4Address &ip) const;
+        DBTable::DBTableWalkRef vn_update_walk_ref_;
     };
 
     struct FlowAgingTimeoutKey {
@@ -144,7 +146,7 @@ private:
     LinkLocalServicesMap linklocal_services_map_;
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;
-    boost::scoped_ptr<AgentRouteResync> agent_route_resync_walker_;
+    AgentRouteWalkerPtr agent_route_resync_walker_;
     Agent::ForwardingMode forwarding_mode_;
     int32_t flow_export_rate_;
     FlowAgingTimeoutMap flow_aging_timeout_map_;

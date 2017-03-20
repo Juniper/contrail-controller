@@ -801,7 +801,10 @@ void RouteKSyncObject::EmptyTable() {
 VrfKSyncObject::VrfState::VrfState(Agent *agent) :
     DBState(), seen_(false),
     evpn_rt_table_listener_id_(DBTableBase::kInvalidId) {
-    ksync_route_walker_ = new KSyncRouteWalker(agent, this);
+    ksync_route_walker_.reset(new KSyncRouteWalker(agent, this));
+    agent->oper_db()->agent_route_walk_manager()->
+        RegisterWalker(static_cast<AgentRouteWalker *>
+                       (ksync_route_walker_.get()));
 }
 
 void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
@@ -812,7 +815,9 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         if (state) {
             UnRegisterEvpnRouteTableListener(vrf, state);
             vrf->ClearState(partition->parent(), vrf_listener_id_);
-            state->ksync_route_walker_->Delete();
+            ksync_->agent()->oper_db()->agent_route_walk_manager()->
+                ReleaseWalker(static_cast<AgentRouteWalker *>
+                       (state->ksync_route_walker_.get()));
             delete state;
         }
         return;
@@ -857,7 +862,8 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
                 rt_table->Register(boost::bind(&VrfKSyncObject::EvpnRouteTableNotify,
                                            this, _1, _2));
         }
-        state->ksync_route_walker_->NotifyRoutes(vrf);
+        (static_cast<KSyncRouteWalker *>(state->ksync_route_walker_.get()))->
+            NotifyRoutes(vrf);
     }
 }
 
@@ -1059,8 +1065,10 @@ MacAddress VrfKSyncObject::GetIpMacBinding(VrfEntry *vrf,
     return it->second.get_mac();
 }
 
-KSyncRouteWalker::KSyncRouteWalker(Agent *agent, VrfKSyncObject::VrfState *state) :
-    AgentRouteWalker(agent, AgentRouteWalker::ALL), state_(state) {
+KSyncRouteWalker::KSyncRouteWalker(Agent *agent,
+                                   VrfKSyncObject::VrfState *state) :
+    AgentRouteWalker("ksyncroutewalker", agent),
+    state_(state) {
 }
 
 KSyncRouteWalker::~KSyncRouteWalker() {
