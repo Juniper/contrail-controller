@@ -142,7 +142,7 @@ func (veth *VEth) Create() error {
 			}
 
 			// Get name of other end of interface
-			hostIfNameTmp = link.Attrs().Name
+			hostIfNameTmp = link.Name
 
 			glog.V(2).Infof("Created VEth interfaces %s and %s",
 				veth.containerIfName, hostIfNameTmp)
