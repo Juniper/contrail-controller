@@ -15,14 +15,21 @@
 #include <boost/enable_shared_from_this.hpp>
 
 struct VncApiConfig {
-    std::string  cfg_srv_ip;
-    int          cfg_srv_port;
+    std::string  api_srv_ip;
+    int          api_srv_port;
+    bool         api_use_ssl;
+    std::string  api_keyfile;
+    std::string  api_certfile;
+    std::string  api_cafile;
     std::string  ks_srv_ip;
     int          ks_srv_port;
-    std::string  protocol;
-    std::string  user;
-    std::string  password;
-    std::string  tenant;
+    std::string  ks_protocol;
+    std::string  ks_user;
+    std::string  ks_password;
+    std::string  ks_tenant;
+    std::string  ks_keyfile;
+    std::string  ks_certfile;
+    std::string  ks_cafile;
 };
 
 class RespBlock {
