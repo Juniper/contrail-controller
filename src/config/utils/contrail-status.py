@@ -55,10 +55,16 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                                 'contrail-snmp-collector',
                                                 'contrail-topology',
                                                 'contrail-analytics-nodemgr',]},
-                     'database' : {'sysv' : ['supervisor-database'],
-                                   'upstart' : ['supervisor-database'],
+                     'database' : {'sysv' : ['zookeeper',
+                                             'redis-server',
+                                             'supervisor-database'],
+                                   'upstart' : ['zookeeper',
+                                                'redis-server',
+                                                'supervisor-database'],
                                    'supervisor' : ['supervisor-database'],
-                                  'systemd' :['kafka',
+                                  'systemd' :['zookeeper',
+                                              'redis-server',
+                                              'kafka',
                                               'contrail-database-nodemgr']},
                      'webui' : {'sysv' : ['supervisor-webui'],
                                 'upstart' : ['supervisor-webui'],
@@ -68,8 +74,7 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                      'support-service' : {'sysv' : ['supervisor-support-service'],
                                           'upstart' : ['supervisor-support-service'],
                                           'supervisor' : ['supervisor-support-service'],
-                                          'systemd' :['rabbitmq-server',
-                                                      'zookeeper']},
+                                          'systemd' :['rabbitmq-server']},
                     }
 distribution = platform.linux_distribution()[0].lower()
 if distribution.startswith('centos') or \
@@ -487,9 +492,10 @@ def check_status(svc_name, options):
     if do_check_svc:
         check_svc(svc_name)
     if init_sys_used not in ['systemd']:
-        check_svc_status(svc_name, options.debug, options.detail, \
-                options.timeout, options.keyfile, options.certfile, \
-                options.cacert)
+        if svc_name.startswith('supervisor'):
+            check_svc_status(svc_name, options.debug, options.detail, \
+                    options.timeout, options.keyfile, options.certfile, \
+                    options.cacert)
 
 def contrail_service_status(nodetype, options):
     if nodetype == 'compute':
@@ -514,6 +520,8 @@ def contrail_service_status(nodetype, options):
         check_svc('contrail-database', initd_svc=initd_svc)
         print ""
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            if svc_name == 'redis-server' and distribution == 'redhat':
+                svc_name = 'redis'
             check_status(svc_name, options)
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
