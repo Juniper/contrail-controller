@@ -38,7 +38,14 @@ class VncEndpoints(VncCommon):
         return member_obj
 
     def _is_service_exists(self, service_name, service_namespace):
-        name = 'service' + '-' + service_name
+        resource_type = "services"
+        service_info = self._kube.get_resource(resource_type,
+                       service_name, service_namespace)
+        if service_info and 'metadata' in service_info:
+            uid = service_info['metadata'].get('uid')
+            if not uid:
+                return False, None
+        name = VncCommon.make_name(service_name, uid)
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(service_namespace)
         lb_fq_name = proj_fq_name + [name]
         try:
@@ -56,7 +63,10 @@ class VncEndpoints(VncCommon):
         if not lb:
             return
 
-        listener_found = True
+        vm = VirtualMachineKM.get(pod_id)
+        if not vm:
+            return
+
         for ll_id in list(lb.loadbalancer_listeners):
             ll = LoadbalancerListenerKM.get(ll_id)
             if not ll:
@@ -66,18 +76,13 @@ class VncEndpoints(VncCommon):
 
             if port:
                 if ll.params['protocol'] != port['protocol']:
-                    listener_found = False
+                    continue
 
-            if not listener_found:
-                continue
             pool_id = ll.loadbalancer_pool
             if not pool_id:
                 continue
             pool = LoadbalancerPoolKM.get(pool_id)
             if not pool:
-                continue
-            vm = VirtualMachineKM.get(pod_id)
-            if not vm: 
                 continue
 
             for vmi_id in list(vm.virtual_machine_interfaces):
@@ -103,7 +108,6 @@ class VncEndpoints(VncCommon):
         if not lb:
             return
 
-        listener_found = True
         for ll_id in list(lb.loadbalancer_listeners):
             ll = LoadbalancerListenerKM.get(ll_id)
             if not ll:
@@ -114,10 +118,8 @@ class VncEndpoints(VncCommon):
             if port:
                 if ll.params['protocol_port'] != port['port'] or \
                    ll.params['protocol'] != port['protocol']:
-                    listener_found = False
+                    continue
 
-            if not listener_found:
-                continue
             pool_id = ll.loadbalancer_pool
             if not pool_id:
                 continue
