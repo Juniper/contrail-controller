@@ -529,10 +529,11 @@ bool ConfigCassandraClient::ReadUuidTableRows(set<string> *uuid_list) {
     BOOST_FOREACH(string uuid_key, *uuid_list) {
         IFMAP_WARN(IFMapGetRowError, "Missing row in the table", kUuidTableName,
                    uuid_key);
-        MarkCacheDirty(uuid_key);
         HandleObjectDelete(uuid_key);
     }
 
+    // Clear the uuid list.
+    uuid_list.clear();
     return true;
 }
 
