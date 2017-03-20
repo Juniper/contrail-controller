@@ -240,14 +240,14 @@ class VncEndpoints(VncCommon):
     def process(self, event):
         event_type = event['type']
         kind = event['object'].get('kind')
-        uid = event['object']['metadata'].get('uid')
-        name = event['object']['metadata'].get('name')
         namespace = event['object']['metadata'].get('namespace')
+        name = event['object']['metadata'].get('name')
+        uid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, namespace, name))
-        self.logger.debug("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, namespace, name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind, namespace, name, uid))
+        self.logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind, namespace, name, uid))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_endpoint_add(uid, name, namespace, event)

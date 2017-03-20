@@ -22,7 +22,8 @@ from vnc_common import VncCommon
 
 class VncIngress(VncCommon):
     def __init__(self):
-        super(VncIngress,self).__init__('Ingress')
+        self._k8s_event_type = 'Ingress'
+        super(VncIngress,self).__init__(self._k8s_event_type)
         self._name = type(self).__name__
         self._args = vnc_kube_config.args()
         self._queue = vnc_kube_config.queue()
@@ -165,19 +166,16 @@ class VncIngress(VncCommon):
         return ll_obj
 
     def _vnc_create_lb(self, uid, name, ns_name):
-        lb_provider = 'opencontrail'
         proj_obj = self._get_project(ns_name)
         vn_obj = self._get_network(ns_name)
         if proj_obj is None or vn_obj is None:
             return None
 
         vip_address = None
-        annotations = {}
-        annotations['owner'] = 'k8s'
         pod_ipam_subnet_uuid = self._get_pod_ipam_subnet_uuid(vn_obj)
-        lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj,
-                            ns_name, uid, name, proj_obj, vip_address,
-                            pod_ipam_subnet_uuid, annotations=annotations)
+        lb_obj = self.service_lb_mgr.create(self._k8s_event_type, ns_name,
+                            uid, name, proj_obj, vn_obj, vip_address,
+                            pod_ipam_subnet_uuid)
         if lb_obj:
             vip_info = {}
             vip_info['clusterIP'] = lb_obj._loadbalancer_properties.vip_address
@@ -541,19 +539,23 @@ class VncIngress(VncCommon):
         return
 
     def _sync_ingress_lb(self):
-        lb_uuid_list = list(LoadbalancerKM.keys())
-        ingress_uuid_list = list(IngressKM.keys())
-        for uuid in lb_uuid_list:
-            if uuid in ingress_uuid_list:
-                continue
+        lb_uuid_set = set(LoadbalancerKM.keys())
+        ingress_uuid_set = set(IngressKM.keys())
+        deleted_ingress_set = lb_uuid_set - ingress_uuid_set
+        for uuid in deleted_ingress_set:
             lb = LoadbalancerKM.get(uuid)
             if not lb:
                 continue
             if not lb.annotations:
                 continue
+            owner = None
+            kind = None
             for kvp in lb.annotations['key_value_pair'] or []:
-                if kvp['key'] == 'owner' \
-                   and kvp['value'] == 'k8s':
+                if kvp['key'] == 'owner':
+                    owner = kvp['value']
+                elif kvp['key'] == 'kind':
+                    kind = kvp['value']
+                if owner == 'k8s' and kind == self._k8s_event_type:
                     self._create_ingress_event('delete', uuid, lb)
                     break
         return
@@ -564,14 +566,14 @@ class VncIngress(VncCommon):
     def process(self, event):
         event_type = event['type']
         kind = event['object'].get('kind')
+        ns_name = event['object']['metadata'].get('namespace')
         name = event['object']['metadata'].get('name')
         uid = event['object']['metadata'].get('uid')
-        ns_name = event['object']['metadata'].get('namespace')
 
-        print("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, ns_name, name))
-        self._logger.debug("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, ns_name, name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind, ns_name, name, uid))
+        self._logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind, ns_name, name, uid))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self._update_ingress(name, uid, event)

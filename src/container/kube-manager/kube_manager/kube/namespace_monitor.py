@@ -39,11 +39,13 @@ class NamespaceMonitor(KubeMonitor):
             else:
                 # Remove the entry from Namespace DB.
                 self.db.delete(namespace_uuid)
+        else:
+            namespace_uuid = event['object']['metadata'].get('uid')
 
-        print("%s - Got %s %s %s"
-              %(self.name, event_type, kind, name))
-        self.logger.debug("%s - Got %s %s %s"
-              %(self.name, event_type, kind, name))
+        print("%s - Got %s %s %s:%s"
+              %(self.name, event_type, kind, name, namespace_uuid))
+        self.logger.debug("%s - Got %s %s %s:%s"
+              %(self.name, event_type, kind, name, namespace_uuid))
         self.q.put(event)
 
     def event_callback(self):

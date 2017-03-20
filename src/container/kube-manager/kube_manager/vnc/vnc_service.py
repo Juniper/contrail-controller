@@ -18,7 +18,8 @@ from vnc_common import VncCommon
 class VncService(VncCommon):
 
     def __init__(self):
-        super(VncService,self).__init__('Service')
+        self._k8s_event_type = 'Service'
+        super(VncService,self).__init__(self._k8s_event_type)
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
@@ -186,12 +187,9 @@ class VncService(VncCommon):
                        service_namespace, service_ip):
         proj_obj = self._get_project(service_namespace)
         vn_obj = self._get_cluster_network()
-        lb_provider = 'native'
-        annotations = {}
-        annotations['owner'] = 'k8s'
-        lb_obj = self.service_lb_mgr.create(lb_provider, vn_obj,
+        lb_obj = self.service_lb_mgr.create(self._k8s_event_type,
             service_namespace, service_id, service_name, proj_obj,
-            service_ip, annotations=annotations)
+            vn_obj, service_ip)
         return lb_obj
 
     def _lb_create(self, service_id, service_name,
@@ -452,19 +450,23 @@ class VncService(VncCommon):
         return
 
     def _sync_service_lb(self):
-        lb_uuid_list = list(LoadbalancerKM.keys())
-        service_uuid_list = list(ServiceKM.keys())
-        for uuid in lb_uuid_list:
-            if uuid in service_uuid_list:
-                continue
+        lb_uuid_set = set(LoadbalancerKM.keys())
+        service_uuid_set = set(ServiceKM.keys())
+        deleted_uuid_set = lb_uuid_set - service_uuid_set
+        for uuid in deleted_uuid_set:
             lb = LoadbalancerKM.get(uuid)
             if not lb:
                 continue
             if not lb.annotations:
                 continue
+            owner = None
+            kind = None
             for kvp in lb.annotations['key_value_pair'] or []:
-                if kvp['key'] == 'owner' \
-                   and kvp['value'] == 'k8s':
+                if kvp['key'] == 'owner':
+                    owner = kvp['value']
+                elif kvp['key'] == 'kind':
+                    kind = kvp['value']
+                if owner == 'k8s' and kind == self._k8s_event_type:
                     self._create_service_event('delete', uuid, lb)
                     break
         return
@@ -476,9 +478,9 @@ class VncService(VncCommon):
     def process(self, event):
         event_type = event['type']
         kind = event['object'].get('kind')
-        service_id = event['object']['metadata'].get('uid')
-        service_name = event['object']['metadata'].get('name')
         service_namespace = event['object']['metadata'].get('namespace')
+        service_name = event['object']['metadata'].get('name')
+        service_id = event['object']['metadata'].get('uid')
         service_ip = event['object']['spec'].get('clusterIP')
         selectors = event['object']['spec'].get('selector', None)
         ports = event['object']['spec'].get('ports')
@@ -486,10 +488,12 @@ class VncService(VncCommon):
         loadBalancerIp  = event['object']['spec'].get('loadBalancerIP', None)
         externalIps  = event['object']['spec'].get('externalIPs', None)
 
-        print("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, service_namespace, service_name))
-        self.logger.debug("%s - Got %s %s %s:%s"
-              %(self._name, event_type, kind, service_namespace, service_name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind,
+              service_namespace, service_name, service_id))
+        self.logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self._name, event_type, kind,
+              service_namespace, service_name, service_id))
 
         if externalIps is not None:
             externalIp = externalIps[0]

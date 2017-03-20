@@ -296,6 +296,7 @@ class VncKubernetes(VncCommon):
                 metadata = event['object']['metadata']
                 namespace = metadata.get('namespace')
                 name = metadata.get('name')
+                uid = metadata.get('uid')
                 if kind == 'Pod':
                     self.pod_mgr.process(event)
                 elif kind == 'Service':
@@ -309,10 +310,10 @@ class VncKubernetes(VncCommon):
                 elif kind == 'Ingress':
                     self.ingress_mgr.process(event)
                 else:
-                    print("$s - Event %s %s %s:%s not handled"
-                        %(self._name, event_type, kind, namespace, name))
-                    self.logger.error("%s - Event %s %s %s:%s not handled"
-                        %(self._name, event_type, kind, namespace, name))
+                    print("$s - Event %s %s %s:%s:%s not handled"
+                        %(self._name, event_type, kind, namespace, name, uid))
+                    self.logger.error("%s - Event %s %s %s:%s:%s not handled"
+                        %(self._name, event_type, kind, namespace, name, uid))
             except Empty:
                 gevent.sleep(0)
             except Exception as e:

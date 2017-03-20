@@ -19,9 +19,9 @@ class ServiceMonitor(KubeMonitor):
         event_type = event['type']
         kind = event['object'].get('kind')
 
-        service_name = service_data['metadata'].get('name')
         namespace = service_data['metadata'].get('namespace')
-        if not service_name or not namespace:
+        service_name = service_data['metadata'].get('name')
+        if not namespace or not service_name:
             return
 
         if self.db:
@@ -33,11 +33,13 @@ class ServiceMonitor(KubeMonitor):
             else:
                 # Remove the entry from Service DB.
                 self.db.delete(service_uuid)
+        else:
+            service_uuid = service_data['metadata'].get('uid')
 
-        print("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, service_name))
-        self.logger.debug("%s - Got %s %s %s:%s"
-              %(self.name, event_type, kind, namespace, service_name))
+        print("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, service_name, service_uuid))
+        self.logger.debug("%s - Got %s %s %s:%s:%s"
+              %(self.name, event_type, kind, namespace, service_name, service_uuid))
         self.q.put(event)
 
     def event_callback(self):
