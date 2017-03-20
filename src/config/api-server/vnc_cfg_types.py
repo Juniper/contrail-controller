@@ -1186,7 +1186,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         fields = ['network_ipam_refs', 'virtual_network_network_id', 'address_allocation_mode',
                   'route_target_list', 'import_route_target_list', 'export_route_target_list',
-                  'multi_policy_service_chains_enabled']
+                  'multi_policy_service_chains_enabled', 'instance_ip_back_refs', 'floating_ip_pools']
         ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id,
                                        obj_fields=fields)
         if not ok:
