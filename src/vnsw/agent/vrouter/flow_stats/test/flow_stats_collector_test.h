@@ -21,14 +21,24 @@ public:
     virtual ~FlowStatsCollectorTest();
     void DispatchFlowMsg(const std::vector<FlowLogData> &msg_list);
     FlowLogData last_sent_flow_log() const;
+    FlowLogData last_sent_flow_del_log() const;
     std::vector<FlowLogData> ingress_flow_log_list() const {
         return ingress_flow_log_list_;
     }
     void ClearList();
+    void ResetLastSentLog();
+    bool flow_log_valid() const { return flow_log_valid_; }
+    bool flow_del_log_valid() const { return flow_del_log_valid_; }
+    uint64_t dispatch_count() const { return dispatch_count_; }
+    void ClearCount();
 
 private:
     FlowLogData flow_log_;
+    bool flow_log_valid_;
+    FlowLogData flow_del_log_;
+    bool flow_del_log_valid_;
     std::vector<FlowLogData> ingress_flow_log_list_;
+    uint64_t dispatch_count_;
 };
 
 #endif  //  vnsw_agent_flow_stats_collector_test_h
