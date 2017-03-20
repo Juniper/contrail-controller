@@ -69,7 +69,8 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                           'upstart' : ['supervisor-support-service'],
                                           'supervisor' : ['supervisor-support-service'],
                                           'systemd' :['rabbitmq-server',
-                                                      'zookeeper']},
+                                                      'zookeeper',
+                                                      'redis-server']},
                     }
 distribution = platform.linux_distribution()[0].lower()
 if distribution.startswith('centos') or \
@@ -521,6 +522,9 @@ def contrail_service_status(nodetype, options):
             check_status(svc_name, options)
     elif (nodetype == 'support-service' and distribution == 'debian'):
         print "== Contrail Support Services =="
+        initd_svc = init == 'sysv'
+        check_svc('zookeeper', initd_svc=initd_svc)
+        check_svc('redis-server', initd_svc=initd_svc)
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
             check_status(svc_name, options)
 
