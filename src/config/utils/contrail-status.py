@@ -59,19 +59,29 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                      'database' : {'sysv' : ['supervisor-database'],
                                    'upstart' : ['supervisor-database'],
                                    'supervisor' : ['supervisor-database'],
-                                  'systemd' :['kafka',
+                                   'systemd' :['kafka',
                                               'contrail-database-nodemgr']},
                      'webui' : {'sysv' : ['supervisor-webui'],
                                 'upstart' : ['supervisor-webui'],
                                 'supervisor' : ['supervisor-webui'],
                                 'systemd' :['contrail-webui',
                                             'contrail-webui-middleware']},
-                     'support-service' : {'sysv' : ['supervisor-support-service'],
-                                          'upstart' : ['supervisor-support-service'],
+                     'support-service' : {'sysv' : ['redis-server',
+                                                    'zookeeper',
+                                                    'supervisor-support-service'],
+                                          'upstart' : ['redis-server',
+                                                       'zookeeper',
+                                                       'supervisor-support-service'],
                                           'supervisor' : ['supervisor-support-service'],
-                                          'systemd' :['rabbitmq-server',
-                                                      'zookeeper']},
+                                          'systemd' :['redis-server',
+                                                      'zookeeper',
+                                                      'rabbitmq-server']},
                     }
+#This is added for support service, we need give the customer module for support service
+CONTRAIL_SERVICE_CUSTOMER = { 'redis-server' : ['webui', 'analytics'],
+                               'rabbitmq-server' : ['config'],
+                               'zookeeper' : ['config']
+                            }
 distribution = platform.linux_distribution()[0].lower()
 if distribution.startswith('centos') or \
    distribution.startswith('red hat'):
@@ -305,8 +315,18 @@ def service_status(svc, check_return_code):
         return 'inactive'
 # end service_status
 
+def service_check_customer(svc):
+    if svc in CONTRAIL_SERVICE_CUSTOMER.keys():
+        for customer in CONTRAIL_SERVICE_CUSTOMER[svc]:
+            if not service_installed('supervisor-' + customer, False):
+                return False
+    return True
+# end service_check_customer
+
 def check_svc(svc, initd_svc=False):
     psvc = svc + ':'
+    if not service_check_customer(svc):
+        return
     if service_installed(svc, initd_svc):
         bootstatus = service_bootstatus(svc, initd_svc)
         status = service_status(svc, initd_svc)
@@ -460,6 +480,8 @@ def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile, ca
             supervisor_svc_info = supervisor_svc_info_cmdout.split()
             if len(supervisor_svc_info) >= 2:
                 svc_name = supervisor_svc_info[0]
+                if not service_check_customer(svc_name):
+                    continue
                 svc_status = supervisor_svc_info[1]
                 svc_detail_info = ' '.join(supervisor_svc_info[2:])
                 # Extract UVE state only for running processes
@@ -507,9 +529,10 @@ def check_status(svc_name, options):
     if do_check_svc:
         check_svc(svc_name)
     if init_sys_used not in ['systemd']:
-        check_svc_status(svc_name, options.debug, options.detail, \
-                options.timeout, options.keyfile, options.certfile, \
-                options.cacert)
+        if svc_name.startswith('supervisor'):
+            check_svc_status(svc_name, options.debug, options.detail, \
+                    options.timeout, options.keyfile, options.certfile, \
+                    options.cacert)
 
 def contrail_service_status(nodetype, options):
     if nodetype == 'compute':
@@ -537,12 +560,14 @@ def contrail_service_status(nodetype, options):
         check_svc('contrail-database', initd_svc=initd_svc)
         print ""
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            if svc_name == 'redis-server' and distribution == 'redhat':
+                svc_name = 'redis'
             check_status(svc_name, options)
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
             check_status(svc_name, options)
-    elif (nodetype == 'support-service' and distribution == 'debian'):
+    elif (nodetype == 'support-service'):
         print "== Contrail Support Services =="
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
             check_status(svc_name, options)
