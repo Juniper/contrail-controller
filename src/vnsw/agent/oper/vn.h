@@ -204,6 +204,7 @@ public:
     const bool mirror_destination() const {
         return mirror_destination_;
     }
+    int vnid() const {return vnid_;}
 
     bool pbb_etree_enable() const {
         return pbb_etree_enable_;
@@ -303,6 +304,7 @@ public:
                                      bool *resync_routes,
                                      VnData *data,
                                      VnEntry *vn);
+    int GetCfgVnId(autogen::VirtualNetwork *cfg_vn);
 
 private:
     static VnTable *vn_table_;

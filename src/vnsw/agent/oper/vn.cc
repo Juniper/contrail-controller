@@ -686,7 +686,7 @@ IFMapNode *VnTable::FindTarget(IFMapAgentTable *table, IFMapNode *node,
     return NULL;
 }
 
-static int GetCfgVnId(VirtualNetwork *cfg_vn) {
+int VnTable::GetCfgVnId(VirtualNetwork *cfg_vn) {
     if (cfg_vn->IsPropertySet(autogen::VirtualNetwork::NETWORK_ID))
         return cfg_vn->network_id();
     else

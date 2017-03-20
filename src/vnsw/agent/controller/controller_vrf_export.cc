@@ -50,7 +50,17 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
     //building ingress replication tree
     bool send_subscribe  = vrf->ShouldExportRoute();
 
-    if (vrf->IsDeleted()) {
+    uint32_t instance_id = vrf->RDInstanceId();
+    //Instance ID being zero is possible because of VN unavailability and VRF
+    //ending up with NULL VRF. Reason being config sequence.
+    //So seeing 0 instance_id delete the state so that resubscribe can be done
+    //with new id and then re-export all route.
+    //Note: Assumption is that instance id will never change from non zero to
+    //some other non zero value.
+    //Also Instance ID check is for TSN and TA only.
+    bool deleted = (vrf->IsDeleted()) || (instance_id == VrfEntry::kInvalidIndex);
+
+    if (deleted) {
         bgp_peer->DeleteVrfState(partition, e);
         if (!AgentXmppChannel::IsXmppChannelActive(agent, bgp_xmpp_peer)) {
             return;
