@@ -47,6 +47,7 @@
 #include <oper/qos_queue.h>
 #include <oper/global_qos_config.h>
 #include <oper/bridge_domain.h>
+#include <oper/agent_route_walker.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -210,6 +211,8 @@ void OperDB::CreateDBTables(DB *db) {
 
     acl_table->ListenerInit();
 
+    route_walk_manager_ =
+        std::auto_ptr<AgentRouteWalkerManager>(new AgentRouteWalkerManager(agent_));
     multicast_ = std::auto_ptr<MulticastHandler>(new MulticastHandler(agent_));
     global_vrouter_ = std::auto_ptr<GlobalVrouter> (new GlobalVrouter(agent_));
     route_preference_module_ =
@@ -242,8 +245,6 @@ void OperDB::CreateDBTables(DB *db) {
         (new OperNetworkIpam(agent_, domain_config_.get()));
     virtual_dns_ = std::auto_ptr<OperVirtualDns>
         (new OperVirtualDns(agent_, domain_config_.get()));
-    agent_route_walker_cleaner_ = std::auto_ptr<AgentRouteWalkerCleaner>
-        (new AgentRouteWalkerCleaner(agent_));
 }
 
 void OperDB::Init() {
@@ -321,6 +322,7 @@ void OperDB::Shutdown() {
     route_preference_module_->Shutdown();
     multicast_->Shutdown();
     multicast_->Terminate();
+    route_walk_manager_->Shutdown();
 
     if (agent_sandesh_manager_.get()) {
         agent_sandesh_manager_->Shutdown();
@@ -351,6 +353,7 @@ void OperDB::Shutdown() {
         agent()->vxlan_table()->Shutdown();
     }
 
+    //route_walk_manager_.reset();
     profile_.reset();
 }
 

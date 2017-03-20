@@ -10,6 +10,7 @@
 #include <cmn/agent.h>
 #include <oper/agent_types.h>
 #include <oper/oper_db.h>
+#include <oper/agent_route_walker.h>
 
 using namespace std;
 class LifetimeActor;
@@ -157,6 +158,7 @@ public:
     void CreateTableLabel(bool learning_enabled, bool l2,
                           bool flod_unknown_unicast,
                           bool layer2_control_word);
+    const std::string GetTableTypeString(uint8_t table_type) const;
     bool AllRouteTableDeleted() const;
     bool RouteTableDeleted(uint8_t table_type) const;
     void SetRouteTableDeleted(uint8_t table_type);
@@ -172,6 +174,7 @@ public:
     }
     InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr) const;
     int RDInstanceId() const;
+    void ReleaseWalker();
 
     uint32_t isid() const {
         return isid_;
@@ -212,7 +215,7 @@ private:
     uint32_t vxlan_id_;
     uint32_t rt_table_delete_bmap_;
     IFMapDependencyManager::IFMapNodePtr vrf_node_ptr_;
-    boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
+    AgentRouteWalkerPtr route_resync_walker_;
     bool allow_route_add_on_deleted_vrf_;
     string bmac_vrf_name_;
     uint32_t isid_;
@@ -257,6 +260,7 @@ public:
     virtual void OnZeroRefcount(AgentDBEntry *e);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
+    virtual void Clear();
 
     // Create a VRF entry with given name
     void CreateVrf(const string &name,
@@ -308,6 +312,8 @@ public:
     void DeleteRoutes();
     void Shutdown();
     void DeleteFromDbTree(int table_type, const std::string &vrf_name);
+    void reset_route_delete_walker() {route_delete_walker_.reset();}
+    void reset_vrf_delete_walker() {vrf_delete_walker_.reset();}
 
 private:
     friend class VrfEntry;
@@ -319,8 +325,8 @@ private:
     VrfDbTree dbtree_[Agent::ROUTE_TABLE_MAX];
     DBTableWalker::WalkId walkid_;
     std::set<std::string> static_vrf_set_;
-    AgentRouteWalker *route_delete_walker_;
-    AgentRouteWalker *vrf_delete_walker_;
+    AgentRouteWalkerPtr route_delete_walker_;
+    AgentRouteWalkerPtr vrf_delete_walker_;
     DISALLOW_COPY_AND_ASSIGN(VrfTable);
 };
 

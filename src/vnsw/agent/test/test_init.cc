@@ -193,11 +193,28 @@ void ShutdownAgentController(Agent *agent) {
     agent->set_controller_ifmap_xmpp_init(NULL, 1);
 }
 
+void VerifyControllerCleanup() {
+    Agent *agent = Agent::GetInstance();
+    while (true) {
+        if (agent->oper_db()->agent_route_walk_manager()->walk_ref_list_size()
+            == 0)
+            break;
+        assert(agent->vrf_table()->empty() == false);
+    }
+}
+
+
+void VerifyShutdown() {
+    VerifyControllerCleanup();
+}
+
 void TestShutdown() {
     TestAgentInit *init = client->agent_init();
     init->Shutdown();
+    client->WaitForIdle();
     AgentStats::GetInstance()->Shutdown();
     AsioStop();
+    VerifyShutdown();
 }
 
 void TestClient::Shutdown() {

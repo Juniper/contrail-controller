@@ -3949,11 +3949,6 @@ BgpPeer *CreateBgpPeer(const Ip4Address &addr, std::string name) {
     return channel->bgp_peer_id();
 }
 
-static bool ControllerCleanupTrigger() {
-    Agent::GetInstance()->controller()->Cleanup();
-    return true;
-}
-
 void FireAllControllerTimers(Agent *agent, AgentXmppChannel *channel) {
     AgentIfMapXmppChannel::NewSeqNumber();
     for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
@@ -3989,10 +3984,8 @@ void FireAllControllerTimers(Agent *agent, AgentXmppChannel *channel) {
     client->WaitForIdle();
 }
 
-void DeleteBgpPeer(Peer *peer) {
-    BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer);
+static bool ControllerCleanupTrigger(BgpPeer *bgp_peer) {
     AgentXmppChannel *channel = NULL;
-    FireAllControllerTimers(Agent::GetInstance(), channel);
     if (bgp_peer) {
         channel = bgp_peer->GetAgentXmppChannel();
         //Increment sequence number to clear config
@@ -4001,14 +3994,22 @@ void DeleteBgpPeer(Peer *peer) {
         Agent::GetInstance()->controller()->FlushTimedOutChannels(channel->
                                             GetXmppServerIdx());
     }
-    client->WaitForIdle();
+    Agent::GetInstance()->controller()->Cleanup();
+    return true;
+}
+
+void DeleteBgpPeer(Peer *peer) {
+    BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer);
+    FireAllControllerTimers(Agent::GetInstance(), NULL);
     int task_id = TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp");
     std::auto_ptr<TaskTrigger> trigger_
-        (new TaskTrigger(boost::bind(ControllerCleanupTrigger), task_id, 0));
+        (new TaskTrigger(boost::bind(&ControllerCleanupTrigger, bgp_peer),
+                         task_id, 0));
     trigger_->Set();
     client->WaitForIdle();
     Agent::GetInstance()->reset_controller_xmpp_channel(0);
     Agent::GetInstance()->reset_controller_xmpp_channel(1);
+    WAIT_FOR(1000, 1000, (trigger_->IsSet() == false)); 
 }
 
 void FillEvpnNextHop(BgpPeer *peer, std::string vrf_name,
