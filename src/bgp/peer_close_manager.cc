@@ -11,7 +11,6 @@
 #include <boost/foreach.hpp>
 
 #include "base/task_annotations.h"
-#include "base/timer.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer_types.h"

@@ -13,20 +13,14 @@
 #include "base/util.h"
 #include "base/logging.h"
 
-#include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_sandesh_context.h"
-#include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
 #include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_update_sender.h"
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include "xmpp/xmpp_connection.h"
-#include "xmpp/xmpp_channel.h"
 #include "xmpp/xmpp_server.h"
 
 const std::string IFMapXmppChannel::NoFqnSet = "NoFqnSet";
