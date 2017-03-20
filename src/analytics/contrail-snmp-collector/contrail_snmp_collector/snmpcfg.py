@@ -90,7 +90,8 @@ Mibs = LldpTable, ArpTable
             'cluster_id'          :'',
         }
         api_opts = {
-            'api_server_list' : ['127.0.0.1:8082']
+            'api_server_list' : ['127.0.0.1:8082'],
+            'api_server_use_ssl' : False
         }
         ksopts = {
             'auth_host': '127.0.0.1',
@@ -195,6 +196,8 @@ Mibs = LldpTable, ArpTable
         parser.add_argument("--api_server_list",
             help="List of api-servers in ip:port format separated by space",
             nargs="+")
+        parser.add_argument("--api_server_use_ssl",
+            help="Use SSL to connect to api-server")
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument("--device-config-file",
             help="where to look for snmp credentials")
@@ -217,6 +220,7 @@ Mibs = LldpTable, ArpTable
                     self._args.api_server_list,
                     self._args.admin_user, self._args.admin_password,
                     self._args.admin_tenant_name,
+                    self._args.api_server_use_ssl,
                     self._args.auth_host, self._args.auth_port,
                     self._args.auth_protocol, self._cb)
         return self._devices

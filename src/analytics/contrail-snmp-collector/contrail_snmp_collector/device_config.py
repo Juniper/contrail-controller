@@ -86,14 +86,15 @@ class DeviceConfig(object):
         return devices
 
     @staticmethod
-    def get_vnc(usr, passwd, tenant, api_servers, auth_host=None,
-            auth_port=None, auth_protocol=None, notifycb=None):
+    def get_vnc(usr, passwd, tenant, api_servers, use_ssl=False,
+            auth_host=None, auth_port=None, auth_protocol=None, notifycb=None):
         e = IOError('Api servers (%s) not reachable' % ','.join(api_servers))
         while True:
           for api_server in api_servers:
             srv = api_server.split(':')
             try:
                 vnc = VncApi(usr, passwd, tenant, srv[0], srv[1],
+                        api_server_use_ssl=use_ssl,
                         auth_host=auth_host, auth_port=auth_port,
                         auth_protocol=auth_protocol)
                 if callable(notifycb):
@@ -107,13 +108,14 @@ class DeviceConfig(object):
                 time.sleep(3)
 
     @staticmethod
-    def fom_api_server(api_servers, usr, passwd, tenant, auth_host=None,
-            auth_port=None, auth_protocol=None, notifycb=None):
+    def fom_api_server(api_servers, usr, passwd, tenant, use_ssl=False,
+            auth_host=None, auth_port=None, auth_protocol=None, notifycb=None):
         while True:
             try:
                 vnc = DeviceConfig.get_vnc(usr, passwd, tenant, api_servers,
-                        auth_host=auth_host, auth_port=auth_port,
-                        auth_protocol=auth_protocol, notifycb=notifycb)
+                        use_ssl=use_ssl, auth_host=auth_host,
+                        auth_port=auth_port, auth_protocol=auth_protocol,
+                        notifycb=notifycb)
                 devices = map(lambda e: DeviceDict(e['fq_name'][-1], vnc, **e),
                                                    vnc.physical_routers_list()[
                                 'physical-routers'])

@@ -77,7 +77,8 @@ class CfgParser(object):
         }
 
         api_opts = {
-            'api_server_list' : ['127.0.0.1:8082']
+            'api_server_list' : ['127.0.0.1:8082'],
+            'api_server_use_ssl' : False
         }
 
         redis_opts = {
@@ -226,6 +227,8 @@ class CfgParser(object):
         parser.add_argument("--api_server_list",
             help="List of api-servers in ip:port format separated by space",
             nargs="+")
+        parser.add_argument("--api_server_use_ssl",
+            help="Use SSL to connect to api-server")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -264,8 +267,11 @@ class CfgParser(object):
     def zk_list(self):
         return self._args.zk_list;
 
-    def api_server_list(self):
-        return self._args.api_server_list
+    def api_server_config(self):
+        return {
+            'api_server_list': self._args.api_server_list,
+            'api_server_use_ssl': self._args.api_server_use_ssl
+        }
 
     def log_local(self):
         return self._args.log_local

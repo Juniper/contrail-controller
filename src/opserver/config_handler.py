@@ -19,11 +19,13 @@ from sandesh_common.vns.constants import API_SERVER_DISCOVERY_SERVICE_NAME
 
 class ConfigHandler(object):
 
-    def __init__(self, service_id, logger, api_server_list,
+    def __init__(self, service_id, logger, api_server_config,
                  keystone_info, rabbitmq_info, config_types=None):
         self._service_id = service_id
         self._logger = logger
-        self._api_servers = [tuple(s.split(':')) for s in api_server_list]
+        self._api_servers = [tuple(s.split(':')) \
+            for s in api_server_config['api_server_list']]
+        self._api_server_use_ssl = api_server_config['api_server_use_ssl']
         self._keystone_info = keystone_info
         self._rabbitmq_info = rabbitmq_info
         self._config_types = config_types
@@ -139,6 +141,7 @@ class ConfigHandler(object):
                         self._keystone_info['admin_password'],
                         self._keystone_info['admin_tenant_name'],
                         api_server[0], api_server[1],
+                        api_server_use_ssl=self._api_server_use_ssl,
                         auth_host=self._keystone_info['auth_host'],
                         auth_protocol=self._keystone_info['auth_protocol'],
                         auth_port=self._keystone_info['auth_port'])

@@ -80,7 +80,8 @@ optional arguments:
             'cluster_id'      : '',
         }
         api_opts = {
-            'api_server_list' : ['127.0.0.1:8082']
+            'api_server_list' : ['127.0.0.1:8082'],
+            'api_server_use_ssl' : False
         }
         ksopts = {
             'auth_host': '127.0.0.1',
@@ -188,6 +189,8 @@ optional arguments:
         parser.add_argument("--api_server_list",
             help="List of api-servers in ip:port format separated by space",
             nargs="+")
+        parser.add_argument("--api_server_use_ssl",
+            help="Use SSL to connect to api-server")
 
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
@@ -270,6 +273,7 @@ optional arguments:
                                  self._args.admin_password,
                                  self._args.admin_tenant_name,
                                  srv[0], srv[1],
+                                 api_server_use_ssl=self._args.api_server_use_ssl,
                                  auth_host=self._args.auth_host,
                                  auth_port=self._args.auth_port,
                                  auth_protocol=self._args.auth_protocol)

@@ -5,6 +5,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include "base/util.h"
+#include "base/logging.h"
 #include "base/test/task_test_util.h"
 #include <iomanip>
 #include <ctype.h>
@@ -16,6 +17,8 @@
 #include <rapidjson/stringbuffer.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 #include "vncapi.h"
 
@@ -112,12 +115,19 @@ void
 VncApi::Reauthenticate(RespBlock *orb)
 {
     if (client_) {
-        RespBlock *rb = new RespBlock(client_->CreateConnection(ks_ep_),
-                "v2.0/tokens", 0);
+        HttpConnection *conn = client_->CreateConnection(ks_ep_);
+        if (cfg_->ks_protocol == "https") {
+            conn->set_use_ssl(true);
+            conn->set_client_cert(cfg_->ks_certfile);
+            conn->set_client_cert_type("PEM");
+            conn->set_client_key(cfg_->ks_keyfile);
+            conn->set_ca_cert(cfg_->ks_cafile);
+        }
+        RespBlock *rb = new RespBlock(conn, "v2.0/tokens", 0);
         std::ostringstream pstrm;
         pstrm << "{\"auth\": {\"passwordCredentials\": {\"username\": \"" <<
-            cfg_->user << "\", \"password\": \"" << cfg_->password <<
-            "\"}, \"tenantName\": \"" << cfg_->tenant << "\"}}";
+            cfg_->ks_user << "\", \"password\": \"" << cfg_->ks_password <<
+            "\"}, \"tenantName\": \"" << cfg_->ks_tenant << "\"}}";
         rb->GetConnection()->HttpPost(pstrm.str(), rb->GetUri(), false, false,
                 true, kshdr_, boost::bind(&VncApi::KsRespHandler,
                 shared_from_this(), rb, orb, _1, _2));
@@ -240,14 +250,28 @@ VncApi::VncApi(EventManager *evm, VncApiConfig *cfg) : evm_(evm), cfg_(cfg),
     SetApiServerAddress();
     ks_ep_.address(boost::asio::ip::address::from_string(cfg_->ks_srv_ip, ec));
     ks_ep_.port(cfg_->ks_srv_port);
+    if (cfg_->api_use_ssl) {
+        boost::property_tree::ptree pt;
+        try {
+            boost::property_tree::ini_parser::read_ini(
+                "/etc/contrail/vnc_api_lib.ini", pt);
+        } catch (const boost::property_tree::ptree_error &e) {
+            LOG(ERROR, "Failed to parse /etc/contrail/vnc_api_lib.ini : " <<
+                e.what());
+            exit(1);
+        }
+        cfg_->api_keyfile = pt.get<std::string>("global.keyfile", "");
+        cfg_->api_certfile = pt.get<std::string>("global.certfile", "");
+        cfg_->api_cafile = pt.get<std::string>("global.cafile", "");
+    }
 }
 
 void
 VncApi::SetApiServerAddress() {
     boost::system::error_code ec;
-    api_ep_.address(boost::asio::ip::address::from_string(cfg_->cfg_srv_ip,
+    api_ep_.address(boost::asio::ip::address::from_string(cfg_->api_srv_ip,
                 ec));
-    api_ep_.port(cfg_->cfg_srv_port);
+    api_ep_.port(cfg_->api_srv_port);
 }
 
 void
@@ -272,7 +296,15 @@ VncApi::GetConfig(std::string type, std::vector<std::string> ids,
             std::map<std::string, std::string> *headers)> cb)
 {
     if (client_) {
-        RespBlock *rb = new RespBlock(client_->CreateConnection(api_ep_),
+        HttpConnection *conn = client_->CreateConnection(api_ep_);
+        if (cfg_->api_use_ssl) {
+            conn->set_use_ssl(true);
+            conn->set_client_cert(cfg_->api_certfile);
+            conn->set_client_cert_type("PEM");
+            conn->set_client_key(cfg_->api_keyfile);
+            conn->set_ca_cert(cfg_->api_cafile);
+        }
+        RespBlock *rb = new RespBlock(conn,
                 MakeUri(type, ids, filters, parents, refs, fields), cb);
         rb->GetConnection()->HttpGet(rb->GetUri(), false, false, true, hdr_,
                 boost::bind(&VncApi::RespHandler, shared_from_this(),
