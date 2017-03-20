@@ -994,6 +994,7 @@ class AddrMgmt(object):
     # alias_ip
     def _check_subnet_delete(self, subnets_set, vn_dict):
         db_conn = self._get_db_conn()
+
         instip_refs = vn_dict.get('instance_ip_back_refs') or []
         for ref in instip_refs:
             try:
@@ -1104,6 +1105,10 @@ class AddrMgmt(object):
     # any subnet is being deleted and has backref to
     # instance-ip/floating-ip/alias-ip
     def ipam_check_subnet_delete(self, db_ipam_dict, req_ipam_dict):
+        obj_fields = ['network_ipam_refs', 'instance_ip_back_refs',
+                                'floating_ip_pools']
+        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network',
+                                vn_dict['uuid'], obj_fields)
         if 'ipam_subnets' not in req_ipam_dict:
             # subnets not modified in request
             return True, ""
@@ -1151,6 +1156,10 @@ class AddrMgmt(object):
     # any subnet is being deleted and has backref to
     # instance-ip/floating-ip/alias-ip
     def net_check_subnet_delete(self, db_vn_dict, req_vn_dict):
+        obj_fields = ['network_ipam_refs', 'instance_ip_back_refs',
+                                'floating_ip_pools']
+        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network',
+                                vn_dict['uuid'], obj_fields)
         if 'network_ipam_refs' not in req_vn_dict:
             # subnets not modified in request
             return True, ""
