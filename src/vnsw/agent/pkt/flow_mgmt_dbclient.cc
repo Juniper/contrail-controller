@@ -426,6 +426,7 @@ void FlowMgmtDbClient::VrfNotify(DBTablePartBase *part, DBEntryBase *e) {
     if (vrf->IsDeleted()) {
         if (state ) {
             state->deleted_ = true;
+            DeleteDefaultRouteState(vrf);
             DeleteEvent(vrf, state);
         }
         return;
