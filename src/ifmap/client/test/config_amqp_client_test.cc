@@ -3,11 +3,9 @@
  */
 #include <boost/foreach.hpp>
 #include <fstream>
-
 #include <string>
 #include <vector>
 
-#include <boost/foreach.hpp>
 #include <tbb/mutex.h>
 
 #include "base/logging.h"

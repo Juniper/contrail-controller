@@ -13,7 +13,6 @@
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/db_table_partition.h"
-#include "ifmap/autogen.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_log.h"
