@@ -402,6 +402,16 @@ TEST_F(LlgrTest, basic) {
     client->WaitForIdle();
 }
 
+TEST_F(LlgrTest, ready_on_ready_channel) {
+    SetupSingleVmEnvironment();
+    client->WaitForIdle();
+    //Ready
+    Ready(bgp_peer_, false);
+    //Cleanup
+    DeleteSingleVmEnvironment();
+    client->WaitForIdle();
+}
+
 TEST_F(LlgrTest, flap_control_node) {
     SetupSingleVmEnvironment();
     client->WaitForIdle();

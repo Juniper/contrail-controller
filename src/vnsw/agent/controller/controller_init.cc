@@ -75,6 +75,7 @@ VNController::VNController(Agent *agent)
         timed_out_channels_[count].clear();
     }
     delpeer_walks_.clear();
+    cleanup_done_ = false;
 }
 
 VNController::~VNController() {

@@ -200,6 +200,7 @@ private:
     AgentXmppChannelList timed_out_channels_[MAX_XMPP_SERVERS];
     AgentXmppChannelList delpeer_walks_;
     bool disconnect_;
+    tbb::atomic<bool> cleanup_done_;
 };
 
 extern SandeshTraceBufferPtr ControllerInfoTraceBuf;
