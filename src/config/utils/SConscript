@@ -52,6 +52,7 @@ utils_scripts = [
   'provision_issu.py',
   'issu_process.sh',
   'qosmap.py',
+  'update_default_global_qos_config.py',
 ]
 
 for utils in utils_scripts:
