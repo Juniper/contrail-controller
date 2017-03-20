@@ -994,6 +994,12 @@ class AddrMgmt(object):
     # alias_ip
     def _check_subnet_delete(self, subnets_set, vn_dict):
         db_conn = self._get_db_conn()
+
+        obj_fields = ['network_ipam_refs', 'instance_ip_back_refs',
+                'floating_ip_pools']
+        (read_ok, vn_dict) = db_conn.dbe_read('virtual-network',
+                vn_dict['uuid'], obj_fields)
+
         instip_refs = vn_dict.get('instance_ip_back_refs') or []
         for ref in instip_refs:
             try:
