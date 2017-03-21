@@ -129,8 +129,14 @@ class KubeMonitor(object):
                     event = {'object':resp.json(), 'type':'ADDED'}
                     self.process_event(event)
                 except ValueError:
-                    self.logger.error("Invalid data read from kube api server :"
+                    self.logger.error("Invalid data read from kube api server:"
                                       " %s" % (entry))
+                except Exception as e:
+                    string_buf = StringIO()
+                    cgitb_hook(file=string_buf, format="text")
+                    err_msg = string_buf.getvalue()
+                    self.logger.error("%s - %s" %(self.name, err_msg))
+
                 resp.close()
 
     def register_monitor(self):

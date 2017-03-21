@@ -77,15 +77,36 @@ class VncPod(VncCommon):
 
     def _get_network(self, pod_id, pod_namespace):
         """
-        Get network corresponding to this namesapce.
+        Get virtual network to be associated with the pod.
+        The heuristics to determine which virtual network to use for the pod
+        is as follows:
+        if (virtual network is annotated in the pod config):
+            Use virtual network configured on the pod.
+        else if (virtual network if annotated in the pod's namespace):
+            Use virtual network configured on the namespace.
+        else if (pod is in a isolated namespace):
+            Use the virtual network associated with isolated namespace.
+        else:
+            Use the pod virtual network associated with kubernetes cluster.
         """
-        vn_fq_name = None
-        if self._is_pod_network_isolated(pod_namespace) == True:
-            ns = self._get_namespace(pod_namespace)
-            if ns:
-                vn_fq_name = ns.get_network_fq_name()
 
-        # If no network was found on the namesapce, default to the cluster
+        # Check for virtual-network configured on the pod.
+        pod = PodKM.find_by_name_or_uuid(pod_id)
+        vn_fq_name = pod.get_vn_fq_name()
+
+        ns = self._get_namespace(pod_namespace)
+
+        # Check of virtual network configured on the namespace.
+        if not vn_fq_name:
+            vn_fq_name = ns.get_annotated_network_fq_name()
+
+        # If the pod's namespace is isolated, use the isolated virtual
+        # network.
+        if not vn_fq_name:
+            if self._is_pod_network_isolated(pod_namespace) == True:
+                vn_fq_name = ns.get_isolated_network_fq_name()
+
+        # Finally, if no network was found, default to the cluster
         # pod network.
         if not vn_fq_name:
             vn_fq_name = vnc_kube_config.cluster_default_project_fq_name() +\
@@ -120,7 +141,7 @@ class VncPod(VncCommon):
             vnc_kube_config.pod_ipam_fq_name())
 
         # Create instance-ip.
-        display_name=VncCommon.make_name(pod_namespace, pod_name)
+        display_name=VncCommon.make_display_name(pod_namespace, pod_name)
         iip_uuid = str(uuid.uuid1())
         iip_name = VncCommon.make_name(pod_name, iip_uuid)
         iip_obj = InstanceIp(name=iip_name, subnet_uuid=pod_ipam_subnet_uuid,
@@ -171,11 +192,14 @@ class VncPod(VncCommon):
         fip_pool_obj.name = self._service_fip_pool.name
 
         # Create Floating-Ip object.
+        obj_uuid = str(uuid.uuid1())
         display_name=VncCommon.make_display_name(pod_namespace, pod_name)
-        fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (pod_name),
+        name = VncCommon.make_name(pod_name, obj_uuid)
+        fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (name),
                     parent_obj=fip_pool_obj,
                     floating_ip_traffic_direction='egress',
                     display_name=display_name)
+        fip_obj.uuid = obj_uuid
 
         # Creation of fip requires the vmi vnc object.
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(

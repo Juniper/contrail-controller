@@ -47,10 +47,16 @@ class VncNamespace(VncCommon):
         # By default, namespace is not isolated.
         return False
 
+    def _get_annotated_virtual_network(self, ns_name):
+        ns = self._get_namespace(ns_name)
+        if ns:
+            return ns.get_annotated_network_fq_name()
+        return None
+
     def _set_namespace_virtual_network(self, ns_name, fq_name):
         ns = self._get_namespace(ns_name)
         if ns:
-            return ns.set_network_fq_name(fq_name)
+            return ns.set_isolated_network_fq_name(fq_name)
         return None
 
     def _create_ipam(self, ipam_name, subnets, proj_obj, type):
@@ -243,11 +249,23 @@ class VncNamespace(VncCommon):
 
         ProjectKM.locate(proj_obj.uuid)
 
+        # Validate the presence of annotated virtual network.
+        ann_vn_fq_name = self._get_annotated_virtual_network(name)
+        if ann_vn_fq_name:
+            # Validate that VN exists.
+            try:
+                self._vnc_lib.virtual_network_read(ann_vn_fq_name)
+            except NoIdError as e:
+                self.logger.error("Unable to locate virtual network [%s]"
+                    "annotated on namespace [%s]. Error [%s]" %\
+                    (ann_vn_fq_name, name, str(e)))
+            return None
+
         # If this namespace is isolated, create it own network.
         if self._is_namespace_isolated(name) == True:
             vn_name = name + "-vn"
-            self._create_virtual_network(ns_name= name, vn_name=vn_name,
-                                         proj_obj = proj_obj)
+            self._create_virtual_network(ns_name=name, vn_name=vn_name,
+                proj_obj=proj_obj)
 
         return proj_obj
 

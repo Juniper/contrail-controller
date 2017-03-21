@@ -8,6 +8,7 @@ Database for Kubernetes objects.
 
 from cfgm_common.vnc_db import DBBase
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
+from ast import literal_eval
 
 class KubeDBBase(DBBase):
     obj_type = __name__
@@ -23,6 +24,28 @@ class KubeDBBase(DBBase):
             return obj.get('metadata').get('uid')
         return None
 
+    def get_vn_from_annotation(self, annotations):
+        """ Get virtual network annotations from a k8s object.
+        """
+        fq_name_key = ['domain','project','name']
+        vn_fq_name = []
+        vn_ann = annotations.get('network', None)
+        if vn_ann:
+            vn = literal_eval(vn_ann)
+            if not vn:
+                err_msg = "No virtual network annotations were found."
+                raise Exception(err_msg)
+
+            # Virtual network annotation found.
+            for key in fq_name_key:
+                value = vn.get(key, None)
+                if value:
+                    vn_fq_name.append(value)
+                else:
+                    err_msg = "[%s] not specified in annotations." %\
+                        (key)
+                    raise Exception(err_msg)
+        return vn_fq_name
 #
 # Kubernetes POD Object DB.
 #
@@ -37,6 +60,8 @@ class PodKM(KubeDBBase):
         self.name = None
         self.namespace = None
         self.labels = {}
+        self.annotations = None
+        self.pod_vn_fq_name = None
 
         # Spec.
         self.nodename = None
@@ -62,6 +87,8 @@ class PodKM(KubeDBBase):
         self.name = md.get('name')
         self.namespace = md.get('namespace')
         self.labels = md.get('labels')
+        self.annotations = md.get('annotations', None)
+        self._parse_annotations(self.annotations)
 
     def _update_spec(self, spec):
         if spec is None:
@@ -100,6 +127,24 @@ class PodKM(KubeDBBase):
         # Send the reply out.
         pod_resp.response(req.context())
 
+    def _parse_annotations(self, annotations):
+        if not annotations:
+            return
+
+        # Parse pod network annotations.
+        if not self.pod_vn_fq_name:
+            try:
+                self.pod_vn_fq_name = self.get_vn_from_annotation(
+                    annotations)
+            except Exception as e:
+                err_msg = "Failed to parse annotation for pod[%s].Error[%s]"%\
+                    (self.name, str(e))
+                raise Exception(err_msg)
+
+    def get_vn_fq_name(self):
+        """Return virtual-network fq-name annotated on this pod."""
+        return self.pod_vn_fq_name
+
 #
 # Kubernetes Namespace Object DB.
 #
@@ -112,13 +157,15 @@ class NamespaceKM(KubeDBBase):
 
         # Metadata.
         self.name = None
+        self.isolated_vn_fq_name = None
+        self.annotated_vn_fq_name = None
+        self.annotations = None
 
         # Status.
         self.phase = None
 
         # Config cache.
         self.isolated = False
-        self.vn_fq_name = None
 
         # If an object is provided, update self with contents of object.
         if obj:
@@ -136,15 +183,29 @@ class NamespaceKM(KubeDBBase):
         self.name = md.get('name')
 
         # Parse annotations on this namespace.
-        annotations = md.get('annotations')
+        self.annotations = md.get('annotations')
+        self._parse_annotations(self.annotations)
 
-        if annotations:
-            # Cache isolated namespace directive.
-            if 'isolated' in annotations and annotations['isolated'] == "true":
-                # Namespace is configured as isolated.
-                self.isolated = True
-            else:
-                self.isolated = False
+    def _parse_annotations(self, annotations):
+        if not annotations:
+            return
+
+        # Parse virtual network annotations.
+        if not self.annotated_vn_fq_name:
+            try:
+                self.annotated_vn_fq_name = self.get_vn_from_annotation(
+                    annotations)
+            except Exception as e:
+                err_msg = "Failed to parse annotations for namespace [%s]."\
+                " Error[%s]" % (self.name, str(e))
+                raise Exception(err_msg)
+
+        # Cache isolated namespace directive.
+        if 'isolated' in annotations and annotations['isolated'] == "true":
+            # Namespace is configured as isolated.
+            self.isolated = True
+        else:
+            self.isolated = False
 
     def _update_status(self, status):
         if status is None:
@@ -154,11 +215,14 @@ class NamespaceKM(KubeDBBase):
     def is_isolated(self):
         return self.isolated
 
-    def set_network_fq_name(self, fq_name):
-        self.vn_fq_name = fq_name
+    def set_isolated_network_fq_name(self, fq_name):
+        self.isolated_vn_fq_name = fq_name
 
-    def get_network_fq_name(self):
-        return self.vn_fq_name
+    def get_isolated_network_fq_name(self):
+        return self.isolated_vn_fq_name
+
+    def get_annotated_network_fq_name(self):
+        return self.annotated_vn_fq_name
 
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):
