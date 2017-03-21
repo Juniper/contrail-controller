@@ -141,6 +141,9 @@ bool MiscUtils::GetPlatformInfo(std::string &distro, std::string &code_name) {
     } else if (result.find("precise") != std::string::npos) {
         distro = "Ubuntu";
         code_name = "Precise";
+    } else if (result.find("xenial") != std::string::npos) {
+        distro = "Ubuntu";
+        code_name = "Xenial";
     } else if (result.find("rhel") != std::string::npos) {
         distro = "rhel";
         code_name = "7.0";
