@@ -154,7 +154,7 @@ class VncNamespace(VncCommon):
         # Clear network info from namespace entry.
         self._set_namespace_virtual_network(ns_name, None)
 
-    def _create_security_groups(self, ns_name, proj_obj, network_policy):
+    def _update_security_groups(self, ns_name, proj_obj, network_policy):
         def _get_rule(ingress, sg, prefix, ethertype):
             sgr_uuid = str(uuid.uuid4())
             if sg:
@@ -203,8 +203,11 @@ class VncNamespace(VncCommon):
             'default'])
         sg_obj = SecurityGroup(name=sg_name, parent_obj=proj_obj,
             id_perms=id_perms, security_group_entries=sg_rules)
-        self._vnc_lib.security_group_create(sg_obj)
-        self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
+        try:
+            self._vnc_lib.security_group_create(sg_obj)
+            self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
+        except RefsExistError:
+            self._vnc_lib.security_group_update(sg_obj)
 
         # create namespace security group
         NAMESPACE_SECGROUP_DESCRIPTION = "Namespace security group"
@@ -214,8 +217,11 @@ class VncNamespace(VncCommon):
         sg_obj = SecurityGroup(name=ns_sg_name, parent_obj=proj_obj,
                                id_perms=id_perms,
                                security_group_entries=None)
-        self._vnc_lib.security_group_create(sg_obj)
-        self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
+        try:
+            self._vnc_lib.security_group_create(sg_obj)
+            self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
+        except RefsExistError:
+            pass
 
     def vnc_namespace_add(self, namespace_id, name, annotations):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
@@ -231,7 +237,7 @@ class VncNamespace(VncCommon):
             if annotations and \
                'net.beta.kubernetes.io/network-policy' in annotations:
                 network_policy = json.loads(annotations['net.beta.kubernetes.io/network-policy'])
-            self._create_security_groups(name, proj_obj, network_policy)
+            self._update_security_groups(name, proj_obj, network_policy)
         except RefsExistError:
             pass
 
@@ -248,19 +254,32 @@ class VncNamespace(VncCommon):
     def vnc_namespace_delete(self,namespace_id,  name):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+
+        default_sg_fq_name = proj_fq_name[:]
+        sg = "-".join([vnc_kube_config.cluster_name(), name, 'default'])
+        default_sg_fq_name.append(sg)
+        ns_sg_fq_name = proj_fq_name[:]
+        ns_sg = "-".join([vnc_kube_config.cluster_name(), name, 'sg'])
+        ns_sg_fq_name.append(ns_sg)
+        sg_list = [default_sg_fq_name, ns_sg_fq_name]
+
         try:
             # If the namespace is isolated, delete its virtual network.
             if self._is_namespace_isolated(name) == True:
                 self._delete_virtual_network(vn_name=name, proj=proj_obj)
-            # delete all security groups
+            # delete default-sg and ns-sg security groups
             security_groups = proj_obj.get_security_groups()
             for sg in security_groups or []:
-                self._vnc_lib.security_group_delete(id=sg['uuid'])
-            # delete the project
-            self._vnc_lib.project_delete(fq_name=proj_fq_name)
+                if sg['to'] in sg_list[:]:
+                    self._vnc_lib.security_group_delete(id=sg['uuid'])
+                    sg_list.remove(sg['to'])
+                    if not len(sg_list):
+                        break
             # delete the namespace
             self._delete_namespace(name)
-        except NoIdError:
+            # delete the project
+            self._vnc_lib.project_delete(fq_name=proj_fq_name)
+        except Exception as e:
             pass
 
     def process(self, event):
@@ -273,7 +292,6 @@ class VncNamespace(VncCommon):
               %(self._name, event_type, kind, name, ns_id))
         self._logger.debug("%s - Got %s %s %s:%s"
               %(self._name, event_type, kind, name, ns_id))
-
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_namespace_add(ns_id, name, annotations)
