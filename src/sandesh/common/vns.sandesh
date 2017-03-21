@@ -13,17 +13,20 @@ const string SERVICE_TOR_AGENT = "contrail-tor-agent"
 const string SERVICE_VROUTER_AGENT = "contrail-vrouter-agent"
 const string SERVICE_CONTROL_NODE = "contrail-control"
 const string SERVICE_DNSD = "contrail-dns"
-const string SERVICE_API_SERVER = "contrail-api:0"
+const string SERVICE_API_SERVER = "contrail-api"
+const string SERVICE_API_SERVER_0 = "contrail-api:0"
 const string SERVICE_SCHEMA_TRANSFORMER = "contrail-schema"
 const string SERVICE_SVC_MONITOR = "contrail-svc-monitor"
 const string SERVICE_DEVICE_MANAGER = "contrail-device-manager"
 const string SERVICE_COLLECTOR = "contrail-collector"
 const string SERVICE_QUERY_ENGINE = "contrail-query-engine"
 const string SERVICE_OPSERVER = "contrail-analytics-api"
-const string SERVICE_ALARM_GENERATOR= "contrail-alarm-gen"
+const string SERVICE_ALARM_GENERATOR = "contrail-alarm-gen"
+const string SERVICE_ALARM_GENERATOR_0 = "contrail-alarm-gen:0"
 const string SERVICE_SNMP_COLLECTOR = "contrail-snmp-collector"
 const string SERVICE_TOPOLOGY = "contrail-topology"
-const string SERVICE_DISCOVERY = "contrail-discovery:0"
+const string SERVICE_DISCOVERY = "contrail-discovery"
+const string SERVICE_DISCOVERY_0 = "contrail-discovery:0"
 const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-stats"
 const string SERVICE_IPMI_STATS_MGR = "contrail-ipmi-stats"
 const string SERVICE_INVENTORY_AGENT = "contrail-inventory-agent"
@@ -112,6 +115,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_OPSERVER : HttpPortOpserver,
     SERVICE_DNSD : HttpPortDns,
     SERVICE_API_SERVER : HttpPortApiServer,
+    SERVICE_API_SERVER_0 : HttpPortApiServer,
     SERVICE_SCHEMA_TRANSFORMER : HttpPortSchemaTransformer,
     SERVICE_SVC_MONITOR : HttpPortSvcMonitor,
     SERVICE_DEVICE_MANAGER : HttpPortDeviceManager,
@@ -124,9 +128,11 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_IPMI_STATS_MGR : HttpPortIpmiStatsmgr,
     SERVICE_INVENTORY_AGENT: HttpPortInventorymgr,
     SERVICE_ALARM_GENERATOR: HttpPortAlarmGenerator,
+    SERVICE_ALARM_GENERATOR_0: HttpPortAlarmGenerator,
     SERVICE_SNMP_COLLECTOR : HttpPortSnmpCollector,
     SERVICE_TOPOLOGY : HttpPortTopology,
-    SERVICE_DISCOVERY : HttpPortDiscovery
+    SERVICE_DISCOVERY : HttpPortDiscovery,
+    SERVICE_DISCOVERY_0 : HttpPortDiscovery
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -137,10 +143,12 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_QUERY_ENGINE,
     SERVICE_OPSERVER,
     SERVICE_API_SERVER,
+    SERVICE_API_SERVER_0,
     SERVICE_SCHEMA_TRANSFORMER,
     SERVICE_SVC_MONITOR,
     SERVICE_DEVICE_MANAGER,
     SERVICE_ALARM_GENERATOR,
+    SERVICE_ALARM_GENERATOR_0,
     SERVICE_SNMP_COLLECTOR,
     SERVICE_DATABASE_NODE_MGR,
     SERVICE_CONFIG_NODE_MGR,
@@ -150,6 +158,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_DATABASE_NODE_MGR,
     SERVICE_TOPOLOGY,
     SERVICE_DISCOVERY,
+    SERVICE_DISCOVERY_0
 ]
 
 const list<string> BackupImplementedServices = [
@@ -165,15 +174,17 @@ const map<string, string> ServicesDefaultConfigurationFile = {
     SERVICE_QUERY_ENGINE : '/etc/contrail/contrail-query-engine.conf',
     SERVICE_OPSERVER : '/etc/contrail/contrail-analytics-api.conf',
     SERVICE_ALARM_GENERATOR : '/etc/contrail/contrail-alarm-gen.conf',
+    SERVICE_ALARM_GENERATOR_0 : '/etc/contrail/contrail-alarm-gen.conf',
     SERVICE_SNMP_COLLECTOR : '/etc/contrail/contrail-snmp-collector.conf',
     SERVICE_TOPOLOGY : '/etc/contrail/contrail-topology.conf',
     SERVICE_API_SERVER : '/etc/contrail/contrail-api.conf',
+    SERVICE_API_SERVER_0 : '/etc/contrail/contrail-api.conf',
     SERVICE_DISCOVERY : '/etc/contrail/contrail-discovery.conf',
+    SERVICE_DISCOVERY_0 : '/etc/contrail/contrail-discovery.conf',
     SERVICE_SCHEMA_TRANSFORMER : '/etc/contrail/contrail-schema.conf',
     SERVICE_SVC_MONITOR : '/etc/contrail/contrail-svc-monitor.conf',
     SERVICE_DEVICE_MANAGER : '/etc/contrail/contrail-device-manager.conf',
     SERVICE_DNSD : '/etc/contrail/dns.conf',
-    SERVICE_DISCOVERY : '/etc/contrail/contrail-discovery.conf',
 }
 
 enum Module {
