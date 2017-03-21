@@ -26,7 +26,10 @@ const CniVersion = "0.2.0"
         "poll-timeout"  : 15,
         "poll-retries"  : 5,
         "log-dir"       : "/var/log/contrail/cni",
-        "log-level"     : "2"
+        "log-level"     : "2",
+        "mode"          : "k8s/mesos",
+        "vif-type"      : "veth/macvlan",
+        "parent-interface" : "eth0"
     },
 
     "name": "contrail",
@@ -62,7 +65,6 @@ type ContrailCni struct {
 	ContainerName string
 	ContainerVn   string
 	VRouter       VRouter
-	VEthIntf      cniVEth.VEth
 }
 
 type cniJson struct {
@@ -110,6 +112,16 @@ func (cni *ContrailCni) Update(containerName, containerUuid,
 	cni.ContainerVn = containerVn
 }
 
+func (cni *ContrailCni) makeInterface(vlanId int) cniIntf.CniIntfMethods {
+	if cni.VifType == VIF_TYPE_MACVLAN {
+		return cniIntf.CniIntfMethods(cniIntf.InitMacVlan(cni.VifParent,
+			cni.cniArgs.IfName, cni.ContainerUuid, cni.cniArgs.Netns, vlanId))
+	}
+
+	return cniIntf.CniIntfMethods(cniIntf.InitVEth(cni.cniArgs.IfName,
+		cni.ContainerUuid, cni.cniArgs.Netns))
+}
+
 /****************************************************************************
  * Add message handlers
  ****************************************************************************/
@@ -127,22 +139,31 @@ func (cni *ContrailCni) Update(containerName, containerUuid,
  - Return result in form of types.Result
 */
 func (cni *ContrailCni) CmdAdd() error {
-	// Create the interface object
-	intf := cniVEth.Init(cni.cniArgs.IfName, cni.cniArgs.Netns,
-		cni.ContainerUuid)
-
-	// Create interface inside the container
-	if err := intf.Create(); err != nil {
-		glog.Errorf("Error creating VEth interface. %+v", err)
+	// Pre-fetch initial configuration for the interface from vrouter
+	// This will give MAC address for the interface and in case of
+	// VMI sub-interface, we will also get the vlan-tag
+	result, err := cni.VRouter.Poll(cni.ContainerUuid, cni.ContainerVn)
+	if err != nil {
+		glog.Errorf("Error polling for configuration of %s and %s. Error %+v",
+			cni.ContainerUuid, cni.ContainerVn, err)
 		return err
 	}
 
+	result.VlanId = 100
+	intf := cni.makeInterface(result.VlanId)
 	intf.Log()
+
+	err = intf.Create()
+	if err != nil {
+		glog.Errorf("Error creating interface object. %+v", err)
+		return err
+	}
+
 	// Inform vrouter about interface-add. The interface inside container
 	// must be created by this time
-	result, err := cni.VRouter.Add(cni.ContainerName, cni.ContainerUuid,
+	result, err = cni.VRouter.Add(cni.ContainerName, cni.ContainerUuid,
 		cni.ContainerVn, cni.cniArgs.ContainerID, cni.cniArgs.Netns,
-		cni.cniArgs.IfName, intf.HostIfName)
+		cni.cniArgs.IfName, intf.GetHostIfName())
 	if err != nil {
 		glog.V(2).Infof("Error in Add to VRouter. %+v", err)
 		return err
@@ -171,10 +192,11 @@ func (cni *ContrailCni) CmdAdd() error {
  * Delete message handlers
  ****************************************************************************/
 func (cni *ContrailCni) CmdDel() error {
-	// Create the interface object
-	intf := cniVEth.Init(cni.cniArgs.IfName, cni.cniArgs.Netns,
-		cni.ContainerUuid)
-	if err := intf.Delete(); err != nil {
+	intf := cni.makeInterface(0)
+	intf.Log()
+
+	err := intf.Delete()
+	if err != nil {
 		glog.Errorf("Error deleting interface. Error %v\n", err)
 	} else {
 		glog.V(2).Infof("Deleted interface %s inside container",
@@ -182,7 +204,7 @@ func (cni *ContrailCni) CmdDel() error {
 	}
 
 	// Inform vrouter about interface-delete.
-	err := cni.VRouter.Del(cni.ContainerUuid, cni.ContainerVn)
+	err = cni.VRouter.Del(cni.ContainerUuid, cni.ContainerVn)
 	if err != nil {
 		glog.Errorf("Error deleting interface from agent. Error %v\n", err)
 	}

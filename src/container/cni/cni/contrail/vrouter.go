@@ -159,16 +159,17 @@ func (vrouter *VRouter) Get(url string) (*Result, error) {
 }
 
 // Poll response from VRouter
-func (vrouter *VRouter) Poll() (*Result, error) {
+func (vrouter *VRouter) PollUrl(url string) (*Result, error) {
 	var msg string
 	for i := 0; i < vrouter.PollRetries; i++ {
-		result, err := vrouter.Get("/vm")
+		result, err := vrouter.Get(url)
 		if err == nil {
 			glog.V(2).Infof("Get from vrouter success. Result %+v", result)
 			return result, nil
 		}
 
 		msg = err.Error()
+		glog.V(2).Infof("Iteration %d : Get vrouter failed. Error %+v", i, msg)
 		time.Sleep(time.Duration(vrouter.PollTimeout) * time.Second)
 	}
 
@@ -265,7 +266,7 @@ func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
 	// Make the agent call
 	vrouter.addVmToAgent(addMsg)
 
-	result, poll_err := vrouter.Poll()
+	result, poll_err := vrouter.PollUrl("/vm")
 	if poll_err != nil {
 		return nil, poll_err
 	}
@@ -330,6 +331,22 @@ func (vrouter *VRouter) Del(containerUuid, containerVn string) error {
 	}
 
 	return ret
+}
+
+/****************************************************************************
+ * POLL handling
+ ****************************************************************************/
+func (vrouter *VRouter) Poll(containerUuid, containerVn string) (*Result,
+	error) {
+	vrouter.containerUuid = containerUuid
+	vrouter.containerVn = containerVn
+
+	result, poll_err := vrouter.PollUrl("/vm-cfg")
+	if poll_err != nil {
+		return nil, poll_err
+	}
+
+	return result, nil
 }
 
 /****************************************************************************
