@@ -21,7 +21,6 @@ public:
     bool Process(VmStatData *vm_stat_data);
     void SendVmStats(void);
     virtual void DispatchVmStatsMsg(const VirtualMachineStats &uve);
-    VmUveEntry *InterfaceIdToVmUveEntry(uint32_t id);
 protected:
     virtual void VmStatCollectionStart(VmUveVmState *state, const VmEntry *vm);
     virtual void VmStatCollectionStop(VmUveVmState *state);
