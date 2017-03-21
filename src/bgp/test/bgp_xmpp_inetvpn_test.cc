@@ -1028,6 +1028,116 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteLocalPrefToMed) {
 }
 
 //
+// Route is not advertised to agent that subscribed with no-ribout.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, SubscribeNoRibOut1) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance with no-ribout.
+    // Register agent B to blue instance.
+    agent_a_->Subscribe("blue", 1, true, true);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agent B, but not on agent A.
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 200);
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+
+    // Unsubscribe agent B from blue instance and subscribe with no-ribout.
+    agent_b_->Unsubscribe("blue");
+    agent_b_->Subscribe("blue", 1, true, true);
+
+    // Verify that route is not present at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Route is not advertised to agent that subscribed with no-ribout.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, SubscribeNoRibOut2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register agent A to blue instance with no-ribout.
+    // Register agent B to blue instance.
+    agent_a_->Subscribe("blue", 1, true, true);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent B.
+    stringstream route_b;
+    route_b << "10.1.1.2/32";
+    agent_b_->AddRoute("blue", route_b.str(), "192.168.1.2", 200);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agent B, but not on agent A.
+    VerifyRouteExists(agent_b_, "blue", route_b.str(), "192.168.1.2", 200);
+    VerifyRouteNoExists(agent_a_, "blue", route_b.str());
+
+    // Unsubscribe agent A from blue instance and subscribe without no-ribout.
+    agent_a_->Unsubscribe("blue");
+    agent_a_->Subscribe("blue", 1);
+
+    // Verify that route is present at agents A and B.
+    VerifyRouteExists(agent_a_, "blue", route_b.str(), "192.168.1.2", 200);
+    VerifyRouteExists(agent_b_, "blue", route_b.str(), "192.168.1.2", 200);
+
+    // Delete route from agent B.
+    agent_b_->DeleteRoute("blue", route_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_b.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_b.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
 // Agent flaps a route by changing it repeatedly.
 //
 TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteFlap1) {
