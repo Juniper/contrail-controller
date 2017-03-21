@@ -121,8 +121,11 @@ class VncPod(VncCommon):
 
         # Create instance-ip.
         display_name=VncCommon.make_name(pod_namespace, pod_name)
-        iip_obj = InstanceIp(name=pod_name, subnet_uuid=pod_ipam_subnet_uuid,
+        iip_uuid = str(uuid.uuid1())
+        iip_name = VncCommon.make_name(pod_name, iip_uuid)
+        iip_obj = InstanceIp(name=iip_name, subnet_uuid=pod_ipam_subnet_uuid,
                     display_name=display_name)
+        iip_obj.uuid = iip_uuid
         iip_obj.add_virtual_network(vn_obj)
 
         # Creation of iip requires the vmi vnc object.
