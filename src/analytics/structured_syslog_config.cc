@@ -5,6 +5,7 @@
 
 #include <sstream>
 #include <boost/make_shared.hpp>
+#include <boost/regex.hpp>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include "analytics_types.h"
@@ -68,6 +69,28 @@ StructuredSyslogConfig::PollApplicationRecords() {
         cfgdb_connection_->GetVnc()->GetConfig("structured-syslog-application-record", ids,
                 filters, parents, refs,
                 fields, boost::bind(&StructuredSyslogConfig::ApplicationRecordsHandler, this,
+                    _1, _2, _3, _4, _5, _6));
+    }
+}
+
+void
+StructuredSyslogConfig::PollMessageConfigs() {
+    if (cfgdb_connection_->GetVnc()) {
+        std::vector<std::string> ids;
+        std::vector<std::string> filters;
+        std::vector<std::string> parents;
+        std::vector<std::string> refs;
+        std::vector<std::string> fields;
+
+        fields.push_back("display_name");
+        fields.push_back("structured_syslog_message_tagged_fields");
+        fields.push_back("structured_syslog_message_integer_fields");
+        fields.push_back("structured_syslog_message_process_and_store");
+        fields.push_back("structured_syslog_message_forward");
+
+        cfgdb_connection_->GetVnc()->GetConfig("structured-syslog-message", ids,
+                filters, parents, refs,
+                fields, boost::bind(&StructuredSyslogConfig::MessageConfigsHandler, this,
                     _1, _2, _3, _4, _5, _6));
     }
 }
@@ -183,6 +206,59 @@ StructuredSyslogConfig::ApplicationRecordsHandler(contrail_rapidjson::Document &
 
 }
 
+void
+StructuredSyslogConfig::MessageConfigsHandler(contrail_rapidjson::Document &jdoc,
+            boost::system::error_code &ec,
+            const std::string &version, int status, const std::string &reason,
+            std::map<std::string, std::string> *headers) {
+    if (jdoc.IsObject() && jdoc.HasMember("structured-syslog-messages")) {
+        for (contrail_rapidjson::SizeType j = 0;
+                    j < jdoc["structured-syslog-messages"].Size(); j++) {
+                const contrail_rapidjson::Value& hr = jdoc["structured-syslog-messages"][j];
+                std::vector< std::string > ints;
+                std::vector< std::string > tags;
+                std::string name, forward;
+                bool process_and_store = false;
+
+                name = hr["display_name"].GetString();
+                if (hr.HasMember("structured_syslog_message_tagged_fields")) {
+                    const contrail_rapidjson::Value& tagged_fields = hr["structured_syslog_message_tagged_fields"];
+                    const contrail_rapidjson::Value& tag_array = tagged_fields["field_names"];
+                    assert(tag_array.IsArray());
+                    for (contrail_rapidjson::SizeType i = 0; i < tag_array.Size(); i++)
+                        tags.push_back(tag_array[i].GetString());
+                }
+                if (hr.HasMember("structured_syslog_message_integer_fields")) {
+                    const contrail_rapidjson::Value& integer_fields = hr["structured_syslog_message_integer_fields"];
+                    const contrail_rapidjson::Value& int_array = integer_fields["field_names"];
+                    assert(int_array.IsArray());
+                    for (contrail_rapidjson::SizeType i = 0; i < int_array.Size(); i++)
+                        ints.push_back(int_array[i].GetString());
+                }
+                if (hr.HasMember("structured_syslog_message_forward")) {
+                    forward = hr["structured_syslog_message_forward"].GetString();
+                }
+                if (hr.HasMember("structured_syslog_message_process_and_store")) {
+                    process_and_store = hr["structured_syslog_message_process_and_store"].GetBool();
+                }
+                LOG(DEBUG, "Adding MessageConfig: " << name);
+                AddMessageConfig(name, tags, ints, process_and_store, forward);
+        }
+        Cmc_t::iterator cit = message_configs_.begin();
+        while (cit != message_configs_.end()) {
+            Cmc_t::iterator dit = cit++;
+            if (!dit->second->GetandClearRefreshed()) {
+                LOG(DEBUG, "Erasing HostnameRecord: " << dit->second->name());
+                message_configs_.erase(dit);
+            }
+        }
+        return;
+    } else {
+        cfgdb_connection_->RetryNextApi();
+    }
+
+}
+
 boost::shared_ptr<HostnameRecord>
 StructuredSyslogConfig::GetHostnameRecord(const std::string &name) {
     Chr_t::iterator it = hostname_records_.find(name);
@@ -259,5 +335,65 @@ StructuredSyslogConfig::AddTenantApplicationRecord(const std::string &name,
                     tenant_app_groups, tenant_app_risk, tenant_app_service_tags));
         tenant_application_records_.insert(std::make_pair<std::string,
                 boost::shared_ptr<TenantApplicationRecord> >(name, c));
+    }
+}
+
+boost::shared_ptr<MessageConfig>
+StructuredSyslogConfig::GetMessageConfig(const std::string &name) {
+    Cmc_t::iterator it = message_configs_.find(name);
+    if (it  != message_configs_.end()) {
+        /* exact match */
+        return it->second;
+    }
+    /* no exact match, look for match based on regex */
+    Cmc_t::iterator cit = message_configs_.begin();
+    Cmc_t::iterator end = message_configs_.end();
+    Cmc_t::iterator match = end;
+    while (cit != end) {
+        boost::regex pattern;
+        Cmc_t::iterator dit = cit++;
+        boost::match_results<std::string::const_iterator> what;
+        boost::match_flag_type flags = boost::match_default;
+        std::string::const_iterator name_start = name.begin(), name_end = name.end();
+        try {
+            pattern = boost::regex(dit->second->name());
+        }
+        catch (boost::regex_error& e) {
+            LOG(DEBUG, "skipping invalid regex pattern: " << dit->second->name());
+            continue;
+        }
+        if(regex_search(name_start, name_end, what, pattern, flags)) {
+            if ((match == end) || (match->second->name().length() < dit->second->name().length())) {
+                match = dit;
+            }
+        }
+    }
+    if (match != end) {
+        return match->second;
+    }
+    /* no match */
+    return boost::shared_ptr<MessageConfig>();
+}
+
+void
+StructuredSyslogConfig::AddMessageConfig(const std::string &name,
+        const std::vector< std::string > &tags, const std::vector< std::string > &ints,
+        bool process_and_store, const std::string &forward_action) {
+    bool forward = false, process_before_forward = false;
+    if (forward_action == "forward-unprocessed") {
+        forward = true;
+    }
+    if (forward_action == "forward-processed") {
+        forward = true;
+        process_before_forward = true;
+    }
+    Cmc_t::iterator it = message_configs_.find(name);
+    if (it  != message_configs_.end()) {
+        it->second->Refresh(name, tags, ints, process_and_store, forward, process_before_forward);
+    } else {
+        boost::shared_ptr<MessageConfig> c(new MessageConfig(
+                    name, tags, ints, process_and_store, forward, process_before_forward));
+        message_configs_.insert(std::make_pair<std::string,
+                boost::shared_ptr<MessageConfig> >(name, c));
     }
 }
