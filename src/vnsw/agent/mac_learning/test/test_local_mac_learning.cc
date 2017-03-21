@@ -25,6 +25,8 @@
 #include "vr_types.h"
 #include <services/services_sandesh.h>
 #include "mac_learning/mac_learning_proto.h"
+#include "mac_learning/mac_learning_mgmt.h"
+#include "mac_learning/mac_learning_init.h"
 // Create vm-port and vn
 struct PortInfo input[] = {
     {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
@@ -211,6 +213,34 @@ TEST_F(MacLearningTest, Test5) {
     EXPECT_TRUE(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL);
     EXPECT_TRUE(agent_->mac_learning_proto()->add_tokens()->token_count() ==
                 tokens);
+}
+
+//Check multiple delete of same MAC doesnt result in any crash
+TEST_F(MacLearningTest, Test6) {
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+
+    for (int32_t i = 0; i < 255; i++) {
+        MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, i);
+        TxL2Packet(intf->id(),  smac.ToString().c_str(), "00:00:00:33:22:11",
+                "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
+    }
+    client->WaitForIdle();
+
+    //Disable delete queue such that multiple delete request
+    //gets enqueue for same MAC one when interface is deleted
+    //and one when VRF is deleted.
+    MacLearningPartition *partititon = agent_->mac_learning_proto()->Find(0);
+    partititon->SetDeleteQueueDisable(true);
+    VmInterface::Delete(Agent::GetInstance()->interface_table(),
+            MakeUuid(1), VmInterface::INSTANCE_MSG);
+    DelVrf("vrf1");
+    client->WaitForIdle();
+
+    partititon->SetDeleteQueueDisable(false);
+    client->WaitForIdle();
+
+    MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, 0xff);
+    WAIT_FOR(1000, 1000,(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL));
 }
 
 int main(int argc, char *argv[]) {

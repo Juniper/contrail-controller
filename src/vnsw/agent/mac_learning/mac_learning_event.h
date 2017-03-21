@@ -86,6 +86,10 @@ public:
         queue_.MayBeStartRunner();
     }
 
+    void SetQueueDisable(bool disable) {
+        queue_.set_disable(disable);
+    }
+
 private:
     MacLearningPartition *partition_;
     TokenPool *pool_;

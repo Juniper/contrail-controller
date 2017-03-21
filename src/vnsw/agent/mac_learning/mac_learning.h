@@ -172,6 +172,10 @@ public:
     void EnqueueMgmtReq(MacLearningEntryPtr ptr, bool add);
     void MayBeStartRunner(TokenPool *pool);
 
+    void SetDeleteQueueDisable(bool disable) {
+        delete_request_queue_.SetQueueDisable(disable);
+    }
+
 private:
     friend class MacLearningSandeshResp;
     Agent *agent_;

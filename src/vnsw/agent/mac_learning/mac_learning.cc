@@ -235,6 +235,10 @@ void MacLearningPartition::Delete(const MacLearningEntryPtr ptr) {
         return;
     }
 
+    if (ptr->deleted() == true) {
+        return;
+    }
+
     ptr->Delete();
     MacLearningEntryRequestPtr aging_req(new MacLearningEntryRequest(
                                          MacLearningEntryRequest::DELETE_MAC,
