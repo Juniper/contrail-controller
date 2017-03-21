@@ -159,7 +159,7 @@ TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_EcmpTransition_2) {
     EXPECT_TRUE(rflow->rpf_nh() == vmi_[13]->flow_key_nh());
 
     // Restore 2 more interfaces in ECMP
-    CreateVmportWithEcmp(input10, 3);
+    CreateVmportWithEcmp(input10, 2);
     client->WaitForIdle();
 
     flow = FlowGet(GetVrfId("vrf1"), "1.1.1.1", "1.1.1.10", 1, 0, 0,
@@ -529,7 +529,8 @@ TEST_F(LocalEcmpTest, Metadata_Ecmp_1) {
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
+    client = TestInit(init_file, ksync_init, true, true, true, 100*1000,
+                      10000*1000);
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
     TestShutdown();

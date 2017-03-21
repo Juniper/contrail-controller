@@ -46,7 +46,7 @@ TEST_F(FlowTest, FlowDeleteInterface) {
     }
 
     client->WaitForIdle();
-    EXPECT_EQ(200U, get_flow_proto()->FlowCount());
+    WAIT_FOR(1000, 1000, (200 == get_flow_proto()->FlowCount()));
 
     //Delete the interface with reference help
     DeleteVmportEnv(input, 2, false);
