@@ -12,7 +12,7 @@ namespace impl {
 
 bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
     const boost::asio::ip::address remote_address,
-    StatWalker::StatTableInsertFn stat_db_callback, StructuredSyslogServerConfig *config_obj);
+    StatWalker::StatTableInsertFn stat_db_callback, StructuredSyslogConfig *config_obj);
 
 }  // namespace impl
 }  // namespace structured_syslog

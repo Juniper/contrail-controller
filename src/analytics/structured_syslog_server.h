@@ -34,20 +34,6 @@ class StructuredSyslogServer {
     StructuredSyslogServerImpl *impl_;
 };
 
-//
-// StructuredSyslogServer Config
-//
-class StructuredSyslogServerConfig {
- public:
-    StructuredSyslogServerConfig(StructuredSyslogConfig *structured_syslog_config);
-    virtual ~StructuredSyslogServerConfig();
-    void Init();
-    std::vector<std::string> messages_handled;
-    std::vector<std::string> tagged_fields;
-    std::vector<std::string> int_fields;
-    StructuredSyslogConfig *structured_syslog_config_;
-};
-
 }  // namespace structured_syslog
 
 #endif  // ANALYTICS_STRUCTURED_SYSLOG_SERVER_H_

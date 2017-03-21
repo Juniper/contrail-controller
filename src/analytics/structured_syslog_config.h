@@ -9,6 +9,7 @@
 #include <tbb/atomic.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/regex.hpp>
+#include <boost/algorithm/string.hpp>
 #include "http/client/vncapi.h"
 #include "parser_util.h"
 #include "configdb_connection.h"
@@ -164,9 +165,61 @@ class TenantApplicationRecord {
         std::string            tenant_app_service_tags_;
 };
 
+class MessageConfig {
+    public:
+        explicit MessageConfig(const std::string &name, const std::vector< std::string > &tags,
+        const std::vector< std::string > &ints, bool process_and_store, bool forward,
+        bool process_before_forward):
+            refreshed_(true), name_(name), tags_(tags), ints_(ints), process_and_store_(process_and_store),
+            forward_(forward), process_before_forward_(process_before_forward) {
+        }
+        bool operator==(const MessageConfig &rhs) {
+            return rhs.IsMe(name_) &&  std::equal(rhs.tags().begin(), rhs.tags().end(), tags_.begin()) &&
+            std::equal(rhs.ints().begin(), rhs.ints().end(), ints_.begin()) && rhs.forward() == forward_ &&
+            rhs.process_and_store() == process_and_store_ &&
+            rhs.process_before_forward() == process_before_forward_;
+        }
+
+        const std::string name() { return name_; }
+        const std::vector< std::string > tags() const { return tags_; }
+        const std::vector< std::string > ints() const { return ints_; }
+        const bool process_and_store() const { return process_and_store_; }
+        const bool forward() const { return forward_; }
+        const bool process_before_forward() const { return process_before_forward_; }
+        bool IsMe(const std::string &name) const { return name == name_; }
+        void Refresh(const std::string &name, const std::vector< std::string > &tags,
+                     const std::vector< std::string > &ints, bool process_and_store,
+                     bool forward, bool process_before_forward) {
+             if (!(std::equal(tags.begin(), tags.end(), tags_.begin()))) {
+                tags_ = tags;
+             }
+             if (!(std::equal(ints.begin(), ints.end(), ints_.begin()))) {
+                ints_ = ints;
+             }
+             if (process_and_store_ != process_and_store)
+                process_and_store_ = process_and_store;
+             if (forward_ != forward)
+                forward_ = forward;
+             if (process_before_forward_ != process_before_forward)
+                process_before_forward_ = process_before_forward;
+
+            refreshed_ = true;
+        }
+        bool GetandClearRefreshed() { bool r = refreshed_; refreshed_ = false; return r;}
+    private:
+        bool                        refreshed_;
+        std::string                 name_;
+        std::vector< std::string >  tags_;
+        std::vector< std::string >  ints_;
+        bool                        process_and_store_;
+        bool                        forward_;
+        bool                        process_before_forward_;
+};
+
 typedef std::map<std::string, boost::shared_ptr<HostnameRecord> > Chr_t;
 typedef std::map<std::string, boost::shared_ptr<ApplicationRecord> > Car_t;
 typedef std::map<std::string, boost::shared_ptr<TenantApplicationRecord> > Ctar_t;
+typedef std::map<std::string, boost::shared_ptr<MessageConfig> > Cmc_t;
 
 class StructuredSyslogConfig {
     public:
@@ -181,11 +234,16 @@ class StructuredSyslogConfig {
         void AddTenantApplicationRecord(const std::string &name, const std::string &tenant_app_category,
                                   const std::string &tenant_app_subcategory, const std::string &tenant_app_groups,
                                   const std::string &tenant_app_risk, const std::string &tenant_app_service_tags);
+        void AddMessageConfig(const std::string &name, const std::vector< std::string > &tags,
+                                  const std::vector< std::string > &ints, bool process_and_store,
+                                  const std::string &forward);
         void PollHostnameRecords();
         void PollApplicationRecords();
+        void PollMessageConfigs();
         boost::shared_ptr<HostnameRecord> GetHostnameRecord(const std::string &name);
         boost::shared_ptr<ApplicationRecord> GetApplicationRecord(const std::string &name);
         boost::shared_ptr<TenantApplicationRecord> GetTenantApplicationRecord(const std::string &name);
+        boost::shared_ptr<MessageConfig> GetMessageConfig(const std::string &name);
 
     private:
         void HostnameRecordsHandler(contrail_rapidjson::Document &jdoc,
@@ -196,9 +254,15 @@ class StructuredSyslogConfig {
                     boost::system::error_code &ec,
                     const std::string &version, int status, const std::string &reason,
                     std::map<std::string, std::string> *headers);
+        void MessageConfigsHandler(contrail_rapidjson::Document &jdoc,
+                    boost::system::error_code &ec,
+                    const std::string &version, int status, const std::string &reason,
+                    std::map<std::string, std::string> *headers);
+
         Chr_t hostname_records_;
         Car_t application_records_;
         Ctar_t tenant_application_records_;
+        Cmc_t message_configs_;
         boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
 };
 
