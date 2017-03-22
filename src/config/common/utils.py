@@ -178,3 +178,9 @@ def shareinfo_from_perms2(field):
     return x
 # end
 
+def compare_refs(old_refs, new_refs):
+    # compare refs in an object
+    old_ref_dict = dict((':'.join(ref['to']), ref.get('attr')) for ref in old_refs or [])
+    new_ref_dict = dict((':'.join(ref['to']), ref.get('attr')) for ref in new_refs or [])
+    return old_ref_dict == new_ref_dict
+# end compare_refs

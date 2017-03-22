@@ -38,8 +38,8 @@ class VncAmqpHandle(object):
         self.msg_tracer.error = msg
 
     def msgbus_trace_msg(self):
-            self.msg_tracer.trace_msg(name='MessageBusNotifyTraceBuf',
-                                      sandesh=self.logger._sandesh)
+        self.msg_tracer.trace_msg(name='MessageBusNotifyTraceBuf',
+                                  sandesh=self.logger._sandesh)
 
     def _vnc_subscribe_callback(self, oper_info):
         self._db_resync_done.wait()
@@ -137,7 +137,11 @@ class VncAmqpHandle(object):
             return
 
         try:
-            self.obj.update()
+            if self.obj.update() == False:
+                # If update returns a False it indicates nothing has changed.
+                # If it returns True or None, then some change was detected.
+                # If no change, then terminate dependency tracker
+                return
         except NoIdError:
             obj_id = self.oper_info['uuid']
             self.logger.warning('%s uuid %s update caused NoIdError' %
