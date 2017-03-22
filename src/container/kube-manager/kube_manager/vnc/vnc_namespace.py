@@ -17,7 +17,8 @@ from vnc_common import VncCommon
 class VncNamespace(VncCommon):
 
     def __init__(self):
-        super(VncNamespace,self).__init__('Namespace')
+        self._k8s_event_type = 'Namespace'
+        super(VncNamespace,self).__init__(self._k8s_event_type)
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._logger = vnc_kube_config.logger()
@@ -209,6 +210,9 @@ class VncNamespace(VncCommon):
             'default'])
         sg_obj = SecurityGroup(name=sg_name, parent_obj=proj_obj,
             id_perms=id_perms, security_group_entries=sg_rules)
+        self.add_annotations(sg_obj, SecurityGroupKM.kube_fq_name_key,
+            namespace=ns_name, name=sg_obj.name,
+            k8s_event_type = self._k8s_event_type)
         try:
             self._vnc_lib.security_group_create(sg_obj)
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
@@ -223,6 +227,9 @@ class VncNamespace(VncCommon):
         sg_obj = SecurityGroup(name=ns_sg_name, parent_obj=proj_obj,
                                id_perms=id_perms,
                                security_group_entries=None)
+        self.add_annotations(sg_obj, SecurityGroupKM.kube_fq_name_key,
+            namespace=ns_name, name=sg_obj.name,
+            k8s_event_type = self._k8s_event_type)
         try:
             self._vnc_lib.security_group_create(sg_obj)
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())

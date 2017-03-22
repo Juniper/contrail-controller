@@ -73,6 +73,9 @@ class ServiceLbManager(VncCommon):
             service_ns, 'default'])
         sg_obj = SecurityGroup(sg_name, proj_obj)
         vmi_obj.add_security_group(sg_obj)
+        sg_name = "-".join([vnc_kube_config.cluster_name(), service_ns, "sg"])
+        sg_obj = SecurityGroup(sg_name, proj_obj)
+        vmi_obj.add_security_group(sg_obj)
         try:
             self.logger.debug("Create LB Interface %s " % vmi_obj.get_fq_name())
             self._vnc_lib.virtual_machine_interface_create(vmi_obj)
