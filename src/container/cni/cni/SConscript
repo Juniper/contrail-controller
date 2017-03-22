@@ -1,0 +1,13 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+subdirs=[
+    'kube_cni',
+]
+
+env.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)

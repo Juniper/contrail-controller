@@ -1,0 +1,14 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+import os
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+gobin = env.GoCniBuild('kube_cni')
+
+env.Alias('contrail-cni', gobin)
+env.Default(gobin)
