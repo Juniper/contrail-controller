@@ -189,13 +189,6 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
                       pkt_info->agent_hdr.ifindex << ">");
             return INVALID;
         }
-
-        if (pkt_info->l3_forwarding == false &&
-            vm_itf->bridging() == false) {
-            PKT_TRACE(Err, "bridging not enabled for interface "
-                      "index <" << pkt_info->agent_hdr.ifindex << ">");
-            return INVALID;
-        }
     }
    
 

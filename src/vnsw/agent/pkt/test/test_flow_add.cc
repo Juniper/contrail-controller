@@ -642,6 +642,43 @@ TEST_F(FlowTest, WaitForTraffic) {
     EXPECT_TRUE(evpn_Rt->WaitForTraffic() == false);
 }
 
+//Send traffic to DMAC pointing to receive route
+//DMAC should not match VRRP mac and physical interface mac
+//Make the VN as l3 only VN
+//In pkt parsing this packet would be treated as l2 flow
+//since DMAC neither matches VRRP mac nor physical interface mac
+//Verify such packet results in flow setup
+TEST_F(FlowTest, VCenterL3DisabledVn) {
+    AddL3Vn("vn5", 1);
+    client->WaitForIdle();
+
+    MacAddress mac(0, 0xb, 0xc, 0xa, 0xf, 0xe);
+
+    PathPreference p;
+    agent_->fabric_evpn_table()->
+        AddReceiveRouteReq(agent_->local_peer(), "vrf5", 0, mac,
+                           Ip4Address(0), 0, "vn5", p);
+    client->WaitForIdle();
+
+    //Enqueue a flow with wrong mac address
+    TxL2Packet(flow0->id(), input[0].mac, mac.ToString().c_str(),
+               input[0].addr, input[1].addr, 1);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm2_ip,
+                            IPPROTO_ICMP, 0, 0, flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->l3_flow() == true);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+
+    agent_->fabric_evpn_table()->DeleteReq(agent_->local_peer(), "vrf5",
+                                           mac, Ip4Address(0), 0, NULL);
+    client->WaitForIdle();
+    //Restore
+    AddVn("vn5", 1);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
