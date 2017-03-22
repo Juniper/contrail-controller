@@ -430,16 +430,14 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
     switch (req->event()) {
     case FlowMgmtRequest::UPDATE_FLOW: {
         FlowEntry *flow = req->flow().get();
-        {
-            // Before processing event, set the request pointer in flow to
-            // NULL. This ensures flow-entry enqueues new request from now
-            // onwards
-            tbb::mutex::scoped_lock mutex(flow->mutex());
-            flow->set_flow_mgmt_request(NULL);
-        }
+        // Before processing event, set the request pointer in flow to
+        // NULL. This ensures flow-entry enqueues new request from now
+        // onwards
+        tbb::mutex::scoped_lock mutex(flow->mutex());
+        flow->set_flow_mgmt_request(NULL);
 
         // Update flow-mgmt information based on flow-state
-        if (req->flow()->deleted() == false) {
+        if (flow->deleted() == false) {
             FlowMgmtRequestPtr log_req(new FlowMgmtRequest
                                        (FlowMgmtRequest::ADD_FLOW,
                                         req->flow().get()));
@@ -553,7 +551,6 @@ void FlowMgmtManager::LogFlowUnlocked(FlowEntry *flow, const std::string &op) {
 // Extract all the FlowMgmtKey for a flow
 void FlowMgmtManager::MakeFlowMgmtKeyTree(FlowEntry *flow,
                                           FlowMgmtKeyTree *tree) {
-    tbb::mutex::scoped_lock mutex(flow->mutex());
     acl_flow_mgmt_tree_.ExtractKeys(flow, tree);
     interface_flow_mgmt_tree_.ExtractKeys(flow, tree);
     vn_flow_mgmt_tree_.ExtractKeys(flow, tree);
