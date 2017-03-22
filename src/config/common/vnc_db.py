@@ -7,7 +7,8 @@ This file contains implementation of database model for contrail config daemons
 """
 from exceptions import NoIdError
 from vnc_api.gen.resource_client import *
-from utils import obj_type_to_vnc_class
+from utils import obj_type_to_vnc_class, compare_refs
+
 
 class DBBase(object):
     # This is the base class for all DB objects. All derived objects must
@@ -179,6 +180,7 @@ class DBBase(object):
         return None
     # end get_single_ref_attr
 
+    # Update a single ref. Return True if any update was made
     def update_single_ref(self, ref_type, obj):
         if isinstance(obj, dict):
             refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
@@ -192,14 +194,17 @@ class DBBase(object):
             new_key = None
         old_key = getattr(self, ref_type, None)
         if old_key == new_key:
-            return
-        ref_obj = self.get_obj_type_map()[ref_type].get(old_key)
-        if ref_obj is not None:
-            ref_obj.delete_ref(self.obj_type, self.get_key())
-        ref_obj = self.get_obj_type_map()[ref_type].get(new_key)
-        if ref_obj is not None:
-            ref_obj.add_ref(self.obj_type, self.get_key())
+            return False
+        ref_cls = self.get_obj_type_map().get(ref_type)
+        if ref_cls:
+            ref_obj = ref_cls.get(old_key)
+            if ref_obj is not None:
+                ref_obj.delete_ref(self.obj_type, self.get_key())
+            ref_obj = ref_cls.get(new_key)
+            if ref_obj is not None:
+                ref_obj.add_ref(self.obj_type, self.get_key())
         setattr(self, ref_type, new_key)
+        return True
     # end update_single_ref
 
     def set_children(self, ref_type, obj):
@@ -214,6 +219,7 @@ class DBBase(object):
         setattr(self, ref_type+'s', new_refs)
     # end set_children
 
+    # Update a multiple refs. Return True if any update was made
     def update_multiple_refs(self, ref_type, obj):
         if isinstance(obj, dict):
             refs = obj.get(ref_type+'_refs') or obj.get(ref_type+'_back_refs')
@@ -226,6 +232,8 @@ class DBBase(object):
             new_key = self._get_ref_key(ref, ref_type)
             new_refs.add(new_key)
         old_refs = getattr(self, ref_type+'s')
+        if old_refs == new_refs:
+            return False
         for ref_key in old_refs - new_refs:
             ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
             if ref_obj is not None:
@@ -235,7 +243,14 @@ class DBBase(object):
             if ref_obj is not None:
                 ref_obj.add_ref(self.obj_type, self.get_key())
         setattr(self, ref_type+'s', new_refs)
+        return True
     # end update_multiple_refs
+
+    def update_refs(self, ref_type, obj):
+        if hasattr(self, ref_type):
+            return self.update_single_ref(ref_type, obj)
+        elif isinstance(getattr(self, ref_type+'s', None), set):
+            return self.update_multiple_refs(ref_type, obj)
 
     def update_multiple_refs_with_attr(self, ref_type, obj):
         if isinstance(obj, dict):
@@ -249,17 +264,21 @@ class DBBase(object):
             new_key = self._get_ref_key(ref, ref_type)
             new_refs[new_key] = ref.get('attr')
         old_refs = getattr(self, ref_type+'s')
+        update = False
         for ref_key in set(old_refs.keys()) - set(new_refs.keys()):
+            update = True
             ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
             if ref_obj is not None:
                 ref_obj.delete_ref(self.obj_type, self.get_key())
         for ref_key in new_refs:
             if ref_key in old_refs and new_refs[ref_key] == old_refs[ref_key]:
                 continue
+            update = True
             ref_obj = self.get_obj_type_map()[ref_type].get(ref_key)
             if ref_obj is not None:
                 ref_obj.add_ref(self.obj_type, self.get_key(), new_refs[ref_key])
         setattr(self, ref_type+'s', new_refs)
+        return update
     # end update_multiple_refs
 
     @classmethod
@@ -292,6 +311,36 @@ class DBBase(object):
         obj.clear_pending_updates()
         return obj
     # end read_vnc_obj
+
+    def update_vnc_obj(self, obj=None):
+        if obj:
+            old_obj = None
+            self.obj = obj
+        else:
+            old_obj = getattr(self, 'obj', None)
+            uuid = getattr(self, 'uuid', None)
+            if uuid:
+                self.obj = self.read_vnc_obj(uuid=uuid)
+            else:
+                self.obj = self.read_vnc_obj(fq_name=self.name)
+
+        changed = []
+        for field in self.ref_fields or []:
+            old_field = getattr(old_obj, field+'_refs', None)
+            new_field = getattr(self.obj, field+'_refs', None)
+            if compare_refs(old_field, new_field):
+                continue
+            self.update_refs(field, self.obj)
+            changed.append(field)
+        for field in self.prop_fields or []:
+            old_field = getattr(old_obj, field, None)
+            new_field = getattr(self.obj, field, None)
+            if old_field == new_field:
+                continue
+            if hasattr(self, field):
+                setattr(self, field, new_field)
+            changed.append(field)
+        return changed
 
     @classmethod
     def list_obj(cls, obj_type=None, fields=None):
