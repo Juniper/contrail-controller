@@ -61,7 +61,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
                     found = True
                     break
             if found != should_be_present:
-                raise Exception("route " + prefix + "" + next_hop + "not found")
+                raise Exception("route %s %s not found" % (prefix, next_hop))
             return
 
         _match_route_table(vn1, "1.1.1.1/0", "10.10.10.10", ['1:1'])
