@@ -499,7 +499,7 @@ class SvcMonitorTest(unittest.TestCase):
         VncKombuClient.__init__ = mock.MagicMock(return_value=None)
         self.vnc_mock = mock.MagicMock()
 
-        self._svc_monitor = svc_monitor.SvcMonitor(self.args)
+        self._svc_monitor = svc_monitor.SvcMonitor(args=self.args)
 
         self.add_domain("default-domain", 'default-domain')
         self.vnc_mock.service_template_create = test_utils.st_create
