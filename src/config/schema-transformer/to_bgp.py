@@ -48,7 +48,7 @@ _zookeeper_client = None
 
 class SchemaTransformer(object):
 
-    _REACTION_MAP = {
+    REACTION_MAP = {
         'routing_instance': {
             'self': ['virtual_network'],
         },
@@ -140,24 +140,26 @@ class SchemaTransformer(object):
         }
     }
 
-    def __init__(self, args=None):
+    def __init__(self, st_logger=None, args=None):
         self._args = args
         self._fabric_rt_inst_obj = None
 
-        # Initialize discovery client
-        self._disc = None
-        if self._args.disc_server_ip and self._args.disc_server_port:
-            self._disc = client.DiscoveryClient(
-                self._args.disc_server_ip,
-                self._args.disc_server_port,
-                ModuleNames[Module.SCHEMA_TRANSFORMER])
-
-        # Initialize logger
-        self.logger = SchemaTransformerLogger(self._disc, args)
+        if st_logger is not None:
+            self.logger = st_logger
+        else:
+            # Initialize discovery client
+            discovery_client = None
+            if self._args.disc_server_ip and self._args.disc_server_port:
+                discovery_client = client.DiscoveryClient(
+                    self._args.disc_server_ip,
+                    self._args.disc_server_port,
+                    ModuleNames[Module.SCHEMA_TRANSFORMER])
+            # Initialize logger
+            self.logger = SchemaTransformerLogger(discovery_client, args)
 
         # Initialize amqp
-        self._vnc_amqp = STAmqpHandle(self.logger,
-                self._REACTION_MAP, self._args)
+        self._vnc_amqp = STAmqpHandle(self.logger, self.REACTION_MAP,
+                                      self._args)
         self._vnc_amqp.establish()
         try:
             # Initialize cassandra
@@ -560,8 +562,10 @@ def parse_args(args_str):
 transformer = None
 
 
-def run_schema_transformer(args):
+def run_schema_transformer(st_logger, args):
     global _vnc_lib
+
+    st_logger.notice("Elected master Schema Transformer node. Initializing...")
 
     def connection_state_update(status, message=None):
         ConnectionState.update(
@@ -591,13 +595,19 @@ def run_schema_transformer(args):
             time.sleep(3)
 
     global transformer
-    transformer = SchemaTransformer(args)
-    gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
+    transformer = SchemaTransformer(st_logger, args)
+
+    try:
+        gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
+    except KeyboardInterrupt:
+        transformer._vnc_amqp.close()
+        raise
 # end run_schema_transformer
 
 
 def main(args_str=None):
     global _zookeeper_client
+
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
@@ -607,11 +617,31 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
+
+    # Initialize discovery client
+    discovery_client = None
+    if args.disc_server_ip and args.disc_server_port:
+        discovery_client = client.DiscoveryClient(
+            args.disc_server_ip,
+            args.disc_server_port,
+            ModuleNames[Module.SCHEMA_TRANSFORMER])
+    # Initialize logger
+    st_logger = SchemaTransformerLogger(discovery_client, args)
+
+    # Initialize AMQP handler then close it to be sure remain queue of a
+    # precedent run is cleaned
+    vnc_amqp = STAmqpHandle(st_logger, SchemaTransformer.REACTION_MAP, args)
+    vnc_amqp.establish()
+    vnc_amqp.close()
+    st_logger.debug("Removed remained AMQP queue")
+
+    # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
-                                        zk_timeout =args.zk_timeout)
+                                        zk_timeout=args.zk_timeout)
+    st_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
                                       os.getpid(), run_schema_transformer,
-                                      args)
+                                      st_logger, args)
 # end main
 
 

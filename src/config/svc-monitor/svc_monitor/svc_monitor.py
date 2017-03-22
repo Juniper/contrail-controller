@@ -63,7 +63,7 @@ _zookeeper_client = None
 
 class SvcMonitor(object):
 
-    def __init__(self, args=None):
+    def __init__(self, sm_logger=None, args=None):
         self._args = args
 
         # initialize discovery client
@@ -74,7 +74,11 @@ class SvcMonitor(object):
                 self._args.disc_server_port,
                 ModuleNames[Module.SVC_MONITOR])
         # initialize logger
-        self.logger = ServiceMonitorLogger(self._disc, args)
+        if sm_logger is not None:
+            self.logger = sm_logger
+        else:
+            # Initialize logger
+            self.logger = ServiceMonitorLogger(self._disc, args)
 
         # rotating log file for catchall errors
         self._err_file = self._args.trace_file
@@ -834,9 +838,10 @@ def parse_args(args_str):
     return args
 
 
-def run_svc_monitor(args=None):
-    monitor = SvcMonitor(args)
+def run_svc_monitor(sm_logger, args=None):
+    sm_logger.notice("Elected master SVC Monitor node. Initializing... ")
 
+    monitor = SvcMonitor(sm_logger, args)
     monitor._zookeeper_client = _zookeeper_client
 
     # Retry till API server is up
@@ -859,13 +864,18 @@ def run_svc_monitor(args=None):
             # auth failure or haproxy throws 503
             time.sleep(3)
 
-    monitor.post_init(vnc_api, args)
-    timer_task = gevent.spawn(launch_timer, monitor)
-    gevent.joinall([timer_task])
+    try:
+        monitor.post_init(vnc_api, args)
+        timer_task = gevent.spawn(launch_timer, monitor)
+        gevent.joinall([timer_task])
+    except KeyboardInterrupt:
+        monitor.rabbit.close()
+        raise
 
 
 def main(args_str=None):
     global _zookeeper_client
+
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
@@ -876,10 +886,30 @@ def main(args_str=None):
         client_pfx = ''
         zk_path_pfx = ''
 
+    # initialize discovery client
+    discovery_client = None
+    if args.disc_server_ip and args.disc_server_port:
+        discovery_client = client.DiscoveryClient(
+            args.disc_server_ip,
+            args.disc_server_port,
+            ModuleNames[Module.SVC_MONITOR])
+    # Initialize logger
+    sm_logger = ServiceMonitorLogger(discovery_client, args)
+
+    # Initialize AMQP handler then close it to be sure remain queue of a
+    # precedent run is cleaned
+    vnc_amqp = VncAmqpHandle(sm_logger, DBBaseSM, REACTION_MAP, 'svc_monitor',
+                             args=args)
+    vnc_amqp.establish()
+    vnc_amqp.close()
+    sm_logger.debug("Removed remained AMQP queue")
+
+    # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(
         client_pfx+"svc-monitor", args.zk_server_ip)
+    sm_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx+"/svc-monitor", os.getpid(),
-                                      run_svc_monitor, args)
+                                      run_svc_monitor, sm_logger, args)
 # end main
 
 
