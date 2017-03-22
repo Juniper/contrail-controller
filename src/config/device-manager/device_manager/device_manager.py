@@ -48,8 +48,14 @@ from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_logger import ConfigServiceLogger
 
 
+# zookeeper client connection
+_zookeeper_client = None
+# Device manager logger
+_dm_logger = None
+
+
 class DeviceManager(object):
-    _REACTION_MAP = {
+    REACTION_MAP = {
         'physical_router': {
             'self': ['bgp_router',
                      'physical_interface',
@@ -143,19 +149,12 @@ class DeviceManager(object):
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
         PushConfigState.set_push_delay_max(int(self._args.push_delay_max))
         PushConfigState.set_push_delay_enable(bool(self._args.push_delay_enable))
-  
-        # randomize collector list
-        self._args.random_collectors = self._args.collectors
+
         self._chksum = "";
         if self._args.collectors:
             self._chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
-            self._args.random_collectors = random.sample(self._args.collectors, \
-                                                      len(self._args.collectors))
-    
-        # Initialize logger
-        module = Module.DEVICE_MANAGER
-        module_pkg = "device_manager"
-        self.logger = ConfigServiceLogger(module, module_pkg, args)
+
+        self.logger = _dm_logger
 
         # Retry till API server is up
         connected = False
@@ -182,8 +181,8 @@ class DeviceManager(object):
         gevent.signal(signal.SIGHUP, self.sighup_handler)
 
         # Initialize amqp
-        self._vnc_amqp = DMAmqpHandle(self.logger,
-                self._REACTION_MAP, self._args)
+        self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
+                                      self._args)
         self._vnc_amqp.establish()
 
         # Initialize cassandra
@@ -249,7 +248,11 @@ class DeviceManager(object):
             pr.set_config_state()
 
         self._vnc_amqp._db_resync_done.set()
-        gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
+        try:
+            gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
+        except KeyboardInterrupt:
+            self._vnc_amqp.close()
+            raise
     # end __init__
 
     def connection_state_update(self, status, message=None):
@@ -493,6 +496,8 @@ def parse_args(args_str):
 
 def main(args_str=None):
     global _zookeeper_client
+    global _dm_logger
+
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
@@ -502,8 +507,28 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
+
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors,
+                                               len(args.collectors))
+
+    # Initialize logger
+    module = Module.DEVICE_MANAGER
+    module_pkg = "device_manager"
+    _dm_logger = ConfigServiceLogger(module, module_pkg, args)
+
+    # Initialize AMQP handler then close it to be sure remain queue of a
+    # precedent run is cleaned
+    _vnc_amqp = DMAmqpHandle(_dm_logger, DeviceManager.REACTION_MAP, args)
+    _vnc_amqp.establish()
+    _vnc_amqp.close()
+    _dm_logger.debug("Removed remained AMQP queue")
+
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
                                         args.zk_server_ip)
+    _dm_logger.warning("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx+"/device-manager",
                                       os.getpid(), run_device_manager,
                                       args)
@@ -511,7 +536,8 @@ def main(args_str=None):
 
 
 def run_device_manager(args):
-    device_manager = DeviceManager(args)
+    _dm_logger.warning("Elected master Device Manager node. Initializing... ")
+    DeviceManager(args)
 # end run_device_manager
 
 

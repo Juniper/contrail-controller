@@ -44,11 +44,13 @@ from st_amqp import STAmqpHandle
 _vnc_lib = None
 # zookeeper client connection
 _zookeeper_client = None
+# Schema Transformer logger
+_st_logger = None
 
 
 class SchemaTransformer(object):
 
-    _REACTION_MAP = {
+    REACTION_MAP = {
         'routing_instance': {
             'self': ['virtual_network'],
         },
@@ -151,12 +153,11 @@ class SchemaTransformer(object):
         self._args = args
         self._fabric_rt_inst_obj = None
 
-        # Initialize logger
-        self.logger = SchemaTransformerLogger(args)
+        self.logger = _st_logger
 
         # Initialize amqp
-        self._vnc_amqp = STAmqpHandle(self.logger,
-                self._REACTION_MAP, self._args)
+        self._vnc_amqp = STAmqpHandle(self.logger, self.REACTION_MAP,
+                                      self._args)
         self._vnc_amqp.establish()
         try:
             # Initialize cassandra
@@ -598,6 +599,9 @@ transformer = None
 def run_schema_transformer(args):
     global _vnc_lib
 
+    _st_logger.warning("Elected master Schema Transformer node. "
+                       "Initializing... ")
+
     def connection_state_update(status, message=None):
         ConnectionState.update(
             conn_type=ConnType.APISERVER, name='ApiServer',
@@ -625,11 +629,6 @@ def run_schema_transformer(args):
             # auth failure or haproxy throws 503
             time.sleep(3)
 
-    #randomize collector list
-    args.random_collectors = args.collectors
-    if args.collectors:
-        args.random_collectors = random.sample(args.collectors, len(args.collectors))
-
     global transformer
     transformer = SchemaTransformer(args)
     transformer._conf_file = args.conf_file
@@ -643,15 +642,20 @@ def run_schema_transformer(args):
     """
     gevent.signal(signal.SIGHUP, transformer.sighup_handler)
 
-    gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
+    try:
+        gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
+    except KeyboardInterrupt:
+        transformer._vnc_amqp.close()
+        raise
 # end run_schema_transformer
 
 
 def main(args_str=None):
     global _zookeeper_client
+    global _st_logger
+
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
-
     args = parse_args(args_str)
     args._args_list = args_str
     if args.cluster_id:
@@ -660,8 +664,27 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
+
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors,
+                                               len(args.collectors))
+
+    # Initialize logger
+    _st_logger = SchemaTransformerLogger(args)
+
+    # Initialize AMQP handler then close it to be sure remain queue of a
+    # precedent run is cleaned
+    _vnc_amqp = STAmqpHandle(_st_logger, SchemaTransformer.REACTION_MAP, args)
+    _vnc_amqp.establish()
+    _vnc_amqp.close()
+    _st_logger.debug("Removed remained AMQP queue")
+
+    # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
-                                        zk_timeout =args.zk_timeout)
+                                        zk_timeout=args.zk_timeout)
+    _st_logger.warning("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
                                       os.getpid(), run_schema_transformer,
                                       args)

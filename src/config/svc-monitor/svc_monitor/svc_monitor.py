@@ -58,14 +58,15 @@ except ImportError:
 
 # zookeeper client connection
 _zookeeper_client = None
-
+# SVC monitor logger
+_sm_logger = None
 
 class SvcMonitor(object):
 
     def __init__(self, args=None):
         self._args = args
         # initialize logger
-        self.logger = ServiceMonitorLogger(args)
+        self.logger = _sm_logger
 
         # rotating log file for catchall errors
         self._err_file = self._args.trace_file
@@ -524,13 +525,13 @@ class SvcMonitor(object):
                         collectors = collectors.split()
                         new_chksum = hashlib.md5("".join(collectors)).hexdigest()
                         if new_chksum != self._chksum:
-                            self._chksum = new_chksum 
+                            self._chksum = new_chksum
                             config.random_collectors = random.sample(collectors, len(collectors))
                             self.logger.sandesh_reconfig_collectors(config)
                 except ConfigParser.NoOptionError as e:
-                     pass 
+                     pass
     # end sighup_handler
-                        
+
 def skip_check_service(si):
     # wait for first launch
     if not si.launch_count:
@@ -864,11 +865,7 @@ def parse_args(args_str):
 
 
 def run_svc_monitor(args=None):
-
-    # randomize collector list
-    args.random_collectors = args.collectors
-    if args.collectors:
-        args.random_collectors = random.sample(args.collectors, len(args.collectors))
+    _sm_logger.warning("Elected master SVC Monitor node. Initializing... ")
 
     monitor = SvcMonitor(args)
     monitor._zookeeper_client = _zookeeper_client
@@ -904,11 +901,17 @@ def run_svc_monitor(args=None):
 
     monitor.post_init(vnc_api, args)
     timer_task = gevent.spawn(launch_timer, monitor)
-    gevent.joinall([timer_task])
+    try:
+        gevent.joinall([timer_task])
+    except KeyboardInterrupt:
+        monitor.rabbit.close()
+        raise
 
 
 def main(args_str=None):
     global _zookeeper_client
+    global _sm_logger
+
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
@@ -919,8 +922,27 @@ def main(args_str=None):
         client_pfx = ''
         zk_path_pfx = ''
 
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors,
+                                               len(args.collectors))
+
+    # Initialize logger
+    _sm_logger = ServiceMonitorLogger(args)
+
+    # Initialize AMQP handler then close it to be sure remain queue of a
+    # precedent run is cleaned
+    _vnc_amqp = VncAmqpHandle(_sm_logger, DBBaseSM, REACTION_MAP,
+                              'svc_monitor', args=args)
+    _vnc_amqp.establish()
+    _vnc_amqp.close()
+    _sm_logger.debug("Removed remained AMQP queue")
+
+    # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(
         client_pfx+"svc-monitor", args.zk_server_ip)
+    _sm_logger.warning("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx+"/svc-monitor", os.getpid(),
                                       run_svc_monitor, args)
 # end main
