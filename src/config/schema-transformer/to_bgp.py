@@ -48,7 +48,7 @@ _zookeeper_client = None
 
 class SchemaTransformer(object):
 
-    _REACTION_MAP = {
+    REACTION_MAP = {
         'routing_instance': {
             'self': ['virtual_network'],
         },
@@ -149,16 +149,19 @@ class SchemaTransformer(object):
 
     _schema_transformer = None
 
-    def __init__(self, args=None):
+    def __init__(self, st_logger=None, args=None):
         self._args = args
         self._fabric_rt_inst_obj = None
 
-        # Initialize logger
-        self.logger = SchemaTransformerLogger(args)
+        if st_logger is not None:
+            self.logger = st_logger
+        else:
+            # Initialize logger
+            self.logger = SchemaTransformerLogger(args)
 
         # Initialize amqp
-        self._vnc_amqp = STAmqpHandle(self.logger,
-                self._REACTION_MAP, self._args)
+        self._vnc_amqp = STAmqpHandle(self.logger, self.REACTION_MAP,
+                                      self._args)
         self._vnc_amqp.establish()
         try:
             # Initialize cassandra
@@ -173,7 +176,7 @@ class SchemaTransformer(object):
         except Exception as e:
             # If any of the above tasks like CassandraDB read fails, cleanup
             # the RMQ constructs created earlier and then give up.
-            self.reset()
+            SchemaTransformer.destroy_instance()
             SchemaTransformer._schema_transformer = None
             raise e
     # end __init__
@@ -603,12 +606,13 @@ def parse_args(args_str):
 # end parse_args
 
 
-
 transformer = None
 
 
-def run_schema_transformer(args):
+def run_schema_transformer(st_logger, args):
     global _vnc_lib
+
+    st_logger.notice("Elected master Schema Transformer node. Initializing...")
 
     def connection_state_update(status, message=None):
         ConnectionState.update(
@@ -637,13 +641,8 @@ def run_schema_transformer(args):
             # auth failure or haproxy throws 503
             time.sleep(3)
 
-    #randomize collector list
-    args.random_collectors = args.collectors
-    if args.collectors:
-        args.random_collectors = random.sample(args.collectors, len(args.collectors))
-
     global transformer
-    transformer = SchemaTransformer(args)
+    transformer = SchemaTransformer(st_logger, args)
     transformer._conf_file = args.conf_file
     transformer._chksum = ""
     # checksum of collector list
@@ -655,15 +654,19 @@ def run_schema_transformer(args):
     """
     gevent.signal(signal.SIGHUP, transformer.sighup_handler)
 
-    gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
+    try:
+        gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
+    except KeyboardInterrupt:
+        transformer._vnc_amqp.close()
+        raise
 # end run_schema_transformer
 
 
 def main(args_str=None):
     global _zookeeper_client
+
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
-
     args = parse_args(args_str)
     args._args_list = args_str
     if args.cluster_id:
@@ -672,11 +675,30 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
+
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors,
+                                               len(args.collectors))
+
+    # Initialize logger
+    st_logger = SchemaTransformerLogger(args)
+
+    # Initialize AMQP handler then close it to be sure remain queue of a
+    # precedent run is cleaned
+    vnc_amqp = STAmqpHandle(st_logger, SchemaTransformer.REACTION_MAP, args)
+    vnc_amqp.establish()
+    vnc_amqp.close()
+    st_logger.debug("Removed remained AMQP queue")
+
+    # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
-                                        zk_timeout =args.zk_timeout)
+                                        zk_timeout=args.zk_timeout)
+    st_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx + "/schema-transformer",
                                       os.getpid(), run_schema_transformer,
-                                      args)
+                                      st_logger, args)
 # end main
 
 
