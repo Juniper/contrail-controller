@@ -50,8 +50,12 @@ from cfgm_common.vnc_logger import ConfigServiceLogger
 from logger import DeviceManagerLogger
 
 
+# zookeeper client connection
+_zookeeper_client = None
+
+
 class DeviceManager(object):
-    _REACTION_MAP = {
+    REACTION_MAP = {
         'physical_router': {
             'self': ['bgp_router',
                      'physical_interface',
@@ -140,24 +144,23 @@ class DeviceManager(object):
 
     _device_manager = None
 
-    def __init__(self, args=None):
+    def __init__(self, dm_logger=None, args=None):
         self._args = args
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
         PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
         PushConfigState.set_push_delay_max(int(self._args.push_delay_max))
         PushConfigState.set_push_delay_enable(bool(self._args.push_delay_enable))
-  
-        # randomize collector list
-        self._args.random_collectors = self._args.collectors
+
         self._chksum = "";
         if self._args.collectors:
             self._chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
-            self._args.random_collectors = random.sample(self._args.collectors, \
-                                                      len(self._args.collectors))
-    
-        # Initialize logger
-        self.logger = DeviceManagerLogger(args)
+
+        if dm_logger is not None:
+            self.logger = dm_logger
+        else:
+            # Initialize logger
+            self.logger = DeviceManagerLogger(args)
 
         # Retry till API server is up
         connected = False
@@ -184,8 +187,8 @@ class DeviceManager(object):
         gevent.signal(signal.SIGHUP, self.sighup_handler)
 
         # Initialize amqp
-        self._vnc_amqp = DMAmqpHandle(self.logger,
-                self._REACTION_MAP, self._args)
+        self._vnc_amqp = DMAmqpHandle(self.logger, self.REACTION_MAP,
+                                      self._args)
         self._vnc_amqp.establish()
 
         # Initialize cassandra
@@ -264,7 +267,11 @@ class DeviceManager(object):
 
         DeviceManager._device_manager = self
         self._vnc_amqp._db_resync_done.set()
-        gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
+        try:
+            gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
+        except KeyboardInterrupt:
+            self._vnc_amqp.close()
+            raise
     # end __init__
 
     @classmethod
@@ -525,6 +532,7 @@ def parse_args(args_str):
 
 def main(args_str=None):
     global _zookeeper_client
+
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
@@ -534,16 +542,35 @@ def main(args_str=None):
     else:
         client_pfx = ''
         zk_path_pfx = ''
+
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors,
+                                               len(args.collectors))
+
+    # Initialize logger
+    dm_logger = DeviceManagerLogger(args)
+
+    # Initialize AMQP handler then close it to be sure remain queue of a
+    # precedent run is cleaned
+    vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
+    vnc_amqp.establish()
+    vnc_amqp.close()
+    dm_logger.debug("Removed remained AMQP queue")
+
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
                                         args.zk_server_ip)
+    dm_logger.notice("Waiting to be elected as master...")
     _zookeeper_client.master_election(zk_path_pfx+"/device-manager",
                                       os.getpid(), run_device_manager,
-                                      args)
+                                      dm_logger, args)
 # end main
 
 
-def run_device_manager(args):
-    device_manager = DeviceManager(args)
+def run_device_manager(dm_logger, args):
+    dm_logger.notice("Elected master Device Manager node. Initializing... ")
+    DeviceManager(dm_logger, args)
 # end run_device_manager
 
 
