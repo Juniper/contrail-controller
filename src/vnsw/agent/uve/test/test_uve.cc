@@ -543,7 +543,7 @@ TEST_F(UveTest, SandeshTest) {
     EXPECT_EQ(3, flow_stats_interval_);
 }
 
-/* Discovery IP and service IPs are not configured */
+/* Service IPs are not configured */
 TEST_F(UveTest, NodeStatus_ExpectedConnections_0) {
     Agent *agent = Agent::GetInstance();
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
@@ -553,35 +553,31 @@ TEST_F(UveTest, NodeStatus_ExpectedConnections_0) {
     EXPECT_EQ(expected_conns, 0);
 }
 
-/* Discovery IP is NOT configured and all service IPs are configured */
+/* All service IPs are configured */
 TEST_F(UveTest, NodeStatus_ExpectedConnections_1) {
     Agent *agent = Agent::GetInstance();
     AgentParamTest params(agent->params());
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
-    params.set_xmpp_server_1("1.1.1.1");
-    params.set_xmpp_server_2("1.1.1.2");
-    params.set_dns_server_1("1.1.1.1");
-    params.set_dns_server_2("1.1.1.2");
+    params.set_controller_server_list("1.1.1.1:5269");
+    params.set_dns_server_list("1.1.1.1:53");
     params.set_collector_server_list("1.1.1.1:8086");
     agent->CopyConfig(agent->params());
 
     uint8_t num_c_nodes, num_d_servers;
     int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
-    EXPECT_EQ(expected_conns, 5);
+    EXPECT_EQ(expected_conns, 3);
 }
 
-/* Both Discovery IP and service IPs are configured */
+/* All service IPs are configured */
 TEST_F(UveTest, NodeStatus_ExpectedConnections_3) {
     Agent *agent = Agent::GetInstance();
     AgentParamTest params(agent->params());
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent->uve());
-    params.set_xmpp_server_1("1.1.1.1");
-    params.set_xmpp_server_2("1.1.1.2");
-    params.set_dns_server_1("1.1.1.1");
-    params.set_dns_server_2("1.1.1.2");
-    params.set_collector_server_list("1.1.1.1:8086");
+    params.set_controller_server_list("1.1.1.1:5269");
+    params.set_controller_server_list("1.1.1.2:5269");
+    params.set_dns_server_list("1.1.1.1:53");
+    params.set_dns_server_list("1.1.1.2:53");
     agent->CopyConfig(agent->params());
-
 
     uint8_t num_c_nodes, num_d_servers;
     int expected_conns = uve->ExpectedConnections(num_c_nodes, num_d_servers);
