@@ -224,6 +224,7 @@ class VncApi(object):
             try:
                self._apiinsecure = cfg_parser.getboolean('global','insecure')
             except (AttributeError,
+                    ValueError,
                     ConfigParser.NoOptionError,
                     ConfigParser.NoSectionError):
                self._apiinsecure = False
@@ -250,6 +251,7 @@ class VncApi(object):
             try:
               self._ksinsecure = cfg_parser.getboolean('auth', 'insecure')
             except (AttributeError,
+                    ValueError,
                     ConfigParser.NoOptionError,
                     ConfigParser.NoSectionError):
               self._ksinsecure = False
