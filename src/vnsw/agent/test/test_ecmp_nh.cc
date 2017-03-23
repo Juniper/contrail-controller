@@ -168,7 +168,7 @@ TEST_F(EcmpNhTest, EcmpNH_1) {
     //Get the MPLS label corresponding to this path and verify
     //that mpls label also has 5 component NH
     uint32_t mpls_label = rt->GetActiveLabel();
-    EXPECT_TRUE(FindMplsLabel(MplsLabel::VPORT_NH, mpls_label));
+    EXPECT_TRUE(FindMplsLabel(mpls_label));
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);
@@ -180,7 +180,7 @@ TEST_F(EcmpNhTest, EcmpNH_1) {
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
     
     //Expect MPLS label to be not present
-    EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, mpls_label));
+    EXPECT_FALSE(FindMplsLabel(mpls_label));
 }
 //ecmp NH gets created and also verify that it gets deleted
 //upon VM deletion.
@@ -254,47 +254,42 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     intf_nh = static_cast<const InterfaceNH *>
                                      ((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
-    MplsLabel *mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                                   (*component_nh_it)->label());
+    MplsLabel *mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
     //Verify that mpls label allocated for ECMP route, points 
     //to the same composite NH
     uint32_t composite_nh_mpls_label = rt->GetActiveLabel();
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, composite_nh_mpls_label);
+    mpls = GetActiveLabel(composite_nh_mpls_label);
     EXPECT_TRUE(mpls->nexthop() == comp_nh);
 
 
@@ -310,8 +305,7 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     component_nh_it = comp_nh->begin();
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
@@ -323,8 +317,7 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
@@ -335,8 +328,7 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
@@ -347,7 +339,7 @@ TEST_F(EcmpNhTest, EcmpNH_2) {
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
     
     //Expect MPLS label to be not present
-    EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, composite_nh_mpls_label));
+    EXPECT_FALSE(FindMplsLabel(composite_nh_mpls_label));
 
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
 }
@@ -427,47 +419,42 @@ TEST_F(EcmpNhTest, EcmpNH_3) {
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
                                      ((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
-    MplsLabel *mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                                   (*component_nh_it)->label());
+    MplsLabel *mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
     //Verify that mpls label allocated for ECMP route, points 
     //to the same composite NH
     uint32_t composite_mpls_label = rt->GetActiveLabel();
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, composite_mpls_label);
+    mpls = GetActiveLabel(composite_mpls_label);
     EXPECT_TRUE(mpls->nexthop() == comp_nh);
 
     //Delete couple of interface and verify composite NH also get 
@@ -502,16 +489,14 @@ TEST_F(EcmpNhTest, EcmpNH_3) {
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
@@ -522,7 +507,7 @@ TEST_F(EcmpNhTest, EcmpNH_3) {
     EXPECT_TRUE(rt->GetActiveNextHop() == intf_nh);
 
     //Expect MPLS label to be not present
-    EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, composite_mpls_label));
+    EXPECT_FALSE(FindMplsLabel(composite_mpls_label));
  
     DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip1");
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "default-project:vn2");
@@ -769,8 +754,7 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_7) {
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
                                      ((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
-    MplsLabel *mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                                   (*component_nh_it)->label());
+    MplsLabel *mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
@@ -778,16 +762,14 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_7) {
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH,
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH,
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
@@ -805,8 +787,7 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_7) {
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
@@ -814,8 +795,7 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_7) {
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH,
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
@@ -829,8 +809,7 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_7) {
     component_nh_it = comp_nh->begin();
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH,
-                       (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
@@ -838,16 +817,14 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_7) {
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH,
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->nh());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
-    mpls = GetActiveLabel(MplsLabel::VPORT_NH,
-                        (*component_nh_it)->label());
+    mpls = GetActiveLabel((*component_nh_it)->label());
     intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
@@ -1025,9 +1002,9 @@ TEST_F(EcmpNhTest, EcmpNH_10) {
     EXPECT_TRUE(rt2->GetActiveNextHop() == nh);
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     //Make sure old nexthop is deleted
-    CompositeNHKey composite_nh_key2(Composite::ECMP, true, comp_nh_list2, "vrf1");
+    CompositeNHKey composite_nh_key2(Composite::ECMP, false, comp_nh_list2, "vrf1");
     EXPECT_FALSE(FindNH(&composite_nh_key2));
-    CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1, "vrf1");
+    CompositeNHKey composite_nh_key1(Composite::ECMP, false, comp_nh_list1, "vrf1");
     EXPECT_TRUE(GetNH(&composite_nh_key1)->GetRefCount() == 2);
 
     //Delete all the routes and make sure nexthop is also deleted
@@ -1091,8 +1068,8 @@ TEST_F(EcmpNhTest, EcmpNH_11) {
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt1->GetActiveNextHop()->PolicyEnabled() == false);
     EXPECT_TRUE(rt1->GetActiveNextHop() != rt2->GetActiveNextHop());
-    CompositeNHKey composite_nh_key1(Composite::ECMP, true, comp_nh_list1, "vrf1");
-    CompositeNHKey composite_nh_key2(Composite::ECMP, true, comp_nh_list2, "vrf1");
+    CompositeNHKey composite_nh_key1(Composite::ECMP, false, comp_nh_list1, "vrf1");
+    CompositeNHKey composite_nh_key2(Composite::ECMP, false, comp_nh_list2, "vrf1");
     CompositeNH *composite_nh1 =
         static_cast<CompositeNH *>(GetNH(&composite_nh_key1));
     EXPECT_TRUE(composite_nh1->GetRefCount() == 1);
@@ -1194,7 +1171,7 @@ TEST_F(EcmpNhTest, EcmpNH_13) {
     client->WaitForIdle();
 
     //Delete composite NH
-    CompositeNHKey composite_nh_key(Composite::ECMP, true, comp_nh_list, "vrf1");
+    CompositeNHKey composite_nh_key(Composite::ECMP, false, comp_nh_list, "vrf1");
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(
             GetNH(&composite_nh_key));
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
@@ -1202,7 +1179,7 @@ TEST_F(EcmpNhTest, EcmpNH_13) {
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
-    NextHopKey *key = new CompositeNHKey(Composite::ECMP, true,
+    NextHopKey *key = new CompositeNHKey(Composite::ECMP, false,
                                          comp_nh_list, "vrf1");
     req.key.reset(key);
     req.data.reset(NULL);
@@ -1212,7 +1189,7 @@ TEST_F(EcmpNhTest, EcmpNH_13) {
     client->NextHopReset();
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    key = new CompositeNHKey(Composite::ECMP, true,
+    key = new CompositeNHKey(Composite::ECMP, false,
                              comp_nh_list, "vrf1");
     ((CompositeNHKey *)key)->CreateTunnelNHReq(agent_);
     req.key.reset(key);

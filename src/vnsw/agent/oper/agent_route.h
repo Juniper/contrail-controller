@@ -288,8 +288,6 @@ public:
     void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
     bool WaitForTraffic() const;
     virtual uint8_t plen() const { return 0; }
-    uint32_t AllocateMplsLabel();
-    void FreeMplsLabel(uint32_t label);
 
 protected:
     void SetVrf(VrfEntry *vrf) { vrf_ = vrf; }

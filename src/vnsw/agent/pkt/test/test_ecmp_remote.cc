@@ -295,7 +295,7 @@ TEST_F(RemoteEcmpTest, Fabric_NonEcmpToEcmp_1) {
                    remote_vm_ip, vm_ip, 1, 10);
 
     client->WaitForIdle();
-    int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, mpls_label_2)->nexthop()->id();
+    int nh_id = GetActiveLabel(mpls_label_2)->nexthop()->id();
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
                                remote_vm_ip, vm_ip, 1, 0, 0,  nh_id);
     EXPECT_TRUE(entry != NULL);
@@ -326,7 +326,7 @@ TEST_F(RemoteEcmpTest, Fabric_DstFip_NonEcmpToEcmp_1) {
                    remote_vm_ip, vm_ip, 1, 10);
     client->WaitForIdle();
 
-    int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, mpls_label_3)->nexthop()->id();
+    int nh_id = GetActiveLabel(mpls_label_3)->nexthop()->id();
     FlowEntry *entry = FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(),
                                remote_vm_ip, vm_ip, 1, 0, 0, nh_id);
     EXPECT_TRUE(entry != NULL);
@@ -385,8 +385,7 @@ TEST_F(RemoteEcmpTest, Fabric_DstFip_EcmpToNonEcmp_1) {
                    remote_vm_ip, vm_ip, 1, 10);
 
     client->WaitForIdle();
-    int nh_id = GetActiveLabel(MplsLabel::VPORT_NH,
-                               vintf->label())->nexthop()->id();
+    int nh_id = GetActiveLabel(vintf->label())->nexthop()->id();
     FlowEntry *entry = FlowGet(VrfGet("vrf2")->vrf_id(),
                                remote_vm_ip, vm_ip, 1, 0, 0, nh_id);
     EXPECT_TRUE(entry != NULL);

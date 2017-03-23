@@ -203,6 +203,7 @@ private:
     uint32_t id_;
     uint32_t flags_;
     VnEntryRef vn_;
+    NextHopRef nh_;
     DBTableWalker::WalkId walkid_;
     boost::scoped_ptr<DeleteActor> deleter_;
     AgentRouteTable *rt_table_db_[Agent::ROUTE_TABLE_MAX];
@@ -218,6 +219,7 @@ private:
     tbb::atomic<uint32_t> mac_aging_time_;
     bool learning_enabled_;
     bool layer2_control_word_;
+    bool l2_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 

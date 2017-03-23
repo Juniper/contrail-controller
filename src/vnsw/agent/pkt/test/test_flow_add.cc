@@ -580,7 +580,7 @@ TEST_F(FlowTest, FlowReval_1) {
         },
         {
             TestFlowPkt(Address::INET, remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5",
-                    remote_router_ip, 16),
+                    remote_router_ip, 20),
             {}
         }
     };
@@ -601,6 +601,7 @@ TEST_F(FlowTest, FlowReval_1) {
     client->WaitForIdle();
     // Add more specific route and verify that flow is updated
     CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5_3");
+    client->WaitForIdle();
     EXPECT_EQ(fe->data().dest_vn_match, "vn5_3");
     client->WaitForIdle();
     DeleteFlow(flow, 1);

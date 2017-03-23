@@ -31,14 +31,14 @@ protected:
     // Write the Interface Key to Backup filesystem
     // Delete the Key from In memory before reading the Key.
     void SandeshWriteProcess() {
+        NextHopKey *nh_key = new VrfNHKey("vrf1", false, false);
         ResourceManager::KeyPtr key
-                  (new InterfaceIndexResourceKey(agent->resource_manager(),
-                                                 MakeUuid(1), MacAddress(),
-                                                 true, 2, 1));
+                  (new NexthopIndexResourceKey(agent->resource_manager(),
+                                               nh_key));
+        NextHopKey *nh_key1 = new VrfNHKey("vrf2", false, false);
         ResourceManager::KeyPtr key1
-                  (new InterfaceIndexResourceKey(agent->resource_manager(),
-                                                 MakeUuid(2), MacAddress(),
-                                                 true, 2, 2));
+                  (new NexthopIndexResourceKey(agent->resource_manager(),
+                                               nh_key1));
         label = agent->mpls_table()->AllocLabel(key);
         ResourceTable *table = key.get()->resource_table();
         IndexResourceData *data =
@@ -57,24 +57,24 @@ protected:
     // Restore the Data  from file and delete it.
    void SandeshReadProcess() {
         WAIT_FOR(200000, 1, BackUpResourceTable::FindFile("/tmp/backup", 
-                "contrail_interface_resource-").empty() != true);
+                "contrail_vrf_resource-").empty() != true);
         agent->resource_manager()->backup_mgr()->Init(); 
         client->WaitForIdle();
+        NextHopKey *nh_key = new VrfNHKey("vrf1", false, false);
         ResourceManager::KeyPtr key
-            (new InterfaceIndexResourceKey(agent->resource_manager(),
-                                                 MakeUuid(1), MacAddress(),
-                                                 true, 2, 1));
+                  (new NexthopIndexResourceKey(agent->resource_manager(),
+                                               nh_key));
+        NextHopKey *nh_key1 = new VrfNHKey("vrf2", false, false);
         ResourceManager::KeyPtr key1
-                  (new InterfaceIndexResourceKey(agent->resource_manager(),
-                                                 MakeUuid(2), MacAddress(),
-                                                 true, 2, 2));
+                  (new NexthopIndexResourceKey(agent->resource_manager(),
+                                               nh_key1));
         ResourceTable *table = key.get()->resource_table();
         IndexResourceData *data =
             static_cast<IndexResourceData *>(table->FindKey(key));
         // Check the data restored
         label = data->index();
         // Clear the Mpls label
-        agent->mpls_table()->FreeLabel(label);
+        agent->resource_manager()->Release(Resource::MPLS_INDEX, label);
         client->WaitForIdle();
         data = static_cast<IndexResourceData *>(table->FindKey(key));
         // deleted check for NULL
@@ -83,14 +83,13 @@ protected:
         // make sure that key1 present
         EXPECT_TRUE(data != NULL);
         label = data->index();
-        agent->mpls_table()->FreeLabel(label);
+        agent->resource_manager()->Release(Resource::MPLS_INDEX, label);
         data = static_cast<IndexResourceData *>(table->FindKey(key1));
         EXPECT_TRUE(data == NULL);
     }
     Agent *agent;
-    int label;
+    uint32_t label;
 };
-
 
 TEST_F(SandeshReadWriteUnitTest, StructBinaryWrite) {
     SandeshWriteProcess();
@@ -116,8 +115,8 @@ TEST_F(SandeshReadWriteUnitTest, SandesMd5_verification) {
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
-    // interface nh, 1 vrf nh and 1 for bridge route
-    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 3);
+    // 4 interface nh, 1 vrf nh and 1 for bridge route
+    EXPECT_TRUE(Agent::GetInstance()->mpls_table()->Size() == 6);
     WAIT_FOR(200000, 1, BackUpResourceTable::FindFile("/tmp/backup",
              "contrail_interface_resource-").empty() != true);
     std::string file_name = "/tmp/backup/" +
@@ -155,6 +154,28 @@ TEST_F(SandeshReadWriteUnitTest, SandesMd5_verification) {
     client->Reset();
 }
 
+// Verify same index is returned from resource table when alloc api is
+// called with same resource manager key
+TEST_F(SandeshReadWriteUnitTest, MplsLabelReuse) {
+    NextHopKey *nh_key = new VrfNHKey("vrf1", true, false);
+    ResourceManager::KeyPtr key
+              (new NexthopIndexResourceKey(agent->resource_manager(),
+                                           nh_key));
+    label = agent->mpls_table()->AllocLabel(key);
+    ResourceTable *table = key.get()->resource_table();
+    IndexResourceData *data =
+        static_cast<IndexResourceData *>(table->FindKey(key));
+    // Check that Key Data Created
+    EXPECT_TRUE(data != NULL);
+    // Invoke create label api again and make sure same label is returned
+    uint32_t label2 = agent->mpls_table()->AllocLabel(key);
+    EXPECT_TRUE(label == label2);
+    client->WaitForIdle();
+    table->DeleteKey(key);
+    data = static_cast<IndexResourceData *>(table->FindKey(key));
+    EXPECT_TRUE(data == NULL);
+    client->WaitForIdle();
+}
 
 int main(int argc, char **argv) {
     GETUSERARGS();

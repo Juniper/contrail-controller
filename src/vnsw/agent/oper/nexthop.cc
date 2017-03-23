@@ -75,21 +75,6 @@ void TunnelType::DeletePriorityList() {
 /////////////////////////////////////////////////////////////////////////////
 // NextHop routines
 /////////////////////////////////////////////////////////////////////////////
-NextHopTable::NextHopTable(DB *db, const string &name) : AgentDBTable(db, name){
-    // nh-index 0 is reserved by vrouter. So, pre-allocate the first index so
-    // that nh added by agent use index 1 and above
-    int id = index_table_.Insert(NULL);
-    assert(id == 0);
-}
-
-NextHopTable::~NextHopTable() {
-    FreeInterfaceId(0);
-}
-
-uint32_t NextHopTable::ReserveIndex() {
-    return index_table_.Insert(NULL);
-}
-
 void NextHop::SendObjectLog(const NextHopTable *table,
                             AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;
@@ -101,6 +86,43 @@ void NextHop::SendObjectLog(const NextHopTable *table,
 NextHop::~NextHop() {
     if (id_ != kInvalidIndex) {
         static_cast<NextHopTable *>(get_table())->FreeInterfaceId(id_);
+    }
+}
+
+void NextHop::SetKey(const DBRequestKey *key) {
+    const NextHopKey *nh_key = static_cast<const NextHopKey *>(key);
+    type_ = nh_key->type_;
+    policy_ = nh_key->policy_;
+};
+
+// Allocate label for nexthop
+MplsLabel *NextHop::AllocateLabel(Agent *agent, const NextHopKey *key) {
+    return agent->mpls_table()->AllocLabel(key);
+}
+
+void NextHop::Add(Agent *agent, const DBRequest *req) {
+    ChangeEntry(req);
+}
+
+void NextHop::Change(const DBRequest *req) {
+    Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
+    // Allocate mpls label if required
+    if (NeedMplsLabel() && (mpls_label() == NULL)) {
+        const NextHopKey *key =
+            static_cast<const NextHopKey *>(req->key.get());
+        mpls_label_ = AllocateLabel(agent, key);
+    }
+}
+
+void NextHop::PostAdd() {
+    Agent *agent = static_cast<NextHopTable *>(get_table())->agent();
+    DBEntryBase::KeyPtr key = GetDBRequestKey();
+    const NextHopKey *key1 = static_cast<const NextHopKey *>(key.get());
+    // Mpls Label stores a pointer to NH oper db entry. It uses db table Find
+    // api to retrieve NH db entry. Hence Allocate Mpls label if required
+    // in PostAdd api which ensures presence of NH db entry in db table.
+    if (NeedMplsLabel()) {
+        mpls_label_ = AllocateLabel(agent, key1);
     }
 }
 
@@ -233,6 +255,24 @@ bool NextHop::NexthopToInterfacePolicy() const {
     return false;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// NextHopTable routines
+/////////////////////////////////////////////////////////////////////////////
+NextHopTable::NextHopTable(DB *db, const string &name) : AgentDBTable(db, name){
+    // nh-index 0 is reserved by vrouter. So, pre-allocate the first index so
+    // that nh added by agent use index 1 and above
+    int id = index_table_.Insert(NULL);
+    assert(id == 0);
+}
+
+NextHopTable::~NextHopTable() {
+    FreeInterfaceId(0);
+}
+
+uint32_t NextHopTable::ReserveIndex() {
+    return index_table_.Insert(NULL);
+}
+
 std::auto_ptr<DBEntry> NextHopTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(AllocWithKey(k)));
 }
@@ -255,9 +295,31 @@ DBEntry *NextHopTable::Add(const DBRequest *req) {
         return NULL;
     }
     nh->set_id(index_table_.Insert(nh));
-    nh->Change(req);
+    nh->Add(agent(), req);
     nh->SendObjectLog(this, AgentLogEvent::ADD);
     return static_cast<DBEntry *>(nh);
+}
+
+bool NextHopTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    NextHop *nh = static_cast<NextHop *>(entry);
+    nh->Change(req);
+    bool ret = nh->ChangeEntry(req);
+    nh->SendObjectLog(this, AgentLogEvent::CHANGE);
+    return ret;
+}
+
+bool NextHopTable::Resync(DBEntry *entry, const DBRequest *req) {
+    NextHop *nh = static_cast<NextHop *>(entry);
+    bool ret = nh->ChangeEntry(req);
+    nh->SendObjectLog(this, AgentLogEvent::RESYNC);
+    return ret;
+}
+
+bool NextHopTable::Delete(DBEntry *entry, const DBRequest *req) {
+    NextHop *nh = static_cast<NextHop *>(entry);
+    nh->Delete(req);
+    nh->SendObjectLog(this, AgentLogEvent::DELETE);
+    return true;
 }
 
 DBTableBase *NextHopTable::CreateTable(DB *db, const std::string &name) {
@@ -285,6 +347,8 @@ void NextHopTable::Process(DBRequest &req) {
 void NextHopTable::OnZeroRefcount(AgentDBEntry *e) {
     NextHop *nh = static_cast<NextHop *>(e);
 
+    // Release mpls db entry reference
+    nh->ResetMplsRef();
     if (nh->DeleteOnZeroRefCount() == false) {
         return;
     }
@@ -299,12 +363,6 @@ void NextHopTable::OnZeroRefcount(AgentDBEntry *e) {
     req.data.reset(NULL);
     Process(req);
 }
-
-void NextHop::SetKey(const DBRequestKey *key) {
-    const NextHopKey *nh_key = static_cast<const NextHopKey *>(key);
-    type_ = nh_key->type_;
-    policy_ = nh_key->policy_;
-};
 
 /////////////////////////////////////////////////////////////////////////////
 // ARP NH routines
@@ -342,7 +400,7 @@ void ArpNH::SetKey(const DBRequestKey *k) {
     ip_ = key->dip_;
 }
 
-bool ArpNH::Change(const DBRequest *req) {
+bool ArpNH::ChangeEntry(const DBRequest *req) {
     bool ret= false;
     const ArpNHKey *key = static_cast<const ArpNHKey *>(req->key.get());
     const ArpNHData *data = static_cast<const ArpNHData *>(req->data.get());
@@ -448,10 +506,6 @@ bool InterfaceNH::NextHopIsLess(const DBEntry &rhs) const {
         return interface_.get() < a.interface_.get();
     }
 
-    if (policy_ != a.policy_) {
-        return policy_ < a.policy_;
-    }
-
     if (flags_ != a.flags_) {
         return flags_ < a.flags_;
     }
@@ -481,7 +535,7 @@ void InterfaceNH::SetKey(const DBRequestKey *k) {
     dmac_ = key->dmac_;
 }
 
-bool InterfaceNH::Change(const DBRequest *req) {
+bool InterfaceNH::ChangeEntry(const DBRequest *req) {
     const InterfaceNHData *data =
             static_cast<const InterfaceNHData *>(req->data.get());
     bool ret = false;
@@ -704,6 +758,16 @@ void InterfaceNH::SendObjectLog(const NextHopTable *table,
     OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
+bool InterfaceNH::NeedMplsLabel() {
+    const Interface *itf = GetInterface();
+    //Label is required only for VMInterface and InetInterface
+    if (dynamic_cast<const VmInterface *>(itf) ||
+        dynamic_cast<const InetInterface *>(itf)) {
+        return true;
+    }
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // VRF NH routines
 /////////////////////////////////////////////////////////////////////////////
@@ -729,11 +793,7 @@ bool VrfNH::NextHopIsLess(const DBEntry &rhs) const {
         return (vrf_.get() < a.vrf_.get());
     }
 
-    if (vxlan_nh_ != a.vxlan_nh_) {
-        return vxlan_nh_ < a.vxlan_nh_;
-    }
-
-    return policy_ < a.policy_;
+    return vxlan_nh_ < a.vxlan_nh_;
 }
 
 void VrfNH::SetKey(const DBRequestKey *k) {
@@ -748,7 +808,7 @@ VrfNH::KeyPtr VrfNH::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-bool VrfNH::Change(const DBRequest *req) {
+bool VrfNH::ChangeEntry(const DBRequest *req) {
     bool ret = false;
     const VrfNHData *data = static_cast<const VrfNHData *>(req->data.get());
 
@@ -832,7 +892,7 @@ bool TunnelNH::NextHopIsLess(const DBEntry &rhs) const {
         return tunnel_type_.IsLess(a.tunnel_type_);
     }
 
-    return policy_ < a.policy_;
+    return false;
 }
 
 void TunnelNH::SetKey(const DBRequestKey *k) {
@@ -855,7 +915,7 @@ const uint32_t TunnelNH::vrf_id() const {
     return vrf_->vrf_id();
 }
 
-bool TunnelNH::Change(const DBRequest *req) {
+bool TunnelNH::ChangeEntry(const DBRequest *req) {
     bool ret = false;
     bool valid = false;
 
@@ -1023,7 +1083,7 @@ InetUnicastAgentRouteTable *MirrorNH::GetRouteTable() {
     return rt_table;
 }
 
-bool MirrorNH::Change(const DBRequest *req) {
+bool MirrorNH::ChangeEntry(const DBRequest *req) {
     bool ret = false;
     bool valid = false;
 
@@ -1299,7 +1359,7 @@ void VlanNH::SetKey(const DBRequestKey *k) {
     vlan_tag_ = key->vlan_tag_;
 }
 
-bool VlanNH::Change(const DBRequest *req) {
+bool VlanNH::ChangeEntry(const DBRequest *req) {
     const VlanNHData *data = static_cast<const VlanNHData *>(req->data.get());
     bool ret = false;
 
@@ -1498,7 +1558,7 @@ void CompositeNHKey::ChangeTunnelType(TunnelType::Type tunnel_type) {
     }
 }
 
-bool CompositeNH::Change(const DBRequest* req) {
+bool CompositeNH::ChangeEntry(const DBRequest* req) {
     bool changed = false;
     CompositeNHData *data = static_cast<CompositeNHData *>(req->data.get());
     if (data && data->pbb_nh_ != pbb_nh_) {
@@ -2368,7 +2428,7 @@ const uint32_t PBBNH::vrf_id() const {
     return vrf_->vrf_id();
 }
 
-bool PBBNH::Change(const DBRequest *req) {
+bool PBBNH::ChangeEntry(const DBRequest *req) {
     bool ret = false;
     Agent *agent = Agent::GetInstance();
     BridgeAgentRouteTable *rt_table =

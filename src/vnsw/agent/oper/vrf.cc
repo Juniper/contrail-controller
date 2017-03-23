@@ -67,6 +67,7 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         rt_table_delete_bmap_(0),
         route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false),
         layer2_control_word_(false) {
+        nh_.reset();
 }
 
 VrfEntry::~VrfEntry() {
@@ -112,20 +113,24 @@ bool VrfEntry::UpdateVxlanId(Agent *agent, uint32_t new_vxlan_id) {
 void VrfEntry::CreateTableLabel(bool learning_enabled, bool l2,
                                 bool flood_unknown_unicast,
                                 bool layer2_control_word) {
+    l2_ = l2;
     VrfTable *table = static_cast<VrfTable *>(get_table());
     Agent *agent = table->agent();
 
-    if (table_label_ == MplsTable::kInvalidLabel) {
-        VrfTable *table = static_cast<VrfTable *>(get_table());
-        Agent *agent = table->agent();
-        ResourceManager::KeyPtr key(new VrfMplsResourceKey
-                                    (agent->resource_manager(), name_));
-        set_table_label(agent->mpls_table()->AllocLabel(key));
-    }
+    // Create VrfNH and assign label from it
+    DBRequest nh_req;
+    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    VrfNHKey *vrf_nh_key = new VrfNHKey(name_, false, l2);
+    nh_req.key.reset(vrf_nh_key);
+    nh_req.data.reset(new VrfNHData(flood_unknown_unicast, learning_enabled,
+                                    layer2_control_word));
+    agent->nexthop_table()->Process(nh_req);
 
-    MplsTable::CreateTableLabel(agent, table_label(), name_, false,
-                                learning_enabled, l2, flood_unknown_unicast,
-                                layer2_control_word);
+    // Get label from nh
+    NextHop *nh = static_cast<NextHop *>(
+        agent->nexthop_table()->FindActiveEntry(vrf_nh_key));
+    nh_ = nh;
+    set_table_label(nh->mpls_label()->label());
 }
 
 void VrfEntry::CreateRouteTables() {
@@ -576,8 +581,7 @@ bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     vrf->UpdateVxlanId(agent(), VxLanTable::kInvalidvxlan_id);
     vrf->vn_.reset(NULL);
     if (vrf->table_label() != MplsTable::kInvalidLabel) {
-        agent()->mpls_table()->FreeLabel(vrf->table_label());
-        MplsLabel::Delete(agent(), vrf->table_label());
+        vrf->nh_.reset();
         vrf->set_table_label(MplsTable::kInvalidLabel);
     }
     vrf->deleter_->Delete();

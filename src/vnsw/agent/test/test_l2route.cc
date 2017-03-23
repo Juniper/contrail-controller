@@ -256,7 +256,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     uint32_t label = rt->GetActiveLabel();
-    MplsLabelKey key(MplsLabel::MCAST_NH, label);
+    MplsLabelKey key(label);
     MplsLabel *mpls = 
         static_cast<MplsLabel *>(agent_->mpls_table()->Find(&key, true));
 
@@ -291,7 +291,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     uint32_t label = rt->GetActiveLabel();
-    MplsLabelKey key(MplsLabel::MCAST_NH, label);
+    MplsLabelKey key(label);
     MplsLabel *mpls = 
         static_cast<MplsLabel *>(agent_->mpls_table()->Find(&key, true));
 
@@ -899,9 +899,8 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
     //Label is retained as evpn still present
     EXPECT_TRUE(rt->GetActivePath()->label() == 0);
     EXPECT_TRUE(rt->FindPath(agent_->local_peer())->label() == evpn_mpls_label);
-    EXPECT_TRUE(FindMplsLabel(MplsLabel::MCAST_NH, evpn_mpls_label));
-    MplsLabel *mpls_entry = GetActiveLabel(MplsLabel::MCAST_NH,
-                                           evpn_mpls_label);
+    EXPECT_TRUE(FindMplsLabel(evpn_mpls_label));
+    MplsLabel *mpls_entry = GetActiveLabel(evpn_mpls_label);
     EXPECT_TRUE(mpls_entry->nexthop() ==
                 rt->GetActiveNextHop());
 
@@ -1397,7 +1396,7 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
     //MulticastGroupObject *obj =
     //    mc_handler->FindFloodGroupObject("vrf1");
     //uint32_t evpn_label = obj->evpn_mpls_label();
-    //EXPECT_FALSE(FindMplsLabel(MplsLabel::MCAST_NH, evpn_label));
+    //EXPECT_FALSE(FindMplsLabel(evpn_label));
 
     //Delete remote paths
     mc_handler->ModifyFabricMembers(Agent::GetInstance()->

@@ -19,6 +19,7 @@
 #include "resource_manager/sandesh_map.h"
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/mpls_index.h"
+#include <oper/nexthop.h>
 #include <boost/filesystem.hpp>
 #include <boost/functional/hash.hpp>
 
@@ -291,15 +292,55 @@ void VrfMplsBackUpResourceTable::RestoreResource() {
     for (MapIter it = map_.begin(); it != map_.end(); it++) {
         uint32_t index = it->first;
         VrfMplsResource sandesh_key = it->second;
-        ResourceManager::KeyPtr key(new VrfMplsResourceKey
-                                    (backup_manager()->resource_manager(),
-                                     sandesh_key.get_name()));
+        VrfNHKey *vrf_nh_key = new VrfNHKey(sandesh_key.get_name(), false,
+                                            sandesh_key.get_vxlan_nh());
+        ResourceManager::KeyPtr key(new NexthopIndexResourceKey(
+                                    backup_manager()->resource_manager(),
+                                    vrf_nh_key));
         ResourceManager::DataPtr data(new IndexResourceData
                                       (backup_manager()->resource_manager(),
                                        index));
         EnqueueRestore(key, data);
     }
+}
 
+VlanMplsBackUpResourceTable::VlanMplsBackUpResourceTable
+(ResourceBackupManager *manager) :
+    BackUpResourceTable(manager, "VlanMplsBackUpResourceTable",
+                        "contrail_vlan_resource") {
+}
+
+VlanMplsBackUpResourceTable::~VlanMplsBackUpResourceTable() {
+}
+
+bool VlanMplsBackUpResourceTable::WriteToFile() {
+    VlanMplsResourceMapSandesh sandesh_data;
+    return WriteMapToFile<VlanMplsResourceMapSandesh, Map>
+               (&sandesh_data, map_);
+}
+
+void VlanMplsBackUpResourceTable::ReadFromFile() {
+    VlanMplsResourceMapSandesh sandesh_data;
+    ReadMapFromFile<VlanMplsResourceMapSandesh>(&sandesh_data,
+                                               backup_dir());
+    map_ = sandesh_data.get_index_map();
+}
+
+void VlanMplsBackUpResourceTable::RestoreResource() {
+    for (MapIter it = map_.begin(); it != map_.end(); it++) {
+        uint32_t index = it->first;
+        VlanMplsResource sandesh_key = it->second;
+        VlanNHKey *vlan_nh_key = new VlanNHKey(
+                                         StringToUuid(sandesh_key.get_uuid()),
+                                         sandesh_key.get_tag());
+        ResourceManager::KeyPtr key(new NexthopIndexResourceKey(
+                                    backup_manager()->resource_manager(),
+                                    vlan_nh_key));
+        ResourceManager::DataPtr data(new IndexResourceData
+                                      (backup_manager()->resource_manager(),
+                                       index));
+        EnqueueRestore(key, data);
+    }
 }
 
 RouteMplsBackUpResourceTable::RouteMplsBackUpResourceTable
@@ -311,7 +352,7 @@ RouteMplsBackUpResourceTable::RouteMplsBackUpResourceTable
 RouteMplsBackUpResourceTable::~RouteMplsBackUpResourceTable() {
 }
 
-bool  RouteMplsBackUpResourceTable::WriteToFile() {
+bool RouteMplsBackUpResourceTable::WriteToFile() {
     RouteMplsResourceMapSandesh sandesh_data;
     return WriteMapToFile<RouteMplsResourceMapSandesh, Map> (&sandesh_data, map_);
 }
@@ -364,12 +405,23 @@ void InterfaceMplsBackUpResourceTable::RestoreResource() {
         uint32_t index = it->first;
         InterfaceIndexResource sandesh_key = it->second;
         MacAddress mac = MacAddress::FromString(sandesh_key.get_mac());
-        ResourceManager::KeyPtr key(new InterfaceIndexResourceKey
-                                    (backup_manager()->resource_manager(),
-                                     StringToUuid(sandesh_key.get_uuid()),
-                                     mac, sandesh_key.get_policy(),
-                                     sandesh_key.get_type(),
-                                     sandesh_key.get_vlan_tag()));
+        std::string type = sandesh_key.get_type();
+        InterfaceNHKey *itf_nh_key = NULL;
+        InterfaceKey *itf_key = NULL;
+        if (type == "vmi") {
+            //Vm interface
+            itf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                         StringToUuid(sandesh_key.get_uuid()),
+                                         sandesh_key.get_name());
+        } else {
+            //Inet interface
+            itf_key = new InetInterfaceKey(sandesh_key.get_name());
+        }
+        itf_nh_key = new InterfaceNHKey(itf_key, sandesh_key.get_policy(),
+                                        sandesh_key.get_flags(), mac);
+        ResourceManager::KeyPtr key(new NexthopIndexResourceKey(
+                                    backup_manager()->resource_manager(),
+                                    itf_nh_key));
         ResourceManager::DataPtr data(new IndexResourceData
                                       (backup_manager()->resource_manager(),
                                        index));
@@ -380,7 +432,7 @@ void InterfaceMplsBackUpResourceTable::RestoreResource() {
 ResourceSandeshMaps::ResourceSandeshMaps(ResourceBackupManager *manager) :
     backup_manager_(manager), agent_(manager->agent()),
     interface_mpls_index_table_(manager), vrf_mpls_index_table_(manager),
-    route_mpls_index_table_(manager) {
+    vlan_mpls_index_table_(manager), route_mpls_index_table_(manager) {
 }
 
 ResourceSandeshMaps::~ResourceSandeshMaps() {
@@ -389,6 +441,7 @@ ResourceSandeshMaps::~ResourceSandeshMaps() {
 void ResourceSandeshMaps::ReadFromFile() {
     interface_mpls_index_table_.ReadFromFile();
     vrf_mpls_index_table_.ReadFromFile();
+    vlan_mpls_index_table_.ReadFromFile();
     route_mpls_index_table_.ReadFromFile();
 }
 
@@ -402,6 +455,7 @@ void ResourceSandeshMaps::EndOfBackup() {
 void ResourceSandeshMaps::RestoreResource() {
     interface_mpls_index_table_.RestoreResource();
     vrf_mpls_index_table_.RestoreResource();
+    vlan_mpls_index_table_.RestoreResource();
     route_mpls_index_table_.RestoreResource();
     EndOfBackup();
 }
@@ -411,6 +465,10 @@ void InterfaceIndexResourceMapSandesh::Process(SandeshContext*) {
 }
 
 void VrfMplsResourceMapSandesh::Process(SandeshContext*) {
+
+}
+
+void VlanMplsResourceMapSandesh::Process(SandeshContext*) {
 
 }
 
@@ -434,6 +492,15 @@ void ResourceSandeshMaps::AddVrfMplsResourceEntry(uint32_t index,
 
 void ResourceSandeshMaps::DeleteVrfMplsResourceEntry(uint32_t index) {
     vrf_mpls_index_table_.map().erase(index);
+}
+
+void ResourceSandeshMaps::AddVlanMplsResourceEntry(uint32_t index,
+                                                   VlanMplsResource data) {
+    vlan_mpls_index_table_.map().insert(VlanMplsResourcePair(index, data));
+}
+
+void ResourceSandeshMaps::DeleteVlanMplsResourceEntry(uint32_t index) {
+    vlan_mpls_index_table_.map().erase(index);
 }
 
 void ResourceSandeshMaps::AddRouteMplsResourceEntry(uint32_t index,

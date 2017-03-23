@@ -530,7 +530,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
         client->WaitForIdle();
 
         int nh_id =
-            GetActiveLabel(MplsLabel::VPORT_NH, vlan_label)->nexthop()->id();
+            GetActiveLabel(vlan_label)->nexthop()->id();
         FlowEntry *entry = FlowGet(VrfGet("service-vrf1")->vrf_id(),
                 "10.1.1.3", "11.1.1.252", IPPROTO_TCP, sport, dport, nh_id);
         EXPECT_TRUE(entry != NULL);
@@ -610,7 +610,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::LOCAL_ECMP, true, composite_nh_key->component_nh_key_list(),
+        Composite::LOCAL_ECMP, false, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
@@ -683,7 +683,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
                         sport, dport, false, hash_id);
         client->WaitForIdle();
 
-        int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, label)->nexthop()->id();
+        int nh_id = GetActiveLabel(label)->nexthop()->id();
         FlowEntry *entry = FlowGet(VrfGet("service-vrf1")->vrf_id(),
                 "10.1.1.3", "11.1.1.252", IPPROTO_TCP, sport, dport, nh_id);
         EXPECT_TRUE(entry != NULL);
@@ -782,7 +782,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::LOCAL_ECMP, true, composite_nh_key->component_nh_key_list(),
+        Composite::LOCAL_ECMP, false, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
@@ -935,7 +935,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     CompositeNHKey *composite_nh_key = static_cast<CompositeNHKey *>
         (key_ref.get());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(rt->GetActiveLabel(),
-        Composite::LOCAL_ECMP, true, composite_nh_key->component_nh_key_list(),
+        Composite::LOCAL_ECMP, false, composite_nh_key->component_nh_key_list(),
         "service-vrf1"));
     ComponentNHKeyList comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
@@ -1029,7 +1029,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         client->WaitForIdle();
 
         int nh_id =
-            GetActiveLabel(MplsLabel::VPORT_NH, mpls_label)->nexthop()->id();
+            GetActiveLabel(mpls_label)->nexthop()->id();
         FlowEntry *entry = FlowGet(service_vrf_id,
                 "11.1.1.1", "10.1.1.1", IPPROTO_TCP, sport, dport, nh_id);
         EXPECT_TRUE(entry != NULL);
@@ -1061,7 +1061,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         client->WaitForIdle();
 
         int nh_id =
-            GetActiveLabel(MplsLabel::VPORT_NH, mpls_label)->nexthop()->id();
+            GetActiveLabel(mpls_label)->nexthop()->id();
         FlowEntry *entry = FlowGet(service_vrf_id,
                 "11.1.1.3", "10.1.1.1", IPPROTO_TCP, sport, dport, nh_id);
         EXPECT_TRUE(entry != NULL);
@@ -1092,7 +1092,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
                         sport, dport, false, hash_id);
         client->WaitForIdle();
         int nh_id =
-            GetActiveLabel(MplsLabel::VPORT_NH, mpls_label)->nexthop()->id();
+            GetActiveLabel(mpls_label)->nexthop()->id();
         FlowEntry *entry = FlowGet(service_vrf_id,
                 "11.1.1.3", "10.1.1.1", IPPROTO_TCP, sport, dport, nh_id);
         EXPECT_TRUE(entry != NULL);
