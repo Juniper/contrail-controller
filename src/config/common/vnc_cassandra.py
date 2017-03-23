@@ -460,8 +460,7 @@ class VncCassandraClient(object):
 
     # Helper routines for cassandra
     def _cassandra_init(self, server_list):
-        # 1. Ensure keyspace and schema/CFs exist
-        # 2. Read in persisted data and publish to ifmap server
+        # Ensure keyspace and schema/CFs exist
 
         self._update_sandesh_status(ConnectionStatus.INIT)
 

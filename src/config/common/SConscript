@@ -50,11 +50,6 @@ local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(env.Install("cfgm_common", File(file).srcnode()))
 
-ifmap_sources = [ 'ifmap' ]
-ifmap_sources_rules = []
-for file in ifmap_sources:
-    ifmap_sources_rules.append(env.Install("cfgm_common/", "#/third_party/ifmap-python-client/" + file))
-
 test_sources = [
                 'tests/__init__.py',
                 'tests/test_analytics_client.py',
@@ -98,7 +93,6 @@ build_info_rules = [env.Command(target='buildinfo.py', source = None, action=Bui
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_depends.extend(ifmap_sources_rules)
 sdist_depends.extend(test_sources_rules)
 sdist_depends.extend(pkg)
 sdist_depends.extend(nodeinfo_pkg)

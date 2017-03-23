@@ -19,7 +19,6 @@ netifaces
 stevedore
 testscenarios
 kazoo
-../../../../third_party/ifmap-python-client
 cfgm_common
 vnc_api
 vnc_cfg_api_server
