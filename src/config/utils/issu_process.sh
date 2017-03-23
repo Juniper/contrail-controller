@@ -1,27 +1,9 @@
 #!/usr/bin/env bash
 
-function issu_contrail_switch_compute_node {
-    route -n
-    openstack-config --set /etc/contrail/contrail-vrouter-agent.conf DISCOVERY server $1 
-    openstack-config --set /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent autostart true
-    openstack-config --set /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent killasgroup true
-    openstack-config --set /etc/contrail/contrail-vrouter-nodemgr.conf DISCOVERY server $1 
-    service supervisor-vrouter restart
-    contrail-status
-    route -n
-}
-
-function issu_contrail_prepare_compute_node {
-            route -n
-            openstack-config --del /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent autostart
-            openstack-config --del /etc/contrail/supervisord_vrouter_files/contrail-vrouter-agent.ini program:contrail-vrouter-agent killasgroup
-            contrail-status
-}
-
 function issu_contrail_set_supervisord_config_files {
     local cmd="openstack-config --set /etc/contrail/supervisord_config_files/$1.ini program:$1"
-    $cmd autostart $2 
-    $cmd autorestart $2 
+    $cmd autostart $2
+    $cmd autorestart $2
     $cmd killasgroup $2
 }
 
@@ -58,7 +40,7 @@ function issu_contrail_post_new_control_node {
 }
 
 function issu_pre_sync {
-    contrail-issu-pre-sync --conf_file /etc/contrail/contrail-issu.conf
+    contrail-issu-pre-sync -c /etc/contrail/contrail-issu.conf
 }
 
 function issu_run_sync {
@@ -81,15 +63,15 @@ function issu_run_sync {
 function issu_post_sync {
     rm -f /etc/supervisor/conf.d/contrail-issu.conf
     service supervisor restart
-    contrail-issu-post-sync --conf_file /etc/contrail/contrail-issu.conf
-    contrail-issu-zk-sync --conf_file /etc/contrail/contrail-issu.conf
+    contrail-issu-post-sync -c /etc/contrail/contrail-issu.conf
+    contrail-issu-zk-sync -c /etc/contrail/contrail-issu.conf
 }
 
 function issu_contrail_generate_conf {
     local myfile="/tmp/contrail-issu.conf"
     issu_contrail_get_and_set_old_conf $1 $myfile
     issu_contrail_get_and_set_new_conf $2 $myfile
-    echo $1 $2 
+    echo $1 $2
 }
 
 function issu_contrail_get_and_set_old_conf {
@@ -156,7 +138,7 @@ function issu_contrail_get_and_set_old_conf {
     then
         cmd="$get_old_cmd rabbit_server"
         val=$($cmd)
-        $set_cmd old_rabbit_server "$val"
+        $set_cmd old_rabbit_address_list "$val"
     fi
 
     cmd="$has_old_cmd cluster_id"
@@ -235,7 +217,7 @@ function issu_contrail_get_and_set_new_conf {
     then
         cmd="$get_new_cmd rabbit_server"
         val=$($cmd)
-        $set_cmd new_rabbit_server "$val"
+        $set_cmd new_rabbit_address_list "$val"
     fi
 
     cmd="$has_new_cmd cluster_id"
@@ -247,3 +229,125 @@ function issu_contrail_get_and_set_new_conf {
         $set_cmd ndb_prefix "$val"
     fi
 }
+
+function issu_contrail_peer_control_nodes {
+    python /opt/contrail/utils/provision_pre_issu.py --conf /etc/contrail/contrail-issu.conf
+}
+
+function issu_contrail_finalize_config {
+    python /opt/contrail/utils/provision_issu.py --conf /etc/contrail/contrail-issu.conf
+}
+
+function issu_contrail_fetch_api_conf {
+    cp /etc/contrail/contrail-api.conf /etc/contrailctl/contrail-api.conf
+}
+
+function issu_contrail_set_conf {
+    cp /etc/contrailctl/contrail-issu.conf /etc/contrail/contrail-issu.conf
+}
+
+function myfunc {
+    echo "Hello World $1"
+}
+
+ARGC=$#
+if [ $ARGC == 0 ]
+then
+    echo "Usage: $0 <function name> <arguments>"
+    exit;
+fi
+
+case $1 in
+    myfunc)
+      if [ $ARGC == 2 ]
+      then
+        $1 $2
+        exit
+      fi
+      echo "Usage: $0 $1 <arguments>"
+      ;;
+    issu_contrail_generate_conf)
+      if [ $ARGC == 2 ]
+      then
+        $1 $2 $3
+        exit
+      fi
+      echo "Usage: $0 $1 <arguments>"
+      ;;
+    issu_contrail_prepare_new_control_node)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+    issu_contrail_post_new_control_node)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+    issu_pre_sync)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+    issu_run_sync)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+    issu_post_sync)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+    issu_contrail_finalize_config)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+    issu_contrail_fetch_api_conf)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+    issu_contrail_set_conf)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+    issu_contrail_peer_control_nodes)
+      if [ $ARGC == 1 ]
+      then
+        $1
+        exit
+      fi
+      echo "Usage: $0 $1 "
+      ;;
+
+    *)
+      echo -e "Unrecognized function $1"
+      ;;
+esac
