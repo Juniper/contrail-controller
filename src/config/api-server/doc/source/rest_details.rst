@@ -500,13 +500,6 @@ Here is a sample output ::
         },
         {
           "link": {
-            "href": "http://10.84.14.2:8082/ifmap-to-id",
-            "name": "ifmap-to-id",
-            "rel": "action"
-          }
-        },
-        {
-          "link": {
             "href": "http://10.84.14.2:8082/useragent-kv",
             "name": "useragent-keyvalue",
             "rel": "action"

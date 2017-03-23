@@ -14,7 +14,6 @@ setup(
     name='cfgm_common',
     version='0.1dev',
     packages=['cfgm_common',
-              'cfgm_common.ifmap',
               'cfgm_common.uve',
               'cfgm_common.uve.acl',
               'cfgm_common.uve.service_instance',

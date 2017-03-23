@@ -91,7 +91,7 @@ class NeutronPluginInterface(object):
     def _connect_to_db(self):
         """
         Many instantiations of plugin (base + extensions) but need to have
-        only one config db conn (else error from ifmap-server)
+        only one config db conn (else error from api-server)
         """
         if self._cfgdb is None:
             # Initialize connection to DB and add default entries
