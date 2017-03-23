@@ -35,6 +35,7 @@ local_sources = [
     'mesos_manager/common/args.py',
     'mesos_manager/vnc/__init__.py',
     'mesos_manager/vnc/vnc_mesos.py',
+    'mesos_manager/vnc/vnc_services.py',
     'mesos_manager/vnc/db.py',
     'mesos_manager/vnc/config_db.py',
     'mesos_manager/vnc/reaction_map.py',
