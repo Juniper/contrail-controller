@@ -61,7 +61,6 @@ public:
     const static std::string kDbTask;
     const static int kQSizeHighWaterMark;
     const static int kQSizeLowWaterMark;
-    const static int kSmBackPressureTimeMSec = 300;
 
     typedef boost::function<bool(const VizMsg*, bool, DbHandler *,
         GenDb::GenDbIf::DbAddColumnCb db_cb)> VizCallback;
