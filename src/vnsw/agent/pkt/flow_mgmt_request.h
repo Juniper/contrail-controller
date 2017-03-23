@@ -23,6 +23,7 @@ public:
         RETRY_DELETE_VRF,
         DELETE_BGP_AAS_FLOWS,
         UPDATE_FLOW_STATS,
+        IMPLICIT_DELETE,
         DUMMY
 
     };
@@ -74,6 +75,10 @@ public:
         FlowEvent::Event resp_event = FlowEvent::INVALID;
         if (event_ == DELETE_BGP_AAS_FLOWS)
             return FlowEvent::DELETE_FLOW;
+
+        if (event_ == IMPLICIT_DELETE) {
+            resp_event = FlowEvent::RECOMPUTE_FLOW;
+        }
 
         if (db_entry_ == NULL)
             return resp_event;

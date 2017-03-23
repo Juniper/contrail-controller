@@ -937,7 +937,6 @@ public:
     VrfFlowMgmtEntry(VrfFlowMgmtTree *vrf_tree, const VrfEntry *vrf);
     virtual ~VrfFlowMgmtEntry() { }
     bool CanDelete() const;
-
     VrfFlowMgmtTree *vrf_tree() const { return vrf_tree_; }
     uint32_t vrf_id() const { return vrf_id_; }
 private:
@@ -963,6 +962,8 @@ public:
 
     virtual FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
     virtual bool OperEntryAdd(const FlowMgmtRequest *req, FlowMgmtKey *key);
+    virtual bool OperEntryDelete(const FlowMgmtRequest *req, FlowMgmtKey *key);
+    void DeleteDefaultRoute(const VrfEntry *vrf);
     virtual void FreeNotify(FlowMgmtKey *key, uint32_t gen_id);
     void RetryDelete(uint32_t vrf_id);
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
@@ -1139,6 +1140,10 @@ public:
     void FlowUpdateQueueDisable(bool val);
     size_t FlowUpdateQueueLength();
     size_t FlowDBQueueLength();
+    InetRouteFlowMgmtTree* ip4_route_flow_mgmt_tree() {
+        return &ip4_route_flow_mgmt_tree_;
+    }
+
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
