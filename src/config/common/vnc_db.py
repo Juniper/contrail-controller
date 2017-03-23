@@ -29,6 +29,13 @@ class DBBase(object):
         cls._manager = manager
     # end init
 
+    @classmethod
+    def clear(cls):
+        cls._logger = None
+        cls._object_db = None
+        cls._manager = None
+    # end clear
+
     class __metaclass__(type):
 
         def __iter__(cls):

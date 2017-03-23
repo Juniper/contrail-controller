@@ -28,6 +28,7 @@ from test_policy import VerifyPolicy
 sys.path.append("../common/tests")
 from test_utils import CassandraCFs
 import test_common
+from unittest import skip
 
 
 class VerifyServicePolicy(VerifyPolicy):
@@ -253,10 +254,10 @@ class VerifyServicePolicy(VerifyPolicy):
     @retries(5)
     def check_all_vmis_are_deleted(self, test_name):
         vmi_list = self._vnc_lib.virtual_machine_interfaces_list()
-        if not vmi_list['virtual-machine-interfaces']:
+        if not vmi_list.get('virtual-machine-interfaces'):
             print 'all virtual machine interfaces deleted'
             return
-        for vmi in vmi_list:
+        for vmi in vmi_list['virtual-machine-interfaces']:
             if test_name in vmi['fq_name'][2]:
                 raise Exception('virtual machine interfaces still exist' + str(vmi_list))
         print 'VMIs related to %s are deleted' % test_name
@@ -1415,10 +1416,10 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_pnf_service
 
+    @skip("Skipping test_interface_mirror due to a new dependency "
+          "tracker error appeared since we use the VNC ifmap "
+          "server instead of irond.")
     def test_interface_mirror(self):
-        self.skipTest("Skipping test_interface_mirror due to a new dependency "
-                      "tracker error appeared since we use the VNC ifmap "
-                      "server instead of irond.")
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')

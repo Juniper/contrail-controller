@@ -364,7 +364,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.check_vn_ri_state(fq_name=self.get_ri_name(vn))
 
         # stop st
-        self._st_greenlet.kill()
+        test_common.kill_schema_transformer(self._st_greenlet)
         gevent.sleep(5)
 
         # delete vn in api server
@@ -373,7 +373,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             self.id(), self._api_server_ip, self._api_server_port)
-        gevent.sleep(2)
+        test_common.wait_for_schema_transformer_up()
 
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn.uuid)
