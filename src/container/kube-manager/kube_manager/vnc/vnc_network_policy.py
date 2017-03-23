@@ -64,11 +64,13 @@ class VncNetworkPolicy(VncCommon):
             if not sg:
                 continue
             if self._find_pods(sg.src_pod_selector, {pod_id}):
-                sg_name = 'from-' + sg.name
-                sg_fq_name = ":".join(sg.fq_name[:-1]) + ":" + sg_name
+                sg_name = sg.name + "__ingress"
+                sg_name = VncCommon.make_name(sg_name, sg.uuid)
+                sg_id = self.get_kube_fq_name_to_uuid(SecurityGroupKM, sg.namespace,
+                        sg_name)
                 sg_id = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
                 if sg_id:
-                    self._sg_2_pod_link(pod_id, sg_id, 'ADD', False)
+                    self._sg_2_pod_link(pod_id, sg_id, 'ADD')
 
     def _add_dst_pod_2_policy(self, pod_id, policy_list):
         for policy_id in policy_list:
@@ -76,7 +78,7 @@ class VncNetworkPolicy(VncCommon):
             if not sg:
                 continue
             if self._find_pods(sg.dst_pod_selector, {pod_id}):
-                self._sg_2_pod_link(pod_id, policy_id, 'ADD', True)
+                self._sg_2_pod_link(pod_id, policy_id, 'ADD')
 
     def vnc_pod_add(self, event):
         labels = event['object']['metadata'].get('labels', {})
@@ -96,8 +98,8 @@ class VncNetworkPolicy(VncCommon):
         self._add_src_pod_2_policy(pod_id, policy_src_list)
         self._add_dst_pod_2_policy(pod_id, policy_dst_list)
 
-    def _check_deleted_labels(self, deleted_labels, vm):
-        if not deleted_labels:
+    def _check_deleted_labels(self, label_diff, vm):
+        if not label_diff or not label_diff['removed']:
             return
 
         for vmi_id in vm.virtual_machine_interfaces:
@@ -113,7 +115,7 @@ class VncNetworkPolicy(VncCommon):
                 continue
             dst_labels = sg.dst_pod_selector
             if set(deleted_labels.keys()).intersection(set(dst_labels.keys())):
-                self._sg_2_pod_link(vm.uuid, sg_id, 'DELETE', True)
+                self._sg_2_pod_link(vm.uuid, sg_id, 'DELETE')
 
         # check if rule has to be deleted
         for label in deleted_labels.items():
@@ -124,14 +126,15 @@ class VncNetworkPolicy(VncCommon):
                 sg = SecurityGroupKM.get(policy_id)
                 if not sg:
                     continue
-                sg_name = 'from-' + sg.name
-                sg_fq_name = [sg.fq_name[0], sg.fq_name[1], sg_name]
-                sg_id = SecurityGroupKM.get_kube_fq_name_to_uuid(src_sg_fq_name)
+                sg_name = sg.name + "__ingress"
+                sg_name = VncCommon.make_name(sg_name, sg.uuid)
+                sg_id = self.get_kube_fq_name_to_uuid(SecurityGroupKM, sg.namespace,
+                        sg_name)
                 if sg_id:
-                    self._sg_2_pod_link(pod_id, sg_id, 'DELETE', False)
+                    self._sg_2_pod_link(pod_id, sg_id, 'DELETE')
 
-    def _check_changed_labels(self, changed_labels, vm):
-        if not changed_labels:
+    def _check_changed_labels(self, label_diff, vm):
+        if not label_diff or not label_diff['changed']:
             return
 
         for vmi_id in vm.virtual_machine_interfaces:
@@ -147,7 +150,7 @@ class VncNetworkPolicy(VncCommon):
                 continue
             dst_labels = sg.dst_pod_selector
             if set(changed_labels.keys()).intersection(set(dst_labels.keys())):
-                self._sg_2_pod_link(vm.uuid, sg_id, 'DELETE', True)
+                self._sg_2_pod_link(vm.uuid, sg_id, 'DELETE')
 
         # check if rule has to be deleted
         for label in changed_labels.items():
@@ -158,24 +161,22 @@ class VncNetworkPolicy(VncCommon):
                 sg = SecurityGroupKM.get(policy_id)
                 if not sg:
                     continue
-                sg_name = 'from-' + sg.name
-                sg_fq_name = [sg.fq_name[0], sg.fq_name[1], sg_name]
-                sg_id = SecurityGroupKM.get_kube_fq_name_to_uuid(src_sg_fq_name)
+                sg_name = sg.name + "__ingress"
+                sg_name = VncCommon.make_name(sg_name, sg.uuid)
+                sg_id = self.get_kube_fq_name_to_uuid(SecurityGroupKM, sg.namespace,
+                        sg_name)
                 if sg_id:
-                    self._sg_2_pod_link(pod_id, sg_id, 'DELETE', False)
+                    self._sg_2_pod_link(pod_id, sg_id, 'DELETE')
 
     def vnc_pod_update(self, event, label_diff):
-        if not label_diff:
-            return
-
         labels = event['object']['metadata']['labels']
         pod_id = event['object']['metadata']['uid']
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             return
 
-        self._check_deleted_labels(label_diff['removed'], vm)
-        self._check_changed_labels(label_diff['changed'], vm)
+        self._check_deleted_labels(label_diff, vm)
+        self._check_changed_labels(label_diff, vm)
         self.vnc_pod_add(event)
 
     def vnc_pod_delete(self, event):
@@ -196,7 +197,7 @@ class VncNetworkPolicy(VncCommon):
                 ethertype='IPv4')
             self._add_sg_rule(dst_sg, rule)
 
-    def _sg_2_pod_link(self, pod_id, sg_id, oper, toggle_default_sg):
+    def _sg_2_pod_link(self, pod_id, sg_id, oper):
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             return
@@ -214,22 +215,6 @@ class VncNetworkPolicy(VncCommon):
             self.logger.error("Failed to %s SG %s to pod %s" %
                 (oper, pod_id, sg_id))
 
-        if oper == 'ADD':
-            default_oper = 'DELETE'
-        else:
-            default_oper = 'ADD'
-
-        if toggle_default_sg:
-            sg_fq_name = ['default-domain', vmi.fq_name[-2], 'default']
-            sg_uuid = SecurityGroupKM.get_kube_fq_name_to_uuid(sg_fq_name)
-            sg = SecurityGroupKM.get(sg_uuid)
-            try:
-                self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
-                    'security-group', sg_uuid, None, default_oper)
-            except Exception as e:
-                self.logger.error("Failed to %s SG %s to pod %s" %
-                    (default_oper, pod_id, sg_uuid)) 
-
     def _apply_dst_sg(self, sg, event):
         if not sg.dst_pod_selector:
             return
@@ -241,7 +226,7 @@ class VncNetworkPolicy(VncCommon):
 
         pod_ids = self._find_pods(sg.dst_pod_selector)
         for pod_id in pod_ids:
-            self._sg_2_pod_link(pod_id, sg.uuid, 'ADD', True)
+            self._sg_2_pod_link(pod_id, sg.uuid, 'ADD')
 
     def _apply_src_sg(self, sg, event):
         if not sg.src_pod_selector:
@@ -254,7 +239,7 @@ class VncNetworkPolicy(VncCommon):
 
         pod_ids = self._find_pods(sg.src_pod_selector)
         for pod_id in pod_ids:
-            self._sg_2_pod_link(pod_id, sg.uuid, 'ADD', False)
+            self._sg_2_pod_link(pod_id, sg.uuid, 'ADD')
 
     def _set_sg_annotations(self, sg_obj, sg, event):
         namespace = event['object']['metadata'].get('namespace')
@@ -279,9 +264,7 @@ class VncNetworkPolicy(VncCommon):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(namespace)
         proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name,
             parent='domain')
-        sg_display_name = VncCommon.make_display_name(namespace, name)
-        sg_obj = SecurityGroup(name=name, parent_obj=proj_obj,
-                    display_name=sg_display_name)
+        sg_obj = SecurityGroup(name=name, parent_obj=proj_obj)
         if uuid:
             sg_obj.uuid = uuid
         self._set_sg_annotations(sg_obj, None, event)
@@ -303,7 +286,8 @@ class VncNetworkPolicy(VncCommon):
     def _create_src_sg(self, event, dst_uuid):
         namespace = event['object']['metadata'].get('namespace')
         name = event['object']['metadata'].get('name')
-        sg_name = 'from__' + VncCommon.make_name(name, dst_uuid)
+        name = name + '__ingress'
+        sg_name = VncCommon.make_name(name, dst_uuid)
         sg_id = self.get_kube_fq_name_to_uuid(SecurityGroupKM, namespace,
             sg_name)
         if not sg_id:
@@ -313,11 +297,11 @@ class VncNetworkPolicy(VncCommon):
         return sg
 
     def _create_dst_sg(self, event):
+        name = event['object']['metadata'].get('name')
         uuid = event['object']['metadata'].get('uid')
         sg = SecurityGroupKM.get(uuid)
         if not sg:
             self._check_sg_uuid_change(event, uuid)
-            name = event['object']['metadata'].get('name')
             sg_name = VncCommon.make_name(name, uuid)
             sg = self._create_sg(event, sg_name, uuid)
         else:
@@ -350,10 +334,10 @@ class VncNetworkPolicy(VncCommon):
 
     def vnc_network_policy_delete(self, event, sg_uuid):
         self._delete_sg(sg_uuid)
-
         namespace = event['object']['metadata'].get('namespace')
         name = event['object']['metadata'].get('name')
-        src_sg_name = 'from__' + VncCommon.make_name(name, sg_uuid)
+        name = name + "__ingress"
+        src_sg_name = VncCommon.make_name(name, sg_uuid)
         src_sg_uuid = self.get_kube_fq_name_to_uuid(SecurityGroupKM, namespace,
             src_sg_name)
         self._delete_sg(src_sg_uuid)
@@ -374,5 +358,4 @@ class VncNetworkPolicy(VncCommon):
             if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
                 self.vnc_network_policy_add(event)
             elif event['type'] == 'DELETED':
-                sg_uuid = event['object']['metadata'].get('uid')
-                self.vnc_network_policy_delete(event, sg_uuid)
+                self.vnc_network_policy_delete(event, uid)

@@ -705,12 +705,13 @@ class SecurityGroupKM(DBBaseKM):
     obj_type = 'security_group'
     _kube_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
-    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    kube_fq_name_key = ["project", "cluster", "namespace", "name"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.annotations = None
+        self.namespace = None
         self.rule_entries = None
         self.src_ns_selector = None
         self.src_pod_selector = None
@@ -724,21 +725,20 @@ class SecurityGroupKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        self.update_multiple_refs('virtual_machine_interface', obj)
-        self.annotations = obj.get('annotations', None)
         self.build_fq_name_to_uuid(self.uuid, obj)
-        self._set_selectors(self.annotations)
+        self.annotations = obj.get('annotations', None)
+        for kvp in self.annotations.get('key_value_pair', []):
+            if kvp.get('key') == 'namespace':
+                self.namespace = kvp.get('value')
+            if kvp.get('key') == 'spec':
+                specjson = json.loads(kvp.get('value'))
+                if specjson:
+                    self._set_selectors(specjson)
         self.rule_entries = obj.get('security_group_entries', None)
+        self.update_multiple_refs('virtual_machine_interface', obj)
         return obj
 
-    def _set_selectors(self, annotations):
-        if not annotations:
-            return
-        for kvp in annotations.get('key_value_pair', []):
-            if kvp.get('key') == 'spec':
-                break
-        specjson = json.loads(kvp.get('value'))
-
+    def _set_selectors(self, specjson):
         pod_selector = specjson.get('podSelector')
         if pod_selector:
             self.dst_pod_selector = pod_selector.get('matchLabels')

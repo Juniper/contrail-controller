@@ -292,7 +292,7 @@ class VncPod(VncCommon):
         self._vnc_lib.ref_update('virtual-router', vrouter_obj.uuid,
             'virtual-machine', vm_obj.uuid, None, 'ADD')
         vm = VirtualMachineKM.get(vm_obj.uuid)
-        if vm: 
+        if vm:
             vm.virtual_router = vrouter_obj.uuid
 
     def _check_pod_uuid_change(self, pod_uuid, pod_name, pod_namespace):
@@ -306,7 +306,7 @@ class VncPod(VncCommon):
         vm = VirtualMachineKM.get(pod_id)
         if vm:
             self._set_label_to_pod_cache(labels, vm)
-            return
+            return vm
         if not vm:
             self._check_pod_uuid_change(pod_id, pod_name, pod_namespace)
 
@@ -345,6 +345,10 @@ class VncPod(VncCommon):
             self._create_cluster_service_fip(pod_name, pod_namespace, vmi_uuid)
 
         self._link_vm_to_node(vm_obj, pod_node)
+        vm = VirtualMachineKM.locate(pod_id)
+        if vm:
+            self._set_label_to_pod_cache(labels, vm)
+            return vm
 
     def vnc_pod_update(self, pod_id, pod_name, pod_namespace, pod_node, labels,
             vm_vmi):
@@ -352,15 +356,12 @@ class VncPod(VncCommon):
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             # If the vm is not created yet, do so now.
-            self.vnc_pod_add(pod_id, pod_name, pod_namespace,
+            vm = self.vnc_pod_add(pod_id, pod_name, pod_namespace,
                 pod_node, labels, vm_vmi)
-            vm = VirtualMachineKM.get(pod_id)
-
-        if vm:
-            label_diff = self._get_label_diff(labels, vm)
-            if not label_diff:
-                return label_diff
-            self._update_label_to_pod_cache(labels, vm)
+            if not vm:
+                return
+        label_diff = self._get_label_diff(labels, vm)
+        self._update_label_to_pod_cache(labels, vm)
         return label_diff
 
     def vnc_port_delete(self, vmi_id):
