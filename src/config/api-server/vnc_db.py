@@ -591,14 +591,16 @@ class VncDbClient(object):
         self._sandesh = api_svr_mgr._sandesh
 
         self._UVEMAP = {
-            "virtual_network": ("ObjectVNTable", False),
-            "service_instance": ("ObjectSITable", False),
-            "virtual_router": ("ObjectVRouter", True),
-            "analytics_node": ("ObjectCollectorInfo", True),
-            "database_node": ("ObjectDatabaseInfo", True),
-            "config_node": ("ObjectConfigNode", True),
-            "service_chain": ("ServiceChain", False),
-            "physical_router": ("ObjectPRouter", True),
+            "virtual_network" : ("ObjectVNTable", False),
+            "virtual_machine" : ("ObjectVMTable", False),
+            "virtual_machine_interface" : ("ObjectVMITable", False),
+            "service_instance" : ("ObjectSITable", False),
+            "virtual_router" : ("ObjectVRouter", True),
+            "analytics_node" : ("ObjectCollectorInfo", True),
+            "database_node" : ("ObjectDatabaseInfo", True),
+            "config_node" : ("ObjectConfigNode", True),
+            "service_chain" : ("ServiceChain", False),
+            "physical_router" : ("ObjectPRouter", True),
             "bgp_router": ("ObjectBgpRouter", True),
         }
 
