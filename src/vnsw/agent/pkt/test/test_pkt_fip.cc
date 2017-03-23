@@ -1859,6 +1859,31 @@ TEST_F(FlowTest, invalid_nat_flow_1) {
     WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
 }
 
+TEST_F(FlowTest, VrfDeleteTest) {
+    TxIpPacket(vnet[1]->id(), "1.1.1.10", "1.1.1.2", 1);
+    client->WaitForIdle();
+
+    // verify flow created as short flow
+    FlowEntry *fe = FlowGet(vnet[1]->vrf()->vrf_id(), "1.1.1.10", "1.1.1.2",
+                            1, 0, 0, vnet[1]->flow_key_nh()->id());
+
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == false);
+
+    agent_->flow_stats_manager()->
+        default_flow_stats_collector_obj()->SetFlowAgeTime(1000 * AGE_TIME);
+
+    DelVrf("default-project:vn2:vn2");
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 100, VrfGet("default-project:vn2:vn2", true) == NULL);
+
+    //Restore the VRF
+    AddVrf("default-project:vn2:vn2");
+    agent_->flow_stats_manager()->
+        default_flow_stats_collector_obj()->SetFlowAgeTime(AGE_TIME);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     //client = TestInit(init_file, ksync_init, true, true, true, 100*1000);

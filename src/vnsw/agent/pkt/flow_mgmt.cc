@@ -253,6 +253,7 @@ static bool ProcessEvent(FlowMgmtRequest *req, FlowMgmtKey *key,
         break;
 
     case FlowMgmtRequest::DELETE_DBENTRY:
+    case FlowMgmtRequest::IMPLICIT_ROUTE_DELETE:
         tree->OperEntryDelete(req, key);
         break;
 
@@ -1127,8 +1128,14 @@ bool FlowMgmtEntry::OperEntryChange(FlowMgmtManager *mgr,
 bool FlowMgmtEntry::OperEntryDelete(FlowMgmtManager *mgr,
                                     const FlowMgmtRequest *req,
                                     FlowMgmtKey *key) {
-    oper_state_ = OPER_DEL_SEEN;
-    gen_id_ = req->gen_id();
+    if (req->event() != FlowMgmtRequest::IMPLICIT_ROUTE_DELETE) {
+        //If the delete is implicit there is no DB entry
+        //and hence no free notify should be sent, hence
+        //dont update the state to DEL SEEN
+        oper_state_ = OPER_DEL_SEEN;
+        gen_id_ = req->gen_id();
+    }
+
     FlowEvent::Event event = req->GetResponseEvent();
     if (event == FlowEvent::INVALID)
         return false;
@@ -1486,6 +1493,10 @@ void RouteFlowMgmtTree::SetDBEntry(const FlowMgmtRequest *req,
         return;
     }
 
+    if (req->db_entry() == NULL) {
+        return;
+    }
+
     if (it->first->db_entry()) {
         assert(it->first->db_entry() == req->db_entry());
         return;
@@ -1799,6 +1810,40 @@ bool VrfFlowMgmtEntry::CanDelete() const {
 
     return (vrf_tree_->mgr()->HasVrfFlows(vrf_id_) == false);
 }
+
+void VrfFlowMgmtTree::DeleteDefaultRoute(const VrfEntry *vrf) {
+    //If VMI is associated to FIP, then all non floating-ip
+    //traffic would also be dependent FIP VRF route. This is
+    //to ensure that if more specific route gets added preference
+    //would be given to floating-ip
+    //
+    //Assume a sceanrio where traffic is not NATed, then flow would
+    //add a dependency on default route(assume no default route is
+    //present in FIP VRF). Now if FIP VRF is deleted there is no explicit
+    //trigger to delete this dependencyi and hence delay in releasing VRF
+    //reference, hence if default route DB entry is not present
+    //impliticly delete the default route so that flow could get
+    InetRouteFlowMgmtKey key(vrf->vrf_id(), Ip4Address(0), 0);
+    FlowMgmtEntry *route_entry = mgr_->ip4_route_flow_mgmt_tree()->Find(&key);
+    if (route_entry == NULL ||
+        route_entry->oper_state() != FlowMgmtEntry::OPER_NOT_SEEN) {
+        //If entry is not present on it has corresponding DB entry
+        //no need for implicit delete
+        return;
+    }
+
+    FlowMgmtRequest route_req(FlowMgmtRequest::IMPLICIT_ROUTE_DELETE);
+    ProcessEvent(&route_req, &key, mgr_->ip4_route_flow_mgmt_tree());
+}
+
+bool VrfFlowMgmtTree::OperEntryDelete(const FlowMgmtRequest *req,
+                                      FlowMgmtKey *key) {
+    const VrfEntry* vrf = static_cast<const VrfEntry *>(req->db_entry());
+    DeleteDefaultRoute(vrf);
+
+    return FlowMgmtTree::OperEntryDelete(req, key);
+}
+
 
 VrfFlowMgmtEntry::Data::Data(VrfFlowMgmtEntry *vrf_mgmt_entry,
                              const VrfEntry *vrf, AgentRouteTable *table) :
