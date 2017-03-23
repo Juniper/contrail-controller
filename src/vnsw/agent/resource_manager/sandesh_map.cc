@@ -20,8 +20,6 @@
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/mpls_index.h"
 #include <oper/nexthop.h>
-#include <boost/filesystem.hpp>
-#include <boost/functional/hash.hpp>
 
 BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
                                          const std::string &name,
