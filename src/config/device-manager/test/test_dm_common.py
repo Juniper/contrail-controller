@@ -38,6 +38,13 @@ class TestCommonDM(test_case.DMTestCase):
         return grps
     # end get_bgp_groups
 
+    def get_dynamic_tunnels(self, config):
+        ri_opts = config.get_routing_options()
+        if not ri_opts:
+            return None
+        return ri_opts.get_dynamic_tunnels()
+    # end get_dynamic_tunnels
+
     def get_routing_instances(self, config, ri_name=''):
         ri_list  = config.get_routing_instances()
         ri_list = ri_list.get_instance() or []
@@ -49,6 +56,8 @@ class TestCommonDM(test_case.DMTestCase):
 
     def get_interfaces(self, config, name=''):
         interfaces = config.get_interfaces()
+        if not interfaces:
+            return []
         interfaces = interfaces.get_interface()
         intfs = []
         for intf in interfaces or []:
