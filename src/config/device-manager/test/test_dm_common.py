@@ -49,6 +49,8 @@ class TestCommonDM(test_case.DMTestCase):
 
     def get_interfaces(self, config, name=''):
         interfaces = config.get_interfaces()
+        if not interfaces:
+            return []
         interfaces = interfaces.get_interface()
         intfs = []
         for intf in interfaces or []:
