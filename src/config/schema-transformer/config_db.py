@@ -2474,6 +2474,8 @@ class ServiceChain(DBBaseST):
             chain.created_stale = chain.created
             if not hasattr(chain, 'partially_created'):
                 chain.partially_created = False
+            if not hasattr(chain, 'si_info'):
+                chain.si_info = None
             cls._dict[name] = chain
     # end init
 
@@ -2486,6 +2488,7 @@ class ServiceChain(DBBaseST):
         self.sp_list = sp_list
         self.dp_list = dp_list
         self.service_list = list(services)
+        self.si_info = None
 
         self.protocol = protocol
         self.created = False
@@ -2669,6 +2672,15 @@ class ServiceChain(DBBaseST):
             if si_info is None:
                 # if previously created but no longer valid, then destroy
                 self.destroy()
+
+            # If the VMIs associated with the SC has changed
+            # after the SC is created, recreate the SC object.
+            if self.si_info != None and si_info != self.si_info:
+                self._create(si_info)
+                self.si_info = si_info
+                if self.partially_created:
+                    self.destroy()
+                    return
             return
 
         if si_info is None:
