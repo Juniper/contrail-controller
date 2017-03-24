@@ -13,6 +13,7 @@
 //
 // Default scheduler policy for control-node daemon and test processes.
 //
+
 void ControlNode::SetDefaultSchedulingPolicy() {
     static bool policy_set;
 
