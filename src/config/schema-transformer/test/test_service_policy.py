@@ -48,9 +48,12 @@ class VerifyServicePolicy(VerifyPolicy):
         raise Exception('Service chain not found')
 
     @retries(5)
-    def check_service_chain_prefix_match(self, fq_name, prefix):
+    def check_service_chain_prefix_match(self, fq_name, prefix, ip_version='4'):
         ri = self._vnc_lib.routing_instance_read(fq_name)
-        sci = ri.get_service_chain_information()
+        if ip_version == '6':
+            sci = ri.get_ipv6_service_chain_information()
+        else:
+            sci = ri.get_service_chain_information()
         if sci is None:
             print "retrying ... ", test_common.lineno()
             raise Exception('Service chain info not found for %s' % fq_name)
@@ -1880,7 +1883,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
-        vn2_obj.del_network_policy(np)
+        vn3_obj.del_network_policy(np)
 
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
@@ -1924,4 +1927,55 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
     # end test_mps_with_nat
+
+    def test_service_policy_with_v4_v6_subnets(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.0/24', '1000::/16'])
+        # create vn2
+        vn2_name = self.id() + 'vn2'
+        vn2_obj = self.create_virtual_network(vn2_name, ['20.0.0.0/24', '2000::/16'])
+
+        service_name = self.id() + 's1'
+        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], version=2)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        sc = self.wait_to_get_sc()
+        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn1_obj, sc_ri_name))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn2_obj))
+
+        self.check_acl_action_assign_rules(vn1_obj.get_fq_name(), vn1_obj.get_fq_name_str(),
+                                  vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+        self.check_acl_action_assign_rules(vn1_obj.get_fq_name(), vn2_obj.get_fq_name_str(),
+                                  vn1_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn1_obj, sc_ri_name)))
+        self.check_acl_action_assign_rules(vn2_obj.get_fq_name(), vn2_obj.get_fq_name_str(),
+                                  vn1_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
+        self.check_acl_action_assign_rules(vn2_obj.get_fq_name(), vn1_obj.get_fq_name_str(),
+                                  vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
+
+        left_ri_fq_name = ['default-domain', 'default-project', vn1_name, sc_ri_name]
+        right_ri_fq_name = ['default-domain', 'default-project', vn2_name, sc_ri_name]
+
+        self.check_service_chain_prefix_match(left_ri_fq_name, prefix='2000::/16', ip_version='6')
+        self.check_service_chain_prefix_match(left_ri_fq_name, prefix='20.0.0.0/24', ip_version='4')
+        self.check_service_chain_prefix_match(right_ri_fq_name, prefix='1000::/16', ip_version='6')
+        self.check_service_chain_prefix_match(right_ri_fq_name, prefix='10.0.0.0/24', ip_version='4')
+
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        vn1_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+
+        self._vnc_lib.network_policy_delete(id=np.uuid)
+    #end test_service_policy_with_v4_v6_subnets
+
 # end class TestServicePolicy
