@@ -847,7 +847,12 @@ static void BuildBridgeDomainTable(Agent *agent,
 
 static void CompareVnVm(const uuid &vmi_uuid, VmInterfaceConfigData *data,
                         const PortSubscribeEntry *entry) {
-    if (entry && (entry->MatchVn(data->vn_uuid_) == false)) {
+    /* VN uuid is mandatory for port adds from REST API only for port type of
+     * PortSubscribeEntry::VMPORT. Hence VN match check should be done only for
+     * port type of PortSubscribeEntry::VMPORT
+     */
+    if (entry && entry->type() == PortSubscribeEntry::VMPORT &&
+        (entry->MatchVn(data->vn_uuid_) == false)) {
         IFMAP_ERROR(InterfaceConfiguration, 
                     "Virtual-network UUID mismatch for interface:",
                     UuidToString(vmi_uuid),
