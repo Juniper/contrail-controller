@@ -307,9 +307,6 @@ class DBInterface(object):
         except (PermissionDenied, RefsExistError) as e:
             self._raise_contrail_exception('BadRequest',
                 resource='network', msg=str(e))
-
-        # read back to get subnet gw allocated by api-server
-        fq_name_str = json.dumps(net_obj.get_fq_name())
     #end _virtual_network_update
 
     def _virtual_network_delete(self, net_id):
