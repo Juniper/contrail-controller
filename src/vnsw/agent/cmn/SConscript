@@ -13,7 +13,7 @@ SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
 vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_factory.cc',
-                   'agent_signal.cc', 'agent_stats.cc']
+                   'agent_signal.cc', 'agent_stats.cc', 'event_notifier.cc']
 
 vnswcmn = env.Library('vnswcmn', sandesh_objs + vnswcmn_sources)
 

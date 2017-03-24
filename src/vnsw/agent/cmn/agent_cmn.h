@@ -44,6 +44,7 @@
 
 #include <cmn/agent.h>
 #include <cmn/agent_db.h>
+#include <cmn/event_notifier.h>
 
 static inline bool UnregisterDBTable(DBTable *table, 
                                      DBTableBase::ListenerId id) {

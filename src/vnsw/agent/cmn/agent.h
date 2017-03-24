@@ -41,6 +41,7 @@ namespace OVSDB {
 class OvsdbClient;
 };
 class ConfigManager;
+class EventNotifier;
 
 class Interface;
 typedef boost::intrusive_ptr<Interface> InterfaceRef;
@@ -292,6 +293,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define kL2RouteDbTableSuffix  "l2.route.0"
 #define kMcastRouteDbTableSuffix "mc.route.0"
 #define kEvpnRouteDbTableSuffix  "evpn.route.0"
+#define kEventNotifierTask "Agent::EventNotifier"
 
 class Agent {
 public:
@@ -890,6 +892,9 @@ public:
     ResourceManager *resource_manager() const;
     void set_resource_manager(ResourceManager *resource_manager);
 
+    EventNotifier *event_notifier() const;
+    void set_event_notifier(EventNotifier *mgr);
+
     // Miscellaneous
     EventManager *event_manager() const {return event_mgr_;}
     void set_event_manager(EventManager *evm) {
@@ -1130,6 +1135,7 @@ private:
     DiagTable *diag_table_;
     VNController *controller_;
     ResourceManager *resource_manager_;
+    EventNotifier *event_notifier_;
 
     EventManager *event_mgr_;
     boost::shared_ptr<AgentXmppChannel> agent_xmpp_channel_[MAX_XMPP_SERVERS];
