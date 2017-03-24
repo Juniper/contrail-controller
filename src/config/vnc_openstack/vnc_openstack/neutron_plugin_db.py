@@ -310,10 +310,8 @@ class DBInterface(object):
     #end _virtual_network_update
 
     def _virtual_network_delete(self, net_id):
-        fq_name_str = None
         try:
             net_obj = self._vnc_lib.virtual_network_read(id=net_id)
-            fq_name_str = json.dumps(net_obj.get_fq_name())
         except NoIdError:
             return
 
@@ -563,7 +561,6 @@ class DBInterface(object):
 
     def _logical_router_update(self, rtr_obj):
         self._vnc_lib.logical_router_update(rtr_obj)
-        fq_name_str = json.dumps(rtr_obj.get_fq_name())
     #end _logical_router_update
 
     def _logical_router_delete(self, rtr_id):
