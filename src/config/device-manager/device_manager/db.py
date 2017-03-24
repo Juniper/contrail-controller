@@ -115,6 +115,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.product = obj.get('physical_router_product_name', '')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.user_credentials = obj.get('physical_router_user_credentials')
+        self.loopback_ip = obj.get('physical_router_loopback_ip', '')
         self.junos_service_ports = obj.get(
             'physical_router_junos_service_ports')
         self.update_single_ref('bgp_router', obj)
@@ -571,7 +572,8 @@ class PhysicalRouterDM(DBBaseDM):
                     GlobalSystemConfigDM.ip_fabric_subnets,
                     bgp_router_ips)
 
-        self.config_manager.add_lo0_unit_0_interface()
+        if self.loopback_ip:
+            self.config_manager.add_lo0_unit_0_interface(self.loopback_ip)
 
         vn_dict = self.get_vn_li_map()
         self.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)

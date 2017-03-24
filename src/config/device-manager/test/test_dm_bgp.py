@@ -102,5 +102,35 @@ class TestBgpDM(TestCommonDM):
         self.wait_for_routers_delete(bgp_fq, pr_fq)
     #end test_dm_md5_auth_config
 
+    @retries(5, hook=retry_exc_handler)
+    def check_lo0_ip_config(self, ip_check=''):
+        config = FakeDeviceConnect.get_xml_config()
+        intfs = self.get_interfaces(config, "lo0")
+        if ip_check:
+            ips = self.get_ip_list(intfs[0], "v4", "0")
+            self.assertEqual(ip_check, ips[0])
+        else:
+            if not intfs or not self.get_ip_list(intfs[0], "v4", "0"):
+                return
+            self.assertTrue(False)
+        return
+
+    # test loopback ip configuration
+    def test_dm_lo0_ip_config(self):
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
+        self.check_lo0_ip_config()
+
+        pr.set_physical_router_loopback_ip("10.10.0.1")
+        self._vnc_lib.physical_router_update(pr)
+        self.check_lo0_ip_config("10.10.0.1/32")
+
+        pr.set_physical_router_loopback_ip('')
+        self._vnc_lib.physical_router_update(pr)
+        self.check_lo0_ip_config()
+        bgp_router_fq = bgp_router.get_fq_name()
+        pr_fq = pr.get_fq_name()
+        self.delete_routers(bgp_router, pr)
+        self.wait_for_routers_delete(bgp_router_fq, pr_fq)
+
 # end TestBgpDM
 

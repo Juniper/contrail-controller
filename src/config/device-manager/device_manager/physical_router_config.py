@@ -196,14 +196,14 @@ class PhysicalRouterConfig(object):
         self.interfaces_config.add_interface(interface)
     # end add_pnf_logical_interface
 
-    def add_lo0_unit_0_interface(self):
-        if not self.bgp_params or not self.bgp_params.get('address'):
+    def add_lo0_unit_0_interface(self, loopback_ip=''):
+        if not loopback_ip:
             return
         if not self.interfaces_config:
             self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
         lo_intf = Interface(name="lo0")
         self.interfaces_config.add_interface(lo_intf)
-        fam_inet = FamilyInet(address=[Address(name=self.bgp_params['address'] + "/32",
+        fam_inet = FamilyInet(address=[Address(name=loopback_ip + "/32",
                                                    primary='', preferred='')])
         intf_unit = Unit(name="0", family=Family(inet=fam_inet),
                              comment=DMUtils.lo0_unit_0_comment())
