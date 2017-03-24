@@ -822,7 +822,8 @@ BgpMembershipManager::RibState::RibState(BgpMembershipManager *manager,
     : manager_(manager),
       table_(table),
       request_count_(0),
-      walk_count_(0) {
+      walk_count_(0),
+      table_delete_ref_(this, table->deleter()) {
 }
 
 //
@@ -898,8 +899,7 @@ BgpMembershipManager::PeerRibState::PeerRibState(BgpMembershipManager *manager,
       ribin_registered_(false),
       ribout_registered_(false),
       instance_id_(-1),
-      subscription_gen_id_(0),
-      table_delete_ref_(this, rs->table()->deleter()) {
+      subscription_gen_id_(0) {
 }
 
 //
