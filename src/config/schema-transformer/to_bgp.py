@@ -20,6 +20,7 @@ import requests
 import ConfigParser
 import signal
 import random
+import time
 import hashlib
 import argparse
 
@@ -657,7 +658,7 @@ def run_schema_transformer(st_logger, args):
     try:
         gevent.joinall(transformer._vnc_amqp._vnc_kombu.greenlets())
     except KeyboardInterrupt:
-        transformer._vnc_amqp.close()
+        SchemaTransformer.destroy_instance()
         raise
 # end run_schema_transformer
 
