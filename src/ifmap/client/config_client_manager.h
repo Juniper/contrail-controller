@@ -81,6 +81,9 @@ public:
         return obj_type_to_read_;
     }
 
+protected:
+    bool end_of_rib_computed_;
+
 private:
     typedef std::pair<std::string, std::string> LinkMemberPair;
     typedef std::pair<std::string, bool> LinkDataPair;
@@ -101,7 +104,6 @@ private:
 
     mutable tbb::mutex end_of_rib_sync_mutex_;
     tbb::interface5::condition_variable cond_var_;
-    bool end_of_rib_computed_;
     uint64_t end_of_rib_computed_at_;
 };
 
