@@ -32,6 +32,59 @@
          'optional', 'CRUD', 'List of structured-syslog-config that are
           applicable to objects anchored under project.')-->
 
+<xsd:complexType name="FieldNamesList">
+    <xsd:all>
+        <xsd:element name="field-names" type="xsd:string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="StructuredSyslogMessageForwardType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="do-not-forward"
+             description='This structured-syslog-message should not be forwarded'/>
+        <xsd:enumeration value="forward-unprocessed"
+             description='This structured-syslog-message should be
+             forwarded without processing'/>
+        <xsd:enumeration value="forward-processed"
+             description='This structured-syslog-message should be
+             forwarded after processing'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+
+<xsd:element name="structured-syslog-message" type="ifmap:IdentityType"
+     description="structured syslog messages to be handled"/>
+<xsd:element name="structured-syslog-config-structured-syslog-message"
+     description="structured syslog messages to be handled"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('structured-syslog-config-structured-syslog-message',
+          'structured-syslog-config', 'structured-syslog-message',
+          ['has'], 'optional', 'CRUD', 'List of
+          structured-syslog-message that are applicable to objects
+          anchored under structured-syslog-config.')-->
+<xsd:element name="structured-syslog-message-tagged-fields" type="FieldNamesList" />
+<!--#IFMAP-SEMANTICS-IDL
+     Property('structured-syslog-message-tagged-fields',
+              'structured-syslog-message', 'required', 'CRUD',
+              'list of field names in the message to be tagged') -->
+<xsd:element name="structured-syslog-message-integer-fields" type="FieldNamesList" />
+<!--#IFMAP-SEMANTICS-IDL
+     Property('structured-syslog-message-integer-fields',
+              'structured-syslog-message', 'required', 'CRUD',
+              'list of integer fields in the message') -->
+<xsd:element name="structured-syslog-message-process-and-store"
+     type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('structured-syslog-message-process-and-store',
+              'structured-syslog-message', 'required', 'CRUD',
+              'message is to be processed and stored or not') -->
+<xsd:element name="structured-syslog-message-forward"
+     type="StructuredSyslogMessageForwardType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('structured-syslog-message-forward',
+              'structured-syslog-message', 'required', 'CRUD',
+              'fowarding action to be taken on the message') -->
+
 <xsd:element name="structured-syslog-hostname-record" type="ifmap:IdentityType"
      description="mapping Hostname to other entities"/>
 <xsd:element name="structured-syslog-config-structured-syslog-hostname-record"

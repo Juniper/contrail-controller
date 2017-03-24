@@ -116,6 +116,7 @@ AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] = AnalyticsEnv.Object(AnalyticsVi
 
 OpServerProxy_obj = AnalyticsEnv.Object('OpServerProxy.o', 'OpServerProxy.cc')
 db_handler_obj = AnalyticsEnv_excep.Object('db_handler.o', 'db_handler.cc')
+structured_syslog_config_obj = AnalyticsEnv_excep.Object('structured_syslog_config.o', 'structured_syslog_config.cc')
 main_obj = AnalyticsEnv_excep.Object('main.o', 'main.cc')
 AnalyticsEnv_excep.Depends(main_obj, 'buildinfo.cc')
 
@@ -154,7 +155,7 @@ vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'options.cc', 'stat_walker.cc', 'sandesh_request.cc',
                 'protobuf_collector.cc', 'protobuf_server.cc',
                 'structured_syslog_collector.cc', 'structured_syslog_server.cc',
-                'structured_syslog_config.cc', 'configdb_connection.cc',
+                'configdb_connection.cc',
                 'sflow.cc',
                 'sflow_generator.cc', 'sflow_collector.cc',
                 'usrdef_counters.cc',
@@ -178,6 +179,7 @@ AnalyticsEnv.GenerateBuildInfoCode(
     source = AnalyticsSandeshGenSrcs + vizd_sources + ProtobufGenSrcs +
     ['OpServerProxy.cc',
      'db_handler.cc',
+     'structured_syslog_config.cc',
      parser_util_obj,
      'main.cc'],
     path=str(Dir('.').abspath))
@@ -188,6 +190,7 @@ vizd = AnalyticsEnv.Program(target = 'vizd',
         [main_obj,
         'buildinfo.cc',
         db_handler_obj,
+        structured_syslog_config_obj,
         OpServerProxy_obj,
         syslog_collector_obj,
         parser_util_obj,
