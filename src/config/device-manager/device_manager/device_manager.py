@@ -6,6 +6,7 @@
 This file contains implementation of managing physical router configuration
 """
 
+import gevent
 # Import kazoo.client before monkey patching
 from cfgm_common.zkclient import ZookeeperClient
 from gevent import monkey
@@ -270,7 +271,7 @@ class DeviceManager(object):
         try:
             gevent.joinall(self._vnc_amqp._vnc_kombu.greenlets())
         except KeyboardInterrupt:
-            self._vnc_amqp.close()
+            DeviceManager.destroy_instance()
             raise
     # end __init__
 
