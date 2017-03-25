@@ -6,7 +6,6 @@
 #include "base/task.h"
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_encoder.h"
 #include "ifmap/ifmap_exporter.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"

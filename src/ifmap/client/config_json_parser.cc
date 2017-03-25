@@ -11,7 +11,6 @@
 #include "base/autogen_util.h"
 #include "client/config_log_types.h"
 #include "ifmap/client/config_cass2json_adapter.h"
-#include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
 
 using contrail_rapidjson::Value;

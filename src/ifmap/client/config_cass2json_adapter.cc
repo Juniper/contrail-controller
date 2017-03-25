@@ -14,7 +14,6 @@
 #include "config_json_parser.h"
 #include "ifmap_log.h"
 #include "client/config_log_types.h"
-#include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 

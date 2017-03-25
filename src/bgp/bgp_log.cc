@@ -6,7 +6,6 @@
 
 #include <string>
 
-#include "bgp/bgp_server.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 SandeshTraceBufferPtr BgpTraceBuf(SandeshTraceBufferCreate(BGP_TRACE_BUF,
