@@ -9,6 +9,7 @@ import gevent
 import gevent.monkey
 gevent.monkey.patch_all()
 import time
+import signal
 from gevent.queue import Queue
 try:
     from gevent.lock import Semaphore
@@ -36,6 +37,10 @@ class VncKombuClientBase(object):
         self._publish_queue.put(message)
     # end publish
 
+    def sigterm_handler(self):
+        self.shutdown()
+        exit()
+
     def __init__(self, rabbit_ip, rabbit_port, rabbit_user, rabbit_password,
                  rabbit_vhost, rabbit_ha_mode, q_name, subscribe_cb, logger,
                  **kwargs):
@@ -52,6 +57,12 @@ class VncKombuClientBase(object):
         self.obj_upd_exchange = kombu.Exchange('vnc_config.object-update', 'fanout',
                                                durable=False)
         self._ssl_params = self._fetch_ssl_params(**kwargs)
+
+        # Register a handler for SIGTERM so that we can release the lock
+        # Without it, it can take several minutes before new master is elected
+        # If any app using this wants to register their own sigterm handler,
+        # then we will have to modify this function to perhaps take an argument
+        gevent.signal(signal.SIGTERM, self.sigterm_handler)
 
     def num_pending_messages(self):
         return self._publish_queue.qsize()
