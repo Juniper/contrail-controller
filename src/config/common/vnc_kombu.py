@@ -104,6 +104,17 @@ class VncKombuClientBase(object):
             self._producer = kombu.Producer(self._channel, exchange=self.obj_upd_exchange)
     # end _reconnect
 
+    def _delete_queue(self):
+        # delete the queue
+        try:
+            bound_q = self._update_queue_obj(self._channel)
+            if bound_q:
+                bound_q.delete()
+        except Exception as e:
+            msg = 'Unable to delete the old ampq queue: %s' %(str(e))
+            self._logger(msg, level=SandeshLevel.SYS_ERR)
+    #end _delete_queue
+
     def _connection_watch(self, connected):
         if not connected:
             self._reconnect()
@@ -174,6 +185,7 @@ class VncKombuClientBase(object):
         self._connection_monitor_greenlet.kill()
         self._producer.close()
         self._consumer.close()
+        self._delete_queue()
         self._conn.close()
 
     _SSL_PROTOCOLS = {
