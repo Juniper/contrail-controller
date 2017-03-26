@@ -249,8 +249,17 @@ int main(int argc, char *argv[])
     uint16_t structured_syslog_port(0);
     bool structured_syslog_server_enabled =
         options.collector_structured_syslog_port(&structured_syslog_port);
+    string structured_syslog_fwd("");
     if (structured_syslog_server_enabled) {
         LOG(INFO, "COLLECTOR STRUCTURED SYSLOG LISTEN PORT: " << structured_syslog_port);
+        vector<string> fwdl = options.collector_structured_syslog_forward_destination();
+        for (vector<string>::const_iterator st = fwdl.begin();
+                st != fwdl.end(); st++) {
+            if (st != fwdl.begin()) {
+                structured_syslog_fwd += string(",");
+            }
+            structured_syslog_fwd += *st;
+        }
     }
     string kstr("");
     vector<string> kbl = options.kafka_broker_list();
@@ -353,6 +362,7 @@ int main(int argc, char *argv[])
             protobuf_port,
             structured_syslog_server_enabled,
             structured_syslog_port,
+            structured_syslog_fwd,
             string("127.0.0.1"),
             options.redis_port(),
             options.redis_password(),
