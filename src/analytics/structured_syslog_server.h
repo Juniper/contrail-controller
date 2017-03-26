@@ -21,6 +21,7 @@ namespace structured_syslog {
 class StructuredSyslogServer {
  public:
     StructuredSyslogServer(EventManager *evm, uint16_t port,
+        const vector<string> structured_syslog_forward_dst,
         boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
         StatWalker::StatTableInsertFn stat_db_cb);
     virtual ~StructuredSyslogServer();
@@ -32,6 +33,40 @@ class StructuredSyslogServer {
  private:
     class StructuredSyslogServerImpl;
     StructuredSyslogServerImpl *impl_;
+};
+
+class  StructuredSyslogQueueEntry
+{
+public:
+    size_t      length;
+    std::string *data;
+
+    StructuredSyslogQueueEntry (std::string *d, size_t len);
+    virtual ~StructuredSyslogQueueEntry ();
+};
+
+class StructuredSyslogTcpForwarder;
+
+class StructuredSyslogForwarder
+{
+public:
+    StructuredSyslogForwarder (EventManager *evm, const vector <std::string> forward_dst);
+    virtual ~StructuredSyslogForwarder ();
+    void Forward (StructuredSyslogQueueEntry *sqe);
+    void Shutdown ();
+
+protected:
+    bool PollTcpForwarder();
+    void PollTcpForwarderErrorHandler (string error_name, string error_message);
+    void Init (const vector <std::string> forward_dst);
+    bool Client (StructuredSyslogQueueEntry *sqe);
+private:
+    EventManager                           *evm_;
+    vector <std::string>                   forward_dst_;
+    WorkQueue<StructuredSyslogQueueEntry*> work_queue_;
+    std::vector<StructuredSyslogTcpForwarder*> tcpForwarder_;
+    Timer                                  *tcpForwarder_poll_timer_;
+    static const int tcpForwarderPollInterval = 60 * 1000; // in ms
 };
 
 }  // namespace structured_syslog

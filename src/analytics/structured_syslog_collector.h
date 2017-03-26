@@ -14,6 +14,7 @@
 class StructuredSyslogCollector {
  public:
     StructuredSyslogCollector(EventManager *evm, uint16_t port,
+        const vector<string> structured_syslog_forward_dst,
         DbHandlerPtr db_handler);
     virtual ~StructuredSyslogCollector();
     bool Initialize();
