@@ -18,31 +18,17 @@ TEST_F(TunnelEncapTest, String_1) {
     EXPECT_EQ("gre", tunnel_encap.ToXmppString());
 }
 
-TEST_F(TunnelEncapTest, String_2a) {
+TEST_F(TunnelEncapTest, String_2) {
     TunnelEncap tunnel_encap("udp");
     EXPECT_EQ(TunnelEncapType::MPLS_O_UDP, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:udp", tunnel_encap.ToString());
     EXPECT_EQ("udp", tunnel_encap.ToXmppString());
 }
 
-TEST_F(TunnelEncapTest, String_2b) {
-    TunnelEncap tunnel_encap("udp-contrail");
-    EXPECT_EQ(TunnelEncapType::MPLS_O_UDP_CONTRAIL, tunnel_encap.tunnel_encap());
-    EXPECT_EQ("encapsulation:udp-contrail", tunnel_encap.ToString());
-    EXPECT_EQ("udp", tunnel_encap.ToXmppString());
-}
-
-TEST_F(TunnelEncapTest, String_3a) {
+TEST_F(TunnelEncapTest, String_3) {
     TunnelEncap tunnel_encap("vxlan");
     EXPECT_EQ(TunnelEncapType::VXLAN, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:vxlan", tunnel_encap.ToString());
-    EXPECT_EQ("vxlan", tunnel_encap.ToXmppString());
-}
-
-TEST_F(TunnelEncapTest, String_3b) {
-    TunnelEncap tunnel_encap("vxlan-contrail");
-    EXPECT_EQ(TunnelEncapType::VXLAN_CONTRAIL, tunnel_encap.tunnel_encap());
-    EXPECT_EQ("encapsulation:vxlan-contrail", tunnel_encap.ToString());
     EXPECT_EQ("vxlan", tunnel_encap.ToXmppString());
 }
 
@@ -88,31 +74,17 @@ TEST_F(TunnelEncapTest, EncapType_1b) {
     EXPECT_EQ("gre", tunnel_encap.ToXmppString());
 }
 
-TEST_F(TunnelEncapTest, EncapType_2a) {
+TEST_F(TunnelEncapTest, EncapType_2) {
     TunnelEncap tunnel_encap(TunnelEncapType::MPLS_O_UDP);
     EXPECT_EQ(TunnelEncapType::MPLS_O_UDP, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:udp", tunnel_encap.ToString());
     EXPECT_EQ("udp", tunnel_encap.ToXmppString());
 }
 
-TEST_F(TunnelEncapTest, EncapType_2b) {
-    TunnelEncap tunnel_encap(TunnelEncapType::MPLS_O_UDP_CONTRAIL);
-    EXPECT_EQ(TunnelEncapType::MPLS_O_UDP_CONTRAIL, tunnel_encap.tunnel_encap());
-    EXPECT_EQ("encapsulation:udp-contrail", tunnel_encap.ToString());
-    EXPECT_EQ("udp", tunnel_encap.ToXmppString());
-}
-
-TEST_F(TunnelEncapTest, EncapType_3a) {
+TEST_F(TunnelEncapTest, EncapType_3) {
     TunnelEncap tunnel_encap(TunnelEncapType::VXLAN);
     EXPECT_EQ(TunnelEncapType::VXLAN, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:vxlan", tunnel_encap.ToString());
-    EXPECT_EQ("vxlan", tunnel_encap.ToXmppString());
-}
-
-TEST_F(TunnelEncapTest, EncapType_3b) {
-    TunnelEncap tunnel_encap(TunnelEncapType::VXLAN_CONTRAIL);
-    EXPECT_EQ(TunnelEncapType::VXLAN_CONTRAIL, tunnel_encap.tunnel_encap());
-    EXPECT_EQ("encapsulation:vxlan-contrail", tunnel_encap.ToString());
     EXPECT_EQ("vxlan", tunnel_encap.ToXmppString());
 }
 
@@ -161,7 +133,7 @@ TEST_F(TunnelEncapTest, ByteArray_1b) {
     EXPECT_EQ("gre", tunnel_encap.ToXmppString());
 }
 
-TEST_F(TunnelEncapTest, ByteArray_2a) {
+TEST_F(TunnelEncapTest, ByteArray_2) {
     TunnelEncap::bytes_type data =
         { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0d } };
     TunnelEncap tunnel_encap(data);
@@ -170,30 +142,12 @@ TEST_F(TunnelEncapTest, ByteArray_2a) {
     EXPECT_EQ("udp", tunnel_encap.ToXmppString());
 }
 
-TEST_F(TunnelEncapTest, ByteArray_2b) {
-    TunnelEncap::bytes_type data =
-        { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x90, 0x89 } };
-    TunnelEncap tunnel_encap(data);
-    EXPECT_EQ(TunnelEncapType::MPLS_O_UDP_CONTRAIL, tunnel_encap.tunnel_encap());
-    EXPECT_EQ("encapsulation:udp-contrail", tunnel_encap.ToString());
-    EXPECT_EQ("udp", tunnel_encap.ToXmppString());
-}
-
-TEST_F(TunnelEncapTest, ByteArray_3a) {
+TEST_F(TunnelEncapTest, ByteArray_3) {
     TunnelEncap::bytes_type data =
         { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08 } };
     TunnelEncap tunnel_encap(data);
     EXPECT_EQ(TunnelEncapType::VXLAN, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:vxlan", tunnel_encap.ToString());
-    EXPECT_EQ("vxlan", tunnel_encap.ToXmppString());
-}
-
-TEST_F(TunnelEncapTest, ByteArray_3b) {
-    TunnelEncap::bytes_type data =
-        { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x90, 0x8a } };
-    TunnelEncap tunnel_encap(data);
-    EXPECT_EQ(TunnelEncapType::VXLAN_CONTRAIL, tunnel_encap.tunnel_encap());
-    EXPECT_EQ("encapsulation:vxlan-contrail", tunnel_encap.ToString());
     EXPECT_EQ("vxlan", tunnel_encap.ToXmppString());
 }
 
