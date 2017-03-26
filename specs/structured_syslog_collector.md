@@ -4,6 +4,7 @@ This blue print describes the design, features, and implementation of "structure
 
 # 2. Problem statement
 "structured syslog collector" will receive APPTRACK syslogs from SRX/VSRX devices and pushes the stats relating to the same into Cassandra, so that Application Visibility related views can be made available to the customer.
+Apart from storing the syslog in Cassandra, syslog should be allowed to be forwarded to an external syslog receiver and/or over kafka if needed.
 
 # 3. Proposed solution
  Structured syslogs from SRX/VSRX devices contains additional data, which needs to be parsed to derive more meaningful & detailed information like action, src_address, src_port, dst_address, dst_port, nat_src_address, nat_src_port, nat_dst_address, nat_dst_port, application, bytes-from-client, bytes-from-server etc
@@ -16,15 +17,21 @@ This blue print describes the design, features, and implementation of "structure
 
  Decorator information required is made available in the configDB as structured-syslog-hostname-record and structured-syslog-application-record
 
+ The type of syslogs handled by "structured syslog collector" need to be configurable, hence structured-syslog-message objects are made available in configDB which describe the messages to be handled and actions to be taken on those messages.
+
+ syslogs which needs to be forwarded to an external syslog receiver and/or over kafka are sent with or without decorator information. Based on the forwarder destination configuration in contrail-collector.conf, tcp connection with the destination syslog receiver will be established and/or kafka broker connection will be established and topic created at the startup of the "structured syslog collector".
 ## 3.1 Alternatives considered
 #### None
 
 ## 3.2 API schema changes
 The decorator information will be maintained in the configDB as structured-syslog-hostname-record and structured-syslog-application-record objects.
-global-analytics-config is created under global-system-config, which will contain structured-syslog-config
+global-analytics-config is created under global-system-config, which will contain structured-syslog-config.
+
 The structured-syslog-hostname-record and structured-syslog-application-record will be under structured-syslog-config which will be anchored under global-analytics-config.
 
 structured-syslog-hostname-record and structured-syslog-application-record can be specific to each tenant as well. Hence structured-syslog-config can be anchored under project as well.
+
+structured-syslog-message under structured-syslog-config describe the messages to be handled and actions to be taken on those messages.
 
 ## 3.3 User workflow impact
 #### N/A
@@ -39,10 +46,12 @@ structured-syslog-hostname-record and structured-syslog-application-record can b
 # 4. Implementation
 ## 4.1 Work items
 #### Schema:
-Implement the XSD with the schema details for the structured-syslog-hostname-record and structured-syslog-application-record
+Implement the XSD with the schema details for the structured-syslog-hostname-record, structured-syslog-application-record and structured-syslog-message
 #### Collector:
 Implement new "structured syslog collector" to receive structured syslogs (over TCP & UDP), parse the same and push data into statTable
 Implement reading of decorator information from configDB and populate appropriate fields and push into statTable
+Implement tcp client connection with remote syslog receiver and forward syslog with and without decoration
+Implement kafka connection, topic creation and write syslog on required topic with and without decoration
 
 # 5. Performance and scaling impact
 ## 5.1 API and control plane
@@ -67,7 +76,7 @@ Basic unit testing of structured_syslog_hostname_record and structured_syslog_ap
 
 ## 9.2 Dev tests
 
-Testing of CRUD operations on structured_syslog_hostname_record and structured_syslog_application_record
+Testing of CRUD operations on structured_syslog_hostname_record, structured_syslog_application_record and structured-syslog-message
 
 Testing of handling of structured syslog collector using a structured syslog simulator
 
