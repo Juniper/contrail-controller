@@ -40,6 +40,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/vrouter.h>
 #include <oper/bgp_as_service.h>
+#include <oper/agent_route_walker.h>
 #include <nexthop_server/nexthop_manager.h>
 #include <oper/forwarding_class.h>
 #include <oper/qos_config.h>
@@ -241,6 +242,8 @@ void OperDB::CreateDBTables(DB *db) {
         (new OperNetworkIpam(agent_, domain_config_.get()));
     virtual_dns_ = std::auto_ptr<OperVirtualDns>
         (new OperVirtualDns(agent_, domain_config_.get()));
+    agent_route_walker_cleaner_ = std::auto_ptr<AgentRouteWalkerCleaner>
+        (new AgentRouteWalkerCleaner(agent_));
 }
 
 void OperDB::Init() {

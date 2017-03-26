@@ -64,6 +64,9 @@ bool AgentRouteWalker::RouteWalker(boost::shared_ptr<AgentRouteWalkerQueueEntry>
           DecrementQueuedWalkDoneCount();
           CallbackInternal(vrf, data->all_walks_done_);
           break;
+      case AgentRouteWalkerQueueEntry::DELETE:
+          DeleteInternal();
+          break;
       default:
           assert(0);
     }
@@ -398,4 +401,50 @@ void AgentRouteWalker::WalkDoneCallback(WalkDone cb) {
  */
 void AgentRouteWalker::RouteWalkDoneForVrfCallback(RouteWalkDoneCb cb) {
     route_walk_done_for_vrf_cb_ = cb;
+}
+
+void AgentRouteWalker::Delete() {
+    boost::shared_ptr<AgentRouteWalkerQueueEntry> data
+        (new AgentRouteWalkerQueueEntry(NULL,
+                                      AgentRouteWalkerQueueEntry::DELETE,
+                                      false));
+    work_queue_.Enqueue(data);
+}
+
+void AgentRouteWalker::DeleteInternal() {
+    DBTableWalker *walker = agent_->db()->GetWalker();
+    CancelVrfWalkInternal();
+    for (uint8_t type = (Agent::INVALID + 1); type < Agent::ROUTE_TABLE_MAX;
+         type++) {
+        for (VrfRouteWalkerIdMapIterator iter = route_walkid_[type].begin();
+             iter != route_walkid_[type].end(); iter++) {
+            if (iter != route_walkid_[type].end()) {
+                walker->WalkCancel(iter->second);
+            }
+        }
+    }
+    agent_->oper_db()->agent_route_walker_cleaner()->FreeWalker(this);
+}
+
+AgentRouteWalkerCleaner::AgentRouteWalkerCleaner(Agent *agent) :
+    agent_(agent) {
+    int task_id = TaskScheduler::GetInstance()->GetTaskId("Agent::RouteWalker");
+    trigger_.reset(new TaskTrigger(boost::bind(&AgentRouteWalkerCleaner::Free,
+                                               this), task_id, 0));
+}
+
+AgentRouteWalkerCleaner::~AgentRouteWalkerCleaner() {
+}
+
+void AgentRouteWalkerCleaner::FreeWalker(AgentRouteWalker *walker) {
+    walker_.push_back(walker);
+    trigger_->Set();
+}
+
+bool AgentRouteWalkerCleaner::Free() {
+    for (ListIter it = walker_.begin(); it != walker_.end(); it++) {
+        delete (*it);
+    }
+    walker_.clear();
+    return true;
 }

@@ -17,6 +17,7 @@
 #include <ksync/ksync_netlink.h>
 #include "oper/nexthop.h"
 #include "oper/route_common.h"
+#include "oper/agent_route_walker.h"
 #include "vrouter/ksync/agent_ksync_types.h"
 #include "vrouter/ksync/nexthop_ksync.h"
 
@@ -96,8 +97,10 @@ private:
 class RouteKSyncObject : public KSyncDBObject {
 public:
     struct VrfState : DBState {
-        VrfState() : DBState(), seen_(false) {};
+        VrfState() : DBState(), seen_(false),
+        created_(UTCTimestampUsec()) {};
         bool seen_;
+        uint64_t created_;
     };
 
     RouteKSyncObject(KSync *ksync, AgentRouteTable *rt_table);
@@ -176,14 +179,14 @@ private:
     MacPreferenceMap mac_preference_map_;
 };
 
+class KSyncRouteWalker;
 class VrfKSyncObject {
 public:
     // Table to maintain IP - MAC binding. Used to stitch MAC to inet routes
     typedef std::map<IpAddress, MacBinding> IpToMacBinding;
 
     struct VrfState : DBState {
-        VrfState() : DBState(), seen_(false),
-        evpn_rt_table_listener_id_(DBTableBase::kInvalidId) {}
+        VrfState(Agent *agent);
         bool seen_;
         RouteKSyncObject *inet4_uc_route_table_;
         RouteKSyncObject *inet4_mc_route_table_;
@@ -191,6 +194,7 @@ public:
         RouteKSyncObject *bridge_route_table_;
         IpToMacBinding  ip_mac_binding_;
         DBTableBase::ListenerId evpn_rt_table_listener_id_;
+        KSyncRouteWalker *ksync_route_walker_;
     };
 
     VrfKSyncObject(KSync *ksync);
@@ -222,6 +226,20 @@ private:
     KSync *ksync_;
     DBTableBase::ListenerId vrf_listener_id_;
     DISALLOW_COPY_AND_ASSIGN(VrfKSyncObject);
+};
+
+class KSyncRouteWalker : public AgentRouteWalker {
+public:
+    typedef DBTableWalker::WalkId RouteWalkerIdList[Agent::ROUTE_TABLE_MAX];
+    KSyncRouteWalker(Agent *agent, VrfKSyncObject::VrfState *state);
+    virtual ~KSyncRouteWalker();
+
+    void NotifyRoutes(VrfEntry *vrf);
+    virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
+
+private:
+    VrfKSyncObject::VrfState *state_;
+    DISALLOW_COPY_AND_ASSIGN(KSyncRouteWalker);
 };
 
 #endif // vnsw_agent_route_ksync_h
