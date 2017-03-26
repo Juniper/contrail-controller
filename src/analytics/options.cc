@@ -129,6 +129,9 @@ void Options::Initialize(EventManager &evm,
     string default_api_server("127.0.0.1:8082");
     vector<string> default_api_server_list = list_of(default_api_server);
 
+    vector<string> default_structured_syslog_forward_destination;
+    default_structured_syslog_forward_destination.push_back("");
+
     // Command line and config file options.
     opt::options_description cassandra_config("Cassandra Configuration options");
     cassandra_config.add_options()
@@ -255,6 +258,10 @@ void Options::Initialize(EventManager &evm,
             opt::value<uint16_t>()->default_value(
                 default_collector_structured_syslog_port),
          "Listener port of Structured Syslog collector server")
+        ("COLLECTOR.structured_syslog_forward_destination",
+           opt::value<vector<string> >()->default_value(
+               default_structured_syslog_forward_destination, ""),
+             "Structured Syslog Forward Destination List")
         ;
 
     // Command line and config file options.
@@ -609,6 +616,8 @@ void Options::Process(int argc, char *argv[],
     } else {
         collector_structured_syslog_port_configured_ = false;
     }
+    GetOptValue< vector<string> >(var_map, collector_structured_syslog_forward_destination_,
+                                  "COLLECTOR.structured_syslog_forward_destination");
 
     GetOptValue<uint64_t>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");

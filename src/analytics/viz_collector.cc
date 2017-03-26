@@ -36,6 +36,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             unsigned short protobuf_listen_port,
             bool structured_syslog_collector_enabled,
             unsigned short structured_syslog_listen_port,
+            const vector<string> &structured_syslog_tcp_forward_dst,
             const std::string &redis_uve_ip, unsigned short redis_uve_port,
             const std::string &redis_password,
             const std::map<std::string, std::string>& aggconf,
@@ -82,7 +83,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
     }
     if (structured_syslog_collector_enabled) {
         structured_syslog_collector_.reset(new StructuredSyslogCollector(evm,
-            structured_syslog_listen_port, db_initializer_->GetDbHandler()));
+            structured_syslog_listen_port, structured_syslog_tcp_forward_dst,
+            db_initializer_->GetDbHandler()));
     }
 }
 
