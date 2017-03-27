@@ -378,7 +378,12 @@ TEST_P(ConfigCassandraClientTest, Basic) {
     empty_fqnames_db = true;
     Clear();
     config_client_manager_->set_end_of_rib_computed(false);
-    config_client_manager_->Initialize();
+    for (size_t i = 0; i < fq_names; i++) {
+        vector<string> tokens;
+        boost::split(tokens, fq_name_uuids[i], boost::is_any_of(":"));
+        config_client_manager_->config_amqp_client()->EnqueueUUIDRequest(
+            "DELETE", "virtual_network", tokens[4]);
+    }
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(IsAllExpectedEntriesProcessed());
 }
