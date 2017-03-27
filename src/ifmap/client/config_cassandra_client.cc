@@ -88,15 +88,21 @@ int ConfigCassandraClient::HashUUID(const string &uuid_str) const {
     return string_hash(uuid_str) % num_workers_;
 }
 
+void ConfigCassandraClient::EnqueuDelete(const string &uuid,
+         ConfigClientManager::RequestList req_list) const {
+    mgr()->EnqueueListToTables(&req_list);
+}
+
 void ConfigCassandraClient::HandleObjectDelete(const string &uuid) {
     auto_ptr<IFMapTable::RequestKey> key(new IFMapTable::RequestKey());
     ConfigClientManager::RequestList req_list;
     ObjTypeFQNPair obj_type_fq_name_pair = UUIDToFQName(uuid, true);
-    if (obj_type_fq_name_pair.second == "ERROR") return;
+    if (obj_type_fq_name_pair.second == "ERROR")
+        return;
     key->id_type = obj_type_fq_name_pair.first;
     key->id_name = obj_type_fq_name_pair.second;
     FormDeleteRequestList(uuid, &req_list, key.get(), false);
-    mgr()->EnqueueListToTables(&req_list);
+    EnqueuDelete(uuid, req_list);
     PurgeFQNameCache(uuid);
 }
 
