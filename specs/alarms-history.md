@@ -6,7 +6,7 @@ Contrail solution sends alarms and UVEs for monitoring and analytics. This provi
 If an alarm gets created and then it is reset after mitigation steps, the system is back to original good state. But the history of alarm triggers/reset over time is lost. Same issue with UVEs.
 
 #3. Proposed solution
-During alarm and UVE processing, increment set/reset or add/update/remove counters and save it in database. Later this database can be queried using contrail-status script.
+During alarm and UVE processing, increment set/reset or add/update/remove counters and save it in database. Later this database can be queried using contrail-stats script.
 
 ##3.1 Alternatives considered
 None
