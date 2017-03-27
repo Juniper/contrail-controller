@@ -2014,9 +2014,9 @@ class DBInterface(object):
                 if port_sg_refs:
                     if 'security_groups' in port_q and not port_q['security_groups']:
                         # reset all SG on the port
-                        port_obj.set_security_groups_list([])
+                        port_obj.set_security_group_list([])
                     elif len(port_sg_refs) == 1 and port_sg_refs[0]['to'] == SG_NO_RULE_FQ_NAME:
-                        port_obj.set_security_groups_list([])
+                        port_obj.set_security_group_list([])
                     else:
                         self._raise_contrail_exception('PortSecurityPortHasSecurityGroup', port_id=port_obj.uuid)
 
