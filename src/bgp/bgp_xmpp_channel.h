@@ -232,6 +232,8 @@ private:
             GR_STALE = 1 << 0,
             LLGR_STALE = 1 << 1
         };
+
+        SubscriptionState() : index(-1), state(NONE) { }
         SubscriptionState(const RoutingInstance::RouteTargetList &targets,
                           int index)
                 : targets(targets), index(index), state(NONE) { }
@@ -301,6 +303,9 @@ private:
                                     const XmppStanza::XmppMessageIq *iq,
                                     bool add_change);
     void AddSubscriptionState(RoutingInstance *rt_instance, int index);
+    void DeleteSubscriptionState(RoutingInstance *rt_instance);
+    bool GetSubscriptionState(RoutingInstance *rt_instance,
+        SubscriptionState **sub_state = NULL);
 
     void RegisterTable(int line, BgpTable *table,
         const TableMembershipRequestState *tmr_state);

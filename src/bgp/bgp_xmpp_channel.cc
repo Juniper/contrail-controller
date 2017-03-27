@@ -578,11 +578,11 @@ void BgpXmppChannel::RoutingInstanceCallback(string vrf_name, int op) {
         ProcessDeferredSubscribeRequest(rt_instance, imr_state);
         DeleteInstanceMembershipState(vrf_name);
     } else {
-        SubscribedRoutingInstanceList::iterator it =
-            routing_instances_.find(rt_instance);
-        if (it == routing_instances_.end()) return;
-        rtarget_manager_->RoutingInstanceCallback(it->first,
-                                                           &it->second.targets);
+        SubscriptionState *sub_state = NULL;
+        if (!GetSubscriptionState(rt_instance, &sub_state))
+            return;
+        rtarget_manager_->RoutingInstanceCallback(
+            rt_instance, &sub_state->targets);
     }
 }
 
@@ -2212,6 +2212,25 @@ void BgpXmppChannel::AddSubscriptionState(RoutingInstance *rt_instance,
     }
 }
 
+void BgpXmppChannel::DeleteSubscriptionState(RoutingInstance *rt_instance) {
+    routing_instances_.erase(rt_instance);
+}
+
+bool BgpXmppChannel::GetSubscriptionState(RoutingInstance *rt_instance,
+    SubscriptionState **sub_state) {
+    SubscribedRoutingInstanceList::iterator loc =
+        routing_instances_.find(rt_instance);
+    if (loc != routing_instances_.end()) {
+        if (sub_state)
+            *sub_state = &loc->second;
+        return true;
+    } else {
+        if (sub_state)
+            *sub_state = NULL;
+        return false;
+    }
+}
+
 void BgpXmppChannel::ProcessDeferredSubscribeRequest(RoutingInstance *instance,
     const InstanceMembershipRequestState &imr_state) {
     int instance_id = imr_state.instance_id;
@@ -2298,8 +2317,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                              "Duplicate subscribe for routing instance " <<
                              vrf_name << ", triggering close");
                 channel_->Close();
-            } else if (routing_instances_.find(rt_instance) !=
-                routing_instances_.end()) {
+            } else if (GetSubscriptionState(rt_instance)) {
                 BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Duplicate subscribe for routing instance " <<
@@ -2320,8 +2338,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                 FlushDeferQ(vrf_name);
                 channel_stats_.instance_unsubscribe++;
                 return;
-            } else if (routing_instances_.find(rt_instance) ==
-                routing_instances_.end()) {
+            } else if (!GetSubscriptionState(rt_instance)) {
                 BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Spurious unsubscribe for routing instance " <<
@@ -2333,8 +2350,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         }
     } else {
         if (add_change) {
-            if (routing_instances_.find(rt_instance) !=
-                routing_instances_.end()) {
+            if (GetSubscriptionState(rt_instance)) {
                 if (!close_manager_->IsCloseInProgress()) {
                     BGP_LOG_PEER_WARNING(Membership, Peer(),
                                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
@@ -2346,8 +2362,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             }
             channel_stats_.instance_subscribe++;
         } else {
-            if (routing_instances_.find(rt_instance) ==
-                routing_instances_.end()) {
+            if (!GetSubscriptionState(rt_instance)) {
                 BGP_LOG_PEER_WARNING(Membership, Peer(),
                              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
                              "Spurious unsubscribe for routing instance " <<
@@ -2363,7 +2378,7 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
         AddSubscriptionState(rt_instance, instance_id);
     } else  {
         rtarget_manager_->PublishRTargetRoute(rt_instance, false);
-        routing_instances_.erase(rt_instance);
+        DeleteSubscriptionState(rt_instance);
     }
 
     RoutingInstance::RouteTableList const rt_list = rt_instance->GetTables();
