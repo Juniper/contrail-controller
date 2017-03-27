@@ -8,12 +8,12 @@
 package contrailCni
 
 import (
+	log "../logging"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -77,14 +77,16 @@ func (vrouter *VRouter) doOp(op, containerUuid, containerVn, page string,
 	url := vrouter.makeUrl(containerUuid, containerVn, page)
 	req, err := http.NewRequest(op, url, bytes.NewBuffer(msg))
 	if err != nil {
-		return nil, fmt.Errorf("Error creating http Request <%s>",
-			err)
+		log.Errorf("Error creating http Request. Op %s Url %s Msg %s."+
+			"Error : %+v", op, url, err)
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := vrouter.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("HTTP operation failed <%s>", err)
+		log.Errorf("Failed HTTP operation :  %+v. Error : %+v", req, err)
+		return nil, err
 	}
 
 	return resp, nil
@@ -132,13 +134,16 @@ func (vrouter *VRouter) Get(url string) (*Result, error) {
 	resp, err := vrouter.doOp("GET", vrouter.containerUuid,
 		vrouter.containerVn, url, req)
 	if err != nil {
+		log.Errorf("Failed HTTP GET operation")
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Error n GET VM operation. Status ",
-			resp.StatusCode)
+		msg := fmt.Sprintf("Failed HTTP Get operation. Return code %s",
+			string(resp.StatusCode))
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
 	}
 
 	var result Result
@@ -146,13 +151,15 @@ func (vrouter *VRouter) Get(url string) (*Result, error) {
 
 	body, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Errorf("Error in reading HTTP GET response. Error : %+v", err)
 		return nil, err
 	}
 
-	glog.V(2).Infof("VRouter output %s", string(body))
+	log.Infof("VRouter response %s", string(body))
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return nil, fmt.Errorf("Error decoding VRouter response. %+v", err)
+		log.Errorf("Error decoding HTTP Get response. Error : %+v", err)
+		return nil, err
 	}
 
 	return &result, nil
@@ -164,16 +171,16 @@ func (vrouter *VRouter) PollUrl(url string) (*Result, error) {
 	for i := 0; i < vrouter.PollRetries; i++ {
 		result, err := vrouter.Get(url)
 		if err == nil {
-			glog.V(2).Infof("Get from vrouter success. Result %+v", result)
+			log.Infof("Get from vrouter passed. Result %+v", result)
 			return result, nil
 		}
 
 		msg = err.Error()
-		glog.V(2).Infof("Iteration %d : Get vrouter failed. Error %+v", i, msg)
+		log.Infof("Iteration %d : Get vrouter failed", i)
 		time.Sleep(time.Duration(vrouter.PollTimeout) * time.Second)
 	}
 
-	return nil, fmt.Errorf("Failed in PollVM. Error %s", msg)
+	return nil, fmt.Errorf("Failed in PollVM. Error : %s", msg)
 }
 
 /****************************************************************************
@@ -210,19 +217,17 @@ func makeAddMsg(containerName, containerUuid, containerId, containerNamespace,
 func (vrouter *VRouter) addVmToFile(addMsg []byte) error {
 	_, err := os.Stat(vrouter.Dir)
 	if err != nil {
-		glog.Errorf("Error accessing VM config directory %s. Error %s",
+		log.Errorf("Error accessing VM config directory %s. Error : %s",
 			vrouter.Dir, err)
-		return fmt.Errorf("Error accessing VM config directory %s. Error %s",
-			vrouter.Dir, err)
+		return err
 	}
 
 	// Write file based on VM name
 	fname := vrouter.makeFileName()
 	err = ioutil.WriteFile(fname, addMsg, 0644)
 	if err != nil {
-		glog.Errorf("Error writing VM config file %s. Error %s", fname, err)
-		return fmt.Errorf("Error writing VM config file %s. Error %s",
-			fname, err)
+		log.Errorf("Error writing VM config file %s. Error : %s", fname, err)
+		return err
 	}
 
 	return nil
@@ -231,16 +236,17 @@ func (vrouter *VRouter) addVmToFile(addMsg []byte) error {
 func (vrouter *VRouter) addVmToAgent(addMsg []byte) error {
 	resp, err := vrouter.doOp("POST", "", "", "/vm", addMsg)
 	if err != nil {
-		return fmt.Errorf("Error in POST operation. %s", err)
+		log.Errorf("Failed in HTTP POST operation")
+		return err
 	}
 	defer resp.Body.Close()
 
 	if (resp.StatusCode != http.StatusOK) &&
 		(resp.StatusCode != http.StatusCreated) {
-		glog.Errorf("Agent returned error for VM ADD message. Code : ",
-			resp.StatusCode)
-		return fmt.Errorf("Agent returned error for VM ADD message. Code : ",
-			resp.StatusCode)
+		msg := fmt.Sprintf("Failed HTTP Post operation. Return code %s",
+			string(resp.StatusCode))
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
 	return nil
@@ -255,19 +261,25 @@ func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
 	// Make Add Message structure
 	addMsg := makeAddMsg(containerName, containerUuid, containerId,
 		containerNamespace, containerIfName, hostIfName)
-	glog.V(2).Infof("VRouter add message is %s", addMsg)
+	log.Infof("VRouter add message is %s", addMsg)
 
 	// Store config to file for persistency
 	if err := vrouter.addVmToFile(addMsg); err != nil {
 		// Fail adding VM if directory not present
-		return nil, fmt.Errorf("Agent error creating config file : %s", err)
+		log.Errorf("Error storing config file")
+		return nil, err
 	}
 
 	// Make the agent call
-	vrouter.addVmToAgent(addMsg)
+	err := vrouter.addVmToAgent(addMsg)
+	if err != nil {
+		log.Errorf("Error in Add to VRouter")
+		return nil, err
+	}
 
 	result, poll_err := vrouter.PollUrl("/vm")
 	if poll_err != nil {
+		log.Errorf("Error in polling VRouter")
 		return nil, poll_err
 	}
 
@@ -283,14 +295,14 @@ func (vrouter *VRouter) delVmToFile() error {
 	_, err := os.Stat(fname)
 	// File not present... noting to do
 	if err != nil {
-		glog.V(2).Infof("File %s not found. Error %s", fname, err)
+		log.Infof("File %s not found. Error : %s", fname, err)
 		return nil
 	}
 
 	// Delete file
 	err = os.Remove(fname)
 	if err != nil {
-		glog.V(2).Infof("Error deleting file %s. Error %s", fname, err)
+		log.Infof("Failed deleting file %s. Error : %s", fname, err)
 		return nil
 	}
 
@@ -302,13 +314,16 @@ func (vrouter *VRouter) delVmToAgent() error {
 	resp, err := vrouter.doOp("DELETE", vrouter.containerUuid,
 		vrouter.containerVn, "/vm", req)
 	if err != nil {
-		return fmt.Errorf("Error in DELETE operation. %s", err)
+		log.Errorf("Failed HTTP DELETE operation")
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Agent returned error for DELETE message. Code : ",
-			resp.StatusCode)
+		msg := fmt.Sprintf("Failed HTTP Delete operation. Return code %s",
+			string(resp.StatusCode))
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 	return nil
 }
@@ -322,12 +337,14 @@ func (vrouter *VRouter) Del(containerUuid, containerVn string) error {
 	var ret error
 	// Remove the configuraion file stored for persistency
 	if err := vrouter.delVmToFile(); err != nil {
-		ret = fmt.Errorf("Agent Error deleting config file : %s", err)
+		log.Infof("Error in deleting config file")
+		ret = err
 	}
 
 	// Make the del message calll to agent
 	if err := vrouter.delVmToAgent(); err != nil {
-		ret = fmt.Errorf("Agent error deleting VM to agent : %s", err)
+		log.Errorf("Error in Delete to VRouter")
+		ret = err
 	}
 
 	return ret
@@ -343,6 +360,7 @@ func (vrouter *VRouter) Poll(containerUuid, containerVn string) (*Result,
 
 	result, poll_err := vrouter.PollUrl("/vm-cfg")
 	if poll_err != nil {
+		log.Errorf("Error in poll-url for config")
 		return nil, poll_err
 	}
 
@@ -357,7 +375,7 @@ func (vrouter *VRouter) Close() error {
 }
 
 func (vrouter *VRouter) Log() {
-	glog.V(2).Infof("%+v\n", *vrouter)
+	log.Infof("%+v\n", *vrouter)
 }
 
 func VRouterInit(stdinData []byte) (*VRouter, error) {
@@ -369,8 +387,9 @@ func VRouterInit(stdinData []byte) (*VRouter, error) {
 	args := vrouterJson{VRouter: vrouter}
 
 	if err := json.Unmarshal(stdinData, &args); err != nil {
-		msg := fmt.Sprintf("Invalid JSon string. Error %v : String %s\n",
+		msg := fmt.Sprintf("Invalid JSon string. Error : %v \nString %s\n",
 			err, stdinData)
+		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
 	}
 

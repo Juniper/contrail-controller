@@ -9,11 +9,11 @@
 package cniIntf
 
 import (
+	log "../logging"
 	"fmt"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/types/current"
-	"github.com/golang/glog"
 	"github.com/vishvananda/netlink"
 	"net"
 )
@@ -46,31 +46,36 @@ type CniIntf struct {
 // the interface in host-namespace deletes interface in container also.
 // The API is used to delete interface in host-namespace
 func (intf CniIntf) DeleteByName(ifName string) error {
+	log.Infof("Deleting interface %s", ifName)
 	// Get link for the interface
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
-		glog.V(2).Infof("Interface %s not present. Error %+v", ifName, err)
+		log.Infof("Interface %s not present. Error %+v", ifName, err)
 		return nil
 	}
 
 	// Delete the link
 	if err = netlink.LinkDel(link); err != nil {
-		glog.Errorf("Error deleting interface %s. Error %+v", ifName, err)
-		return fmt.Errorf("Error deleting interface %s. Error %+v", ifName, err)
+		msg := fmt.Sprintf("Error deleting interface %s. Error %+v", ifName,
+			err)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
-	glog.V(2).Infof("Deleted interface %s", ifName)
+	log.Infof("Deleted interface %s", ifName)
 	return nil
 }
 
 // Configure MAC address and IP address on the interface
 // Assumes that interface inside container is already created.
 func (intf CniIntf) Configure(mac string, result *current.Result) error {
+	log.Infof("Configuring interface %s with mac %s and %+v",
+		intf.containerIfName, mac, result)
 	hwAddr, err := net.ParseMAC(mac)
 	if err != nil {
-		glog.Errorf("Error parsing MAC address %s. Error %+v", mac, err)
-		return fmt.Errorf("Error parsing MAC address ", mac,
-			" Error ", err)
+		msg := fmt.Sprintf("Error parsing MAC address %s. Error %+v", mac, err)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
 
 	// Configure interface inside container
@@ -78,32 +83,30 @@ func (intf CniIntf) Configure(mac string, result *current.Result) error {
 		// Find the link first
 		link, err := netlink.LinkByName(intf.containerIfName)
 		if err != nil {
-			glog.Errorf("Failed to lookup interface %q: Error %+v",
+			msg := fmt.Sprintf("Failed to lookup interface %q: Error %+v",
 				intf.containerIfName, err)
-			return fmt.Errorf("Failed to lookup interface %q: Error %+v",
-				intf.containerIfName, err)
+			log.Errorf(msg)
+			return fmt.Errorf(msg)
 		}
 
 		// Update MAC address for the interface
 		if err = netlink.LinkSetHardwareAddr(link, hwAddr); err != nil {
-			glog.Errorf("Failed to set hardware addr %s to %q: Error %v",
+			msg := fmt.Sprintf("Failed to set hardware addr %s to %q: Error %v",
 				hwAddr, intf.containerIfName, err)
-			return fmt.Errorf("Failed to set hardware addr %s to %q: Error %v",
-				hwAddr, intf.containerIfName, err)
+			log.Errorf(msg)
+			return fmt.Errorf(msg)
 		}
 
 		// Configure IPAM attributes
 		err = ipam.ConfigureIface(intf.containerIfName, result)
 		if err != nil {
-			glog.Errorf("Error configuring interface %s with %s. Error %+v",
-				intf.containerIfName, result, err)
-			fmt.Errorf("Error configuring interface %s with %s. Error %+v",
-				intf.containerIfName, result, err)
-			return err
+			msg := fmt.Sprintf("Error configuring interface %s with %s. "+
+				"Error %+v", intf.containerIfName, result, err)
+			log.Errorf(msg)
+			return fmt.Errorf(msg)
 		}
 
-		glog.Infof("Configured interface %s with mac %s and %+v",
-			intf.containerIfName, mac, result)
+		log.Infof("Configure successful")
 		return nil
 	})
 

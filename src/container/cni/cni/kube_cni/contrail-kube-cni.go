@@ -9,48 +9,51 @@ package main
 
 import (
 	"../contrail"
+	log "../logging"
 	"context"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
 	"github.com/docker/docker/client"
-	"github.com/golang/glog"
 	"os"
 )
 
 // Use "docker inspect" equivalent API to get UUID and Name for container
-func getPodUuid(skelArgs *skel.CmdArgs) (string, string, error) {
+func getPodInfo(skelArgs *skel.CmdArgs) (string, string, error) {
 	os.Setenv("DOCKER_API_VERSION", "1.24")
 	cli, err := client.NewEnvClient()
 	if err != nil {
-		glog.Errorf("Error creating docker client. %+v", err)
+		log.Errorf("Error creating docker client. %+v", err)
 		return "", "", err
 	}
 
 	data, err := cli.ContainerInspect(context.Background(),
 		skelArgs.ContainerID)
 	if err != nil {
-		glog.Errorf("Error querying for container %s. %+v",
+		log.Errorf("Error querying for container %s. %+v",
 			skelArgs.ContainerID, err)
 		return "", "", err
 	}
 
-	return data.Config.Labels["io.kubernetes.pod.uid"], data.Config.Hostname, nil
+	uuid := data.Config.Labels["io.kubernetes.pod.uid"]
+	name := data.Config.Hostname
+	log.Infof("getPodInfo success. container-id %s uuid %s name %s",
+		skelArgs.ContainerID, uuid, name)
+	return uuid, name, nil
 }
 
 // Add command
 func CmdAdd(skelArgs *skel.CmdArgs) error {
 	// Initialize ContrailCni module
 	cni, err := contrailCni.Init(skelArgs)
-	defer glog.Flush()
 	if err != nil {
-		glog.Errorf("Error initializing ContrailCni module. %+v", err)
 		return err
 	}
 
+	log.Infof("Came in Add for container %s", skelArgs.ContainerID)
 	// Get UUID and Name for container
-	containerUuid, containerName, err := getPodUuid(skelArgs)
+	containerUuid, containerName, err := getPodInfo(skelArgs)
 	if err != nil {
-		glog.Errorf("Error finding UUID/Name for Container. %+v", err)
+		log.Errorf("Error getting UUID/Name for Container")
 		return err
 	}
 
@@ -61,7 +64,7 @@ func CmdAdd(skelArgs *skel.CmdArgs) error {
 	// Handle Add command
 	err = cni.CmdAdd()
 	if err != nil {
-		glog.Errorf("Error in processing Add command. %+v", err)
+		log.Errorf("Failed processing Add command.")
 		return err
 	}
 
@@ -72,14 +75,15 @@ func CmdAdd(skelArgs *skel.CmdArgs) error {
 func CmdDel(skelArgs *skel.CmdArgs) error {
 	// Initialize ContrailCni module
 	cni, err := contrailCni.Init(skelArgs)
-	defer glog.Flush()
 	if err != nil {
 		return err
 	}
 
+	log.Infof("Came in Del for container %s", skelArgs.ContainerID)
 	// Get UUID and Name for container
-	containerUuid, containerName, err := getPodUuid(skelArgs)
+	containerUuid, containerName, err := getPodInfo(skelArgs)
 	if err != nil {
+		log.Errorf("Error getting UUID/Name for Container")
 		return err
 	}
 
@@ -90,7 +94,7 @@ func CmdDel(skelArgs *skel.CmdArgs) error {
 	// Handle Del command
 	err = cni.CmdDel()
 	if err != nil {
-		glog.Errorf("Error in processing Del command. %+v", err)
+		log.Errorf("Failed processing Add command.")
 		return err
 	}
 

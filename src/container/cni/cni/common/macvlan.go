@@ -15,10 +15,10 @@
 package cniIntf
 
 import (
+	log "../logging"
 	"fmt"
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
-	"github.com/golang/glog"
 	"github.com/vishvananda/netlink"
 )
 
@@ -47,15 +47,15 @@ func (intf MacVlan) Delete() error {
 // Create Vlan interface if not already present
 // Ensure oper-state for interface is up
 func (intf *MacVlan) ensureVlanIntf() (*netlink.Link, error) {
-	glog.V(2).Infof("Creating Vlan Interface %s", intf.vlanIfName)
+	log.Infof("Creating vlan interface %+v", *intf)
 
 	// Check if VLAN Interface already present
 	link, err := netlink.LinkByName(intf.vlanIfName)
 	if err == nil {
-		glog.V(2).Infof("Vlan Interface %s already present", intf.vlanIfName)
+		log.Infof("vlan interface %s already present", intf.vlanIfName)
 		err = netlink.LinkSetUp(link)
 		if err != nil {
-			glog.Errorf("Error in bring up of Vlan Interface %s. Error %+v",
+			log.Errorf("Error in bring up of vlan interface %s. Error %+v",
 				intf.vlanIfName, err)
 			return nil, err
 		}
@@ -66,40 +66,38 @@ func (intf *MacVlan) ensureVlanIntf() (*netlink.Link, error) {
 	// First ensure parent interface is found
 	parentIntf, err := netlink.LinkByName(intf.ParentIfName)
 	if err != nil {
-		glog.Errorf("Error in getting parent interface %s. Error %+v",
+		log.Errorf("Error in getting parent interface %s. Error %+v",
 			intf.ParentIfName, err)
-		return nil, fmt.Errorf("Error in getting parent interface %s.",
-			"Error %+v", intf.ParentIfName, err)
+		return nil, err
 	}
 
 	// Create Vlan Interface
 	vlanIntf := &netlink.Vlan{netlink.LinkAttrs{Name: intf.vlanIfName,
 		ParentIndex: parentIntf.Attrs().Index}, intf.vlanId}
 	if err := netlink.LinkAdd(vlanIntf); err != nil {
-		glog.V(2).Infof("Error creating Vlan Interface %+v. Error %+v",
-			*intf, err)
-		return nil, fmt.Errorf("Error creating Vlan Interface %+v.",
-			"Error %+v", *intf, err)
+		log.Errorf("Error creating vlan interface %s vlan-id %d"+
+			"parent-intf %s. Error : %+v", intf.vlanIfName, intf.vlanId,
+			intf.ParentIfName, err)
+		return nil, err
 	}
 
 	// Query newly created Vlan Interface
 	vlanLink, err := netlink.LinkByName(intf.vlanIfName)
 	if err != nil {
-		glog.Errorf("Error querying Vlan Interface %+v. Error %+v",
-			*intf, err)
-		return nil, fmt.Errorf("Error creating Vlan Interface %+v.",
-			"Error %+v", *intf, err)
+		log.Errorf("Error querying vlan interface %s. Error %+v",
+			intf.vlanIfName, err)
+		return nil, err
 	}
 
 	// Bringup oper-state of Vlan Interface
 	err = netlink.LinkSetUp(vlanLink)
 	if err != nil {
-		glog.Errorf("Error setting oper-state of Vlan Interface %s. Error %+v",
+		log.Errorf("Error setting oper-state of vlan interface %s. Error %+v",
 			intf.vlanIfName, err)
-		return nil, fmt.Errorf("Error setting oper-state of Vlan Interface %s.",
-			" Error %+v", intf.vlanIfName, err)
+		return nil, err
 	}
 
+	log.Infof("Created vlan interface %+v", *intf)
 	return &vlanLink, nil
 }
 
@@ -107,46 +105,46 @@ func (intf *MacVlan) ensureVlanIntf() (*netlink.Link, error) {
 // Rename the temporary interface to containerIfName
 func rename(link netlink.Link, ifName, containerIfName string) (netlink.Link,
 	error) {
-	glog.V(2).Infof("Renaming interface %s to %s.", ifName, containerIfName)
+	log.Infof("Renaming interface %s to %s.", ifName, containerIfName)
 	// Bring down interface before renaming
 	err := netlink.LinkSetDown(link)
 	if err != nil {
-		glog.Errorf("Error bringing interface down : %+v. Error %+v",
+		log.Errorf("Error bringing interface down : %+v. Error %+v",
 			ifName, err)
-		return nil, fmt.Errorf("Error bringing interface down : %+v. Error %+v",
-			ifName, err)
+		return nil, err
 	}
 
 	// Rename temporary interface
 	err = netlink.LinkSetName(link, containerIfName)
 	if err != nil {
-		glog.Errorf("Error renaming interface %s to %s : %+v", ifName,
+		log.Errorf("Error renaming interface %s to %s : %+v", ifName,
 			containerIfName, err)
-		return nil, fmt.Errorf("Error renaming interface %s to %s : %+v",
-			ifName, containerIfName, err)
+		return nil, err
 	}
 
 	// Bring interface up
 	err = netlink.LinkSetUp(link)
 	if err != nil {
-		glog.Errorf("Error bringing interface up : %+v. Error %+v",
+		log.Errorf("Error bringing interface up : %+v. Error %+v",
 			containerIfName, err)
-		return nil, fmt.Errorf("Error bringing interface down : %+v. Error %+v",
-			containerIfName, err)
+		return nil, err
 	}
 
+	log.Infof("Rename successful")
 	return netlink.LinkByName(containerIfName)
 }
 
 // Create the mac-vlan interface
 func (intf *MacVlan) ensureMacVlanIntf(vlanLink netlink.Link) error {
+	log.Infof("Creating MacVlan interface %s in namespace %s",
+		intf.containerIfName, intf.containerNamespace)
 	var cn_link *netlink.Link = nil
 	err := ns.WithNetNSPath(intf.containerNamespace,
 		func(hostNS ns.NetNS) error {
 			// Check if macvlan interface present inside container already
 			link, err := netlink.LinkByName(intf.containerIfName)
 			if err == nil {
-				glog.V(2).Infof("Interface %s already present inside container",
+				log.Infof("Interface %s already present inside container",
 					intf.containerIfName)
 				cn_link = &link
 				return nil
@@ -157,7 +155,7 @@ func (intf *MacVlan) ensureMacVlanIntf(vlanLink netlink.Link) error {
 			link, err = netlink.LinkByName(intf.containerTmpIfName)
 			if err != nil {
 				// Temporary interface also not present
-				glog.V(2).Infof("Temporary interface %s not present inside ",
+				log.Infof("Temporary interface %s not present inside ",
 					"container", intf.containerIfName, intf.containerNamespace)
 				return nil
 			}
@@ -166,9 +164,9 @@ func (intf *MacVlan) ensureMacVlanIntf(vlanLink netlink.Link) error {
 			link, err = rename(link, intf.containerTmpIfName,
 				intf.containerIfName)
 			if err == nil {
-				return fmt.Errorf("Error renaming interface %s to %s.",
-					" Error %+v", intf.containerTmpIfName,
-					intf.containerIfName, err)
+				log.Errorf("Error renaming interface %s to %s. Error : %+v",
+					intf.containerTmpIfName, intf.containerIfName, err)
+				return err
 			}
 
 			cn_link = &link
@@ -183,15 +181,15 @@ func (intf *MacVlan) ensureMacVlanIntf(vlanLink netlink.Link) error {
 	}
 
 	if err != nil {
+		log.Errorf("Failed creating MacVlan interface")
 		return err
 	}
 
 	netns, err := ns.GetNS(intf.containerNamespace)
 	if err != nil {
-		glog.Errorf("Error opening namespace %q: %v",
+		log.Errorf("Error opening namespace %q: %v",
 			intf.containerNamespace, err)
-		return fmt.Errorf("Error opening namespace %q: %v",
-			intf.containerNamespace, err)
+		return err
 	}
 	defer netns.Close()
 
@@ -205,10 +203,9 @@ func (intf *MacVlan) ensureMacVlanIntf(vlanLink netlink.Link) error {
 		Mode: netlink.MACVLAN_MODE_VEPA,
 	}
 	if err := netlink.LinkAdd(macvlan); err != nil {
-		glog.Errorf("Error creating mac-vlan interface %q: %v",
+		log.Errorf("Error creating mac-vlan interface %q: %v",
 			intf.containerTmpIfName, err)
-		return fmt.Errorf("Error creating mac-vlan interface %q: %v",
-			intf.containerTmpIfName, err)
+		return err
 	}
 
 	// Temporary interface created. Move to containerNamespace and rename it
@@ -216,19 +213,17 @@ func (intf *MacVlan) ensureMacVlanIntf(vlanLink netlink.Link) error {
 		err := ip.RenameLink(intf.containerTmpIfName, intf.containerIfName)
 		if err != nil {
 			_ = netlink.LinkDel(macvlan)
-			glog.Errorf("Error renaming macvlan to %q: %v",
+			log.Errorf("Error renaming macvlan to %q: %v",
 				intf.containerIfName, err)
-			return fmt.Errorf("Error renaming macvlan to %q: %v",
-				intf.containerIfName, err)
+			return err
 		}
 
 		// Re-fetch macvlan to get all properties/attributes
 		_, err = netlink.LinkByName(intf.containerIfName)
 		if err != nil {
-			glog.Errorf("Error in fetching macvlan %q: %v",
+			log.Errorf("Error in fetching macvlan %q: %v",
 				intf.containerIfName, err)
-			return fmt.Errorf("Error in fetching macvlan %q: %v",
-				intf.containerIfName, err)
+			return err
 		}
 
 		return nil
@@ -237,23 +232,23 @@ func (intf *MacVlan) ensureMacVlanIntf(vlanLink netlink.Link) error {
 
 // Create MacVlan interfaces.
 func (intf MacVlan) Create() error {
+	log.Infof("Creating MacVlan interface %+v", intf)
 	// Ensure Vlan Interface is created
 	vlanLink, err := intf.ensureVlanIntf()
 	if err != nil {
-		glog.Errorf("Error creating vlan interface %+v. Error %+v", intf, err)
-		return fmt.Errorf("Error creating vlan interface %+v. Error %+v",
-			intf, err)
+		log.Errorf("Error creating vlan interface %+v. Error %+v", intf, err)
+		return err
 	}
 
 	// Ensure mac-vlan interface is created
 	err = intf.ensureMacVlanIntf(*vlanLink)
 	if err != nil {
-		glog.Errorf("Error creating mac-vlan interface %+v. Error %+v",
+		log.Errorf("Error creating mac-vlan interface %+v. Error %+v",
 			intf, err)
-		return fmt.Errorf("Error creating mac-vlan interface %+v. Error %+v",
-			intf, err)
+		return err
 	}
 
+	log.Infof("MacVlan interface created")
 	return nil
 }
 
@@ -270,7 +265,7 @@ func (intf MacVlan) GetHostIfName() string {
 }
 
 func (intf MacVlan) Log() {
-	glog.V(2).Infof("%+v", intf)
+	log.Infof("%+v", intf)
 }
 
 // Create MacVlan interface object
@@ -292,6 +287,6 @@ func InitMacVlan(parentIfName, containerIfName, containerUuid,
 	intf.vlanIfName = buildVlanIfName(intf.containerUuid, intf.vlanId)
 	intf.containerTmpIfName = buildContainerTmpIfName(intf.containerUuid)
 
-	glog.V(2).Infof("Initialized MacVlan Interface %+v\n", intf)
+	log.Infof("Initialized MacVlan interface %+v\n", intf)
 	return intf
 }

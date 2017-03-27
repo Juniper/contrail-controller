@@ -6,12 +6,11 @@ package contrailCni
 
 import (
 	"../common"
+	log "../logging"
 	"encoding/json"
-	"flag"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/version"
-	"github.com/golang/glog"
 )
 
 const CniVersion = "0.2.0"
@@ -60,6 +59,7 @@ type ContrailCni struct {
 	VifType       string `json:"vif-type"`
 	VifParent     string `json:"parent-interface"`
 	LogDir        string `json:"log-dir"`
+	LogFile       string `json:"log-file"`
 	LogLevel      string `json:"log-level"`
 	ContainerUuid string
 	ContainerName string
@@ -71,22 +71,23 @@ type cniJson struct {
 	ContrailCni ContrailCni `json:"contrail"`
 }
 
-// Apply logging configuration. We use glog packet for logging.
-// glog supports log-dir and log-level as arguments only.
+// Apply logging configuration. We use log packet for logging.
+// log supports log-dir and log-level as arguments only.
 func (cni *ContrailCni) loggingInit() error {
-	flag.Parse()
-	flag.Lookup("log_dir").Value.Set(cni.LogDir)
-	flag.Lookup("v").Value.Set(cni.LogLevel)
+	log.Init(cni.LogFile, 10, 5)
+	//flag.Parse()
+	//flag.Lookup("log_dir").Value.Set(cni.LogDir)
+	//flag.Lookup("v").Value.Set(cni.LogLevel)
 	return nil
 }
 
 func (cni *ContrailCni) Log() {
-	glog.V(2).Infof("ContainerID : %s\n", cni.cniArgs.ContainerID)
-	glog.V(2).Infof("NetNS : %s\n", cni.cniArgs.Netns)
-	glog.V(2).Infof("Container Ifname : %s\n", cni.cniArgs.IfName)
-	glog.V(2).Infof("Args : %s\n", cni.cniArgs.Args)
-	glog.V(2).Infof("Config File : %s\n", cni.cniArgs.StdinData)
-	glog.V(2).Infof("%+v\n", cni)
+	log.Infof("ContainerID : %s\n", cni.cniArgs.ContainerID)
+	log.Infof("NetNS : %s\n", cni.cniArgs.Netns)
+	log.Infof("Container Ifname : %s\n", cni.cniArgs.IfName)
+	log.Infof("Args : %s\n", cni.cniArgs.Args)
+	log.Infof("Config File : %s\n", cni.cniArgs.StdinData)
+	log.Infof("%+v\n", cni)
 	cni.VRouter.Log()
 }
 
@@ -98,6 +99,8 @@ func Init(args *skel.CmdArgs) (*ContrailCni, error) {
 	json_args := cniJson{ContrailCni: cni}
 
 	if err := json.Unmarshal(args.StdinData, &json_args); err != nil {
+		log.Errorf("Error decoding stdin\n %s \n. Error %+v",
+			string(args.StdinData), err)
 		return nil, err
 	}
 
@@ -144,8 +147,8 @@ func (cni *ContrailCni) CmdAdd() error {
 	// VMI sub-interface, we will also get the vlan-tag
 	result, err := cni.VRouter.Poll(cni.ContainerUuid, cni.ContainerVn)
 	if err != nil {
-		glog.Errorf("Error polling for configuration of %s and %s. Error %+v",
-			cni.ContainerUuid, cni.ContainerVn, err)
+		log.Errorf("Error polling for configuration of %s and %s",
+			cni.ContainerUuid, cni.ContainerVn)
 		return err
 	}
 
@@ -154,7 +157,7 @@ func (cni *ContrailCni) CmdAdd() error {
 
 	err = intf.Create()
 	if err != nil {
-		glog.Errorf("Error creating interface object. %+v", err)
+		log.Errorf("Error creating interface object")
 		return err
 	}
 
@@ -164,7 +167,7 @@ func (cni *ContrailCni) CmdAdd() error {
 		cni.ContainerVn, cni.cniArgs.ContainerID, cni.cniArgs.Netns,
 		cni.cniArgs.IfName, intf.GetHostIfName())
 	if err != nil {
-		glog.V(2).Infof("Error in Add to VRouter. %+v", err)
+		log.Infof("Error in Add to VRouter")
 		return err
 	}
 
@@ -174,13 +177,14 @@ func (cni *ContrailCni) CmdAdd() error {
 	// Configure the interface based on config received above
 	err = intf.Configure(result.Mac, typesResult)
 	if err != nil {
-		glog.Errorf("Error configuring container interface. %+v", err)
+		log.Errorf("Error configuring container interface")
 		return err
 	}
 
 	versionDecoder := &version.ConfigDecoder{}
 	confVersion, err := versionDecoder.Decode(cni.cniArgs.StdinData)
 	if err != nil {
+		log.Errorf("Error decoding VRouter response")
 		return err
 	}
 	types.PrintResult(typesResult, confVersion)
@@ -196,16 +200,16 @@ func (cni *ContrailCni) CmdDel() error {
 
 	err := intf.Delete()
 	if err != nil {
-		glog.Errorf("Error deleting interface. Error %v\n", err)
+		log.Errorf("Error deleting interface")
 	} else {
-		glog.V(2).Infof("Deleted interface %s inside container",
+		log.Infof("Deleted interface %s inside container",
 			cni.cniArgs.IfName)
 	}
 
 	// Inform vrouter about interface-delete.
 	err = cni.VRouter.Del(cni.ContainerUuid, cni.ContainerVn)
 	if err != nil {
-		glog.Errorf("Error deleting interface from agent. Error %v\n", err)
+		log.Errorf("Error deleting interface from agent")
 	}
 
 	// Build CNI response from response
