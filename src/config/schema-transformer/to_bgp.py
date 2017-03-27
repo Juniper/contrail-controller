@@ -62,6 +62,7 @@ from cfgm_common.uve.cfgm_cpuinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
+import signal
 
 _BGP_RTGT_MAX_ID = 1 << 24
 _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
@@ -4067,7 +4068,7 @@ def parse_args(args_str):
     parser.add_argument("--zk_timeout", type=int,
                         help="Timeout for ZookeeperClient")
     parser.add_argument("--logical_routers_enabled", type=_bool,
-                        help="Timeout for ZookeeperClient")
+                        help="Logical Routers enabled")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
@@ -4118,8 +4119,18 @@ def run_schema_transformer(args):
 # end run_schema_transformer
 
 
+def sigterm_handler():
+    # Register a handler for SIGTERM so that we can release the lock
+    # Without it, it can take several minutes before new master is elected
+    # A signal hander was added in VncKombuClient, but since schema
+    # transformer does not use rabbitmq before R3.0, we need to add
+    # a separate handler here.
+    exit()
+
+
 def main(args_str=None):
     global _zookeeper_client
+    gevent.signal(signal.SIGTERM, sigterm_handler)
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
