@@ -340,12 +340,16 @@ int main(int argc, char *argv[])
                                                  api_server_port));
     }
     VncApiConfig api_config;
+    api_config.api_use_ssl = options.api_server_use_ssl();
     api_config.ks_srv_ip = options.auth_host();
     api_config.ks_srv_port = options.auth_port();
-    api_config.protocol = options.auth_protocol();
-    api_config.user = options.auth_user();
-    api_config.password = options.auth_passwd();
-    api_config.tenant = options.auth_tenant();
+    api_config.ks_protocol = options.auth_protocol();
+    api_config.ks_user = options.auth_user();
+    api_config.ks_password = options.auth_passwd();
+    api_config.ks_tenant = options.auth_tenant();
+    api_config.ks_keyfile = options.keystone_keyfile();
+    api_config.ks_certfile = options.keystone_certfile();
+    api_config.ks_cafile = options.keystone_cafile();
 
     VizCollector analytics(a_evm,
             options.collector_port(),

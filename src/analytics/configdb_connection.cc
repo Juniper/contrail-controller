@@ -19,8 +19,8 @@ ConfigDBConnection::ConfigDBConnection(EventManager *evm,
       api_server_index_(-1) {
     if (!api_server_list_.empty()) {
         api_server_index_ = 0;
-        vnccfg_.cfg_srv_ip = api_server_list_[0].first;
-        vnccfg_.cfg_srv_port = api_server_list_[0].second;
+        vnccfg_.api_srv_ip = api_server_list_[0].first;
+        vnccfg_.api_srv_port = api_server_list_[0].second;
         InitVnc();
     }
 }
@@ -48,8 +48,8 @@ ConfigDBConnection::RetryNextApi() {
         if (++api_server_index_ == static_cast<int>(api_server_list_.size())) {
             api_server_index_ = 0;
         }
-        vnccfg_.cfg_srv_ip = api_server_list_[api_server_index_].first;
-        vnccfg_.cfg_srv_port = api_server_list_[api_server_index_].second;
+        vnccfg_.api_srv_ip = api_server_list_[api_server_index_].first;
+        vnccfg_.api_srv_port = api_server_list_[api_server_index_].second;
         lock.release();
         InitVnc();
     }

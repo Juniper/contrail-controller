@@ -416,6 +416,9 @@ void Options::Initialize(EventManager &evm,
          opt::value<vector<string> >()->default_value(
             default_api_server_list, default_api_server),
             "Api-Server list")
+        ("API_SERVER.api_server_use_ssl",
+         opt::bool_switch(&api_server_use_ssl_),
+         "Use ssl for connecting to Api-Server")
         ;
 
     config_file_options_.add(config).add(cassandra_config)
@@ -707,4 +710,6 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue< vector<string> >(var_map, api_server_list_,
                                   "API_SERVER.api_server_list");
+    GetOptValue<bool>(var_map, api_server_use_ssl_,
+                      "API_SERVER.api_server_use_ssl");
 }
