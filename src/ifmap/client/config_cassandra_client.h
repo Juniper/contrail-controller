@@ -134,6 +134,15 @@ protected:
     virtual const uint64_t GetInitRetryTimeUSec() const {
         return kInitRetryTimeUSec;
     }
+    virtual void EnqueuDelete(const string &uuid,
+                      ConfigClientManager::RequestList req_list) const;
+    int num_workers() const { return num_workers_; }
+
+    typedef boost::shared_ptr<WorkQueue<ObjectProcessReq *> >
+        ObjProcessWorkQType;
+    std::vector<ObjProcessWorkQType> &obj_process_queue() {
+        return obj_process_queue_;
+    }
 
 private:
     class ConfigReader;
@@ -179,8 +188,6 @@ private:
 
     // Map of UUID to Field mapping
     typedef std::map<string, FieldDetailMap> ObjectCacheMap;
-
-    typedef boost::shared_ptr<WorkQueue<ObjectProcessReq *> > ObjProcessWorkQType;
 
     void InitRetry();
     virtual void ParseUuidTableRowResponse(const std::string &uuid,
