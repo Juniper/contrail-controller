@@ -636,3 +636,17 @@ const list <string> APIAAAModes = [
     AAA_MODE_CLOUD_ADMIN,
     AAA_MODE_RBAC,
 ]
+
+const map <string, string > UveTypeToConfigObjectType = {
+    "virtual-network" : "virtual_network",
+    "virtual-machine" : "virtual_machine",
+    "virtual-machine-interface" : "virtual_machine_interface",
+    "service-instance" : "service_instance",
+}
+
+const map <string, string> ObjectLogTypeToConfigObjectType = {
+    "ObjectVNTable": "virtual_network",
+    "ObjectVMTable": "virtual_machine",
+    "ObjectVMITable": "virtual_machine_interface",
+    "ObjectSITable": "service_instance",
+}

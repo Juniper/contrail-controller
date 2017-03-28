@@ -57,34 +57,49 @@ class VncCfgApiClient(object):
                 time.sleep(3)
     # end connect
 
-    def is_read_permission(self, user_token, uuid):
-        result = self._get_user_token_info(user_token, uuid)
-        if not result or 'permissions' not in result:
-            self._logger.error('Permissions for token %s NOT FOUND' % \
-                (str(user_token)))
-            return False
-        return 'R' in result['permissions']
-    # end is_read_permission
+    def get_resource_list(self, obj_type, token):
+        if self._vnc_api_client:
+            try:
+                res_list = self._vnc_api_client.resource_list(obj_type,\
+                        token=token)
+                return res_list
+            except Exception as e:
+                self._logger.error("Exception: %s" % str(e))
+                if "Service Unavailable Timeout" in str(e):
+                    return None
+                else:
+                    return dict()
+        else:
+            self._logger.error('VNC Config API Client NOT FOUND')
+            return dict()
+    # end get_resource_list
 
     def is_role_cloud_admin(self, user_token):
-        result = self._get_user_token_info(user_token)
-        if not result or not result['token_info']:
-            self._logger.error(
-                'Token info for %s NOT FOUND' % str(user_token))
-            return False
-        # Handle v2 and v3 responses
-        token_info = result['token_info']
-        if 'access' in token_info:
-            roles_list = [roles['name'] for roles in \
-                token_info['access']['user']['roles']]
-        elif 'token' in token_info:
-            roles_list = [roles['name'] for roles in \
-                token_info['token']['roles']]
-        else:
-            self._logger.error('Role info for %s NOT FOUND: %s' % \
-                (str(user_token), str(token_info)))
-            return False
-        return self._conf_info['cloud_admin_role'] in roles_list
+        try:
+            result = self._get_user_token_info(user_token)
+            if not result or not result['token_info']:
+                self._logger.error(
+                    'Token info for %s NOT FOUND' % str(user_token))
+                return False
+            # Handle v2 and v3 responses
+            token_info = result['token_info']
+            if 'access' in token_info:
+                roles_list = [roles['name'] for roles in \
+                    token_info['access']['user']['roles']]
+            elif 'token' in token_info:
+                roles_list = [roles['name'] for roles in \
+                    token_info['token']['roles']]
+            else:
+                self._logger.error('Role info for %s NOT FOUND: %s' % \
+                    (str(user_token), str(token_info)))
+                return False
+            return self._conf_info['cloud_admin_role'] in roles_list
+        except Exception as e:
+            self._logger.error("Exception: %s" % str(e))
+            if "Service Unavailable Timeout" in str(e):
+                return True
+            else:
+                return False
     # end is_role_cloud_admin
 
 # end class VncCfgApiServer
