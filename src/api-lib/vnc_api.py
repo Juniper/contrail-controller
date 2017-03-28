@@ -1230,7 +1230,9 @@ class VncApi(object):
     @check_homepage
     def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
                       back_ref_id=None, obj_uuids=None, fields=None,
-                      detail=False, count=False, filters=None, shared=False):
+                      detail=False, count=False, filters=None, shared=False,
+                      token=None):
+        self._headers['X-USER-TOKEN'] = token
         if not obj_type:
             raise ResourceTypeUnknownError(obj_type)
 
@@ -1322,6 +1324,8 @@ class VncApi(object):
             resource_obj.set_server_conn(self)
             resource_objs.append(resource_obj)
 
+        if 'X-USER-TOKEN' in self._headers:
+            del self._headers['X-USER-TOKEN']
         return resource_objs
     # end resource_list
 

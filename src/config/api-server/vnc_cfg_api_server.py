@@ -1678,7 +1678,7 @@ class VncApiServer(object):
         if not self.is_multi_tenancy_set():
             return True
 
-        env = bottle.request.headers.environ
+        env = get_request().headers.environ
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
                 roles = env[field].split(',')
@@ -2940,6 +2940,20 @@ class VncApiServer(object):
                          req_fields=None, include_shared=False,
                          exclude_hrefs=False):
         resource_type, r_class = self._validate_resource_type(obj_type)
+        if 'HTTP_X_USER_TOKEN' in get_request().environ:
+            user_token = get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                            {
+                            'HTTP_X_AUTH_TOKEN':  user_token,
+                            'REQUEST_METHOD'   : 'GET',
+                            'bottle.app': orig_request.environ['bottle.app'],
+                            })
+            i_req = context.ApiInternalRequest(
+                    b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            token_info = self._auth_svc.validate_user_token(get_request())
         is_admin = self.is_admin_request()
         if is_admin:
             field_names = req_fields

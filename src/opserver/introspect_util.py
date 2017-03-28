@@ -12,13 +12,13 @@ from requests.auth import HTTPBasicAuth
 
 class JsonDrv (object):
 
-    def load(self, url, user, password, cert, ca_cert):
+    def load(self, url, user, password, cert, ca_cert, headers):
         try:
             if user and password:
                 auth=HTTPBasicAuth(user, password)
             else:
                 auth=None
-            resp = requests.get(url, auth=auth)
+            resp = requests.get(url, headers=headers, auth=auth, timeout=10, verify=ca_cert, cert=cert)
             return json.loads(resp.text)
         except requests.ConnectionError, e:
             print "Socket Connection error : " + str(e)
@@ -26,14 +26,14 @@ class JsonDrv (object):
 
 class XmlDrv (object):
 
-    def load(self, url, user, password, cert, ca_cert):
+    def load(self, url, user, password, cert, ca_cert, headers):
         try:
             if user and password:
                 auth=HTTPBasicAuth(user, password)
             else:
                 auth=None
-            resp = requests.get(url, auth=auth, timeout=10, verify=ca_cert, cert=cert)
-            return etree.fromstring(resp.text)
+            resp = requests.get(url, headers=headers, auth=auth, timeout=10, verify=ca_cert, cert=cert)
+            return etree.fromstring(str(resp.text))
         except requests.ConnectionError, e:
             print "Socket Connection error : " + str(e)
             return None
@@ -73,13 +73,13 @@ class IntrospectUtilBase (object):
             return url
 
     def dict_get(self, path='', query=None, drv=None, user=None,
-                 password=None):
+                 password=None, headers=None):
         if path:
             if drv is not None:
                 return drv().load(self._mk_url_str(path, query), user,
-                    password, self._cert, self._ca_cert)
+                    password, self._cert, self._ca_cert, headers)
             return self._drv.load(self._mk_url_str(path, query), user,
-                password, self._cert, self._ca_cert)
+                password, self._cert, self._ca_cert, headers)
     # end dict_get
 
 
