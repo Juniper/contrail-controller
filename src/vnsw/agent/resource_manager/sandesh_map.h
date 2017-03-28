@@ -37,12 +37,21 @@ public:
     void EnqueueRestore(ResourceManager::KeyPtr key,
                         ResourceManager:: DataPtr data);
     const std::string & backup_dir() {return backup_dir_;}
+    void set_backup_dir(const std::string& b_dir) {
+        backup_dir_ = b_dir;
+    }
     static const std::string FindFile(const std::string &root,
                                       const std::string & file_ext);
     static bool CalculateHashSum(const std::string &file_name,
                                  uint32_t *hashsum);
     const std::string& file_name_str() {return file_name_str_;}
+    void set_file_name_str(const std::string& b_file) {
+        file_name_str_ = b_file;
+    }
     const std::string& file_name_prefix() {return file_name_prefix_;}
+    void set_file_name_prefix(const std::string& b_prefix) {
+        file_name_prefix_ = b_prefix;
+    }
 protected:
     template <typename T1, typename T2>
     bool WriteMapToFile(T1* sandesh_data, const T2& index_map);
