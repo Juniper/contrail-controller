@@ -57,6 +57,16 @@ class VncCfgApiClient(object):
                 time.sleep(3)
     # end connect
 
+    def get_resource_list(self, obj_type, token):
+        if self._vnc_api_client:
+            res_list = self._vnc_api_client.resource_list(obj_type,\
+                    token=token)
+            return res_list
+        else:
+            self._logger.error('VNC Config API Client NOT FOUND')
+            return None
+    # end get_resource_list
+
     def is_read_permission(self, user_token, uuid):
         result = self._get_user_token_info(user_token, uuid)
         if not result or 'permissions' not in result:
