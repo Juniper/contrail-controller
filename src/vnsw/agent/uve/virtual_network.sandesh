@@ -99,7 +99,7 @@ struct UveVrfStats {
  */
 struct InterVnStats {
     /** Name of virtual-network */
-    1: string                               other_vn; 
+    1: string                               other_vn;
     /** Name of agent sending this information */
     2: string                               vrouter;
     /** Ingress packet count */
@@ -190,7 +190,7 @@ struct UveVirtualNetworkAgent {
     22: optional list<UveVrfStats>         vrf_stats_list (aggtype="append")
     /** Derived from flow statistics */
     /** @display_name: Statistics of VN with respect to other VNs */
-    23: optional list<InterVnStats>        vn_stats (tags=".other_vn,.vrouter")
+    23: optional list<InterVnStats>        vn_stats (tags=".other_vn,.vrouter",uve_type=".other_vn:virtual_network")
     /** Number of ingress flows in this VN */
     24: optional u32                       ingress_flow_count (aggtype="sum")
     /** Number of egress flows in this VN */
