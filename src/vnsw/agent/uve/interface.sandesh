@@ -25,7 +25,7 @@ struct VmFloatingIPAgent {
  */
 struct VmFloatingIPStats {
     /** Name of virtual-network of Floating-IP */
-    1: string virtual_network;
+    1: string virtual_network (uve_type="virtual-network");
     /** Floating IP Address */
     2: string ip_address;
     /** Count of incoming packets */
@@ -91,7 +91,7 @@ struct UveVMInterfaceAgent {
     /** Primary IP version 4 address of VMI in dotted decimal notation */
     3: optional string ip_address;
     /** Name of virtual-network to which this VMI belongs */
-    4: string virtual_network;
+    4: string virtual_network (uve_type="virtual-network");
     /** Hardware address of VMI */
     5: optional string mac_address;
     /** MPLS label of VMI */
@@ -172,7 +172,7 @@ struct UveVMInterfaceAgent {
    32: optional derived_stats_results.AnomalyResult if_out_pkts_ewm
                     (stats="raw_if_stats.out_pkts:DSAnomaly:EWM:0.1")
     /** UUID of Virtual machine to which the VMI belongs */
-   19: string vm_uuid;
+   19: string vm_uuid (uve_type="virtual-machine");
     /** Ingress direction bandwidth in bits per second */
    20: optional u64 in_bw_usage;
     /** Egress direction bandwidth in bits per second */
