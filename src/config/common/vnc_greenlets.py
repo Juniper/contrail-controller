@@ -43,7 +43,7 @@ class VncGreenlet(Greenlet):
         greenlet_resp = sandesh.GreenletObjectListResp(greenlets=[])
         anonymous_cnt = 0
         for obj in gc.get_objects():
-            if not obj:
+            if obj is None:
                 continue
             if not isinstance(obj, greenlet):
                 continue
