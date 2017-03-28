@@ -22,7 +22,8 @@ for dir in subdirs:
 
 noarch_subdirs = [
     'contrail-vrouter-api',
-    'opencontrail-vrouter-netns'
+    'opencontrail-vrouter-netns',
+    'provisioning'
 ]
 
 for sdir in noarch_subdirs:
