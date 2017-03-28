@@ -99,7 +99,7 @@ struct UveVrfStats {
  */
 struct InterVnStats {
     /** Name of virtual-network */
-    1: string                               other_vn; 
+    1: string                               other_vn(uve_type="virtual-network");
     /** Name of agent sending this information */
     2: string                               vrouter;
     /** Ingress packet count */
