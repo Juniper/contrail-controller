@@ -39,6 +39,7 @@ public:
     bool IsZero() const { return CompareTo(RouteDistinguisher::kZeroRd) == 0; }
     uint16_t Type() const;
     uint32_t GetAddress() const;
+    uint16_t GetVrfId() const;
 
     int CompareTo(const RouteDistinguisher &rhs) const;
     bool operator==(const RouteDistinguisher &rhs) const {

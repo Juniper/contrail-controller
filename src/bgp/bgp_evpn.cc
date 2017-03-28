@@ -160,9 +160,13 @@ void EvpnLocalMcastNode::AddInclusiveMulticastRoute() {
         return;
 
     // Construct the prefix and route key.
+    // Build the RD using the TOR IP address, not the TOR agent IP address.
+    // This ensures that the MAC broadcast route from the primary and backup
+    // TOR Agents results in the same Inclusive Multicast prefix.
     const EvpnPrefix &mac_prefix = route_->GetPrefix();
-    EvpnPrefix prefix(mac_prefix.route_distinguisher(), mac_prefix.tag(),
-        address_);
+    RouteDistinguisher rd(
+        address_.to_ulong(), mac_prefix.route_distinguisher().GetVrfId());
+    EvpnPrefix prefix(rd, mac_prefix.tag(), address_);
     EvpnRoute rt_key(prefix);
 
     // Find or create the route.
@@ -175,8 +179,9 @@ void EvpnLocalMcastNode::AddInclusiveMulticastRoute() {
         route->ClearDelete();
     }
 
-    // Add a path with source BgpPath::Local.
-    BgpPath *path = new BgpPath(BgpPath::Local, attr_, 0, label_);
+    // Add a path with source BgpPath::Local and the peer address as path_id.
+    uint32_t path_id = mac_prefix.route_distinguisher().GetAddress();
+    BgpPath *path = new BgpPath(path_id, BgpPath::Local, attr_, 0, label_);
     route->InsertPath(path);
     inclusive_mcast_route_ = route;
     tbl_partition->Notify(inclusive_mcast_route_);
@@ -191,8 +196,10 @@ void EvpnLocalMcastNode::DeleteInclusiveMulticastRoute() {
     if (!inclusive_mcast_route_)
         return;
 
+    const EvpnPrefix &mac_prefix = route_->GetPrefix();
+    uint32_t path_id = mac_prefix.route_distinguisher().GetAddress();
     DBTablePartition *tbl_partition = partition_->GetTablePartition();
-    inclusive_mcast_route_->RemovePath(BgpPath::Local);
+    inclusive_mcast_route_->RemovePath(BgpPath::Local, path_id);
     BGP_LOG_ROUTE(partition_->table(), static_cast<IPeer *>(NULL),
         inclusive_mcast_route_, "Delete Local path");
 
