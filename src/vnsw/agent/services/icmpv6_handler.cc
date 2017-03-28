@@ -53,9 +53,9 @@ bool Icmpv6Handler::Run() {
         return true;
     }
     VmInterface *vm_itf = static_cast<VmInterface *>(itf);
-    if (!vm_itf->layer3_forwarding()) {
+    if (!vm_itf->layer3_forwarding() || !vm_itf->ipv6_active()) {
         icmpv6_proto->IncrementStatsDrop();
-        ICMPV6_TRACE(Trace, "Received ICMP with l3 disabled");
+        ICMPV6_TRACE(Trace, "Received ICMP with l3 disabled / ipv6 inactive");
         return true;
     }
     nd_neighbor_advert *icmp = (nd_neighbor_advert *)icmp_;
