@@ -54,7 +54,9 @@ from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ANALYTICS_API_SERVER_DISCOVERY_SERVICE_NAME, ALARM_GENERATOR_SERVICE_NAME, \
      OpServerAdminPort, CLOUD_ADMIN_ROLE, APIAAAModes, \
      AAA_MODE_CLOUD_ADMIN, AAA_MODE_NO_AUTH, AAA_MODE_RBAC, \
-     ServicesDefaultConfigurationFiles, SERVICE_OPSERVER
+     ServicesDefaultConfigurationFiles, SERVICE_OPSERVER, \
+     UveTypeToConfigObjectType, ObjectLogTypeToConfigObjectType, \
+     ObjectLogTypeToUveType
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -410,46 +412,157 @@ class OpServer(object):
         return _impl
     # end validate_user_token
 
-    def is_authorized_user(self):
+    def is_role_cloud_admin(self):
         if self._args.auth_conf_info.get('cloud_admin_access_only') and \
                 bottle.request.app == bottle.app():
             user_token = bottle.request.headers.get('X-Auth-Token')
             if not user_token or not \
                     self._vnc_api_client.is_role_cloud_admin(user_token):
+                return False
+        return True
+    # end is_role_cloud_admin
+
+    def get_resource_list_from_uve_type(self, uve_type):
+        if uve_type in UveTypeToConfigObjectType and \
+                self._args.aaa_mode == AAA_MODE_RBAC:
+            cfg_type = UveTypeToConfigObjectType[uve_type]
+            return self.get_resource_list(cfg_type)
+        elif not self.is_role_cloud_admin():
+            raise bottle.HTTPResponse(status = 401,
+                        body = 'Authentication required',
+                        headers = self._reject_auth_headers())
+        return None
+    # end get_resource_list_from_uve_type
+
+    def get_resource_list(self, obj_type):
+        if self._args.aaa_mode == AAA_MODE_RBAC and \
+                bottle.request.app == bottle.app():
+            user_token = bottle.request.headers.get('X-Auth-Token')
+            if not user_token:
                 raise bottle.HTTPResponse(status = 401,
                         body = 'Authentication required',
                         headers = self._reject_auth_headers())
-        return True
-    # end is_authorized_user
+            res_list = self._vnc_api_client.get_resource_list(obj_type,\
+                    user_token)
+            if res_list is None:
+                return None
+            user_accessible_resources = set()
+            for _, resources in res_list.iteritems():
+                for res in resources:
+                    user_accessible_resources.add(':'.join(res['fq_name']))
+            return user_accessible_resources
+        return None
+    # end get_resource_list
 
-    def validate_user_token_check_perms(self, uves):
-        if self._args.auth_conf_info.get('aaa_mode') == AAA_MODE_RBAC and \
-                bottle.request.app == bottle.app():
-            if len(uves) == 0:
-                return True
-            user_token = bottle.request.headers.get('X-Auth-Token')
-            if not user_token:
-                return False
-            if 'ContrailConfig' in uves.keys():
-                if isinstance(uves['ContrailConfig']['elements'], dict):
-                    if 'uuid' in uves['ContrailConfig']['elements']:
-                        uuid = uves['ContrailConfig']['elements']['uuid']
-                if isinstance(uves['ContrailConfig']['elements'], list):
-                    if 'uuid' in uves['ContrailConfig']['elements'][0]:
-                        uuid = uves['ContrailConfig']['elements'][0]['uuid']
-                uuid = uuid.split('"')[1]
-                if not self._vnc_api_client.is_read_permission(user_token, uuid):
-                    return False
-            elif not self._vnc_api_client.is_role_cloud_admin(user_token):
-                return False
-        elif self._args.auth_conf_info.get('aaa_mode') == AAA_MODE_CLOUD_ADMIN \
-                and bottle.request.app == bottle.app():
-            user_token = bottle.request.headers.get('X-Auth-Token')
-            if not user_token or not \
-                    self._vnc_api_client.is_role_cloud_admin(user_token):
-                return False
-        return True
-    #end validate_user_token_check_perms
+    def check_perms_and_update_where_cluse(self, request, tabl, tabn):
+        if self._args.aaa_mode == AAA_MODE_RBAC and not \
+                self.is_role_cloud_admin():
+            if tabl in ObjectLogTypeToConfigObjectType:
+                cfg_type = ObjectLogTypeToConfigObjectType[tabl]
+                cfg_obj_list = self.get_resource_list(cfg_type)
+                if cfg_obj_list is not None:
+                    self.update_where_clause(request, cfg_obj_list, 'ObjectId')
+                return
+            elif tabl == 'StatTable.FieldNames.fields':
+                where = request.json['where'][0]
+                default_clause =  [{
+                    'name' : 'name',
+                    'value' : 'OBJECT',
+                    'op' : 7
+                }]
+                if where == default_clause:
+                    cfg_obj_list = []
+                    for tabl in ObjectLogTypeToConfigObjectType:
+                        cfg_obj_list.append(tabl)
+                    self.update_where_clause(request, cfg_obj_list, \
+                                'name', 1, 'OBJECT:')
+                    return
+                default_clause[0]['value'] = 'STAT'
+                if where == default_clause:
+                    cfg_obj_list = []
+                    for table in self._VIRTUAL_TABLES:
+                        if table.schema.type == 'STAT':
+                            for column in table.schema.columns:
+                                if column.uve_type in UveTypeToConfigObjectType:
+                                    cfg_obj_list.append(table.name)
+                                    continue
+                    self.update_where_clause(request, cfg_obj_list, \
+                                'name', 1, 'STAT:')
+                    return
+            elif tabl is not None and tabl.startswith("StatTable."):
+                found_uve_type = False
+                for column in self._VIRTUAL_TABLES[tabn].schema.columns:
+                    if column.index and column.uve_type:
+                        if column.uve_type in UveTypeToConfigObjectType:
+                            found_uve_type = True
+                            cfg_type = UveTypeToConfigObjectType[column.uve_type]
+                            cfg_obj_list = self.get_resource_list(cfg_type)
+                            if cfg_obj_list is not None:
+                                if len(cfg_obj_list) == 0:
+                                    request.json['where'] = []
+                                    break
+                                self.update_where_clause(request, cfg_obj_list,\
+                                    column.name)
+                if found_uve_type:
+                    return
+        if not self.is_role_cloud_admin():
+            raise bottle.HTTPResponse(status = 401,
+                        body = 'Authentication required',
+                        headers = self._reject_auth_headers())
+    #end check_perms_and_update_where_cluse
+
+    def update_where_clause(self, request, obj_list, name, op=7, prefix=None):
+        where_clause_list = []
+        default_clause =  [{
+              'name' : 'name',
+              'value' : prefix[:-1] if prefix else '',
+              'op' : 7
+        }]
+        only_default_clause = False
+        where_clause_list = []
+        if 'where' in request.json:
+            where_clause_list = request.json['where']
+            if len(where_clause_list) == 1:
+                if where_clause_list[0] == default_clause:
+                    only_default_clause = True
+                    where_clause_list.remove(default_clause)
+            elif len(where_clause_list) == 0:
+                return
+        else:
+            request.json['where'] = []
+
+        name_where_clause = []
+        for where_clause in where_clause_list:
+            for and_query in where_clause:
+                if and_query['name'] == name:
+                    name_where_clause.append((where_clause, and_query))
+                    break
+        for (where_clause, and_query) in name_where_clause:
+            where_clause.remove(and_query)
+        new_clause_list = []
+        for obj in obj_list:
+            obj_value = obj if not prefix else prefix + obj
+            new_clause =  [{
+                'name' : name,
+                'value' : obj_value,
+                'op' : op
+            }]
+            if len(name_where_clause) == 0 or only_default_clause or \
+                    new_clause[0] in name_where_clause:
+                new_clause_list.append(new_clause)
+            else:
+                for (clause, and_query) in name_where_clause:
+                    if and_query["name"] == name and and_query["op"] == 7:
+                        if obj_value.startswith(and_query["value"]):
+                            new_clause_list.append(new_clause)
+                            break
+        if len(where_clause_list) == 0:
+            request.json['where'] = new_clause_list
+        elif len(new_clause_list) > 0:
+            for existing_clause in where_clause_list:
+                for new_clause in new_clause_list:
+                    existing_clause.extend(new_clause)
+    #end update_where_clause
 
     def _reject_auth_headers(self):
         header_val = 'Keystone uri=\'%s\'' % \
@@ -709,9 +822,22 @@ class OpServer(object):
                 if aln["name"]==STAT_OBJECTID_FIELD:
                     isname = True
                 if "suffixes" in aln.keys():
-                    aln_col = stat_query_column(name=aln["name"], datatype=aln["datatype"], index=aln["index"], suffixes=aln["suffixes"]);
+                    if "uve_type" in aln.keys():
+                        aln_col = stat_query_column(name=aln["name"], \
+                        datatype=aln["datatype"], index=aln["index"], \
+                        suffixes=aln["suffixes"], uve_type=aln["uve_type"])
+                    else:
+                        aln_col = stat_query_column(name=aln["name"], \
+                        datatype=aln["datatype"], index=aln["index"], \
+                        suffixes=aln["suffixes"])
                 else:
-                    aln_col = stat_query_column(name=aln["name"], datatype=aln["datatype"], index=aln["index"]);
+                    if "uve_type" in aln.keys():
+                        aln_col = stat_query_column(name=aln["name"], \
+                        datatype=aln["datatype"], index=aln["index"], \
+                        uve_type=aln["uve_type"])
+                    else:
+                        aln_col = stat_query_column(name=aln["name"], \
+                        datatype=aln["datatype"], index=aln["index"])
                 scols.append(aln_col)
 
                 if aln["datatype"] in ['int','double']:
@@ -734,7 +860,14 @@ class OpServer(object):
                             datatype='avg', index=False)
                     scols.append(scln)
             if not isname: 
-                keyln = stat_query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
+                if "obj_table" in table and table["obj_table"] in \
+                        ObjectLogTypeToUveType:
+                    uve_type = ObjectLogTypeToUveType[table["obj_table"]]
+                    keyln = stat_query_column(name=STAT_OBJECTID_FIELD, \
+                            datatype='string', index=True, uve_type=uve_type)
+                else:
+                    keyln = stat_query_column(name=STAT_OBJECTID_FIELD, \
+                            datatype='string', index=True)
                 scols.append(keyln)
 
             sch = query_schema_type(type='STAT', columns=scols)
@@ -1064,7 +1197,6 @@ class OpServer(object):
         auth_conf_info['cloud_admin_access_only'] = \
             False if self._args.aaa_mode == AAA_MODE_NO_AUTH else True
         auth_conf_info['cloud_admin_role'] = self._args.cloud_admin_role
-        auth_conf_info['aaa_mode'] = self._args.aaa_mode
         auth_conf_info['admin_port'] = self._args.admin_port
         api_server_info = self._args.api_server.split(':')
         auth_conf_info['api_server_ip'] = api_server_info[0]
@@ -1367,6 +1499,8 @@ class OpServer(object):
                     yield bottle.HTTPError(_ERRORS[errno.EIO], str(e))
                 return
 
+            self.check_perms_and_update_where_cluse(request, tabl, tabn)
+
             prg = redis_query_start('127.0.0.1',
                                     int(self._args.redis_query_port),
                                     self._args.redis_password,
@@ -1481,14 +1615,12 @@ class OpServer(object):
         return
     # end _sync_query
 
-    @validate_user_token
     def query_process(self):
         self._post_common(bottle.request, None)
         result = self._query(bottle.request)
         return result
     # end query_process
 
-    @validate_user_token
     def query_status_get(self, queryId):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
@@ -1636,7 +1768,6 @@ class OpServer(object):
         return filters
     # end _uve_http_post_filter_set
 
-    @validate_user_token
     def dyn_http_post(self, tables):
         (ok, result) = self._post_common(bottle.request, None)
         base_url = bottle.request.urlparts.scheme + \
@@ -1648,6 +1779,8 @@ class OpServer(object):
         uve_tbl = uve_type
         if uve_type in UVE_MAP:
             uve_tbl = UVE_MAP[uve_type]
+
+        user_resources = self.get_resource_list_from_uve_type(uve_type)
 
         try:
             req = bottle.request.json
@@ -1666,6 +1799,9 @@ class OpServer(object):
                     for gen in self._uve_server.multi_uve_get(uve_tbl, True,
                                                               filters,
                                                               base_url):
+                        if user_resources is not None  and 'name' in gen:
+                            if not gen['name'] in user_resources:
+                                continue
                         dp = json.dumps(gen)
                         byt += len(dp)
                         if first:
@@ -1685,6 +1821,9 @@ class OpServer(object):
                                                base_url=base_url)
                 num += 1
                 if rsp != {}:
+                    if user_resources is not None:
+                        if not key in user_resources:
+                            continue
                     data = {'name': key, 'value': rsp}
                     dp = json.dumps(data)
                     byt += len(dp)
@@ -1696,7 +1835,7 @@ class OpServer(object):
             stats.collect(num,byt)
             stats.sendwith()
             yield u']}'
-    # end _uve_alarm_http_post
+    # end dyn_http_post
 
     def dyn_http_get(self, table, name):
         # common handling for all resource get
@@ -1725,9 +1864,8 @@ class OpServer(object):
 
       
         uve_name = uve_tbl + ':' + name
+        user_resources = self.get_resource_list_from_uve_type(table)
         if name.find('*') != -1:
-            if not self.is_authorized_user():
-                return
             flat = True
             yield u'{"value": ['
             first = True
@@ -1737,6 +1875,9 @@ class OpServer(object):
             byt = 0
             for gen in self._uve_server.multi_uve_get(uve_tbl, flat,
                     filters, base_url):
+                if user_resources is not None and 'name' in gen:
+                    if not gen['name'] in user_resources:
+                        continue
                 dp = json.dumps(gen)
                 byt += len(dp)
                 if first:
@@ -1751,15 +1892,16 @@ class OpServer(object):
         else:
             _, rsp = self._uve_server.get_uve(uve_name, flat, filters,
                                            base_url=base_url)
-            if self.validate_user_token_check_perms(rsp):
+            if not user_resources or (user_resources and name in \
+                    user_resources):
                 dp = json.dumps(rsp)
                 stats.collect(1, len(dp))
                 stats.sendwith()
                 yield dp
             else:
                 yield bottle.HTTPResponse(status = 401,
-                    body = 'Authentication required',
-                    headers = self._reject_auth_headers())
+                        body = 'Authentication required',
+                        headers = self._reject_auth_headers())
     # end dyn_http_get
 
     @validate_user_token
@@ -1795,7 +1937,6 @@ class OpServer(object):
                 return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(alms))
     # end alarms_http_get
 
-    @validate_user_token
     def dyn_list_http_get(self, tables):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
@@ -1822,21 +1963,25 @@ class OpServer(object):
         if uve_type in UVE_MAP:
             uve_tbl = UVE_MAP[uve_type]
 
+        res_list = self.get_resource_list_from_uve_type(uve_type)
         req = bottle.request.query
         try:
             filters = OpServer._uve_filter_set(req)
         except Exception as e:
             return bottle.HTTPError(_ERRORS[errno.EBADMSG], e)
         else:
-            uve_list = self._uve_server.get_uve_list(
-                uve_tbl, filters, True)
             base_url = bottle.request.urlparts.scheme + '://' + \
                 bottle.request.urlparts.netloc + \
                 '/analytics/uves/%s/' % (uve_type)
+            uve_list = self._uve_server.get_uve_list(
+                    uve_tbl, filters, True)
+            if res_list is not None:
+                uve_list = res_list.intersection(uve_list)
             uve_links =\
                 [obj_to_dict(LinkObject(uve,
                                         base_url + uve + "?" + uve_filters))
                  for uve in uve_list]
+
             return json.dumps(uve_links)
     # end dyn_list_http_get
 
@@ -2340,7 +2485,6 @@ class OpServer(object):
         return json.dumps(json_links)
     # end table_process
 
-    @validate_user_token
     def table_schema_process(self, table):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
