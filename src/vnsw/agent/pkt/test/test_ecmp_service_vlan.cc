@@ -135,7 +135,7 @@ class EcmpTest : public ::testing::Test {
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, get_flow_proto()->FlowCount());
+        WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
     }
 
     virtual void TearDown() {
@@ -884,6 +884,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
             "routing-instance", "service-vrf1");
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
+    DelVmPortVrf("ser1");
     client->WaitForIdle();
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -1287,7 +1288,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     uint32_t sport = rand() % 65535;
     uint32_t dport = rand() % 65535;
     for (uint32_t i = 0; i < 32; i++) {
-        uint32_t hash_id = rand() % 65535;
+        uint32_t hash_id = i + 100;
         TxTcpPacket(VmPortGetId(13), "10.1.1.1", "11.1.1.1", sport, dport, 
                     false, hash_id, service_vrf_id);
         client->WaitForIdle();

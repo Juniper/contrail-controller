@@ -823,7 +823,21 @@ void KSyncUserSockFlowContext::Process() {
                     /* Send reverse-flow index as one more than fwd-flow index */
                     fwd_flow_idx = req_->get_fr_rindex() + 1;
                 } else {
-                    fwd_flow_idx = rand() % 50000;
+                    fwd_flow_idx = rand() % 20000;
+                    /* Reserve first 20000 indexes for forwarding flow
+                     * Reverse flow indexes will start from 20000 always
+                     */
+                    fwd_flow_idx += 20000;
+                }
+                /* If the randomly allocated index is used already then
+                 * find out the next randon index which is free
+                 */
+                while (sock->flow_map.find(fwd_flow_idx) != sock->flow_map.end()) {
+                    fwd_flow_idx = rand() % 20000;
+                    /* Reserve first 20000 indexes for forwarding flow
+                     * Reverse flow indexes will start from 20000 always
+                     */
+                    fwd_flow_idx += 20000;
                 }
                 req_->set_fr_index(fwd_flow_idx);
                 req_->set_fr_gen_id((fwd_flow_idx % 255));
