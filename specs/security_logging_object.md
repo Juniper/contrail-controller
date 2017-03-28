@@ -1,8 +1,8 @@
 
-#1. Introduction
+# 1. Introduction
 This document goes over the 'security logging object' feature.
 
-#2. Problem statement
+# 2. Problem statement
 * Security events including traffic session ACCEPTs and DROPs due to
  enforcement of policy and security groups have to be logged to Analytics.
  Configuration control is required to selectively enable logging for sessions
@@ -11,7 +11,7 @@ This document goes over the 'security logging object' feature.
 * Even with reduced information flowing into analytics, the flows should be
  debuggable at all entry and exit points (no information loss)
 
-#3. Proposed solution
+# 3. Proposed solution
 * Send Session record from agent to analytics combining the data for both the
  forward and reverse flows in a single message.
 * Add configuration control to selectively enable logging for sessions matching
@@ -28,10 +28,10 @@ This document goes over the 'security logging object' feature.
   sampling algorithm, the corrersponding session record can go to both
   analytics and syslog/local file.
 
-##3.1 Alternatives considered
-####Describe pros and cons of alternatives considered.
+## 3.1 Alternatives considered
+#### Describe pros and cons of alternatives considered.
 
-##3.2 API schema changes
+## 3.2 API schema changes
 * A new Security-logging object (SLO) will be introduced.
 * SLO can be created at global level or at tenant level
 * Tenant quota for SLO
@@ -59,11 +59,11 @@ This document goes over the 'security logging object' feature.
   session record or logged session record should be added.
 * Flags to be added to specify the destinations for FlowLog messages.
 
-##3.3 User workflow impact
+## 3.3 User workflow impact
 
-##3.4 UI changes
+## 3.4 UI changes
 
-##3.5 Notification impact
+## 3.5 Notification impact
 The following structure would be populated and sent
 
 ```
@@ -107,12 +107,12 @@ struct FlowRecordData {
 }
 ```
 
-#4. Implementation
-##4.1 Assignee(s)
-####List dev and test assignments
+# 4. Implementation
+## 4.1 Assignee(s)
+#### List dev and test assignments
 
-##4.2 Work items  
-###4.2.1 Agent Changes
+## 4.2 Work items  
+### 4.2.1 Agent Changes
 
 Each session record will have three parts  
 
@@ -133,7 +133,7 @@ The flow sampling algorithm continues as is with the change that session records
    Flags to be added in the agent config file to specify the destinations for
  FlowLog messages.
 
-###4.2.2 Analytics Changes  
+### 4.2.2 Analytics Changes  
 
 In the analytics node, changes will be needed to handle the new session log
  data. Additionally the session log data will be indexed only against the source
@@ -155,22 +155,22 @@ FlowSeriesTables have to change; necessary logic to be added to fetch values
  even if the FlowSeriesQueries are to be queried against the secondary or
  tertiary indices viz., port no, protocol,..
 
-#5. Performance and scaling impact
-##5.1 API and control plane
+# 5. Performance and scaling impact
+## 5.1 API and control plane
 
-##5.2 Forwarding performance
+## 5.2 Forwarding performance
 
-#6. Upgrade
+# 6. Upgrade
 
-#7. Deprecations
+# 7. Deprecations
 
-#8. Dependencies
+# 8. Dependencies
 
-#9. Testing
-##9.1 Unit tests
-##9.2 Dev tests
-##9.3 System tests
+# 9. Testing
+## 9.1 Unit tests
+## 9.2 Dev tests
+## 9.3 System tests
 
-#10. Documentation Impact
+# 10. Documentation Impact
 
-#11. References
+# 11. References

@@ -1,11 +1,11 @@
-#1. [Introduction](https://github.com/Juniper/contrail-controller/blob/master/specs/graceful_restart.md)
+# 1. [Introduction](https://github.com/Juniper/contrail-controller/blob/master/specs/graceful_restart.md)
 
 In Release 3.2, limited support to Graceful Restart (GR) and Long Lived
 Graceful Restart (LLGR) helper modes to contrail-controller was provided.
 This document describes the complete GR/LLGR feature planned in contrail
 software in R4.0 and following releases.
 
-#2. Problem statement
+# 2. Problem statement
 In a contrail cluster, when ever contrail-control or contrail-vrouter-agent
 module(s) restarts, network traffic flows can get affected based on the actual
 failure and deployment scenario.
@@ -37,7 +37,7 @@ failure and deployment scenario.
 This feature aims to minimize traffic loss and keep normalcy in a contrail
 cluster in each of the scenarios described above.
 
-#3. Proposed solution
+# 3. Proposed solution
 There are two key pieces in GR.
 
 1. When a contrail-module (gracefully) restarts, then we should be able to
@@ -63,16 +63,16 @@ used in SDN gateways (such as JUNOS-MX), north south traffic between MX and
 Vrouters can also remain uninterrupted in headless mode. This particular aspect
 is not available in releases < 3.2.
 
-##3.1 Alternatives considered
+## 3.1 Alternatives considered
 As mentioned above, vrouter-agent headless mode solves part of one of the
 problems. But it is not a complete solution and does not cover all applicable
 operational scenarios.
 
-##3.2 API schema changes
+## 3.2 API schema changes
 GR/LLGR configuration resides under global-system-config configuration section
 ***[Configuration parameters](https://github.com/Juniper/contrail-controller/blob/master/src/schema/vnc_cfg.xsd#L885)***
 
-##3.3 User workflow impact
+## 3.3 User workflow impact
 In order to use this feature, graceful-restart and/or long-lived-graceful-restart can be enabled using Web UI or using
 [provision_control](https://github.com/Juniper/contrail-controller/blob/8a9f9d5c5bab09f276ae558f4aeafc575d5f12af/src/config/utils/provision_control.py#L177)
 script. e.g.
@@ -111,19 +111,19 @@ When ever GR/LLGR configuration is enabled/disabled all BGP and/or XMPP agent
 peering sessions are flipped. This can cause a brief disruption to the traffic
 flows.
 
-##3.4 UI changes
+## 3.4 UI changes
 Contrail Web UI can be used to enable/disable GR and/or LLGR configuration.
 Various timer values as well as GR helper knobs can be tweaked under
 [BGP Options tab](images/GracefulRestartConfigurationSnapShot.png) in
 configuration section.
 
-##3.5 Notification impact
-####Describe any log, UVE, alarm changes
+## 3.5 Notification impact
+#### Describe any log, UVE, alarm changes
 * contrail-control GR information [PeerCloseRouteInfo](https://github.com/Juniper/contrail-controller/blob/master/src/bgp/bgp_peer.sandesh#L49) and [PeerCloseInfo](https://github.com/Juniper/contrail-controller/blob/master/src/bgp/bgp_peer.sandesh#L57) are sent as part of control-node UVEs.
 
-#4. Implementation
+# 4. Implementation
 
-##4.1 contrail-controller Work items
+## 4.1 contrail-controller Work items
 Most of the contrail-control changes were done in R3.2 tracked by [bug 1537933](https://bugs.launchpad.net/juniperopenstack/+bug/1537933)
 
 ### 4.1.1 GR Helper Mode
@@ -180,20 +180,20 @@ based on deployment scenarios.
 * GR/LLGR feature can be enabled for both BGP based and XMPP based peers
 * GR/LLGR configuration resides under global-system-config configuration section
 
-##4.2 contrail-vrouter-agent Work items
+## 4.2 contrail-vrouter-agent Work items
 
-#5. Performance and scaling impact
-##5.1 API and control plane
+# 5. Performance and scaling impact
+## 5.1 API and control plane
 No specific performance implication is expected on control plane scaling due to
 GR/LLGR feature. Memory usage can remain high when the helper mode is in effect
 as the routes learned by the peers are kept even when the session gets closed
 (until the timer expires or the session comes back up and sends end-of-rib)
 
-##5.2 Forwarding performance
-####Scaling and performance for API and forwarding
+## 5.2 Forwarding performance
+#### Scaling and performance for API and forwarding
 
-#6. Upgrade
-####Describe upgrade impact of the feature
+# 6. Upgrade
+#### Describe upgrade impact of the feature
 * control-plane upgrade (ISSU) is not impacted when GR is enabled because during
 ISSU, v2 contrail-control forms a bgp peering with v1 contrail-control during
 the time of the upgrade. Once upgrade is complete, this peering is de-configured
@@ -206,27 +206,27 @@ v1 control-node and v2 agent remains connected to v2 control-node (TBD). In
 any case, session must be closed non-graceful when switching over from v1
 to v2, or vice-versa during roll-back because of downgrade.
 
-####Schema migration/transition
+#### Schema migration/transition
 N/A
 
-#7. Deprecations
+# 7. Deprecations
 N/A
 
-#8. Dependencies
-####Describe dependent features or components.
+# 8. Dependencies
+#### Describe dependent features or components.
 
-#9. Testing
-##9.1 Unit tests
+# 9. Testing
+## 9.1 Unit tests
 * [Unit Test](https://github.com/Juniper/contrail-controller/blob/master/src/bgp/test/graceful_restart_test.cc)
 
-##9.2 Dev tests
-##9.3 System tests
+## 9.2 Dev tests
+## 9.3 System tests
 
 * [SystemTest plan](https://github.com/Juniper/contrail-test/wiki/Graceful-Restart)
 
-#10. Documentation Impact
+# 10. Documentation Impact
 
-#11. References
+# 11. References
 * GracefulRestart for BGP (and XMPP) follows [RFC4724](https://tools.ietf.org/html/rfc4724) specifications
 * LongLivedGracefulRestart feature follows [draft-uttaro-idr-bgp-persistence](https://tools.ietf.org/html/draft-uttaro-idr-bgp-persistence-03) specifications
 * [Feature BluePrint](https://blueprints.launchpad.net/juniperopenstack/+spec/contrail-control-graceful-restart)

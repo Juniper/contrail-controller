@@ -1,17 +1,17 @@
 
-#1. Introduction
+# 1. Introduction
 Contrail solution sends alarms and UVEs for monitoring and analytics. This provides complete view of the system to administrator. Alarms get created/reset when alarm-rules are satisfied. UVEs are added/updated and removed as internal states change. These objects display current state of the system.
 
-#2. Problem statement
+# 2. Problem statement
 If an alarm gets created and then it is reset after mitigation steps, the system is back to original good state. But the history of alarm triggers/reset over time is lost. Same issue with UVEs.
 
-#3. Proposed solution
+# 3. Proposed solution
 During alarm and UVE processing, increment set/reset or add/update/remove counters and save it in database. Later this database can be queried using contrail-status script.
 
-##3.1 Alternatives considered
+## 3.1 Alternatives considered
 None
 
-##3.2 API schema changes
+## 3.2 API schema changes
 2 new structures have been added to display alarm and UVE stats.
 ```
 struct AlarmgenUVEStats {
@@ -31,47 +31,47 @@ objectlog sandesh AlarmgenUpdate {
 }
 ```
 
-##3.3 User workflow impact
-####Describe how users will use the feature.
+## 3.3 User workflow impact
+#### Describe how users will use the feature.
 
-##3.4 UI changes
+## 3.4 UI changes
 Monitor >> Alarms >> Dashboard
 On current dashboard, we have an alarms page. This displays currently active alarms. In addition, new page would display alarms history with following fields – alarms set/reset.
 UVE history display for UI is not planned for this release, but it will be available via contrail-stats script.
 
 
-##3.5 Notification impact
+## 3.5 Notification impact
 None
 
-#4. Implementation
-##4.1 Analytics
+# 4. Implementation
+## 4.1 Analytics
 Alarmgen process in analytics package collects set/reset (for alarms) and add/update/remove (for UVE) counters. These are pushed to database for storage. The counters are collected with following dimensions.
 - alarm-stats[partition][table][alarm-name]
 - uve-stats[partition][table][uve-type]
 So contrail-stats queries can be done per table (node-type) and uve/alarm-type.
 
-##4.2 UI
+## 4.2 UI
 Add support for alarms history display. 
 
 
-#5. Performance and scaling impact
-##5.1 API and control plane
+# 5. Performance and scaling impact
+## 5.1 API and control plane
 None
 
-##5.2 Forwarding performance
+## 5.2 Forwarding performance
 None
 
-#6. Upgrade
+# 6. Upgrade
 None
 
-#7. Deprecations
+# 7. Deprecations
 struct UVETableCount is removed.
 
-#8. Dependencies
+# 8. Dependencies
 None
 
-#9. Testing
-##9.1 Unit tests
+# 9. Testing
+## 9.1 Unit tests
 ```
 contrail-stats --table AlarmgenUpdate.uve_stats
                --select Source uve_stats.__key table T=30 "SUM(uve_stats.add_count)" "SUM(uve_stats.change_count)" "SUM(uve_stats.remove_count)"
@@ -86,9 +86,9 @@ contrail-stats --table AlarmgenUpdate.alarm_stats
                --select Source alarm_stats.__key table alarm_stats.set_count alarm_stats.reset_count
                --where "alarm_stats.__key=process-connectivity"
 ```
-##9.2 Dev tests
-##9.3 System tests
+## 9.2 Dev tests
+## 9.3 System tests
 
-#10. Documentation Impact
+# 10. Documentation Impact
 
-#11. References
+# 11. References

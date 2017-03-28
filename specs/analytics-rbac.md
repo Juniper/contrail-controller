@@ -1,14 +1,14 @@
-#1. Introduction
+# 1. Introduction
 Analytics API RBAC provides ability to access UVE and query information based
 on the permissions of the user for the UVE or queried object.
 
-#2. Problem statement
+# 2. Problem statement
 Currently Analytics API supports authenticated access for cloud-admin role.
 However to display network monitoring for tenant pages in the UI, analytics
 API needs to support RBAC similar to config API so that the tenants can only
 view information about the networks for which they have the read permissions.
 
-#3. Proposed solution
+# 3. Proposed solution
 Analytics API will map query and UVE objects to configuration objects on
 which RBAC rules are applied so that read permissions can be verified using
 VNC API.
@@ -43,25 +43,25 @@ Analytics API RBAC will be implemented in 2 phases:
    contrail-analytics-api will use VNC API to determine whether the user
    has read permission for each UVE object.
 
-##3.1 Alternatives considered
+## 3.1 Alternatives considered
 None
 
-##3.2 API schema changes
+## 3.2 API schema changes
 None
 
-##3.3 User workflow impact
+## 3.3 User workflow impact
 Tenants will not be able to view the query pages in Phase 1.
 
-##3.4 UI changes
+## 3.4 UI changes
 ### Phase 1:
 1. UI needs to use VNC API to get list of networks to display in the
    network monitoring page based on the tenant user.
 2. Query pages need to be greyed out for tenant user.
 
-##3.5 Notification impact
+## 3.5 Notification impact
 None
 
-#4. Implementation
+# 4. Implementation
 ## Phase 1:
 * Currently VNC API provides obj_perms function which takes object
   UUID and token, and returns the permissions.
@@ -171,36 +171,36 @@ None
                 suffixes: null
           }
 
-#5. Performance and scaling impact
-##5.1 API and control plane
+# 5. Performance and scaling impact
+## 5.1 API and control plane
 API server will have to make additional calls per invocation of obj_perms
 API from VNC API for each analytics API call to verify the object level read
 permissions.
 
-##5.2 Forwarding performance
+## 5.2 Forwarding performance
 Not affected
 
-#6. Upgrade
+# 6. Upgrade
 We will not change the ```DEFAULTS.aaa_mode``` during upgrade if it exists in
 ```/etc/contrail/contrail-analytics-api.conf```. However new installations
 will default to ```rbac``` instead of the current ```cloud-admin```.
 
-#7. Deprecations
+# 7. Deprecations
 None
 
-#8. Dependencies
+# 8. Dependencies
 None
 
-#9. Testing
-##9.1 Unit tests
+# 9. Testing
+## 9.1 Unit tests
 Opserver systemless tests will be added.
-##9.2 Dev tests
-##9.3 System tests
+## 9.2 Dev tests
+## 9.3 System tests
 
-#10. Documentation Impact
+# 10. Documentation Impact
 ```/etc/contrail/contrail-analytics-api.conf``` - section ```DEFAULTS```,
 parameter ```aaa_mode``` will now support ```rbac``` as one of the values.
 
-#11. References
+# 11. References
 RBAC - https://github.com/Juniper/contrail-controller/wiki/RBAC
 

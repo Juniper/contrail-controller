@@ -1,11 +1,11 @@
-#1. Introduction
+# 1. Introduction
 
 All Contrail services uses Sandesh, a southbound interface protocol based on
 Apache Thrift to send analytics data such as systemlogs, objectlogs, UVEs,
 flowlogs, etc., to the Collector service in Analytics node. This document
 provides details about securing the Sandesh connection.
 
-#2. Problem statement
+# 2. Problem statement
 
 Until now, the Sandesh connection between the Generators (all Contrail services
 that send analytics data to Collector) and the Collector is not secured, which
@@ -18,7 +18,7 @@ means
 * The data exchanged between the Generator and the Collector is not encrypted
   which could lead to potential eavesdropping and tampering.
 
-#3. Proposed solution
+# 3. Proposed solution
 
 Transport Layer Security (TLS) protocol would be used to secure the
 Sandesh connection. TLS protocol provides the following to ensure secure
@@ -29,11 +29,11 @@ Virtual Network System (VNS)
 * Encryption - Ensures that only authorized entity can interpret the data
 * Integrity - Ensures data has not been altered in flight
 
-#4. Implementation
+# 4. Implementation
 
-##4.1 Work items
+## 4.1 Work items
 
-###4.1.1 Provisioning changes
+### 4.1.1 Provisioning changes
 
 To enable secure sandesh connection, the following parameters need to be
 configured in all contrail services that connect to the Collector
@@ -56,7 +56,7 @@ CONFIG PARAMETER               VALUE
                                default value -> false
 ```
 
-###4.1.2 Sandesh library
+### 4.1.2 Sandesh library
 
 C++ Sandesh library
     - SandeshClient and SandeshServer classes should to be derived from
@@ -69,28 +69,28 @@ Python Sandesh library
     - SandeshSession should be derived from SslSession instead of TcpSession
     - ssl options should be passed in Sandesh.init_generator()
 
-#5. Performance and scaling impact
+# 5. Performance and scaling impact
 
 TBD
 
-#6. Upgrade
+# 6. Upgrade
 
 TBD
 
-#7. Deprecations
+# 7. Deprecations
 
 None
 
-#8. Dependencies
+# 8. Dependencies
 
-#9. Testing
+# 9. Testing
 
-##9.1 Unit tests
+## 9.1 Unit tests
 
-##9.2 Dev tests
+## 9.2 Dev tests
 
-##9.3 System tests
+## 9.3 System tests
 
-#10. Documentation Impact
+# 10. Documentation Impact
 
-#11. References
+# 11. References

@@ -1,6 +1,6 @@
 Contrail 4.0 Removal of Discovery Service
 ===
-#1.      Introduction
+# 1.      Introduction
 
 Contrail Discovery Service is a centralized resource allocation module with high
 availability that was primarily developed to
@@ -18,7 +18,7 @@ The above necessitated the use of a database
   services.
 
 
-#2.      Problem Statement
+# 2.      Problem Statement
 
 In the current deployment most issues seen are due to the periodic health
 updates of services with the database nodes and not the services themselves.
@@ -30,7 +30,7 @@ and bringing up each module with a list of pre-defined service
 providers(=publishers).
 
 
-#3.      Proposed Solution
+# 3.      Proposed Solution
 
 Details of Implementation of Distributed Resource Allocation
 
@@ -71,13 +71,13 @@ utilizing discovery
     * both contrail-alarm-gens and contrail-analytics-api will monitor there
       ephemeral nodes in zookeeper
  
-##3.1      Alternatives Considered
+## 3.1      Alternatives Considered
 None
 
-##3.2      API schema changes
+## 3.2      API schema changes
 None
 
-###3.2.1   Provisioning Changes for contrail-vrouter-agent(contrail-vrouter-agent.conf)
+### 3.2.1   Provisioning Changes for contrail-vrouter-agent(contrail-vrouter-agent.conf)
         
 ```
 ================================================================================
@@ -100,7 +100,7 @@ None
 
 ```
 
-###3.2.2   Provisioning Changes for contrail-control (contrail-control.conf)
+### 3.2.2   Provisioning Changes for contrail-control (contrail-control.conf)
 
 ```
 ================================================================================
@@ -135,7 +135,7 @@ None
 
 ```
 
-###3.2.3   Provisioning Changes for contrail-dns (contrail-dns.conf)
+### 3.2.3   Provisioning Changes for contrail-dns (contrail-dns.conf)
 
 ```
 ================================================================================
@@ -168,7 +168,7 @@ None
 [IFMAP].peer_response_wait_time         DEPRECATE
 ```
 
-###3.2.4   Provisioning Changes for contrail-collector (contrail-collector.conf)
+### 3.2.4   Provisioning Changes for contrail-collector (contrail-collector.conf)
 
 ```
 ================================================================================
@@ -182,7 +182,7 @@ None
 
 ```
 
-###3.2.5   Provisioning Changes for contrail-alarm-gen (contrail-alarm-gen.conf)
+### 3.2.5   Provisioning Changes for contrail-alarm-gen (contrail-alarm-gen.conf)
 
 ```
 ================================================================================
@@ -204,7 +204,7 @@ None
 
 ```
 
-###3.2.6 Provisioning Changes for contrail-analytics-api(contrail-analytics-api.conf)
+### 3.2.6 Provisioning Changes for contrail-analytics-api(contrail-analytics-api.conf)
 
 ```
 ================================================================================
@@ -222,7 +222,7 @@ None
 
 ```
 
-###3.2.7  Provisioning Changes for contrail-api (contrail-api.conf)
+### 3.2.7  Provisioning Changes for contrail-api (contrail-api.conf)
 
 ```
 ================================================================================
@@ -235,21 +235,7 @@ None
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
 ```
 
-###3.2.8 Provisioning Changes for contrail-schema (contrail-schema.conf)
-
-```
-================================================================================
- CONFIG PARAMETER          CHANGES
-================================================================================
-
-[DISCOVERY]                DEPRECATE DISCOVERY SECTION  
-
-[DEFAULTS].collectors      Provision list of Collector [role=collector] service
-                           providers in ip-address:port ip-address2:port format
-                           Eg: 10.1.1.1:8086 10.1.1.2:8086
-```
-
-###3.2.9 Provisioning Changes for contrail-svc-monitor(contrail-svc-monitor.conf)
+### 3.2.8 Provisioning Changes for contrail-schema (contrail-schema.conf)
 
 ```
 ================================================================================
@@ -263,7 +249,21 @@ None
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
 ```
 
-###3.2.10 Provisioning Changes for contrail-device-manager(contrail-device-manager.conf)
+### 3.2.9 Provisioning Changes for contrail-svc-monitor(contrail-svc-monitor.conf)
+
+```
+================================================================================
+ CONFIG PARAMETER          CHANGES
+================================================================================
+
+[DISCOVERY]                DEPRECATE DISCOVERY SECTION  
+
+[DEFAULTS].collectors      Provision list of Collector [role=collector] service
+                           providers in ip-address:port ip-address2:port format
+                           Eg: 10.1.1.1:8086 10.1.1.2:8086
+```
+
+### 3.2.10 Provisioning Changes for contrail-device-manager(contrail-device-manager.conf)
 
 ```
 ================================================================================
@@ -278,7 +278,7 @@ None
 ```
 
 
-###3.2.11 Provisioning Changes for contrail-analytics-nodemgr(contrail-analytics-nodemgr.conf)
+### 3.2.11 Provisioning Changes for contrail-analytics-nodemgr(contrail-analytics-nodemgr.conf)
 
 ```
 ================================================================================
@@ -292,7 +292,7 @@ None
 ````
 
 
-###3.2.12  Provisioning Changes for contrail-config-nodemgr(contrail-config-nodemgr.conf)
+### 3.2.12  Provisioning Changes for contrail-config-nodemgr(contrail-config-nodemgr.conf)
 
 ```
 ================================================================================
@@ -305,7 +305,7 @@ None
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
 ```
 
-###3.2.13 Provisioning Changes for contrail-control-nodemgr(contrail-control-nodemgr.conf)
+### 3.2.13 Provisioning Changes for contrail-control-nodemgr(contrail-control-nodemgr.conf)
 
 ```
 ================================================================================
@@ -318,7 +318,7 @@ None
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
 ```
 
-###3.2.14  Provisioning Changes for contrail-database-nodemgr(contrail-database-nodemgr.conf)
+### 3.2.14  Provisioning Changes for contrail-database-nodemgr(contrail-database-nodemgr.conf)
 
 ```
 ================================================================================
@@ -331,7 +331,7 @@ None
                            Eg: 10.1.1.1:8086 10.1.1.2:8086
 ```
 
-###3.2.15 Provisioning Changes for contrail-vrouter-nodemgr(contrail-vrouter-nodemgr.conf)
+### 3.2.15 Provisioning Changes for contrail-vrouter-nodemgr(contrail-vrouter-nodemgr.conf)
 
 ```
 ================================================================================
@@ -346,7 +346,7 @@ None
 
 
 
-###3.2.16 Provisioning Changes for contrail-query-engine(contrail-query-engine.conf)
+### 3.2.16 Provisioning Changes for contrail-query-engine(contrail-query-engine.conf)
 
 ```
 ================================================================================
@@ -360,7 +360,7 @@ None
 
 ```
 
-###3.2.17 Provisioning Changes for contrail-snmp-collector(contrail-snmp-collector.conf)
+### 3.2.17 Provisioning Changes for contrail-snmp-collector(contrail-snmp-collector.conf)
 
 ```
 ================================================================================
@@ -378,7 +378,7 @@ None
 
 ```
 
-###3.2.18  Provisioning Changes for contrail-topology (contrail-topology.conf)
+### 3.2.18  Provisioning Changes for contrail-topology (contrail-topology.conf)
 
 ```
 ================================================================================
@@ -396,7 +396,7 @@ None
 
 ```
 
-###3.2.19  Provisioning Changes for ContrailWebUI (config.global.js)
+### 3.2.19  Provisioning Changes for ContrailWebUI (config.global.js)
 
 ```
 ================================================================================
@@ -427,51 +427,51 @@ config.dns.server_port            Server port as a string
   
 ```
 
-##3.3      User workflow impact
+## 3.3      User workflow impact
 
 * Provisioning will need to take care of adding the published service list.
 * Discovery Server parameter will be deprecated.
 
-##3.4      UI Changes
+## 3.4      UI Changes
 None
 
 
-#4 Implementation
+# 4 Implementation
 
 Each daemon will randomize the published service list that is configured
 statically and use the resources. In addition each daemon will provide SIGHUP
 handler to  handle addition/deletion of publishers.
 
-##4.1     Assignee(s)
+## 4.1     Assignee(s)
 
 * Nipa Kumar – All C++/python Discovery Server Clients
 
-#5 Performance and Scaling Impact
+# 5 Performance and Scaling Impact
 None
 
-##5.1     API and control plane Performance Impact
+## 5.1     API and control plane Performance Impact
 None
 
-##5.2     Forwarding Plan Performance
+## 5.2     Forwarding Plan Performance
 None
 
-#6 Upgrade
+# 6 Upgrade
 Discovery Server will need be deprecated from the configuration files.
 
-#7       Deprecations
+# 7       Deprecations
 Discovery Server will be deprecated.
 
-#8       Dependencies
+# 8       Dependencies
 None
 
-#9       Testing
+# 9       Testing
 
 * Individual daemons will need to brought up via provisioning and ensure a fairly
   load balanced allocation.
 * SIGHUP will also need to be sent when service nodes are added/deleted.
 
-#10      Documentation Impact
+# 10      Documentation Impact
 None
 
-#11      References
+# 11      References
 None

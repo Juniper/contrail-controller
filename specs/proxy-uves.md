@@ -1,6 +1,6 @@
 Proxy UVEs in Contrail Analytics
 ===
-#1.      Introduction
+# 1.      Introduction
 
 Contrail Analytics provides system operational state as UVEs, and allows
 for alarms based on the state of an object. We also need to provide
@@ -12,7 +12,7 @@ Node UVEs and VMI UVEs, by the DerivedStats feauture. But this still needs
 to be implemented for Virtual Networks (which DO require aggegation)
 
 
-#2.      Problem Statement
+# 2.      Problem Statement
 
 We have two places where UVE aggregation is being done
 * In contrail-alarm-gen on the Analytics Node : This aggregates any UVE,
@@ -31,7 +31,7 @@ implementation Anomaly Detection on the total number of flows in a
 Virtual Network, and this algorithm must be run in a single place 
 for a given VN.
 
-#3.      Proposed Solution
+# 3.      Proposed Solution
 
 User will ask Contrail Analytics to do aggregations (including anomaly
 detection) on specific raw metrics. This aggregation will happen inside
@@ -52,7 +52,7 @@ mechanisms, and Stats will be available as well.
 All this will be implemented in the form of Proxe UVE structures, which
 contrail-collectors will create.
 
-##3.1      Proxy UVE operation
+## 3.1      Proxy UVE operation
 
 Here is an example of a proxy UVE structure:
 
@@ -121,7 +121,7 @@ AggProxySumAnomalyEWM01-UveVirtualNetworkAgent-ingress_flow_count: {
 ```
 
 
-##3.2      Proxy UVE configuration
+## 3.2      Proxy UVE configuration
 
 Which Aggregations to run on which raw metrics will be configurable via
 contrail-collector.conf, using the "DEFAULT.uve_proxy_list" option.
@@ -150,14 +150,14 @@ Configuration options:
 ...
 
 ```
-#3.3      User workflow impact
+# 3.3      User workflow impact
 None
 
-##3.4      UI Changes
+## 3.4      UI Changes
 None
 
 
-#4 Implementation
+# 4 Implementation
 
 The contrail-collectors will put UVE updates for VNs on kafka topics,
 (multiple collectors might be receiving updates from different vrouters
@@ -171,33 +171,33 @@ The contrail-collectors use DerivedStats to aggregate a raw metric (e.g.
 number of egress flows) on a per-VN basis, and then feed the aggregate
 into a the EWM Anomaly Detection algorithm.
 
-##4.1     Assignee(s)
+## 4.1     Assignee(s)
 
 * Anish Mehta
 
-#5 Performance and Scaling Impact
+# 5 Performance and Scaling Impact
 None
 
-##5.1     API and control plane Performance Impact
+## 5.1     API and control plane Performance Impact
 None
 
-##5.2     Forwarding Plane Performance
+## 5.2     Forwarding Plane Performance
 None
 
-#6 Upgrade
+# 6 Upgrade
 None
 
-#7       Deprecations
+# 7       Deprecations
 None
 
-#8       Dependencies
+# 8       Dependencies
 None
 
-#9       Testing
+# 9       Testing
 None
 
-#10      Documentation Impact
+# 10      Documentation Impact
 None
 
-#11      References
+# 11      References
 None

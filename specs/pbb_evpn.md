@@ -1,13 +1,13 @@
 
-#1. Introduction
+# 1. Introduction
 To provide SD WAN L2 connectivity, Contrail will implement PBB EVPN tunneling.
 This document describes the API, design and implementation details of Contrail
 components to achieve this.
 
-#2. Problem statement
+# 2. Problem statement
 Support PBB EVPN tunneling
 
-#3. Proposed solution
+# 3. Proposed solution
 Following diagram shows the network connections and roles of different compents
 in the solution.
 
@@ -38,11 +38,11 @@ the traffic.
 
 <img src="images/pbb_evpn_logical_model.png" alt="PBB EVPN Logical Model" style="width:384px;height:160px;">
 
-##3.1 Configuration/API Model
+## 3.1 Configuration/API Model
 This section provides details of configuration properties to configure PBB EVPN
 and objects where this configuration is made.
 
-###3.1.1 MAC Learning
+### 3.1.1 MAC Learning
 MAC learning will be implemented in datapath to support PBB EVPN. Endpoint MACs
 will be learnt in the Ethernet bridge table. Configuration knobs will be
 provided to enable/disable the mac learning behavior on Per Virtual Network
@@ -96,7 +96,7 @@ configuration if it is not explicitly configured.
 
 MAC learning/aging, limit events will be logged in analytics for ease of debugging.
 
-###3.1.2 PBB EVPN Configuration attribute
+### 3.1.2 PBB EVPN Configuration attribute
 Following PBB EVPN configuration parameters will be configurable at Virtual Network.
 >
     i.  Enable-PBB-EVPN: To enable/disable PBB EVPN tunneling on Virtual network.
@@ -117,7 +117,7 @@ Following PBB EVPN configuration parameters will be configurable at Virtual Netw
         between two end points connected to vRouters. When it is disallowed end point
         communication happens via a L3 gateway provisioned in the remote PE site.
 
-##3.2	B-MAC Allocation Scheme
+## 3.2	B-MAC Allocation Scheme
 Following B-MAC allocation schemes are considered and their Pros and Cons are listed below.
 
     a.	B-MAC per VMI
@@ -149,7 +149,7 @@ Following B-MAC allocation schemes are considered and their Pros and Cons are li
 Considering the advantages of being able to detect the disconnection/link down event of VMI,
 Option of ***BMAC per VMI*** is chosen.
 
-##3.3 Label Allocation Scheme
+## 3.3 Label Allocation Scheme
 MPLS Label is advertised for every B-MAC in EVPN MAC route. Following different schemes
 of label allocation are considered.
 
@@ -180,7 +180,7 @@ of label allocation are considered.
 ***Label per VRF*** option is chosen to reduce the scaling requirement on vMX
 for InterAS option B routing.
 
-##3.4 Direct L2 communication for end points
+## 3.4 Direct L2 communication for end points
 For endpoints connected behind vRouter PE devices, direct communication at L2 is
 controlled based on configuration. When it is allowed, vRouter bridges the traffic
 from one VMI to other VMI interfaces or to endpoints on other vRouters. When it is
@@ -232,7 +232,7 @@ To handle this, the following options are considered.
 ***Option C*** listed above is chosen as it indication of root/leaf at per B-MAC basis which gives
 ability to configure root or leaf on any PE devices.
 
-##3.5 Routing Instance creation and mapping VMI to routing instances
+## 3.5 Routing Instance creation and mapping VMI to routing instances
 In the Single ISID mode, when a virtual network is programmed with PBB configurations,
 schema transformer will create two VRFs for the virtual network.
 
@@ -269,7 +269,7 @@ the VMI is mapped to B-MAC VRF for publishing the B-MAC. The mapping of the VMI 
 is derived in the vRouter Agent and is programmed in the datapath for bridge table lookups
 during traffic forwarding.
 
-##3.6 MAC Learning
+## 3.6 MAC Learning
 The control to enable or disable mac learning is present in a virtual-network. In the vrouter,
 this configuration will be updated on all the interfaces and the nexthops belonging to the
 virtual-network.
@@ -297,7 +297,7 @@ vRouter Agent has the following modules: <br>
     2.	MAC Management <br>
     3.	MAC Aging
 
-###3.6.1 MAC Learning
+### 3.6.1 MAC Learning
 When VRouter Agent receives a packet for MAC learning, a bridge entry is added for the source
 MAC with a local peer. If an existing MAC is learnt on a different interface or tunnel endpoint,
 a MAC move is detected and the bridge entry is updated to reflect the same.
@@ -309,19 +309,19 @@ interfaces and nexthops in the vRouter to stop trapping of MAC learning packets 
 is cleared once the number of MACs learnt goes sufficiently below the limit. Similarly, MAC move
 limit within a MAC move timeout value is also restricted based on the configuration.
 
-###3.6.2 MAC Management
+### 3.6.2 MAC Management
 The MAC management module manages the MAC entries upon change, deactivation or deletion of
 operational entries like interfaces, VRFs etc. It listens to changes in operational entries in
 the vRouter Agent and triggers appropriate changes related to dependent MAC entries.
 
-###3.6.3 MAC Aging
+### 3.6.3 MAC Aging
 MAC aging timeout can be configured for each virtual-network. For each VRF, the complete MAC
 table is scanned during its aging interval to identify aged entries. To facilitate this,
 vRouter Agent memory maps the bridge table from the vRouter into its memory. The statistics
 maintained by vRouter for each entry that are available in this table are used to check whether
 any traffic is seen during the interval or not.
 
-###3.6.4 MAC Flush events
+### 3.6.4 MAC Flush events
 Remote MACs (either belonging to endpoints or from remote PE Router) will be learnt against B-MAC.
 As per PBB EVPN RFC following events will trigger flush of C-MAC which are learnt for a B-MAC
 
@@ -336,7 +336,7 @@ with sequence number increased in MAC Mobility extended community. In such a cas
 would publish XMPP route update to vRouter Agent which in turn flushes all the C-MAC learnt via
 this B-MAC tunnel.
 
-##3.7 Multicast Handling
+## 3.7 Multicast Handling
 Two multicast trees will be formed by control-node.
 
     1.	Ingress replication Tree
@@ -365,7 +365,7 @@ Receiving vRouter uses the Leaf indication extended community while flooding the
 received from remote vRouters or vMX routers.
 
 
-##3.8 Data Path
+## 3.8 Data Path
 A PBB virtual-network has two VRFs associated with it, a B-MAC VRF and a C-MAC VRF. For every
 virtual-machine-interface created in the system, vRouter Agent allocates a per VRF label and exports
 an EVPN route in the B-MAC VRF with this allocated label. The routes are exported with ETree leaf mode
@@ -403,7 +403,7 @@ the C-MAC VRF with the components. The Composite NH will have:
 * Edge replication list
     * List of vrouters
 
-###3.8.1 Traffic from the endpoint via VMI interfaces
+### 3.8.1 Traffic from the endpoint via VMI interfaces
 * Do source MAC lookup
     * If source MAC is not found, vrouter installs the route entry with nexthop pointing to broadcast
     * Vrouter then sends the packet to VRouter Agent for MAC learning
@@ -421,7 +421,7 @@ the C-MAC VRF with the components. The Composite NH will have:
   It will have the ingress replication nodes (of the vMXs), the edge replication nodes and other
   VMIs. Replication is done wherever the nexthop ETree mode is not a leaf.
 
-###3.8.2 Traffic from the fabric interface
+### 3.8.2 Traffic from the fabric interface
 * Based on the MPLS label, identify the VRF.
 * Do a source CMAC lookup in the identified VRF
     * If it is not present, trap the packet to vRouter Agent for MAC learning
@@ -433,7 +433,7 @@ the C-MAC VRF with the components. The Composite NH will have:
   Replication is done to all nexthops whose ETree mode indication is different from the incoming
   PBB nexthop indication.
 
-##3.9 End to End Communication
+## 3.9 End to End Communication
 When an end point initiates communication with a remote entity:
 * An ARP request is sent out to resolve the address of the remote entity.
 * This is received by the vRouter on the VMI interface. The source MAC is learnt on the vRouter.
@@ -459,21 +459,21 @@ When a remote entity behind remote PE router initiates a communication to endpoi
 * Broadcast traffic received on the vRouter from the fabric interface is flooded to the VMI interfaces
   in the VRF and to any other vRouter nodes. Similar traffic flow can be seen in this scenario as well.
 
-##3.10 User workflow impact
+## 3.10 User workflow impact
 PBB virtual networks are created with the PBB specific options. The services are added as
 virtual machine interfaces.
 
-##3.11 UI Changes
+## 3.11 UI Changes
 The virtual network configuration page will be enhanced with the new configuration options for
 mac learning and PBB. Global config page will also be enhanced for the configuration options at
 the global level.
 
-##3.12 Notification Impact
+## 3.12 Notification Impact
 MAC learning/aging, limit events will be logged in analytics. Statistics per MAC may be
 considered to be sent to Analytics in the future.
 
-#4 Implementation
-##4.1 Work Items
+# 4 Implementation
+## 4.1 Work Items
 * Schema changes to incorporate the new configuration options
 * Schema transformer changes to create two VRFs when PBB EVPN is enabled on the virtual network
   and adding links between the B-MAC and C-MAC VRFs.
@@ -483,28 +483,28 @@ considered to be sent to Analytics in the future.
 * Update vrouter utilities to show new nexthops and fields.
 * UI changes to incorporate new configuration options
 
-#5 Performance and scaling impact
+# 5 Performance and scaling impact
 TBD
 
-##5.1 API and control plane
-##5.2 Forwarding performance
+## 5.1 API and control plane
+## 5.2 Forwarding performance
 The following scaling numbers would be relevant.
 * Maximum number of PBB virtual networks = upto 8K
 * Maximum number of interfaces / services required per vRouter = upto 8K
 * Maximum number of MACs to be learnt and aged. In each VRF, the maximum will be
   limited by the maximum number of entries in the bridge table.
 
-#6 Upgrade
+# 6 Upgrade
 No impact on upgrade. Existing virtual networks will have MAC learning and PBB disabled upon upgrade.
 
-#7 Deprecations
+# 7 Deprecations
 None
 
-#8 Dependencies
+# 8 Dependencies
 None
 
-#9 Testing
-##9.1 Unit tests
+# 9 Testing
+## 9.1 Unit tests
 * Schema transformer unit tests
     * Check that two VRFs are created for PBB EVPN networks.
     * Check that ISID is added to the C-MAC VRF and is set to zero for B-MAC VRF.
@@ -529,7 +529,7 @@ None
     * Check that routes are exported with correct ETree indication
     * Check that broadcast route subscription is sent in B-MAC VRF with the correct values
 
-##9.2 Dev tests
+## 9.2 Dev tests
 * Vrouter tests
     * Check that packets are trapped to Agent when MAC learning is required (from local
       interface as well as from remote node)
@@ -544,7 +544,7 @@ None
     * Verify broadcast traffic reaches the intended recipients
     * Verify the MAC learning tables, aging with multiple VRFs.
 
-##9.3 System tests
+## 9.3 System tests
 These tests are carried out using test beds involving Contrail cluster, vMXs and PE routers
 with the scope of the testing being Contrail solution. The following categories of tests are
 carried out. They are detailed in the test plan document.
@@ -560,10 +560,10 @@ carried out. They are detailed in the test plan document.
 * Longevity tests
 * Regression
 
-#10 Documentation
+# 10 Documentation
 PBB EVPN support documentation has to be added to user documentation.
 
-#11 References
+# 11 References
 
 * RFC 7623 Provider Backbone Bridging Combined with Ethernet VPN (PBB-EVPN) https://tools.ietf.org/html/rfc7623
 * E-TREE Support in EVPN & PBB-EVPN RFC Draft https://tools.ietf.org/html/draft-ietf-bess-evpn-etree-07

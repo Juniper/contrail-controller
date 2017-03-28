@@ -1,10 +1,10 @@
-#1. Introduction
+# 1. Introduction
 In current Contrail solution, all messages from various modules to analytics collector are saved in cassandra database in the table "messagetable".
 Each message comes with a unique UUID and it is used as primary index for messages in the table.
 We have many columns in the table - Source, ModuleId, Messagetype, XMLMessage, etc.
 User can query the database with various combinations of arguments for "SELECT" and "WHERE" parameters.
 
-#2. Problem statement
+# 2. Problem statement
 In current schema for messagetable, we have fixed number of columns.
 Number of columns and column-name is selected upfront during creation of the table.
 Each message comes with unique UUID so each message is a new row in the table.
@@ -27,7 +27,7 @@ In essence, there are 2 reads from cassandra database for an entry.
 
 The transfer of data from/to cassandra database is very expensive. Using secondary index, lot of "filtering" of rows would be done done internally in cassandra database.
 
-#3. Proposed solution
+# 3. Proposed solution
 Desired features
 - Write an entry to single table
 - Index-able on multiple fields
@@ -102,22 +102,22 @@ In conclusion, we will have 2 tables going forward
 - StatsTable
 - FlowTable
 
-##3.1 Alternatives considered
+## 3.1 Alternatives considered
 None
 
-##3.2 API schema changes
+## 3.2 API schema changes
 
-##3.3 User workflow impact
-####Describe how users will use the feature.
+## 3.3 User workflow impact
+#### Describe how users will use the feature.
 
-##3.4 UI changes
+## 3.4 UI changes
 
 
-##3.5 Notification impact
+## 3.5 Notification impact
 None
 
-#4. Implementation
-##4.1 Analytics
+# 4. Implementation
+## 4.1 Analytics
 Query with WHERE option is supported for primary and secondary index. They are also supported for other columns but it wont be efficient.
 We publish the primary and secondary indices so that user can make informed decisions during query.
 
@@ -133,28 +133,28 @@ QUERY ENGINE
 - Remove "T2:" prefix from <column{3|4|5|6|7}> after reading from cassandra.
 - Query will walk through all T2 timestamps range and key2 (Partition range 1-16).
 
-##4.2 UI
+## 4.2 UI
 No feature to be added. See section "Deprecations" for other changes needed.
 
-#5. Performance and scaling impact
-##5.1 API and control plane
+# 5. Performance and scaling impact
+## 5.1 API and control plane
 None
 
-##5.2 Forwarding performance
+## 5.2 Forwarding performance
 None
 
-#6. Upgrade
+# 6. Upgrade
 None
 
-#7. Deprecations
+# 7. Deprecations
 Earlier MessageTable was indexed on the following fields too - Level, Keyword. These index tables will be removed.
 Backward compatibility NOT supported for queries on the above fields.
 
-#8. Dependencies
+# 8. Dependencies
 None
 
-#9. Testing
-##9.1 Unit tests
+# 9. Testing
+## 9.1 Unit tests
 ```
 SELECT * FROM "ContrailAnalyticsCql".messagetablev2 WHERE T2='xxx'     AND column3='a1s42' AND column4='NodeStatusUVE' AND column5='contrail-alarm-gen'
 SELECT * FROM "ContrailAnalyticsCql".messagetablev2 WHERE T2='xxx+8s'  AND column3='a1s42' AND column4='NodeStatusUVE' AND column5='contrail-alarm-gen'
@@ -166,9 +166,9 @@ SELECT * FROM "ContrailAnalyticsCql".messagetablev2 WHERE T2='xxx'     AND colum
 
 ```
 
-##9.2 Dev tests
-##9.3 System tests
+## 9.2 Dev tests
+## 9.3 System tests
 
-#10. Documentation Impact
+# 10. Documentation Impact
 
-#11. References
+# 11. References

@@ -1,4 +1,4 @@
-#1. Introduction
+# 1. Introduction
 TCP based workloads greatly benefit when segmentation/reassembly of TCP 
 segments are done by the lower most layers like MAC layer or the NIC itself. 
 In case of Tx, the application can send large sized TCP segments of up to 64K
@@ -21,32 +21,32 @@ In case of virtualized environments, offload further improves VMExits which
 result due to the avoidance of large number of packet exchanges between the 
 host and guest.
 
-#2. Problem Statement
+# 2. Problem Statement
 vRouter performs Tx and Rx TCP segmentation offload in the kernel mode currently. 
 It largely leverages kernel APIs for achieving this. However, wrt DPDK, the 
 library lacks segmentation support/APIs and hence DPDK based vRouter cannot do 
 the offloads. For achieving line rate performance of TCP based workloads on 10G 
 NIC’s, we need DPDK based vRouter to support offloads.
 
-#3. Proposed Solution
+# 3. Proposed Solution
 The proposed solution is illustrated in the diagram below except that the actual
 segmentation is done in dpdk-vRouter instead of the NIC.
 
-##3.1 Alternatives considered
+## 3.1 Alternatives considered
 None
-##3.2 API schema changes
+## 3.2 API schema changes
 None
-##3.3 User workflow impact
+## 3.3 User workflow impact
 None
-##3.4 UI changes
+## 3.4 UI changes
 None
-##3.5 Notification impact
+## 3.5 Notification impact
 None
-##3.6 Block diagram
+## 3.6 Block diagram
 ![Image of Segmentation](images/software-segmentation-offloading.jpg)
 
-#4. Implementation
-##4.1 Work-items for GSO
+# 4. Implementation
+## 4.1 Work-items for GSO
 
 1.  The GSO feature needs to be advertised to the guest. This enables Tx 
 offload by default in the guest.
@@ -61,7 +61,7 @@ Basically it performs the GSO functionality.
 5.  Need to support IPv4 and IPv6 headers formats.
 6.  Need to support UDP and VxLAN encapsulations.
 
-##4.2 Work-items for GRO
+## 4.2 Work-items for GRO
 
 1.  GRO feature needs mergeable buffers and the same needs to be implemented 
 and advertised to the guest. The guest then can receive 64K sized packets.
@@ -73,28 +73,28 @@ implemented.
 5.  Need to support IPv4 and IPv6 header formats
 6.  Need to support UDP and VxLAN encapsulations
 
-#5. Performance and scaling impact
+# 5. Performance and scaling impact
 Coming soon..
 
-#6. Upgrade
+# 6. Upgrade
 Upgrade is seamless. No impact.
 
-#7. Deprecations
+# 7. Deprecations
 None
 
-#8. Dependencies
+# 8. Dependencies
 None
 
-#9. Testing
-##9.1 Unit tests
+# 9. Testing
+## 9.1 Unit tests
 Coming soon..
-##9.2 Dev tests
+## 9.2 Dev tests
 Coming soon..
-##9.3 System tests
+## 9.3 System tests
 Coming soon..
 
-#10. Documentation Impact
+# 10. Documentation Impact
 None
 
-#11. References
+# 11. References
 Coming soon..
