@@ -334,6 +334,10 @@ class EventManager(object):
             self.process_info_manager = SupervisorProcessInfoManager(
                 self.stdin, self.stdout, self.type_info._supervisor_serverurl,
                 event_handlers, update_process_list)
+        ConnectionState.init(self.sandesh_instance, socket.gethostname(),
+            self.type_info._module_name, self.instance_id,
+            staticmethod(ConnectionState.get_process_state_cb),
+            NodeStatusUVE, NodeStatus, self.type_info._object_table)
         self.sandesh_instance.init_generator(
             self.type_info._module_name, socket.gethostname(),
             self.type_info._node_type_name, self.instance_id,
@@ -342,10 +346,6 @@ class EventManager(object):
             ['nodemgr.common.sandesh'] + self.type_info._sandesh_packages,
             config = sandesh_config)
         self.sandesh_instance.set_logging_params(enable_local_log=True)
-        ConnectionState.init(self.sandesh_instance, socket.gethostname(),
-            self.type_info._module_name, self.instance_id,
-            staticmethod(ConnectionState.get_process_state_cb),
-            NodeStatusUVE, NodeStatus, self.type_info._object_table)
         self.add_current_process()
         self.send_init_info()
         self.third_party_process_dict = self.type_info._third_party_processes
