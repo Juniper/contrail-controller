@@ -1606,11 +1606,12 @@ class VncApiServer(object):
     def is_auth_disabled(self):
         return self._args.auth is None or self._args.auth.lower() != 'keystone'
 
-    def is_admin_request(self):
+    def is_admin_request(self, req=None):
         if not self.is_multi_tenancy_set():
             return True
 
-        env = bottle.request.headers.environ
+        local_req = req if req is not None else bottle.request
+        env = local_req.headers.environ
         roles = []
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
@@ -2735,7 +2736,25 @@ class VncApiServer(object):
                          req_fields=None, include_shared=False,
                          exclude_hrefs=False):
         resource_type, r_class = self._validate_resource_type(obj_type)
-        is_admin = self.is_admin_request()
+        is_admin = False
+        if 'HTTP_X_USER_TOKEN' in get_request().environ:
+            user_token = get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                            {
+                            'HTTP_X_AUTH_TOKEN':  user_token,
+                            'REQUEST_METHOD'   : 'GET',
+                            'bottle.app': orig_request.environ['bottle.app'],
+                            })
+            i_req = context.ApiInternalRequest(
+                    b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            token_info = self._auth_svc.validate_user_token(get_request())
+            is_admin = self.is_admin_request(get_request())
+        else:
+            is_admin = self.is_admin_request()
+
         if is_admin:
             field_names = req_fields
         else:
@@ -2747,8 +2766,9 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(code, msg)
 
         (ok, result) = self._db_conn.dbe_list(obj_type,
-                             parent_uuids, back_ref_uuids, obj_uuids, is_count and self.is_admin_request(),
-                             filters, is_detail=is_detail, field_names=field_names,
+                             parent_uuids, back_ref_uuids, obj_uuids, is_count
+                             and is_admin, filters, is_detail=is_detail,
+                             field_names=field_names,
                              include_shared=include_shared)
         if not ok:
             self.config_object_error(None, None, '%ss' %(obj_type),
@@ -2761,7 +2781,7 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(code, msg)
 
         # If only counting, return early
-        if is_count and self.is_admin_request():
+        if is_count and is_admin:
             return {'%ss' %(resource_type): {'count': result}}
 
         allowed_fields = ['uuid', 'href', 'fq_name'] + (req_fields or [])

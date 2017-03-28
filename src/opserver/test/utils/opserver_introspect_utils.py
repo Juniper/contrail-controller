@@ -16,10 +16,12 @@ from opserver_results import *
 from opserver.opserver_util import OpServerUtils
 
 class VerificationOpsSrvIntrospect (IntrospectUtilBase):
-    def __init__(self, ip, port, user='test', password='password'):
+    def __init__(self, ip, port, user='test', password='password', \
+            headers=None):
         super(VerificationOpsSrvIntrospect, self).__init__(ip, port, drv=XmlDrv)
         self._user = user
         self._password = password
+        self._headers = headers
 
     def db_info_set_request(self, disk_usage_percentage,
                             pending_compaction_tasks):
@@ -40,6 +42,17 @@ class VerificationOpsSrvIntrospect (IntrospectUtilBase):
         xpath = '/DbInfoResponse/db_info'
         p = self.dict_get(path)
         return EtreeToDict(xpath).get_all_entry(p)
+
+    def get_ops_vns(self):
+        res = dict()
+        try:
+            res = self.dict_get('analytics/uves/virtual-networks',
+                user=self._user, password=self._password,
+                headers=self._headers, drv=JsonDrv)
+        except Exception as e:
+            print e
+        finally:
+            return res
 
 class VerificationOpsSrv (IntrospectUtilBase):
     def __init__(self, ip, port=8181, user='test',
