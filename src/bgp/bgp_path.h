@@ -47,13 +47,14 @@ public:
     static std::string PathIdString(uint32_t path_id);
 
     BgpPath(const IPeer *peer, uint32_t path_id, PathSource src,
-            const BgpAttrPtr ptr, uint32_t flags, uint32_t label);
+            const BgpAttrPtr ptr, uint32_t flags, uint32_t label,
+            uint32_t l3_label = 0);
     BgpPath(const IPeer *peer, PathSource src, const BgpAttrPtr attr,
-            uint32_t flags, uint32_t label);
+            uint32_t flags, uint32_t label, uint32_t l3_label = 0);
     BgpPath(uint32_t path_id, PathSource src, const BgpAttrPtr attr,
-            uint32_t flags = 0, uint32_t label = 0);
+            uint32_t flags = 0, uint32_t label = 0, uint32_t l3_label = 0);
     BgpPath(PathSource src, const BgpAttrPtr attr,
-            uint32_t flags = 0, uint32_t label = 0);
+            uint32_t flags = 0, uint32_t label = 0, uint32_t l3_label = 0);
     virtual ~BgpPath() {
     }
 
@@ -81,6 +82,7 @@ public:
     const BgpAttr *GetAttr() const { return attr_.get(); }
     const BgpAttr *GetOriginalAttr() const { return original_attr_.get(); }
     uint32_t GetLabel() const { return label_; }
+    uint32_t GetL3Label() const { return l3_label_; }
     virtual bool IsReplicated() const { return false; }
     bool IsFeasible() const { return ((flags_ & INFEASIBLE_MASK) == 0); }
 
@@ -139,12 +141,14 @@ private:
     BgpAttrPtr original_attr_;
     uint32_t flags_;
     uint32_t label_;
+    uint32_t l3_label_;
 };
 
 class BgpSecondaryPath : public BgpPath {
 public:
     BgpSecondaryPath(const IPeer *peer, uint32_t path_id, PathSource src,
-                     const BgpAttrPtr attr, uint32_t flags, uint32_t label);
+                     const BgpAttrPtr attr, uint32_t flags, uint32_t label,
+                     uint32_t l3_label = 0);
 
     virtual bool IsReplicated() const {
         return true;

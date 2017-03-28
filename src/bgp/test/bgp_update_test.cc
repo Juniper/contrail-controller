@@ -128,8 +128,8 @@ static RouteUpdate *BuildUpdate(BgpRoute *route, const RibOut *ribout,
     RouteUpdate *update = new RouteUpdate(route, RibOutUpdates::QUPDATE);
     UpdateInfoSList ulist;
     UpdateInfo *info = new UpdateInfo();
-    info->roattr.set_attr(static_cast<const BgpTable *>(route->get_table()),
-                          attrp);
+    info->roattr.set_attr(
+        static_cast<const BgpTable *>(route->get_table()), attrp, 0, 0, false);
     info->target = ribout->PeerSet();
     ulist->push_front(*info);
     update->SetUpdateInfo(ulist);

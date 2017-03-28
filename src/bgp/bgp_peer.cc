@@ -1601,8 +1601,8 @@ void BgpPeer::ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
         DBRequest req;
         req.oper = oper;
         if (oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-            req.data.reset(
-                new typename TableT::RequestData(new_attr, flags, label));
+            req.data.reset(new typename TableT::RequestData(
+                new_attr, flags, label, l3_label, 0));
         }
         req.key.reset(new typename TableT::RequestKey(prefix, this));
         table->Enqueue(&req);
@@ -1686,7 +1686,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
 
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            req.data.reset(new InetTable::RequestData(attr, flags, 0));
+            req.data.reset(new InetTable::RequestData(attr, flags, 0, 0, 0));
             req.key.reset(new InetTable::RequestKey(prefix, this));
             table->Enqueue(&req);
         }

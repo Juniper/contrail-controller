@@ -19,27 +19,28 @@ string BgpPath::PathIdString(uint32_t path_id) {
 }
 
 BgpPath::BgpPath(const IPeer *peer, uint32_t path_id, PathSource src,
-                 const BgpAttrPtr ptr, uint32_t flags, uint32_t label)
+                 const BgpAttrPtr ptr, uint32_t flags, uint32_t label,
+                 uint32_t l3_label)
     : peer_(peer), path_id_(path_id), source_(src), attr_(ptr),
-      original_attr_(ptr), flags_(flags), label_(label) {
+      original_attr_(ptr), flags_(flags), label_(label), l3_label_(l3_label) {
 }
 
 BgpPath::BgpPath(const IPeer *peer, PathSource src, const BgpAttrPtr ptr,
-        uint32_t flags, uint32_t label)
+        uint32_t flags, uint32_t label, uint32_t l3_label)
     : peer_(peer), path_id_(0), source_(src), attr_(ptr), original_attr_(ptr),
-      flags_(flags), label_(label) {
+      flags_(flags), label_(label), l3_label_(l3_label) {
 }
 
 BgpPath::BgpPath(uint32_t path_id, PathSource src, const BgpAttrPtr ptr,
-        uint32_t flags, uint32_t label)
+        uint32_t flags, uint32_t label, uint32_t l3_label)
     : peer_(NULL), path_id_(path_id), source_(src), attr_(ptr),
-      original_attr_(ptr), flags_(flags), label_(label) {
+      original_attr_(ptr), flags_(flags), label_(label), l3_label_(l3_label) {
 }
 
 BgpPath::BgpPath(PathSource src, const BgpAttrPtr ptr,
-        uint32_t flags, uint32_t label)
+        uint32_t flags, uint32_t label, uint32_t l3_label)
     : peer_(NULL), path_id_(0), source_(src), attr_(ptr), original_attr_(ptr),
-      flags_(flags), label_(label) {
+      flags_(flags), label_(label), l3_label_(l3_label) {
 }
 
 // True is better
@@ -267,8 +268,9 @@ string BgpPath::GetSourceString(bool combine_bgp_and_xmpp) const {
 }
 
 BgpSecondaryPath::BgpSecondaryPath(const IPeer *peer, uint32_t path_id,
-        PathSource src, const BgpAttrPtr ptr, uint32_t flags, uint32_t label)
-    : BgpPath(peer, path_id, src, ptr, flags, label) {
+        PathSource src, const BgpAttrPtr ptr, uint32_t flags, uint32_t label,
+        uint32_t l3_label)
+    : BgpPath(peer, path_id, src, ptr, flags, label, l3_label) {
 }
 
 RouteDistinguisher BgpSecondaryPath::GetPrimaryRouteDistinguisher() const {

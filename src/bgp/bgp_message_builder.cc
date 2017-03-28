@@ -130,7 +130,7 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
     update.path_attributes.push_back(nlri);
 
     BgpProtoPrefix *prefix = new BgpProtoPrefix;
-    route->BuildProtoPrefix(prefix, attr, roattr->label());
+    route->BuildProtoPrefix(prefix, attr, roattr->label(), roattr->l3_label());
     nlri->nlri.push_back(prefix);
 
     int result =

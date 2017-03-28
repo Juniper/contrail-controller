@@ -41,12 +41,24 @@ public:
 
     struct RequestData : DBRequestData {
         struct NextHop {
-            NextHop() : flags_(0), address_(Ip4Address(0)), label_(0) { }
-            NextHop(uint32_t flags, IpAddress address, uint32_t label) :
-                    flags_(flags), address_(address), label_(label) { }
+            NextHop()
+                : flags_(0),
+                  address_(Ip4Address(0)),
+                  label_(0),
+                  l3_label_(0) {
+            }
+            NextHop(uint32_t flags, IpAddress address, uint32_t label,
+                    uint32_t l3_label = 0)
+                : flags_(flags),
+                  address_(address),
+                  label_(label),
+                  l3_label_(l3_label) {
+            }
+
             uint32_t flags_;
             IpAddress address_;
             uint32_t label_;
+            uint32_t l3_label_;
             RouteDistinguisher source_rd_;
             ExtCommunity::ExtCommunityList tunnel_encapsulations_;
         };
@@ -54,11 +66,19 @@ public:
         typedef std::vector<NextHop> NextHops;
 
         RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label,
-                    uint64_t subscription_gen_id = 0)
+            uint32_t l3_label, uint64_t subscription_gen_id)
             : attrs_(attrs), subscription_gen_id_(subscription_gen_id) {
-            nexthops_.push_back(NextHop(flags,
-                                   attrs ? attrs->nexthop() : Ip4Address(0),
-                                   label));
+            nexthops_.push_back(
+                NextHop(flags, attrs ? attrs->nexthop() : Ip4Address(0),
+                        label, l3_label));
+        }
+
+        RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label,
+            uint32_t l3_label = 0)
+            : attrs_(attrs), subscription_gen_id_(0) {
+            nexthops_.push_back(
+                NextHop(flags, attrs ? attrs->nexthop() : Ip4Address(0),
+                        label, l3_label));
         }
 
         RequestData(const BgpAttrPtr &attrs, NextHops nexthops,
@@ -155,7 +175,8 @@ public:
     bool InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                      const IPeer *peer, DBRequest *req,
                      DBRequest::DBOperation oper, BgpAttrPtr attrs,
-                     uint32_t path_id, uint32_t flags, uint32_t label);
+                     uint32_t path_id, uint32_t flags, uint32_t label,
+                     uint32_t l3_label);
     void InputCommonPostProcess(DBTablePartBase *root, BgpRoute *rt,
                                 bool notify_rt);
 

@@ -947,8 +947,8 @@ void GracefulRestartTest::ProcessInetVpnRoute(BgpPeerTest *peer, int instance,
         attr_spec.push_back(commspec.get());
         BgpAttrPtr attr = peer->server()->attr_db()->Locate(attr_spec);
 
-        req.data.reset(new InetTable::RequestData(attr, 0,
-                                                  1000*instance + rt));
+        req.data.reset(
+            new InetTable::RequestData(attr, 0, 1000 * instance + rt));
         table->Enqueue(&req);
     }
     WaitForIdle();
@@ -1000,8 +1000,8 @@ void GracefulRestartTest::ProcessInet6VpnRoute(BgpPeerTest *peer, int instance,
         attr_spec.push_back(commspec.get());
         BgpAttrPtr attr = peer->server()->attr_db()->Locate(attr_spec);
 
-        req.data.reset(new Inet6Table::RequestData(attr, 0,
-                                                   1000*instance + rt));
+        req.data.reset(
+            new Inet6Table::RequestData(attr, 0, 1000 * instance + rt));
         table->Enqueue(&req);
     }
     WaitForIdle();

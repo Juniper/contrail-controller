@@ -112,7 +112,7 @@ void BgpXmppRTargetManager::RTargetRouteOp(as4_t asn,
         // Find correct rtarget route flags if not already known.
         if (!flags)
             flags = GetRTargetRouteFlag(rtarget);
-        req.data.reset(new RTargetTable::RequestData(attr, flags , 0));
+        req.data.reset(new RTargetTable::RequestData(attr, flags, 0, 0, 0));
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
