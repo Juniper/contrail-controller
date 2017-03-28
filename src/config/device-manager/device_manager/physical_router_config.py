@@ -776,10 +776,11 @@ class PhysicalRouterConfig(object):
     # end build_l2_evpn_interface_config
 
     def set_global_routing_options(self, bgp_params):
-        if bgp_params['address'] is not None:
+        router_id = bgp_params.get('identifier') or bgp_params.get('address')
+        if router_id:
             if not self.global_routing_options_config:
                 self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
-            self.global_routing_options_config.set_router_id(bgp_params['address'])
+            self.global_routing_options_config.set_router_id(router_id)
     # end set_global_routing_options
 
     def add_to_global_ri_opts(self, prefix):
