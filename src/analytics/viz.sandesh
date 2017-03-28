@@ -648,6 +648,7 @@ struct stat_query_column
     2: string datatype;
     3: bool index;
     4: list<string> suffixes;
+    5: string uve_type;
 }
 
 struct table_schema
