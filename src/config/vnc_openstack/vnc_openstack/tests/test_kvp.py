@@ -3,6 +3,8 @@ import json
 import uuid
 import logging
 import gevent.event
+import gevent.monkey
+gevent.monkey.patch_all()
 
 from testtools.matchers import Equals, Contains, Not
 from testtools import content, content_type
@@ -250,7 +252,11 @@ class DelayedApiServerConnectionTest(test_case.ResourceDriverTestCase):
 
     def test_post_project_create_default_sg(self):
         proj_obj = Project('proj-%s' %(self.id()))
-        self._vnc_lib.project_create(proj_obj)
+        proj_obj.uuid = str(uuid.uuid4())
+        test_case.get_keystone_client().tenants.add_tenant(
+            proj_obj.uuid, proj_obj.name)
+        self._vnc_lib.project_read(id=proj_obj.uuid)
+
         sg_obj = self._vnc_lib.security_group_read(
             fq_name=proj_obj.fq_name+['default'])
         self._vnc_lib.security_group_delete(id=sg_obj.uuid)
