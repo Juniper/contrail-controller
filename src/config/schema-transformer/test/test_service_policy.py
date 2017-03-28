@@ -1803,6 +1803,14 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.delete_vn(fq_name=vn2_obj.get_fq_name())
     #end test vrf_assign_rules
 
+    @retries(5)
+    def delete_vmis(self, vmis=[]):
+        for vmi in vmis or []:
+            try:
+                self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
+            except RefsExistError:
+                raise Exception('virtual machine interface %s still exists' % vmi['uuid'])
+
     def test_service_policy_vmi_with_multi_port_tuples(self):
 
         #              -------
@@ -1874,9 +1882,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                                        u'default-project',
                                                        si2_name])
 
-        for vmi in self._vnc_lib.virtual_machine_interfaces_list()['virtual-machine-interfaces']:
-            self._vnc_lib.virtual_machine_interface_delete(id=vmi['uuid'])
-            gevent.sleep(0.1)
+        vmis = self._vnc_lib.virtual_machine_interfaces_list().get('virtual-machine-interfaces')
+        self.delete_vmis(vmis)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
