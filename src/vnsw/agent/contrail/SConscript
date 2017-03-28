@@ -134,6 +134,9 @@ env.Alias('install',
         env.InstallAs(env['INSTALL_INITD'] + '/contrail-vrouter-agent',
         '../contrail-vrouter.initd.supervisord'))
 env.Alias('install',
+        env.InstallAs(env['INSTALL_INITD'] + '/contrail-vrouter-nodemgr',
+        '../../../nodemgr/vrouter_nodemgr/contrail-vrouter-nodemgr.initd.supervisord'))
+env.Alias('install',
         env.InstallAs(env['INSTALL_SYSTEMD'] + '/contrail-vrouter-agent.service',
         '../systemd/contrail-vrouter-agent.service'))
 env.Alias('install',
