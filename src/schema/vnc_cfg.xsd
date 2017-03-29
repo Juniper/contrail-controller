@@ -2052,6 +2052,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('physical-router-dataplane-ip', 'physical-router', 'optional', 'CRUD',
               'This is ip address in the ip-fabric(underlay) network that can be used in data plane by physical router. Usually it is the VTEP address in VxLAN for the TOR switch.') -->
 
+<xsd:element name="physical-router-loopback-ip" type="smi:IpAddress"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-loopback-ip', 'physical-router', 'optional', 'CRUD',
+              'This is ip address of loopback interface of physical router. Used by the device manager to configure physical router loopback interface.') -->
+
 <xsd:element name="physical-router-vendor-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-vendor-name', 'physical-router', 'required', 'CRUD',

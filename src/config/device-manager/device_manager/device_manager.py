@@ -157,11 +157,8 @@ class DeviceManager(object):
         if self._args.collectors:
             self._chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
 
-        if dm_logger is not None:
-            self.logger = dm_logger
-        else:
-            # Initialize logger
-            self.logger = DeviceManagerLogger(args)
+        # Initialize logger
+        self.logger = dm_logger or DeviceManagerLogger(args)
 
         # Retry till API server is up
         connected = False
