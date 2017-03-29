@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
 # chkconfig: 2345 99 01
-# description: Juniper Network Virtualization Opserver
+# description: Juniper Network Virtualization Alarm Generator
 
 if [ -e /tmp/supervisord_analytics.sock ]; then
-    supervisorctl -s unix:///tmp/supervisord_analytics.sock ${1} `basename ${0}`
+    path='unix:///tmp/supervisord_analytics.sock'
 else
-    supervisorctl -s unix:///var/run/supervisord_analytics.sock ${1} `basename ${0}`
+    path='unix:///var/run/supervisord_analytics.sock'
 fi
+
+alarm_gen_name=$(supervisorctl -s $path status | grep `basename ${0}` | awk {'print $1'})
+supervisorctl -s $path ${1} $alarm_gen_name
