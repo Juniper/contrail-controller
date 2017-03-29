@@ -727,13 +727,14 @@ class SecurityGroupKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.build_fq_name_to_uuid(self.uuid, obj)
         self.annotations = obj.get('annotations', None)
-        for kvp in self.annotations.get('key_value_pair', []):
-            if kvp.get('key') == 'namespace':
-                self.namespace = kvp.get('value')
-            if kvp.get('key') == 'spec':
-                specjson = json.loads(kvp.get('value'))
-                if specjson:
-                    self._set_selectors(specjson)
+        if self.annotations is not None:
+            for kvp in self.annotations.get('key_value_pair', []):
+                if kvp.get('key') == 'namespace':
+                    self.namespace = kvp.get('value')
+                if kvp.get('key') == 'spec':
+                    specjson = json.loads(kvp.get('value'))
+                    if specjson:
+                        self._set_selectors(specjson)
         self.rule_entries = obj.get('security_group_entries', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
         return obj
