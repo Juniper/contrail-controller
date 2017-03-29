@@ -51,7 +51,8 @@ private:
 ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
                       string module_name, const IFMapConfigOptions &options) :
     mgr_(mgr), hostname_(hostname), module_name_(module_name),
-    current_server_index_(0), rabbitmq_user_(options.rabbitmq_user),
+    current_server_index_(0), terminate_(false),
+    rabbitmq_user_(options.rabbitmq_user),
     rabbitmq_password_(options.rabbitmq_password),
     rabbitmq_vhost_(options.rabbitmq_vhost),
     rabbitmq_use_ssl_(options.rabbitmq_use_ssl),
