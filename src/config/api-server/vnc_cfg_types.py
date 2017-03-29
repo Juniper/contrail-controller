@@ -1392,6 +1392,13 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (ok, (409, result))
 
+        ipam_refs = obj_dict.get('network_ipam_refs') or []
+        if ipam_refs:
+            (ok, result) = cls.addr_mgmt.net_validate_subnet_update(read_result,
+                                                                    obj_dict)
+            if not ok:
+                return (ok, (400, result))
+
         # Check if network forwarding mode support BGP VPN types
         ok, result = BgpvpnServer.check_network_supports_vpn_type(
             db_conn, obj_dict, update=True)
@@ -1404,7 +1411,6 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return ok, result
 
-        ipam_refs = obj_dict.get('network_ipam_refs') or []
         try:
             cls.addr_mgmt.net_update_req(fq_name, read_result, obj_dict, id)
             #update link with a subnet_uuid if ipam in read_result or obj_dict
@@ -1709,6 +1715,11 @@ class NetworkIpamServer(Resource, NetworkIpam):
                                                               obj_dict)
         if not ok:
             return (ok, (409, result))
+
+        (ok, result) = cls.addr_mgmt.ipam_validate_subnet_update(read_result,
+                                                                 obj_dict)
+        if not ok:
+            return (ok, (400, result))
 
         try:
             cls.addr_mgmt.ipam_update_req(fq_name, read_result, obj_dict, id)
