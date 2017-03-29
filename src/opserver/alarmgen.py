@@ -239,8 +239,9 @@ class AlarmProcessor(object):
 	except Exception as ex:
 	    template = "Exception {0} in Alarm Processing. Arguments:\n{1!r}"
 	    messag = template.format(type(ex).__name__, ex.args)
-	    self._logger.error("%s : traceback %s" % \
-			      (messag, traceback.format_exc()))
+            self._logger.error("%s\n UVE:[%s]:%s\n Alarm config: %s\n traceback %s" % \
+                (messag, uv, str(local_uve), alarm.config().alarm_rules,
+                traceback.format_exc()))
             self.uve_alarms[alarm_name] = UVEAlarmInfo(type=alarm_name,
                     severity=sev, timestamp=0, token="",
                     alarm_rules=AlarmRules(None),
