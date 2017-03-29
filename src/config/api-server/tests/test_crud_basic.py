@@ -1714,7 +1714,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                                  ipam_obj.fq_name,
                                  'ADD',
                                  VnSubnetsType([
-                                     IpamSubnetType(SubnetType('1.1.1.0', 28)),
+                                     IpamSubnetType(subnet=SubnetType('1.1.1.0', 28)),
                                      IpamSubnetType(SubnetType('2.2.2.0', 28)),
                                  ]))
 
