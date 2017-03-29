@@ -136,10 +136,7 @@ TEST_F(LinkAttrTest, Decode) {
     }
 
     table->Enqueue(req);
-    // request ownership is transfered to table and deleted when operation
-    // completes.
-    req = NULL;
-    requests.clear();
+    STLDeleteValues(&requests);
 
     // Wait for operation to be performed.
     WaitForIdle();
@@ -167,6 +164,7 @@ TEST_F(LinkAttrTest, AgentEncodeDecode) {
     ASSERT_TRUE(table != NULL);
 
     table->Enqueue(requests.front());
+    STLDeleteValues(&requests);
     WaitForIdle();
 
     IFMapNode *a = table->FindNode("a");

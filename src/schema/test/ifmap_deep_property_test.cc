@@ -20,12 +20,13 @@ class DeepPropertyTest : public ::testing::Test {
     }
 
     virtual void SetUp()  {
-        xparser_ = IFMapServerParser::GetInstance("ifmap_deep_property");
-        ifmap_deep_property_ParserInit(xparser_);
+        xparser_.reset(IFMapServerParser::GetInstance("ifmap_deep_property"));
+        ifmap_deep_property_ParserInit(xparser_.get());
     }
 
+
     pugi::xml_document xdoc_;
-    IFMapServerParser *xparser_;
+    boost::scoped_ptr<IFMapServerParser> xparser_;
 };
 
 TEST_F(DeepPropertyTest, Decode) {
