@@ -15,7 +15,7 @@ bool query_result_unit_t::operator<(const query_result_unit_t& rhs) const
     {
         GenDb::DbDataValueVec::const_iterator it = info.begin();
         GenDb::DbDataValueVec::const_iterator jt = rhs.info.begin();
-        for (; it != info.end(), jt != rhs.info.end(); it++, jt++) {
+        for (; it != info.end() && jt != rhs.info.end(); it++, jt++) {
             if (*it < *jt) {
                 return true;
             } else if (*jt < *it) {
