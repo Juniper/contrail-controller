@@ -123,7 +123,8 @@ void BgpMembershipManager::Register(IPeer *peer, BgpTable *table,
 // Synchronously register the IPeer to the BgpTable for RIBIN.
 //
 void BgpMembershipManager::RegisterRibIn(IPeer *peer, BgpTable *table) {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine", "xmpp::StateMachine");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper",
+        "bgp::StateMachine", "xmpp::StateMachine");
 
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     PeerRibState *prs = LocatePeerRibState(peer, table);
