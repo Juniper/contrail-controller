@@ -152,6 +152,8 @@ class DeviceManager(object):
         PushConfigState.set_push_delay_max(int(self._args.push_delay_max))
         PushConfigState.set_push_delay_enable(bool(self._args.push_delay_enable))
 
+        PhysicalRouterDM.init_pull_device_config(self._args.pull_device_config)
+
         self._chksum = "";
         if self._args.collectors:
             self._chksum = hashlib.md5(''.join(self._args.collectors)).hexdigest()
@@ -341,6 +343,7 @@ def parse_args(args_str):
                          --push_delay_per_kb 0.01
                          --push_delay_max 100
                          --push_delay_enable True
+                         --pull_device_config False
                          [--reset_config]
     '''
 
@@ -380,7 +383,8 @@ def parse_args(args_str):
         'repush_max_interval': '600',
         'push_delay_per_kb': '0.01',
         'push_delay_max': '100',
-        'push_delay_enable': 'True',
+        'push_delay_enable': True,
+        'pull_device_config': False,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'rabbit_use_ssl': False,
         'kombu_ssl_version': '',
@@ -507,6 +511,8 @@ def parse_args(args_str):
                         help="max time delay between two successful commits")
     parser.add_argument("--push_delay_enable",
                         help="enable delay between two successful commits")
+    parser.add_argument("--pull_device_config",
+                        help="fetch and validate device configuration on push")
     parser.add_argument("--cassandra_user",
                         help="Cassandra user name")
     parser.add_argument("--cassandra_password",

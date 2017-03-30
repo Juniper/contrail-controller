@@ -8,6 +8,7 @@ configuration manager
 """
 
 from ncclient import manager
+from ncclient.xml_ import new_ele
 import copy
 import time
 import datetime
@@ -185,6 +186,33 @@ class PhysicalRouterConfig(object):
                 self.push_config_state = PushConfigState.PUSH_STATE_RETRY
         return config_size
     # end send_config
+
+    def get_device_config(self):
+        try:
+            with manager.connect(host=self.management_ip, port=22,
+                                 username=self.user_creds['username'],
+                                 password=self.user_creds['password'],
+                                 timeout=10,
+                                 device_params = {'name':'junos'},
+                                 unknown_host_cb=lambda x, y: True) as m:
+                sw_info = new_ele('get-software-information')
+                response = m.rpc(sw_info)
+                pname = response.xpath('//software-information/product-name')[0].text
+                pmodel = response.xpath('//software-information/product-model')[0].text
+                jversion_ele = response.xpath("//software-information/package-information[name='junos-version']")[0]
+                jversion = jversion_ele.find('comment').text
+                dev_conf = {}
+                dev_conf['product-name'] = pname
+                dev_conf['product-model'] = pmodel
+                dev_conf['software-version'] = jversion
+                self._logger.debug("device config of router %s: %s" % (
+                                       self.management_ip, str(dev_conf)))
+                return dev_conf
+        except Exception as e:
+            if self._logger:
+                self._logger.error("could not fetch config from router %s: %s" % (
+                                          self.management_ip, e.message))
+        return {}
 
     def add_pnf_logical_interface(self, junos_interface):
 
