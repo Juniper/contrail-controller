@@ -380,7 +380,7 @@ def parse_args(args_str):
         'repush_max_interval': '600',
         'push_delay_per_kb': '0.01',
         'push_delay_max': '100',
-        'push_delay_enable': 'True',
+        'push_delay_enable': True,
         'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'rabbit_use_ssl': False,
         'kombu_ssl_version': '',

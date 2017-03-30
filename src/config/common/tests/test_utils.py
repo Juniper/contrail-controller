@@ -32,6 +32,7 @@ from collections import namedtuple
 import kombu
 import kazoo
 from kazoo.client import KazooState
+from lxml import etree
 from copy import deepcopy
 from datetime import datetime
 from pycassa.util import *
@@ -1326,7 +1327,8 @@ class ZookeeperClientMock(object):
 
 
 class FakeNetconfManager(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, host, *args, **kwargs):
+        self.host = host
         self.configs = []
 
     def __enter__(self):
@@ -1336,12 +1338,37 @@ class FakeNetconfManager(object):
     def edit_config(self, target, config, test_option, default_operation):
         self.configs.append(config)
 
+    def rpc(self, ele):
+        version = '14.2R6'
+        model = 'mx480'
+        name = 'mx480'
+        if self.host == '199.199.199.199': #unsupported netconf device ip
+            version = 'Unkown'
+            model = 'X-Model'
+            name = 'X-Name'
+        res = '<rpc-reply xmlns:junos="http://xml.juniper.net/junos/%s/junos"> \
+                  <software-information> \
+                     <host-name>cmbu-tasman</host-name> \
+                     <product-model>%s</product-model> \
+                     <product-name>%s</product-name> \
+                     <package-information> \
+                         <name>junos-version</name> \
+                         <comment>Junos: %s</comment> \
+                     </package-information> \
+                     <package-information> \
+                         <name>junos</name> \
+                         <comment>JUNOS Base OS boot 14.2R6</comment> \
+                     </package-information> \
+                  </software-information> \
+                </rpc-reply>'%(version, model, name, version)
+        return etree.fromstring(res)
+
     commit = stub
 # end FakeNetconfManager
 
 netconf_managers = {}
 def fake_netconf_connect(host, *args, **kwargs):
-    return netconf_managers.setdefault(host, FakeNetconfManager(args, kwargs))
+    return netconf_managers.setdefault(host, FakeNetconfManager(host, args, kwargs))
 
 class FakeDeviceConnect(object):
     parms = {}
