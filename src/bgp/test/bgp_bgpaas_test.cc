@@ -237,8 +237,8 @@ protected:
     }
 
     void SetUpAgent() {
-        agent_ = new test::NetworkAgentMock(&evm_, "agent",
-                                            xmpp_server_->GetPort());
+        agent_.reset(new test::NetworkAgentMock(&evm_, "agent",
+                                                xmpp_server_->GetPort()));
         agent_->SessionUp();
         TASK_UTIL_EXPECT_TRUE(agent_->IsEstablished());
         agent_->SubscribeAll("test", 1);
@@ -545,7 +545,7 @@ protected:
     BgpSessionManager *vm1_session_manager_;
     BgpSessionManager *vm2_session_manager_;
     XmppServerTest *xmpp_server_;
-    test::NetworkAgentMock *agent_;
+    boost::scoped_ptr<test::NetworkAgentMock> agent_;
     boost::scoped_ptr<BgpXmppChannelManager> channel_manager_;
 };
 
@@ -563,15 +563,15 @@ TEST_F(BGPaaSTest, Basic) {
 
     // Verify that unresolved bgp route is not received by the agent.
     TASK_UTIL_EXPECT_EQ(0, agent_->route_mgr_->Count());
-    VerifyInetRouteAbsence(agent_, "1.1.1.1/32");
-    VerifyInetRouteAbsence(agent_, "1.1.1.2/32");
-    VerifyInetRouteAbsence(agent_, "1.1.1.3/32");
-    VerifyInetRouteAbsence(agent_, "20.20.20.1/32");
-    VerifyInetRouteAbsence(agent_, "20.20.20.2/32");
+    VerifyInetRouteAbsence(agent_.get(), "1.1.1.1/32");
+    VerifyInetRouteAbsence(agent_.get(), "1.1.1.2/32");
+    VerifyInetRouteAbsence(agent_.get(), "1.1.1.3/32");
+    VerifyInetRouteAbsence(agent_.get(), "20.20.20.1/32");
+    VerifyInetRouteAbsence(agent_.get(), "20.20.20.2/32");
 
-    TASK_UTIL_EXPECT_EQ(0, agent_->inet6_route_mgr_->Count());
-    VerifyInet6RouteAbsence(agent_, "dead:1::beef/128");
-    VerifyInet6RouteAbsence(agent_, "dead:2::beef/128");
+    TASK_UTIL_EXPECT_EQ(0, agent_.get()->inet6_route_mgr_->Count());
+    VerifyInet6RouteAbsence(agent_.get(), "dead:1::beef/128");
+    VerifyInet6RouteAbsence(agent_.get(), "dead:2::beef/128");
 
     // Verify that unresolved bgp route is not received by the bgpass peer vm2
     VerifyInetRouteCount(vm2_.get(), 0);
@@ -603,9 +603,9 @@ TEST_F(BGPaaSTest, Basic) {
 
     // Verify that now resolved inet bgp route is indeed received by the agent.
     TASK_UTIL_EXPECT_EQ(2, agent_->route_mgr_->Count());
-    VerifyInetRoutePresence(agent_, "1.1.1.1/32", "10.10.10.1");
-    VerifyInetRoutePresence(agent_, "20.20.20.1/32", "10.10.10.1");
-    VerifyInetRouteAbsence(agent_, "20.20.20.2/32");
+    VerifyInetRoutePresence(agent_.get(), "1.1.1.1/32", "10.10.10.1");
+    VerifyInetRoutePresence(agent_.get(), "20.20.20.1/32", "10.10.10.1");
+    VerifyInetRouteAbsence(agent_.get(), "20.20.20.2/32");
 
     // Verify that now resolved inet bgp route is indeed received by vm2 with
     // correct gateway-address as specified in the configuration.
@@ -622,8 +622,8 @@ TEST_F(BGPaaSTest, Basic) {
 
     // Verify that now resolved inet6 bgp route is indeed received by agent.
     TASK_UTIL_EXPECT_EQ(1, agent_->inet6_route_mgr_->Count());
-    VerifyInet6RoutePresence(agent_, "dead:1::beef/128", "10.10.10.1");
-    VerifyInet6RouteAbsence(agent_, "dead:2::beef/128");
+    VerifyInet6RoutePresence(agent_.get(), "dead:1::beef/128", "10.10.10.1");
+    VerifyInet6RouteAbsence(agent_.get(), "dead:2::beef/128");
 
     // Verify that now resolved inet6 bgp route is indeed received by vm2.
     VerifyInet6RouteCount(vm2_.get(), 1);
@@ -640,11 +640,11 @@ TEST_F(BGPaaSTest, Basic) {
 
     // Verify that now resolved inet bgp route is indeed received by the agent.
     TASK_UTIL_EXPECT_EQ(5, agent_->route_mgr_->Count());
-    VerifyInetRoutePresence(agent_, "1.1.1.1/32", "10.10.10.1");
-    VerifyInetRoutePresence(agent_, "1.1.1.2/32", "10.10.10.2");
-    VerifyInetRoutePresence(agent_, "1.1.1.3/32", "10.10.10.3");
-    VerifyInetRoutePresence(agent_, "20.20.20.1/32", "10.10.10.1");
-    VerifyInetRoutePresence(agent_, "20.20.20.2/32", "10.10.10.2");
+    VerifyInetRoutePresence(agent_.get(), "1.1.1.1/32", "10.10.10.1");
+    VerifyInetRoutePresence(agent_.get(), "1.1.1.2/32", "10.10.10.2");
+    VerifyInetRoutePresence(agent_.get(), "1.1.1.3/32", "10.10.10.3");
+    VerifyInetRoutePresence(agent_.get(), "20.20.20.1/32", "10.10.10.1");
+    VerifyInetRoutePresence(agent_.get(), "20.20.20.2/32", "10.10.10.2");
 
     // Verify that now resolved inet bgp route is indeed received by vm2 with
     // correct gateway-address as specified in the configuration.
@@ -666,8 +666,8 @@ TEST_F(BGPaaSTest, Basic) {
 
     // Verify that now resolved inet6 bgp route is indeed received by agent.
     TASK_UTIL_EXPECT_EQ(2, agent_->inet6_route_mgr_->Count());
-    VerifyInet6RoutePresence(agent_, "dead:1::beef/128", "10.10.10.1");
-    VerifyInet6RoutePresence(agent_, "dead:2::beef/128", "10.10.10.3");
+    VerifyInet6RoutePresence(agent_.get(), "dead:1::beef/128", "10.10.10.1");
+    VerifyInet6RoutePresence(agent_.get(), "dead:2::beef/128", "10.10.10.3");
 
     // Verify that now resolved inet6 bgp route is indeed received by vm2.
     VerifyInet6RouteCount(vm2_.get(), 2);
@@ -760,14 +760,14 @@ TEST_F(BGPaaSTest, Basic) {
 
     // Verify new inet routes added above along with ecmp next-hop.
     TASK_UTIL_EXPECT_EQ(8, agent_->route_mgr_->Count());
-    VerifyInetRoutePresence(agent_, "3.1.1.1/32", "30.10.10.2");
-    VerifyInetRoutePresence(agent_, "4.1.1.1/32", "40.10.10.2");
-    VerifyInetRoutePresence(agent_, "30.20.20.1/32",
+    VerifyInetRoutePresence(agent_.get(), "3.1.1.1/32", "30.10.10.2");
+    VerifyInetRoutePresence(agent_.get(), "4.1.1.1/32", "40.10.10.2");
+    VerifyInetRoutePresence(agent_.get(), "30.20.20.1/32",
                             "30.10.10.2", "40.10.10.2");
 
     // Verify new inet6 route added above along with ecmp next-hop.
     TASK_UTIL_EXPECT_EQ(3, agent_->inet6_route_mgr_->Count());
-    VerifyInet6RoutePresence(agent_, "feed:2::feed/128",
+    VerifyInet6RoutePresence(agent_.get(), "feed:2::feed/128",
                              "30.10.10.2", "40.10.10.2");
 
     // Delete the ecmp routes added above and verify for their absence.
@@ -778,23 +778,23 @@ TEST_F(BGPaaSTest, Basic) {
     agent_->DeleteRoute("test", "3.1.1.1/32");
     agent_->DeleteRoute("test", "4.1.1.1/32");
     TASK_UTIL_EXPECT_EQ(5, agent_->route_mgr_->Count());
-    VerifyInetRouteAbsence(agent_, "3.1.1.1/32");
-    VerifyInetRouteAbsence(agent_, "4.1.1.1/32");
-    VerifyInetRouteAbsence(agent_, "30.20.20.1/32");
+    VerifyInetRouteAbsence(agent_.get(), "3.1.1.1/32");
+    VerifyInetRouteAbsence(agent_.get(), "4.1.1.1/32");
+    VerifyInetRouteAbsence(agent_.get(), "30.20.20.1/32");
 
     TASK_UTIL_EXPECT_EQ(2, agent_->inet6_route_mgr_->Count());
-    VerifyInet6RouteAbsence(agent_, "feed:2::feed/128");
+    VerifyInet6RouteAbsence(agent_.get(), "feed:2::feed/128");
 
     // Delete agent route to make bgp route's nexthop not resolvable any more.
     agent_->DeleteRoute("test", "1.1.1.1/32");
 
     // Verify that some routes are now deleted as nexthop is not resolvable.
     TASK_UTIL_EXPECT_EQ(3, agent_->route_mgr_->Count());
-    VerifyInetRoutePresence(agent_, "1.1.1.2/32", "10.10.10.2");
-    VerifyInetRoutePresence(agent_, "1.1.1.3/32", "10.10.10.3");
-    VerifyInetRoutePresence(agent_, "20.20.20.2/32", "10.10.10.2");
-    VerifyInetRouteAbsence(agent_, "1.1.1.1/32");
-    VerifyInetRouteAbsence(agent_, "20.20.20.1/32");
+    VerifyInetRoutePresence(agent_.get(), "1.1.1.2/32", "10.10.10.2");
+    VerifyInetRoutePresence(agent_.get(), "1.1.1.3/32", "10.10.10.3");
+    VerifyInetRoutePresence(agent_.get(), "20.20.20.2/32", "10.10.10.2");
+    VerifyInetRouteAbsence(agent_.get(), "1.1.1.1/32");
+    VerifyInetRouteAbsence(agent_.get(), "20.20.20.1/32");
 
     VerifyInetRouteCount(vm2_.get(), 3);
     VerifyInetRoutePresence(vm2_.get(), "1.1.1.2/32", "200.0.0.1");
@@ -811,8 +811,8 @@ TEST_F(BGPaaSTest, Basic) {
     VerifyInetRouteAbsence(vm1_.get(), "1.1.1.1/32");
 
     TASK_UTIL_EXPECT_EQ(1, agent_->inet6_route_mgr_->Count());
-    VerifyInet6RoutePresence(agent_, "dead:2::beef/128", "10.10.10.3");
-    VerifyInet6RouteAbsence(agent_, "dead:1::beef/128");
+    VerifyInet6RoutePresence(agent_.get(), "dead:2::beef/128", "10.10.10.3");
+    VerifyInet6RouteAbsence(agent_.get(), "dead:1::beef/128");
 
     VerifyInet6RouteCount(vm2_.get(), 1);
     VerifyInet6RoutePresence(vm2_.get(), "dead:2::beef/128", "beef:beef::1");
@@ -827,15 +827,15 @@ TEST_F(BGPaaSTest, Basic) {
     agent_->DeleteRoute("test", "1.1.1.2/32");
     agent_->DeleteRoute("test", "1.1.1.3/32");
     TASK_UTIL_EXPECT_EQ(0, agent_->route_mgr_->Count());
-    VerifyInetRouteAbsence(agent_, "1.1.1.1/32");
-    VerifyInetRouteAbsence(agent_, "1.1.1.2/32");
-    VerifyInetRouteAbsence(agent_, "1.1.1.3/32");
-    VerifyInetRouteAbsence(agent_, "20.20.20.1/32");
-    VerifyInetRouteAbsence(agent_, "20.20.20.2/32");
+    VerifyInetRouteAbsence(agent_.get(), "1.1.1.1/32");
+    VerifyInetRouteAbsence(agent_.get(), "1.1.1.2/32");
+    VerifyInetRouteAbsence(agent_.get(), "1.1.1.3/32");
+    VerifyInetRouteAbsence(agent_.get(), "20.20.20.1/32");
+    VerifyInetRouteAbsence(agent_.get(), "20.20.20.2/32");
 
     TASK_UTIL_EXPECT_EQ(0, agent_->inet6_route_mgr_->Count());
-    VerifyInet6RouteAbsence(agent_, "dead:1::beef/128");
-    VerifyInet6RouteAbsence(agent_, "dead:2::beef/128");
+    VerifyInet6RouteAbsence(agent_.get(), "dead:1::beef/128");
+    VerifyInet6RouteAbsence(agent_.get(), "dead:2::beef/128");
 
     VerifyInetRouteCount(vm2_.get(), 0);
     VerifyInetRouteAbsence(vm2_.get(), "1.1.1.1/32");
