@@ -1915,7 +1915,8 @@ class Controller(object):
         self._logger.info("Got UVETableAlarmReq : %s" % str(parts))
         np = 1
         for pt in parts:
-            resp = UVETableAlarmResp(table = pt)
+            if pt not in self.tab_alarms:
+                continue
             uves = []
             for uk,uv in self.tab_alarms[pt].iteritems():
                 for ak,av in uv.iteritems():
@@ -1926,6 +1927,7 @@ class Controller(object):
                         uves.append(UVEAlarmStateMachineInfo(
                             uai = UVEAlarms(name = uk, alarms = alm_copy),
                             uac = av.get_uac(), uas = av.get_uas()))
+            resp = UVETableAlarmResp(table = pt)
             resp.uves = uves 
             if np == len(parts):
                 mr = False
@@ -1943,6 +1945,8 @@ class Controller(object):
         self._logger.info("Got UVETablePerfReq : %s" % str(parts))
         np = 1
         for pt in parts:
+            if pt not in self.tab_perf_prev:
+                continue
             resp = UVETablePerfResp(table = pt)
             resp.call_time = self.tab_perf_prev[pt].call_result()
             resp.get_time = self.tab_perf_prev[pt].get_result()
