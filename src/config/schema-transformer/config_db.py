@@ -2609,6 +2609,7 @@ class ServiceChain(DBBaseST):
         if self.partially_created:
             self.destroy()
             return
+        self.si_info = si_info
         self.uve_send()
     # end create
 
