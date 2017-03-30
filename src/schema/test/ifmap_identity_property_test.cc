@@ -110,7 +110,7 @@ TEST_F(IdentityPropertyTest, EncodeDecode) {
     BOOST_FOREACH(DBRequest *req, requests) {
         table->Enqueue(req);
     }
-    requests.clear();
+    STLDeleteValues(&requests);
     WaitForIdle();
 
     pugi::xml_document xmsg;
