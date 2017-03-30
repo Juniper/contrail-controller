@@ -779,7 +779,9 @@ TEST_F(XmppStateMachineTest, OpenConfirm_EvTlsHandShakeFailure) {
 
 // OldState : OpenConfirm(OPENCONFIRM_FEATURE_SUCESS)
 // Event    : EvXmppOpen
-// NewState : Established
+// NewState : OpenConfirm
+// Event    : EvXmppKeepalive
+// NewStart : Established
 TEST_F(XmppStateMachineTest, OpenConfirm_EvXmppOpen) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -799,6 +801,7 @@ TEST_F(XmppStateMachineTest, OpenConfirm_EvXmppOpen) {
 
     EvXmppOpen();
     VerifyState(xmsm::OPENCONFIRM);
+    VerifyOpenConfirmState(xmsm::OPENCONFIRM_INIT);
 
     EvStreamFeatureRequest();
     VerifyState(xmsm::OPENCONFIRM);
@@ -812,6 +815,9 @@ TEST_F(XmppStateMachineTest, OpenConfirm_EvXmppOpen) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 }
 
@@ -852,6 +858,9 @@ TEST_F(XmppStateMachineTest, Established_EvXmppKeepAlive) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvXmppKeepalive();
@@ -896,6 +905,9 @@ TEST_F(XmppStateMachineTest, Established_EvXmppMessageReceive) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvXmppMessageStanza();
@@ -939,6 +951,9 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -990,7 +1005,7 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired_connectfail) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
-    VerifyState(xmsm::ESTABLISHED);
+    VerifyState(xmsm::OPENCONFIRM);
 
     sm_->connect_attempts_inc(); // set attempts as we do not
                                  // want connection timer to expire

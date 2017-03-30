@@ -78,6 +78,7 @@ private:
 
     bool auth_enabled_;
     int tcp_hold_time_;
+    bool gr_helper_disable_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppClient);
 };

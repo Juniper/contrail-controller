@@ -23,6 +23,7 @@
 #define sXMPP_STREAM_FAILURE_O      "<failure"
 #define sXMPP_STREAM_PROCEED_O      "<proceed"
 #define sXMPP_REQUIRED_O            "<required"
+#define sXMPP_STREAM_GR_O           "<gr"
 
 
 #define sXMPP_VERSION_1_GLOBAL      "<?xml version='1.0'?>"
@@ -46,6 +47,7 @@
 #define sXMPP_WHITESPACE             "Ȁ" //unicode U+0200 as whitespace
 // Whitespace characters allowed as fillers between xmpp messages.
 #define sXMPP_VALIDWS                " \n\r\tȀ" 
+#define sXMPP_GR                     "<gr enable='true'></gr>"
 
 #define sXMPP_CHAT_MSG             "<message from='fake-from' to='fake-to' type='chat'> <body> msg </body> <subject> log </subject> </message>"
 #define sXMPP_STREAM_START         "<?xml version=\"1.0\"?><stream:stream"
@@ -54,12 +56,13 @@
 
 // Regexp
 //#define rXMPP_MESSAGE              "<.*[\\s\\n\\t\\r]"
-#define rXMPP_MESSAGE              "<(iq|message)"
+#define rXMPP_MESSAGE              "<(iq|message|gr)"
 #define rXMPP_STREAM_START         "<?.*?>*[\\s\\n\\t\\r]*<stream:stream"
 #define rXMPP_STREAM_END           "http://etherx.jabber.org/streams[\"'][\\s\\t\\r\\n]*>"
 #define rXMPP_STREAM_FEATURES      "<stream:features"
 #define rXMPP_STREAM_STARTTLS      "<starttls"
 #define rXMPP_STREAM_PROCEED       "<proceed"
+#define rXMPP_STREAM_GR            "<gr"
 #define rXMPP_STREAM_STANZA_END    "[\\s\\t\\r\\n]*/>"
 
 #define rXMPP_STREAM_START_FEATURES "<?.*?>*[\\s\\n\\t\\r]*<(stream:stream|stream:features)"

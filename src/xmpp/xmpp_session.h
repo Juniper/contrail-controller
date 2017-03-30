@@ -83,6 +83,7 @@ private:
     static const boost::regex starttls_patt_;
     static const boost::regex proceed_patt_;
     static const boost::regex end_patt_;
+    static const boost::regex stream_gr_patt_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppSession);
 };
