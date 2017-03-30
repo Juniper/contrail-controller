@@ -159,5 +159,34 @@ class TestBgpDM(TestCommonDM):
         self.delete_routers(bgp_router, pr)
         self.wait_for_routers_delete(bgp_router_fq, pr_fq)
 
+
+    @retries(5, hook=retry_exc_handler)
+    def check_router_id_config(self, ip_check=''):
+        config = FakeDeviceConnect.get_xml_config()
+        ri_opts = config.get_routing_options()
+        self.assertIsNotNone(ri_opts)
+        self.assertEqual(ip_check, ri_opts.get_router_id())
+    # end check_router_id_config
+
+    # test router id configuration
+    def test_dm_router_id_config(self):
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
+        # defaults to bgp address
+        self.check_router_id_config('1.1.1.1')
+
+        params = self.get_obj_param(bgp_router, 'bgp_router_parameters') or BgpRouterParams()
+        self.set_obj_param(params, 'identifier', '5.5.5.5')
+        self.set_obj_param(bgp_router, 'bgp_router_parameters', params)
+        self._vnc_lib.bgp_router_update(bgp_router)
+        # if identifier is set, use it to conifgure router-id
+        self.check_router_id_config('5.5.5.5')
+
+        # cleanup
+        bgp_router_fq = bgp_router.get_fq_name()
+        pr_fq = pr.get_fq_name()
+        self.delete_routers(bgp_router, pr)
+        self.wait_for_routers_delete(bgp_router_fq, pr_fq)
+    # end test_dm_router_id_config
+
 # end TestBgpDM
 
