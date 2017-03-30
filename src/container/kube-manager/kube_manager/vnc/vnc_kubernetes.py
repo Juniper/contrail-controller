@@ -190,6 +190,7 @@ class VncKubernetes(VncCommon):
         # Create service floating ip pool.
         self._create_cluster_service_fip_pool(vn_obj, pod_ipam_obj)
 
+        VirtualNetworkKM.locate(vn_obj.uuid)
         return vn_obj.uuid
 
     def _get_cluster_service_fip_pool_name(self, vn_name):
