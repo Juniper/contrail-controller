@@ -1324,60 +1324,6 @@ class ZookeeperClientMock(object):
 
 # end Class ZookeeperClientMock
 
-
-class FakeNetconfManager(object):
-    def __init__(self, *args, **kwargs):
-        self.configs = []
-
-    def __enter__(self):
-        return self
-    __exit__ = stub
-
-    def edit_config(self, target, config, test_option, default_operation):
-        self.configs.append(config)
-
-    commit = stub
-# end FakeNetconfManager
-
-netconf_managers = {}
-def fake_netconf_connect(host, *args, **kwargs):
-    return netconf_managers.setdefault(host, FakeNetconfManager(args, kwargs))
-
-class FakeDeviceConnect(object):
-    parms = {}
-
-    @classmethod
-    def get_xml_data(cls, config):
-        xml_data = StringIO()
-        config.export_xml(xml_data, 1)
-        return xml_data.getvalue()
-    # end get_xml_data
-
-    @classmethod
-    def send_netconf(cls, obj, new_config, default_operation="merge", operation="replace"):
-        cls.params = {
-                                     "pr_config": obj,
-                                     "config": new_config,
-                                     "default_operation": default_operation,
-                                     "operation": operation
-                                   }
-        return len(cls.get_xml_data(new_config))
-    # end send_netconf
-
-    @classmethod
-    def get_xml_config(cls):
-        return cls.params.get('config')
-    # end get_xml_config
-
-    @classmethod
-    def reset(cls):
-        cls.params = {}
-    # end get_xml_config
-# end
-
-def fake_send_netconf(self, new_config, default_operation="merge", operation="replace"):
-    return FakeDeviceConnect.send_netconf(self, new_config, default_operation, operation)
-
 class FakeVncApiStatsLog(object):
     _all_logs = []
     send = stub

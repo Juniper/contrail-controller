@@ -12,6 +12,9 @@ from random import randint
 from ncclient import manager
 from flexmock import flexmock
 from device_manager.physical_router_config import PhysicalRouterConfig
+from test_dm_utils import FakeDeviceConnect
+from test_dm_utils import fake_netconf_connect
+from test_dm_utils import fake_send_netconf
 
 class DMTestCase(test_common.TestCase):
 
@@ -24,8 +27,6 @@ class DMTestCase(test_common.TestCase):
         if extra_config_knobs:
             extra_config.append(extra_config_knobs)
         super(DMTestCase, cls).setUpClass(extra_config_knobs=extra_config)
-        flexmock(manager, connect=fake_netconf_connect)
-        setattr(PhysicalRouterConfig, 'send_netconf', fake_send_netconf)
         cls._dm_greenlet = gevent.spawn(test_common.launch_device_manager,
             cls.__name__, cls._api_server_ip, cls._api_server_port)
         test_common.wait_for_device_manager_up()
@@ -35,15 +36,17 @@ class DMTestCase(test_common.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        FakeDeviceConnect.reset()
         test_common.kill_device_manager(cls._dm_greenlet)
         test_common.kill_schema_transformer(cls._st_greenlet)
         super(DMTestCase, cls).tearDownClass()
 
     def setUp(self, extra_config_knobs=None):
         super(DMTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
+        flexmock(manager, connect=fake_netconf_connect)
+        setattr(PhysicalRouterConfig, 'send_netconf', fake_send_netconf)
 
     def tearDown(self):
+        FakeDeviceConnect.reset()
         super(DMTestCase, self).tearDown()
 
     def _get_ip_fabric_ri_obj(self):

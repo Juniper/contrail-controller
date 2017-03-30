@@ -11,6 +11,7 @@ from device_api.juniper_common_xsd import *
 from device_manager.dm_utils import *
 from test_common import *
 from test_dm_common import *
+from test_dm_utils import FakeDeviceConnect
 
 #
 # All Networks related DM test cases should go here

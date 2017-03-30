@@ -14,6 +14,7 @@ import itertools
 import copy
 from unittest import skip
 from vnc_api.vnc_api import *
+from test_dm_utils import fake_netconf_connect
 
 try:
     import device_manager
