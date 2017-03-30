@@ -128,6 +128,7 @@ private:
 
     int reader_task_id_;
     size_t current_server_index_;
+    bool terminate_;
     std::vector<std::string> rabbitmq_ips_;
     std::vector<std::string> rabbitmq_ports_;
     std::string rabbitmq_user_;
@@ -142,7 +143,6 @@ private:
     boost::asio::ip::tcp::endpoint endpoint_;
     tbb::atomic<bool> connection_status_;
     tbb::atomic<uint64_t> connection_status_change_at_;
-    bool terminate_;
 };
 
 #endif // ctrlplane_config_amqp_client_h
