@@ -16,7 +16,8 @@ public:
         MESSAGE_STANZA = 2,
         IQ_STANZA = 3,
         WHITESPACE_MESSAGE_STANZA = 4,
-        RESERVED_STANZA = 5
+        GRACEFUL_RESTART_STANZA = 5,
+        RESERVED_STANZA = 6
     };
 
     enum XmppStanzaErrorType {
@@ -189,6 +190,7 @@ private:
     static int EncodeFeatureTlsStart(uint8_t *data);
     static int EncodeFeatureTlsProceed(uint8_t *data);
     static int EncodeWhitespace(uint8_t *data);
+    static int EncodeGracefulRestart(uint8_t *data);
     static int SetTo(std::string &to, XmlBase *doc);
     static int SetFrom(std::string &from, XmlBase *doc);
 

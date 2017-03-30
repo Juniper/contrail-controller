@@ -72,6 +72,10 @@ int XmppProto::EncodeStream(const XmppStanza::XmppMessage &str, uint8_t *buf,
         return EncodeWhitespace(buf);
     }
 
+    if (str.type == XmppStanza::GRACEFUL_RESTART_STANZA) {
+        return EncodeGracefulRestart(buf);
+    }
+
     return ret;
 }
 
@@ -127,6 +131,17 @@ int XmppProto::EncodeIq(const XmppStanza::XmppMessageIq *iq,
 int XmppProto::EncodeWhitespace(uint8_t *buf) {
     string str(sXMPP_WHITESPACE);
      
+    int len = str.size();
+    if (len > 0) {
+        memcpy(buf, str.data(), len);
+    }
+
+    return len;
+}
+
+int XmppProto::EncodeGracefulRestart(uint8_t *buf) {
+    string str(sXMPP_GR);
+
     int len = str.size();
     if (len > 0) {
         memcpy(buf, str.data(), len);
@@ -370,6 +385,11 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         }
         goto done;
 
+    } else if (ts.find(sXMPP_STREAM_GR_O) != string::npos) {
+
+        XmppStanza::XmppMessage *msg =
+            new XmppStanza::XmppMessage(GRACEFUL_RESTART_STANZA);
+        return msg;
     } else if (ts.find_first_of(sXMPP_VALIDWS) != string::npos) {
 
         XmppStanza::XmppMessage *msg = 

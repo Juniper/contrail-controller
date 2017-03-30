@@ -23,8 +23,8 @@ class XmppObjectFactory : public Factory<XmppObjectFactory> {
                     XmppServer *, const XmppChannelConfig *);
     FACTORY_TYPE_N2(XmppObjectFactory, XmppClientConnection,
                     XmppClient *, const XmppChannelConfig *);
-    FACTORY_TYPE_N3(XmppObjectFactory, XmppStateMachine,
-                    XmppConnection *, bool, bool);
+    FACTORY_TYPE_N4(XmppObjectFactory, XmppStateMachine,
+                    XmppConnection *, bool, bool, bool);
     FACTORY_TYPE_N1(XmppObjectFactory, XmppChannelMux, XmppConnection *);
     FACTORY_TYPE_N1(XmppObjectFactory, XmppLifetimeManager, int);
 };

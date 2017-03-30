@@ -176,6 +176,9 @@ protected:
         case xmsm::OPENCONFIRM_FEATURE_SUCCESS:
             EXPECT_TRUE(HoldTimerRunning());
             break;
+        case xmsm::OPENCONFIRM_STREAM_OPEN:
+            EXPECT_TRUE(HoldTimerRunning());
+            break;
         }
 
         TaskScheduler::GetInstance()->Start();
@@ -438,6 +441,10 @@ TEST_F(XmppStateMachineTest, OpenConfirm__Feature_Success__EvXmpOpen) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+    VerifyOpenConfirmState(xmsm::OPENCONFIRM_STREAM_OPEN);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 }
 
@@ -518,6 +525,10 @@ TEST_F(XmppStateMachineTest, Established__EvTcpClose) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+    VerifyOpenConfirmState(xmsm::OPENCONFIRM_STREAM_OPEN);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvTcpClose();
@@ -548,6 +559,10 @@ TEST_F(XmppStateMachineTest, Established__EvStop) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+    VerifyOpenConfirmState(xmsm::OPENCONFIRM_STREAM_OPEN);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvStop();
@@ -578,6 +593,10 @@ TEST_F(XmppStateMachineTest, Established__EvXmppMessageReceive) {
     VerifyOpenConfirmState(xmsm::OPENCONFIRM_FEATURE_SUCCESS);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+    VerifyOpenConfirmState(xmsm::OPENCONFIRM_STREAM_OPEN);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvXmppMessageStanza();

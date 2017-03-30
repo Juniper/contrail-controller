@@ -55,9 +55,10 @@ XmppConnection::XmppConnection(TcpServer *server,
       from_(config->FromAddr),
       to_(config->ToAddr),
       auth_enabled_(config->auth_enabled),
+      gr_enabled_(config->gr_helper_disable),
       dscp_value_(config->dscp_value),
       state_machine_(XmppObjectFactory::Create<XmppStateMachine>(
-          this, config->ClientOnly(), config->auth_enabled)),
+          this, config->ClientOnly(), config->auth_enabled, config->gr_helper_disable)),
       mux_(XmppObjectFactory::Create<XmppChannelMux>(this)) {
     ostringstream oss;
     oss << FromString() << ":" << endpoint().address().to_string();
@@ -292,6 +293,16 @@ bool XmppConnection::SendOpenConfirm(XmppSession *session) {
         stats_[1].open++;
         return true;
     }
+}
+
+void XmppConnection::SendGracefulRestart() {
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
+    if (!session_) return;
+    XmppStanza::XmppMessage msg(XmppStanza::GRACEFUL_RESTART_STANZA);
+    uint8_t data[256];
+    int len = XmppProto::EncodeStream(msg, data, sizeof(data));
+    assert(len > 0);
+    session_->Send(data, len, NULL);
 }
 
 bool XmppConnection::SendStreamFeatureRequest(XmppSession *session) {

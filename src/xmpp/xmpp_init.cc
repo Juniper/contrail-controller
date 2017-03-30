@@ -36,7 +36,6 @@ const char *XmppInit::kDnsPeer = "dns-peer";
 const char *XmppInit::kOtherPeer = "other-peer";
 
 SandeshTraceBufferPtr XmppMessageTraceBuf(SandeshTraceBufferCreate(XMPP_MESSAGE_TRACE_BUF, 5000));
-SandeshTraceBufferPtr XmppTraceBuf(SandeshTraceBufferCreate(XMPP_TRACE_BUF, 1000));
 
 XmppInit::XmppInit() 
    : g_server_(NULL), g_client_(NULL), cfg_(new XmppConfigData) {

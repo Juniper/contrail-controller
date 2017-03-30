@@ -41,7 +41,8 @@ typedef enum {
 typedef enum {
     OPENCONFIRM_INIT                         = 0,
     OPENCONFIRM_FEATURE_NEGOTIATION          = 1,
-    OPENCONFIRM_FEATURE_SUCCESS              = 2
+    OPENCONFIRM_FEATURE_SUCCESS              = 2,
+    OPENCONFIRM_STREAM_OPEN                  = 3
 } XmOpenConfirmState;
 
 
@@ -66,7 +67,8 @@ public:
     static const int kMaxAttempts = 4;
     static const int kJitter = 10;           // percentage
 
-    XmppStateMachine(XmppConnection *connection, bool active, bool auth_enabled = false);
+    XmppStateMachine(XmppConnection *connection, bool active, 
+                     bool auth_enabled = false, bool gr_enabled = false);
     ~XmppStateMachine();
 
     void Initialize();
@@ -87,6 +89,7 @@ public:
     void ResetSession();
 
     bool IsAuthEnabled() { return auth_enabled_; }
+    bool IsGREnabled() {return gr_enabled_; }
 
     void TimerErrorHandler(std::string name, std::string error);
 
@@ -205,6 +208,7 @@ private:
     bool in_dequeue_;
     bool is_active_;
     bool auth_enabled_;
+    bool gr_enabled_;
     xmsm::XmState state_;
     xmsm::XmState last_state_;
     xmsm::XmOpenConfirmState openconfirm_state_;

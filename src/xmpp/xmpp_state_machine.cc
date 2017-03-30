@@ -213,6 +213,18 @@ struct EvXmppKeepalive : sc::event<EvXmppKeepalive> {
     boost::shared_ptr<const XmppStanza::XmppMessage> msg;
 };
 
+struct EvXmppGracefulRestart : sc::event<EvXmppGracefulRestart> {
+    EvXmppGracefulRestart(XmppSession *session,
+                    const XmppStanza::XmppMessage *msg) :
+        session(session), msg(msg) {
+    }
+    static const char *Name() {
+        return "EvXmppGracefulRestart";
+    }
+    XmppSession *session;
+    boost::shared_ptr<const XmppStanza::XmppMessage> msg;
+};
+
 struct EvXmppMessageStanza : sc::event<EvXmppMessageStanza> {
     EvXmppMessageStanza(XmppSession *session,
                          const XmppStanza::XmppMessage *msg) :
@@ -391,16 +403,9 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         } else {
             XmppConnectionInfo info;
             info.set_identifier(event.msg->from);
-            if (state_machine->IsAuthEnabled()) {
-                state_machine->SendConnectionInfo(&info, event.Name(),
-                                                  "Open Confirm");
-                return transit<OpenConfirm>();
-            } else {
-                connection->StartKeepAliveTimer();
-                state_machine->SendConnectionInfo(&info, event.Name(),
-                                                  "Established");
-                return transit<XmppStreamEstablished>();
-            }
+            state_machine->SendConnectionInfo(&info, event.Name(), 
+                                              "Open Confirm");
+            return transit<OpenConfirm>();
         }
     }
 
@@ -622,23 +627,13 @@ struct OpenSent : public sc::state<OpenSent, XmppStateMachine> {
     sc::result react(const EvXmppOpen &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "EvXmppOpen (OpenSent) State");
-        XmppConnection *connection = state_machine->connection();
         if (event.session == state_machine->session()) {
             state_machine->AssignSession();
             XmppConnectionInfo info;
             info.set_identifier(event.msg->from);
-            if (state_machine->IsAuthEnabled()) {
-                state_machine->SendConnectionInfo(&info, event.Name(),
-                                                  "Open Confirm");
-                return transit<OpenConfirm>();
-            } else {
-                connection->SendKeepAlive();
-                connection->StartKeepAliveTimer();
-                state_machine->StartHoldTimer();
-                state_machine->SendConnectionInfo(&info, event.Name(),
-                                                  "Established");
-                return transit<XmppStreamEstablished>();
-            }
+            state_machine->SendConnectionInfo(&info, event.Name(),
+                                              "Open Confirm");
+            return transit<OpenConfirm>();
         }
         return discard_event();
     }
@@ -697,6 +692,8 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
         sc::custom_reaction<EvTlsProceed>,           //received by client
         sc::custom_reaction<EvTlsHandShakeSuccess>,
         sc::custom_reaction<EvTlsHandShakeFailure>,
+        sc::custom_reaction<EvXmppKeepalive>,
+        sc::custom_reaction<EvXmppGracefulRestart>,  //received by server
         sc::custom_reaction<EvXmppOpen>,             //received by server
         sc::custom_reaction<EvStop>
     > reactions;
@@ -704,6 +701,7 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
     OpenConfirm(my_context ctx) : my_base(ctx) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "(Xmpp OpenConfirm)");
+        state_machine->SendConnectionInfo("Open Confirm");
         state_machine->StartHoldTimer();
         XmppConnectionInfo info;
         if (!state_machine->IsActiveChannel()) { //server
@@ -718,15 +716,30 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
                     info.set_close_reason("Send Stream Feature Request Failed");
                     state_machine->connection()->set_close_reason(
                         "Send Stream Feature Request Failed");
-                    state_machine->SendConnectionInfo(&info,
+                    state_machine->SendConnectionInfo(
                         "Send Stream Feature Request failed", "Idle");
                     // cannot transition state as this is the constructor
                     // of new state
                 }
             }
+        } else { //client
+            if (!state_machine->IsAuthEnabled()) {
+                SM_LOG(state_machine,
+                       "Xmpp Send Graceful Restart");
+                XmppConnection *connection = state_machine->connection();
+                // Send both GR and KeepAlive
+                if (state_machine->IsGREnabled()) {
+                    connection->SendGracefulRestart();
+                } else {
+                    connection->SendKeepAlive();
+                }
+                connection->StartKeepAliveTimer();
+            }
         }
         state_machine->set_state(OPENCONFIRM);
         state_machine->set_openconfirm_state(OPENCONFIRM_INIT);
+        state_machine->SendConnectionInfo(
+            "(OpenConfirm_Init) in (OpenConfirm) state");
     }
 
     sc::result react(const EvTcpClose &event) {
@@ -769,26 +782,36 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
     // received by the client
     sc::result react(const EvStreamFeatureRequest &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
-        SM_LOG(state_machine, "EvStreamFeatureRequest in (OpenConfirm) State");
-        XmppConnection *connection = state_machine->connection();
-        XmppSession *session = state_machine->session();
-        // TODO, we need to have a supported stream feature list
-        // and compare against the requested stream feature list
-        // which will enable us to send start of various features
-        if (!connection->SendStartTls(session)) {
-            connection->SendClose(session);
-            state_machine->ResetSession();
-            XmppConnectionInfo info;
-            info.set_close_reason("Send Start Tls Failed");
+        if (state_machine->IsAuthEnabled()) {
+            SM_LOG(state_machine, "EvStreamFeatureRequest in (OpenConfirm) State");
+	    XmppConnection *connection = state_machine->connection();
+	    XmppSession *session = state_machine->session();
+            // TODO, we need to have a supported stream feature list
+	    // and compare against the requested stream feature list
+	    // which will enable us to send start of various features
+       	    if (!connection->SendStartTls(session)) {
+	        connection->SendClose(session);
+		state_machine->ResetSession();
+		XmppConnectionInfo info;
+		info.set_close_reason("Send Start Tls Failed");
+		state_machine->SendConnectionInfo(&info, event.Name(), "Active");
+		return transit<Active>();
+	    } else {
+		state_machine->StartHoldTimer();
+		state_machine->SendConnectionInfo(event.Name(),
+		    "Sent Start Tls, OpenConfirm Feature Negotiation");
+		state_machine->set_openconfirm_state(OPENCONFIRM_FEATURE_NEGOTIATION);
+		return discard_event();
+            }
+        } else {
+            SM_LOG(state_machine, "StreamFeatureRequest in (OpenConfirm) State \
+                                   without Auth. Transit to IDLE");
+            CloseSession(state_machine);
+            XmppConnectionInfo info; 
+            info.set_close_reason("StreamFeatureRequest without Auth Enabled");
+            state_machine->connection()->set_close_reason("Establishing timer expired");
             state_machine->SendConnectionInfo(&info, event.Name(), "Active");
             return transit<Active>();
-        } else {
-            state_machine->StartHoldTimer();
-            state_machine->SendConnectionInfo(event.Name(),
-                "Sent Start Tls, OpenConfirm Feature Negotiation");
-            state_machine->set_openconfirm_state(
-                       OPENCONFIRM_FEATURE_NEGOTIATION);
-            return discard_event();
         }
     }
 
@@ -894,6 +917,58 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
        }
     }
 
+    //event on server or client
+    sc::result react(const EvXmppKeepalive &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        if (event.session != state_machine->session()) {
+            return discard_event();
+        }
+        SM_LOG(state_machine, "EvXmppKeepalive in (OpenConfirm) State");
+        XmppConnectionInfo info;
+        info.set_identifier(event.msg->from);
+        XmppConnection *connection = state_machine->connection();
+        // client or server on recieving KeepAlive moves to Established state
+        if (!state_machine->IsAuthEnabled() ||
+            (state_machine->IsAuthEnabled() &&
+             state_machine->get_openconfirm_state() == OPENCONFIRM_STREAM_OPEN)) {
+            connection->SendKeepAlive();
+            connection->StartKeepAliveTimer();
+            state_machine->StartHoldTimer();
+            state_machine->SendConnectionInfo(&info, event.Name(),
+                                              "Established");
+            return transit<XmppStreamEstablished>();
+        } else {
+            return discard_event();
+        }
+    }
+
+    //event on server
+    sc::result react(const EvXmppGracefulRestart &event) {
+        XmppStateMachine *state_machine = &context<XmppStateMachine>();
+        if (event.session != state_machine->session()) {
+            return discard_event();
+        }
+        SM_LOG(state_machine, "EvXmppGracefulRestart in (OpenConfirm) State");
+        XmppConnectionInfo info;
+        info.set_identifier(event.msg->from);
+        XmppConnection *connection = state_machine->connection();
+        if (!connection->IsActiveChannel()) { //server
+            if (!state_machine->IsAuthEnabled() ||
+                (state_machine->IsAuthEnabled() &&
+                 state_machine->get_openconfirm_state() == OPENCONFIRM_STREAM_OPEN)) {
+                connection->SendKeepAlive();
+                connection->StartKeepAliveTimer();
+                state_machine->StartHoldTimer();
+                state_machine->SendConnectionInfo(&info, event.Name(),
+                                                  "Established");
+                return transit<XmppStreamEstablished>();
+            } else {
+            return discard_event();
+            }
+        }
+        return discard_event();
+    }
+
     //event on server and client
     sc::result react(const EvXmppOpen &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
@@ -901,17 +976,25 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
             return discard_event();
         }
         SM_LOG(state_machine, "EvXmppOpen in (OpenConfirm) State");
+	state_machine->set_openconfirm_state(OPENCONFIRM_STREAM_OPEN);
+        state_machine->SendConnectionInfo(
+            "(OpenConfirm_StreamOpen) in (OpenConfirm) state");
         XmppConnectionInfo info;
         info.set_identifier(event.msg->from);
         XmppConnection *connection = state_machine->connection();
         XmppSession *session = state_machine->session();
         if (connection->IsActiveChannel()) { //client
-            connection->SendKeepAlive();
+            // Send GR flag or KeepAlive.
+            if (state_machine->IsGREnabled()) {
+                connection->SendGracefulRestart();
+            } else {
+                connection->SendKeepAlive();
+            }
             connection->StartKeepAliveTimer();
             state_machine->StartHoldTimer();
             state_machine->SendConnectionInfo(&info, event.Name(),
-                                              "Established");
-            return transit<XmppStreamEstablished>();
+                "Send GracefulRestart and Keepalive");
+            return discard_event();
         } else { //server
             if (!connection->SendOpenConfirm(session)) {
                 connection->SendClose(session);
@@ -928,7 +1011,7 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
                 state_machine->StartHoldTimer();
                 state_machine->SendConnectionInfo(&info, event.Name(),
                                                   "Established");
-                return transit<XmppStreamEstablished>();
+                return discard_event();
             }
         }
     }
@@ -1116,7 +1199,7 @@ void XmppStateMachine::ResetSession() {
 }
 
 XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active,
-    bool auth_enabled)
+    bool auth_enabled, bool gr_enabled)
     : work_queue_(TaskScheduler::GetInstance()->GetTaskId("xmpp::StateMachine"),
           connection->GetTaskInstance(),
           boost::bind(&XmppStateMachine::DequeueEvent, this, _1)),
@@ -1145,6 +1228,7 @@ XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active,
       in_dequeue_(false),
       is_active_(active),
       auth_enabled_(auth_enabled),
+      gr_enabled_(gr_enabled),
       state_(xmsm::IDLE),
       last_state_(xmsm::IDLE),
       openconfirm_state_(xmsm::OPENCONFIRM_INIT) {
@@ -1464,6 +1548,9 @@ void XmppStateMachine::ProcessMessage(XmppSession *session,
             break;
         case XmppStanza::WHITESPACE_MESSAGE_STANZA:
             ProcessEvent(xmsm::EvXmppKeepalive(session, msg));
+            break;
+        case XmppStanza::GRACEFUL_RESTART_STANZA:
+            ProcessEvent(xmsm::EvXmppGracefulRestart(session, msg));
             break;
         case XmppStanza::IQ_STANZA:
             ProcessEvent(xmsm::EvXmppIqStanza(session, msg));

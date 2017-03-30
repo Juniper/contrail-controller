@@ -89,6 +89,7 @@ public:
     virtual bool SendProceedTls(XmppSession *session);
 
     void SendKeepAlive();
+    void SendGracefulRestart();
     void SendClose(XmppSession *session);
 
     // Ssl Handshake callback response
@@ -260,6 +261,7 @@ private:
     std::string from_; // bare jid
     std::string to_;
     bool auth_enabled_;
+    bool gr_enabled_;
     uint8_t dscp_value_;
     mutable std::string uve_key_str_;
 

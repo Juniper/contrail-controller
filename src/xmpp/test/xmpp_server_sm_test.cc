@@ -278,7 +278,7 @@ TEST_F(XmppStateMachineTest, Active_EvPassive_EvStop) {
 // Old State : OpenConfirm
 // Event     : EvTcpClose
 // New State : Idle
-TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvTcpClose) {
+TEST_F(XmppStateMachineTest, OpenConfirm_EvTcpClose) {
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -294,7 +294,7 @@ TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvTcpClose) {
 // Old State : OpenConfirm
 // Event     : EvHoldTimerExpired
 // New State : Idle
-TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvHoldTimerExpired) {
+TEST_F(XmppStateMachineTest, OpenConfirm_EvHoldTimerExpired) {
     VerifyState(xmsm::ACTIVE);
 
     EvTcpPassiveOpenFake();
@@ -318,9 +318,9 @@ TEST_F(XmppStateMachineTest, EvXmppOpen) {
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
-    VerifyState(xmsm::ESTABLISHED);
+    VerifyState(xmsm::OPENCONFIRM);
 
-    // Old State : Established
+    // Old State : OpenConfirm
     // Event     : EvXmppKeepalive
     // New State : Established
     EvXmppKeepalive();
@@ -343,7 +343,9 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
 
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvHoldTimerExpired();
@@ -360,7 +362,9 @@ TEST_F(XmppStateMachineTest, Established_EvTcpClose) {
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
 
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvTcpClose();
@@ -381,7 +385,9 @@ TEST_F(XmppStateMachineTest,
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
 
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvTcpClose();
@@ -401,7 +407,9 @@ TEST_F(XmppStateMachineTest, Established_EvStop) {
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
 
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvStop();
@@ -419,6 +427,9 @@ TEST_F(XmppStateMachineTest, EvXmppMessageStanza) {
     VerifyState(xmsm::ACTIVE);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvXmppMessageStanza();

@@ -27,6 +27,7 @@ const boost::regex XmppSession::stream_features_patt_(rXMPP_STREAM_FEATURES);
 const boost::regex XmppSession::starttls_patt_(rXMPP_STREAM_STARTTLS);
 const boost::regex XmppSession::proceed_patt_(rXMPP_STREAM_PROCEED);
 const boost::regex XmppSession::end_patt_(rXMPP_STREAM_STANZA_END);
+const boost::regex XmppSession::stream_gr_patt_(rXMPP_STREAM_GR);
 
 XmppSession::XmppSession(XmppConnectionManager *manager, SslSocket *socket,
     bool async_ready)

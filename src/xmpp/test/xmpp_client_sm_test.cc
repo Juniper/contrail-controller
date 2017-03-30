@@ -129,6 +129,14 @@ protected:
             EXPECT_TRUE(sm_->connection() != NULL);
             EXPECT_TRUE(sm_->session() != NULL);
             break;
+        case xmsm::OPENCONFIRM:
+            EXPECT_TRUE(sm_->IsActiveChannel());
+            EXPECT_TRUE(!ConnectTimerRunning());
+            EXPECT_TRUE(!OpenTimerRunning());
+            EXPECT_TRUE(HoldTimerRunning());
+            EXPECT_TRUE(sm_->connection() != NULL);
+            EXPECT_TRUE(sm_->session() != NULL);
+            break;
         case xmsm::ESTABLISHED:
             EXPECT_TRUE(!ConnectTimerRunning());
             EXPECT_TRUE(!OpenTimerRunning());
@@ -382,7 +390,7 @@ TEST_F(XmppStateMachineTest, Connect_EvTcpStop) {
 
 // OldState : OpenSent 
 // Event    : EvXmppOpen
-// NewState : Established 
+// NewState : OpenConfirm 
 TEST_F(XmppStateMachineTest, OpenSent_EvXmppOpen) {
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -401,7 +409,7 @@ TEST_F(XmppStateMachineTest, OpenSent_EvXmppOpen) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
-    VerifyState(xmsm::ESTABLISHED);
+    VerifyState(xmsm::OPENCONFIRM);
 }
 
 
@@ -499,6 +507,9 @@ TEST_F(XmppStateMachineTest, Established_EvXmppKeepAlive) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvXmppKeepalive();
@@ -526,6 +537,9 @@ TEST_F(XmppStateMachineTest, Established_EvXmppMessageReceive) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     EvXmppMessageStanza();
@@ -553,6 +567,9 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -586,6 +603,9 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired_connectfail) {
     VerifyState(xmsm::OPENSENT);
 
     EvXmppOpen();
+    VerifyState(xmsm::OPENCONFIRM);
+
+    EvXmppKeepalive();
     VerifyState(xmsm::ESTABLISHED);
 
     sm_->connect_attempts_inc(); // set attempts as we do not
@@ -652,7 +672,7 @@ TEST_F(XmppStateMachineTest, ConnectionBackoff) {
         VerifyState(xmsm::OPENSENT);
 
         EvXmppOpen();
-        VerifyState(xmsm::ESTABLISHED);
+        VerifyState(xmsm::OPENCONFIRM);
 
         if (idx == 6)
             break;
@@ -662,6 +682,8 @@ TEST_F(XmppStateMachineTest, ConnectionBackoff) {
     }
 
     TASK_UTIL_EXPECT_TRUE(sm_->get_connect_attempts() >= 6);
+    EvXmppKeepalive();
+    VerifyState(xmsm::ESTABLISHED);
     EvXmppKeepalive();
     EvXmppKeepalive();
     EvXmppKeepalive();
