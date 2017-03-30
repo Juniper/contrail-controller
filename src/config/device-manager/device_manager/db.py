@@ -85,6 +85,11 @@ class PhysicalRouterDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_router'
     _sandesh = None
+    _pull_device_config = False
+
+    @classmethod
+    def init_pull_device_config(cls, pull_device_config):
+        cls._pull_device_config = pull_device_config
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -547,6 +552,14 @@ class PhysicalRouterDM(DBBaseDM):
         if self.delete_config() or not self.is_vnc_managed():
             return
         self.config_manager.reset_bgp_config()
+
+        if PhysicalRouterDM._pull_device_config:
+            device_config = self.config_manager.get_device_config()
+            model = device_config.get('product-model', 'mx')
+            if 'mx' not in model.lower():
+                self._logger.error("DM: physical router: %s, product model is not supported. "
+                                   "device configuration=%s" % (self.uuid, str(device_config)))
+
         bgp_router = BgpRouterDM.get(self.bgp_router)
         if bgp_router:
             for peer_uuid, attr in bgp_router.bgp_routers.items():
