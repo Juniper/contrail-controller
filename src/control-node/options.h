@@ -36,36 +36,29 @@ public:
     bool use_syslog() const { return use_syslog_; }
     std::string syslog_facility() const { return syslog_facility_; }
     bool task_track_run_time() const { return task_track_run_time_; }
-    std::string ifmap_server_url() const {
-        return ifmap_config_options_.server_url;
-    }
-    std::string ifmap_password() const {
-        return ifmap_config_options_.password;
-    }
-    std::string ifmap_user() const { return ifmap_config_options_.user; }
-    std::string ifmap_certs_store() const {
-        return ifmap_config_options_.certs_store;
-    }
-    int ifmap_stale_entries_cleanup_timeout() const {
-        return ifmap_config_options_.stale_entries_cleanup_timeout;
-    }
-    int ifmap_end_of_rib_timeout() const {
-        return ifmap_config_options_.end_of_rib_timeout;
-    }
-    int ifmap_peer_response_wait_time() const {
-        return ifmap_config_options_.peer_response_wait_time;
-    }
     std::string config_db_user() const {
-        return ifmap_config_options_.config_db_username;
+        return configdb_options_.config_db_username;
     }
     std::string config_db_password() const {
-        return ifmap_config_options_.config_db_password;
+        return configdb_options_.config_db_password;
     }
     std::vector<std::string> config_db_server_list() const {
-        return ifmap_config_options_.config_db_server_list;
+        return configdb_options_.config_db_server_list;
     }
-    const IFMapConfigOptions &ifmap_config_options() const {
-        return ifmap_config_options_;
+    std::vector<std::string> rabbitmq_server_list() const {
+        return configdb_options_.rabbitmq_server_list;
+    }
+    std::string rabbitmq_user() const { 
+        return configdb_options_.rabbitmq_user; 
+    }
+    std::string rabbitmq_password() const {
+        return configdb_options_.rabbitmq_password;
+    }
+    bool rabbitmq_ssl_enabled() const { 
+        return configdb_options_.rabbitmq_use_ssl; 
+    }
+    const IFMapConfigOptions &configdb_options() const {
+        return configdb_options_;
     }
     uint16_t xmpp_port() const { return xmpp_port_; }
     bool xmpp_auth_enabled() const { return xmpp_auth_enable_; }
@@ -127,7 +120,7 @@ private:
     bool use_syslog_;
     std::string syslog_facility_;
     bool task_track_run_time_;
-    IFMapConfigOptions ifmap_config_options_;
+    IFMapConfigOptions configdb_options_;
     uint16_t xmpp_port_;
     bool xmpp_auth_enable_;
     std::string xmpp_server_cert_;

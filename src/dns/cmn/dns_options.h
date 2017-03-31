@@ -48,27 +48,23 @@ public:
     bool log_local() const { return log_local_; }
     bool use_syslog() const { return use_syslog_; }
     std::string syslog_facility() const { return syslog_facility_; }
-    std::string ifmap_server_url() const {
-        return ifmap_config_options_.server_url;
+    std::vector<std::string> config_db_server_list() const {
+        return configdb_options_.config_db_server_list;
     }
-    std::string ifmap_password() const {
-        return ifmap_config_options_.password;
+    std::vector<std::string> rabbitmq_server_list() const {
+        return configdb_options_.rabbitmq_server_list;
     }
-    std::string ifmap_user() const { return ifmap_config_options_.user; }
-    std::string ifmap_certs_store() const {
-        return ifmap_config_options_.certs_store;
+    std::string rabbitmq_user() const {
+        return configdb_options_.rabbitmq_user;
     }
-    int ifmap_stale_entries_cleanup_timeout() const {
-        return ifmap_config_options_.stale_entries_cleanup_timeout;
+    std::string rabbitmq_password() const {
+        return configdb_options_.rabbitmq_password;
     }
-    int ifmap_end_of_rib_timeout() const {
-        return ifmap_config_options_.end_of_rib_timeout;
+    bool rabbitmq_ssl_enabled() const {
+        return configdb_options_.rabbitmq_use_ssl;
     }
-    int ifmap_peer_response_wait_time() const {
-        return ifmap_config_options_.peer_response_wait_time;
-    }
-    const IFMapConfigOptions &ifmap_config_options() const {
-        return ifmap_config_options_;
+    const IFMapConfigOptions &configdb_options() const {
+        return configdb_options_;
     }
     bool xmpp_auth_enabled() const { return xmpp_auth_enable_; }
     std::string xmpp_server_cert() const { return xmpp_server_cert_; }
@@ -128,7 +124,7 @@ private:
     bool log_local_;
     bool use_syslog_;
     std::string syslog_facility_;
-    IFMapConfigOptions ifmap_config_options_;
+    IFMapConfigOptions configdb_options_;
     bool xmpp_auth_enable_;
     std::string xmpp_server_cert_;
     std::string xmpp_server_key_;

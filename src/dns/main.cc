@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
 
     ConfigClientManager *config_client_manager =
         new ConfigClientManager(Dns::GetEventManager(), &ifmap_server,
-            options.hostname(), module_name, options.ifmap_config_options());
+            options.hostname(), module_name, options.configdb_options());
     IFMap_Initialize(&ifmap_server, config_client_manager);
 
 
