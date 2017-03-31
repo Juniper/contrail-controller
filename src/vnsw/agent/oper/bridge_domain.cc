@@ -185,6 +185,7 @@ void BridgeDomainEntry::Delete() {
     if (vrf_.get()) {
         table_->agent()->vrf_table()->DeleteVrf(vrf_->GetName(),
                                                 VrfData::PbbVrf);
+        vrf_.reset();
     }
 }
 
