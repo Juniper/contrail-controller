@@ -18,8 +18,6 @@ import logging
 import socket
 import platform
 import time
-import pycassa
-from pycassa.pool import ConnectionPool
 import platform
 
 logging.basicConfig(level=logging.INFO,
@@ -156,12 +154,13 @@ def verify_cassandra(thriftport, cqlport, cassandra_user, cassandra_password):
     retry = 1
     while retry < retry_threshold:
          try:
-             if cassandra_user is None and cassandra_password is None:
-                 pool = ConnectionPool(None,['localhost:'+str(thriftport)])
-             else:
-                 cred={'username':cassandra_user,'password':cassandra_password}
-                 pool = ConnectionPool(None, ['localhost:'+str(thriftport)], \
-                                       credentials=cred)
+             if cassandra_user is not None and cassandra_password is not None:
+                 creds = PlainTextAuthProvider(username=cassandra_user,
+                            password=cassandra_password)
+
+             cql_port = int(cqlport)
+             cluster = Cluster(auth_provider = creds, port = cql_port)
+             session=cluster.connect()
              return True
          except Exception as e:
              logging.info("Exception: Failure in connection to "
