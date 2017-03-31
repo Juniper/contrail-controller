@@ -8,11 +8,6 @@
 #
 
 import redis
-import pycassa
-from pycassa.pool import ConnectionPool
-from pycassa.columnfamily import ColumnFamily
-from pycassa.types import *
-from pycassa import *
 from sandesh.viz.constants import *
 from sandesh.viz.constants import _NO_AUTO_PURGE_TABLES, \
         _FLOW_TABLES, _STATS_TABLES, _MSG_TABLES
@@ -60,24 +55,6 @@ class AnalyticsDb(object):
     def connect_db(self):
         self.get_cql_session()
     # end connect_db
-
-    def _get_sysm(self):
-        creds=None
-        if self._cassandra_user is not None and \
-           self._cassandra_password is not None:
-               creds =  {'username':self._cassandra_user,
-                         'password':self._cassandra_password}
-        for server_and_port in self._cassandra_server_list:
-            try:
-                sysm = pycassa.system_manager.SystemManager(server_and_port,
-                                                            credentials=creds)
-            except Exception as e:
-                self._logger.error("Exception: SystemManager failed %s" % e)
-                continue
-            else:
-                return sysm
-        return None
-    # end _get_sysm
 
     def _get_analytics_ttls_cql(self):
         session = self.get_cql_session()

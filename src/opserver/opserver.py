@@ -36,12 +36,9 @@ import hashlib
 import errno
 import copy
 import datetime
-import pycassa
 import platform
 from analytics_db import AnalyticsDb
 
-from pycassa.pool import ConnectionPool
-from pycassa.columnfamily import ColumnFamily
 from pysandesh.util import UTCTimestampUsec
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter

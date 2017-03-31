@@ -27,9 +27,6 @@ from mockcassandra import mockcassandra
 import logging
 import time
 import json
-import pycassa
-from pycassa.pool import ConnectionPool
-from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
 from utils.util import find_buildroot
 
