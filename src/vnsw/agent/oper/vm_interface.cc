@@ -174,18 +174,30 @@ static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
         }
         FloatingIp *fip = static_cast<FloatingIp *>(node->GetObject());
         assert(fip != NULL);
-        LOG(DEBUG, "Add FloatingIP <" << fip->address() << ":" <<
-            vrf_node->name() << "> to interface " << node->name());
 
         boost::system::error_code ec;
         IpAddress addr = IpAddress::from_string(fip->address(), ec);
         if (ec.value() != 0) {
-            LOG(DEBUG, "Error decoding Floating IP address " << fip->address());
+            LOG(ERROR, "Error decoding Floating IP address " << fip->address());
+            OPER_TRACE_ENTRY(Trace, agent->interface_table(),
+                             "Error decoding Floating IP address " +
+                             fip->address());
         } else {
             IpAddress fixed_ip_addr =
                 IpAddress::from_string(fip->fixed_ip_address(), ec);
             if (ec.value() != 0) {
                 fixed_ip_addr = IpAddress();
+            }
+            if (!fixed_ip_addr.is_unspecified()) {
+                if ((addr.is_v4() && !fixed_ip_addr.is_v4()) ||
+                    (addr.is_v6() && !fixed_ip_addr.is_v6())) {
+                    string msg = "Invalid fixed-ip " + fip->fixed_ip_address() +
+                                 " for FloatingIP " + fip->address();
+                    LOG(ERROR, msg);
+                    OPER_TRACE_ENTRY(Trace, agent->interface_table(), msg);
+
+                    return true;
+                }
             }
 
             VmInterface::FloatingIp::Direction dir =
@@ -4464,9 +4476,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
         return;
     }
 
-    if (fixed_ip_.is_v4() && fixed_ip_ == Ip4Address(0)) {
-        fixed_ip_ = GetFixedIp(interface);
-    }
+    fixed_ip_ = GetFixedIp(interface);
 
     InterfaceTable *table =
         static_cast<InterfaceTable *>(interface->get_table());
@@ -4475,7 +4485,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v4(),
                         Address::kMaxV4PrefixLen, vn_->GetName(), false,
                         interface->ecmp(), false, false, Ip4Address(0),
-                        GetFixedIp(interface), CommunityList(),
+                        fixed_ip_, CommunityList(),
                         interface->label());
         if (table->update_floatingip_cb().empty() == false) {
             table->update_floatingip_cb()(interface, vn_.get(),
@@ -4485,7 +4495,7 @@ void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
         interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(),
                         Address::kMaxV6PrefixLen, vn_->GetName(), false,
                         interface->ecmp6(), false, false, Ip6Address(),
-                        GetFixedIp(interface), CommunityList(),
+                        fixed_ip_, CommunityList(),
                         interface->label());
         //TODO:: callback for DNS handling
     }
