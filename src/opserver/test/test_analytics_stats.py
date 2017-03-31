@@ -28,9 +28,6 @@ from utils.stats_fixture import StatsFixture
 from mockcassandra import mockcassandra
 import logging
 import time
-import pycassa
-from pycassa.pool import ConnectionPool
-from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
 from utils.opserver_introspect_utils import VerificationOpsSrv
 from utils.util import retry, find_buildroot
