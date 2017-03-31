@@ -9,9 +9,10 @@ import time
 import argparse
 import ConfigParser
 
-from vnc_api.vnc_api import *
+from vnc_admin_api import VncApiAdmin
 from cfgm_common.exceptions import *
 from contrail_alarm import alarm_list
+
 
 class AlarmProvisioner(object):
 
@@ -22,13 +23,14 @@ class AlarmProvisioner(object):
         self._parse_args(args_str)
 
         try:
-            self._vnc_lib = VncApi(
+            self._vnc_lib = VncApiAdmin(
                 self._args.admin_user,
                 self._args.admin_password,
                 self._args.admin_tenant_name,
                 self._args.api_server_ip,
                 self._args.api_server_port,
-                api_server_use_ssl=self._args.api_server_use_ssl)
+                api_server_use_ssl=self._args.api_server_use_ssl,
+                use_admin_api=self._args.use_admin_api)
         except ResourceExhaustionError: # haproxy throws 503
             raise
 
@@ -66,10 +68,6 @@ class AlarmProvisioner(object):
         args, remaining_argv = parser.parse_known_args(args_str.split())
 
         parser.add_argument(
-            "--api_server_ip",
-            default='127.0.0.1',
-            help="IP address of api server")
-        parser.add_argument(
             "--api_server_port",
             default='8082',
             help="Port of api server")
@@ -86,6 +84,13 @@ class AlarmProvisioner(object):
             "--api_server_use_ssl",
             default=False,
             help="Use SSL to connect with API server"),
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument(
+            "--api_server_ip", help="IP address of api server")
+        group.add_argument("--use_admin_api",
+                            default=False,
+                            help = "Connect to local api-server on admin port",
+                            action="store_true")
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
 

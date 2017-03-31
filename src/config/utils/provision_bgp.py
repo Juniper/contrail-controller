@@ -10,6 +10,8 @@ from pprint import pformat
 
 from vnc_api.vnc_api import *
 
+from vnc_admin_api import VncApiAdmin
+
 
 def get_ip(ip_w_pfx):
     return str(IPNetwork(ip_w_pfx).ip)
@@ -19,18 +21,19 @@ def get_ip(ip_w_pfx):
 class BgpProvisioner(object):
 
     def __init__(self, user, password, tenant, api_server_ip, api_server_port,
-                 api_server_use_ssl=False):
+                 api_server_use_ssl=False, use_admin_api=False):
         self._admin_user = user
         self._admin_password = password
         self._admin_tenant_name = tenant
         self._api_server_ip = api_server_ip
         self._api_server_port = api_server_port
         self._api_server_use_ssl = api_server_use_ssl
-        self._vnc_lib = VncApi(
+        self._vnc_lib = VncApiAdmin(
             self._admin_user, self._admin_password, self._admin_tenant_name,
             self._api_server_ip,
             self._api_server_port, '/',
-            api_server_use_ssl=self._api_server_use_ssl)
+            api_server_use_ssl=self.api_server_use_ssl,
+            use_admin_api=use_admin_api)
     # end __init__
 
     def _get_rt_inst_obj(self):

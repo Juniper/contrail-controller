@@ -12,6 +12,7 @@ from cfgm_common.exceptions import *
 from provision_bgp import BgpProvisioner
 from vnc_api.vnc_api import *
 
+
 class ISSUContrailPreProvisioner(object):
 
     def __init__(self, args_str=None):
@@ -29,7 +30,8 @@ class ISSUContrailPreProvisioner(object):
                     self._args.v1_api_server_ip,
                     self._args.api_server_port, '/',
                     auth_host=self._args.openstack_ip,
-                    api_server_use_ssl=self._args.api_server_use_ssl)
+                    api_server_use_ssl=self._args.api_server_use_ssl,
+                    use_admin_api=self._args.use_admin_api)
                 connected = True
             except ResourceExhaustionError: # haproxy throws 503
                 if tries < 10:
