@@ -256,8 +256,9 @@ TEST_F(Ipv6Test, IntfStaticRoute_1) {
     //Add a v6 static route
     struct TestIp6Prefix static_route6[] = {
         { Ip6Address::from_string("fd12::2"), 120},
+        { Ip6Address::from_string("fd12::6"), 128},
     };
-    AddInterfaceRouteTableV6("static_route6", 2, static_route6, 1);
+    AddInterfaceRouteTableV6("static_route6", 2, static_route6, 2);
 
     AddLink("virtual-machine-interface", "vnet1",
             "interface-route-table", "static_route");
@@ -270,6 +271,8 @@ TEST_F(Ipv6Test, IntfStaticRoute_1) {
                 static_route[1].plen_));
     EXPECT_TRUE(RouteFindV6("vrf1", static_route6[0].addr_,
                 static_route6[0].plen_));
+    EXPECT_TRUE(RouteFindV6("vrf1", static_route6[1].addr_,
+                static_route6[1].plen_));
 
     //Delete the link between interface and route table
     DelLink("virtual-machine-interface", "vnet1",
@@ -283,6 +286,8 @@ TEST_F(Ipv6Test, IntfStaticRoute_1) {
                 static_route[1].plen_));
     EXPECT_FALSE(RouteFindV6("vrf1", static_route6[0].addr_,
                 static_route6[0].plen_));
+    EXPECT_FALSE(RouteFindV6("vrf1", static_route6[1].addr_,
+                static_route6[1].plen_));
 
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
     client->WaitForIdle();
