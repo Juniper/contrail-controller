@@ -520,15 +520,17 @@ TEST_F(FlowRpfTest, L2_VmToFabric_DstIp_2) {
     FlowEntry *rflow = flow->reverse_flow_entry();
     EXPECT_TRUE(rflow != NULL);
 
+    EXPECT_FALSE(flow->IsShortFlow());
     EXPECT_TRUE(flow->data().enable_rpf);
     const InterfaceNH *nh = dynamic_cast<const InterfaceNH *>(flow->rpf_nh());
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->GetInterface() == static_cast<Interface *>(vmi0_));
 
+    EXPECT_FALSE(rflow->IsShortFlow());
     EXPECT_TRUE(rflow->data().enable_rpf);
     EXPECT_TRUE(rflow->rpf_nh() != NULL);
-    EXPECT_EQ(rflow->short_flow_reason(),
-              FlowEntry::SHORT_NO_SRC_ROUTE_L2RPF);
+    const TunnelNH *rnh = dynamic_cast<const TunnelNH *>(rflow->rpf_nh());
+    EXPECT_TRUE(*(rnh->GetDip()) == Ip4Address::from_string("100.100.100.1"));
 }
 
 // If source-ip hits subnet route then RPF should be based on L2 Route
@@ -540,11 +542,34 @@ TEST_F(FlowRpfTest, L2_VmToFabric_SubnetRoute_1) {
                               vmi0_->flow_key_nh()->id());
     FlowEntry *rflow = flow->reverse_flow_entry();
 
+    EXPECT_FALSE(flow->IsShortFlow());
     EXPECT_TRUE(flow->data().enable_rpf);
     const InterfaceNH *nh = dynamic_cast<const InterfaceNH *>(flow->rpf_nh());
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->GetInterface() == static_cast<Interface *>(vmi0_));
 
+    EXPECT_FALSE(rflow->IsShortFlow());
+    EXPECT_TRUE(rflow->data().enable_rpf);
+    const TunnelNH *rnh = dynamic_cast<const TunnelNH *>(rflow->rpf_nh());
+    EXPECT_TRUE(*(rnh->GetDip()) == Ip4Address::from_string("100.100.100.1"));
+    DeleteRemoteRoute("vrf1", REMOTE_VM2_IP, 30);
+}
+
+// RPF for an egress flow must be based on L2 Route if there is no source-route
+TEST_F(FlowRpfTest, L2_VmToFabric_NoRoute_1) {
+    TxL2Packet(vmi0_->id(), VM1_MAC, REMOTE_VM1_MAC, VM1_IP, REMOTE_VM2_IP, 1);
+    client->WaitForIdle();
+    FlowEntry *flow = FlowGet(vrf1_->vrf_id(), VM1_IP, REMOTE_VM2_IP, 1, 0, 0,
+                              vmi0_->flow_key_nh()->id());
+    FlowEntry *rflow = flow->reverse_flow_entry();
+
+    EXPECT_FALSE(flow->IsShortFlow());
+    EXPECT_TRUE(flow->data().enable_rpf);
+    const InterfaceNH *nh = dynamic_cast<const InterfaceNH *>(flow->rpf_nh());
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(nh->GetInterface() == static_cast<Interface *>(vmi0_));
+
+    EXPECT_FALSE(rflow->IsShortFlow());
     EXPECT_TRUE(rflow->data().enable_rpf);
     const TunnelNH *rnh = dynamic_cast<const TunnelNH *>(rflow->rpf_nh());
     EXPECT_TRUE(*(rnh->GetDip()) == Ip4Address::from_string("100.100.100.1"));

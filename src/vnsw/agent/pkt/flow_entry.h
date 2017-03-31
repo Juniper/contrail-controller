@@ -598,6 +598,7 @@ class FlowEntry {
     bool IsShortFlow() const { return is_flags_set(FlowEntry::ShortFlow); }
     bool IsEcmpFlow() const { return is_flags_set(FlowEntry::EcmpFlow); }
     bool IsNatFlow() const { return is_flags_set(FlowEntry::NatFlow); }
+    bool IsIngressFlow() const { return is_flags_set(FlowEntry::IngressDir); }
     // Flow action routines
     void ResyncFlow();
     void RpfUpdate();
