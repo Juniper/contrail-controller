@@ -50,7 +50,15 @@ public:
     void TestStartStopTimer (bool stop) {
         if (timer_ != NULL) {
             if (stop) {
-                assert(timer_->Cancel());
+                // UTs call TestStartStopTimer() without exclusion. Hence,
+                // timer->Cancel() can potentially fail. Retry in that case
+                int i = 0;
+                for (; i < 8; i++) {
+                    if (timer_->Cancel())
+                        break;
+                    usleep(1000);
+                }
+                assert(i < 8);
             } else {
                 timer_->Start(expiry_time_,
                               boost::bind(&StatsCollector::TimerExpiry, this));

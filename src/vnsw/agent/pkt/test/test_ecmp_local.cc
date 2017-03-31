@@ -213,7 +213,7 @@ TEST_F(LocalEcmpTest, NonEcmpToLocalEcmp_EcmpDel_1) {
     if (out_vmi->name() == "vif13")
         DeleteVmportEnv(input10_3, 1, false);
 
-    EXPECT_EQ(0, flow_proto_->FlowCount());
+    WAIT_FOR(1000, 1000, (0 == flow_proto_->FlowCount()));
 }
 
 // Ping from non-ECMP to ECMP

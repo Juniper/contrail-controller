@@ -519,15 +519,16 @@ bool ConfigManager::CanUseNode(IFMapNode *node) {
 
     IFMapDependencyManager *dep =
         agent()->oper_db()->dependency_manager();
+
+    // Table not managed by dependency manager. Node can be used
+    if (dep->IsRegistered(node) == false)
+        return true;
+
     IFMapNodeState *state = dep->IFMapNodeGet(node);
     if (state == NULL) {
-        // State not set
-        // - Table not managed by dependency manager. Node can be used
-        // - Table managed by dependency manager. Node cannot be used
-        if (dep->IsRegistered(node))
-            return false;
-        else
-            return true;
+        // State not set. Means, IFMapDependency manager manages the node
+        // and has not seen the node yet. Node cannot be used.
+        return false;
     }
 
     if (state->notify() == false ||
