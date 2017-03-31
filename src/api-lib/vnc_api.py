@@ -800,11 +800,12 @@ class VncApi(object):
                 else:
                     raise ValueError
             except ConnectionError:
-                if not retry_on_error:
+                if (not retry_on_error or not retry_count):
                     raise ConnectionError
 
                 time.sleep(1)
                 self._create_api_server_session()
+                retry_count -= 1
                 continue
 
             if status == 200:
