@@ -12,6 +12,7 @@ import requests
 from netaddr.ip import IPNetwork
 from vnc_api.vnc_api import *
 
+
 class ProvisionVgwInterface(object):
 
     def __init__(self, args_str=None):

@@ -8,6 +8,8 @@ import argparse
 import ConfigParser
 
 from vnc_api.vnc_api import *
+from vnc_admin_api import VncApiAdmin
+
 
 class EncapsulationProvision(object):
 
@@ -17,7 +19,8 @@ class EncapsulationProvision(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
-        self._vnc_lib = VncApi(
+        self._vnc_lib = VncApiAdmin(
+            self._args.use_admin_api,
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
             self._args.api_server_ip,
@@ -104,8 +107,6 @@ class EncapsulationProvision(object):
         defaults.update(ksopts)
         parser.set_defaults(**defaults)
 
-        parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument("--api_server_use_ssl",
                         help="Use SSL to connect with API server")
@@ -121,6 +122,13 @@ class EncapsulationProvision(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenant name for keystone admin user")
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument(
+            "--api_server_ip", help="IP address of api server")
+        group.add_argument("--use_admin_api",
+                            default=False,
+                            help = "Connect to local api-server on admin port",
+                            action="store_true")
 
         self._args = parser.parse_args(remaining_argv)
         if not self._args.encap_priority:

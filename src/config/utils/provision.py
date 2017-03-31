@@ -11,6 +11,7 @@ import copy
 from netaddr import IPNetwork
 
 from vnc_api.vnc_api import *
+from vnc_admin_api import VncApiAdmin
 
 
 def get_ip(ip_w_pfx):
@@ -36,7 +37,8 @@ class VncProvisioner(object):
         self._bgp_peering_attrs = BgpPeeringAttributes(
             session=self._bgp_sessions)
 
-        self._vnc_lib = VncApi(self._args.admin_user,
+        self._vnc_lib = VncApiAdmin(self._args.use_admin_api,
+                               self._args.admin_user,
                                self._args.admin_password,
                                self._args.admin_tenant_name,
                                self._args.api_server_ip,
@@ -163,8 +165,6 @@ class VncProvisioner(object):
 
         parser.add_argument(
             "--prov_data_file", help="File name of provision data in json")
-        parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument("--api_server_use_ssl",
                         help="Use SSL to connect with API server")
@@ -174,6 +174,13 @@ class VncProvisioner(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenamt name for keystone admin user")
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument(
+            "--api_server_ip", help="IP address of api server")
+        group.add_argument("--use_admin_api",
+                            default=False,
+                            help = "Connect to local api-server on admin port",
+                            action="store_true")
 
         self._args = parser.parse_args(remaining_argv)
 

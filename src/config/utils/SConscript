@@ -53,6 +53,7 @@ utils_scripts = [
   'issu_process.sh',
   'qosmap.py',
   'update_default_global_qos_config.py',
+  'vnc_admin_api.py',
 ]
 
 for utils in utils_scripts:

@@ -60,6 +60,7 @@ import sys
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import UserDefinedLogStat
 from vnc_api.gen.resource_client import GlobalSystemConfig
+from vnc_admin_api import VncApiAdmin
 
 
 class VncProvisioner(object):
@@ -70,8 +71,8 @@ class VncProvisioner(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
-
-        self._vnc_lib = VncApi(self._args.admin_user,
+        self._vnc_lib = VncApiAdmin(self._args.use_admin_api,
+                               self._args.admin_user,
                                self._args.admin_password,
                                self._args.admin_tenant_name,
                                self._args.api_server_ip,
@@ -158,8 +159,6 @@ class VncProvisioner(object):
         defaults.update(ksopts)
         parser.set_defaults(**defaults)
 
-        parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument(
             "--admin_user", help="Name of keystone admin user")
@@ -176,6 +175,13 @@ class VncProvisioner(object):
         add_p.add_argument("add", nargs=2, help="name 'pattern'")
         del_p.add_argument("delete", nargs='+', help="name [name ...]")
         lst_p.add_argument("list", nargs='*', help="[name ...]")
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument(
+            "--api_server_ip", help="IP address of api server")
+        group.add_argument("--use_admin_api",
+                            default=False,
+                            help = "Connect to local api-server on admin port",
+                            action="store_true")
 
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
