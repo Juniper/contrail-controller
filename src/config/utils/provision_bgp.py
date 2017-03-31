@@ -16,6 +16,17 @@ def get_ip(ip_w_pfx):
 # end get_ip
 
 
+class VncApiAdmin(VncApi):
+    """ Api client library which connects to admin port of api-server.
+    """
+    def _authenticate(self, response=None, headers=None):
+        sessions = self._api_server_session.api_server_sessions
+        for host, session in sessions.items():
+            session.auth=(self._username, self._password)
+            sessions.update({host: session})
+        return headers
+
+
 class BgpProvisioner(object):
 
     def __init__(self, user, password, tenant, api_server_ip, api_server_port,
@@ -26,11 +37,17 @@ class BgpProvisioner(object):
         self._api_server_ip = api_server_ip
         self._api_server_port = api_server_port
         self._api_server_use_ssl = api_server_use_ssl
-        self._vnc_lib = VncApi(
+        if (self._api_server_ip == "127.0.0.1" and self._api_server_port == 8095):
+            vnc_api_class = VncApiAdmin
+            api_server_use_ssl = False
+        else:
+            vnc_api_class = VncApi
+            api_server_use_ssl = self._api_server_use_ssl
+        self._vnc_lib = vnc_api_class(
             self._admin_user, self._admin_password, self._admin_tenant_name,
             self._api_server_ip,
             self._api_server_port, '/',
-            api_server_use_ssl=self._api_server_use_ssl)
+            api_server_use_ssl=api_server_use_ssl)
     # end __init__
 
     def _get_rt_inst_obj(self):
