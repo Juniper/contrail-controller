@@ -147,6 +147,29 @@ TEST_F(ArpPathPreferenceTest, Test3) {
     EXPECT_TRUE(GetEvpnMapRetryCount(vrf_id, intf_id, ip) >= 1);
 }
 
+//Verify dependent route doesnt get added in
+//path preference map
+TEST_F(ArpPathPreferenceTest, Test4) {
+    uint32_t vrf_id = VrfGet("vrf1")->vrf_id();
+    uint32_t intf_id = VmPortGetId(1);
+    struct TestIp4Prefix static_route[] = {
+        { Ip4Address::from_string("24.1.1.1"), 32},
+    };
+    AddInterfaceRouteTable("static_route", 1, static_route, 1);
+    AddLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route");
+    client->WaitForIdle();
+
+    const IpAddress ip = Ip4Address::from_string("24.1.1.1");
+
+    EXPECT_FALSE(CheckIpMap(vrf_id, intf_id, ip));
+    EXPECT_FALSE(CheckEvpnMap(vrf_id, intf_id, ip));
+    client->WaitForIdle();
+
+    DelLink("virtual-machine-interface", "vnet1",
+            "interface-route-table", "static_route");
+    client->WaitForIdle();
+}
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();

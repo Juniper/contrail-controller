@@ -241,6 +241,9 @@ void ArpPathPreferenceState::SendArpRequestForAllIntf(const
             if (dynamic_cast<const InetUnicastRouteEntry *>(route)) {
                 gw_ip_ = path->subnet_service_ip();
             }
+            if (path->path_preference().IsDependentRt() == true) {
+                continue;
+            }
             uint32_t intf_id = intf->id();
             WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
                 wait_for_traffic_map.find(intf_id);
