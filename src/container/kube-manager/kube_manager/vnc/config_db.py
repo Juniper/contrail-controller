@@ -726,7 +726,7 @@ class SecurityGroupKM(DBBaseKM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.build_fq_name_to_uuid(self.uuid, obj)
-        self.annotations = obj.get('annotations', None)
+        self.annotations = obj.get('annotations', {})
         for kvp in self.annotations.get('key_value_pair', []):
             if kvp.get('key') == 'namespace':
                 self.namespace = kvp.get('value')
