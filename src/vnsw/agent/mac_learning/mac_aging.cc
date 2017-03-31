@@ -57,8 +57,11 @@ void MacAgingTable::Add(MacLearningEntryPtr ptr) {
 }
 
 void MacAgingTable::Delete(MacLearningEntryPtr ptr) {
-    Trace("Deleting MAC entry", aging_table_[ptr.get()].get());
-    aging_table_.erase(ptr.get());
+    MacAgingEntryTable::iterator it = aging_table_.find(ptr.get());
+    if (it != aging_table_.end()) {
+        Trace("Deleting MAC entry", it->second.get());
+        aging_table_.erase(it);
+    }
 }
 
 void MacAgingTable::ReadStats(MacAgingEntry *ptr) {

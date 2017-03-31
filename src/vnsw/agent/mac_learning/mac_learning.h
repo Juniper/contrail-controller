@@ -154,6 +154,8 @@ public:
     void DeleteAll();
     void ReleaseToken(const MacLearningKey &key);
     MacLearningEntry* Find(const MacLearningKey &key);
+    //To be used in test cases only
+    MacLearningEntryPtr TestGet(const MacLearningKey &key);
     bool RequestHandler(MacLearningEntryRequestPtr ptr);
 
     Agent* agent() {
