@@ -80,6 +80,7 @@ TEST_F(BridgeDomainTest, Test2) {
     client->WaitForIdle();
 
     BridgeDomainEntry *bd = BridgeDomainGet(1);
+    BridgeDomainRef ref(bd);
     EXPECT_TRUE(bd->vrf() == NULL);
 
     AddVrf("vrf1", 1);
@@ -94,6 +95,12 @@ TEST_F(BridgeDomainTest, Test2) {
     EXPECT_TRUE(bd->vrf()->table_label() != MplsTable::kInvalidLabel);
 
     DelNode("bridge-domain", "bridge1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(bd->vrf() == NULL);
+    EXPECT_FALSE(VrfFind("vrf1:00000000-0000-0000-0000-000000000001", true));
+    ref.reset();
+
     DelLink("virtual-network", "vn1", "bridge-domain", "bridge1");
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     DelVn("vn1");

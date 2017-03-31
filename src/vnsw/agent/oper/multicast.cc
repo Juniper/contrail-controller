@@ -260,7 +260,7 @@ void MulticastHandler::AddBridgeDomain(DBTablePartBase *partition,
     if (e->IsDeleted() || bd->vrf() == NULL || bd->vn() == NULL) {
         if (state) {
             MulticastGroupObject *obj =
-                FindFloodGroupObject(bd->vrf()->GetName());
+                FindFloodGroupObject(state->vrf_name_);
             assert(obj);
             obj->reset_bridge_domain();
             bd->ClearState(partition->parent(), bridge_domain_id_);
