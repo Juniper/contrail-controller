@@ -369,8 +369,6 @@ struct PktInfo {
 
     bool                tcp_ack;
     TunnelInfo          tunnel;
-    // Forwarding mode for packet - l3/l2
-    mutable bool        l3_forwarding;
     bool                l3_label;
     bool                multicast_label;
 

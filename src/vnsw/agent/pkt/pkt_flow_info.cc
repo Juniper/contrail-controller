@@ -40,18 +40,18 @@
 const Ip4Address PktFlowInfo::kDefaultIpv4;
 const Ip6Address PktFlowInfo::kDefaultIpv6;
 
-static void LogError(const PktInfo *pkt, const char *str) {
+static void LogError(const PktInfo *pkt, const PktFlowInfo *info, const char *str) {
     if (pkt->family == Address::INET) {
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
                    pkt->agent_hdr.vrf, pkt->ip_saddr.to_v4().to_ulong(),
-                   pkt->ip_daddr.to_v4().to_ulong(), str, pkt->l3_forwarding,
+                   pkt->ip_daddr.to_v4().to_ulong(), str, info->l3_flow,
                    0, 0, 0, 0);
     } else if (pkt->family == Address::INET6) {
         uint64_t sip[2], dip[2];
         Ip6AddressToU64Array(pkt->ip_saddr.to_v6(), sip, 2);
         Ip6AddressToU64Array(pkt->ip_daddr.to_v6(), dip, 2);
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
-                   pkt->agent_hdr.vrf, -1, -1, str, pkt->l3_forwarding,
+                   pkt->agent_hdr.vrf, -1, -1, str, info->l3_flow,
                    sip[0], sip[1], dip[0], dip[1]);
     } else {
         assert(0);
@@ -67,7 +67,6 @@ static void LogError(const PktInfo *pkt, const char *str) {
 void PktFlowInfo::ChangeVrf(const PktInfo *pkt, PktControlInfo *info,
                             const VrfEntry *vrf) {
     l3_flow = true;
-    pkt->l3_forwarding = true;
 }
 
 void PktFlowInfo::UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
@@ -171,7 +170,7 @@ static bool PickEcmpMember(const NextHop **nh, const PktInfo *pkt,
                            PktFlowInfo *info,
                            const EcmpLoadBalance &ecmp_load_balance) {
     // We dont support ECMP in L2 yet. Return failure to drop packet
-    if (pkt->l3_forwarding == false) {
+    if (info->l3_flow == false) {
         info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
         return true;
     }
@@ -275,14 +274,14 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         break;
 
     case NextHop::RECEIVE:
-        assert(pkt->l3_forwarding == true);
+        assert(info->l3_flow == true);
         out->intf_ = static_cast<const ReceiveNH *>(nh)->GetInterface();
         out->vrf_ = out->intf_->vrf();
         out->nh_ = GetPolicyDisabledNH(nh_table, nh)->id();
         break;
 
     case NextHop::VLAN: {
-        assert(pkt->l3_forwarding == true);
+        assert(info->l3_flow == true);
         const VlanNH *vlan_nh = static_cast<const VlanNH*>(nh);
         out->intf_ = vlan_nh->GetInterface();
         out->vlan_nh_ = true;
@@ -308,7 +307,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 
         // The NH in reverse flow can change only if ECMP-NH is used. There is
         // no ECMP for layer2 flows
-        if (pkt->l3_forwarding == false) {
+        if (info->l3_flow == false) {
             break;
         }
 
@@ -322,7 +321,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         // Get only local-NH from route
         const NextHop *local_nh = rt->GetLocalNextHop();
         if (local_nh && local_nh->IsActive() == false) {
-            LogError(pkt, "Invalid or Inactive local nexthop ");
+            LogError(pkt, info, "Invalid or Inactive local nexthop ");
             info->short_flow = true;
             info->short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
             break;
@@ -359,7 +358,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         // ARP Nexthop means outgoing interface is gateway kind of interface with
         // ARP already resolved
     case NextHop::ARP: {
-        assert(pkt->l3_forwarding == true);
+        assert(info->l3_flow == true);
         const ArpNH *arp_nh = static_cast<const ArpNH *>(nh);
         if (in->intf_->type() == Interface::VM_INTERFACE) {
             const VmInterface *vm_intf =
@@ -378,7 +377,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         // RESOLVE Nexthop means traffic came from gateway interface and destined
         // to another gateway interface
     case NextHop::RESOLVE: {
-        assert(pkt->l3_forwarding == true);
+        assert(info->l3_flow == true);
         const ResolveNH *rsl_nh = static_cast<const ResolveNH *>(nh);
         out->nh_ = rsl_nh->interface()->flow_key_nh()->id();
         out->intf_ = rsl_nh->interface();
@@ -562,7 +561,6 @@ void PktFlowInfo::CheckLinkLocal(const PktInfo *pkt) {
                                                  &nat_server, &nat_port)) {
             // it is link local service request, treat it as l3
             l3_flow = true;
-            pkt->l3_forwarding = true;
         }
     }
 }
@@ -1108,7 +1106,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     // Flow packets are expected only on VMPort interfaces
     if (in->intf_->type() != Interface::VM_INTERFACE &&
         in->intf_->type() != Interface::INET) {
-        LogError(pkt, "Unexpected packet on Non-VM interface");
+        LogError(pkt, this, "Unexpected packet on Non-VM interface");
         return;
     }
 
@@ -1224,7 +1222,7 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
         tunnel_type.GetType() == TunnelType::MPLS_UDP) {
         MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(pkt->tunnel.label);
         if (mpls == NULL) {
-            LogError(pkt, "Invalid Label in egress flow");
+            LogError(pkt, this, "Invalid Label in egress flow");
             return NULL;
         }
         return mpls->nexthop();
@@ -1232,7 +1230,7 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
         VxLanTable *table = static_cast<VxLanTable *>(agent->vxlan_table());
         VxLanId *vxlan = table->FindNoLock(pkt->tunnel.vxlan_id);
         if (vxlan == NULL) {
-            LogError(pkt, "Invalid vxlan in egress flow");
+            LogError(pkt, this, "Invalid vxlan in egress flow");
             return NULL;
         }
 
@@ -1253,7 +1251,7 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
 
         return NULL;
     } else {
-        LogError(pkt, "Invalid tunnel type in egress flow");
+        LogError(pkt, this, "Invalid tunnel type in egress flow");
         return NULL;
     }
 
@@ -1276,7 +1274,6 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     if (out->intf_ && out->intf_->type() == Interface::VM_INTERFACE) {
         const VmInterface *vm_intf = static_cast<const VmInterface *>(out->intf_);
         if (vm_intf->IsFloatingIp(pkt->ip_daddr)) {
-            pkt->l3_forwarding = true;
             l3_flow = true;
         } else {
             VrfEntry *alias_vrf = vm_intf->GetAliasIpVrf(pkt->ip_daddr);
@@ -1398,13 +1395,13 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (in->intf_ == NULL ||
-        (pkt->l3_forwarding == true &&
+        (l3_flow == true &&
          in->intf_->type() == Interface::VM_INTERFACE &&
          in->intf_->ip_active(pkt->family) == false) ||
-        (pkt->l3_forwarding == false &&
+        (l3_flow == false &&
          in->intf_->l2_active() == false)) {
         in->intf_ = NULL;
-        LogError(pkt, "Invalid or Inactive ifindex");
+        LogError(pkt, this, "Invalid or Inactive ifindex");
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
         return false;
@@ -1413,16 +1410,16 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     if (in->intf_->type() == Interface::VM_INTERFACE) {
         const VmInterface *vm_intf = 
             static_cast<const VmInterface *>(in->intf_);
-        if (pkt->l3_forwarding && vm_intf->layer3_forwarding() == false) {
-            LogError(pkt, "ipv4 service not enabled for ifindex");
+        if (l3_flow && vm_intf->layer3_forwarding() == false) {
+            LogError(pkt, this, "ipv4 service not enabled for ifindex");
             short_flow = true;
             short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
             return false;
         }
 
-        if (pkt->l3_forwarding == false &&
+        if (l3_flow == false &&
             vm_intf->bridging() == false) {
-            LogError(pkt, "Bridge service not enabled for ifindex");
+            LogError(pkt, this, "Bridge service not enabled for ifindex");
             short_flow = true;
             short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
             return false;
@@ -1432,7 +1429,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     in->vrf_ = agent->vrf_table()->FindVrfFromId(pkt->agent_hdr.vrf);
     if (in->vrf_ == NULL || !in->vrf_->IsActive()) {
         in->vrf_ = NULL;
-        LogError(pkt, "Invalid or Inactive VRF");
+        LogError(pkt, this, "Invalid or Inactive VRF");
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_VRF;
         return false;
@@ -1455,14 +1452,14 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if (in->rt_ == NULL) {
-        LogError(pkt, "Flow : No route for Src-IP");
+        LogError(pkt, this, "Flow : No route for Src-IP");
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_NO_SRC_ROUTE;
         return false;
     }
 
     if (out->rt_ == NULL) {
-        LogError(pkt, "Flow : No route for Dst-IP");
+        LogError(pkt, this, "Flow : No route for Dst-IP");
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_NO_DST_ROUTE;
         return false;
@@ -1795,7 +1792,6 @@ void PktFlowInfo::UpdateFipStatsInfo
 }
 
 void PktFlowInfo::SetPktInfo(boost::shared_ptr<PktInfo> pkt_info) {
-     l3_flow = pkt_info->l3_forwarding;
      family = pkt_info->family;
      pkt = pkt_info;
  }

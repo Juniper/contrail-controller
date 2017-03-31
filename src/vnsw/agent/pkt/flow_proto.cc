@@ -187,7 +187,7 @@ FlowHandler *FlowProto::AllocProtoHandler(PktInfoPtr info,
 }
 
 bool FlowProto::Validate(PktInfo *msg) {
-    if (msg->l3_forwarding && msg->ip == NULL && msg->ip6 == NULL &&
+    if (msg->ip == NULL && msg->ip6 == NULL &&
         msg->type != PktType::MESSAGE) {
         if (msg->family == Address::INET) {
             FLOW_TRACE(DetailErr, msg->agent_hdr.cmd_param,
@@ -196,7 +196,7 @@ bool FlowProto::Validate(PktInfo *msg) {
                        msg->ip_saddr.to_v4().to_ulong(),
                        msg->ip_daddr.to_v4().to_ulong(),
                        "Flow : Non-IP packet. Dropping",
-                       msg->l3_forwarding, 0, 0, 0, 0);
+                       false, 0, 0, 0, 0);
         } else if (msg->family == Address::INET6) {
             uint64_t sip[2], dip[2];
             Ip6AddressToU64Array(msg->ip_saddr.to_v6(), sip, 2);
@@ -205,7 +205,7 @@ bool FlowProto::Validate(PktInfo *msg) {
                        msg->agent_hdr.ifindex,
                        msg->agent_hdr.vrf, -1, -1,
                        "Flow : Non-IP packet. Dropping",
-                       msg->l3_forwarding,
+                       false,
                        sip[0], sip[1], dip[0], dip[1]);
         } else {
             assert(0);
