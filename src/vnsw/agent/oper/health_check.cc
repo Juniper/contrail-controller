@@ -115,7 +115,7 @@ bool HealthCheckInstance::DestroyInstanceTask() {
 void HealthCheckInstance::UpdateInstanceTaskCommand() {
     if (service_->table_->agent()->test_mode()) {
         // in test mode, set task instance to run no-op shell
-        task_->set_cmd("/bin/sh");
+        task_->set_cmd("sleep 1");
         return;
     }
 
@@ -258,8 +258,18 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
         ret = true;
     }
 
+    if (ip_proto_ != data->ip_proto_) {
+        ip_proto_ = data->ip_proto_;
+        ret = true;
+    }
+
     if (url_path_ != data->url_path_) {
         url_path_ = data->url_path_;
+        ret = true;
+    }
+
+    if (url_port_ != data->url_port_) {
+        url_port_ = data->url_port_;
         ret = true;
     }
 
@@ -441,11 +451,15 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
     const autogen::ServiceHealthCheckType &p = s->properties();
     Ip4Address dest_ip;
     std::string url_path;
+    uint8_t ip_proto = 0;
+    uint16_t url_port = 0;
     if (p.monitor_type.find("HTTP") == std::string::npos) {
         boost::system::error_code ec;
         dest_ip = Ip4Address::from_string(p.url_path, ec);
         url_path = p.url_path;
+        ip_proto = IPPROTO_ICMP;
     } else if (!p.url_path.empty()) {
+        ip_proto = IPPROTO_TCP;
         // parse url if available
         struct http_parser_url urldata;
         int ret = http_parser_parse_url(p.url_path.c_str(), p.url_path.size(),
@@ -459,13 +473,17 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
             // keep rest of the url string as is
             url_path = p.url_path.substr(urldata.field_data[UF_HOST].off +\
                                          urldata.field_data[UF_HOST].len);
+            url_port = urldata.port;
+            if ((urldata.field_set & (1 << UF_PORT)) == 0) {
+                url_port = 80;
+            }
         }
     }
     HealthCheckServiceData *data =
         new HealthCheckServiceData(agent, dest_ip, node->name(),
-                                   p.monitor_type, p.http_method, url_path,
-                                   p.expected_codes, p.delay, p.timeout,
-                                   p.max_retries, node);
+                                   p.monitor_type, ip_proto, p.http_method,
+                                   url_path, url_port, p.expected_codes,
+                                   p.delay, p.timeout, p.max_retries, node);
 
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
