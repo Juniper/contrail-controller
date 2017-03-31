@@ -90,8 +90,6 @@ class MxProvisioner(object):
             "--address_families", help="Address family list",
             choices=["route-target", "inet-vpn", "e-vpn", "erm-vpn", "inet6-vpn"],
             nargs="*", default=[])
-        parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument("--api_server_use_ssl",
                         help="Use SSL to connect with API server")
@@ -104,6 +102,13 @@ class MxProvisioner(object):
             "--admin_password", help="Password of keystone admin user")
         parser.add_argument(
             "--admin_tenant_name", help="Tenamt name for keystone admin user")
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument(
+            "--api_server_ip", help="IP address of api server")
+        group.add_argument("--use_admin_api",
+                            default=False,
+                            help = "Connect to local api-server on admin port",
+                            action="store_true")
 
         self._args = parser.parse_args(remaining_argv)
 

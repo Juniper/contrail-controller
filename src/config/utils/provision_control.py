@@ -10,6 +10,14 @@ from provision_bgp import BgpProvisioner
 from vnc_api.vnc_api import *
 
 
+class VncApiAdmin(VncApi):
+    """ Api client library which connects to admin port of api-server.
+    """
+    def _authenticate(self, response=None, headers=None):
+        self._api_server_session.auth=(self._username, self._password)
+        return headers
+
+
 class ControlProvisioner(object):
 
     def __init__(self, args_str=None):
@@ -19,12 +27,22 @@ class ControlProvisioner(object):
         self._parse_args(args_str)
 
         if self._args.router_asn and not self._args.oper:
+            if self._args.use_admin_api:
+                vnc_api_class = VncApiAdmin
+                api_server_ip = "127.0.0.1"
+                api_server_port = 8095
+                api_server_use_ssl = False
+            else:
+                vnc_api_class = VncApi
+                api_server_ip = self._args.api_server_ip
+                api_server_port = self._args.api_server_port
+                api_server_use_ssl = self._args.api_server_use_ssl
             self._vnc_lib = VncApi(
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
-            self._args.api_server_ip,
-            self._args.api_server_port, '/',
-            api_server_use_ssl=self._args.api_server_use_ssl)
+            api_server_ip,
+            api_server_port, '/',
+            api_server_use_ssl=api_server_use_ssl)
 
             # Update global system config also with this ASN
             gsc_obj = self._vnc_lib.global_system_config_read(
@@ -160,9 +178,7 @@ class ControlProvisioner(object):
             "--ibgp_auto_mesh", help="Create iBGP mesh automatically", dest='ibgp_auto_mesh', action='store_true')
         parser.add_argument(
             "--no_ibgp_auto_mesh", help="Don't create iBGP mesh automatically", dest='ibgp_auto_mesh', action='store_false')
-        parser.add_argument(
-            "--api_server_ip", help="IP address of api server", required=True)
-        parser.add_argument("--api_server_port", help="Port of api server", required=True)
+        parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument("--api_server_use_ssl",
                         help="Use SSL to connect with API server")
         parser.add_argument(
@@ -201,6 +217,13 @@ class ControlProvisioner(object):
         parser.add_argument("--set_graceful_restart_parameters",
                             action='store_true',
                             help="Set Graceful Restart Parameters")
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument(
+            "--api_server_ip", help="IP address of api server")
+        group.add_argument("--use_admin_api",
+                            default=False,
+                            help = "Connect to local api-server on admin port",
+                            action="store_true")
 
         self._args = parser.parse_args(remaining_argv)
 

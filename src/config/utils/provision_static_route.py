@@ -15,6 +15,14 @@ from vnc_api.gen.resource_client import InterfaceRouteTable
 from netaddr import *
 
 
+class VncApiAdmin(VncApi):
+    """ Api client library which connects to admin port of api-server.
+    """
+    def _authenticate(self, response=None, headers=None):
+        self._api_server_session.auth=(self._username, self._password)
+        return headers
+
+
 class StaticRouteProvisioner(object):
 
     def __init__(self, args_str=None):
@@ -23,12 +31,22 @@ class StaticRouteProvisioner(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
+        if self._args.use_admin_api:
+            vnc_api_class = VncApiAdmin
+            api_server_ip = "127.0.0.1"
+            api_server_port = 8095
+            api_server_use_ssl = False
+        else:
+            vnc_api_class = VncApi
+            api_server_ip = self._args.api_server_ip
+            api_server_port = self._args.api_server_port
+            api_server_use_ssl = self._args.api_server_use_ssl
         self._vnc_lib = VncApi(
             self._args.user, self._args.password,
             self._args.tenant_name,
-            self._args.api_server_ip,
-            self._args.api_server_port, '/',
-            api_server_use_ssl=self._args.api_server_use_ssl)
+            api_server_ip,
+            api_server_port, '/',
+            api_server_use_ssl=api_server_use_ssl)
         
         prefix = self._args.prefix
         vmi_id_got = self._args.virtual_machine_interface_id
@@ -176,8 +194,6 @@ class StaticRouteProvisioner(object):
 
         parser.add_argument(
             "--prefix", help="IP Destination prefix to be updated in the Route", required=True)
-        parser.add_argument(
-            "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument("--api_server_use_ssl",
                         help="Use SSL to connect with API server")
@@ -194,6 +210,13 @@ class StaticRouteProvisioner(object):
             "--password", help="Password of keystone admin user")
         parser.add_argument(
             "--route_table_name", help="Route Table name. Default : CustomRouteTable")
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument(
+            "--api_server_ip", help="IP address of api server")
+        group.add_argument("--use_admin_api",
+                            default=False,
+                            help = "Connect to local api-server on admin port",
+                            action="store_true")
 
         self._args = parser.parse_args(remaining_argv)
 
