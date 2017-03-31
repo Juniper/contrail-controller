@@ -803,6 +803,10 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
             continue;
         }
 
+        if (!it->fixed_ip_.is_v4()) {
+            continue;
+        }
+
         if (pkt->ip_daddr.to_v4() != it->floating_ip_) {
             continue;
         }
