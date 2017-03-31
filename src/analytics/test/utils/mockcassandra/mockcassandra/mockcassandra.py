@@ -18,8 +18,6 @@ import logging
 import socket
 import platform
 import time
-import pycassa
-from pycassa.pool import ConnectionPool
 import platform
 
 logging.basicConfig(level=logging.INFO,
