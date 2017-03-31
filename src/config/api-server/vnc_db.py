@@ -938,7 +938,15 @@ class VncDbClient(object):
                     if not device_owner and li_back_refs:
                         obj_dict['virtual_machine_interface_device_owner'] = 'PhysicalRouter'
                         self._cassandra_db.object_update('virtual_machine_interface',
-                                                    obj_uuid, obj_dict)
+                                                         obj_uuid, obj_dict)
+                elif obj_type == 'access_control_list':
+                    if not obj_dict.get('access_control_list_hash'):
+                        rules = obj_dict.get('access_control_list_entries')
+                        if rules:
+                            rules_obj = AclEntriesType(params_dict=rules)
+                            obj_dict['access_control_list_hash'] = hash(rules_obj)
+                            self._cassandra_db.object_update('access_control_list',
+                                                              obj_uuid, obj_dict)
 
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
