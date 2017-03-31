@@ -216,9 +216,11 @@ void MacLearningPartition::Add(MacLearningEntryPtr ptr) {
         //Entry already present, clear the entry and delete it from
         //aging tree
         ptr->CopyToken(it.first->second.get());
-        MacLearningEntryRequestPtr aging_req(new MacLearningEntryRequest(
-                    MacLearningEntryRequest::DELETE_MAC, it.first->second));
-        aging_partition_->Enqueue(aging_req);
+        if (it.first->second->deleted() == false) {
+            MacLearningEntryRequestPtr aging_req(new MacLearningEntryRequest(
+                        MacLearningEntryRequest::DELETE_MAC, it.first->second));
+            aging_partition_->Enqueue(aging_req);
+        }
         mac_learning_table_[key] = ptr;
     }
 
@@ -230,12 +232,12 @@ void MacLearningPartition::Add(MacLearningEntryPtr ptr) {
 }
 
 void MacLearningPartition::Delete(const MacLearningEntryPtr ptr) {
-    MacLearningKey key(ptr->vrf_id(), ptr->mac());
-    if (mac_learning_table_[key] == NULL) {
+    if (ptr->deleted() == true) {
         return;
     }
 
-    if (ptr->deleted() == true) {
+    MacLearningKey key(ptr->vrf_id(), ptr->mac());
+    if (mac_learning_table_.find(key) == mac_learning_table_.end()) {
         return;
     }
 
@@ -286,6 +288,12 @@ MacLearningPartition::Find(const MacLearningKey &key) {
         return NULL;
     }
     return it->second.get();
+}
+
+MacLearningEntryPtr
+MacLearningPartition::TestGet(const MacLearningKey &key) {
+    MacLearningEntryTable::iterator it = mac_learning_table_.find(key);
+    return it->second;
 }
 
 void MacLearningPartition::ReleaseToken(const MacLearningKey &key) {

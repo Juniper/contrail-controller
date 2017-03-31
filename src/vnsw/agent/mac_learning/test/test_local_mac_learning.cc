@@ -243,6 +243,41 @@ TEST_F(MacLearningTest, Test6) {
     WAIT_FOR(1000, 1000,(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL));
 }
 
+//1> Add a new mac
+//2> Delete the mac entry and ensure it doesnt get removed from
+//   tree because of delete notification delay.
+//3> Add the same mac back
+TEST_F(MacLearningTest, Test7) {
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+
+    MacAddress smac(0x00, 0x00, 0x00, 0x11, 0x22, 0x1);
+    TxL2Packet(intf->id(),  smac.ToString().c_str(), "00:00:00:33:22:11",
+            "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
+    client->WaitForIdle();
+
+    MacLearningKey key(intf->vrf()->vrf_id(), smac);
+    MacLearningPartition *partition = agent_->mac_learning_proto()->Find(0);
+    MacLearningEntryPtr ptr = partition->TestGet(key);
+
+    agent_->db()->SetQueueDisable(true);
+    MacLearningEntryRequestPtr req_ptr(new MacLearningEntryRequest(
+                                       MacLearningEntryRequest::DELETE_MAC,
+                                       ptr));
+    //Enqueue 2 times so that duplicate delete happens
+    partition->Enqueue(req_ptr);
+    partition->Enqueue(req_ptr);
+    client->WaitForIdle();
+
+    TxL2Packet(intf->id(),  smac.ToString().c_str(), "00:00:00:33:22:11",
+            "1.1.1.1", "1.1.1.11", 1, 100, intf->vrf()->vrf_id(), 1, 1);
+    client->WaitForIdle();
+
+    agent_->db()->SetQueueDisable(false);
+    client->WaitForIdle();
+
+    WAIT_FOR(1000, 1000,(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) != NULL));
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
