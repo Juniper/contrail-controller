@@ -12,6 +12,7 @@ from cfgm_common.exceptions import *
 from provision_bgp import BgpProvisioner
 from vnc_api.vnc_api import *
 
+
 class ISSUContrailPreProvisioner(object):
 
     def __init__(self, args_str=None):
