@@ -572,14 +572,15 @@ void BgpXmppChannel::RoutingInstanceCallback(string vrf_name, int op) {
     assert(rt_instance);
 
     if (op == RoutingInstanceMgr::INSTANCE_ADD) {
-        InstanceMembershipRequestState imr_state;
-        if (!GetInstanceMembershipState(vrf_name, &imr_state))
+        const InstanceMembershipRequestState *imr_state =
+            GetInstanceMembershipState(vrf_name);
+        if (!imr_state)
             return;
-        ProcessDeferredSubscribeRequest(rt_instance, imr_state);
+        ProcessDeferredSubscribeRequest(rt_instance, *imr_state);
         DeleteInstanceMembershipState(vrf_name);
     } else {
-        SubscriptionState *sub_state = NULL;
-        if (!GetSubscriptionState(rt_instance, &sub_state))
+        SubscriptionState *sub_state = GetSubscriptionState(rt_instance);
+        if (!sub_state)
             return;
         rtarget_manager_->RoutingInstanceCallback(
             rt_instance, &sub_state->targets);
@@ -689,23 +690,13 @@ bool BgpXmppChannel::DeleteInstanceMembershipState(const string &instance) {
 }
 
 //
-// Return true if there's an entry in the pending instance request map.
+// Find the entry in the pending instance request map.
 //
-bool BgpXmppChannel::GetInstanceMembershipState(const string &instance,
-    InstanceMembershipRequestState *imr_state) const {
+const BgpXmppChannel::InstanceMembershipRequestState *
+BgpXmppChannel::GetInstanceMembershipState(const string &instance) const {
     InstanceMembershipRequestMap::const_iterator loc =
         instance_membership_request_map_.find(instance);
-    if (loc != instance_membership_request_map_.end()) {
-        if (imr_state) {
-            *imr_state = loc->second;
-        }
-        return true;
-    } else {
-        if (imr_state) {
-            imr_state->instance_id = -1;
-        }
-        return false;
-    }
+    return loc != instance_membership_request_map_.end() ? &loc->second : NULL;
 }
 
 //
@@ -753,9 +744,10 @@ bool BgpXmppChannel::VerifyMembership(const string &vrf_name,
         // Bail if there's no pending subscribe for the instance.
         // Note that route retract can be received while the instance is
         // marked for deletion.
-        InstanceMembershipRequestState imr_state;
-        if (GetInstanceMembershipState(vrf_name, &imr_state)) {
-            *instance_id = imr_state.instance_id;
+        const InstanceMembershipRequestState *imr_state =
+            GetInstanceMembershipState(vrf_name);
+        if (imr_state) {
+            *instance_id = imr_state->instance_id;
             *subscribe_pending = true;
         } else if (add_change || !rt_instance) {
             BGP_LOG_PEER_INSTANCE_CRITICAL(Peer(), vrf_name, BGP_PEER_DIR_IN,
@@ -2216,19 +2208,18 @@ void BgpXmppChannel::DeleteSubscriptionState(RoutingInstance *rt_instance) {
     routing_instances_.erase(rt_instance);
 }
 
-bool BgpXmppChannel::GetSubscriptionState(RoutingInstance *rt_instance,
-    SubscriptionState **sub_state) {
+BgpXmppChannel::SubscriptionState *BgpXmppChannel::GetSubscriptionState(
+    RoutingInstance *rt_instance) {
     SubscribedRoutingInstanceList::iterator loc =
         routing_instances_.find(rt_instance);
-    if (loc != routing_instances_.end()) {
-        if (sub_state)
-            *sub_state = &loc->second;
-        return true;
-    } else {
-        if (sub_state)
-            *sub_state = NULL;
-        return false;
-    }
+    return (loc != routing_instances_.end() ? &loc->second : NULL);
+}
+
+const BgpXmppChannel::SubscriptionState *BgpXmppChannel::GetSubscriptionState(
+    RoutingInstance *rt_instance) const {
+    SubscribedRoutingInstanceList::const_iterator loc =
+        routing_instances_.find(rt_instance);
+    return (loc != routing_instances_.end() ? &loc->second : NULL);
 }
 
 void BgpXmppChannel::ProcessDeferredSubscribeRequest(RoutingInstance *instance,

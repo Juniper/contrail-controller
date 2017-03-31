@@ -181,6 +181,16 @@ public:
     void ProcessPendingSubscriptions();
 
 protected:
+    struct InstanceMembershipRequestState {
+        InstanceMembershipRequestState(int instance_id = -1,
+            bool no_ribout = false)
+            : instance_id(instance_id), no_ribout(no_ribout) {
+        };
+
+        int instance_id;
+        bool no_ribout;
+    };
+
     XmppChannel *channel_;
 
 private:
@@ -215,16 +225,6 @@ private:
         bool no_ribout;
     };
 
-    struct InstanceMembershipRequestState {
-        InstanceMembershipRequestState(int instance_id = -1,
-            bool no_ribout = false)
-            : instance_id(instance_id), no_ribout(no_ribout) {
-        };
-
-        int instance_id;
-        bool no_ribout;
-    };
-
     // Map of routing instances to which this BgpXmppChannel is subscribed.
     struct SubscriptionState {
         enum State {
@@ -250,6 +250,7 @@ private:
         int index;
         uint32_t state;
     };
+
     typedef std::map<RoutingInstance *, SubscriptionState>
         SubscribedRoutingInstanceList;
 
@@ -288,8 +289,8 @@ private:
     void AddInstanceMembershipState(const std::string &instance,
         InstanceMembershipRequestState imr_state);
     bool DeleteInstanceMembershipState(const std::string &instance);
-    virtual bool GetInstanceMembershipState(const std::string &instance,
-        InstanceMembershipRequestState *imr_state = NULL) const;
+    virtual const InstanceMembershipRequestState *GetInstanceMembershipState(
+        const std::string &instance) const;
 
     bool ProcessItem(std::string vrf_name, const pugi::xml_node &node,
                      bool add_change);
@@ -304,8 +305,9 @@ private:
                                     bool add_change);
     void AddSubscriptionState(RoutingInstance *rt_instance, int index);
     void DeleteSubscriptionState(RoutingInstance *rt_instance);
-    bool GetSubscriptionState(RoutingInstance *rt_instance,
-        SubscriptionState **sub_state = NULL);
+    SubscriptionState *GetSubscriptionState(RoutingInstance *rt_instance);
+    const SubscriptionState *GetSubscriptionState(
+        RoutingInstance *rt_instance) const;
 
     void RegisterTable(int line, BgpTable *table,
         const TableMembershipRequestState *tmr_state);

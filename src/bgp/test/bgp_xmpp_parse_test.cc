@@ -96,7 +96,7 @@ private:
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
     BgpXmppChannelMock(XmppChannel *channel, BgpServer *server)
-        : BgpXmppChannel(channel, server) {
+        : BgpXmppChannel(channel, server), imr_state_(1) {
     }
 
     virtual boost::asio::ip::tcp::endpoint endpoint() const {
@@ -104,11 +104,12 @@ public:
     }
 
 private:
-    virtual bool GetInstanceMembershipState(const string &vrf_name,
-        InstanceMembershipRequestState *imr_state) {
-        imr_state->instance_id = 1;
-        return true;
+    virtual const InstanceMembershipRequestState *GetInstanceMembershipState(
+        const string &vrf_name) const {
+        return &imr_state_;
     }
+
+    InstanceMembershipRequestState imr_state_;
 };
 
 class BgpXmppParseTest : public ::testing::Test {
