@@ -1163,6 +1163,114 @@ class AddrMgmt(object):
         return self._check_subnet_delete(delete_set, db_vn_dict)
     # end net_check_subnet_delete
 
+    # validate any change in subnet and reject if
+    # dns server and gw_ip got changed 
+    def _validate_subnet_update(self, req_subnets, db_subnets):
+        for req_subnet in req_subnets:
+            req_cidr = req_subnet.get('subnet')
+            req_df_gw = req_subnet.get('default_gateway')
+            req_dns = req_subnet.get('dns_server_address')
+            for db_subnet in db_subnets:
+                db_cidr = db_subnet.get('subnet')
+                if req_cidr is None or db_cidr is None:
+                    continue
+                if req_cidr != db_cidr:
+                    continue
+
+                # for a given subnet, default gateway should not be different
+                db_df_gw = db_subnet.get('default_gateway')
+                db_prefix = db_cidr.get('ip_prefix')
+                db_prefix_len = db_cidr.get('ip_prefix_len')
+
+                network = IPNetwork('%s/%s' % (db_prefix, db_prefix_len))
+                if db_subnet.get('addr_from_start'):
+                    df_gw_ip = str(IPAddress(network.first + 1))
+                    df_dns_ser_addr = str(IPAddress(network.first + 2))
+                else:
+                    df_gw_ip = str(IPAddress(network.last - 1))
+                    df_dns = str(IPAddress(network.last - 2))
+
+                if db_df_gw != req_df_gw:
+                    invalid_update = False
+                    if ((req_df_gw is None) and (db_df_gw != df_gw_ip)):
+                        invalid_update = True
+
+                    if ((req_df_gw != None) and (req_df_gw != df_gw_ip)):
+                        invalid_update = True
+                    if invalid_update is True: 
+                        err_msg = "default gateway change is not allowed" +\
+                                  " orig:%s, new: %s" \
+                                  %(db_df_gw, req_df_gw)
+                        return False, err_msg
+
+                # for a given subnet, dns server address should not be different
+                db_dns = db_subnet.get('dns_server_address')
+                if db_dns != req_dns:
+                    invalid_update = False
+                    if ((req_dns is None) and (db_dns != df_dns)):
+                        invalid_update = True
+
+                    if ((req_dns != None) and (req_dns != df_dns)):
+                        invalid_update = True
+                    if invalid_update is True: 
+                        err_msg = "dns server change is not allowed" +\
+                                  " orig:%s, new: %s" \
+                                  %(db_dns, req_dns)
+                        return False, err_msg
+
+        return True, ""
+    # end _validate_subnet_update
+
+    # validate ipam_subnets configured at ipam
+    # reject change in gw_ip and dsn_server in any subnet
+    def ipam_validate_subnet_update(self, db_ipam_dict, req_ipam_dict):
+        req_ipam_subnets = req_ipam_dict.get('ipam_subnets')
+        db_ipam_subnets = db_ipam_dict.get('ipam_subnets')
+        if req_ipam_subnets is None or db_ipam_subnets is None:
+            return True, ""
+
+        req_subnets = req_ipam_subnets.get('subnets') or []
+        db_subnets = db_ipam_subnets.get('subnets') or []
+        (ok, result) = self._validate_subnet_update(req_subnets, db_subnets)
+        if not ok:
+            return ok, result
+
+        return True, ""
+    # end ipam_validate_subnet_update
+
+    # validate ipam_subnets configured at ipam->vn link
+    # reject change in gw_ip and dsn_server in any subnet
+    def net_validate_subnet_update(self, db_vn_dict, req_vn_dict):
+        if 'network_ipam_refs' not in req_vn_dict:
+            # subnets not modified in request
+            return True, ""
+        if 'network_ipam_refs' not in db_vn_dict:
+            # all subnets in req_vn_dict are new.
+            return True, ""
+
+        # check if gw_ip and dns_address are not modified
+        # in requested network_ipam_refs for any given subnets.
+        req_ipam_refs = req_vn_dict.get('network_ipam_refs')
+        db_ipam_refs = db_vn_dict.get('network_ipam_refs')
+        for req_ref in req_ipam_refs:
+            req_ipam_ref_uuid = req_ref.get('uuid')
+            for db_ref in db_ipam_refs:
+                db_ipam_ref_uuid = db_ref.get('uuid')
+                if db_ipam_ref_uuid != req_ipam_ref_uuid:
+                    continue
+
+                req_vnsn_data = req_ref.get('attr')
+                req_subnets = req_vnsn_data.get('ipam_subnets') or []
+                db_vnsn_data = db_ref.get('attr')
+                db_subnets = db_vnsn_data.get('ipam_subnets') or []
+                (ok, result) = self._validate_subnet_update(req_subnets, db_subnets)
+                if not ok:
+                    return ok, result
+               
+        return True, ""
+    # end net_validate_subnet_update
+
+                                
     # return number of ip address currently allocated for a subnet
     # count will also include reserved ips
     def ip_count_req(self, vn_fq_name, subnet_uuid):
