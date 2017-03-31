@@ -124,6 +124,12 @@ TEST_F(BridgeDomainMGTest, Test1) {
         static_cast<const InterfaceNH *>(cnh->GetNH(0));
     EXPECT_TRUE(intf_nh->GetInterface() == vm_intf);
 
+    AddBridgeDomain("bridge1", 1, 0, false);
+    client->WaitForIdle();
+
+    AddBridgeDomain("bridge1", 1, 1, false);
+    client->WaitForIdle();
+
     DeleteBridgeDomain(input[0].name);
     client->WaitForIdle();
 }
@@ -161,6 +167,10 @@ TEST_F(BridgeDomainMGTest, Test2) {
     EXPECT_TRUE(intf_nh->GetInterface() == vm_intf1);
     intf_nh = static_cast<const InterfaceNH *>(cnh->GetNH(1));
     EXPECT_TRUE(intf_nh->GetInterface() == vm_intf2);
+
+    AgentPath *path = l2_rt->FindPath(agent->local_vm_peer());
+    MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(path->label());
+    EXPECT_TRUE(mpls->nexthop() == l2_nh);
 
     DeleteBridgeDomain(input[0].name);
     DeleteBridgeDomain(input[1].name);
@@ -207,6 +217,12 @@ TEST_F(BridgeDomainMGTest, Test3) {
 
     EXPECT_TRUE(icnh->composite_nh_type() == Composite::L2INTERFACE);
     EXPECT_TRUE(icnh->ComponentNHCount() == 2);
+
+    AgentPath *path = l2_rt->FindPath(agent->local_vm_peer());
+    MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(path->label());
+
+    DeleteBridgeDomain(input[0].name);
+    EXPECT_TRUE(mpls->nexthop() == l2_rt->GetActiveNextHop());
 
     DeleteBridgeDomain(input[0].name);
     DeleteBridgeDomain(input[1].name);

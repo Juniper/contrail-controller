@@ -332,11 +332,15 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         }
 
         if ((state->ingress_replication_exported_ == true)) {
+            uint32_t label = state->label_;
+            if (route->vrf()->IsPbbVrf()) {
+                label = state->isid_;
+            }
             state->tunnel_type_ = TunnelType::INVALID;
             AgentXmppChannel::ControllerSendEvpnRouteDelete(bgp_xmpp_peer,
                                                             route,
                                                             state->vn_,
-                                                            state->label_,
+                                                            label,
                                                             state->destination_,
                                                             state->source_,
                                                             TunnelType::AllType());
