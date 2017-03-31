@@ -35,13 +35,13 @@ MetaDataIp::~MetaDataIp() {
     allocator_->ReleaseIndex(this);
 }
 
-Ip4Address MetaDataIp::GetLinkLocalIp() {
+Ip4Address MetaDataIp::GetLinkLocalIp() const {
     uint32_t ip = METADATA_IP_ADDR & 0xFFFF0000;
     ip += (((uint32_t)index_) & 0xFFFF);
     return Ip4Address(ip);
 }
 
-IpAddress MetaDataIp::service_ip() {
+IpAddress MetaDataIp::service_ip() const {
     // check if explicit configuration of service ip is present for
     // this metadata ip
     if (service_ip_ == kDefaultIp) {
@@ -66,11 +66,7 @@ IpAddress MetaDataIp::service_ip() {
     return service_ip_;
 }
 
-void MetaDataIp::set_service_ip(const IpAddress &src_ip) {
-    service_ip_ = src_ip;
-}
-
-IpAddress MetaDataIp::destination_ip() {
+IpAddress MetaDataIp::destination_ip() const {
     if (destination_ip_.to_v4() == kDefaultIp) {
         return intf_->primary_ip_addr();
     }

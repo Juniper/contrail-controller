@@ -34,6 +34,7 @@ struct KSyncIntfInfo {
     4: optional u32 os_idx;
     5: optional u32 vrf_id;
     6: optional u32 active;
+   12: optional bool hc_active;
     7: optional u32 policy_enabled;
     8: optional u32 service_enabled;
     9: optional string analyzer_name;
