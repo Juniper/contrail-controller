@@ -762,7 +762,11 @@ public:
     void InsertHealthCheckInstance(HealthCheckInstance *hc_inst);
     void DeleteHealthCheckInstance(HealthCheckInstance *hc_inst);
     const HealthCheckInstanceSet &hc_instance_set() const;
-
+    bool IsHealthCheckEnabled() const;
+    const HealthCheckInstance *GetHealthCheckFromVmiFlow(const IpAddress &sip,
+                                                         const IpAddress &dip,
+                                                         uint8_t proto,
+                                                         uint16_t sport) const;
     size_t GetFloatingIpCount() const { return floating_ip_list_.list_.size(); }
     size_t GetAliasIpCount() const { return alias_ip_list_.list_.size(); }
     bool HasServiceVlan() const { return service_vlan_list_.list_.size() != 0; }

@@ -42,12 +42,11 @@ public:
                uint16_t index);
     ~MetaDataIp();
 
-    Ip4Address GetLinkLocalIp();
+    Ip4Address GetLinkLocalIp() const;
 
-    IpAddress service_ip();
-    void set_service_ip(const IpAddress &src_ip);
+    IpAddress service_ip() const;
 
-    IpAddress destination_ip();
+    IpAddress destination_ip() const;
     void set_destination_ip(const IpAddress &dst_ip);
 
     void set_active(bool active);
