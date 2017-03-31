@@ -169,7 +169,8 @@ class DeviceManager(object):
                     args.admin_user, args.admin_password,
                     args.admin_tenant_name, args.api_server_ip,
                     args.api_server_port,
-                    api_server_use_ssl=args.api_server_use_ssl)
+                    api_server_use_ssl=args.api_server_use_ssl,
+                    retry_forever_on_error=False)
                 connected = True
                 self.connection_state_update(ConnectionStatus.UP)
             except requests.exceptions.ConnectionError as e:

@@ -141,9 +141,11 @@ class VncApi(object):
                  wait_for_connect=False, api_server_use_ssl=False,
                  domain_name=None, exclude_hrefs=None, auth_token_url=None,
                  apicertfile=None, apikeyfile=None, apicafile=None,
-                 kscertfile=None, kskeyfile=None, kscafile=None,):
+                 kscertfile=None, kskeyfile=None, kscafile=None,
+                 retry_forever_on_error=True):
         # TODO allow for username/password to be present in creds file
 
+        self.retry_forever_on_error = retry_forever_on_error
         self._obj_serializer = self._obj_serializer_diff
         for object_type, resource_type in all_resource_type_tuples:
             for oper_str in ('_create', '_read', '_update', '_delete',
@@ -800,7 +802,8 @@ class VncApi(object):
                 else:
                     raise ValueError
             except ConnectionError:
-                if not retry_on_error:
+                if (not retry_on_error and
+                        not self.retry_forever_on_error):
                     raise ConnectionError
 
                 time.sleep(1)
