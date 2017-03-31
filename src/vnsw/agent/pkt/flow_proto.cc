@@ -194,8 +194,7 @@ bool FlowProto::Validate(PktInfo *msg) {
                        msg->agent_hdr.vrf,
                        msg->ip_saddr.to_string(),
                        msg->ip_daddr.to_string(),
-                       "Flow : Non-IP packet. Dropping",
-                       msg->l3_forwarding);
+                       "Flow : Non-IP packet. Dropping", false);
         } else {
             assert(0);
         }
