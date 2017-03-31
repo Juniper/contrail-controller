@@ -214,7 +214,7 @@ response sandesh LinkLocalFlowInfoResp {
  * @description: Trace message tap interface
  * @severity: DEBUG
  */
-trace sandesh TapErr {
+traceobject sandesh TapErr {
     1: string err;
 }
 
@@ -222,7 +222,7 @@ trace sandesh TapErr {
  * @description: Trace message pkt0 interface
  * @severity: DEBUG
  */
-trace sandesh PktErr {
+traceobject sandesh PktErr {
     1: string err;
 }
 
@@ -291,25 +291,21 @@ traceobject sandesh FlowTrace {
  * @description: Trace message containing detailed error for flow entry
  * @severity: DEBUG
  */
-trace sandesh FlowDetailErr {
+traceobject sandesh FlowDetailErr {
     1: u32 flow_index;
     2: u16 ifindex;
     3: u16 vrf;
-    4: u32 sip;
-    5: u32 dip;
+    4: string sip;
+    5: string dip;
     6: string error;
     7: bool l3_flow;
-    8: u64 sip_upper;
-    9: u64 sip_lower;
-   10: u64 dip_upper;
-   11: u64 dip_lower;
 }
 
 /**
  * @description: Trace message for flow entry
  * @severity: DEBUG
  */
-trace sandesh FlowErr {
+traceobject sandesh FlowErr {
     1: u32 flow_index;
     2: string error;
 }
@@ -318,7 +314,7 @@ trace sandesh FlowErr {
  * @description: Trace message for flow module
  * @severity: DEBUG
  */
-trace sandesh FlowModuleInfo {
+traceobject sandesh FlowModuleInfo {
     1: string info;
 }
 
@@ -358,7 +354,7 @@ traceobject sandesh PktFlowTrace {
  * @description: Trace message for pkt flow error
  * @severity: DEBUG
  */
-trace sandesh PktFlowErr {
+traceobject sandesh PktFlowErr {
     1: string error;
 }
 
