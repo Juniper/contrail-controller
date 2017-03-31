@@ -48,7 +48,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._logger = logging.getLogger(__name__)
         logging.basicConfig()
         self._logger.setLevel(logging.DEBUG)
-        self._vnc_lib = vnc_api.VncApi()
+        # Use empty config file (does not exist) to be sure using default
+        # parameter values
+        self._vnc_lib = vnc_api.VncApi(conf_file='/tmp/fake-config-file')
     # end setUp
 
     def tearDown(self):
