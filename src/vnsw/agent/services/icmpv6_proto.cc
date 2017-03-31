@@ -471,8 +471,15 @@ void Icmpv6PathPreferenceState::SendNeighborSolicitForAllIntf
                 continue;
             }
             if (dynamic_cast<const InetUnicastRouteEntry *>(route)) {
-                gw_ip_ = path->subnet_service_ip();
+                if (path->subnet_service_ip().is_v6()) {
+                    gw_ip_ = path->subnet_service_ip();
+                }
             }
+
+            if (path->path_preference().IsDependentRt() == true) {
+                continue;
+            }
+
             uint32_t intf_id = intf->id();
             bool wait_for_traffic = path->path_preference().wait_for_traffic();
             //Build new list of interfaces in active state
