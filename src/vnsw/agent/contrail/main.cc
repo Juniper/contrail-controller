@@ -51,6 +51,31 @@ bool GetBuildInfo(std::string &build_info_str) {
     return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info_str);
 }
 
+bool IsAvailablePort(unsigned short port) {
+    char shellCommand[256], local_port[6];
+    sprintf(shellCommand, "netstat -lntu | awk '{print $4}' | grep ':' | cut -d \":\" -f 2 | sort | uniq | grep %hu", port);
+    sprintf(local_port, "%hu", port);
+    char buffer[256];
+    std::string result = "";
+    FILE* pipe = popen(shellCommand, "r");
+    if (!pipe) throw std::runtime_error("popen() failed!");
+
+    try {
+        while (!feof(pipe))
+            if (fgets(buffer, 128, pipe) != NULL)
+                result += buffer;
+    } catch (...) {
+        pclose(pipe);
+        throw;
+    }
+    pclose(pipe);
+
+    if(result.find(std::string(local_port)) != std::string::npos)
+            return false;
+    else
+            return true;
+}
+
 int main(int argc, char *argv[]) {
     AgentParam params;
     srand(unsigned(time(NULL)));
@@ -88,6 +113,11 @@ int main(int argc, char *argv[]) {
 
     // Read agent parameters from config file and arguments
     params.Init(init_file, argv[0]);
+
+    if(!IsAvailablePort(params.http_server_port())) {
+            LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+            exit(1);
+    }
 
     // Initialize TBB
     // Call to GetScheduler::GetInstance() will also create Task Scheduler
