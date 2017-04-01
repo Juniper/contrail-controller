@@ -183,18 +183,18 @@ public:
 };
 
 struct NextHop {
-    NextHop() : no_label_(false), label_(0) { }
+    NextHop() : no_label_(false), label_(0), l3_label_(0) { }
     NextHop(std::string address) :
-            address_(address), no_label_(false), label_(0) {
+            address_(address), no_label_(false), label_(0), l3_label_(0) {
         tunnel_encapsulations_.push_back("gre");
     }
     NextHop(bool no_label, std::string address) :
-            address_(address), no_label_(no_label), label_(0) {
+            address_(address), no_label_(no_label), label_(0), l3_label_(0) {
     }
     NextHop(std::string address, uint32_t label, std::string tunnel,
             const std::string virtual_network = "") :
-                address_(address), no_label_(false), label_(label),
-                virtual_network_(virtual_network) {
+            address_(address), no_label_(false), label_(label), l3_label_(0),
+            virtual_network_(virtual_network) {
         if (tunnel.empty()) {
             tunnel_encapsulations_.push_back("gre");
         } else if (tunnel == "all") {
@@ -206,6 +206,12 @@ struct NextHop {
         } else {
             tunnel_encapsulations_.push_back(tunnel);
         }
+    }
+    NextHop(std::string address, uint32_t label, uint32_t l3_label,
+            const std::string virtual_network = "") :
+                address_(address), no_label_(false), label_(label),
+                l3_label_(l3_label), virtual_network_(virtual_network) {
+        tunnel_encapsulations_.push_back("vxlan");
     }
 
     bool operator==(NextHop other) {
@@ -233,6 +239,7 @@ struct NextHop {
     std::string address_;
     bool no_label_;
     int label_;
+    int l3_label_;
     std::vector<std::string> tunnel_encapsulations_;
     std::string virtual_network_;
 };

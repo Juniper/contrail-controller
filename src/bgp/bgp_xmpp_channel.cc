@@ -908,8 +908,8 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
             attrs.push_back(&ext);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
-        req.data.reset(new ErmVpnTable::RequestData(attr, flags,
-                                                    0, subscription_gen_id));
+        req.data.reset(new ErmVpnTable::RequestData(
+            attr, flags, 0, 0, subscription_gen_id));
         stats_[RX].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1186,8 +1186,8 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                 attrs.push_back(&ext);
 
             BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
-            req.data.reset(new BgpTable::RequestData(attr, nexthops,
-                subscription_gen_id));
+            req.data.reset(
+                new BgpTable::RequestData(attr, nexthops, subscription_gen_id));
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
         }
@@ -1485,8 +1485,8 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
                 attrs.push_back(&ext);
 
             BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
-            req.data.reset(new BgpTable::RequestData(attr, nexthops,
-                subscription_gen_id));
+            req.data.reset(
+                new BgpTable::RequestData(attr, nexthops, subscription_gen_id));
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
         }
@@ -1622,6 +1622,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
     IpAddress nh_address(Ip4Address(0));
     uint32_t label = 0;
+    uint32_t l3_label = 0;
     uint32_t flags = 0;
     bool label_is_vni = false;
 
@@ -1652,6 +1653,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             if (first_nh) {
                 nh_address = nhop_address;
                 label = nit->label;
+                l3_label = nit->l3_label;
             }
 
             // Process tunnel encapsulation list.
@@ -1694,6 +1696,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             nexthop.flags_ = flags;
             nexthop.address_ = nhop_address;
             nexthop.label_ = nit->label;
+            nexthop.l3_label_ = nit->l3_label;
             nexthop.source_rd_ = RouteDistinguisher(
                 nhop_address.to_v4().to_ulong(), instance_id);
             nexthops.push_back(nexthop);
@@ -1779,8 +1782,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
 
-        req.data.reset(new EvpnTable::RequestData(attr, nexthops,
-                                                  subscription_gen_id));
+        req.data.reset(
+            new EvpnTable::RequestData(attr, nexthops, subscription_gen_id));
         stats_[RX].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1802,7 +1805,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
         "Enet route " << evpn_prefix.ToXmppIdString() <<
-        " with next-hop " << nh_address << " and label " << label <<
+        " with next-hop " << nh_address <<
+        " label " << label << " l3-label " << l3_label <<
         " enqueued for " << (add_change ? "add/change" : "delete"));
     table->Enqueue(&req);
     return true;

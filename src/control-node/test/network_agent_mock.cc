@@ -660,6 +660,7 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
                 item_nexthop.address = nexthop.address_;
                 item_nexthop.label =
                     nexthop.label_ ? nexthop.label_ : label_alloc_++;
+                item_nexthop.l3_label = nexthop.l3_label_;
                 item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
                     nexthop.tunnel_encapsulations_;
                 rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);

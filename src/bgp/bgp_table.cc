@@ -398,13 +398,14 @@ bool BgpTable::PathSelection(const Path &path1, const Path &path2) {
 
 bool BgpTable::DeletePath(DBTablePartBase *root, BgpRoute *rt, BgpPath *path) {
     return InputCommon(root, rt, path, path->GetPeer(), NULL,
-        DBRequest::DB_ENTRY_DELETE, NULL, path->GetPathId(), 0, 0);
+        DBRequest::DB_ENTRY_DELETE, NULL, path->GetPathId(), 0, 0, 0);
 }
 
 bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                            const IPeer *peer, DBRequest *req,
                            DBRequest::DBOperation oper, BgpAttrPtr attrs,
-                           uint32_t path_id, uint32_t flags, uint32_t label) {
+                           uint32_t path_id, uint32_t flags, uint32_t label,
+                           uint32_t l3_label) {
     bool notify_rt = false;
 
     switch (oper) {
@@ -420,7 +421,8 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
         if (path != NULL) {
             if ((path->GetAttr() != attrs.get()) ||
                 (path->GetFlags() != flags) ||
-                (path->GetLabel() != label)) {
+                (path->GetLabel() != label) ||
+                (path->GetL3Label() != l3_label)) {
                 // Update Attributes and notify (if needed)
                 if (path->NeedsResolution())
                     path_resolver_->StopPathResolution(root->index(), path);
@@ -432,8 +434,8 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
         }
 
         BgpPath *new_path;
-        new_path =
-            new BgpPath(peer, path_id, BgpPath::BGP_XMPP, attrs, flags, label);
+        new_path = new BgpPath(
+            peer, path_id, BgpPath::BGP_XMPP, attrs, flags, label, l3_label);
 
         if (new_path->NeedsResolution()) {
             Address::Family family = new_path->GetAttr()->nexthop_family();
@@ -581,7 +583,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
 
             notify_rt |= InputCommon(root, rt, path, peer, req, req->oper,
                                      attr, path_id, nexthop.flags_,
-                                     nexthop.label_);
+                                     nexthop.label_, nexthop.l3_label_);
         }
     }
 
@@ -591,7 +593,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         BgpPath *path = it->first;
         notify_rt |= InputCommon(root, rt, path, peer, req,
                                  DBRequest::DB_ENTRY_DELETE, NULL,
-                                 path->GetPathId(), 0, 0);
+                                 path->GetPathId(), 0, 0, 0);
     }
 
     InputCommonPostProcess(root, rt, notify_rt);

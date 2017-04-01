@@ -49,10 +49,12 @@ public:
     class NextHop {
         public:
             NextHop(const BgpTable *table, IpAddress address, uint32_t label,
-                    const ExtCommunity *ext_community, bool vrf_originated);
+                uint32_t l3_label, const ExtCommunity *ext_community,
+                bool vrf_originated);
 
             const IpAddress address() const { return address_; }
             uint32_t label() const { return label_; }
+            uint32_t l3_label() const { return l3_label_; }
             int origin_vn_index() const { return origin_vn_index_; }
             std::vector<std::string> encap() const { return encap_; }
 
@@ -62,7 +64,8 @@ public:
 
         private:
             IpAddress address_;
-            uint32_t  label_;
+            uint32_t label_;
+            uint32_t l3_label_;
             int origin_vn_index_;
             std::vector<std::string> encap_;
     };
@@ -71,11 +74,12 @@ public:
 
     RibOutAttr(const RibOutAttr &rhs);
     RibOutAttr() : attr_out_(NULL), is_xmpp_(false), vrf_originated_(false) { }
-    RibOutAttr(const BgpTable *table, const BgpAttr *attr, uint32_t label);
+    RibOutAttr(const BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
+    RibOutAttr(const BgpTable *table, const BgpAttr *attr, uint32_t label,
+        uint32_t l3_label = 0);
     RibOutAttr(const BgpTable *table, const BgpRoute *route,
         const BgpAttr *attr, uint32_t label, bool include_nh = true,
         bool is_xmpp = false);
-    RibOutAttr(const BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
 
     RibOutAttr &operator=(const RibOutAttr &rhs);
     bool operator==(const RibOutAttr &rhs) const { return CompareTo(rhs) == 0; }
@@ -84,8 +88,15 @@ public:
 
     const NextHopList &nexthop_list() const { return nexthop_list_; }
     const BgpAttr *attr() const { return attr_out_.get(); }
+    void set_attr(const BgpTable *table, const BgpAttrPtr &attrp) {
+        set_attr(table, attrp, 0, 0, false);
+    }
     void set_attr(const BgpTable *table, const BgpAttrPtr &attrp,
-                  uint32_t label = 0, bool vrf_originated = false);
+        uint32_t label) {
+        set_attr(table, attrp, label, 0, false);
+    }
+    void set_attr(const BgpTable *table, const BgpAttrPtr &attrp,
+        uint32_t label, uint32_t l3_label, bool vrf_originated);
 
     void clear() {
         attr_out_.reset();
@@ -93,6 +104,9 @@ public:
     }
     uint32_t label() const {
         return nexthop_list_.empty() ? 0 : nexthop_list_.at(0).label();
+    }
+    uint32_t l3_label() const {
+        return nexthop_list_.empty() ? 0 : nexthop_list_.at(0).l3_label();
     }
     bool is_xmpp() const { return is_xmpp_; }
     bool vrf_originated() const { return vrf_originated_; }

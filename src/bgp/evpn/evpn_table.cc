@@ -190,7 +190,8 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
     if (dest_path != NULL) {
         if ((new_attr != dest_path->GetOriginalAttr()) ||
             (src_path->GetFlags() != dest_path->GetFlags()) ||
-            (src_path->GetLabel() != dest_path->GetLabel())) {
+            (src_path->GetLabel() != dest_path->GetLabel()) ||
+            (src_path->GetL3Label() != dest_path->GetL3Label())) {
             bool success = dest_route->RemoveSecondaryPath(src_rt,
                 src_path->GetSource(), src_path->GetPeer(),
                 src_path->GetPathId());
@@ -204,7 +205,8 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
     BgpSecondaryPath *replicated_path =
         new BgpSecondaryPath(src_path->GetPeer(), src_path->GetPathId(),
                              src_path->GetSource(), new_attr,
-                             src_path->GetFlags(), src_path->GetLabel());
+                             src_path->GetFlags(), src_path->GetLabel(),
+                             src_path->GetL3Label());
     replicated_path->SetReplicateInfo(src_table, src_rt);
     dest_route->InsertPath(replicated_path);
 
