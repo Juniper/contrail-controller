@@ -269,20 +269,38 @@ class VncMesosCommonOperations(object):
             except Exception as e:
                 self.logger.error("Failed to detach SG %s" % str(e))
 
-    def add_floating_ip(self, vmi_obj, project_obj, fip_pool_name, task_name):
+    def add_floating_ip(self, vmi_obj, project_obj, fip_pool_list, task_name):
         """Create a floating ip"""
-        if fip_pool_name != "":
-            fip_pool_fq_name = fip_pool_name.split(':')
-            fip_pool_obj = self.vnc_lib.floating_ip_pool_read(
+        if fip_pool_list != "":
+            fip_pool_list = fip_pool_list.split(",")
+            for fip_pool_entry in fip_pool_list:
+                result = re.split(r'[\(\)]', fip_pool_entry)
+                try:
+                    fip_pool_name = result[0]
+                except IndexError:
+                    self.logger.error("Error in processing fip pool string")
+                    return
+                try:
+                    ip_addr = result[1]
+                except IndexError:
+                    ip_addr = ''
+                fip_pool_fq_name = fip_pool_name.split(':')
+                try:
+                    fip_pool_obj = self.vnc_lib.floating_ip_pool_read(
                                                       fq_name=fip_pool_fq_name)
-            fip_obj = FloatingIp(name="mesos-svc-fip-{}".format(task_name),
-                                 parent_obj=fip_pool_obj)
-            fip_obj.set_project(project_obj)
-            fip_obj.set_virtual_machine_interface(vmi_obj)
-            try:
-                self.vnc_lib.floating_ip_create(fip_obj)
-            except RefsExistError:
-                self.vnc_lib.floating_ip_update(fip_obj)
+                except NoIdError, err:
+                    self.logger.error("Floating ip pool not found:" + str(err))
+                    return
+                fip_obj = FloatingIp(name="mesos-fip-{}{}".format(task_name,
+                                     ip_addr), parent_obj = fip_pool_obj)
+                if ip_addr != "":
+                    fip_obj.set_floating_ip_address(ip_addr)
+                fip_obj.set_project(project_obj)
+                fip_obj.set_virtual_machine_interface(vmi_obj)
+                try:
+                    self.vnc_lib.floating_ip_create(fip_obj)
+                except RefsExistError:
+                    self.vnc_lib.floating_ip_update(fip_obj)
 
     def remove_floating_ip(self, vmi_obj):
         """Remove floating ip"""
