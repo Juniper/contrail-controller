@@ -2,6 +2,7 @@ import socket
 import gevent
 import cStringIO
 from pprint import pformat
+from requests.exceptions import ConnectionError
 
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.exceptions import NoIdError
@@ -41,23 +42,39 @@ class VncAmqpHandle(object):
         self.msg_tracer.trace_msg(name='MessageBusNotifyTraceBuf',
                                   sandesh=self.logger._sandesh)
 
+    def log_exception(self):
+        string_buf = cStringIO.StringIO()
+        cgitb_hook(file=string_buf, format="text")
+        self.logger.error(string_buf.getvalue())
+
+        self.msgbus_store_err_msg(string_buf.getvalue())
+        try:
+            with open(self._args.trace_file, 'a') as err_file:
+                err_file.write(string_buf.getvalue())
+        except IOError:
+            pass
+
     def _vnc_subscribe_callback(self, oper_info):
         self._db_resync_done.wait()
         try:
             self.oper_info = oper_info
             self.vnc_subscribe_actions()
 
-        except Exception:
-            string_buf = cStringIO.StringIO()
-            cgitb_hook(file=string_buf, format="text")
-            self.logger.error(string_buf.getvalue())
-
-            self.msgbus_store_err_msg(string_buf.getvalue())
+        except ConnectionError:
             try:
-                with open(self._args.trace_file, 'a') as err_file:
-                    err_file.write(string_buf.getvalue())
-            except IOError:
-                pass
+                # retry write during api-server ConnectionError
+                self.vnc_subscribe_actions()
+            except ConnectionError:
+                # log the exception, and exit during api-server
+                # ConnectionError on retry to let standby to become active.
+                self.log_exception()
+                self.close()
+                self.logger.error("Api-server connection lost. Exiting")
+                raise SystemExit
+            except Exception:
+                self.log_exception()
+        except Exception:
+            self.log_exception()
         finally:
             try:
                 self.msgbus_trace_msg()
@@ -98,8 +115,9 @@ class VncAmqpHandle(object):
             self.handle_unknown()
             return
         if self.obj is None:
-            self.logger.warning("Object %s uuid %s was not found for operation %s" % (
-                 self. obj_type, obj_id, oper))
+            self.logger.warning(
+                    "Object %s uuid %s was not found for operation %s" %
+                    (self. obj_type, obj_id, oper))
             return
         self.evaluate_dependency()
 
