@@ -376,6 +376,7 @@ private:
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,
                                         BgpRoute *route, BgpPath *path);
     uint32_t GetPathFlags(Address::Family family, const BgpAttr *attr) const;
+    uint32_t GetLocalPrefFromMed(uint32_t med) const;
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
     template <typename TableT, typename PrefixT>
@@ -410,6 +411,7 @@ private:
     std::string peer_name_;
     std::string peer_basename_;
     std::string router_type_;         // bgp_schema.xsd:BgpRouterType
+    bool peer_is_control_node_;
     mutable std::string to_str_;
     mutable std::string uve_key_str_;
     const BgpNeighborConfig *config_;
