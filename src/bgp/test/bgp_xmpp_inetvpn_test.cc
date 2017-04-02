@@ -255,6 +255,7 @@ static const char *config_2_control_nodes_different_asn = "\
         <identifier>192.168.0.1</identifier>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
+        <router-type>external-control-node</router-type>\
         <session to=\'Y\'>\
             <address-families>\
                 <family>route-target</family>\
@@ -267,6 +268,7 @@ static const char *config_2_control_nodes_different_asn = "\
         <identifier>192.168.0.2</identifier>\
         <address>127.0.0.2</address>\
         <port>%d</port>\
+        <router-type>external-control-node</router-type>\
         <session to=\'X\'>\
             <address-families>\
                 <family>route-target</family>\
@@ -932,16 +934,15 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteExplicitMed) {
     agent_a_->Subscribe("blue", 1);
     agent_b_->Subscribe("blue", 1);
 
-    // Add route from agent A with local preference 100 and med 500.
+    // Add route from agent A with med 500.
     stringstream route_a;
     route_a << "10.1.1.1/32";
-    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 100, 500);
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 0, 500);
     task_util::WaitForIdle();
 
-    // Verify that route showed up on agents A and B with local preference 100
-    // and med 500.
-    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 100, 500);
-    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 100, 500);
+    // Verify that route showed up on agents A and B with med 500.
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 0, 500);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 0, 500);
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());
@@ -1006,6 +1007,69 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteLocalPrefToMed) {
         agent_a_, "blue", route_a.str(), "192.168.1.1", 0, 0xFFFFFFFF - 400);
     VerifyRouteExists(
         agent_b_, "blue", route_a.str(), "192.168.1.1", 0, 0xFFFFFFFF - 400);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Route added with local preference has auto calculated local preference
+// (via med) in the other AS.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, RouteLocalPrefToLocalPref) {
+    Configure(config_2_control_nodes_different_asn);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A with local preference 100.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 100);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with local preference 100.
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 100);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 100);
+
+    // Change route from agent A to local preference 200.
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 200);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with local preference 200.
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 200);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 200);
+
+    // Change route from agent A to local preference 400.
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1", 400);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with local preference 400.
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1", 400);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1", 400);
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());
