@@ -586,8 +586,12 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
         return;
 
     // Path already has label, return.
-    if (path->label() != MplsTable::kInvalidLabel)
+    if (path->label() != MplsTable::kInvalidLabel) {
+        if (*evpn_label ==  MplsTable::kInvalidLabel) {
+            *evpn_label = path->label();
+        }
         return;
+    }
 
     // If this is the first time i.e. local_peer has come with no local_vm_peer
     // and vice versa then allocate label.
