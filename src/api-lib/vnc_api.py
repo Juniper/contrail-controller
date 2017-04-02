@@ -291,7 +291,7 @@ class VncApi(object):
                     VncApi._DEFAULT_API_CERT_BUNDLE)
             self._apicertbundle = utils.getCertKeyCaBundle(apicertbundle,
                                                            certs)
-            self._use_api_certsi = True
+            self._use_api_certs = True
 
         self._authn_strategy = auth_type or \
             _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE',
