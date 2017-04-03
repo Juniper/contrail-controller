@@ -25,8 +25,8 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
 
     def test_add_delete_static_route(self):
 
-        vn1_name = 'vn1'
-        vn2_name = 'vn2'
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
         vn1 = self.create_virtual_network(vn1_name, "1.0.0.0/24")
         vn2 = self.create_virtual_network(vn2_name, "2.0.0.0/24")
 
@@ -140,7 +140,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
     def test_public_snat_routes(self):
 
         #create private vn
-        vn_private_name = 'vn1'
+        vn_private_name = self.id() + 'vn1'
         vn_private = self.create_virtual_network(vn_private_name, "1.0.0.0/24")
 
         # create virtual machine interface
@@ -212,12 +212,13 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         si = _wait_to_get_si()
         si_props = si.get_service_instance_properties().get_interface_list()[1]
         ri_name = si_props.virtual_network + ":" + si_props.virtual_network.split(':')[-1]
-        _match_route_table(['target:1:1', 'target:64512:8000003'], ri_name)
+        lr_rtgt = self._vnc_lib.logical_router_read(id=lr.uuid).route_target_refs[0]['to'][0]
+        _match_route_table(['target:1:1', lr_rtgt], ri_name)
 
         rtgt_list = RouteTargetList(route_target=['target:2:2'])
         lr.set_configured_route_target_list(rtgt_list)
         self._vnc_lib.logical_router_update(lr)
-        _match_route_table(['target:2:2', 'target:64512:8000003'], ri_name)
+        _match_route_table(['target:2:2', lr_rtgt], ri_name)
 
         lr.del_virtual_network(vn_public)
         self._vnc_lib.logical_router_update(lr)

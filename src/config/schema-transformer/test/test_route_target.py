@@ -23,9 +23,12 @@ class VerifyRouteTarget(VerifyPolicy):
     @retries(5)
     def check_rt_is_deleted(self, name):
         try:
-            self._vnc_lib.route_target_read(fq_name=[name])
+            rt_obj = self._vnc_lib.route_target_read(fq_name=[name])
             print "retrying ... ", test_common.lineno()
-            raise Exception('rt %s still exists' % name)
+            raise Exception(
+                'rt %s still exists: RI backrefs %s LR backrefs %s' % (
+                    name, rt_obj.get_routing_instance_back_refs(),
+                    rt_obj.get_logical_router_back_refs()))
         except NoIdError:
             print 'rt deleted'
 
