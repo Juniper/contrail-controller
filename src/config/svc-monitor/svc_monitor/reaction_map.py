@@ -47,6 +47,7 @@ REACTION_MAP = {
     },
     "floating_ip": {
         'self': ['virtual_machine_interface'],
+        'virtual_machine_interface': [],
     },
     "security_group": {
         'self': [],

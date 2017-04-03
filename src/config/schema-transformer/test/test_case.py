@@ -69,10 +69,12 @@ class STTestCase(test_common.TestCase):
 
     def setUp(self, extra_config_knobs=None):
         super(STTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
+        cluster_id = self._cluster_id
         self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
-            self.id(), self._api_server_ip, self._api_server_port)
+            cluster_id, self.id(), self._api_server_ip, self._api_server_port)
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self.id(), self._api_server_ip, self._api_server_port, extra_config_knobs)
+            cluster_id, self.id(), self._api_server_ip, self._api_server_port,
+            extra_config_knobs)
         test_common.wait_for_schema_transformer_up()
 
     def tearDown(self):
