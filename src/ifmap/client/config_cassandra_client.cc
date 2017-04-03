@@ -42,8 +42,8 @@ ConfigCassandraClient::ConfigCassandraClient(ConfigClientManager *mgr,
                          EventManager *evm, const IFMapConfigOptions &options,
                          ConfigJsonParser *in_parser, int num_workers)
         : ConfigDbClient(options), mgr_(mgr), evm_(evm), parser_(in_parser),
-        num_workers_(num_workers), uuid_read_list_(num_workers),
-        uuid_read_set_(num_workers), object_cache_map_(num_workers) {
+        num_workers_(num_workers), uuid_read_set_(num_workers),
+        object_cache_map_(num_workers) {
     dbif_.reset(IFMapFactory::Create<cass::cql::CqlIf>(evm, config_db_ips(),
                     GetFirstConfigDbPort(), "", ""));
 
@@ -143,9 +143,10 @@ ConfigCassandraClient::ObjTypeFQNPair ConfigCassandraClient::UUIDToFQName(
 bool ConfigCassandraClient::BunchReadReq(
         const UUIDProcessIteratorList &req_list) {
     set<string> uuid_list;
-    BOOST_FOREACH(UUIDProcessList::iterator req_it, req_list) {
-        uuid_list.insert((*req_it)->uuid);
+    BOOST_FOREACH(UUIDProcessSet::iterator req_it, req_list) {
+        uuid_list.insert(req_it->second->uuid);
     }
+
     if (!ReadUuidTableRows(&uuid_list)) {
         return false;
     }
@@ -154,18 +155,16 @@ bool ConfigCassandraClient::BunchReadReq(
 
 void ConfigCassandraClient::RemoveObjReqEntries(int worker_id,
                                 UUIDProcessIteratorList &req_list) {
-    BOOST_FOREACH(UUIDProcessList::iterator req_it, req_list) {
+    BOOST_FOREACH(UUIDProcessSet::iterator req_it, req_list) {
         RemoveObjReqEntry(worker_id, req_it);
     }
     req_list.clear();
 }
 
 void ConfigCassandraClient::RemoveObjReqEntry(int worker_id,
-        UUIDProcessList::iterator req_it) {
-    ObjectProcessRequestType *req = *req_it;
-    assert(uuid_read_set_[worker_id].erase(GetUUID(req->uuid)) == 1);
-    uuid_read_list_[worker_id].erase(req_it);
-    delete req;
+        UUIDProcessSet::iterator req_it) {
+    uuid_read_set_[worker_id].erase(req_it);
+    delete req_it->second;
 }
 
 bool ConfigCassandraClient::ConfigReader(int worker_id) {
@@ -176,15 +175,15 @@ bool ConfigCassandraClient::ConfigReader(int worker_id) {
     // irresepective of where the entries are actually located inside the list.
     UUIDProcessIteratorList bunch_req_list;
     int num_req_handled = 0;
-    for (UUIDProcessList::iterator it = uuid_read_list_[worker_id].begin(),
-         itnext; it != uuid_read_list_[worker_id].end(); it = itnext) {
+    for (UUIDProcessSet::iterator it = uuid_read_set_[worker_id].begin(),
+         itnext; it != uuid_read_set_[worker_id].end(); it = itnext) {
         itnext = it;
         ++itnext;
-        ObjectProcessRequestType *obj_req = *it;
+        ObjectProcessRequestType *obj_req = it->second;
 
         if (obj_req->oper == "CREATE" || obj_req->oper == "UPDATE") {
             bunch_req_list.push_back(it);
-            bool is_last = (itnext == uuid_read_list_[worker_id].end());
+            bool is_last = (itnext == uuid_read_set_[worker_id].end());
             if (is_last ||
                 bunch_req_list.size() == GetNumReadRequestToBunch()) {
                 if (!BunchReadReq(bunch_req_list)) {
@@ -213,7 +212,6 @@ bool ConfigCassandraClient::ConfigReader(int worker_id) {
             return false;
         RemoveObjReqEntries(worker_id, bunch_req_list);
     }
-    assert(uuid_read_list_[worker_id].empty());
     assert(uuid_read_set_[worker_id].empty());
     return true;
 }
@@ -223,12 +221,11 @@ void ConfigCassandraClient::AddUUIDToRequestList(int worker_id,
                                                  const string &obj_type,
                                                  const string &uuid_str) {
     pair<UUIDProcessSet::iterator, bool> ret;
-    bool trigger = uuid_read_list_[worker_id].empty();
+    bool trigger = uuid_read_set_[worker_id].empty();
     ObjectProcessRequestType *req =
         new ObjectProcessRequestType(oper, obj_type, uuid_str);
     ret = uuid_read_set_[worker_id].insert(make_pair(GetUUID(uuid_str), req));
     if (ret.second) {
-        uuid_read_list_[worker_id].push_back(req);
         if (trigger) {
             config_readers_[worker_id]->Set();
         }
