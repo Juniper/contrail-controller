@@ -31,7 +31,8 @@ class DMTestCase(test_common.TestCase):
             cls.__name__, cls._api_server_ip, cls._api_server_port)
         test_common.wait_for_device_manager_up()
         cls._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            cls.__name__, cls._api_server_ip, cls._api_server_port)
+            cls._cluster_id, cls.__name__, cls._api_server_ip,
+            cls._api_server_port)
         test_common.wait_for_schema_transformer_up()
 
     @classmethod

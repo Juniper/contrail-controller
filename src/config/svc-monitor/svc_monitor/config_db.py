@@ -942,6 +942,7 @@ class PhysicalInterfaceSM(DBBaseSM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.physical_router = self.get_parent_uuid(obj)
         self.logical_interfaces = set([li['uuid'] for li in
@@ -975,6 +976,8 @@ class PhysicalRouterSM(DBBaseSM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.management_ip = obj.get('physical_router_management_ip')
         self.vendor = obj.get('physical_router_vendor_name')
         self.physical_interfaces = set([pi['uuid'] for pi in

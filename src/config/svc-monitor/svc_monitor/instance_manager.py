@@ -598,6 +598,8 @@ class InstanceManager(object):
             except RefsExistError:
                 self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
+            if pi:
+                self._vnc_lib.ref_relax_for_delete(vmi_obj.uuid, pi.uuid)
         elif vmi_updated:
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
