@@ -1553,7 +1553,6 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn.add_network_ipam(ipam1, vn_subnets)
         self._vnc_lib.virtual_network_create(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
-
         #update dns server to addr mgmt values in two subnets and keep None
         # in middle subnet
         ipam1_sn_v4.set_dns_server_address('11.1.1.253')
@@ -1618,8 +1617,42 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
-        #cleanup
+        # delete vn and create a new subnet with add from start and add
+        # new network
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        
+        #create a subnet with allocation from start and test the subnet
+        # to make sure gw_ip and dns_server_address is not updateable 
+        ipam4_sn_v4 = IpamSubnetType(subnet=SubnetType('14.1.1.0', 24),
+                                     addr_from_start=True)
+
+        ipam5_sn_v4 = IpamSubnetType(subnet=SubnetType('15.1.1.0', 24),
+                                     default_gateway='15.1.1.100',
+                                     dns_server_address='15.1.1.200',
+                                     addr_from_start=True)
+        vn1_subnets = VnSubnetsType([ipam4_sn_v4, ipam5_sn_v4])
+
+        vn1 = VirtualNetwork('my-v4-v6-vn', project,
+                             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'))
+
+        vn1.add_network_ipam(ipam1, vn1_subnets)
+        self._vnc_lib.virtual_network_create(vn1)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn1.uuid)
+
+        # change valid network property and and update vn1
+        vn1.set_address_allocation_mode('user-defined-subnet-only')
+        self._vnc_lib.virtual_network_update(vn1)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn1.uuid)
+
+        # change valid subnet property and update vn1
+        ipam4_sn_v4.set_subnet_name('subnet4')
+        ipam5_sn_v4.set_subnet_name('subnet5')
+        vn1._pending_field_updates.add('network_ipam_refs')
+        self._vnc_lib.virtual_network_update(vn1)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn1.uuid)
+
+        #cleanup
+        self._vnc_lib.virtual_network_delete(id=vn1.uuid)
         self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
         self._vnc_lib.project_delete(id=project.uuid)
     #end
