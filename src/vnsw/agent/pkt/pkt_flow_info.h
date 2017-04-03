@@ -80,6 +80,7 @@ public:
     void Add(const PktInfo *pkt, PktControlInfo *in,
              PktControlInfo *out);
     bool Process(const PktInfo *pkt, PktControlInfo *in, PktControlInfo *out);
+    bool ValidateConfig(const PktInfo *pkt, PktControlInfo *in);
     static bool GetIngressNwPolicyAclList(const Interface *intf,
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);

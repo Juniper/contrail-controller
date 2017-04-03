@@ -41,18 +41,10 @@ const Ip4Address PktFlowInfo::kDefaultIpv4;
 const Ip6Address PktFlowInfo::kDefaultIpv6;
 
 static void LogError(const PktInfo *pkt, const char *str) {
-    if (pkt->family == Address::INET) {
+    if (pkt->family == Address::INET || pkt->family == Address::INET6) {
         FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
-                   pkt->agent_hdr.vrf, pkt->ip_saddr.to_v4().to_ulong(),
-                   pkt->ip_daddr.to_v4().to_ulong(), str, pkt->l3_forwarding,
-                   0, 0, 0, 0);
-    } else if (pkt->family == Address::INET6) {
-        uint64_t sip[2], dip[2];
-        Ip6AddressToU64Array(pkt->ip_saddr.to_v6(), sip, 2);
-        Ip6AddressToU64Array(pkt->ip_daddr.to_v6(), dip, 2);
-        FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
-                   pkt->agent_hdr.vrf, -1, -1, str, pkt->l3_forwarding,
-                   sip[0], sip[1], dip[0], dip[1]);
+                   pkt->agent_hdr.vrf, pkt->ip_saddr.to_string(),
+                   pkt->ip_daddr.to_string(), str, pkt->l3_forwarding);
     } else {
         assert(0);
     }
@@ -1386,55 +1378,74 @@ bool PktFlowInfo::UnknownUnicastFlow(const PktInfo *pkt,
     return ret;
 }
 
-bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
-                          PktControlInfo *out) {
-    in->intf_ = agent->interface_table()->FindInterface(pkt->agent_hdr.ifindex);
-    out->nh_ = in->nh_ = pkt->agent_hdr.nh;
-
+// Basic config validations for the flow
+bool PktFlowInfo::ValidateConfig(const PktInfo *pkt, PktControlInfo *in) {
     if (agent->tsn_enabled()) {
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_FLOW_ON_TSN;
         return false;
     }
 
-    if (in->intf_ == NULL ||
-        (pkt->l3_forwarding == true &&
-         in->intf_->type() == Interface::VM_INTERFACE &&
-         in->intf_->ip_active(pkt->family) == false) ||
-        (pkt->l3_forwarding == false &&
-         in->intf_->l2_active() == false)) {
-        in->intf_ = NULL;
-        LogError(pkt, "Invalid or Inactive ifindex");
+    if (in->intf_ == NULL) {
+        LogError(pkt, "Invalid interface");
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
         return false;
     }
 
-    if (in->intf_->type() == Interface::VM_INTERFACE) {
-        const VmInterface *vm_intf = 
-            static_cast<const VmInterface *>(in->intf_);
-        if (pkt->l3_forwarding && vm_intf->layer3_forwarding() == false) {
-            LogError(pkt, "ipv4 service not enabled for ifindex");
+    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(in->intf_);
+    if (pkt->l3_forwarding == true) {
+        if (vm_intf && in->intf_->ip_active(pkt->family) == false) {
+            in->intf_ = NULL;
+            LogError(pkt, "IP protocol inactive on interface");
             short_flow = true;
-            short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
+            short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
             return false;
         }
 
-        if (pkt->l3_forwarding == false &&
-            vm_intf->bridging() == false) {
-            LogError(pkt, "Bridge service not enabled for ifindex");
+        if (vm_intf && vm_intf->layer3_forwarding() == false) {
+            LogError(pkt, "IP service not enabled for interface");
             short_flow = true;
             short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
             return false;
         }
     }
 
-    in->vrf_ = agent->vrf_table()->FindVrfFromId(pkt->agent_hdr.vrf);
-    if (in->vrf_ == NULL || !in->vrf_->IsActive()) {
+    if (pkt->l3_forwarding == false) {
+        if (in->intf_->l2_active() == false) {
+            in->intf_ = NULL;
+            LogError(pkt, "L2 inactive on interface");
+            short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_INTERFACE;
+            return false;
+        }
+
+        if (vm_intf && vm_intf->bridging() == false) {
+            LogError(pkt, "Bridge service not enabled for interface");
+            short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_IPV4_FWD_DIS;
+            return false;
+        }
+    }
+
+    if (in->vrf_ == NULL || in->vrf_->IsActive() == false) {
         in->vrf_ = NULL;
         LogError(pkt, "Invalid or Inactive VRF");
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_UNAVIALABLE_VRF;
+        return false;
+    }
+
+    return true;
+}
+
+bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
+                          PktControlInfo *out) {
+    in->intf_ = agent->interface_table()->FindInterface(pkt->agent_hdr.ifindex);
+    out->nh_ = in->nh_ = pkt->agent_hdr.nh;
+    in->vrf_ = agent->vrf_table()->FindVrfFromId(pkt->agent_hdr.vrf);
+
+    if (ValidateConfig(pkt, in) == false) {
         return false;
     }
 
