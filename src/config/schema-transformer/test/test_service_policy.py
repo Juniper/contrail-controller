@@ -137,7 +137,7 @@ class VerifyServicePolicy(VerifyPolicy):
     @retries(5)
     def check_service_chain_ip(self, sc_name):
         _SC_IP_CF = 'service_chain_ip_address_table'
-        cf = CassandraCFs.get_cf('to_bgp_keyspace', _SC_IP_CF)
+        cf = self.get_cf('to_bgp_keyspace', _SC_IP_CF)
         ip = cf.get(sc_name)['ip_address']
 
     @retries(5)
@@ -1116,7 +1116,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self.id(), self._api_server_ip, self._api_server_port)
+            self._cluster_id, self.id(), self._api_server_ip,
+            self._api_server_port)
 
         # check if all ri's  are deleted
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj))
@@ -1158,7 +1159,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self.id(), self._api_server_ip, self._api_server_port)
+            self._cluster_id, self.id(), self._api_server_ip,
+            self._api_server_port)
 
         #check service chain state
         sc = self.wait_to_get_sc()

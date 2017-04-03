@@ -71,19 +71,6 @@ class SvcMonitor(object):
             # Initialize logger
             self.logger = ServiceMonitorLogger(args)
 
-        # rotating log file for catchall errors
-        self._err_file = self._args.trace_file
-        self._svc_err_logger = logging.getLogger('SvcErrLogger')
-        self._svc_err_logger.setLevel(logging.ERROR)
-        try:
-            with open(self._err_file, 'a'):
-                handler = logging.handlers.RotatingFileHandler(
-                    self._err_file, maxBytes=64*1024, backupCount=2)
-                self._svc_err_logger.addHandler(handler)
-        except IOError:
-            self.logger.warning("Failed to open trace file %s" %
-                                    self._err_file)
-
         # init object_db
         self._object_db = ServiceMonitorDB(self._args, self.logger)
         DBBaseSM.init(self, self.logger, self._object_db)

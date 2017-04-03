@@ -114,6 +114,7 @@ class DatabaseManager(object):
         stdout.setLevel(log_level)
         stdout.setFormatter(logformat)
         self._logger.addHandler(stdout)
+        cluster_id = self._api_args.cluster_id
 
         # cassandra connection
         self._cassandra_servers = self._api_args.cassandra_server_list
@@ -127,7 +128,11 @@ class DatabaseManager(object):
                cred={'username':self._args.cassandra_user,
                      'password':self._args.cassandra_password}
         for ks_name, cf_name_list in self._db_info:
-            pool = pycassa.ConnectionPool(keyspace=ks_name,
+            if cluster_id:
+                full_ks_name = '%s_%s' %(cluster_id, ks_name)
+            else:
+                full_ks_name = ks_name
+            pool = pycassa.ConnectionPool(keyspace=full_ks_name,
                        server_list=self._cassandra_servers, prefill=False,
                        credentials=cred)
             for cf_name in cf_name_list:
@@ -135,7 +140,12 @@ class DatabaseManager(object):
                                          read_consistency_level=rd_consistency)
 
         # zookeeper connection
+        self.base_vn_id_zk_path = cluster_id + self.BASE_VN_ID_ZK_PATH
+        self.base_rtgt_id_zk_path = cluster_id + self.BASE_RTGT_ID_ZK_PATH
+        self.base_sg_id_zk_path = cluster_id + self.BASE_SG_ID_ZK_PATH
+        self.base_subnet_zk_path = cluster_id + self.BASE_SUBNET_ZK_PATH
         self._zk_client = kazoo.client.KazooClient(self._api_args.zk_server_ip)
+
         self._zk_client.start()
 
         # Get the system global autonomous system
@@ -242,7 +252,7 @@ class DatabaseManager(object):
         rt_table = self._cf_dict['route_target_table']
 
         # read in route-target ids from zookeeper
-        base_path = self.BASE_RTGT_ID_ZK_PATH
+        base_path = self.base_rtgt_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_rtgts = {}
         num_bad_rtgts = 0
@@ -322,7 +332,7 @@ class DatabaseManager(object):
         ret_errors = []
 
         # read in security-group ids from zookeeper
-        base_path = self.BASE_SG_ID_ZK_PATH
+        base_path = self.base_sg_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_sgs = {}
         for sg_id in self._zk_client.get_children(base_path) or []:
@@ -377,7 +387,7 @@ class DatabaseManager(object):
         ret_errors = []
 
         # read in virtual-network ids from zookeeper
-        base_path = self.BASE_VN_ID_ZK_PATH
+        base_path = self.base_vn_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_vns = {}
         for vn_id in self._zk_client.get_children(base_path) or []:
@@ -564,7 +574,7 @@ class DatabaseManager(object):
         logger = self._logger
 
         zk_all_vns = {}
-        base_path = self.BASE_SUBNET_ZK_PATH
+        base_path = self.base_subnet_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         num_addrs = 0
         try:
@@ -729,9 +739,13 @@ class DatabaseChecker(DatabaseManager):
                 continue
 
             for ks_name, _ in self._db_info:
+                if self._api_args.cluster_id:
+                    full_ks_name = '%s_%s' %(self._api_args.cluster_id, ks_name)
+                else:
+                    full_ks_name = ks_name
                 logger.debug("Reading keyspace properties for %s on %s: ",
                              ks_name, server)
-                ks_prop = sys_mgr.get_keyspace_properties(ks_name)
+                ks_prop = sys_mgr.get_keyspace_properties(full_ks_name)
                 logger.debug("Got %s", ks_prop)
 
                 repl_factor = int(ks_prop['strategy_options']['replication_factor'])
@@ -1230,7 +1244,7 @@ class DatabaseCleaner(DatabaseManager):
                 obj_fq_name_table.remove('route_target',
                                          columns=[fq_name_uuid_str])
 
-        self._clean_zk_id_allocation(self.BASE_RTGT_ID_ZK_PATH,
+        self._clean_zk_id_allocation(self.base_rtgt_id_zk_path,
                                      schema_set,
                                      zk_set,
                                      id_oper='%%s + %d' % RT_ID_MIN_ALLOC)
@@ -1245,7 +1259,7 @@ class DatabaseCleaner(DatabaseManager):
         zk_set, cassandra_set, errors, _ = self.audit_security_groups_id()
         ret_errors.extend(errors)
 
-        self._clean_zk_id_allocation(self.BASE_SG_ID_ZK_PATH,
+        self._clean_zk_id_allocation(self.base_sg_id_zk_path,
                                      cassandra_set,
                                      zk_set)
 
@@ -1259,7 +1273,7 @@ class DatabaseCleaner(DatabaseManager):
         zk_set, cassandra_set, errors, _ = self.audit_virtual_networks_id()
         ret_errors.extend(errors)
 
-        self._clean_zk_id_allocation(self.BASE_VN_ID_ZK_PATH,
+        self._clean_zk_id_allocation(self.base_vn_id_zk_path,
                                      cassandra_set,
                                      zk_set,
                                      id_oper='%s - 1')
@@ -1364,7 +1378,7 @@ class DatabaseCleaner(DatabaseManager):
         extra_vn = set(zk_all_vns.keys()) - set(cassandra_all_vns.keys())
         for vn in extra_vn:
             for sn_key in zk_all_vns[vn]:
-                path = '%s/%s:%s' % (self.BASE_SUBNET_ZK_PATH, vn,
+                path = '%s/%s:%s' % (self.base_subnet_zk_path, vn,
                                      str(IPNetwork(sn_key).network))
                 if not self._args.execute:
                     logger.info("Would delete zk: %s", path)
@@ -1376,7 +1390,7 @@ class DatabaseCleaner(DatabaseManager):
         # Clean extra subnet in zk
         extra_vn_sn = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
         for vn, sn_key in extra_vn_sn:
-            path = '%s/%s:%s/%d' % (self.BASE_SUBNET_ZK_PATH, vn,
+            path = '%s/%s:%s/%d' % (self.base_subnet_zk_path, vn,
                                     str(IPNetwork(sn_key).network),
                                     IPNetwork(sn_key).prefixlen)
             if not self._args.execute:
@@ -1409,7 +1423,7 @@ class DatabaseCleaner(DatabaseManager):
 
                 ip_str = "%(#)010d" % {'#': int(IPAddress(ip_addr[1]))}
                 path = ('%s/%s:%s/%d/%s' %
-                        (self.BASE_SUBNET_ZK_PATH, vn,
+                        (self.base_subnet_zk_path, vn,
                          str(IPNetwork(sn_key).network),
                          IPNetwork(sn_key).prefixlen, ip_str))
                 if not self._args.execute:
@@ -1573,7 +1587,7 @@ class DatabaseHealer(DatabaseManager):
         # TODO: Create missing rt in api cassandra keyspace
         #       (schema_set - api_set)
 
-        self._heal_zk_id_allocation(self.BASE_RTGT_ID_ZK_PATH,
+        self._heal_zk_id_allocation(self.base_rtgt_id_zk_path,
                                     schema_set,
                                     zk_set,
                                     id_oper='%%s + %d' % RT_ID_MIN_ALLOC)
@@ -1588,7 +1602,7 @@ class DatabaseHealer(DatabaseManager):
         zk_set, cassandra_set, errors, _ = self.audit_virtual_networks_id()
         ret_errors.extend(errors)
 
-        self._heal_zk_id_allocation(self.BASE_VN_ID_ZK_PATH,
+        self._heal_zk_id_allocation(self.base_vn_id_zk_path,
                                     cassandra_set,
                                     zk_set,
                                     id_oper='%s - 1')
@@ -1603,7 +1617,7 @@ class DatabaseHealer(DatabaseManager):
         zk_set, cassandra_set, errors, _ = self.audit_security_groups_id()
         ret_errors.extend(errors)
 
-        self._heal_zk_id_allocation(self.BASE_SG_ID_ZK_PATH,
+        self._heal_zk_id_allocation(self.base_sg_id_zk_path,
                                     cassandra_set,
                                     zk_set)
 
@@ -1645,7 +1659,7 @@ class DatabaseHealer(DatabaseManager):
             for ip_addr in cassandra_all_vns[vn][sn_key]['addrs']:
                 ip_str = "%(#)010d" % {'#': int(IPAddress(ip_addr[1]))}
                 path = ('%s/%s:%s/%d/%s' %
-                        (self.BASE_SUBNET_ZK_PATH, vn,
+                        (self.base_subnet_zk_path, vn,
                          str(IPNetwork(sn_key).network),
                          IPNetwork(sn_key).prefixlen, ip_str))
                 if not self._args.execute:
@@ -1665,7 +1679,7 @@ class DatabaseHealer(DatabaseManager):
             for ip_addr in set(cassandra_ips) - set(zk_ips):
                 ip_str = "%(#)010d" % {'#': int(IPAddress(ip_addr[1]))}
                 path = ('%s/%s:%s/%d/%s' %
-                        (self.BASE_SUBNET_ZK_PATH, vn,
+                        (self.base_subnet_zk_path, vn,
                          str(IPNetwork(sn_key).network),
                          IPNetwork(sn_key).prefixlen, ip_str))
                 if not self._args.execute:

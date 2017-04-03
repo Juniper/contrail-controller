@@ -3,6 +3,8 @@
 #
 
 from gevent import sleep
+from gevent import monkey
+monkey.patch_all()
 
 from vnc_api.vnc_api import Bgpvpn
 from vnc_api.vnc_api import RouteTargetList
@@ -48,7 +50,7 @@ class TestBgpvpnWithVirtualNetwork(STTestCase, VerifyRouteTarget):
         vn2 = self.create_virtual_network('vn2-%s' % self.id(), '10.0.1.0/24')
         # Create one bgpvpn with route target
         bgpvpn = Bgpvpn('bgpvpn-%s' % self.id())
-        rt_name = 'target:2:1'
+        rt_name = 'target:200:1'
         bgpvpn.set_route_target_list(RouteTargetList([rt_name]))
         bgpvpn_id = self._vnc_lib.bgpvpn_create(bgpvpn)
         bgpvpn = self._vnc_lib.bgpvpn_read(id=bgpvpn_id)
@@ -191,7 +193,7 @@ class TestBgpvpnWithLogicalRouter(STTestCase, VerifyRouteTarget):
         vn2 = vns2[0]
         # Create one bgpvpn with route target
         bgpvpn = Bgpvpn('bgpvpn-%s' % self.id())
-        rt_name = 'target:2:1'
+        rt_name = 'target:300:1'
         bgpvpn.set_route_target_list(RouteTargetList([rt_name]))
         bgpvpn_id = self._vnc_lib.bgpvpn_create(bgpvpn)
         bgpvpn = self._vnc_lib.bgpvpn_read(id=bgpvpn_id)
