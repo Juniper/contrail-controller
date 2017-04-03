@@ -2643,6 +2643,7 @@ class ServiceChain(DBBaseST):
             if si_info is None:
                 # if previously created but no longer valid, then destroy
                 self.destroy()
+                return
 
             # If the VMIs associated with the SC has changed
             # after the SC is created, recreate the SC object.
