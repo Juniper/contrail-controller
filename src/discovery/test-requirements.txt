@@ -11,6 +11,7 @@ kazoo
 python-novaclient
 cfgm_common
 vnc_api
+vnc_cfg_api_server
 discoveryclient
 sandesh
 sandesh-common

@@ -56,7 +56,7 @@ class DsTestCase(test_common.TestCase):
         test_common.setup_mocks(self.mocks)
 
         self._disc_server_greenlet = gevent.spawn(test_common.launch_disc_server,
-            self.id(), self._disc_server_ip, self._disc_server_port,
+            self._cluster_id, self.id(), self._disc_server_ip, self._disc_server_port,
             http_server_port, self._disc_server_config_knobs)
 
         test_utils.block_till_port_listened(self._disc_server_ip, self._disc_server_port)
