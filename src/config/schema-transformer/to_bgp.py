@@ -59,7 +59,8 @@ class SchemaTransformer(object):
             'virtual_network': ['virtual_machine', 'port_tuple',
                                 'bgp_as_a_service'],
             'logical_router': ['virtual_network'],
-            'instance_ip': ['virtual_machine', 'port_tuple', 'bgp_as_a_service', 'virtual_network'],
+            'instance_ip': ['virtual_machine', 'port_tuple',
+                            'bgp_as_a_service', 'virtual_network'],
             'floating_ip': ['virtual_machine', 'port_tuple'],
             'alias_ip': ['virtual_machine', 'port_tuple'],
             'virtual_machine': ['virtual_network'],
@@ -164,6 +165,7 @@ class SchemaTransformer(object):
         self._vnc_amqp = STAmqpHandle(self.logger, self.REACTION_MAP,
                                       self._args)
         self._vnc_amqp.establish()
+        SchemaTransformer._schema_transformer = self
         try:
             # Initialize cassandra
             self._object_db = SchemaTransformerDB(self, _zookeeper_client)
@@ -172,14 +174,13 @@ class SchemaTransformer(object):
             DBBaseST._vnc_lib = _vnc_lib
             ServiceChain.init()
             self.reinit()
-            SchemaTransformer._schema_transformer = self
             self._vnc_amqp._db_resync_done.set()
         except Exception as e:
             # If any of the above tasks like CassandraDB read fails, cleanup
             # the RMQ constructs created earlier and then give up.
             SchemaTransformer.destroy_instance()
             SchemaTransformer._schema_transformer = None
-            raise e
+            raise
     # end __init__
 
     # Clean up stale objects
