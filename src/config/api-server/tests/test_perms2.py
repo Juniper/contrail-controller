@@ -2,6 +2,9 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 import gevent
+import gevent.monkey
+gevent.monkey.patch_all()
+
 import os
 import sys
 import uuid
@@ -649,9 +652,8 @@ class TestPermissions(test_case.ApiServerTestCase):
         for item in y['virtual-networks']:
             logger.info( '    %s: %s' % (item['uuid'], item['fq_name']))
         # list should be non-empty because missing filter will enable sharing
-        expected = set([self.vn_name])
         received = set([item['fq_name'][-1] for item in y['virtual-networks']])
-        self.assertEquals(expected, received)
+        self.assertIn(self.vn_name, received)
 
     def test_shared_access(self):
         logger.info('')

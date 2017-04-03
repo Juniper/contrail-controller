@@ -3647,8 +3647,8 @@ class TestDBAudit(test_case.ApiServerTestCase):
             with fq_name_cf.patch_row('virtual_network',
                 new_columns=wrong_col_val_ts):
                 errors = db_checker.check_subnet_addr_alloc()
-                error_types = [type(x) for x in errors]
-                self.assertEqual(len(error_types),0)
+                err_msgs = [x.msg for x in errors]
+                self.assertNotIn(vn_obj.get_fq_name_str(), err_msgs)
     # test_checker_zk_vn_extra
 
     def test_checker_zk_vn_missing(self):
@@ -4296,7 +4296,8 @@ class TestRefValidation(test_case.ApiServerTestCase):
                                                   'subnet_name': None,
                                                   'subnet_uuid': None}]},
                             'to': ['default-domain',
-                                   'default-project']}]}}
+                                   'default-project',
+                                   'default-network-ipam']}]}}
         status, content = self._http_post('/virtual-networks',
                               body=json.dumps(body_dict))
         self.assertThat(status, Equals(200))
@@ -4366,7 +4367,7 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
             patch_ks = test_common.FakeSystemManager.patch_keyspace
             with patch_ks('to_bgp_keyspace', {}), \
                  patch_ks('svc_monitor_keyspace', {}), \
-                 patch_ks('DISCOVERY_SERVER', {}):
+                 patch_ks('dm_keyspace', {}):
                 vn_obj = self._create_test_object()
                 db_json_exim.DatabaseExim('--export-to %s' %(
                     export_dump.name)).db_export()
@@ -4383,17 +4384,38 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
                 self.assertEqual(zk_node[0][1][0], vn_obj.uuid)
     # end test_db_export
 
+    def test_db_export_with_omit_keyspaces(self):
+        with tempfile.NamedTemporaryFile() as export_dump:
+            vn_obj = self._create_test_object()
+
+            omit_ks = set(db_json_exim.KEYSPACES) - set(['config_db_uuid'])
+            args = '--export-to %s --omit-keyspaces ' %(export_dump.name)
+            for ks in list(omit_ks):
+                args += '%s ' %(ks)
+            db_json_exim.DatabaseExim(args).db_export()
+            dump = json.loads(export_dump.readlines()[0])
+            dump_cassandra = dump['cassandra']
+            dump_zk = json.loads(dump['zookeeper'])
+            uuid_table = dump_cassandra['config_db_uuid']['obj_uuid_table']
+            self.assertEqual(uuid_table[vn_obj.uuid]['fq_name'][0],
+                json.dumps(vn_obj.get_fq_name()))
+            zk_node = [node for node in dump_zk
+                if node[0] == '/fq-name-to-uuid/virtual_network:%s/' %(
+                    vn_obj.get_fq_name_str())]
+            self.assertEqual(len(zk_node), 1)
+            self.assertEqual(zk_node[0][1][0], vn_obj.uuid)
+    # end test_db_export_with_omit_keyspaces
+
     def test_db_export_and_import(self):
         with tempfile.NamedTemporaryFile() as dump_f:
             patch_ks = test_common.FakeSystemManager.patch_keyspace
             with patch_ks('to_bgp_keyspace', {}), \
                  patch_ks('svc_monitor_keyspace', {}), \
-                 patch_ks('DISCOVERY_SERVER', {}):
+                 patch_ks('dm_keyspace', {}):
                 vn_obj = self._create_test_object()
                 db_json_exim.DatabaseExim('--export-to %s' %(
                     dump_f.name)).db_export()
-                with ExpectedException(db_json_exim.CassandraNotEmptyError,
-                    'obj_uuid_table has entries'):
+                with ExpectedException(db_json_exim.CassandraNotEmptyError):
                     db_json_exim.DatabaseExim('--import-from %s' %(
                         dump_f.name)).db_import()
 
@@ -4401,7 +4423,10 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
                     'config_db_uuid', 'obj_uuid_table')
                 fq_name_cf = test_common.CassandraCFs.get_cf(
                     'config_db_uuid', 'obj_fq_name_table')
-                with uuid_cf.patch_cf({}), fq_name_cf.patch_cf({}):
+                shared_cf = test_common.CassandraCFs.get_cf(
+                    'config_db_uuid', 'obj_shared_table')
+                with uuid_cf.patch_cf({}), fq_name_cf.patch_cf({}), \
+                     shared_cf.patch_cf({}):
                     with ExpectedException(
                          db_json_exim.ZookeeperNotEmptyError):
                         db_json_exim.DatabaseExim('--import-from %s' %(
@@ -4410,7 +4435,7 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
                 exim_obj = db_json_exim.DatabaseExim('--import-from %s' %(
                                dump_f.name))
                 with uuid_cf.patch_cf({}), fq_name_cf.patch_cf({}), \
-                    exim_obj._zookeeper.patch_path(
+                    shared_cf.patch_cf({}), exim_obj._zookeeper.patch_path(
                         '/', recursive=True):
                     exim_obj.db_import()
                     dump = json.loads(dump_f.readlines()[0])
