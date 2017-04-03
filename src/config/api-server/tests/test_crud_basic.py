@@ -3968,6 +3968,65 @@ class TestCacheWithMetadataExcludeTypes(test_case.ApiServerTestCase):
     # end test_exclude_types_not_cached
 # end class TestCacheWithMetadataExcludeTypes
 
+class TestRefValidation(test_case.ApiServerTestCase):
+    def test_refs_validation_with_expected_error(self):
+        obj = VirtualNetwork('validate-create-error')
+        body_dict = {'virtual-network':
+                        {'fq_name': obj.fq_name,
+                        'parent_type': 'project',
+                        'network_ipam_refs': [
+                            {'attr':
+                                {'host_routes': None,
+                                'ipam_subnets': [{'addr_from_start': None,
+                                                  'alloc_unit': 1,
+                                                  'allocation_pools': [],
+                                                  'default_gateway': None,
+                                                  'dhcp_option_list': None,
+                                                  'dns_nameservers': [],
+                                                  'dns_server_address': None,
+                                                  'enable_dhcp': True,
+                                                  'host_routes': None,
+                                                  'subnet': {'ip_prefix': '11.1.1.0',
+                                                             'ip_prefix_len': 24},
+                                                  'subnet_name': None,
+                                                  'subnet_uuid': 12}]},
+                            'to': ['default-domain',
+                                   'default-project']}]}}
+        status, content = self._http_post('/virtual-networks',
+                              body=json.dumps(body_dict))
+        self.assertThat(status, Equals(400))
+        self.assertThat(content, Contains('Bad reference'))
+    #end test_refs_validation_with_expected_error
+
+    def test_refs_validation_with_expected_success(self):
+        obj = VirtualNetwork('validate-create')
+        body_dict = {'virtual-network':
+                        {'fq_name': obj.fq_name,
+                        'parent_type': 'project',
+                        'network_ipam_refs': [
+                            {'attr':
+                                {'host_routes': None,
+                                'ipam_subnets': [{'addr_from_start': None,
+                                                  'alloc_unit': 1,
+                                                  'allocation_pools': [],
+                                                  'default_gateway': None,
+                                                  'dhcp_option_list': None,
+                                                  'dns_nameservers': [],
+                                                  'dns_server_address': None,
+                                                  'enable_dhcp': True,
+                                                  'host_routes': None,
+                                                  'subnet': None,
+                                                  'subnet': {'ip_prefix': '10.1.1.0',
+                                                             'ip_prefix_len': 24},
+                                                  'subnet_name': None,
+                                                  'subnet_uuid': None}]},
+                            'to': ['default-domain',
+                                   'default-project']}]}}
+        status, content = self._http_post('/virtual-networks',
+                              body=json.dumps(body_dict))
+        self.assertThat(status, Equals(200))
+    #end test_refs_validation_with_expected_success
+#end class TestRefValidation
 
 class TestVncApiStats(test_case.ApiServerTestCase):
     from cfgm_common.vnc_api_stats import log_api_stats
