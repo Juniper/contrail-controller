@@ -390,8 +390,7 @@ class TestPolicy(STTestCase, VerifyPolicy):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self.id(), self._api_server_ip, self._api_server_port)
-        gevent.sleep(2)
+            self._cluster_id, self.id(), self._api_server_ip, self._api_server_port)
 
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn.uuid)

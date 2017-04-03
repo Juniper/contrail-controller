@@ -23,6 +23,12 @@ class CassandraNotEmptyError(Exception): pass
 class ZookeeperNotEmptyError(Exception): pass
 class InvalidArguments(Exception): pass
 
+KEYSPACES = ['config_db_uuid',
+            'useragent',
+            'to_bgp_keyspace',
+            'svc_monitor_keyspace',
+            'dm_keyspace']
+
 class DatabaseExim(object):
     def __init__(self, args_str):
         self._parse_args(args_str)
@@ -63,6 +69,11 @@ class DatabaseExim(object):
         parser.add_argument(
             "--export-to", help="Export from database to this json file",
             metavar='FILE')
+        parser.add_argument(
+            "--omit-keyspaces",
+            nargs='*',
+            help="List of keyspaces to omit in export/import",
+            metavar='FILE')
 
         args_obj, remaining_argv = parser.parse_known_args(args_str.split())
         if ((args_obj.import_from is not None) and
@@ -88,66 +99,50 @@ class DatabaseExim(object):
             with open(self._args.import_from, 'r') as f:
                 self.import_data = json.loads(f.read())
 
-        # check older format export file which had only config_db_uuid
-        # CF names at top-level
-        if set(['obj_uuid_table', 'obj_fq_name_table']) == set(
-                self.import_data['cassandra'].keys()):
-            self.init_cassandra()
-        else:
-            try:
-                # in pre 3.1 releases, tuple for cf_info not dict
-                ks_cf_info = dict((ks, [(c, None) for c in cf.keys()]) 
-                    for ks,cf in self.import_data['cassandra'].items())
-                self.init_cassandra(ks_cf_info)
-            except TypeError as e:
-                if not 'list indices must be integers, not tuple' in e:
-                    raise
-                ks_cf_info = dict((ks, dict((c, {}) for c in cf.keys()))
-                    for ks,cf in self.import_data['cassandra'].items())
-                self.init_cassandra(ks_cf_info)
+        ks_cf_info = dict((ks, [(c, None) for c in cf.keys()])
+            for ks,cf in self.import_data['cassandra'].items())
+        self.init_cassandra(ks_cf_info)
 
         # refuse import if db already has data
-        if len(list(self._cassandra.get_cf('obj_uuid_table').get_range(column_count=0))) > 0:
-            raise CassandraNotEmptyError('obj_uuid_table has entries')
-        if len(list(self._cassandra.get_cf('obj_fq_name_table').get_range(column_count=0))) > 0:
-            raise CassandraNotEmptyError('obj_fq_name_table has entries')
-        zk_nodes = self._zookeeper.get_children('/')
+        non_empty_errors = []
+        for ks in self.import_data['cassandra'].keys():
+            for cf in self.import_data['cassandra'][ks].keys():
+                if len(list(self._cassandra.get_cf(cf).get_range(
+                    column_count=0))) > 0:
+                    non_empty_errors.append(
+                        'Keyspace %s CF %s already has entries.' %(ks, cf))
 
-        zk_ignore_list = ['consumers', 'config', 'controller', 
-            'isr_change_notification', 'admin', 'brokers', 'zookeeper',
-            'controller_epoch']
-        for ignore in zk_ignore_list:
-            try:
-                zk_nodes.remove(ignore)
-            except ValueError:
-                pass
-        if len(zk_nodes) > 0:
-            raise ZookeeperNotEmptyError('Zookeeper has entries')
+        if non_empty_errors:
+            raise CassandraNotEmptyError('\n'.join(non_empty_errors))
+
+        non_empty_errors = []
+        existing_zk_dirs = set(
+            self._zookeeper.get_children(self._api_args.cluster_id+'/'))
+        import_zk_dirs = set([p_v_ts[0].split('/')[1]
+            for p_v_ts in json.loads(self.import_data['zookeeper'] or "[]")])
+
+        for non_empty in ((existing_zk_dirs & import_zk_dirs) - 
+                          set(['zookeeper'])):
+            non_empty_errors.append(
+                'Zookeeper has entries at /%s.' %(non_empty))
+
+        if non_empty_errors:
+            raise ZookeeperNotEmptyError('\n'.join(non_empty_errors))
 
         # seed cassandra
-        if 'obj_uuid_table' in self.import_data['cassandra']:
-            # old format only fqn and uuid table were exported at top-level
-            for cf_name in ['obj_fq_name_table', 'obj_uuid_table']:
+        for ks_name in self.import_data['cassandra'].keys():
+            for cf_name in self.import_data['cassandra'][ks_name].keys():
                 cf = self._cassandra.get_cf(cf_name)
-                for row,cols in self.import_data['cassandra'][cf_name].items():
+                for row,cols in self.import_data['cassandra'][ks_name][cf_name].items():
                     for col_name, col_val_ts in cols.items():
                         cf.insert(row, {col_name: col_val_ts[0]})
-        else:
-            for ks_name in self.import_data['cassandra'].keys():
-                for cf_name in self.import_data['cassandra'][ks_name].keys():
-                    cf = self._cassandra.get_cf(cf_name)
-                    for row,cols in self.import_data['cassandra'][ks_name][cf_name].items():
-                        for col_name, col_val_ts in cols.items():
-                            cf.insert(row, {col_name: col_val_ts[0]})
         # end seed cassandra
 
         # seed zookeeper
-        for path_value_ts in json.loads(self.import_data['zookeeper'] or "{}"):
+        for path_value_ts in json.loads(self.import_data['zookeeper'] or "[]"):
             path = path_value_ts[0]
             if path.endswith('/'):
                 path = path[:-1]
-            if path.split('/')[1] in zk_ignore_list:
-                continue
             value = path_value_ts[1][0]
             self._zookeeper.create(path, str(value), makepath=True)
     # end db_import
@@ -157,33 +152,30 @@ class DatabaseExim(object):
                        'zookeeper': {}}
 
         cassandra_contents = db_contents['cassandra']
-        for ks_name in ['config_db_uuid',
-            'useragent',
-            'to_bgp_keyspace',
-            'svc_monitor_keyspace',
-            'DISCOVERY_SERVER',]:
-            cassandra_contents[ks_name] = {}
-            if ks_name == 'DISCOVERY_SERVER':
-                # stringify key as composite column is used
-                stringify_col_name = True
+        for ks_name in (set(KEYSPACES) -
+                        set(self._args.omit_keyspaces or [])):
+            if self._api_args.cluster_id:
+                full_ks_name = '%s_%s' %(self._api_args.cluster_id, ks_name)
             else:
-                stringify_col_name = False
+                full_ks_name = ks_name
+            cassandra_contents[ks_name] = {}
 
             pool = pycassa.ConnectionPool(
-                ks_name, [self._api_args.cassandra_server_list],
+                full_ks_name, self._api_args.cassandra_server_list,
                 pool_timeout=120, max_retries=-1, timeout=5)
+
+            creds = None
+            if (self._api_args.cassandra_user and
+                self._api_args.cassandra_password):
+                creds = {'username': self._api_args.cassandra_user,
+                         'password': self._api_args.cassandra_password}
             sys_mgr = SystemManager(self._api_args.cassandra_server_list[0],
-                credentials={'username': self._api_args.cassandra_user,
-                             'password': self._api_args.cassandra_password})
-            for cf_name in sys_mgr.get_keyspace_column_families(ks_name):
+                credentials=creds)
+            for cf_name in sys_mgr.get_keyspace_column_families(full_ks_name):
                 cassandra_contents[ks_name][cf_name] = {}
                 cf = pycassa.ColumnFamily(pool, cf_name)
                 for r,c in cf.get_range(column_count=10000000, include_timestamp=True):
-                    if stringify_col_name:
-                        cassandra_contents[ks_name][cf_name][r] = dict(
-                            (str(k), v) for k,v in c.items())
-                    else:
-                        cassandra_contents[ks_name][cf_name][r] = c
+                    cassandra_contents[ks_name][cf_name][r] = c
 
         def get_nodes(path):
             if not zk.get_children(path):
@@ -197,7 +189,7 @@ class DatabaseExim(object):
 
         zk = kazoo.client.KazooClient(self._api_args.zk_server_ip)
         zk.start()
-        nodes = get_nodes('/')
+        nodes = get_nodes(self._api_args.cluster_id+'/')
         zk.stop()
         db_contents['zookeeper'] = json.dumps(nodes)
 
