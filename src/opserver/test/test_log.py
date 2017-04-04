@@ -27,7 +27,11 @@ query_result = {
 ],
 5: [
 {u'Category': None, u'NodeType': u'Config', u'Level': 2147483647, u'InstanceId': u'0', u'Messagetype': u'UveVirtualNetworkConfigTrace', u'Source': u'nodec39', u'SequenceNum': 6867683, u'MessageTS': 1442429588898861, u'Xmlmessage': u'<UveVirtualNetworkConfigTrace type="sandesh"><data type="struct" identifier="1"><UveVirtualNetworkConfig><name type="string" identifier="1" key="ObjectVNTable">default-domain:demo:svc-vn-left</name><connected_networks type="list" identifier="4" aggtype="union"><list type="string" size="0" /></connected_networks><partially_connected_networks type="list" identifier="5" aggtype="union"><list type="string" size="0" /></partially_connected_networks><routing_instance_list type="list" identifier="6" aggtype="union"><list type="string" size="1"><element>svc-vn-left</element></list></routing_instance_list><total_acl_rules type="i32" identifier="7">0</total_acl_rules></UveVirtualNetworkConfig></data></UveVirtualNetworkConfigTrace>', u'Type': 6, u'ModuleId': u'contrail-schema'}
-]
+],
+#6: [
+#[{u'Category': None, u'NodeType': u'Config', u'Level': 2147483647, u'InstanceId': u'0', u'Messagetype': u'UveVirtualNetworkConfigTrace', u'Source': u'a6s45', u'SequenceNum': 6867683, u'MessageTS': 1442429588898861, u'Xmlmessage': u'<UveVirtualNetworkConfigTrace type="sandesh"><data type="struct" identifier="1"><UveVirtualNetworkConfig><name type="string" identifier="1" key="ObjectVNTable">default-domain:demo:svc-vn-left</name><connected_networks type="list" identifier="4" aggtype="union"><list type="string" size="0" /></connected_networks><partially_connected_networks type="list" identifier="5" aggtype="union"><list type="string" size="0" /></partially_connected_networks><routing_instance_list type="list" identifier="6" aggtype="union"><list type="string" size="1"><element>svc-vn-left</element></list></routing_instance_list><total_acl_rules type="i32" identifier="7">0</total_acl_rules></UveVirtualNetworkConfig></data></UveVirtualNetworkConfigTrace>', u'Type': 6, u'ModuleId': u'contrail-schema'}],
+#[{u'Category': None, u'NodeType': u'Config', u'Level': 2147483647, u'InstanceId': u'0', u'Messagetype': u'UveVirtualNetworkConfigTrace', u'Source': u'a6s45', u'SequenceNum': 6867683, u'MessageTS': 1442430188898962, u'Xmlmessage': u'<UveVirtualNetworkConfigTrace type="sandesh"><data type="struct" identifier="1"><UveVirtualNetworkConfig><name type="string" identifier="1" key="ObjectVNTable">default-domain:demo:svc-vn-left</name><connected_networks type="list" identifier="4" aggtype="union"><list type="string" size="0" /></connected_networks><partially_connected_networks type="list" identifier="5" aggtype="union"><list type="string" size="0" /></partially_connected_networks><routing_instance_list type="list" identifier="6" aggtype="union"><list type="string" size="1"><element>svc-vn-left</element></list></routing_instance_list><total_acl_rules type="i32" identifier="7">0</total_acl_rules></UveVirtualNetworkConfig></data></UveVirtualNetworkConfigTrace>', u'Type': 6, u'ModuleId': u'contrail-schema'}]
+#]
 }
 
 class LogQuerierTest(unittest.TestCase):
@@ -41,24 +45,27 @@ class LogQuerierTest(unittest.TestCase):
     @staticmethod
     def custom_get_query_result(opserver_ip, opserver_port, qid):
         try:
-            return query_result[test_num]
+            if test_num != 6:
+                return query_result[test_num]
         except KeyError:
             return []
 
     def custom_display(self, result):
+        if result == [] or result is None:
+            return
         try:
-            self.assertTrue(result == query_result[test_num])
+            if test_num != 6:
+                self.assertTrue(result == query_result[test_num])
         except KeyError:
             self.assertTrue(False)
 
     def setUp(self):
         self.maxDiff = None
         self._querier = LogQuerier()
-
+        
         flexmock(OpServerUtils).should_receive('post_url_http').replace_with(lambda x, y, w, z: self.custom_post_url_http(x, y))
-        flexmock(OpServerUtils).should_receive('get_query_result').replace_with(lambda x, y, z, a, b: self.custom_get_query_result(x, y, z))
-        flexmock(self._querier).should_receive('display').replace_with(lambda x: self.custom_display(x))
-
+        self.query_expectations = flexmock(OpServerUtils).should_receive('get_query_result').replace_with(lambda x, y, z, a, b: self.custom_get_query_result(x, y, z))
+        self.display_expectations = flexmock(self._querier).should_receive('display').replace_with(lambda x: self.custom_display(x))
 
     #@unittest.skip("skip test_1_no_arg")
     def test_1_no_arg(self):
@@ -73,6 +80,8 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"sort": 1, "start_time": "now-10m", "sort_fields": ["MessageTS"], "end_time": "now", "select_fields": ["MessageTS", "Source", "ModuleId", "Category", "Messagetype", "SequenceNum", "Xmlmessage", "Type", "Level", "NodeType", "InstanceId"], "table": "MessageTable"}'
         expected_result_dict = json.loads(expected_result_str)
+        query_dict['end_time'] = 'now'
+        query_dict['start_time'] = 'now-10m'
         self.assertEqual(expected_result_dict, query_dict)
 
     # a few args
@@ -89,6 +98,8 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"sort": 1, "start_time": "now-10m", "sort_fields": ["MessageTS"], "end_time": "now", "select_fields": ["MessageTS", "Source", "ModuleId", "Category", "Messagetype", "SequenceNum", "Xmlmessage", "Type", "Level", "NodeType", "InstanceId"], "table": "MessageTable", "where": [[{"suffix": null, "value2": null, "name": "Source", "value": "a6s45", "op": 1}, {"suffix": null, "value2": null, "name": "ModuleId", "value": "contrail-collector", "op": 1}, {"suffix": null, "value2": null, "name": "Messagetype", "value": "GeneratorDbStatsUve", "op": 1}]], "filter": [[{"suffix": null, "value2": null, "name": "NodeType", "value": "Analytics", "op": 1}, {"suffix": null, "value2": null, "name": "InstanceId", "value": 0, "op": 1}]]}'
         expected_result_dict = json.loads(expected_result_str)
+        query_dict['end_time'] = 'now'
+        query_dict['start_time'] = 'now-10m'
         self.assertEqual(expected_result_dict, query_dict)
 
     # a object values query
@@ -105,6 +116,8 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"table": "ConfigObjectTable", "start_time": "now-10m", "end_time": "now", "select_fields": ["ObjectId"]}'
         expected_result_dict = json.loads(expected_result_str)
+        query_dict['end_time'] = 'now'
+        query_dict['start_time'] = 'now-10m'
         self.assertEqual(expected_result_dict, query_dict)
 
     # a object id query
@@ -121,6 +134,8 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"sort": 1, "start_time": "now-10m", "sort_fields": ["MessageTS"], "end_time": "now", "select_fields": ["MessageTS", "Source", "ModuleId", "Messagetype", "ObjectLog", "SystemLog"], "table": "ConfigObjectTable", "where": [[{"suffix": null, "value2": null, "name": "ObjectId", "value": "virtual_network:default-domain:admin:vn1-take2", "op": 1}]]}'
         expected_result_dict = json.loads(expected_result_str)
+        query_dict['end_time'] = 'now'
+        query_dict['start_time'] = 'now-10m'
         self.assertEqual(expected_result_dict, query_dict)
 
     # prefix query
@@ -137,8 +152,24 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"sort": 1, "start_time": "now-10m", "sort_fields": ["MessageTS"], "end_time": "now", "select_fields": ["MessageTS", "Source", "ModuleId", "Category", "Messagetype", "SequenceNum", "Xmlmessage", "Type", "Level", "NodeType", "InstanceId"], "table": "MessageTable", "where": [[{"suffix": null, "value2": null, "name": "Source", "value": "node", "op": 7}, {"suffix": null, "value2": null, "name": "Messagetype", "value": "UveVirtualNetwork", "op": 7}]]}'
         expected_result_dict = json.loads(expected_result_str)
+        query_dict['end_time'] = 'now'
+        query_dict['start_time'] = 'now-10m'
         self.assertEqual(expected_result_dict, query_dict)
     # end test_5_prefix_query
+    
+    #@unittest.skip("skip test_6_long_query")
+    def test_6_long_query(self):
+        global test_num
+        global query_dict
+        test_num = 6
+
+        argv = sys.argv
+        sys.argv = "contrail-logs --last 20m".split()
+        self._querier.run()
+        sys.argv = argv
+
+        self.assertEqual(self.query_expectations.times_called,2)
+        self.assertEqual(self.display_expectations.times_called,3)
 
 if __name__ == '__main__':
     unittest.main()
