@@ -338,6 +338,14 @@ private:
     BgpGlobalSystemConfig data_;
 };
 
+class BgpIfmapGlobalQosConfig {
+public:
+    const BgpGlobalQosConfig *config() const { return &data_; }
+    bool Update(BgpIfmapConfigManager *manager,
+                const autogen::GlobalQosConfig *qos);
+private:
+    BgpGlobalQosConfig data_;
+};
 
 //
 // BgpConfigData contains all the configuration data that's relevant to a
@@ -405,6 +413,10 @@ public:
     const BgpIfmapGlobalSystemConfig *global_config() const {
         return &global_config_;
     }
+    BgpIfmapGlobalQosConfig *global_qos() { return &global_qos_; }
+    const BgpIfmapGlobalQosConfig *global_qos() const {
+        return &global_qos_;
+    }
 
 private:
     IfmapInstanceMap instances_;
@@ -414,6 +426,7 @@ private:
     IfmapPeeringMap peerings_;
     IfmapRoutingPolicyLinkMap ri_rp_links_;
     BgpIfmapGlobalSystemConfig global_config_;
+    BgpIfmapGlobalQosConfig global_qos_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpIfmapConfigData);
 };
@@ -493,6 +506,7 @@ private:
     void ProcessBgpProtocol(const BgpConfigDelta &change);
     void ProcessBgpPeering(const BgpConfigDelta &change);
     void ProcessGlobalSystemConfig(const BgpConfigDelta &delta);
+    void ProcessGlobalQosConfig(const BgpConfigDelta &delta);
 
     bool ConfigHandler();
 

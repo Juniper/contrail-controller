@@ -672,6 +672,28 @@ bool BgpConfigParser::ParseGlobalSystemConfig(const xml_node &node,
     return true;
 }
 
+bool BgpConfigParser::ParseGlobalQosConfig(const xml_node &node,
+                                           bool add_change,
+                                           RequestList *requests) const {
+    for (xml_node child = node.first_child(); child;
+            child = child.next_sibling()) {
+        if (strcmp(child.name(), "control-traffic-dscp") == 0) {
+            auto_ptr<autogen::ControlTrafficDscpType> cfg(
+                    new autogen::ControlTrafficDscpType());
+            assert(cfg->XmlParse(child));
+
+            if (add_change) {
+                MapObjectSetProperty("global-qos-config", "",
+                    "control-traffic-dscp", cfg.release(), requests);
+            } else {
+                MapObjectClearProperty("global-qos-config", "",
+                                       "control-traffic-dscp", requests);
+            }
+        }
+    }
+    return true;
+}
+
 bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
                                   RequestList *requests) const {
     SessionMap sessions;
@@ -700,6 +722,9 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         if (strcmp(node.name(), "global-system-config") == 0) {
             ParseGlobalSystemConfig(node, add_change, requests);
+        }
+        if (strcmp(node.name(), "global-qos-config") == 0) {
+            ParseGlobalQosConfig(node, add_change, requests);
         }
     }
 

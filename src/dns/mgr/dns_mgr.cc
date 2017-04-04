@@ -40,6 +40,8 @@ DnsManager::DnsManager()
                     this, _1, _2, _3);
     obs.ipam = boost::bind(&DnsManager::ProcessConfig<IpamConfig>, this, _1, _2, _3);
     obs.vnni = boost::bind(&DnsManager::ProcessConfig<VnniConfig>, this, _1, _2, _3);
+    obs.global_qos = boost::bind(&DnsManager::ProcessConfig<GlobalQosConfig>,
+                                 this, _1, _2, _3);
     Dns::GetDnsConfigManager()->RegisterObservers(obs);
 
     DnsConfig::VdnsCallback = boost::bind(&DnsManager::DnsView, this, _1, _2);
@@ -1204,4 +1206,14 @@ void PageReq::HandleRequest() const {
     } else {
         SandeshError("Invalid Request", context());
     }
+}
+
+void ShowGlobalQosConfig::HandleRequest() const {
+    GlobalQosConfigResponse *resp = new GlobalQosConfigResponse();
+    GlobalQosConfig *obj = GlobalQosConfig::Find("");
+    resp->set_control_dscp(obj->control_dscp_);
+    resp->set_analytics_dscp(obj->analytics_dscp_);
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
 }
