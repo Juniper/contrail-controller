@@ -4107,8 +4107,8 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
             }
             interface->AddRoute(vrf_, addr_, plen_,
                                 interface->vn_->GetName(),
-                                false, ecmp, IpAddress(), dependent_ip,
-                                communities_, interface->label());
+                                false, ecmp, interface->GetServiceIp(addr_), 
+                                dependent_ip, communities_, interface->label());
         }
     }
 
