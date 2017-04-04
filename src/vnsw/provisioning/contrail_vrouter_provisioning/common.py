@@ -18,10 +18,14 @@ from contrail_vrouter_provisioning.network import ComputeNetworkSetup
 log = logging.getLogger('contrail_vrouter_provisioning.common')
 
 
-class ComputeBaseSetup(ContrailSetup, ComputeNetworkSetup):
-    def __init__(self, compute_args, args_str=None):
-        super(ComputeBaseSetup, self).__init__()
-        self._args = compute_args
+class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
+    def __init__(self, args):
+        super(CommonComputeSetup, self).__init__()
+        self._args = args
+
+        # Using keystone admin password for nova/neutron if not supplied
+        if not self._args.neutron_password:
+            self._args.neutron_password = self._args.keystone_admin_password
 
         self.multi_net = False
         if self._args.non_mgmt_ip:
@@ -40,7 +44,6 @@ class ComputeBaseSetup(ContrailSetup, ComputeNetworkSetup):
         else:
             # Deduce the phy interface from ip, if configured
             self.dev = self.get_device_by_ip(self.vhost_ip)
-        self.config_nova = not(getattr(self._args, 'no_nova_config', False))
 
     def enable_kernel_core(self):
         self.enable_kernel_core()
@@ -66,7 +69,7 @@ class ComputeBaseSetup(ContrailSetup, ComputeNetworkSetup):
         fl = "/etc/libvirt/qemu.conf"
         ret = local("sudo grep -q '^cgroup_device_acl' %s" % fl,
                     warn_only=True)
-        if ret.return_code == 1:
+        if ret.failed:
             if self.pdist in ['centos', 'redhat']:
                 local('sudo echo "clear_emulator_capabilities = 1" >> %s' % fl,
                       warn_only=True)
@@ -300,8 +303,8 @@ class ComputeBaseSetup(ContrailSetup, ComputeNetworkSetup):
                     'auth_url': auth_url,
                     'region': 'RegionOne'}
                   }
-        for section, key_vals in configs:
-            for key, val in key_vals:
+        for section, key_vals in configs.items():
+            for key, val in key_vals.items():
                 self.set_config(
                         '/etc/contrail/contrail-lbaas-auth.conf',
                         section, key, val)
@@ -381,7 +384,7 @@ SUBCHANNELS=1,2,3
         compute_ip = self._args.self_ip
         compute_hostname = socket.gethostname()
         use_ssl = False
-        if self._args.quantum_service_protocol == 'https':
+        if self._args.keystone_auth_protocol == 'https':
             use_ssl = True
         prov_args = "--host_name %s --host_ip %s --api_server_ip %s "\
                     "--oper add --admin_user %s --admin_password %s "\
@@ -395,14 +398,13 @@ SUBCHANNELS=1,2,3
                        use_ssl)
         if self._args.dpdk:
             prov_args += " --dpdk_enabled"
-        local("sudo python /opt/contrail/utils/provision_vrouter.py %s" %
-              prov_args)
+        cmd = "sudo python /opt/contrail/utils/provision_vrouter.py "
+        local(cmd + prov_args)
 
     def setup(self):
         self.disable_selinux()
         self.disable_iptables()
         self.setup_coredump()
-        if not self._args.vcenter_server:
-            self.fixup_config_files()
-            self.run_services()
-            self.add_vnc_config()
+        self.fixup_config_files()
+        self.run_services()
+        self.add_vnc_config()
