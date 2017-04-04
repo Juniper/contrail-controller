@@ -795,6 +795,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Maximum number of virtual ips'/>
         <xsd:element name="security-logging-object" type="xsd:integer" required='optional'
              description='Maximum number of security logging objects'/>
+        <xsd:element name="route-table" type="xsd:integer" required='optional'
+             description='Maximum number of route tables'/>
     </xsd:all>
 </xsd:complexType>
 
