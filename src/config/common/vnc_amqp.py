@@ -129,7 +129,14 @@ class VncAmqpHandle(object):
             return
 
         try:
-            self.obj.update()
+            ret = self.obj.update()
+            if ret is not None and not(ret):
+                # If update returns None, the function may not support a
+                # return value, hence treat it as if something might have
+                # changed. If a valus is returned, use its truth value.
+                # If it True, then some change was detected.
+                # If no change, then terminate dependency tracker
+                return
         except NoIdError:
             obj_id = self.oper_info['uuid']
             self.logger.warning('%s uuid %s update caused NoIdError' %
