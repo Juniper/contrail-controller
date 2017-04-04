@@ -240,6 +240,7 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, ifmap_port, conf_sections,
                       ifmap_server_ip=None):
     args_str = ""
+    ifmap_cert_dir = None
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
     args_str = args_str + "--http_server_port %s " % (http_server_port)
@@ -250,6 +251,11 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
     else:
         args_str = args_str + "--ifmap_listen_ip %s " % listen_ip
         args_str = args_str + "--ifmap_listen_port %s " % ifmap_port
+        ifmap_cert_dir = tempfile.mkdtemp()
+        args_str = args_str + "--ifmap_key_path %s/key " % ifmap_cert_dir
+        args_str = args_str + "--ifmap_cert_path %s/cert " % ifmap_cert_dir
+
+
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
@@ -271,6 +277,8 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
         server = vnc_cfg_api_server.VncApiServer(args_str)
         gevent.getcurrent().api_server = server
         vnc_cfg_api_server.main(args_str, server)
+    if ifmap_cert_dir is not None:
+        shutil.rmtree(ifmap_cert_dir)
 #end launch_api_server
 
 def launch_svc_monitor(test_id, api_server_ip, api_server_port):
