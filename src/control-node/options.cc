@@ -158,57 +158,36 @@ void Options::Initialize(EventManager &evm,
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
               "Sandesh send rate limit in messages/sec")
 
-        ("IFMAP.certs_store",  opt::value<string>(),
-             "Certificates store to use for communication with IFMAP server")
-        ("IFMAP.password", opt::value<string>()->default_value("control-node"),
-             "IFMAP server password")
-        ("IFMAP.server_url", opt::value<string>()->default_value(
-             ifmap_config_options_.server_url), "IFMAP server URL")
-        ("IFMAP.user", opt::value<string>()->default_value("control-node"),
-             "IFMAP server username")
-        ("IFMAP.config_user",
-             opt::value<string>()->default_value("control-node"),
-             "Config database username")
-        ("IFMAP.config_password",
-             opt::value<string>()->default_value("control-node"),
-             "Config database password")
-        ("IFMAP.config_db_server_list",
+        ("CONFIGDB.config_db_server_list",
              opt::value<vector<string> >()->default_value(
              default_config_db_server_list, default_config_db_server),
              "Config database server list")
-        ("IFMAP.stale_entries_cleanup_timeout",
-             opt::value<int>()->default_value(300),
-             "IFMAP stale entries cleanup timeout")
-        ("IFMAP.end_of_rib_timeout", opt::value<int>()->default_value(10),
-             "IFMAP end of rib timeout")
-        ("IFMAP.peer_response_wait_time", opt::value<int>()->default_value(60),
-             "IFMAP peer response wait time")
-        ("IFMAP.rabbitmq_server_list",
+        ("CONFIGDB.rabbitmq_server_list",
              opt::value<vector<string> >()->default_value(
              default_rabbitmq_server_list, default_rabbitmq_server),
              "RabbitMQ server list")
-        ("IFMAP.rabbitmq_user",
+        ("CONFIGDB.rabbitmq_user",
              opt::value<string>()->default_value("guest"),
              "RabbitMQ user")
-        ("IFMAP.rabbitmq_password",
+        ("CONFIGDB.rabbitmq_password",
              opt::value<string>()->default_value("guest"),
              "RabbitMQ password")
-        ("IFMAP.rabbitmq_vhost",
+        ("CONFIGDB.rabbitmq_vhost",
              opt::value<string>()->default_value(""),
              "RabbitMQ vhost")
-        ("IFMAP.rabbitmq_use_ssl",
+        ("CONFIGDB.rabbitmq_use_ssl",
              opt::value<bool>()->default_value(false),
              "Use SSL for RabbitMQ connection")
-        ("IFMAP.rabbitmq_ssl_version",
+        ("CONFIGDB.rabbitmq_ssl_version",
              opt::value<string>()->default_value(""),
              "SSL version for RabbitMQ connection")
-        ("IFMAP.rabbitmq_ssl_keyfile",
+        ("CONFIGDB.rabbitmq_ssl_keyfile",
              opt::value<string>()->default_value(""),
              "Keyfile for SSL RabbitMQ connection")
-        ("IFMAP.rabbitmq_ssl_certfile",
+        ("CONFIGDB.rabbitmq_ssl_certfile",
              opt::value<string>()->default_value(""),
              "Certificate file for SSL RabbitMQ connection")
-        ("IFMAP.rabbitmq_ssl_ca_certs",
+        ("CONFIGDB.rabbitmq_ssl_ca_certs",
              opt::value<string>()->default_value(""),
              "CA Certificate file for SSL RabbitMQ connection")
 
@@ -360,56 +339,36 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,
                               "DEFAULT.sandesh_send_rate_limit");
 
-    GetOptValue<string>(var_map, ifmap_config_options_.password,
-                        "IFMAP.password");
-    GetOptValue<string>(var_map, ifmap_config_options_.server_url,
-                        "IFMAP.server_url");
-    GetOptValue<string>(var_map, ifmap_config_options_.user,
-                        "IFMAP.user");
-    GetOptValue<string>(var_map, ifmap_config_options_.certs_store,
-                        "IFMAP.certs_store");
-    GetOptValue<string>(var_map, ifmap_config_options_.config_db_username,
-                        "IFMAP.config_user");
-    GetOptValue<string>(var_map, ifmap_config_options_.config_db_password,
-                        "IFMAP.config_password");
     GetOptValue< vector<string> >(var_map,
-                                  ifmap_config_options_.config_db_server_list,
-                                  "IFMAP.config_db_server_list");
-    GetOptValue<int>(var_map,
-                     ifmap_config_options_.stale_entries_cleanup_timeout,
-                     "IFMAP.stale_entries_cleanup_timeout");
-    GetOptValue<int>(var_map, ifmap_config_options_.end_of_rib_timeout,
-                     "IFMAP.end_of_rib_timeout");
-    GetOptValue<int>(var_map,
-                     ifmap_config_options_.peer_response_wait_time,
-                     "IFMAP.peer_response_wait_time");
+                                  configdb_options_.config_db_server_list,
+                                  "CONFIGDB.config_db_server_list");
     GetOptValue< vector<string> >(var_map,
-                     ifmap_config_options_.rabbitmq_server_list,
-                     "IFMAP.rabbitmq_server_list");
+                     configdb_options_.rabbitmq_server_list,
+                     "CONFIGDB.rabbitmq_server_list");
     GetOptValue<string>(var_map,
-                     ifmap_config_options_.rabbitmq_user,
-                     "IFMAP.rabbitmq_user");
+                     configdb_options_.rabbitmq_user,
+                     "CONFIGDB.rabbitmq_user");
     GetOptValue<string>(var_map,
-                     ifmap_config_options_.rabbitmq_password,
-                     "IFMAP.rabbitmq_password");
+                     configdb_options_.rabbitmq_password,
+                     "CONFIGDB.rabbitmq_password");
     GetOptValue<string>(var_map,
-                     ifmap_config_options_.rabbitmq_vhost,
-                     "IFMAP.rabbitmq_vhost");
+                     configdb_options_.rabbitmq_vhost,
+                     "CONFIGDB.rabbitmq_vhost");
     GetOptValue<bool>(var_map,
-                     ifmap_config_options_.rabbitmq_use_ssl,
-                     "IFMAP.rabbitmq_use_ssl");
+                     configdb_options_.rabbitmq_use_ssl,
+                     "CONFIGDB.rabbitmq_use_ssl");
     GetOptValue<string>(var_map,
-                     ifmap_config_options_.rabbitmq_ssl_version,
-                     "IFMAP.rabbitmq_ssl_version");
+                     configdb_options_.rabbitmq_ssl_version,
+                     "CONFIGDB.rabbitmq_ssl_version");
     GetOptValue<string>(var_map,
-                     ifmap_config_options_.rabbitmq_ssl_keyfile,
-                     "IFMAP.rabbitmq_ssl_keyfile");
+                     configdb_options_.rabbitmq_ssl_keyfile,
+                     "CONFIGDB.rabbitmq_ssl_keyfile");
     GetOptValue<string>(var_map,
-                     ifmap_config_options_.rabbitmq_ssl_certfile,
-                     "IFMAP.rabbitmq_ssl_certfile");
+                     configdb_options_.rabbitmq_ssl_certfile,
+                     "CONFIGDB.rabbitmq_ssl_certfile");
     GetOptValue<string>(var_map,
-                     ifmap_config_options_.rabbitmq_ssl_ca_certs,
-                     "IFMAP.rabbitmq_ssl_ca_certs");
+                     configdb_options_.rabbitmq_ssl_ca_certs,
+                     "CONFIGDB.rabbitmq_ssl_ca_certs");
 
     GetOptValue<string>(var_map, sandesh_config_.keyfile,
                         "SANDESH.sandesh_keyfile");
