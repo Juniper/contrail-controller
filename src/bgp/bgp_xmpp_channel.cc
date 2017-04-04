@@ -1654,6 +1654,20 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 nh_address = nhop_address;
                 label = nit->label;
                 l3_label = nit->l3_label;
+                if (!nit->mac.empty()) {
+                    MacAddress rmac_addr =
+                        MacAddress::FromString(nit->mac, &error);
+                    if (error) {
+                        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                            BGP_LOG_FLAG_ALL,
+                            "Bad next-hop mac address " << nit->mac <<
+                            " for enet route " << evpn_prefix.ToXmppIdString());
+                        return false;
+                    }
+                    RouterMac router_mac(rmac_addr);
+                    ext.communities.push_back(
+                        router_mac.GetExtCommunityValue());
+                }
             }
 
             // Process tunnel encapsulation list.

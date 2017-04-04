@@ -207,17 +207,19 @@ struct NextHop {
             tunnel_encapsulations_.push_back(tunnel);
         }
     }
-    NextHop(std::string address, uint32_t label, uint32_t l3_label,
-            const std::string virtual_network = "") :
-                address_(address), no_label_(false), label_(label),
+    NextHop(std::string address, std::string mac, uint32_t label,
+        uint32_t l3_label, const std::string virtual_network = "") :
+                address_(address), mac_(mac), no_label_(false), label_(label),
                 l3_label_(l3_label), virtual_network_(virtual_network) {
         tunnel_encapsulations_.push_back("vxlan");
     }
 
     bool operator==(NextHop other) {
         if (address_ != other.address_) return false;
+        if (mac_ != other.mac_) return false;
         if (no_label_ != other.no_label_) return false;
         if (label_ != other.label_) return false;
+        if (l3_label_ != other.l3_label_) return false;
         if (tunnel_encapsulations_.size() !=
                 other.tunnel_encapsulations_.size()) {
             return false;
@@ -237,6 +239,7 @@ struct NextHop {
     }
 
     std::string address_;
+    std::string mac_;
     bool no_label_;
     int label_;
     int l3_label_;

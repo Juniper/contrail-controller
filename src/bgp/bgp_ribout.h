@@ -48,11 +48,12 @@ public:
     // the BgpPath originated.  A value of -1 means that the VN is unknown.
     class NextHop {
         public:
-            NextHop(const BgpTable *table, IpAddress address, uint32_t label,
-                uint32_t l3_label, const ExtCommunity *ext_community,
-                bool vrf_originated);
+            NextHop(const BgpTable *table, IpAddress address,
+                const MacAddress &mac, uint32_t label, uint32_t l3_label,
+                const ExtCommunity *ext_community, bool vrf_originated);
 
             const IpAddress address() const { return address_; }
+            const MacAddress &mac() const { return mac_; }
             uint32_t label() const { return label_; }
             uint32_t l3_label() const { return l3_label_; }
             int origin_vn_index() const { return origin_vn_index_; }
@@ -64,6 +65,7 @@ public:
 
         private:
             IpAddress address_;
+            MacAddress mac_;
             uint32_t label_;
             uint32_t l3_label_;
             int origin_vn_index_;

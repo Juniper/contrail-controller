@@ -658,6 +658,7 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
                 autogen::EnetNextHopType item_nexthop;
                 item_nexthop.af = BgpAf::IPv4;
                 item_nexthop.address = nexthop.address_;
+                item_nexthop.mac = nexthop.mac_;
                 item_nexthop.label =
                     nexthop.label_ ? nexthop.label_ : label_alloc_++;
                 item_nexthop.l3_label = nexthop.l3_label_;
