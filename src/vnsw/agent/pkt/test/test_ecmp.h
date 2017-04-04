@@ -118,6 +118,7 @@ public:
         AddRemoteEcmpRoute("vrf1", REMOTE_ECMP_IP_1, 32, "vn1", 3,
                            ComponentNHKeyList());
 
+        FlowStatsTimerStartStop(agent_, true);
         GetInfo();
     }
 
@@ -142,6 +143,7 @@ public:
         client->WaitForIdle();
 
         DeleteBgpPeer(bgp_peer_);
+        FlowStatsTimerStartStop(agent_, false);
         WAIT_FOR(1000, 1000, (agent_->vrf_table()->Size() == 1));
     }
 
