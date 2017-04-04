@@ -73,6 +73,11 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"sort": 1, "start_time": "now-10m", "sort_fields": ["MessageTS"], "end_time": "now", "select_fields": ["MessageTS", "Source", "ModuleId", "Category", "Messagetype", "SequenceNum", "Xmlmessage", "Type", "Level", "NodeType", "InstanceId"], "table": "MessageTable"}'
         expected_result_dict = json.loads(expected_result_str)
+        self.assertEqual(int(query_dict['end_time']) - int(query_dict['start_time']),10*60*pow(10,6))
+        del expected_result_dict['start_time']
+        del expected_result_dict['end_time']
+        del query_dict['start_time']
+        del query_dict['end_time']
         self.assertEqual(expected_result_dict, query_dict)
 
     # a few args
@@ -89,6 +94,11 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"sort": 1, "start_time": "now-10m", "sort_fields": ["MessageTS"], "end_time": "now", "select_fields": ["MessageTS", "Source", "ModuleId", "Category", "Messagetype", "SequenceNum", "Xmlmessage", "Type", "Level", "NodeType", "InstanceId"], "table": "MessageTable", "where": [[{"suffix": null, "value2": null, "name": "Source", "value": "a6s45", "op": 1}, {"suffix": null, "value2": null, "name": "ModuleId", "value": "contrail-collector", "op": 1}, {"suffix": null, "value2": null, "name": "Messagetype", "value": "GeneratorDbStatsUve", "op": 1}]], "filter": [[{"suffix": null, "value2": null, "name": "NodeType", "value": "Analytics", "op": 1}, {"suffix": null, "value2": null, "name": "InstanceId", "value": 0, "op": 1}]]}'
         expected_result_dict = json.loads(expected_result_str)
+        self.assertEqual(int(query_dict['end_time']) - int(query_dict['start_time']),10*60*pow(10,6))
+        del expected_result_dict['start_time']
+        del expected_result_dict['end_time']
+        del query_dict['start_time']
+        del query_dict['end_time']
         self.assertEqual(expected_result_dict, query_dict)
 
     # a object values query
@@ -105,6 +115,11 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"table": "ConfigObjectTable", "start_time": "now-10m", "end_time": "now", "select_fields": ["ObjectId"]}'
         expected_result_dict = json.loads(expected_result_str)
+        self.assertEqual(int(query_dict['end_time']) - int(query_dict['start_time']),10*60*pow(10,6))
+        del expected_result_dict['start_time']
+        del expected_result_dict['end_time']
+        del query_dict['start_time']
+        del query_dict['end_time']
         self.assertEqual(expected_result_dict, query_dict)
 
     # a object id query
@@ -121,6 +136,12 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"sort": 1, "start_time": "now-10m", "sort_fields": ["MessageTS"], "end_time": "now", "select_fields": ["MessageTS", "Source", "ModuleId", "Messagetype", "ObjectLog", "SystemLog"], "table": "ConfigObjectTable", "where": [[{"suffix": null, "value2": null, "name": "ObjectId", "value": "virtual_network:default-domain:admin:vn1-take2", "op": 1}]]}'
         expected_result_dict = json.loads(expected_result_str)
+        self.assertEqual(int(query_dict['end_time']) - int(query_dict['start_time']),10*60*pow(10,6))
+        del expected_result_dict['start_time']
+        del expected_result_dict['end_time']
+        del query_dict['start_time']
+        del query_dict['end_time']
+
         self.assertEqual(expected_result_dict, query_dict)
 
     # prefix query
@@ -137,6 +158,12 @@ class LogQuerierTest(unittest.TestCase):
 
         expected_result_str = '{"sort": 1, "start_time": "now-10m", "sort_fields": ["MessageTS"], "end_time": "now", "select_fields": ["MessageTS", "Source", "ModuleId", "Category", "Messagetype", "SequenceNum", "Xmlmessage", "Type", "Level", "NodeType", "InstanceId"], "table": "MessageTable", "where": [[{"suffix": null, "value2": null, "name": "Source", "value": "node", "op": 7}, {"suffix": null, "value2": null, "name": "Messagetype", "value": "UveVirtualNetwork", "op": 7}]]}'
         expected_result_dict = json.loads(expected_result_str)
+        self.assertEqual(int(query_dict['end_time']) - int(query_dict['start_time']),10*60*pow(10,6))
+        del expected_result_dict['start_time']
+        del expected_result_dict['end_time']
+        del query_dict['start_time']
+        del query_dict['end_time']
+
         self.assertEqual(expected_result_dict, query_dict)
     # end test_5_prefix_query
 
