@@ -10,6 +10,8 @@ env = BuildEnv.Clone()
 sources = [
     'setup.py',
     'contrail_vrouter_provisioning/__init__.py',
+    'contrail_vrouter_provisioning/setup.py',
+    'contrail_vrouter_provisioning/cmdparser.py',
     'contrail_vrouter_provisioning/base.py',
     'contrail_vrouter_provisioning/common.py',
     'contrail_vrouter_provisioning/network.py',

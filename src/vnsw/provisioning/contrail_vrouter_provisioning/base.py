@@ -26,8 +26,6 @@ class ContrailSetup(object):
     def __init__(self):
         (self.pdist, self.pdistversion, self.pdistrelease) = platform.dist()
         self.hostname = socket.gethostname()
-        if self.pdist == 'Ubuntu':
-            local("sudo ln -sf /bin/true /sbin/chkconfig")
 
         self._temp_dir_name = tempfile.mkdtemp()
         self.contrail_bin_dir = '/opt/contrail/bin'
@@ -76,7 +74,7 @@ class ContrailSetup(object):
             kcmd += "/etc/default/grub.d/kexec-tools.cfg"
             local(kcmd, warn_only=True)
             cmd = "[ -f /etc/default/kdump-tools ] && "
-            cmd += "sudo sed -i 's/USE_KDUMP=0/USE_KDUMP=1/'"
+            cmd += "sudo sed -i 's/USE_KDUMP=0/USE_KDUMP=1/' "
             cmd += "/etc/default/kdump-tools"
             local(cmd, warn_only=True)
         else:
