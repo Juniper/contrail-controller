@@ -1959,6 +1959,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_update(vn_obj)
         vn_obj.clear_pending_updates()
 
+    @skip("Skipping test_service_policy_with_v4_v6_subnets"
+          "Under investigation since it fails intermittently")
     def test_service_policy_with_v4_v6_subnets(self):
 
         # If the SC chain info changes after the SI is created
