@@ -54,7 +54,7 @@ public:
 
     virtual void Connect(TcpSession *session, Endpoint remote);
 
-    virtual bool DisableSandeshLogMessages() { return false; }
+    virtual bool DisableSandeshLogMessages() const { return false; }
 
     int GetPort() const;
     const io::SocketStats &GetSocketStats() const { return stats_; }
@@ -94,6 +94,7 @@ public:
     int SetListenSocketMd5Option(uint32_t peer_ip,
                                  const std::string &md5_password);
     int SetDscpSocketOption(int fd, uint8_t value);
+    uint8_t GetDscpValue(int fd) const;
 
 protected:
     typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;

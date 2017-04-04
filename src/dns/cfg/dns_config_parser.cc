@@ -221,6 +221,32 @@ static bool ParseVirtualDNSRecord(const xml_node &node, bool add_change,
     return true;
 }
 
+static bool ParseGlobalQosConfig(const xml_node &node, bool add_change,
+                                 DnsConfigParser::RequestList *requests) {
+    xml_attribute name = node.attribute("name");
+    string identifier;
+    if (name)
+        identifier = name.value();
+
+    for (xml_node child = node.first_child(); child;
+            child = child.next_sibling()) {
+        if (strcmp(child.name(), "control-traffic-dscp") == 0) {
+            auto_ptr<autogen::ControlTrafficDscpType> cfg(
+                    new autogen::ControlTrafficDscpType());
+            assert(cfg->XmlParse(child));
+
+            if (add_change) {
+                SetData(identifier, "global-qos-config",
+                        "control-traffic-dscp", cfg.release(), requests);
+            } else {
+                ClearData(identifier, "global-qos-config",
+                          "control-traffic-dscp", requests);
+            }
+        }
+    }
+    return true;
+}
+
 }  // namespace
 
 DnsConfigParser::DnsConfigParser(DB *db) : db_(db) {
@@ -241,6 +267,9 @@ bool DnsConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         else if (strcmp(node.name(), "virtual-DNS-record") == 0) {
             ParseVirtualDNSRecord(node, add_change, requests);
+        }
+        else if (strcmp(node.name(), "global-qos-config") == 0) {
+            ParseGlobalQosConfig(node, add_change, requests);
         }
     }
 

@@ -409,6 +409,7 @@ public:
     void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
     void IdentifierUpdateCallback(Ip4Address old_identifier);
     void RoutingInstanceCallback(std::string vrf_name, int op);
+    void DSCPUpdateCallback(uint8_t value);
 
     uint32_t count() const {
         tbb::mutex::scoped_lock lock(mutex_);
@@ -453,6 +454,7 @@ private:
     int admin_down_listener_id_;
     int asn_listener_id_;
     int identifier_listener_id_;
+    int dscp_listener_id_;
     tbb::atomic<int32_t> deleting_count_;
     // Generation number for subscription tracking
     tbb::atomic<uint64_t> subscription_gen_id_;

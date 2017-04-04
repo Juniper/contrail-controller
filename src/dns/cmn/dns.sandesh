@@ -169,3 +169,11 @@ systemlog sandesh DnsConfiguration {
 systemlog sandesh DnsOperational {
     1: string message;
 }
+
+response sandesh GlobalQosConfigResponse {
+    1: u16 control_dscp;
+    2: u16 analytics_dscp;
+}
+
+request sandesh ShowGlobalQosConfig {
+}

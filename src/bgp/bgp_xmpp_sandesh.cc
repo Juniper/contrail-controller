@@ -54,6 +54,12 @@ static void FillXmppNeighborInfo(BgpNeighborResp *bnr,
     bnr->set_send_ready(bx_channel->Peer()->send_ready());
     bnr->set_flap_count(bx_channel->Peer()->peer_stats()->num_flaps());
     bnr->set_flap_time(bx_channel->Peer()->peer_stats()->last_flap());
+
+    const XmppSession *sess = bx_channel->GetSession();
+    if (sess) {
+        short int dscp = sess->GetDscpValue();
+        bnr->set_dscp_value(dscp);
+    }
     if (summary)
         return;
 

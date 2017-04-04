@@ -802,6 +802,7 @@ void XmppServerConnection::FillShowInfo(
     show_connection->set_last_state_at(LastStateChangeAt());
     show_connection->set_receivers(channel_mux()->GetReceiverList());
     show_connection->set_server_auth_type(GetXmppAuthenticationType());
+    show_connection->set_dscp_value(dscp_value());
 }
 
 class XmppClientConnection::DeleteActor : public LifetimeActor {

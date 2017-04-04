@@ -33,6 +33,7 @@ struct ShowXmppConnection {
     8: string last_state_at;
     9: list<string> receivers;
     10: string server_auth_type;
+    11: u16 dscp_value;
 }
 
 response sandesh ShowXmppConnectionResp {

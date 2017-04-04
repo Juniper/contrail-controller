@@ -1863,6 +1863,22 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
     return changed;
 }
 
+bool BgpIfmapGlobalQosConfig::Update(BgpIfmapConfigManager *manager,
+        const autogen::GlobalQosConfig *qos) {
+    bool changed = false;
+    const autogen::ControlTrafficDscpType &dscp = qos->control_traffic_dscp();
+
+    if (data_.control_dscp() != dscp.control) {
+        data_.set_control_dscp(dscp.control);
+        changed = true;
+    }
+    if (data_.analytics_dscp() != dscp.analytics) {
+        data_.set_analytics_dscp(dscp.analytics);
+        changed = true;
+    }
+    return changed;
+}
+
 //
 // Initialize IdentifierMap with handlers for interesting identifier types.
 //
@@ -1884,6 +1900,9 @@ void BgpIfmapConfigManager::IdentifierMapInit() {
         boost::bind(&BgpIfmapConfigManager::ProcessBgpPeering, this, _1)));
     id_map_.insert(make_pair("global-system-config",
         boost::bind(&BgpIfmapConfigManager::ProcessGlobalSystemConfig, this,
+                    _1)));
+    id_map_.insert(make_pair("global-qos-config",
+        boost::bind(&BgpIfmapConfigManager::ProcessGlobalQosConfig, this,
                     _1)));
 }
 
@@ -2244,6 +2263,24 @@ void BgpIfmapConfigManager::ProcessGlobalSystemConfig(
 
     if (config_->global_config()->Update(this, config))
         Notify(config_->global_config()->config(), BgpConfigManager::CFG_ADD);
+}
+
+void BgpIfmapConfigManager::ProcessGlobalQosConfig(
+        const BgpConfigDelta &delta) {
+    IFMapNodeProxy *proxy = delta.node.get();
+    if (proxy == NULL)
+        return;
+
+    IFMapNode *node = proxy->node();
+    autogen::GlobalQosConfig *config, default_config;
+    if (node == NULL || node->IsDeleted() || delta.obj.get() == NULL) {
+        config = &default_config;
+    } else {
+        config = static_cast<autogen::GlobalQosConfig *>(delta.obj.get());
+    }
+
+    if (config_->global_qos()->Update(this, config))
+        Notify(config_->global_qos()->config(), BgpConfigManager::CFG_ADD);
 }
 
 //

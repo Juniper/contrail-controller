@@ -2652,7 +2652,8 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
           boost::bind(&BgpXmppChannelManager::DeleteExecutor, this, _1)),
       id_(-1),
       asn_listener_id_(-1),
-      identifier_listener_id_(-1) {
+      identifier_listener_id_(-1),
+      dscp_listener_id_(-1) {
     // Initialize the gen id counter
     subscription_gen_id_ = 1;
     deleting_count_ = 0;
@@ -2675,6 +2676,9 @@ BgpXmppChannelManager::BgpXmppChannelManager(XmppServer *xmpp_server,
     identifier_listener_id_ =
         server->RegisterIdentifierUpdateCallback(boost::bind(
             &BgpXmppChannelManager::IdentifierUpdateCallback, this, _1));
+    dscp_listener_id_ =
+        server->RegisterDSCPUpdateCallback(boost::bind(
+            &BgpXmppChannelManager::DSCPUpdateCallback, this, _1));
 
     id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
         boost::bind(&BgpXmppChannelManager::RoutingInstanceCallback,
@@ -2693,6 +2697,7 @@ BgpXmppChannelManager::~BgpXmppChannelManager() {
     bgp_server_->UnregisterAdminDownCallback(admin_down_listener_id_);
     bgp_server_->UnregisterASNUpdateCallback(asn_listener_id_);
     bgp_server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
+    bgp_server_->UnregisterDSCPUpdateCallback(dscp_listener_id_);
 }
 
 bool BgpXmppChannelManager::IsReadyForDeletion() {
@@ -2709,6 +2714,10 @@ size_t BgpXmppChannelManager::GetQueueSize() const {
 
 void BgpXmppChannelManager::AdminDownCallback() {
     xmpp_server_->ClearAllConnections();
+}
+
+void BgpXmppChannelManager::DSCPUpdateCallback(uint8_t dscp_value) {
+    xmpp_server_->SetDscpValue(dscp_value);
 }
 
 void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
