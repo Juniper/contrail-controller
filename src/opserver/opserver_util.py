@@ -382,14 +382,14 @@ class OpServerUtils(object):
         oend_time = None
         if last is not None:
             last = '-' + last
-            ostart_time = 'now' + last
-            oend_time = 'now'
+            ostart_time = OpServerUtils.convert_to_utc_timestamp_usec('now' + last)
+            oend_time = OpServerUtils.convert_to_utc_timestamp_usec('now')
         else:
             try:
                 if 'now' in start_time and \
                         'now' in end_time:
-                    ostart_time = start_time
-                    oend_time = end_time
+                    ostart_time = OpServerUtils.convert_to_utc_timestamp_usec(start_time)
+                    oend_time = OpServerUtils.convert_to_utc_timestamp_usec(end_time)
                 elif start_time.isdigit() and \
                         end_time.isdigit():
                     ostart_time = int(start_time)
