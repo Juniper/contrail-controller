@@ -28,6 +28,7 @@
 
 #include "sandesh/sandesh.h"
 #include "control-node/sandesh/control_node_types.h"
+#include "xmpp/xmpp_server.h"
 
 using boost::system::error_code;
 using boost::tie;
@@ -37,6 +38,8 @@ using std::make_pair;
 using std::map;
 using std::noboolalpha;
 using std::string;
+
+BgpServer *BgpServer::singleton_;
 
 // The ConfigUpdater serves as glue between the BgpConfigManager and the
 // BgpServer.
@@ -54,7 +57,21 @@ public:
             this, _1, _2);
         obs.system= boost::bind(&ConfigUpdater::ProcessGlobalSystemConfig,
             this, _1, _2);
+        obs.qos = boost::bind(&ConfigUpdater::ProcessGlobalQosConfig,
+            this, _1, _2);
         server->config_manager()->RegisterObservers(obs);
+    }
+
+    void ProcessGlobalQosConfig(const BgpGlobalQosConfig *qos,
+        BgpConfigManager::EventType event) {
+        if (qos->control_dscp() != server_->global_qos()->control_dscp()) {
+            server_->global_qos()->set_control_dscp(qos->control_dscp());
+            XmppServer *xmpp_server = server_->xmpp_server();
+            if (xmpp_server) {
+                xmpp_server->SetDscpValue(qos->control_dscp());
+            }
+        }
+        server_->global_qos()->set_analytics_dscp(qos->analytics_dscp());
     }
 
     void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
@@ -381,6 +398,7 @@ BgpServer::BgpServer(EventManager *evm)
       inet6_service_chain_mgr_(
           BgpObjectFactory::Create<IServiceChainMgr, Address::INET6>(this)),
       global_config_(new BgpGlobalSystemConfig()),
+      global_qos_(new BgpGlobalQosConfig()),
       config_mgr_(BgpObjectFactory::Create<BgpConfigManager>(this)),
       updater_(new ConfigUpdater(this)) {
     bgp_count_ = 0;
@@ -390,12 +408,14 @@ BgpServer::BgpServer(EventManager *evm)
     num_up_bgpaas_peer_ = 0;
     deleting_bgpaas_count_ = 0;
     message_build_error_ = 0;
+    singleton_ = this;
 }
 
 BgpServer::~BgpServer() {
     assert(deleting_count_ == 0);
     assert(deleting_bgpaas_count_ == 0);
     assert(srt_manager_list_.empty());
+    singleton_ = NULL;
 }
 
 void BgpServer::Initialize() {

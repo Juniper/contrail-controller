@@ -28,6 +28,7 @@ class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
 class BgpGlobalSystemConfig;
+class BgpGlobalQosConfig;
 class BgpMembershipManager;
 class BgpOListDB;
 class BgpPeer;
@@ -49,6 +50,7 @@ class RoutePathReplicator;
 class RoutingInstanceMgr;
 class RoutingPolicyMgr;
 class RTargetGroupMgr;
+class XmppServer;
 
 class BgpServer {
 public:
@@ -249,12 +251,17 @@ public:
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;
     BgpGlobalSystemConfig *global_config() { return global_config_.get(); }
+    BgpGlobalQosConfig *global_qos() { return global_qos_.get(); }
     bool gr_helper_disable() const { return gr_helper_disable_; }
     void set_gr_helper_disable(bool gr_helper_disable) {
         gr_helper_disable_ = gr_helper_disable;
     }
     bool IsGRHelperModeEnabled() const;
     bool CollectStats(BgpRouterState *state, bool first) const;
+    void set_xmpp_server(XmppServer *s) { xmpp_server_ = s; }
+    XmppServer *xmpp_server() const { return xmpp_server_; }
+
+    static BgpServer *singleton_;
 
 private:
     class ConfigUpdater;
@@ -329,9 +336,11 @@ private:
     boost::scoped_ptr<RoutePathReplicator> inet6vpn_replicator_;
     boost::scoped_ptr<IServiceChainMgr> inet_service_chain_mgr_;
     boost::scoped_ptr<IServiceChainMgr> inet6_service_chain_mgr_;
+    XmppServer *xmpp_server_;
 
     // configuration
     boost::scoped_ptr<BgpGlobalSystemConfig> global_config_;
+    boost::scoped_ptr<BgpGlobalQosConfig> global_qos_;
     boost::scoped_ptr<BgpConfigManager> config_mgr_;
     boost::scoped_ptr<ConfigUpdater> updater_;
 
