@@ -577,6 +577,28 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);
 };
 
+// Global Qos configuration.
+class BgpGlobalQosConfig {
+public:
+    BgpGlobalQosConfig() :
+        last_change_at_(0), control_dscp_(0), analytics_dscp_(0) {
+    }
+    ~BgpGlobalQosConfig() { }
+    uint64_t last_change_at() const { return last_change_at_; }
+    void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
+    uint8_t control_dscp() const { return control_dscp_; }
+    void set_control_dscp(uint8_t value) { control_dscp_ = value; }
+    uint8_t analytics_dscp() const { return analytics_dscp_; }
+    void set_analytics_dscp(uint8_t value) { analytics_dscp_ = value; }
+
+private:
+    mutable uint64_t last_change_at_;
+    uint8_t control_dscp_;
+    uint8_t analytics_dscp_;
+
+    DISALLOW_COPY_AND_ASSIGN(BgpGlobalQosConfig);
+};
+
 /*
  * BgpConfigManager defines the interface between the BGP server and the
  * configuration sub-system. Multiple configuration sub-systems are
@@ -601,6 +623,8 @@ public:
         BgpRoutingPolicyObserver;
     typedef boost::function<void(const BgpGlobalSystemConfig *, EventType)>
         BgpGlobalSystemConfigObserver;
+    typedef boost::function<void(const BgpGlobalQosConfig *, EventType)>
+        BgpGlobalQosConfigObserver;
 
     struct Observers {
         BgpProtocolObserver protocol;
@@ -608,6 +632,7 @@ public:
         BgpNeighborObserver neighbor;
         BgpRoutingPolicyObserver policy;
         BgpGlobalSystemConfigObserver system;
+        BgpGlobalQosConfigObserver qos;
     };
 
     typedef std::map<std::string, BgpRoutingPolicyConfig *> RoutingPolicyMap;

@@ -3629,7 +3629,6 @@ TEST_F(BgpConfigTest, RoutePolicy_9) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
-
 TEST_F(BgpConfigTest, BgpRouterGracefulRestartTimeChange) {
     string content_a =
         FileRead("controller/src/bgp/testdata/config_test_gr_a.xml");
@@ -3657,6 +3656,44 @@ TEST_F(BgpConfigTest, BgpRouterGracefulRestartTimeChange) {
     EXPECT_TRUE(parser_.Parse(content_c));
     TASK_UTIL_EXPECT_TRUE(server_.global_config()->gr_enable());
     TASK_UTIL_EXPECT_EQ(200, server_.GetGracefulRestartTime());
+
+    boost::replace_all(content_c, "<config>", "<delete>");
+    boost::replace_all(content_c, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigTest, BgpRouterQosConfigChange) {
+    string content_a =
+        FileRead("controller/src/bgp/testdata/config_test_qos_a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
+    string name = rti->name() + ":" + "remote";
+
+    TASK_UTIL_EXPECT_EQ(0, server_.global_qos()->control_dscp());
+    TASK_UTIL_EXPECT_EQ(0, server_.global_qos()->analytics_dscp());
+
+    // control and analytics dscp should change to 44 and 56
+    string content_b =
+        FileRead("controller/src/bgp/testdata/config_test_qos_b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    TASK_UTIL_EXPECT_EQ(44, server_.global_qos()->control_dscp());
+    TASK_UTIL_EXPECT_EQ(56, server_.global_qos()->analytics_dscp());
+
+    // control and analytics dscp should change to 56 and 44
+    string content_c =
+        FileRead("controller/src/bgp/testdata/config_test_qos_c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    TASK_UTIL_EXPECT_EQ(56, server_.global_qos()->control_dscp());
+    TASK_UTIL_EXPECT_EQ(44, server_.global_qos()->analytics_dscp());
 
     boost::replace_all(content_c, "<config>", "<delete>");
     boost::replace_all(content_c, "</config>", "</delete>");

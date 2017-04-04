@@ -495,3 +495,14 @@ void BgpConfigManager::Notify<BgpGlobalSystemConfig>(
         }
     }
 }
+
+template<>
+void BgpConfigManager::Notify<BgpGlobalQosConfig>(
+        const BgpGlobalQosConfig *config, EventType event) {
+    config->set_last_change_at(UTCTimestampUsec());
+    BOOST_FOREACH(Observers obs, obs_) {
+        if (obs.qos) {
+            (obs.qos)(config, event);
+        }
+    }
+}

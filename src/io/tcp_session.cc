@@ -534,6 +534,10 @@ int TcpSession::SetDscpSocketOption(uint8_t value) {
     return server()->SetDscpSocketOption(socket()->native_handle(), value);
 }
 
+uint8_t TcpSession::GetDscpValue() const {
+    return server_->GetDscpValue(socket()->native_handle());
+}
+
 TcpMessageReader::TcpMessageReader(TcpSession *session,
                                    ReceiveCallback callback)
     : session_(session), callback_(callback), offset_(0), remain_(-1) {
