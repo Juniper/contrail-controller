@@ -301,13 +301,9 @@ class VncApi(object):
                                       "not supported by the VNC API lib" %
                                       self._authn_strategy)
 
-        self._tenant_name = tenant_name or \
-            _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
-                      self._DEFAULT_AUTHN_TENANT)
-
         self._user_info = user_info
 
-        if self._authn_strategy == 'keystone':
+        if self._authn_strategy == VncApi._KEYSTONE_AUTHN_STRATEGY:
             self._authn_protocol = auth_protocol or \
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_PROTOCOL',
                           self._DEFAULT_AUTHN_PROTOCOL)
@@ -422,7 +418,8 @@ class VncApi(object):
         self._action_uri = ActionUriDict(self)
 
         self._headers = self._DEFAULT_HEADERS.copy()
-        self._headers[rest.hdr_client_tenant()] = self._tenant_name
+        if self._authn_strategy == VncApi._KEYSTONE_AUTHN_STRATEGY:
+            self._headers[rest.hdr_client_tenant()] = self._tenant_name
 
         self._auth_token_input = False
         self._auth_token = None
