@@ -534,6 +534,8 @@ class OpServerUtils(object):
 
     @staticmethod
     def convert_to_time_delta(time_str):
+        if time_str == '' or time_str == None:
+            return None
         num = int(time_str[:-1])
         if time_str.endswith('s'):
             return datetime.timedelta(seconds=num)
@@ -571,6 +573,24 @@ class OpServerUtils(object):
         else:
             return int(time.mktime(dt.timetuple()) * 10 ** 6)
     # end convert_to_utc_timestamp_usec
+
+    @staticmethod
+    def convert_time_to_utc(start_time, end_time):
+        ostart_time = start_time
+        oend_time = end_time
+        if 'now' in ostart_time and 'now' in oend_time:
+            now = OpServerUtils.utc_timestamp_usec()
+            td = OpServerUtils.convert_to_time_delta(ostart_time[len('now'):])
+            if td == None:
+                ostart_time = now
+            else:
+                ostart_time = now + (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6)
+            td = OpServerUtils.convert_to_time_delta(oend_time[len('now'):])
+            if td == None:
+                oend_time = now
+            else:
+                oend_time = now + (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6)
+        return ostart_time, oend_time
 
     @staticmethod
     def tunnel_type_to_str(tunnel_type):
