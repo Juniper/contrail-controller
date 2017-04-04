@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <global-qos-config>
+    <control-traffic-dscp>
+          <control>56</control>
+          <analytics>44</analytics>
+          <dns>60</dns>
+    </control-traffic-dscp>
+    </global-qos-config>
+    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
+      <bgp-router name='local'>
+          <address>127.0.0.1</address>
+          <autonomous-system>1</autonomous-system>
+      </bgp-router>
+      <bgp-router name='remote'>
+          <address>127.0.0.100</address>
+          <autonomous-system>1</autonomous-system>
+      </bgp-router>
+    </routing-instance>
+</config>

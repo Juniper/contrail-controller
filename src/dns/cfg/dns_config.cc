@@ -20,6 +20,7 @@ static const char *config_types[] = {
     "virtual-DNS-record",
     "network-ipam",
     "virtual-network-network-ipam",
+    "global-qos-config",
 };
 
 const std::string DnsConfigManager::EventString[] = {
@@ -80,6 +81,8 @@ void DnsConfigManager::IdentifierMapInit() {
             boost::bind(&DnsConfigManager::ProcessVirtualDNS, this, _1)));
     id_map_.insert(make_pair("virtual-DNS-record",
             boost::bind(&DnsConfigManager::ProcessVirtualDNSRecord, this, _1)));
+    id_map_.insert(make_pair("global-qos-config",
+            boost::bind(&DnsConfigManager::ProcessGlobalQosConfig, this, _1)));
 }
 
 void DnsConfigManager::ProcessNode(const ConfigDelta &delta,
@@ -150,6 +153,15 @@ void DnsConfigManager::ProcessNetworkIpam(const ConfigDelta &delta) {
         return;
     }
     ProcessNode(delta, ipam_config_, obs_.ipam);
+}
+
+void DnsConfigManager::ProcessGlobalQosConfig(const ConfigDelta &delta) {
+    if (!delta.id_name.size()) {
+        DNS_TRACE(DnsConfigTrace, "Error - Received GlobalQosConfig without a"
+                  " name");
+        return;
+    }
+    ProcessNode(delta, global_qos_config_, obs_.global_qos);
 }
 
 IFMapNode *DnsConfigManager::FindTarget(IFMapNode *node, 

@@ -85,4 +85,8 @@ void BgpConfigListener::DependencyTrackerInit() {
     ReactionMap global_config_react = map_list_of<string, PropagateList>
         ("self", list_of("global-system-config-graceful-restart"));
     policy->insert(make_pair("global-system-config", global_config_react));
+
+    ReactionMap global_qos_react = map_list_of<string, PropagateList>
+        ("self", list_of("global-system-config-global_qos_config"));
+    policy->insert(make_pair("global-qos-config", global_qos_react));
 }

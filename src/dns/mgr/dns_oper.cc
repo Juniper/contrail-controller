@@ -23,6 +23,7 @@
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_table.h"
 #include "cmn/dns.h"
+#include "xmpp/xmpp_server.h"
 
 using namespace std;
 
@@ -40,6 +41,7 @@ VnniConfig::DataMap VnniConfig::vnni_config_;
 IpamConfig::DataMap IpamConfig::ipam_config_;
 VirtualDnsConfig::DataMap VirtualDnsConfig::virt_dns_config_;
 VirtualDnsRecordConfig::DataMap VirtualDnsRecordConfig::virt_dns_rec_config_;
+GlobalQosConfig *GlobalQosConfig::singleton_;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -706,6 +708,48 @@ void VirtualDnsRecordConfig::UpdateVirtualDns(VirtualDnsConfig *vdns) {
             vdns->AddRecord(it->second);
         }
     }
+}
+
+GlobalQosConfig::GlobalQosConfig(IFMapNode *node)
+    : DnsConfig(node->name()) {
+    assert(singleton_ == NULL);
+    singleton_ = this;
+}
+
+GlobalQosConfig::~GlobalQosConfig() {
+    singleton_ = NULL;
+}
+
+GlobalQosConfig* GlobalQosConfig::Find(const string &name) {
+    return singleton_;
+}
+
+void GlobalQosConfig::OnAdd(IFMapNode *node) {
+    MarkValid();
+    autogen::GlobalQosConfig *qos =
+        static_cast<autogen::GlobalQosConfig *>(node->GetObject());
+    if (!qos)
+        return;
+    const autogen::ControlTrafficDscpType &dscp = qos->control_traffic_dscp();
+    if (control_dscp_ != dscp.control) {
+        control_dscp_ = dscp.control;
+        XmppServer *server = Dns::GetXmppServer();
+        if (server) {
+            server->SetDscpValue(control_dscp_);
+        }
+    }
+    if (analytics_dscp_ != dscp.analytics) {
+        analytics_dscp_ = dscp.analytics;
+    }
+}
+
+void GlobalQosConfig::OnDelete() {
+    control_dscp_ = 0;
+    analytics_dscp_ = 0;
+}
+
+void GlobalQosConfig::OnChange(IFMapNode *node) {
+    OnAdd(node);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

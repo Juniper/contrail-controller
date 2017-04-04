@@ -90,6 +90,7 @@ public:
         Observer virtual_dns_record;
         Observer ipam;
         Observer vnni;
+        Observer global_qos;
     };
 
     DnsConfigManager();
@@ -121,6 +122,7 @@ private:
     void ProcessVNNI(const ConfigDelta &delta);
     void ProcessVirtualDNS(const ConfigDelta &delta);
     void ProcessVirtualDNSRecord(const ConfigDelta &delta);
+    void ProcessGlobalQosConfig(const ConfigDelta &delta);
     void ProcessNode(const ConfigDelta &delta, DnsConfigData &config_data,
                      Observer observer);
 
@@ -135,6 +137,7 @@ private:
     DnsConfigData vnni_config_;
     DnsConfigData virt_dns_config_;
     DnsConfigData virt_dns_rec_config_;
+    DnsConfigData global_qos_config_;
     Observers obs_;
     TaskTrigger trigger_;
     boost::scoped_ptr<ConfigListener> listener_;

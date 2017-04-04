@@ -285,10 +285,13 @@ int main(int argc, char *argv[]) {
 
     // Create Xmpp Server.
     XmppChannelConfig xmpp_cfg(false);
+    xmpp_cfg.dscp_value = bgp_server->global_qos()->control_dscp();
     XmppServer *xmpp_server = CreateXmppServer(&evm, &options, &xmpp_cfg);
     if (xmpp_server == NULL) {
         exit(1);
     }
+
+    bgp_server->set_xmpp_server(xmpp_server);
 
     // Create BGP and IFMap channel managers.
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
