@@ -316,6 +316,7 @@ void Agent::SetAgentTaskPolicy() {
                      sizeof(flow_stats_update_exclude_list) / sizeof(char *));
 
     const char *profile_task_exclude_list[] = {
+        AGENT_FLOW_STATS_MANAGER_TASK,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME
     };
