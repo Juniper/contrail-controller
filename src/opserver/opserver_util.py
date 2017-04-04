@@ -208,6 +208,17 @@ class OpServerUtils(object):
                         'now' in end_time:
                     ostart_time = start_time
                     oend_time = end_time
+                    now = OpServerUtils.utc_timestamp_usec()
+                    td = OpServerUtils.convert_to_time_delta(ostart_time[len('now'):])
+                    if td == None:
+                        ostart_time = now
+                    else:
+                        ostart_time = now + (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6)
+                    td = OpServerUtils.convert_to_time_delta(oend_time[len('now'):])
+                    if td == None:
+                        oend_time = now
+                    else:
+                        oend_time = now + (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6)
                 elif start_time.isdigit() and \
                         end_time.isdigit():
                     ostart_time = int(start_time)
@@ -352,6 +363,8 @@ class OpServerUtils(object):
 
     @staticmethod
     def convert_to_time_delta(time_str):
+        if time_str == '' or time_str == None:
+            return None
         num = int(time_str[:-1])
         if time_str.endswith('s'):
             return datetime.timedelta(seconds=num)
