@@ -156,7 +156,7 @@ struct UveVirtualNetworkAgent {
 
 /**
  * @description: uve for virtual network trace in agent
- * @object: VnEntry
+ * @object: virtual-network
  */
 uve sandesh UveVirtualNetworkAgentTrace {
     1: UveVirtualNetworkAgent               data;
