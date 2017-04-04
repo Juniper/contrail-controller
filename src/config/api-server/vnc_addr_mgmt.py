@@ -1185,7 +1185,7 @@ class AddrMgmt(object):
                 network = IPNetwork('%s/%s' % (db_prefix, db_prefix_len))
                 if db_subnet.get('addr_from_start'):
                     df_gw_ip = str(IPAddress(network.first + 1))
-                    df_dns_ser_addr = str(IPAddress(network.first + 2))
+                    df_dns = str(IPAddress(network.first + 2))
                 else:
                     df_gw_ip = str(IPAddress(network.last - 1))
                     df_dns = str(IPAddress(network.last - 2))
