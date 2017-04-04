@@ -758,7 +758,7 @@ class Controller(object):
           Our treatment of the 2nd and 3rd case above is the same
         """
         if part not in self._uveq:
-            self._uveq[part] = {}
+            self._uveq[part] = OrderedDict()
             self._logger.error('Created uveQ for part %s' % str(part))
         for uv,types in uves.iteritems():
             if types is None:
@@ -899,9 +899,6 @@ class Controller(object):
                 self._logger.error("Agg unexpected key %s from inst:part %s:%d" % \
                         (check_keys_list[idx], inst, part))
                 ppe5.srem("AGPARTKEYS:%s:%d" % (inst, part), check_keys_list[idx])
-                # TODO: alarmgen should have already figured out if all structs of 
-                #       the UVE are gone, and should have sent a UVE delete
-                #       We should not need to figure this out again
                 retry = True
             idx += 1
         ppe5.execute()
@@ -910,7 +907,6 @@ class Controller(object):
 
         if retry:
             self._logger.error("Agg unexpected rows %s" % str(rows))
-            raise SystemExit(1)
         
     def send_alarm_update(self, tab, uk):
         ustruct = None
@@ -1812,6 +1808,9 @@ class Controller(object):
             else:
                 self._logger.error("Periodic collection took %s sec" % duration)
 
+    def _TraceRead(self, trace_sandesh, more):
+        self._logger.error(trace_sandesh.log(trace=True))
+
     def run(self):
         self.gevs = [ gevent.spawn(self.run_cpu_mon),
                       gevent.spawn(self.run_uve_processing)]
@@ -1838,6 +1837,7 @@ class Controller(object):
         except gevent.GreenletExit:
             self._logger.error('AlarmGen Exiting on gevent-kill')
         except:
+            self._sandesh.trace_buffer_read("UVEQTrace", "", 0, self._TraceRead)
             raise
         finally:
             self._logger.error('AlarmGen stopping everything')
