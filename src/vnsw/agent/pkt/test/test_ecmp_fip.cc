@@ -395,7 +395,8 @@ TEST_F(EcmpFipTest, Remote_Dst_Fip_EcmpToNonEcmp_1) {
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
+    client = TestInit(init_file, ksync_init, true, true, true, 100*1000,
+                      10000*1000);
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
     TestShutdown();
