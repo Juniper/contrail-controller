@@ -3,7 +3,7 @@
 import os
 import logging
 import logging.handlers
-from subprocess import check_output, CalledProcessError
+from subprocess import check_output, CalledProcessError, STDOUT
 
 
 LOG_DIR = "/var/log/contrail"
@@ -14,7 +14,7 @@ else:
 
 
 def setup_logger():
-    """Root logger for the contrail vrouter provisioing
+    """Root logger for the contrail vrouter provisioning
     """
     log = logging.getLogger('contrail_vrouter_provisioning')
     log.setLevel(logging.DEBUG)
@@ -67,16 +67,15 @@ def local(cmd, capture=False, warn_only=False):
     log.info("Executing: %s", cmd)
     output, succeeded, failed = (AttributeString(''), True, False)
     try:
+        output = AttributeString(check_output(cmd, stderr=STDOUT, shell=True))
         if capture:
-            output = AttributeString(check_output(cmd, shell=True))
             log.info(output)
-        else:
-            log.info(check_output(cmd, shell=True))
     except CalledProcessError as err:
         succeeded, failed = (False, True)
         if warn_only:
-            log.info("[Warning]:  %s", err)
+            log.warning(err.output)
         else:
+            log.error(err.output)
             raise
 
     output.succeeded = succeeded
