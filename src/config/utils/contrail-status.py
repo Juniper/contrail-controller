@@ -29,6 +29,7 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                   'upstart' : ['supervisor-vrouter'],
                                   'supervisor' : ['supervisor-vrouter'],
                                   'systemd' : ['contrail-vrouter-agent',
+                                               'contrail-tor-agent',
                                                'contrail-vrouter-nodemgr']},
                      'control' : {'sysv' : ['supervisor-control'],
                                   'upstart' : ['supervisor-control'],
@@ -416,6 +417,25 @@ def get_svc_uve_status(svc_name, debug, timeout, keyfile, certfile, cacert):
             description = 'ToR:%s connection %s' % (connection_info['name'], connection_info['status'].lower())
     return process_status_info[0]['state'], description
 
+def check_tor_agent_svc_status(svc_name, options):
+    cmd = 'systemctl list-unit-files | grep *tor-agent*'
+    # Expected output from this command as follows
+    #  contrail-tor-agent-1.service               disabled
+    #  contrail-tor-agent-2.service               disabled
+    # From this output trying to extract the tor-agent-id to
+    # identify the specific tor-agent-process name
+    cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
+    cmdoutlist = cmdout.split('\n')
+    for tor_agent_service in cmdoutlist:
+        if 'tor-agent' in tor_agent_service:
+            tor_agent_service_info = tor_agent_service.split('.')
+            for tor_agent_service_item in tor_agent_service_info:
+                svc_name = 'contrail-tor-agent'
+                tor_agent_service_name = tor_agent_service_item.split('-')
+                if 'tor' in tor_agent_service_name:
+                    svc_name = svc_name + '-' + tor_agent_service_name[3]
+                    check_status(svc_name, options)
+
 def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile, cacert):
     service_sock = service_name.replace('-', '_')
     service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
@@ -495,7 +515,10 @@ def contrail_service_status(nodetype, options):
     if nodetype == 'compute':
         print "== Contrail vRouter =="
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
-            check_status(svc_name, options)
+            if svc_name == 'contrail-tor-agent':
+                check_tor_agent_svc_status(svc_name, options)
+            else:
+                check_status(svc_name, options)
     elif nodetype == 'config':
         print "== Contrail Config =="
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
