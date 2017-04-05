@@ -1185,10 +1185,16 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         # if Network has subnets in network_ipam_refs, it should refer to
         # atleast one ipam with user-defined-subnet method. If network is
         # attached to all "flat-subnet", vn can not have any VnSubnetType cidrs
-        net_mode = None
-        virtual_network_properties = obj_dict.get('virtual_network_properties')
-        if virtual_network_properties is not None:
-           net_mode = virtual_network_properties.get('forwarding_mode')
+        obj_net_mode = None
+        obj_network_properties = obj_dict.get('virtual_network_properties')
+        if obj_network_properties is not None:
+           obj_net_mode = obj_network_properties.get('forwarding_mode')
+
+        db_net_mode = None
+        if db_dict is not None:
+            db_network_properties = db_dict.get('virtual_network_properties')
+            if db_network_properties is not None:
+               db_net_mode = db_network_properties.get('forwarding_mode')
 
         ipam_refs = obj_dict.get('network_ipam_refs') or []
         ipam_subnets_list = []
@@ -1227,7 +1233,23 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                             return (False, 400,
                                 "with flat-subnet, network can not have user-defined subnet")
 
-                if (net_mode != 'l3'):
+                invalid_network_mode = False
+                if db_dict is None:
+                    #in network create, we need to explicitly check
+                    #obj_net_mode to be 'l3'
+                    if (obj_net_mode != 'l3'):
+                        invalid_network_mode = True
+                else:
+                    #in network update, we need to check
+                    # if obj_dict does not have net_mode then db_dict should be 'l3'
+                    # if obj_dict has net_mode then it should be 'l3' only
+                    if obj_net_mode is None:
+                        if (db_net_mode != 'l3'):
+                            invalid_network_mode = True
+                    else:
+                        if (obj_net_mode != 'l3'):
+                            invalid_network_mode = True
+                if invalid_network_mode:
                     return (False, 400,
                             "flat-subnet is allowed only with l3 network")
 
@@ -1403,9 +1425,12 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (409, error))
 
-        fields = ['network_ipam_refs', 'virtual_network_network_id', 'address_allocation_mode',
-                  'route_target_list', 'import_route_target_list', 'export_route_target_list',
-                  'multi_policy_service_chains_enabled', 'instance_ip_back_refs', 'floating_ip_pools']
+        fields = ['network_ipam_refs', 'virtual_network_network_id',
+                  'address_allocation_mode', 'route_target_list',
+                  'import_route_target_list', 'export_route_target_list',
+                  'multi_policy_service_chains_enabled',
+                  'instance_ip_back_refs', 'floating_ip_pools',
+                  'virtual_network_properties']
         ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id,
                                        obj_fields=fields)
         if not ok:
