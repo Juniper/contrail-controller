@@ -440,6 +440,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
         self.assertEqual(net_obj.get_address_allocation_mode(), 'user-defined-subnet-only')
 
+        # modify some other property of the network without changing ipam_refs
+        # or network mode
+        vn.set_is_shared(True)
+        self._vnc_lib.virtual_network_update(vn)
+
+
         #allocate ip address to see get only from the link, after exhaustion, resource exhausted
         # exception should come even if address are available in flat-subnet
 
