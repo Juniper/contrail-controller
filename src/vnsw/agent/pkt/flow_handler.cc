@@ -65,7 +65,7 @@ bool FlowHandler::Run() {
 
     if (pkt_info_->type == PktType::INVALID) {
         info.SetPktInfo(pkt_info_);
-        info.l3_flow = pkt_info_->l3_forwarding = IsL3ModeFlow();
+        info.l3_flow = IsL3ModeFlow();
     } else if (pkt_info_->type == PktType::MESSAGE) {
         // we don't allow reentrancy to different partition if it is
         // a reevaluation for an existing flow which will only exist
@@ -106,7 +106,6 @@ bool FlowHandler::Run() {
         pkt_info_->dport = fe->key().dst_port;
         pkt_info_->tcp_ack = fe->is_flags_set(FlowEntry::TcpAckFlow);
         pkt_info_->vrf = fe->data().vrf;
-        pkt_info_->l3_forwarding = fe->l3_flow();
         info.l3_flow = fe->l3_flow();
         info.out_component_nh_idx = fe->data().component_nh_idx;
     } 

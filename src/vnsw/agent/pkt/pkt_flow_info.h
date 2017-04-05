@@ -42,7 +42,7 @@ public:
     static const int kBgpRouterServiceInvalidFd = -1;
 
     PktFlowInfo(Agent *a, boost::shared_ptr<PktInfo> info, FlowTable *ftable) :
-        l3_flow(info->l3_forwarding), family(info->family), pkt(info),
+        l3_flow(false), family(info->family), pkt(info),
         flow_table(ftable), agent(a),
         flow_source_vrf(-1), flow_dest_vrf(-1), nat_done(false),
         nat_ip_saddr(), nat_ip_daddr(), nat_sport(0), nat_dport(0), nat_vrf(0),
