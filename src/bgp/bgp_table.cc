@@ -472,19 +472,16 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
 
 void BgpTable::Input(DBTablePartition *root, DBClient *client,
                      DBRequest *req) {
-    const IPeer *peer =
-        (static_cast<RequestKey *>(req->key.get()))->GetPeer();
-
+    const IPeer *peer = (static_cast<RequestKey *>(req->key.get()))->GetPeer();
     RequestData *data = static_cast<RequestData *>(req->data.get());
-    // Skip if this peer is down
+
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE && peer) {
-        if (!peer->IsReady()) {
+        // Skip if this peer is down.
+        if (!peer->IsReady())
             return;
-        }
-        //
-        // For XMPP peer, verify that agent is subscribed to the VRF
-        // and route add is from the same incarnation of VRF subscription
-        //
+
+        // For xmpp peers, verify that agent is subscribed to the table and
+        // the route add is from the same incarnation of table subscription.
         if (peer->IsXmppPeer() && peer->IsRegistrationRequired()) {
             BgpMembershipManager *mgr = rtinstance_->server()->membership_mgr();
             int instance_id = -1;
@@ -500,15 +497,8 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         }
     }
 
+    // Create route if it's not already present in case of add/change.
     BgpRoute *rt = TableFind(root, req->key.get());
-    BgpPath *path = NULL;
-
-    // First mark all paths from this request source as deleted.
-    // Apply all paths provided in this request data and add them. If path
-    // already exists, reset from it getting deleted. Finally walk the paths
-    // list again to purge any stale paths originated from this peer.
-
-    // Create rt if it is not already there for adds/updates.
     if (!rt) {
         if ((req->oper == DBRequest::DB_ENTRY_DELETE) ||
             (req->oper == DBRequest::DB_ENTRY_NOTIFY))
@@ -525,77 +515,28 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         return;
     }
 
-    // Use a map to mark and sweep deleted paths, update the rest.
-    map<BgpPath *, bool> deleted_paths;
-
-    // Mark this peer's all paths as deleted.
-    for (Route::PathList::iterator it = rt->GetPathList().begin();
-         it != rt->GetPathList().end(); ++it) {
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-
-        // Skip resolved paths.
-        if (path->IsResolved())
-            continue;
-
-        // Skip secondary paths.
-        if (dynamic_cast<BgpSecondaryPath *>(path))
-            continue;
-
-        if (path->GetPeer() == peer && path->GetSource() == BgpPath::BGP_XMPP) {
-            deleted_paths.insert(make_pair(path, true));
-        }
-    }
-
-    int count = 0;
-    ExtCommunityDB *extcomm_db = rtinstance_->server()->extcomm_db();
+    uint32_t path_id = 0;
+    uint32_t flags = 0;
+    uint32_t label = 0;
+    uint32_t l3_label = 0;
+    BgpPath *path = rt->FindPath(peer);
     BgpAttrPtr attr = data ? data->attrs() : NULL;
-    bool notify_rt = false;
-
-    // Process each of the paths sourced and create/update paths accordingly.
-    if (data) {
-        for (RequestData::NextHops::iterator iter = data->nexthops().begin(),
-             next = iter;
-             iter != data->nexthops().end(); iter = next, ++count) {
-            next++;
-            RequestData::NextHop nexthop = *iter;
-
-            // Don't support multi path with v6 nexthops for the time being.
-            uint32_t path_id = 0;
-            if (nexthop.address_.is_v4()) {
-                path_id = nexthop.address_.to_v4().to_ulong();
-            } else if (count > 0) {
-                break;
-            }
-
-            path = rt->FindPath(BgpPath::BGP_XMPP, peer, path_id);
-            deleted_paths.erase(path);
-
-            if (data->attrs() && count > 0) {
-                BgpAttr *clone = new BgpAttr(*data->attrs());
-                clone->set_ext_community(
-                    extcomm_db->ReplaceTunnelEncapsulationAndLocate(
-                        clone->ext_community(),
-                        nexthop.tunnel_encapsulations_));
-                clone->set_nexthop(nexthop.address_);
-                clone->set_source_rd(nexthop.source_rd_);
-                attr = data->attrs()->attr_db()->Locate(clone);
-            }
-
-            notify_rt |= InputCommon(root, rt, path, peer, req, req->oper,
-                                     attr, path_id, nexthop.flags_,
-                                     nexthop.label_, nexthop.l3_label_);
-        }
+    if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+        assert(data);
+        const RequestData::NextHop &nexthop = data->nexthop();
+        if (nexthop.address_.is_v4())
+            path_id = nexthop.address_.to_v4().to_ulong();
+        flags = nexthop.flags_;
+        label = nexthop.label_;
+        l3_label = nexthop.l3_label_;
+    } else {
+        if (!path)
+            return;
+        path_id = path->GetPathId();
     }
 
-    // Flush remaining paths that remain marked for deletion.
-    for (map<BgpPath *, bool>::iterator it = deleted_paths.begin();
-         it != deleted_paths.end(); it++) {
-        BgpPath *path = it->first;
-        notify_rt |= InputCommon(root, rt, path, peer, req,
-                                 DBRequest::DB_ENTRY_DELETE, NULL,
-                                 path->GetPathId(), 0, 0, 0);
-    }
-
+    bool notify_rt = InputCommon(root, rt, path, peer, req, req->oper,
+        attr, path_id, flags, label, l3_label);
     InputCommonPostProcess(root, rt, notify_rt);
 }
 

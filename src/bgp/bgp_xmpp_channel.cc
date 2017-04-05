@@ -973,7 +973,6 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
 
     // Rules for routes in master instance:
     // - Label must be 0
-    // - Only the first nexthop is used
     // - Tunnel encapsulation is not required
     // - Do not add SourceRd and ExtCommunitySpec
     bool master = (vrf_name == BgpConfigManager::kMasterInstance);
@@ -1010,118 +1009,97 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
             BgpAttrSpec attrs;
 
-            bool first_nh = true;
-            BgpTable::RequestData::NextHops nexthops;
             const NextHopListType &inh_list = item.entry.next_hops;
-            for (NextHopListType::const_iterator nit = inh_list.begin();
-                nit != inh_list.end(); ++nit, first_nh = false) {
-                BgpTable::RequestData::NextHop nexthop;
 
-                IpAddress nhop_address(Ip4Address(0));
-                if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
+            // Agents should send only one next-hop in the item.
+            if (inh_list.next_hop.size() != 1) {
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
+                    "More than one nexthop received for inet route " <<
+                    inet_prefix.ToString());
+                return false;
+            }
+
+            NextHopListType::const_iterator nit = inh_list.begin();
+
+            IpAddress nhop_address(Ip4Address(0));
+            if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
+                    "Bad nexthop address " << nit->address <<
+                    " for inet route " << inet_prefix.ToString());
+                return false;
+            }
+
+            if (family == Address::EVPN) {
+                if (nit->vni > 0xFFFFFF) {
                     BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
                         BGP_LOG_FLAG_ALL,
-                        "Bad nexthop address " << nit->address <<
+                        "Bad label " << nit->vni <<
                         " for inet route " << inet_prefix.ToString());
                     return false;
                 }
+                if (!nit->vni)
+                    continue;
+                if (nit->mac.empty())
+                    continue;
 
-                if (family == Address::EVPN) {
-                    if (nit->vni > 0xFFFFFF) {
-                        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                            BGP_LOG_FLAG_ALL,
-                            "Bad label " << nit->vni <<
-                            " for inet route " << inet_prefix.ToString());
-                        return false;
-                    }
-                    if (!nit->vni)
-                        continue;
-                    if (nit->mac.empty())
-                        continue;
-                    if (nexthops.empty()) {
-                        MacAddress mac_addr =
-                            MacAddress::FromString(nit->mac, &error);
-                        if (error) {
-                            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                                BGP_LOG_FLAG_ALL,
-                                "Bad next-hop mac address " << nit->mac);
-                            return false;
-                        }
-                        RouterMac router_mac(mac_addr);
-                        ext.communities.push_back(
-                            router_mac.GetExtCommunityValue());
-                    }
-                } else {
-                    if (nit->label > 0xFFFFF || (master && nit->label)) {
-                        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                            BGP_LOG_FLAG_ALL,
-                            "Bad label " << nit->label <<
-                            " for inet route " << inet_prefix.ToString());
-                        return false;
-                    }
-                    if (!master && !nit->label)
-                        continue;
+                MacAddress mac_addr =
+                    MacAddress::FromString(nit->mac, &error);
+                if (error) {
+                    BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                        BGP_LOG_FLAG_ALL,
+                        "Bad next-hop mac address " << nit->mac);
+                    return false;
                 }
-
-                if (first_nh) {
-                    nh_address = nhop_address;
-                    if (family == Address::INET) {
-                        label = nit->label;
-                    } else {
-                        label = nit->vni;
-                    }
+                RouterMac router_mac(mac_addr);
+                ext.communities.push_back(router_mac.GetExtCommunityValue());
+            } else {
+                if (nit->label > 0xFFFFF || (master && nit->label)) {
+                    BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                        BGP_LOG_FLAG_ALL,
+                        "Bad label " << nit->label <<
+                        " for inet route " << inet_prefix.ToString());
+                    return false;
                 }
-
-                // Process tunnel encapsulation list.
-                bool no_tunnel_encap = true;
-                bool no_valid_tunnel_encap = true;
-                for (TunnelEncapsulationListType::const_iterator eit =
-                    nit->tunnel_encapsulation_list.begin();
-                    eit != nit->tunnel_encapsulation_list.end(); ++eit) {
-                    no_tunnel_encap = false;
-                    TunnelEncap tun_encap(*eit);
-                    if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                        continue;
-                    if (family == Address::INET &&
-                        tun_encap.tunnel_encap() == TunnelEncapType::VXLAN) {
-                        continue;
-                    }
-                    if (family == Address::EVPN &&
-                        tun_encap.tunnel_encap() != TunnelEncapType::VXLAN) {
-                        continue;
-                    }
-                    no_valid_tunnel_encap = false;
-                    if (first_nh) {
-                        ext.communities.push_back(
-                            tun_encap.GetExtCommunityValue());
-                    }
-                    nexthop.tunnel_encapsulations_.push_back(
-                        tun_encap.GetExtCommunity());
-                }
-
-                // Mark the path as infeasible if all tunnel encaps published
-                // by agent are invalid.
-                if (!no_tunnel_encap && no_valid_tunnel_encap && !master) {
-                    flags = BgpPath::NoTunnelEncap;
-                }
-
-                nexthop.flags_ = flags;
-                nexthop.address_ = nhop_address;
-                nexthop.label_ =
-                    family == Address::INET ? nit->label : nit->vni;
-                if (!master) {
-                    nexthop.source_rd_ = RouteDistinguisher(
-                        nhop_address.to_v4().to_ulong(), instance_id);
-                }
-                nexthops.push_back(nexthop);
-
-                if (master)
-                    break;
+                if (!master && !nit->label)
+                    continue;
             }
 
-            // Skip if there are no valid next hops for the inet/evpn route.
-            if (nexthops.empty())
-                continue;
+            nh_address = nhop_address;
+            if (family == Address::INET) {
+                label = nit->label;
+            } else {
+                label = nit->vni;
+            }
+
+            // Process tunnel encapsulation list.
+            bool no_tunnel_encap = true;
+            bool no_valid_tunnel_encap = true;
+            for (TunnelEncapsulationListType::const_iterator eit =
+                nit->tunnel_encapsulation_list.begin();
+                eit != nit->tunnel_encapsulation_list.end(); ++eit) {
+                no_tunnel_encap = false;
+                TunnelEncap tun_encap(*eit);
+                if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                    continue;
+                if (family == Address::INET &&
+                    tun_encap.tunnel_encap() == TunnelEncapType::VXLAN) {
+                    continue;
+                }
+                if (family == Address::EVPN &&
+                    tun_encap.tunnel_encap() != TunnelEncapType::VXLAN) {
+                    continue;
+                }
+                no_valid_tunnel_encap = false;
+                ext.communities.push_back(tun_encap.GetExtCommunityValue());
+            }
+
+            // Mark the path as infeasible if all tunnel encaps published
+            // by agent are invalid.
+            if (!no_tunnel_encap && no_valid_tunnel_encap && !master) {
+                flags = BgpPath::NoTunnelEncap;
+            }
 
             BgpAttrLocalPref local_pref(item.entry.local_preference);
             if (local_pref.local_pref != 0)
@@ -1136,7 +1114,7 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
             if (med.med != 0)
                 attrs.push_back(&med);
 
-            // Process community tags
+            // Process community tags.
             const CommunityTagListType &ict_list =
                 item.entry.community_tag_list;
             for (CommunityTagListType::const_iterator cit = ict_list.begin();
@@ -1186,8 +1164,8 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                 attrs.push_back(&ext);
 
             BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
-            req.data.reset(
-                new BgpTable::RequestData(attr, nexthops, subscription_gen_id));
+            req.data.reset(new BgpTable::RequestData(
+                attr, flags, label, 0, subscription_gen_id));
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
         }
@@ -1268,7 +1246,6 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
 
     // Rules for routes in master instance:
     // - Label must be 0
-    // - Only the first nexthop is used
     // - Tunnel encapsulation is not required
     // - Do not add SourceRd and ExtCommunitySpec
     bool master = (vrf_name == BgpConfigManager::kMasterInstance);
@@ -1305,119 +1282,98 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
             BgpAttrSpec attrs;
 
-            bool first_nh = true;
-            BgpTable::RequestData::NextHops nexthops;
             const NextHopListType &inh_list = item.entry.next_hops;
-            for (NextHopListType::const_iterator nit = inh_list.begin();
-                nit != inh_list.end(); ++nit, first_nh = false) {
-                BgpTable::RequestData::NextHop nexthop;
 
-                IpAddress nhop_address(Ip4Address(0));
-                if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
-                    error_stats().incr_inet6_rx_bad_nexthop_count();
+            // Agents should send only one next-hop in the item.
+            if (inh_list.next_hop.size() != 1) {
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
+                    "More than one nexthop received for inet6 route " <<
+                    inet6_prefix.ToString());
+                return false;
+            }
+
+            NextHopListType::const_iterator nit = inh_list.begin();
+
+            IpAddress nhop_address(Ip4Address(0));
+            if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
+                error_stats().incr_inet6_rx_bad_nexthop_count();
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
+                    "Bad nexthop address " << nit->address <<
+                    " for inet6 route " << inet6_prefix.ToString());
+                return false;
+            }
+
+            if (family == Address::EVPN) {
+                if (nit->vni > 0xFFFFFF) {
                     BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
                         BGP_LOG_FLAG_ALL,
-                        "Bad nexthop address " << nit->address <<
+                        "Bad label " << nit->vni <<
                         " for inet6 route " << inet6_prefix.ToString());
                     return false;
                 }
+                if (!nit->vni)
+                    continue;
+                if (nit->mac.empty())
+                    continue;
 
-                if (family == Address::EVPN) {
-                    if (nit->vni > 0xFFFFFF) {
-                        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                            BGP_LOG_FLAG_ALL,
-                            "Bad label " << nit->vni <<
-                            " for inet6 route " << inet6_prefix.ToString());
-                        return false;
-                    }
-                    if (!nit->vni)
-                        continue;
-                    if (nit->mac.empty())
-                        continue;
-                    if (nexthops.empty()) {
-                        MacAddress mac_addr =
-                            MacAddress::FromString(nit->mac, &error);
-                        if (error) {
-                            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                                BGP_LOG_FLAG_ALL,
-                                "Bad next-hop mac address " << nit->mac);
-                            return false;
-                        }
-                        RouterMac router_mac(mac_addr);
-                        ext.communities.push_back(
-                            router_mac.GetExtCommunityValue());
-                    }
-                } else {
-                    if (nit->label > 0xFFFFF || (master && nit->label)) {
-                        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                            BGP_LOG_FLAG_ALL,
-                            "Bad label " << nit->label <<
-                            " for inet6 route " << inet6_prefix.ToString());
-                        return false;
-                    }
-                    if (!master && !nit->label)
-                        continue;
+                MacAddress mac_addr =
+                    MacAddress::FromString(nit->mac, &error);
+                if (error) {
+                    BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                        BGP_LOG_FLAG_ALL,
+                        "Bad next-hop mac address " << nit->mac);
+                    return false;
                 }
-
-                if (first_nh) {
-                    nh_address = nhop_address;
-                    if (family == Address::INET6) {
-                        label = nit->label;
-                    } else {
-                        label = nit->vni;
-                    }
+                RouterMac router_mac(mac_addr);
+                ext.communities.push_back(router_mac.GetExtCommunityValue());
+            } else {
+                if (nit->label > 0xFFFFF || (master && nit->label)) {
+                    BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                        BGP_LOG_FLAG_ALL,
+                        "Bad label " << nit->label <<
+                        " for inet6 route " << inet6_prefix.ToString());
+                    return false;
                 }
-
-                // Process tunnel encapsulation list.
-                bool no_tunnel_encap = true;
-                bool no_valid_tunnel_encap = true;
-                for (TunnelEncapsulationListType::const_iterator eit =
-                    nit->tunnel_encapsulation_list.begin();
-                    eit != nit->tunnel_encapsulation_list.end(); ++eit) {
-                    no_tunnel_encap = false;
-                    TunnelEncap tun_encap(*eit);
-                    if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                        continue;
-                    if (family == Address::INET6 &&
-                        tun_encap.tunnel_encap() == TunnelEncapType::VXLAN) {
-                        continue;
-                    }
-                    if (family == Address::EVPN &&
-                        tun_encap.tunnel_encap() != TunnelEncapType::VXLAN) {
-                        continue;
-                    }
-                    no_valid_tunnel_encap = false;
-                    if (first_nh) {
-                        ext.communities.push_back(
-                            tun_encap.GetExtCommunityValue());
-                    }
-                    nexthop.tunnel_encapsulations_.push_back(
-                        tun_encap.GetExtCommunity());
-                }
-
-                // Mark the path as infeasible if all tunnel encaps published
-                // by agent are invalid.
-                if (!no_tunnel_encap && no_valid_tunnel_encap && !master) {
-                    flags = BgpPath::NoTunnelEncap;
-                }
-
-                nexthop.flags_ = flags;
-                nexthop.address_ = nhop_address;
-                nexthop.label_ =
-                    family == Address::INET6 ? nit->label : nit->vni;
-                if (!master) {
-                    nexthop.source_rd_ = RouteDistinguisher(
-                        nhop_address.to_v4().to_ulong(), instance_id);
-                }
-                nexthops.push_back(nexthop);
-
-                if (master)
-                    break;
+                if (!master && !nit->label)
+                    continue;
             }
 
-            // Skip if there are no valid next hops for the inet6/evpn route.
-            if (nexthops.empty())
-                continue;
+            nh_address = nhop_address;
+            if (family == Address::INET6) {
+                label = nit->label;
+            } else {
+                label = nit->vni;
+            }
+
+            // Process tunnel encapsulation list.
+            bool no_tunnel_encap = true;
+            bool no_valid_tunnel_encap = true;
+            for (TunnelEncapsulationListType::const_iterator eit =
+                nit->tunnel_encapsulation_list.begin();
+                eit != nit->tunnel_encapsulation_list.end(); ++eit) {
+                no_tunnel_encap = false;
+                TunnelEncap tun_encap(*eit);
+                if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                    continue;
+                if (family == Address::INET6 &&
+                    tun_encap.tunnel_encap() == TunnelEncapType::VXLAN) {
+                    continue;
+                }
+                if (family == Address::EVPN &&
+                    tun_encap.tunnel_encap() != TunnelEncapType::VXLAN) {
+                    continue;
+                }
+                no_valid_tunnel_encap = false;
+                ext.communities.push_back(tun_encap.GetExtCommunityValue());
+            }
+
+            // Mark the path as infeasible if all tunnel encaps published
+            // by agent are invalid.
+            if (!no_tunnel_encap && no_valid_tunnel_encap && !master) {
+                flags = BgpPath::NoTunnelEncap;
+            }
 
             BgpAttrLocalPref local_pref(item.entry.local_preference);
             if (local_pref.local_pref != 0)
@@ -1432,7 +1388,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             if (med.med != 0)
                 attrs.push_back(&med);
 
-            // Process community tags
+            // Process community tags.
             const CommunityTagListType &ict_list =
                 item.entry.community_tag_list;
             for (CommunityTagListType::const_iterator cit = ict_list.begin();
@@ -1467,7 +1423,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
 
             if (item.entry.mobility.seqno) {
                 MacMobility mm(item.entry.mobility.seqno,
-                               item.entry.mobility.sticky);
+                    item.entry.mobility.sticky);
                 ext.communities.push_back(mm.GetExtCommunityValue());
             } else if (item.entry.sequence_number) {
                 MacMobility mm(item.entry.sequence_number);
@@ -1485,8 +1441,8 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
                 attrs.push_back(&ext);
 
             BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
-            req.data.reset(
-                new BgpTable::RequestData(attr, nexthops, subscription_gen_id));
+            req.data.reset(new BgpTable::RequestData(
+                attr, flags, label, 0, subscription_gen_id));
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
         }
@@ -1615,7 +1571,6 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     uint32_t ethernet_tag = item.entry.nlri.ethernet_tag;
     EvpnPrefix evpn_prefix(rd, ethernet_tag, mac_addr, ip_addr);
 
-    EvpnTable::RequestData::NextHops nexthops;
     DBRequest req;
     ExtCommunitySpec ext;
     req.key.reset(new EvpnTable::RequestKey(evpn_prefix, peer_.get()));
@@ -1638,82 +1593,67 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             return false;
         }
 
-        bool first_nh = true;
-        for (EnetNextHopListType::const_iterator nit = inh_list.begin();
-             nit != inh_list.end(); ++nit, first_nh = false) {
-            EvpnTable::RequestData::NextHop nexthop;
-            IpAddress nhop_address(Ip4Address(0));
+        // Agents should send only one next-hop in the item.
+        if (inh_list.next_hop.size() != 1) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL,
+                "More than one nexthop received for enet route " <<
+                evpn_prefix.ToXmppIdString());
+            return false;
+        }
 
-            if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
+        EnetNextHopListType::const_iterator nit = inh_list.begin();
+
+        IpAddress nhop_address(Ip4Address(0));
+
+        if (!XmppDecodeAddress(nit->af, nit->address, &nhop_address)) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL, "Bad nexthop address " << nit->address <<
+                " for enet route " << evpn_prefix.ToXmppIdString());
+            return false;
+        }
+
+        nh_address = nhop_address;
+        label = nit->label;
+        l3_label = nit->l3_label;
+        if (!nit->mac.empty()) {
+            MacAddress rmac_addr =
+                MacAddress::FromString(nit->mac, &error);
+            if (error) {
                 BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                    BGP_LOG_FLAG_ALL, "Bad nexthop address " << nit->address <<
+                    BGP_LOG_FLAG_ALL,
+                    "Bad next-hop mac address " << nit->mac <<
                     " for enet route " << evpn_prefix.ToXmppIdString());
                 return false;
             }
-            if (first_nh) {
-                nh_address = nhop_address;
-                label = nit->label;
-                l3_label = nit->l3_label;
-                if (!nit->mac.empty()) {
-                    MacAddress rmac_addr =
-                        MacAddress::FromString(nit->mac, &error);
-                    if (error) {
-                        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
-                            BGP_LOG_FLAG_ALL,
-                            "Bad next-hop mac address " << nit->mac <<
-                            " for enet route " << evpn_prefix.ToXmppIdString());
-                        return false;
-                    }
-                    RouterMac router_mac(rmac_addr);
-                    ext.communities.push_back(
-                        router_mac.GetExtCommunityValue());
-                }
-            }
+            RouterMac router_mac(rmac_addr);
+            ext.communities.push_back(router_mac.GetExtCommunityValue());
+        }
 
-            // Process tunnel encapsulation list.
-            bool no_tunnel_encap = true;
-            bool no_valid_tunnel_encap = true;
-            for (EnetTunnelEncapsulationListType::const_iterator eit =
-                 nit->tunnel_encapsulation_list.begin();
-                 eit != nit->tunnel_encapsulation_list.end(); ++eit) {
-                no_tunnel_encap = false;
-                TunnelEncap tun_encap(*eit);
-                if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
-                    continue;
-                no_valid_tunnel_encap = false;
-                if (tun_encap.tunnel_encap() == TunnelEncapType::VXLAN)
-                    label_is_vni = true;
-                if (first_nh) {
-                    ext.communities.push_back(
-                        tun_encap.GetExtCommunityValue());
-                    if (tun_encap.tunnel_encap() == TunnelEncapType::GRE) {
-                        TunnelEncap alt_tun_encap(TunnelEncapType::MPLS_O_GRE);
-                        ext.communities.push_back(
-                            alt_tun_encap.GetExtCommunityValue());
-                    }
-                }
-                nexthop.tunnel_encapsulations_.push_back(
-                    tun_encap.GetExtCommunity());
-                if (tun_encap.tunnel_encap() == TunnelEncapType::GRE) {
-                    TunnelEncap alt_tun_encap(TunnelEncapType::MPLS_O_GRE);
-                    nexthop.tunnel_encapsulations_.push_back(
-                        alt_tun_encap.GetExtCommunity());
-                }
+        // Process tunnel encapsulation list.
+        bool no_tunnel_encap = true;
+        bool no_valid_tunnel_encap = true;
+        for (EnetTunnelEncapsulationListType::const_iterator eit =
+            nit->tunnel_encapsulation_list.begin();
+            eit != nit->tunnel_encapsulation_list.end(); ++eit) {
+            no_tunnel_encap = false;
+            TunnelEncap tun_encap(*eit);
+            if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                continue;
+            no_valid_tunnel_encap = false;
+            if (tun_encap.tunnel_encap() == TunnelEncapType::VXLAN)
+                label_is_vni = true;
+            ext.communities.push_back(tun_encap.GetExtCommunityValue());
+            if (tun_encap.tunnel_encap() == TunnelEncapType::GRE) {
+                TunnelEncap alt_tun_encap(TunnelEncapType::MPLS_O_GRE);
+                ext.communities.push_back(alt_tun_encap.GetExtCommunityValue());
             }
+        }
 
-            // Mark the path as infeasible if all tunnel encaps published
-            // by agent are invalid.
-            if (!no_tunnel_encap && no_valid_tunnel_encap) {
-                flags = BgpPath::NoTunnelEncap;
-            }
-
-            nexthop.flags_ = flags;
-            nexthop.address_ = nhop_address;
-            nexthop.label_ = nit->label;
-            nexthop.l3_label_ = nit->l3_label;
-            nexthop.source_rd_ = RouteDistinguisher(
-                nhop_address.to_v4().to_ulong(), instance_id);
-            nexthops.push_back(nexthop);
+        // Mark the path as infeasible if all tunnel encaps published
+        // by agent are invalid.
+        if (!no_tunnel_encap && no_valid_tunnel_encap) {
+            flags = BgpPath::NoTunnelEncap;
         }
 
         BgpAttrLocalPref local_pref(item.entry.local_preference);
@@ -1741,14 +1681,14 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         const EnetSecurityGroupListType &isg_list =
             item.entry.security_group_list;
         for (EnetSecurityGroupListType::const_iterator sit = isg_list.begin();
-             sit != isg_list.end(); ++sit) {
+            sit != isg_list.end(); ++sit) {
             SecurityGroup sg(bgp_server_->autonomous_system(), *sit);
             ext.communities.push_back(sg.GetExtCommunityValue());
         }
 
         if (item.entry.mobility.seqno) {
             MacMobility mm(item.entry.mobility.seqno,
-                           item.entry.mobility.sticky);
+                item.entry.mobility.sticky);
             ext.communities.push_back(mm.GetExtCommunityValue());
         } else if (item.entry.sequence_number) {
             MacMobility mm(item.entry.sequence_number);
@@ -1796,8 +1736,8 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
 
-        req.data.reset(
-            new EvpnTable::RequestData(attr, nexthops, subscription_gen_id));
+        req.data.reset(new EvpnTable::RequestData(
+            attr, flags, label, l3_label, subscription_gen_id));
         stats_[RX].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;

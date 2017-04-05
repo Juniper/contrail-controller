@@ -101,6 +101,30 @@ const BgpPath *BgpRoute::FindPath(BgpPath::PathSource src) const {
 }
 
 //
+// Find path added by BGP_XMPP peer.
+// Skips non BGP_XMPP, secondary paths and resolved paths.
+//
+BgpPath *BgpRoute::FindPath(const IPeer *peer) {
+    for (Route::PathList::iterator it = GetPathList().begin();
+         it != GetPathList().end(); ++it) {
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->GetSource() != BgpPath::BGP_XMPP) {
+            continue;
+        }
+        if (path->GetFlags() & BgpPath::ResolvedPath) {
+            continue;
+        }
+        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) {
+            continue;
+        }
+        if (path->GetPeer() == peer) {
+            return path;
+        }
+    }
+    return NULL;
+}
+
+//
 // Find path added by peer with given path id and path source.
 // Skips secondary paths and resolved paths.
 //

@@ -424,9 +424,6 @@ bgp_xmpp_rtarget_manager_test = env.UnitTest('bgp_xmpp_rtarget_manager_test',
 env.Alias('src/bgp:bgp_xmpp_rtarget_manager_test',
           bgp_xmpp_rtarget_manager_test)
 
-xmpp_ecmp_test = env.UnitTest('xmpp_ecmp_test', ['xmpp_ecmp_test.cc'])
-env.Alias('src/bgp:xmpp_ecmp_test', xmpp_ecmp_test)
-
 xmpp_message_builder_test = env.UnitTest('xmpp_message_builder_test', ['xmpp_message_builder_test.cc'])
 env.Alias('src/bgp:xmpp_message_builder_test', xmpp_message_builder_test)
 
@@ -453,10 +450,6 @@ env.Alias('src/bgp:service_chain_test3', service_chain_test3)
 service_chain_test4 = env.UnitTest('service_chain_test4',
                                      ['service_chain_test4.cc'])
 env.Alias('src/bgp:service_chain_test4', service_chain_test4)
-
-svc_static_route_intergration_test = env.UnitTest('svc_static_route_intergration_test',
-                                     ['svc_static_route_intergration_test.cc'])
-env.Alias('src/bgp:svc_static_route_intergration_test', svc_static_route_intergration_test)
 
 svc_static_route_intergration_test1 = env.UnitTest('svc_static_route_intergration_test1',
                                      ['svc_static_route_intergration_test1.cc'])
@@ -649,7 +642,6 @@ test_suite = [
     show_route_test,
     state_machine_test,
     static_route_test,
-    svc_static_route_intergration_test,
     svc_static_route_intergration_test1_1,
     svc_static_route_intergration_test1_2,
     svc_static_route_intergration_test1_3,
@@ -668,7 +660,6 @@ test_suite = [
     svc_static_route_intergration_test3_4,
     svc_static_route_intergration_test4_1,
     svc_static_route_intergration_test4_2,
-    xmpp_ecmp_test,
     xmpp_message_builder_test,
     xmpp_sess_toggle_test,
 ]
@@ -738,7 +729,6 @@ sc_test_suite = [
     service_chain_test3,
     service_chain_test4,
     static_route_test,
-    svc_static_route_intergration_test,
     svc_static_route_intergration_test1_1,
     svc_static_route_intergration_test1_2,
     svc_static_route_intergration_test1_3,

@@ -30,6 +30,7 @@ public:
     void DeletePath(BgpPath *path);
 
     const BgpPath *FindPath(BgpPath::PathSource src) const;
+    BgpPath *FindPath(const IPeer *peer);
     BgpPath *FindPath(BgpPath::PathSource src, const IPeer *peer,
                       uint32_t path_id);
     BgpPath *FindPath(BgpPath::PathSource src, uint32_t path_id);
