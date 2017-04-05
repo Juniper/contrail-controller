@@ -1180,18 +1180,81 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
 
     @classmethod
+    def _check_net_mode_for_flat_ipam(cls, obj_dict, db_dict):
+        obj_net_mode = None
+        obj_network_properties = obj_dict.get('virtual_network_properties')
+        if obj_network_properties is not None:
+           obj_net_mode = obj_network_properties.get('forwarding_mode')
+
+        db_net_mode = None
+        if (('virtual_network_proerties' not in obj_dict) and
+            (db_dict is not None)):
+            db_network_properties = db_dict.get('virtual_network_properties')
+            if db_network_properties is not None:
+               db_net_mode = db_network_properties.get('forwarding_mode')
+
+        invalid_network_mode = False
+        if db_dict is None:
+            #in network create, we need to explicitly check
+            #obj_net_mode to be 'l3'
+            if (obj_net_mode != 'l3'):
+                invalid_network_mode = True
+        else:
+            #in network update, we need to check
+            # if obj_dict does not have net_mode then db_dict should be 'l3'
+            # if obj_dict has net_mode then it should be 'l3' only
+            if obj_net_mode is None:
+                if db_net_mode != 'l3':
+                    invalid_network_mode = True
+            else:
+                if obj_net_mode != 'l3':
+                    invalid_network_mode = True
+
+        if invalid_network_mode:
+            return (False, "flat-subnet is allowed only with l3 network")
+        else:
+            return (True, "")
+
+    @classmethod
     def _check_ipam_network_subnets(cls, obj_dict, db_conn, vn_uuid,
                                     db_dict=None):
         # if Network has subnets in network_ipam_refs, it should refer to
         # atleast one ipam with user-defined-subnet method. If network is
         # attached to all "flat-subnet", vn can not have any VnSubnetType cidrs
-        net_mode = None
-        virtual_network_properties = obj_dict.get('virtual_network_properties')
-        if virtual_network_properties is not None:
-           net_mode = virtual_network_properties.get('forwarding_mode')
 
         ipam_refs = obj_dict.get('network_ipam_refs') or []
+        if not ipam_refs:
+            #it is a network update without any changes in network_ipam_refs
+            # we need to read ipam_refs from db_dict and for any ipam if
+            # if subnet_method is flat-subnet, network_mode should be l3
+            if db_dict is None:
+                db_ipam_refs = []
+            else:
+                db_ipam_refs = db_dict.get('network_ipam_refs') or []
+
+            ipam_with_flat_subnet = False
+            ipam_uuid_list = [ipam['uuid'] for ipam in db_ipam_refs]
+            ok, result = db_conn.dbe_list('network_ipam',
+                                          obj_uuids=ipam_uuid_list,
+                                          field_names=['ipam_subnet_method'])
+            if not ok:
+                return ok, (500, 'Error in dbe_list: %s' % pformat(result))
+            for subnet_method in result:
+                if subnet_method is None:
+                    subnet_method = 'user-defined-subnet'
+                if subnet_method is not 'flat-subnet':
+                    continue
+                else:
+                    ipam_with_flat_subnet = True
+                    break
+            if ipam_with_flat_subnet:
+                (ok, result) = cls._check_net_mode_for_flat_ipam(obj_dict,
+                                                                 db_dict)
+                if not ok:
+                    return (ok, 400, result)
+
         ipam_subnets_list = []
+        ipam_with_flat_subnet = False
         for ipam in ipam_refs:
             ipam_fq_name = ipam['to']
             ipam_uuid = ipam.get('uuid')
@@ -1209,6 +1272,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 subnet_method = 'user-defined-subnet'
 
             if subnet_method == 'flat-subnet':
+                ipam_with_flat_subnet = True
                 subnets_list = cls.addr_mgmt._ipam_to_subnets(ipam_dict)
                 if not subnets_list:
                     subnets_list = []
@@ -1227,10 +1291,6 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                             return (False, 400,
                                 "with flat-subnet, network can not have user-defined subnet")
 
-                if (net_mode != 'l3'):
-                    return (False, 400,
-                            "flat-subnet is allowed only with l3 network")
-
             if subnet_method == 'user-defined-subnet':
                 (ok, result) = cls.addr_mgmt.net_check_subnet(ipam_subnets)
                 if not ok:
@@ -1241,6 +1301,12 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                     'AddrMgmt: subnet uuid is updated for vn %s'
                         % (vn_uuid), level=SandeshLevel.SYS_DEBUG)
         # end of ipam in ipam_refs
+
+        if ipam_with_flat_subnet:
+            (ok, result) = cls._check_net_mode_for_flat_ipam(obj_dict,
+                                                             db_dict)
+            if not ok:
+                return (ok, 400, result)
 
         if db_dict is None:
             db_dict = obj_dict
@@ -1403,9 +1469,12 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (409, error))
 
-        fields = ['network_ipam_refs', 'virtual_network_network_id', 'address_allocation_mode',
-                  'route_target_list', 'import_route_target_list', 'export_route_target_list',
-                  'multi_policy_service_chains_enabled', 'instance_ip_back_refs', 'floating_ip_pools']
+        fields = ['network_ipam_refs', 'virtual_network_network_id',
+                  'address_allocation_mode', 'route_target_list',
+                  'import_route_target_list', 'export_route_target_list',
+                  'multi_policy_service_chains_enabled',
+                  'instance_ip_back_refs', 'floating_ip_pools',
+                  'virtual_network_properties']
         ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id,
                                        obj_fields=fields)
         if not ok:
