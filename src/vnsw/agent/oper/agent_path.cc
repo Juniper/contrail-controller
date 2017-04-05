@@ -1296,8 +1296,18 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     pdata.set_communities(communities());
     pdata.set_vxlan_id(vxlan_id());
     pdata.set_label(label());
-    pdata.set_active_tunnel_type(
+    if (nh != NULL && nh->GetType() == NextHop::PBB) {
+        const PBBNH *pbb_nh = static_cast<const PBBNH *>(nh);
+        if (pbb_nh->child_nh() != NULL) {
+            const TunnelNH *tun_nh = dynamic_cast<const TunnelNH *>(pbb_nh->child_nh());
+            if (tun_nh != NULL) {
+                pdata.set_active_tunnel_type((tun_nh->GetTunnelType()).ToString());
+            }
+        }
+    } else {
+        pdata.set_active_tunnel_type(
             TunnelType(tunnel_type()).ToString());
+    }
     pdata.set_supported_tunnel_type(
             TunnelType::GetString(tunnel_bmap()));
     PathPreferenceSandeshData path_preference_data;
