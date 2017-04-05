@@ -87,6 +87,7 @@ private:
     uint32_t interface_id_;
     string interface_name_;     // Key
     uint32_t ip_;
+    bool hc_active_;
     bool ipv4_active_;
     bool layer3_forwarding_;
     InterfaceKSyncObject *ksync_obj_;

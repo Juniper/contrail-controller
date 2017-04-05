@@ -23,6 +23,7 @@
 #include "oper/operdb_init.h"
 #include "oper/tunnel_nh.h"
 #include "oper/bgp_as_service.h"
+#include "oper/health_check.h"
 
 #include "filter/packet_header.h"
 #include "filter/acl.h"
@@ -770,6 +771,53 @@ void PktFlowInfo::BgpRouterServiceTranslate(const PktInfo *pkt,
     }
 }
 
+// Consider Health Check is enabled on an interface and also FAT flow is
+// enabled for the destination port.
+//
+// VRouter receives request from vhost0 interface. The vhost0 interface does
+// not have fat-flow enabled, so 5-tuple flow is created ignoring the fat flow
+//
+// VRouter receives response from vm-interface that has fat-flow enabled.
+// So, VRouter creates with fat-flow. Agent needs to ensure that fat flow
+// created must do the NAT translation according to health-check rules
+//
+// Note, if FAT flow is not configured, then pacekt from vm-interface will
+// hit the reverse flow created due to request
+void PktFlowInfo::ProcessHealthCheckFatFlow(const VmInterface *vmi,
+                                             const PktInfo *pkt,
+                                             PktControlInfo *in,
+                                             PktControlInfo *out) {
+    // Health check valid for IPv4 only
+    if (pkt->ip_daddr.is_v4() == false || pkt->ip_saddr.is_v4() == false)
+        return;
+
+    // Ensure fat-flow is configured for the port first
+    if (vmi->IsFatFlow(pkt->ip_proto, pkt->sport) == false)
+        return;
+
+    // Look for health-check rule
+    const HealthCheckInstance *hc_instance =
+        vmi->GetHealthCheckFromVmiFlow(pkt->ip_saddr, pkt->ip_daddr,
+                                       pkt->ip_proto, pkt->sport);
+    if (hc_instance == NULL)
+        return;
+
+    const MetaDataIp *mip = hc_instance->ip();
+    if (mip == NULL)
+        return;
+
+    nat_done = true;
+    nat_ip_saddr = mip->GetLinkLocalIp();
+    nat_ip_daddr = agent->router_id();
+    nat_dport = pkt->dport;
+    nat_sport = pkt->sport;
+    nat_vrf = agent->fabric_vrf()->vrf_id();
+    nat_dest_vrf = dest_vrf;
+    dest_vrf = agent->fabric_vrf()->vrf_id();
+    return;
+}
+
+
 // DestNAT for packets entering into a VM with floating-ip.
 // Can come here in two paths,
 // - Packet originated on local vm.
@@ -1182,6 +1230,11 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                                 in->intf_, pkt->sport,
                                 pkt->dport)) {
         BgpRouterServiceTranslate(pkt, in, out);
+    }
+
+    // Handle special case of health-check with fat-flow
+    if (vm_port && vm_port->IsHealthCheckEnabled()) {
+        ProcessHealthCheckFatFlow(vm_port, pkt, in, out);
     }
 
     // If out-interface was not found, get it based on out-route
