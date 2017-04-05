@@ -2005,10 +2005,20 @@ def _check_policy_rules(entries, network_policy_rule=False):
             if protocol not in valids:
                 return (False, (400, 'Rule with invalid protocol : %s' %
                                 protocol))
+        src_sg_list = [addr.get('security_group') for addr in
+                  rule.get('src_addresses') or []]
+        dst_sg_list = [addr.get('security_group') for addr in
+                  rule.get('dst_addresses') or []]
 
         if network_policy_rule:
             if rule.get('action_list') is None:
                 return (False, (400, 'Action is required'))
+
+            src_sg = [True for sg in src_sg_list if sg != None]
+            dst_sg = [True for sg in dst_sg_list if sg != None]
+            if True in src_sg or True in dst_sg:
+                return (False, (400, 'Config Error: policy rule refering to'
+                                      ' security group is not allowed'))
         else:
             ethertype = rule.get('ethertype')
             if ethertype is not None:
@@ -2021,11 +2031,8 @@ def _check_policy_rules(entries, network_policy_rule=False):
                         if not ethertype == "IPv%s" % network.version:
                             return (False, (400, "Rule subnet %s doesn't match ethertype %s" %
                                             (network, ethertype)))
-            src_sg = [addr.get('security_group') for addr in
-                      rule.get('src_addresses') or []]
-            dst_sg = [addr.get('security_group') for addr in
-                      rule.get('dst_addresses') or []]
-            if ('local' not in src_sg and 'local' not in dst_sg):
+
+            if ('local' not in src_sg_list and 'local' not in dst_sg_list):
                 return (False, (400, "At least one of source or destination"
                                      " addresses must be 'local'"))
     return True, ""
