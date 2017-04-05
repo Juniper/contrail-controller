@@ -53,7 +53,6 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                    nh_req_);
     }
 
-    agent->nexthop_table()->Process(nh_req_);
     return InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
                                                  label_, local_ecmp_nh_,
                                                  vrf_name_, sg_list_,
@@ -61,7 +60,8 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                                  path_preference_,
                                                  tunnel_bmap_,
                                                  ecmp_load_balance_,
-                                                 nh_req_, agent, path);
+                                                 nh_req_, agent, path, "",
+                                                 false);
 }
 
 ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(

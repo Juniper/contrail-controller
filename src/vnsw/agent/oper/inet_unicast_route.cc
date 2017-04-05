@@ -405,10 +405,20 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
                                             TunnelType::TypeBmap tunnel_bmap,
                                             const EcmpLoadBalance &ecmp_load_balance,
                                             DBRequest &nh_req,
-                                            Agent* agent, AgentPath *path) {
+                                            Agent* agent, AgentPath *path,
+                                            const string &route_str,
+                                            bool alloc_label) {
     bool ret = false;
     NextHop *nh = NULL;
 
+    agent->nexthop_table()->Process(nh_req);
+    if (alloc_label) {
+        NextHopKey *key = static_cast<NextHopKey *>(nh_req.key.get());
+        // Create MPLS label and point it to Composite NH
+        label = agent->mpls_table()->CreateRouteLabel(
+                    MplsTable::kInvalidLabel, key, vrf_name,
+                    route_str);
+    }
     nh = static_cast<NextHop *>(agent->nexthop_table()->
                                 FindActiveEntry(nh_req.key.get()));
     if (nh == NULL) {
@@ -478,22 +488,17 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
                                         composite_nh_policy, component_nh_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
-    agent->nexthop_table()->Process(nh_req);
-
-    NextHopKey *key = static_cast<NextHopKey *>(nh_req.key.get());
-    // Create MPLS label and point it to Composite NH
-    uint32_t label = agent->mpls_table()->CreateRouteLabel(
-                         MplsTable::kInvalidLabel, key, vrf()->GetName(),
-                         ToString());
 
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path2->dest_vn_list(),
-                                          label, true, vrf()->GetName(),
+                                          MplsTable::kInvalidLabel, true,
+                                          vrf()->GetName(),
                                           path2->sg_list(),
                                           path2->communities(),
                                           path2->path_preference(),
                                           path2->tunnel_bmap(),
                                           path2->ecmp_load_balance(),
-                                          nh_req, agent, path);
+                                          nh_req, agent, path, ToString(),
+                                          true);
 
     RouteInfo rt_info;
     FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
@@ -789,7 +794,6 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
                                         component_nh_key_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
-    agent->nexthop_table()->Process(nh_req);
 
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path->dest_vn_list(),
                                ecmp_path->label(), true, vrf()->GetName(),
@@ -797,7 +801,7 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
                                path->path_preference(),
                                path->tunnel_bmap(),
                                path->ecmp_load_balance(),
-                               nh_req, agent, ecmp_path);
+                               nh_req, agent, ecmp_path, "", false);
 
     NextHopKey *nh_key1 = static_cast<NextHopKey *>(nh_req.key.get());
     //Make MPLS label point to composite NH
@@ -845,7 +849,6 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
                                         component_nh_key_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
-    agent->nexthop_table()->Process(nh_req);
 
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_,
                                ecmp_path->dest_vn_list(),
@@ -854,7 +857,7 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
                                ecmp_path->path_preference(),
                                ecmp_path->tunnel_bmap(),
                                ecmp_path->ecmp_load_balance(),
-                               nh_req, agent, ecmp_path);
+                               nh_req, agent, ecmp_path, "", false);
 
     NextHopKey *nh_key1 = static_cast<NextHopKey *>(nh_req.key.get());
     //Make MPLS label point to updated composite NH
@@ -893,7 +896,6 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
                                         comp_nh_policy, component_nh_key_list,
                                         vrf()->GetName()));
     nh_req.data.reset(new CompositeNHData());
-    agent->nexthop_table()->Process(nh_req);
 
     if (!InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_,
                                ecmp_path->dest_vn_list(),
@@ -902,7 +904,7 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
                                ecmp_path->path_preference(),
                                ecmp_path->tunnel_bmap(),
                                ecmp_path->ecmp_load_balance(),
-                               nh_req, agent, ecmp_path)) {
+                               nh_req, agent, ecmp_path, "", false)) {
         return;
     }
 

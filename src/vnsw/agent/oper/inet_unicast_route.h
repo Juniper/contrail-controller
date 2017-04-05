@@ -88,7 +88,8 @@ public:
                                const EcmpLoadBalance &ecmp_ecmp_load_balance,
                                DBRequest &nh_req,
                                Agent* agent,
-                               AgentPath *path);
+                               AgentPath *path, const string &route_str,
+                               bool alloc_label);
     static bool SyncEcmpPath(AgentPath *path, SecurityGroupList sg_list,
                              const CommunityList &communities,
                              const PathPreference &path_preference,
