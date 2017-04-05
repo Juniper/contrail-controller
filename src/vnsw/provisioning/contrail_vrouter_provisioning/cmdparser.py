@@ -34,6 +34,8 @@ class ComputeArgsParser(object):
             'cpu_mode': None,
             'cpu_model': None,
             'dpdk': False,
+            'vrouter_module_params': None,
+            'vmware': False,
             'hypervisor': 'libvirt',
             'gateway_server_list': '',
             'default_hw_queue_qos': False,
@@ -144,7 +146,11 @@ class ComputeArgsParser(object):
                 help="VM cpu_model, required if cpu_mode is 'custom'."
                      "eg. 'Nehalem'")
         parser.add_argument(
-                "--dpdk", help="vRouter/DPDK mode.", action="store_true")
+                "--vmware", help="The Vmware ESXI IP")
+        parser.add_argument(
+                "--dpdk", help="vRouter/DPDK mode.")
+        parser.add_argument(
+                "--vrouter_module_params", help="vRouter module parameters.")
         parser.add_argument("--sriov", help="sriov configuration")
         parser.add_argument(
                 "--gateway_server_list", help="Compute's acting as gateway",
@@ -177,6 +183,9 @@ class ComputeArgsParser(object):
                 "--control-nodes",
                 help="List of IP:port of the VNC control-nodes",
                 nargs='+', type=str)
+        parser.add_argument(
+                "--metadata_secret",
+                help = "Metadata Proxy secret from openstack node")
 
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)
