@@ -52,7 +52,7 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.metadata_proxy_port(), 8998);
     EXPECT_EQ(param.dns_client_port(), 8997);
     EXPECT_EQ(param.mirror_client_port(), 8999);
-    EXPECT_EQ(param.max_vm_flows(), 50);
+    EXPECT_EQ(param.max_vm_flows(), 50.5);
     EXPECT_EQ(param.linklocal_system_flows(), 1024);
     EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_EQ(param.flow_cache_timeout(), 30);
