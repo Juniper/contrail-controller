@@ -394,3 +394,42 @@ response sandesh IFMapPendingVmRegResp {
     1: i32 map_count;
     2: list<IFMapPendingVmRegEntry> vm_reg_map;
 }
+
+request sandesh ConfigDBUUIDToFQNameReq {
+    1: string uuid;
+}
+
+struct ConfigDBFQNameCacheEntry {
+    1: string uuid;
+    2: string obj_type;
+    3: string fq_name;
+    4: bool deleted;
+}
+
+
+response sandesh ConfigDBUUIDToFQNameResp {
+    1:  list<ConfigDBFQNameCacheEntry> fqname_cache;
+    2:  optional string next_batch (link="ConfigDBUUIDToFQNameReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ConfigDBUUIDCacheReq {
+    1: string uuid;
+}
+
+struct ConfigDBUUIDCacheData {
+    1: string field_name;
+    2: string timestamp;
+    3: bool refresh;
+}
+
+struct ConfigDBUUIDCacheEntry {
+    1: string uuid;
+    2: list<ConfigDBUUIDCacheData> field_list
+}
+
+response sandesh ConfigDBUUIDCacheResp {
+    1:  list<ConfigDBUUIDCacheEntry> uuid_cache
+    2:  optional string next_batch (link="ConfigDBUUIDCacheReqIterate",
+                                   link_title="next_batch");
+}

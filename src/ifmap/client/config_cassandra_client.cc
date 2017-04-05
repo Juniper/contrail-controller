@@ -107,6 +107,18 @@ ConfigCassandraPartition *ConfigCassandraClient::GetPartition(const string &uuid
     return partitions_[worker_id];
 }
 
+const ConfigCassandraPartition *ConfigCassandraClient::GetPartition(
+                                                    const string &uuid) const {
+    int worker_id = HashUUID(uuid);
+    return partitions_[worker_id];
+}
+
+const ConfigCassandraPartition *ConfigCassandraClient::GetPartition(
+                                                        int worker_id) const {
+    assert(worker_id < num_workers_);
+    return partitions_[worker_id];
+}
+
 int ConfigCassandraClient::HashUUID(const string &uuid_str) const {
     boost::hash<string> string_hash;
     return string_hash(uuid_str) % num_workers_;
@@ -427,7 +439,7 @@ void ConfigCassandraClient::AddFQNameCache(const string &uuid,
 
 void ConfigCassandraClient::InvalidateFQNameCache(const string &uuid) {
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
-    map<string, FQNameCacheType>::iterator it = fq_name_cache_.find(uuid);
+    FQNameCacheMap::iterator it = fq_name_cache_.find(uuid);
     if (it != fq_name_cache_.end()) {
         it->second.deleted = true;
     }
@@ -442,13 +454,58 @@ void ConfigCassandraClient::PurgeFQNameCache(const string &uuid) {
 ConfigCassandraClient::ObjTypeFQNPair ConfigCassandraClient::UUIDToFQName(
                                   const string &uuid, bool deleted_ok) const {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
-    map<string, FQNameCacheType>::const_iterator it = fq_name_cache_.find(uuid);
+    FQNameCacheMap::const_iterator it = fq_name_cache_.find(uuid);
     if (it != fq_name_cache_.end()) {
         if (!it->second.deleted || (it->second.deleted && deleted_ok)) {
             return make_pair(it->second.obj_type, it->second.obj_name);
         }
     }
     return make_pair("ERROR", "ERROR");
+}
+
+void ConfigCassandraClient::FillFQNameCacheInfo(const string &uuid,
+    FQNameCacheMap::const_iterator it, ConfigDBFQNameCacheEntry &entry) const {
+    entry.set_uuid(it->first);
+    entry.set_obj_type(it->second.obj_type);
+    entry.set_fq_name(it->second.obj_name);
+    entry.set_deleted(it->second.deleted);
+}
+
+bool ConfigCassandraClient::UUIDToFQNameShow(const string &uuid,
+                                     ConfigDBFQNameCacheEntry &entry) const {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    FQNameCacheMap::const_iterator it = fq_name_cache_.find(uuid);
+    if (it == fq_name_cache_.end()) {
+        return false;
+    }
+    FillFQNameCacheInfo(uuid, it, entry);
+    return true;
+}
+
+bool ConfigCassandraClient::UUIDToFQNameShow(const string &start_uuid,
+     uint32_t num_entries, vector<ConfigDBFQNameCacheEntry> &entries) const {
+    uint32_t count = 0;
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
+    for(FQNameCacheMap::const_iterator it =
+        fq_name_cache_.upper_bound(start_uuid);
+        count < num_entries && it != fq_name_cache_.end(); it++, count++) {
+        ConfigDBFQNameCacheEntry entry;
+        FillFQNameCacheInfo(it->first, it, entry);
+        entries.push_back(entry);
+    }
+    return true;
+}
+
+bool ConfigCassandraClient::UUIDToObjCacheShow(int inst_num, const string &uuid,
+                                       ConfigDBUUIDCacheEntry &entry) const {
+    return GetPartition(inst_num)->UUIDToObjCacheShow(uuid, entry);
+}
+
+bool ConfigCassandraClient::UUIDToObjCacheShow(int inst_num,
+                               const string &start_uuid, uint32_t num_entries,
+                               vector<ConfigDBUUIDCacheEntry> &entries) const {
+    return GetPartition(inst_num)->UUIDToObjCacheShow(start_uuid,
+                                                   num_entries, entries);
 }
 
 void ConfigCassandraClient::EnqueueUUIDRequest(string oper, string obj_type,
@@ -822,4 +879,43 @@ void ConfigCassandraPartition::MarkCacheDirty(const string &uuid) {
          it != uuid_iter->second.end(); it++) {
         it->second.second = false;
     }
+}
+
+void ConfigCassandraPartition::FillUUIDToObjCacheInfo(const string &uuid,
+                                      ObjectCacheMap::const_iterator uuid_iter,
+                                      ConfigDBUUIDCacheEntry &entry) const {
+    entry.set_uuid(uuid);
+    vector<ConfigDBUUIDCacheData> fields;
+    for (FieldDetailMap::const_iterator it = uuid_iter->second.begin();
+         it != uuid_iter->second.end(); it++) {
+        ConfigDBUUIDCacheData each_field;
+        each_field.set_refresh(it->second.second);
+        each_field.set_field_name(it->first);
+        each_field.set_timestamp(UTCUsecToString(it->second.first));
+        fields.push_back(each_field);
+    }
+    entry.set_field_list(fields);
+}
+
+bool ConfigCassandraPartition::UUIDToObjCacheShow(const string &uuid,
+                                       ConfigDBUUIDCacheEntry &entry) const {
+    ObjectCacheMap::const_iterator uuid_iter = object_cache_map_.find(uuid);
+    if (uuid_iter == object_cache_map_.end()) {
+        return false;
+    }
+    FillUUIDToObjCacheInfo(uuid, uuid_iter, entry);
+    return true;
+}
+
+bool ConfigCassandraPartition::UUIDToObjCacheShow(const string &start_uuid,
+     uint32_t num_entries, vector<ConfigDBUUIDCacheEntry> &entries) const {
+    uint32_t count = 0;
+    for(ObjectCacheMap::const_iterator it =
+        object_cache_map_.upper_bound(start_uuid);
+        count < num_entries && it != object_cache_map_.end(); it++, count++) {
+        ConfigDBUUIDCacheEntry entry;
+        FillUUIDToObjCacheInfo(it->first, it, entry);
+        entries.push_back(entry);
+    }
+    return true;
 }

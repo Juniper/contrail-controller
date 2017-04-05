@@ -21,6 +21,8 @@ struct ConfigDBConnInfo;
 class TaskTrigger;
 class ConfigCassandraClient;
 struct ConfigCassandraParseContext;
+class ConfigDBFQNameCacheEntry;
+class ConfigDBUUIDCacheEntry;
 
 class ObjectProcessReq {
 public:
@@ -60,6 +62,13 @@ public:
 
     void Enqueue(ObjectProcessReq *req);
 
+    bool UUIDToObjCacheShow(const std::string &uuid,
+                            ConfigDBUUIDCacheEntry &entry) const;
+
+    bool UUIDToObjCacheShow(const std::string &start_uuid,
+                            uint32_t num_entries,
+                            std::vector<ConfigDBUUIDCacheEntry> &entries) const;
+
 private:
     friend class ConfigCassandraClient;
 
@@ -96,6 +105,10 @@ private:
     ConfigCassandraClient *client() {
         return config_client_;
     }
+
+    void FillUUIDToObjCacheInfo(const std::string &uuid,
+                                ObjectCacheMap::const_iterator uuid_iter,
+                                ConfigDBUUIDCacheEntry &entry) const;
 
     ObjProcessWorkQType obj_process_queue_;
     UUIDProcessSet uuid_read_set_;
@@ -148,6 +161,8 @@ public:
     ConfigClientManager *mgr() { return mgr_; }
     const ConfigClientManager *mgr() const { return mgr_; }
     ConfigCassandraPartition *GetPartition(const std::string &uuid);
+    const ConfigCassandraPartition *GetPartition(const std::string &uuid) const;
+    const ConfigCassandraPartition *GetPartition(int worker_id) const;
 
     void EnqueueUUIDRequest(std::string oper, std::string obj_type,
                                     std::string uuid_str);
@@ -163,6 +178,20 @@ public:
                                 const std::string &obj_type);
     virtual void InvalidateFQNameCache(const std::string &uuid);
     void PurgeFQNameCache(const std::string &uuid);
+
+    virtual bool UUIDToFQNameShow(const std::string &uuid,
+                                  ConfigDBFQNameCacheEntry &entry) const;
+
+    virtual bool UUIDToFQNameShow(const std::string &start_uuid,
+                      uint32_t num_entries,
+                      std::vector<ConfigDBFQNameCacheEntry> &entries) const;
+
+    virtual bool UUIDToObjCacheShow(int inst_num, const std::string &uuid,
+                                  ConfigDBUUIDCacheEntry &entry) const;
+
+    virtual bool UUIDToObjCacheShow(int inst_num, const std::string &start_uuid,
+                      uint32_t num_entries,
+                      std::vector<ConfigDBUUIDCacheEntry> &entries) const;
 
 protected:
     typedef std::pair<std::string, std::string> ObjTypeUUIDType;
@@ -233,6 +262,8 @@ private:
                std::string *last_column);
 
     void HandleCassandraConnectionStatus(bool success);
+    void FillFQNameCacheInfo(const std::string &uuid,
+      FQNameCacheMap::const_iterator it, ConfigDBFQNameCacheEntry &entry) const;
 
     ConfigClientManager *mgr_;
     EventManager *evm_;
