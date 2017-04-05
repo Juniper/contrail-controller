@@ -260,6 +260,40 @@ class TestListUpdate(test_case.ApiServerTestCase):
         self._vnc_lib.network_policy_delete(id=policy_obj.uuid)
     # end test_policy_create_wo_rules
 
+     def test_policy_create_w_sg_in_rules(self):
+        proj_obj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+
+        policy_obj = NetworkPolicy(
+            'test-policy-create-w-sg-in-rules', proj_obj)
+        np_rules = [
+            PolicyRuleType(direction='<>',
+                           action_list=ActionListType(simple_action='pass'),
+                           protocol='any',
+                           src_addresses=
+                               [AddressType(security_group='local')],
+                           src_ports=[PortType(-1, -1)],
+                           dst_addresses=[AddressType(security_group='any')],
+                           dst_ports=[PortType(-1, -1)]),
+
+            PolicyRuleType(direction='<>',
+                           action_list=ActionListType(simple_action='deny'),
+                           protocol='any',
+                           src_addresses=
+                               [AddressType(virtual_network='local')],
+                           src_ports=[PortType(-1, -1)],
+                           dst_addresses=[AddressType(virtual_network='any')],
+                           dst_ports=[PortType(-1, -1)]),
+        ]
+        policy_obj.set_network_policy_entries(PolicyEntriesType(np_rules))
+
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.network_policy_create(policy_obj)
+
+        # cleanup
+        self._vnc_lib.network_policy_delete(id=policy_obj.uuid)
+    # end test_policy_create_w_sg_in_rules
+
 # end class TestListUpdate
 
 class TestCrud(test_case.ApiServerTestCase):
