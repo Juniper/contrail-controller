@@ -27,9 +27,10 @@
 using std::find;
 
 RibOutAttr::NextHop::NextHop(const BgpTable *table, IpAddress address,
-    uint32_t label, uint32_t l3_label, const ExtCommunity *ext_community,
-    bool vrf_originated)
+    const MacAddress &mac, uint32_t label, uint32_t l3_label,
+    const ExtCommunity *ext_community, bool vrf_originated)
     : address_(address),
+      mac_(mac),
       label_(label),
       l3_label_(l3_label),
       origin_vn_index_(-1) {
@@ -46,6 +47,8 @@ RibOutAttr::NextHop::NextHop(const BgpTable *table, IpAddress address,
 int RibOutAttr::NextHop::CompareTo(const NextHop &rhs) const {
     if (address_ < rhs.address_) return -1;
     if (address_ > rhs.address_) return 1;
+    if (mac_ < rhs.mac_) return -1;
+    if (mac_ > rhs.mac_) return 1;
     if (label_ < rhs.label_) return -1;
     if (label_ > rhs.label_) return 1;
     if (l3_label_ < rhs.l3_label_) return -1;
@@ -86,8 +89,9 @@ RibOutAttr::RibOutAttr(const BgpTable *table, const BgpAttr *attr,
       is_xmpp_(false),
       vrf_originated_(false) {
     if (attr) {
-        nexthop_list_.push_back(NextHop(table, attr->nexthop(), label, l3_label,
-            attr->ext_community(), false));
+        nexthop_list_.push_back(NextHop(table, attr->nexthop(),
+            attr->mac_address(), label, l3_label, attr->ext_community(),
+            false));
     }
 }
 
@@ -97,8 +101,9 @@ RibOutAttr::RibOutAttr(const BgpTable *table, const BgpRoute *route,
       is_xmpp_(is_xmpp),
       vrf_originated_(route->BestPath()->IsVrfOriginated()) {
     if (attr && include_nh) {
-        nexthop_list_.push_back(NextHop(table, attr->nexthop(), label, 0,
-            attr->ext_community(), vrf_originated_));
+        nexthop_list_.push_back(NextHop(table, attr->nexthop(),
+            attr->mac_address(), label, 0, attr->ext_community(),
+            vrf_originated_));
     }
 }
 
@@ -138,7 +143,8 @@ RibOutAttr::RibOutAttr(const BgpRoute *route, const BgpAttr *attr,
         // Remember if the path was originated in the VRF.  This is used to
         // determine if VRF's VN name can be used as the origin VN for the
         // nexthop.
-        NextHop nexthop(table, path->GetAttr()->nexthop(), path->GetLabel(),
+        NextHop nexthop(table, path->GetAttr()->nexthop(),
+            path->GetAttr()->mac_address(), path->GetLabel(),
             path->GetL3Label(), path->GetAttr()->ext_community(),
             path->IsVrfOriginated());
 
@@ -194,8 +200,8 @@ void RibOutAttr::set_attr(const BgpTable *table, const BgpAttrPtr &attrp,
     if (!attr_out_) {
         attr_out_ = attrp;
         assert(nexthop_list_.empty());
-        NextHop nexthop(table, attrp->nexthop(), label, l3_label,
-            attrp->ext_community(), vrf_originated);
+        NextHop nexthop(table, attrp->nexthop(), attrp->mac_address(),
+            label, l3_label, attrp->ext_community(), vrf_originated);
         nexthop_list_.push_back(nexthop);
         return;
     }

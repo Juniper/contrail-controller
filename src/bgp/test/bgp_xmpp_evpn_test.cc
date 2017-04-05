@@ -1414,12 +1414,15 @@ protected:
         return true;
     }
 
-    bool CheckRouteLabels(test::NetworkAgentMockPtr agent,
-        const string &network, const string &prefix, int label, int l3_label) {
+    bool CheckRouteMacLabels(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix, const string &mac,
+        int label, int l3_label) {
         task_util::TaskSchedulerLock lock;
         const autogen::EnetItemType *rt =
             agent->EnetRouteLookup(network, prefix);
         if (!rt)
+            return false;
+        if (!mac.empty() && rt->entry.next_hops.next_hop[0].mac != mac)
             return false;
         if (label && rt->entry.next_hops.next_hop[0].label != label)
             return false;
@@ -1464,10 +1467,11 @@ protected:
         TASK_UTIL_EXPECT_TRUE(CheckRouteExists(agent, network, prefix));
     }
 
-    void VerifyRouteLabels(test::NetworkAgentMockPtr agent,
-        const string &network, const string &prefix, int label, int l3_label) {
+    void VerifyRouteMacLabels(test::NetworkAgentMockPtr agent,
+        const string &network, const string &prefix, const string &mac,
+        int label, int l3_label) {
         TASK_UTIL_EXPECT_TRUE(
-            CheckRouteLabels(agent, network, prefix, label, l3_label));
+            CheckRouteMacLabels(agent, network, prefix, mac, label, l3_label));
     }
 
     void VerifyRouteSecurityGroup(test::NetworkAgentMockPtr agent,
@@ -2032,9 +2036,9 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdate) {
 }
 
 //
-// Routes from 2 agents are advertised with L3 label.
+// Routes from 2 agents are advertised with router MAC and L3 label.
 //
-TEST_F(BgpXmppEvpnTest2, RouteAddL3Label) {
+TEST_F(BgpXmppEvpnTest2, RouteAddRouterMacL3Label) {
     Configure();
     task_util::WaitForIdle();
 
@@ -2055,17 +2059,19 @@ TEST_F(BgpXmppEvpnTest2, RouteAddL3Label) {
     agent_b_->EnetSubscribe("blue", 1);
     task_util::WaitForIdle();
 
-    // Add route from agent A with label 101 and l3-label 200.
+    // Add route from agent A with mac mac_a, label 101 and l3-label 200.
     stringstream eroute_a;
     eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
-    test::NextHop nh_a("192.168.1.1", 101, 200);
+    string mac_a("aa:aa:aa:00:00:01");
+    test::NextHop nh_a("192.168.1.1", mac_a, 101, 200);
     agent_a_->AddEnetRoute("blue", eroute_a.str(), nh_a);
     task_util::WaitForIdle();
 
-    // Add route from agent B with label 102 and l3-label 200..
+    // Add route from agent B with mac mac_b, label 102 and l3-label 200.
     stringstream eroute_b;
     eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
-    test::NextHop nh_b("192.168.2.1", 102, 200);
+    string mac_b("bb:bb:bb:00:00:01");
+    test::NextHop nh_b("192.168.2.1", mac_b, 102, 200);
     agent_b_->AddEnetRoute("blue", eroute_b.str(), nh_b);
     task_util::WaitForIdle();
 
@@ -2075,11 +2081,11 @@ TEST_F(BgpXmppEvpnTest2, RouteAddL3Label) {
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
 
-    // Verify label and l3-label values.
-    VerifyRouteLabels(agent_a_, "blue", eroute_a.str(), 101, 200);
-    VerifyRouteLabels(agent_a_, "blue", eroute_b.str(), 102, 200);
-    VerifyRouteLabels(agent_b_, "blue", eroute_a.str(), 101, 200);
-    VerifyRouteLabels(agent_b_, "blue", eroute_b.str(), 102, 200);
+    // Verify mac, label and l3-label values.
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_a.str(), mac_a, 101, 200);
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_b.str(), mac_b, 102, 200);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_a.str(), mac_a, 101, 200);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_b.str(), mac_b, 102, 200);
 
     // Delete route from agent A.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
@@ -2124,17 +2130,19 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdateL3Label) {
     agent_b_->EnetSubscribe("blue", 1);
     task_util::WaitForIdle();
 
-    // Add route from agent A with label 101 and l3-label 200.
+    // Add route from agent A with mac mac_a, label 101 and l3-label 200.
     stringstream eroute_a;
     eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
-    test::NextHop nh_a("192.168.1.1", 101, 200);
+    string mac_a("aa:aa:aa:00:00:01");
+    test::NextHop nh_a("192.168.1.1", mac_a, 101, 200);
     agent_a_->AddEnetRoute("blue", eroute_a.str(), nh_a);
     task_util::WaitForIdle();
 
-    // Add route from agent B with label 102 and l3-label 200..
+    // Add route from agent B with mac mac_b, label 102 and l3-label 200..
     stringstream eroute_b;
     eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
-    test::NextHop nh_b("192.168.2.1", 102, 200);
+    string mac_b("bb:bb:bb:00:00:01");
+    test::NextHop nh_b("192.168.2.1", mac_b, 102, 200);
     agent_b_->AddEnetRoute("blue", eroute_b.str(), nh_b);
     task_util::WaitForIdle();
 
@@ -2144,19 +2152,19 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdateL3Label) {
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
 
-    // Verify label and l3-label values.
-    VerifyRouteLabels(agent_a_, "blue", eroute_a.str(), 101, 200);
-    VerifyRouteLabels(agent_a_, "blue", eroute_b.str(), 102, 200);
-    VerifyRouteLabels(agent_b_, "blue", eroute_a.str(), 101, 200);
-    VerifyRouteLabels(agent_b_, "blue", eroute_b.str(), 102, 200);
+    // Verify mac, label and l3-label values.
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_a.str(), mac_a, 101, 200);
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_b.str(), mac_b, 102, 200);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_a.str(), mac_a, 101, 200);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_b.str(), mac_b, 102, 200);
 
     // Update l3-label of route from agent A to 300.
-    nh_a = test::NextHop("192.168.1.1", 101, 300);
+    nh_a = test::NextHop("192.168.1.1", mac_a, 101, 300);
     agent_a_->AddEnetRoute("blue", eroute_a.str(), nh_a);
     task_util::WaitForIdle();
 
     // Update l3-label of route from agent B to 300.
-    nh_b = test::NextHop("192.168.2.1", 102, 300);
+    nh_b = test::NextHop("192.168.2.1", mac_b, 102, 300);
     agent_b_->AddEnetRoute("blue", eroute_b.str(), nh_b);
     task_util::WaitForIdle();
 
@@ -2166,11 +2174,106 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdateL3Label) {
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
 
-    // Verify label and l3-label values.
-    VerifyRouteLabels(agent_a_, "blue", eroute_a.str(), 101, 300);
-    VerifyRouteLabels(agent_a_, "blue", eroute_b.str(), 102, 300);
-    VerifyRouteLabels(agent_b_, "blue", eroute_a.str(), 101, 300);
-    VerifyRouteLabels(agent_b_, "blue", eroute_b.str(), 102, 300);
+    // Verify mac, label and l3-label values.
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_a.str(), mac_a, 101, 300);
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_b.str(), mac_b, 102, 300);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_a.str(), mac_a, 101, 300);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_b.str(), mac_b, 102, 300);
+
+    // Delete route from agent A.
+    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    // Delete route from agent B.
+    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    task_util::WaitForIdle();
+
+    // Verify that there are no routes on the agents.
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Routes from 2 agents are updated when router MAC is updated.
+//
+TEST_F(BgpXmppEvpnTest2, RouteUpdateRouterMac) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 1);
+    agent_b_->EnetSubscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    // Add route from agent A with mac mac_a1, label 101 and l3-label 200.
+    stringstream eroute_a;
+    eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
+    string mac_a1("aa:aa:aa:00:00:01");
+    test::NextHop nh_a("192.168.1.1", mac_a1, 101, 200);
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), nh_a);
+    task_util::WaitForIdle();
+
+    // Add route from agent B with mac mac_b1, label 102 and l3-label 200.
+    stringstream eroute_b;
+    eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
+    string mac_b1("bb:bb:bb:00:00:01");
+    test::NextHop nh_b("192.168.2.1", mac_b1, 102, 200);
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), nh_b);
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Verify mac, label and l3-label values.
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_a.str(), mac_a1, 101, 200);
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_b.str(), mac_b1, 102, 200);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_a.str(), mac_a1, 101, 200);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_b.str(), mac_b1, 102, 200);
+
+    // Update mac of route from agent A to mac_a2.
+    string mac_a2("aa:aa:aa:00:00:02");
+    nh_a = test::NextHop("192.168.1.1", mac_a2, 101, 200);
+    agent_a_->AddEnetRoute("blue", eroute_a.str(), nh_a);
+    task_util::WaitForIdle();
+
+    // Update mac of route from agent B to mac_b2.
+    string mac_b2("bb:bb:bb:00:00:02");
+    nh_b = test::NextHop("192.168.2.1", mac_b2, 102, 200);
+    agent_b_->AddEnetRoute("blue", eroute_b.str(), nh_b);
+    task_util::WaitForIdle();
+
+    // Verify that routes showed up on the agents.
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
+    TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
+
+    // Verify mac, label and l3-label values.
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_a.str(), mac_a2, 101, 200);
+    VerifyRouteMacLabels(agent_a_, "blue", eroute_b.str(), mac_b2, 102, 200);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_a.str(), mac_a2, 101, 200);
+    VerifyRouteMacLabels(agent_b_, "blue", eroute_b.str(), mac_b2, 102, 200);
 
     // Delete route from agent A.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());

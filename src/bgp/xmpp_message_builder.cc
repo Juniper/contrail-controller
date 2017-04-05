@@ -280,6 +280,8 @@ void BgpXmppMessage::EncodeEnetNextHop(const BgpRoute *route,
     item_nexthop.address = nexthop.address().to_v4().to_string();
     item_nexthop.label = nexthop.label();
     item_nexthop.l3_label = nexthop.l3_label();
+    if (!nexthop.mac().IsZero())
+        item_nexthop.mac = nexthop.mac().ToString();
 
     // If encap list is empty use mpls over gre as default encap.
     vector<string> &encap_list =
