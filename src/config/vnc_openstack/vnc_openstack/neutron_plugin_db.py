@@ -1027,9 +1027,9 @@ class DBInterface(object):
                     route['next_hop'] = route['next_hop_type']
 
         return rt_q_dict
-    #end _route_table_vnc_to_neutron
+    # end _route_table_vnc_to_neutron
 
-    def _security_group_vnc_to_neutron(self, sg_obj):
+    def _security_group_vnc_to_neutron(self, sg_obj, memo_req=None):
         sg_q_dict = {}
         extra_dict = {}
         extra_dict['contrail:fq_name'] = sg_obj.get_fq_name()
@@ -1046,15 +1046,15 @@ class DBInterface(object):
 
         # get security group rules
         sg_q_dict['security_group_rules'] = []
-        rule_list = self.security_group_rules_read(sg_obj.uuid, sg_obj)
-        if rule_list:
-            for rule in rule_list:
-                sg_q_dict['security_group_rules'].append(rule)
+        rule_list = self.security_group_rules_read(sg_obj.uuid, sg_obj,
+                                                   memo_req)
+        for rule in rule_list or []:
+            sg_q_dict['security_group_rules'].append(rule)
 
         if self._contrail_extensions_enabled:
             sg_q_dict.update(extra_dict)
         return sg_q_dict
-    #end _security_group_vnc_to_neutron
+    # end _security_group_vnc_to_neutron
 
     def _security_group_neutron_to_vnc(self, sg_q, oper):
         if oper == CREATE:
@@ -1075,9 +1075,10 @@ class DBInterface(object):
             id_perms.set_description(sg_q['description'])
             sg_vnc.set_id_perms(id_perms)
         return sg_vnc
-    #end _security_group_neutron_to_vnc
+    # end _security_group_neutron_to_vnc
 
-    def _security_group_rule_vnc_to_neutron(self, sg_id, sg_rule, sg_obj=None):
+    def _security_group_rule_vnc_to_neutron(self, sg_id, sg_rule, sg_obj=None,
+                                            memo_req=None):
         sgr_q_dict = {}
         if sg_id is None:
             return sgr_q_dict
@@ -1103,14 +1104,17 @@ class DBInterface(object):
             self._raise_contrail_exception('SecurityGroupRuleNotFound',
                                            id=sg_rule.get_rule_uuid())
 
-        if addr.get_subnet():
-            remote_cidr = '%s/%s' % (addr.get_subnet().get_ip_prefix(),
-                                     addr.get_subnet().get_ip_prefix_len())
-        elif addr.get_security_group():
-            if (addr.get_security_group() != 'any' and
-                    addr.get_security_group() != 'local'):
-                remote_sg = addr.get_security_group()
-                if remote_sg != ':'.join(sg_obj.get_fq_name()):
+        remote_subnet = addr.get_subnet()
+        remote_sg = addr.get_security_group()
+        if remote_subnet:
+            remote_cidr = '%s/%s' % (remote_subnet.get_ip_prefix(),
+                                     remote_subnet.get_ip_prefix_len())
+        elif remote_sg and remote_sg not in ['any', 'local']:
+            if remote_sg != sg_obj.get_fq_name_str():
+                remote_sg_uuid = None
+                if memo_req and memo_req.get('security_groups'):
+                    remote_sg_uuid = memo_req['security_groups'].get(remote_sg)
+                if not remote_sg_uuid:
                     try:
                         remote_sg_uuid = self._vnc_lib.fq_name_to_id(
                             'security-group', remote_sg.split(':'))
@@ -1118,8 +1122,8 @@ class DBInterface(object):
                         # Filter rule out as the remote security group does not
                         # exist anymore
                         return sgr_q_dict
-                else:
-                    remote_sg_uuid = sg_obj.uuid
+            else:
+                remote_sg_uuid = sg_obj.uuid
 
         sgr_q_dict['id'] = sg_rule.get_rule_uuid()
         sgr_q_dict['tenant_id'] = sg_obj.parent_uuid.replace('-', '')
@@ -1141,7 +1145,7 @@ class DBInterface(object):
         sgr_q_dict['remote_group_id'] = remote_sg_uuid
 
         return sgr_q_dict
-    #end _security_group_rule_vnc_to_neutron
+    # end _security_group_rule_vnc_to_neutron
 
     def _security_group_rule_neutron_to_vnc(self, sgr_q, oper):
         if oper == CREATE:
@@ -1178,11 +1182,9 @@ class DBInterface(object):
                 endpt = [AddressType(security_group=sg_obj.get_fq_name_str())]
 
             if sgr_q['direction'] == 'ingress':
-                dir = '>'
                 local = endpt
                 remote = [AddressType(security_group='local')]
             else:
-                dir = '>'
                 remote = endpt
                 local = [AddressType(security_group='local')]
 
@@ -1214,7 +1216,7 @@ class DBInterface(object):
 
             sgr_uuid = str(uuid.uuid4())
 
-            rule = PolicyRuleType(rule_uuid=sgr_uuid, direction=dir,
+            rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
                                   protocol=sgr_q['protocol'],
                                   src_addresses=local,
                                   src_ports=[PortType(0, 65535)],
@@ -1222,7 +1224,7 @@ class DBInterface(object):
                                   dst_ports=[PortType(port_min, port_max)],
                                   ethertype=sgr_q['ethertype'])
             return rule
-    #end _security_group_rule_neutron_to_vnc
+    # end _security_group_rule_neutron_to_vnc
 
     def _network_neutron_to_vnc(self, network_q, oper):
         attr_not_specified = object()
@@ -4158,40 +4160,41 @@ class DBInterface(object):
     @wait_for_api_server_connection
     def security_group_list(self, context, filters=None):
         ret_list = []
+        memo_req = {}
 
         # collect phase
         self._ensure_default_security_group_exists(context['tenant_id'])
 
-        all_sgs = []  # all sgs in all projects
         if filters and 'id' in filters:
-            all_sgs.append(
-                self._vnc_lib.security_groups_list(obj_uuids=filters['id'],
-                                                   detail=True))
+            all_sgs = self._vnc_lib.security_groups_list(
+                obj_uuids=filters['id'], detail=True)
         elif context and not context['is_admin']:
-            project_sgs = self._security_group_list_project(str(uuid.UUID(context['tenant'])), filters)
-            all_sgs.append(project_sgs)
-        else: # admin context
+            all_sgs = self._security_group_list_project(
+                str(uuid.UUID(context['tenant'])), filters)
+        else:  # admin context
             if filters and 'tenant_id' in filters:
+                all_sgs = []
                 for p_id in self._validate_project_ids(context, filters) or []:
-                    project_sgs = self._security_group_list_project(p_id, filters)
-                    all_sgs.append(project_sgs)
+                    sgs = self._security_group_list_project(p_id, filters)
+                    all_sgs.extend(sgs)
             else:  # no tenant_id filter
-                all_sgs.append(self._security_group_list_project(None, filters))
+                all_sgs = self._security_group_list_project(None, filters)
 
+        memo_req['security_groups'] = dict(
+            (sg_obj.get_fq_name_str(), sg_obj.uuid) for sg_obj in all_sgs)
         # prune phase
-        for project_sgs in all_sgs:
-            for sg_obj in project_sgs:
-                if not self._filters_is_present(filters, 'name',
-                                                sg_obj.get_display_name() or sg_obj.name):
-                    continue
-                try:
-                    sg_info = self._security_group_vnc_to_neutron(sg_obj)
-                except NoIdError:
-                    continue
-                except Exception as e:
-                    self.logger.error("Error in security_group_list: %s", str(e))
-                    continue
-                ret_list.append(sg_info)
+        for sg_obj in all_sgs:
+            name = sg_obj.get_display_name() or sg_obj.name
+            if not self._filters_is_present(filters, 'name', name):
+                continue
+            try:
+                sg_info = self._security_group_vnc_to_neutron(sg_obj, memo_req)
+            except NoIdError:
+                continue
+            except Exception as e:
+                self.logger.error("Error in security_group_list: %s", str(e))
+                continue
+            ret_list.append(sg_info)
 
         return ret_list
     #end security_group_list
@@ -4252,7 +4255,7 @@ class DBInterface(object):
             if sgr_info:
                 return sgr_info
         self._raise_contrail_exception('SecurityGroupRuleNotFound', id=sgr_id)
-    #end security_group_rule_read
+    # end security_group_rule_read
 
     @wait_for_api_server_connection
     def security_group_rule_delete(self, context, sgr_id):
@@ -4265,10 +4268,10 @@ class DBInterface(object):
             return self._security_group_rule_delete(sg_obj, sg_rule)
 
         self._raise_contrail_exception('SecurityGroupRuleNotFound', id=sgr_id)
-    #end security_group_rule_delete
+    # end security_group_rule_delete
 
     @wait_for_api_server_connection
-    def security_group_rules_read(self, sg_id, sg_obj=None):
+    def security_group_rules_read(self, sg_id, sg_obj=None, memo_req=None):
         try:
             if not sg_obj:
                 sg_obj = self._vnc_lib.security_group_read(id=sg_id)
@@ -4280,14 +4283,14 @@ class DBInterface(object):
 
             for sg_rule in sgr_entries.get_policy_rule():
                 sgr_info = self._security_group_rule_vnc_to_neutron(
-                    sg_obj.uuid, sg_rule, sg_obj)
+                    sg_obj.uuid, sg_rule, sg_obj, memo_req)
                 if sgr_info:
                     sg_rules.append(sgr_info)
         except NoIdError:
             self._raise_contrail_exception('SecurityGroupNotFound', id=sg_id)
 
         return sg_rules
-    #end security_group_rules_read
+    # end security_group_rules_read
 
     @wait_for_api_server_connection
     def security_group_rule_list(self, context=None, filters=None):
@@ -4309,20 +4312,21 @@ class DBInterface(object):
         for project_sgs in all_sgs:
             for sg_obj in project_sgs:
                 try:
-                    sgr_info = self.security_group_rules_read(sg_obj.uuid, sg_obj)
+                    sgr_info = self.security_group_rules_read(sg_obj.uuid,
+                                                              sg_obj)
                 except NoIdError:
                     continue
                 except Exception as e:
                     self.logger.error("Error in security_group_rule_list: %s",
-                        str(e))
+                                      str(e))
                     continue
                 if sgr_info:
                     ret_list.extend(sgr_info)
 
         return ret_list
-    #end security_group_rule_list
+    # end security_group_rule_list
 
-    #route table api handlers
+    # route table api handlers
     @wait_for_api_server_connection
     def route_table_create(self, rt_q):
         rt_obj = self._route_table_neutron_to_vnc(rt_q, CREATE)

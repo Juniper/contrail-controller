@@ -389,6 +389,55 @@ class TestBasic(test_case.NeutronBackendTestCase):
                sg1_obj.get_security_group_entries().get_policy_rule() or []]
         self.assertIn(sgr_uuid, sgr)
 
+    def test_sg_list_with_remote(self):
+        proj_obj = self._vnc_lib.project_read(
+            fq_name=['default-domain', 'default-project'])
+        sg1_dict = self.create_resource('security_group',
+                                       proj_obj.uuid,
+                                       'sg1-%s' % self.id())
+        sg2_dict = self.create_resource('security_group',
+                                       proj_obj.uuid,
+                                       'sg2-%s' % self.id())
+        sgr1_dict = self.create_resource('security_group_rule',
+                                       proj_obj.uuid,
+                                       'sgr1-%s' % self.id(),
+                                       extra_res_fields={
+                                           'security_group_id': sg1_dict['id'],
+                                           'remote_ip_prefix': None,
+                                           'remote_group_id': sg2_dict['id'],
+                                           'port_range_min': None,
+                                           'port_range_max': None,
+                                           'protocol': None,
+                                           'ethertype': None,
+                                           'direction': 'egress',
+                                       }
+                                       )
+        sgr2_dict = self.create_resource('security_group_rule',
+                                       proj_obj.uuid,
+                                       'sgr2-%s' % self.id(),
+                                       extra_res_fields={
+                                           'security_group_id': sg2_dict['id'],
+                                           'remote_ip_prefix': None,
+                                           'remote_group_id': sg1_dict['id'],
+                                           'port_range_min': None,
+                                           'port_range_max': None,
+                                           'protocol': None,
+                                           'ethertype': None,
+                                           'direction': 'ingress',
+                                       }
+                                       )
+        sg_list = self.list_resource('security_group', proj_obj.uuid)
+        self.assertEqual(len(sg_list), 3)
+        for sg in sg_list:
+            if sg['id'] == sg1_dict['id']:
+                for rule in sg['security_group_rules']:
+                    if rule['direction'] == 'ingress':
+                        self.assertEqual(rule['remote_group_id'], sg2_dict['id'])
+            if sg['id'] == sg2_dict['id']:
+                for rule in sg['security_group_rules']:
+                    if rule['direction'] == 'ingress':
+                        self.assertEqual(rule['remote_group_id'], sg1_dict['id'])
+
     def test_delete_irt_for_subnet_host_route(self):
         proj_obj = self._vnc_lib.project_read(
             fq_name=['default-domain', 'default-project'])
