@@ -155,9 +155,12 @@ class VncAmqpHandle(object):
             return
 
         try:
-            if self.obj.update() == False:
-                # If update returns a False it indicates nothing has changed.
-                # If it returns True or None, then some change was detected.
+            ret = self.obj.update()
+            if ret is not None and not ret:
+                # If update returns None, the function may not support a
+                # return value, hence treat it as if something might have
+                # changed. If a value is returned, use its truth value.
+                # If it True, then some change was detected.
                 # If no change, then terminate dependency tracker
                 return
         except NoIdError:
