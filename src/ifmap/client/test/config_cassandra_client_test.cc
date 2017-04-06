@@ -246,7 +246,7 @@ public:
     }
 
 private:
-    virtual void PraseAndEnqueueToIFMapTable(
+    virtual void ParseContextAndPopulateIFMapTable(
         const string &uuid_key, const ConfigCassandraParseContext &context,
         const CassColumnKVVec &cass_data_vec) {
         if (cass_data_vec.empty())

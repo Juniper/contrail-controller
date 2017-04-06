@@ -45,6 +45,8 @@ public:
                         std::string hostname, std::string module_name,
                         const IFMapConfigOptions& config_options,
                         bool end_of_rib_computed);
+    virtual ~ConfigClientManager();
+
     void Initialize();
     ConfigAmqpClient *config_amqp_client() const;
     ConfigDbClient *config_db_client() const;

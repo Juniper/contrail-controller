@@ -98,6 +98,9 @@ ConfigClientManager::ConfigClientManager(EventManager *evm,
     SetUp(hostname, module_name, config_options);
 }
 
+ConfigClientManager::~ConfigClientManager() {
+}
+
 void ConfigClientManager::Initialize() {
     config_db_client_->InitDatabase();
 }
