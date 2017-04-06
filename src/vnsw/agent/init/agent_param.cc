@@ -570,9 +570,9 @@ void AgentParam::ParseFlowArguments
     GetOptValue<uint16_t>(var_map, flow_latency_limit_,
                           "FLOWS.latency_limit");
     GetOptValue<bool>(var_map, flow_trace_enable_, "FLOWS.trace_enable");
-    uint16_t val = 0;
-    if (GetOptValue<uint16_t>(var_map, val, "FLOWS.max_vm_flows")) {
-        max_vm_flows_ = (float)val;
+    float val = 0;
+    if (GetOptValue<float>(var_map, val, "FLOWS.max_vm_flows")) {
+        max_vm_flows_ = val;
     }
 
     GetOptValue<uint16_t>(var_map, linklocal_system_flows_,
@@ -1431,7 +1431,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow.add_options()
             ("FLOWS.thread_count", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowThreadCount),
              "Number of threads for flow setup")
-            ("FLOWS.max_vm_flows", opt::value<uint16_t>()->default_value(100),
+            ("FLOWS.max_vm_flows", opt::value<float>()->default_value(100),
              "Maximum flows allowed per VM - given as \% (in integer) of ")
             ("FLOWS.max_system_linklocal_flows", opt::value<uint16_t>()->default_value(Agent::kDefaultMaxLinkLocalOpenFds),
              "Maximum number of link-local flows allowed across all VMs")
