@@ -146,7 +146,8 @@ class GlobalSystemConfigST(DBBaseST):
     _dict = {}
     obj_type = 'global_system_config'
     _autonomous_system = 0
-    _ibgp_auto_mesh = None
+    ibgp_auto_mesh = None
+    ref_fields = ['autonomous_system', 'ibgp_auto_mesh']
 
     @classmethod
     def reinit(cls):
@@ -165,10 +166,10 @@ class GlobalSystemConfigST(DBBaseST):
     # end __init__
 
     def update(self, obj=None):
-        self.obj = obj or self.read_vnc_obj(uuid=self.uuid)
-        ret = self.update_autonomous_system(self.obj.autonomous_system)
-        ret = self.update_ibgp_auto_mesh(self.obj.ibgp_auto_mesh) or ret
-        return ret
+        changed = self.update_vnc_obj(obj)
+        if 'autonomous_system' in changed :
+            self.update_autonomous_system(self.obj.autonomous_system)
+        return changed
     # end update
 
     @classmethod
@@ -178,7 +179,7 @@ class GlobalSystemConfigST(DBBaseST):
 
     @classmethod
     def get_ibgp_auto_mesh(cls):
-        return cls._ibgp_auto_mesh
+        return cls.ibgp_auto_mesh
     # end get_ibgp_auto_mesh
 
     @classmethod
@@ -241,17 +242,6 @@ class GlobalSystemConfigST(DBBaseST):
             router.update_autonomous_system(self._autonomous_system)
         # end for router
     # end evaluate
-
-    @classmethod
-    def update_ibgp_auto_mesh(cls, value):
-        if value is None:
-            value = True
-        if cls._ibgp_auto_mesh == value:
-            return False
-        cls._ibgp_auto_mesh = value
-        return True
-    # end update_ibgp_auto_mesh
-
 # end GlobalSystemConfigST
 
 
