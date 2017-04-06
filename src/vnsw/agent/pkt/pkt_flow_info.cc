@@ -1722,10 +1722,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     ApplyFlowLimits(in, out);
     LinkLocalPortBind(pkt, in, flow.get());
 
-    // In case the packet is for a reverse flow of a linklocal flow,
-    // link to that flow (avoid creating a new reverse flow entry for the case)
-    FlowEntryPtr rflow = flow->reverse_flow_entry();
     // rflow for newly allocated entry should always be NULL
+    FlowEntryPtr rflow = flow->reverse_flow_entry();
     assert(rflow == NULL);
 
     uint16_t r_sport;

@@ -113,11 +113,13 @@ public:
     }
     bool EnqueueReentrant(boost::shared_ptr<PktInfo> msg,
                           uint8_t table_index);
-    TokenPtr GetToken(FlowEvent::Event event);
-    void TokenAvailable(FlowTokenPool *pool);
-    bool TokenCheck(const FlowTokenPool *pool);
     bool ShouldTrace(const FlowEntry *flow, const FlowEntry *rflow);
     void EnqueueUnResolvedFlowEntry(FlowEntry *flow);
+
+    virtual void TokenAvailable(TokenPool *pool_base);
+    TokenPtr GetToken(FlowEvent::Event event);
+    bool TokenCheck(const FlowTokenPool *pool) const;
+
 
 private:
     friend class SandeshIPv4FlowFilterRequest;

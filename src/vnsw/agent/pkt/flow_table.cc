@@ -499,7 +499,8 @@ void FlowTable::RecomputeFlow(FlowEntry *flow) {
         flow = flow->reverse_flow_entry();
     }
 
-    agent_->pkt()->get_flow_proto()->MessageRequest(flow);
+    if (flow != NULL)
+        agent_->pkt()->get_flow_proto()->MessageRequest(flow);
 }
 
 // Handle deletion of a Route. Flow management module has identified that route

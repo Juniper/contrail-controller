@@ -124,8 +124,6 @@ public:
 
     virtual void TearDown() {
         FlushFlowTable();
-        client->WaitForIdle();
-        WAIT_FOR(1000, 1000, (flow_proto_->FlowCount() == 0));
 
         DeleteRemoteRoute("vrf1", REMOTE_NON_ECMP_1, 32);
         DeleteRemoteRoute("vrf1", REMOTE_NON_ECMP_2, 32);
@@ -158,7 +156,7 @@ public:
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, flow_proto_->FlowCount());
+        WAIT_FOR(1000, 1000, (flow_proto_->FlowCount() == 0));
     }
 
     uint32_t GetServiceVlanNH(uint32_t intf_id,

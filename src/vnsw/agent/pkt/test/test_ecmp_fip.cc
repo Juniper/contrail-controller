@@ -283,6 +283,7 @@ TEST_F(EcmpFipTest, Local_Src_Fip_EcmpToNonEcmp_3) {
 
     // Leak route for 3.1.1.1 into vrf-2. But with changed order of components
     LeakRoute("vrf3", "3.1.1.1", "vrf2");
+    client->WaitForIdle();
 
     // Tx packet from port-21. Must go thru src-fip
     TxIpPacket(vmi_[21]->id(), "1.1.1.20", "3.1.1.1", 1);

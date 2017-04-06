@@ -32,7 +32,7 @@ public:
     void set_free_buffer(bool val) { free_buffer_ = val; }
     Agent *agent() const { return agent_; }
     const ProtoWorkQueue *work_queue() const { return &work_queue_; }
-    virtual void TokenAvailable(TokenPool *pool) {}
+    virtual void TokenAvailable(TokenPool *pool) {assert(0);}
 protected:
     Agent *agent_;
     PktHandler::PktModuleName module_;
