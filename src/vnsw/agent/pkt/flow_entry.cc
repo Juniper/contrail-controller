@@ -875,6 +875,9 @@ static bool ShouldDrop(uint32_t action) {
 //    - If Inet route for source-ip is not-host route, then RPF is based on
 //      layer-2 routes
 //
+//    If packet is from BMS (egress flow), its possible that agent does not
+//    know IP address for BMS. In such case, RPF is based on L2-Route
+//
 // 3. Layer-3 Flows from VMI
 //    RPF check will be based on the InterfaceNH for VMI
 //
@@ -981,6 +984,7 @@ void FlowEntry::RpfInit(const AgentRoute *rt) {
     //    send layer-2 packet the layer-3 route will point to MX and RPF fails.
     //    Assuming MX only gives subnet-route, use inet-route only if its
     //    host-route
+    // 4. Its an egress flow and there is no route for IP address
     const VmInterface *vmi =
         dynamic_cast<const VmInterface *>(intf_entry());
     if (vmi && vmi->vmi_type() == VmInterface::BAREMETAL) {
@@ -992,7 +996,9 @@ void FlowEntry::RpfInit(const AgentRoute *rt) {
         (FlowEntry::GetUcRoute(rt->vrf(), key().src_addr));
 
     if (src_ip_rt == NULL) {
-        if (rpf_enable) {
+        // For egress flow, with no l3-route then do rpf based on l2-route
+        // For ingress flow, with no l3-route, make it short flow
+        if (rpf_enable && IsIngressFlow()) {
             set_flags(FlowEntry::ShortFlow);
             short_flow_reason_ = SHORT_NO_SRC_ROUTE_L2RPF;
         }
