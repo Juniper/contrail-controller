@@ -3588,13 +3588,14 @@ class VirtualMachineInterfaceST(DBBaseST):
             self._set_vrf_assign_table(None)
             return
 
+        policy_rule_count = 0
+        vrf_table = VrfAssignTableType()
         for vm_pt in vm_pt_list:
             smode = vm_pt.get_service_mode()
             if smode not in ['in-network', 'in-network-nat']:
                 self._set_vrf_assign_table(None)
                 return
 
-            vrf_table = VrfAssignTableType()
             ip_list = []
             for ip_name in self.instance_ips:
                 ip = InstanceIpST.get(ip_name)
@@ -3624,7 +3625,6 @@ class VirtualMachineInterfaceST(DBBaseST):
                                              ignore_acl=False)
                 vrf_table.add_vrf_assign_rule(vrf_rule)
 
-            policy_rule_count = 0
             si_name = vm_pt.service_instance
             if smode == 'in-network-nat' and self.service_interface_type == 'right':
                 vn_service_chains = []
