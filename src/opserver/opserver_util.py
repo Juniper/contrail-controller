@@ -109,7 +109,7 @@ class AnalyticsDiscovery(gevent.Greenlet):
             if child in self._wchildren[watcher]:
                 del self._wchildren[watcher][child]
         if self._watchers[watcher]:
-            self._watchers[watcher](sorted(self._wchildren[watcher].values()))
+            self._pendingcb.add(watcher)
 
     def _zk_watcher(self, watcher, children):
         self._logger.error("Analytics Discovery Children %s" % children)
@@ -133,6 +133,7 @@ class AnalyticsDiscovery(gevent.Greenlet):
         self._pubinfo = None
         self._watchers = watchers
         self._wchildren = {}
+        self._pendingcb = set()
         self._zpostfix = zpostfix
         self._basepath = "/analytics-discovery-" + self._zpostfix
         self._reconnect = None
@@ -210,11 +211,20 @@ class AnalyticsDiscovery(gevent.Greenlet):
 
             while True:
                 try:
+                    if not self._reconnect:
+                        pending_list = list(self._pendingcb)
+                        self._pendingcb = set()
+                        for wk in pending_list:
+                            if self._watchers[wk]:
+                                self._watchers[wk](\
+                                        sorted(self._wchildren[wk].values()))
+
                     # If a reconnect happens during processing, don't lose it
                     while self._reconnect:
                         self._logger.error("Analytics Discovery %s reconnect" \
                                 % self._svc_name)
                         self._reconnect = False
+                        self._pendingcb = set()
                         self.publish(self._pubinfo)
 
                         for wk in self._watchers.keys():
