@@ -35,6 +35,7 @@ from lxml import etree
 # import GreenletProfiler
 
 from cfgm_common import vnc_cgitb
+from cfgm_common import has_role
 
 logger = logging.getLogger(__name__)
 
@@ -1787,7 +1788,7 @@ class VncApiServer(object):
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
                 roles = env[field].split(',')
-                return self.cloud_admin_role in [x.lower() for x in roles]
+                return has_role(self.cloud_admin_role, roles)
         return False
 
     def get_auth_headers_from_token(self, request, token):
@@ -1895,8 +1896,8 @@ class VncApiServer(object):
             elif 'token' in token_info:
                 roles_list = [roles['name'] for roles in \
                     token_info['token']['roles']]
-            result['is_cloud_admin_role'] = self.cloud_admin_role in roles_list
-            result['is_global_read_only_role'] = self.global_read_only_role in roles_list
+            result['is_cloud_admin_role'] = has_role(self.cloud_admin_role, roles_list)
+            result['is_global_read_only_role'] = has_role(self.global_read_only_role, roles_list)
             if 'uuid' in get_request().query:
                 obj_uuid = get_request().query.uuid
                 result['permissions'] = self._permissions.obj_perms(get_request(), obj_uuid)
