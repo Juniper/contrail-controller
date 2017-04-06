@@ -70,3 +70,12 @@ UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
                          HEX_ELEM + '{4}', HEX_ELEM + '{4}',
                          HEX_ELEM + '{12}'])
 
+def has_role(role, roles):
+    """ Check if the a role is contained in a role list
+
+    Looks if a role is contained to a list independently to the case
+    sensitivity.
+    """
+
+    return role.lower() in map(str.lower, roles)
+
