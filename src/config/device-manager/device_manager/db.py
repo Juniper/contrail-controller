@@ -93,6 +93,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.config_manager = None
         self.nc_q = queue.Queue(maxsize=1)
         self.vn_ip_map = {'irb': {}, 'lo0': {}}
+        self.device_config = {}
         self.init_cs_state()
         self.update(obj_dict)
         self.config_manager = PhysicalRouterConfig(
@@ -128,7 +129,13 @@ class PhysicalRouterDM(DBBaseDM):
             self.config_manager.update(
                 self.management_ip, self.user_credentials, self.vendor,
                 self.product)
+            self.init_device_config()
     # end update
+
+    def init_device_config(self):
+        if not self.device_config:
+            self.device_config = self.config_manager.get_device_config()
+    # end init_device_config
 
     @classmethod
     def delete(cls, uuid):
@@ -547,6 +554,15 @@ class PhysicalRouterDM(DBBaseDM):
         if self.delete_config() or not self.is_vnc_managed():
             return
         self.config_manager.reset_bgp_config()
+
+        self.init_device_config()
+        model = self.device_config.get('product-model')
+        if 'mx' not in model.lower():
+            self._logger.error("physical router: %s, product model is not supported. "
+                      "device configuration=%s" % (self.uuid, str(self.device_config)))
+            self.device_config = {}
+            return
+
         bgp_router = BgpRouterDM.get(self.bgp_router)
         if bgp_router:
             for peer_uuid, attr in bgp_router.bgp_routers.items():

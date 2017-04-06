@@ -18,6 +18,7 @@ from device_manager.device_manager import DeviceManager
 from test_common import *
 from test_dm_common import *
 from test_case import DMTestCase
+from test_dm_utils import FakeDeviceConnect
 
 #
 # All Infra related DM test cases should go here
@@ -39,6 +40,21 @@ class TestInfraDM(TestCommonDM):
     def test_dm_xml_generation(self):
         bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
         self.check_if_xml_is_generated()
+        bgp_router_fq = bgp_router.get_fq_name()
+        pr_fq = pr.get_fq_name()
+        self.delete_routers(bgp_router, pr)
+        self.wait_for_routers_delete(bgp_router_fq, pr_fq)
+
+    @retries(5, hook=retry_exc_handler)
+    def check_if_config_is_not_pushed(self):
+        self.assertIsNone(FakeDeviceConnect.params.get("config"))
+
+    # check for unsupoorted device xml generation
+    def test_dm_unsupported_device(self):
+        # product name, vendor is still configured as mx, juniper
+        # but actual device is not mx
+        bgp_router, pr = self.create_router('router1' + self.id(), '199.199.199.199')
+        self.check_if_config_is_not_pushed()
         bgp_router_fq = bgp_router.get_fq_name()
         pr_fq = pr.get_fq_name()
         self.delete_routers(bgp_router, pr)
