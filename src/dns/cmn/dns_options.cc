@@ -341,30 +341,9 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<uint32_t>(var_map, send_ratelimit_,
                               "DEFAULT.sandesh_send_rate_limit");
-
-    GetOptValue<string>(var_map, configdb_options_.password,
-                        "CONFIGDB.password");
-    GetOptValue<string>(var_map, configdb_options_.server_url,
-                        "CONFIGDB.server_url");
-    GetOptValue<string>(var_map, configdb_options_.user,
-                        "CONFIGDB.user");
-    GetOptValue<string>(var_map, configdb_options_.config_db_username,
-                        "CONFIGDB.config_user");
-    GetOptValue<string>(var_map, configdb_options_.config_db_password,
-                        "CONFIGDB.config_password");
     GetOptValue< vector<string> >(var_map,
                                   configdb_options_.config_db_server_list,
                                   "CONFIGDB.config_db_server_list");
-    GetOptValue<string>(var_map, configdb_options_.certs_store,
-                        "CONFIGDB.certs_store");
-    GetOptValue<int>(var_map,
-                     configdb_options_.stale_entries_cleanup_timeout,
-                     "CONFIGDB.stale_entries_cleanup_timeout");
-    GetOptValue<int>(var_map, configdb_options_.end_of_rib_timeout,
-                     "CONFIGDB.end_of_rib_timeout");
-    GetOptValue<int>(var_map,
-                     configdb_options_.peer_response_wait_time,
-                     "CONFIGDB.peer_response_wait_time");
     GetOptValue< vector<string> >(var_map,
                      configdb_options_.rabbitmq_server_list,
                      "CONFIGDB.rabbitmq_server_list");
