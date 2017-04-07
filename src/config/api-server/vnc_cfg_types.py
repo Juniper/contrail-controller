@@ -637,7 +637,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
         if not ok:
             return (ok, result)
         return cls.is_port_in_use_by_vm(obj_dict, db_conn)
-    # end pre_dbe_create
+    # end pre_dbe_update
 
 # end class LogicalRouterServer
 
@@ -1241,14 +1241,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (409, error))
 
-        fields = ['network_ipam_refs', 'virtual_network_network_id',
-                  'address_allocation_mode', 'route_target_list',
-                  'import_route_target_list', 'export_route_target_list',
-                  'multi_policy_service_chains_enabled',
-                  'instance_ip_back_refs', 'floating_ip_pools',
-                  'virtual_network_properties']
-        ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id,
-                                       obj_fields=fields)
+        ok, read_result = cls.dbe_read(db_conn, 'virtual_network', id)
         if not ok:
             return ok, read_result
 
