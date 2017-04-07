@@ -260,7 +260,7 @@ class TestListUpdate(test_case.ApiServerTestCase):
         self._vnc_lib.network_policy_delete(id=policy_obj.uuid)
     # end test_policy_create_wo_rules
 
-     def test_policy_create_w_sg_in_rules(self):
+    def test_policy_create_w_sg_in_rules(self):
         policy_obj = NetworkPolicy('test-policy-create-w-sg-in-rules')
         np_rules = [
             PolicyRuleType(direction='<>',
