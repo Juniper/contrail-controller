@@ -5985,24 +5985,25 @@ uint32_t VmInterface::GetIsid() const {
     for (; it != bridge_domain_list_.list_.end(); it++) {
         return it->bridge_domain_->isid();
     }
-    assert(0);
     return kInvalidIsid;
 }
 
 uint32_t VmInterface::GetPbbVrf() const {
     BridgeDomainEntrySet::const_iterator it = bridge_domain_list_.list_.begin();
     for (; it != bridge_domain_list_.list_.end(); it++) {
-        return it->bridge_domain_->vrf()->vrf_id();
+        if (it->bridge_domain_->vrf()) {
+            return it->bridge_domain_->vrf()->vrf_id();
+        }
     }
-    assert(0);
     return VrfEntry::kInvalidIndex;
 }
 
 uint32_t VmInterface::GetPbbLabel() const {
     BridgeDomainEntrySet::const_iterator it = bridge_domain_list_.list_.begin();
     for (; it != bridge_domain_list_.list_.end(); it++) {
-        return it->bridge_domain_->vrf()->table_label();
+        if (it->bridge_domain_->vrf()) {
+            return it->bridge_domain_->vrf()->table_label();
+        }
     }
-    assert(0);
     return MplsTable::kInvalidLabel;
 }
