@@ -55,7 +55,7 @@ public:
         return ConfigCassandraClient::HashUUID(u);
     }
 
-    virtual bool ReadUuidTableRows(std::set<std::string> *uuid_list) {
+    virtual bool ReadObjUUIDTable(std::set<std::string> *uuid_list) {
         BOOST_FOREACH(std::string uuid_key, *uuid_list) {
             vector<string> tokens;
             boost::split(tokens, uuid_key, boost::is_any_of(":"));
@@ -64,12 +64,12 @@ public:
             assert((*events())[index].IsObject());
             int idx = HashUUID(u);
             db_index_[idx].insert(make_pair(u, index));
-            ParseRowAndEnqueueToParser(u, GenDb::ColList());
+            ProcessObjUUIDTableEntry(u, GenDb::ColList());
         }
         return true;
     }
 
-    void ParseUuidTableRowResponse(const std::string &uuid,
+    void ParseObjUUIDTableEntry(const std::string &uuid,
             const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
             ConfigCassandraParseContext &context) {
         // Retrieve event index prepended to uuid, to get to the correct db.
@@ -92,7 +92,8 @@ public:
                 v1 = k->value[contrail_rapidjson::SizeType(0)].GetString();
             else
                 v1 = k->value.GetString();
-            ParseUuidTableRowJson(uuid, k1, v1, 0, cass_data_vec, context);
+            ParseObjUUIDTableEachColumnBuildContext(uuid, k1, v1, 0,
+                                                    cass_data_vec, context);
         }
         db_index_[idx].erase(it);
     }
@@ -122,10 +123,10 @@ public:
                         ["OBJ_FQ_NAME_TABLE"][obj_type.c_str()].MemberBegin();
                  l != (*events())[contrail_rapidjson::SizeType(cevent_-1)]
                     ["OBJ_FQ_NAME_TABLE"][obj_type.c_str()].MemberEnd(); l++) {
-                UpdateCache(l->name.GetString(), obj_type, uuid_list);
+                UpdateFQNameCache(l->name.GetString(), obj_type, uuid_list);
             }
         }
-        return EnqueueUUIDRequest(uuid_list);
+        return EnqueueDBSyncRequest(uuid_list);
     }
 
     contrail_rapidjson::Document *events() {

@@ -176,12 +176,12 @@ public:
     }
 
     void DisableWorkQueues(bool flag) {
-        for (int i = 0; i < num_workers(); i++)
-            obj_process_queue()[i]->set_disable(flag);
+        BOOST_FOREACH(ConfigCassandraPartition *partition, partitions()) 
+            partition->obj_process_queue()->set_disable(flag);
     }
 
 private:
-    virtual void PraseAndEnqueueToIFMapTable(
+    virtual void ParseContextAndPopulateIFMapTable(
         const string &uuid_key, const ConfigCassandraParseContext &context,
         const CassColumnKVVec &cass_data_vec) {
         if (cass_data_vec.empty())
@@ -194,10 +194,11 @@ private:
     virtual const int GetMaxRequestsToYield() const { return 4; }
     virtual const uint64_t GetInitRetryTimeUSec() const { return 10; }
     virtual bool SkipTimeStampCheckForTypeAndFQName() const { return false; }
-    virtual void EnqueuDelete(const string &uuid,
+    virtual void EnqueueDelete(const string &uuid,
             ConfigClientManager::RequestList req_list) const {
         tbb::mutex::scoped_lock lock(mutex_);
         deleted.push_back(uuid);
+        STLDeleteValues(&req_list);
     }
 };
 
