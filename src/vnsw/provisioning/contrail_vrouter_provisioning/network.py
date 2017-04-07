@@ -280,7 +280,7 @@ HWADDR=%s
         cfg_files.append(self.default_cfg_file)
         intf_cfgfile = self.get_cfgfile_for_dev('vhost0', cfg_files)
         if intf_cfgfile:
-            log.info("Interface vhost0 is already present in",
+            log.info("Interface vhost0 is already present in" +
                      "/etc/network/interfaces")
             log.info("Skipping rewrite of this file")
             return

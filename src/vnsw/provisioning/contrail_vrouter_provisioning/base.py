@@ -182,7 +182,8 @@ class ContrailSetup(object):
 
     def disable_iptables(self):
         # Disable iptables
-        local("sudo chkconfig iptables off", warn_only=True)
+        if self.pdist not in ['Ubuntu']:
+            local("sudo chkconfig iptables off", warn_only=True)
         local("sudo iptables --flush", warn_only=True)
         if self.pdist == 'redhat' or \
            self.pdist == 'centos' and self.pdistversion.startswith('7'):

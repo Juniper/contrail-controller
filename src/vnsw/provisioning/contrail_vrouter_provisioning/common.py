@@ -53,8 +53,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
 
     def enable_kernel_core(self):
         self.enable_kernel_core()
-        for svc in ['abrt-vmcore', 'abrtd', 'kdump']:
-            local('sudo chkconfig %s on' % svc)
+        if self.pdist not in ['Ubuntu']:
+            for svc in ['abrt-vmcore', 'abrtd', 'kdump']:
+                local('sudo chkconfig %s on' % svc)
 
     def fixup_config_files(self):
         self.add_dev_tun_in_cgroup_device_acl()
@@ -641,8 +642,9 @@ SUBCHANNELS=1,2,3
 
                 local("sudo mv %s /etc/contrail/" % ifcfg_tmp, warn_only=True)
 
-                local("sudo chkconfig network on", warn_only=True)
-                local("sudo chkconfig supervisor-vrouter on", warn_only=True)
+                if self.pdist not in ['Ubuntu']:
+                    local("sudo chkconfig network on", warn_only=True)
+                    local("sudo chkconfig supervisor-vrouter on", warn_only=True)
         # end self.pdist == centos | fedora | redhat
         # setup lbaas prereqs
         self.setup_lbaas_prereq()
@@ -656,8 +658,9 @@ SUBCHANNELS=1,2,3
         # end self.pdist == ubuntu
 
     def run_services(self):
-        for svc in ['supervisor-vrouter']:
-            local('sudo chkconfig %s on' % svc)
+        if self.pdist not in ['Ubuntu']:
+            for svc in ['supervisor-vrouter']:
+                local('sudo chkconfig %s on' % svc)
 
     def add_vnc_config(self):
         compute_ip = self._args.self_ip

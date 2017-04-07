@@ -36,6 +36,19 @@ class ComputeArgsParser(object):
             'dpdk': False,
             'vrouter_module_params': None,
             'vmware': False,
+            'esxi_vm': False,
+            'vmware': None,
+            'vmware_username': 'root',
+            'vmware_passwd': 'c0ntrail123',
+            'vmware_vmpg_vswitch': 'c0ntrail123',
+            'vmware_vmpg_vswitch_mtu': None,
+            'vmware_datanic_mtu': None,
+            'mode': None,
+            'vcenter_server': None,
+            'vcenter_username': None,
+            'vcenter_password': None,
+            'vcenter_cluster': None,
+            'vcenter_dvswitch': None,
             'hypervisor': 'libvirt',
             'gateway_server_list': '',
             'default_hw_queue_qos': False,
@@ -147,6 +160,17 @@ class ComputeArgsParser(object):
                      "eg. 'Nehalem'")
         parser.add_argument(
                 "--vmware", help="The Vmware ESXI IP")
+        parser.add_argument("--vmware_username", help = "The Vmware ESXI username")
+        parser.add_argument("--vmware_passwd", help = "The Vmware ESXI password")
+        parser.add_argument("--vmware_vmpg_vswitch", help = "The Vmware VMPG vswitch name")
+        parser.add_argument("--vmware_vmpg_vswitch_mtu", help = "The Vmware VMPG vswitch MTU")
+        parser.add_argument("--vmware_datanic_mtu", help = "The Vmware data interface MTU")
+        parser.add_argument("--mode", help = "mode - openstack or vcenter")
+        parser.add_argument("--vcenter_server", help = "The vcenter server IP")
+        parser.add_argument("--vcenter_username", help = "The vcenter server username")
+        parser.add_argument("--vcenter_password", help = "The vcenter server password")
+        parser.add_argument("--vcenter_cluster", help = "The cluster on vcenter")
+        parser.add_argument("--vcenter_dvswitch", help = "The dvswitch on vcenter")
         parser.add_argument(
                 "--dpdk", help="vRouter/DPDK mode.")
         parser.add_argument(
