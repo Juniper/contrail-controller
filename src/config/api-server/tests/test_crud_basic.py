@@ -634,7 +634,6 @@ class TestListUpdate(test_case.ApiServerTestCase):
         # cleanup
         self._vnc_lib.network_policy_delete(id=policy_obj.uuid)
     # end test_policy_create_wo_rules
-
 # end class TestListUpdate
 
 class TestCrud(test_case.ApiServerTestCase):
