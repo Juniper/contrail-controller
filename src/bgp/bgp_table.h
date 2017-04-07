@@ -59,35 +59,25 @@ public:
             IpAddress address_;
             uint32_t label_;
             uint32_t l3_label_;
-            RouteDistinguisher source_rd_;
-            ExtCommunity::ExtCommunityList tunnel_encapsulations_;
         };
-
-        typedef std::vector<NextHop> NextHops;
 
         RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label,
             uint32_t l3_label, uint64_t subscription_gen_id)
-            : attrs_(attrs), subscription_gen_id_(subscription_gen_id) {
-            nexthops_.push_back(
-                NextHop(flags, attrs ? attrs->nexthop() : Ip4Address(0),
-                        label, l3_label));
+            : attrs_(attrs),
+              nexthop_(flags, attrs ? attrs->nexthop() : Ip4Address(0),
+                       label, l3_label),
+              subscription_gen_id_(subscription_gen_id) {
         }
 
         RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label,
             uint32_t l3_label = 0)
-            : attrs_(attrs), subscription_gen_id_(0) {
-            nexthops_.push_back(
-                NextHop(flags, attrs ? attrs->nexthop() : Ip4Address(0),
-                        label, l3_label));
+            : attrs_(attrs),
+              nexthop_(flags, attrs ? attrs->nexthop() : Ip4Address(0),
+                       label, l3_label),
+              subscription_gen_id_(0) {
         }
 
-        RequestData(const BgpAttrPtr &attrs, NextHops nexthops,
-                    uint64_t subscription_gen_id = 0) :
-            attrs_(attrs), nexthops_(nexthops),
-            subscription_gen_id_(subscription_gen_id) {
-        }
-
-        NextHops &nexthops() { return nexthops_; }
+        const NextHop &nexthop() { return nexthop_; }
         BgpAttrPtr &attrs() { return attrs_; }
         void set_attrs(BgpAttrPtr attrs) { attrs_ = attrs; }
         void set_subscription_gen_id(uint64_t subscription_gen_id) {
@@ -97,7 +87,7 @@ public:
 
     private:
         BgpAttrPtr attrs_;
-        NextHops nexthops_;
+        NextHop nexthop_;
         uint64_t subscription_gen_id_;
     };
 

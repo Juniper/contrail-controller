@@ -195,9 +195,8 @@ TEST_F(BgpXmppInet6Test, 1AgentRouteAdd) {
     // Add route from agent.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
     usleep(1000);
 
@@ -244,9 +243,8 @@ TEST_F(BgpXmppInet6Test, 1AgentRouteUpdate) {
     // Add route from agent.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
     usleep(1000);
 
@@ -267,10 +265,9 @@ TEST_F(BgpXmppInet6Test, 1AgentRouteUpdate) {
                         rt1->entry.sequence_number);
 
     // Change the nexthop and attributes of the route.
-    test::NextHops nexthops_a1;
-    nexthops_a1.push_back(test::NextHop("192.168.2.1"));
+    test::NextHop nexthop_a1("192.168.2.1");
     test::RouteAttributes attr(1000, 2000);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a1, attr);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a1, attr);
     task_util::WaitForIdle();
 
     // Wait for the route to get updated on agent A.
@@ -320,9 +317,8 @@ TEST_F(BgpXmppInet6Test, 1AgentRouteDelete) {
     // Add route from agent.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up on agent.
@@ -371,19 +367,17 @@ TEST_F(BgpXmppInet6Test, 2AgentRouteAdd) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1000);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:db8:85a3::8a2e:370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
+    test::NextHop nexthop_b("192.168.1.2");
     test::RouteAttributes attr_b(2000, 2000);
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b, attr_b);
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b, attr_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -441,10 +435,9 @@ TEST_F(BgpXmppInet6Test, 2AgentRouteUpdate) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that the route showed up on agent B.
@@ -461,10 +454,9 @@ TEST_F(BgpXmppInet6Test, 2AgentRouteUpdate) {
     TASK_UTIL_EXPECT_EQ(1001, rt1->entry.sequence_number);
 
     // Change the route from agent A.
-    test::NextHops nexthops_a1;
-    nexthops_a1.push_back(test::NextHop("192.168.2.1"));
+    test::NextHop nexthop_a1("192.168.2.1");
     test::RouteAttributes attr_a1(2000, 2001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a1, attr_a1);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a1, attr_a1);
     task_util::WaitForIdle();
 
     // Wait for the route to get updated on agent B.
@@ -528,23 +520,21 @@ TEST_F(BgpXmppInet6Test, 2AgentMultipleRoutes1) {
     agent_b_->Inet6Subscribe("blue", 1);
 
     // Add routes from agent A.
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     for (int idx = 1; idx <= 4; ++idx) {
         stringstream route_a;
         route_a << "2001:0db8:85a3:0000:0000:8a2e:aaaa:" << idx << "/128";
-        agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+        agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     }
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.2.1"));
+    test::NextHop nexthop_b("192.168.2.1");
     for (int idx = 1; idx <= 4; ++idx) {
         stringstream route_b;
         route_b << "2001:0db8:85a3:0000:0000:8a2e:bbbb:" << idx << "/128";
-        agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+        agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     }
     task_util::WaitForIdle();
 
@@ -613,9 +603,8 @@ TEST_F(BgpXmppInet6Test, 2AgentSubscribeLater) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up on agent A.
@@ -634,9 +623,8 @@ TEST_F(BgpXmppInet6Test, 2AgentSubscribeLater) {
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -700,19 +688,17 @@ TEST_F(BgpXmppInet6Test, 2AgentMultipleInstances) {
     // Add routes from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
-    agent_a_->AddInet6Route("pink", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
+    agent_a_->AddInet6Route("pink", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add routes from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
-    agent_b_->AddInet6Route("pink", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
+    agent_b_->AddInet6Route("pink", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on agent A.
@@ -783,17 +769,15 @@ TEST_F(BgpXmppInet6Test, 2AgentUnsubscribe) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.1"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.1");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -847,9 +831,8 @@ TEST_F(BgpXmppInet6Test, 2AgentConnectLater) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount("blue"));
@@ -870,9 +853,8 @@ TEST_F(BgpXmppInet6Test, 2AgentConnectLater) {
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -932,17 +914,15 @@ TEST_F(BgpXmppInet6Test, 2AgentSessionDown) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -1002,17 +982,15 @@ TEST_F(BgpXmppInet6Test, CreateInstanceConfigLater) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that there are no routes on the agents.
@@ -1116,10 +1094,9 @@ TEST_F(BgpXmppInet6Test, 1AgentConnectedInstances) {
     // Add route from agent to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up in blue instance.
@@ -1142,7 +1119,7 @@ TEST_F(BgpXmppInet6Test, 1AgentConnectedInstances) {
     stringstream route_b;
     route_b << "2001:db8:85a3::8a2e:370:bbbb/128";
     test::RouteAttributes attr_b(2000, 2001);
-    agent_a_->AddInet6Route("pink", route_b.str(), nexthops_a, attr_b);
+    agent_a_->AddInet6Route("pink", route_b.str(), nexthop_a, attr_b);
     task_util::WaitForIdle();
 
     // Verify that route showed up in blue instance.
@@ -1500,10 +1477,9 @@ TEST_F(BgpXmppInet6Test2Peers, Add1Route) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:0:0/96";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up on agent A.
@@ -1582,10 +1558,9 @@ TEST_F(BgpXmppInet6Test2Peers, Add1RouteTwice) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:0:0/96";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up on agent A.
@@ -1622,7 +1597,7 @@ TEST_F(BgpXmppInet6Test2Peers, Add1RouteTwice) {
 
     // Send the same route again. AddInet6Route() will increment the label. So,
     // check for label difference to make sure we have processed the duplicate.
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateLabel("blue", route_a.str(),
                                                 (label_a + 1), agent_a_.get()));
@@ -1672,17 +1647,15 @@ TEST_F(BgpXmppInet6Test2Peers, Add2RoutesSameInstance) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3:0000:0000:8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -1740,10 +1713,9 @@ TEST_F(BgpXmppInet6Test2Peers, RouteUpdate) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that the route showed up on agent B.
@@ -1764,10 +1736,9 @@ TEST_F(BgpXmppInet6Test2Peers, RouteUpdate) {
     TASK_UTIL_EXPECT_EQ(1001, rt_b1->entry.sequence_number);
 
     // Change the nexthop and attributes of the route from agent A.
-    test::NextHops nexthops_a1;
-    nexthops_a1.push_back(test::NextHop("192.168.2.1"));
+    test::NextHop nexthop_a1("192.168.2.1");
     test::RouteAttributes attr_a1(2000, 2001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a1, attr_a1);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a1, attr_a1);
     task_util::WaitForIdle();
 
     // Wait for the route to get updated on agent B.
@@ -1829,12 +1800,11 @@ TEST_F(BgpXmppInet6Test2Peers, AddMultipleRoutesSameInstance) {
     agent_b_->Inet6Subscribe("blue", 1);
 
     // Add routes from agent A.
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     for (int idx = 1; idx <= 4; ++idx) {
         stringstream route_a;
         route_a << "2001:0db8:85a3:0000:0000:8a2e:aaaa:" << idx << "/128";
-        agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+        agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     }
 
     task_util::WaitForIdle();
@@ -1844,12 +1814,11 @@ TEST_F(BgpXmppInet6Test2Peers, AddMultipleRoutesSameInstance) {
     TASK_UTIL_EXPECT_EQ(4, agent_b_->Inet6RouteCount("blue"));
 
     // Add route from agent B.
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
+    test::NextHop nexthop_b("192.168.1.2");
     for (int idx = 1; idx <= 4; ++idx) {
         stringstream route_b;
         route_b << "2001:0db8:85a3:0000:0000:8a2e:bbbb:" << idx << "/128";
-        agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+        agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     }
 
     // Verify that routes showed up on the agents.
@@ -1920,9 +1889,8 @@ TEST_F(BgpXmppInet6Test2Peers, AddMultipleRoutesSameInstance2) {
         route_a << "2001:0db8:85a3:0000:0000:8a2e:aaaa:" << idx << "/128";
         stringstream nh_ss;
         nh_ss << "192.168.1." << idx;
-        test::NextHops nexthops_a;
-        nexthops_a.push_back(test::NextHop(nh_ss.str()));
-        agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+        test::NextHop nexthop_a(nh_ss.str());
+        agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     }
 
     task_util::WaitForIdle();
@@ -1937,9 +1905,8 @@ TEST_F(BgpXmppInet6Test2Peers, AddMultipleRoutesSameInstance2) {
         route_b << "2001:0db8:85a3:0000:0000:8a2e:bbbb:" << idx << "/128";
         stringstream nh_ss;
         nh_ss << "192.168.2." << idx;
-        test::NextHops nexthops_b;
-        nexthops_b.push_back(test::NextHop(nh_ss.str()));
-        agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+        test::NextHop nexthop_b(nh_ss.str());
+        agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     }
 
     task_util::WaitForIdle();
@@ -2005,9 +1972,8 @@ TEST_F(BgpXmppInet6Test2Peers, SubscribeLater) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up on agent A.
@@ -2029,9 +1995,8 @@ TEST_F(BgpXmppInet6Test2Peers, SubscribeLater) {
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -2088,19 +2053,17 @@ TEST_F(BgpXmppInet6Test2Peers, MultipleInstances) {
     // Add routes from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
-    agent_a_->AddInet6Route("pink", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
+    agent_a_->AddInet6Route("pink", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add routes from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
-    agent_b_->AddInet6Route("pink", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
+    agent_b_->AddInet6Route("pink", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on both agents.
@@ -2159,17 +2122,15 @@ TEST_F(BgpXmppInet6Test2Peers, UnsubscribeOneInstance) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -2221,9 +2182,8 @@ TEST_F(BgpXmppInet6Test2Peers, XmppConnectLater) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount("blue"));
     TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount());
@@ -2246,9 +2206,8 @@ TEST_F(BgpXmppInet6Test2Peers, XmppConnectLater) {
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -2300,17 +2259,15 @@ TEST_F(BgpXmppInet6Test2Peers, XmppSessionDown) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3:0000:0000:8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -2345,7 +2302,7 @@ TEST_F(BgpXmppInet6Test2Peers, XmppSessionDown) {
         task_util::WaitForIdle();
         agent_b_->Inet6Subscribe("blue", 1);
         task_util::WaitForIdle();
-        agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+        agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
         task_util::WaitForIdle();
         agent_b_->DeleteInet6Route("blue", route_b.str());
     }
@@ -2461,15 +2418,14 @@ TEST_F(BgpXmppInet6Test2Peers, BgpConnectLater) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3::8a2e:0370:bbbb/128";
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_a);
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that routes are reflected to individual agents.
@@ -2537,15 +2493,14 @@ TEST_F(BgpXmppInet6Test2Peers, CreateInstanceConfigLater) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3::8a2e:0370:bbbb/128";
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_a);
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that there are no routes on the agents.
@@ -2613,15 +2568,14 @@ TEST_F(BgpXmppInet6Test2Peers, BgpSessionBounce) {
     // Add route from agent A.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B.
     stringstream route_b;
     route_b << "2001:0db8:85a3::8a2e:0370:bbbb/128";
-    agent_b_->AddInet6Route("blue", route_b.str(), nexthops_a);
+    agent_b_->AddInet6Route("blue", route_b.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that routes showed up on the agents.
@@ -2799,10 +2753,9 @@ TEST_F(BgpXmppInet6Test2Peers, MultipleInstancesLeakChecks) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up in blue instance on Agent A.
@@ -2854,10 +2807,9 @@ TEST_F(BgpXmppInet6Test2Peers, MultipleInstancesLeakChecks) {
     // Add route from agent Y1 to yellow instance.
     stringstream route_b;
     route_b << "2001:db8:85a3::8a2e:370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.3"));
+    test::NextHop nexthop_b("192.168.1.3");
     test::RouteAttributes attr_b(2000, 2001);
-    agent_y1_->AddInet6Route("yellow", route_b.str(), nexthops_b, attr_b);
+    agent_y1_->AddInet6Route("yellow", route_b.str(), nexthop_b, attr_b);
     task_util::WaitForIdle();
 
     // Verify that route showed up in yellow instance on Agent Y1.
@@ -2986,10 +2938,9 @@ TEST_F(BgpXmppInet6Test2Peers, MultipleInstancesLeakChecks1) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up in blue instance on Agent A.
@@ -3058,10 +3009,9 @@ TEST_F(BgpXmppInet6Test2Peers, MultipleInstancesLeakChecks1) {
     // Add route from agent Y1 to yellow instance.
     stringstream route_b;
     route_b << "2001:db8:85a3::8a2e:370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.3"));
+    test::NextHop nexthop_b("192.168.1.3");
     test::RouteAttributes attr_b(2000, 2001);
-    agent_y1_->AddInet6Route("yellow", route_b.str(), nexthops_b, attr_b);
+    agent_y1_->AddInet6Route("yellow", route_b.str(), nexthop_b, attr_b);
     task_util::WaitForIdle();
 
     // Verify that route showed up in yellow instance on Agent Y1.
@@ -3184,9 +3134,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithStaggeredSubscribeLater) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that route shows up in blue on Agent A.
@@ -3221,9 +3170,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithStaggeredSubscribeLater) {
     // Add route from agent B to pink instance.
     stringstream route_b;
     route_b << "2001:0db8:85a3::8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("pink", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("pink", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that both routes show up in both instances on both agents.
@@ -3310,9 +3258,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithMultipleRoutes) {
         route_a << "2001:0db8:85a3:0000:0000:8a2e:aaaa:" << idx << "/128";
         stringstream nh_ss;
         nh_ss << "192.168.1." << idx;
-        test::NextHops nexthops_a;
-        nexthops_a.push_back(test::NextHop(nh_ss.str()));
-        agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+        test::NextHop nexthop_a(nh_ss.str());
+        agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     }
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(8, agent_a_->Inet6RouteCount());
@@ -3328,9 +3275,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithMultipleRoutes) {
         route_b << "2001:0db8:85a3:0000:0000:8a2e:bbbb:" << idx << "/128";
         stringstream nh_ss;
         nh_ss << "192.168.2." << idx;
-        test::NextHops nexthops_b;
-        nexthops_b.push_back(test::NextHop(nh_ss.str()));
-        agent_b_->AddInet6Route("blue", route_b.str(), nexthops_b);
+        test::NextHop nexthop_b(nh_ss.str());
+        agent_b_->AddInet6Route("blue", route_b.str(), nexthop_b);
     }
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(16, agent_a_->Inet6RouteCount());
@@ -3423,9 +3369,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithMultipleRoutes1) {
         route_a << "2001:0db8:85a3:0000:0000:8a2e:aaaa:" << idx << "/128";
         stringstream nh_ss;
         nh_ss << "192.168.1." << idx;
-        test::NextHops nexthops_a;
-        nexthops_a.push_back(test::NextHop(nh_ss.str()));
-        agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+        test::NextHop nexthop_a(nh_ss.str());
+        agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     }
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(4, agent_a_->Inet6RouteCount());
@@ -3441,9 +3386,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithMultipleRoutes1) {
         route_b << "2001:0db8:85a3:0000:0000:8a2e:bbbb:" << idx << "/128";
         stringstream nh_ss;
         nh_ss << "192.168.2." << idx;
-        test::NextHops nexthops_b;
-        nexthops_b.push_back(test::NextHop(nh_ss.str()));
-        agent_b_->AddInet6Route("pink", route_b.str(), nexthops_b);
+        test::NextHop nexthop_b(nh_ss.str());
+        agent_b_->AddInet6Route("pink", route_b.str(), nexthop_b);
     }
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(8, agent_a_->Inet6RouteCount());
@@ -3575,17 +3519,15 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChange) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1", 0, "gre"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1", 0, "gre");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B to pink instance.
     stringstream route_b;
     route_b << "2001:db8:85a3::8a2e:370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2", 0, "udp"));
-    agent_b_->AddInet6Route("pink", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2", 0, "udp");
+    agent_b_->AddInet6Route("pink", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -3619,9 +3561,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChange) {
                                                  agent_b_.get()));
 
     // Change encap for route_a to 'udp'.
-    test::NextHops nexthops_a1;
-    nexthops_a1.push_back(test::NextHop("192.168.1.1", 0, "udp"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a1);
+    test::NextHop nexthop_a1("192.168.1.1", 0, "udp");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a1);
 
     // Verify that the encap has changed on both agents.
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateEncap("blue", route_a.str(), "udp",
@@ -3634,9 +3575,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChange) {
                                                  agent_b_.get()));
 
     // Change encap for route_a to 'all'.
-    test::NextHops nexthops_a2;
-    nexthops_a2.push_back(test::NextHop("192.168.1.1", 0, "all_ipv6"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a2);
+    test::NextHop nexthop_a2("192.168.1.1", 0, "all_ipv6");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a2);
 
     // Verify that the encap has changed on both agents.
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateEncap("blue", route_a.str(),
@@ -3649,7 +3589,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChange) {
                                                  "all_ipv6", agent_b_.get()));
 
     // Change encap for route_a to 'gre'.
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
 
     // Verify that the encap has changed on both agents.
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateEncap("blue", route_a.str(),
@@ -3730,9 +3670,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeXmppDown) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1", 0, "gre"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1", 0, "gre");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -3762,9 +3701,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeXmppDown) {
     TASK_UTIL_EXPECT_EQ(0, agent_b_->Inet6RouteCount());
 
     // Change encap for route_a.
-    test::NextHops nexthops_a1;
-    nexthops_a1.push_back(test::NextHop("192.168.1.1", 0, "all_ipv6"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a1);
+    test::NextHop nexthop_a1("192.168.1.1", 0, "all_ipv6");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a1);
     task_util::WaitForIdle();
 
     // Bring up the session to agent B.
@@ -3850,9 +3788,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeUnsub) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1", 0, "gre"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1", 0, "gre");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -3882,9 +3819,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeUnsub) {
     TASK_UTIL_EXPECT_EQ(1, agent_b_->Inet6RouteCount());
 
     // Change encap for route_a.
-    test::NextHops nexthops_a1;
-    nexthops_a1.push_back(test::NextHop("192.168.1.1", 0, "all_ipv6"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a1);
+    test::NextHop nexthop_a1("192.168.1.1", 0, "all_ipv6");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a1);
     task_util::WaitForIdle();
 
     // Subscribe to pink again.
@@ -3970,9 +3906,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeBgpBounce) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1", 0, "gre"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1", 0, "gre");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -4004,9 +3939,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeBgpBounce) {
     TASK_UTIL_EXPECT_EQ(0, agent_b_->Inet6RouteCount());
 
     // Change encap for route_a.
-    test::NextHops nexthops_a1;
-    nexthops_a1.push_back(test::NextHop("192.168.1.1", 0, "all_ipv6"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a1);
+    test::NextHop nexthop_a1("192.168.1.1", 0, "all_ipv6");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a1);
     task_util::WaitForIdle();
 
     // Bring up the BGP session.
@@ -4094,23 +4028,21 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChange) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     vector<int> sgids_a;
     sgids_a.push_back(111);
     test::RouteAttributes attr_a(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Add route from agent B to pink instance.
     stringstream route_b;
     route_b << "2001:db8:85a3::8a2e:370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
+    test::NextHop nexthop_b("192.168.1.2");
     vector<int> sgids_b;
     sgids_b.push_back(211);
     test::RouteAttributes attr_b(sgids_b);
-    agent_b_->AddInet6Route("pink", route_b.str(), nexthops_b, attr_b);
+    agent_b_->AddInet6Route("pink", route_b.str(), nexthop_b, attr_b);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -4147,7 +4079,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChange) {
     sgids_a.push_back(112);
     sgids_a.push_back(113);
     attr_a.SetSg(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("blue", route_a.str(), sgids_a,
                                                  agent_a_.get()));
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("pink", route_a.str(), sgids_a,
@@ -4160,7 +4092,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChange) {
     // Decrease the size of the sgid-list for route_a and verify at agent.
     sgids_a.pop_back();
     attr_a.SetSg(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("blue", route_a.str(), sgids_a,
                                                  agent_a_.get()));
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("pink", route_a.str(), sgids_a,
@@ -4214,13 +4146,12 @@ TEST_F(BgpXmppInet6Test2Peers, RouteWithCommunity) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
 
     vector<std::string> community_a;
     community_a.push_back("no-reoriginate");
     test::RouteAttributes attr_a(community_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up on Agent A.
@@ -4240,7 +4171,7 @@ TEST_F(BgpXmppInet6Test2Peers, RouteWithCommunity) {
     // Add one more community to the route
     community_a.push_back("64512:8888");
     attr_a.SetCommunities(community_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     sort(community_a.begin(), community_a.end());
@@ -4292,13 +4223,12 @@ TEST_F(BgpXmppInet6Test2Peers, RouteWithNoExportCommunity) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
 
     vector<std::string> community_a;
     community_a.push_back("no-export");
     test::RouteAttributes attr_a(community_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up on Agent A.
@@ -4377,12 +4307,11 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeXmppDown) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     vector<int> sgids_a;
     sgids_a.push_back(111);
     test::RouteAttributes attr_a(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -4416,7 +4345,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeXmppDown) {
     sgids_a.push_back(112);
     sgids_a.push_back(113);
     attr_a.SetSg(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("blue", route_a.str(), sgids_a,
                                                  agent_a_.get()));
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("pink", route_a.str(), sgids_a,
@@ -4502,12 +4431,11 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeUnsub) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     vector<int> sgids_a;
     sgids_a.push_back(111);
     test::RouteAttributes attr_a(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -4541,7 +4469,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeUnsub) {
     sgids_a.push_back(112);
     sgids_a.push_back(113);
     attr_a.SetSg(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("blue", route_a.str(), sgids_a,
                                                  agent_a_.get()));
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("pink", route_a.str(), sgids_a,
@@ -4560,7 +4488,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeUnsub) {
     // Reduce the size of the sgid-list for route_a and verify at agents.
     sgids_a.pop_back();
     attr_a.SetSg(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("blue", route_a.str(), sgids_a,
                                                  agent_a_.get()));
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("pink", route_a.str(), sgids_a,
@@ -4637,12 +4565,11 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeBgpBounce) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     vector<int> sgids_a;
     sgids_a.push_back(111);
     test::RouteAttributes attr_a(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -4677,7 +4604,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeBgpBounce) {
     sgids_a.push_back(112);
     sgids_a.push_back(113);
     attr_a.SetSg(sgids_a);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("blue", route_a.str(), sgids_a,
                                                  agent_a_.get()));
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateSGids("pink", route_a.str(), sgids_a,
@@ -4760,9 +4687,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportAgentUnsub) {
     // Add route from agent A to blue instance.
     stringstream route_a1;
     route_a1 << "2001:0db8:85a3::8a2e:0370:aaa1/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a1.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a1.str(), nexthop_a);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(2, agent_a_->Inet6RouteCount());
@@ -4775,7 +4701,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportAgentUnsub) {
     // Add second route from agent A to blue instance.
     stringstream route_a2;
     route_a2 << "2001:0db8:85a3::8a2e:0370:aaa2/128";
-    agent_a_->AddInet6Route("blue", route_a2.str(), nexthops_a);
+    agent_a_->AddInet6Route("blue", route_a2.str(), nexthop_a);
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_EQ(4, agent_a_->Inet6RouteCount());
@@ -4878,17 +4804,15 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithXmppDown) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent B to pink instance.
     stringstream route_b;
     route_b << "2001:0db8:85a3::8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("pink", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("pink", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -4982,9 +4906,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithXmppConnectLater) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on Agent A.
@@ -5014,9 +4937,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithXmppConnectLater) {
     // Add route from agent B to pink instance.
     stringstream route_b;
     route_b << "2001:0db8:85a3::8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.2"));
-    agent_b_->AddInet6Route("pink", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.2");
+    agent_b_->AddInet6Route("pink", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that routes show up in both instances on both agents.
@@ -5120,10 +5042,9 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpBounce) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up in blue instance on Agent A.
@@ -5194,9 +5115,8 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpBounce) {
     // Add route from agent Y1 to yellow instance.
     stringstream route_b;
     route_b << "2001:db8:85a3::8a2e:370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.3"));
-    agent_y1_->AddInet6Route("yellow", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.3");
+    agent_y1_->AddInet6Route("yellow", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that route showed up in yellow instance on Agent Y1.
@@ -5260,7 +5180,7 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpBounce) {
     // Add route from agent B to pink instance while the peering is down.
     stringstream route_c;
     route_c << "2001:0db8:85a3::8a2e:0370:cccc/128";
-    agent_b_->AddInet6Route("pink", route_c.str(), nexthops_a);
+    agent_b_->AddInet6Route("pink", route_c.str(), nexthop_a);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, agent_a_->Inet6RouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount("blue"));
@@ -5447,17 +5367,15 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithCreateInstanceConfigLater) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:0db8:85a3::8a2e:0370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a);
+    test::NextHop nexthop_a("192.168.1.1");
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
     task_util::WaitForIdle();
 
     // Add route from agent Y1 to yellow instance.
     stringstream route_b;
     route_b << "2001:0db8:85a3::8a2e:0370:bbbb/128";
-    test::NextHops nexthops_b;
-    nexthops_b.push_back(test::NextHop("192.168.1.3"));
-    agent_y1_->AddInet6Route("yellow", route_b.str(), nexthops_b);
+    test::NextHop nexthop_b("192.168.1.3");
+    agent_y1_->AddInet6Route("yellow", route_b.str(), nexthop_b);
     task_util::WaitForIdle();
 
     // Verify that there are no routes on the agents.
@@ -5599,10 +5517,9 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpConnectLater) {
     // Add route from agent A to blue instance.
     stringstream route_a;
     route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     test::RouteAttributes attr_a(1000, 1001);
-    agent_a_->AddInet6Route("blue", route_a.str(), nexthops_a, attr_a);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a, attr_a);
     task_util::WaitForIdle();
 
     // Verify that route showed up in blue instance on Agent A.
@@ -5720,10 +5637,9 @@ TEST_F(BgpXmppInet6ErrorTest, BadPrefix) {
     EXPECT_TRUE(channel != NULL);
     TASK_UTIL_EXPECT_EQ(err_stats.get_inet6_rx_bad_prefix_count(), 0);
     // Prefix has two "::"'s.
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.1.1"));
+    test::NextHop nexthop_a("192.168.1.1");
     agent_a_->AddInet6Route("blue", "2001:db8:85a3::8a2e::370:aaaa/128",
-                            nexthops_a);
+                            nexthop_a);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(err_stats.get_inet6_rx_bad_prefix_count(), 1);
 }
@@ -5734,10 +5650,9 @@ TEST_F(BgpXmppInet6ErrorTest, BadNexthop) {
     EXPECT_TRUE(channel != NULL);
     TASK_UTIL_EXPECT_EQ(err_stats.get_inet6_rx_bad_nexthop_count(), 0);
     // Nexthop is formatted incorrectly.
-    test::NextHops nexthops_a;
-    nexthops_a.push_back(test::NextHop("192.168.11"));
+    test::NextHop nexthop_a("192.168.11");
     agent_a_->AddInet6Route("blue", "2001:db8:85a3::8a2e:370:aaaa/128",
-                            nexthops_a);
+                            nexthop_a);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(err_stats.get_inet6_rx_bad_nexthop_count(), 1);
 }

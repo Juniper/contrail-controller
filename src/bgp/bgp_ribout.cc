@@ -121,7 +121,7 @@ RibOutAttr::RibOutAttr(const BgpRoute *route, const BgpAttr *attr,
         return;
     }
 
-    // Encode ECMP NextHops only for XMPP peers.
+    // Encode ECMP nexthops only for XMPP peers.
     // Vrf Origination matters only for XMPP peers.
     set_attr(table, attr, route->BestPath()->GetLabel(),
         route->BestPath()->GetL3Label(), route->BestPath()->IsVrfOriginated());

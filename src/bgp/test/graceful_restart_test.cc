@@ -327,7 +327,7 @@ protected:
     void CreateAgents();
     void Subscribe();
     void Unsubscribe();
-    test::NextHops GetNextHops(test::NetworkAgentMock *agent, int instance_id);
+    test::NextHop GetNextHop(test::NetworkAgentMock *agent, int instance_id);
     void AddOrDeleteXmppRoutes(bool add, int nroutes = -1,
                                int down_agents = -1);
     void AddOrDeleteBgpRoutes(bool add, int nroutes = -1, int down_agents = -1);
@@ -891,13 +891,11 @@ void GracefulRestartTest::Unsubscribe() {
     WaitForIdle();
 }
 
-test::NextHops GracefulRestartTest::GetNextHops (test::NetworkAgentMock *agent,
-                                                 int instance_id) {
-    test::NextHops nexthops;
-    nexthops.push_back(test::NextHop("100.100.100." +
-                           boost::lexical_cast<string>(agent->id()),
-                           10000 + instance_id, "gre"));
-    return nexthops;
+test::NextHop GracefulRestartTest::GetNextHop(test::NetworkAgentMock *agent,
+                                               int instance_id) {
+    return test::NextHop(
+        "100.100.100." + boost::lexical_cast<string>(agent->id()),
+        10000 + instance_id, "gre");
 }
 
 void GracefulRestartTest::ProcessVpnRoute(BgpPeerTest *peer, int instance,
@@ -1068,12 +1066,12 @@ void GracefulRestartTest::AddOrDeleteXmppRoutes(bool add, int n_routes,
                                                          rt + 1);
                 if (add) {
                     agent->AddRoute(instance_name, prefix.ToString(),
-                                    GetNextHops(agent, i));
+                                    GetNextHop(agent, i));
                     agent->AddEnetRoute(instance_name,
                                         GetEnetPrefix(prefix.ToString()),
-                                        GetNextHops(agent, i));
+                                        GetNextHop(agent, i));
                     agent->AddInet6Route(instance_name, inet6_prefix.ToString(),
-                                         GetNextHops(agent, i));
+                                         GetNextHop(agent, i));
                 } else {
                     agent->DeleteRoute(instance_name, prefix.ToString());
                     agent->DeleteEnetRoute(instance_name,
@@ -1339,12 +1337,12 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
                     Inet6Prefix inet6_prefix =
                         GetIPv6Prefix(agent->id(), instance_id, rt + 1);
                     agent->AddRoute(instance_name, prefix.ToString(),
-                                        GetNextHops(agent, instance_id));
+                                        GetNextHop(agent, instance_id));
                     agent->AddEnetRoute(instance_name,
                                         GetEnetPrefix(prefix.ToString()),
-                                        GetNextHops(agent, instance_id));
+                                        GetNextHop(agent, instance_id));
                     agent->AddInet6Route(instance_name, inet6_prefix.ToString(),
-                                         GetNextHops(agent, instance_id));
+                                         GetNextHop(agent, instance_id));
                 }
                 total_routes += nroutes;
             }
@@ -1711,12 +1709,12 @@ void GracefulRestartTest::GracefulRestartTestRun () {
                 Inet6Prefix inet6_prefix =
                     GetIPv6Prefix(agent->id(), instance_id, rt + 1);
                 agent->AddRoute(instance_name, prefix.ToString(),
-                                    GetNextHops(agent, instance_id));
+                                GetNextHop(agent, instance_id));
                 agent->AddEnetRoute(instance_name,
                                     GetEnetPrefix(prefix.ToString()),
-                                    GetNextHops(agent, instance_id));
+                                    GetNextHop(agent, instance_id));
                 agent->AddInet6Route(instance_name, inet6_prefix.ToString(),
-                                     GetNextHops(agent, instance_id));
+                                     GetNextHop(agent, instance_id));
             }
             total_routes += nroutes;
         }

@@ -74,9 +74,8 @@ public:
         RTargetTable::RequestData *data =
             dynamic_cast<RTargetTable::RequestData *>(req->data.get());
         if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-            EXPECT_EQ(1, data->nexthops().size());
             const_cast<BgpXmppRTargetManagerTest *>(this)->
-                set_enqueued_flags(data->nexthops()[0].flags_);
+                set_enqueued_flags(data->nexthop().flags_);
         } else {
             EXPECT_EQ(NULL, data);
         }
