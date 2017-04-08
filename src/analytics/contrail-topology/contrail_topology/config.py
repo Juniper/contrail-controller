@@ -4,6 +4,9 @@
 import argparse, os, ConfigParser, sys, re
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
+    ConnectionType
 from sandesh_common.vns.constants import HttpPortTopology, \
     OpServerAdminPort, \
     ServicesDefaultConfigurationFiles, SERVICE_TOPOLOGY
@@ -208,11 +211,17 @@ optional arguments:
            self.__pat = re.compile(', *| +')
         return self.__pat
 
+    def set_api_server_list(self, api_servers):
+        self._args.api_server_list = api_servers
+
     def _mklist(self, s):
         return self._pat().split(s)
 
     def collectors(self):
         return self._args.collectors
+
+    def api_server_list(self):
+        return self._args.api_server_list
 
     def zookeeper_server(self):
         return self._args.zookeeper
@@ -263,27 +272,27 @@ optional arguments:
                              self._args.sandesh_ssl_enable,
                              self._args.introspect_ssl_enable)
 
-    def vnc_api(self, notifycb=None):
+    def vnc_api(self):
         e = SystemError('Cant connect to API server')
-        for rt in (5, 2, 7, 9, 16, 25):
-            for api_server in self._args.api_server_list:
-                srv = api_server.split(':')
-                try:
-                    vnc = VncApi(self._args.admin_user,
-                                 self._args.admin_password,
-                                 self._args.admin_tenant_name,
-                                 srv[0], srv[1],
-                                 api_server_use_ssl=self._args.api_server_use_ssl,
-                                 auth_host=self._args.auth_host,
-                                 auth_port=self._args.auth_port,
-                                 auth_protocol=self._args.auth_protocol)
-                    if callable(notifycb):
-                        notifycb('api', 'Connected', servers=api_server)
-                    return vnc
-                except Exception as e:
-                    traceback.print_exc()
-                    if callable(notifycb):
-                        notifycb('api', 'Not connected', servers=api_server,
-                                up=False)
-                    time.sleep(rt)
-        raise e
+        api_servers = [srv.split(':')[0] for srv in self._args.api_server_list]
+        api_server_port = self._args.api_server_list[0].split(':')[1] \
+            if self._args.api_server_list else None
+        try:
+            vnc = VncApi(self._args.admin_user,
+                         self._args.admin_password,
+                         self._args.admin_tenant_name,
+                         api_servers, api_server_port,
+                         api_server_use_ssl=self._args.api_server_use_ssl,
+                         auth_host=self._args.auth_host,
+                         auth_port=self._args.auth_port,
+                         auth_protocol=self._args.auth_protocol)
+        except Exception as e:
+            ConnectionState.update(conn_type=ConnectionType.APISERVER,
+                name='Config', status=ConnectionStatus.DOWN, message=str(e),
+                server_addrs=api_servers)
+            return None
+        else:
+            ConnectionState.update(conn_type=ConnectionType.APISERVER,
+                name='Config', status=ConnectionStatus.UP,
+                server_addrs=api_servers)
+            return vnc

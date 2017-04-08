@@ -55,6 +55,14 @@ class Controller(object):
              self._chksum = hashlib.md5("".join(self._config.collectors())).hexdigest()
              self._config.random_collectors = random.sample(self._config.collectors(), \
                                                             len(self._config.collectors()))
+        self._api_server_checksum = ""
+        if self._config.api_server_list():
+            self._api_server_checksum = hashlib.md5("".join(
+                self._config.api_server_list())).hexdigest()
+            random_api_servers = random.sample(
+                self._config.api_server_list(),
+                len(self._config.api_server_list()))
+            self._config.set_api_server_list(random_api_servers)
         self.uve = SnmpUve(self._config)
         self._hostname = socket.gethostname()
         self._logger = self.uve.logger()
@@ -300,6 +308,21 @@ class Controller(object):
                             self.uve.sandesh_reconfig_collectors(random_collectors)
                 except ConfigParser.NoOptionError as e: 
                     pass
+            if 'API_SERVER' in config.sections():
+                try:
+                    api_servers = config.get('API_SERVER', 'api_server_list')
+                except ConfigParser.NoOptionError:
+                    pass
+                else:
+                    if isinstance(api_servers, basestring):
+                        api_servers = api_servers.split()
+                    new_api_server_checksum = hashlib.md5("".join(
+                        api_servers)).hexdigest()
+                    if new_api_server_checksum != self._api_server_checksum:
+                        self._api_server_checksum = new_api_server_checksum
+                        random_api_servers = random.sample(api_servers,
+                            len(api_servers))
+                        self._config.set_api_server_list(random_api_servers)
     # end sighup_handler  
 
     def run(self):

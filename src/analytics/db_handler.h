@@ -95,7 +95,7 @@ public:
         bool use_zookeeper,
         bool use_db_write_options,
         const DbWriteOptions &db_write_options,
-        const ConfigDBConnection::ApiServerList &api_server_list,
+        const std::vector<std::string> &api_server_list,
         const VncApiConfig &api_config);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
@@ -185,6 +185,9 @@ public:
                                         uint32_t pending_compaction_tasks,
                                         SandeshLevel::type level);
     void ProcessPendingCompactionTasks(uint32_t pending_compaction_tasks);
+    void ReConfigApiServerList(const  std::vector<std::string> &api_server_list) {
+        cfgdb_connection_->ReConfigApiServerList(api_server_list);
+    }
 
 private:
     void MessageTableKeywordInsert(const VizMsg *vmsgp,
@@ -308,7 +311,7 @@ class DbHandlerInitializer {
         const std::string &zookeeper_server_list,
         bool use_zookeeper,
         const DbWriteOptions &db_write_options,
-        const ConfigDBConnection::ApiServerList &api_server_list,
+        const std::vector<std::string> &api_server_list,
         const VncApiConfig &api_config);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name,
