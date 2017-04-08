@@ -145,6 +145,9 @@ public:
     const std::vector<std::string> kafka_broker_list() const {
         return kafka_broker_list_;
     }
+    const std::vector<std::string> collector_structured_syslog_forward_destination() const {
+        return collector_structured_syslog_forward_destination_;
+    }
     const uint16_t partitions() const { return partitions_; }
     const std::string collector_server() const { return collector_server_; }
     const uint16_t collector_port() const { return collector_port_; };
@@ -251,6 +254,7 @@ private:
     bool collector_protobuf_port_configured_;
     uint16_t collector_structured_syslog_port_;
     bool collector_structured_syslog_port_configured_;
+    std::vector<std::string> collector_structured_syslog_forward_destination_;
     std::vector<std::string> config_file_;
     std::string redis_server_;
     uint16_t redis_port_;

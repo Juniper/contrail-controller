@@ -203,7 +203,7 @@ TEST_F(StructuredSyslogStatWalkerTest, Basic) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -225,7 +225,7 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceMultiSyslog) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -246,7 +246,7 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceSyslog) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -268,7 +268,7 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceSyslogTz) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -290,7 +290,7 @@ TEST_F(StructuredSyslogStatWalkerTest, ParseError) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
     delete config_obj;
     ASSERT_FALSE(r);
 
@@ -309,7 +309,7 @@ TEST_F(StructuredSyslogStatWalkerTest, BadStruct) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj);
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
     delete config_obj;
     ASSERT_TRUE(r);
 
