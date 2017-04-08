@@ -19,14 +19,18 @@ class ConfigDBConnection {
         typedef std::vector<std::pair<std::string, int> > ApiServerList;
 
         ConfigDBConnection(EventManager *evm,
-            const ApiServerList &api_servers,
+            const std::vector<std::string> &api_servers,
             const VncApiConfig &api_config);
         ~ConfigDBConnection();
-        boost::shared_ptr<VncApi> GetVnc();
+        boost::shared_ptr<VncApi> GetVnc() {
+            return vnc_;
+        }
         void RetryNextApi();
+        void ReConfigApiServerList(const std::vector<std::string>&);
 
     private:
         void InitVnc();
+        void UpdateApiServerList(const std::vector<std::string>&);
 
         boost::shared_ptr<VncApi> vnc_;
         EventManager *evm_;

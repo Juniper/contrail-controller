@@ -4,6 +4,7 @@
 
 
 #include <sstream>
+#include <boost/foreach.hpp>
 #include <boost/make_shared.hpp>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -13,16 +14,13 @@
 #include "options.h"
 
 ConfigDBConnection::ConfigDBConnection(EventManager *evm,
-        const ApiServerList &api_servers,
+        const std::vector<std::string> &api_servers,
         const VncApiConfig &api_config)
-    : evm_(evm), api_server_list_(api_servers), vnccfg_(api_config),
-      api_server_index_(-1) {
-    if (!api_server_list_.empty()) {
-        api_server_index_ = 0;
-        vnccfg_.api_srv_ip = api_server_list_[0].first;
-        vnccfg_.api_srv_port = api_server_list_[0].second;
-        InitVnc();
-    }
+    : evm_(evm), vnccfg_(api_config), api_server_index_(-1) {
+    UpdateApiServerList(api_servers);
+}
+
+ConfigDBConnection::~ConfigDBConnection() {
 }
 
 void
@@ -34,11 +32,28 @@ ConfigDBConnection::InitVnc() {
     }
 }
 
-ConfigDBConnection::~ConfigDBConnection() {
-}
-
-boost::shared_ptr<VncApi> ConfigDBConnection::GetVnc() {
-    return vnc_;
+void
+ConfigDBConnection::UpdateApiServerList(
+                            const std::vector<std::string> &api_servers) {
+    api_server_list_.clear();
+    api_server_index_ = -1;
+    BOOST_FOREACH(const std::string &api_server, api_servers) {
+        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+        boost::char_separator<char> sep(":");
+        tokenizer tokens(api_server, sep);
+        tokenizer::iterator tit = tokens.begin();
+        string api_server_ip(*tit);
+        int api_server_port;
+        stringToInteger(*++tit, api_server_port);
+        api_server_list_.push_back(std::make_pair(api_server_ip,
+                                                  api_server_port));
+    }
+    if (!api_server_list_.empty()) {
+        api_server_index_ = 0;
+        vnccfg_.api_srv_ip = api_server_list_[0].first;
+        vnccfg_.api_srv_port = api_server_list_[0].second;
+        InitVnc();
+    }
 }
 
 void
@@ -50,7 +65,13 @@ ConfigDBConnection::RetryNextApi() {
         }
         vnccfg_.api_srv_ip = api_server_list_[api_server_index_].first;
         vnccfg_.api_srv_port = api_server_list_[api_server_index_].second;
-        lock.release();
         InitVnc();
     }
+}
+
+void
+ConfigDBConnection::ReConfigApiServerList(
+                            const std::vector<std::string> &api_servers) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    UpdateApiServerList(api_servers);
 }

@@ -77,8 +77,10 @@ class SnmpUve(object):
     def conn_state_notify(self, svc, msg='', up=True, servers=''):
         ctype = self.map_svc(svc)
         status = self.map_sts(up)
+        if isinstance(servers, basestring):
+            servers = [servers]
         ConnectionState.update(conn_type=ctype, name='SNMP', status=status,
-                message=msg, server_addrs=[servers])
+                message=msg, server_addrs=servers)
 
     def killall(self):
         sandesh_global.uninit()

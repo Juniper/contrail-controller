@@ -17,7 +17,7 @@ class DbHandlerMock : public DbHandler {
             cassandra_options, "",
             false, false,
             DbWriteOptions(),
-            ConfigDBConnection::ApiServerList(),
+            std::vector<std::string>(),
             VncApiConfig()) {
 
     }

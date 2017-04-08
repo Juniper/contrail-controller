@@ -26,10 +26,18 @@ class Controller(object):
         self.analytic_api = AnalyticApiClient(self._config)
         self._config.random_collectors = self._config.collectors()
         self._chksum = ""
+        self._api_server_checksum = ""
         if self._config.collectors():
             self._chksum = hashlib.md5("".join(self._config.collectors())).hexdigest()
             self._config.random_collectors = random.sample(self._config.collectors(), \
                                                            len(self._config.collectors()))
+        if self._config.api_server_list():
+            self._api_server_checksum = hashlib.md5("".join(
+                self._config.api_server_list())).hexdigest()
+            random_api_servers = random.sample(
+                self._config.api_server_list(),
+                len(self._config.api_server_list()))
+            self._config.set_api_server_list(random_api_servers)
         self.uve = LinkUve(self._config)
         self._logger = self.uve.logger()
         self.sleep_time()
@@ -150,12 +158,6 @@ class Controller(object):
     # end _send_topology_uve
 
     def bms_links(self, prouter, ifm):
-        if not self._vnc:
-            try:
-                self._vnc = self._config.vnc_api()
-            except:
-                print 'Proceeding without any api-server'
-                self._vnc = None # refresh
         if self._vnc:
             try:
                 for li in self._vnc.logical_interfaces_list()[
@@ -323,6 +325,22 @@ class Controller(object):
                             self.uve.sandesh_reconfig_collectors(random_collectors)
                 except ConfigParser.NoOptionError as e:
                     pass
+            if 'API_SERVER' in config.sections():
+                try:
+                    api_servers = config.get('API_SERVER', 'api_server_list')
+                except ConfigParser.NoOptionError:
+                    pass
+                else:
+                    if isinstance(api_servers, basestring):
+                        api_servers = api_servers.split()
+                    new_api_server_checksum = hashlib.md5("".join(
+                        api_servers)).hexdigest()
+                    if new_api_server_checksum != self._api_server_checksum:
+                        self._api_server_checksum = new_api_server_checksum
+                        random_api_servers = random.sample(api_servers,
+                            len(api_servers))
+                        self._config.set_api_server_list(random_api_servers)
+                        self._vnc = None
     # end sighup_handler
  
         
@@ -342,6 +360,8 @@ class Controller(object):
                             cluster_id=self._config.cluster_id())
 
         while self._keep_running:
+            if not self._vnc:
+                self._vnc = self._config.vnc_api()
             self.scan_data()
             if self.constnt_schdlr.schedule(self.prouters):
                 members = self.constnt_schdlr.members()
