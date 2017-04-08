@@ -65,10 +65,7 @@ ConfigCassandraClient::~ConfigCassandraClient() {
         //dbif_->Db_Uninit(....);
     }
 
-    for (int i = 0; i < num_workers_; i++) {
-        delete partitions_[i];
-    }
-    partitions_.clear();
+    STLDeleteValues(&partitions_);
 }
 
 void ConfigCassandraClient::InitDatabase() {
@@ -180,9 +177,22 @@ bool ConfigCassandraClient::ReadObjUUIDTable(set<string> *uuid_list) {
     return true;
 }
 
+struct ConfigCassandraParseContext {
+    ConfigCassandraParseContext() : obj_type(""), fq_name_present(false) {
+    }
+    std::multimap<std::string, JsonAdapterDataType> list_map_properties;
+    std::set<std::string> updated_list_map_properties;
+    std::string obj_type;
+    bool fq_name_present;
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(ConfigCassandraParseContext);
+};
+
 bool ConfigCassandraClient::ProcessObjUUIDTableEntry(const string &uuid_key,
                                            const GenDb::ColList &col_list) {
     CassColumnKVVec cass_data_vec;
+
     ConfigCassandraParseContext context;
 
     GetPartition(uuid_key)->MarkCacheDirty(uuid_key);
@@ -550,9 +560,6 @@ void ConfigCassandraPartition::AddUUIDToRequestList(const string &oper,
 bool ConfigCassandraPartition::ConfigReader() {
     CHECK_CONCURRENCY("cassandra::Reader");
 
-    // Maintain a list of iterators to the uuid entries in the list. This
-    // enables processed entries to be deleted from the list in constant time
-    // irresepective of where the entries are actually located inside the list.
     set<string> bunch_req_list;
     int num_req_handled = 0;
     for (UUIDProcessSet::iterator it = uuid_read_set_.begin(),

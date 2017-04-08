@@ -54,10 +54,10 @@ public:
         ConfigCassandraClient::HandleObjectDelete(uuid);
     }
 
-    virtual bool ParseRowAndEnqueueToParser(const string &uuid_key,
-                                            const GenDb::ColList &col_list) {
-        return ConfigCassandraClient::ParseRowAndEnqueueToParser(uuid_key,
-                                                                 col_list);
+    virtual bool ProcessObjUUIDTableEntry(const string &uuid_key,
+                                          const GenDb::ColList &col_list) {
+        return ConfigCassandraClient::ProcessObjUUIDTableEntry(uuid_key,
+                                                               col_list);
     }
 };
 
@@ -219,7 +219,7 @@ public:
         col_list.columns_.push_back(
             new GenDb::NewCol(names3, values3, 100, timestamps3));
 
-        cassandra_client->ParseRowAndEnqueueToParser(uuid_key, col_list);
+        cassandra_client->ProcessObjUUIDTableEntry(uuid_key, col_list);
     }
 
 private:

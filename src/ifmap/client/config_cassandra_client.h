@@ -20,6 +20,7 @@ class ConfigClientManager;
 struct ConfigDBConnInfo;
 class TaskTrigger;
 class ConfigCassandraClient;
+struct ConfigCassandraParseContext;
 
 class ObjectProcessReq {
 public:
@@ -34,16 +35,6 @@ public:
 
 private:
     DISALLOW_COPY_AND_ASSIGN(ObjectProcessReq);
-};
-
-
-struct ConfigCassandraParseContext {
-    ConfigCassandraParseContext() : obj_type(""), fq_name_present(false) {
-    }
-    std::multimap<std::string, JsonAdapterDataType> list_map_properties;
-    std::set<std::string> updated_list_map_properties;
-    std::string obj_type;
-    bool fq_name_present;
 };
 
 class ConfigCassandraPartition {
