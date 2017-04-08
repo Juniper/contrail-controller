@@ -70,62 +70,41 @@ class DeviceConfig(object):
         return s
 
     @staticmethod
-    def fom_file(filename):
-        devices = []
-        devcfg = ConfigParser.SafeConfigParser()
-        devcfg.optionxform = str
-        devcfg.read([filename])
-        for dev in devcfg.sections():
-            nd = dict(devcfg.items(dev))
-            mibs = DeviceConfig._mklist(DeviceConfig._get_and_remove_key(nd,
-                        'Mibs', []))
-            flow_export_source_ip = DeviceConfig._get_and_remove_key(nd,
-                    'FlowExportSourceIp')
-            devices.append(DeviceConfig(dev, nd, mibs,
-                        flow_export_source_ip))
-        return devices
-
-    @staticmethod
     def get_vnc(usr, passwd, tenant, api_servers, use_ssl=False,
             auth_host=None, auth_port=None, auth_protocol=None, notifycb=None):
         e = IOError('Api servers (%s) not reachable' % ','.join(api_servers))
-        while True:
-          for api_server in api_servers:
-            srv = api_server.split(':')
-            try:
-                vnc = VncApi(usr, passwd, tenant, srv[0], srv[1],
-                        api_server_use_ssl=use_ssl,
+        api_server_list = [srv.split(':')[0] for srv in api_servers]
+        api_server_port = api_servers[0].split(':')[1] if api_servers else None
+        try:
+            vnc = VncApi(usr, passwd, tenant, api_server_list,
+                        api_server_port, api_server_use_ssl=use_ssl,
                         auth_host=auth_host, auth_port=auth_port,
                         auth_protocol=auth_protocol)
-                if callable(notifycb):
-                    notifycb('api', 'Connected', servers=api_server)
-                return vnc
-            except Exception as e:
-                traceback.print_exc()
-                if callable(notifycb):
-                    notifycb('api', 'Not connected', servers=api_server,
-                            up=False)
-                time.sleep(3)
+        except Exception as e:
+            if callable(notifycb):
+                notifycb('api', str(e), servers=api_servers, up=False)
+        else:
+            if callable(notifycb):
+                notifycb('api', 'Connected', servers=api_servers)
+            return vnc
+        return None
 
     @staticmethod
-    def fom_api_server(api_servers, usr, passwd, tenant, use_ssl=False,
+    def get_prouters(api_servers, usr, passwd, tenant, use_ssl=False,
             auth_host=None, auth_port=None, auth_protocol=None, notifycb=None):
-        while True:
-            try:
-                vnc = DeviceConfig.get_vnc(usr, passwd, tenant, api_servers,
+        try:
+            vnc = DeviceConfig.get_vnc(usr, passwd, tenant, api_servers,
                         use_ssl=use_ssl, auth_host=auth_host,
                         auth_port=auth_port, auth_protocol=auth_protocol,
                         notifycb=notifycb)
-                devices = map(lambda e: DeviceDict(e['fq_name'][-1], vnc, **e),
-                                                   vnc.physical_routers_list()[
-                                'physical-routers'])
-                return devices
-            except Exception as e:
-                traceback.print_exc()
-                if callable(notifycb):
-                    notifycb('api', 'Not connected', servers=','.join(
-                             api_servers), up=False)
-                time.sleep(3)
+            if not vnc:
+                return []
+            devices = map(lambda e: DeviceDict(e['fq_name'][-1], vnc, **e),
+                    vnc.physical_routers_list()['physical-routers'])
+            return devices
+        except Exception as e:
+            traceback.print_exc()
+        return None
 
     @staticmethod
     def populate_cfg(devicelist):

@@ -9,6 +9,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/functional/hash.hpp>
 
 #include "analytics/buildinfo.h"
 #include "base/contrail_ports.h"
@@ -504,6 +505,16 @@ static bool ValidateCompactionStrategyOption(
     return true;
 }
 
+uint32_t Options::GenerateHash(std::vector<std::string> &list) {
+    std::string concat_servers;
+    std::vector<std::string>::iterator iter;
+    for (iter = list.begin(); iter != list.end(); iter++) {
+        concat_servers += *iter;
+    }
+    boost::hash<std::string> string_hash;
+    return(string_hash(concat_servers));
+}
+
 // Process command line options. They can come from a conf file as well. Options
 // from command line always overrides those that come from the config file.
 void Options::Process(int argc, char *argv[],
@@ -710,6 +721,32 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue< vector<string> >(var_map, api_server_list_,
                                   "API_SERVER.api_server_list");
+    api_server_checksum_ = GenerateHash(api_server_list_);
+    std::random_shuffle(api_server_list_.begin(), api_server_list_.end());
+
     GetOptValue<bool>(var_map, api_server_use_ssl_,
                       "API_SERVER.api_server_use_ssl");
+}
+
+void Options::ParseReConfig() {
+    // ReParse the filtered config params
+    opt::variables_map var_map;
+    ifstream config_file_in;
+    for(std::vector<int>::size_type i = 0; i != config_file_.size(); i++) {
+        config_file_in.open(config_file_[i].c_str());
+        if (config_file_in.good()) {
+           opt::store(opt::parse_config_file(config_file_in,
+                                    config_file_options_, true), var_map);
+        }
+        config_file_in.close();
+    }
+    api_server_list_.clear();
+    GetOptValue< vector<string> >(var_map, api_server_list_,
+                                  "API_SERVER.api_server_list");
+    uint32_t new_checksum = GenerateHash(api_server_list_);
+    if (api_server_checksum_ != new_checksum) {
+        api_server_checksum_ = new_checksum;
+        std::random_shuffle(api_server_list_.begin(),
+                            api_server_list_.end());
+    }
 }

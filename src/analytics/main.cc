@@ -4,7 +4,6 @@
 
 #include <fstream>
 
-#include <boost/foreach.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
@@ -48,6 +47,8 @@ using process::g_process_info_constants;
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
 static EventManager * a_evm = NULL;
+static Options options;
+static VizCollector *analytics = NULL;
 
 bool CollectorInfoLogTimer() {
     collector_info_trigger->Set();
@@ -170,6 +171,27 @@ static bool OptionsParse(Options &options, int argc, char *argv[]) {
     return false;
 }
 
+void ReConfigSignalHandler(int signum) {
+    uint32_t api_server_checksum = options.api_server_checksum();
+    options.ParseReConfig();
+    uint32_t new_api_server_checksum = options.api_server_checksum();
+    if (api_server_checksum != new_api_server_checksum) {
+        std::vector<std::string> api_servers(options.api_server_list());
+        ostringstream api_servers_str;
+        copy(api_servers.begin(), api_servers.end(),
+             ostream_iterator<string>(api_servers_str, " "));
+        LOG(INFO, "SIGHUP: Change in api_server_list: " <<
+            api_servers_str.str());
+        analytics->ReConfigApiServerList(api_servers);
+    }
+}
+
+void InitializeSignalHandlers() {
+    srand(unsigned(time(NULL)));
+    signal(SIGTERM, terminate);
+    signal(SIGHUP, ReConfigSignalHandler);
+}
+
 // This is to force vizd to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug vizd during systest
@@ -178,8 +200,6 @@ volatile int gdbhelper = 1;
 int main(int argc, char *argv[])
 {
     a_evm = new EventManager();
-
-    Options options;
 
     if (!OptionsParse(options, argc, argv)) {
         exit(-1);
@@ -327,18 +347,6 @@ int main(int argc, char *argv[])
     std::string zookeeper_server_list(options.zookeeper_server_list());
     bool use_zookeeper = !zookeeper_server_list.empty();
 
-    ConfigDBConnection::ApiServerList api_server_list;
-    BOOST_FOREACH(const std::string &api_server, options.api_server_list()) {
-        typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-        boost::char_separator<char> sep(":");
-        tokenizer tokens(api_server, sep);
-        tokenizer::iterator tit = tokens.begin();
-        string api_server_ip(*tit);
-        int api_server_port;
-        stringToInteger(*++tit, api_server_port);
-        api_server_list.push_back(std::make_pair(api_server_ip,
-                                                 api_server_port));
-    }
     VncApiConfig api_config;
     api_config.api_use_ssl = options.api_server_use_ssl();
     api_config.ks_srv_ip = options.auth_host();
@@ -351,7 +359,7 @@ int main(int argc, char *argv[])
     api_config.ks_certfile = options.keystone_certfile();
     api_config.ks_cafile = options.keystone_cafile();
 
-    VizCollector analytics(a_evm,
+    analytics = new VizCollector(a_evm,
             options.collector_port(),
             protobuf_server_enabled,
             protobuf_port,
@@ -373,36 +381,26 @@ int main(int argc, char *argv[])
             use_zookeeper,
             options.get_db_write_options(),
             options.sandesh_config(),
-            api_server_list,
+            options.api_server_list(),
             api_config);
-#if 0
-    // initialize python/c++ API
-    Py_InitializeEx(0);
-    // insert the patch where scripts are placed
-    // temporary it is env variable RULEENGPATH
-    char *rpath = getenv("RULEENGPATH");
-    if (rpath != NULL) {
-        PyObject* sysPath = PySys_GetObject((char*)"path");
-        PyList_Insert(sysPath, 0, PyString_FromString(rpath));
-    }
-#endif
 
-    analytics.Init();
+    analytics->Init();
 
-    unsigned short coll_port = analytics.GetCollector()->GetPort();
-    VizSandeshContext vsc(&analytics);
+    unsigned short coll_port = analytics->GetCollector()->GetPort();
+    VizSandeshContext vsc(analytics);
     Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success(Sandesh::InitCollector(
             module_id,
-            analytics.name(),
+            analytics->name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             instance_id,
             a_evm, "127.0.0.1", coll_port,
             options.http_server_port(), &vsc, options.sandesh_config()));
     if (!success) {
         LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-        ShutdownServers(&analytics);
+        ShutdownServers(analytics);
         delete a_evm;
+        delete analytics;
         exit(1);
     }
 
@@ -425,11 +423,12 @@ int main(int argc, char *argv[])
         "Collector Info log timer",
         TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
     collector_info_log_timer->Start(5*1000, boost::bind(&CollectorInfoLogTimer), NULL);
-    signal(SIGTERM, terminate);
+    InitializeSignalHandlers();
     a_evm->Run();
 
-    ShutdownServers(&analytics);
+    ShutdownServers(analytics);
 
+    delete analytics;
     delete a_evm;
 
     return 0;

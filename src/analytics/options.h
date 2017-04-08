@@ -113,6 +113,7 @@ public:
 
     Options();
     bool Parse(EventManager &evm, int argc, char **argv);
+    void ParseReConfig();
 
     const Cassandra get_cassandra_options() const {
         return cassandra_options_;
@@ -214,6 +215,7 @@ public:
     const std::string keystone_certfile() const { return ks_cert_; }
     const std::string keystone_cafile() const { return ks_ca_; }
     const SandeshConfig &sandesh_config() const { return sandesh_config_; }
+    const int api_server_checksum() const { return api_server_checksum_; }
     const std::vector<std::string> api_server_list() const {
         return api_server_list_;
     }
@@ -244,6 +246,7 @@ private:
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
                     boost::program_options::options_description &options);
+    uint32_t GenerateHash(std::vector<std::string> &);
 
     std::string collector_server_;
     uint16_t collector_port_;
@@ -300,6 +303,7 @@ private:
     std::string ks_key_;
     std::string ks_ca_;
     SandeshConfig sandesh_config_;
+    uint32_t api_server_checksum_;
     std::vector<std::string> api_server_list_;
     bool api_server_use_ssl_;
 

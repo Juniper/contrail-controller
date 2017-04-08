@@ -47,7 +47,7 @@ public:
             bool use_zookeeper,
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
-            const ConfigDBConnection::ApiServerList &api_server_list,
+            const std::vector<std::string> &api_server_list,
             const VncApiConfig &api_config);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
@@ -80,6 +80,10 @@ public:
         if (rsc) {
             redis_gen_ ++;
         }
+    }
+    void ReConfigApiServerList(const std::vector<std::string> &api_server_list) {
+        DbHandlerPtr db_handler = db_initializer_->GetDbHandler();
+        db_handler->ReConfigApiServerList(api_server_list);
     }
     void SendDbStatistics();
     void SendProtobufCollectorStatistics();
