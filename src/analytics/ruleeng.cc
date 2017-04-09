@@ -14,8 +14,6 @@
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <base/logging.h>
 #include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h> 
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/sandesh_message_builder.h>
 #include <sandesh/protocol/TXMLProtocol.h>

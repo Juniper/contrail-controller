@@ -10,11 +10,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/assign/list_of.hpp>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/sandesh_session.h>
-#include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_ctrl_types.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>

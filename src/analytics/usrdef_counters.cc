@@ -5,8 +5,6 @@
 
 #include <sstream>
 #include <boost/make_shared.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "analytics_types.h"
 #include "usrdef_counters.h"
 #include "http/client/vncapi.h"

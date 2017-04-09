@@ -9,8 +9,6 @@
 #include "base/logging.h"
 #include <query.h>
 #include <analytics_query_mock.h>
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "../../analytics/db_handler.h"
 #include "../../analytics/test/cql_if_mock.h"
 #include "base/test/task_test_util.h"

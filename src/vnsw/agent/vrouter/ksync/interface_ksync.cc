@@ -11,8 +11,6 @@
 #include <db/db_entry.h>
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>

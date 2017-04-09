@@ -11,9 +11,6 @@
 #include <map>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh.h>
 #include <virtual_machine_types.h>
 #include <uve/vm_stat.h>
 #include <uve/vm_stat_data.h>

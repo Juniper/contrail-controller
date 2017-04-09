@@ -7,8 +7,6 @@
 #define SRC_IO_IO_LOG_H_
 
 #include "base/logging.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"

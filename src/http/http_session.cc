@@ -13,8 +13,6 @@
 #include "http/http_request.h"
 #include "http/http_server.h"
 #include "http_parser/http_parser.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_http.h"
 #include "http/http_log_types.h"
 

@@ -14,8 +14,6 @@
 #include "ifmap/ifmap_agent_parser.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_link.h"
-#include "sandesh/sandesh.h"
-#include "sandesh/sandesh_types.h"
 #include "ifmap/ifmap_agent_types.h"
 
 using namespace std;

@@ -21,7 +21,6 @@
 #include "hiredis/base64.h"
 #include "hiredis/boostasio.hpp"
 #include <librdkafka/rdkafkacpp.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_uve.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>

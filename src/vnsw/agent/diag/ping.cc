@@ -5,8 +5,6 @@
 #include <stdint.h>
 #include "base/os.h"
 #include "vr_defs.h"
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
 #include "oper/nexthop.h"
 #include "oper/route_common.h"

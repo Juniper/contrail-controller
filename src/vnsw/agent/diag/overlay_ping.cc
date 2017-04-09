@@ -1,7 +1,5 @@
 #include <stdint.h>
 #include "base/os.h"
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "diag/diag_types.h"
