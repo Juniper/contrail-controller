@@ -10,8 +10,6 @@
 #include <vector>
 #include <boost/asio.hpp>
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "bind/bind_types.h"
 #include "bind/xmpp_dns_agent.h"

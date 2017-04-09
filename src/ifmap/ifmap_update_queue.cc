@@ -7,8 +7,6 @@
 #include <boost/checked_delete.hpp>
 #include <boost/assign/list_of.hpp>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
 
 #include "ifmap/ifmap_exporter.h"

@@ -7,7 +7,6 @@
 
 #include <string>
 #include "io/event_manager.h"
-#include <sandesh/sandesh.h>
 #include "redis_types.h"
 
 // This class can be used to send UVE Traces from vizd to the OpSever(s)

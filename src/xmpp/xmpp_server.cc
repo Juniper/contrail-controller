@@ -16,8 +16,6 @@
 #include "xmpp/xmpp_session.h"
 
 #include "sandesh/request_pipeline.h"
-#include "sandesh/sandesh.h"
-#include "sandesh/sandesh_types.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
 #include "sandesh/xmpp_server_types.h"

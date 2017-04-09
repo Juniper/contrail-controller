@@ -5,7 +5,6 @@
 #ifndef __DH_HANDLER_MOCK_H__
 #define __DH_HANDLER_MOCK_H__
 
-#include "sandesh/sandesh.h"
 #include "db_handler.h"
 #include <boost/bind.hpp>
 

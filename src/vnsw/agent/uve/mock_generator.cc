@@ -17,8 +17,6 @@
 #include <base/task.h>
 #include <base/logging.h>
 #include <base/timer.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/flow_types.h>

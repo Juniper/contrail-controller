@@ -1,8 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "vr_types.h"
 
 #include "vrouter/ksync/agent_ksync_types.h"

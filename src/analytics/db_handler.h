@@ -30,7 +30,6 @@
 #include <base/watermark.h>
 #include "gendb_if.h"
 #include "gendb_statistics.h"
-#include "sandesh/sandesh.h"
 #include "viz_message.h"
 #include "uflow_types.h"
 #include "viz_constants.h"

@@ -26,7 +26,6 @@
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-policy/routing_policy.h"
 
-#include "sandesh/sandesh.h"
 #include "control-node/sandesh/control_node_types.h"
 
 using boost::system::error_code;

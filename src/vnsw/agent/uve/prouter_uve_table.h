@@ -8,9 +8,6 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh.h>
 #include <prouter_types.h>
 #include <oper/interface_common.h>
 #include <oper/physical_device.h>

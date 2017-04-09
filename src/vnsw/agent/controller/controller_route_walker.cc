@@ -4,8 +4,6 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
 
 #include <cmn/agent_cmn.h>

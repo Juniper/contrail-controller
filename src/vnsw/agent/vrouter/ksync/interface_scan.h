@@ -8,8 +8,6 @@
 #include <db/db_entry.h>
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "vr_types.h"
 #include "vr_interface.h"
 #include <cmn/agent_cmn.h>

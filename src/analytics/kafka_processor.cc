@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <iterator>
 #include <librdkafka/rdkafkacpp.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_uve.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>

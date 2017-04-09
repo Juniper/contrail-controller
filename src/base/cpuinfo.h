@@ -7,9 +7,6 @@
 
 #include <inttypes.h>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include <base/sandesh/cpuinfo_types.h>
 
 struct CpuLoad {

@@ -4,8 +4,6 @@
 
 #include "cmn/agent.h"
 #include "cmn/agent_cmn.h"
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/resource_table.h"
 #include "resource_manager/resource_cmn.h"

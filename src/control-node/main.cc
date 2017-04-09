@@ -12,8 +12,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/program_options.hpp>
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "nodeinfo_types.h"
 #include "base/connection_info.h"
 #include "base/logging.h"

@@ -7,8 +7,6 @@
 
 #include <pthread.h>
 #include <boost/program_options.hpp>
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "nodeinfo_types.h"
 #include "base/connection_info.h"
 #include <base/logging.h>
@@ -22,7 +20,6 @@
 #include <ifmap/ifmap_server.h>
 #include <ifmap/ifmap_xmpp.h>
 #include <io/event_manager.h>
-#include <sandesh/sandesh.h>
 #include <vnc_cfg_types.h>
 #include <cmn/dns.h>
 #include <bind/bind_util.h>

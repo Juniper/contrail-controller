@@ -8,9 +8,6 @@
 
 #include <testing/gunit.h>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include <base/logging.h>
 #include <base/test/task_test_util.h>
 #include <io/test/event_manager_test.h>

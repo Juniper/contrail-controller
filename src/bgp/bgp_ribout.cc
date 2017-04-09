@@ -8,8 +8,6 @@
 
 #include <algorithm>
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "base/string_util.h"
 #include "bgp/bgp_peer_types.h"

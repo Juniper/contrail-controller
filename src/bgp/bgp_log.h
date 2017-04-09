@@ -6,8 +6,6 @@
 
 #define ctrlplane_bgp_log_h
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "base/logging.h"

@@ -8,8 +8,6 @@
 
 #include <boost/foreach.hpp>
 
-#include "sandesh/sandesh.h"
-
 #include "bgp/ipeer.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"

@@ -3,8 +3,6 @@
  */
 
 #include <base/task.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include <base/sandesh/task_types.h>
 
 using std::string;
