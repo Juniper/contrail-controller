@@ -5,7 +5,6 @@
 #ifndef SRC_BGP_PEER_STATS_H_
 #define SRC_BGP_PEER_STATS_H_
 
-#include "sandesh/sandesh.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/ipeer.h"
 

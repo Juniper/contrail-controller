@@ -8,8 +8,6 @@
 #include <cassert>
 #include <boost/program_options.hpp>
 #include "io/event_manager.h"
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "viz_types.h"
 
 #define ANALYTICS_DATA_TTL_DEFAULT 48 // g_viz_constants.AnalyticsTTL

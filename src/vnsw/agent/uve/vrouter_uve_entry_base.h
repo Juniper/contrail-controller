@@ -10,9 +10,6 @@
 #include <set>
 #include <sys/types.h>
 #include <net/ethernet.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh.h>
 #include <vrouter_types.h>
 #include <uve/l4_port_bitmap.h>
 #include <pkt/flow_proto.h>

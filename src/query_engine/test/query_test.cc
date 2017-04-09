@@ -112,8 +112,6 @@ bool CdbIfMock::Db_GetMultiRow(GenDb::ColListVec *col_list,
 #include <boost/assign/list_of.hpp>
 #include "testing/gunit.h"
 #include "base/logging.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 
 using ::testing::Return;
 using ::testing::Field;

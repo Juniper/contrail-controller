@@ -6,8 +6,6 @@
 #define __VIZD_TABLE_DESC_H__
 
 #include <boost/tuple/tuple.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "viz_types.h"
 #include "database/gendb_if.h"
 

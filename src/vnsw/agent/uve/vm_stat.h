@@ -6,9 +6,6 @@
 #define vnsw_agent_vm_stat_h
 
 #include <vector>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/common/vns_types.h>
 #include <virtual_machine_types.h>
 #include <boost/uuid/uuid_io.hpp>

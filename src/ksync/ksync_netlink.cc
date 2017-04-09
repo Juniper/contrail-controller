@@ -18,8 +18,6 @@
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 
 #include "ksync_index.h"

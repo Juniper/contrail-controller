@@ -10,8 +10,6 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
 
 #include "base/connection_info.h"

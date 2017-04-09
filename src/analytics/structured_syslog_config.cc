@@ -6,8 +6,6 @@
 #include <sstream>
 #include <boost/make_shared.hpp>
 #include <boost/regex.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "analytics_types.h"
 #include "structured_syslog_config.h"
 #include "http/client/vncapi.h"

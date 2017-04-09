@@ -6,8 +6,6 @@
 
 #include <string>
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"

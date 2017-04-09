@@ -2,9 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include "ifmap/ifmap_server.h"
 
 #include <boost/asio/io_service.hpp>
@@ -35,7 +32,6 @@
 #include "ifmap/ifmap_uuid_mapper.h"
 #include "schema/vnc_cfg_types.h"
 
-#include "sandesh/sandesh.h"
 #include "control-node/sandesh/control_node_types.h"
 
 using boost::regex;

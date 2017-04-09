@@ -10,9 +10,6 @@
 #include <SimpleAmqpClient/SimpleAmqpClient.h>
 #include "rapidjson/document.h"
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include "base/connection_info.h"
 #include "base/task.h"
 #include "base/string_util.h"

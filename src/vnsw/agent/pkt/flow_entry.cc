@@ -11,8 +11,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/unordered_map.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <net/address_util.h>
 #include <pkt/flow_table.h>

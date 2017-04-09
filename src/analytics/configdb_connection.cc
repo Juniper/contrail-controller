@@ -6,8 +6,6 @@
 #include <sstream>
 #include <boost/foreach.hpp>
 #include <boost/make_shared.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "analytics_types.h"
 #include "configdb_connection.h"
 #include "http/client/vncapi.h"

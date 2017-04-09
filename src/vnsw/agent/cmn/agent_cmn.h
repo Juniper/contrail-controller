@@ -37,8 +37,6 @@
 #include <ifmap/ifmap_agent_parser.h>
 #include <ifmap/ifmap_agent_table.h>
 
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_constants.h>
 

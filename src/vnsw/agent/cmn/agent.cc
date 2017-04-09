@@ -15,8 +15,6 @@
 #include <vnc_cfg_types.h>
 #include <agent_types.h>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <base/sandesh/task_types.h>
 
 #include <init/agent_param.h>

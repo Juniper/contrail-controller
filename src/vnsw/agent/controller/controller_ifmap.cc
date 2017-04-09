@@ -12,8 +12,6 @@
 #include <base/logging.h>
 #include <xmpp/xmpp_channel.h>
 #include <ifmap/ifmap_agent_parser.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_stats.h>

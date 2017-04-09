@@ -9,8 +9,6 @@
 #include <vnc_cfg_types.h>
 #include <base/util.h>
 
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include <oper/agent_profile_types.h>
 
 #include <cmn/agent_cmn.h>

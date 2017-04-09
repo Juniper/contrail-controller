@@ -6,8 +6,6 @@
 #include <base/logging.h>
 #include <base/connection_info.h>
 #include <net/bgp_af.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
 #include "controller/controller_peer.h"

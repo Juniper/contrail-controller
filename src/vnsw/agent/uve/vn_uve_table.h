@@ -9,9 +9,6 @@
 #include <set>
 #include <map>
 #include <vector>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh.h>
 #include <virtual_network_types.h>
 #include <oper/vn.h>
 #include "pkt/flow_proto.h"
