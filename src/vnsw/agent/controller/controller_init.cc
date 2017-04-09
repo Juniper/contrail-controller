@@ -7,8 +7,6 @@
 #include "base/timer.h"
 #include "base/contrail_ports.h"
 #include "base/connection_info.h"
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
 #include "cmn/agent_cmn.h"
 #include "xmpp/xmpp_init.h"

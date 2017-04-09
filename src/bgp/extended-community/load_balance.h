@@ -11,9 +11,6 @@
 #include <endian.h>
 #include <string>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include "base/parse_object.h"
 #include "bgp/bgp_path.h"
 #include "bgp/extended-community/types.h"

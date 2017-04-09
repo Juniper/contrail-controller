@@ -13,8 +13,6 @@
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
 #include <base/queue_task.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
 #include <io/tcp_session.h>

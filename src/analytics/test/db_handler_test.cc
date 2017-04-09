@@ -11,8 +11,6 @@
 
 #include <testing/gunit.h>
 #include <base/logging.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
 #include <sandesh/common/flow_types.h>
 

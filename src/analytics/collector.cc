@@ -17,9 +17,6 @@
 #include <base/connection_info.h>
 #include "io/event_manager.h"
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_ctrl_types.h>
 #include <sandesh/sandesh_uve_types.h>
 #include <sandesh/sandesh_statistics.h>

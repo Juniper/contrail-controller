@@ -5,8 +5,6 @@
 #ifndef __IFMAP_LOG_H__
 #define __IFMAP_LOG_H__
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"

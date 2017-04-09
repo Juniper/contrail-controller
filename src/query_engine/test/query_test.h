@@ -14,8 +14,6 @@
 #include "base/task.h"
 #include "base/parse_object.h"
 #include "io/event_manager.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_session.h"
 #include "query.h"
 #include "database/cassandra/cql/cql_if.h"

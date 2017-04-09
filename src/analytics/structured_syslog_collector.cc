@@ -2,8 +2,6 @@
 // Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 //
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <io/io_types.h>
 
 #include "analytics/collector_uve_types.h"

@@ -22,8 +22,6 @@
 
 #include "base/parse_object.h"
 #include "base/random_generator.h"
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_server.h>
 #include <sandesh/sandesh_session.h>
 
@@ -40,9 +38,6 @@
 #include "io/ssl_session.h"
 #include "base/sandesh/process_info_types.h"
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_ctrl_types.h>
 #include <sandesh/sandesh_uve_types.h>
 #include <sandesh/sandesh_statistics.h>

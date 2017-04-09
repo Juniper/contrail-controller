@@ -37,8 +37,6 @@
 #include <base/util.h>
 #include <base/logging.h>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
 
 #include "generator.h"

@@ -9,8 +9,6 @@
 #include <boost/intrusive_ptr.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
 
 #include <base/logging.h>

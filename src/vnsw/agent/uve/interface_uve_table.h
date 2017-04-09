@@ -11,9 +11,6 @@
 #include <map>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh.h>
 #include <interface_types.h>
 #include <uve/l4_port_bitmap.h>
 #include <oper/vm.h>

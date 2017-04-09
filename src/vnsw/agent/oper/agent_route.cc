@@ -21,8 +21,6 @@
 #include <oper/mpls.h>
 #include <oper/route_common.h>
 #include <oper/multicast.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_constants.h>
 #include <resource_manager/resource_manager.h>
