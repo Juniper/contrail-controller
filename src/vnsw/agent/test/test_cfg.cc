@@ -2,8 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "test_cfg_types.h"
 #include <fstream>
 #include <boost/algorithm/string.hpp>

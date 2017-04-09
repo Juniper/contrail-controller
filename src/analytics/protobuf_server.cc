@@ -13,9 +13,6 @@
 #include <google/protobuf/message.h>
 #include <google/protobuf/dynamic_message.h>
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
-
 #include <base/logging.h>
 #include <io/io_types.h>
 #include <io/udp_server.h>

@@ -5,9 +5,6 @@
 #ifndef vnsw_agent_flow_uve_h
 #define vnsw_agent_flow_uve_h
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh.h>
 #include <virtual_machine_types.h>
 #include <virtual_network_types.h>
 #include <vrouter_types.h>

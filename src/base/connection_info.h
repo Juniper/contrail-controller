@@ -16,8 +16,6 @@
 
 #include <tbb/mutex.h>
 
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include <base/sandesh/process_info_constants.h>
 #include <base/sandesh/process_info_types.h>
 #include <base/sandesh/cpuinfo_constants.h>

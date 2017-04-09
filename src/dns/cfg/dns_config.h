@@ -21,8 +21,6 @@
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_node_proxy.h"
 #include "vnc_cfg_types.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "cmn/dns_types.h"
 

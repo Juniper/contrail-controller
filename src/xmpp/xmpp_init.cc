@@ -8,8 +8,6 @@
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_log.h"
 #include "xmpp/xmpp_server.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/xmpp_trace_sandesh_types.h"
 

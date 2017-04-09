@@ -5,9 +5,6 @@
 #ifndef ctrlplane_misc_utils_h
 #define ctrlplane_misc_utils_h
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh_constants.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>

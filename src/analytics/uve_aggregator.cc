@@ -3,8 +3,6 @@
  */
 
 #include <pugixml/pugixml.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_uve.h>
 #include <librdkafka/rdkafkacpp.h>
 #include "uve_aggregator.h"

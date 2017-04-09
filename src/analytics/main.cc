@@ -19,8 +19,6 @@
 #include "base/connection_info.h"
 #include "base/misc_utils.h"
 #include "io/event_manager.h"
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include "gendb_if.h"

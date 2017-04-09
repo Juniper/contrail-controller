@@ -17,8 +17,6 @@
 #include "base/logging.h"
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "pkt/pkt_types.h"
 #include "pkt/pkt_init.h"
