@@ -81,22 +81,6 @@ class TestNetworkDM(TestCommonDM):
 
         self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id)
 
-        #set fwd mode l2 and check lo0 ip alloc, should not be allocated
-        vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_forwarding_mode('l2')
-        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
-        self._vnc_lib.virtual_network_update(vn1_obj)
-
-        self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id, True)
-
-        #set fwd mode l2_l3 and check lo0 ip alloc
-        vn1_obj_properties = VirtualNetworkType()
-        vn1_obj_properties.set_forwarding_mode('l2_l3')
-        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
-        self._vnc_lib.virtual_network_update(vn1_obj)
-
-        self.check_interface_ip_config('lo0', vrf_name_l3, '11.1.1.8/32', 'v4', vn1_obj.virtual_network_network_id, True)
-
         #detach vn from PR and check
         pr.del_virtual_network(vn1_obj)
         self._vnc_lib.physical_router_update(pr)
