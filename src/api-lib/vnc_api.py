@@ -1423,7 +1423,7 @@ class VncApi(object):
 
     # associate a tag to an object
     def set_tag(self, obj, tag_name):
-        (tag_type, tag_value) = tag_name.split("-", 1)
+        (tag_type, tag_value) = tag_name.split("=", 1)
         if tag_name[0:7] == 'global:':
             tag_type = tag_type[7:]
         url = self._action_uri['set-tag-%s' % tag_type.lower()]

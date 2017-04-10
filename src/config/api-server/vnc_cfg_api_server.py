@@ -3399,15 +3399,15 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(
                 404, 'Object Not Found: ' + id)
 
-        (tag_type, tag_value) = tag_name.split("-", 1)
+        (tag_type, tag_value) = tag_name.split("=", 1)
 
         # unless global, inherit project id from caller
         if tag_type[0:7] == 'global:':
             tag_type = tag_type[7:]
-            tag_fq_name = [tag_type + "-" + tag_value]
+            tag_fq_name = [tag_type + "=" + tag_value]
         else:
             tag_fq_name = self._db_conn.uuid_to_fq_name(id)
-            tag_fq_name[-1] = tag_type + "-" + tag_value
+            tag_fq_name[-1] = tag_type + "=" + tag_value
 
         # address-group object can only be associated with label
         if obj_type == 'address_group' and tag_type != 'label':
@@ -3436,7 +3436,7 @@ class VncApiServer(object):
                 return {}
             # allow single instance of a type
             ref_tag_name = ref['to'][-1]
-            ref_tag_type, ref_tag_value = ref_tag_name.split("-", 1)
+            ref_tag_type, ref_tag_value = ref_tag_name.split("=", 1)
             if ref_tag_type == tag_type:
                 obj_dict['tag_refs'].remove(ref)
                 break
