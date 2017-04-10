@@ -1137,6 +1137,38 @@ class BridgeDomainServer(Resource, BridgeDomain):
     # end pre_dbe_create
 # end class BridgeDomainServer
 
+class TagServer(Resource, Tag):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+
+        tag_type = obj_dict.get('tag_type')
+        tag_value = obj_dict.get('tag_value')
+
+        if tag_type is None or tag_value is None:
+            msg = "Tag must be created with type and value"
+            return (False, (400, msg))
+
+        if obj_dict.get('tag_id'):
+            msg = "Tag id is not setable"
+            return (False, (400, msg))
+
+        return True, ""
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, read_result = cls.dbe_read(db_conn, 'tag', id)
+        if not ok:
+            return ok, read_result
+
+        if obj_dict.get('tag_type') or obj_dict.get('tag_value'):
+            msg = "Tag type or id cannot be updated"
+            return (False, (400, msg))
+
+        return True, ""
+# end class TagServer
+
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
