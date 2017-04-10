@@ -1244,8 +1244,27 @@ class FirewallRuleServer(Resource, FirewallRule):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
 
-        ep1 = obj_dict['endpoint_1']
-        ep2 = obj_dict['endpoint_2']
+        # create protcol id
+        if 'service' in obj_dict and 'protocol' in obj_dict['service']:
+            protocol = obj_dict['service']['protocol']
+            if protocol not in cfgm_common.proto_dict:
+                return (False, (400, 'Rule with invalid protocol : %s' % protocol))
+            obj_dict['service']['protocol_id'] = cfgm_common.proto_dict[protocol]
+
+        # compile match-tags
+        obj_dict['match_tag_types'] = {'tag_type': []}
+        if 'match_tags' in obj_dict and 'tag_list' in obj_dict['match_tags']:
+            for tag_type in obj_dict['match_tags']['tag_list']:
+                tag_type = tag_type.lower()
+                if tag_type not in cfgm_common.tag_dict:
+                    return (False, (400, 'match-tags with invalid type : %s' % tag_type))
+                tag_type_val = cfgm_common.tag_dict[tag_type];
+                obj_dict['match_tag_types']['tag_type'].append(tag_type_val)
+
+        ep1 = obj_dict.get('endpoint_1')
+        ep2 = obj_dict.get('endpoint_2')
+        if ep1 is None and ep2 is None:
+            return True, ""
 
         if cls._check_endpoint(ep1, db_conn) or cls._check_endpoint(ep2, db_conn):
             msg = "Invalid endpoint specification"
@@ -1253,10 +1272,15 @@ class FirewallRuleServer(Resource, FirewallRule):
 
         # create tag references for endpoint tag expressions
         obj_dict['tag_refs'] = []
-        ep1['tag_ids'] = []
-        ep2['tag_ids'] = []
-        tag_set = set([tag_name for tag_name in ep1['tags']+ep2['tags']])
-        for tag_name in tag_set:
+        ep_tags = []
+        if ep1:
+            ep1['tag_ids'] = []
+            ep_tags.extend([('endpoint1', tag) for tag in ep1.get('tags', [])])
+        if ep2:
+            ep2['tag_ids'] = []
+            ep_tags.extend([('endpoint2', tag) for tag in ep2.get('tags', [])])
+        tag_set = set(ep_tags)
+        for (endpoint, tag_name) in tag_set:
             # unless global, inherit project id from caller
             (tag_type, tag_value) = tag_name.split("-", 1)
             if tag_type[0:7] == 'global:':
@@ -1278,17 +1302,17 @@ class FirewallRuleServer(Resource, FirewallRule):
                 'uuid': tag_uuid
             }
             obj_dict['tag_refs'].append(ref)
-            if tag_name in ep1['tags']:
+            if endpoint == "endpoint1":
                 ep1['tag_ids'].append(tag_dict['tag_id'])
-            if tag_name in ep2['tags']:
+            if endpoint == "endpoint2":
                 ep2['tag_ids'].append(tag_dict['tag_id'])
 
         # create tag references for address group
         obj_dict['address_group_refs'] = []
         ag_set = set()
-        if ep1['address_group']:
+        if ep1 and ep1.get('address_group'):
             ag_set.add(('endpoint1', ep1['address_group']))
-        if ep2['address_group']:
+        if ep2 and ep2.get('address_group'):
             ag_set.add(('endpoint2', ep2['address_group']))
         for ep_name, ref_fq_name_str in ag_set:
             try:
@@ -1303,29 +1327,19 @@ class FirewallRuleServer(Resource, FirewallRule):
             }
             obj_dict['address_group_refs'].append(ref)
 
-        # create protcol id
-        if 'service' in obj_dict:
-            protocol = obj_dict['service']['protocol']
-            if protocol not in cfgm_common.proto_dict:
-                return (False, (400, 'Rule with invalid protocol : %s' % protocol))
-            obj_dict['service']['protocol_id'] = cfgm_common.proto_dict[protocol]
-
-        # compile match-tags
-        obj_dict['match_tag_types'] = {'tag_type': []}
-        if 'match_tags' in obj_dict and 'tag_list' in obj_dict['match_tags']:
-            for tag_type in obj_dict['match_tags']['tag_list']:
-                tag_type = tag_type.lower()
-                if tag_type not in cfgm_common.tag_dict:
-                    return (False, (400, 'match-tags with invalid type : %s' % tag_type))
-                tag_type_val = cfgm_common.tag_dict[tag_type];
-                obj_dict['match_tag_types']['tag_type'].append(tag_type_val)
-
         return True, ""
     # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return True, ""
+        ok, result = cls.dbe_read(db_conn, 'firewall_rule', id)
+        if not ok:
+            return ok, result
+
+        for key in result.keys():
+            if key not in obj_dict:
+                obj_dict[key] = result[key]
+        return cls.pre_dbe_create(None, obj_dict, db_conn)
 # end class FirewallRuleServer
 
 class VirtualNetworkServer(Resource, VirtualNetwork):

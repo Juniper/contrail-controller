@@ -349,6 +349,140 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(expected_set, received_set)
     # end test_firewall_rule_match_tags
 
+    def test_firewall_rule_update(self):
+        pobj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(pobj)
+
+        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj)
+        self._vnc_lib.firewall_rule_create(rule_obj)
+        rule_obj = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+
+        # update action_list
+        rule_obj.set_action_list(ActionListType(simple_action='pass'))
+        self._vnc_lib.firewall_rule_update(rule_obj)
+        rule_obj = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+        self.assertEqual(rule_obj.action_list.simple_action, 'pass')
+
+        # update match_tags
+        match_tags = ['application', 'tier', 'deployment', 'site']
+        rule_obj.set_action_list(ActionListType(simple_action='deny'))
+        rule_obj.set_match_tags(FirewallTagListType(tag_list=match_tags))
+        self._vnc_lib.firewall_rule_update(rule_obj)
+        rule_obj = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+        self.assertEqual(rule_obj.action_list.simple_action, 'deny')
+        self.assertEqual(set(rule_obj.match_tags.tag_list), set(match_tags))
+
+        # create tags and a label
+        tag1_obj = Tag(tag_type='application', tag_value='App1', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag1_obj)
+        tag1 = self._vnc_lib.tag_read(id=tag1_obj.uuid)
+        time.sleep(5)
+        tag2_obj = Tag(tag_type='tier', tag_value='Web', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag2_obj)
+        tag2 = self._vnc_lib.tag_read(id=tag2_obj.uuid)
+        time.sleep(5)
+        tag3_obj = Tag(tag_type='application', tag_value='App2', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag3_obj)
+        tag3 = self._vnc_lib.tag_read(id=tag3_obj.uuid)
+        time.sleep(5)
+        tag4_obj = Tag(tag_type='tier', tag_value='Db', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag4_obj)
+        tag4 = self._vnc_lib.tag_read(id=tag4_obj.uuid)
+        time.sleep(5)
+        tag_obj = Tag(tag_type='label', tag_value='RedVlan', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag_obj)
+        tag_obj = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        time.sleep(5)
+
+        # update endpoint1-tags
+        rule_obj.set_endpoint_1(FirewallRuleEndpointType(tags=['application-App1', 'tier-Web']))
+        self._vnc_lib.firewall_rule_update(rule_obj)
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+        self.assertEqual(rule.action_list.simple_action, 'deny')
+        self.assertEqual(set(rule.match_tags.tag_list), set(match_tags))
+
+        # validate rule->tag refs exists after update
+        tag_refs = rule.get_tag_refs()
+        self.assertEqual(len(tag_refs), 2)
+        expected_set = set([obj.get_uuid() for obj in [tag1_obj, tag2_obj]])
+        received_set = set([ref['uuid'] for ref in tag_refs])
+        self.assertEqual(received_set, expected_set)
+
+        # validate tag_ids get populated
+        expected_set = set([obj.get_tag_id() for obj in [tag1, tag2]])
+        received_set = set(rule.get_endpoint_1().get_tag_ids())
+        self.assertEqual(received_set, expected_set)
+
+        # update endpoint2-tags
+        rule_obj = rule
+        rule_obj.set_endpoint_2(FirewallRuleEndpointType(tags=['application-App2', 'tier-Db']))
+        self._vnc_lib.firewall_rule_update(rule_obj)
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+
+        # validate rule->tag refs exists after update
+        tag_refs = rule.get_tag_refs()
+        self.assertEqual(len(tag_refs), 4)
+        expected_set = set([obj.get_uuid() for obj in [tag1_obj, tag2_obj, tag3_obj, tag4_obj]])
+        received_set = set([ref['uuid'] for ref in tag_refs])
+        self.assertEqual(received_set, expected_set)
+
+        # validate tag_ids get populated
+        expected_set = set([obj.get_tag_id() for obj in [tag1, tag2]])
+        received_set = set(rule.get_endpoint_1().get_tag_ids())
+        self.assertEqual(received_set, expected_set)
+        expected_set = set([obj.get_tag_id() for obj in [tag3, tag4]])
+        received_set = set(rule.get_endpoint_2().get_tag_ids())
+        self.assertEqual(received_set, expected_set)
+
+        # validate rule->address-group refs exist
+        ag_prefix = SubnetListType(subnet=[SubnetType('1.1.1.0', 24), SubnetType('2.2.2.0', 24)])
+        ag_obj = AddressGroup(address_group_prefix=ag_prefix, parent_obj=pobj)
+        self._vnc_lib.address_group_create(ag_obj)
+        self._vnc_lib.set_tag(ag_obj, 'label-RedVlan')
+        rule.set_endpoint_2(FirewallRuleEndpointType(address_group=":".join(ag_obj.get_fq_name())))
+        self._vnc_lib.firewall_rule_update(rule)
+        rule = self._vnc_lib.firewall_rule_read(id=rule.uuid)
+        ag_refs = rule.get_address_group_refs()
+        self.assertEqual(len(ag_refs), 1)
+        self.assertEqual(ag_refs[0]['uuid'], ag_obj.uuid)
+
+        # update rule with service - validate protocol_id in service get populated
+        rule.set_service(FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)))
+        self._vnc_lib.firewall_rule_update(rule)
+        rule = self._vnc_lib.firewall_rule_read(id=rule.uuid)
+        self.assertEqual(rule.get_service().get_protocol_id(), 6)
+
+        # update SG and VN in endpoint
+        fst = FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082))
+        fsgt = FirewallServiceGroupType(firewall_service=[fst])
+        sg_obj = ServiceGroup(service_group_firewall_service_list=fsgt, parent_obj=pobj)
+        self._vnc_lib.service_group_create(sg_obj)
+
+        vn1_obj = VirtualNetwork('vn-%s-fe' %(self.id()), parent_obj=pobj)
+        self._vnc_lib.virtual_network_create(vn1_obj)
+        vn2_obj = VirtualNetwork('vn-%s-be' %(self.id()), parent_obj=pobj)
+        self._vnc_lib.virtual_network_create(vn2_obj)
+
+        rule.set_service_group(sg_obj)
+        rule.set_endpoint_2(FirewallRuleEndpointType(virtual_network=":".join(vn1_obj.get_fq_name())))
+        self._vnc_lib.firewall_rule_update(rule)
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+
+        # validate rule->tag refs exists after update
+        tag_refs = rule.get_tag_refs()
+        self.assertEqual(len(tag_refs), 2)
+        expected_set = set([obj.get_uuid() for obj in [tag1_obj, tag2_obj]])
+        received_set = set([ref['uuid'] for ref in tag_refs])
+        self.assertEqual(received_set, expected_set)
+        self.assertEqual(rule.endpoint_2.virtual_network, ":".join(vn1_obj.get_fq_name()))
+
+        # validate protocol_id in service get populated
+        sg = self._vnc_lib.service_group_read(fq_name=sg_obj.get_fq_name())
+        sg_fsl = sg.get_service_group_firewall_service_list()
+        sg_firewall_service = sg_fsl.get_firewall_service()
+        self.assertEqual(sg_firewall_service[0].protocol_id, 6)
+    # end test_firewall_rule_update
+
 # end class TestFw
 
 if __name__ == '__main__':
