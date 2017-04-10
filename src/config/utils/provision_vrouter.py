@@ -166,7 +166,10 @@ class VrouterProvisioner(object):
         if vrouter_exists:
             self._vnc_lib.virtual_router_update(vrouter_obj)
         else:
-            self._vnc_lib.virtual_router_create(vrouter_obj)
+            try:
+                self._vnc_lib.virtual_router_create(vrouter_obj)
+            except RefsExistError:
+                print "Already created!"
 
     # end add_vrouter
 

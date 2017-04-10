@@ -143,7 +143,10 @@ class DatabaseNodeProvisioner(object):
         if database_node_exists:
             self._vnc_lib.database_node_update(database_node_obj)
         else:
-            self._vnc_lib.database_node_create(database_node_obj)
+            try:
+                self._vnc_lib.database_node_create(database_node_obj)
+            except RefsExistError:
+                print "Already created!"
 
     # end add_database_node
 

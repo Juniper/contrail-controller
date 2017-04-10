@@ -7,6 +7,7 @@ import sys
 import argparse
 import ConfigParser
 
+from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import *
 
 class EncapsulationProvision(object):
@@ -29,11 +30,14 @@ class EncapsulationProvision(object):
                                 fq_name=['default-global-system-config',
                                          'default-global-vrouter-config'])
         except Exception as e:
-            if self._args.oper == "add":
-                conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj,vxlan_network_identifier_mode=self._args.vxlan_vn_id_mode)
-                result=self._vnc_lib.global_vrouter_config_create(conf_obj)
-                print 'Created.UUID is %s'%(result)
-            return
+            try:
+                if self._args.oper == "add":
+                    conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj,vxlan_network_identifier_mode=self._args.vxlan_vn_id_mode)
+                    result=self._vnc_lib.global_vrouter_config_create(conf_obj)
+                    print 'Created.UUID is %s'%(result)
+                return
+            except RefsExistError:
+                print "Already created!"
 
         current_linklocal=current_config.get_linklocal_services()
         encapsulation_priorities=encap_obj
