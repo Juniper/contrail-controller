@@ -758,8 +758,22 @@ class TestFw(test_case.ApiServerTestCase):
         tag_obj = self._vnc_lib.tag_read(id=tag_obj.uuid)
         time.sleep(5)
 
+        # tag type, value or id can't be updated
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        tag_obj.set_tag_value('MyTestApp')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_update(tag_obj)
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        tag_obj.set_tag_type('application')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_update(tag_obj)
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        tag_obj.set_tag_id(1<<27 | 1)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_update(tag_obj)
+
         # create a valid global tag
-        gtag_obj = Tag(tag_type='application', tag_value='MyTestApp')
+        gtag_obj = Tag(tag_type='deployment', tag_value='Production')
         self._vnc_lib.tag_create(gtag_obj)
         gtag_obj = self._vnc_lib.tag_read(id=gtag_obj.uuid)
         time.sleep(5)
@@ -768,7 +782,7 @@ class TestFw(test_case.ApiServerTestCase):
         vn_obj = VirtualNetwork('vn-%s' %(self.id()), parent_obj=pobj)
         self._vnc_lib.virtual_network_create(vn_obj)
         self._vnc_lib.set_tag(vn_obj, 'application', 'MyTestApp')
-        self._vnc_lib.set_tag(vn_obj, 'application', 'global:MyTestApp')
+        self._vnc_lib.set_tag(vn_obj, 'deployment', 'global:Production')
 
         # validate vn->tag ref exists
         vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
@@ -788,26 +802,17 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(len(vn_refs), 1)
         self.assertEqual(vn_refs[0]['uuid'], vn_obj.uuid)
 
-        # tag type or value can't be updated
-        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
-        tag_obj.set_tag_value('MyTestApp')
-        with ExpectedException(BadRequest) as e:
-            self._vnc_lib.tag_update(tag_obj)
-
-        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
-        tag_obj.set_tag_type('application')
-        with ExpectedException(BadRequest) as e:
-            self._vnc_lib.tag_update(tag_obj)
-
         # only one tag of type (latest) can be associated
         tag2_obj = Tag(tag_type='application', tag_value='MyTestApp2', parent_obj=pobj)
         self._vnc_lib.tag_create(tag2_obj)
-        tag2_obj = self._vnc_lib.tag_read(id=tag_obj.uuid)
-        #self._vnc_lib.set_tag(vn_obj, tag2_obj)
-        #vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
-        #tag_refs = vn.get_tag_refs()
-        #self.assertEqual(len(tag_refs), 1)
-        #self.assertEqual(tag_refs[0]['uuid'], tag2_obj.uuid)
+        tag2_obj = self._vnc_lib.tag_read(id=tag2_obj.uuid)
+        self._vnc_lib.set_tag(vn_obj, 'application', 'MyTestApp2')
+        vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        tag_refs = vn.get_tag_refs()
+        self.assertEqual(len(tag_refs), 2)
+        received_set = set([ref['uuid'] for ref in tag_refs])
+        expected_set = set([tag2_obj.uuid, gtag_obj.uuid])
+        self.assertEqual(received_set, expected_set)
 
     # end test_basic_sanity
 
@@ -879,6 +884,16 @@ class TestFw(test_case.ApiServerTestCase):
         received_set = set([ref['uuid'] for ref in tag_refs])
         self.assertEqual(received_set, expected_set)
 
+        # validate tag_ids get populated
+        expected_set = set([obj.get_tag_id() for obj in [tag1, tag2]])
+        received_set = set(rule.get_endpoint_1().get_tag_ids())
+        self.assertEqual(received_set, expected_set)
+        expected_set = set([obj.get_tag_id() for obj in [tag3, tag4]])
+        received_set = set(rule.get_endpoint_2().get_tag_ids())
+        self.assertEqual(received_set, expected_set)
+
+        # validate protocol_id in service get populated
+        self.assertEqual(rule.get_service().get_protocol_id(), 6)
     # end test_firewall_rule_using_ep_tag
 
     def test_firewall_rule_using_ep_ag_tag(self):
@@ -890,16 +905,6 @@ class TestFw(test_case.ApiServerTestCase):
         ag_prefix = SubnetListType(subnet=[SubnetType('1.1.1.0', 24), SubnetType('2.2.2.0', 24)])
         ag_obj = AddressGroup(address_group_prefix=ag_prefix, parent_obj=pobj)
         self._vnc_lib.address_group_create(ag_obj)
-
-        tag1_obj = Tag(tag_type='application', tag_value='App1', parent_obj=pobj)
-        self._vnc_lib.tag_create(tag1_obj)
-        tag1 = self._vnc_lib.tag_read(id=tag1_obj.uuid)
-        time.sleep(5)
-
-        tag2_obj = Tag(tag_type='tier', tag_value='Web', parent_obj=pobj)
-        self._vnc_lib.tag_create(tag2_obj)
-        tag2 = self._vnc_lib.tag_read(id=tag2_obj.uuid)
-        time.sleep(5)
 
         tag3_obj = Tag(tag_type='application', tag_value='App2', parent_obj=pobj)
         self._vnc_lib.tag_create(tag3_obj)
@@ -914,7 +919,7 @@ class TestFw(test_case.ApiServerTestCase):
         rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
                      action_list=ActionListType(simple_action='pass'),
                      service=FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)),
-                     endpoint_1=FirewallRuleEndpointType(address_group=ag_obj.uuid),
+                     endpoint_1=FirewallRuleEndpointType(address_group=":".join(ag_obj.get_fq_name())),
                      endpoint_2=FirewallRuleEndpointType(tags=['application-App2', 'tier-Db']),
                      direction='<>')
         self._vnc_lib.firewall_rule_create(rule_obj)
@@ -931,8 +936,37 @@ class TestFw(test_case.ApiServerTestCase):
         ag_refs = rule.get_address_group_refs()
         self.assertEqual(len(ag_refs), 1)
         self.assertEqual(ag_refs[0]['uuid'], ag_obj.uuid)
+    # end test_firewall_rule_using_ep_ap_tag
 
-    # end test_firewall_rule_using_ep_tag
+    def test_firewall_rule_using_sg_vn(self):
+        pobj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(pobj)
+
+        fst = FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082))
+        fsgt = FirewallServiceGroupType(firewall_service=[fst])
+        sg_obj = ServiceGroup(service_group_firewall_service_list=fsgt, parent_obj=pobj)
+        self._vnc_lib.service_group_create(sg_obj)
+
+        vn1_obj = VirtualNetwork('vn-%s-fe' %(self.id()), parent_obj=pobj)
+        self._vnc_lib.virtual_network_create(vn1_obj)
+        vn2_obj = VirtualNetwork('vn-%s-be' %(self.id()), parent_obj=pobj)
+        self._vnc_lib.virtual_network_create(vn2_obj)
+
+        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
+                     action_list=ActionListType(simple_action='pass'),
+                     endpoint_1=FirewallRuleEndpointType(virtual_network=":".join(vn1_obj.get_fq_name())),
+                     endpoint_2=FirewallRuleEndpointType(virtual_network=":".join(vn2_obj.get_fq_name())),
+                     direction='<>')
+        rule_obj.set_service_group(sg_obj)
+        self._vnc_lib.firewall_rule_create(rule_obj)
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+
+        # validate protocol_id in service get populated
+        sg = self._vnc_lib.service_group_read(fq_name=sg_obj.get_fq_name())
+        sg_fsl = sg.get_service_group_firewall_service_list()
+        sg_firewall_service = sg_fsl.get_firewall_service()
+        self.assertEqual(sg_firewall_service[0].protocol_id, 6)
+    # end test_firewall_rule_using_sg_vn
 
 # end class TestFw
 
