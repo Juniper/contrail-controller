@@ -39,6 +39,13 @@ tag_dict = {
     'site'       :4,
 }
 
+proto_dict = {
+    'any'    : 0,
+    'icmp'   : 1,
+    'tcp'    : 6,
+    'udp'    : 17,
+}
+
 def obj_to_json(obj):
     return dict((k, v) for k, v in obj.__dict__.iteritems())
 #end obj_to_json

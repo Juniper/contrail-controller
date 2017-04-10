@@ -146,6 +146,8 @@ _ACTION_RESOURCES = [
      'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
     {'uri': '/set-tag-application', 'link_name': 'set-tag-application',
      'method': 'POST', 'method_name': 'set_tag_application'},
+    {'uri': '/set-tag-deployment', 'link_name': 'set-tag-deployment',
+     'method': 'POST', 'method_name': 'set_tag_deployment'},
 ]
 
 
@@ -1337,6 +1339,8 @@ class VncApiServer(object):
         # APIs to set tags to an object
         self.route('/set-tag-application/<id>',
             'POST', self.set_tag_application)
+        self.route('/set-tag-deployment/<id>',
+            'POST', self.set_tag_deployment)
 
         # randomize the collector list
         self._random_collectors = self._args.collectors
@@ -3381,10 +3385,8 @@ class VncApiServer(object):
     def global_read_only_role(self):
         return self._args.global_read_only_role
 
-    # set application tag to caller
-    def set_tag_application(self, id):
+    def set_tag_type(self, id, tag_type):
         tag_value = get_request().json['tag_value']
-        tag_type = 'application'
 
         try:
             obj_type = self._db_conn.uuid_to_obj_type(id)
@@ -3416,17 +3418,34 @@ class VncApiServer(object):
             obj_dict['tag_refs'] = []
 
         # check if ref already exists
-        for ref in obj_dict['tag_refs']:
+        for ref in list(obj_dict['tag_refs']):
             if ref['uuid'] == tag_uuid:
                 return {}
+            # allow single instance of a type
+            ref_tag_name = ref['to'][-1]
+            ref_tag_type, ref_tag_value = ref_tag_name.split("-", 1)
+            if ref_tag_type == tag_type:
+                obj_dict['tag_refs'].remove(ref)
+                break
 
         ref = {
+            'to': tag_fq_name,
             'attr': None,
             'uuid': tag_uuid
         }
         obj_dict['tag_refs'].append(ref)
         self._db_conn.dbe_update(obj_type, id, obj_dict)
         return {}
+    # end
+
+    # set application tag to caller
+    def set_tag_application(self, id):
+        return self.set_tag_type(id, 'application')
+    # end
+
+    # set application tag to caller
+    def set_tag_deployment(self, id):
+        return self.set_tag_type(id, 'deployment')
     # end
 
     def keystone_version(self):
