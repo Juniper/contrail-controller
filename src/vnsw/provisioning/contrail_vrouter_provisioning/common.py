@@ -21,7 +21,7 @@ log = logging.getLogger('contrail_vrouter_provisioning.common')
 def insert_line_to_file(line, file_name, pattern=None):
     if pattern:
         local('sed -i \'/%s/d\' %s' % (pattern, file_name), warn_only=True)
-    local('printf "%s\n" >> %s' %(line, file_name))
+    local('printf "%s\n" >> %s' % (line, file_name))
 
 
 class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
@@ -53,8 +53,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
 
     def enable_kernel_core(self):
         self.enable_kernel_core()
-        for svc in ['abrt-vmcore', 'abrtd', 'kdump']:
-            local('sudo chkconfig %s on' % svc)
+        if self.pdist not in ['Ubuntu']:
+            for svc in ['abrt-vmcore', 'abrtd', 'kdump']:
+                local('sudo chkconfig %s on' % svc)
 
     def fixup_config_files(self):
         self.add_dev_tun_in_cgroup_device_acl()
@@ -101,10 +102,13 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                   warn_only=True)
 
     def fixup_contrail_vrouter_nodemgr(self):
+        # Workaround https://bugs.launchpad.net/juniperopenstack/+bug/1681172
+        cfgfile = '/etc/contrail/contrail-vrouter-nodemgr.conf'
+        if not os.path.isfile(cfgfile):
+            local('sudo touch %s' % cfgfile)
         collector_list = ' '.join('%s:%s' % (server, '8086')
                                   for server in self._args.collectors)
-        self.set_config('/etc/contrail/contrail-vrouter-nodemgr.conf',
-                        'COLLECTOR', 'server_list', collector_list)
+        self.set_config(cfgfile, 'COLLECTOR', 'server_list', collector_list)
 
     def setup_hugepages_node(self, dpdk_args):
         """Setup hugepages on one or list of nodes
@@ -485,6 +489,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                     'NETWORKS': {
                         'control_network_ip': compute_ip},
                     'VIRTUAL-HOST-INTERFACE': {
+                        'name': 'vhost0',
                         'ip': cidr,
                         'gateway': self.gateway,
                         'physical_interface': self.dev},
@@ -582,11 +587,13 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                     'auth_url': auth_url,
                     'region': 'RegionOne'}
                   }
+        # Workaround https://bugs.launchpad.net/juniperopenstack/+bug/1681172
+        cfgfile = '/etc/contrail/contrail-lbaas-auth.conf'
+        if not os.path.isfile(cfgfile):
+            local('sudo touch %s' % cfgfile)
         for section, key_vals in configs.items():
             for key, val in key_vals.items():
-                self.set_config(
-                        '/etc/contrail/contrail-lbaas-auth.conf',
-                        section, key, val)
+                self.set_config(cfgfile, section, key, val)
 
     def fixup_vhost0_interface_configs(self):
         if self.pdist in ['centos', 'fedora', 'redhat']:
@@ -641,8 +648,10 @@ SUBCHANNELS=1,2,3
 
                 local("sudo mv %s /etc/contrail/" % ifcfg_tmp, warn_only=True)
 
-                local("sudo chkconfig network on", warn_only=True)
-                local("sudo chkconfig supervisor-vrouter on", warn_only=True)
+                if self.pdist not in ['Ubuntu']:
+                    local("sudo chkconfig network on", warn_only=True)
+                    local("sudo chkconfig supervisor-vrouter on",
+                          warn_only=True)
         # end self.pdist == centos | fedora | redhat
         # setup lbaas prereqs
         self.setup_lbaas_prereq()
@@ -656,8 +665,9 @@ SUBCHANNELS=1,2,3
         # end self.pdist == ubuntu
 
     def run_services(self):
-        for svc in ['supervisor-vrouter']:
-            local('sudo chkconfig %s on' % svc)
+        if self.pdist not in ['Ubuntu']:
+            for svc in ['supervisor-vrouter']:
+                local('sudo chkconfig %s on' % svc)
 
     def add_vnc_config(self):
         compute_ip = self._args.self_ip
