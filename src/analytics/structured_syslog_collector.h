@@ -15,6 +15,9 @@ class StructuredSyslogCollector {
  public:
     StructuredSyslogCollector(EventManager *evm, uint16_t port,
         const vector<string> &structured_syslog_tcp_forward_dst,
+        const std::string &structured_syslog_kafka_broker,
+        const std::string &structured_syslog_kafka_topic,
+        uint16_t structured_syslog_kafka_partitions,
         DbHandlerPtr db_handler);
     virtual ~StructuredSyslogCollector();
     bool Initialize();
