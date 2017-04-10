@@ -690,6 +690,116 @@ class TestCrud(test_case.ApiServerTestCase):
     # end test_port_security_and_allowed_address_pairs
 # end class TestCrud
 
+class TestFw(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestFw, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestFw, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
+    def test_tag_basic_sanity(self):
+        tag_obj = Tag('tag-%s' %(self.id()))
+
+        # tag type must be valid
+        tag_obj.set_tag_type('Foobar')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_create(tag_obj)
+
+        # tag type and value both are required
+        tag_obj.set_tag_type('Application')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_create(tag_obj)
+
+        # tag type and value both are required
+        tag_obj.set_tag_id('0x12345678')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_create(tag_obj)
+
+        # create a valid tag
+        tag_obj.set_tag_type('Application')
+        tag_obj.set_tag_value('MyTestApp')
+        self._vnc_lib.tag_create(tag_obj)
+        self.assert_vnc_db_has_ident(tag_obj)
+
+        # create a VN and attach tag
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        self._vnc_lib.set_tag(vn_obj, tag_obj)
+
+        # duplicate
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.set_tag(vn_obj, tag_obj)
+
+        # validate vn->tag ref exists
+        vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        tag_refs = vn.get_tag_refs()
+        self.assertEqual(len(tag_refs), 1)
+        self.assertEqual(tag_refs[0]['uuid'], tag_obj.uuid)
+
+        # validate tag->vn back ref exists
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        vn_refs = tag.get_virtual_network_back_refs()
+        self.assertEqual(len(vn_refs), 1)
+        self.assertEqual(vn_refs[0]['uuid'], vn_obj.uuid)
+
+        # tag type or value can't be updated
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        tag_obj.set_tag_value('MyTestApp')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_update(tag_obj)
+
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        tag_obj.set_tag_type('Application')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_update(tag_obj)
+
+    # end test_create_tag_using_lib_api
+
+    # verify unique id are allocated for global and per-project tags
+    def test_tag_id(self):
+        # create valid tags
+        app_type = cfgm_common.tag_dict['application']
+
+        tag1_obj = Tag('tag1-%s' %(self.id()))
+        tag1_obj.set_tag_type('Application')
+        tag1_obj.set_tag_value('MyTestApp-1')
+        self._vnc_lib.tag_create(tag1_obj)
+        tag1 = self._vnc_lib.tag_read(id=tag1_obj.uuid)
+        tag1_id = tag1.get_tag_id()
+
+        tag2_obj = Tag('tag2-%s' %(self.id()))
+        tag2_obj.set_tag_type('Application')
+        tag2_obj.set_tag_value('MyTestApp-2')
+        self._vnc_lib.tag_create(tag2_obj)
+        tag2 = self._vnc_lib.tag_read(id=tag2_obj.uuid)
+        tag2_id = tag2.get_tag_id()
+
+        proj_obj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+        tag3_obj = Tag('tag2-%s' %(self.id()), parent_obj = proj_obj)
+        tag3_obj.set_tag_type('Application')
+        tag3_obj.set_tag_value('MyTestApp-1')
+        self._vnc_lib.tag_create(tag3_obj)
+        tag3 = self._vnc_lib.tag_read(id=tag3_obj.uuid)
+        tag3_id = tag3.get_tag_id()
+
+        self.assertNotEqual(tag1_id, tag2_id)
+        self.assertNotEqual(tag1_id, tag3_id)
+        self.assertEqual(tag1_id, (app_type<<27 | 0))
+        self.assertEqual(tag2_id, (app_type<<27 | 1))
+        self.assertEqual(tag3_id, (app_type<<27 | 2))
+    # end test_tag_id
+
+# end class TestFw
+
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
