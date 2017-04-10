@@ -479,6 +479,121 @@ TEST_F(FlowMgmtRouteTest, FlowEntry_dbstate_1) {
     client->WaitForIdle();
 }
 
+// Unkown unicast enabled on VN
+// Packet with unknown destination is set as forward
+// Add l2 route for destination. Flow must be updated to forward packets
+TEST_F(FlowMgmtRouteTest, UnknownUnicast_L2Route_Add_1) {
+    EnableUnknownBroadcast("vn1", 1);
+    client->WaitForIdle();
+
+    char router_id[80];
+    strcpy(router_id, agent_->router_id().to_string().c_str());
+    Ip4Address remote_server = Ip4Address::from_string("100.100.100.100");
+
+    const char *remote_vm_ip = "1.1.1.100";
+    const char *remote_mac = "00:00:01:01:01:01";
+
+    char vif0_ip[80];
+    strcpy(vif0_ip, vif0->primary_ip_addr().to_string().c_str());
+    char vif0_mac[80];
+    strcpy(vif0_mac, vif0->vm_mac().ToString().c_str());
+
+    TxL2Packet(vif0->id(), vif0_mac, remote_mac, vif0_ip, remote_vm_ip, 1);
+    client->WaitForIdle();
+
+    // Validate that flow is created with action forward
+    FlowEntry *flow = FlowGet(vif0->vrf_id(), vif0_ip, remote_vm_ip, 1, 0, 0,
+                              vif0->flow_key_nh()->id());
+    EXPECT_TRUE(flow != NULL);
+    FlowEntry *rflow = flow->reverse_flow_entry();
+
+    EXPECT_FALSE(flow->IsShortFlow());
+    EXPECT_TRUE(flow->src_ip_nh() != NULL);
+    EXPECT_TRUE(flow->rpf_nh() != NULL);
+
+    EXPECT_FALSE(rflow->IsShortFlow());
+    EXPECT_TRUE(rflow->src_ip_nh() == NULL);
+    EXPECT_TRUE(rflow->rpf_nh() == NULL);
+
+    MacAddress mac = MacAddress::FromString(remote_mac);
+    BridgeTunnelRouteAdd(peer_, "vrf1", TunnelType::AllType(), remote_server,
+                         1000, mac, Ip4Address::from_string(remote_vm_ip), 32);
+    client->WaitForIdle();
+    EXPECT_FALSE(flow->IsShortFlow());
+    EXPECT_TRUE(flow->src_ip_nh() != NULL);
+    EXPECT_TRUE(flow->rpf_nh() != NULL);
+
+    EXPECT_FALSE(rflow->IsShortFlow());
+    EXPECT_TRUE(rflow->src_ip_nh() != NULL);
+    EXPECT_TRUE(rflow->rpf_nh() != NULL);
+
+    EvpnAgentRouteTable::DeleteReq(peer_, "vrf1", mac,
+                                   Ip4Address::from_string(remote_vm_ip), 0,
+                                   (new ControllerVmRoute(peer_)));
+    client->WaitForIdle();
+
+}
+
+// Flow setup with Server-1 as remote tunnel end-point
+// MAC moves from Server-1 to Server-2
+// Flow should update RPF-NH and continue to work
+TEST_F(FlowMgmtRouteTest, MacMovement_1) {
+    char router_id[80];
+    strcpy(router_id, agent_->router_id().to_string().c_str());
+    Ip4Address remote_server1 = Ip4Address::from_string("100.100.100.100");
+    Ip4Address remote_server2 = Ip4Address::from_string("100.100.100.200");
+
+    const char *remote_vm_ip = "1.1.1.100";
+    const char *remote_mac = "00:00:01:01:01:01";
+
+    char vif0_ip[80];
+    strcpy(vif0_ip, vif0->primary_ip_addr().to_string().c_str());
+    char vif0_mac[80];
+    strcpy(vif0_mac, vif0->vm_mac().ToString().c_str());
+
+    MacAddress mac = MacAddress::FromString(remote_mac);
+    BridgeTunnelRouteAdd(peer_, "vrf1", TunnelType::AllType(), remote_server1,
+                         1000, mac, Ip4Address::from_string(remote_vm_ip), 32);
+
+    TxL2Packet(vif0->id(), vif0_mac, remote_mac, vif0_ip, remote_vm_ip, 1);
+    client->WaitForIdle();
+
+    // Validate that flow is created with action forward
+    FlowEntry *flow = FlowGet(vif0->vrf_id(), vif0_ip, remote_vm_ip, 1, 0, 0,
+                              vif0->flow_key_nh()->id());
+    EXPECT_TRUE(flow != NULL);
+    FlowEntry *rflow = flow->reverse_flow_entry();
+
+    EXPECT_FALSE(flow->IsShortFlow());
+    EXPECT_TRUE(flow->src_ip_nh() != NULL);
+    const TunnelNH *tnh = dynamic_cast<const TunnelNH *>(rflow->rpf_nh());
+    EXPECT_TRUE(tnh != NULL);
+    EXPECT_TRUE(*tnh->GetDip() == remote_server1);
+
+    EXPECT_FALSE(rflow->IsShortFlow());
+    EXPECT_TRUE(rflow->src_ip_nh() != NULL);
+    EXPECT_TRUE(rflow->rpf_nh() != NULL);
+
+    BridgeTunnelRouteAdd(peer_, "vrf1", TunnelType::AllType(), remote_server2,
+                         1000, mac, Ip4Address::from_string(remote_vm_ip), 32);
+    client->WaitForIdle();
+    EXPECT_FALSE(flow->IsShortFlow());
+    EXPECT_TRUE(flow->src_ip_nh() != NULL);
+    EXPECT_TRUE(flow->rpf_nh() != NULL);
+
+    EXPECT_FALSE(rflow->IsShortFlow());
+    EXPECT_TRUE(rflow->src_ip_nh() != NULL);
+    tnh = dynamic_cast<const TunnelNH *>(rflow->rpf_nh());
+    EXPECT_TRUE(tnh != NULL);
+    EXPECT_TRUE(*tnh->GetDip() == remote_server2);
+
+    EvpnAgentRouteTable::DeleteReq(peer_, "vrf1", mac,
+                                   Ip4Address::from_string(remote_vm_ip), 0,
+                                   (new ControllerVmRoute(peer_)));
+    client->WaitForIdle();
+
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;
 
