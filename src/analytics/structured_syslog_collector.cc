@@ -12,9 +12,15 @@
 
 StructuredSyslogCollector::StructuredSyslogCollector(EventManager *evm,
     uint16_t structured_syslog_port, const vector<string> &structured_syslog_tcp_forward_dst,
+    const std::string &structured_syslog_kafka_broker,
+    const std::string &structured_syslog_kafka_topic,
+    uint16_t structured_syslog_kafka_partitions,
     DbHandlerPtr db_handler) :
     server_(new structured_syslog::StructuredSyslogServer(evm, structured_syslog_port,
-        structured_syslog_tcp_forward_dst, db_handler->GetConfigDBConnection(),
+        structured_syslog_tcp_forward_dst, structured_syslog_kafka_broker,
+        structured_syslog_kafka_topic,
+        structured_syslog_kafka_partitions,
+        db_handler->GetConfigDBConnection(),
         boost::bind(&DbHandler::StatTableInsert, db_handler,
             _1, _2, _3, _4, _5, GenDb::GenDbIf::DbAddColumnCb()))) {
 }
