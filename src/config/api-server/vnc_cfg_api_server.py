@@ -144,6 +144,8 @@ _ACTION_RESOURCES = [
      'method': 'PUT', 'method_name': 'mt_http_put'},
     {'uri': '/aaa-mode', 'link_name': 'aaa-mode',
      'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
+    {'uri': '/set-tag-application', 'link_name': 'set-tag-application',
+     'method': 'POST', 'method_name': 'set_tag_application'},
 ]
 
 
@@ -1328,6 +1330,10 @@ class VncApiServer(object):
         self.route('/multi-tenancy', 'PUT', self.mt_http_put)
         self.route('/aaa-mode',      'GET', self.aaa_mode_http_get)
         self.route('/aaa-mode',      'PUT', self.aaa_mode_http_put)
+
+        # APIs to set tags to an object
+        self.route('/set-tag-application/<id>',
+            'POST', self.set_tag_application)
 
         # randomize the collector list
         self._random_collectors = self._args.collectors
@@ -3362,6 +3368,49 @@ class VncApiServer(object):
     @property
     def global_read_only_role(self):
         return self._args.global_read_only_role
+
+    def set_tag_application(self, id):
+        tag_uuid = get_request().json['tag_uuid']
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(id)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Object Not Found: ' + id)
+
+        try:
+            (read_ok, tag_dict) = self._db_conn.dbe_read('tag', tag_uuid)
+            if not read_ok:
+                bottle.abort(404, 'Object Not Found:  %s' % tag_uuid)
+        except NoIdError as e:
+            raise cfgm_common.exceptions.HttpError(404, str(e))
+
+        if tag_dict['tag_type'].lower() != 'application':
+            bottle.abort(409, 'Incorrect tag type %s' % tag_dict['tag_type'])
+
+        obj_fields = ['tag_refs']
+        (read_ok, obj_dict) = self._db_conn.dbe_read(obj_type, id, obj_fields)
+        if not read_ok:
+            bottle.abort(
+                404, 'No %s object found for id %s' %(obj_type, id))
+
+        if not 'tag_refs' in obj_dict:
+            obj_dict['tag_refs'] = []
+
+        # check if ref already exists
+        for ref in obj_dict['tag_refs']:
+            if ref['to'] == tag_dict['fq_name']:
+                bottle.abort(409, 'Reference alread exists');
+
+        ref = {
+            'to'  : tag_dict['fq_name'],
+            'attr': None,
+            'uuid': tag_uuid
+        }
+        obj_dict['tag_refs'].append(ref)
+        self._db_conn.dbe_update(obj_type, id, obj_dict)
+        return {}
+    # end
 
     def keystone_version(self):
         k_v = 'v2.0'
