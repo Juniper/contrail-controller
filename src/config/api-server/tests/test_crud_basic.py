@@ -690,6 +690,217 @@ class TestCrud(test_case.ApiServerTestCase):
     # end test_port_security_and_allowed_address_pairs
 # end class TestCrud
 
+class TestFw(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestFw, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestFw, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
+    def test_tag_basic_sanity(self):
+        pobj = vnc_api.Project('proj-%s' %(self.id()))
+        self._vnc_lib.project_create(pobj)
+
+        tag_obj = Tag(parent_obj=pobj)
+
+        # tag type must be valid
+        tag_obj.set_tag_type('Foobar')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_create(tag_obj)
+
+        # tag type and value both are required
+        tag_obj.set_tag_type('Application')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_create(tag_obj)
+
+        # tag ID isn't settable by user
+        tag_obj.set_tag_id(0x12345678)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_create(tag_obj)
+
+        # create a valid tag
+        tag_obj = Tag(tag_type='Application', tag_value='MyTestApp', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag_obj)
+        tag_obj = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        time.sleep(5)
+
+        # create a VN and attach tag
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        self._vnc_lib.set_tag(vn_obj, tag_obj)
+
+        # duplicate
+        with ExpectedException(RefsExistError) as e:
+            self._vnc_lib.set_tag(vn_obj, tag_obj)
+
+        # validate vn->tag ref exists
+        vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        tag_refs = vn.get_tag_refs()
+        self.assertEqual(len(tag_refs), 1)
+        self.assertEqual(tag_refs[0]['uuid'], tag_obj.uuid)
+
+        # validate tag->vn back ref exists
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        vn_refs = tag.get_virtual_network_back_refs()
+        self.assertEqual(len(vn_refs), 1)
+        self.assertEqual(vn_refs[0]['uuid'], vn_obj.uuid)
+
+        # tag type or value can't be updated
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        tag_obj.set_tag_value('MyTestApp')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_update(tag_obj)
+
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        tag_obj.set_tag_type('Application')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_update(tag_obj)
+
+        # only one tag of type (latest) can be associated
+        tag2_obj = Tag(tag_type='Application', tag_value='MyTestApp2', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag2_obj)
+        tag2_obj = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        #self._vnc_lib.set_tag(vn_obj, tag2_obj)
+        #vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        #tag_refs = vn.get_tag_refs()
+        #self.assertEqual(len(tag_refs), 1)
+        #self.assertEqual(tag_refs[0]['uuid'], tag2_obj.uuid)
+
+    # end test_basic_sanity
+
+    # verify unique id are allocated for global and per-project tags
+    def test_tag_id(self):
+        # create valid tags
+        app_type = cfgm_common.tag_dict['application']
+
+        tag1_obj = Tag('tag1-%s' %(self.id()))
+        tag1_obj.set_tag_type('Application')
+        tag1_obj.set_tag_value('MyTestApp-1')
+        self._vnc_lib.tag_create(tag1_obj)
+        tag1 = self._vnc_lib.tag_read(id=tag1_obj.uuid)
+        tag1_id = tag1.get_tag_id()
+
+        proj_obj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+        tag2_obj = Tag('tag2-%s' %(self.id()), parent_obj = proj_obj)
+        tag2_obj.set_tag_type('Application')
+        tag2_obj.set_tag_value('MyTestApp-1')
+        self._vnc_lib.tag_create(tag2_obj)
+        tag2 = self._vnc_lib.tag_read(id=tag2_obj.uuid)
+        tag2_id = tag2.get_tag_id()
+
+        self.assertNotEqual(tag1_id, tag2_id)
+        self.assertEqual(tag1_id>>27, app_type)
+        self.assertEqual(tag2_id>>27, app_type)
+    # end test_tag_id
+
+    def test_firewall_rule_using_ep_tag(self):
+        pobj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(pobj)
+        pm_obj = PolicyManagement('pm-%s' % self.id())
+        self._vnc_lib.policy_management_create(pm_obj)
+
+        tag1_obj = Tag(tag_type='Application', tag_value='App1', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag1_obj)
+        tag1 = self._vnc_lib.tag_read(id=tag1_obj.uuid)
+        time.sleep(5)
+
+        tag2_obj = Tag(tag_type='Tier', tag_value='Web', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag2_obj)
+        tag2 = self._vnc_lib.tag_read(id=tag2_obj.uuid)
+        time.sleep(5)
+
+        tag3_obj = Tag(tag_type='Application', tag_value='App2', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag3_obj)
+        tag3 = self._vnc_lib.tag_read(id=tag3_obj.uuid)
+        time.sleep(5)
+
+        tag4_obj = Tag(tag_type='Tier', tag_value='Db', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag4_obj)
+        tag4 = self._vnc_lib.tag_read(id=tag4_obj.uuid)
+        time.sleep(5)
+
+        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pm_obj,
+                     action_list=ActionListType(simple_action='pass'),
+                     service=FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)),
+                     endpoint_1=FirewallRuleEndpointType(tags=[tag1.uuid, tag2.uuid]),
+                     endpoint_2=FirewallRuleEndpointType(tags=[tag3.uuid, tag4.uuid]),
+                     direction='<>')
+        self._vnc_lib.firewall_rule_create(rule_obj)
+
+        # validate rule->tag refs exists
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+        tag_refs = rule.get_tag_refs()
+        self.assertEqual(len(tag_refs), 4)
+        expected_set = set([obj.get_uuid() for obj in [tag1_obj, tag2_obj, tag3_obj, tag4_obj]])
+        received_set = set([ref['uuid'] for ref in tag_refs])
+        self.assertEqual(received_set, expected_set)
+
+    # end test_firewall_rule_using_ep_tag
+
+    def test_firewall_rule_using_ep_ag_tag(self):
+        pobj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(pobj)
+        pm_obj = PolicyManagement('pm-%s' % self.id())
+        self._vnc_lib.policy_management_create(pm_obj)
+
+        ag_prefix = SubnetListType(subnet=[SubnetType('1.1.1.0', 24), SubnetType('2.2.2.0', 24)])
+        ag_obj = AddressGroup(address_group_prefix=ag_prefix, parent_obj=pm_obj)
+        self._vnc_lib.address_group_create(ag_obj)
+
+        tag1_obj = Tag(tag_type='Application', tag_value='App1', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag1_obj)
+        tag1 = self._vnc_lib.tag_read(id=tag1_obj.uuid)
+        time.sleep(5)
+
+        tag2_obj = Tag(tag_type='Tier', tag_value='Web', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag2_obj)
+        tag2 = self._vnc_lib.tag_read(id=tag2_obj.uuid)
+        time.sleep(5)
+
+        tag3_obj = Tag(tag_type='Application', tag_value='App2', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag3_obj)
+        tag3 = self._vnc_lib.tag_read(id=tag3_obj.uuid)
+        time.sleep(5)
+
+        tag4_obj = Tag(tag_type='Tier', tag_value='Db', parent_obj=pobj)
+        self._vnc_lib.tag_create(tag4_obj)
+        tag4 = self._vnc_lib.tag_read(id=tag4_obj.uuid)
+        time.sleep(5)
+
+        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pm_obj,
+                     action_list=ActionListType(simple_action='pass'),
+                     service=FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)),
+                     endpoint_1=FirewallRuleEndpointType(address_group=ag_obj.uuid),
+                     endpoint_2=FirewallRuleEndpointType(tags=[tag3.uuid, tag4.uuid]),
+                     direction='<>')
+        self._vnc_lib.firewall_rule_create(rule_obj)
+
+        # validate rule->tag refs exist
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+        tag_refs = rule.get_tag_refs()
+        self.assertEqual(len(tag_refs), 2)
+        expected_set = set([obj.get_uuid() for obj in [tag3_obj, tag4_obj]])
+        received_set = set([ref['uuid'] for ref in tag_refs])
+        self.assertEqual(received_set, expected_set)
+
+        # validate rule->address-group refs exist
+        ag_refs = rule.get_address_group_refs()
+        self.assertEqual(len(ag_refs), 1)
+        self.assertEqual(ag_refs[0]['uuid'], ag_obj.uuid)
+
+    # end test_firewall_rule_using_ep_tag
+
+# end class TestFw
+
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):

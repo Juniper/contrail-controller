@@ -1137,6 +1137,106 @@ class BridgeDomainServer(Resource, BridgeDomain):
     # end pre_dbe_create
 # end class BridgeDomainServer
 
+class TagServer(Resource, Tag):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+
+        tag_type = obj_dict.get('tag_type')
+        tag_value = obj_dict.get('tag_value')
+
+        if tag_type is None or tag_value is None:
+            msg = "Tag must be created with type and value"
+            return (False, (400, msg))
+
+        if obj_dict.get('tag_id'):
+            msg = "Tag id is not setable"
+            return (False, (400, msg))
+
+        # assign name automatically
+        tag_name = tag_type + "-" + tag_value
+        obj_dict['name'] = tag_name
+        obj_dict['fq_name'][-1] = tag_name
+
+        # Allocate id for tag value
+        tag_fq_name = ':'.join(obj_dict['fq_name'])
+        tag_value_id = cls.vnc_zk_client.alloc_tag_value_id(tag_fq_name)
+        def undo_tag_value_id():
+            cls.vnc_zk_client.free_tag_value_id(tag_value_id)
+            return True, ""
+        get_context().push_undo(undo_tag_value_id)
+        obj_dict['tag_id'] = cfgm_common.tag_dict[tag_type.lower()] << 27 | tag_value_id
+        return True, ""
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, read_result = cls.dbe_read(db_conn, 'tag', id)
+        if not ok:
+            return ok, read_result
+
+        # user can't update type or value once created
+        if obj_dict.get('tag_type') or obj_dict.get('tag_value'):
+            msg = "Tag type or id cannot be updated"
+            return (False, (400, msg))
+
+        return True, ""
+# end class TagServer
+
+class FirewallRuleServer(Resource, FirewallRule):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+
+        ep1 = obj_dict['endpoint_1']
+        ep2 = obj_dict['endpoint_2']
+
+        if not 'tag_refs' in obj_dict:
+            obj_dict['tag_refs'] = []
+
+        # create tag references for endpoint tag expressions
+        tag_set = set([tag_uuid for tag_uuid in ep1['tags'] + ep2['tags']])
+        if len(tag_set) > 0:
+            for tag_uuid in tag_set:
+                try:
+                    tag_fq_name = db_conn.uuid_to_fq_name(tag_uuid)
+                except cfgm_common.exceptions.NoIdError:
+                    return (False, (404, 'No tag object found for id %s' % tag_uuid))
+                ref = {
+                    'to'  : tag_fq_name,
+                    'attr': None,
+                    'uuid': tag_uuid
+                }
+                obj_dict['tag_refs'].append(ref)
+
+        if not 'address_group_refs' in obj_dict:
+            obj_dict['address_group_refs'] = []
+        ag_set = set()
+        if ep1['address_group']:
+            ag_set.add(('endpoint1', ep1['address_group']))
+        if ep2['address_group']:
+            ag_set.add(('endpoint2', ep2['address_group']))
+        if len(ag_set) > 0:
+            for ep_name, ref_uuid in ag_set:
+                try:
+                    ref_fq_name = db_conn.uuid_to_fq_name(ref_uuid)
+                except cfgm_common.exceptions.NoIdError:
+                    return(False, (404, 'No tag object found for id %s' % ref_uuid))
+                ref = {
+                    'to'  : ref_fq_name,
+                    'attr': {'endpoint': ep_name},
+                    'uuid': ref_uuid
+                }
+                obj_dict['address_group_refs'].append(ref)
+
+        return True, ""
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return True, ""
+# end class FirewallRuleServer
+
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
