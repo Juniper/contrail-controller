@@ -4,6 +4,7 @@
 
 import copy
 import uuid
+import netaddr
 from netaddr import IPNetwork, IPAddress, IPRange, all_matching_cidrs
 from vnc_quota import QuotaHelper
 from pprint import pformat
@@ -212,7 +213,7 @@ class Subnet(object):
             try:
                 start_ip = IPAddress(ip_pool['start'])
                 end_ip = IPAddress(ip_pool['end'])
-            except AddrFormatError:
+            except netaddr.core.AddrFormatError:
                 raise AddrMgmtInvalidIpAddr(name, ip_pool)
             if (start_ip not in network or end_ip not in network):
                 raise AddrMgmtOutofBoundAllocPool(name, ip_pool)
@@ -223,7 +224,7 @@ class Subnet(object):
         if gw:
             try:
                 gw_ip = IPAddress(gw)
-            except AddrFormatError:
+            except netaddr.core.AddrFormatError:
                 raise AddrMgmtInvalidGatewayIp(name, gw_ip)
 
         else:
@@ -237,7 +238,7 @@ class Subnet(object):
         if service_address:
             try:
                 service_node_address = IPAddress(service_address)
-            except AddrFormatError:
+            except netaddr.core.AddrFormatError:
                 raise AddrMgmtInvalidServiceNodeIp(name, service_node_address)
 
         else:
@@ -251,7 +252,7 @@ class Subnet(object):
         for nameserver in dns_nameservers or []:
             try:
                 ip_addr = IPAddress(nameserver)
-            except AddrFormatError:
+            except netaddr.core.AddrFormatError:
                 raise AddrMgmtInvalidDnsNameServer(name, nameserver)
 
         # check allocation-unit
@@ -950,7 +951,7 @@ class AddrMgmt(object):
             for pool in alloc_pools or []:
                 try:
                     iprange = IPRange(pool['start'], pool['end'])
-                except AddrFormatError:
+                except netaddr.core.AddrFormatError:
                     err_msg = "Invalid allocation Pool start:%s, end:%s in subnet:%s" \
                     %(pool['start'], pool['end'], subnet_name)
                     return False, err_msg
@@ -964,7 +965,7 @@ class AddrMgmt(object):
             if gw is not None:
                 try:
                     gw_ip = IPAddress(gw)
-                except AddrFormatError:
+                except netaddr.core.AddrFormatError:
                     err_msg = "Invalid gateway Ip address:%s" \
                     %(gw)
                     return False, err_msg
@@ -981,7 +982,7 @@ class AddrMgmt(object):
             if service_address is not None:
                 try:
                     service_node_address = IPAddress(service_address)
-                except AddrFormatError:
+                except netaddr.core.AddrFormatError:
                     err_msg = "Invalid Dns Server Ip address:%s" \
                     %(service_address)
                     return False, err_msg
