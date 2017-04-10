@@ -3239,8 +3239,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Any workload that belongs to this subnet'/>
     <xsd:element name="virtual-network" type="xsd:string"  required='exclusive'
              description='Any workload that belongs to this virtual network '/>
-    <xsd:element name="security-group"  type="xsd:string"  required='exclusive'
-             description='Any workload with interface that belogs to this security-group'/>
     <xsd:element name="address-group"   type="xsd:string"  required='exclusive'
              description='Any workload with interface in this address-group'/>
     <xsd:element name="tags"            type="xsd:string"  maxOccurs="unbounded" required='exclusive'
@@ -3354,11 +3352,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('aps-is-global', 'application-policy-set', 'optional', 'R',
               'If set, indicates application policy set to be applied globally') -->
-<xsd:element name="application-policy-set-application-tag" type="FirewallSequence"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Link('application-policy-set-firewall-policy',
-          'application-policy-set', 'firewall-policy', ['ref'], 'required', 'CRUD',
-          'Reference to firewall-policy attached to this application-policy') -->
 <!-- global flag in application policy set not controlled by user -->
 
 <xsd:element name="policy-management" type="ifmap:IdentityType"/>
