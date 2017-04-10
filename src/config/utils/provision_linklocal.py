@@ -7,6 +7,7 @@ import sys
 import argparse
 import ConfigParser
 
+from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import *
 
 class MetadataProvisioner(object):
@@ -38,12 +39,15 @@ class MetadataProvisioner(object):
                                 fq_name=['default-global-system-config',
                                          'default-global-vrouter-config'])
         except Exception as e:
-            if self._args.oper == "add":
-                linklocal_services_obj=LinklocalServicesTypes([linklocal_obj])
-                conf_obj=GlobalVrouterConfig(linklocal_services=linklocal_services_obj)
-                result=self._vnc_lib.global_vrouter_config_create(conf_obj)
-                print 'Created.UUID is %s'%(result)
-            return
+            try:
+                if self._args.oper == "add":
+                    linklocal_services_obj=LinklocalServicesTypes([linklocal_obj])
+                    conf_obj=GlobalVrouterConfig(linklocal_services=linklocal_services_obj)
+                    result=self._vnc_lib.global_vrouter_config_create(conf_obj)
+                    print 'Created.UUID is %s'%(result)
+                return
+            except RefsExistError:
+                print "Already created!"
 
         current_linklocal=current_config.get_linklocal_services()
         if current_linklocal is None:

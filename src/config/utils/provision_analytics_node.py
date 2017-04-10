@@ -143,7 +143,10 @@ class AnalyticsNodeProvisioner(object):
         if analytics_node_exists:
             self._vnc_lib.analytics_node_update(analytics_node_obj)
         else:
-            self._vnc_lib.analytics_node_create(analytics_node_obj)
+            try:
+                self._vnc_lib.analytics_node_create(analytics_node_obj)
+            except RefsExistError:
+                print "Already created!"
 
     # end add_analytics_node
 
