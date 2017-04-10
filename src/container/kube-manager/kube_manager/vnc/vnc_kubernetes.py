@@ -71,12 +71,13 @@ class VncKubernetes(VncCommon):
             cluster_pod_ipam_fq_name=self._get_cluster_pod_ipam_fq_name(),
             cluster_service_fip_pool=self._get_cluster_service_fip_pool())
 
-        self.namespace_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_namespace.VncNamespace')
-        self.service_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_service.VncService')
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy')
+        self.namespace_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_namespace.VncNamespace',
+            self.network_policy_mgr)
+        self.service_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_service.VncService')
         self.pod_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_pod.VncPod', self.service_mgr,
             self.network_policy_mgr)
@@ -284,6 +285,7 @@ class VncKubernetes(VncCommon):
         return self._cluster_pod_ipam_fq_name
 
     def vnc_timer(self):
+        self.network_policy_mgr.network_policy_timer()
         self.ingress_mgr.ingress_timer()
         self.service_mgr.service_timer()
         self.pod_mgr.pod_timer()

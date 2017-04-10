@@ -16,11 +16,14 @@ from vnc_common import VncCommon
 
 class VncNamespace(VncCommon):
 
-    def __init__(self):
+    def __init__(self, network_policy_mgr):
         self._k8s_event_type = 'Namespace'
         super(VncNamespace,self).__init__(self._k8s_event_type)
         self._name = type(self).__name__
+        self._network_policy_mgr = network_policy_mgr
         self._vnc_lib = vnc_kube_config.vnc_lib()
+        self._ns_sg = {}
+        self._label_cache = vnc_kube_config.label_cache()
         self._logger = vnc_kube_config.logger()
 
     def _get_namespace(self, ns_name):
@@ -59,6 +62,26 @@ class VncNamespace(VncCommon):
         if ns:
             return ns.set_isolated_network_fq_name(fq_name)
         return None
+
+    def _clear_namespace_label_cache(self, ns_uuid, project):
+        if not ns_uuid or \
+           not ns_uuid in project.ns_labels:
+            return
+        ns_labels = project.ns_labels[ns_uuid]
+        for label in ns_labels.items() or []:
+            key = self._label_cache._get_key(label)
+            self._label_cache._remove_label(key,
+                self._label_cache.ns_label_cache, label, ns_uuid)
+        del project.ns_labels[ns_uuid]
+
+    def _update_namespace_label_cache(self, labels, ns_uuid, project):
+        self._clear_namespace_label_cache(ns_uuid, project)
+        for label in labels.items():
+            key = self._label_cache._get_key(label)
+            self._label_cache._locate_label(key,
+                self._label_cache.ns_label_cache, label, ns_uuid)
+        if labels:
+            project.ns_labels[ns_uuid] = labels
 
     def _create_ipam(self, ipam_name, subnets, proj_obj, type):
         """
@@ -202,6 +225,7 @@ class VncNamespace(VncCommon):
             rules.append(_get_rule(False, None, '::', 'IPv6'))
         sg_rules = PolicyEntriesType(rules)
 
+        sg_dict = {}
         # create default security group
         DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
         id_perms = IdPermsType(enable=True,
@@ -218,6 +242,10 @@ class VncNamespace(VncCommon):
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
         except RefsExistError:
             self._vnc_lib.security_group_update(sg_obj)
+        sg_obj = self._vnc_lib.security_group_read(sg_obj.fq_name)
+        sg_uuid = sg_obj.get_uuid()
+        SecurityGroupKM.locate(sg_uuid)
+        sg_dict[sg_name] = sg_uuid
 
         # create namespace security group
         NAMESPACE_SECGROUP_DESCRIPTION = "Namespace security group"
@@ -235,8 +263,13 @@ class VncNamespace(VncCommon):
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
         except RefsExistError:
             pass
+        sg_obj = self._vnc_lib.security_group_read(sg_obj.fq_name)
+        sg_uuid = sg_obj.get_uuid()
+        SecurityGroupKM.locate(sg_uuid)
+        sg_dict[ns_sg_name] = sg_uuid
+        return sg_dict
 
-    def vnc_namespace_add(self, namespace_id, name, annotations):
+    def vnc_namespace_add(self, namespace_id, name, labels, annotations):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
         proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name)
 
@@ -244,17 +277,18 @@ class VncNamespace(VncCommon):
             self._vnc_lib.project_create(proj_obj)
         except RefsExistError:
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        project = ProjectKM.locate(proj_obj.uuid)
 
         try:
             network_policy = None
             if annotations and \
                'net.beta.kubernetes.io/network-policy' in annotations:
-                network_policy = json.loads(annotations['net.beta.kubernetes.io/network-policy'])
-            self._update_security_groups(name, proj_obj, network_policy)
+                network_policy = json.loads(
+                        annotations['net.beta.kubernetes.io/network-policy'])
+            sg_dict = self._update_security_groups(name, proj_obj, network_policy)
+            self._ns_sg[name] = sg_dict
         except RefsExistError:
             pass
-
-        ProjectKM.locate(proj_obj.uuid)
 
         # Validate the presence of annotated virtual network.
         ann_vn_fq_name = self._get_annotated_virtual_network(name)
@@ -274,11 +308,14 @@ class VncNamespace(VncCommon):
             self._create_virtual_network(ns_name=name, vn_name=vn_name,
                 proj_obj=proj_obj)
 
-        return proj_obj
+        if project:
+            self._update_namespace_label_cache(labels, namespace_id, project)
+        return project
 
     def vnc_namespace_delete(self,namespace_id,  name):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        project = ProjectKM.get(proj_obj.uuid)
 
         default_sg_fq_name = proj_fq_name[:]
         sg = "-".join([vnc_kube_config.cluster_name(), name, 'default'])
@@ -300,6 +337,9 @@ class VncNamespace(VncCommon):
                     sg_list.remove(sg['to'])
                     if not len(sg_list):
                         break
+            # delete the label cache
+            if project:
+                self._clear_namespace_label_cache(namespace_id, project)
             # delete the namespace
             self._delete_namespace(name)
             # delete the project
@@ -312,6 +352,7 @@ class VncNamespace(VncCommon):
         kind = event['object'].get('kind')
         name = event['object']['metadata'].get('name')
         ns_id = event['object']['metadata'].get('uid')
+        labels = event['object']['metadata'].get('labels', {})
         annotations = event['object']['metadata'].get('annotations')
         print("%s - Got %s %s %s:%s"
               %(self._name, event_type, kind, name, ns_id))
@@ -319,6 +360,7 @@ class VncNamespace(VncCommon):
               %(self._name, event_type, kind, name, ns_id))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
-            self.vnc_namespace_add(ns_id, name, annotations)
+            self.vnc_namespace_add(ns_id, name, labels, annotations)
+            self._network_policy_mgr.update_ns_np(name, ns_id, labels, self._ns_sg[name])
         elif event['type'] == 'DELETED':
             self.vnc_namespace_delete(ns_id, name)

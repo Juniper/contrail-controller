@@ -5,6 +5,7 @@
 class LabelCache(object):
 
     def __init__(self):
+        self.ns_label_cache = {}
         self.pod_label_cache = {}
         self.service_selector_cache = {}
 
@@ -23,5 +24,7 @@ class LabelCache(object):
         if key in cache:
             try:
                 cache[key].remove(uuid)
+                if not len(cache[key]):
+                    del cache[key]
             except KeyError:
                 pass
