@@ -293,6 +293,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="FirewallRuleDirectionType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="&lt;"/>
+        <xsd:enumeration value="&gt;"/>
+        <xsd:enumeration value="&lt;&gt;"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="PolicyRuleType">
     <xsd:all>
         <!-- dummy till ui etc. remove it -->
@@ -3164,5 +3172,252 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('layer2-control-word', 'virtual-network', 'optional', 'CRUD',
               'Enable/Disable adding control word to the Layer 2 encapsulation') -->
+
+<!-- New firewall rule start -->
+
+<xsd:complexType name="FirewallSequence">
+    <xsd:all>
+        <xsd:element name="sequence" type="bgp:SequenceNumberType" required='true'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="TagValueRangeType">
+    <xsd:annotation>
+        <xsd:documentation>
+            Min and Max values to be used for generation of Tag id
+            Default Min and Max are 0, 2^27-1
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="134217727"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="tag-value-range" type="TagValueRangeType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('tag-value-range', 'global-system-config', 'optional', 'CRUD',
+              'Minimum and maximum numbers for value part of internal tag id') -->
+
+<xsd:simpleType name="TagType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="application"/>
+        <xsd:enumeration value="tier"/>
+        <xsd:enumeration value="deployment"/>
+        <xsd:enumeration value="site"/>
+        <xsd:enumeration value="label"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="FirewallTagListType">
+        <xsd:element name="tag-list" type="TagType" maxOccurs="unbounded" required='true'/>
+</xsd:complexType>
+
+<xsd:complexType name="TagTypeList">
+        <xsd:element name="tag-type" type="xsd:integer" maxOccurs="unbounded" required='true'/>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallServiceType">
+    <xsd:all>
+        <xsd:element name="protocol"     type="xsd:string"
+             description='Layer 4 protocol in ip packet'/>
+        <xsd:element name="protocol-id"  type="xsd:integer"
+             description='Layer 4 protocol id in ip packet'/>
+        <xsd:element name="src-ports"    type="PortType"
+             description='Range of source port for layer 4 protocol'/>
+        <xsd:element name="dst-ports"    type="PortType"
+             description='Range of destination port for layer 4 protocol'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallServiceGroupType">
+        <xsd:element name="firewall-service" type="FirewallServiceType" maxOccurs="unbounded" required='true'/>
+</xsd:complexType>
+
+<xsd:complexType name="FirewallRuleEndpointType">
+    <xsd:element name="subnet" type="SubnetType"           required='exclusive'
+             description='Any workload that belongs to this subnet'/>
+    <xsd:element name="virtual-network" type="xsd:string"  required='exclusive'
+             description='Any workload that belongs to this virtual network '/>
+    <xsd:element name="security-group"  type="xsd:string"  required='exclusive'
+             description='Any workload with interface that belogs to this security-group'/>
+    <xsd:element name="address-group"   type="xsd:string"  required='exclusive'
+             description='Any workload with interface in this address-group'/>
+    <xsd:element name="tags"            type="xsd:string"  maxOccurs="unbounded" required='exclusive'
+             description='Any workload with tags matching tags in this list'/>
+    <xsd:element name="tag-ids"         type="xsd:integer"  maxOccurs="unbounded"
+             description='Any workload with tags ids matching tags ids in this list'/>
+    <xsd:element name="any"             type="xsd:boolean"  required='exclusive'
+             description='Match any workload'/>
+</xsd:complexType>
+
+<xsd:element name="tag" type="ifmap:IdentityType"/>
+<xsd:element name="tag-type" type="TagType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('tag-type', 'tag', 'required', 'CR',
+             'Tag type ') -->
+<xsd:element name="tag-value" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('tag-value', 'tag', 'required', 'CR',
+             'Tag Value ') -->
+<xsd:element name="tag-id" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('tag-id', 'tag', 'optional', 'R',
+             'Internal Tag id encapsulating tag type and value') -->
+<xsd:element name="config-root-tag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('config-root-tag', 'config-root', 'tag', ['has'], 'optional', 'CRUD',
+          'Attribute attached to objects - has a type and value') -->
+<xsd:element name="project-tag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-tag', 'project', 'tag', ['has'], 'optional', 'CRUD',
+          'Attribute attached to objects - has a type and value') -->
+<xsd:element name="obj-tag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('obj-tag', 'all', 'tag', ['ref'], 'optional', 'CRUD',
+          'Tag attached to an object - has a type and value') -->
+
+<xsd:element name="service-group" type="ifmap:IdentityType"/>
+<xsd:element name="service-group-firewall-service-list" type="FirewallServiceGroupType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('service-group-firewall-service-list', 'service-group', 'required', 'CRUD',
+              'list of service objects (protocol, source port and destination port') -->
+
++<!-- Address group associated label to be derived from linked tag object -->
+<xsd:element name="address-group" type="ifmap:IdentityType"/>
+<xsd:element name="address-group-prefix"  type="SubnetListType" required='true'/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('address-group-prefix', 'address-group', 'optional', 'CRUD',
+             description='List of IP prefix') -->
+
+<xsd:element name="firewall-rule" type="ifmap:IdentityType"/>
+<xsd:element name="action-list" type="ActionListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('action-list', 'firewall-rule', 'required', 'CRUD',
+           'Actions to be performed if packets match condition') -->
+<xsd:element name="service" type="FirewallServiceType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service', 'firewall-rule', 'optional', 'CRUD',
+           'Service (port, protocol) for packets match condition') -->
+<xsd:element name="firewall-rule-service-group"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('firewall-rule-service-group',
+          'firewall-rule', 'service-group', ['ref'], 'optional', 'CRUD',
+          'Reference to service-group attached to this firewall policy') -->
+<xsd:element name="endpoint-1" type="FirewallRuleEndpointType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('endpoint-1', 'firewall-rule', 'required', 'CRUD',
+              'match condition for traffic source') -->
+<xsd:element name="endpoint-2" type="FirewallRuleEndpointType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('endpoint-2', 'firewall-rule', 'required', 'CRUD',
+              'match condition for traffic destination') -->
+<!-- New firewall rule end -->
+<xsd:element name="match-tags" type="FirewallTagListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('match-tags', 'firewall-rule', 'required', 'CRUD',
+              'matching tags for source and destination endpoints') -->
+<xsd:element name="match-tag-types" type="TagTypeList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('match-tag-types', 'firewall-rule', 'required', 'R',
+              'matching tags ids for source and destination endpoints') -->
+<xsd:element name="direction" type="FirewallRuleDirectionType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('direction', 'firewall-rule', 'required', 'CRUD',
+              'Direction in the rule') -->
+<xsd:element name="firewall-rule-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('firewall-rule-virtual-network',
+          'firewall-rule', 'virtual-network', ['ref'], 'optional', 'R',
+          'Reference to virtual network attached to endpoints') -->
+<xsd:element name="firewall-rule-address-group"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('firewall-rule-address-group',
+          'firewall-rule', 'address-group', ['ref'], 'optional', 'R',
+          'Reference to address group attached to endpoints') -->
+
+<xsd:element name="firewall-policy" type="ifmap:IdentityType"/>
+<xsd:element name="firewall-policy-firewall-rule" type="FirewallSequence"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('firewall-policy-firewall-rule',
+          'firewall-policy', 'firewall-rule', ['ref'], 'optional', 'CRUD',
+          'Reference to firewall-rule attached to this firewall-policy') -->
+
+<xsd:element name="application-policy-set" type="ifmap:IdentityType"/>
+<xsd:element name="application-policy-set-firewall-policy" type="FirewallSequence"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('application-policy-set-firewall-policy',
+          'application-policy-set', 'firewall-policy', ['ref'], 'required', 'CRUD',
+          'Reference to firewall-policy attached to this application-policy') -->
+<!-- global flag in application policy set not controlled by user -->
+<xsd:element name="aps-is-global" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('aps-is-global', 'application-policy-set', 'optional', 'R',
+              'If set, indicates application policy set to be applied globally') -->
+<xsd:element name="application-policy-set-application-tag" type="FirewallSequence"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('application-policy-set-firewall-policy',
+          'application-policy-set', 'firewall-policy', ['ref'], 'required', 'CRUD',
+          'Reference to firewall-policy attached to this application-policy') -->
+<!-- global flag in application policy set not controlled by user -->
+
+<xsd:element name="policy-management" type="ifmap:IdentityType"/>
+<xsd:element name="config-root-policy-management"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('config-root-policy-management',
+           'config-root', 'policy-management', ['has'], 'required', 'R',
+           'Policy management object container of firewall related objects') -->
+<xsd:element name="policy-management-service-group"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('policy-management-service-group',
+          'policy-management', 'service-group', ['has'], 'optional', 'CRUD',
+          'Service Group object') -->
+<xsd:element name="policy-management-address-group"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('policy-management-address-group',
+          'policy-management', 'address-group', ['has'], 'optional', 'CRUD',
+          'Address Group object') -->
+<xsd:element name="policy-management-firewall-rule"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('policy-management-firewall-rule',
+          'policy-management', 'firewall-rule', ['has'], 'optional', 'CRUD',
+          'Firewall-rule object') -->
+<xsd:element name="policy-management-firewall-policy"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('policy-management-firewall-policy',
+          'policy-management', 'firewall-policy', ['has'], 'optional', 'CRUD',
+          'firewall-policy object consisting of one or more firewall rules') -->
+<xsd:element name="policy-management-application-policy-set"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('policy-management-application-policy-set',
+          'policy-management', 'application-policy-set', ['has'], 'optional', 'CRUD',
+          'Application-policy object defining policies to apply for a given application tag') -->
+
+<xsd:element name="project-service-group"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-service-group',
+          'project', 'service-group', ['has'], 'optional', 'CRUD',
+          'Project level service Group object') -->
+<xsd:element name="project-address-group"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-address-group',
+          'project', 'address-group', ['has'], 'optional', 'CRUD',
+          'Project level address Group object') -->
+<xsd:element name="project-firewall-rule"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-firewall-rule',
+          'project', 'firewall-rule', ['has'], 'optional', 'CRUD',
+          'Project level firewall-rule object') -->
+<xsd:element name="project-firewall-policy"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-firewall-policy',
+          'project', 'firewall-policy', ['has'], 'optional', 'CRUD',
+          'Project level firewall-policy object consisting of one or more firewall rules') -->
+<xsd:element name="project-application-policy-set"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-application-policy-set',
+          'project', 'application-policy-set', ['has'], 'optional', 'CRUD',
+          'Project level application-policy object defining policies to apply for a given application tag') -->
+<!-- New firewall rule end -->
 
 </xsd:schema>

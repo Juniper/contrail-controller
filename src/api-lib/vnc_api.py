@@ -1421,4 +1421,13 @@ class VncApi(object):
         rv = self._request_server(rest.OP_GET, url)
         return rv
 
+    # associate a tag to an object
+    def set_tag(self, obj, tag_type, tag_value):
+        url = self._action_uri['set-tag-%s' % tag_type.lower()]
+        url += '/%s' % obj.get_uuid()
+        data = {'tag_value': tag_value}
+        content = self._request_server(rest.OP_POST, url, json.dumps(data))
+        return json.loads(content)
+
+
 # end class VncApi
