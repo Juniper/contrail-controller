@@ -383,6 +383,9 @@ class VncZkClient(object):
     _SG_ID_ALLOC_PATH = "/id/security-groups/id/"
     _SG_MAX_ID = 1 << 32
 
+    _TAG_VALUE_ID_ALLOC_PATH = "/id/tag-values/"
+    _TAG_VALUE_MAX_ID = (1<<27) - 1
+
     def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix,
                  sandesh_hdl):
         self._db_prefix = db_prefix
@@ -398,6 +401,7 @@ class VncZkClient(object):
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
         _vn_id_alloc_path = zk_path_pfx + self._VN_ID_ALLOC_PATH
         _sg_id_alloc_path = zk_path_pfx + self._SG_ID_ALLOC_PATH
+        _tag_value_id_alloc_path = zk_path_pfx + self._TAG_VALUE_ID_ALLOC_PATH
         self._zk_path_pfx = zk_path_pfx
 
         self._sandesh = sandesh_hdl
@@ -434,6 +438,11 @@ class VncZkClient(object):
         if self._sg_id_allocator.read(0) != '__reserved__':
             self._sg_id_allocator.delete(0)
         self._sg_id_allocator.reserve(0, '__reserved__')
+
+        # Initialize the tag value ID allocator
+        self._tag_value_id_allocator = IndexAllocator(self._zk_client,
+                                               _tag_value_id_alloc_path,
+                                               self._TAG_VALUE_MAX_ID)
     # end __init__
 
     def master_election(self, path, func, *args):
@@ -571,6 +580,18 @@ class VncZkClient(object):
                 sg_id > SGID_MIN_ALLOC and
                 sg_id < self._SG_MAX_ID):
             return self._sg_id_allocator.read(sg_id - SGID_MIN_ALLOC)
+
+    def alloc_tag_value_id(self, name):
+        if name is not None:
+            return self._tag_value_id_allocator.alloc(name)
+
+    def free_tag_value_id(self, tag_value_id):
+        if tag_value_id is not None and tag_value_id < self._TAG_VALUE_MAX_ID:
+            self._tag_value_id_allocator.delete(tag_value_id)
+
+    def get_tag_value_from_id(self, tag_value_id):
+        if tag_value_id is not None and tag_value_id < self._TAG_VALUE_MAX_ID:
+            return self._tag_value_id_allocator.read(tag_value_id)
 # end VncZkClient
 
 
