@@ -1422,12 +1422,13 @@ class VncApi(object):
         return rv
 
     # associate a tag to an object
-    def set_tag(self, obj, tag_name):
-        (tag_type, tag_value) = tag_name.split("-", 1)
-        if tag_name[0:7] == 'global:':
-            tag_type = tag_type[7:]
+    def set_tag(self, obj, tag_type, tag_value, is_global=False):
         url = self._action_uri['set-tag-%s' % tag_type.lower()]
-        data = {'obj_uuid': obj.get_uuid(), 'tag_name': tag_name}
+        data = {
+            'obj_uuid': obj.get_uuid(),
+            'tag_value': tag_value,
+            'is_global': is_global
+        }
         content = self._request_server(rest.OP_POST, url, json.dumps(data))
         return json.loads(content)
 

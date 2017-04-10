@@ -1159,9 +1159,16 @@ class ServiceGroupServer(Resource, ServiceGroup):
 
         for service in firewall_services:
             protocol = service['protocol']
-            if protocol not in cfgm_common.proto_dict:
+            if protocol.isdigit():
+                protocol_id = int(protocol)
+                if protocol_id < 0 or protocol_id > 255:
+                    return (False, (400, 'Rule with invalid protocol : %s' %
+                                protocol))
+            elif protocol not in cfgm_common.proto_dict:
                 return (False, (400, 'Invalid protocol : %s' % protocol))
-            service['protocol_id'] = cfgm_common.proto_dict[protocol]
+            else:
+                protocol_id = cfgm_common.proto_dict[protocol]
+            service['protocol_id'] = protocol_id
 
         return True, ""
     # end pre_dbe_create
@@ -1189,7 +1196,7 @@ class TagServer(Resource, Tag):
 
         # assign name automatically
         tag_type = tag_type.lower()
-        tag_name = tag_type + "-" + tag_value
+        tag_name = tag_type + "=" + tag_value
 
         if obj_dict.get('parent_type') == 'project':
             tag_fq_name = copy.deepcopy(obj_dict['fq_name'])
@@ -1242,26 +1249,80 @@ class FirewallRuleServer(Resource, FirewallRule):
         return False
 
     @classmethod
-    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+    def _frs_fix_service_protocol(cls, obj_dict):
+        if 'service' in obj_dict and 'protocol' in obj_dict['service']:
+            protocol = obj_dict['service']['protocol']
+            if protocol.isdigit():
+                protocol_id = int(protocol)
+                if protocol_id < 0 or protocol_id > 255:
+                    return (False, (400, 'Rule with invalid protocol : %s' %
+                                protocol))
+            elif protocol not in cfgm_common.proto_dict:
+                return (False, (400, 'Rule with invalid protocol : %s' % protocol))
+            else:
+                protocol_id = cfgm_common.proto_dict[protocol]
+            obj_dict['service']['protocol_id'] = protocol_id
 
-        ep1 = obj_dict['endpoint_1']
-        ep2 = obj_dict['endpoint_2']
+        return True, ""
 
-        if cls._check_endpoint(ep1, db_conn) or cls._check_endpoint(ep2, db_conn):
-            msg = "Invalid endpoint specification"
-            return (False, (400, msg))
+    @classmethod
+    def _frs_fix_match_tags(cls, obj_dict):
+        if 'match_tags' in obj_dict and 'tag_list' in obj_dict['match_tags']:
+            obj_dict['match_tag_types'] = {'tag_type': []}
+            for tag_type in obj_dict['match_tags']['tag_list']:
+                tag_type = tag_type.lower()
+                if tag_type not in cfgm_common.tag_dict:
+                    return (False, (400, 'match-tags with invalid type : %s' % tag_type))
+                if tag_type == 'label':
+                    return (False, (400, 'labels not allowed as match-tags'))
+                tag_type_val = cfgm_common.tag_dict[tag_type];
+                if 'match_tag_types' not in obj_dict:
+                    obj_dict['match_tag_types'] = {'tag_type': []}
+                obj_dict['match_tag_types']['tag_type'].append(tag_type_val)
 
-        # create tag references for endpoint tag expressions
-        obj_dict['tag_refs'] = []
-        ep1['tag_ids'] = []
-        ep2['tag_ids'] = []
-        tag_set = set([tag_name for tag_name in ep1['tags']+ep2['tags']])
+        return True, ""
+
+    @classmethod
+    def _frs_fix_endpoint_address_group(cls, obj_dict, ep, ep_name, db_conn):
+        if ep is None or 'address_group' not in ep:
+            return True, ""
+
+        existing_refs = set([ref['uuid'] for ref in obj_dict['address_group_refs']])
+
+        # create tag references for address group
+        try:
+            ref_fq_name = ep['address_group'].split(":")
+            ref_uuid = db_conn.fq_name_to_uuid('address_group', ref_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            return(False, (404, 'No address group object found for %s' % ref_fq_name))
+        if ref_uuid not in existing_refs:
+            ref = {
+                'to'  : ref_fq_name,
+                'attr': None,
+                'uuid': ref_uuid
+            }
+            obj_dict['address_group_refs'].append(ref)
+
+        return True, ""
+
+    @classmethod
+    def _frs_fix_endpoint_tag(cls, obj_dict, ep, db_conn):
+        if ep is None or 'tags' not in ep:
+            return True, ""
+
+        ep['tag_ids'] = []
+        ep_tags = ep.get('tags')
+        tag_set = set(ep_tags)
+
+        existing_refs = set([ref['uuid'] for ref in obj_dict['tag_refs']])
+
         for tag_name in tag_set:
             # unless global, inherit project id from caller
-            (tag_type, tag_value) = tag_name.split("-", 1)
-            if tag_type[0:7] == 'global:':
-                tag_fq_name = [tag_type[7:] + "-" + tag_value]
-            elif obj_dict['parent_type'] == "policy-management":
+            if "=" not in tag_name:
+                return (False, (404, 'Invalid tag name %s' % tag_name))
+            if tag_name[0:7] == 'global:':
+                tag_fq_name = [tag_name[7:]]
+            elif obj_dict.get('parent_type') == "policy-management":
                 tag_fq_name = [tag_name]
             else:
                 tag_fq_name = copy.deepcopy(obj_dict['fq_name'])
@@ -1272,59 +1333,88 @@ class FirewallRuleServer(Resource, FirewallRule):
             except cfgm_common.exceptions.NoIdError:
                 return (False, (404, 'No tag object found for name %s' % tag_name))
 
-            ref = {
-                'to'  : tag_fq_name,
-                'attr': None,
-                'uuid': tag_uuid
-            }
-            obj_dict['tag_refs'].append(ref)
-            if tag_name in ep1['tags']:
-                ep1['tag_ids'].append(tag_dict['tag_id'])
-            if tag_name in ep2['tags']:
-                ep2['tag_ids'].append(tag_dict['tag_id'])
+            ep['tag_ids'].append(tag_dict['tag_id'])
+            if tag_uuid not in existing_refs:
+                ref = {
+                    'to'  : tag_fq_name,
+                    'attr': None,
+                    'uuid': tag_uuid
+                }
+                obj_dict['tag_refs'].append(ref)
 
-        # create tag references for address group
+        return True, ""
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+
+        obj_dict['tag_refs'] = []
         obj_dict['address_group_refs'] = []
-        ag_set = set()
-        if ep1['address_group']:
-            ag_set.add(('endpoint1', ep1['address_group']))
-        if ep2['address_group']:
-            ag_set.add(('endpoint2', ep2['address_group']))
-        for ep_name, ref_fq_name_str in ag_set:
-            try:
-                ref_fq_name = ref_fq_name_str.split(":")
-                ref_uuid = db_conn.fq_name_to_uuid('address_group', ref_fq_name)
-            except cfgm_common.exceptions.NoIdError:
-                return(False, (404, 'No address group object found for %s' % ref_fq_name))
-            ref = {
-                'to'  : ref_fq_name,
-                'attr': {'endpoint': ep_name},
-                'uuid': ref_uuid
-            }
-            obj_dict['address_group_refs'].append(ref)
 
         # create protcol id
-        if 'service' in obj_dict:
-            protocol = obj_dict['service']['protocol']
-            if protocol not in cfgm_common.proto_dict:
-                return (False, (400, 'Rule with invalid protocol : %s' % protocol))
-            obj_dict['service']['protocol_id'] = cfgm_common.proto_dict[protocol]
+        ok, msg = cls._frs_fix_service_protocol(obj_dict)
+        if not ok:
+            return (ok, msg)
 
         # compile match-tags
-        obj_dict['match_tag_types'] = {'tag_type': []}
-        if 'match_tags' in obj_dict and 'tag_list' in obj_dict['match_tags']:
-            for tag_type in obj_dict['match_tags']['tag_list']:
-                tag_type = tag_type.lower()
-                if tag_type not in cfgm_common.tag_dict:
-                    return (False, (400, 'match-tags with invalid type : %s' % tag_type))
-                tag_type_val = cfgm_common.tag_dict[tag_type];
-                obj_dict['match_tag_types']['tag_type'].append(tag_type_val)
+        ok, msg = cls._frs_fix_match_tags(obj_dict)
+        if not ok:
+            return (ok, msg)
+
+        for ep_name in ['endpoint_1', 'endpoint_2']:
+            ep = obj_dict.get(ep_name)
+            if ep is None:
+                continue
+            elif cls._check_endpoint(ep, db_conn):
+                msg = "Invalid endpoint specification"
+                return (False, (400, msg))
+            ok = True
+            if 'tags' in ep and len(ep['tags']):
+                ok, result = cls._frs_fix_endpoint_tag(obj_dict, ep, db_conn)
+            elif 'address_group' in ep and ep['address_group']:
+                ok, result = cls._frs_fix_endpoint_address_group(obj_dict, ep, ep_name, db_conn)
+            if not ok:
+                return (False, result)
 
         return True, ""
     # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, read_result = cls.dbe_read(db_conn, 'firewall_rule', id)
+        if not ok:
+            return ok, read_result
+
+        ok, msg = cls._frs_fix_service_protocol(obj_dict)
+        if not ok:
+            return (ok, msg)
+
+        ok, msg = cls._frs_fix_match_tags(obj_dict)
+        if not ok:
+            return (ok, msg)
+
+        if obj_dict.get('endpoint_1') or obj_dict.get('endpoint_2'):
+            obj_dict['tag_refs'] = []
+            obj_dict['address_group_refs'] = []
+            obj_dict['fq_name'] = read_result['fq_name']
+
+            for ep_name in ['endpoint_1', 'endpoint_2']:
+                ep = obj_dict.get(ep_name)
+                if ep is None:
+                    ep = read_result.get(ep_name)
+                    if ep is None:
+                        continue
+                    obj_dict[ep_name] = ep
+                if cls._check_endpoint(ep, db_conn):
+                    msg = "Invalid endpoint specification"
+                    return (False, (400, msg))
+                ok = True
+                if 'tags' in ep and len(ep['tags']):
+                    ok, result = cls._frs_fix_endpoint_tag(obj_dict, ep, db_conn)
+                elif 'address_group' in ep and ep['address_group']:
+                    ok, result = cls._frs_fix_endpoint_address_group(obj_dict, ep, ep_name, db_conn)
+                if not ok:
+                    return (False, result)
+
         return True, ""
 # end class FirewallRuleServer
 
