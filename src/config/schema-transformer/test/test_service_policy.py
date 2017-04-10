@@ -1972,6 +1972,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
     def assign_vn_subnet(self, vn_obj, subnet_list):
         subnet_info = []
+        ipam_fq_name = [
+            'default-domain', 'default-project', 'default-network-ipam']
         for subnet in subnet_list:
             cidr = IPNetwork(subnet)
             subnet_info.append(IpamSubnetType(
@@ -1979,37 +1981,34 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                        str(cidr.network),
                                        int(cidr.prefixlen),
                                    ),
-                                   default_gateway = str(IPAddress(cidr.last - 1)),
-                                   subnet_uuid = str(uuid.uuid4()),
+                                   default_gateway = str(IPAddress(cidr.last - 1))
                                )
                            )
-        ipam_fq_name = [
-            'default-domain', 'default-project', 'default-network-ipam']
-        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         subnet_data = VnSubnetsType(subnet_info)
-        vn_obj.add_network_ipam(ipam_obj, subnet_data)
+        vn_obj.set_network_ipam_list([ipam_fq_name], [subnet_data])
         self._vnc_lib.virtual_network_update(vn_obj)
         vn_obj.clear_pending_updates()
 
-    @skip("Skipping test_service_policy_with_v4_v6_subnets"
-          "Under investigation since it fails intermittently")
     def test_service_policy_with_v4_v6_subnets(self):
 
         # If the SC chain info changes after the SI is created
         # (for example, IP address assignment) then the
         # RI needs to be updated with the new info.
 
-        # Create VN without subnets
+        #create vn1
         vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
+
+        #create vn2
         vn2_name = self.id() + 'vn2'
-        vn1_obj = VirtualNetwork(name=vn1_name)
-        self._vnc_lib.virtual_network_create(vn1_obj)
-        vn2_obj = VirtualNetwork(name=vn2_name)
-        self._vnc_lib.virtual_network_create(vn2_obj)
+        vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
         # Create SC
         service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name], version=2)
+        np = self.create_network_policy(vn1_obj, vn2_obj, 
+                                        service_list = [service_name], 
+                                        version = 2,
+                                        service_mode = 'in-network')
         seq = SequenceType(1, 1)
         vnp = VirtualNetworkPolicyType(seq)
 
@@ -2030,24 +2029,24 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                   self.get_ri_name(vn2_obj))
 
         # Checking the Service chain address in the service RI
-        v4_service_chain_address = '10.0.0.251'
-        v6_service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffb'
-
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
-                               service_chain_address = v4_service_chain_address,
-                               service_instance = 'default-domain:default-project:' + service_name)
+                               service_chain_address = '20.0.0.252',
+                               service_instance = 'default-domain:default-project:' + service_name,
+                               source_routing_instance = ':'.join(self.get_ri_name(vn2_obj)))
         self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci.prefix = ['1000::/16']
-        sci.service_chain_address = v6_service_chain_address
+        sci.service_chain_address = '2000:ffff:ffff:ffff:ffff:ffff:ffff:fffc' 
         self.check_v6_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+
         sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
-                               service_chain_address = v4_service_chain_address,
-                               service_instance = 'default-domain:default-project:' + service_name)
+                               service_chain_address = '10.0.0.252',
+                               service_instance = 'default-domain:default-project:' + service_name,
+                               source_routing_instance = ':'.join(self.get_ri_name(vn1_obj)))
         self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
         sci.prefix = ['2000::/16']
-        sci.service_chain_address = v6_service_chain_address
+        sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
         self.check_v6_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
 
         left_ri_fq_name = ['default-domain', 'default-project', vn1_name, sc_ri_name]
@@ -2061,6 +2060,11 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self._vnc_lib.virtual_network_update(vn2_obj)
         vn1_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn1_obj)
-        self._vnc_lib.network_policy_delete(id=np.uuid)
+
+        self.delete_network_policy(np)
+        self.delete_vn(fq_name=vn1_obj.get_fq_name())
+        self.delete_vn(fq_name=vn2_obj.get_fq_name())
+
     #end test_service_policy_with_v4_v6_subnets
+
 # end class TestServicePolicy
