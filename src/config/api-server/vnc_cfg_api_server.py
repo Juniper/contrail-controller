@@ -144,12 +144,6 @@ _ACTION_RESOURCES = [
      'method': 'PUT', 'method_name': 'mt_http_put'},
     {'uri': '/aaa-mode', 'link_name': 'aaa-mode',
      'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
-    {'uri': '/set-tag-application', 'link_name': 'set-tag-application',
-     'method': 'POST', 'method_name': 'set_tag_application'},
-    {'uri': '/set-tag-deployment', 'link_name': 'set-tag-deployment',
-     'method': 'POST', 'method_name': 'set_tag_deployment'},
-    {'uri': '/set-tag-label', 'link_name': 'set-tag-label',
-     'method': 'POST', 'method_name': 'set_tag_label'},
 ]
 
 
@@ -1338,13 +1332,16 @@ class VncApiServer(object):
         self.route('/aaa-mode',      'GET', self.aaa_mode_http_get)
         self.route('/aaa-mode',      'PUT', self.aaa_mode_http_put)
 
-        # APIs to set tags to an object
-        self.route('/set-tag-application/<id>',
-            'POST', self.set_tag_application)
-        self.route('/set-tag-deployment/<id>',
-            'POST', self.set_tag_deployment)
-        self.route('/set-tag-label/<id>',
-            'POST', self.set_tag_label)
+        for tag_type in cfgm_common.tag_dict.keys():
+            link = LinkObject('action', self._base_url,
+                       '/set-tag-%s' % tag_type,
+                       'set-tag-%s' % tag_type,
+                       'POST')
+            self._homepage_links.append(link)
+            setattr(self, 'set_tag_%s' %(tag_type),
+                functools.partial(self.set_tag_type, tag_type))
+            self.route('/set-tag-%s' % tag_type,
+                'POST', getattr(self, 'set_tag_%s' % tag_type))
 
         # randomize the collector list
         self._random_collectors = self._args.collectors
@@ -3389,8 +3386,9 @@ class VncApiServer(object):
     def global_read_only_role(self):
         return self._args.global_read_only_role
 
-    def set_tag_type(self, id, tag_type):
-        tag_value = get_request().json['tag_value']
+    def set_tag_type(self, tag_type):
+        tag_name = get_request().json['tag_name']
+        id = get_request().json['obj_uuid']
 
         try:
             obj_type = self._db_conn.uuid_to_obj_type(id)
@@ -3398,17 +3396,20 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(
                 404, 'Object Not Found: ' + id)
 
+        (tag_type, tag_value) = tag_name.split("-", 1)
+
+        # unless global, inherit project id from caller
+        if tag_type[0:7] == 'global:':
+            tag_type = tag_type[7:]
+            tag_fq_name = [tag_type + "-" + tag_value]
+        else:
+            tag_fq_name = self._db_conn.uuid_to_fq_name(id)
+            tag_fq_name[-1] = tag_type + "-" + tag_value
+
         # address-group object can only be associated with label
         if obj_type == 'address_group' and tag_type != 'label':
             raise cfgm_common.exceptions.HttpError(
                 400, 'Invalid tag type %s for object type %s' % (tag_type, obj_type))
-
-        # unless global, inherit project id from caller
-        if tag_value[0:7] == 'global:':
-            tag_fq_name = [tag_type + "-" + tag_value[7:]]
-        else:
-            tag_fq_name = self._db_conn.uuid_to_fq_name(id)
-            tag_fq_name[-1] = tag_type + "-" + tag_value
 
         # lookup (validate) tag
         try:
@@ -3445,21 +3446,6 @@ class VncApiServer(object):
         obj_dict['tag_refs'].append(ref)
         self._db_conn.dbe_update(obj_type, id, obj_dict)
         return {}
-    # end
-
-    # set application tag to caller
-    def set_tag_application(self, id):
-        return self.set_tag_type(id, 'application')
-    # end
-
-    # set application tag to caller
-    def set_tag_deployment(self, id):
-        return self.set_tag_type(id, 'deployment')
-    # end
-
-    # set application tag to caller
-    def set_tag_label(self, id):
-        return self.set_tag_type(id, 'label')
     # end
 
     def keystone_version(self):
