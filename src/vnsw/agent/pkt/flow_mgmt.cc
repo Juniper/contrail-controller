@@ -1655,7 +1655,7 @@ void BridgeRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow,
 }
 
 FlowMgmtEntry *BridgeRouteFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
-    return new BgpAsAServiceFlowMgmtEntry();
+    return new BridgeRouteFlowMgmtEntry();
 }
 
 bool BridgeRouteFlowMgmtTree::HasVrfFlows(uint32_t vrf,
