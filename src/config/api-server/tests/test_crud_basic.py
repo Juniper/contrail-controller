@@ -690,6 +690,60 @@ class TestCrud(test_case.ApiServerTestCase):
     # end test_port_security_and_allowed_address_pairs
 # end class TestCrud
 
+class TestFw(test_case.ApiServerTestCase):
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        super(TestFw, cls).setUpClass(*args, **kwargs)
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestFw, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
+    def test_tag_basic_sanity(self):
+        tag_obj = Tag('tag-%s' %(self.id()))
+
+        # tag type must be valid
+        tag_obj.set_tag_type('Foobar')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_create(tag_obj)
+
+        # tag type and value both are required
+        tag_obj.set_tag_type('Application')
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.tag_create(tag_obj)
+
+        # create a valid tag
+        tag_obj.set_tag_type('Application')
+        tag_obj.set_tag_value('MyTestApp')
+        self._vnc_lib.tag_create(tag_obj)
+        self.assert_vnc_db_has_ident(tag_obj)
+
+        # create a VN and attach tag
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()))
+        vn_obj.set_tag(tag_obj)
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        # validate tag->vn back ref exists
+        tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+        vn_refs = tag.get_virtual_network_back_refs()
+        self.assertEqual(len(vn_refs), 1)
+        self.assertEqual(vn_refs[0]['uuid'], vn_obj.uuid)
+
+        # validate vn->tag ref exists
+        vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        tag_refs = vn.get_tag_refs()
+        self.assertEqual(len(tag_refs), 1)
+        self.assertEqual(tag_refs[0]['uuid'], tag_obj.uuid)
+    # end test_create_tag_using_lib_api
+
+# end class TestFw
+
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
