@@ -36,6 +36,7 @@ struct NamespaceInstance {
     2: string name;
     3: string phase;
     4: bool isolated;
+    5: map<string,string> labels;
 }
 
 request sandesh NamespaceDatabaseList {

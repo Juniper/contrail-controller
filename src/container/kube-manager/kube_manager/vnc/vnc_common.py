@@ -15,7 +15,7 @@ class VncCommon(object):
         self.annotations['cluster'] = vnc_kube_config.cluster_name()
 
     def _get_annotations(self, namespace, name, k8s_event_type=None, **kwargs):
-        annotations = self.annotations
+        annotations = self.annotations.copy()
 
         infra_anns = {}
         infra_anns['project'] = vnc_kube_config.cluster_project_name(namespace)
@@ -71,10 +71,9 @@ class VncCommon(object):
         return config_db_cls.get_kube_fq_name_to_uuid(kube_fq_name)
 
     @staticmethod
-    def make_name(name, uuid):
-        return "__".join((name, uuid))
+    def make_name(*args):
+        return "__".join(str(i) for i in args)
 
     @staticmethod
-    def make_display_name(namespace, name):
-        return "__".join((namespace, name))
-    
+    def make_display_name(*args):
+        return "__".join(str(i) for i in args)

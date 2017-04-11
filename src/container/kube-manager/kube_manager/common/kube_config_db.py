@@ -157,6 +157,7 @@ class NamespaceKM(KubeDBBase):
 
         # Metadata.
         self.name = None
+        self.labels = {}
         self.isolated_vn_fq_name = None
         self.annotated_vn_fq_name = None
         self.annotations = None
@@ -181,6 +182,7 @@ class NamespaceKM(KubeDBBase):
         if md is None:
             return
         self.name = md.get('name')
+        self.labels = md.get('labels')
 
         # Parse annotations on this namespace.
         self.annotations = md.get('annotations')
@@ -238,7 +240,8 @@ class NamespaceKM(KubeDBBase):
 
             # Construct response for a namespace element.
             ns_instance = introspect.NamespaceInstance(uuid=ns.uuid,
-                            name=ns.name, phase=ns.phase, isolated=ns.isolated)
+                            labels=ns.labels, name=ns.name,
+                            phase=ns.phase, isolated=ns.isolated)
 
             # Append the constructed element info to the response.
             ns_resp.namespaces.append(ns_instance)

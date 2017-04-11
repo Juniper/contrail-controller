@@ -56,22 +56,22 @@ class VncPod(VncCommon):
         return diff
 
     def _set_label_to_pod_cache(self, new_labels, vm):
-        for label in new_labels.items():        
-            key = self._label_cache._get_key(label)        
-            self._label_cache._locate_label(key,        
-                self._label_cache.pod_label_cache, label, vm.uuid)        
+        for label in new_labels.items():
+            key = self._label_cache._get_key(label)
+            self._label_cache._locate_label(key,
+                self._label_cache.pod_label_cache, label, vm.uuid)
         vm.pod_labels = new_labels
 
-    def _clear_label_to_pod_cache(self, vm):        
+    def _clear_label_to_pod_cache(self, vm):
         if not vm.pod_labels:
             return
         for label in vm.pod_labels.items() or []:
-            key = self._label_cache._get_key(label)        
+            key = self._label_cache._get_key(label)
             self._label_cache._remove_label(key,
-                self._label_cache.pod_label_cache, label, vm.uuid)        
+                self._label_cache.pod_label_cache, label, vm.uuid)
         vm.pod_labels = None
 
-    def _update_label_to_pod_cache(self, new_labels, vm):        
+    def _update_label_to_pod_cache(self, new_labels, vm):
         self._clear_label_to_pod_cache(vm)
         self._set_label_to_pod_cache(new_labels, vm)
 
@@ -352,7 +352,6 @@ class VncPod(VncCommon):
 
     def vnc_pod_update(self, pod_id, pod_name, pod_namespace, pod_node, labels,
             vm_vmi):
-        label_diff = None
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             # If the vm is not created yet, do so now.
@@ -360,9 +359,7 @@ class VncPod(VncCommon):
                 pod_node, labels, vm_vmi)
             if not vm:
                 return
-        label_diff = self._get_label_diff(labels, vm)
         self._update_label_to_pod_cache(labels, vm)
-        return label_diff
 
     def vnc_port_delete(self, vmi_id):
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
@@ -424,15 +421,9 @@ class VncPod(VncCommon):
         deleted_pod_set = vm_uuid_set - pod_uuid_set
         for uuid in deleted_pod_set:
             vm = VirtualMachineKM.get(uuid)
-            if not vm:
+            if not vm or vm.owner != 'k8s':
                 continue
-            if not vm.annotations:
-                continue
-            for kvp in vm.annotations['key_value_pair'] or []:
-                if kvp['key'] == 'owner' \
-                   and kvp['value'] == 'k8s':
-                    self._create_pod_event('delete', uuid, vm)
-                    break
+            self._create_pod_event('delete', uuid, vm)
         return
 
     def pod_timer(self):
@@ -470,11 +461,10 @@ class VncPod(VncCommon):
             if event['type'] == 'ADDED':
                 self.vnc_pod_add(pod_id, pod_name, pod_namespace,
                     pod_node, labels, vm_vmi)
-                self._network_policy_mgr.vnc_pod_add(event)
+                self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
             else:
-                label_diff = self.vnc_pod_update(pod_id, pod_name,
-                                pod_namespace, pod_node, labels, vm_vmi)
-                self._network_policy_mgr.vnc_pod_update(event, label_diff)
+                self.vnc_pod_update(pod_id, pod_name,
+                    pod_namespace, pod_node, labels, vm_vmi)
+                self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
-            self._network_policy_mgr.vnc_pod_delete(event)
