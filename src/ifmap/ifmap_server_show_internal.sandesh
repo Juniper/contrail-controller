@@ -18,3 +18,10 @@ request sandesh IFMapPerClientLinksShowReqIterate {
     1: string link_info;
 }
 
+request sandesh ConfigDBUUIDToFQNameReqIterate {
+    1: string uuid_info;
+}
+
+request sandesh ConfigDBUUIDCacheReqIterate {
+    1: string uuid_info;
+}
