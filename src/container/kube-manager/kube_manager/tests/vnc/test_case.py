@@ -43,6 +43,7 @@ class KMTestCase(test_common.TestCase):
             ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
             ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
             ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
+            ('KUBERNETES', 'cluster_name', "test-cluster"),
         ]
         self.event_queue = Queue()
         self._km_greenlet = gevent.spawn(test_common.launch_kube_manager,

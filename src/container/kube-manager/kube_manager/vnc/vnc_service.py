@@ -271,7 +271,10 @@ class VncService(VncCommon):
             err_msg = cfgm_common.utils.detailed_traceback()
             self.logger.error(err_msg)
             return None
+
         fip = FloatingIpKM.locate(fip_obj.uuid)
+        self.logger.notice("floating ip allocated : %s for Service (%s)" % 
+                           (fip.address, service_id))
         return fip.address
 
     def _deallocate_floating_ip(self, service_id):
@@ -298,51 +301,46 @@ class VncService(VncCommon):
         merge_patch = {'spec': {'externalIPs': [external_ip]}}
         self.kube.patch_resource(resource_type="services", resource_name=service_name,
                            namespace=service_namespace, merge_patch=merge_patch)
+        self.logger.notice("Service (%s, %s) updated with EXTERNAL-IP (%s)" 
+                               % (service_namespace, service_name, external_ip));
 
     def _update_service_public_ip(self, service_id, service_name,
                         service_namespace, service_type, external_ip, loadBalancerIp):
         allocated_fip = self._get_floating_ip(service_id)
+
         if service_type in ["LoadBalancer"]:
-            if allocated_fip is None and loadBalancerIp is not None:
+            if allocated_fip is None:
+                # Allocate floating-ip from public-pool, if none exists.
+                # if "loadBalancerIp" if specified in Service definition,
+                # allocate the specific ip.
                 allocated_fip = self._allocate_floating_ip(service_id, loadBalancerIp)
-                if external_ip != allocated_fip:
-                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
-                return
 
-            if allocated_fip is None and loadBalancerIp is None:
-                allocated_fip = self._allocate_floating_ip(service_id)
+            if allocated_fip:
                 if external_ip != allocated_fip:
+                    # If Service's EXTERNAL-IP is not same as allocated floating-ip,
+                    # update kube-api server with allocated fip as the EXTERNAL-IP
                     self._update_service_external_ip(service_namespace, service_name, allocated_fip)
-                return
 
-            if allocated_fip is not None and loadBalancerIp is None:
-                if external_ip != allocated_fip:
-                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
-                return
-
-            if allocated_fip and loadBalancerIp and allocated_fip == loadBalancerIp:
-                if external_ip is None:
-                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
-                return
+            return
 
         if service_type in ["ClusterIP"]:
-            if allocated_fip is not None and external_ip is None:
-                self._deallocate_floating_ip(service_id)
-                return
-
-            if allocated_fip is None and external_ip is None:
-                return
-
-            if allocated_fip is not None and external_ip is not None:
-                if external_ip != allocated_fip:
+            if allocated_fip :
+                if external_ip is None:
                     self._deallocate_floating_ip(service_id)
-                    self._allocate_floating_ip(service_id, external_ip)
-                    self._update_service_external_ip(service_namespace, service_name, external_ip)
-                return
+                    return
+                else:
+                    if external_ip != allocated_fip:
+                        self._deallocate_floating_ip(service_id)
+                        self._allocate_floating_ip(service_id, external_ip)
+                        self._update_service_external_ip(service_namespace, service_name, external_ip)
+                    return
 
-            if allocated_fip is None and external_ip is not None:
-                self._allocate_floating_ip(service_id, external_ip)
-                return
+            else:  #allocated_fip is None 
+                if external_ip is not None:
+                    self._allocate_floating_ip(service_id, external_ip)
+                    return
+
+            return
 
     def _check_service_uuid_change(self, svc_uuid, svc_name, 
                                    svc_namespace, ports):
