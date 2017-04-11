@@ -20,6 +20,9 @@ from kube_manager.vnc.loadbalancer import ServiceLbMemberManager
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
 
+from cStringIO import StringIO
+from cfgm_common.utils import cgitb_hook
+
 class VncIngress(VncCommon):
     def __init__(self):
         self._k8s_event_type = 'Ingress'
@@ -94,14 +97,16 @@ class VncIngress(VncCommon):
         self._fip_pool_obj = fip_pool_obj
         return fip_pool_obj
 
-    def _get_floating_ip(self, name, proj_obj, vmi_obj=None):
-        fip_refs = vmi_obj.get_floating_ip_back_refs()
-        for ref in fip_refs or []:
-            fip = FloatingIpKM.get(ref['uuid'])
-            if fip:
-                return fip
-            else:
-                break
+    def _get_floating_ip(self, name,
+            proj_obj, external_ip=None, vmi_obj=None):
+        if vmi_obj:
+            fip_refs = vmi_obj.get_floating_ip_back_refs()
+            for ref in fip_refs or []:
+                fip = FloatingIpKM.get(ref['uuid'])
+                if fip:
+                    return fip
+                else:
+                    break
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
             return None
@@ -112,18 +117,27 @@ class VncIngress(VncCommon):
         fip_obj.set_project(proj_obj)
         if vmi_obj:
             fip_obj.set_virtual_machine_interface(vmi_obj)
-        self._vnc_lib.floating_ip_create(fip_obj)
-        fip = FloatingIpKM.locate(fip_obj.uuid)
+        if external_ip:
+            fip_obj.floating_ip_address = external_ip
+        try:
+            self._vnc_lib.floating_ip_create(fip_obj)
+            fip = FloatingIpKM.locate(fip_obj.uuid)
+        except Exception as e:
+            string_buf = StringIO()
+            cgitb_hook(file=string_buf, format="text")
+            err_msg = string_buf.getvalue()
+            self._logger.error("%s - %s" %(self._name, err_msg))
+            return None
         return fip
 
-    def _allocate_floating_ip(self, lb_obj, name, proj_obj):
+    def _allocate_floating_ip(self, lb_obj, name, proj_obj, external_ip):
         vmi_id = lb_obj.virtual_machine_interface_refs[0]['uuid']
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
         if vmi_obj is None:
             self._logger.error("%s - %s Vmi %s Not Found" \
                  %(self._name, lb_obj.name, vmi_id))
             return None
-        fip = self._get_floating_ip(name, proj_obj, vmi_obj)
+        fip = self._get_floating_ip(name, proj_obj, external_ip, vmi_obj)
         return fip
 
     def _deallocate_floating_ip(self, lb):
@@ -165,7 +179,7 @@ class VncIngress(VncCommon):
         ll_obj = self.service_ll_mgr.create(lb_obj, proj_obj, port)
         return ll_obj
 
-    def _vnc_create_lb(self, uid, name, ns_name):
+    def _vnc_create_lb(self, uid, name, ns_name, annotations):
         proj_obj = self._get_project(ns_name)
         vn_obj = self._get_network(ns_name)
         if proj_obj is None or vn_obj is None:
@@ -179,7 +193,10 @@ class VncIngress(VncCommon):
         if lb_obj:
             vip_info = {}
             vip_info['clusterIP'] = lb_obj._loadbalancer_properties.vip_address
-            fip_obj = self._allocate_floating_ip(lb_obj, name, proj_obj)
+            if 'externalIP' in annotations:
+                external_ip = annotations['externalIP']
+            fip_obj = self._allocate_floating_ip(lb_obj,
+                        name, proj_obj, external_ip)
             if fip_obj:
                 vip_info['externalIP'] = fip_obj.address
             patch = {'metadata': {'annotations': vip_info}}
@@ -403,7 +420,8 @@ class VncIngress(VncCommon):
     def _create_lb(self, uid, name, ns_name, event):
         lb = LoadbalancerKM.get(uid)
         if not lb:
-            lb_obj = self._vnc_create_lb(uid, name, ns_name)
+            annotations = event['object']['metadata'].get('annotations')
+            lb_obj = self._vnc_create_lb(uid, name, ns_name, annotations)
             if lb_obj is None:
                 return
             lb = LoadbalancerKM.locate(uid)
