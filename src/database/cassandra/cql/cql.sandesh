@@ -52,14 +52,14 @@ struct DbStats {
  * @description: trace message for a database query
  * @type: Trace
  */
-trace sandesh cql_err {
+trace sandesh cql_trace {
     1: string message
 }
-
-trace sandesh cql_info {
-    1: string message
-}
-
-trace sandesh cql_debug {
-    1: string message
-}
+//
+//trace sandesh cql_info {
+//    1: string message
+//}
+//
+//trace sandesh cql_debug {
+//    1: string message
+//}
