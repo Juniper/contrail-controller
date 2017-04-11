@@ -8,6 +8,8 @@ import argparse
 import ConfigParser
 
 from vnc_api.vnc_api import *
+from vnc_admin_api import VncApiAdmin
+
 
 class ForwardingModeSetup(object):
 
@@ -17,7 +19,8 @@ class ForwardingModeSetup(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
-        self._vnc_lib = VncApi(
+        self._vnc_lib = VncApiAdmin(
+            self._args.use_admin_api,
             self._args.admin_user, self._args.admin_password,
             self._args.admin_tenant_name,
             self._args.api_server_ip,
@@ -107,7 +110,7 @@ class ForwardingModeSetup(object):
             "--project_fq_name", help="Fully qualified name of the Project", required=True)
         parser.add_argument(
             "--vxlan_id", help="VxLan ID")
-        parser.add_argument("--api_server_port", help="Port of api server", required=True)
+        parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument(
             "--forwarding_mode", help="l2_l3 or l2 only", required=True)
         parser.add_argument(
@@ -116,6 +119,13 @@ class ForwardingModeSetup(object):
             "--admin_user", help="Name of keystone admin user")
         parser.add_argument(
             "--admin_password", help="Password of keystone admin user")
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument(
+            "--api_server_ip", help="IP address of api server")
+        group.add_argument("--use_admin_api",
+                            default=False,
+                            help = "Connect to local api-server on admin port",
+                            action="store_true")
 
         self._args = parser.parse_args(remaining_argv)
     # end _parse_args
