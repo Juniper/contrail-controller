@@ -37,6 +37,7 @@ void StructuredSyslogDecorate(SyslogParser::syslog_m_t &v, StructuredSyslogConfi
                               boost::shared_ptr<std::string> msg);
 void StructuredSyslogPush(SyslogParser::syslog_m_t v, StatWalker::StatTableInsertFn stat_db_callback,
     std::vector<std::string> tagged_fields);
+void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user);
 
 
 size_t DecorateMsg(boost::shared_ptr<std::string> msg, const std::string &key, const std::string &val, size_t prev_pos) {
@@ -133,13 +134,15 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
   const std::string tag = body.substr(start, end-start);
   LOG(DEBUG, "structured_syslog - tag: " << tag );
   boost::shared_ptr<MessageConfig> mc = config_obj->GetMessageConfig(tag);
-  if (mc == NULL || ((mc->process_and_store() == false) && (mc->forward() == false))) {
+  if (mc == NULL || ((mc->process_and_store() == false) && (mc->forward() == false) 
+      && (mc->process_and_summarize() == false))) {
     LOG(DEBUG, "structured_syslog - not processing message: " << tag );
     return false;
   }
   LOG(DEBUG, "structured_syslog - message_config: " << mc->name());
   boost::shared_ptr<std::string> msg;
-  if (mc->process_and_store() == true || mc->process_before_forward() == true) {
+  if (mc->process_and_store() == true || mc->process_before_forward() == true 
+      || mc->process_and_summarize() == true) {
       start = end + 1;
       v.insert(std::pair<std::string, SyslogParser::Holder>("tag",
             SyslogParser::Holder("tag", tag)));
@@ -169,6 +172,10 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
       StructuredSyslogDecorate(v, config_obj, msg);
       if (mc->process_and_store() == true) {
         StructuredSyslogPush(v, stat_db_callback, mc->tags());
+      }
+      if (mc->process_and_summarize() == true) {
+        bool syslog_summarize_user = mc->process_and_summarize_user();
+        StructuredSyslogUVESummarize(v, syslog_summarize_user);
       }
       if (forwarder != NULL && mc->forward() == true &&
           mc->process_before_forward() == true) {
@@ -275,6 +282,67 @@ void StructuredSyslogPush(SyslogParser::syslog_m_t v, StatWalker::StatTableInser
                            "JunosSyslog", top_tags);
     PushStructuredSyslogStats(v, std::string(), &stat_walker, tagged_fields);
 }
+
+void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user) {
+    LOG(DEBUG,"UVE: Processing and sending Strucutured syslogs as UVE with flag summarize_user:" << summarize_user);
+    AppTrackRecord *apprecord = new AppTrackRecord();
+    const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
+    const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
+    const std::string link(SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+    const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
+    const std::string app_category(SyslogParser::GetMapVals(v, "app-category", "UNKNOWN"));
+
+    //username => syslog.username or syslog.source-address
+    std::string username(SyslogParser::GetMapVals(v, "username", "UNKNOWN"));
+    if (boost::iequals(username, "unknown")) {
+        username = SyslogParser::GetMapVals(v, "source-address", "UNKNOWN");
+    }
+    const std::string department(SyslogParser::GetMapVals(v, "department", "UNKNOWN"));
+    const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+
+    const std::string uvename= tenant + "::" + location + "::" + device_id;
+    apprecord->set_name(uvename);
+
+    AppMetrics appmetric;
+    appmetric.set_total_bytes(SyslogParser::GetMapVal(v, "total-bytes", 0));
+    appmetric.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
+    appmetric.set_session_count(1);
+
+    std::string appgroup = SyslogParser::GetMapVals(v, "app-groups", "UNKNOWN");
+    std::string app_dept_info;
+    if (boost::iequals(appgroup, "unknown")) {
+        std::string nested_appname = SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN");
+        std::string appname = SyslogParser::GetMapVals(v, "application", "UNKNOWN");
+        app_dept_info = nested_appname + "(" + appname + "/" + app_category + ")::" + department + "::";
+    } else {
+        app_dept_info = appgroup + "::" + department + "::";
+    }
+    // Map 1:  app_metric_sla
+    std::map<std::string, AppMetrics> appmetric_sla;
+    std::string slamap_key(app_dept_info + sla_profile);
+    LOG(DEBUG,"UVE: slamap key :" << slamap_key);
+    appmetric_sla.insert(std::make_pair(slamap_key, appmetric));
+    apprecord->set_app_metrics_sla(appmetric_sla);
+
+    // Map 2:  app_metric_link
+    std::map<std::string, AppMetrics> appmetric_link;
+    std::string linkmap_key(app_dept_info + link);
+    LOG(DEBUG,"UVE: linkmap key :" << linkmap_key);
+    appmetric_link.insert(std::make_pair(linkmap_key, appmetric));
+    apprecord->set_app_metrics_link(appmetric_link);
+
+    // Map 3:  app_metric_user: forward only if flag is true
+    if (summarize_user == true) {
+        std::map<std::string, AppMetrics> appmetric_user;
+        std::string usermap_key(app_dept_info + username);
+        LOG(DEBUG,"UVE: usermap key :" << usermap_key);
+        appmetric_user.insert(std::make_pair(usermap_key, appmetric));
+        apprecord->set_app_metrics_user(appmetric_user);
+    }
+    AppTrack::Send(*apprecord, "ObjectCPETable");
+    return;
+}
+
 
 void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
                                boost::shared_ptr<std::string> msg) {
