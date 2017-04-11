@@ -2,18 +2,19 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BASE__TASK_ANNOTATIONS_H__
-#define __BASE__TASK_ANNOTATIONS_H__
+#ifndef SRC_BASE_TASK_ANNOTATIONS_H_
+#define SRC_BASE_TASK_ANNOTATIONS_H_
 
 #include <stdlib.h>
 #include <set>
+#include <string>
 
 #include <boost/scoped_ptr.hpp>
 
 #include "base/task.h"
 class ConcurrencyChecker {
 public:
-    static bool disable_;
+    static bool enable_;
     ConcurrencyChecker();
     ConcurrencyChecker(const char *task_ids[], size_t count);
     void Check();
@@ -35,28 +36,20 @@ private:
     boost::scoped_ptr<ScopeTask> unit_test_task_;
 };
 
-#if defined(DEBUG)
 #define CHECK_CONCURRENCY(...)                            \
     do {                                                  \
-        if (ConcurrencyChecker::disable_) break;          \
+        if (!ConcurrencyChecker::enable_) break;          \
         const char *_X_array[] = { __VA_ARGS__ };         \
         ConcurrencyChecker checker(                       \
             _X_array, sizeof(_X_array) / sizeof(char *)); \
         checker.Check();                                  \
     } while (0)
-#else
-#define CHECK_CONCURRENCY(...)
-#endif
 
-#if defined(DEBUG)
-#define CHECK_CONCURRENCY_MAIN_THR()                     \
-    do {                                                \
-        if (ConcurrencyChecker::disable_) break;        \
-        ConcurrencyChecker checker;                     \
-        checker.CheckIfMainThr();                          \
+#define CHECK_CONCURRENCY_MAIN_THR()                      \
+    do {                                                  \
+        if (!ConcurrencyChecker::enable_) break;          \
+        ConcurrencyChecker checker;                       \
+        checker.CheckIfMainThr();                         \
     } while (0)
-#else
-#define CHECK_CONCURRENCY_MAIN_THR(...)
-#endif
 
-#endif
+#endif  // SRC_BASE_TASK_ANNOTATIONS_H_

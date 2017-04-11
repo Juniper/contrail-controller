@@ -6,7 +6,8 @@
 
 #include "base/task.h"
 
-bool ConcurrencyChecker::disable_ = getenv("CONCURRENCY_CHECK_DISABLE") != NULL;
+bool ConcurrencyChecker::enable_ = getenv("CONCURRENCY_CHECK_ENABLE") != NULL &&
+    !strcasecmp(getenv("CONCURRENCY_CHECK_ENABLE"), "true");
 
 ConcurrencyChecker::ConcurrencyChecker(const char *task_ids[], size_t count) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
