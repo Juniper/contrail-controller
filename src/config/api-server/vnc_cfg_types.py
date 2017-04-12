@@ -2829,7 +2829,7 @@ class FloatingIpPoolServer(Resource, FloatingIpPool):
 class PhysicalRouterServer(Resource, PhysicalRouter):
     @classmethod
     def post_dbe_read(cls, obj_dict, db_conn):
-        if 'physical_router_user_credentials' in obj_dict:
+        if obj_dict.get('physical_router_user_credentials'):
             if obj_dict['physical_router_user_credentials'].get('password'):
                 obj_dict['physical_router_user_credentials']['password'] = "**Password Hidden**"
 
