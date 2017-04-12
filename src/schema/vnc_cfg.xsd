@@ -297,7 +297,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <!-- dummy till ui etc. remove it -->
         <xsd:element name="rule-sequence"    type="SequenceType" required='optional'
-             description='Deprecated, Will be removed'/>
+             description='Deprecated, Will be removed because rules themselves are already an ordered list'/>
         <xsd:element name="rule-uuid"        type="xsd:string" required='optional'
              description='Rule UUID is identifier used in flow records to identify rule'/>
         <xsd:element name="direction"        type="DirectionType" required='true'/>
