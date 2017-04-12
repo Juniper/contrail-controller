@@ -679,6 +679,11 @@ class VncApiServer(object):
             if 'exclude_children' not in get_request().query:
                 obj_fields |= r_class.children_fields
 
+        (ok, result) = r_class.pre_dbe_read(obj_ids['uuid'], db_conn)
+        if not ok:
+            (code, msg) = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
         try:
             (ok, result) = db_conn.dbe_read(obj_type, obj_ids,
                 list(obj_fields), ret_readonly=True)
@@ -699,6 +704,11 @@ class VncApiServer(object):
 
         if not self.is_admin_request():
             result = self.obj_view(resource_type, result)
+
+        (ok, err_msg) = r_class.post_dbe_read(result, db_conn)
+        if not ok:
+            (code, msg) = err_msg
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         rsp_body = {}
         rsp_body['uuid'] = id

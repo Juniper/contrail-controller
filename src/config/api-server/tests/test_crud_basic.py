@@ -763,7 +763,29 @@ class TestCrud(test_case.ApiServerTestCase):
         #service_interface_type are: management|left|right|other[0-9]*
         with ExpectedException(BadRequest) as e:
             port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
-       #end test_service_interface_type_value
+       # end test_service_interface_type_value
+
+    def test_physical_router_credentials(self):
+        phy_rout_name = self.id() + '-phy-router-1'
+        user_cred_create = UserCredentials(username="test_user", password="test_pswd")
+        phy_rout = PhysicalRouter(phy_rout_name, physical_router_user_credentials=user_cred_create)
+        self._vnc_lib.physical_router_create(phy_rout)
+
+        phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_rout.uuid)
+        user_cred_read = phy_rout_obj.get_physical_router_user_credentials()
+        if user_cred_read.password != '**Password Hidden**':
+            raise Exception("ERROR: physical-router: password should be hidden")
+       # end test_physical_router_credentials
+
+    def test_physical_router_w_no_user_credentials(self):
+        phy_rout_name = self.id() + '-phy-router-2'
+        phy_router = PhysicalRouter(phy_rout_name)
+        self._vnc_lib.physical_router_create(phy_router)
+        # reading Physical Router object when user credentials
+        # are set to None should be successfull.
+        phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_router.uuid)
+        # end test_physical_router_w_no_user_credentials
+
 # end class TestCrud
 
 
