@@ -2,6 +2,9 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
+/**
+ * Backup Interface Mpls Resource data
+*/
 struct  InterfaceIndexResource {
     1: string type;
     2: string uuid;
@@ -12,11 +15,19 @@ struct  InterfaceIndexResource {
     7: u64 time_stamp;
 }
 
+/**
+ * Backup Vrf Mpls Resource data
+*/
+
 struct  VrfMplsResource {
     1: string name;
     2: bool vxlan_nh;
     3: u64 time_stamp;
 }
+
+/**
+ * Backup Vlan Mpls Resource data
+*/
 
 struct VlanMplsResource {
     1: string uuid;
@@ -24,28 +35,96 @@ struct VlanMplsResource {
     3: u64 time_stamp;
 }
 
+/**
+ * Backup Route Mpls Resource data
+*/
 struct  RouteMplsResource {
     1: string vrf_name;
     2: string route_prefix;
     3: u64 time_stamp;
 }
 
+/**
+ * Map of Interface Mpls Resource data.
+*/
 buffer sandesh InterfaceIndexResourceMapSandesh {
     1: map<u32, InterfaceIndexResource> index_map;
     2: u64 time_stamp;
 }
 
+/**
+ * Map of Vrf Mpls Resource data. 
+*/
 buffer sandesh VrfMplsResourceMapSandesh {
     1: map<u32, VrfMplsResource> index_map;
     2: u64 time_stamp;
 }
 
+/**
+ * Map of Vlan Mpls Resource data.
+*/
 buffer sandesh VlanMplsResourceMapSandesh {
     1: map<u32, VlanMplsResource> index_map;
     2: u64 time_stamp;
 }
 
+/**
+ * Map of Route Mpls Resource data. 
+*/
 buffer sandesh RouteMplsResourceMapSandesh {
     1: map<u32, RouteMplsResource> index_map;
     2: u64 time_stamp;
+}
+
+/**
+ * @description: Trace message InterfaceMplsData
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh  InterfaceMplsData {
+    1: string type;
+    2: string uuid;
+    3: string name;
+    4: bool policy;
+    5: string mac;
+    6: u32 label;
+    7: string operation;
+}
+
+/**
+ * @description: Trace message VrfMplsData
+ * @type: Trace
+ * @severity: DEBUG
+ */
+
+traceobject sandesh  VrfMplsData {
+    1: string name;
+    2: bool vxlan_nh;
+    3: u32 label;
+    4: string operation;
+}
+
+/**
+ * @description: Trace message VlanMplsData
+ * @type: Trace
+ * @severity: DEBUG
+ */
+
+traceobject sandesh VlanMplsData {
+    1: string uuid;
+    2: u16 tag;
+    3: u32 label;
+    4: string operation;
+}
+
+/**
+ * @description: Trace message RouteMplsData
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh  RouteMplsData {
+    1: string vrf_name;
+    2: string route_prefix;
+    3: u32 label;
+    4: string operation;
 }

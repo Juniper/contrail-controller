@@ -15,6 +15,15 @@
 #include "base/time_util.h"
 #include <oper/nexthop.h>
 
+SandeshTraceBufferPtr InterfaceMplsDataTraceBuf(SandeshTraceBufferCreate
+                                               ("InterfaceMplsData", 5000));
+SandeshTraceBufferPtr VrfMplsDataTraceBuf(SandeshTraceBufferCreate
+                                          ("VrfMplsData", 5000));
+SandeshTraceBufferPtr VlanMplsDataTraceBuf(SandeshTraceBufferCreate
+                                           ("VlanMplsData", 5000));
+SandeshTraceBufferPtr RouteMplsDataTraceBuf(SandeshTraceBufferCreate
+                                            ("RouteMplsData", 5000));
+
 MplsIndexResourceKey::MplsIndexResourceKey(ResourceManager *rm,
                                            Type type) :
     IndexResourceKey(rm, Resource::MPLS_INDEX), type_(type) {
@@ -69,12 +78,14 @@ void NexthopIndexResourceKey::Backup(ResourceData *data, uint16_t op) {
 void NexthopIndexResourceKey::BackupInterfaceResource(ResourceData *data,
                                                       uint16_t op) {
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
+    const InterfaceNHKey *itfnh_key = static_cast<const InterfaceNHKey *>(
+                                      GetNhKey());
+    string operation;
     if (op == ResourceBackupReq::DELETE) {
         rm()->backup_mgr()->
            sandesh_maps().DeleteInterfaceMplsResourceEntry(index_data->index());
+        operation = "DELETE";
     } else {
-        const InterfaceNHKey *itfnh_key = static_cast<const InterfaceNHKey *>(
-                                              GetNhKey());
         InterfaceIndexResource backup_data;
         backup_data.set_type(
             (itfnh_key->intf_type() == Interface::VM_INTERFACE)?"vmi":"inet");
@@ -87,7 +98,15 @@ void NexthopIndexResourceKey::BackupInterfaceResource(ResourceData *data,
         rm()->backup_mgr()->
             sandesh_maps().AddInterfaceMplsResourceEntry(index_data->index(),
                                                          backup_data);
+        operation = "ADD";
     }
+
+    INTERFACE_MPLS_DATA_TRACE(InterfaceMplsDataTraceBuf,
+                              (itfnh_key->intf_type() == Interface::VM_INTERFACE)?"vmi":"inet",
+                              UuidToString(itfnh_key->GetUuid()),
+                              itfnh_key->name(), itfnh_key->GetPolicy(),
+                              itfnh_key->dmac().ToString(), index_data->index(),
+                              operation);
     //TODO may be API to insert in map can be added and that will incr sequence
     //number internally.
     rm()->backup_mgr()->sandesh_maps().interface_mpls_index_table().
@@ -98,20 +117,25 @@ void NexthopIndexResourceKey::BackupInterfaceResource(ResourceData *data,
 void NexthopIndexResourceKey::BackupVrfResource(ResourceData *data,
                                                 uint16_t op) {
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
+    const VrfNHKey *vrfnh_key = static_cast<const VrfNHKey *>(GetNhKey());
+    string operation;
     if (op == ResourceBackupReq::DELETE) {
         rm()->backup_mgr()->sandesh_maps().DeleteVrfMplsResourceEntry(
                 index_data->index());
+        operation = "DELETE";
     } else {
-        const VrfNHKey *vrfnh_key = static_cast<const VrfNHKey *>(GetNhKey());
         VrfMplsResource backup_data;
         backup_data.set_name(vrfnh_key->GetVrfName());
         backup_data.set_vxlan_nh(vrfnh_key->GetVxlanNh());
         backup_data.set_time_stamp(UTCTimestampUsec());
         rm()->backup_mgr()->sandesh_maps().AddVrfMplsResourceEntry(
                 index_data->index(), backup_data);
+        operation = "ADD";
     }
     //TODO may be API to insert in map can be added and that will incr sequence
     //number internally.
+    VRF_MPLS_DATA_TRACE(VrfMplsDataTraceBuf, vrfnh_key->GetVrfName(),
+                        vrfnh_key->GetVxlanNh(), index_data->index(), operation);
     rm()->backup_mgr()->sandesh_maps().vrf_mpls_index_table().
         TriggerBackup();
 }
@@ -120,12 +144,14 @@ void NexthopIndexResourceKey::BackupVrfResource(ResourceData *data,
 void NexthopIndexResourceKey::BackupVlanResource(ResourceData *data,
                                                  uint16_t op) {
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
+    const VlanNHKey *vlan_nh_key = static_cast<const VlanNHKey *>(GetNhKey());
+    string operation;
     if (op == ResourceBackupReq::DELETE) {
         rm()->backup_mgr()->sandesh_maps().DeleteVlanMplsResourceEntry(
                 index_data->index());
+        operation = "DELETE";
     } else {
-        const VlanNHKey *vlan_nh_key = static_cast<const VlanNHKey *>(
-                                           GetNhKey());
+        operation = "ADD";
         VlanMplsResource backup_data;
         backup_data.set_uuid(UuidToString(vlan_nh_key->GetUuid()));
         backup_data.set_tag(vlan_nh_key->vlan_tag());
@@ -135,6 +161,9 @@ void NexthopIndexResourceKey::BackupVlanResource(ResourceData *data,
     }
     //TODO may be API to insert in map can be added and that will incr sequence
     //number internally.
+    VLAN_MPLS_DATA_TRACE(VlanMplsDataTraceBuf,
+                        UuidToString(vlan_nh_key->GetUuid()),
+                        vlan_nh_key->vlan_tag(), index_data->index(), operation);
     rm()->backup_mgr()->sandesh_maps().vlan_mpls_index_table().
         TriggerBackup();
 }
@@ -165,9 +194,11 @@ bool RouteMplsResourceKey::IsLess(const ResourceKey &rhs) const {
 //Backup the Route Mpls Resource Data as Sandesh encoded format.
 void RouteMplsResourceKey::Backup(ResourceData *data, uint16_t op) {
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
+    string operation;
     if (op == ResourceBackupReq::DELETE) {
         rm()->backup_mgr()->sandesh_maps().DeleteRouteMplsResourceEntry(
                 index_data->index());
+        operation = "DELETE";
     } else {
         RouteMplsResource backup_data;
         backup_data.set_vrf_name(vrf_name_);
@@ -175,9 +206,12 @@ void RouteMplsResourceKey::Backup(ResourceData *data, uint16_t op) {
         backup_data.set_time_stamp(UTCTimestampUsec());
         rm()->backup_mgr()->sandesh_maps().AddRouteMplsResourceEntry(
                 index_data->index(), backup_data);
+        operation = "ADD";
     }
     //TODO may be API to insert in map can be added and that will incr sequence
     //number internally.
+    ROUTE_MPLS_DATA_TRACE(RouteMplsDataTraceBuf, vrf_name_, route_key_,
+                          index_data->index(), operation);
     rm()->backup_mgr()->sandesh_maps().route_mpls_index_table().
         TriggerBackup();
 }
