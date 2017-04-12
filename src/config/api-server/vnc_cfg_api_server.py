@@ -2391,9 +2391,18 @@ class VncApiServer(object):
     def useragent_kv_http_post(self):
         self._post_common(get_request(), None, None)
 
-        oper = get_request().json['operation']
-        key = get_request().json['key']
-        val = get_request().json.get('value', '')
+        request_params = get_request().json
+        oper = request_params.get('operation')
+        if oper is None:
+            err_msg = ("Error: Key/value store API needs 'operation' "
+                       "parameter")
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
+        if 'key' not in request_params:
+            err_msg = ("Error: Key/value store API needs 'key' parameter")
+            raise cfgm_common.exceptions.HttpError(400, err_msg)
+        key = request_params.get('key')
+        val = request_params.get('value', '')
+
 
         # TODO move values to common
         if oper == 'STORE':
