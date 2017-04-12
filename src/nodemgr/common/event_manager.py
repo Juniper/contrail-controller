@@ -14,7 +14,6 @@ import socket
 import time
 import subprocess
 from subprocess import Popen, PIPE
-import supervisor.xmlrpc
 import xmlrpclib
 import platform
 import random
@@ -26,8 +25,14 @@ try:
 except:
     pydbus_present = False
 
+try:
+    import supervisor.xmlrpc
+    from supervisor import childutils
+    supervisor_event_listener_cls_type = childutils.EventListenerProtocol
+except:
+    supervisor_event_listener_cls_type = object
+
 from functools import partial
-from supervisor import childutils
 from nodemgr.common.process_stat import ProcessStat
 from nodemgr.common.sandesh.nodeinfo.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
@@ -46,7 +51,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.connection_info import ConnectionState
 from nodemgr.utils import NodeMgrUtils
 
-class SupervisorEventListener(childutils.EventListenerProtocol):
+class SupervisorEventListener(supervisor_event_listener_cls_type):
     def wait(self, stdin=sys.stdin, stdout=sys.stdout):
         self.ready(stdout)
         while 1:
