@@ -91,6 +91,8 @@ public:
     void set_gr_helper_disable(bool gr_helper_disable) {
         gr_helper_disable_ = gr_helper_disable;
     }
+    void SetDscpValue(uint8_t value);
+    uint8_t dscp_value() const { return dscp_value_; }
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);
@@ -131,6 +133,7 @@ private:
     int tcp_hold_time_;
     bool gr_helper_disable_;
     boost::scoped_ptr<XmppConfigUpdater> xmpp_config_updater_;
+    uint8_t dscp_value_;
     WorkQueue<XmppServerConnection *> connection_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppServer);

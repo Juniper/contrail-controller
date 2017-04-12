@@ -310,6 +310,10 @@ bgp_xmpp_basic_test = env.UnitTest('bgp_xmpp_basic_test',
                                    ['bgp_xmpp_basic_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_basic_test', bgp_xmpp_basic_test)
 
+bgp_xmpp_dscp_test = env.UnitTest('bgp_xmpp_dscp_test',
+                                   ['bgp_xmpp_dscp_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_dscp_test', bgp_xmpp_dscp_test)
+
 bgp_xmpp_channel_test = env.UnitTest('bgp_xmpp_channel_test',
                                      ['bgp_xmpp_channel_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_channel_test', bgp_xmpp_channel_test)
@@ -608,6 +612,7 @@ test_suite = [
     bgp_update_test,
     bgp_update_sender_test,
     bgp_xmpp_basic_test,
+    bgp_xmpp_dscp_test,
     bgp_xmpp_channel_test,
     bgp_xmpp_deferq_test,
     bgp_xmpp_evpn_mcast_test,

@@ -64,6 +64,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
       auth_enabled_(config->auth_enabled),
       tcp_hold_time_(config->tcp_hold_time),
       gr_helper_disable_(config->gr_helper_disable),
+      dscp_value_(0),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 
@@ -170,6 +171,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr)
       tcp_hold_time_(XmppChannelConfig::kTcpHoldTime),
       gr_helper_disable_(false),
       xmpp_config_updater_(NULL),
+      dscp_value_(0),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 }
@@ -494,6 +496,7 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
     cfg.FromAddr = server_addr_;
     cfg.logUVE = log_uve_;
     cfg.auth_enabled = auth_enabled_;
+    cfg.dscp_value = dscp_value_;
 
     XMPP_DEBUG(XmppCreateConnection, session->ToString());
     connection = XmppObjectFactory::Create<XmppServerConnection>(this, &cfg);
@@ -501,6 +504,13 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
     return connection;
 }
 
+void XmppServer::SetDscpValue(uint8_t value) {
+    dscp_value_ = value;
+    BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
+        XmppServerConnection *connection = value.second;
+        connection->SetDscpValue(dscp_value_);
+    }
+}
 //
 // Handler for XmppServerConnections that are dequeued from the WorkQueue.
 //

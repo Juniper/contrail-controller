@@ -28,6 +28,7 @@ class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
 class BgpGlobalSystemConfig;
+class BgpGlobalQosConfig;
 class BgpMembershipManager;
 class BgpOListDB;
 class BgpPeer;
@@ -49,11 +50,13 @@ class RoutePathReplicator;
 class RoutingInstanceMgr;
 class RoutingPolicyMgr;
 class RTargetGroupMgr;
+class XmppServer;
 
 class BgpServer {
 public:
     static const int kEndOfRibTime = 30; // seconds
     typedef boost::function<void()> AdminDownCb;
+    typedef boost::function<void(uint8_t)> DSCPUpdateCb;
     typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
     typedef boost::function<void(BgpPeer *)> VisitorFn;
@@ -242,6 +245,9 @@ public:
     int RegisterIdentifierUpdateCallback(IdentifierUpdateCb callback);
     void UnregisterIdentifierUpdateCallback(int listener);
     void NotifyIdentifierUpdate(Ip4Address old_identifier);
+    int RegisterDSCPUpdateCallback(DSCPUpdateCb cb);
+    void UnregisterDSCPUpdateCallback(int listener);
+    void NotifyDSCPUpdate(int new_dscp_value);
 
     void InsertStaticRouteMgr(IStaticRouteMgr *srt_manager);
     void RemoveStaticRouteMgr(IStaticRouteMgr *srt_manager);
@@ -249,6 +255,7 @@ public:
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;
     BgpGlobalSystemConfig *global_config() { return global_config_.get(); }
+    BgpGlobalQosConfig *global_qos() { return global_qos_.get(); }
     bool gr_helper_disable() const { return gr_helper_disable_; }
     void set_gr_helper_disable(bool gr_helper_disable) {
         gr_helper_disable_ = gr_helper_disable;
@@ -265,6 +272,7 @@ private:
     typedef std::vector<AdminDownCb> AdminDownListenersList;
     typedef std::vector<ASNUpdateCb> ASNUpdateListenersList;
     typedef std::vector<IdentifierUpdateCb> IdentifierUpdateListenersList;
+    typedef std::vector<DSCPUpdateCb> DSCPUpdateListenersList;
     typedef std::multimap<TcpSession::Endpoint, BgpPeer *> EndpointPeerList;
 
     void RoutingInstanceMgrDeletionComplete(RoutingInstanceMgr *mgr);
@@ -282,6 +290,8 @@ private:
     Ip4Address bgp_identifier_;
     IdentifierUpdateListenersList id_listeners_;
     boost::dynamic_bitset<> id_bmap_;      // free list.
+    DSCPUpdateListenersList dscp_listeners_;
+    boost::dynamic_bitset<> dscp_bmap_;  // free list.
     uint32_t hold_time_;
     bool gr_helper_disable_;
     StaticRouteMgrList srt_manager_list_;
@@ -332,6 +342,7 @@ private:
 
     // configuration
     boost::scoped_ptr<BgpGlobalSystemConfig> global_config_;
+    boost::scoped_ptr<BgpGlobalQosConfig> global_qos_;
     boost::scoped_ptr<BgpConfigManager> config_mgr_;
     boost::scoped_ptr<ConfigUpdater> updater_;
 

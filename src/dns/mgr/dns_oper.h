@@ -225,4 +225,18 @@ struct VirtualDnsRecordConfig : public DnsConfig {
     static void UpdateVirtualDns(VirtualDnsConfig *vdns);
 };
 
+struct GlobalQosConfig : public DnsConfig {
+    GlobalQosConfig(IFMapNode *node);
+    ~GlobalQosConfig();
+
+    void OnAdd(IFMapNode *node);
+    void OnDelete();
+    void OnChange(IFMapNode *node);
+    void SetDscp();
+    static GlobalQosConfig *Find(const std::string &name);
+
+    uint8_t control_dscp_;
+    uint8_t analytics_dscp_;
+    static GlobalQosConfig *singleton_;
+};
 #endif // __dns_oper_h__

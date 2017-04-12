@@ -122,6 +122,7 @@ struct BgpNeighborResp {
     33: optional peer_info.PeerUpdateStats tx_update_stats;
     34: optional peer_info.PeerSocketStats rx_socket_stats;
     35: optional peer_info.PeerSocketStats tx_socket_stats;
+    63: i16 dscp_value;
     42: optional peer_info.PeerRxErrorStats rx_error_stats;
 }
 

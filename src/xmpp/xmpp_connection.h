@@ -213,6 +213,7 @@ public:
     void SwapXmppStateMachine(XmppConnection *other) {
         state_machine_.swap(other->state_machine_);
     }
+    uint8_t dscp_value() const { return dscp_value_; }
     int SetDscpValue(uint8_t value);
 
     void inc_connect_error();
