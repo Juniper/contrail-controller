@@ -13,6 +13,11 @@
  */
 #include <resource_manager/index_resource.h>
 #include <resource_manager/resource_backup.h>
+extern SandeshTraceBufferPtr InterfaceMplsDataTraceBuf;
+extern SandeshTraceBufferPtr VrfMplsDataTraceBuf;
+extern SandeshTraceBufferPtr VlanMplsDataTraceBuf;
+extern SandeshTraceBufferPtr RouteMplsDataTraceBuf;
+
 class ResourceManager;
 class ResourceKey;
 class NextHopKey;
