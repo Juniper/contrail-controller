@@ -40,7 +40,7 @@ SandeshTraceBufferPtr CqlTraceErrBuf(SandeshTraceBufferCreate(
          std::stringstream ss;                                            \
          ss << __func__ << ":" << __FILE__ << ":" <<                      \
              __LINE__ << ": " << _Msg;                                    \
-         CQL_DEBUG_TRACE(CqlTraceDebugBuf,ss.str());                      \
+         CQL_TRACE_TRACE(CqlTraceDebugBuf,ss.str());                      \
        } while (false)                                                    \
 
 #define CQLIF_INFO_TRACE(_Msg)                                            \
@@ -48,7 +48,7 @@ SandeshTraceBufferPtr CqlTraceErrBuf(SandeshTraceBufferCreate(
          std::stringstream ss;                                            \
          ss << __func__ << ":" << __FILE__ << ":" <<                      \
              __LINE__ << ": " << _Msg;                                    \
-         CQL_INFO_TRACE(CqlTraceInfoBuf,ss.str());                        \
+         CQL_TRACE_TRACE(CqlTraceInfoBuf,ss.str());                        \
        } while (false)                                                    \
 
 #define CQLIF_ERR_TRACE(_Msg)                                             \
@@ -56,17 +56,17 @@ SandeshTraceBufferPtr CqlTraceErrBuf(SandeshTraceBufferCreate(
          std::stringstream ss;                                            \
          ss << __func__ << ":" << __FILE__ << ":" <<                      \
              __LINE__ << ": " << _Msg;                                    \
-         CQL_ERR_TRACE(CqlTraceErrBuf,ss.str());                          \
+         CQL_TRACE_TRACE(CqlTraceErrBuf,ss.str());                          \
        } while (false)                                                    \
 
 #define CASS_LIB_TRACE(_Level, _Msg)                                      \
     do {                                                                  \
         if (_Level == log4cplus::ERROR_LOG_LEVEL) {                       \
-            CQL_ERR_TRACE(CqlTraceErrBuf, _Msg);                          \
+            CQL_TRACE_TRACE(CqlTraceErrBuf, _Msg);                          \
         }else if (_Level == log4cplus::DEBUG_LOG_LEVEL) {                 \
-            CQL_DEBUG_TRACE(CqlTraceDebugBuf, _Msg);                      \
+            CQL_TRACE_TRACE(CqlTraceDebugBuf, _Msg);                      \
         }else {                                                           \
-            CQL_INFO_TRACE(CqlTraceInfoBuf, _Msg);                        \
+            CQL_TRACE_TRACE(CqlTraceInfoBuf, _Msg);                        \
         }                                                                 \
     } while (false)                                                       \
 
