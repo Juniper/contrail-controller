@@ -10,5 +10,6 @@ env = CfgmEnv.Clone()
 
 gobin = env.GoCniBuild('kube_cni')
 
-env.Alias('contrail-cni', gobin)
+env.Alias('contrail-k8s-cni', gobin)
+env.Alias('install', env.InstallAs(env['INSTALL_BIN'] + '/contrail-k8s-cni', gobin))
 env.Default(gobin)
