@@ -192,8 +192,9 @@ class VncIngress(VncCommon):
                             pod_ipam_subnet_uuid)
         if lb_obj:
             vip_info = {}
+            external_ip = None
             vip_info['clusterIP'] = lb_obj._loadbalancer_properties.vip_address
-            if 'externalIP' in annotations:
+            if annotations and 'externalIP' in annotations:
                 external_ip = annotations['externalIP']
             fip_obj = self._allocate_floating_ip(lb_obj,
                         name, proj_obj, external_ip)

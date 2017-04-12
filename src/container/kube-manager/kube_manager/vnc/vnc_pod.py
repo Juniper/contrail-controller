@@ -360,6 +360,7 @@ class VncPod(VncCommon):
             if not vm:
                 return
         self._update_label_to_pod_cache(labels, vm)
+        return vm
 
     def vnc_port_delete(self, vmi_id):
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
@@ -459,12 +460,14 @@ class VncPod(VncCommon):
                     return
 
             if event['type'] == 'ADDED':
-                self.vnc_pod_add(pod_id, pod_name, pod_namespace,
+                vm = self.vnc_pod_add(pod_id, pod_name, pod_namespace,
                     pod_node, labels, vm_vmi)
-                self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
+                if vm:
+                    self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
             else:
-                self.vnc_pod_update(pod_id, pod_name,
+                vm = self.vnc_pod_update(pod_id, pod_name,
                     pod_namespace, pod_node, labels, vm_vmi)
-                self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
+                if vm:
+                    self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
