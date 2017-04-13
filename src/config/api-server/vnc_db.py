@@ -93,7 +93,6 @@ class VncServerCassandraClient(VncCassandraClient):
             credential=cassandra_credential, walk=walk,
             obj_cache_entries=obj_cache_entries,
             obj_cache_exclude_types=obj_cache_exclude_types)
-        self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
     def config_log(self, msg, level):
@@ -226,31 +225,28 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def useragent_kv_store(self, key, value):
         columns = {'value': value}
-        self._useragent_kv_cf.insert(key, columns)
+        self.add(self._USERAGENT_KV_CF_NAME, key, columns)
     # end useragent_kv_store
 
     def useragent_kv_retrieve(self, key):
         if key:
             if isinstance(key, list):
-                rows = self._useragent_kv_cf.multiget(key)
+                rows = self.multiget(self._USERAGENT_KV_CF_NAME, key)
                 return [rows[row].get('value') for row in rows]
             else:
-                try:
-                    columns = self._useragent_kv_cf.get(key)
-                except pycassa.NotFoundException:
+                row = self.get(self._USERAGENT_KV_CF_NAME, key)
+                if not row:
                     raise NoUserAgentKey
-                return columns.get('value')
+                return row.get('value')
         else:  # no key specified, return entire contents
             kv_list = []
-            for ua_key, ua_cols in self._useragent_kv_cf.get_range():
+            for ua_key, ua_cols in self.get_range(self._USERAGENT_KV_CF_NAME):
                 kv_list.append({'key': ua_key, 'value': ua_cols.get('value')})
             return kv_list
     # end useragent_kv_retrieve
 
     def useragent_kv_delete(self, key):
-        try:
-            self._useragent_kv_cf.remove(key)
-        except pycassa.NotFoundException:
+        if not self.delete(self._USERAGENT_KV_CF_NAME, key):
             raise NoUserAgentKey
     # end useragent_kv_delete
 
