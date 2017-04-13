@@ -116,12 +116,6 @@ struct CollectorStats {
     5: u64                                 sandesh_type_mismatch_error
 }
 
-/**
- * @description: This structure is used to send statistics data related to
- * database operations in the contrail-collector
- * @object: analytics-node
- */
-
 struct CollectorDbStats {
     1: string                                  name (key="ObjectCollectorInfo")
    99: optional bool                           deleted
@@ -146,6 +140,10 @@ struct CollectorDbStats {
 
 } (period="60")
 
+/**
+ * @description: Statistics for database operations in contrail-collector
+ * @object: analytics-node
+ */
 uve sandesh CollectorDbStatsTrace {
     1: CollectorDbStats data
 }

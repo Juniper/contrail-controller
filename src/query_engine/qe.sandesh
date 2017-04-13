@@ -99,12 +99,6 @@ response sandesh TraceStatusRes {
     1: list<TraceStatusInfo>  trace_status_list;
 }
 
-/**
- * @description: This structure is used to send statistics data related to
- * database operations in the contrail-query-engine
- * @object: analytics-node
- */
-
 struct QEDbStats {
     1: string                                  name (key="ObjectCollectorInfo")
    99: optional bool                           deleted
@@ -128,6 +122,11 @@ struct QEDbStats {
          stats_reads_anomaly (mstats="0-stats_info.reads:DSAnomaly:EWM:0.2")
 
 } (period="60")
+
+/**
+ * @description: Statistics for database operations in contrail-query-engine
+ * @object: analytics-node
+ */
 
 uve sandesh QEDbStatsUve {
     1: QEDbStats data
