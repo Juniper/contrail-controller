@@ -128,7 +128,9 @@ public:
             struct GR {
                 enum {
                     ForwardingStatePreserved = 0x80,
-                    RestartTimeBitPosition = 12,
+                    RestartTime = 0x0FFF,
+                    Restarted = 0x8000,
+                    Notification = 0x4000,
                 };
                 explicit GR() { Initialize(); }
                 void Initialize() {
@@ -147,15 +149,27 @@ public:
                         return (flags & ForwardingStatePreserved) != 0;
                     }
                 };
-                static Capability *Encode(uint16_t gr_time, bool restarted,
+                static Capability *Encode(uint16_t gr_time,
                         const std::vector<uint8_t> &gr_afi_flags,
-                        const std::vector<Address::Family> &gr_families);
+                        const std::vector<Address::Family> &gr_families,
+                        bool restarted, bool notification);
                 static bool Decode(GR *gr_params,
                         const std::vector<Capability *> &capabilities);
                 static void GetFamilies(const GR &gr_params,
                                         std::vector<std::string> *families);
-                bool restarted() const { return (flags & 0x80) != 0; }
-                uint8_t flags;
+                bool restarted() const {
+                    return (flags & Restarted) != 0;
+                }
+                bool notification() const {
+                    return (flags & Notification) != 0;
+                }
+                void set_flags(uint16_t gr_cap_bytes) {
+                    flags = gr_cap_bytes & ~RestartTime;
+                }
+                void set_time(uint16_t gr_cap_bytes) {
+                    time = gr_cap_bytes & RestartTime;
+                }
+                uint16_t flags;
                 uint16_t time;
                 std::vector<Family> families;
             };
@@ -163,7 +177,7 @@ public:
             struct LLGR {
                 enum {
                     ForwardingStatePreserved = 0x80,
-                    RestartTimeBitSize = 24,
+                    RestartTime = 0x00FFFFFF,
                 };
                 explicit LLGR() { Initialize(); }
                 void Initialize() {
