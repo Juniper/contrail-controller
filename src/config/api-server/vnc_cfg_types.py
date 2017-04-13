@@ -202,7 +202,7 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         ok, result = cls._check_udc(obj_dict, filter(lambda x: x.get('field',
                     '') == 'user_defined_log_statistics' and x.get(
                         'operation', '') == 'set', kwargs.get(
-                            'prop_collection_updates', [])))
+                            'prop_collection_updates') or []))
         if not ok:
             return ok, result
         ok, result = cls._check_asn(obj_dict, db_conn)

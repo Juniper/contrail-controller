@@ -865,6 +865,10 @@ class VncRDBMSClient(object):
             except KeyError:
                 obj_dict['%ss' % (child_type)] = [child_info]
 
+        if not objs_dict:
+            if len(obj_uuids) == 1:
+                raise NoIdError(obj_uuids[0])
+
         return (True, objs_dict.values())
     # end object_read
 
@@ -889,7 +893,11 @@ class VncRDBMSClient(object):
                 new_refs = new_obj_dict[ref_field]
                 new_ref_infos[ref_obj_type] = {}
                 for new_ref in new_refs or []:
-                    new_ref_uuid = self.fq_name_to_uuid(ref_type, new_ref['to'])
+                    try:
+                        new_ref_uuid = new_ref['uuid']
+                    except KeyError:
+                        new_ref_uuid = self.fq_name_to_uuid(
+                            ref_type, new_ref['to'])
                     new_ref_attr = new_ref.get('attr')
                     new_ref_data = {'attr': new_ref_attr}
                     new_ref_infos[ref_obj_type][new_ref_uuid] = new_ref_data
@@ -964,8 +972,7 @@ class VncRDBMSClient(object):
                 session.delete(sqa_ref_obj)
                 continue
 
-            new_ref_info = new_ref_infos.pop(ref_type)
-            if ref_uuid not in new_ref_info:
+            if ref_uuid not in new_ref_infos[ref_type]:
                 session.delete(sqa_ref_obj)
                 if obj_type == ref_type:
                     symmetric_ref_updates.append(ref_uuid)
@@ -973,15 +980,19 @@ class VncRDBMSClient(object):
             else:
                 new_ref_value = json.loads(sqa_ref_obj.ref_value)
                 try:
-                    new_ref_value['attr'] = new_ref_info[ref_uuid]['attr']
+                    new_ref_value['attr'] = new_ref_infos[ref_type][ref_uuid]['attr']
                     sqa_ref_obj.ref_value = json.dumps(new_ref_value)
+                    session.add(sqa_ref_obj)
                 except KeyError:
                     # nothing changed, TODO allow is_weakref to be updated here?
                     pass
+                # ref_uuid has been handled, remove from new_ref_infos so
+                # only remaining items are new refs
+                del new_ref_infos[ref_type][ref_uuid]
 
         for ref_type in new_ref_infos:
-            sqa_ref_class = self.sqa_classes[ref_type(obj_type, ref_type)]
-            for new_ref_uuid, ref_info in new_ref_infos[ref_type]:
+            sqa_ref_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
+            for new_ref_uuid, ref_info in new_ref_infos[ref_type].items():
                 new_ref_value = {'is_weakref': False}
                 try:
                     new_ref_value['attr'] = ref_info['attr']
@@ -993,7 +1004,7 @@ class VncRDBMSClient(object):
                                         ref_value=json.dumps(new_ref_value))
                 session.add(new_sqa_ref_obj)
                 if obj_type == ref_type:
-                    symmetric_ref_updates.append(ref_uuid)
+                    symmetric_ref_updates.append(new_ref_uuid)
                     # TODO: Also add the reverse link?
 
         # TODO update epoch on refs
