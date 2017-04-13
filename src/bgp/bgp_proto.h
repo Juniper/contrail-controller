@@ -127,8 +127,9 @@ public:
 
             struct GR {
                 enum {
-                    ForwardingStatePreserved = 0x80,
-                    RestartTimeBitPosition = 12,
+                    ForwardingStatePreserved = 0x0080,
+                    RestartTime = 0x0FFF,
+                    Restarted = 0x8000,
                 };
                 explicit GR() { Initialize(); }
                 void Initialize() {
@@ -162,8 +163,8 @@ public:
 
             struct LLGR {
                 enum {
-                    ForwardingStatePreserved = 0x80,
-                    RestartTimeBitSize = 24,
+                    ForwardingStatePreserved = 0x0080,
+                    RestartTime = 0x00FFFFFF,
                 };
                 explicit LLGR() { Initialize(); }
                 void Initialize() {
