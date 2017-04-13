@@ -128,7 +128,11 @@ public:
             struct GR {
                 enum {
                     ForwardingStatePreserved = 0x80,
-                    RestartTimeBitPosition = 12,
+                    RestartTimeBitSize = 12,
+                    RestartTimeBitsMask = (1 << RestartTimeBitSize) - 1,
+                    RestartFlagsBitsMask = ~RestartTimeBitsMask & 0xFFFF,
+                    RestartTimeBitPosition = 3, // MSB of 4-bit flags
+                    NotificationBitPosition = 2, // 2nd MSB of 4-bit flags
                 };
                 explicit GR() { Initialize(); }
                 void Initialize() {
@@ -147,14 +151,27 @@ public:
                         return (flags & ForwardingStatePreserved) != 0;
                     }
                 };
-                static Capability *Encode(uint16_t gr_time, bool restarted,
+                static Capability *Encode(uint16_t gr_time,
                         const std::vector<uint8_t> &gr_afi_flags,
-                        const std::vector<Address::Family> &gr_families);
+                        const std::vector<Address::Family> &gr_families,
+                        bool restarted, bool notification);
                 static bool Decode(GR *gr_params,
                         const std::vector<Capability *> &capabilities);
                 static void GetFamilies(const GR &gr_params,
                                         std::vector<std::string> *families);
-                bool restarted() const { return (flags & 0x80) != 0; }
+                bool restarted() const {
+                    return (flags & (1 << RestartTimeBitPosition)) != 0;
+                }
+                bool notification() const {
+                    return (flags & (1 << NotificationBitPosition)) != 0;
+                }
+                void set_flags(uint16_t gr_cap_bytes) {
+                    flags = (gr_cap_bytes & RestartFlagsBitsMask) >>
+                                RestartTimeBitSize;
+                }
+                void set_time(uint16_t gr_cap_bytes) {
+                    time = gr_cap_bytes & RestartTimeBitsMask;
+                }
                 uint8_t flags;
                 uint16_t time;
                 std::vector<Family> families;
@@ -164,6 +181,7 @@ public:
                 enum {
                     ForwardingStatePreserved = 0x80,
                     RestartTimeBitSize = 24,
+                    RestartTimeBitsMask = (1 << RestartTimeBitSize) - 1,
                 };
                 explicit LLGR() { Initialize(); }
                 void Initialize() {
