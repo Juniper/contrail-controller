@@ -120,8 +120,8 @@ BgpProto::OpenMessage::Capability *
 BgpProto::OpenMessage::Capability::GR::Encode(
         uint16_t gr_time, bool restarted, const vector<uint8_t> &gr_afi_flags,
         const vector<Address::Family> &gr_families) {
-    assert((gr_time >> RestartTimeBitPosition) == 0);
-    const uint16_t gr_bytes = (restarted << RestartTimeBitPosition) | gr_time;
+    assert((gr_time & ~RestartTime) == 0);
+    const uint16_t gr_bytes = (restarted & Restarted) | gr_time;
 
     vector<uint8_t> restart_cap;
     restart_cap.push_back(gr_bytes >> 8);
