@@ -3,12 +3,14 @@
 #
 import sys
 sys.path.append("../common/tests")
+from cStringIO import StringIO
 from lxml import etree
 from test_utils import stub
 
 class FakeNetconfManager(object):
     def __init__(self, host, *args, **kwargs):
         self.host = host
+        self.connected = True
         self.configs = []
 
     def __enter__(self):
@@ -62,9 +64,10 @@ class FakeDeviceConnect(object):
 
     @classmethod
     def send_netconf(cls, obj, new_config, default_operation="merge", operation="replace"):
+        config = new_config.get_configuration().get_groups()
         cls.params = {
                                      "pr_config": obj,
-                                     "config": new_config,
+                                     "config": config,
                                      "default_operation": default_operation,
                                      "operation": operation
                                    }

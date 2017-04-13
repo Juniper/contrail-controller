@@ -8,6 +8,88 @@ This file contains  utility methods used by device manager module
 
 from netaddr import IPNetwork
 
+class JunosInterface(object):
+
+    def __init__(self, if_name, if_type, if_vlan_tag=0, if_ip=None):
+        self.name = if_name
+        self.if_type = if_type
+        self.vlan_tag = if_vlan_tag
+        ifparts = if_name.split('.')
+        self.ifd_name = ifparts[0]
+        self.unit = ifparts[1]
+        self.ip = if_ip
+    # end __init__
+
+    def is_untagged(self):
+        if not self.vlan_tag:
+            return True
+        return False
+    # end is_untagged
+
+# end JunosInterface
+
+class PushConfigState(object):
+    PUSH_STATE_INIT = 0
+    PUSH_STATE_SUCCESS = 1
+    PUSH_STATE_RETRY = 2
+    REPUSH_INTERVAL = 15
+    REPUSH_MAX_INTERVAL = 300
+    PUSH_DELAY_PER_KB = 0.01
+    PUSH_DELAY_MAX = 100
+    PUSH_DELAY_ENABLE = True
+
+    @classmethod
+    def set_repush_interval(cls, value):
+        cls.REPUSH_INTERVAL = value
+    # end set_repush_interval
+
+    @classmethod
+    def set_repush_max_interval(cls, value):
+        cls.REPUSH_MAX_INTERVAL = value
+    # end set_repush_max_interval
+
+    @classmethod
+    def set_push_delay_per_kb(cls, value):
+        cls.PUSH_DELAY_PER_KB = value
+    # end set_push_delay_per_kb
+
+    @classmethod
+    def set_push_delay_max(cls, value):
+        cls.PUSH_DELAY_MAX = value
+    # end set_push_delay_max
+
+    @classmethod
+    def set_push_delay_enable(cls, value):
+        cls.PUSH_DELAY_ENABLE = value
+    # end set_push_delay_enable
+
+    @classmethod
+    def get_repush_interval(cls):
+        return cls.REPUSH_INTERVAL
+    # end set_repush_interval
+
+    @classmethod
+    def get_repush_max_interval(cls):
+        return cls.REPUSH_MAX_INTERVAL
+    # end get_repush_max_interval
+
+    @classmethod
+    def get_push_delay_per_kb(cls):
+        return cls.PUSH_DELAY_PER_KB
+    # end get_push_delay_per_kb
+
+    @classmethod
+    def get_push_delay_max(cls):
+        return cls.PUSH_DELAY_MAX
+    # end get_push_delay_max
+
+    @classmethod
+    def get_push_delay_enable(cls):
+        return cls.PUSH_DELAY_ENABLE
+    # end get_push_delay_enable
+
+# end PushConfigState
+
 class DMUtils(object):
 
     MAX_VRF_NAME_LENGTH = 127

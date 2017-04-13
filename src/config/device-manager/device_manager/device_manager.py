@@ -43,7 +43,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, \
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
 from dm_amqp import DMAmqpHandle
-from physical_router_config import PushConfigState
+from dm_utils import PushConfigState
+from dv_conf import DeviceConf
 from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
@@ -147,6 +148,7 @@ class DeviceManager(object):
 
     def __init__(self, dm_logger=None, args=None):
         self._args = args
+        DeviceConf.register_plugins()
         PushConfigState.set_repush_interval(int(self._args.repush_interval))
         PushConfigState.set_repush_max_interval(int(self._args.repush_max_interval))
         PushConfigState.set_push_delay_per_kb(float(self._args.push_delay_per_kb))
