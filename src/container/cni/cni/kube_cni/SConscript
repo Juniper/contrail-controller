@@ -9,6 +9,7 @@ Import('CfgmEnv')
 env = CfgmEnv.Clone()
 
 gobin = env.GoCniBuild('kube_cni')
+import pdb; pdb.set_trace()
 
 env.Alias('contrail-k8s-cni', gobin)
 env.Alias('install', env.InstallAs(env['INSTALL_BIN'] + '/contrail-k8s-cni', gobin))
