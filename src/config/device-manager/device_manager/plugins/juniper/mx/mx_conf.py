@@ -3,218 +3,35 @@
 #
 
 """
-This file contains implementation of inetconf interface for physical router
+This file contains implementation of netconf interface for physical router
 configuration manager
 """
 
-from ncclient import manager
-from ncclient.xml_ import new_ele
-import copy
-import time
-import datetime
-from cStringIO import StringIO
+from db import *
 from dm_utils import DMUtils
+from juniper_conf import JuniperConf
 from device_api.juniper_common_xsd import *
 
-class PushConfigState(object):
-    PUSH_STATE_INIT = 0
-    PUSH_STATE_SUCCESS = 1
-    PUSH_STATE_RETRY = 2
-    REPUSH_INTERVAL = 15
-    REPUSH_MAX_INTERVAL = 300
-    PUSH_DELAY_PER_KB = 0.01
-    PUSH_DELAY_MAX = 100
-    PUSH_DELAY_ENABLE = True
-
-    @classmethod
-    def set_repush_interval(cls, value):
-        cls.REPUSH_INTERVAL = value
-    # end set_repush_interval
-
-    @classmethod
-    def set_repush_max_interval(cls, value):
-        cls.REPUSH_MAX_INTERVAL = value
-    # end set_repush_max_interval
-
-    @classmethod
-    def set_push_delay_per_kb(cls, value):
-        cls.PUSH_DELAY_PER_KB = value
-    # end set_push_delay_per_kb
-
-    @classmethod
-    def set_push_delay_max(cls, value):
-        cls.PUSH_DELAY_MAX = value
-    # end set_push_delay_max
-
-    @classmethod
-    def set_push_delay_enable(cls, value):
-        cls.PUSH_DELAY_ENABLE = value
-    # end set_push_delay_enable
-
-    @classmethod
-    def get_repush_interval(cls):
-        return cls.REPUSH_INTERVAL
-    # end set_repush_interval
-
-    @classmethod
-    def get_repush_max_interval(cls):
-        return cls.REPUSH_MAX_INTERVAL
-    # end get_repush_max_interval
-
-    @classmethod
-    def get_push_delay_per_kb(cls):
-        return cls.PUSH_DELAY_PER_KB
-    # end get_push_delay_per_kb
-
-    @classmethod
-    def get_push_delay_max(cls):
-        return cls.PUSH_DELAY_MAX
-    # end get_push_delay_max
-
-    @classmethod
-    def get_push_delay_enable(cls):
-        return cls.PUSH_DELAY_ENABLE
-    # end get_push_delay_enable
-
-
-# end PushConfigState
-
-class PhysicalRouterConfig(object):
-    # mapping from contrail family names to junos
-    _FAMILY_MAP = {
-        'route-target': '',
-        'inet-vpn': FamilyInetVpn(unicast=''),
-        'inet6-vpn': FamilyInet6Vpn(unicast=''),
-        'e-vpn': FamilyEvpn(signaling='')
-    }
-
-    def __init__(self, management_ip, user_creds,
-                 vendor, product, logger=None):
-        self.management_ip = management_ip
-        self.user_creds = user_creds
-        self.vendor = vendor
-        self.product = product
-        self.reset_bgp_config()
+class MxConf(JuniperConf):
+    _product = 'mx'
+ 
+    def __init__(self, logger, params={}):
         self._logger = logger
-        self.push_config_state = PushConfigState.PUSH_STATE_INIT
-        self.commit_stats = {
-            'last_commit_time': '',
-            'last_commit_duration': '',
-            'commit_status_message': '',
-            'total_commits_sent_since_up': 0,
-        }
+        self.physical_router = params.get("physical_router")
+        super(MxConf, self).__init__()
     # end __init__
 
-    def update(self, management_ip, user_creds, vendor, product):
-        self.management_ip = management_ip
-        self.user_creds = user_creds
-        self.vendor = vendor
-        self.product = product
-    # end update
-
-    def get_commit_stats(self):
-        return self.commit_stats
-    # end get_commit_stats
-
-    def retry(self):
-        if self.push_config_state == PushConfigState.PUSH_STATE_RETRY:
-            return True
-        return False
-    # end retry
-
-    def get_xml_data(self, config):
-        xml_data = StringIO()
-        config.export_xml(xml_data, 1)
-        xml_str = xml_data.getvalue()
-        return xml_str.replace("comment>", "junos:comment>", -1)
-    # end get_xml_data
-
-    def build_netconf_config(self, groups, operation='replace'):
-        groups.set_name("__contrail__")
-        configuraion = Configuration(groups=groups)
-        groups.set_operation(operation)
-        apply_groups = ApplyGroups(name="__contrail__")
-        configuraion.set_apply_groups(apply_groups)
-        if operation == "delete":
-            apply_groups.set_operation(operation)
-        conf = config(configuration=configuraion)
-        return conf
-
-    def send_netconf(self, new_config, default_operation="merge",
-                     operation="replace"):
-
-        self.push_config_state = PushConfigState.PUSH_STATE_INIT
-        start_time = None
-        config_size = 0
-        try:
-            with manager.connect(host=self.management_ip, port=22,
-                                 username=self.user_creds['username'],
-                                 password=self.user_creds['password'],
-                                 unknown_host_cb=lambda x, y: True) as m:
-                new_config = self.build_netconf_config(new_config, operation)
-                config_str = self.get_xml_data(new_config)
-                self._logger.info("\nsend netconf message: %s\n" % config_str)
-                config_size = len(config_str)
-                m.edit_config(
-                    target='candidate', config=config_str,
-                    test_option='test-then-set',
-                    default_operation=default_operation)
-                self.commit_stats['total_commits_sent_since_up'] += 1
-                start_time = time.time()
-                m.commit()
-                end_time = time.time()
-                self.commit_stats['commit_status_message'] = 'success'
-                self.commit_stats['last_commit_time'] = \
-                    datetime.datetime.fromtimestamp(
-                    end_time).strftime('%Y-%m-%d %H:%M:%S')
-                self.commit_stats['last_commit_duration'] = str(
-                    end_time - start_time)
-                self.push_config_state = PushConfigState.PUSH_STATE_SUCCESS
-        except Exception as e:
-            if self._logger:
-                self._logger.error("Router %s: %s" % (self.management_ip,
-                                                      e.message))
-                self.commit_stats[
-                    'commit_status_message'] = 'failed to apply config,\
-                                                router response: ' + e.message
-                if start_time is not None:
-                    self.commit_stats['last_commit_time'] = \
-                        datetime.datetime.fromtimestamp(
-                            start_time).strftime('%Y-%m-%d %H:%M:%S')
-                    self.commit_stats['last_commit_duration'] = str(
-                        time.time() - start_time)
-                self.push_config_state = PushConfigState.PUSH_STATE_RETRY
-        return config_size
-    # end send_config
-
-    def get_device_config(self):
-        try:
-            with manager.connect(host=self.management_ip, port=22,
-                                 username=self.user_creds['username'],
-                                 password=self.user_creds['password'],
-                                 timeout=10,
-                                 device_params = {'name':'junos'},
-                                 unknown_host_cb=lambda x, y: True) as m:
-                sw_info = new_ele('get-software-information')
-                res = m.rpc(sw_info)
-                pname = res.xpath('//software-information/product-name')[0].text
-                pmodel = res.xpath('//software-information/product-model')[0].text
-                ele = res.xpath("//software-information/package-information"
-                                "[name='junos-version']")[0]
-                jversion = ele.find('comment').text
-                dev_conf = {}
-                dev_conf['product-name'] = pname
-                dev_conf['product-model'] = pmodel
-                dev_conf['software-version'] = jversion
-                return dev_conf
-        except Exception as e:
-            if self._logger:
-                self._logger.error("could not fetch config from router %s: %s" % (
-                                          self.management_ip, e.message))
-        return {}
-
+    @classmethod
+    def register(cls):
+        mconf = {
+              "vendor": cls._vendor,
+              "product": cls._product,
+              "class": cls
+            }
+        return super(MxConf, cls).register(mconf)
+    # end register
+        
     def add_pnf_logical_interface(self, junos_interface):
-
         if not self.interfaces_config:
             self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
         family = Family(inet=FamilyInet([Address(name=junos_interface.ip)]))
@@ -222,6 +39,109 @@ class PhysicalRouterConfig(object):
         interface = Interface(name=junos_interface.ifd_name, unit=unit)
         self.interfaces_config.add_interface(interface)
     # end add_pnf_logical_interface
+
+    def config_pnf_logical_interface(self):
+        pnf_dict = {}
+        pnf_ris = set()
+        # make it fake for now
+        # sholud save to the database, the allocation
+        self.vlan_alloc = {"max": 1}
+        self.ip_alloc = {"max": -1}
+        self.li_alloc = {}
+
+        for pi_uuid in self.physical_router.physical_interfaces:
+            pi = PhysicalInterfaceDM.get(pi_uuid)
+            if pi is None:
+                continue
+            for pi_pi_uuid in pi.physical_interfaces:
+                pi_pi = PhysicalInterfaceDM.get(pi_pi_uuid)
+                for pi_vmi_uuid in pi_pi.virtual_machine_interfaces:
+                    allocate_li = False
+                    pi_vmi = VirtualMachineInterfaceDM.get(pi_vmi_uuid)
+                    if (pi_vmi is None or
+                            pi_vmi.service_instance is None or
+                            pi_vmi.service_interface_type is None):
+                        continue
+                    if pi_vmi.routing_instances:
+                        for ri_id in pi_vmi.routing_instances:
+                            ri_obj = RoutingInstanceDM.get(ri_id)
+                            if ri_obj and ri_obj.routing_instances and ri_obj.service_chain_address:
+                                pnf_ris.add(ri_obj)
+                                # If this service is on a service chain, we need allocate
+                                # a logic interface for its VMI
+                                allocate_li = True
+
+                    if allocate_li:
+                        resources = self.physical_router.allocate_pnf_resources(pi_vmi)
+                        if (not resources or
+                                not resources["ip_address"] or
+                                not resources["vlan_id"] or
+                                not resources["unit_id"]):
+                            self._logger.error(
+                                "Cannot allocate PNF resources for "
+                                "Virtual Machine Interface" + pi_vmi_uuid)
+                            return
+                        logical_interface = JunosInterface(
+                            pi.name + '.' + resources["unit_id"],
+                            "l3", resources["vlan_id"], resources["ip_address"])
+                        self.add_pnf_logical_interface(
+                            logical_interface)
+                        lis = pnf_dict.setdefault(
+                            pi_vmi.service_instance,
+                            {"left": [], "right": [],
+                                "mgmt": [], "other": []}
+                        )[pi_vmi.service_interface_type]
+                        lis.append(logical_interface)
+
+        return (pnf_dict, pnf_ris)
+    # end
+
+    def add_pnf_vrfs(self, first_vrf, pnf_dict, pnf_ris):
+        is_first_vrf = False
+        is_left_first_vrf = False
+        for ri_obj in pnf_ris:
+            if ri_obj in first_vrf:
+                is_first_vrf = True
+            else:
+                is_first_vrf = False
+            export_set = copy.copy(ri_obj.export_targets)
+            import_set = copy.copy(ri_obj.import_targets)
+            for ri2_id in ri_obj.routing_instances:
+                ri2 = RoutingInstanceDM.get(ri2_id)
+                if ri2 is None:
+                    continue
+                import_set |= ri2.export_targets
+
+            pnf_inters = set()
+            static_routes = self.physical_router.compute_pnf_static_route(ri_obj, pnf_dict)
+            if_type = ""
+            for vmi_uuid in ri_obj.virtual_machine_interfaces:
+                vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
+                if vmi_obj.service_instance is not None:
+                    si_obj = ServiceInstanceDM.get(vmi_obj.service_instance)
+                    if_type = vmi_obj.service_interface_type
+                    pnf_li_inters = pnf_dict[
+                        vmi_obj.service_instance][if_type]
+                    if if_type == 'left' and is_first_vrf:
+                        is_left_first_vrf = True
+                    else:
+                        is_left_first_vrf = False
+
+                    for pnf_li in pnf_li_inters:
+                        pnf_inters.add(pnf_li)
+
+            if pnf_inters:
+                vrf_name = self.physical_router.get_pnf_vrf_name(
+                    si_obj, if_type, is_left_first_vrf)
+                vrf_interfaces = pnf_inters
+                ri_conf = { 'ri_name': vrf_name }
+                ri_conf['import_targets'] = import_set
+                ri_conf['export_targets'] = export_set
+                ri_conf['interfaces'] = vrf_interfaces
+                ri_conf['static_routes'] = static_routes
+                ri_conf['no_vrf_table_label'] = True
+                self.add_routing_instance(ri_conf)
+    # end add_pnf_vrfs
 
     def add_lo0_unit_0_interface(self, loopback_ip=''):
         if not loopback_ip:
@@ -832,6 +752,7 @@ class PhysicalRouterConfig(object):
         if family_name in families:
             return True
         return False
+     # end is_family_configured
 
     def add_families(self, parent, params):
         if params.get('address_families') is None:
@@ -857,11 +778,13 @@ class PhysicalRouterConfig(object):
         keys = bgp_params['auth_data'].get('key_items', [])
         if len(keys) > 0:
             bgp_config.set_authentication_key(keys[0].get('key'))
+    # end add_bgp_auth_config
 
     def add_bgp_hold_time_config(self, bgp_config, bgp_params):
         if bgp_params.get('hold_time') is None:
             return
         bgp_config.set_hold_time(bgp_params.get('hold_time'))
+    # end add_bgp_hold_time_config
 
     def set_bgp_config(self, params, bgp_obj):
         self.bgp_params = params
@@ -888,31 +811,6 @@ class PhysicalRouterConfig(object):
         self.add_bgp_hold_time_config(bgp_group, self.bgp_params)
         return bgp_group
     # end _get_bgp_config_xml
-
-    def reset_bgp_config(self):
-        self.routing_instances = {}
-        self.bgp_params = None
-        self.bgp_obj = None
-        self.ri_config = None
-        self.interfaces_config = None
-        self.services_config = None
-        self.policy_config = None
-        self.firewall_config = None
-        self.inet4_forwarding_filter = None
-        self.inet6_forwarding_filter = None
-        self.forwarding_options_config = None
-        self.global_routing_options_config = None
-        self.proto_config = None
-        self.route_targets = set()
-        self.bgp_peers = {}
-        self.external_peers = {}
-
-    # ene reset_bgp_config
-
-    def delete_bgp_config(self):
-        self.reset_bgp_config()
-        self.send_netconf(Groups(), default_operation="none", operation="delete")
-    # end delete_config
 
     def add_bgp_peer(self, router, params, attr, external, peer):
         peer_data = {}
@@ -950,6 +848,7 @@ class PhysicalRouterConfig(object):
 
     def get_asn(self):
         return self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
+    # end get_asn
 
     def set_as_config(self):
         if self.global_routing_options_config is None:
@@ -969,60 +868,176 @@ class PhysicalRouterConfig(object):
 
     def set_bgp_group_config(self):
         bgp_config = self._get_bgp_config_xml()
-        if bgp_config is None:
-            return False
-        if self.proto_config is None:
+        if not bgp_config:
+            return
+        if not self.proto_config:
             self.proto_config = Protocols(comment=DMUtils.protocols_comment())
         bgp = Bgp()
         self.proto_config.set_bgp(bgp)
         bgp.add_group(bgp_config)
         self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
-        if self.external_peers is not None:
+        if self.external_peers:
             ext_grp_config = self._get_bgp_config_xml(True)
             bgp.add_group(ext_grp_config)
             self._get_neighbor_config_xml(ext_grp_config, self.external_peers)
-        return True
+        return
     # end set_bgp_group_config
 
-    def send_bgp_config(self):
-        if not self.set_bgp_group_config():
-            return 0
+    def has_conf(self):
+        if not self.proto_config or not self.proto_config.get_bgp():
+            return False
+        return True
+    # end has_conf
 
+    def push_conf(self, is_delete=False):
+        if not self.physical_router:
+            return 0
+        if is_delete:
+            return self.send_conf(is_delete=True)
+        bgp_router = BgpRouterDM.get(self.physical_router.bgp_router)
+        if bgp_router:
+            for peer_uuid, attr in bgp_router.bgp_routers.items():
+                peer = BgpRouterDM.get(peer_uuid)
+                if peer is None:
+                    continue
+                local_as = (bgp_router.params.get('local_autonomous_system') or
+                               bgp_router.params.get('autonomous_system'))
+                peer_as = (peer.params.get('local_autonomous_system') or
+                               peer.params.get('autonomous_system'))
+                external = (local_as != peer_as)
+                self.add_bgp_peer(peer.params['address'],
+                                                 peer.params, attr, external, peer)
+            self.set_bgp_config(bgp_router.params, bgp_router)
+            self.set_global_routing_options(bgp_router.params)
+            bgp_router_ips = bgp_router.get_all_bgp_router_ips()
+            tunnel_ip = self.physical_router.dataplane_ip
+            if not tunnel_ip and bgp_router.params:
+                tunnel_ip = bgp_router.params.get('address')
+            if (tunnel_ip and self.physical_router.is_valid_ip(tunnel_ip)):
+                self.add_dynamic_tunnels(
+                    tunnel_ip,
+                    GlobalSystemConfigDM.ip_fabric_subnets,
+                    bgp_router_ips)
+
+        if self.physical_router.loopback_ip:
+            self.add_lo0_unit_0_interface(self.physical_router.loopback_ip)
+
+        vn_dict = self.physical_router.get_vn_li_map()
+        self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
+        self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
+        vn_irb_ip_map = self.physical_router.get_vn_irb_ip_map()
+
+        first_vrf = []
+        pnfs = self.config_pnf_logical_interface()
+        pnf_dict = pnfs[0]
+        pnf_ris = pnfs[1]
+
+        for vn_id, interfaces in vn_dict.items():
+            vn_obj = VirtualNetworkDM.get(vn_id)
+            if (vn_obj is None or
+                    vn_obj.get_vxlan_vni() is None or
+                    vn_obj.vn_network_id is None):
+                continue
+            export_set = None
+            import_set = None
+            for ri_id in vn_obj.routing_instances:
+                # Find the primary RI by matching the name
+                ri_obj = RoutingInstanceDM.get(ri_id)
+                if ri_obj is None:
+                    continue
+                if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
+                    vrf_name_l2 = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                                   vn_obj.vn_network_id, 'l2')
+                    vrf_name_l3 = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                                   vn_obj.vn_network_id, 'l3')
+                    export_set = copy.copy(ri_obj.export_targets)
+                    import_set = copy.copy(ri_obj.import_targets)
+                    for ri2_id in ri_obj.routing_instances:
+                        ri2 = RoutingInstanceDM.get(ri2_id)
+                        if ri2 in pnf_ris:
+                            first_vrf.append(ri2)
+                        if ri2 is None:
+                            continue
+                        import_set |= ri2.export_targets
+
+                    if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3']:
+                        irb_ips = None
+                        if vn_obj.get_forwarding_mode() == 'l2_l3':
+                            irb_ips = vn_irb_ip_map['irb'].get(vn_id, [])
+
+                        ri_conf = { 'ri_name': vrf_name_l2, 'vn': vn_obj }
+                        ri_conf['is_l2'] = True
+                        ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
+                        ri_conf['import_targets'] = import_set
+                        ri_conf['export_targets'] = export_set
+                        ri_conf['prefixes'] = vn_obj.get_prefixes()
+                        ri_conf['gateways'] = irb_ips
+                        ri_conf['router_external'] = vn_obj.router_external
+                        ri_conf['interfaces'] = interfaces
+                        ri_conf['vni'] = vn_obj.get_vxlan_vni()
+                        ri_conf['network_id'] = vn_obj.vn_network_id
+                        ri_conf['highest_enapsulation_priority'] = \
+                                  GlobalVRouterConfigDM.global_encapsulation_priority
+                        self.add_routing_instance(ri_conf)
+
+                    if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
+                        interfaces = []
+                        lo0_ips = None
+                        if vn_obj.get_forwarding_mode() == 'l2_l3':
+                            interfaces = [
+                                 JunosInterface(
+                                'irb.' + str(vn_obj.vn_network_id),
+                                'l3', 0)]
+                        else:
+                            lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
+                        ri_conf = { 'ri_name': vrf_name_l3, 'vn': vn_obj }
+                        ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
+                        ri_conf['import_targets'] = import_set
+                        ri_conf['export_targets'] = export_set
+                        ri_conf['prefixes'] = vn_obj.get_prefixes()
+                        ri_conf['router_external'] = vn_obj.router_external
+                        ri_conf['interfaces'] = interfaces
+                        ri_conf['gateways'] = lo0_ips
+                        ri_conf['network_id'] = vn_obj.vn_network_id
+                        self.add_routing_instance(ri_conf)
+                    break
+
+            if (export_set is not None and
+                    self.physical_router.is_junos_service_ports_enabled() and
+                    len(vn_obj.instance_ip_map) > 0):
+                service_port_ids = DMUtils.get_service_ports(vn_obj.vn_network_id)
+                if self.physical_router.is_service_port_id_valid(service_port_ids[0]) == False:
+                    self._logger.error("DM can't allocate service interfaces for "
+                                       "(vn, vn-id)=(%s,%s)" % (
+                        vn_obj.fq_name,
+                        vn_obj.vn_network_id))
+                else:
+                    vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                                 vn_obj.vn_network_id, 'l3', True)
+                    interfaces = []
+                    service_ports = self.physical_router.junos_service_ports.get(
+                        'service_port')
+                    interfaces.append(
+                        JunosInterface(
+                            service_ports[0] + "." + str(service_port_ids[0]),
+                            'l3', 0))
+                    interfaces.append(
+                        JunosInterface(
+                            service_ports[0] + "." + str(service_port_ids[1]),
+                            'l3', 0))
+                    ri_conf = { 'ri_name': vrf_name, 'vn': vn_obj }
+                    ri_conf['import_targets'] = import_set
+                    ri_conf['interfaces'] = interfaces
+                    ri_conf['fip_map'] = vn_obj.instance_ip_map
+                    ri_conf['network_id'] = vn_obj.vn_network_id
+                    ri_conf['restrict_proxy_arp'] = vn_obj.router_external
+                    self.add_routing_instance(ri_conf)
+        # Add PNF ri configuration
+        self.add_pnf_vrfs(first_vrf, pnf_dict, pnf_ris)
         self.set_as_config()
         self.set_route_targets_config()
-
-        groups = Groups()
-        groups.set_comment(DMUtils.groups_comment())
-        groups.set_routing_instances(self.ri_config)
-        groups.set_interfaces(self.interfaces_config)
-        groups.set_services(self.services_config)
-        groups.set_policy_options(self.policy_config)
-        groups.set_firewall(self.firewall_config)
-        groups.set_forwarding_options(self.forwarding_options_config)
-        groups.set_routing_options(self.global_routing_options_config)
-        groups.set_protocols(self.proto_config)
-        return self.send_netconf(groups)
-    # end send_bgp_config
+        self.set_bgp_group_config()
+        return self.send_conf()
+    # end push_conf
 
 # end PhycalRouterConfig
-
-
-class JunosInterface(object):
-
-    def __init__(self, if_name, if_type, if_vlan_tag=0, if_ip=None):
-        self.name = if_name
-        self.if_type = if_type
-        self.vlan_tag = if_vlan_tag
-        ifparts = if_name.split('.')
-        self.ifd_name = ifparts[0]
-        self.unit = ifparts[1]
-        self.ip = if_ip
-    # end __init__
-
-    def is_untagged(self):
-        if not self.vlan_tag:
-            return True
-        return False
-    # end is_untagged
-
-# end JunosInterface
