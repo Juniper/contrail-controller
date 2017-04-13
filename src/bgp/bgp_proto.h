@@ -129,6 +129,7 @@ public:
                 enum {
                     ForwardingStatePreserved = 0x80,
                     RestartTimeBitPosition = 12,
+                    RestartFlagBitPosition = 15,
                 };
                 explicit GR() { Initialize(); }
                 void Initialize() {
