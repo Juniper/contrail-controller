@@ -1946,6 +1946,24 @@ class DBInterface(object):
                 port_obj.add_virtual_machine_interface_bindings(
                     KeyValuePair(key=k, value=v))
 
+            # Check if the mac address is changed of a give port
+            net_id = (port_q.get('network_id') or
+                      port_obj.get_virtual_network_refs()[0]['uuid'])
+            # Ensure that duplicate mac address does not exist on this network
+            if 'mac_address' in port_q:
+                ports = self._virtual_machine_interface_list(back_ref_id=net_id)
+                for port in ports:
+                    macs = port.get_virtual_machine_interface_mac_addresses()
+                    for mac in macs.get_mac_address():
+                        # Ensure that the same address is not on any other port
+                        if mac == port_q['mac_address'] and port.uuid != port_q['id']:
+                            raise self._raise_contrail_exception("MacAddressInUse",
+                            net_id=net_id, mac=port_q['mac_address'])
+                # Update the mac accress if no duplicate found
+                mac_addrs_obj = MacAddressesType()
+                mac_addrs_obj.set_mac_address([port_q['mac_address']])
+                port_obj.set_virtual_machine_interface_mac_addresses(mac_addrs_obj)
+
         if oper == CREATE:
             if 'port_security_enabled' in port_q:
                 port_security = port_q['port_security_enabled']
