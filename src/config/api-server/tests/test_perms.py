@@ -3,6 +3,8 @@
 #
 
 import gevent
+import gevent.monkey
+gevent.monkey.patch_all()
 import os
 import sys
 import uuid
@@ -125,4 +127,4 @@ class TestUserVisible(test_case.ApiServerTestCase):
         with ExpectedException(NoIdError) as e:
             user.vnc_lib.virtual_network_update(vn)
     #end test_user_visible_perms
-# class TestPermissions
+# class TestUserVisible

@@ -871,8 +871,11 @@ class VncCassandraClient(object):
                 new_refs = new_obj_dict[ref_field]
                 new_ref_infos[ref_obj_type] = {}
                 for new_ref in new_refs or []:
-                    new_ref_uuid = self.fq_name_to_uuid(ref_obj_type,
-                                                        new_ref['to'])
+                    try:
+                        new_ref_uuid = new_ref['uuid']
+                    except KeyError:
+                        new_ref_uuid = self.fq_name_to_uuid(ref_obj_type,
+                                                            new_ref['to'])
                     new_ref_attr = new_ref.get('attr')
                     new_ref_data = {'attr': new_ref_attr,
                                     'is_weakref': is_weakref}
