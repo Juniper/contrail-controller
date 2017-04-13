@@ -20,6 +20,7 @@ import time
 import hashlib
 import signal
 import random
+import traceback
 from pprint import pformat
 
 from pysandesh.sandesh_base import *
@@ -43,7 +44,8 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, \
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
 from dm_amqp import DMAmqpHandle
-from physical_router_config import PushConfigState
+from dm_utils import PushConfigState
+from device_conf import DeviceConf
 from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
@@ -159,6 +161,15 @@ class DeviceManager(object):
 
         # Initialize logger
         self.logger = dm_logger or DeviceManagerLogger(args)
+
+        # Register Plugins
+        try:
+            DeviceConf.register_plugins()
+        except DeviceConf.PluginsRegistrationFailed as e:
+            self.logger.error("Exception: " + str(e))
+        except Exception as e:
+            tb = traceback.format_exc()
+            self.logger.error("Internal error while registering plugins: " + str(e) + tb)
 
         # Retry till API server is up
         connected = False
