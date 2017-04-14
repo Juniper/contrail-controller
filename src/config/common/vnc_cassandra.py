@@ -144,6 +144,25 @@ class VncCassandraClient(object):
         self._obj_cache_mgr = ObjectCacheManager(
                                   self, max_entries=obj_cache_entries)
         self._obj_cache_exclude_types = obj_cache_exclude_types or []
+
+        # these functions make calls to pycassa xget() and get_range()
+        # generator functions which can't be wrapped around handle_exceptions()
+        # at the time of cassandra init, hence need to wrap these functions that
+        # uses it to catch cassandara connection failures.
+        self.object_update = self._handle_exceptions(self.object_update)
+        self.object_list = self._handle_exceptions(self.object_list)
+        self.object_read = self._handle_exceptions(self.object_read)
+        self.object_raw_read = self._handle_exceptions(self.object_raw_read)
+        self.object_delete = self._handle_exceptions(self.object_delete)
+        self.get_one_col = self._handle_exceptions(self.get_one_col)
+        self.get_range = self._handle_exceptions(self.get_range)
+        self.prop_collection_read = self._handle_exceptions(self.prop_collection_read)
+        self.uuid_to_fq_name = self._handle_exceptions(self.uuid_to_fq_name)
+        self.uuid_to_obj_type = self._handle_exceptions(self.uuid_to_obj_type)
+        self.fq_name_to_uuid = self._handle_exceptions(self.fq_name_to_uuid)
+        self.get_shared = self._handle_exceptions(self.get_shared)
+        self.walk = self._handle_exceptions(self.walk)
+
         if walk:
             self.walk()
     # end __init__
