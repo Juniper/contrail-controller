@@ -43,8 +43,8 @@ struct CpuInfo {
 
 class CpuLoadData {
 public:
-    static void GetCpuLoadInfo(CpuInfo &info, bool system);
-    static void FillCpuInfo(CpuLoadInfo &info, bool system);
+    static bool GetCpuLoadInfo(CpuInfo &info, bool system);
+    static bool FillCpuInfo(CpuLoadInfo &info, bool system);
     static void Init();
 };
 

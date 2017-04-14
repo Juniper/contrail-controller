@@ -744,7 +744,13 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
     if ((cpu_stats_count_ % 2) == 0) {
         static bool cpu_first = true;
         CpuLoadInfo cpu_load_info;
-        CpuLoadData::FillCpuInfo(cpu_load_info, true);
+        bool ret_val = CpuLoadData::FillCpuInfo(cpu_load_info, true);
+        if (!ret_val) {
+            //Error occured in call to FillCpuInfo, dont send the CpuLoadInfo
+            LOG(ERROR, "Not sending CPUInfo : Unable to access /proc files");
+            return true;
+        }
+
         if (prev_stats_.get_cpu_info() != cpu_load_info || cpu_first) {
             stats.set_cpu_info(cpu_load_info);
             prev_stats_.set_cpu_info(cpu_load_info);

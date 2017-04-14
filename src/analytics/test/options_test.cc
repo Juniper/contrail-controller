@@ -90,7 +90,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.disable_flow_collection(), false);
     EXPECT_EQ(options_.disable_db_messages_writes(), false);
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
-    EXPECT_EQ(options_.disable_db_stats_writes(), false);
+    EXPECT_EQ(options_.disable_db_statistics_writes(), false);
     EXPECT_EQ(options_.disable_all_db_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
@@ -139,7 +139,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.disable_flow_collection(), false);
     EXPECT_EQ(options_.disable_db_messages_writes(), false);
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
-    EXPECT_EQ(options_.disable_db_stats_writes(), false);
+    EXPECT_EQ(options_.disable_db_statistics_writes(), false);
     EXPECT_EQ(options_.disable_all_db_writes(), false);
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
