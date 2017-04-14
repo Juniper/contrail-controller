@@ -12,7 +12,7 @@ There is a need to provide pod addressing, network isolation, policy based secur
 # 3. Proposed solution
 Currently K8s provides a flat networking model wherein all pods can talk to each other. Network policy is the new feature added to provide security between the pods. Opencontrail will add additional networking functionality to the solution - multi-tenancy, network isolation, micro-segmentation with network policies, load-balancing etc. Opencontrail can be configured in the following mode in a K8s cluster:
 
-3.1 Cluster isolation
+# 3.1 Cluster isolation
 
 Kubernetes imposes the following fundamental requirement on any networking implementation:
 
@@ -28,26 +28,26 @@ from a pod subnet that the Contrail Kubernetes manager is configured with.
 NOTE:
 System pods spawned in Kube-system namespace are NOT run in the Kubernetes Cluster. Rather they run in the underlay. Networking for these pods is not handled by Contrail.
 
-3.1.1 Implementation
+# 3.1.1 Implementation
 
 Contrail achieves this inter-pod network connectivity by configuring all the pods in a single Virtual-network. When the cluster is initialized, Contrail creates a virtual-network called "cluster-network".
 
 In the absence of any network segmentation/isolation configured, ALL pods in ALL namespaces get assigned to "cluster-network" virtual-network.
 
-3.1.2   Pods
+# 3.1.2   Pods
 
 In Contrail, each POD is represented as a Virtual-Machine-Interface/Port.
 
 When a pod is created, a vmi/port is allocated for that POD. This port is made a member of the default virtual-network of that Kubernetes cluster.
 
-3.1.3   Pod subnet:
+# 3.1.3   Pod subnet:
 
 The CIDR to be used for IP address allocation for pods is provisioned as a configuration to
 contrail-kube-manger. To view this subnet info:
 
 Login to contrail-kube-manager docker running on the Master node and see the "pod_subnets" in configuration file:  /etc/contrail/contrail-kubernetes.conf
 
-3.2 Namespace isolation mode
+# 3.2 Namespace isolation mode
 
 In addition to default networking model mandated by Kubernetes, Contrail support additional, custom networking models that makes available the many rich features of Contrail to the users of the Kubernetes cluster. One such feature is network isolation for Kubernetes namespaces.
 
@@ -70,15 +70,15 @@ c.  Pods created in isolated namespace can reach pods in other namespaces.
 d.  Pods in isolated namespace will be able to reach ALL Services created in any namespace in the kubernetes cluster.
 e.  Pods in isolated namespace can be reached from pods in other namespaces through Kubernetes Service-ip.
 
-3.2.1 Implementation:
+# 3.2.1 Implementation
 
-For each namespace that is annotated as isolated, Contrail will create a Virtual-network with name:  “<Namespace-name>-vn”
+For each namespace that is annotated as isolated, Contrail will create a Virtual-network with name:  “<Namespace-name>-vn”.
 
-3.2.2   Pods:
+# 3.2.2 Pods
 
 A Kubernetes pod is represented as vmi/port in Contrail. These ports are mapped to the virtual-network created for the corresponding isolated-namespace.
 
-3.2.3   Kubernetes Service Reachability:
+# 3.2.3   Kubernetes Service Reachability:
 
 Pods from an isolated namespace should be able to reach all Kubernetes in the cluster.
 
@@ -128,9 +128,9 @@ Kubernetes(K8S) implements DNS using SkyDNS, a small DNS application that respon
 * Native loadbalancer implementation is needed to support service loadbalancing. https://blueprints.launchpad.net/juniperopenstack/+spec/native-ecmp-loadbalancer
 * Health check implementation
 
-9. Debugging
+# 9. Debugging
 
-9.1 Pod IP Address Info:
+# 9.1 Pod IP Address Info:
 
     The following command can be used to determine the ip address assigned to a pod:
 
@@ -144,7 +144,7 @@ Kubernetes(K8S) implements DNS using SkyDNS, a small DNS application that respon
     default       client-2                             1/1       Running   0          19d       10.47.255.246   k8s-minion-1-1
     default       client-x                             1/1       Running   0          19d       10.84.31.72     k8s-minion-1-1
 
-9.2 Check Pods reachability:
+# 9.2 Check Pods reachability:
 
     To verify that pods are reachable to each other, we can run ping among pods:
 
@@ -162,16 +162,16 @@ Kubernetes(K8S) implements DNS using SkyDNS, a small DNS application that respon
     64 bytes from 10.47.255.250: icmp_seq=0 ttl=63 time=1.510 ms
     64 bytes from 10.47.255.250: icmp_seq=1 ttl=63 time=0.094 ms
 
-9.3 Verify that default virtual-network for a cluster is created:
+# 9.3 Verify that default virtual-network for a cluster is created:
 
     In the Contrail GUI, verify that a virtual-network named “cluster-network” is created in your project.
 
-9.4 Verify a virtual-network is created for an isolated namespace:
+# 9.4 Verify a virtual-network is created for an isolated namespace:
 
     In the Contrail-GUI, verify that a virtual-network with the name format: “<namespace-name>-
     vn” is created.
 
-9.5 Verify that Pods from non-isolated namespace CANNOT reach Pods in isolated namespace.
+# 9.5 Verify that Pods from non-isolated namespace CANNOT reach Pods in isolated namespace.
 
     1.  Get the ip of the pod in isolated namespace.
     [root@a7s16 ~]# kubectl get pod -n test-isolated-ns -o wide
@@ -188,7 +188,7 @@ Kubernetes(K8S) implements DNS using SkyDNS, a small DNS application that respon
             --- 10.47.255.249 ping statistics ---
      2 packets transmitted, 0 packets received, 100% packet loss
 
-9.6 Verify that Pods in isolated namespace can reach Pods in in non-isolated namespaces.
+# 9.6 Verify that Pods in isolated namespace can reach Pods in in non-isolated namespaces.
 
     1.  Get the ip of the pod in non-isolated namespace.
 
@@ -211,7 +211,7 @@ Kubernetes(K8S) implements DNS using SkyDNS, a small DNS application that respon
     2 packets transmitted, 2 packets received, 0% packet loss
     round-trip min/avg/max/stddev = 0.137/0.802/1.467/0.665 ms
 
-9.7 How to check if a Kubernetes namespace is isolated.
+# 9.7 How to check if a Kubernetes namespace is isolated.
 
     Use the following command to look at annotations on the namespace:
 
