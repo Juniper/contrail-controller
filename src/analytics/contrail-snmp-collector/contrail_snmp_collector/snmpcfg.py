@@ -203,7 +203,7 @@ Mibs = LldpTable, ArpTable
             apis = self.get_api_svrs()
             if apis:
                 self._devices = DeviceConfig.fom_api_server(
-                    self.get_api_svrs(), self._args.admin_user,
+                    apis, self._args.admin_user,
                     self._args.admin_password, self._args.admin_tenant_name,
                     self._args.auth_host, self._args.auth_port,
                     self._args.auth_protocol, self._cb)
