@@ -56,6 +56,9 @@ class VncPod(VncCommon):
         return diff
 
     def _set_label_to_pod_cache(self, new_labels, vm):
+        namespace_label = self._label_cache. \
+            _get_namespace_label(vm.pod_namespace)
+        new_labels.update(namespace_label)
         for label in new_labels.items():
             key = self._label_cache._get_key(label)
             self._label_cache._locate_label(key,
@@ -347,6 +350,7 @@ class VncPod(VncCommon):
         self._link_vm_to_node(vm_obj, pod_node)
         vm = VirtualMachineKM.locate(pod_id)
         if vm:
+            vm.pod_namespace = pod_namespace
             self._set_label_to_pod_cache(labels, vm)
             return vm
 
@@ -359,6 +363,7 @@ class VncPod(VncCommon):
                 pod_node, labels, vm_vmi)
             if not vm:
                 return
+            vm.pod_namespace = pod_namespace
         self._update_label_to_pod_cache(labels, vm)
         return vm
 
