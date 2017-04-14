@@ -22,14 +22,15 @@
 
 using namespace boost;
 
-static void error_check(std::ifstream &file) {
-    assert(file.is_open());
-    assert(!file.fail());
-    assert(!file.bad());
+static bool error_check(std::ifstream &file) {
+    if (!file.is_open() || file.fail() || file.bad()) {
+        return false;
+    }
+    return true;
 }
 
-static uint32_t NumCpus() {
-    static uint32_t count = 0;
+static int NumCpus() {
+    static int count = 0;
 
     if (count != 0) {
         return count;
@@ -41,7 +42,9 @@ static uint32_t NumCpus() {
     return count;
 #else
     std::ifstream file("/proc/cpuinfo");
-    error_check(file);
+    if (!error_check(file)) {
+        return -1;
+    }
     std::string content((std::istreambuf_iterator<char>(file)),
                    std::istreambuf_iterator<char>());
     // Create a find_iterator
@@ -54,18 +57,22 @@ static uint32_t NumCpus() {
 #endif
 }
 
-static void LoadAvg(CpuLoad &load) {
+static bool LoadAvg(CpuLoad &load) {
     double averages[3];
-    uint32_t num_cpus = NumCpus();
+    int num_cpus = NumCpus();
+    if (num_cpus < 0) {
+        return false;
+    }
     getloadavg(averages, 3);
     if (num_cpus > 0) {
         load.one_min_avg = averages[0]/num_cpus;
         load.five_min_avg = averages[1]/num_cpus;
         load.fifteen_min_avg = averages[2]/num_cpus;
     }
+    return true;
 }
 
-static void ProcessMemInfo(ProcessMemInfo &info) {
+static bool ProcessMemInfo(ProcessMemInfo &info) {
 #ifdef __APPLE__
     struct task_basic_info t_info;
     mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
@@ -79,10 +86,12 @@ static void ProcessMemInfo(ProcessMemInfo &info) {
     info.virt = t_info.virtual_size;
     // XXX Peak virt not availabe, just fill in virt
     info.peakvirt = t_info.virtual_size;
-    return;
+    return true;
 #else
     std::ifstream file("/proc/self/status");
-    error_check(file);
+    if (!error_check(file)) {
+        return false;
+    }
     bool vmsize = false;
     bool peak = false;
     bool rss = false;
@@ -106,12 +115,15 @@ static void ProcessMemInfo(ProcessMemInfo &info) {
         if (rss && vmsize && peak)
             break;
     }
+    return true;
 #endif
 }
 
-static void SystemMemInfo(SystemMemInfo &info) {
+static bool SystemMemInfo(SystemMemInfo &info) {
     std::ifstream file("/proc/meminfo");
-    error_check(file);
+    if (!error_check(file)) {
+        return false;
+    }
     std::string tmp;
     // MemTotal:       132010576 kB
     file >> tmp; file >> info.total; file >> tmp; 
@@ -123,11 +135,12 @@ static void SystemMemInfo(SystemMemInfo &info) {
     file >> tmp; file >> info.cached;
     // Used = Total - Free
     info.used = info.total - info.free;
+    return true;
 }
 
 static clock_t snapshot, prev_sys_cpu, prev_user_cpu;
 
-static void ProcessCpuShare(double &percentage) {
+static bool ProcessCpuShare(double &percentage) {
     struct tms cpu_taken;
     clock_t now;
 
@@ -140,23 +153,37 @@ static void ProcessCpuShare(double &percentage) {
             (double)((cpu_taken.tms_stime - prev_sys_cpu) + 
                      (cpu_taken.tms_utime - prev_user_cpu)) / (now - snapshot);
         percentage *= 100;
-        percentage /= NumCpus();
+        int num_cpus = NumCpus();
+        if (num_cpus < 0) {
+            return false;
+        }
+        percentage /= num_cpus;
     }
     snapshot = now;
     prev_sys_cpu = cpu_taken.tms_stime;
     prev_user_cpu = cpu_taken.tms_utime;
+    return true;
 }
 
-void CpuLoadData::GetCpuLoadInfo(CpuInfo &info, bool system) {
+bool CpuLoadData::GetCpuLoadInfo(CpuInfo &info, bool system) {
     if (system) {
-        LoadAvg(info.load_avg);
-        SystemMemInfo(info.sys_mem_info);
+        if (!LoadAvg(info.load_avg)) {
+            return false;
+        }
+        if (!SystemMemInfo(info.sys_mem_info)) {
+            return false;
+        }
     }
 
-    ProcessMemInfo(info.mem_info);
+    if (!ProcessMemInfo(info.mem_info)) {
+        return false;
+    }
 
-    ProcessCpuShare(info.process_cpu_share);
+    if (!ProcessCpuShare(info.process_cpu_share)) {
+        return false;
+    }
     info.num_cpu = NumCpus();
+    return true;
 }
 
 void CpuLoadData::Init() {
@@ -166,41 +193,46 @@ void CpuLoadData::Init() {
     prev_user_cpu = cpu_taken.tms_utime;
 }
 
-void CpuLoadData::FillCpuInfo(CpuLoadInfo &cpu_load_info, bool system) {
+bool CpuLoadData::FillCpuInfo(CpuLoadInfo &cpu_load_info, bool system) {
     CpuInfo info;
-    CpuLoadData::GetCpuLoadInfo(info, system);
-    cpu_load_info.set_num_cpu(info.num_cpu);
-    MemInfo mem_info;
-    mem_info.set_virt(info.mem_info.virt);
-    mem_info.set_peakvirt(info.mem_info.peakvirt);
-    mem_info.set_res(info.mem_info.res);
-    cpu_load_info.set_meminfo(mem_info);
+    if (!CpuLoadData::GetCpuLoadInfo(info, system)) {
+        // Error occured while getting the information
+        return false;
+    } else {
+        MemInfo mem_info;
+        mem_info.set_virt(info.mem_info.virt);
+        mem_info.set_peakvirt(info.mem_info.peakvirt);
+        mem_info.set_res(info.mem_info.res);
+        cpu_load_info.set_meminfo(mem_info);
 
-    cpu_load_info.set_cpu_share(info.process_cpu_share);
+        cpu_load_info.set_cpu_share(info.process_cpu_share);
 
-    if (system) {
-        CpuLoadAvg load_avg;
-        load_avg.set_one_min_avg(info.load_avg.one_min_avg);
-        load_avg.set_five_min_avg(info.load_avg.five_min_avg);
-        load_avg.set_fifteen_min_avg(info.load_avg.fifteen_min_avg);
-        cpu_load_info.set_cpuload(load_avg);
+        if (system) {
+            CpuLoadAvg load_avg;
+            load_avg.set_one_min_avg(info.load_avg.one_min_avg);
+            load_avg.set_five_min_avg(info.load_avg.five_min_avg);
+            load_avg.set_fifteen_min_avg(info.load_avg.fifteen_min_avg);
+            cpu_load_info.set_cpuload(load_avg);
 
-        SysMemInfo sys_mem_info;
-        sys_mem_info.set_total(info.sys_mem_info.total);
-        sys_mem_info.set_used(info.sys_mem_info.used);
-        sys_mem_info.set_free(info.sys_mem_info.free);
-        sys_mem_info.set_buffers(info.sys_mem_info.buffers);
-        sys_mem_info.set_cached(info.sys_mem_info.cached);
-        cpu_load_info.set_sys_mem_info(sys_mem_info);
+            SysMemInfo sys_mem_info;
+            sys_mem_info.set_total(info.sys_mem_info.total);
+            sys_mem_info.set_used(info.sys_mem_info.used);
+            sys_mem_info.set_free(info.sys_mem_info.free);
+            sys_mem_info.set_buffers(info.sys_mem_info.buffers);
+            sys_mem_info.set_cached(info.sys_mem_info.cached);
+            cpu_load_info.set_sys_mem_info(sys_mem_info);
+        }
     }
+    return true;
 }
 
 void CpuLoadInfoReq::HandleRequest() const {
     CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, true);
-
+    bool status = CpuLoadData::FillCpuInfo(cpu_load_info, true);
     CpuLoadInfoResp *resp = new CpuLoadInfoResp;
-    resp->set_cpu_info(cpu_load_info);
+    if (status) {
+        resp->set_cpu_info(cpu_load_info);
+    }
     resp->set_context(context());
     resp->Response();
 }

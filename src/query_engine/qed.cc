@@ -59,7 +59,16 @@ bool QEInfoLogTimer() {
 bool QEInfoLogger(const string &hostname) {
 
     CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, false);
+    bool ret_val = CpuLoadData::FillCpuInfo(cpu_load_info, false);
+    if (!ret_val) {
+        //Error occured in call to FillCpuInfo, dont send the
+        //CpuLoadInfo
+        LOG(ERROR, "Not sending CPUInfo : Unable to access /proc files");
+        qe_info_log_timer->Cancel();
+        qe_info_log_timer->Start(60*1000, boost::bind(&QEInfoLogTimer),
+                               NULL);
+        return true;
+    }
 
     ModuleCpuState state;
     state.set_name(hostname);

@@ -192,9 +192,15 @@ static bool ControlNodeInfoLogger(BgpServer *server,
                                   Timer *node_info_log_timer) {
     // Send CPU usage Information.
     CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, false);
-    SendCpuInfoStat<ControlCpuStateTrace, ControlCpuState>(server->localname(),
-                                                           cpu_load_info);
+    bool ret_val = CpuLoadData::FillCpuInfo(cpu_load_info, false);
+    if (!ret_val) {
+        //Error occured in call to FillCpuInfo, dont send the
+        //CpuLoadInfo
+        LOG(ERROR, "Not sending CPUInfo : Unable to access /proc files");
+    } else {
+        SendCpuInfoStat<ControlCpuStateTrace, ControlCpuState>(
+            server->localname(), cpu_load_info);
+    }
 
     static bool first = true;
     static BgpRouterState state;
