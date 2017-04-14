@@ -53,6 +53,9 @@ response sandesh FlowStatsResp {
     8: u64 flow_export_disable_drops;
     9: u64 flow_export_sampling_drops;
    10: u64 flow_export_drops;
+   11: u64 flow_sample_export_count;
+   12: u64 flow_msg_export_count;
+   13: u64 flow_export_count;
 }
 
 /**
