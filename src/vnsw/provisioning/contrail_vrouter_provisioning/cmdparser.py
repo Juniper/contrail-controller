@@ -58,7 +58,8 @@ class ComputeArgsParser(object):
             'priority_scheduling': None,
             'priority_bandwidth': None,
             'collectors': ['127.0.0.1'],
-            'control_nodes': ['127.0.0.1']
+            'control_nodes': ['127.0.0.1'],
+            'xmpp_auth_enable': False,
         }
 
         self.parse_args(args_str)
@@ -222,6 +223,9 @@ class ComputeArgsParser(object):
         parser.add_argument(
                 "--metadata_secret",
                 help="Metadata Proxy secret from openstack node")
+        parser.add_argument(
+                "--xmpp_auth_enable", help="Enable xmpp auth",
+                action="store_true")
 
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)
