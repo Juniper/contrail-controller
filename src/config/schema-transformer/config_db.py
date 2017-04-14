@@ -3649,11 +3649,10 @@ class VirtualMachineInterfaceST(DBBaseST):
                     # end for sp
                 # end for service_chain
             # end for service_chain_list
-
-            if policy_rule_count == 0:
-                vrf_table = None
-            self._set_vrf_assign_table(vrf_table)
         # end for vm_pt_list
+        if policy_rule_count == 0:
+            vrf_table = None
+        self._set_vrf_assign_table(vrf_table)
     # end recreate_vrf_assign_table
 
     def _set_vrf_assign_table(self, vrf_table):
