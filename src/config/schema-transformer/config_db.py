@@ -2347,12 +2347,10 @@ class RoutingInstanceST(DBBaseST):
             for vmi_name in list(self.virtual_machine_interfaces):
                 vmi = VirtualMachineInterfaceST.get(vmi_name)
                 if vmi:
-                    vm_pt = PortTupleST.get(vmi.port_tuple)
-                    if vm_pt is None:
-                        vm_pt = VirtualMachineST.get(vmi.virtual_machine)
-                    if vm_pt is not None:
+                    vm_pt_list = vmi.get_virtual_machine_or_port_tuple()
+                    for vm_pt in vm_pt_list:
                         self._cassandra.free_service_chain_vlan(vm_pt.uuid,
-                                                                service_chain)
+                                                             service_chain)
                     vmi.delete_routing_instance(self)
             # end for vmi_name
 
@@ -3308,7 +3306,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.interface_mirror = None
         self.virtual_network = None
         self.virtual_machine = None
-        self.port_tuple = None
+        self.port_tuples = set()
         self.logical_router = None
         self.bgp_as_a_service = None
         self.uuid = None
@@ -3330,6 +3328,7 @@ class VirtualMachineInterfaceST(DBBaseST):
             self.set_properties()
         if 'routing_instance' in changed:
             self.update_routing_instances(self.obj.get_routing_instance_refs())
+        self.update_multiple_refs('port_tuple', self.obj)
         return changed
     # end update
 
@@ -3338,6 +3337,7 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.update_single_ref('virtual_machine', {})
         self.update_single_ref('logical_router', {})
         self.update_multiple_refs('instance_ip', {})
+        self.update_multiple_refs('port_tuple', {})
         self.update_multiple_refs('floating_ip', {})
         self.update_multiple_refs('alias_ip', {})
         self.update_single_ref('bgp_as_a_service', {})
@@ -3431,42 +3431,46 @@ class VirtualMachineInterfaceST(DBBaseST):
     # end delete_routing_instance
 
     def get_virtual_machine_or_port_tuple(self):
-        if self.port_tuple:
-            return PortTupleST.get(self.port_tuple)
+        if self.port_tuples:
+            pt_list = [PortTupleST.get(x) for x in self.port_tuples if x is not None]
+            return pt_list
         elif self.virtual_machine:
-            return VirtualMachineST.get(self.virtual_machine)
-        return None
-    # end get_service_instance
+            vm = VirtualMachineST.get(self.virtual_machine)
+            return [vm] if vm is not None else []
+        return []
+    # end get_virtual_machine_or_port_tuple
 
     def _add_pbf_rules(self):
         if self.service_interface_type not in ['left', 'right']:
             return
 
-        vm_pt = self.get_virtual_machine_or_port_tuple()
-        if not vm_pt or vm_pt.get_service_mode() != 'transparent':
-            return
-        for service_chain in ServiceChain.values():
-            if vm_pt.service_instance not in service_chain.service_list:
-                continue
-            if not service_chain.created:
-                continue
-            if self.service_interface_type == 'left':
-                vn_obj = VirtualNetworkST.locate(service_chain.left_vn)
-                vn1_obj = vn_obj
-            else:
-                vn1_obj = VirtualNetworkST.locate(service_chain.left_vn)
-                vn_obj = VirtualNetworkST.locate(service_chain.right_vn)
+        vm_pt_list = self.get_virtual_machine_or_port_tuple()
+        for vm_pt in vm_pt_list:
+            if not vm_pt or vm_pt.get_service_mode() != 'transparent':
+                return
+            for service_chain in ServiceChain.values():
+                if vm_pt.service_instance not in service_chain.service_list:
+                    continue
+                if not service_chain.created:
+                    continue
+                if self.service_interface_type == 'left':
+                    vn_obj = VirtualNetworkST.locate(service_chain.left_vn)
+                    vn1_obj = vn_obj
+                else:
+                    vn1_obj = VirtualNetworkST.locate(service_chain.left_vn)
+                    vn_obj = VirtualNetworkST.locate(service_chain.right_vn)
 
-            service_name = vn_obj.get_service_name(service_chain.name,
-                                                   vm_pt.service_instance)
-            service_ri = RoutingInstanceST.get(service_name)
-            v4_address, v6_address = vn1_obj.allocate_service_chain_ip(
-                service_name)
-            vlan = self._cassandra.allocate_service_chain_vlan(
-                vm_pt.uuid, service_chain.name)
+                service_name = vn_obj.get_service_name(service_chain.name,
+                                                       vm_pt.service_instance)
+                service_ri = RoutingInstanceST.get(service_name)
+                v4_address, v6_address = vn1_obj.allocate_service_chain_ip(
+                    service_name)
+                vlan = self._cassandra.allocate_service_chain_vlan(
+                    vm_pt.uuid, service_chain.name)
 
-            service_chain.add_pbf_rule(self, service_ri, v4_address,
-                                       v6_address, vlan)
+                service_chain.add_pbf_rule(self, service_ri, v4_address,
+                                           v6_address, vlan)
+        #end for vm_pt
     # end _add_pbf_rules
 
     def set_virtual_network(self):
@@ -3508,78 +3512,81 @@ class VirtualMachineInterfaceST(DBBaseST):
         if vn is None:
             self._set_vrf_assign_table(None)
             return
-        vm_pt = self.get_virtual_machine_or_port_tuple()
-        if not vm_pt:
+        vm_pt_list = self.get_virtual_machine_or_port_tuple()
+        if not vm_pt_list:
             self._set_vrf_assign_table(None)
             return
-        smode = vm_pt.get_service_mode()
-        if smode not in ['in-network', 'in-network-nat']:
-            self._set_vrf_assign_table(None)
-            return
-
-        vrf_table = VrfAssignTableType()
-        ip_list = []
-        for ip_name in self.instance_ips:
-            ip = InstanceIpST.get(ip_name)
-            if ip and ip.instance_ip_address:
-                ip_list.append((ip.ip_version, ip.instance_ip_address))
-        for ip_name in self.floating_ips:
-            ip = FloatingIpST.get(ip_name)
-            if ip and ip.floating_ip_address:
-                ip_list.append((ip.ip_version, ip.floating_ip_address))
-        for ip_name in self.alias_ips:
-            ip = AliasIpST.get(ip_name)
-            if ip and ip.alias_ip_address:
-                ip_list.append((ip.ip_version, ip.alias_ip_address))
-        for (ip_version, ip_address) in ip_list:
-            if ip_version == 6:
-                address = AddressType(subnet=SubnetType(ip_address, 128))
-            else:
-                address = AddressType(subnet=SubnetType(ip_address, 32))
-
-            mc = MatchConditionType(src_address=address,
-                                    protocol='any',
-                                    src_port=PortType(),
-                                    dst_port=PortType())
-
-            vrf_rule = VrfAssignRuleType(match_condition=mc,
-                                         routing_instance=vn._default_ri_name,
-                                         ignore_acl=False)
-            vrf_table.add_vrf_assign_rule(vrf_rule)
 
         policy_rule_count = 0
-        si_name = vm_pt.service_instance
-        if smode == 'in-network-nat' and self.service_interface_type == 'right':
-            vn_service_chains = []
-        else:
-            vn_service_chains = vn.service_chains.values()
+        vrf_table = VrfAssignTableType()
+        for vm_pt in vm_pt_list:
+            smode = vm_pt.get_service_mode()
+            if smode not in ['in-network', 'in-network-nat']:
+                self._set_vrf_assign_table(None)
+                return
 
-        for service_chain_list in vn_service_chains:
-            for service_chain in service_chain_list:
-                if not service_chain.created:
-                    continue
-                if si_name not in service_chain.service_list:
-                    continue
-                ri_name = vn.get_service_name(service_chain.name, si_name)
-                for sp in service_chain.sp_list:
-                    for dp in service_chain.dp_list:
-                        if self.service_interface_type == 'left':
-                            mc = MatchConditionType(src_port=dp,
-                                                    dst_port=sp,
-                                                    protocol=service_chain.protocol)
-                        else:
-                            mc = MatchConditionType(src_port=sp,
-                                                    dst_port=dp,
-                                                    protocol=service_chain.protocol)
+            vrf_table = VrfAssignTableType()
+            ip_list = []
+            for ip_name in self.instance_ips:
+                ip = InstanceIpST.get(ip_name)
+                if ip and ip.instance_ip_address:
+                    ip_list.append((ip.ip_version, ip.instance_ip_address))
+            for ip_name in self.floating_ips:
+                ip = FloatingIpST.get(ip_name)
+                if ip and ip.floating_ip_address:
+                    ip_list.append((ip.ip_version, ip.floating_ip_address))
+            for ip_name in self.alias_ips:
+                ip = AliasIpST.get(ip_name)
+                if ip and ip.alias_ip_address:
+                    ip_list.append((ip.ip_version, ip.alias_ip_address))
+            for (ip_version, ip_address) in ip_list:
+                if ip_version == 6:
+                    address = AddressType(subnet=SubnetType(ip_address, 128))
+                else:
+                    address = AddressType(subnet=SubnetType(ip_address, 32))
 
-                        vrf_rule = VrfAssignRuleType(match_condition=mc,
-                                                     routing_instance=ri_name,
-                                                     ignore_acl=True)
-                        vrf_table.add_vrf_assign_rule(vrf_rule)
-                        policy_rule_count += 1
-            # end for service_chain
-        # end for service_chain_list
+                mc = MatchConditionType(src_address=address,
+                                        protocol='any',
+                                        src_port=PortType(),
+                                        dst_port=PortType())
 
+                vrf_rule = VrfAssignRuleType(match_condition=mc,
+                                             routing_instance=vn._default_ri_name,
+                                             ignore_acl=False)
+                vrf_table.add_vrf_assign_rule(vrf_rule)
+
+            si_name = vm_pt.service_instance
+            if smode == 'in-network-nat' and self.service_interface_type == 'right':
+                vn_service_chains = []
+            else:
+                vn_service_chains = vn.service_chains.values()
+
+            for service_chain_list in vn_service_chains:
+                for service_chain in service_chain_list:
+                    if not service_chain.created:
+                        continue
+                    if si_name not in service_chain.service_list:
+                        continue
+                    ri_name = vn.get_service_name(service_chain.name, si_name)
+                    for sp in service_chain.sp_list:
+                        for dp in service_chain.dp_list:
+                            if self.service_interface_type == 'left':
+                                mc = MatchConditionType(src_port=dp,
+                                                        dst_port=sp,
+                                                        protocol=service_chain.protocol)
+                            else:
+                                mc = MatchConditionType(src_port=sp,
+                                                        dst_port=dp,
+                                                        protocol=service_chain.protocol)
+
+                            vrf_rule = VrfAssignRuleType(match_condition=mc,
+                                                         routing_instance=ri_name,
+                                                         ignore_acl=True)
+                            vrf_table.add_vrf_assign_rule(vrf_rule)
+                            policy_rule_count += 1
+                # end for service_chain
+            # end for service_chain_list
+        #end for vm_pt_list
         if policy_rule_count == 0:
             vrf_table = None
         self._set_vrf_assign_table(vrf_table)
