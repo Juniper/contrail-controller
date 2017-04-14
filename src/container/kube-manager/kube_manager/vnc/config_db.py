@@ -13,6 +13,7 @@ from bitstring import BitArray
 
 INVALID_VLAN_ID = 4096
 MAX_VLAN_ID = 4095
+MIN_VLAN_ID = 1
 
 class DBBaseKM(DBBase):
     obj_type = __name__
@@ -128,8 +129,8 @@ class LoadbalancerKM(DBBaseKM):
         self.loadbalancer_listeners = set()
         self.selectors = None
         self.annotations = None
-        obj_dict = self.update(obj_dict)
         super(LoadbalancerKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
 
     def update(self, obj=None):
         if obj is None:
@@ -339,8 +340,8 @@ class VirtualMachineKM(DBBaseKM):
         self.virtual_machine_interfaces = set()
         self.pod_labels = None
         self.pod_namespace = None
-        obj_dict = self.update(obj_dict)
         super(VirtualMachineKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
 
     def update(self, obj=None):
         if obj is None:
@@ -418,9 +419,10 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         self.vlan_id = None
         self.vlan_bit_map = None
         self.security_groups = set()
+        super(VirtualMachineInterfaceKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
-        super(VirtualMachineInterfaceKM, self).__init__(uuid, obj_dict)
+
 
     def update(self, obj=None):
         if obj is None:
@@ -515,14 +517,14 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         del cls._dict[uuid]
 
     def set_vlan (self, vlan):
-        if vlan < 0 or vlan > MAX_VLAN_ID:
+        if vlan < MIN_VLAN_ID or vlan > MAX_VLAN_ID:
             return
         if not self.vlan_bit_map:
             self.vlan_bit_map = BitArray(MAX_VLAN_ID + 1)
         self.vlan_bit_map[vlan] = 1
 
     def reset_vlan (self, vlan):
-        if vlan < 0 or vlan > MAX_VLAN_ID:
+        if vlan < MIN_VLAN_ID or vlan > MAX_VLAN_ID:
             return
         if not self.vlan_bit_map:
             return
@@ -531,7 +533,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
     def alloc_vlan (self):
         if not self.vlan_bit_map:
             self.vlan_bit_map = BitArray(MAX_VLAN_ID + 1)
-        vid = self.vlan_bit_map.find('0b0')
+        vid = self.vlan_bit_map.find('0b0', MIN_VLAN_ID)
         if vid:
             self.set_vlan(vid[0])
             return vid[0]
@@ -617,8 +619,8 @@ class InstanceIpKM(DBBaseKM):
         self.virtual_machine_interfaces = set()
         self.virtual_networks = set()
         self.floating_ips = set()
-        self.update(obj_dict)
         super(InstanceIpKM, self).__init__(uuid, obj_dict)
+        self.update(obj_dict)
 
     def update(self, obj=None):
         if obj is None:
@@ -725,8 +727,8 @@ class SecurityGroupKM(DBBaseKM):
         self.ingress_ns_sgs = set()
         self.np_sgs = set()
         self.rule_entries = None
-        obj_dict = self.update(obj_dict)
         super(SecurityGroupKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
 
     def update(self, obj=None):
         if obj is None:
