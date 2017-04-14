@@ -485,7 +485,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         'gateway_mode': gateway_mode,
                         'physical_interface_address': pci_dev,
                         'physical_interface_mac': self.mac,
-                        'collectors': collector_servers},
+                        'collectors': collector_servers,
+                        'xmpp_auth_enable': self._args.xmpp_auth_enable},
                     'NETWORKS': {
                         'control_network_ip': compute_ip},
                     'VIRTUAL-HOST-INTERFACE': {
