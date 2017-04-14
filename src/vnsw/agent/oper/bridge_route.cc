@@ -576,6 +576,8 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
                 *evpn_label = MplsTable::kInvalidLabel;
             }
             agent->mpls_table()->FreeLabel(path->label());
+            //Reset path label to invalid as it is freed
+            path->set_label(MplsTable::kInvalidLabel);
         }
         return;
     }
@@ -726,6 +728,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                                       vrf()->GetName(),
                                                       ToString());
             }
+            multicast_peer_path->set_label(MplsTable::kInvalidLabel);
             RemovePath(multicast_peer_path);
         }
         return true;
