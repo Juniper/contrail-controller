@@ -83,6 +83,7 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_export_rate_(0), threshold_(kDefaultFlowSamplingThreshold),
     flow_export_disable_drops_(), flow_export_sampling_drops_(),
     flow_export_drops_(), deleted_flow_export_drops_(),
+    flow_sample_exports_(), flow_msg_exports_(), flow_exports_(),
     prev_cfg_flow_export_rate_(0),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
            "FlowThresholdTimer",
@@ -93,6 +94,9 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_export_sampling_drops_ = 0;
     flow_export_drops_ = 0;
     deleted_flow_export_drops_ = 0;
+    flow_sample_exports_ = 0;
+    flow_msg_exports_ = 0;
+    flow_exports_ = 0;
     flows_sampled_atleast_once_ = false;
     request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
     for (uint16_t i = 0; i < sizeof(protocol_list_)/sizeof(protocol_list_[0]);
@@ -450,9 +454,20 @@ void FlowStatsManager::SetProfileData(ProfileData *data) {
     }
 }
 
-void FlowStatsManager::UpdateFlowExportStats(uint32_t count,
+void FlowStatsManager::UpdateFlowSampleExportStats(uint32_t count) {
+    flow_sample_exports_ += count;
+}
+
+void FlowStatsManager::UpdateFlowMsgExportStats(uint32_t count) {
+    flow_msg_exports_ += count;
+}
+
+void FlowStatsManager::UpdateFlowExportStats(uint32_t count, bool first_export,
                                              bool sampled_flow) {
     flow_export_count_ += count;
+    if (first_export) {
+        flow_exports_ += count;
+    }
     if (!sampled_flow) {
         flow_export_without_sampling_ += count;
     }

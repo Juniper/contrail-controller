@@ -860,6 +860,8 @@ void FlowStatsCollector::DispatchPendingFlowMsg() {
 }
 
 void FlowStatsCollector::DispatchFlowMsg(const std::vector<FlowLogData> &lst) {
+    flow_stats_manager_->UpdateFlowMsgExportStats(1);
+    flow_stats_manager_->UpdateFlowSampleExportStats(lst.size());
     FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_INFO, lst);
 }
 
@@ -900,6 +902,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     assert((agent_uve_->agent()->tsn_enabled() == false));
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
+    bool first_time_export = false;
 
     /* Drop Deleted Flow export messages if add for it was never exported. This
      * includes only those delete messages where we cannot read FlowEntry
@@ -967,8 +970,12 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
             diff_pkts = diff_pkts/probability;
         }
     }
-    /* Mark the flow as exported */
-    info->set_exported_atleast_once(true);
+
+    if (!info->exported_atleast_once()) {
+        first_time_export = true;
+        /* Mark the flow as exported */
+        info->set_exported_atleast_once(true);
+    }
 
     FlowLogData &s_flow = msg_list_[GetFlowMsgIdx()];
 
@@ -1067,7 +1074,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
         EnqueueFlowMsg();
-        flow_stats_manager_->UpdateFlowExportStats(2,
+        flow_stats_manager_->UpdateFlowExportStats(2, first_time_export,
                                                    subject_flows_to_algorithm);
     } else {
         if (info->is_flags_set(FlowEntry::IngressDir)) {
@@ -1077,7 +1084,7 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
             s_flow.set_direction_ing(0);
         }
         EnqueueFlowMsg();
-        flow_stats_manager_->UpdateFlowExportStats(1,
+        flow_stats_manager_->UpdateFlowExportStats(1, first_time_export,
                                                    subject_flows_to_algorithm);
     }
 }
