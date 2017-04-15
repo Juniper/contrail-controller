@@ -650,6 +650,10 @@ class VncRDBMSClient(object):
                 sqa_ref_obj = sqa_ref_class(from_obj_uuid=obj_id, to_obj_uuid=ref_uuid,
                                     ref_value=json.dumps(ref_value))
                 session.add(sqa_ref_obj)
+                if obj_type == ref_type:
+                    sqa_ref_obj2 = sqa_ref_class(from_obj_uuid=ref_uuid, to_obj_uuid=obj_id,
+                                        ref_value=json.dumps(ref_value))
+                    session.add(sqa_ref_obj2)
                 # TODO update epoch on parent and refs
         # end handled refs
 
@@ -1173,8 +1177,13 @@ class VncRDBMSClient(object):
         return (True, '')
     # end object_delete
 
-    @use_session
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
+        self._ref_update(obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation)
+        if obj_type == ref_type:
+            self._ref_update(ref_type, ref_uuid, obj_type, obj_uuid, ref_data, operation)
+
+    @use_session
+    def _ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
         session = self.session_ctx
         sqa_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
 
