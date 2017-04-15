@@ -625,6 +625,48 @@ class TestCrud(test_case.ApiServerTestCase):
             sub_vmi2_id = self._vnc_lib.virtual_machine_interface_create(sub_vmi_obj2)
     # end test_create_sub_vmi_with_primary_vmi_as_another_sub_vmi
 
+    def test_sub_interfaces_on_diff_vns_with_same_vlan_tags(self):
+        vn1 = VirtualNetwork('vn1-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn1)
+        vn2 = VirtualNetwork('vn2-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn2)
+
+        vmi_prop = VirtualMachineInterfacePropertiesType(sub_interface_vlan_tag=256)
+
+        vmi_obj = VirtualMachineInterface(
+                  str(uuid.uuid4()), parent_obj=Project())
+
+        vmi_obj2 = VirtualMachineInterface(
+                  str(uuid.uuid4()), parent_obj=Project())
+
+        vmi_obj.uuid = vmi_obj.name
+        vmi_obj.set_virtual_network(vn1)
+        vmi_id = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        vmi_obj2.uuid = vmi_obj2.name
+        vmi_obj2.set_virtual_network(vn2)
+        vmi_id2 = self._vnc_lib.virtual_machine_interface_create(vmi_obj2)
+
+        sub_vmi_obj = VirtualMachineInterface(
+                      str(uuid.uuid4()), parent_obj=Project(),
+                      virtual_machine_interface_properties=vmi_prop)
+        sub_vmi_obj.uuid = sub_vmi_obj.name
+        sub_vmi_obj.set_virtual_network(vn1)
+        sub_vmi_obj.set_virtual_machine_interface(vmi_obj)
+        sub_vmi_id = self._vnc_lib.virtual_machine_interface_create(sub_vmi_obj)
+
+        sub_vmi_obj2 = VirtualMachineInterface(
+                       str(uuid.uuid4()), parent_obj=Project(),
+                       virtual_machine_interface_properties=vmi_prop)
+        sub_vmi_obj2.uuid = sub_vmi_obj2.name
+        sub_vmi_obj2.set_virtual_network(vn2)
+        sub_vmi_obj2.set_virtual_machine_interface(vmi_obj2)
+
+        # creating two sub interfacs with same vlan_tag
+        # on different VNs should get succedded
+        sub_vmi2_id = self._vnc_lib.virtual_machine_interface_create(sub_vmi_obj2)
+    # end test_sub_interfaces_on_diff_vns_with_same_vlan_tags
+
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
