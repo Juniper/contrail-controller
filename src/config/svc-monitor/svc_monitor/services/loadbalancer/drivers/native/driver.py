@@ -266,6 +266,7 @@ class OpencontrailLoadbalancerDriver(
             for fip_id in new_floating_ips:
                 fip = self._get_floating_ip(fip_id=fip_id)
                 fip.floating_ip_traffic_direction = "ingress"
+                fip.floating_ip_fixed_ip_address = None
                 self._api.floating_ip_update(fip)
 
         lb_props = {}

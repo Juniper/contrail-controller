@@ -5,7 +5,7 @@ REACTION_MAP = {
     },
     "service_appliance": {
         'self': ['service_appliance_set','physical_interface'],
-        'service_appliance_set': []
+        'service_appliance_set': [],
     },
     "loadbalancer_healthmonitor": {
         'self': ['loadbalancer_pool'],
@@ -24,7 +24,7 @@ REACTION_MAP = {
     },
     "loadbalancer_listener": {
         'self': ['loadbalancer'],
-        'loadbalancer_pool': ['loadbalancer']
+        'loadbalancer_pool': ['loadbalancer'],
     },
     "loadbalancer": {
         'self': [],
@@ -46,7 +46,7 @@ REACTION_MAP = {
         'virtual_machine_interface': [],
     },
     "floating_ip": {
-        'self': [],
+        'self': ['virtual_machine_interface'],
     },
     "security_group": {
         'self': [],
@@ -84,14 +84,15 @@ REACTION_MAP = {
     },
     "virtual_machine_interface": {
         'self': ['interface_route_table', 'virtual_machine',
-                 'port_tuple', 'security_group',
+                 'port_tuple', 'security_group', 'floating_ip',
                  'instance_ip', 'service_health_check', 'loadbalancer'],
         'interface_route_table': [],
         'service_health_check': [],
         'security_group': [],
         'virtual_machine': [],
         'port_tuple': ['physical_interface', 'instance_ip'],
-        'physical_interface': ['service_instance']
+        'physical_interface': ['service_instance'],
+        'floating_ip': ['loadbalancer'],
     },
     "interface_route_table": {
         'self': ['service_instance'],
