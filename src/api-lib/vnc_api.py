@@ -848,7 +848,7 @@ class VncApi(object):
     # end _read_args_to_id
 
     def _request_server(self, op, url, data=None, retry_on_error=True,
-                        retry_after_authn=False, retry_count=30):
+                        retry_after_authn=False, retry_count=5):
         if not self._srv_root_url:
             raise ConnectionError("Unable to retrive the api server root url.")
 
@@ -887,7 +887,7 @@ class VncApi(object):
     # end _log_curl
 
     def _request(self, op, url, data=None, retry_on_error=True,
-                 retry_after_authn=False, retry_count=30):
+                 retry_after_authn=False, retry_count=5):
         retried = 0
         if self._curl_logging:
             self._log_curl(op=op, url=url, data=data)
