@@ -25,11 +25,11 @@ from config_db import ServiceInstanceSM, ServiceTemplateSM,\
 
 class ServiceMonitorLogger(ConfigServiceLogger):
 
-    def __init__(self, discovery, args=None):
+    def __init__(self, discovery, args=None, http_server_port=None):
         module = Module.SVC_MONITOR
         module_pkg = 'svc_monitor'
         super(ServiceMonitorLogger, self).__init__(
-                discovery, module, module_pkg, args)
+                discovery, module, module_pkg, args, http_server_port)
 
     def log(self, log_msg, level=SandeshLevel.SYS_DEBUG, fun=None):
         if fun:
@@ -43,7 +43,6 @@ class ServiceMonitorLogger(ConfigServiceLogger):
     def redefine_sandesh_handles(self):
         sandesh.ServiceInstanceList.handle_request =\
                 self.sandesh_si_handle_request
-
 
     def api_conn_status_update(self, status, msg=None):
         ConnectionState.update(

@@ -17,15 +17,15 @@ from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 
 class SchemaTransformerLogger(ConfigServiceLogger):
 
-    def __init__(self, discovery, args=None):
+    def __init__(self, discovery, args=None, http_server_port=None):
         module = Module.SCHEMA_TRANSFORMER
         module_pkg = "schema_transformer"
         self.context = "to_bgp"
         super(SchemaTransformerLogger, self).__init__(
-                discovery, module, module_pkg, args)
+                discovery, module, module_pkg, args, http_server_port)
 
-    def sandesh_init(self):
-        super(SchemaTransformerLogger, self).sandesh_init()
+    def sandesh_init(self, http_server_port=None):
+        super(SchemaTransformerLogger, self).sandesh_init(http_server_port)
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
 
