@@ -95,15 +95,18 @@ class SchemaTransformer(object):
             'network_policy': ['virtual_machine', 'port_tuple']
         },
         'network_policy': {
-            'self': ['virtual_network', 'network_policy', 'service_instance'],
+            'self': ['virtual_network', 'network_policy', 'service_instance', 'security_logging_object'],
             'service_instance': ['virtual_network'],
             'network_policy': ['virtual_network'],
             'virtual_network': ['virtual_network', 'network_policy',
                                 'service_instance']
         },
         'security_group': {
-            'self': ['security_group'],
+            'self': ['security_group', 'security_logging_object'],
             'security_group': [],
+        },
+        'security_logging_object': {
+            'self': ['security_logging_object'],
         },
         'route_table': {
             'self': ['virtual_network', 'service_instance', 'logical_router'],
@@ -321,8 +324,9 @@ class SchemaTransformer(object):
 
         NetworkPolicyST.reinit()
         gevent.sleep(0.001)
+        SecurityLoggingObjectST.reinit()
+        gevent.sleep(0.001)
         VirtualMachineInterfaceST.reinit()
-
         gevent.sleep(0.001)
         InstanceIpST.reinit()
         gevent.sleep(0.001)

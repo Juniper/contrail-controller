@@ -4505,3 +4505,69 @@ class BgpvpnST(DBBaseST):
             self._get_sandesh_ref_list('logical_router'),
         ]
         return resp
+
+class SecurityLoggingObjectST(DBBaseST):
+    _dict = {}
+    obj_type = 'security_logging_object'
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.network_policys = set()
+        self.security_groups = set()
+        self.rate = None
+        self.rules = []
+        self.update(obj)
+        self.uuid = self.obj.uuid
+    # end __init__
+
+    def update(self, obj=None):
+        changed = self.update_vnc_obj(obj)
+        self.obj = obj or self.read_vnc_obj(fq_name=self.name)
+        self.rate = self.obj._security_logging_object_rate
+
+        # Dump the existing rules list and construct a new
+        # one from scratch.
+        self.rules = []
+        self.populate_rules('network_policy')
+        self.populate_rules('security_group')
+        self.update_multiple_refs('network_policy', self.obj)
+        self.update_multiple_refs('security_group', self.obj)
+        return changed
+    # end update
+
+    def populate_rules(self, rule_type):
+        rule_type_refs = rule_type + '_refs'
+        if hasattr(self.obj, rule_type_refs):
+            for np_sg in getattr(self.obj, rule_type_refs):
+                if np_sg['attr'].rule:
+                    for rule in np_sg['attr'].rule:
+                        self.rules.append({'rule_uuid':rule.rule_uuid,
+                                           'rate':rule.rate})
+                else:
+                    # No rule uuid is specified. Query for the
+                    # network policy or security group 
+                    # and include all rules in them.
+                    # Use the default rule rate in the SLO.
+                    vnc_np_sg = getattr(self._vnc_lib, rule_type+'_read')(id=np_sg['uuid'])
+                    rule_entries = getattr(vnc_np_sg, 'get_'+rule_type+'_entries')().policy_rule
+                    for rule_entry in rule_entries:
+                        self.rules.append({'rule_uuid':rule_entry.rule_uuid, 
+                                           'rate':self.rate})
+    #end populate_rules
+
+    def delete_obj(self):
+        self.update_multiple_refs('network_policy', {})
+        self.update_multiple_refs('security_group', {})
+    # end delete_obj
+
+    def handle_st_object_req(self):
+        resp = super(SecurityLoggingObjectST, self).handle_st_object_req()
+        resp.obj_refs = [
+            self._get_sandesh_ref_list('network_policy'),
+            self._get_sandesh_ref_list('security_group')
+        ]
+        resp.properties = [
+            sandesh.PropList('rule', str(rule)) for rule in self.rules
+        ]
+        return resp
+#end SecurityLoggingObjectST
