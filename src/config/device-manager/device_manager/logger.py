@@ -10,20 +10,21 @@ Device Manager monitor logger
 from sandesh_common.vns.ttypes import Module
 from cfgm_common.vnc_logger import ConfigServiceLogger
 
-from db import BgpRouterDM
+from db import BgpRouterDM, PhysicalRouterDM
 from sandesh.dm_introspect import ttypes as sandesh
+
 
 class DeviceManagerLogger(ConfigServiceLogger):
 
-    def __init__(self, args=None):
+    def __init__(self, args=None, http_server_port=None):
         module = Module.DEVICE_MANAGER
         module_pkg = "device_manager"
         self.context = "device_manager"
         super(DeviceManagerLogger, self).__init__(
-                module, module_pkg, args)
+                module, module_pkg, args, http_server_port)
 
-    def sandesh_init(self):
-        super(DeviceManagerLogger, self).sandesh_init()
+    def sandesh_init(self, http_server_port=None):
+        super(DeviceManagerLogger, self).sandesh_init(http_server_port)
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
 
@@ -62,7 +63,7 @@ class DeviceManagerLogger(ConfigServiceLogger):
         # Return the list of PR routers
         resp = sandesh.PhysicalRouterListResp(physical_routers=[])
         if req.name_or_uuid is None:
-            for router in PhyscialRouterDM:
+            for router in PhysicalRouterDM:
                 sandesh_router = self.sandesh_pr_build()
                 resp.physical_routers.extend(sandesh_router)
         else:

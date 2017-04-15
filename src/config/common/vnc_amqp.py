@@ -68,8 +68,8 @@ class VncAmqpHandle(object):
                 # log the exception, and exit during api-server
                 # ConnectionError on retry to let standby to become active.
                 self.log_exception()
-                self.close()
                 self.logger.error("Api-server connection lost. Exiting")
+                self.close()
                 raise SystemExit
             except Exception:
                 self.log_exception()

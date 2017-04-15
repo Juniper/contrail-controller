@@ -615,6 +615,7 @@ def run_schema_transformer(st_logger, args):
     global _vnc_lib
 
     st_logger.notice("Elected master Schema Transformer node. Initializing...")
+    st_logger.sandesh_init()
 
     def connection_state_update(status, message=None):
         ConnectionState.update(
@@ -684,15 +685,19 @@ def main(args_str=None):
         args.random_collectors = random.sample(args.collectors,
                                                len(args.collectors))
 
-    # Initialize logger
-    st_logger = SchemaTransformerLogger(args)
+    # Initialize logger without introspect thread
+    st_logger = SchemaTransformerLogger(args, http_server_port=-1)
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    vnc_amqp = STAmqpHandle(st_logger, SchemaTransformer.REACTION_MAP, args)
-    vnc_amqp.establish()
-    vnc_amqp.close()
-    st_logger.debug("Removed remained AMQP queue")
+    try:
+        vnc_amqp = STAmqpHandle(st_logger, SchemaTransformer.REACTION_MAP, args)
+        vnc_amqp.establish()
+        vnc_amqp.close()
+    except Exception:
+        pass
+    finally:
+        st_logger.debug("Removed remained AMQP queue")
 
     # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
