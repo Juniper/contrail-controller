@@ -43,7 +43,6 @@ class VncAmqpHandle(object):
         try:
             self.oper_info = oper_info
             self.vnc_subscribe_actions()
-
         except Exception:
             string_buf = cStringIO.StringIO()
             cgitb_hook(file=string_buf, format="text")

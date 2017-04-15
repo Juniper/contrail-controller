@@ -840,6 +840,7 @@ def parse_args(args_str):
 
 def run_svc_monitor(sm_logger, args=None):
     sm_logger.notice("Elected master SVC Monitor node. Initializing... ")
+    sm_logger.introspect_init()
 
     monitor = SvcMonitor(sm_logger, args)
     monitor._zookeeper_client = _zookeeper_client
@@ -894,15 +895,20 @@ def main(args_str=None):
             args.disc_server_port,
             ModuleNames[Module.SVC_MONITOR])
     # Initialize logger
-    sm_logger = ServiceMonitorLogger(discovery_client, args)
+    sm_logger = ServiceMonitorLogger(
+            discovery_client, args, http_server_port=-1)
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    vnc_amqp = VncAmqpHandle(sm_logger, DBBaseSM, REACTION_MAP, 'svc_monitor',
-                             args=args)
-    vnc_amqp.establish()
-    vnc_amqp.close()
-    sm_logger.debug("Removed remained AMQP queue")
+    try:
+        vnc_amqp = VncAmqpHandle(sm_logger, DBBaseSM, REACTION_MAP, 'svc_monitor',
+                                 args=args)
+        vnc_amqp.establish()
+        vnc_amqp.close()
+    except Exception:
+        pass
+    finally:
+        sm_logger.debug("Removed remained AMQP queue")
 
     # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(

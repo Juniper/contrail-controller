@@ -487,14 +487,19 @@ def main(args_str=None):
     # Initialize logger
     module = Module.DEVICE_MANAGER
     module_pkg = "device_manager"
-    dm_logger = ConfigServiceLogger(discovery_client, module, module_pkg, args)
+    dm_logger = ConfigServiceLogger(
+            discovery_client, module, module_pkg, args, http_server_port=-1)
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
-    vnc_amqp.establish()
-    vnc_amqp.close()
-    dm_logger.debug("Removed remained AMQP queue")
+    try:
+        vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
+        vnc_amqp.establish()
+        vnc_amqp.close()
+    except Exception:
+        pass
+    finally:
+        dm_logger.debug("Removed remained AMQP queue")
 
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
                                         args.zk_server_ip)
@@ -507,6 +512,7 @@ def main(args_str=None):
 
 def run_device_manager(dm_logger, args):
     dm_logger.notice("Elected master Device Manager node. Initializing... ")
+    dm_logger.introspect_init()
     DeviceManager(dm_logger, args)
 # end run_device_manager
 
