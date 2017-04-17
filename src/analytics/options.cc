@@ -130,8 +130,14 @@ void Options::Initialize(EventManager &evm,
     string default_api_server("127.0.0.1:8082");
     vector<string> default_api_server_list = list_of(default_api_server);
 
-    vector<string> default_structured_syslog_forward_destination;
-    default_structured_syslog_forward_destination.push_back("");
+    vector<string> default_structured_syslog_tcp_forward_destination;
+    default_structured_syslog_tcp_forward_destination.push_back("");
+
+    vector<string> default_structured_syslog_kafka_broker_list;
+    default_structured_syslog_kafka_broker_list.push_back("");
+
+    string default_structured_syslog_kafka_topic("structured_syslog");
+    uint16_t default_structured_syslog_kafka_partitions = 30;
 
     // Command line and config file options.
     opt::options_description cassandra_config("Cassandra Configuration options");
@@ -255,14 +261,26 @@ void Options::Initialize(EventManager &evm,
             opt::value<uint16_t>()->default_value(
                 default_collector_protobuf_port),
          "Listener port of Google Protocol Buffer collector server")
-        ("COLLECTOR.structured_syslog_port",
+        ("STRUCTURED_SYSLOG_COLLECTOR.port",
             opt::value<uint16_t>()->default_value(
                 default_collector_structured_syslog_port),
          "Listener port of Structured Syslog collector server")
-        ("COLLECTOR.structured_syslog_forward_destination",
+        ("STRUCTURED_SYSLOG_COLLECTOR.tcp_forward_destination",
            opt::value<vector<string> >()->default_value(
-               default_structured_syslog_forward_destination, ""),
+               default_structured_syslog_tcp_forward_destination, ""),
              "Structured Syslog Forward Destination List")
+        ("STRUCTURED_SYSLOG_COLLECTOR.kafka_broker_list",
+           opt::value<vector<string> >()->default_value(
+               default_structured_syslog_kafka_broker_list, ""),
+             "Structured Syslog Kafka Broker List")
+        ("STRUCTURED_SYSLOG_COLLECTOR.kafka_topic",
+           opt::value<string>()->default_value(
+               default_structured_syslog_kafka_topic, "structured_syslog"),
+             "Structured Syslog Kafka Topic")
+        ("STRUCTURED_SYSLOG_COLLECTOR.kafka_partitions",
+           opt::value<uint16_t>()->default_value(
+               default_structured_syslog_kafka_partitions),
+             "Structured Syslog Number of Kafka Partitions")
         ;
 
     // Command line and config file options.
@@ -622,13 +640,22 @@ void Options::Process(int argc, char *argv[],
         "DATABASE.low_watermark2.message_severity_level");
 
     if (GetOptValueIfNotDefaulted<uint16_t>(var_map, collector_structured_syslog_port_,
-            "COLLECTOR.structured_syslog_port")) {
+            "STRUCTURED_SYSLOG_COLLECTOR.port")) {
         collector_structured_syslog_port_configured_ = true;
     } else {
         collector_structured_syslog_port_configured_ = false;
     }
-    GetOptValue< vector<string> >(var_map, collector_structured_syslog_forward_destination_,
-                                  "COLLECTOR.structured_syslog_forward_destination");
+    GetOptValue< vector<string> >(var_map, collector_structured_syslog_tcp_forward_destination_,
+                                  "STRUCTURED_SYSLOG_COLLECTOR.tcp_forward_destination");
+
+    GetOptValue< vector<string> >(var_map, collector_structured_syslog_kafka_broker_list_,
+                                  "STRUCTURED_SYSLOG_COLLECTOR.kafka_broker_list");
+
+    GetOptValue<string>(var_map, collector_structured_syslog_kafka_topic_,
+                                  "STRUCTURED_SYSLOG_COLLECTOR.kafka_topic");
+
+    GetOptValue<uint16_t>(var_map, collector_structured_syslog_kafka_partitions_,
+                                  "STRUCTURED_SYSLOG_COLLECTOR.kafka_partitions");
 
     GetOptValue<uint64_t>(var_map, analytics_data_ttl_,
                      "DEFAULT.analytics_data_ttl");

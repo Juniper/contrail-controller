@@ -12,6 +12,7 @@
 
 #include <analytics/stat_walker.h>
 #include <analytics/structured_syslog_config.h>
+#include <analytics/structured_syslog_kafka_forwarder.h>
 
 namespace structured_syslog {
 
@@ -22,6 +23,9 @@ class StructuredSyslogServer {
  public:
     StructuredSyslogServer(EventManager *evm, uint16_t port,
         const vector<string> &structured_syslog_tcp_forward_dst,
+        const std::string &structured_syslog_kafka_broker,
+        const std::string &structured_syslog_kafka_topic,
+        uint16_t structured_syslog_kafka_partitions,
         boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
         StatWalker::StatTableInsertFn stat_db_cb);
     virtual ~StructuredSyslogServer();
@@ -39,8 +43,10 @@ class  StructuredSyslogQueueEntry {
 public:
     size_t      length;
     boost::shared_ptr<std::string> data;
+    boost::shared_ptr<std::string> skey;
 
-    StructuredSyslogQueueEntry(boost::shared_ptr<std::string> d, size_t len);
+    StructuredSyslogQueueEntry(boost::shared_ptr<std::string> d, size_t len,
+                               boost::shared_ptr<std::string> key);
     virtual ~StructuredSyslogQueueEntry();
 };
 
@@ -72,7 +78,11 @@ private:
 
 class StructuredSyslogForwarder {
 public:
-    StructuredSyslogForwarder(EventManager *evm, const vector <std::string> &tcp_forward_dst);
+    StructuredSyslogForwarder(EventManager *evm, const vector <std::string> &tcp_forward_dst,
+                               const std::string &structured_syslog_kafka_broker,
+                               const std::string &structured_syslog_kafka_topic,
+                               uint16_t structured_syslog_kafka_partitions);
+
     virtual ~StructuredSyslogForwarder();
     void Forward(boost::shared_ptr<StructuredSyslogQueueEntry> sqe);
     void Shutdown();
@@ -80,12 +90,16 @@ public:
 protected:
     bool PollTcpForwarder();
     void PollTcpForwarderErrorHandler(string error_name, string error_message);
-    void Init(const vector <std::string> &tcp_forward_dst);
+    void Init(const vector <std::string> &tcp_forward_dst,
+               const std::string &structured_syslog_kafka_broker,
+               const std::string &structured_syslog_kafka_topic,
+               uint16_t structured_syslog_kafka_partitions);
     bool Client(boost::shared_ptr<StructuredSyslogQueueEntry> sqe);
 private:
     EventManager                           *evm_;
     WorkQueue<boost::shared_ptr<StructuredSyslogQueueEntry> > work_queue_;
     std::vector<boost::shared_ptr<StructuredSyslogTcpForwarder> > tcpForwarder_;
+    KafkaForwarder*                            kafkaForwarder_;
     Timer                                  *tcpForwarder_poll_timer_;
     static const int tcpForwarderPollInterval = 60 * 1000; // in ms
 };

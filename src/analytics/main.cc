@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
     vector<string> structured_syslog_fwd;
     if (structured_syslog_server_enabled) {
         LOG(INFO, "COLLECTOR STRUCTURED SYSLOG LISTEN PORT: " << structured_syslog_port);
-        structured_syslog_fwd = options.collector_structured_syslog_forward_destination();
+        structured_syslog_fwd = options.collector_structured_syslog_tcp_forward_destination();
     }
     string kstr("");
     vector<string> kbl = options.kafka_broker_list();
@@ -283,6 +283,22 @@ int main(int argc, char *argv[])
         }
         kstr += *st;
     }
+    string structured_syslog_kafka_broker("");
+    string structured_syslog_kafka_topic("");
+    uint16_t structured_syslog_kafka_partitions = 0;
+    vector<string> structured_syslog_kafka_broker_list = options.collector_structured_syslog_kafka_broker_list();
+    for (vector<string>::const_iterator st = structured_syslog_kafka_broker_list.begin();
+            st != structured_syslog_kafka_broker_list.end(); st++) {
+        if (st != structured_syslog_kafka_broker_list.begin()) {
+            structured_syslog_kafka_broker += string(",");
+        }
+        structured_syslog_kafka_broker += *st;
+    }
+    if (structured_syslog_kafka_broker != "") {
+        structured_syslog_kafka_topic = options.collector_structured_syslog_kafka_topic();
+        structured_syslog_kafka_partitions = options.collector_structured_syslog_kafka_partitions();
+    }
+
     std::map<std::string, std::string> aggconf;
     vector<string> upl = options.uve_proxy_list();
     for (vector<string>::const_iterator st = upl.begin();
@@ -368,6 +384,9 @@ int main(int argc, char *argv[])
             structured_syslog_server_enabled,
             structured_syslog_port,
             structured_syslog_fwd,
+            structured_syslog_kafka_broker,
+            structured_syslog_kafka_topic,
+            structured_syslog_kafka_partitions,
             string("127.0.0.1"),
             options.redis_port(),
             options.redis_password(),

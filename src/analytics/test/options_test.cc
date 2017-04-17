@@ -282,7 +282,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "port=100\n"
         "server=3.4.5.6\n"
         "protobuf_port=3333\n"
-        "structured_syslog_port=3514\n"
+        "\n"
+        "[STRUCTURED_SYSLOG_COLLECTOR]\n"
+        "port=3514\n"
         "\n"
         "[REDIS]\n"
         "server=1.2.3.4\n"
@@ -396,7 +398,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "port=100\n"
         "server=3.4.5.6\n"
         "protobuf_port=3333\n"
-        "structured_syslog_port=3514\n"
+        "\n"
+        "[STRUCTURED_SYSLOG_COLLECTOR]\n"
+        "port=3514\n"
         "\n"
         "[REDIS]\n"
         "server=1.2.3.4\n"
@@ -435,7 +439,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_10[] = "--CASSANDRA.cassandra_password=cassandra";
     char argv_11[] = "--conf_file=./options_test_cassandra_config_file.conf";
     char argv_12[] = "--DEFAULT.sandesh_send_rate_limit=7";
-    char argv_13[] = "--COLLECTOR.structured_syslog_port=3515";
+    char argv_13[] = "--STRUCTURED_SYSLOG_COLLECTOR.port=3515";
+
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;

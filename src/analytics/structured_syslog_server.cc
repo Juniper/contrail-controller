@@ -139,6 +139,7 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
   }
   LOG(DEBUG, "structured_syslog - message_config: " << mc->name());
   boost::shared_ptr<std::string> msg;
+  boost::shared_ptr<std::string> hostname;
   if (mc->process_and_store() == true || mc->process_before_forward() == true) {
       start = end + 1;
       v.insert(std::pair<std::string, SyslogParser::Holder>("tag",
@@ -165,6 +166,7 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
       }
       if (mc->forward() == true) {
         msg.reset(new std::string (message, message + message_len));
+        hostname.reset(new std::string (SyslogParser::GetMapVals(v, "hostname", "")));
       }
       StructuredSyslogDecorate(v, config_obj, msg);
       if (mc->process_and_store() == true) {
@@ -173,15 +175,16 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
       if (forwarder != NULL && mc->forward() == true &&
           mc->process_before_forward() == true) {
         LOG(DEBUG, "forwarding after decoration - " << *msg);
-        boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length()));
+        boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(), hostname));
         forwarder->Forward(ssqe);
       }
   }
   if (forwarder != NULL && mc->forward() == true &&
       mc->process_before_forward() == false) {
     msg.reset(new std::string (message, message + message_len));
+    hostname.reset(new std::string (SyslogParser::GetMapVals(v, "hostname", "")));
     LOG(DEBUG, "forwarding without decoration - " << *msg);
-    boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length()));
+    boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(), hostname));
     forwarder->Forward(ssqe);
   }
   return true;
@@ -475,6 +478,9 @@ class StructuredSyslogServer::StructuredSyslogServerImpl {
 public:
     StructuredSyslogServerImpl(EventManager *evm, uint16_t port,
         const vector<string> &structured_syslog_tcp_forward_dst,
+        const std::string &structured_syslog_kafka_broker,
+        const std::string &structured_syslog_kafka_topic,
+        uint16_t structured_syslog_kafka_partitions,
         boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
         StatWalker::StatTableInsertFn stat_db_callback) :
         udp_server_(new StructuredSyslogUdpServer(evm, port,
@@ -491,8 +497,11 @@ public:
         message_config_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
             "structured_syslog_config message config poll timer",
         TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))) {
-        if (structured_syslog_tcp_forward_dst.size() != 0) {
-            forwarder_.reset(new StructuredSyslogForwarder (evm, structured_syslog_tcp_forward_dst));
+        if ((structured_syslog_tcp_forward_dst.size() != 0) || structured_syslog_kafka_broker != "") {
+            forwarder_.reset(new StructuredSyslogForwarder (evm, structured_syslog_tcp_forward_dst,
+                                                            structured_syslog_kafka_broker,
+                                                            structured_syslog_kafka_topic,
+                                                            structured_syslog_kafka_partitions));
         } else {
             LOG(DEBUG, "forward destination not configured");
         }
@@ -720,9 +729,15 @@ private:
 
 StructuredSyslogServer::StructuredSyslogServer(EventManager *evm,
     uint16_t port, const vector<string> &structured_syslog_tcp_forward_dst,
+    const std::string &structured_syslog_kafka_broker,
+    const std::string &structured_syslog_kafka_topic,
+    uint16_t structured_syslog_kafka_partitions,
     boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
     StatWalker::StatTableInsertFn stat_db_fn) {
     impl_ = new StructuredSyslogServerImpl(evm, port, structured_syslog_tcp_forward_dst,
+                                           structured_syslog_kafka_broker,
+                                           structured_syslog_kafka_topic,
+                                           structured_syslog_kafka_partitions,
                                            cfgdb_connection, stat_db_fn);
 }
 
@@ -820,22 +835,30 @@ void StructuredSyslogTcpForwarder::SetSocketOptions() {
 }
 
 StructuredSyslogForwarder::StructuredSyslogForwarder(EventManager *evm,
-                                                       const vector <std::string> &tcp_forward_dst):
+                                                     const vector <std::string> &tcp_forward_dst,
+                                                     const std::string &structured_syslog_kafka_broker,
+                                                     const std::string &structured_syslog_kafka_topic,
+                                                     uint16_t structured_syslog_kafka_partitions):
     evm_(evm),
     work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                 "vizd::structured_syslog_forwarder"), 0, boost::bind(
-                    &StructuredSyslogForwarder::Client, this, _1)),
-    tcpForwarder_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
-                             "tcpForwarder poll timer",
-                              TaskScheduler::GetInstance()->GetTaskId("tcpForwarder poller")))
-{
-    tcpForwarder_poll_timer_->Start(tcpForwarderPollInterval,
-    boost::bind(&StructuredSyslogForwarder::PollTcpForwarder, this),
-    boost::bind(&StructuredSyslogForwarder::PollTcpForwarderErrorHandler, this, _1, _2));
-    Init(tcp_forward_dst);
+                    &StructuredSyslogForwarder::Client, this, _1)) {
+    if (tcp_forward_dst.size() != 0) {
+        tcpForwarder_poll_timer_= TimerManager::CreateTimer(*evm->io_service(),
+                                  "tcpForwarder poll timer",
+                                  TaskScheduler::GetInstance()->GetTaskId("tcpForwarder poller"));
+        tcpForwarder_poll_timer_->Start(tcpForwarderPollInterval,
+        boost::bind(&StructuredSyslogForwarder::PollTcpForwarder, this),
+        boost::bind(&StructuredSyslogForwarder::PollTcpForwarderErrorHandler, this, _1, _2));
+    }
+    Init(tcp_forward_dst, structured_syslog_kafka_broker, structured_syslog_kafka_topic,
+         structured_syslog_kafka_partitions);
 }
 
-void StructuredSyslogForwarder::Init(const std::vector<std::string> &tcp_forward_dst) {
+void StructuredSyslogForwarder::Init(const std::vector<std::string> &tcp_forward_dst,
+                                     const std::string &structured_syslog_kafka_broker,
+                                     const std::string &structured_syslog_kafka_topic,
+                                     uint16_t structured_syslog_kafka_partitions) {
     for (std::vector<std::string>::const_iterator it = tcp_forward_dst.begin(); it != tcp_forward_dst.end(); ++it) {
         std::vector<std::string> dest;
         boost::split(dest, *it, boost::is_any_of(":"), boost::token_compress_on);
@@ -846,6 +869,13 @@ void StructuredSyslogForwarder::Init(const std::vector<std::string> &tcp_forward
         fwder->Connect();
         fwder->SetSocketOptions();
         tcpForwarder_.push_back(fwder);
+    }
+    if (structured_syslog_kafka_broker != "") {
+        kafkaForwarder_ = new KafkaForwarder(evm_, structured_syslog_kafka_broker,
+                                             structured_syslog_kafka_topic,
+                                             structured_syslog_kafka_partitions);
+    } else {
+        kafkaForwarder_ = NULL;
     }
 }
 
@@ -870,13 +900,13 @@ bool StructuredSyslogForwarder::PollTcpForwarder() {
             std::string dst = (*it)->GetIpAddress();
             int port = (*it)->GetPort();
             LOG(DEBUG,"reconnecting to remote syslog server " << dst << ":" << port);
-            (*it)->ClearSessions();
             boost::shared_ptr<StructuredSyslogTcpForwarder> old_fwder = *it;
             boost::shared_ptr<StructuredSyslogTcpForwarder> new_fwder(new StructuredSyslogTcpForwarder(evm_, dst, port));
             new_fwder->CreateSession();
             new_fwder->Connect();
             new_fwder->SetSocketOptions();
             std::replace(tcpForwarder_.begin(),tcpForwarder_.end(), old_fwder, new_fwder);
+            old_fwder->ClearSessions();
         } else {
             LOG(DEBUG,"connection to remote syslog server " << (*it)->GetIpAddress() << ":"<< (*it)->GetPort() << " is fine");
         }
@@ -886,6 +916,9 @@ bool StructuredSyslogForwarder::PollTcpForwarder() {
 
 void StructuredSyslogForwarder::Shutdown() {
     work_queue_.ScheduleShutdown();
+    if (kafkaForwarder_ != NULL) {
+        kafkaForwarder_->Shutdown();
+    }
     LOG(DEBUG, __func__ << " structured_syslog_forwarder shutdown done");
 }
 
@@ -903,12 +936,15 @@ bool StructuredSyslogForwarder::Client(boost::shared_ptr<StructuredSyslogQueueEn
             LOG(DEBUG, "error writing - bytes_written: " << bytes_written);
         }
     }
+    if (kafkaForwarder_ != NULL) {
+        kafkaForwarder_->Send(*(sqe->data), *(sqe->skey));
+    }
     return ret;
 }
 
-StructuredSyslogQueueEntry::StructuredSyslogQueueEntry(boost::shared_ptr<std::string> d, size_t len):
-        length(len), data(d)
-{
+StructuredSyslogQueueEntry::StructuredSyslogQueueEntry(boost::shared_ptr<std::string> d, size_t len,
+                                                       boost::shared_ptr<std::string> key):
+        length(len), data(d), skey(key) {
 }
 
 StructuredSyslogQueueEntry::~StructuredSyslogQueueEntry() {
