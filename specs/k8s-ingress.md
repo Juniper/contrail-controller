@@ -93,7 +93,8 @@ load balancer]. Whenever ingress is configured in k8s, contrail-kube-manager cre
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;servicePort: 80<br/>
 
 #### __Creating simple-fanout ingress in k8s:__
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Kubectl create –f simple-fanout.yaml –n &lt;namespace\_name&gt;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Kubectl create –f simple-fanout.yaml –n &lt;namespace\_name&gt;
+#### __Simple-fanout in k8s with contrail:__
 ![Image of k8s-ingress-simple-fanout](images/k8s-ingress-simple-fanout.png)
 #### __K8s-events:__
 &nbsp;&nbsp;&nbsp;&nbsp;Kubectl connects to kube-api-server and creates the simps-fanout ingress in k8s.
