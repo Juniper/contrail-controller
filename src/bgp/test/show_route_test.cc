@@ -4,11 +4,13 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
+#include "bgp/bgp_show_route.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -18,6 +20,7 @@
 using namespace boost::assign;
 using namespace boost::asio;
 using namespace std;
+using boost::lexical_cast;
 
 static const char config_template1[] = "\
 <config>\
@@ -2858,6 +2861,76 @@ TEST_F(ShowRouteTest4, Source13) {
         show_req->Release();
         TASK_UTIL_EXPECT_EQ(true, validate_done_);
     }
+}
+
+// Targeted test for ShowRouteHandler::ConvertReqIterateToReq()
+TEST_F(ShowRouteTest4, TestConvertReqIterateToReq) {
+    ShowRouteReqIterate *req_iterate = new ShowRouteReqIterate();
+    ShowRouteReq *req = new ShowRouteReq();
+
+    int i = 1;
+    req_iterate->set_route_info(lexical_cast<string>(i));
+    while (true) {
+        // Expect false until all 12 parameters are encoded.
+        EXPECT_EQ(i == 12, ShowRouteHandler::ConvertReqIterateToReq(req_iterate,
+                                                                    req));
+        if (i == 12)
+            break;
+        if (++i == 11) {
+            req_iterate->set_route_info(req_iterate->get_route_info() +
+                ShowRouteHandler::kIterSeparator + "true");
+        } else if (i == 12) {
+            req_iterate->set_route_info(req_iterate->get_route_info() +
+                ShowRouteHandler::kIterSeparator + "false");
+        } else {
+            req_iterate->set_route_info(req_iterate->get_route_info() +
+                ShowRouteHandler::kIterSeparator + lexical_cast<string>(i));
+        }
+    }
+
+    for (int i = 1; i <= 12; i++) {
+        string expected = lexical_cast<string>(i);
+        switch (i) {
+        case 1:
+            EXPECT_EQ(expected, req->get_routing_instance());
+            break;
+        case 2:
+            EXPECT_EQ(expected, req->get_routing_table());
+            break;
+        case 3:
+            EXPECT_EQ(expected, req->get_prefix());
+            break;
+        case 4:
+            EXPECT_EQ(expected, req->get_start_routing_instance());
+            break;
+        case 5:
+            EXPECT_EQ(expected, req->get_start_routing_table());
+            break;
+        case 6:
+            EXPECT_EQ(expected, req->get_start_prefix());
+            break;
+        case 7:
+            EXPECT_EQ(expected, lexical_cast<string>(req->get_count()));
+            break;
+        case 8:
+            EXPECT_EQ(expected, req->get_source());
+            break;
+        case 9:
+            EXPECT_EQ(expected, req->get_protocol());
+            break;
+        case 10:
+            EXPECT_EQ(expected, req->get_family());
+        case 11:
+            EXPECT_EQ(true, req->get_longer_match());
+        case 12:
+            EXPECT_EQ(false, req->get_shorter_match());
+            break;
+        }
+    }
+
+    // Release() deletes allocated memory to req_iterate and req.
+    req_iterate->Release();
+    req->Release();
 }
 
 class TestEnvironment : public ::testing::Environment {

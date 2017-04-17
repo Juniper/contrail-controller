@@ -3,6 +3,7 @@
  */
 
 #include "bgp/bgp_sandesh.h"
+#include "bgp/bgp_show_route.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/regex.hpp>
@@ -129,118 +130,77 @@ void MergeSort(vector<T> *result, vector<const vector<T> *> *input, int limit,
     }
 }
 
-static char kIterSeparator[] = "||";
-
-class ShowRouteHandler {
-public:
-    // kMaxCount can be a function of 'count' field in ShowRouteReq
-    static const uint32_t kUnitTestMaxCount = 100;
-    static const uint32_t kMaxCount = 1000;
-    static uint32_t GetMaxCount(bool test_mode) {
-        if (test_mode) {
-            return kUnitTestMaxCount;
-        } else {
-            return kMaxCount;
-        }
+char ShowRouteHandler::kIterSeparator[] = "||";
+uint32_t ShowRouteHandler::GetMaxCount(bool test_mode) {
+    if (test_mode) {
+        return kUnitTestMaxCount;
+    } else {
+        return kMaxCount;
     }
+}
 
-    struct ShowRouteData : public RequestPipeline::InstData {
-        vector<ShowRouteTable> route_table_list;
-    };
-
-    ShowRouteHandler(const ShowRouteReq *req, int inst_id) :
+ShowRouteHandler::ShowRouteHandler(const ShowRouteReq *req, int inst_id) :
         req_(req), inst_id_(inst_id), prefix_expr_(req->get_prefix()) {
+}
+
+// Search for interesting prefixes in a given table for given partition
+void ShowRouteHandler::BuildShowRouteTable(BgpTable *table,
+        vector<ShowRoute> *route_list, int count) {
+    if (inst_id_ >= table->PartitionCount())
+        return;
+    DBTablePartition *partition =
+        static_cast<DBTablePartition *>(table->GetTablePartition(inst_id_));
+    BgpRoute *route = NULL;
+
+    if (table->name() == req_->get_start_routing_table()) {
+        auto_ptr<DBEntry> key =
+            table->AllocEntryStr(req_->get_start_prefix());
+        route = static_cast<BgpRoute *>(partition->lower_bound(key.get()));
+    } else {
+        route = static_cast<BgpRoute *>(partition->GetFirst());
     }
-
-    // Search for interesting prefixes in a given table for given partition
-    void BuildShowRouteTable(BgpTable *table, vector<ShowRoute> *route_list,
-                             int count) {
-        if (inst_id_ >= table->PartitionCount())
-            return;
-        DBTablePartition *partition =
-            static_cast<DBTablePartition *>(table->GetTablePartition(inst_id_));
-        BgpRoute *route = NULL;
-
-        if (table->name() == req_->get_start_routing_table()) {
-            auto_ptr<DBEntry> key =
-                table->AllocEntryStr(req_->get_start_prefix());
-            route = static_cast<BgpRoute *>(partition->lower_bound(key.get()));
-        } else {
-            route = static_cast<BgpRoute *>(partition->GetFirst());
-        }
-        for (int i = 0; route && (!count || i < count);
-             route = static_cast<BgpRoute *>(partition->GetNext(route)), ++i) {
-            if (!MatchPrefix(req_->get_prefix(), route,
-                             req_->get_longer_match(),
-                             req_->get_shorter_match()))
-                continue;
-            ShowRoute show_route;
-            route->FillRouteInfo(table, &show_route, req_->get_source(),
-                                 req_->get_protocol());
-            if (!show_route.get_paths().empty())
-                route_list->push_back(show_route);
-        }
+    for (int i = 0; route && (!count || i < count);
+         route = static_cast<BgpRoute *>(partition->GetNext(route)), ++i) {
+        if (!MatchPrefix(req_->get_prefix(), route,
+                         req_->get_longer_match(),
+                         req_->get_shorter_match()))
+            continue;
+        ShowRoute show_route;
+        route->FillRouteInfo(table, &show_route, req_->get_source(),
+                             req_->get_protocol());
+        if (!show_route.get_paths().empty())
+            route_list->push_back(show_route);
     }
+}
 
-    bool MatchPrefix(const string &expected_prefix, BgpRoute *route,
-                     bool longer_match, bool shorter_match) {
-        if (expected_prefix.empty())
-            return true;
-        if (!longer_match && !shorter_match)
-            return regex_search(route->ToString(), prefix_expr_);
+bool ShowRouteHandler::MatchPrefix(const string &expected_prefix,
+                                   BgpRoute *route, bool longer_match,
+                                   bool shorter_match) {
+    if (expected_prefix.empty())
+        return true;
+    if (!longer_match && !shorter_match)
+        return regex_search(route->ToString(), prefix_expr_);
 
-        // Do longer match.
-        if (longer_match && route->IsMoreSpecific(expected_prefix))
-            return true;
+    // Do longer match.
+    if (longer_match && route->IsMoreSpecific(expected_prefix))
+        return true;
 
-        // Do shorter match.
-        if (shorter_match && route->IsLessSpecific(expected_prefix))
-            return true;
+    // Do shorter match.
+    if (shorter_match && route->IsLessSpecific(expected_prefix))
+        return true;
 
-        return false;
-    }
+    return false;
+}
 
-    bool match(const string &expected, const string &actual) {
-        if (expected == "")
-            return true;
-        return expected == actual;
-    }
+bool ShowRouteHandler::match(const string &expected, const string &actual) {
+    if (expected == "")
+        return true;
+    return expected == actual;
+}
 
-    static RequestPipeline::InstData *CreateData(int stage) {
-        return static_cast<RequestPipeline::InstData *>(new ShowRouteData);
-    }
-
-    static bool CallbackS1Common(const ShowRouteReq *req, int inst_id,
-                                 ShowRouteData* mydata);
-    static void CallbackS2Common(const ShowRouteReq *req,
-                                 const RequestPipeline::PipeSpec ps,
-                                 ShowRouteResp *resp);
-
-    static bool CallbackS1(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum, RequestPipeline::InstData *data);
-    static bool CallbackS2(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps,
-            int stage, int instNum, RequestPipeline::InstData *data);
-
-    static bool CallbackS1Iterate(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps, int stage, int instNum,
-            RequestPipeline::InstData *data);
-    static bool CallbackS2Iterate(const Sandesh *sr,
-            const RequestPipeline::PipeSpec ps, int stage, int instNum,
-            RequestPipeline::InstData *data);
-
-    static string SaveContextAndPopLast(const ShowRouteReq *req,
-            vector<ShowRouteTable> *route_table_list);
-    static bool ConvertReqIterateToReq(const ShowRouteReqIterate *req_iterate,
-                                       ShowRouteReq *req);
-    static uint32_t GetMaxRouteCount(const ShowRouteReq *req);
-
-private:
-    const ShowRouteReq *req_;
-    int inst_id_;
-    regex prefix_expr_;
-};
+RequestPipeline::InstData *ShowRouteHandler::CreateData(int stage) {
+    return static_cast<RequestPipeline::InstData *>(new ShowRouteData);
+}
 
 uint32_t ShowRouteHandler::GetMaxRouteCount(const ShowRouteReq *req) {
     BgpSandeshContext *bsc =
@@ -591,7 +551,7 @@ void ShowRouteHandler::CallbackS2Common(const ShowRouteReq *req,
 }
 
 bool ShowRouteHandler::CallbackS2(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage, int instNum,
+        const RequestPipeline::PipeSpec &ps, int stage, int instNum,
         RequestPipeline::InstData *data) {
     const ShowRouteReq *req =
         static_cast<const ShowRouteReq *>(ps.snhRequest_.get());
