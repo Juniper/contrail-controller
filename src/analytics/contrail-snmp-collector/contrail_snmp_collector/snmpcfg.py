@@ -14,7 +14,6 @@ class CfgParser(object):
     CONF_DEFAULT_PATHS = ServicesDefaultConfigurationFiles.get(
         SERVICE_SNMP_COLLECTOR, None)
     def __init__(self, argv):
-        self._devices = []
         self._args = None
         self.__pat = None
         self._argv = argv or ' '.join(sys.argv[1:])
@@ -211,22 +210,26 @@ Mibs = LldpTable, ArpTable
         self._args.config_sections = config
         self._args.conf_file = args.conf_file
 
+    def set_api_server_list(self, api_servers):
+        self._args.api_server_list = api_servers
+
     def devices(self):
-        if self._args.device_config_file:
-            self._devices = DeviceConfig.fom_file(
-                    self._args.device_config_file)
-        elif self._args.api_server_list:
-            self._devices = DeviceConfig.fom_api_server(
+        prouters = []
+        if self._args.api_server_list:
+            prouters = DeviceConfig.get_prouters(
                     self._args.api_server_list,
                     self._args.admin_user, self._args.admin_password,
                     self._args.admin_tenant_name,
                     self._args.api_server_use_ssl,
                     self._args.auth_host, self._args.auth_port,
                     self._args.auth_protocol, self._cb)
-        return self._devices
+        return prouters
 
     def collectors(self):
         return self._args.collectors
+
+    def api_server_list(self):
+        return self._args.api_server_list
 
     def zookeeper_server(self):
         return self._args.zookeeper

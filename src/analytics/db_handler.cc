@@ -65,7 +65,7 @@ DbHandler::DbHandler(EventManager *evm,
         bool use_zookeeper,
         bool use_db_write_options,
         const DbWriteOptions &db_write_options,
-        const ConfigDBConnection::ApiServerList &api_server_list,
+        const std::vector<std::string> &api_server_list,
         const VncApiConfig &api_config) :
     dbif_(new cass::cql::CqlIf(evm, cassandra_options.cassandra_ips_,
         cassandra_options.cassandra_ports_[0], cassandra_options.user_,
@@ -169,7 +169,7 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     udc_cfg_poll_timer_(NULL),
     use_db_write_options_(false) {
     cfgdb_connection_.reset(new ConfigDBConnection(NULL,
-        ConfigDBConnection::ApiServerList(), VncApiConfig()));
+        std::vector<std::string>(), VncApiConfig()));
     udc_.reset(new UserDefinedCounters(cfgdb_connection_));
 }
 
@@ -1896,7 +1896,7 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &zookeeper_server_list,
     bool use_zookeeper,
     const DbWriteOptions &db_write_options,
-    const ConfigDBConnection::ApiServerList &api_server_list,
+    const std::vector<std::string> &api_server_list,
     const VncApiConfig &api_config) :
     db_name_(db_name),
     db_handler_(new DbHandler(evm,

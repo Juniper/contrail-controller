@@ -49,7 +49,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             bool use_zookeeper,
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
-            const ConfigDBConnection::ApiServerList &api_server_list,
+            const std::vector<std::string> &api_server_list,
             const VncApiConfig &api_config) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup),
         std::string("collector:DbIf"),

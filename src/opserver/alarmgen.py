@@ -890,6 +890,14 @@ class Controller(object):
             self._chksum = hashlib.md5("".join(self._conf.collectors())).hexdigest()
             self._conf.random_collectors = random.sample(self._conf.collectors(), \
                                                         len(self._conf.collectors()))
+        self._api_server_checksum = ""
+        api_server_list = self._conf.api_server_config()['api_server_list']
+        if api_server_list:
+            self._api_server_checksum = hashlib.md5("".join(
+                api_server_list)).hexdigest()
+            random_api_servers = random.sample(api_server_list,
+                len(api_server_list))
+            self._conf.set_api_server_list(random_api_servers)
         self._sandesh.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
                                       self._conf.random_collectors,
@@ -2381,6 +2389,23 @@ class Controller(object):
                             self._sandesh.reconfig_collectors(random_collectors)
                 except ConfigParser.NoOptionError as e:
                     pass
+            if 'API_SERVER' in config.sections():
+                try:
+                    api_servers = config.get('API_SERVER', 'api_server_list')
+                except ConfigParser.NoOptionError:
+                    pass
+                else:
+                    if isinstance(api_servers, basestring):
+                        api_servers = api_servers.split()
+                    new_api_server_checksum = hashlib.md5("".join(
+                        api_servers)).hexdigest()
+                    if new_api_server_checksum != self._api_server_checksum:
+                        self._api_server_checksum = new_api_server_checksum
+                        random_api_servers = random.sample(api_servers,
+                            len(api_servers))
+                        self._conf.set_api_server_list(random_api_servers)
+                        self._config_handler.update_api_server_list(
+                            random_api_servers)
       # end sighup_handler
 
 def setup_controller(argv):

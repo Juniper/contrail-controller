@@ -23,8 +23,7 @@ class ConfigHandler(object):
                  keystone_info, rabbitmq_info, config_types=None):
         self._service_id = service_id
         self._logger = logger
-        self._api_servers = [tuple(s.split(':')) \
-            for s in api_server_config['api_server_list']]
+        self._api_servers = api_server_config['api_server_list']
         self._api_server_use_ssl = api_server_config['api_server_use_ssl']
         self._keystone_info = keystone_info
         self._rabbitmq_info = rabbitmq_info
@@ -39,7 +38,7 @@ class ConfigHandler(object):
     # Public methods
 
     def start(self):
-        self._update_apiserver_connection_status('', ConnectionStatus.INIT)
+        self._update_apiserver_connection_status([], ConnectionStatus.INIT)
         if self._api_servers:
             self._api_client_connection_task = gevent.spawn(
                 self._connect_to_api_server)
@@ -72,27 +71,19 @@ class ConfigHandler(object):
         return json.loads(json.dumps(obj, default=to_json))
     # end obj_to_dict
 
-    def update_api_server_list(self, api_server_list):
+    def update_api_server_list(self, api_servers):
         self._logger('Received update for api_server_list: %s'
-            % (str(api_server_list)), SandeshLevel.SYS_INFO)
-        if isinstance(api_server_list, list):
-            self._api_servers = [tuple(s.split(':')) for s in api_server_list]
-            if not len(api_server_list):
-                self._active_api_server = None
-                self._api_client = None
-                if self._api_client_connection_task:
-                    self._api_client_connection_task.kill()
-                    self._api_client_connection_task = None
-                self._update_apiserver_connection_status('',
-                    ConnectionStatus.INIT)
-            elif self._active_api_server is None or \
-               self._active_api_server not in self._api_servers:
-                if not self._api_client_connection_task:
-                    self._api_client_connection_task = \
-                        gevent.spawn(self._connect_to_api_server)
+            % (str(api_servers)), SandeshLevel.SYS_INFO)
+        self._api_servers = api_servers
+        if self._api_client_connection_task:
+            self._api_client_connection_task.kill()
+            self._api_client_connection_task = None
+        if self._api_servers:
+            self._api_client_connection_task = \
+                gevent.spawn(self._connect_to_api_server)
         else:
-            self._logger('Invalid api_server_list received %s'
-                % (str(api_server_list)), SandeshLevel.SYS_ERR)
+            self._api_client = None
+            self._update_apiserver_connection_status([], ConnectionStatus.INIT)
     # end update_api_server_list
 
     # Private methods
@@ -101,10 +92,10 @@ class ConfigHandler(object):
         return ':'.join(fq_name)
     # end _fqname_to_str
 
-    def _update_apiserver_connection_status(self, api_server, status, msg=''):
+    def _update_apiserver_connection_status(self, api_servers, status, msg=''):
         ConnectionState.update(conn_type=ConnectionType.APISERVER,
             name='Config', status=status, message=msg,
-            server_addrs=[api_server])
+            server_addrs=api_servers)
     # end _update_apiserver_connection_status
 
     def _rabbitmq_subscribe_callback(self, notify_msg):
@@ -131,39 +122,37 @@ class ConfigHandler(object):
     # end _rabbitmq_subscribe_callback
 
     def _connect_to_api_server(self):
-        self._active_api_server = None
         self._api_client = None
-        while not self._active_api_server:
-            for api_server in self._api_servers:
-                try:
-                    self._api_client = VncApi(
-                        self._keystone_info['admin_user'],
-                        self._keystone_info['admin_password'],
-                        self._keystone_info['admin_tenant_name'],
-                        api_server[0], api_server[1],
-                        api_server_use_ssl=self._api_server_use_ssl,
-                        auth_host=self._keystone_info['auth_host'],
-                        auth_protocol=self._keystone_info['auth_protocol'],
-                        auth_port=self._keystone_info['auth_port'])
-                except Exception as e:
-                    self._logger('Failed to connect to contrail-api '
+        while not self._api_client:
+            api_server_list = [s.split(':')[0] for s in self._api_servers]
+            api_server_port = self._api_servers[0].split(':')[1] \
+                if self._api_servers else None
+            try:
+                self._api_client = VncApi(
+                    self._keystone_info['admin_user'],
+                    self._keystone_info['admin_password'],
+                    self._keystone_info['admin_tenant_name'],
+                    api_server_list, api_server_port,
+                    api_server_use_ssl=self._api_server_use_ssl,
+                    auth_host=self._keystone_info['auth_host'],
+                    auth_protocol=self._keystone_info['auth_protocol'],
+                    auth_port=self._keystone_info['auth_port'])
+            except Exception as e:
+                self._logger('Failed to connect to contrail-api '
                     'server: %s' % (str(e)), SandeshLevel.SYS_ERR)
-                    self._update_apiserver_connection_status('%s:%s' %
-                        (api_server[0], api_server[1]),
+                self._update_apiserver_connection_status(self._api_servers,
                         ConnectionStatus.DOWN, str(e))
-                else:
-                    if self._sync_config():
-                        self._active_api_server = api_server
-                        self._update_apiserver_connection_status('%s:%s' %
-                            (api_server[0], api_server[1]),
-                            ConnectionStatus.UP)
-                        break
-                    else:
-                        self._update_apiserver_connection_status('%s:%s' %
-                            (api_server[0], api_server[1]),
-                            ConnectionStatus.DOWN, 'Config sync failed')
-            if not self._active_api_server:
                 gevent.sleep(2)
+            else:
+                if self._sync_config():
+                    self._update_apiserver_connection_status(
+                        self._api_servers, ConnectionStatus.UP)
+                    break
+                else:
+                    self._api_client = None
+                    self._update_apiserver_connection_status(self._api_servers,
+                        ConnectionStatus.DOWN, 'Config sync failed')
+                    gevent.sleep(2)
         self._api_client_connection_task = None
     # end _connect_to_api_server
 

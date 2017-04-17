@@ -252,6 +252,9 @@ class CfgParser(object):
     def _mklist(self, s):
         return self._pat().split(s)
 
+    def set_api_server_list(self, api_servers):
+        self._args.api_server_list = api_servers
+
     def redis_uve_list(self):
         return self._args.redis_uve_list
 
