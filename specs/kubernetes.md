@@ -7,7 +7,7 @@ Kubernetes (K8s) is an open source container management platform. It provides a 
 
 # 2. Problem statement
 There is a need to provide pod addressing, network isolation, policy based security, gateway, SNAT, loadalancer and service chaining capability in Kubernetes orchestratation. To this end K8s supports a framework for most of the basic network connectivity. This pluggable framework is called Container Network Interface (CNI). Opencontrail will support CNI for Kubernetes.
- 
+
 
 # 3. Proposed solution
 Currently K8s provides a flat networking model wherein all pods can talk to each other. Network policy is the new feature added to provide security between the pods. Opencontrail will add additional networking functionality to the solution - multi-tenancy, network isolation, micro-segmentation with network policies, load-balancing etc. Opencontrail can be configured in the following mode in a K8s cluster:
@@ -98,12 +98,15 @@ Opencontrail implementation requires listening to K8s API messages and create co
 
 ## 4.2 Contrail CNI plugin
 
-## 4.3 Loadbalancer for K8s service
-Each service in K8s will be represented by a loadbalancer object. The service IP allocated by K8s will be used as the VIP for the loadbalancer. Listeners will be created for the port on which service is listening. Each pod will be added as a member for the listener pool. contrail-kube-manager will listen for any changes based on service labels or pod labels to update the member pool list with the add/updated/delete pods.  
+## 4.3 ECMP Loadbalancer for K8s service
+Each service in K8s will be represented by a loadbalancer object. The service IP allocated by K8s will be used as the VIP for the loadbalancer. Listeners will be created for the port on which service is listening. Each pod will be added as a member for the listener pool. contrail-kube-manager will listen for any changes based on service labels or pod labels to update the member pool list with the add/updated/delete pods.
 
 Loadbalancing for services will be L4 non-proxy loadbalancing based on ECMP. The instance-ip (service-ip) will be linked to the ports of each of the pods in the service. This will create an ECMP next-hop in Opencontrail and traffic will be loadbalanced directly from the source pod.
 
-## 4.4 Security groups for K8s network policy
+## 4.4 Haproxy Loadbalancer for K8s ingress
+K8s ingress is represented as a haproxy loadbalancer in contrail. For more information please refer k8s-ingress.md
+
+## 4.5 Security groups for K8s network policy
 
 Network policies can be applied in a cluster configured in isolation mode, to define which pods can communicate with each other or with other endpoints.
 The cluster admin will create a Kubernetes API NetworkPolicy object. This is an ingress policy, it applies to a set of pods, and defines which set of pods is allowed access. Both source and destination pods are selected based on labels. The app developer and the cluster admin can add labels to pods, for instance “frontend” / “backend”,  and “development” / “test” / “production”. Full specification of the Network Policy can be found here:
@@ -112,8 +115,8 @@ http://kubernetes.io/docs/user-guide/networkpolicies/
 
 Contrail-kube-manager will listen to Kubernetes NetworkPolicy create/update/delete events, and will translate the Network Policy to Contrail Security Group objects applied to Virtual Machine Interfaces. The algorithm will dynamically update the set of Virtual Machine Interfaces as pods and labels are added/deleted.
 
-## 4.5 DNS
-Kubernetes(K8S) implements DNS using SkyDNS, a small DNS application that responds to DNS requests for service name resolution from Pods. On K8S, SkyDNS runs as a Pod.  
+## 4.6 DNS
+Kubernetes(K8S) implements DNS using SkyDNS, a small DNS application that responds to DNS requests for service name resolution from Pods. On K8S, SkyDNS runs as a Pod.
 
 
 # 5. Performance and scaling impact
