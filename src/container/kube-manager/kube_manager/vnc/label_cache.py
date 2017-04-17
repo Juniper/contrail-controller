@@ -13,6 +13,10 @@ class LabelCache(object):
         key = label[0] + ':' + label[1]
         return key
 
+    def _get_namespace_label(self, namespace):
+        label = {'namespace': namespace}
+        return label
+
     def _locate_label(self, key, cache, label, uuid):
         key = label[0] + ':' + label[1]
         if key not in cache:

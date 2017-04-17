@@ -14,6 +14,9 @@ from kube_manager.common.kube_config_db import NamespaceKM
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
 
+from cStringIO import StringIO
+from cfgm_common.utils import cgitb_hook
+
 class VncNamespace(VncCommon):
 
     def __init__(self, network_policy_mgr):
@@ -283,8 +286,14 @@ class VncNamespace(VncCommon):
             network_policy = None
             if annotations and \
                'net.beta.kubernetes.io/network-policy' in annotations:
-                network_policy = json.loads(
+                try:
+                    network_policy = json.loads(
                         annotations['net.beta.kubernetes.io/network-policy'])
+                except Exception as e:
+                    string_buf = StringIO()
+                    cgitb_hook(file=string_buf, format="text")
+                    err_msg = string_buf.getvalue()
+                    self._logger.error("%s - %s" %(self._name, err_msg))
             sg_dict = self._update_security_groups(name, proj_obj, network_policy)
             self._ns_sg[name] = sg_dict
         except RefsExistError:
