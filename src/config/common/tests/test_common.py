@@ -78,6 +78,13 @@ try:
 except ImportError:
     kube_manager = 'kube_manager could not be imported'
 
+try:
+    from mesos_manager import mesos_manager
+    if not hasattr(mesos_manager, 'main'):
+        from mesos_manager import mesos_manager
+except ImportError:
+    mesos_manager = 'mesos_manager could not be imported'
+
 def generate_conf_file_contents(conf_sections):
     cfg_parser = ConfigParser.RawConfigParser()
     for (section, var, val) in conf_sections:
@@ -145,6 +152,23 @@ def launch_kube_manager(test_id, conf_sections, kube_api_skip, event_queue):
         args_str= ["-c", conf.name]
         kube_manager.main(args_str, kube_api_skip=kube_api_skip, event_queue=event_queue)
 #end launch_kube_manager
+
+def launch_mesos_manager(test_id, conf_sections, mesos_api_skip, event_queue):
+    args_str = ""
+    vnc_cgitb.enable(format='text')
+
+    with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+        cfg_parser = generate_conf_file_contents(conf_sections)
+        cfg_parser.write(conf)
+        conf.flush()
+
+        cfg_parser = generate_logconf_file_contents()
+        cfg_parser.write(logconf)
+        logconf.flush()
+
+        args_str= ["-c", conf.name]
+        mesos_manager.main(args_str, mesos_api_skip=mesos_api_skip, event_queue=event_queue)
+#end launch_mesos_manager
 
 def retry_exc_handler(tries_remaining, exception, delay):
     print >> sys.stderr, "Caught '%s', %d tries remaining, sleeping for %s seconds" % (exception, tries_remaining, delay)
@@ -340,6 +364,9 @@ def kill_device_manager(glet):
 def kill_kube_manager(glet):
     glet.kill()
     #kube_manager.reset()
+
+def kill_mesos_manager(glet):
+    glet.kill()
 
 def reinit_schema_transformer():
     to_bgp.transformer.reinit()

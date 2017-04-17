@@ -12,7 +12,7 @@ from gevent.queue import Queue
 
 # Application library import
 import common.args as mesos_args
-import common.logger
+import common.logger as logger
 from cfgm_common import vnc_cgitb
 import vnc.vnc_mesos as vnc_mesos
 import mesos_server as mserver
@@ -20,10 +20,13 @@ import mesos_server as mserver
 
 class MesosNetworkManager(object):
     '''Starts all background process'''
-    def __init__(self, args=None):
+    def __init__(self, args=None, mesos_api_connected=False, queue=None):
         self.args = args
-        self.queue = Queue()
-        self.logger = common.logger.MesosManagerLogger(args)
+        if queue:
+            self.queue = queue
+        else:
+            self.queue = Queue()
+        self.logger = logger.MesosManagerLogger(args)
         self.vnc = vnc_mesos.VncMesos(args=self.args,
                                       logger=self.logger,
                                       queue=self.queue)
@@ -39,13 +42,19 @@ class MesosNetworkManager(object):
             gevent.spawn(self.mserver.start_server),
         ])
     # end start_tasks
+
+    def reset(self):
+        for cls in DBBaseST.get_obj_type_map().values():
+            cls.reset()
 # end class MesosNetworkManager
 
 
-def main():
+def main(args_str=None, mesos_api_skip=False, event_queue=None):
     vnc_cgitb.enable(format='text')
-    args = mesos_args.parse_args()
-    mesos_nw_mgr = MesosNetworkManager(args)
+    args = mesos_args.parse_args(args_str)
+    mesos_nw_mgr = MesosNetworkManager(args,
+                                       mesos_api_connected=mesos_api_skip,
+                                       queue=event_queue)
     mesos_nw_mgr.start_tasks()
 
 

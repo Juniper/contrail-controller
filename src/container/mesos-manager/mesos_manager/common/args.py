@@ -9,16 +9,19 @@ import sys
 
 # Application library import
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import mesos_manager.mesos_consts as mesos_consts
 from sandesh_common.vns.constants import (HttpPortMesosManager,\
                                           DiscoveryServerPort)
 
 
-def parse_args():
+def parse_args(args_str=None):
+    if not args_str:
+        args_str = ' '.join(sys.argv[1:])
     conf_parser = argparse.ArgumentParser(add_help=False)
     conf_parser.add_argument("-c", "--config-file", action='append',
                              help="Specify config file", metavar="FILE")
-    args, remaining_argv = conf_parser.parse_known_args(sys.argv)
+    args, remaining_argv = conf_parser.parse_known_args(args_str)
 
     defaults = {
         'mesos_api_server': mesos_consts._WEB_HOST,
@@ -35,6 +38,7 @@ def parse_args():
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'disc_server_ip': 'localhost',
         'disc_server_port': DiscoveryServerPort,
+        'log_level': SandeshLevel.SYS_DEBUG,
     }
 
     vnc_opts = {
@@ -66,7 +70,15 @@ def parse_args():
         'introspect_ssl_enable': False
     }
 
-    mesos_opts = {}
+    mesos_opts = {
+        'mesos_api_server': 'localhost',
+        'mesos_api_port': '8080',
+        'mesos_api_secure_port': 8443,
+        'mesos_api_secure_ip': None,
+        'mesos_service_name': 'mesos',
+        'service_subnets': '',
+        'pod_subnets': ''
+    }
 
     config = ConfigParser.SafeConfigParser()
     if args.config_file:
@@ -95,7 +107,7 @@ def parse_args():
     defaults.update(mesos_opts)
     defaults.update(sandesh_opts)
     parser.set_defaults(**defaults)
-    args = parser.parse_args()
+    args = parser.parse_args(args_str)
 
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
