@@ -860,10 +860,10 @@ def parse_args(args_str):
             sandesh_opts.update(dict(config.items('SANDESH')))
             if 'sandesh_ssl_enable' in config.options('SANDESH'):
                 sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
-                    'sandesh', 'sandesh_ssl_enable')
+                    'SANDESH', 'sandesh_ssl_enable')
             if 'introspect_ssl_enable' in config.options('SANDESH'):
                 sandesh_opts['introspect_ssl_enable'] = config.getboolean(
-                    'sandesh', 'introspect_ssl_enable')
+                    'SANDESH', 'introspect_ssl_enable')
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
