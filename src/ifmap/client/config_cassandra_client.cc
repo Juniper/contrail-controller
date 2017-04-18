@@ -74,21 +74,21 @@ void ConfigCassandraClient::InitDatabase() {
         if (!dbif_->Db_Init()) {
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
                                      "Database initialization failed");
-            InitRetry();
+            if (!InitRetry()) return;
             continue;
         }
         if (!dbif_->Db_SetTablespace(g_vns_constants.API_SERVER_KEYSPACE_NAME)){
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
                                      "Setting database keyspace failed");
-            InitRetry();
+            if (!InitRetry()) return;
             continue;
         }
         if (!dbif_->Db_UseColumnfamily(kUuidTableName)) {
-            InitRetry();
+            if (!InitRetry()) return;
             continue;
         }
         if (!dbif_->Db_UseColumnfamily(kFqnTableName)) {
-            InitRetry();
+            if (!InitRetry()) return;
             continue;
         }
         break;
@@ -97,9 +97,12 @@ void ConfigCassandraClient::InitDatabase() {
     BulkDataSync();
 }
 
-void ConfigCassandraClient::InitRetry() {
+bool ConfigCassandraClient::InitRetry() {
     dbif_->Db_Uninit();
+    // If reinit is triggered, return false to abort connection attempt
+    if (mgr()->is_reinit_triggered()) return false;
     usleep(GetInitRetryTimeUSec());
+    return true;
 }
 
 ConfigCassandraPartition *ConfigCassandraClient::GetPartition(const string &uuid) {
@@ -303,6 +306,17 @@ void ConfigCassandraClient::HandleObjectDelete(const string &uuid) {
     PurgeFQNameCache(uuid);
 }
 
+// Post shutdown during reinit, cleanup all previous states and connections
+// 1. Disconnect from cassandra cluster
+// 2. Clean FQ Name cache
+// 3. Delete partitions which inturn will clear up the object cache and
+// previously enqueued uuid read requests
+void ConfigCassandraClient::PostShutdown() {
+    dbif_->Db_Uninit();
+    STLDeleteValues(&partitions_);
+    fq_name_cache_.clear();
+}
+
 void ConfigCassandraClient::FormDeleteRequestList(const string &uuid,
                               ConfigClientManager::RequestList *req_list,
                               IFMapTable::RequestKey *key, bool add_change) {
@@ -327,6 +341,9 @@ bool ConfigCassandraClient::FQNameReader() {
          it != mgr()->ObjectTypeListToRead().end(); it++) {
         string column_name;
         while (true) {
+            // Ensure that FQName reader task aborts on reinit trigger.
+            if (mgr()->is_reinit_triggered()) return true;
+
             // Rowkey is obj-type
             GenDb::DbDataValueVec key;
             key.push_back(GenDb::Blob(reinterpret_cast<const uint8_t *>
@@ -619,8 +636,10 @@ bool ConfigCassandraPartition::ConfigReader() {
 
     set<string> bunch_req_list;
     int num_req_handled = 0;
-    for (UUIDProcessSet::iterator it = uuid_read_set_.begin(),
-         itnext; it != uuid_read_set_.end(); it = itnext) {
+    // Config reader task should stop on reinit trigger
+    for (UUIDProcessSet::iterator it = uuid_read_set_.begin(), itnext;
+         it != uuid_read_set_.end() && !client()->mgr()->is_reinit_triggered();
+         it = itnext) {
         itnext = it;
         ++itnext;
         ObjectProcessRequestType *obj_req = it->second;
@@ -651,10 +670,15 @@ bool ConfigCassandraPartition::ConfigReader() {
         }
     }
 
-    if (!bunch_req_list.empty()) {
+    // No need to read the object uuid table if reinit is triggered
+    if (!bunch_req_list.empty() && !client()->mgr()->is_reinit_triggered()) {
         if (!BunchReadReq(bunch_req_list))
             return false;
         RemoveObjReqEntries(bunch_req_list);
+    }
+    // Clear the UUID read set if we are currently processing reinit request
+    if (client()->mgr()->is_reinit_triggered()) {
+        uuid_read_set_.clear();
     }
     assert(uuid_read_set_.empty());
     return true;
