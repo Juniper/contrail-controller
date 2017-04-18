@@ -700,7 +700,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return vn_obj
     # end create_virtual_network
 
-    def _create_service(self, vn_list, si_name, auto_policy, **kwargs):
+    def _create_service(self, vn_list, si_name, auto_policy, 
+                        create_right_port=True, **kwargs):
         sa_set = None
         if kwargs.get('service_virtualization_type') == 'physical-device':
             pr = PhysicalRouter(si_name)
@@ -748,6 +749,8 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             pt = PortTuple('pt-'+si_name, parent_obj=service_instance)
             self._vnc_lib.port_tuple_create(pt)
             for if_type, vn_name in vn_list:
+                if if_type == 'right' and not create_right_port:
+                    continue
                 port = VirtualMachineInterface(si_name+if_type, parent_obj=proj)
                 vmi_props = VirtualMachineInterfacePropertiesType(
                     service_interface_type=if_type)
@@ -764,7 +767,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return service_instance.get_fq_name_str()
 
     def create_network_policy(self, vn1, vn2, service_list=None, mirror_service=None,
-                              auto_policy=False, **kwargs):
+                              auto_policy=False, create_right_port = True, **kwargs):
         vn1_name = vn1 if isinstance(vn1, basestring) else vn1.get_fq_name_str()
         vn2_name = vn2 if isinstance(vn2, basestring) else vn2.get_fq_name_str()
 
@@ -778,7 +781,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
             for service in si_list:
                 service_name_list.append(self._create_service(
                     [('left', vn1_name), ('right', vn2_name)], service,
-                     auto_policy, **kwargs))
+                     auto_policy, create_right_port, **kwargs))
         if mirror_service:
             mirror_si = self._create_service(
                 [('left', vn1_name), ('right', vn2_name)], mirror_service, False,
