@@ -60,6 +60,8 @@ class ComputeArgsParser(object):
             'collectors': ['127.0.0.1'],
             'control_nodes': ['127.0.0.1'],
             'xmpp_auth_enable': False,
+            'sandesh_ssl_enable': False,
+            'introspect_ssl_enable': False
         }
 
         self.parse_args(args_str)
@@ -225,6 +227,12 @@ class ComputeArgsParser(object):
                 help="Metadata Proxy secret from openstack node")
         parser.add_argument(
                 "--xmpp_auth_enable", help="Enable xmpp auth",
+                action="store_true")
+        parser.add_argument(
+                "--sandesh_ssl_enable", help="Enable SSL for Sandesh connection",
+                action="store_true")
+        parser.add_argument(
+                "--introspect_ssl_enable", help="Enable SSL for introspect connection",
                 action="store_true")
 
         parser.set_defaults(**self.global_defaults)

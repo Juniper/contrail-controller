@@ -502,6 +502,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         'servers': control_servers},
                     'DNS': {
                         'servers': dns_servers},
+                    'SANDESH': {
+                        'sandesh_ssl_enable': self._args.sandesh_ssl_enable,
+                        'introspect_ssl_enable': self._args.introspect_ssl_enable}
                     }
 
             # VGW configs
