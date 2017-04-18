@@ -67,7 +67,7 @@ class DemoCfg(object):
         net_req = {'name': '%s' % (vn_name)}
         net_rsp = self._quantum.create_network({'network': net_req})
         net1_id = net_rsp['network']['id']
-        net1_fq_name = net_rsp['network']['contrail:fq_name']
+        net1_fq_name = net_rsp['network']['fq_name']
         net1_fq_name_str = ':'.join(net1_fq_name)
         self._create_subnet(unicode(vn_subnet), net1_id)
     # end _create_vn
@@ -101,11 +101,11 @@ class DemoCfg(object):
         policy1_fq_name = policy_rsp['policy']['fq_name']
 
         print "Setting front-end policy to [front-end-to-back-end]"
-        net_req = {'contrail:policys': [policy1_fq_name]}
+        net_req = {'policys': [policy1_fq_name]}
         net_rsp = self._quantum.update_network(net1_id, {'network': net_req})
 
         print "Setting back-end policy to [front-end-to-back-end]"
-        net_req = {'contrail:policys': [policy1_fq_name]}
+        net_req = {'policys': [policy1_fq_name]}
         net_rsp = self._quantum.update_network(net2_id, {'network': net_req})
 
     # end _policy_link_vns
@@ -121,7 +121,7 @@ class DemoCfg(object):
         net_req = {'name': vn1_name}
         net_rsp = self._quantum.create_network({'network': net_req})
         net1_id = net_rsp['network']['id']
-        net1_fq_name = net_rsp['network']['contrail:fq_name']
+        net1_fq_name = net_rsp['network']['fq_name']
         net1_fq_name_str = ':'.join(net1_fq_name)
         self._create_subnet(u'192.168.1.0/24', net1_id)
 
@@ -129,7 +129,7 @@ class DemoCfg(object):
         net_req = {'name': vn2_name}
         net_rsp = self._quantum.create_network({'network': net_req})
         net2_id = net_rsp['network']['id']
-        net2_fq_name = net_rsp['network']['contrail:fq_name']
+        net2_fq_name = net_rsp['network']['fq_name']
         net2_fq_name_str = ':'.join(net2_fq_name)
         self._create_subnet(u'192.168.2.0/24', net2_id)
 
@@ -143,7 +143,7 @@ class DemoCfg(object):
         subnet_req = {'network_id': net_id,
                       'cidr': cidr,
                       'ip_version': 4,
-                      'contrail:ipam_fq_name': ipam_fq_name}
+                      'ipam_fq_name': ipam_fq_name}
         subnet_rsp = self._quantum.create_subnet({'subnet': subnet_req})
         subnet_cidr = subnet_rsp['subnet']['cidr']
         return subnet_rsp['subnet']['id']

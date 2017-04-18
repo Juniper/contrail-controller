@@ -1035,7 +1035,7 @@ class DBInterface(object):
     def _security_group_vnc_to_neutron(self, sg_obj, memo_req=None):
         sg_q_dict = {}
         extra_dict = {}
-        extra_dict['contrail:fq_name'] = sg_obj.get_fq_name()
+        extra_dict['fq_name'] = sg_obj.get_fq_name()
 
         # replace field names
         sg_q_dict['id'] = sg_obj.uuid
@@ -1271,8 +1271,8 @@ class DBInterface(object):
             id_perms.enable = network_q['admin_state_up']
             net_obj.set_id_perms(id_perms)
 
-        if 'contrail:policys' in network_q:
-            policy_fq_names = network_q['contrail:policys']
+        if 'policys' in network_q:
+            policy_fq_names = network_q['policys']
             # reset and add with newly specified list
             net_obj.set_network_policy_list([], [])
             seq = 0
@@ -1288,8 +1288,8 @@ class DBInterface(object):
                                            sequence=SequenceType(seq, 0)))
                 seq = seq + 1
 
-        if 'contrail:route_table' in network_q:
-            rt_fq_name = network_q['contrail:route_table']
+        if 'route_table' in network_q:
+            rt_fq_name = network_q['route_table']
             if rt_fq_name:
                 try:
                     rt_obj = self._vnc_lib.route_table_read(fq_name=rt_fq_name)
@@ -1319,7 +1319,7 @@ class DBInterface(object):
         else:
             net_q_dict['name'] = net_obj.display_name
 
-        extra_dict['contrail:fq_name'] = net_obj.get_fq_name()
+        extra_dict['fq_name'] = net_obj.get_fq_name()
         net_q_dict['tenant_id'] = net_obj.parent_uuid.replace('-', '')
         net_q_dict['admin_state_up'] = id_perms.enable
         if net_obj.is_shared:
@@ -1338,7 +1338,7 @@ class DBInterface(object):
             net_q_dict['provider:segmentation_id'] = net_obj.provider_properties.segmentation_id
 
         if net_repr == 'SHOW' or net_repr == 'LIST':
-            extra_dict['contrail:instance_count'] = 0
+            extra_dict['instance_count'] = 0
 
             net_policy_refs = net_obj.get_network_policy_refs()
             if net_policy_refs:
@@ -1346,18 +1346,18 @@ class DBInterface(object):
                     net_policy_refs,
                     key=lambda t:(t['attr'].sequence.major,
                                   t['attr'].sequence.minor))
-                extra_dict['contrail:policys'] = [np_ref['to']
+                extra_dict['policys'] = [np_ref['to']
                                                   for np_ref in sorted_refs]
 
         rt_refs = net_obj.get_route_table_refs()
         if rt_refs:
-            extra_dict['contrail:route_table'] = [rt_ref['to']
+            extra_dict['route_table'] = [rt_ref['to']
                                                   for rt_ref in rt_refs]
 
         ipam_refs = net_obj.get_network_ipam_refs()
         net_q_dict['subnets'] = []
         if ipam_refs:
-            extra_dict['contrail:subnet_ipam'] = []
+            extra_dict['subnet_ipam'] = []
             for ipam_ref in ipam_refs:
                 subnets = ipam_ref['attr'].get_ipam_subnets()
                 for subnet in subnets:
@@ -1367,7 +1367,7 @@ class DBInterface(object):
                     sn_ipam = {}
                     sn_ipam['subnet_cidr'] = sn_dict['cidr']
                     sn_ipam['ipam_fq_name'] = ipam_ref['to']
-                    extra_dict['contrail:subnet_ipam'].append(sn_ipam)
+                    extra_dict['subnet_ipam'].append(sn_ipam)
 
         if self._contrail_extensions_enabled:
             net_q_dict.update(extra_dict)
@@ -1506,7 +1506,7 @@ class DBInterface(object):
         # If it is NOT, then report the dns server
         # allocated by contrail.
         if not nameserver_dict_list:
-           extra_dict['contrail:dns_server_address'] = subnet_vnc.dns_server_address
+           extra_dict['dns_server_address'] = subnet_vnc.dns_server_address
         if self._contrail_extensions_enabled:
            sn_q_dict.update(extra_dict)
 
@@ -1642,7 +1642,7 @@ class DBInterface(object):
     def _router_vnc_to_neutron(self, rtr_obj, rtr_repr='SHOW'):
         rtr_q_dict = {}
         extra_dict = {}
-        extra_dict['contrail:fq_name'] = rtr_obj.get_fq_name()
+        extra_dict['fq_name'] = rtr_obj.get_fq_name()
 
         rtr_q_dict['id'] = rtr_obj.uuid
         if not rtr_obj.display_name:
@@ -2137,7 +2137,7 @@ class DBInterface(object):
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None):
         port_q_dict = {}
         extra_dict = {}
-        extra_dict['contrail:fq_name'] = port_obj.get_fq_name()
+        extra_dict['fq_name'] = port_obj.get_fq_name()
         if not port_obj.display_name:
             # for ports created directly via vnc_api
             port_q_dict['name'] = port_obj.get_fq_name()[-1]
@@ -2248,6 +2248,7 @@ class DBInterface(object):
         ip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None)
         if ip_back_refs:
             for ip_back_ref in ip_back_refs:
+                primary_ip = True
                 iip_uuid = ip_back_ref['uuid']
                 # fetch it from request context cache/memo if there
                 try:
@@ -2259,21 +2260,44 @@ class DBInterface(object):
                     except NoIdError:
                         continue
 
-                if ip_obj.get_instance_ip_secondary():
-                    continue
-
-                if ip_obj.get_service_health_check_ip():
-                    continue
-
                 ip_addr = ip_obj.get_instance_ip_address()
-
                 ip_q_dict = {}
                 ip_q_dict['ip_address'] = ip_addr
                 if ip_addr:
                     ip_q_dict['subnet_id'] = self._ip_address_to_subnet_id(ip_addr,
                             net_obj, port_req_memo)
 
-                port_q_dict['fixed_ips'].append(ip_q_dict)
+                if ip_obj.get_instance_ip_secondary():
+                    primary_ip = False
+                    try:
+                        extra_dict['secondary_ips'].append(ip_q_dict)
+                    except KeyError:
+                        extra_dict['secondary_ips'] = [ip_q_dict]
+
+                if ip_obj.get_service_health_check_ip():
+                    primary_ip = False
+                    try:
+                        extra_dict['service_health_check_ips'].append(ip_q_dict)
+                    except KeyError:
+                        extra_dict['service_health_check_ips'] = [ip_q_dict]
+
+                if ip_obj.get_service_instance_ip():
+                    primary_ip = False
+
+                    # If si_back_refs is not in the service_instance_ip, It is
+                    # type v1 service_instance and service_instance_ip has to be
+                    # added in the fixed_ip list
+                    si_back_refs = ip_obj.get_service_instance_back_refs()
+                    if not si_back_refs:
+                        primary_ip = True
+
+                    try:
+                        extra_dict['service_instance_ips'].append(ip_q_dict)
+                    except KeyError:
+                        extra_dict['service_instance_ips'] = [ip_q_dict]
+
+                if primary_ip:
+                    port_q_dict['fixed_ips'].append(ip_q_dict)
 
         sg_refs = port_obj.get_security_group_refs() or []
         port_q_dict['security_groups'] = [ref['uuid'] for ref in sg_refs
@@ -2687,7 +2711,7 @@ class DBInterface(object):
             if net_obj.uuid in ret_dict:
                 continue
             net_fq_name = unicode(net_obj.get_fq_name())
-            if not self._filters_is_present(filters, 'contrail:fq_name',
+            if not self._filters_is_present(filters, 'fq_name',
                                             net_fq_name):
                 continue
             if not self._filters_is_present(
@@ -2757,7 +2781,7 @@ class DBInterface(object):
         net_id = subnet_q['network_id']
         net_obj = self._virtual_network_read(net_id=net_id)
 
-        ipam_fq_name = subnet_q.get('contrail:ipam_fq_name')
+        ipam_fq_name = subnet_q.get('ipam_fq_name')
         if ipam_fq_name:
             domain_name, project_name, ipam_name = ipam_fq_name
 
@@ -3363,7 +3387,7 @@ class DBInterface(object):
                     continue
 
                 proj_rtr_fq_name = unicode(proj_rtr['fq_name'])
-                if not self._filters_is_present(filters, 'contrail:fq_name',
+                if not self._filters_is_present(filters, 'fq_name',
                                                 proj_rtr_fq_name):
                     continue
                 try:
