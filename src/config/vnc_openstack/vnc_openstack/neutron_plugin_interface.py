@@ -273,8 +273,8 @@ class NeutronPluginInterface(object):
                                for route in subnet['routes']],
                'shared': subnet['shared']
                }
-        if 'contrail:dns_server_address' in subnet:
-            res['contrail:dns_server_address'] = subnet['contrail:dns_server_address']
+        if 'dns_server_address' in subnet:
+            res['dns_server_address'] = subnet['dns_server_address']
         return res
 
     # Subnet API Handling

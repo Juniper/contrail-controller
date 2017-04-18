@@ -91,14 +91,14 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
             res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_obj.uuid)
             self.assertThat(res_q['name'], Equals(res_name))
             if res_type != 'subnet':
-                self.assertThat(res_q['contrail:fq_name'], Contains(res_name))
+                self.assertThat(res_q['fq_name'], Contains(res_name))
 
             # change its name
             new_res_name, res_q = self._change_resource_name(res_type, res_q)
             self.assertThat(res_q['name'], Equals(new_res_name))
             if res_type != 'subnet':
-                self.assertThat(res_q['contrail:fq_name'], Contains(res_name))
-                self.assertThat(res_q['contrail:fq_name'], Not(Contains(new_res_name)))
+                self.assertThat(res_q['fq_name'], Contains(res_name))
+                self.assertThat(res_q['fq_name'], Not(Contains(new_res_name)))
 
             # list by filter of new name
             res_list = self._list_resources(res_type, tenant_id=proj_obj.uuid, name=new_res_name)
@@ -118,7 +118,7 @@ class NBTestNaming(test_case.NeutronBackendTestCase):
             res_name, res_q = getattr(self, '_create_' + res_type, lambda x,name:self._create_resource(res_type, x, name))(proj_obj.uuid, res_name)
             self.assertThat(res_q['name'], Equals(res_name))
             if res_type != 'subnet':
-                self.assertThat(res_q['contrail:fq_name'][-1], Not(Equals(res_name)))
+                self.assertThat(res_q['fq_name'][-1], Not(Equals(res_name)))
 
             # list by filter of new name
             res_list = self._list_resources(res_type, tenant_id=proj_obj.uuid, name=res_name)

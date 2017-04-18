@@ -262,7 +262,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json('/neutron/network', body)
         net_dict = json.loads(resp.text)
-        self.assertIn('contrail:fq_name', net_dict)
+        self.assertIn('fq_name', net_dict)
     # end test_extra_fields_on_network
 
     def test_port_bindings(self):
@@ -709,7 +709,7 @@ class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json('/neutron/network', body)
         net_dict = json.loads(resp.text)
-        self.assertIn('contrail:fq_name', net_dict)
+        self.assertIn('fq_name', net_dict)
     # end test_extra_fields_on_network
 # end class TestExtraFieldsPresenceByKnob
 
@@ -729,7 +729,7 @@ class TestExtraFieldsAbsenceByKnob(test_case.NeutronBackendTestCase):
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json('/neutron/network', body)
         net_dict = json.loads(resp.text)
-        self.assertNotIn('contrail:fq_name', net_dict)
+        self.assertNotIn('fq_name', net_dict)
     # end test_extra_fields_on_network
 # end class TestExtraFieldsAbsenceByKnob
 
