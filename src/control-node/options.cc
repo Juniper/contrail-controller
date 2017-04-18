@@ -14,6 +14,7 @@
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
+#include "ifmap/client/config_client_manager.h"
 #include "net/address_util.h"
 
 using namespace std;
@@ -248,14 +249,23 @@ void Options::GetOptValueImpl(
     }
 }
 
-uint32_t Options::GenerateHash(std::vector<std::string> &list) {
+uint32_t Options::GenerateHash(const std::vector<std::string> &list) {
     std::string concat_servers;
-    std::vector<std::string>::iterator iter;
+    std::vector<std::string>::const_iterator iter;
     for (iter = list.begin(); iter != list.end(); iter++) {
         concat_servers += *iter;
     }
     boost::hash<std::string> string_hash;
     return(string_hash(concat_servers));
+}
+
+uint32_t Options::GenerateHash(const IFMapConfigOptions &config) {
+    uint32_t chk_sum = GenerateHash(config.config_db_server_list);
+    chk_sum += GenerateHash(config.rabbitmq_server_list);
+    boost::hash<std::string> string_hash;
+    chk_sum += string_hash(config.rabbitmq_user);
+    chk_sum += string_hash(config.rabbitmq_password);
+    return chk_sum;
 }
 
 // Process command line options. They can come from a conf file as well. Options
@@ -339,36 +349,7 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,
                               "DEFAULT.sandesh_send_rate_limit");
 
-    GetOptValue< vector<string> >(var_map,
-                                  configdb_options_.config_db_server_list,
-                                  "CONFIGDB.config_db_server_list");
-    GetOptValue< vector<string> >(var_map,
-                     configdb_options_.rabbitmq_server_list,
-                     "CONFIGDB.rabbitmq_server_list");
-    GetOptValue<string>(var_map,
-                     configdb_options_.rabbitmq_user,
-                     "CONFIGDB.rabbitmq_user");
-    GetOptValue<string>(var_map,
-                     configdb_options_.rabbitmq_password,
-                     "CONFIGDB.rabbitmq_password");
-    GetOptValue<string>(var_map,
-                     configdb_options_.rabbitmq_vhost,
-                     "CONFIGDB.rabbitmq_vhost");
-    GetOptValue<bool>(var_map,
-                     configdb_options_.rabbitmq_use_ssl,
-                     "CONFIGDB.rabbitmq_use_ssl");
-    GetOptValue<string>(var_map,
-                     configdb_options_.rabbitmq_ssl_version,
-                     "CONFIGDB.rabbitmq_ssl_version");
-    GetOptValue<string>(var_map,
-                     configdb_options_.rabbitmq_ssl_keyfile,
-                     "CONFIGDB.rabbitmq_ssl_keyfile");
-    GetOptValue<string>(var_map,
-                     configdb_options_.rabbitmq_ssl_certfile,
-                     "CONFIGDB.rabbitmq_ssl_certfile");
-    GetOptValue<string>(var_map,
-                     configdb_options_.rabbitmq_ssl_ca_certs,
-                     "CONFIGDB.rabbitmq_ssl_ca_certs");
+    ParseConfigOptions(var_map);
 
     GetOptValue<string>(var_map, sandesh_config_.keyfile,
                         "SANDESH.sandesh_keyfile");
@@ -408,4 +389,47 @@ void Options::ParseReConfig() {
         // ReConnect Collectors
         Sandesh::ReConfigCollectors(randomized_collector_server_list_);
     }
+
+    uint32_t old_config_chksum = configdb_chksum_;
+    ParseConfigOptions(var_map);
+    if ((old_config_chksum != configdb_chksum_) && config_client_manager_) {
+        config_client_manager_->ReinitConfigClient(configdb_options());
+    }
+}
+
+void Options::ParseConfigOptions(const boost::program_options::variables_map
+                                 &var_map) {
+    configdb_options_.config_db_server_list.clear();
+    GetOptValue< vector<string> >(var_map,
+                                  configdb_options_.config_db_server_list,
+                                  "CONFIGDB.config_db_server_list");
+    configdb_options_.rabbitmq_server_list.clear();
+    GetOptValue< vector<string> >(var_map,
+                     configdb_options_.rabbitmq_server_list,
+                     "CONFIGDB.rabbitmq_server_list");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_user,
+                     "CONFIGDB.rabbitmq_user");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_password,
+                     "CONFIGDB.rabbitmq_password");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_vhost,
+                     "CONFIGDB.rabbitmq_vhost");
+    GetOptValue<bool>(var_map,
+                     configdb_options_.rabbitmq_use_ssl,
+                     "CONFIGDB.rabbitmq_use_ssl");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_ssl_version,
+                     "CONFIGDB.rabbitmq_ssl_version");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_ssl_keyfile,
+                     "CONFIGDB.rabbitmq_ssl_keyfile");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_ssl_certfile,
+                     "CONFIGDB.rabbitmq_ssl_certfile");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_ssl_ca_certs,
+                     "CONFIGDB.rabbitmq_ssl_ca_certs");
+    configdb_chksum_ = GenerateHash(configdb_options_);
 }
