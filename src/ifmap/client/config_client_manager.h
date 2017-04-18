@@ -10,6 +10,7 @@
 #include <tbb/compat/condition_variable>
 #include <tbb/mutex.h>
 
+#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_origin.h"
 
@@ -20,9 +21,9 @@ class ConfigJsonParser;
 struct DBRequest;
 class EventManager;
 class IFMapServer;
-struct IFMapConfigOptions;
 class IFMapPeerServerInfoUI;
 struct ConfigClientManagerInfo;
+class TaskTrigger;
 
 /*
  * This class is the manager that over-sees the retrieval of user configuration.
@@ -47,7 +48,7 @@ public:
                         bool end_of_rib_computed);
     virtual ~ConfigClientManager();
 
-    void Initialize();
+    virtual void Initialize();
     ConfigAmqpClient *config_amqp_client() const;
     ConfigDbClient *config_db_client() const;
     ConfigJsonParser *config_json_parser() const;
@@ -87,6 +88,37 @@ public:
         return obj_type_to_read_;
     }
 
+    // Generation number identifies the current version of the config
+    // available with ifmap server. While enqueuing the DB request to create
+    // ifmap entries(node/link), config client manager uses the current
+    // generation number to tag the config version in each ifmap config db entru
+    uint64_t GetGenerationNumber() const {
+        return generation_number_;
+    }
+
+    // Increment the generation number on reinit trigger
+    // IFMap server identifies stale config db entries based on this generation
+    // number. Any entry(node/link) which has generation number less than the
+    // current generation number will be cleaned with "stale entry cleanup"
+    // background task
+    uint64_t IncrementGenerationNumber() {
+        return generation_number_++;
+    }
+
+    // Reinit trigger with update of config parameter
+    void ReinitConfigClient(const IFMapConfigOptions &config);
+
+    // Reinit trigger without update of config parameter.
+    // Either from introspect or to force re-reading of cassandra
+    void ReinitConfigClient();
+
+    // This task trigger handles with init and reinit of config client manager
+    bool InitConfigClient();
+
+    bool is_reinit_triggered() {
+        return reinit_triggered_;
+    }
+
 protected:
     bool end_of_rib_computed_;
 
@@ -97,8 +129,8 @@ private:
     typedef std::map<std::string, std::string> WrapperFieldMap;
 
     IFMapTable::RequestKey *CloneKey(const IFMapTable::RequestKey &src) const;
-    void SetUp(std::string hostname, std::string module_name,
-               const IFMapConfigOptions& config_options);
+    void SetUp();
+    void PostShutdown();
 
     LinkNameMap link_name_map_;
     EventManager *evm_;
@@ -109,10 +141,17 @@ private:
     int thread_count_;
     WrapperFieldMap wrapper_field_map_;
     ObjectTypeList obj_type_to_read_;
+    uint64_t generation_number_;
 
     mutable tbb::mutex end_of_rib_sync_mutex_;
     tbb::interface5::condition_variable cond_var_;
     uint64_t end_of_rib_computed_at_;
+    std::string hostname_;
+    std::string module_name_;
+    IFMapConfigOptions config_options_;
+    tbb::atomic<bool> reinit_triggered_;
+
+    boost::shared_ptr<TaskTrigger> init_trigger_;
 };
 
 #endif // ctrlplane_config_client_manager_h

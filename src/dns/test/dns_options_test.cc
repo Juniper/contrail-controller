@@ -17,7 +17,6 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-static uint16_t default_collector_port = ContrailPorts::CollectorPort();
 static uint16_t default_http_server_port = ContrailPorts::HttpPortDns();
 static uint16_t default_dns_server_port = ContrailPorts::DnsServerPort();
 
@@ -176,7 +175,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
