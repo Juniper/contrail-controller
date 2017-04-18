@@ -63,8 +63,9 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
 
     connection_status_ = false;
     connection_status_change_at_ = UTCTimestampUsec();
-    if (disable_)
-        return;
+
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    reader_task_id_ = scheduler->GetTaskId("amqp::RabbitMQReader");
 
     if (options.rabbitmq_server_list.empty())
         return;
@@ -90,9 +91,12 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
         curr_ep.port(port);
         endpoints_.push_back(curr_ep);
     }
+}
 
+void ConfigAmqpClient::StartRabbitMQReader() {
+    if (disable_)
+        return;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    reader_task_id_ = scheduler->GetTaskId("amqp::RabbitMQReader");
     Task *task = new RabbitMQReader(this);
     scheduler->Enqueue(task);
 }
@@ -131,6 +135,9 @@ void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
     amqpclient_->set_connected(false);
     size_t count = 0;
     while (true) {
+        // If we are signalled to stop, break now.
+        if (amqpclient_->config_manager()->is_reinit_triggered())
+            return;
         string uri = amqpclient_->FormAmqpUri();
         try {
             channel_->CreateFromUri(uri);
@@ -246,11 +253,12 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
 
 bool ConfigAmqpClient::RabbitMQReader::ReceiveRabbitMessages(
                                      AmqpClient::Envelope::ptr_t &envelope) {
-    // To start consuming the message, we should have finised bulk sync
-    amqpclient_->config_manager()->WaitForEndOfConfig();
     try {
-        // timeout = -1.. wait forever
-        return (channel_->BasicConsumeMessage(consumer_tag_, envelope, -1));
+        // timeout = 10ms.. To handle SIGHUP on config changes
+        // On reinit, config client manager will trigger the amqp client
+        // to shutdown. Blocking wait without timeout will not allow this.
+        channel_->BasicConsumeMessage(consumer_tag_, envelope, 10);
+        return true;
     } catch (std::exception &e) {
         static string what = e.what();
         cout << "Caught fatal exception while receiving messages from RabbitMQ:"
@@ -288,8 +296,16 @@ bool ConfigAmqpClient::RabbitMQReader::AckRabbitMessages(
 
 bool ConfigAmqpClient::RabbitMQReader::Run() {
     ConnectToRabbitMQ();
+
+    // To start consuming the message, we should have finised bulk sync
+    amqpclient_->config_manager()->WaitForEndOfConfig();
+
     while (true) {
+        // Test only
         if (amqpclient_->terminate())
+            break;
+        // If reinit is triggerred, break from the message receiving loop
+        if (amqpclient_->config_manager()->is_reinit_triggered())
             break;
         AmqpClient::Envelope::ptr_t envelope;
         if (ReceiveRabbitMessages(envelope) == false) {

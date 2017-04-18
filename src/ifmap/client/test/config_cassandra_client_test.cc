@@ -268,6 +268,7 @@ public:
         const IFMapConfigOptions& config_options) :
                 ConfigClientManager(evm, ifmap_server, hostname, module_name,
                                     config_options) {
+        ifmap_server->set_config_manager(this);
     }
     void set_end_of_rib_computed(bool flag) { end_of_rib_computed_ = flag; }
 };

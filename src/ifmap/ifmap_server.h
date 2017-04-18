@@ -98,6 +98,9 @@ public:
         return ifmap_channel_manager_;
     }
 
+    uint64_t get_config_generation_number() {
+        return config_manager_->GetGenerationNumber();
+    }
     void ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
                             bool subscribe, bool has_vms);
     void ProcessVmSubscribe(std::string vr_name, std::string vm_uuid,
@@ -120,7 +123,7 @@ public:
     const CmSz_t GetIndexMapSize() const { return index_map_.size(); }
     void GetUIInfo(IFMapServerInfoUI *server_info) const;
     bool ClientNameToIndex(const std::string &id, int *index);
-    bool ProcessStaleEntriesTimeout();
+    void CleanupStaleEntries();
     bool CollectStats(BgpRouterState *state, bool first) const;
 
 private:
