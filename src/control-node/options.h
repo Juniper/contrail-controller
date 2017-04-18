@@ -7,6 +7,8 @@
 #include "ifmap/ifmap_config_options.h"
 #include "sandesh/sandesh.h"
 
+class ConfigClientManager;
+
 // Process command line/configuration file options for control-node.
 class Options {
 public:
@@ -81,6 +83,10 @@ public:
 
     void ParseReConfig();
 
+    void set_config_client_manager(ConfigClientManager *mgr) {
+        config_client_manager_ = mgr;
+    }
+
 private:
 
     template <typename ValueType>
@@ -98,13 +104,17 @@ private:
                  boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
                     boost::program_options::options_description &options);
-    uint32_t GenerateHash(std::vector<std::string> &);
+    void ParseConfigOptions(const boost::program_options::variables_map
+                            &var_map);
+    uint32_t GenerateHash(const std::vector<std::string> &);
+    uint32_t GenerateHash(const IFMapConfigOptions&);
 
     std::string bgp_config_file_;
     uint16_t bgp_port_;
     std::vector<std::string> collector_server_list_;
     std::vector<std::string> randomized_collector_server_list_;
     uint32_t collector_chksum_;
+    uint32_t configdb_chksum_;
     std::string config_file_;
     std::string hostname_;
     std::string host_ip_;
@@ -139,4 +149,5 @@ private:
     std::vector<std::string> default_collector_server_list_;
     SandeshConfig sandesh_config_;
     boost::program_options::options_description config_file_options_;
+    ConfigClientManager *config_client_manager_;
 };
