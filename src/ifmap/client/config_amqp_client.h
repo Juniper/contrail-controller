@@ -76,6 +76,7 @@ private:
  */
 class ConfigAmqpClient {
 public:
+    typedef boost::asio::ip::tcp::endpoint Endpoint;
     ConfigAmqpClient(ConfigClientManager *mgr, std::string hostname,
                  std::string module_name, const IFMapConfigOptions &options);
     virtual ~ConfigAmqpClient() { }
@@ -92,6 +93,17 @@ public:
         return rabbitmq_ports_[current_server_index_];
     }
 
+    size_t rabbitmq_server_list_len() const {
+        return rabbitmq_ips_.size();
+    }
+
+    void increment_rabbitmq_server_index() {
+        if (rabbitmq_ips_.size()) {
+            current_server_index_ =
+                ((current_server_index_ + 1) % rabbitmq_ips_.size());
+        }
+    }
+
     std::string rabbitmq_user() const { return rabbitmq_user_; }
     std::string rabbitmq_password() const { return rabbitmq_password_; }
     std::string rabbitmq_vhost() const { return rabbitmq_vhost_; }
@@ -102,7 +114,7 @@ public:
     std::string rabbitmq_ssl_ca_certs() const { return rabbitmq_ssl_ca_certs_; }
     ConfigClientManager *config_manager() const { return mgr_; }
     ConfigClientManager *config_manager() { return mgr_; }
-    boost::asio::ip::tcp::endpoint endpoint() const { return endpoint_; }
+    std::vector<Endpoint> endpoints() const { return endpoints_; }
     int reader_task_id() const { return reader_task_id_; }
     std::string hostname() const { return hostname_; }
     std::string module_name() const { return module_name_; }
@@ -122,6 +134,8 @@ private:
     // A Job for reading the rabbitmq
     class RabbitMQReader;
 
+    void ReportRabbitMQConnectionStatus(bool connected) const;
+
     ConfigClientManager *mgr_;
     std::string hostname_;
     std::string module_name_;
@@ -140,7 +154,7 @@ private:
     std::string rabbitmq_ssl_certfile_;
     std::string rabbitmq_ssl_ca_certs_;
     static bool disable_;
-    boost::asio::ip::tcp::endpoint endpoint_;
+    std::vector<Endpoint> endpoints_;
     tbb::atomic<bool> connection_status_;
     tbb::atomic<uint64_t> connection_status_change_at_;
 };
