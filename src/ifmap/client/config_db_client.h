@@ -27,6 +27,7 @@ public:
     std::string config_db_password() const;
     std::vector<std::string> config_db_ips() const;
     int GetFirstConfigDbPort() const;
+    virtual void PostShutdown() = 0;
     virtual void InitDatabase() = 0;
     virtual void EnqueueUUIDRequest(std::string uuid_str, std::string obj_type,
                                     std::string oper) = 0;

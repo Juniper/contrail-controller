@@ -73,7 +73,11 @@ public:
     virtual bool BasicConsumeMessage(const std::string &consumer_tag,
                                      AmqpClient::Envelope::ptr_t &envelope,
                                      int timeout) {
-        return !(++consume_count_ % 2); // Simulate connection flips..
+        if (!(++consume_count_ % 2)) {
+            // Simulate connection flips..
+            throw std::runtime_error ("Fake runtime error");
+        }
+        return true;
     }
     virtual void BasicAck(const AmqpClient::Envelope::ptr_t &message) {
     }
@@ -87,6 +91,9 @@ public:
                 ConfigClientManager(evm, ifmap_server, hostname, module_name,
                                     config_options, true) {
         end_of_rib_computed_ = true;
+    }
+    void Initialize() {
+        config_amqp_client()->StartRabbitMQReader();
     }
 };
 
@@ -146,10 +153,11 @@ TEST_F(ConfigAmqpClientTest, Basic) {
         config_options_.rabbitmq_password + "@" + "127.0.0.1:100/" +
         config_options_.rabbitmq_vhost), conn_info.url);
 
+    config_client_manager_->Initialize();
     // Verify that BasicConsumeMessage() gets repeatedly called.
     TASK_UTIL_EXPECT_LT(100, consume_count_);
 
-    // Terminate rabbit mq poll loop.
+    // Shutdown rabbit mq poll loop.
     config_client_manager_->config_amqp_client()->set_terminate(true);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(consume_count_/2 - bind_queue_count_ < 3);

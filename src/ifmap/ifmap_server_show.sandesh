@@ -7,6 +7,13 @@
 request sandesh ConfigClientInfoReq {
 }
 
+response sandesh ConfigClientReinitResp {
+    1: bool success;
+}
+
+request sandesh ConfigClientReinitReq {
+}
+
 struct IFMapPeerServerInfoUI {
     1: string url;
     2: string connection_status;
