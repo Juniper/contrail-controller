@@ -10,11 +10,11 @@
 
 #include "base/connection_info.h"
 #include "base/task.h"
+#include "base/task_trigger.h"
 #include "config_amqp_client.h"
 #include "config_db_client.h"
 #include "config_cassandra_client.h"
 #include "config_json_parser.h"
-#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
@@ -48,16 +48,10 @@ int ConfigClientManager::GetNumConfigReader() {
     return num_config_readers;
 }
 
-void ConfigClientManager::SetUp(string hostname, string module_name,
-        const IFMapConfigOptions& config_options) {
+void ConfigClientManager::SetUp() {
     config_json_parser_.reset(new ConfigJsonParser(this));
     thread_count_ = GetNumConfigReader();
     end_of_rib_computed_at_ = UTCTimestampUsec();
-    config_db_client_.reset(
-            IFMapFactory::Create<ConfigCassandraClient>(this, evm_,
-                config_options, config_json_parser_.get(), thread_count_));
-    config_amqp_client_.reset(new ConfigAmqpClient(this, hostname, module_name,
-                                                   config_options));
     vnc_cfg_FilterInfo vnc_filter_info;
     bgp_schema_FilterInfo bgp_schema_filter_info;
 
@@ -81,28 +75,37 @@ void ConfigClientManager::SetUp(string hostname, string module_name,
 
     bgp_schema_Server_GenerateObjectTypeList(&obj_type_to_read_);
     vnc_cfg_Server_GenerateObjectTypeList(&obj_type_to_read_);
+
+    init_trigger_.reset(new
+         TaskTrigger(boost::bind(&ConfigClientManager::InitConfigClient, this),
+         TaskScheduler::GetInstance()->GetTaskId("cassandra::init"), 0));
+
+    shutdown_ = false;
 }
 
 ConfigClientManager::ConfigClientManager(EventManager *evm,
         IFMapServer *ifmap_server, string hostname, string module_name,
         const IFMapConfigOptions& config_options, bool end_of_rib_computed)
-                : end_of_rib_computed_(end_of_rib_computed), evm_(evm),
-                  ifmap_server_(ifmap_server) {
-    SetUp(hostname, module_name, config_options);
+    : end_of_rib_computed_(end_of_rib_computed), evm_(evm),
+    ifmap_server_(ifmap_server), hostname_(hostname), module_name_(module_name),
+    config_options_(config_options) {
+    SetUp();
 }
 
 ConfigClientManager::ConfigClientManager(EventManager *evm,
         IFMapServer *ifmap_server, string hostname, string module_name,
         const IFMapConfigOptions& config_options)
-        : end_of_rib_computed_(false), evm_(evm), ifmap_server_(ifmap_server) {
-    SetUp(hostname, module_name, config_options);
+    : end_of_rib_computed_(false), evm_(evm), ifmap_server_(ifmap_server),
+    hostname_(hostname), module_name_(module_name),
+    config_options_(config_options) {
+    SetUp();
 }
 
 ConfigClientManager::~ConfigClientManager() {
 }
 
 void ConfigClientManager::Initialize() {
-    config_db_client_->InitDatabase();
+    init_trigger_->Set();
 }
 
 ConfigJsonParser *ConfigClientManager::config_json_parser() const {
@@ -169,8 +172,7 @@ IFMapTable::RequestKey *ConfigClientManager::CloneKey(
     IFMapTable::RequestKey *retkey = new IFMapTable::RequestKey();
     retkey->id_type = src.id_type;
     retkey->id_name = src.id_name;
-    // TODO
-    //retkey->id_seq_num = what?
+    retkey->id_seq_num = GetGenerationNumber();
     return retkey;
 }
 
@@ -208,7 +210,7 @@ string ConfigClientManager::GetWrapperFieldName(const string &type_name,
 
 void ConfigClientManager::EndOfConfig() {
     {
-        // Notify waiting caller with the resultcjjjkkkk
+        // Notify waiting caller with the result
         tbb::mutex::scoped_lock lock(end_of_rib_sync_mutex_);
         assert(!end_of_rib_computed_);
         end_of_rib_computed_ = true;
@@ -216,14 +218,18 @@ void ConfigClientManager::EndOfConfig() {
         end_of_rib_computed_at_ = UTCTimestampUsec();
     }
 
+    ifmap_server_->CleanupStaleEntries();
+
     process::ConnectionState::GetInstance()->Update();
 }
 
 void ConfigClientManager::WaitForEndOfConfig() {
     tbb::interface5::unique_lock<tbb::mutex> lock(end_of_rib_sync_mutex_);
     // Wait for End of config
-    if (!end_of_rib_computed_)
+    while (!end_of_rib_computed_) {
         cond_var_.wait(lock);
+        if (is_shutdown()) return;
+    }
 }
 
 void ConfigClientManager::GetPeerServerInfo(
@@ -243,6 +249,40 @@ void ConfigClientManager::GetClientManagerInfo(
     tbb::mutex::scoped_lock lock(end_of_rib_sync_mutex_);
     info.end_of_rib_computed = end_of_rib_computed_;
     info.end_of_rib_computed_at = end_of_rib_computed_at_;
+}
+
+bool ConfigClientManager::InitConfigClient() {
+    if (is_shutdown()) {
+        config_db_client_->PostShutdown();
+        shutdown_ = false;
+        IncrementGenerationNumber();
+    }
+
+    config_db_client_.reset(
+            IFMapFactory::Create<ConfigCassandraClient>(this, evm_,
+                config_options_, config_json_parser_.get(), thread_count_));
+    config_amqp_client_.reset(new ConfigAmqpClient(this, hostname_, 
+                                               module_name_, config_options_));
+
+    end_of_rib_computed_ = false;
+
+    config_db_client_->InitDatabase();
+    return true;
+}
+
+void ConfigClientManager::ReinitConfigClient(const IFMapConfigOptions &config) {
+    config_options_ = config;
+    ReinitConfigClient();
+}
+
+void ConfigClientManager::ReinitConfigClient() {
+    {
+        // Wake up the amqp task waiting for EOR for config reading
+        tbb::mutex::scoped_lock lock(end_of_rib_sync_mutex_);
+        cond_var_.notify_all();
+    }
+    shutdown_ = true;
+    init_trigger_->Set();
 }
 
 static bool ConfigClientInfoHandleRequest(const Sandesh *sr,
@@ -282,6 +322,41 @@ void ConfigClientInfoReq::HandleRequest() const {
 
     s0.taskId_ = scheduler->GetTaskId("config::SandeshCmd");
     s0.cbFn_ = ConfigClientInfoHandleRequest;
+    s0.instances_.push_back(0);
+
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_= list_of(s0);
+    RequestPipeline rp(ps);
+}
+
+static bool ConfigClientReinitHandleRequest(const Sandesh *sr,
+                                         const RequestPipeline::PipeSpec ps,
+                                         int stage, int instNum,
+                                         RequestPipeline::InstData *data) {
+    const ConfigClientReinitReq *request =
+        static_cast<const ConfigClientReinitReq *>(ps.snhRequest_.get());
+    ConfigClientReinitResp *response = new ConfigClientReinitResp();
+    IFMapSandeshContext *sctx = 
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+
+    ConfigClientManager *config_mgr =
+        sctx->ifmap_server()->get_config_manager();
+
+    config_mgr->ReinitConfigClient();
+
+    response->set_success(true);
+    response->set_context(request->context());
+    response->set_more(false);
+    response->Response();
+    return true;
+}
+
+void ConfigClientReinitReq::HandleRequest() const {
+    RequestPipeline::StageSpec s0;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s0.taskId_ = scheduler->GetTaskId("config::SandeshCmd");
+    s0.cbFn_ = ConfigClientReinitHandleRequest;
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);

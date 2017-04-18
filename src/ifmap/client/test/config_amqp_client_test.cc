@@ -149,8 +149,8 @@ TEST_F(ConfigAmqpClientTest, Basic) {
     // Verify that BasicConsumeMessage() gets repeatedly called.
     TASK_UTIL_EXPECT_LT(100, consume_count_);
 
-    // Terminate rabbit mq poll loop.
-    config_client_manager_->config_amqp_client()->set_terminate(true);
+    // Shutdown rabbit mq poll loop.
+    config_client_manager_->config_amqp_client()->Shutdown(true);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(consume_count_/2 - bind_queue_count_ < 3);
 }

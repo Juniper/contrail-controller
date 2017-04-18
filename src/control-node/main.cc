@@ -373,6 +373,7 @@ int main(int argc, char *argv[]) {
                                             bgp_peer_manager.get(),
                                             &ifmap_server, build_info);
 
+    options.set_config_client_manager(config_client_manager);
     config_client_manager->Initialize();
 
     // Event loop.

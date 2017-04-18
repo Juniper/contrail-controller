@@ -51,7 +51,7 @@ private:
 ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
                       string module_name, const IFMapConfigOptions &options) :
     mgr_(mgr), hostname_(hostname), module_name_(module_name),
-    current_server_index_(0), terminate_(false),
+    current_server_index_(0),
     rabbitmq_user_(options.rabbitmq_user),
     rabbitmq_password_(options.rabbitmq_password),
     rabbitmq_vhost_(options.rabbitmq_vhost),
@@ -131,6 +131,9 @@ void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
     amqpclient_->set_connected(false);
     size_t count = 0;
     while (true) {
+        // If we are signalled to stop, break now.
+        if (amqpclient_->config_manager()->is_shutdown())
+            return;
         string uri = amqpclient_->FormAmqpUri();
         try {
             channel_->CreateFromUri(uri);
@@ -246,11 +249,10 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
 
 bool ConfigAmqpClient::RabbitMQReader::ReceiveRabbitMessages(
                                      AmqpClient::Envelope::ptr_t &envelope) {
-    // To start consuming the message, we should have finised bulk sync
-    amqpclient_->config_manager()->WaitForEndOfConfig();
     try {
-        // timeout = -1.. wait forever
-        return (channel_->BasicConsumeMessage(consumer_tag_, envelope, -1));
+        // timeout = 10ms.. To handle SIGHUP on config changes
+        channel_->BasicConsumeMessage(consumer_tag_, envelope, 10);
+        return true;
     } catch (std::exception &e) {
         static string what = e.what();
         cout << "Caught fatal exception while receiving messages from RabbitMQ:"
@@ -288,8 +290,12 @@ bool ConfigAmqpClient::RabbitMQReader::AckRabbitMessages(
 
 bool ConfigAmqpClient::RabbitMQReader::Run() {
     ConnectToRabbitMQ();
+
+    // To start consuming the message, we should have finised bulk sync
+    amqpclient_->config_manager()->WaitForEndOfConfig();
+
     while (true) {
-        if (amqpclient_->terminate())
+        if (amqpclient_->config_manager()->is_shutdown())
             break;
         AmqpClient::Envelope::ptr_t envelope;
         if (ReceiveRabbitMessages(envelope) == false) {

@@ -74,21 +74,21 @@ void ConfigCassandraClient::InitDatabase() {
         if (!dbif_->Db_Init()) {
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
                                      "Database initialization failed");
-            InitRetry();
+            if (!InitRetry()) return;
             continue;
         }
         if (!dbif_->Db_SetTablespace(g_vns_constants.API_SERVER_KEYSPACE_NAME)){
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
                                      "Setting database keyspace failed");
-            InitRetry();
+            if (!InitRetry()) return;
             continue;
         }
         if (!dbif_->Db_UseColumnfamily(kUuidTableName)) {
-            InitRetry();
+            if (!InitRetry()) return;
             continue;
         }
         if (!dbif_->Db_UseColumnfamily(kFqnTableName)) {
-            InitRetry();
+            if (!InitRetry()) return;
             continue;
         }
         break;
@@ -97,9 +97,11 @@ void ConfigCassandraClient::InitDatabase() {
     BulkDataSync();
 }
 
-void ConfigCassandraClient::InitRetry() {
+bool ConfigCassandraClient::InitRetry() {
     dbif_->Db_Uninit();
+    if (mgr()->is_shutdown()) return false;
     usleep(GetInitRetryTimeUSec());
+    return true;
 }
 
 ConfigCassandraPartition *ConfigCassandraClient::GetPartition(const string &uuid) {
@@ -303,6 +305,12 @@ void ConfigCassandraClient::HandleObjectDelete(const string &uuid) {
     PurgeFQNameCache(uuid);
 }
 
+void ConfigCassandraClient::PostShutdown() {
+    dbif_->Db_Uninit();
+    STLDeleteValues(&partitions_);
+    fq_name_cache_.clear();
+}
+
 void ConfigCassandraClient::FormDeleteRequestList(const string &uuid,
                               ConfigClientManager::RequestList *req_list,
                               IFMapTable::RequestKey *key, bool add_change) {
@@ -327,6 +335,7 @@ bool ConfigCassandraClient::FQNameReader() {
          it != mgr()->ObjectTypeListToRead().end(); it++) {
         string column_name;
         while (true) {
+            if (mgr()->is_shutdown()) return true;
             // Rowkey is obj-type
             GenDb::DbDataValueVec key;
             key.push_back(GenDb::Blob(reinterpret_cast<const uint8_t *>
@@ -620,7 +629,8 @@ bool ConfigCassandraPartition::ConfigReader() {
     set<string> bunch_req_list;
     int num_req_handled = 0;
     for (UUIDProcessSet::iterator it = uuid_read_set_.begin(),
-         itnext; it != uuid_read_set_.end(); it = itnext) {
+         itnext; it != uuid_read_set_.end() && !client()->mgr()->is_shutdown();
+         it = itnext) {
         itnext = it;
         ++itnext;
         ObjectProcessRequestType *obj_req = it->second;
@@ -651,10 +661,13 @@ bool ConfigCassandraPartition::ConfigReader() {
         }
     }
 
-    if (!bunch_req_list.empty()) {
+    if (!bunch_req_list.empty() && !client()->mgr()->is_shutdown()) {
         if (!BunchReadReq(bunch_req_list))
             return false;
         RemoveObjReqEntries(bunch_req_list);
+    }
+    if (client()->mgr()->is_shutdown()) {
+        uuid_read_set_.clear();
     }
     assert(uuid_read_set_.empty());
     return true;

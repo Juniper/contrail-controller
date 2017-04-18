@@ -10,6 +10,7 @@
 #include <tbb/compat/condition_variable>
 #include <tbb/mutex.h>
 
+#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_origin.h"
 
@@ -20,9 +21,9 @@ class ConfigJsonParser;
 struct DBRequest;
 class EventManager;
 class IFMapServer;
-struct IFMapConfigOptions;
 class IFMapPeerServerInfoUI;
 struct ConfigClientManagerInfo;
+class TaskTrigger;
 
 /*
  * This class is the manager that over-sees the retrieval of user configuration.
@@ -87,6 +88,22 @@ public:
         return obj_type_to_read_;
     }
 
+    uint64_t GetGenerationNumber() const {
+        return generation_number_;
+    }
+
+    uint64_t IncrementGenerationNumber() {
+        return generation_number_++;
+    }
+
+    void ReinitConfigClient(const IFMapConfigOptions &config);
+    void ReinitConfigClient();
+    bool InitConfigClient();
+
+    bool is_shutdown() {
+        return shutdown_;
+    }
+
 protected:
     bool end_of_rib_computed_;
 
@@ -97,8 +114,7 @@ private:
     typedef std::map<std::string, std::string> WrapperFieldMap;
 
     IFMapTable::RequestKey *CloneKey(const IFMapTable::RequestKey &src) const;
-    void SetUp(std::string hostname, std::string module_name,
-               const IFMapConfigOptions& config_options);
+    void SetUp();
 
     LinkNameMap link_name_map_;
     EventManager *evm_;
@@ -109,10 +125,17 @@ private:
     int thread_count_;
     WrapperFieldMap wrapper_field_map_;
     ObjectTypeList obj_type_to_read_;
+    uint64_t generation_number_;
 
     mutable tbb::mutex end_of_rib_sync_mutex_;
     tbb::interface5::condition_variable cond_var_;
     uint64_t end_of_rib_computed_at_;
+    std::string hostname_;
+    std::string module_name_;
+    IFMapConfigOptions config_options_;
+    tbb::atomic<bool> shutdown_;
+
+    boost::shared_ptr<TaskTrigger> init_trigger_;
 };
 
 #endif // ctrlplane_config_client_manager_h

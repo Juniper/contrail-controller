@@ -127,8 +127,6 @@ public:
     bool ProcessMessage(const std::string &json_message);
     void set_connected(bool connected);
     void GetConnectionInfo(ConfigAmqpConnInfo &info) const;
-    bool terminate() const { return terminate_; }
-    void set_terminate(bool terminate) { terminate_ = terminate; }
 
 private:
     // A Job for reading the rabbitmq
@@ -142,7 +140,6 @@ private:
 
     int reader_task_id_;
     size_t current_server_index_;
-    bool terminate_;
     std::vector<std::string> rabbitmq_ips_;
     std::vector<std::string> rabbitmq_ports_;
     std::string rabbitmq_user_;
