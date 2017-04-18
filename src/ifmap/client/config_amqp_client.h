@@ -81,6 +81,8 @@ public:
                  std::string module_name, const IFMapConfigOptions &options);
     virtual ~ConfigAmqpClient() { }
 
+    void StartRabbitMQReader();
+
     std::string rabbitmq_ip() const {
         if (current_server_index_ >= rabbitmq_ips_.size())
             return "";
@@ -127,6 +129,7 @@ public:
     bool ProcessMessage(const std::string &json_message);
     void set_connected(bool connected);
     void GetConnectionInfo(ConfigAmqpConnInfo &info) const;
+    // Test only
     bool terminate() const { return terminate_; }
     void set_terminate(bool terminate) { terminate_ = terminate; }
 

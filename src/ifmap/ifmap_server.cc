@@ -42,6 +42,98 @@ using boost::regex;
 using boost::regex_search;
 using std::make_pair;
 
+class IFMapServer::IFMapStaleEntriesCleaner : public Task {
+public:
+    IFMapStaleEntriesCleaner(DB *db, DBGraph *graph, IFMapServer *server):
+        Task(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"), 0),
+        db_(db), graph_(graph), ifmap_server_(server) {
+    }
+
+    bool Run() {
+        // objects_deleted indicates the count of objects-deleted-but-not-node
+        uint32_t nodes_deleted = 0, nodes_changed = 0, links_deleted = 0,
+                 objects_deleted = 0;
+        uint64_t curr_seq_num =
+            ifmap_server_->get_config_generation_number();
+
+        DBGraph::edge_iterator e_next(graph_);
+        for (DBGraph::edge_iterator e_iter = graph_->edge_list_begin();
+             e_iter != graph_->edge_list_end(); e_iter = e_next) {
+            const DBGraph::DBEdgeInfo &tuple = *e_iter;
+            // increment only after dereferencing
+            e_next = ++e_iter;
+
+            IFMapLink *link = static_cast<IFMapLink *>(boost::get<2>(tuple));
+            assert(link);
+
+            bool exists = false;
+            IFMapLink::LinkOriginInfo origin_info =
+                link->GetOriginInfo(IFMapOrigin::CASSANDRA, &exists);
+            if (exists && (origin_info.sequence_number < curr_seq_num)) {
+                IFMapLinkTable *ltable = static_cast<IFMapLinkTable *>(
+                    db_->FindTable("__ifmap_metadata__.0"));
+                // Cleanup the node and remove from the graph
+                link->RemoveOriginInfo(IFMapOrigin::CASSANDRA);
+                if (link->is_origin_empty()) {
+                    ltable->DeleteLink(link);
+                }
+                links_deleted++;
+            }
+        }
+
+        DBGraph::vertex_iterator v_next(graph_);
+        for (DBGraph::vertex_iterator v_iter = graph_->vertex_list_begin();
+            v_iter != graph_->vertex_list_end(); v_iter = v_next) {
+
+            IFMapNode *node = static_cast<IFMapNode *>(v_iter.operator->());
+            // increment only after dereferencing
+            v_next = ++v_iter;
+
+            IFMapObject *object =
+                node->Find(IFMapOrigin(IFMapOrigin::CASSANDRA));
+            IFMapServerTable *ntable =
+                static_cast<IFMapServerTable *>(node->table());
+            if (object != NULL) {
+                if (object->sequence_number() < curr_seq_num) {
+                    node->Remove(object);
+                    bool retb = ntable->DeleteIfEmpty(node);
+                    if (retb) {
+                        nodes_deleted++;
+                    } else {
+                        objects_deleted++;
+                    }
+                } else {
+                    // There could be stale properties
+                    bool changed = object->ResolveStaleness();
+                    if (changed) {
+                        nodes_changed++;
+                        ntable->Notify(node);
+                    }
+                }
+            } else {
+                // The node doesnt have any object. We should delete it if it
+                // does not have any neighbors either.
+                bool retb = ntable->DeleteIfEmpty(node);
+                if (retb) {
+                    nodes_deleted++;
+                }
+            }
+        }
+        IFMAP_DEBUG(IFMapStaleEntriesCleanerInfo, curr_seq_num, nodes_deleted,
+                    nodes_changed, links_deleted, objects_deleted);
+
+        return true;
+    }
+    std::string Description() const {
+        return "IFMapServer::IFMapStaleEntriesCleaner";
+    }
+
+private:
+    DB *db_;
+    DBGraph *graph_;
+    IFMapServer *ifmap_server_;
+};
+
 class IFMapServer::IFMapVmSubscribe : public Task {
 public:
     IFMapVmSubscribe(DB *db, DBGraph *graph, IFMapServer *server,
@@ -438,4 +530,11 @@ bool IFMapServer::CollectStats(BgpRouterState *state, bool first) const {
     }
 
     return change;
+}
+
+void IFMapServer::CleanupStaleEntries() {
+    IFMapStaleEntriesCleaner *cleaner =
+        new IFMapStaleEntriesCleaner(db_, graph_, this);
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(cleaner);
 }

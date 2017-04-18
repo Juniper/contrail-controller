@@ -5,6 +5,9 @@
 #ifndef __IFMAP_CONFIG_OPTIONS_H__
 #define __IFMAP_CONFIG_OPTIONS_H__
 
+#include <string>
+#include <vector>
+
 struct IFMapConfigOptions {
     IFMapConfigOptions() :
         stale_entries_cleanup_timeout(0), end_of_rib_timeout(0),
