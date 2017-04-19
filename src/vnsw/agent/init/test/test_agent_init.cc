@@ -375,6 +375,9 @@ TEST_F(AgentParamTest, Default_Cmdline_arg1) {
     EXPECT_STREQ(param.log_level().c_str(), "SYS_ERR");
     EXPECT_TRUE(param.isXenMode());
     EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
+    EXPECT_EQ(param.use_syslog(), 0);
+    EXPECT_EQ(param.log_flow(), 0);
+    EXPECT_EQ(param.log_local(), 0);
 }
 
 /* Some command line args have default values. If user has not passed these
@@ -395,6 +398,9 @@ TEST_F(AgentParamTest, Default_Cmdline_arg2) {
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
     EXPECT_TRUE(param.isKvmMode());
     EXPECT_EQ(param.agent_mode(), AgentParam::TOR_AGENT);
+    EXPECT_TRUE(param.use_syslog());
+    EXPECT_TRUE(param.log_flow());
+    EXPECT_TRUE(param.log_local());
 }
 
 /* Some command line args have default values. If user has explicitly passed 
