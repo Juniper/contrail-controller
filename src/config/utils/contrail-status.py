@@ -533,7 +533,7 @@ def contrail_service_status(nodetype, options):
             check_status(svc_name, options)
     elif nodetype == 'database':
         print "== Contrail Database =="
-        initd_svc = init == 'sysv' or init == 'upstart'
+        initd_svc = init_sys_used == 'sysv' or init_sys_used == 'upstart'
         check_svc('contrail-database', initd_svc=initd_svc)
         print ""
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
