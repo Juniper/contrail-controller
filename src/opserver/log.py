@@ -19,6 +19,7 @@ import logging
 import logging.handlers
 import time
 import re
+from multiprocessing import Process
 from opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
@@ -73,16 +74,37 @@ class LogQuerier(object):
                             last = self._args.last)
                 except:
                     return -1
-                result = self.query()
-                if result == -1:
-                    return
-                # Accumulate the result before processing it as the
-                # formatting of result can be cpu intensive and hence would
-                # affect the overall time taken to fetch the result from the
-                # analytics-api. Since the query result ttl is set to 5 min
-                # in redis, it is necessary to improve the read throughput.
-                result_list = self.read_result(result)
+
+                start_time = self._start_time
+                end_time = self._end_time
+
+                result_list = []
+                while int(end_time) - int(start_time) > 0:
+                    if not self._args.reverse:
+                        self._start_time = start_time
+                        self._end_time =  start_time + 10*60*pow(10,6) if (start_time + 10*60*pow(10,6) <= int(end_time)) else int(end_time)
+                    else:
+                        self._end_time = end_time
+                        self._start_time =  end_time - 10*60*pow(10,6) if (end_time - 10*60*pow(10,6) >= int(start_time)) else int(start_time)
+
+                    p = Process(target=self.display, args=(result_list,))
+                    p.start()
+                    result = self.query()
+                    if result == -1:
+                        return
+                    # Accumulate the result before processing it as the
+                    # formatting of result can be cpu intensive and hence would
+                    # affect the overall time taken to fetch the result from the
+                    # analytics-api. Since the query result ttl is set to 5 min
+                    # in redis, it is necessary to improve the read throughput.
+                    result_list = self.read_result(result)
+                    p.join()
+                    if not self._args.reverse:
+                        start_time = self._end_time + 1
+                    else:
+                        end_time = self._start_time - 1
                 self.display(result_list)
+
         except KeyboardInterrupt:
             return
 

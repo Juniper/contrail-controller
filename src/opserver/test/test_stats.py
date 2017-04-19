@@ -51,8 +51,11 @@ class StatQuerierTest(unittest.TestCase):
         self._querier.run()
         sys.argv = argv
 
-        expected_result_str = '{"start_time": "now-10m", "end_time": "now", "select_fields": ["T=60", "SUM(process_mem_cpu_usage.cpu_share)"], "table": "StatTable.NodeStatus.process_mem_cpu_usage", "where": [[{"suffix": null, "value2": null, "name": "name", "value": "", "op": 7}]]}'
+        expected_result_str = '{"select_fields": ["T=60", "SUM(process_mem_cpu_usage.cpu_share)"], "table": "StatTable.NodeStatus.process_mem_cpu_usage", "where": [[{"suffix": null, "value2": null, "name": "name", "value": "", "op": 7}]]}'
         expected_result_dict = json.loads(expected_result_str)
+        self.assertEqual(int(query_dict['end_time']) - int(query_dict['start_time']), 10*60*pow(10,6))
+        del query_dict['start_time']
+        del query_dict['end_time']
         for key in expected_result_dict:
             self.assertTrue(key in query_dict)
             self.assertTrue(expected_result_dict[key] == query_dict[key])

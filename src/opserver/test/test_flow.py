@@ -61,8 +61,11 @@ class FlowQuerierTest(unittest.TestCase):
         self._querier.run()
         sys.argv = argv
 
-        expected_result_str = '{"table": "FlowRecordTable", "start_time": "now-10m", "end_time": "now", "dir": 1, "select_fields": ["UuidKey", "vrouter", "setup_time", "teardown_time", "sourcevn", "destvn", "sourceip", "destip", "protocol", "sport", "dport", "action", "direction_ing", "agg-bytes", "agg-packets", "sg_rule_uuid", "nw_ace_uuid", "vrouter_ip", "other_vrouter_ip", "vmi_uuid", "drop_reason"]}'
+        expected_result_str = '{"table": "FlowRecordTable", "dir": 1, "select_fields": ["UuidKey", "vrouter", "setup_time", "teardown_time", "sourcevn", "destvn", "sourceip", "destip", "protocol", "sport", "dport", "action", "direction_ing", "agg-bytes", "agg-packets", "sg_rule_uuid", "nw_ace_uuid", "vrouter_ip", "other_vrouter_ip", "vmi_uuid", "drop_reason"]}'
         expected_result_dict = json.loads(expected_result_str)
+        self.assertEqual(int(query_dict['end_time']) - int(query_dict['start_time']), 10*60*pow(10,6))
+        del query_dict['start_time']
+        del query_dict['end_time']
         for key in expected_result_dict:
             self.assertTrue(key in query_dict)
             self.assertTrue(expected_result_dict[key] == query_dict[key])
