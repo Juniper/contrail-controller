@@ -2582,6 +2582,18 @@ class OpServer(object):
                             self._sandesh.reconfig_collectors(random_collectors)
                 except ConfigParser.NoOptionError as e:
                     pass
+            if 'REDIS' in config.sections():
+                try:
+                    new_redis_list = config.get('REDIS', 'redis_uve_list')
+                except ConfigParser.NoOptionError:
+                    pass
+                else:
+                    redis_uve_list = []
+                    for redis_uve in new_redis_list.split():
+                        redis_ip_port = redis_uve.split(':')
+                        redis_elem = (redis_ip_port[0], int(redis_ip_port[1]))
+                        redis_uve_list.append(redis_elem)
+                    self._uve_server.update_redis_uve_list(redis_uve_list)
     # end sighup_handler
 
 def main(args_str=' '.join(sys.argv[1:])):
