@@ -400,3 +400,86 @@ response sandesh DatabaseWritesStatusResponse {
     4: bool disable_flows
     5: bool disable_messages_keyword
 }
+
+
+/*
+ * UVE definition for application tracking from structured syslog messages.
+*/
+
+struct AppMetrics{
+      1: optional u64                     session_duration
+      2: optional u64                     session_count
+      3: optional u64                      total_bytes
+}
+
+struct AppMetrics_P_{
+      1: optional AppMetrics value (tags="")
+      2: optional AppMetrics staging
+}
+
+/*  UVE key -> TENANT::SITE::DEVICE_ID
+*   Three maps:
+*     1. app_metrics_sla
+*        If app-group is unknown, map key => NESTED-APP(APP/CATEGORY)::DEPARTMENT::SLA_PROFILE
+*         Else, key is => APP-GROUP(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::SLA_PROFILE
+*     2. app_metrics_link
+*        If app-group is unknown, map key => NESTED-APP(APP/APP-CATEGORY)::DEPARTMENT::LINK
+*         Else, key is => APP-GROUP(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::LINK
+*     3. app_metrics_user
+*        If app-group is unknown, map key => NESTED-APP(APP/APP-CATEGORY)::DEPARTMENT::USER
+*         Else, key is => APP-GROUP(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::USER
+*/
+
+struct AppTrackRecord{
+    1: string                           name (key="ObjectCPETable")
+    2: optional bool                    deleted
+
+    /* app_metrics_sla  */
+    3: optional map<string, AppMetrics>      app_metrics_sla (hidden="yes",metric="diff")
+    4: optional map<string, AppMetrics_P_>   sum_app_metrics_sla_3m (mstats="1-app_metrics_sla:DSSum:",tags=".__key")
+    5: optional map<string, AppMetrics_P_>   sum_app_metrics_sla_1h (mstats="20-app_metrics_sla:DSSum:",tags=".__key")
+    6: optional map<string, AppMetrics_P_>   sum_app_metrics_sla_8h (mstats="160-app_metrics_sla:DSSum:",tags=".__key")
+    7: optional map<string, AppMetrics_P_>   sum_app_metrics_sla_1d (mstats="480-app_metrics_sla:DSSum:",tags=".__key")
+    8: optional map<string, AppMetrics_P_>   sum_app_metrics_sla_7d (mstats="3360-app_metrics_sla:DSSum:",tags=".__key")
+    9: optional map<string, AppMetrics_P_>   sum_app_metrics_sla_30d (mstats="14400-app_metrics_sla:DSSum:",tags=".__key")
+    10: optional map<string, AppMetrics_P_>  avg_app_metrics_sla_3m (mstats="1-app_metrics_sla:DSAvg:",tags=".__key")
+    11: optional map<string, AppMetrics_P_>  avg_app_metrics_sla_1h (mstats="20-app_metrics_sla:DSAvg:",tags=".__key")
+    12: optional map<string, AppMetrics_P_>  avg_app_metrics_sla_8h (mstats="160-app_metrics_sla:DSAvg:",tags=".__key")
+    13: optional map<string, AppMetrics_P_>  avg_app_metrics_sla_1d (mstats="480-app_metrics_sla:DSAvg:",tags=".__key")
+    14: optional map<string, AppMetrics_P_>  avg_app_metrics_sla_7d (mstats="3360-app_metrics_sla:DSAvg:",tags=".__key")
+    15: optional map<string, AppMetrics_P_>  avg_app_metrics_sla_30d (mstats="14400-app_metrics_sla:DSAvg:",tags=".__key")
+
+    /* app_metrics_link */
+    16: optional map<string, AppMetrics>     app_metrics_link (hidden="yes",metric="diff")
+    17: optional map<string, AppMetrics_P_>  sum_app_metrics_link_3m (mstats="1-app_metrics_link:DSSum:",tags=".__key")
+    18: optional map<string, AppMetrics_P_>  sum_app_metrics_link_1h (mstats="20-app_metrics_link:DSSum:",tags=".__key")
+    19: optional map<string, AppMetrics_P_>  sum_app_metrics_link_8h (mstats="160-app_metrics_link:DSSum:",tags=".__key")
+    20: optional map<string, AppMetrics_P_>  sum_app_metrics_link_1d (mstats="480-app_metrics_link:DSSum:",tags=".__key")
+    21: optional map<string, AppMetrics_P_>  sum_app_metrics_link_7d (mstats="3360-app_metrics_link:DSSum:",tags=".__key")
+    22: optional map<string, AppMetrics_P_>  sum_app_metrics_link_30d (mstats="14400-app_metrics_link:DSSum:",tags=".__key")
+    23: optional map<string, AppMetrics_P_>  avg_app_metrics_link_3m (mstats="1-app_metrics_link:DSAvg:",tags=".__key")
+    24: optional map<string, AppMetrics_P_>  avg_app_metrics_link_1h (mstats="20-app_metrics_link:DSAvg:",tags=".__key")
+    25: optional map<string, AppMetrics_P_>  avg_app_metrics_link_8h (mstats="160-app_metrics_link:DSAvg:",tags=".__key")
+    26: optional map<string, AppMetrics_P_>  avg_app_metrics_link_1d (mstats="480-app_metrics_link:DSAvg:",tags=".__key")
+    27: optional map<string, AppMetrics_P_>  avg_app_metrics_link_7d (mstats="3360-app_metrics_link:DSAvg:",tags=".__key")
+    28: optional map<string, AppMetrics_P_>  avg_app_metrics_link_30d (mstats="14400-app_metrics_link:DSAvg:",tags=".__key")
+
+    /* app_metrics_user */
+    29: optional map<string, AppMetrics>     app_metrics_user (hidden="yes",metric="diff")
+    30: optional map<string, AppMetrics_P_>  sum_app_metrics_user_3m (mstats="1-app_metrics_user:DSSum:",tags=".__key")
+    31: optional map<string, AppMetrics_P_>  sum_app_metrics_user_1h (mstats="20-app_metrics_user:DSSum:",tags=".__key")
+    32: optional map<string, AppMetrics_P_>  sum_app_metrics_user_8h (mstats="160-app_metrics_user:DSSum:",tags=".__key")
+    33: optional map<string, AppMetrics_P_>  sum_app_metrics_user_1d (mstats="480-app_metrics_user:DSSum:",tags=".__key")
+    34: optional map<string, AppMetrics_P_>  sum_app_metrics_user_7d (mstats="3360-app_metrics_user:DSSum:",tags=".__key")
+    35: optional map<string, AppMetrics_P_>  sum_app_metrics_user_30d (mstats="14400-app_metrics_user:DSSum:",tags=".__key")
+    36: optional map<string, AppMetrics_P_>  avg_app_metrics_user_3m (mstats="1-app_metrics_user:DSAvg:",tags=".__key")
+    37: optional map<string, AppMetrics_P_>  avg_app_metrics_user_1h (mstats="20-app_metrics_user:DSAvg:",tags=".__key")
+    38: optional map<string, AppMetrics_P_>  avg_app_metrics_user_8h (mstats="160-app_metrics_user:DSAvg:",tags=".__key")
+    39: optional map<string, AppMetrics_P_>  avg_app_metrics_user_1d (mstats="480-app_metrics_user:DSAvg:",tags=".__key")
+    40: optional map<string, AppMetrics_P_>  avg_app_metrics_user_7d (mstats="3360-app_metrics_user:DSAvg:",tags=".__key")
+    41: optional map<string, AppMetrics_P_>  avg_app_metrics_user_30d (mstats="14400-app_metrics_user:DSAvg:",tags=".__key")
+}(period="180")
+
+uve sandesh AppTrack {
+     1: AppTrackRecord              data;
+}

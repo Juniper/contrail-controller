@@ -78,6 +78,18 @@
      Property('structured-syslog-message-process-and-store',
               'structured-syslog-message', 'required', 'CRUD',
               'message is to be processed and stored or not') -->
+<xsd:element name="structured-syslog-message-process-and-summarize"
+     type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('structured-syslog-message-process-and-summarize',
+              'structured-syslog-message', 'required', 'CRUD',
+              'message is to be processed and summarized or not') -->
+<xsd:element name="structured-syslog-message-process-and-summarize-user"
+     type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('structured-syslog-message-process-and-summarize-user',
+              'structured-syslog-message', 'required', 'CRUD',
+              'message is to be processed and summarized for user or not') -->
 <xsd:element name="structured-syslog-message-forward"
      type="StructuredSyslogMessageForwardType"/>
 <!--#IFMAP-SEMANTICS-IDL

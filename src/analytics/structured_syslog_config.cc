@@ -87,6 +87,8 @@ StructuredSyslogConfig::PollMessageConfigs() {
         fields.push_back("structured_syslog_message_integer_fields");
         fields.push_back("structured_syslog_message_process_and_store");
         fields.push_back("structured_syslog_message_forward");
+        fields.push_back("structured_syslog_message_process_and_summarize");
+        fields.push_back("structured_syslog_message_process_and_summarize_user");
 
         cfgdb_connection_->GetVnc()->GetConfig("structured-syslog-message", ids,
                 filters, parents, refs,
@@ -219,6 +221,8 @@ StructuredSyslogConfig::MessageConfigsHandler(contrail_rapidjson::Document &jdoc
                 std::vector< std::string > tags;
                 std::string name, forward;
                 bool process_and_store = false;
+                bool process_and_summarize = false;
+                bool process_and_summarize_user = false;
 
                 name = hr["display_name"].GetString();
                 if (hr.HasMember("structured_syslog_message_tagged_fields")) {
@@ -241,8 +245,14 @@ StructuredSyslogConfig::MessageConfigsHandler(contrail_rapidjson::Document &jdoc
                 if (hr.HasMember("structured_syslog_message_process_and_store")) {
                     process_and_store = hr["structured_syslog_message_process_and_store"].GetBool();
                 }
+                if (hr.HasMember("structured_syslog_message_process_and_summarize")) {
+                    process_and_summarize = hr["structured_syslog_message_process_and_summarize"].GetBool();
+                }
+                if (hr.HasMember("structured_syslog_message_process_and_summarize_user")) {
+                    process_and_summarize_user = hr["structured_syslog_message_process_and_summarize_user"].GetBool();
+                }
                 LOG(DEBUG, "Adding MessageConfig: " << name);
-                AddMessageConfig(name, tags, ints, process_and_store, forward);
+                AddMessageConfig(name, tags, ints, process_and_store, forward, process_and_summarize, process_and_summarize_user);
         }
         Cmc_t::iterator cit = message_configs_.begin();
         while (cit != message_configs_.end()) {
@@ -378,7 +388,8 @@ StructuredSyslogConfig::GetMessageConfig(const std::string &name) {
 void
 StructuredSyslogConfig::AddMessageConfig(const std::string &name,
         const std::vector< std::string > &tags, const std::vector< std::string > &ints,
-        bool process_and_store, const std::string &forward_action) {
+        bool process_and_store, const std::string &forward_action, bool process_and_summarize, 
+        bool process_and_summarize_user) {
     bool forward = false, process_before_forward = false;
     if (forward_action == "forward-unprocessed") {
         forward = true;
@@ -389,10 +400,12 @@ StructuredSyslogConfig::AddMessageConfig(const std::string &name,
     }
     Cmc_t::iterator it = message_configs_.find(name);
     if (it  != message_configs_.end()) {
-        it->second->Refresh(name, tags, ints, process_and_store, forward, process_before_forward);
+        it->second->Refresh(name, tags, ints, process_and_store, forward, process_before_forward, 
+                            process_and_summarize, process_and_summarize_user);
     } else {
         boost::shared_ptr<MessageConfig> c(new MessageConfig(
-                    name, tags, ints, process_and_store, forward, process_before_forward));
+                    name, tags, ints, process_and_store, forward, process_before_forward, 
+		    process_and_summarize, process_and_summarize_user));
         message_configs_.insert(std::make_pair<std::string,
                 boost::shared_ptr<MessageConfig> >(name, c));
     }
