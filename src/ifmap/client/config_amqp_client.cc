@@ -82,13 +82,14 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
         ++tit;
         string port_str(*tit);
         rabbitmq_ports_.push_back(port_str);
+        Endpoint curr_ep;
+        int port = 0;
+        stringToInteger(port_str, port);
+        boost::system::error_code ec;
+        curr_ep.address(boost::asio::ip::address::from_string(ip, ec));
+        curr_ep.port(port);
+        endpoints_.push_back(curr_ep);
     }
-
-    boost::system::error_code ec;
-    int port = 0;
-    stringToInteger(rabbitmq_port(), port);
-    endpoint_.address(boost::asio::ip::address::from_string(rabbitmq_ip(), ec));
-    endpoint_.port(port);
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     reader_task_id_ = scheduler->GetTaskId("amqp::RabbitMQReader");
@@ -110,13 +111,25 @@ string ConfigAmqpClient::FormAmqpUri() const {
     return uri;
 }
 
+void ConfigAmqpClient::ReportRabbitMQConnectionStatus(bool connected) const {
+    if (connected) {
+        // Update connection info
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::DATABASE, "RabbitMQ",
+            process::ConnectionStatus::UP,
+            endpoints(), "RabbitMQ connection established");
+    } else {
+        process::ConnectionState::GetInstance()->Update(
+            process::ConnectionType::DATABASE, "RabbitMQ",
+            process::ConnectionStatus::DOWN,
+            endpoints(), "RabbitMQ connection down");
+    }
+}
+
 void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
-    // Update connection info
-    process::ConnectionState::GetInstance()->Update(
-        process::ConnectionType::DATABASE, "RabbitMQ",
-        process::ConnectionStatus::DOWN,
-        amqpclient_->endpoint(), "RabbitMQ connection down");
+    amqpclient_->ReportRabbitMQConnectionStatus(false);
     amqpclient_->set_connected(false);
+    size_t count = 0;
     while (true) {
         string uri = amqpclient_->FormAmqpUri();
         try {
@@ -141,23 +154,25 @@ void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
             consumer_tag_ = channel_->BasicConsume(queue, queue_name,
                                                    true, false, true, 0);
         } catch (std::exception &e) {
-            static std::string what = e.what();
-            std::cout << "Caught fatal exception while connecting to RabbitMQ: "
-                << what << std::endl;
-            // Wait to reconnect
-            sleep(5);
+            static string what = e.what();
+            cout << "Caught fatal exception while connecting to RabbitMQ: "
+                 << amqpclient_->rabbitmq_ip() << ":"
+                 << amqpclient_->rabbitmq_port() << " : " << what << endl;
+            if (++count == amqpclient_->rabbitmq_server_list_len()) {
+                count = 0;
+                // Tried connecting to all given servers.. Now wait to reconnect
+                sleep(5);
+            }
+            amqpclient_->increment_rabbitmq_server_index();
             continue;
         } catch (...) {
-            std::cout << "Caught fatal unknown exception while connecting to "
-                << "RabbitMQ: " << std::endl;
+            cout << "Caught fatal unknown exception while connecting to " 
+                 << "RabbitMQ: " << amqpclient_->rabbitmq_ip() << ":"
+                 << amqpclient_->rabbitmq_port() << endl;
             assert(0);
         }
 
-        // Update connection info
-        process::ConnectionState::GetInstance()->Update(
-            process::ConnectionType::DATABASE, "RabbitMQ",
-            process::ConnectionStatus::UP,
-            amqpclient_->endpoint(), "RabbitMQ connection established");
+        amqpclient_->ReportRabbitMQConnectionStatus(true);
         amqpclient_->set_connected(true);
         break;
     }
@@ -181,9 +196,9 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
     if (document.HasParseError()) {
         size_t pos = document.GetErrorOffset();
         // GetParseError returns const char *
-        std::cout << "Error in parsing JSON message from rabbitMQ at "
+        cout << "Error in parsing JSON message from rabbitMQ at "
             << pos << "with error description"
-            << document.GetParseError() << std::endl;
+            << document.GetParseError() << endl;
         return false;
     } else {
         string oper = "";
@@ -237,13 +252,15 @@ bool ConfigAmqpClient::RabbitMQReader::ReceiveRabbitMessages(
         // timeout = -1.. wait forever
         return (channel_->BasicConsumeMessage(consumer_tag_, envelope, -1));
     } catch (std::exception &e) {
-        static std::string what = e.what();
-        std::cout << "Caught fatal exception while receiving " <<
-            "messages from RabbitMQ: " << what << std::endl;
+        static string what = e.what();
+        cout << "Caught fatal exception while receiving messages from RabbitMQ:"
+             << " " << amqpclient_->rabbitmq_ip() << ":"
+             << amqpclient_->rabbitmq_port() << " : " << what << endl;
         return false;
     } catch (...) {
-        std::cout << "Caught fatal unknown exception while receiving " <<
-            "messages from RabbitMQ: " << std::endl;
+        cout << "Caught fatal unknown exception while receiving "
+             << "messages from RabbitMQ: " << amqpclient_->rabbitmq_ip() << ":"
+             << amqpclient_->rabbitmq_port() << endl;
         assert(0);
     }
     return true;
@@ -254,13 +271,15 @@ bool ConfigAmqpClient::RabbitMQReader::AckRabbitMessages(
     try {
         channel_->BasicAck(envelope);
     } catch (std::exception &e) {
-        static std::string what = e.what();
-        std::cout << "Caught fatal exception while Acking message to RabbitMQ: "
-            << what << std::endl;
+        static string what = e.what();
+        cout << "Caught fatal exception while Acking message to RabbitMQ: "
+             << amqpclient_->rabbitmq_ip() << ":"
+             << amqpclient_->rabbitmq_port() << " : " << what << endl;
         return false;
     } catch (...) {
-        std::cout << "Caught fatal unknown exception while acking messages " <<
-            "from RabbitMQ: " << std::endl;
+        cout << "Caught fatal unknown exception while acking messages from "
+             << "RabbitMQ: " << amqpclient_->rabbitmq_ip() << ":"
+             << amqpclient_->rabbitmq_port() << endl;
         assert(0);
     }
     return true;
