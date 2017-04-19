@@ -378,8 +378,8 @@ void BgpPeerClose::AddGRCapabilities(
         if (!peer_->LookupFamily(family))
             continue;
         gr_families.push_back(family);
-        afi_flags.push_back(
-            BgpProto::OpenMessage::Capability::GR::ForwardingStatePreserved);
+        afi_flags.push_back(BgpProto::OpenMessage::Capability::GR::
+                                ForwardingStatePreservedFlag);
     }
 
     BgpProto::OpenMessage::Capability *gr_cap =
@@ -437,7 +437,7 @@ void BgpPeerClose::AddLLGRCapabilities(
 
     uint32_t time = peer_->server()->GetLongLivedGracefulRestartTime();
     uint8_t afi_flags =
-        BgpProto::OpenMessage::Capability::LLGR::ForwardingStatePreserved;
+        BgpProto::OpenMessage::Capability::LLGR::ForwardingStatePreservedFlag;
     BgpProto::OpenMessage::Capability *llgr_cap =
         BgpProto::OpenMessage::Capability::LLGR::Encode(time, afi_flags,
                                                         llgr_families);

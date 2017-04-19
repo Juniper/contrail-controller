@@ -127,8 +127,9 @@ public:
 
             struct GR {
                 enum {
-                    ForwardingStatePreserved = 0x80,
-                    RestartTimeBitPosition = 12,
+                    ForwardingStatePreservedFlag = 0x80,
+                    RestartTimeMask = 0x0FFF,
+                    RestartedFlag = 0x8000,
                 };
                 explicit GR() { Initialize(); }
                 void Initialize() {
@@ -144,7 +145,7 @@ public:
                     uint8_t  flags;
 
                     bool forwarding_state_preserved() const {
-                        return (flags & ForwardingStatePreserved) != 0;
+                        return (flags & ForwardingStatePreservedFlag) != 0;
                     }
                 };
                 static Capability *Encode(uint16_t gr_time, bool restarted,
@@ -154,16 +155,22 @@ public:
                         const std::vector<Capability *> &capabilities);
                 static void GetFamilies(const GR &gr_params,
                                         std::vector<std::string> *families);
-                bool restarted() const { return (flags & 0x80) != 0; }
-                uint8_t flags;
+                bool restarted() const { return (flags & RestartedFlag) != 0; }
+                void set_flags(uint16_t gr_cap_bytes) {
+                    flags = gr_cap_bytes & ~RestartTimeMask;
+                }
+                void set_time(uint16_t gr_cap_bytes) {
+                    time = gr_cap_bytes & RestartTimeMask;
+                }
+                uint16_t flags;
                 uint16_t time;
                 std::vector<Family> families;
             };
 
             struct LLGR {
                 enum {
-                    ForwardingStatePreserved = 0x80,
-                    RestartTimeBitSize = 24,
+                    ForwardingStatePreservedFlag = 0x80,
+                    RestartTimeMask = 0x00FFFFFF,
                 };
                 explicit LLGR() { Initialize(); }
                 void Initialize() {
@@ -181,7 +188,7 @@ public:
                     uint32_t time; // 24 bits only
 
                     bool forwarding_state_preserved() const {
-                        return (flags & ForwardingStatePreserved) != 0;
+                        return (flags & ForwardingStatePreservedFlag) != 0;
                     }
                 };
 
