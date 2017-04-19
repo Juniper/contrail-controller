@@ -154,6 +154,18 @@ public:
         return deleted_flow_export_drops_;
     }
 
+    uint64_t flow_sample_exports() const {
+        return flow_sample_exports_;
+    }
+
+    uint64_t flow_msg_exports() const {
+        return flow_msg_exports_;
+    }
+
+    uint64_t flow_exports() const {
+        return flow_exports_;
+    }
+
     uint64_t threshold() const { return threshold_;}
     bool delete_short_flow() const {
         return delete_short_flow_;
@@ -169,7 +181,10 @@ public:
                                     uint32_t port,
                                     uint64_t protocol);
     void FreeIndex(uint32_t idx);
-    void UpdateFlowExportStats(uint32_t count, bool sampled_flow);
+    void UpdateFlowExportStats(uint32_t count, bool first_export,
+                               bool sampled_flow);
+    void UpdateFlowSampleExportStats(uint32_t count);
+    void UpdateFlowMsgExportStats(uint32_t count);
 
     void SetProfileData(ProfileData *data);
     friend class AgentUtXmlFlowThreshold;
@@ -192,6 +207,9 @@ private:
     tbb::atomic<uint32_t> flow_export_without_sampling_;
     tbb::atomic<uint64_t> flow_export_drops_;
     tbb::atomic<uint64_t> deleted_flow_export_drops_;
+    tbb::atomic<uint64_t> flow_sample_exports_;
+    tbb::atomic<uint64_t> flow_msg_exports_;
+    tbb::atomic<uint64_t> flow_exports_;
     tbb::atomic<bool> flows_sampled_atleast_once_;
     uint32_t prev_cfg_flow_export_rate_;
     Timer* timer_;
