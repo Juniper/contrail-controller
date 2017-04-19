@@ -497,15 +497,6 @@ void AgentParam::ParseDefaultSectionArguments
     GetValueFromTree<long>(log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
-    if (var_map.count("DEFAULT.use_syslog")) {
-        use_syslog_ = true;
-    }
-    if (var_map.count("DEFAULT.log_local")) {
-         log_local_ = true;
-    }
-    if (var_map.count("DEFAULT.log_flow")) {
-         log_flow_ = true;
-    }
 
     GetOptValue<bool>(var_map, xmpp_auth_enable_, "DEFAULT.xmpp_auth_enable");
     GetOptValue<bool>(var_map, xmpp_dns_auth_enable_,

@@ -33,6 +33,10 @@ bool LoggingUseSyslog() {
     return use_syslog_;
 }
 
+void SetUseSysLog(bool use_syslog) {
+    use_syslog_ = use_syslog;
+}
+
 void CheckEnvironmentAndUpdate() {
     if (getenv("LOG_DISABLE") != NULL) {
         SetLoggingDisabled(true);
