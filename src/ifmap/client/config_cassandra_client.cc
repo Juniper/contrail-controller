@@ -678,8 +678,8 @@ void ConfigCassandraPartition::RemoveObjReqEntries(set<string> &req_list) {
 void ConfigCassandraPartition::RemoveObjReqEntry(string &uuid) {
     UUIDProcessSet::iterator req_it =
         uuid_read_set_.find(client()->GetUUID(uuid));
-    uuid_read_set_.erase(req_it);
     delete req_it->second;
+    uuid_read_set_.erase(req_it);
 }
 
 bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
