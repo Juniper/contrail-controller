@@ -83,11 +83,11 @@ class MesosServer(object):
     def process_cni_data(self, container_id, data):
         self.logger.info("Server: Got CNI data for Container Id: %s."
                          % (container_id))
-        print data
+        #print (data)
         cni_data_obj = MESOSCniDataObject(data)
         cni_conf = cni_data_obj.parse_cni_data()
         self._queue.put(cni_conf)
-        print cni_conf
+        #print cni_conf
         pass
 
     def create_cni_data(self, container_id, data):
@@ -121,6 +121,14 @@ class MesosServer(object):
         return self._pipe_start_app
     # end get_pipe_start_app
 
+    def extract_arguments(self, json_req):
+        args_list = []
+        args_list.append('app_subnets')
+        stdin_args = vars(self._args)
+        for args_item in args_list:
+            if args_item in stdin_args:
+                json_req[args_item] = stdin_args[args_item]
+
     def add_cni_info(self):
         json_req = {}
         ctype = bottle.request.headers['content-type']
@@ -135,6 +143,8 @@ class MesosServer(object):
             bottle.abort(415, 'Unable to parse publish request')
         for key, value in data.items():
             json_req[key] = value
+        #add argument to json list
+        self.extract_arguments(json_req)
         cid = json_req['cid']
         self.create_cni_data(cid, json_req)
 
@@ -155,6 +165,8 @@ class MesosServer(object):
             bottle.abort(415, 'Unable to parse publish request')
         for key, value in data.items():
             json_req[key] = value
+        #add argument to json list
+        self.extract_arguments(json_req)
         container_id = json_req['cid']
         if container_id in self._cni_data:
             del self._cni_data[container_id]
