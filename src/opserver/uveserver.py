@@ -33,6 +33,7 @@ class RedisInst(object):
     def __init__(self):
         self.redis_handle = None
         self.collector_pid = None
+        self.deleted = False
 
 class UVEServer(object):
 
@@ -80,12 +81,49 @@ class UVEServer(object):
                 ril.append(RedisInfo(ip=rkey.ip, port=rkey.port, pid=cpid))
         return set(ril)
 
+    def update_redis_uve_list(self, redis_uve_list):
+        newlist = set(redis_uve_list)
+        # if some redis instances are gone, remove them from our map
+        for test_elem in self._redis_uve_map.keys():
+            r_ip = test_elem[0]
+            r_port = test_elem[1]
+            redis_inst = (r_ip, int(r_port))
+            if redis_inst not in newlist:
+                self._redis_uve_map[test_elem].deleted = True
+            else:
+                self._redis_uve_map[test_elem].deleted = False
+
+        # new redis instances need to be inserted into the map
+        for new_elem in newlist:
+            new_redis = RedisInstKey(ip=new_elem[0], port=new_elem[1])
+            if new_redis not in self._redis_uve_map:
+                self._redis_uve_map[new_redis] = RedisInst()
+                ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,\
+                        name = new_elem[0]+":"+str(new_elem[1]), status = \
+                        ConnectionStatus.INIT, server_addrs = \
+                        [new_elem[0]+":"+str(new_elem[1])])
+    # end update_redis_uve_list
+
     def run(self):
         exitrun = False
         while not exitrun:
-            for rkey,rinst in self._redis_uve_map.iteritems():
+            inst = 0
+            while inst < len(self._redis_uve_map):
+                redis_keys = self._redis_uve_map.keys()
+                rkey = redis_keys[inst]
+                rinst = self._redis_uve_map[rkey]
                 old_pid = rinst.collector_pid
                 try:
+                    # check if it is marked as deleted during sighup handling
+                    if rinst.deleted == True:
+                        r_ip = rkey[0]
+                        r_port = rkey[1]
+                        del self._redis_uve_map[rkey]
+                        inst = inst%len(self._redis_uve_map)
+                        ConnectionState.delete(ConnectionType.REDIS_UVE,\
+                            r_ip+":"+str(r_port))
+                        continue
+
                     if rinst.redis_handle is None:
                         rinst.redis_handle = redis.StrictRedis(
                             host=rkey.ip, port=rkey.port,
@@ -123,6 +161,7 @@ class UVEServer(object):
 	                ConnectionState.update(ConnectionType.REDIS_UVE,\
 		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.DOWN,
                         [rkey.ip+":"+str(rkey.port)])
+                    inst = (inst + 1)%len(self._redis_uve_map)
                 if not exitrun:
                     gevent.sleep(self._freq)
 
