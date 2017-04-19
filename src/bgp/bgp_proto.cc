@@ -120,8 +120,9 @@ BgpProto::OpenMessage::Capability *
 BgpProto::OpenMessage::Capability::GR::Encode(
         uint16_t gr_time, bool restarted, const vector<uint8_t> &gr_afi_flags,
         const vector<Address::Family> &gr_families) {
-    assert((gr_time >> RestartTimeBitPosition) == 0);
-    const uint16_t gr_bytes = (restarted << RestartTimeBitPosition) | gr_time;
+    assert((gr_time & ~RestartTimeMask) == 0);
+    uint16_t restart_flags = restarted ? RestartedFlag : 0;
+    const uint16_t gr_bytes = restart_flags | gr_time;
 
     vector<uint8_t> restart_cap;
     restart_cap.push_back(gr_bytes >> 8);
@@ -176,11 +177,8 @@ bool BgpProto::OpenMessage::Capability::GR::Decode(GR *gr_params,
 
         uint8_t *data = (*cap_it)->capability.data();
         uint16_t bytes = get_value(data, 2);
-
-        // 4 bits represent restart flags and the rest of the 12 bits represent
-        // restart time (in seconds)
-        gr_params->flags = (bytes & 0xF000) >> 12;
-        gr_params->time = bytes & 0x0FFF;
+        gr_params->set_flags(bytes);
+        gr_params->set_time(bytes);
 
         size_t offset = 2;
         while (offset < (*cap_it)->capability.size()) {
@@ -197,7 +195,7 @@ bool BgpProto::OpenMessage::Capability::GR::Decode(GR *gr_params,
 BgpProto::OpenMessage::Capability *
 BgpProto::OpenMessage::Capability::LLGR::Encode(uint32_t llgr_time,
         uint8_t llgr_afi_flags, const vector<Address::Family> &llgr_families) {
-    assert((llgr_time & ~((1 << RestartTimeBitSize) - 1)) == 0);
+    assert((llgr_time & ~RestartTimeMask) == 0);
     vector<uint8_t> llgr_cap;
     BOOST_FOREACH(const Address::Family family, llgr_families) {
         uint16_t afi;
