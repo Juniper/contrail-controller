@@ -50,6 +50,9 @@ class BgpPeerClose : public IPeerClose {
     bool SetGRCapabilities(BgpPeerInfoData *peer_info);
     void FillNeighborInfo(BgpNeighborResp *bnr) const;
     virtual void RestartStateMachine();
+    const BgpProto::OpenMessage::Capability::GR &gr_params() const {
+        return gr_params_;
+    }
 
 private:
     virtual bool IsGRReady() const;
