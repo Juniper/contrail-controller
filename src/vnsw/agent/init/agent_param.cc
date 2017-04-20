@@ -883,6 +883,8 @@ void AgentParam::ParseTaskSectionArguments
                           "TASK.log_schedule_threshold");
     GetOptValue<uint32_t>(var_map, tbb_keepawake_timeout_,
                           "TASK.tbb_keepawake_timeout");
+    GetOptValue<uint32_t>(var_map, task_monitor_timeout_msec_,
+                          "TASK.task_monitor_timeout");
 }
 
 void AgentParam::ParseMetadataProxyArguments
@@ -1485,6 +1487,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
+        task_monitor_timeout_msec_(Agent::kDefaultTaskMonitorTimeout),
         default_nic_queue_(Agent::kInvalidQueueId) {
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
@@ -1680,6 +1683,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Log message if task takes more than threshold (msec) to schedule")
         ("TASK.tbb_keepawake_timeout", opt::value<uint32_t>(),
          "Timeout for the TBB keepawake timer")
+        ("TASK.task_monitor_timeout", opt::value<uint32_t>(),
+         "Timeout for the Task monitoring")
         ;
     options_.add(tbb);
 }
