@@ -75,6 +75,7 @@ func (vrouter *VRouter) doOp(op, containerUuid, containerVn, page string,
 	msg []byte) (*http.Response, error) {
 
 	url := vrouter.makeUrl(containerUuid, containerVn, page)
+	log.Infof("VRouter request. Operation : %s Url :  %s", op, url)
 	req, err := http.NewRequest(op, url, bytes.NewBuffer(msg))
 	if err != nil {
 		log.Errorf("Error creating http Request. Op %s Url %s Msg %s."+
@@ -306,6 +307,7 @@ func (vrouter *VRouter) delVmToFile() error {
 		return nil
 	}
 
+	log.Infof("Delete file done")
 	return nil
 }
 
@@ -320,11 +322,13 @@ func (vrouter *VRouter) delVmToAgent() error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		msg := fmt.Sprintf("Failed HTTP Delete operation. Return code %s",
-			string(resp.StatusCode))
+		msg := fmt.Sprintf("Failed HTTP Delete operation. Return code %d",
+			resp.StatusCode)
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
+
+	log.Infof("Delete response from agent %d", resp.StatusCode)
 	return nil
 }
 
@@ -332,6 +336,7 @@ func (vrouter *VRouter) delVmToAgent() error {
  * effort cleanup
  */
 func (vrouter *VRouter) Del(containerUuid, containerVn string) error {
+	log.Infof("Deleting container : %s Vn : %s", containerUuid, containerVn)
 	vrouter.containerUuid = containerUuid
 	vrouter.containerVn = containerVn
 	var ret error
@@ -341,12 +346,13 @@ func (vrouter *VRouter) Del(containerUuid, containerVn string) error {
 		ret = err
 	}
 
-	// Make the del message calll to agent
+	// Make the del message call to agent
 	if err := vrouter.delVmToAgent(); err != nil {
 		log.Errorf("Error in Delete to VRouter")
 		ret = err
 	}
 
+	log.Infof("Delete return code %+v", ret)
 	return ret
 }
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/natefinch/lumberjack"
 	"log"
+	"os"
 )
 
 var (
@@ -23,8 +24,10 @@ func Init(fileName string, fileSize int, backupCount int) {
 		MaxBackups: backupCount,
 	}
 
-	infoLogger = log.New(writer, "I : ", log.LstdFlags|log.Lshortfile)
-	errorLogger = log.New(writer, "E : ", log.LstdFlags|log.Lshortfile)
+	prefix := fmt.Sprintf("I : %d : ", os.Getpid())
+	infoLogger = log.New(writer, prefix, log.LstdFlags|log.Lshortfile)
+	prefix = fmt.Sprintf("E : %d : ", os.Getpid())
+	errorLogger = log.New(writer, prefix, log.LstdFlags|log.Lshortfile)
 }
 
 func Info(format string, a ...interface{}) {

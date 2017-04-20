@@ -94,7 +94,7 @@ func CmdDel(skelArgs *skel.CmdArgs) error {
 	// Handle Del command
 	err = cni.CmdDel()
 	if err != nil {
-		log.Errorf("Failed processing Add command.")
+		log.Errorf("Failed processing Del command.")
 		return err
 	}
 
