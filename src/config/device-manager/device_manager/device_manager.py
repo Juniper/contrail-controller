@@ -547,15 +547,19 @@ def main(args_str=None):
         args.random_collectors = random.sample(args.collectors,
                                                len(args.collectors))
 
-    # Initialize logger
-    dm_logger = DeviceManagerLogger(args)
+    # Initialize logger without introspect thread
+    dm_logger = DeviceManagerLogger(args, http_server_port=-1)
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
-    vnc_amqp.establish()
-    vnc_amqp.close()
-    dm_logger.debug("Removed remained AMQP queue")
+    try:
+        vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
+        vnc_amqp.establish()
+        vnc_amqp.close()
+    except Exception:
+        pass
+    finally:
+        dm_logger.debug("Removed remained AMQP queue")
 
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
                                         args.zk_server_ip)
@@ -568,6 +572,7 @@ def main(args_str=None):
 
 def run_device_manager(dm_logger, args):
     dm_logger.notice("Elected master Device Manager node. Initializing... ")
+    dm_logger.sandesh_init()
     DeviceManager(dm_logger, args)
 # end run_device_manager
 
