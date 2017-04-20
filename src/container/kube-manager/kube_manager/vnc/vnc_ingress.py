@@ -59,9 +59,7 @@ class VncIngress(VncCommon):
         else:
             if self._default_vn_obj:
                 return self._default_vn_obj
-            proj_fq_name = vnc_kube_config.cluster_default_project_fq_name()
-            vn_fq_name = proj_fq_name +\
-                [vnc_kube_config.cluster_default_network_name()]
+            vn_fq_name = vnc_kube_config.cluster_default_network_fq_name()
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         except NoIdError:

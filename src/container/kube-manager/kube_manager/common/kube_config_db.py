@@ -9,6 +9,7 @@ Database for Kubernetes objects.
 from cfgm_common.vnc_db import DBBase
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
 from ast import literal_eval
+from utils import get_vn_fq_name_from_dict_string
 
 class KubeDBBase(DBBase):
     obj_type = __name__
@@ -25,27 +26,13 @@ class KubeDBBase(DBBase):
         return None
 
     def get_vn_from_annotation(self, annotations):
-        """ Get virtual network annotations from a k8s object.
+        """ Get vn-fq-name if specified in annotations of a k8s object.
         """
-        fq_name_key = ['domain','project','name']
-        vn_fq_name = []
         vn_ann = annotations.get('network', None)
         if vn_ann:
-            vn = literal_eval(vn_ann)
-            if not vn:
-                err_msg = "No virtual network annotations were found."
-                raise Exception(err_msg)
+            return get_vn_fq_name_from_dict_string(vn_ann)
+        return None
 
-            # Virtual network annotation found.
-            for key in fq_name_key:
-                value = vn.get(key, None)
-                if value:
-                    vn_fq_name.append(value)
-                else:
-                    err_msg = "[%s] not specified in annotations." %\
-                        (key)
-                    raise Exception(err_msg)
-        return vn_fq_name
 #
 # Kubernetes POD Object DB.
 #

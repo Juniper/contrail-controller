@@ -149,9 +149,27 @@ class VncKubernetes(VncCommon):
 
         return ipam_obj, ipam_subnets
 
+    def _is_ipam_exists(self, vn_obj, ipam_fq_name):
+        curr_ipam_refs = vn_obj.get_network_ipam_refs()
+        if curr_ipam_refs:
+            for ipam_ref in curr_ipam_refs:
+                if ipam_fq_name == ipam_ref['to']:
+                    return True
+        return False
+
     def _create_cluster_network(self, vn_name, proj_obj):
-        vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
-            address_allocation_mode='user-defined-subnet-only')
+        # Check if the VN already exists.
+        # If yes, update existing VN object with k8s config.
+        vn_exists = False
+        vn = VirtualNetwork(name=vn_name, parent_obj=proj_obj,
+                 address_allocation_mode='user-defined-subnet-only')
+        try:
+            vn_obj = self.vnc_lib.virtual_network_read(
+                fq_name=vn.get_fq_name())
+            vn_exists = True
+        except NoIdError:
+            # VN does not exist. Create one.
+            vn_obj = vn
 
         # Create Pod IPAM.
         pod_ipam_obj, pod_ipam_subnets= self._create_ipam('pod-ipam',
@@ -166,7 +184,8 @@ class VncKubernetes(VncCommon):
         # For flat-subnets, the subnets are specified on the IPAM and
         # not on the virtual-network to IPAM link. So pass an empty
         # list of VnSubnetsType.
-        vn_obj.add_network_ipam(pod_ipam_obj, VnSubnetsType([]))
+        if not self._is_ipam_exists(vn_obj, pod_ipam_obj.get_fq_name()):
+            vn_obj.add_network_ipam(pod_ipam_obj, VnSubnetsType([]))
 
         #
         # Create Service IPAM.
@@ -175,14 +194,19 @@ class VncKubernetes(VncCommon):
             self.args.service_subnets, proj_obj)
 
         # Attach Service IPAM to virtual-network.
-        vn_obj.add_network_ipam(svc_ipam_obj, VnSubnetsType(svc_ipam_subnets))
+        if not self._is_ipam_exists(vn_obj, svc_ipam_obj.get_fq_name()):
+            vn_obj.add_network_ipam(svc_ipam_obj,
+                VnSubnetsType(svc_ipam_subnets))
 
         vn_obj.set_virtual_network_properties(
              VirtualNetworkType(forwarding_mode='l3'))
-        try:
+
+        if vn_exists:
+            # Update VN.
+            self.vnc_lib.virtual_network_update(vn_obj)
+        else:
+            # Create VN.
             self.vnc_lib.virtual_network_create(vn_obj)
-        except RefsExistError:
-            pass
 
         # FIP pool creation requires a vnc object. Get it.
         vn_obj = self.vnc_lib.virtual_network_read(
@@ -289,6 +313,7 @@ class VncKubernetes(VncCommon):
         self.ingress_mgr.ingress_timer()
         self.service_mgr.service_timer()
         self.pod_mgr.pod_timer()
+        self.pod_mgr.namespace_timer()
 
     def vnc_process(self):
         while True:

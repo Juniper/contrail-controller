@@ -49,6 +49,11 @@ class VncService(VncCommon):
         if not self._kubernetes_api_secure_ip or\
             not self._kubernetes_api_secure_ip:
             self._create_linklocal = False
+        elif self._args.cluster_network and DBBaseKM.is_nested():
+            # In nested mode, if cluster network is configured, then the k8s api
+            # server is in the same network as the k8s cluster. So there is no
+            # need for link local.
+            self._create_linklocal = False
         else:
             self._create_linklocal = api_service_ll_enable
 
@@ -71,8 +76,7 @@ class VncService(VncCommon):
             return None
 
     def _get_cluster_network(self):
-        vn_fq_name = vnc_kube_config.cluster_default_project_fq_name() +\
-            [vnc_kube_config.cluster_default_network_name()]
+        vn_fq_name = vnc_kube_config.cluster_default_network_fq_name()
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         except NoIdError:
@@ -154,7 +158,7 @@ class VncService(VncCommon):
                 pool_obj = self._vnc_create_pool(namespace, ll, port)
                 LoadbalancerPoolKM.locate(pool_obj._uuid)
 
-    def _create_link_local_service(self, svc_name, svc_ip, ports):
+    def _create_link_local_service(self, svc_name, svc_ns, svc_ip, ports):
         # Create link local service only if enabled.
         if self._create_linklocal:
             # Create link local service, one for each port.
@@ -162,6 +166,7 @@ class VncService(VncCommon):
                 try:
                     ll_mgr.create_link_local_service_entry(self._vnc_lib,
                         name=svc_name + '-' + port['port'].__str__(),
+                        k8s_ns=svc_ns,
                         service_ip=svc_ip, service_port=port['port'],
                         fabric_ip=self._kubernetes_api_secure_ip,
                         fabric_port=self._kubernetes_api_secure_port)
@@ -170,14 +175,14 @@ class VncService(VncCommon):
                         " service " + svc_name + " port " +
                         port['port'].__str__())
 
-    def _delete_link_local_service(self, svc_name, ports):
+    def _delete_link_local_service(self, svc_name, svc_ns, ports):
         # Delete link local service only if enabled.
         if self._create_linklocal:
             # Delete link local service, one for each port.
             for port in ports:
                 try:
                     ll_mgr.delete_link_local_service_entry(self._vnc_lib,
-                        name=svc_name + '-' + port['port'].__str__())
+                        svc_name + '-' + port['port'].__str__(), svc_ns)
                 except:
                     self.logger.error("Delete link local service failed for"
                         " service " + svc_name + " port " +
@@ -346,7 +351,7 @@ class VncService(VncCommon):
                                    svc_namespace, ports):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(svc_namespace)
         lb_fq_name = proj_fq_name + [svc_name]
-        lb_uuid = LoadbalancerKM.get_kube_fq_name_to_uuid(lb_fq_name)
+        lb_uuid = LoadbalancerKM.get_fq_name_to_uuid(lb_fq_name)
         if lb_uuid is None:
             return
 
@@ -371,7 +376,8 @@ class VncService(VncCommon):
         # "kubernetes" service from slave (compute) nodes to kube-api server
         # running on master (control) node.
         if service_name == self._kubernetes_service_name:
-            self._create_link_local_service(service_name, service_ip, ports)
+            self._create_link_local_service(service_name, service_namespace,
+                service_ip, ports)
 
         self._update_service_public_ip(service_id, service_name,
                         service_namespace, service_type, externalIp, loadBalancerIp)
@@ -432,7 +438,8 @@ class VncService(VncCommon):
         # Delete link local service that would have been allocated for
         # kubernetes service.
         if service_name == self._kubernetes_service_name:
-            self._delete_link_local_service(service_name, ports)
+            self._delete_link_local_service(service_name, service_namespace,
+                ports)
 
     def _create_service_event(self, event_type, service_id, lb):
         event = {}
