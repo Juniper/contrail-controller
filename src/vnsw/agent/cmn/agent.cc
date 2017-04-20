@@ -486,6 +486,7 @@ void Agent::CopyConfig(AgentParam *params) {
     flow_del_tokens_ = params_->flow_del_tokens();
     flow_update_tokens_ = params_->flow_update_tokens();
     tbb_keepawake_timeout_ = params_->tbb_keepawake_timeout();
+    task_monitor_timeout_msec_ = params_->task_monitor_timeout_msec();
     send_ratelimit_ = params_->sandesh_send_rate_limit();
 }
 
@@ -537,13 +538,20 @@ void Agent::ReConnectCollectors() {
 }
 
 void Agent::InitDone() {
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
     // Its observed that sometimes TBB scheduler misses spawn events
     // and doesnt schedule a task till its triggered again. As a work around
     // dummy timer is created at scheduler with default timeout of 1 sec
     // that fires and awake TBB periodically. Modify the timeout if required.
     if (tbb_keepawake_timeout_) {
-        TaskScheduler::GetInstance()->ModifyTbbKeepAwakeTimeout(
-            tbb_keepawake_timeout_);
+        scheduler->ModifyTbbKeepAwakeTimeout(tbb_keepawake_timeout_);
+    }
+
+    // Its observed that sometimes TBB stops scheduling tasks altogether.
+    // Initiate a monitor which asserts if no task is spawned for a given time.
+    if (task_monitor_timeout_msec_) {
+        scheduler->EnableMonitor(event_manager(), tbb_keepawake_timeout_,
+                                 task_monitor_timeout_msec_, 100);
     }
 }
 
@@ -682,7 +690,8 @@ Agent::Agent() :
     vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
     vrouter_max_mirror_entries_(0), vrouter_max_bridge_entries_(0),
     vrouter_max_oflow_bridge_entries_(0), flow_stats_req_handler_(NULL),
-    tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout) {
+    tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout),
+    task_monitor_timeout_msec_(kDefaultTaskMonitorTimeout) {
 
     assert(singleton_ == NULL);
     singleton_ = this;
