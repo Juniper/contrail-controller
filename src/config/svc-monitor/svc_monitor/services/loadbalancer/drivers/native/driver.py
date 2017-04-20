@@ -53,6 +53,8 @@ class OpencontrailLoadbalancerDriver(
         return fip
 
     def _add_port_map(self, fip, protocol, src_port, dst_port):
+        fip_uuid = fip.uuid
+        fip = self._api.floating_ip_read(id=fip_uuid)
         portmap_entry = False
         portmappings = fip.get_floating_ip_port_mappings()
         portmap_list = []
@@ -76,6 +78,8 @@ class OpencontrailLoadbalancerDriver(
             self._api.floating_ip_update(fip)
 
     def _delete_port_map(self, fip, src_port):
+        fip_uuid = fip.uuid
+        fip = self._api.floating_ip_read(id=fip_uuid)
         portmappings = fip.get_floating_ip_port_mappings()
         if not portmappings:
             return None
@@ -354,7 +358,6 @@ class OpencontrailLoadbalancerDriver(
             protocol = 'UDP'
         else:
             protocol = 'TCP'
-
         for iip_id in lb_instance_ips or []:
             fip = self._get_floating_ip(iip_id=iip_id)
             if fip:
@@ -454,9 +457,12 @@ class OpencontrailLoadbalancerDriver(
             except NoIdError:
                 return
 
-        protocol = pool.listener_protocol
         src_port = pool.listener_port
         dst_port = member.params['protocol_port']
+        if pool.listener_protocol == 'UDP':
+            protocol = 'UDP'
+        else:
+            protocol = 'TCP'
         for key in pool.lb_fips.keys():
             fip = pool.lb_fips[key]
             fip.add_virtual_machine_interface(vmi)
