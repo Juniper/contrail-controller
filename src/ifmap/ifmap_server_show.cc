@@ -2058,7 +2058,7 @@ void ShowConfigDBUUIDCache::SendStageCommon(const ConfigDBUUIDCacheReq *request,
                 std::inplace_merge(uuid_cache_list.begin(),
                        uuid_cache_list.begin() + list_size,
                        uuid_cache_list.end(),
-                       boost::bind(&ShowConfigDBUUIDCache::SortList, _1, _2));
+                       ShowConfigDBUUIDCache::SortList);
             }
         }
     }
@@ -2267,7 +2267,7 @@ void ShowConfigDBUUIDToFQName::SendStageCommon(
             std::inplace_merge(fq_name_cache_list.begin(),
                fq_name_cache_list.begin() + list_size,
                fq_name_cache_list.end(),
-               boost::bind(&ShowConfigDBUUIDToFQName::SortList, _1, _2));
+               ShowConfigDBUUIDToFQName::SortList);
         }
     }
 
