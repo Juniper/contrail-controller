@@ -539,6 +539,8 @@ void AgentParam::ParseTaskSectionArguments
                           "TASK.log_schedule_threshold");
     GetOptValue<uint32_t>(var_map, tbb_keepawake_timeout_,
                           "TASK.tbb_keepawake_timeout");
+    GetOptValue<uint32_t>(var_map, task_monitor_timeout_msec_,
+                          "TASK.task_monitor_timeout");
     GetOptValue<string>(var_map, ksync_thread_cpu_pin_policy_,
                         "TASK.ksync_thread_cpu_pin_policy");
     GetOptValue<uint32_t>(var_map, flow_netlink_pin_cpuid_,
@@ -1248,6 +1250,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
+        task_monitor_timeout_msec_(Agent::kDefaultTaskMonitorTimeout),
         default_nic_queue_(Agent::kInvalidQueueId),
         llgr_params_() {
 
@@ -1536,6 +1539,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Log message if task takes more than threshold (msec) to schedule")
         ("TASK.tbb_keepawake_timeout", opt::value<uint32_t>()->default_value(default_tbb_keepawake_timeout),
          "Timeout for the TBB keepawake timer")
+        ("TASK.task_monitor_timeout", opt::value<uint32_t>(),
+         "Timeout for the Task monitoring")
         ("TASK.ksync_thread_cpu_pin_policy", opt::value<string>(),
          "Pin ksync io task to CPU")
         ("TASK.flow_netlink_pin_cpuid", opt::value<uint32_t>(),
