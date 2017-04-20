@@ -164,7 +164,7 @@ class LoadbalancerListenerKM(DBBaseKM):
         self.uuid = uuid
         self.loadbalancer = None
         self.loadbalancer_pool = None
-        self.target_port = None
+        self.port_name = None
         self.update(obj_dict)
     # end __init__
 
@@ -182,8 +182,8 @@ class LoadbalancerListenerKM(DBBaseKM):
         self.build_fq_name_to_uuid(self.uuid, obj)
         if self.annotations:
             for kvp in self.annotations['key_value_pair'] or []:
-                if kvp['key'] == 'targetPort':
-                    self.target_port = kvp['value']
+                if kvp['key'] == 'portName':
+                    self.port_name = kvp['value']
                     break
     # end update
 
