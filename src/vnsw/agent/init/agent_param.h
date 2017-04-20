@@ -381,6 +381,9 @@ public:
     uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
     uint32_t tbb_keepawake_timeout() const { return tbb_keepawake_timeout_; }
+    uint32_t task_monitor_timeout_msec() const {
+        return task_monitor_timeout_msec_;
+    }
 
     // Restart parameters
     bool restart_backup_enable() const { return restart_backup_enable_; }
@@ -700,6 +703,8 @@ private:
     uint32_t tbb_exec_delay_;
     uint32_t tbb_schedule_delay_;
     uint32_t tbb_keepawake_timeout_;
+    // Monitor task library and assert if inactivity detected
+    uint32_t task_monitor_timeout_msec_;
     std::map<uint16_t, uint16_t> qos_queue_map_;
     std::set<uint16_t> nic_queue_list_;
     uint16_t default_nic_queue_;
