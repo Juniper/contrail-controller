@@ -283,6 +283,9 @@ public:
     uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
     uint32_t tbb_keepawake_timeout() const { return tbb_keepawake_timeout_; }
+    uint32_t task_monitor_timeout_msec() const {
+        return task_monitor_timeout_msec_;
+    }
 
     // pkt0 tx buffer
     uint32_t pkt0_tx_buffer_count() const { return pkt0_tx_buffer_count_; }
@@ -536,6 +539,8 @@ private:
     uint32_t tbb_exec_delay_;
     uint32_t tbb_schedule_delay_;
     uint32_t tbb_keepawake_timeout_;
+    // Monitor task library and assert if inactivity detected
+    uint32_t task_monitor_timeout_msec_;
     std::map<uint16_t, uint16_t> qos_queue_map_;
     uint16_t default_nic_queue_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
