@@ -15,6 +15,7 @@
 #include "base/task.h"
 #include "base/task_annotations.h"
 #include "base/task_tbbkeepawake.h"
+#include "base/task_monitor.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -350,6 +351,13 @@ int TaskScheduler::GetDefaultThreadCount() {
     return tbb::task_scheduler_init::default_num_threads();
 }
 
+bool TaskScheduler::ShouldUseSpawn() {
+    if (getenv("TBB_USE_SPAWN"))
+        return true;
+
+    return false;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Implementation for class TaskScheduler 
 ////////////////////////////////////////////////////////////////////////////
@@ -359,11 +367,11 @@ int TaskScheduler::GetDefaultThreadCount() {
 // for task scheduling. But, in our case we dont want "main" thread to be
 // part of tbb. So, initialize TBB with one thread more than its default
 TaskScheduler::TaskScheduler(int task_count) : 
-    task_scheduler_(GetThreadCount(task_count) + 1),
+    use_spawn_(ShouldUseSpawn()), task_scheduler_(GetThreadCount(task_count) + 1),
     running_(true), seqno_(0), id_max_(0), log_fn_(), track_run_time_(false),
     measure_delay_(false), schedule_delay_(0), execute_delay_(0),
     enqueue_count_(0), done_count_(0), cancel_count_(0), evm_(NULL),
-    tbb_awake_task_(NULL) {
+    tbb_awake_task_(NULL), task_monitor_(NULL) {
     hw_thread_count_ = GetThreadCount(task_count);
     task_group_db_.resize(TaskScheduler::kVectorGrowSize);
     stop_entry_ = new TaskEntry(-1);
@@ -424,6 +432,17 @@ void TaskScheduler::ModifyTbbKeepAwakeTimeout(uint32_t timeout) {
     if (tbb_awake_task_) {
         tbb_awake_task_->ModifyTbbKeepAwakeTimeout(timeout);
     }
+}
+
+void TaskScheduler::EnableMonitor(EventManager *evm,
+                                  uint64_t inactivity_time_msec,
+                                  uint64_t poll_interval_msec) {
+    if (task_monitor_ != NULL)
+        return;
+
+    task_monitor_ = new TaskMonitor(this, inactivity_time_msec,
+                                    poll_interval_msec);
+    task_monitor_->Start(evm);
 }
 
 void TaskScheduler::Log(const char *file_name, uint32_t line_no,
@@ -944,6 +963,12 @@ void TaskScheduler::WaitForTerminateCompletion() {
 }
 
 void TaskScheduler::Terminate() {
+    if (task_monitor_) {
+        task_monitor_->Terminate();
+        delete task_monitor_;
+        task_monitor_ = NULL;
+    }
+
     for (int i = 0; i < 10000; i++) {
         if (IsEmpty()) break;
         usleep(1000);
@@ -1350,7 +1375,7 @@ void TaskEntry::RunTask (Task *t) {
     TaskGroup *group = scheduler->QueryTaskGroup(t->GetTaskId());
     group->TaskStarted();
 
-    t->StartTask();
+    t->StartTask(scheduler);
 }
 
 void TaskEntry::RunWaitQ() {
@@ -1530,10 +1555,9 @@ Task::Task(int task_id) : task_id_(task_id),
 }
 
 // Start execution of task
-void Task::StartTask() {
+void Task::StartTask(TaskScheduler *scheduler) {
     if (enqueue_time_ != 0) {
         schedule_time_ = ClockMonotonicUsec();
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
         if ((schedule_time_ - enqueue_time_) >
             scheduler->schedule_delay(this)) {
             TASK_TRACE(scheduler, this, "Schedule delay(in usec) ",
@@ -1543,7 +1567,11 @@ void Task::StartTask() {
     assert(task_impl_ == NULL);
     state_ = RUN;
     task_impl_ = new (task::allocate_root())TaskImpl(this);
-    task::spawn(*task_impl_);
+    if (scheduler->use_spawn()) {
+        task::spawn(*task_impl_);
+    } else {
+        task::enqueue(*task_impl_);
+    }
 }
 
 Task *Task::Running() {
@@ -1609,6 +1637,7 @@ void TaskScheduler::GetSandeshData(SandeshTaskScheduler *resp, bool summary) {
     tbb::mutex::scoped_lock lock(mutex_);
 
     resp->set_running(running_);
+    resp->set_use_spawn(use_spawn_);
     resp->set_total_count(seqno_);
     resp->set_thread_count(hw_thread_count_);
 
