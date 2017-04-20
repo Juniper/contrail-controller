@@ -30,6 +30,7 @@ local_sources = [
     'kube_manager/common/logger.py',
     'kube_manager/common/args.py',
     'kube_manager/common/kube_config_db.py',
+    'kube_manager/common/utils.py',
     'kube_manager/kube/__init__.py',
     'kube_manager/kube/kube_monitor.py',
     'kube_manager/kube/namespace_monitor.py',

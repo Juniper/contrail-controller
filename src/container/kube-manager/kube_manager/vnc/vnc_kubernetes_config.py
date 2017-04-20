@@ -1,6 +1,10 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
+from kube_manager.common.utils import (get_vn_fq_name_from_dict_string,
+                                       get_domain_name_from_vn_dict_string,
+                                       get_project_name_from_vn_dict_string,
+                                       get_vn_name_from_vn_dict_string)
 
 class VncKubernetesConfig(object):
     """VNC kubernetes common config.
@@ -58,14 +62,33 @@ class VncKubernetesConfig(object):
         return cls.args().cluster_name
 
     @classmethod
+    def get_configured_domain_name(cls):
+        args = cls.args()
+        if args.cluster_network:
+            return get_domain_name_from_vn_dict_string(args.cluster_network)
+        return None
+
+    @classmethod
     def cluster_domain(cls):
+        domain_name = cls.get_configured_domain_name()
+        if domain_name:
+            return domain_name
         return cls.args().kubernetes_cluster_domain
 
     @classmethod
-    def cluster_project_name(cls, namespace):
+    def get_configured_project_name(cls):
         args = cls.args()
+        if args.cluster_network:
+            return get_project_name_from_vn_dict_string(args.cluster_network)
         if args.cluster_project:
             return args.cluster_project
+        return None
+
+    @classmethod
+    def cluster_project_name(cls, namespace):
+        project_name = cls.get_configured_project_name()
+        if project_name:
+            return project_name
         return namespace
 
     @classmethod
@@ -74,9 +97,9 @@ class VncKubernetesConfig(object):
 
     @classmethod
     def cluster_default_project_name(cls):
-        args = cls.args()
-        if args.cluster_project:
-            return args.cluster_project
+        project_name = cls.get_configured_project_name()
+        if project_name:
+            return project_name
         return "default"
 
     @classmethod
@@ -84,5 +107,21 @@ class VncKubernetesConfig(object):
         return [cls.cluster_domain(), cls.cluster_default_project_name()]
 
     @classmethod
+    def get_configured_network_name(cls):
+        args = cls.args()
+        if args.cluster_network:
+            return get_vn_name_from_vn_dict_string(args.cluster_network)
+        return None
+
+    @classmethod
     def cluster_default_network_name(cls):
+        vn_name = cls.get_configured_network_name()
+        if vn_name:
+            return vn_name
         return "cluster-network"
+
+    @classmethod
+    def cluster_default_network_fq_name(cls):
+        vn_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
+                      cls.cluster_default_network_name()]
+        return vn_fq_name

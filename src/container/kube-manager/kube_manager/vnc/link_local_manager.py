@@ -7,16 +7,27 @@ Link-local service management functions.
 """
 
 from vnc_api.vnc_api import *
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+
+def _get_linklocal_entry_name(name, k8s_ns):
+    if not k8s_ns:
+        project_fq_name = vnc_kube_config.cluster_default_project_fq_name()
+    else:
+        project_fq_name = vnc_kube_config.cluster_project_fq_name(k8s_ns)
+    ll_name = project_fq_name + [name]
+    return "-".join(ll_name)
 
 def create_link_local_service_entry(vnc_lib, name, service_ip, service_port,
-        fabric_ip, fabric_port, fabric_dns_svc_name=""):
+        fabric_ip, fabric_port, fabric_dns_svc_name="", k8s_ns=None):
     """
     Create a link local service in vrouter for the specified Service IP.
     """
 
+    link_local_name = _get_linklocal_entry_name(name, k8s_ns)
+
     # Create a link-local service entry.
     linklocal_obj=LinklocalServiceEntryType(
-        linklocal_service_name=name, linklocal_service_ip=service_ip,
+        linklocal_service_name=link_local_name, linklocal_service_ip=service_ip,
         linklocal_service_port=service_port,
         ip_fabric_service_ip=[fabric_ip],
         ip_fabric_service_port=fabric_port,
@@ -53,7 +64,7 @@ def create_link_local_service_entry(vnc_lib, name, service_ip, service_port,
     for vl in value:
         entry = vl.__dict__
         if ('linklocal_service_name' in entry and
-            entry['linklocal_service_name'] == name):
+            entry['linklocal_service_name'] == link_local_name):
             # An entry with the service name exists. Replace it
             # with the new/latest object.
             new_linklocal.append(linklocal_obj)
@@ -76,7 +87,9 @@ def create_link_local_service_entry(vnc_lib, name, service_ip, service_port,
         # Update failed with an exception. Throw it to the caller.
         raise
 
-def delete_link_local_service_entry(vnc_lib, name):
+def delete_link_local_service_entry(vnc_lib, name, k8s_ns=None):
+    link_local_name = _get_linklocal_entry_name(name, k8s_ns)
+
     # Get current VRouter config from API server.
     try:
         current_config=vnc_lib.global_vrouter_config_read(
@@ -103,7 +116,7 @@ def delete_link_local_service_entry(vnc_lib, name):
         entry = vl.__dict__
         # Skip matching entry and build a new list with remaining entries.
         if ('linklocal_service_name' in entry and
-            entry['linklocal_service_name'] != name):
+            entry['linklocal_service_name'] != link_local_name):
                 new_linklocal.append(vl)
 
     obj[key_ll_svc_entry] = new_linklocal
