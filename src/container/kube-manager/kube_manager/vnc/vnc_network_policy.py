@@ -141,8 +141,8 @@ class VncNetworkPolicy(VncCommon):
             self._label_cache._locate_label(key, sg_cache, label, sg_uuid)
 
     def _set_sg_annotations(self, namespace, name, sg_obj, **kwargs):
-        self.add_annotations(sg_obj, SecurityGroupKM.kube_fq_name_key,
-            namespace=namespace, name=sg_obj.name, **kwargs)
+        SecurityGroupKM.add_annotations(self, sg_obj, namespace, sg_obj.name,
+            **kwargs)
         return
 
     def _vnc_create_sg(self, np_spec, namespace, name,
@@ -441,7 +441,7 @@ class VncNetworkPolicy(VncCommon):
                 self._ingress_pod_label_cache, labels)
         new_sg_uuid_set  = np_sg_uuid_set | ingress_sg_uuid_set
 
-        vmi_sg_uuid_set = []
+        vmi_sg_uuid_set = set()
         for vmi_id in vm.virtual_machine_interfaces:
             vmi = VirtualMachineInterfaceKM.get(vmi_id)
             if not vmi:

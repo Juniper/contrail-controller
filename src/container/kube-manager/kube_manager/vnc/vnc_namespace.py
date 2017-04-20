@@ -137,7 +137,7 @@ class VncNamespace(VncCommon):
         # Remove the ipam from cache.
         NetworkIpamSM.delete(ipam['uuid'])
 
-    def _create_virtual_network(self, ns_name, vn_name, proj_obj):
+    def _create_isolated_ns_virtual_network(self, ns_name, vn_name, proj_obj):
         """
         Create a virtual network for this namespace.
         """
@@ -152,7 +152,7 @@ class VncNamespace(VncCommon):
             vn_uuid = vn_obj.uuid
 
         # Instance-Ip for pods on this VN, should be allocated from
-        # cluster pod ipam. Attach the cluster podipam object
+        # cluster pod ipam. Attach the cluster pod-ipam object
         # to this virtual network.
         ipam_obj = self._vnc_lib.network_ipam_read(
             fq_name=vnc_kube_config.pod_ipam_fq_name())
@@ -169,11 +169,11 @@ class VncNamespace(VncCommon):
 
         return vn_uuid
 
-    def _delete_virtual_network(self, ns_name, vn_name, proj):
+    def _delete_isolated_ns_virtual_network(self, ns_name, vn_name,
+            proj_fq_name):
         """
         Delete the virtual network associated with this namespace.
         """
-
         # First lookup the cache for the entry.
         vn = VirtualNetworkKM.find_by_name_or_uuid(vn_name)
         if not vn:
@@ -184,11 +184,12 @@ class VncNamespace(VncCommon):
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn.fq_name)
             if vn_obj.get_network_ipam_refs():
                 ipam_refs = vn_obj.get_network_ipam_refs()
+                proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
                 for ipam in ipam_refs:
-                    ipam_obj = NetworkIpam(name=ipam['to'][-1],parent_obj=proj)
+                    ipam_obj = NetworkIpam(name=ipam['to'][-1],
+                                parent_obj=proj_obj)
                     vn_obj.del_network_ipam(ipam_obj)
                     self._vnc_lib.virtual_network_update(vn_obj)
-                    self._delete_ipam(ipam)
         except NoIdError:
             pass
 
@@ -256,9 +257,9 @@ class VncNamespace(VncCommon):
 
         sg_obj = SecurityGroup(name=sg_name, parent_obj=proj_obj,
             id_perms=id_perms, security_group_entries=sg_rules)
-        self.add_annotations(sg_obj, SecurityGroupKM.kube_fq_name_key,
-            namespace=ns_name, name=sg_obj.name,
-            k8s_event_type = self._k8s_event_type)
+
+        SecurityGroupKM.add_annotations(self, sg_obj, namespace=ns_name,
+            name=sg_obj.name, k8s_type = self._k8s_event_type)
         try:
             self._vnc_lib.security_group_create(sg_obj)
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
@@ -277,9 +278,9 @@ class VncNamespace(VncCommon):
         sg_obj = SecurityGroup(name=ns_sg_name, parent_obj=proj_obj,
                                id_perms=id_perms,
                                security_group_entries=None)
-        self.add_annotations(sg_obj, SecurityGroupKM.kube_fq_name_key,
-            namespace=ns_name, name=sg_obj.name,
-            k8s_event_type = self._k8s_event_type)
+
+        SecurityGroupKM.add_annotations(self, sg_obj, namespace=ns_name,
+            name=sg_obj.name, k8s_type = self._k8s_event_type)
         try:
             self._vnc_lib.security_group_create(sg_obj)
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
@@ -293,9 +294,13 @@ class VncNamespace(VncCommon):
         return sg_dict
 
     def vnc_namespace_add(self, namespace_id, name, labels, annotations):
+        isolated_ns_ann = 'True' if self._is_namespace_isolated(name) == True\
+            else 'False'
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
         proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name)
 
+        ProjectKM.add_annotations(self, proj_obj, namespace=name, name=name,
+            k8s_uuid=(namespace_id), isolated=isolated_ns_ann)
         try:
             self._vnc_lib.project_create(proj_obj)
         except RefsExistError:
@@ -309,7 +314,7 @@ class VncNamespace(VncCommon):
             try:
                 self._vnc_lib.virtual_network_read(ann_vn_fq_name)
             except NoIdError as e:
-                self.logger.error("Unable to locate virtual network [%s]"
+                self._logger.error("Unable to locate virtual network [%s]"
                     "annotated on namespace [%s]. Error [%s]" %\
                     (ann_vn_fq_name, name, str(e)))
             return None
@@ -317,8 +322,8 @@ class VncNamespace(VncCommon):
         # If this namespace is isolated, create it own network.
         if self._is_namespace_isolated(name) == True:
             vn_name = name + "-vn"
-            self._create_virtual_network(ns_name=name, vn_name=vn_name,
-                proj_obj=proj_obj)
+            self._create_isolated_ns_virtual_network(ns_name=name,
+                vn_name=vn_name, proj_obj=proj_obj)
 
         try:
             network_policy = self._get_network_policy_annotations(name)
@@ -333,8 +338,17 @@ class VncNamespace(VncCommon):
 
     def vnc_namespace_delete(self,namespace_id,  name):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
-        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        project = ProjectKM.get(proj_obj.uuid)
+        project_uuid = ProjectKM.get_fq_name_to_uuid(proj_fq_name)
+        if not project_uuid:
+            self.logger.error("Unable to locate project for k8s namespace "
+                "[%s]" % (name))
+            return
+
+        project = ProjectKM.get(project_uuid)
+        if not project:
+            self.logger.error("Unable to locate project for k8s namespace "
+                "[%s]" % (name))
+            return
 
         default_sg_fq_name = proj_fq_name[:]
         sg = "-".join([vnc_kube_config.cluster_name(), name, 'default'])
@@ -347,9 +361,10 @@ class VncNamespace(VncCommon):
         try:
             # If the namespace is isolated, delete its virtual network.
             if self._is_namespace_isolated(name) == True:
-                self._delete_virtual_network(vn_name=name, proj=proj_obj)
+                self._delete_isolated_ns_virtual_network(vn_name=name,
+                    proj_fq_name=proj_fq_name)
             # delete default-sg and ns-sg security groups
-            security_groups = proj_obj.get_security_groups()
+            security_groups = project.get_security_groups()
             for sg in security_groups or []:
                 if sg['to'] in sg_list[:]:
                     self._vnc_lib.security_group_delete(id=sg['uuid'])
@@ -365,6 +380,34 @@ class VncNamespace(VncCommon):
             self._vnc_lib.project_delete(fq_name=proj_fq_name)
         except Exception as e:
             pass
+
+    def _sync_namespace_project(self):
+        """Sync vnc project objects with K8s namespace object.
+
+        This method walks vnc project local cache and validates that
+        a kubernetes namespace object exists for this project.
+        If a kubernetes namespace object is not found for this project,
+        then construct and simulates a delete event for the namespace,
+        so the vnc project can be cleaned up.
+        """
+        for project in ProjectKM.objects():
+            k8s_namespace_uuid = project.get_k8s_namespace_uuid()
+            # Proceed only if this project is tagged with a k8s namespace.
+            if k8s_namespace_uuid and not\
+                   self._get_namespace(k8s_namespace_uuid):
+                event = {}
+                object = {}
+                object['kind'] = 'Namespace'
+                object['metadata'] = {}
+                object['metadata']['uid'] = k8s_namespace_uuid
+                object['metadata']['name'] = project.get_k8s_namespace_name()
+
+                event['type'] = 'DELETED'
+                event['object'] = object
+                self._queue.put(event)
+
+    def namespace_timer(self):
+        self._sync_namespace_project()
 
     def process(self, event):
         event_type = event['type']

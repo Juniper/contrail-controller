@@ -112,8 +112,7 @@ class VncPod(VncCommon):
         # Finally, if no network was found, default to the cluster
         # pod network.
         if not vn_fq_name:
-            vn_fq_name = vnc_kube_config.cluster_default_project_fq_name() +\
-                [vnc_kube_config.cluster_default_network_name()]
+            vn_fq_name = vnc_kube_config.cluster_default_network_fq_name()
 
         vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         return vn_obj
@@ -157,9 +156,7 @@ class VncPod(VncCommon):
                       fq_name=vmi.fq_name)
         iip_obj.add_virtual_machine_interface(vmi_obj)
 
-        self.add_annotations(iip_obj, InstanceIpKM.kube_fq_name_key,
-            pod_namespace, pod_name)
-
+        InstanceIpKM.add_annotations(self, iip_obj, pod_namespace, pod_name)
         try:
             self._vnc_lib.instance_ip_create(iip_obj)
         except RefsExistError:
@@ -209,8 +206,7 @@ class VncPod(VncCommon):
                       id=vmi_uuid)
         fip_obj.set_virtual_machine_interface(vmi_obj)
 
-        self.add_annotations(fip_obj, FloatingIpKM.kube_fq_name_key,
-            pod_namespace, pod_name)
+        FloatingIpKM.add_annotations(self, fip_obj, pod_namespace, pod_name)
 
         try:
             fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
@@ -257,8 +253,8 @@ class VncPod(VncCommon):
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
         self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
-        self.add_annotations(vmi_obj,
-            VirtualMachineInterfaceKM.kube_fq_name_key, pod_namespace, pod_name)
+        VirtualMachineInterfaceKM.add_annotations(self, vmi_obj, pod_namespace,
+            pod_name)
 
         try:
             vmi_uuid = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
@@ -275,9 +271,8 @@ class VncPod(VncCommon):
         vm_obj = VirtualMachine(name=vm_name,display_name=display_name)
         vm_obj.uuid = pod_id
 
-        self.add_annotations(vm_obj, VirtualMachineKM.kube_fq_name_key,
-            pod_namespace, pod_name, k8s_uuid=pod_id, labels=json.dumps(labels))
-
+        VirtualMachineKM.add_annotations(self, vm_obj, pod_namespace, pod_name,
+            k8s_uuid=str(pod_id), labels=json.dumps(labels))
         try:
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
