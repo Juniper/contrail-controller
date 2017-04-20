@@ -14,9 +14,6 @@ from kube_manager.common.kube_config_db import NamespaceKM
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
 
-from cStringIO import StringIO
-from cfgm_common.utils import cgitb_hook
-
 class VncNamespace(VncCommon):
 
     def __init__(self, network_policy_mgr):
@@ -53,6 +50,23 @@ class VncNamespace(VncCommon):
 
         # By default, namespace is not isolated.
         return False
+
+    def _is_service_isolated(self, ns_name):
+        """
+        Check if service  is configured as isolated.
+        """
+        ns = self._get_namespace(ns_name)
+        if ns:
+            return ns.is_service_isolated()
+
+        # By default, service is not isolated.
+        return False
+
+    def _get_network_policy_annotations(self, ns_name):
+        ns = self._get_namespace(ns_name)
+        if ns:
+            return ns.get_network_policy_annotations()
+        return None
 
     def _get_annotated_virtual_network(self, ns_name):
         ns = self._get_namespace(ns_name)
@@ -211,6 +225,14 @@ class VncNamespace(VncCommon):
                                   ethertype=ethertype)
             return rule
 
+        sg_dict = {}
+        # create default security group
+        sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name,
+            'default'])
+        DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
+        id_perms = IdPermsType(enable=True,
+                               description=DEFAULT_SECGROUP_DESCRIPTION)
+
         rules = []
         ingress = True
         egress = True
@@ -221,20 +243,17 @@ class VncNamespace(VncCommon):
                 if isolation == 'DefaultDeny':
                     ingress = False
         if ingress:
-            rules.append(_get_rule(True, None, '0.0.0.0', 'IPv4'))
-            rules.append(_get_rule(True, None, '::', 'IPv6'))
+            if self._is_service_isolated(ns_name):
+                rules.append(_get_rule(True, sg_name, None, 'IPv4'))
+                rules.append(_get_rule(True, sg_name, None, 'IPv6'))
+            else:
+                rules.append(_get_rule(True, None, '0.0.0.0', 'IPv4'))
+                rules.append(_get_rule(True, None, '::', 'IPv6'))
         if egress:
             rules.append(_get_rule(False, None, '0.0.0.0', 'IPv4'))
             rules.append(_get_rule(False, None, '::', 'IPv6'))
         sg_rules = PolicyEntriesType(rules)
 
-        sg_dict = {}
-        # create default security group
-        DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
-        id_perms = IdPermsType(enable=True,
-                               description=DEFAULT_SECGROUP_DESCRIPTION)
-        sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name,
-            'default'])
         sg_obj = SecurityGroup(name=sg_name, parent_obj=proj_obj,
             id_perms=id_perms, security_group_entries=sg_rules)
         self.add_annotations(sg_obj, SecurityGroupKM.kube_fq_name_key,
@@ -251,10 +270,10 @@ class VncNamespace(VncCommon):
         sg_dict[sg_name] = sg_uuid
 
         # create namespace security group
+        ns_sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'sg'])
         NAMESPACE_SECGROUP_DESCRIPTION = "Namespace security group"
         id_perms = IdPermsType(enable=True,
                                description=NAMESPACE_SECGROUP_DESCRIPTION)
-        ns_sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'sg'])
         sg_obj = SecurityGroup(name=ns_sg_name, parent_obj=proj_obj,
                                id_perms=id_perms,
                                security_group_entries=None)
@@ -270,6 +289,7 @@ class VncNamespace(VncCommon):
         sg_uuid = sg_obj.get_uuid()
         SecurityGroupKM.locate(sg_uuid)
         sg_dict[ns_sg_name] = sg_uuid
+
         return sg_dict
 
     def vnc_namespace_add(self, namespace_id, name, labels, annotations):
@@ -281,23 +301,6 @@ class VncNamespace(VncCommon):
         except RefsExistError:
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         project = ProjectKM.locate(proj_obj.uuid)
-
-        try:
-            network_policy = None
-            if annotations and \
-               'net.beta.kubernetes.io/network-policy' in annotations:
-                try:
-                    network_policy = json.loads(
-                        annotations['net.beta.kubernetes.io/network-policy'])
-                except Exception as e:
-                    string_buf = StringIO()
-                    cgitb_hook(file=string_buf, format="text")
-                    err_msg = string_buf.getvalue()
-                    self._logger.error("%s - %s" %(self._name, err_msg))
-            sg_dict = self._update_security_groups(name, proj_obj, network_policy)
-            self._ns_sg[name] = sg_dict
-        except RefsExistError:
-            pass
 
         # Validate the presence of annotated virtual network.
         ann_vn_fq_name = self._get_annotated_virtual_network(name)
@@ -316,6 +319,13 @@ class VncNamespace(VncCommon):
             vn_name = name + "-vn"
             self._create_virtual_network(ns_name=name, vn_name=vn_name,
                 proj_obj=proj_obj)
+
+        try:
+            network_policy = self._get_network_policy_annotations(name)
+            sg_dict = self._update_security_groups(name, proj_obj, network_policy)
+            self._ns_sg[name] = sg_dict
+        except RefsExistError:
+            pass
 
         if project:
             self._update_namespace_label_cache(labels, namespace_id, project)

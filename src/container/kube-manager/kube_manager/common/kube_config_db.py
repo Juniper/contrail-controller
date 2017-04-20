@@ -6,6 +6,8 @@
 Database for Kubernetes objects.
 """
 
+import json
+
 from cfgm_common.vnc_db import DBBase
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
 from ast import literal_eval
@@ -161,12 +163,14 @@ class NamespaceKM(KubeDBBase):
         self.isolated_vn_fq_name = None
         self.annotated_vn_fq_name = None
         self.annotations = None
+        self.np_annotations = None
 
         # Status.
         self.phase = None
 
         # Config cache.
         self.isolated = False
+        self.service_isolated = False
 
         # If an object is provided, update self with contents of object.
         if obj:
@@ -189,6 +193,7 @@ class NamespaceKM(KubeDBBase):
         self._parse_annotations(self.annotations)
 
     def _parse_annotations(self, annotations):
+        self.np_annotations = None
         if not annotations:
             return
 
@@ -202,12 +207,21 @@ class NamespaceKM(KubeDBBase):
                 " Error[%s]" % (self.name, str(e))
                 raise Exception(err_msg)
 
-        # Cache isolated namespace directive.
-        if 'isolated' in annotations and annotations['isolated'] == "true":
-            # Namespace is configured as isolated.
+        # Cache namespace isolation directive.
+        if 'opencontrail.org/isolation' in annotations and \
+            annotations['opencontrail.org/isolation'] == "true":
+            # Namespace isolation is configured
             self.isolated = True
-        else:
-            self.isolated = False
+            self.service_isolated = True
+        # Cache service isolation directive.
+        if 'opencontrail.org/isolation.service' in annotations and \
+            annotations['opencontrail.org/isolation.service'] == "false":
+            # Service isolation is disabled
+            self.service_isolated = False
+        # Cache k8s network-policy directive.
+        if 'net.beta.kubernetes.io/network-policy' in annotations:
+            self.np_annotations = json.loads(
+                annotations['net.beta.kubernetes.io/network-policy'])
 
     def _update_status(self, status):
         if status is None:
@@ -216,6 +230,12 @@ class NamespaceKM(KubeDBBase):
 
     def is_isolated(self):
         return self.isolated
+
+    def is_service_isolated(self):
+        return self.service_isolated
+
+    def get_network_policy_annotations(self):
+        return self.np_annotations
 
     def set_isolated_network_fq_name(self, fq_name):
         self.isolated_vn_fq_name = fq_name
