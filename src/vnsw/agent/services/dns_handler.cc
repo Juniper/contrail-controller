@@ -75,7 +75,9 @@ void DnsHandler::BuildDnsResolvers() {
         resolver->ep_.address(boost::asio::ip::address::from_string(
                               dns_servers[0], ec));
         assert(ec.value() == 0);
-        uint16_t dns_port = strtoul(dns_servers[1].c_str(), NULL, 10);
+        uint16_t dns_port = DNS_SERVER_PORT;
+        if (dns_servers.size() > 1)
+            dns_port = strtoul(dns_servers[1].c_str(), NULL, 10);
         resolver->ep_.port(dns_port);
         resolver->retries_ = 0;
         std::stringstream ss;
