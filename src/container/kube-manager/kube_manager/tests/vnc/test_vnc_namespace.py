@@ -57,3 +57,5 @@ class VncNamespaceTest(KMTestCase):
         except NoIdError:
             pass
 
+    def test_anything(self):
+        pass

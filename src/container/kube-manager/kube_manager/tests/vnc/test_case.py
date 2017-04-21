@@ -24,18 +24,23 @@ class KMTestCase(test_common.TestCase):
         if extra_config_knobs:
             extra_config.append(extra_config_knobs)
         super(KMTestCase, cls).setUpClass(extra_config_knobs=extra_config)
+        cls._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
+            cls.__name__, cls._api_server_ip, cls._api_server_port)
+        cls._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+            cls.__name__, cls._api_server_ip, cls._api_server_port)
+        test_common.wait_for_schema_transformer_up()
+
+    @classmethod
+    def tearDownClass(cls):
+        test_common.kill_svc_monitor(cls._svc_mon_greenlet)
+        test_common.kill_schema_transformer(cls._st_greenlet)
+        super(KMTestCase, cls).tearDownClass()
 
     def _class_str(self):
         return str(self.__class__).strip('<class ').strip('>').strip("'")
 
     def setUp(self, extra_config_knobs=None):
         super(KMTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
-        self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
-            self.id(), self._api_server_ip, self._api_server_port)
-
-        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self.id(), self._api_server_ip, self._api_server_port, extra_config_knobs)
-
         kube_config = [
             ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
             ('VNC', 'vnc_endpoint_ip', self._api_server_ip),
@@ -50,8 +55,6 @@ class KMTestCase(test_common.TestCase):
             self.id(), kube_config, True, self.event_queue)
 
     def tearDown(self):
-        test_common.kill_svc_monitor(self._svc_mon_greenlet)
-        test_common.kill_schema_transformer(self._st_greenlet)
         test_common.kill_kube_manager(self._km_greenlet)
         super(KMTestCase, self).tearDown()
 
