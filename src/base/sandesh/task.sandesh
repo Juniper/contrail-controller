@@ -25,6 +25,7 @@ struct SandeshTaskGroup {
 
 response sandesh SandeshTaskScheduler {
     1: bool running;
+    5: bool use_spawn;
     2: u64 total_count;
     3: i32 thread_count;
     4: list <SandeshTaskGroup> task_group_list;
@@ -39,4 +40,21 @@ trace sandesh TaskTrace {
     3: string Msg;
     4: u32 latency;
     5: string description;
+}
+
+response sandesh SandeshMonitorResponse {
+    1: bool running;
+    2: u64 inactivity_time_msec;
+    3: u64 poll_interval_msec;
+    4: u64 poll_count;
+    5: u64 last_activity;
+    6: u64 last_enqueue_count;
+    7: u64 last_done_count;
+    8: u64 tbb_keepawake_time;
+}
+
+/**
+ * @description: sandesh request to get task monitoring status
+ */
+request sandesh SandeshTaskMonitorRequest {
 }

@@ -475,6 +475,10 @@ void AgentParam::ParseTaskSection() {
                                     "TASK.tbb_keepawake_timeout")) {
         tbb_keepawake_timeout_ = Agent::kDefaultTbbKeepawakeTimeout;
     }
+    if (!GetValueFromTree<uint32_t>(task_monitor_timeout_msec_,
+                                    "TASK.task_monitor_timeout")) {
+        task_monitor_timeout_msec_ = Agent::kDefaultTaskMonitorTimeout;
+    }
 }
 
 void AgentParam::ParseMetadataProxy() {
@@ -685,6 +689,8 @@ void AgentParam::ParseTaskSectionArguments
                           "TASK.log_schedule_threshold");
     GetOptValue<uint32_t>(var_map, tbb_keepawake_timeout_,
                           "TASK.tbb_keepawake_timeout");
+    GetOptValue<uint32_t>(var_map, task_monitor_timeout_msec_,
+                          "TASK.task_monitor_timeout");
 }
 
 void AgentParam::ParseMetadataProxyArguments
@@ -1161,6 +1167,7 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
+        task_monitor_timeout_msec_(Agent::kDefaultTaskMonitorTimeout),
         send_ratelimit_(sandesh_send_rate_limit()) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
