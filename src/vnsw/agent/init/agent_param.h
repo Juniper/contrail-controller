@@ -220,6 +220,9 @@ public:
     uint32_t tbb_exec_delay() const { return tbb_exec_delay_; }
     uint32_t tbb_schedule_delay() const { return tbb_schedule_delay_; }
     uint32_t tbb_keepawake_timeout() const { return tbb_keepawake_timeout_; }
+    uint32_t task_monitor_timeout_msec() const {
+        return task_monitor_timeout_msec_;
+    }
     uint32_t sandesh_send_rate_limit() { return send_ratelimit_; }
 
 protected:
@@ -417,6 +420,8 @@ private:
     uint32_t tbb_exec_delay_;
     uint32_t tbb_schedule_delay_;
     uint32_t tbb_keepawake_timeout_;
+    // Monitor task library and assert if inactivity detected
+    uint32_t task_monitor_timeout_msec_;
 
     uint32_t send_ratelimit_;
 
