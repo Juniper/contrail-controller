@@ -10,6 +10,8 @@ import json
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.vnc_db import DBBase
 from bitstring import BitArray
+from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_api.vnc_api import (KeyValuePair,KeyValuePairs)
 
 INVALID_VLAN_ID = 4096
 MAX_VLAN_ID = 4095
@@ -19,24 +21,83 @@ class DBBaseKM(DBBase):
     obj_type = __name__
     _nested_mode = False
 
+    # Infra annotations that will be added on objects with custom annotations.
+    ann_fq_name_infra_key = ["project","cluster","owner"]
+
     def __init__(self, uuid, obj_dict=None):
-        self.kube_fq_name = None
+        # By default there are no annotations added on an object.
+        self.ann_fq_name = None
 
-    def build_fq_name_to_uuid(self, uuid, obj_dict):
-        """Populate fq-name to uuid tables."""
-        if not obj_dict:
-            return
+    @staticmethod
+    def get_infra_annotations():
+        """Get infra annotations."""
+        annotations = {}
+        annotations['owner'] = vnc_kube_config.cluster_owner()
+        annotations['cluster'] = vnc_kube_config.cluster_name()
 
-        # Update k8s-style fully qualified name table.
-        self.kube_fq_name = self._get_obj_kube_fq_name(obj_dict)
-        if self.kube_fq_name:
-            self.update_kube_fq_name_to_uuid(uuid, self.kube_fq_name)
+        # "project" annotations, though infrstructural, are namespace specific.
+        # So "project" annotations are added when callee adds annotations on
+        # objects.
 
-        # Update vnc style fully qualified name table.
-        self.update_fq_name_to_uuid(uuid, obj_dict)
+        return annotations
 
     @classmethod
-    def update_fq_name_to_uuid(cls, uuid, obj_dict):
+    def _get_annotations(cls, vnc_caller, namespace, name, k8s_type,
+            **custom_ann_kwargs):
+        """Get all annotations.
+
+        Annotations are aggregated from multiple sources like infra info,
+        input params and custom annotations. This method is meant to be an
+        aggregator of all possible annotations.
+        """
+        # Get annotations declared on the caller.
+        annotations = dict(vnc_caller.get_annotations())
+
+        # Update annotations with infra specific annotations.
+        infra_anns = cls.get_infra_annotations()
+        infra_anns['project'] = vnc_kube_config.cluster_project_name(namespace)
+        annotations.update(infra_anns)
+
+        # Update annotations based on explicity input params.
+        input_anns = {}
+        input_anns['namespace'] = namespace
+        input_anns['name'] = name
+        if k8s_type:
+            input_anns['kind'] = k8s_type
+        annotations.update(input_anns)
+
+        # Append other custom annotations.
+        annotations.update(custom_ann_kwargs)
+
+        return annotations
+
+    @classmethod
+    def add_annotations(cls, vnc_caller, obj, namespace, name, k8s_type=None,
+            **custom_ann_kwargs):
+        """Add annotations on the input object.
+
+        Given an object, this method will add all required and specfied
+        annotations on that object.
+        """
+        # Construct annotations to be added on the object.
+        annotations = cls._get_annotations(vnc_caller, namespace, name,
+                            k8s_type, **custom_ann_kwargs)
+
+        # Validate that annotations have all the info to construct
+        # the annotations-based-fq-name as required by the object's db.
+        if hasattr(cls, 'ann_fq_name_key'):
+            if not set(cls.ann_fq_name_key).issubset(annotations):
+                err_msg = "Annotations required to contruct kube_fq_name for"+\
+                    " object (%s:%s) was not found in input keyword args." %\
+                    (namespace,name)
+                raise Exception(err_msg)
+
+        # Annotate the object.
+        for ann_key, ann_value in annotations.iteritems():
+            obj.add_annotations(KeyValuePair(key=ann_key, value=ann_value))
+
+    @classmethod
+    def _update_fq_name_to_uuid(cls, uuid, obj_dict):
         cls._fq_name_to_uuid[tuple(obj_dict['fq_name'])] = uuid
 
     @classmethod
@@ -44,21 +105,22 @@ class DBBaseKM(DBBase):
         return cls._fq_name_to_uuid.get(tuple(fq_name))
 
     @classmethod
-    def _get_obj_kube_fq_name(cls, obj_dict):
-        """Get the kubernetes fully qualified name for this object.
+    def _get_ann_fq_name_from_obj(cls, obj_dict):
+        """Get the annotated fully qualified name from the object.
 
-        If the object specifies a custom format for fully qualified name,
-        construct the name as such. If not, the fq name from object dictionary
-        is used.
+        Annotated-fq-names are contructed from annotations found on the
+        object. The format of the fq-name is specified in the object's db
+        class. This method will construct the annoated-fq-name of the input
+        object.
         """
         fq_name = None
-        if hasattr(cls, 'kube_fq_name_key'):
-            # Object has a custom fq name format specified.
+        if hasattr(cls, 'ann_fq_name_key'):
             fq_name = []
-            if obj_dict.get('annotations', None) and\
-              obj_dict['annotations'].get('key_value_pair', None):
+            fq_name_key = cls.ann_fq_name_infra_key + cls.ann_fq_name_key
+            if obj_dict.get('annotations') and\
+              obj_dict['annotations'].get('key_value_pair'):
                 kvps = obj_dict['annotations']['key_value_pair']
-                for elem in cls.kube_fq_name_key:
+                for elem in fq_name_key:
                     for kvp in kvps:
                         if kvp.get("key") != elem:
                             continue
@@ -66,14 +128,12 @@ class DBBaseKM(DBBase):
                         break
         return fq_name
 
-    @staticmethod
-    def get_kube_fq_name(kube_fq_name_key, **kwargs):
-        """Get a kubernetes fq-name.
-
-        Construct a kubernetes fully qualified name from the given collection.
-        """
+    @classmethod
+    def _get_ann_fq_name_from_params(cls, **kwargs):
+        """Construct annotated fully qualified name using input params."""
         fq_name = []
-        for elem in kube_fq_name_key:
+        fq_name_key = cls.ann_fq_name_infra_key + cls.ann_fq_name_key
+        for elem in fq_name_key:
             for key,value in kwargs.iteritems():
                 if key != elem:
                     continue
@@ -82,20 +142,54 @@ class DBBaseKM(DBBase):
         return fq_name
 
     @classmethod
-    def update_kube_fq_name_to_uuid(cls, uuid, kube_fq_name):
-        cls._kube_fq_name_to_uuid[tuple(kube_fq_name)] = uuid
+    def get_ann_fq_name_to_uuid(cls, vnc_caller, namespace, name,
+            k8s_type=None, **kwargs):
+        """Get vnc object uuid corresponding to an annotated-fq-name.
+
+        The annotated-fq-name is constructed from the input params given
+        by the caller.
+        """
+        # Construct annotations based on input params.
+        annotations = cls._get_annotations(vnc_caller, namespace, name,
+                        k8s_type, **kwargs)
+
+        # Validate that annoatations has all info required for construction
+        # of annotated-fq-name.
+        if hasattr(cls, 'ann_fq_name_key'):
+            if not set(cls.ann_fq_name_key).issubset(annotations):
+                err_msg = "Annotations required to contruct kube_fq_name for"+\
+                    " object (%s:%s) was not found in input keyword args." %\
+                    (namespace,name)
+                raise Exception(err_msg)
+
+        # Lookup annnoated-fq-name in annotated-fq-name to uuid table.
+        return cls._ann_fq_name_to_uuid.get(
+            tuple(cls._get_ann_fq_name_from_params(**annotations)))
 
     @classmethod
-    def get_kube_fq_name_to_uuid(cls, fq_name):
-        return cls._kube_fq_name_to_uuid.get(tuple(fq_name), None)
+    def _update_ann_fq_name_to_uuid(cls, uuid, ann_fq_name):
+        cls._ann_fq_name_to_uuid[tuple(ann_fq_name)] = uuid
+
+    def build_fq_name_to_uuid(self, uuid, obj_dict):
+        """Populate uuid in all tables tracking uuid."""
+        if not obj_dict:
+            return
+
+        # Update annotated-fq-name to uuid table.
+        self.ann_fq_name = self._get_ann_fq_name_from_obj(obj_dict)
+        if self.ann_fq_name:
+            self._update_ann_fq_name_to_uuid(uuid, self.ann_fq_name)
+
+        # Update vnc fq-name to uuid table.
+        self._update_fq_name_to_uuid(uuid, obj_dict)
 
     @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        if not obj.kube_fq_name is None:
-            del cls._kube_fq_name_to_uuid[tuple(obj.kube_fq_name)]
+        if not obj.ann_fq_name is None:
+            del cls._ann_fq_name_to_uuid[tuple(obj.ann_fq_name)]
         del cls._fq_name_to_uuid[tuple(obj.fq_name)]
 
     def evaluate(self):
@@ -116,11 +210,16 @@ class DBBaseKM(DBBase):
         """
         DBBaseKM._nested_mode = val
 
+    @classmethod
+    def objects(cls):
+        # Get all vnc objects of this class.
+        return cls._dict.values()
+
 class LoadbalancerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer'
-    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
-    _kube_fq_name_to_uuid = {}
+    ann_fq_name_key = ["kind","name"]
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -157,7 +256,7 @@ class LoadbalancerKM(DBBaseKM):
 class LoadbalancerListenerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_listener'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -201,7 +300,7 @@ class LoadbalancerListenerKM(DBBaseKM):
 class LoadbalancerPoolKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_pool'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -245,7 +344,7 @@ class LoadbalancerPoolKM(DBBaseKM):
 class LoadbalancerMemberKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_member'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -293,7 +392,7 @@ class LoadbalancerMemberKM(DBBaseKM):
 class HealthMonitorKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_healthmonitor'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -329,8 +428,8 @@ class HealthMonitorKM(DBBaseKM):
 class VirtualMachineKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_machine'
-    _kube_fq_name_to_uuid = {}
-    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    _ann_fq_name_to_uuid = {}
+    ann_fq_name_key = ["kind","name"]
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -375,7 +474,7 @@ class VirtualMachineKM(DBBaseKM):
 class VirtualRouterKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_router'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -404,8 +503,8 @@ class VirtualRouterKM(DBBaseKM):
 class VirtualMachineInterfaceKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
-    _kube_fq_name_to_uuid = {}
-    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    _ann_fq_name_to_uuid = {}
+    ann_fq_name_key = ["kind","name"]
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -545,7 +644,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
 class VirtualNetworkKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_network'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -608,8 +707,8 @@ class VirtualNetworkKM(DBBaseKM):
 class InstanceIpKM(DBBaseKM):
     _dict = {}
     obj_type = 'instance_ip'
-    _kube_fq_name_to_uuid = {}
-    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    _ann_fq_name_to_uuid = {}
+    ann_fq_name_key = ["kind","name"]
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -656,13 +755,18 @@ class InstanceIpKM(DBBaseKM):
 class ProjectKM(DBBaseKM):
     _dict = {}
     obj_type = 'project'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.ns_labels = {}
         self.virtual_networks = set()
+        self.annotations = None
+        self.k8s_namespace_isolated = False
+        self.k8s_namespace_uuid = None
+        self.k8s_namespace_name = None
+        self.security_groups = []
         obj_dict = self.update(obj_dict)
         self.set_children('virtual_network', obj_dict)
 
@@ -671,8 +775,17 @@ class ProjectKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        self.annotations = obj.get('annotations', None)
         self.build_fq_name_to_uuid(self.uuid, obj)
+        self.security_groups = obj.get('security_groups', [])
+        self.annotations = obj.get('annotations', {})
+        for kvp in self.annotations.get('key_value_pair', []):
+            if kvp.get('key') == 'isolated':
+                self.k8s_namespace_isolated = True if kvp.get('value') ==\
+                    'True' else False
+            if kvp.get('key') == 'k8s_uuid':
+                self.k8s_namespace_uuid = kvp.get('value')
+            if kvp.get('key') == 'name':
+                self.k8s_namespace_name = kvp.get('value')
         return obj
 
     @classmethod
@@ -682,11 +795,22 @@ class ProjectKM(DBBaseKM):
         obj = cls._dict[uuid]
         del cls._dict[uuid]
 
+    def get_security_groups(self):
+        return self.security_groups
+
+    def is_k8s_namespace_isolated(self):
+        return self.k8s_namespace_isolated
+
+    def get_k8s_namespace_uuid(self):
+        return self.k8s_namespace_uuid
+
+    def get_k8s_namespace_name(self):
+        return self.k8s_namespace_name
 
 class DomainKM(DBBaseKM):
     _dict = {}
     obj_type = 'domain'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -710,9 +834,9 @@ class DomainKM(DBBaseKM):
 class SecurityGroupKM(DBBaseKM):
     _dict = {}
     obj_type = 'security_group'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
-    kube_fq_name_key = ["project", "cluster", "namespace", "name"]
+    ann_fq_name_key = ["name"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -770,7 +894,7 @@ class SecurityGroupKM(DBBaseKM):
 class FloatingIpPoolKM(DBBaseKM):
     _dict = {}
     obj_type = 'floating_ip_pool'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -800,8 +924,8 @@ class FloatingIpPoolKM(DBBaseKM):
 class FloatingIpKM(DBBaseKM):
     _dict = {}
     obj_type = 'floating_ip'
-    _kube_fq_name_to_uuid = {}
-    kube_fq_name_key = ["project","cluster","namespace","kind","name"]
+    _ann_fq_name_to_uuid = {}
+    ann_fq_name_key = ["kind","name"]
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -842,7 +966,7 @@ class FloatingIpKM(DBBaseKM):
 class NetworkIpamKM(DBBaseKM):
     _dict = {}
     obj_type = 'network_ipam'
-    _kube_fq_name_to_uuid = {}
+    _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):

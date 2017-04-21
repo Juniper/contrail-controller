@@ -190,8 +190,9 @@ class ServiceLbManager(VncCommon):
                       operating_status='ONLINE', vip_address=vip_address)
         lb_obj.set_loadbalancer_properties(props)
 
-        self.add_annotations(lb_obj, LoadbalancerKM.kube_fq_name_key,
-                      service_ns, service_name, k8s_event_type=k8s_event_type)
+        LoadbalancerKM.add_annotations(self, lb_obj, service_ns, service_name,
+            k8s_type=k8s_event_type)
+
         try:
             self._vnc_lib.loadbalancer_create(lb_obj)
         except RefsExistError:

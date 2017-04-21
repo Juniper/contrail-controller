@@ -79,6 +79,7 @@ def parse_args(args_str=None):
         'kubernetes_cluster_domain' : 'default-domain',
         'cluster_name': None,
         'cluster_project' : None,
+        'cluster_network' : None,
     }
 
     sandesh_opts = {
