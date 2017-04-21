@@ -80,7 +80,7 @@ public:
                       const char *dip, int proto, int sport, int dport,
                       int nh_id) {
         KSyncFlowMemory *flow_memory = agent_->ksync()->ksync_flow_memory();
-        if (hash_id >= flow_memory->flow_table_entries_count()) {
+        if (hash_id >= flow_memory->table_entries_count()) {
             return false;
         }
 
@@ -118,7 +118,7 @@ public:
     void KFlowPurgeHold() {
         KSyncFlowMemory *flow_memory = agent_->ksync()->ksync_flow_memory();
         for (size_t count = 0;
-             count < flow_memory->flow_table_entries_count();
+             count < flow_memory->table_entries_count();
              count++) {
             vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(count);
             vr_flow->fe_action = VR_FLOW_ACTION_DROP;

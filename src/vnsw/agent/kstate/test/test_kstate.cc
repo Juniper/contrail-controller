@@ -397,21 +397,45 @@ TEST_F(KStateTest, MirrorGetTest) {
 
 TEST_F(KStateTest, RouteDumpTest) {
     if (!ksync_init_) {
-        int rt_count = 0, prev_rt_count;
-        TestRouteKState::Init(false);
+        CreatePorts(0, 0, 0);
+        //Default
+        // Addition of 2 vm ports in a new VN (VRF) will result in the following routes
+        // 3 routes corresponding to each VMI. The 3 routes per VMI are
+        // (1 L2 (AF_BRIDGE) route in new VRF)
+        // (1 L3 (AF_INET) route in new VRF)
+        // (1 L3 route in fabric VRF for metadata IP of VMI)
+        // L3 routes on subnets (6)
+        // 3 AF_INET subnet routes pointing to discard NH in the new VRF
+        // (the IPAM for the VN has 3 subnets configured)
+        // 3 AF_INET gateway routes for 3 subnets in new VRF
+        // Summary
+        // Each new VRF will have 6 AF_INET routes
+        // Each VMI in the new VRF will have 1 AF_INET route
+        // Each VMI will have 1 AF_INET route in FABRIC VRF
+        //
+        // L2 Routes for new VRF (3)
+        // l2-receive route for vhost mac for new VRF
+        // l2-receive route for vrrp mac for new VRF
+        // route for broadcast mac for new VRF
+        // Summary
+        // Each new VRF will have 3 AF_BRIDGE routes
+        // Each VMI in the new VRF will have 1 AF_BRIDGE route
+        //
+        // V6 routes for new VRF (3)
+        // IPV6_ALL_NODES_ADDRESS route pointing to pkt0 on new VRF
+        // IPV6_ALL_ROUTERS_ADDRESS route pointing to pkt0 on new VRF
+        // PKT0_LINKLOCAL_ADDRESS route pointing to pkt0 on new VRF
+        // Summary
+        // Each new VRF will have 3 AF_INET6 routes
+        // Each VMI in the new VRF will have 1 AF_INET route if v6 IP is configured
+
+        TestRouteKState::Init(true, 1, AF_INET, (MAX_TEST_FD) + 6);
         client->WaitForIdle();
         client->KStateResponseWait(1);
-        rt_count = 0;
-
-        prev_rt_count = KSyncSockTypeMap::RouteCount();
-        CreatePorts(0, 0, rt_count);
-        //Default
-        //Addition of 2 vm ports in a new VN (VRF) will result in the following routes
-        // 2 routes corresponding to the addresses of VM
-        // 2 routes corresponding to VN ipam, i.e., gate-way & subnet routes
-        // l2 broadcast
-        // 3 - v6 host route for new vrf addition
-        TestRouteKState::Init(true, prev_rt_count + (MAX_TEST_FD * 4) + 4);
+        TestRouteKState::Init(true, 1, AF_INET6, 3);
+        client->WaitForIdle();
+        client->KStateResponseWait(1);
+        TestRouteKState::Init(true, 1, AF_BRIDGE, (MAX_TEST_FD) + 3);
         client->WaitForIdle();
         client->KStateResponseWait(1);
         DeletePorts();

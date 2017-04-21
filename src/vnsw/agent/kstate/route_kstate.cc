@@ -50,13 +50,13 @@ void RouteKState::SendNextRequest() {
     RouteContext *rctx = static_cast<RouteContext *>(more_context_);
 
     InitEncoder(req, rctx->vrf_id, op_code_);
-    req.set_rtr_marker(rctx->marker);
-    req.set_rtr_marker_plen(rctx->marker_plen);
-    // rtr_prefix needs to be initialized
-    if(family_id_ == AF_BRIDGE) {
-        req.set_rtr_mac(prefix_);
+    if (family_id_ == AF_BRIDGE) {
+        req.set_rtr_mac(rctx->marker);
     } else {
+        // rtr_prefix needs to be initialized
         req.set_rtr_prefix(prefix_);
+        req.set_rtr_marker(rctx->marker);
+        req.set_rtr_marker_plen(rctx->marker_plen);
     }
     EncodeAndSend(req);
 }

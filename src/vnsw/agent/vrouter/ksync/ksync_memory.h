@@ -50,6 +50,7 @@ public:
     }
     uint32_t audit_timeout() const { return audit_timeout_; }
     void Mmap(bool unlink);
+    uint32_t table_entries_count() { return table_entries_count_; }
 
 protected:
     struct AuditEntry {
