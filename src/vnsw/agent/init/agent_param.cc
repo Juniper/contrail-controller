@@ -367,6 +367,7 @@ void AgentParam::ParseQueue() {
 
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
+    collector_server_list_.clear();
     GetOptValue< vector<string> >(var_map, collector_server_list_,
                                   "DEFAULT.collectors");
     if (collector_server_list_.size() == 1) {
@@ -377,6 +378,7 @@ void AgentParam::ParseCollectorArguments
 
 void AgentParam::ParseControllerServersArguments
     (const boost::program_options::variables_map &var_map) {
+    controller_server_list_.clear();
     GetOptValue< vector<string> >(var_map, controller_server_list_,
                                   "CONTROL-NODE.servers");
     if (controller_server_list_.size() == 1) {
@@ -387,6 +389,7 @@ void AgentParam::ParseControllerServersArguments
 
 void AgentParam::ParseDnsServersArguments
     (const boost::program_options::variables_map &var_map) {
+    dns_server_list_.clear();
     GetOptValue< vector<string> >(var_map, dns_server_list_,
                                   "DNS.servers");
     if (dns_server_list_.size() == 1) {
@@ -756,7 +759,6 @@ void AgentParam::InitFromConfig() {
             if (it->unregistered) {
                 tree_.put(it->string_key,it->value.at(0));
             }
-
         }
     }
     config_file_in.close();
@@ -791,10 +793,22 @@ void AgentParam::ProcessArguments() {
 }
 
 void AgentParam::ReInitFromConfig() {
-    InitFromConfig();
-    ParseControllerServersArguments(var_map_);
-    ParseDnsServersArguments(var_map_);
-    ParseCollectorArguments(var_map_);
+
+    // Read and parse INI
+    opt::variables_map var_map;
+    ifstream config_file_in;
+    config_file_in.open(config_file_.c_str());
+    if (config_file_in.good()) {
+        opt::basic_parsed_options<char> ParsedOptions =
+            opt::parse_config_file(config_file_in, config_file_options_, true);
+        boost::program_options::store(ParsedOptions, var_map);
+    }
+    config_file_in.close();
+    cout << "Config file <" << config_file_ << "> re-parsing completed.\n";
+
+    ParseControllerServersArguments(var_map);
+    ParseDnsServersArguments(var_map);
+    ParseCollectorArguments(var_map);
     return;
 }
 
