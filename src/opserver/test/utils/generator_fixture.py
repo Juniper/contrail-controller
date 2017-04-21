@@ -477,33 +477,40 @@ class GeneratorFixture(fixtures.Fixture):
         del self.alarms[table][name]
     # end delete_alarm
 
-    def send_all_sandesh_types_object_logs(self, name):
+    def send_sandesh_types_object_logs(self, name,
+            types=[SandeshType.SYSTEM, SandeshType.OBJECT, SandeshType.UVE,
+                SandeshType.ALARM]):
         # send all sandesh types that should be returned in the Object query.
         msg_types = []
-        systemlog = ObjectTableSystemLogTest(name=name,
+        for stype in types:
+            if stype == SandeshType.SYSTEM:
+                systemlog = ObjectTableSystemLogTest(name=name,
                         sandesh=self._sandesh_instance)
-        msg_types.append(systemlog.__class__.__name__)
-        self._logger.info('send systemlog: %s' % (systemlog.log()))
-        systemlog.send(sandesh=self._sandesh_instance)
-        objlog = ObjectTableObjectLogTest(name=name,
+                msg_types.append(systemlog.__class__.__name__)
+                self._logger.info('send systemlog: %s' % (systemlog.log()))
+                systemlog.send(sandesh=self._sandesh_instance)
+            if stype == SandeshType.OBJECT:
+                objlog = ObjectTableObjectLogTest(name=name,
                     sandesh=self._sandesh_instance)
-        msg_types.append(objlog.__class__.__name__)
-        self._logger.info('send objectlog: %s' % (objlog.log()))
-        objlog.send(sandesh=self._sandesh_instance)
-        uve_data = ObjectTableUveData(name=name)
-        uve = ObjectTableUveTest(data=uve_data,
-                sandesh=self._sandesh_instance)
-        msg_types.append(uve.__class__.__name__)
-        self._logger.info('send uve: %s' % (uve.log()))
-        uve.send(sandesh=self._sandesh_instance)
-        alarm_data = UVEAlarms(name=name)
-        alarm = AlarmTrace(data=alarm_data,
+                msg_types.append(objlog.__class__.__name__)
+                self._logger.info('send objectlog: %s' % (objlog.log()))
+                objlog.send(sandesh=self._sandesh_instance)
+            if stype == SandeshType.UVE:
+                uve_data = ObjectTableUveData(name=name)
+                uve = ObjectTableUveTest(data=uve_data,
+                    sandesh=self._sandesh_instance)
+                msg_types.append(uve.__class__.__name__)
+                self._logger.info('send uve: %s' % (uve.log()))
+                uve.send(sandesh=self._sandesh_instance)
+            if stype == SandeshType.ALARM:
+                alarm_data = UVEAlarms(name=name)
+                alarm = AlarmTrace(data=alarm_data,
                            table='ObjectBgpRouter',
                            sandesh=self._sandesh_instance)
-        msg_types.append(alarm.__class__.__name__)
-        self._logger.info('send alarm: %s' % (alarm.log()))
-        alarm.send(sandesh=self._sandesh_instance)
+                msg_types.append(alarm.__class__.__name__)
+                self._logger.info('send alarm: %s' % (alarm.log()))
+                alarm.send(sandesh=self._sandesh_instance)
         return msg_types
-    # end send_all_sandesh_types_object_logs
+    # end send_sandesh_types_object_logs
 
 # end class GeneratorFixture
