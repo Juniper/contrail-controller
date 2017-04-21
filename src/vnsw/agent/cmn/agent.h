@@ -208,6 +208,7 @@ public:
     // Max number of threads
     static const uint32_t kMaxTbbThreads = 8;
     static const uint32_t kDefaultTbbKeepawakeTimeout = (20); //time-millisecs
+    static const uint32_t kDefaultTaskMonitorTimeout = (5000); //time-millisecs
 
     enum ForwardingMode {
         NONE,
@@ -1114,6 +1115,9 @@ private:
     uint32_t tbb_keepawake_timeout_;
     Timer *tbb_awake_timer_;
     uint64_t tbb_awake_count_;
+    // Monitor task library and assert if inactivity detected
+    uint32_t task_monitor_timeout_msec_;
+
     // Constants
     static const std::string config_file_;
     static const std::string log_file_;
