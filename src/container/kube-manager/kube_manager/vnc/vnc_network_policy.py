@@ -352,7 +352,7 @@ class VncNetworkPolicy(VncCommon):
                     %(self._name, sg_id, pod_id))
             except Exception as e:
                 self._logger.error("%s - Failed to %s SG-%s Ref for pod-%s" \
-                    %(self._name, sg_id, pod_id))
+                    %(self._name, oper, sg_id, pod_id))
 
     def _update_rule_uuid(self, sg_rule_set):
         for sg_rule in sg_rule_set or []:
