@@ -316,6 +316,7 @@ public:
     void ReInit();
 
     void LogConfig() const;
+    void LogFilteredConfig() const;
     void PostValidateLogConfig() const;
     void InitVhostAndXenLLPrefix();
     void InitPlatform();
