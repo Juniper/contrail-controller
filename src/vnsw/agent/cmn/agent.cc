@@ -289,6 +289,7 @@ void Agent::CopyConfig(AgentParam *params) {
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
     tbb_keepawake_timeout_ = params_->tbb_keepawake_timeout();
+    task_monitor_timeout_msec_ = params_->task_monitor_timeout_msec();
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
@@ -360,6 +361,13 @@ void Agent::InitDone() {
                                                      task_id, 0);
         tbb_awake_timer_->Start(tbb_keepawake_timeout_,
                                 boost::bind(&Agent::TbbKeepAwake, this));
+    }
+
+    // Its observed that sometimes TBB stops scheduling tasks altogether.
+    // Initiate a monitor which asserts if no task is spawned for a given time.
+    if (task_monitor_timeout_msec_) {
+        task_scheduler_->EnableMonitor(event_manager(), tbb_keepawake_timeout_,
+                                       task_monitor_timeout_msec_, 100);
     }
 }
 
@@ -480,8 +488,9 @@ Agent::Agent() :
     vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
     vrouter_max_mirror_entries_(0), vrouter_max_bridge_entries_(0),
     vrouter_max_oflow_bridge_entries_(0),
-    tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout), tbb_awake_timer_(NULL),
-    tbb_awake_count_(0) {
+    tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout),tbb_awake_timer_(NULL),
+    tbb_awake_count_(0),
+    task_monitor_timeout_msec_(kDefaultTaskMonitorTimeout) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

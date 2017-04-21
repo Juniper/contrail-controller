@@ -44,6 +44,9 @@
 class TaskGroup;
 class TaskEntry;
 class SandeshTaskScheduler;
+class TaskMonitor;
+class TaskScheduler;
+class EventManager;
 
 struct TaskStats {
     int     wait_count_;                // #Entries in waitq
@@ -70,6 +73,13 @@ public:
         INIT,
         WAIT,
         RUN
+    };
+
+    enum TbbState {
+        TBB_INIT,
+        TBB_ENQUEUED,
+        TBB_EXEC,
+        TBB_DONE
     };
 
     const static int kTaskInstanceAny = -1;
@@ -106,15 +116,18 @@ private:
     friend class TaskScheduler;
     friend class TaskImpl;
     void SetSeqNo(uint64_t seqno) {seqno_ = seqno;};
+    void SetTbbState(TbbState s) { tbb_state_ = s; };
     void SetState(State s) { state_ = s; };
     void SetTaskRecycle() { task_recycle_ = true; };
     void SetTaskComplete() { task_recycle_ = false; };
     void StartTask();
+    void StartTask(TaskScheduler *scheduler);
 
     int                 task_id_;       // The code path executed by the task.
     int                 task_instance_; // The dataset id within a code path.
     tbb::task           *task_impl_;
     State               state_;
+    TbbState            tbb_state_;
     uint64_t            seqno_;
     bool                task_recycle_;
     bool                task_cancel_;
@@ -191,6 +204,7 @@ public:
 
     // Get number of tbb worker threads.
     static int GetThreadCount(int thread_count = 0);
+    static bool ShouldUseSpawn();
 
     uint64_t enqueue_count() const { return enqueue_count_; }
     uint64_t done_count() const { return done_count_; }
@@ -207,6 +221,13 @@ public:
     bool measure_delay() const { return measure_delay_; }
     uint32_t schedule_delay() const { return schedule_delay_; }
     uint32_t execute_delay() const { return execute_delay_; }
+
+    // Enable Task monitoring
+    void EnableMonitor(EventManager *evm, uint32_t tbb_keepawake_time_msec,
+                       uint64_t inactivity_time_msec,
+                       uint64_t poll_interval_msec);
+    const TaskMonitor *task_monitor() const { return task_monitor_; }
+    bool use_spawn() const { return use_spawn_; }
 
     // following function allows one to increase max num of threads used by
     // TBB
@@ -232,6 +253,8 @@ private:
 
     TaskEntry               *stop_entry_;
 
+    // Use spawn() to run a tbb::task instead of enqueue()
+    bool                    use_spawn_;
     tbb::task_scheduler_init task_scheduler_;
     tbb::mutex              mutex_;
     bool                    running_;
@@ -254,6 +277,7 @@ private:
     uint64_t                enqueue_count_;
     uint64_t                done_count_;
     uint64_t                cancel_count_;
+    TaskMonitor      *task_monitor_;
     // following variable allows one to increase max num of threads used by
     // TBB
     static int ThreadAmpFactor_;
