@@ -2127,6 +2127,7 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_flow_series_aggregation_binning
 
+    @retry(delay=2, tries=5)
     def verify_fieldname_messagetype(self):
         self.logger.info('Verify stats table for stats name field');
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
@@ -2135,11 +2136,13 @@ class AnalyticsFixture(fixtures.Fixture):
 		            start_time="now-10m",
                             end_time="now",
                             select_fields=["fields.value"],
-                            where=[[{"name": "name", "value": "Message", "op": 7}]])
+                            where=[[{"name": "name", "value": "MessageTable:Messagetype",
+                                "op": OpServerUtils.MatchOp.EQUAL}]])
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)
         self.logger.info(str(res))
-        assert(len(res)>1)
+        if not (len(res)>=1):
+            return False
         return True
 
     @retry(delay=2, tries=5)

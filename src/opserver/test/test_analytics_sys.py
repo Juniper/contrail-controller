@@ -223,8 +223,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         and objecttypes
         '''
         logging.info("%%% test_05_fieldname_query %%%")
-        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
-        self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
                              self.__class__.cassandra_port))
@@ -235,8 +233,18 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             GeneratorFixture("VRouterAgent", collectors,
                              logging, vizd_obj.get_opserver_port()))
         assert generator_obj.verify_on_setup()
+        # Messagetype is stored in the FieldNames.fields table only
+        # for objectlog and systemlog. For systemlog it is stored as
+        # MessageTable:Messagetype and for objectlog it is stored as
+        # <ObjectTableName>:Messagetype. Send only systemlog
+        logging.info("Starting sandesh types gen " + str(UTCTimestampUsec()))
+        generator_obj.send_sandesh_types_object_logs(socket.gethostname(),
+            types=[SandeshType.SYSTEM])
+        logging.info("Ending sandesh types gen " + str(UTCTimestampUsec()))
         # Sends 2 different vn uves in 1 sec spacing
+        logging.info("Starting intervn gen " + str(UTCTimestampUsec()))
         generator_obj.generate_intervn()
+        logging.info("Ending intervn gen " + str(UTCTimestampUsec()))
         assert vizd_obj.verify_fieldname_messagetype()
         assert vizd_obj.verify_fieldname_table()
         return True
@@ -292,7 +300,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
     #end test_06_send_tracebuffer
 
-    @unittest.skip('verify source/module list')
+    #@unittest.skip('verify source/module list')
     def test_07_table_source_module_list(self):
         '''
         This test verifies /analytics/table/<table>/column-values/Source
@@ -377,7 +385,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             GeneratorFixture('contrail-control', collectors,
                              logging, None, node_type='Control'))
         assert generator_obj.verify_on_setup()
-        msg_types = generator_obj.send_all_sandesh_types_object_logs(
+        msg_types = generator_obj.send_sandesh_types_object_logs(
                         socket.gethostname())
         assert vizd_obj.verify_object_table_sandesh_types('ObjectBgpRouter',
                 socket.gethostname(), msg_types)
