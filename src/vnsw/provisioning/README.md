@@ -4,7 +4,7 @@ Compute provisioning package.
 ## Overview
 The package contains the code for provisioning contrail compute services. `contrail-compute-setup` is the entrypoint script used to provision contrail compute.
 
-This python package is packaged as part of contrail-vrouter-agent package, So in a compute where contrail-vrouter-agent package is installed one can issue the following command to get help about the contrail-compute-setup and supported arguments.
+This python package is packaged as part of `contrail-vrouter-agent` package, So in a compute where `contrail-vrouter-agent` package is installed one can issue the following command to get help about the `contrail-compute-setup` and supported arguments.
 
 ```sh
 $ contrail-compute-setup --help
@@ -17,7 +17,7 @@ Following modes of contrail vrouter provisioning are supported.
 * dpdk mode
 
 ###  kernel mode
-Following is the commandline with mandatory argument to provision vrouter in kernel mode.
+Commandline with mandatory argument to provision vrouter in kernel mode follows,
 
 ```sh
 $ contrail-compute-setup --self_ip 5.5.5.1\
@@ -33,8 +33,21 @@ $ contrail-compute-setup --self_ip 5.5.5.1\
                          --keystone_admin_tenant_name admin
 ```
 
+The  script does the following,
+
+* Disable selinux
+* Disable iptables
+* Configure coredump
+* Add's /dev/net/tun in cgroup device acl
+* Configure `contrail-vrouter-agent.conf`
+* Configure vhost0 interface with the configs of the present in physical interface.
+* Configure `contrail-vrouter-nodemgr.conf`
+* Configure `contrail-lbaas-auth.conf`
+* Enable agent services
+* Create virtual-router object for the compute in api-server (Optional based on the `--register` flag)
+
 ### dpdk mode
-Following is the commandline with mandatory argument to provision vrouter in dpdk mode.
+Commandline with mandatory argument to provision vrouter in dpdk mode follows,
 
 ```sh
 $ contrail-compute-setup --self_ip 5.5.5.1\

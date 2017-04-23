@@ -60,14 +60,15 @@ class AttributeString(str):
         return str(self)
 
 
-def local(cmd, capture=False, warn_only=False):
+def local(cmd, capture=False, warn_only=False, executable='/bin/sh'):
     """
     Wrapper to execute local command and collect its stdout/status.
     """
     log.info("Executing: %s", cmd)
     output, succeeded, failed = (AttributeString(''), True, False)
     try:
-        output = AttributeString(check_output(cmd, stderr=STDOUT, shell=True))
+        output = AttributeString(check_output(
+            cmd, stderr=STDOUT, shell=True, executable=executable))
         if capture:
             log.info(output)
     except CalledProcessError as err:
