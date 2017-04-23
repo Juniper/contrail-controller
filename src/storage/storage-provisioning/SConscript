@@ -1,0 +1,23 @@
+import os
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+sources = [
+    'setup.py',
+    'requirements.txt',
+    'MANIFEST.in',
+    'contrail_storage_provisioning/__init__.py',
+    'contrail_storage_provisioning/ceph_provision.py',
+    'contrail_storage_provisioning/ceph_utils.py',
+    ]
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+if 'install_storage_provision' in BUILD_TARGETS:
+    env.Alias('install_storage_provision',
+              env.Command(None, sources,
+                          cd_cmd + 'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT']))
+
+# Local Variables:
+# mode: python
+# End:
