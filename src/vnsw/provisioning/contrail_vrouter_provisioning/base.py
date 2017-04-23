@@ -26,6 +26,9 @@ class ContrailSetup(object):
     def __init__(self):
         (self.pdist, self.pdistversion, self.pdistrelease) = platform.dist()
         self.hostname = socket.gethostname()
+        self.running_in_contianer = False
+        if os.path.exists('/.dockerenv'):
+            self.running_in_contianer = True
 
         self._temp_dir_name = tempfile.mkdtemp()
         self.contrail_bin_dir = '/opt/contrail/bin'

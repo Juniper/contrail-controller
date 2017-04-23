@@ -3,8 +3,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import os
 import logging
 import argparse
+import ConfigParser
 
 
 log = logging.getLogger('contrail_vrouter_provisioning.cmdparser')
@@ -14,28 +16,29 @@ class ComputeArgsParser(object):
     def __init__(self, args_str=None):
         self._args = None
 
+        conf_file = '/etc/contrailctl/agent.conf'
+        if '--conf_file' in args_str:
+            conf_file = args_str[args_str.index('--conf_file') + 1]
+        self.parse_config_file(conf_file)
+
         self.global_defaults = {
-            'cfgm_ip': '127.0.0.1',
-            'cfgm_user': 'root',
-            'cfgm_passwd': 'c0ntrail123',
-            'keystone_ip': '127.0.0.1',
-            'self_ip': '127.0.0.1',
-            'non_mgmt_ip': None,
-            'non_mgmt_gw': None,
-            'public_subnet': None,
-            'public_vn_name': None,
-            'vgw_intf': None,
-            'gateway_routes': None,
-            'haproxy': False,
-            'keystone_admin_user': None,
-            'keystone_admin_passwd': None,
-            'neutron_password': None,
-            'mode': None,
+            'conf_file': '/etc/contrailctl/agent.conf',
+            'cfgm_ip': self.get_config('GLOBAL', 'cfgm_ip', '127.0.0.1'),
+            'keystone_ip': self.get_config('KEYSTONE', 'ip', '127.0.0.1'),
+            'keystone_admin_user': self.get_config(
+                'KEYSTONE', 'admin_user', 'admin'),
+            'keystone_admin_passwd': self.get_config(
+                'KEYSTONE', 'admin_password', 'contrail123'),
+            'neutron_password': self.get_config('NEUTRON', 'password', None),
+            'self_ip': self.get_config('AGENT', 'ip', '127.0.0.1'),
+            'non_mgmt_ip': self.get_config('AGENT', 'ctrl_ip', None),
+            'non_mgmt_gw': self.get_config('AGENT', 'ctrl_gateway', None),
+            'vgw_intf': self.get_config('VGW', 'interface', None),
+            'mode': self.get_config('GLOBAL', 'mode', None),
             'cpu_mode': None,
             'cpu_model': None,
-            'dpdk': False,
-            'vrouter_module_params': None,
-            'vmware': False,
+            'dpdk': self.get_dpdk_config(False),
+            'vrouter_module_params': self.get_vrouter_module_config(None),
             'esxi_vm': False,
             'vmware': None,
             'vmware_username': 'root',
@@ -43,13 +46,12 @@ class ComputeArgsParser(object):
             'vmware_vmpg_vswitch': 'c0ntrail123',
             'vmware_vmpg_vswitch_mtu': None,
             'vmware_datanic_mtu': None,
-            'mode': None,
             'vcenter_server': None,
             'vcenter_username': None,
             'vcenter_password': None,
             'vcenter_cluster': None,
             'vcenter_dvswitch': None,
-            'hypervisor': 'libvirt',
+            'hypervisor': self.get_config('AGENT', 'hypervisor', 'libvirt'),
             'gateway_server_list': '',
             'default_hw_queue_qos': False,
             'qos_logical_queue': None,
@@ -57,30 +59,72 @@ class ComputeArgsParser(object):
             'priority_id': None,
             'priority_scheduling': None,
             'priority_bandwidth': None,
-            'collectors': ['127.0.0.1'],
-            'control_nodes': ['127.0.0.1'],
-            'xmpp_auth_enable': False,
-            'sandesh_ssl_enable': False,
-            'introspect_ssl_enable': False
+            'collectors': self.get_config(
+                'GLOBAL', 'analytics_list', ['127.0.0.1']),
+            'control_nodes': self.get_config(
+                'GLOBAL', 'controller_list', ['127.0.0.1']),
+            'xmpp_auth_enable': self.get_config(
+                'GLOBAL', 'xmpp_auth_enable', False),
+            'sandesh_ssl_enable': self.get_config(
+                'GLOBAL', 'sandesh_ssl_enable', False),
+            'introspect_ssl_enable': self.get_config(
+                'GLOBAL', 'introspect_ssl_enable', False),
+            'register': True,
         }
 
         self.parse_args(args_str)
+
+    def parse_config_file(self, conf_file):
+        if not os.path.exists(conf_file):
+            conf_dir = os.path.dirname(conf_file)
+            if not os.path.exists(conf_dir):
+                os.makedirs(conf_dir)
+            with open(conf_file, 'w') as fd:
+                fd.write('')
+        self.config = ConfigParser.SafeConfigParser()
+        self.config.read([conf_file])
+
+    def get_config(self, section, option, default):
+        if self.config.has_option(section, option):
+            return self.config.get(section, option)
+        else:
+            return default
+
+    def get_dpdk_config(self, default):
+        if self.config.has_section('dpdk'):
+            if self.config.has_option('dpdk', 'hugepages'):
+                dpdk_params = 'hugepages=%s' % self.config.get('hugepages')
+            else:
+                log.error("Hugepages not provided for dpdk")
+                raise RuntimeError("Hugepages not provided for dpdk")
+            if self.config.has_option('dpdk', 'coremask'):
+                dpdk_params += ',coremask=%s' % self.config.get('coremask')
+            else:
+                log.error("coremask not provided for dpdk")
+                raise RuntimeError("coremask not provided for dpdk")
+            if self.config.has_option('dpdk', 'uio_driver'):
+                dpdk_params += ',uio_dri_er=%s' % self.config.get('uio_driver')
+            return dpdk_params
+        else:
+            return default
+
+    def get_vrouter_module_config(self, default):
+        # TODO by kiran
+        # Implement vrouter_module_config
+        return default
 
     def parse_args(self, args_str):
         '''
         Eg. setup-vnc-vrouter --cfgm_ip 10.1.5.11 --keystone_ip 10.1.5.12
                    --self_ip 10.1.5.12 --service_token 'c0ntrail123'
-                   --haproxy --internal_vip 10.1.5.200
+                   --internal_vip 10.1.5.200
                    --collectors 10.1.5.11 10.1.5.12
                    --control-nodes 10.1.5.11 10.1.5.12
         '''
         parser = argparse.ArgumentParser()
 
+        parser.add_argument("--conf_file", help="Agent containers config file")
         parser.add_argument("--cfgm_ip", help="IP Address of the config node")
-        parser.add_argument("--cfgm_user", help="Sudo User in the config node")
-        parser.add_argument(
-                "--cfgm_passwd",
-                help="Password of the Sudo user in the config node")
         parser.add_argument(
                 "--keystone_ip", help="IP Address of the keystone node")
         parser.add_argument(
@@ -99,9 +143,6 @@ class ComputeArgsParser(object):
                 help="Gateway Address of the non-management interface"
                      "(fabric network) on the compute node")
         parser.add_argument(
-                "--public_subnet",
-                help="Subnet of the virtual network used for public access")
-        parser.add_argument(
                 "--physical_interface",
                 help="Name of the physical interface to use")
         parser.add_argument(
@@ -119,16 +160,6 @@ class ComputeArgsParser(object):
                 "--vgw_gateway_routes",
                 help="Static route to be configured in agent configuration"
                      "for VGW")
-        parser.add_argument(
-                "--public_vn_name",
-                help="Fully-qualified domain name (FQDN) of the"
-                     "routing-instance that needs public access")
-        parser.add_argument(
-                "--gateway_routes",
-                help="List of route need to be added in agent"
-                     "configuration for virtual gateway")
-        parser.add_argument(
-                "--haproxy", help="Enable haproxy", action="store_true")
         parser.add_argument(
                 "--keystone_auth_protocol",
                 help="Auth protocol used to talk to keystone")
@@ -229,10 +260,16 @@ class ComputeArgsParser(object):
                 "--xmpp_auth_enable", help="Enable xmpp auth",
                 action="store_true")
         parser.add_argument(
-                "--sandesh_ssl_enable", help="Enable SSL for Sandesh connection",
+                "--sandesh_ssl_enable",
+                help="Enable SSL for Sandesh connection",
                 action="store_true")
         parser.add_argument(
-                "--introspect_ssl_enable", help="Enable SSL for introspect connection",
+                "--introspect_ssl_enable",
+                help="Enable SSL for introspect connection",
+                action="store_true")
+        parser.add_argument(
+                "--register",
+                help="create virtual-router object in api-server",
                 action="store_true")
 
         parser.set_defaults(**self.global_defaults)
