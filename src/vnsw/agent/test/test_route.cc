@@ -368,7 +368,6 @@ TEST_F(RouteTest, SubnetRoute_2) {
     if((rt1 == NULL) && (rt2 == NULL) && (rt3 == NULL))
         return;
 
-
     EXPECT_TRUE(rt1 != NULL);
     EXPECT_TRUE(rt2 != NULL);
     EXPECT_TRUE(rt3 != NULL);
@@ -1675,7 +1674,8 @@ TEST_F(RouteTest, SubnetRoute_Flood_1) {
 
     EXPECT_TRUE(RouteFind(vrf_name_, remote_subnet_ip_, 29));
     InetUnicastRouteEntry *rt = RouteGet(vrf_name_, remote_subnet_ip_, 29);
-    EXPECT_TRUE(rt->ipam_subnet_route() == true);
+    EXPECT_FALSE(rt->ipam_subnet_route());
+    EXPECT_FALSE(rt->ipam_host_route());
 
     //On IPAM going off remote route should remove its flood flag.
     client->Reset();
@@ -1727,7 +1727,8 @@ TEST_F(RouteTest, SubnetRoute_Flood_2) {
 
     EXPECT_TRUE(RouteFind(vrf_name_, remote_subnet_ip_, 29));
     rt = RouteGet(vrf_name_, remote_subnet_ip_, 29);
-    EXPECT_TRUE(rt->ipam_subnet_route());
+    EXPECT_FALSE(rt->ipam_subnet_route());
+    EXPECT_FALSE(rt->ipam_host_route());
 
     //On IPAM going off remote route should remove its flood flag.
     client->Reset();
@@ -1837,8 +1838,9 @@ TEST_F(RouteTest, route_arp_flags_1) {
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
     rt3 = RouteGet(vrf_name_, smaller_subnet_3, 28);
-    EXPECT_TRUE(rt3->ipam_subnet_route());
-    EXPECT_FALSE(rt3->proxy_arp());
+    EXPECT_FALSE(rt3->ipam_subnet_route());
+    EXPECT_TRUE(rt3->proxy_arp());
+    EXPECT_FALSE(rt3->ipam_host_route());
 
     //Delete Ipam path for 3.3.3.0/16 and there shud be only one path
     //i.e. from remote peer and flags should be toggled. Proxy - yes,
@@ -1856,7 +1858,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     //Smaller subnet 3.3.3.3/28 also toggles
     rt3 = RouteGet(vrf_name_, smaller_subnet_3, 28);
     EXPECT_FALSE(rt3->ipam_subnet_route());
-    EXPECT_FALSE(rt3->proxy_arp());
+    EXPECT_TRUE(rt3->proxy_arp());
 
     //Add back IPAM 3.3.0.0/16 and see flags are restored.
     AddIPAM("vn1", ipam_info, 3);
@@ -1866,8 +1868,9 @@ TEST_F(RouteTest, route_arp_flags_1) {
     EXPECT_FALSE(rt3->proxy_arp());
     //Smaller subnet 3.3.3.3/28 also toggles
     rt3 = RouteGet(vrf_name_, smaller_subnet_3, 28);
-    EXPECT_TRUE(rt3->ipam_subnet_route());
-    EXPECT_FALSE(rt3->proxy_arp());
+    EXPECT_FALSE(rt3->ipam_subnet_route());
+    EXPECT_TRUE(rt3->proxy_arp());
+    EXPECT_FALSE(rt3->ipam_host_route());
 
     //Add back IPAM 3.3.0.0/16 and see flags are restored.
 
@@ -1887,6 +1890,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     rt2 = RouteGet(vrf_name_, subnet_supernet_2, 24);
     EXPECT_FALSE(rt2->ipam_subnet_route());
     EXPECT_TRUE(rt2->proxy_arp());
+    EXPECT_FALSE(rt2->ipam_host_route());
     rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
     EXPECT_TRUE(rt2->ipam_subnet_route());
     EXPECT_FALSE(rt2->proxy_arp());
@@ -1909,6 +1913,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     InetUnicastRouteEntry *rt4 = RouteGet(vrf_name_, subnet_vm_ip_non_ipam, 24);
     EXPECT_FALSE(rt4->ipam_subnet_route());
     EXPECT_TRUE(rt4->proxy_arp());
+    EXPECT_FALSE(rt4->ipam_host_route());
 
     //Add another smaller subnet in 4.4.4.0/24 say 4.4.4.10/28
     //proxy - yes, flood -no
@@ -1938,6 +1943,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     InetUnicastRouteEntry *rt6 = RouteGet(vrf_name_, subnet_vm_ip_non_ipam_3, 16);
     EXPECT_FALSE(rt6->ipam_subnet_route());
     EXPECT_TRUE(rt6->proxy_arp());
+    EXPECT_FALSE(rt6->ipam_host_route());
 
     //Delete all these external prefixes 4.4.0.0 and keep checking flags dont
     //change
@@ -1945,12 +1951,15 @@ TEST_F(RouteTest, route_arp_flags_1) {
     client->WaitForIdle();
     EXPECT_FALSE(rt5->ipam_subnet_route());
     EXPECT_TRUE(rt5->proxy_arp());
+    EXPECT_FALSE(rt5->ipam_host_route());
     EXPECT_FALSE(rt6->ipam_subnet_route());
     EXPECT_TRUE(rt6->proxy_arp());
+    EXPECT_FALSE(rt6->ipam_host_route());
     DeleteRoute(bgp_peer_, vrf_name_, subnet_vm_ip_non_ipam_2, 28);
     client->WaitForIdle();
     EXPECT_FALSE(rt6->ipam_subnet_route());
     EXPECT_TRUE(rt6->proxy_arp());
+    EXPECT_FALSE(rt6->ipam_host_route());
     DeleteRoute(bgp_peer_, vrf_name_, subnet_vm_ip_non_ipam_3, 16);
     client->WaitForIdle();
     

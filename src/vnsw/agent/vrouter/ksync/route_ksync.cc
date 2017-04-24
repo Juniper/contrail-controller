@@ -274,16 +274,6 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         // ECMP flows have composite NH. We want to do routing for ECMP flows
         // So, set proxy_arp flag
         proxy_arp = true;
-
-        // There is an exception for ECMP routes
-        // The subnet route configured on a VN can potentially be exported by
-        // gateway route also. If gateway are redundant, then the subnet route
-        // can be an ECMP route.
-        if (rt->ipam_subnet_route())
-        {
-            proxy_arp = false;
-            flood = true;
-        }
         break;
 
     default:
@@ -324,9 +314,17 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         } else {
             // Non local-route. Set flags based on the route
             proxy_arp = rt->proxy_arp();
-            flood = rt->ipam_subnet_route();
+            flood = rt->ipam_host_route();
         }
         break;
+    }
+
+    // There is an exception for IPAM subnet routes.
+    // IPAM subnet routes always result in flood of ARP even if the route
+    // is ECMP (resulting from gateway routes)
+    if (rt->ipam_subnet_route()) {
+        proxy_arp = false;
+        flood = true;
     }
 
     // If the route crosses a VN, we want packet to be routed. So, override

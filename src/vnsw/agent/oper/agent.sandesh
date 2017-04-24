@@ -685,6 +685,9 @@ struct RouteUcSandeshData {
     4: list<PathSandeshData> path_list;
     /** Boolean value which indicates if it is ipam subnet route */
     5: optional bool ipam_subnet_route;
+    /** Boolean value which indicates if this is part of an IPAM subnet and
+        if its a host-route */
+    8: optional bool ipam_host_route;
     /** Boolean value which indicates if it is used to proxy arp requests */
     6: optional bool proxy_arp;
     /** Boolean value which indicates if it is multicast route */
