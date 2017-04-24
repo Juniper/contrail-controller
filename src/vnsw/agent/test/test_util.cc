@@ -350,6 +350,17 @@ void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
         str << "                   <dns-server-address>" << ipam[i].gw << "</dns-server-address>\n";
         str << "                   <enable-dhcp>" << dhcp_enable << "</enable-dhcp>\n";
         str << "                   <alloc-unit>" << ipam[i].alloc_unit << "</alloc-unit>\n";
+        if (!ipam[i].cv_list.empty()) {
+            str << "                   <community-attributes>\n";
+            CommunityList::iterator it;
+            for (it = ipam[i].cv_list.begin();
+                 it != ipam[i].cv_list.end(); it++) {
+                str << "                   <community-attribute>";
+                str << *it;
+                str << "</community-attribute>\n";
+            }
+            str << "                   </community-attributes>\n";
+        }
         if (add_subnet_tags)
             str <<                 add_subnet_tags << "\n";
         str << "               </ipam-subnets>\n";
