@@ -41,7 +41,7 @@ class ICKombuClient(VncKombuClient):
                                             q_name, subscribe_cb, logger)
 
     def _act_on_api(self, action):
-        cmd = '%s %s' % ("service supervisor-config", action)
+        cmd = '%s %s' % ("docker exec -i controller service contrail-control", action)
         self.logger(cmd, level=SandeshLevel.SYS_INFO)
         for addr, clist in self._new_api_info.items():
             ssh = paramiko.SSHClient()

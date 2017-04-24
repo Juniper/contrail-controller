@@ -17,9 +17,11 @@ function issu_contrail_prepare_new_control_node {
     openstack-config --set /etc/contrail/supervisord_config_files/contrail-config-nodemgr.ini eventlistener:contrail-config-nodemgr autostart false
 
     contrail-status
-    service supervisor-config restart
-    contrail-status
-    service supervisor-config stop
+    service contrail-config-nodemgr stop
+    service contrail-control stop
+    service contrail-schema stop
+    service contrail-svc-monitor stop
+    service contrail-device-manager stop
     contrail-status
 }
 
@@ -33,8 +35,11 @@ function issu_contrail_post_new_control_node {
 
     openstack-config --del /etc/contrail/supervisord_config_files/contrail-config-nodemgr.ini eventlistener:contrail-config-nodemgr autorestart
     openstack-config --del /etc/contrail/supervisord_config_files/contrail-config-nodemgr.ini eventlistener:contrail-config-nodemgr autostart
-
-    service supervisor-config restart
+    service contrail-config-nodemgr start
+    service contrail-control start
+    service contrail-schema start
+    service contrail-svc-monitor start
+    service contrail-device-manager start
     contrail-status
 
 }
@@ -44,25 +49,11 @@ function issu_pre_sync {
 }
 
 function issu_run_sync {
-    local cmd='openstack-config --set /etc/supervisor/conf.d/contrail-issu.conf program:contrail-issu'
-    touch /etc/supervisor/conf.d/contrail-issu.conf
-    $cmd command 'contrail-issu-run-sync --conf_file /etc/contrail/contrail-issu.conf'
-    $cmd numprocs 1
-    openstack-config --set /etc/supervisor/conf.d/contrail-issu.conf program:contrail-issu process_name '%(process_num)s'
-    $cmd redirect_stderr true
-    openstack-config --set /etc/supervisor/conf.d/contrail-issu.conf program:contrail-issu stdout_logfile  '/var/log/issu-contrail-run-sync-%(process_num)s-stdout.log'
-    openstack-config --set /etc/supervisor/conf.d/contrail-issu.conf program:contrail-issu stderr_logfile '/dev/null' 
-    $cmd priority 440
-    $cmd autostart true
-    $cmd killasgroup false
-    $cmd stopsignal KILL
-    $cmd exitcodes 0
-    service supervisor restart
+    supervisorctl start supervisord_issu
 }
 
 function issu_post_sync {
-    rm -f /etc/supervisor/conf.d/contrail-issu.conf
-    service supervisor restart
+    supervisorctl stop supervisord_issu
     contrail-issu-post-sync -c /etc/contrail/contrail-issu.conf
     contrail-issu-zk-sync -c /etc/contrail/contrail-issu.conf
 }

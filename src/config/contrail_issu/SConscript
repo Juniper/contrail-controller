@@ -85,6 +85,13 @@ env.Alias('coverage', cov_cmd)
 env.Alias('controller/src/config/contrail_issu:flaky-test', test_cmd)
 env.Alias('controller/src/config/contrail_issu/contrail_issu:flaky-test', test_cmd)
 
+
+env.Alias('install', env.InstallAs(env['INSTALL_INITD'] +
+    '/contrail-issu-run-sync', 'contrail-issu-run-sync.initd.supervisord'))
+env.Alias('install', env.Install(env['INSTALL_CONF'],
+    'supervisord_issu.conf'))
+env.Alias('install', env.Install(env['INSTALL_CONF']+
+    '/supervisord_issu_files', 'contrail-issu-run-sync.ini'))
 # Local Variables:
 # mode: python
 # End:
