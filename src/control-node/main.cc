@@ -206,8 +206,6 @@ void InitializeSignalHandlers() {
 }
 
 int main(int argc, char *argv[]) {
-    bool sandesh_generator_init = true;
-
     // Process options from command-line and configuration file.
     if (!options.Parse(evm, argc, argv)) {
         exit(-1);
@@ -240,7 +238,6 @@ int main(int argc, char *argv[]) {
     BgpSandeshContext sandesh_context;
     RegisterSandeshShowIfmapHandlers(&sandesh_context);
     RegisterSandeshShowXmppExtensions(&sandesh_context);
-    Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
 
@@ -326,16 +323,11 @@ int main(int argc, char *argv[]) {
                     bgp_server.get(), config_client_manager, _1, _2, _3,
                     expected_connections), "ObjectBgpRouter");
 
-    if (!options.collectors_configured()) {
-        sandesh_generator_init = false;
-    }
-
-    if (sandesh_generator_init) {
-        NodeType::type node_type = 
-            g_vns_constants.Module2NodeType.find(module)->second;
-        bool success;
-        if (options.collectors_configured()) {
-            success = Sandesh::InitGenerator(
+    NodeType::type node_type =
+        g_vns_constants.Module2NodeType.find(module)->second;
+    bool success;
+    if (options.collectors_configured()) {
+        success = Sandesh::InitGenerator(
                     module_name,
                     options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
@@ -346,8 +338,8 @@ int main(int argc, char *argv[]) {
                     &sandesh_context,
                     Sandesh::DerivedStats(),
                     options.sandesh_config());
-        } else {
-            success = Sandesh::InitGenerator(
+    } else {
+        success = Sandesh::InitGenerator(
                     g_vns_constants.ModuleNames.find(module)->second,
                     options.hostname(),
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
@@ -357,12 +349,11 @@ int main(int argc, char *argv[]) {
                     &sandesh_context,
                     Sandesh::DerivedStats(),
                     options.sandesh_config());
-        }
-        if (!success) {
-            LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-            Sandesh::Uninit();
-            exit(1);
-        }
+    }
+    if (!success) {
+        LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+        Sandesh::Uninit();
+        exit(1);
     }
 
     // Set BuildInfo.

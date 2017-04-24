@@ -205,7 +205,6 @@ public:
     const int sflow_port() const { return sflow_port_; }
     const int ipfix_port() const { return ipfix_port_; }
     const bool test_mode() const { return test_mode_; }
-    const uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
     const bool disable_flow_collection() const { return disable_flow_collection_; }
     const bool disable_all_db_writes() const { return cassandra_options_.disable_all_db_writes_; }
     const bool disable_db_statistics_writes() const { return cassandra_options_.disable_db_stats_writes_; }
@@ -234,26 +233,6 @@ public:
     const bool api_server_use_ssl() const { return api_server_use_ssl_; }
 
 private:
-    template <typename ValueType>
-    bool GetOptValueIfNotDefaulted(
-        const boost::program_options::variables_map &var_map,
-        ValueType &var, std::string val);
-    // Implementation overloads
-    template <typename ValueType>
-    bool GetOptValueIfNotDefaultedImpl(
-        const boost::program_options::variables_map &var_map,
-        ValueType &var, std::string val, ValueType*);
-    template <typename ValueType>
-    void GetOptValue(const boost::program_options::variables_map &var_map,
-                     ValueType &var, std::string val);
-    // Implementation overloads
-    template <typename ValueType>
-    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         ValueType &var, std::string val, ValueType*);
-    template <typename ElementType>
-    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         std::vector<ElementType> &var, std::string val,
-                         std::vector<ElementType> *);
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,

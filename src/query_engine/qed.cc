@@ -247,7 +247,6 @@ main(int argc, char *argv[]) {
             instance_id,
             boost::bind(&GetProcessStateCb, _1, _2, _3,
             expected_connections), "ObjectCollectorInfo");
-    Sandesh::set_send_rate_limit(options.sandesh_send_rate_limit());
     bool success;
     // subscribe to the collector service with discovery only if the
     // collector list is not configured.

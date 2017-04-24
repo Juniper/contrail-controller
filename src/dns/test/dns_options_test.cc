@@ -81,8 +81,9 @@ TEST_F(OptionsTest, NoArguments) {
                                options_.config_db_server_list());
      
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(),
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit,
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -126,6 +127,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
                                options_.config_db_server_list());
     EXPECT_EQ(options_.test_mode(), false);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -174,18 +176,20 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit(), 5);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=controller/src/dns/contrail-dns.conf";
     char argv_2[] = "--DEFAULT.test_mode";
+    char argv_3[] = "--SANDESH.disable_object_logs";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
 
@@ -209,6 +213,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
+    EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, CustomConfigFile) {
@@ -245,6 +250,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "[CONFIGDB]\n"
         "rabbitmq_user=test-user\n"
         "rabbitmq_password=test-password\n"
+        "\n"
+        "[SANDESH]\n"
+        "disable_object_logs=0\n"
         "\n";
 
     ofstream config_file;
@@ -290,11 +298,12 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_EQ(options_.test_mode(), true);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
     EXPECT_EQ(options_.xmpp_auth_enabled(), true);
     EXPECT_EQ(options_.xmpp_server_cert(), "/etc/server.pem");
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server-privkey.pem");
     EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/ca-cert.pem");
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
     std::remove("./dns_options_test_config_file.conf");
 }
 
@@ -327,6 +336,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "[CONFIGDB]\n"
         "rabbitmq_user=test-user\n"
         "rabbitmq_password=test-password\n"
+        "\n"
+        "[SANDESH]\n"
+        "disable_object_logs=0\n"
         "\n";
 
     ofstream config_file;
@@ -334,7 +346,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 11;
+    int argc = 12;
     char *argv[argc];
     char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=./dns_options_test_config_file.conf";
@@ -347,6 +359,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_8[] = "--DEFAULT.rndc_config_file=new.rndc";
     char argv_9[] = "--DEFAULT.rndc_secret=new-secret-123";
     char argv_10[] = "--DEFAULT.sandesh_send_rate_limit=7";
+    char argv_11[] = "--SANDESH.disable_object_logs";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -358,6 +371,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[8] = argv_8;
     argv[9] = argv_9;
     argv[10] = argv_10;
+    argv[11] = argv_11;
 
     options_.Parse(evm_, argc, argv);
 
@@ -389,7 +403,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_EQ(options_.test_mode(), true);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7);
+    EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
     std::remove("./dns_options_test_config_file.conf");
 }
 

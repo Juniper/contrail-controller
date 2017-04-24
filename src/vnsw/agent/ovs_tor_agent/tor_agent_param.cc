@@ -9,11 +9,13 @@
 #include <ovs_tor_agent/tor_agent_param.h>
 
 #include <string>
+#include <base/options_util.h>
 
 using std::string;
 
 using boost::optional;
 namespace boost_po = boost::program_options;
+using namespace options::util;
 
 TorAgentParam::TorAgentParam() :
     AgentParam(false, false, false, false) {

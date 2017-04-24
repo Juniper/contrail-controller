@@ -6,21 +6,23 @@
 #include <iostream>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/foreach.hpp>
+#include <boost/functional/hash.hpp>
 
 #include "base/contrail_ports.h"
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
+#include <base/options_util.h>
 #include "query_engine/buildinfo.h"
 #include "net/address_util.h"
 #include "viz_constants.h"
 
 #include "options.h"
-#include <boost/functional/hash.hpp>
 
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
+using namespace options::util;
 
 // Process command line options for query-engine   .
 Options::Options() {
@@ -151,12 +153,6 @@ void Options::Initialize(EventManager &evm,
 
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable query-engine to run in test-mode")
-
-        ("DEFAULT.sandesh_send_rate_limit",
-              opt::value<uint32_t>()->default_value(
-              g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
-              "Sandesh send rate limit in messages/sec")
-
     ;
 
     // Command line and config file options.
@@ -173,23 +169,7 @@ void Options::Initialize(EventManager &evm,
 
     // Command line and config file options.
     opt::options_description sandesh_config("Sandesh Configuration options");
-    sandesh_config.add_options()
-        ("SANDESH.sandesh_keyfile", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/private/server-privkey.pem"),
-            "Sandesh ssl private key")
-        ("SANDESH.sandesh_certfile", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/certs/server.pem"),
-            "Sandesh ssl certificate")
-        ("SANDESH.sandesh_ca_cert", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/certs/ca-cert.pem"),
-            "Sandesh CA ssl certificate")
-        ("SANDESH.sandesh_ssl_enable",
-             opt::bool_switch(&sandesh_config_.sandesh_ssl_enable),
-             "Enable ssl for sandesh connection")
-        ("SANDESH.introspect_ssl_enable",
-             opt::bool_switch(&sandesh_config_.introspect_ssl_enable),
-             "Enable ssl for introspect connection")
-        ;
+    sandesh::options::AddOptions(&sandesh_config, &sandesh_config_);
 
     // Command line and config file options.
     opt::options_description database_config("Database Configuration options");
@@ -202,42 +182,6 @@ void Options::Initialize(EventManager &evm,
         .add(redis_config).add(sandesh_config).add(database_config);
     cmdline_options.add(generic).add(config).add(cassandra_config)
         .add(redis_config).add(sandesh_config).add(database_config);
-}
-
-template <typename ValueType>
-void Options::GetOptValue(const boost::program_options::variables_map &var_map,
-                          ValueType &var, std::string val) {
-    GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0));
-}
-
-template <typename ValueType>
-void Options::GetOptValueImpl(
-    const boost::program_options::variables_map &var_map,
-    ValueType &var, std::string val, ValueType*) {
-    // Check if the value is present.
-    if (var_map.count(val)) {
-        var = var_map[val].as<ValueType>();
-    }
-}
-
-template <typename ElementType>
-void Options::GetOptValueImpl(
-    const boost::program_options::variables_map &var_map,
-    std::vector<ElementType> &var, std::string val, std::vector<ElementType>*) {
-    // Check if the value is present.
-    if (var_map.count(val)) {
-        std::vector<ElementType> tmp(
-            var_map[val].as<std::vector<ElementType> >());
-        // Now split the individual elements
-        for (typename std::vector<ElementType>::const_iterator it = 
-                 tmp.begin();
-             it != tmp.end(); it++) {
-            std::stringstream ss(*it);
-            std::copy(istream_iterator<ElementType>(ss),
-                istream_iterator<ElementType>(),
-                std::back_inserter(var));
-        }
-    }
 }
 
 // Process command line options. They can come from a conf file as well. Options
@@ -304,8 +248,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<uint64_t>(var_map, start_time_, "DEFAULT.start_time");
     GetOptValue<int>(var_map, max_tasks_, "DEFAULT.max_tasks");
     GetOptValue<int>(var_map, max_slice_, "DEFAULT.max_slice");
-    GetOptValue<uint32_t>(var_map, send_ratelimit_,
-                              "DEFAULT.sandesh_send_rate_limit");
 
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");
@@ -314,16 +256,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, cassandra_user_, "CASSANDRA.cassandra_user");
     GetOptValue<string>(var_map, cassandra_password_, "CASSANDRA.cassandra_password");
 
-    GetOptValue<string>(var_map, sandesh_config_.keyfile,
-                        "SANDESH.sandesh_keyfile");
-    GetOptValue<string>(var_map, sandesh_config_.certfile,
-                        "SANDESH.sandesh_certfile");
-    GetOptValue<string>(var_map, sandesh_config_.ca_cert,
-                        "SANDESH.sandesh_ca_cert");
-    GetOptValue<bool>(var_map, sandesh_config_.sandesh_ssl_enable,
-                      "SANDESH.sandesh_ssl_enable");
-    GetOptValue<bool>(var_map, sandesh_config_.introspect_ssl_enable,
-                      "SANDESH.introspect_ssl_enable");
+    sandesh::options::ProcessOptions(var_map, &sandesh_config_);
 }
 
 void Options::ParseReConfig() {
