@@ -46,6 +46,8 @@ class TaskEntry;
 class SandeshTaskScheduler;
 class TaskTbbKeepAwake;
 class EventManager;
+class TaskMonitor;
+class TaskScheduler;
 
 struct TaskStats {
     int     wait_count_;                // #Entries in waitq
@@ -72,6 +74,13 @@ public:
         INIT,
         WAIT,
         RUN
+    };
+
+    enum TbbState {
+        TBB_INIT,
+        TBB_ENQUEUED,
+        TBB_EXEC,
+        TBB_DONE
     };
 
     const static int kTaskInstanceAny = -1;
@@ -111,15 +120,17 @@ private:
     friend class TaskScheduler;
     friend class TaskImpl;
     void SetSeqNo(uint64_t seqno) {seqno_ = seqno;};
+    void SetTbbState(TbbState s) { tbb_state_ = s; };
     void SetState(State s) { state_ = s; };
     void SetTaskRecycle() { task_recycle_ = true; };
     void SetTaskComplete() { task_recycle_ = false; };
-    void StartTask();
+    void StartTask(TaskScheduler *scheduler);
 
     int                 task_id_;       // The code path executed by the task.
     int                 task_instance_; // The dataset id within a code path.
     tbb::task           *task_impl_;
     State               state_;
+    TbbState            tbb_state_;
     uint64_t            seqno_;
     bool                task_recycle_;
     bool                task_cancel_;
@@ -200,6 +211,7 @@ public:
 
     // Get number of tbb worker threads.
     static int GetThreadCount(int thread_count = 0);
+    static bool ShouldUseSpawn();
 
     static int GetDefaultThreadCount();
 
@@ -234,6 +246,14 @@ public:
     void EnableTaskEntry(int task_id, int instance_id);
 
     void ModifyTbbKeepAwakeTimeout(uint32_t timeout);
+    // Enable Task monitoring
+    void EnableMonitor(EventManager *evm, uint64_t tbb_keepawake_time_msec,
+                       uint64_t inactivity_time_msec,
+                       uint64_t poll_interval_msec);
+    const TaskMonitor *task_monitor() const { return task_monitor_; }
+    const TaskTbbKeepAwake *tbb_awake_task() const { return tbb_awake_task_; }
+    bool use_spawn() const { return use_spawn_; }
+
     // following function allows one to increase max num of threads used by
     // TBB
     static void SetThreadAmpFactor(int n);
@@ -256,6 +276,8 @@ private:
 
     int CountThreadsPerPid(pid_t pid);
 
+    // Use spawn() to run a tbb::task instead of enqueue()
+    bool                    use_spawn_;
     TaskEntry               *stop_entry_;
 
     tbb::task_scheduler_init task_scheduler_;
@@ -286,6 +308,7 @@ private:
     // TBB
     static int ThreadAmpFactor_;
     TaskTbbKeepAwake *tbb_awake_task_;
+    TaskMonitor      *task_monitor_;
     DISALLOW_COPY_AND_ASSIGN(TaskScheduler);
 };
 

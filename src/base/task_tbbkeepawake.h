@@ -45,6 +45,7 @@ public:
         }
     }
 
+    uint32_t tbb_awake_val() const { return tbb_awake_val_; }
 private:
     uint64_t tbb_awake_count_;
     uint32_t tbb_awake_val_;
