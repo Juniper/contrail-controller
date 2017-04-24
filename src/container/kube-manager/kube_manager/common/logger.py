@@ -171,11 +171,6 @@ class KubeManagerLogger(object):
         """ Init Sandesh """
         self._sandesh = Sandesh()
 
-        # Reset sandesh send rate limit value.
-        if self._args.sandesh_send_rate_limit is not None:
-            SandeshSystem.set_sandesh_send_rate_limit(
-                self._args.sandesh_send_rate_limit)
-
         # Register custom sandesh request handlers.
         self._redefine_sandesh_handles()
 

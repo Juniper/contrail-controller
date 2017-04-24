@@ -50,6 +50,10 @@ class Ruleeng {
             const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header,
             GenDb::GenDbIf::DbAddColumnCb db_cb);
 
+        bool handle_uve_statistics(const pugi::xml_node& parent,
+            const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header,
+            GenDb::GenDbIf::DbAddColumnCb db_cb);
+
         bool handle_flow_object(const pugi::xml_node& parent, DbHandler *db,
             const SandeshHeader &header, GenDb::GenDbIf::DbAddColumnCb db_cb);
 

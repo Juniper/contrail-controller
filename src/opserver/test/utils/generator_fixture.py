@@ -53,11 +53,12 @@ class GeneratorFixture(fixtures.Fixture):
         self._generator_id = self._hostname+':'+self._node_type+':'+self._name+':' + self._inst
         if sandesh_config:
             self._sandesh_config = SandeshConfig(
-                sandesh_config.get('sandesh_keyfile'),
-                sandesh_config.get('sandesh_certfile'),
-                sandesh_config.get('sandesh_ca_cert'),
-                sandesh_config.get('sandesh_ssl_enable', False),
-                sandesh_config.get('introspect_ssl_enable', False))
+                keyfile = sandesh_config.get('sandesh_keyfile'),
+                certfile = sandesh_config.get('sandesh_certfile'),
+                ca_cert = sandesh_config.get('sandesh_ca_cert'),
+                sandesh_ssl_enable = sandesh_config.get('sandesh_ssl_enable', False),
+                introspect_ssl_enable = sandesh_config.get('introspect_ssl_enable', False),
+                disable_object_logs = sandesh_config.get('disable_object_logs', False))
         else:
             self._sandesh_config = None
         self.flow_vmi_uuid = str(uuid.uuid1())

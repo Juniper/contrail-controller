@@ -38,7 +38,7 @@ class GlobalVrouter : public OperIFMapTable {
 public:
     static const std::string kMetadataService;
     static const Ip4Address kLoopBackIp;
-    static const int32_t kDefaultFlowExportRate = 100;
+    static const int32_t kDefaultFlowExportRate = 0;
     static const int32_t kDisableSampling = -1;
 
     struct LinkLocalServiceKey {

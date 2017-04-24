@@ -17,11 +17,13 @@ namespace util {
 
 // Implementation overloads
 template <typename ElementType>
-void GetOptValueImpl(
+bool GetOptValueImpl(
     const boost::program_options::variables_map &var_map,
-    std::vector<ElementType> &var, std::string val, std::vector<ElementType>*) {
+    std::vector<ElementType> &var, const std::string &val,
+    std::vector<ElementType>*, bool if_not_defaulted) {
     // Check if the value is present.
-    if (var_map.count(val)) {
+    if (var_map.count(val) && (!if_not_defaulted ||
+        (if_not_defaulted && !var_map[val].defaulted()))) {
         std::vector<ElementType> tmp(
             var_map[val].as<std::vector<ElementType> >());
         // Now split the individual elements
@@ -33,32 +35,19 @@ void GetOptValueImpl(
                 std::istream_iterator<ElementType>(),
                 std::back_inserter(var));
         }
+        return true;
     }
+    return false;
 }
 
 template <typename ValueType>
-void GetOptValueImpl(
+bool GetOptValueImpl(
     const boost::program_options::variables_map &var_map,
-    ValueType &var, std::string val, ValueType*) {
+    ValueType &var, const std::string &val, ValueType*,
+    bool if_not_defaulted) {
     // Check if the value is present.
-    if (var_map.count(val)) {
-        var = var_map[val].as<ValueType>();
-    }
-}
-
-template <typename ValueType>
-void GetOptValue(const boost::program_options::variables_map &var_map,
-                          ValueType &var, std::string val) {
-    GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0));
-}
-
-// Implementation overloads
-template <typename ValueType>
-bool GetOptValueIfNotDefaultedImpl(
-    const boost::program_options::variables_map &var_map,
-    ValueType &var, std::string val, ValueType*) {
-    // Check if the value is present.
-    if (var_map.count(val) && !var_map[val].defaulted()) {
+    if (var_map.count(val) && (!if_not_defaulted ||
+        (if_not_defaulted && !var_map[val].defaulted()))) {
         var = var_map[val].as<ValueType>();
         return true;
     }
@@ -66,11 +55,18 @@ bool GetOptValueIfNotDefaultedImpl(
 }
 
 template <typename ValueType>
+bool GetOptValue(const boost::program_options::variables_map &var_map,
+                          ValueType &var, const std::string &val) {
+    return GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0),
+        false);
+}
+
+template <typename ValueType>
 bool GetOptValueIfNotDefaulted(
     const boost::program_options::variables_map &var_map,
-    ValueType &var, std::string val) {
-    return GetOptValueIfNotDefaultedImpl(var_map, var, val,
-        static_cast<ValueType *>(0));
+    ValueType &var, const std::string &val) {
+    return GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0),
+        true);
 }
 
 }  // namespace util

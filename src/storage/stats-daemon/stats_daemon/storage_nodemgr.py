@@ -842,28 +842,16 @@ def parse_args(args_str):
         'log_level': 'SYS_NOTICE',
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
-        #'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
     }
-    sandesh_opts = {
-        'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-        'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-        'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-        'sandesh_ssl_enable': False,
-        'introspect_ssl_enable': False,
-    }
+    defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
+    sandesh_opts = SandeshConfig.get_default_options()
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
         config.read([args.conf_file])
-        defaults.update(dict(config.items("DEFAULTS")))
-        if 'SANDESH' in config.sections():
-            sandesh_opts.update(dict(config.items('SANDESH')))
-            if 'sandesh_ssl_enable' in config.options('SANDESH'):
-                sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
-                    'SANDESH', 'sandesh_ssl_enable')
-            if 'introspect_ssl_enable' in config.options('SANDESH'):
-                sandesh_opts['introspect_ssl_enable'] = config.getboolean(
-                    'SANDESH', 'introspect_ssl_enable')
+        if 'DEFAULTS' in config.sections():
+            defaults.update(dict(config.items("DEFAULTS")))
+        SandeshConfig.update_options(sandesh_opts, config)
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -889,18 +877,7 @@ def parse_args(args_str):
                         help="Category filter for local logging of sandesh messages")
     parser.add_argument("--log_file",
                         help="Filename for the logs to be written to")
-    parser.add_argument("--sandesh_send_rate_limit", type=int,
-                        help="Sandesh send rate limit in messages/sec")
-    parser.add_argument("--sandesh_keyfile",
-                        help="Sandesh ssl private key")
-    parser.add_argument("--sandesh_certfile",
-                        help="Sandesh ssl certificate")
-    parser.add_argument("--sandesh_ca_cert",
-                        help="Sandesh CA ssl certificate")
-    parser.add_argument("--sandesh_ssl_enable", action="store_true",
-                        help="Enable ssl for sandesh connection")
-    parser.add_argument("--introspect_ssl_enable", action="store_true",
-                        help="Enable ssl for introspect connection")
+    SandeshConfig.add_parser_arguments(parser)
 
     args = parser.parse_args(remaining_argv)
     return args
@@ -922,12 +899,7 @@ def main(args_str=None):
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
         instance_id = INSTANCE_ID_DEFAULT
-        #if args.sandesh_send_rate_limit is not None:
-        #    SandeshSystem.set_sandesh_send_rate_limit( \
-        #        args.sandesh_send_rate_limit)
-        sandesh_config = SandeshConfig(args.sandesh_keyfile,
-            args.sandesh_certfile, args.sandesh_ca_cert,
-            args.sandesh_ssl_enable, args.introspect_ssl_enable)
+        sandesh_config = SandeshConfig.from_parser_arguments(args)
         sandesh_global.init_generator(
             module_name,
             socket.gethostname(),

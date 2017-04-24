@@ -77,7 +77,6 @@ def parse_args(args_str):
         'cluster_id': '',
         'max_requests': 1024,
         'region_name': 'RegionOne',
-        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'stale_lock_seconds': '5', # lock but no resource past this => stale
         'cloud_admin_role': cfgm_common.CLOUD_ADMIN_ROLE,
         'global_read_only_role': cfgm_common.GLOBAL_READ_ONLY_ROLE,
@@ -90,6 +89,7 @@ def parse_args(args_str):
         'object_cache_exclude_types': '', # csv of object types to *not* cache
         'db_engine': 'cassandra',
     }
+    defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     # keystone options
     ksopts = {
         'auth_host': '127.0.0.1',
@@ -113,13 +113,7 @@ def parse_args(args_str):
         'rdbms_connection': None
     }
     # sandesh options
-    sandeshopts = {
-        'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-        'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-        'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-        'sandesh_ssl_enable': False,
-        'introspect_ssl_enable': False
-    }
+    sandeshopts = SandeshConfig.get_default_options()
 
     config = None
     saved_conf_file = args.conf_file
@@ -147,14 +141,7 @@ def parse_args(args_str):
                 cassandraopts.update(dict(config.items('CASSANDRA')))
         if 'RDBMS' in config.sections():
                 rdbmsopts.update(dict(config.items('RDBMS')))
-        if 'SANDESH' in config.sections():
-            sandeshopts.update(dict(config.items('SANDESH')))
-            if 'sandesh_ssl_enable' in config.options('SANDESH'):
-                sandeshopts['sandesh_ssl_enable'] = config.getboolean(
-                    'SANDESH', 'sandesh_ssl_enable')
-            if 'introspect_ssl_enable' in config.options('SANDESH'):
-                sandeshopts['introspect_ssl_enable'] = config.getboolean(
-                    'SANDESH', 'introspect_ssl_enable')
+        SandeshConfig.update_options(sandeshopts, config) 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(
@@ -290,8 +277,6 @@ def parse_args(args_str):
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
             help="Cassandra password")
-    parser.add_argument("--sandesh_send_rate_limit", type=int,
-            help="Sandesh send rate limit in messages/sec.")
     parser.add_argument("--stale_lock_seconds",
             help="Time after which lock without resource is stale, default 60")
     parser.add_argument( "--cloud_admin_role",
@@ -304,6 +289,7 @@ def parse_args(args_str):
             help="Comma separated values of object types to not cache")
     parser.add_argument("--db_engine",
         help="Database engine to use, default cassandra")
+    SandeshConfig.add_parser_arguments(parser)
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
     args_obj.config_sections = config
@@ -315,9 +301,7 @@ def parse_args(args_str):
             args_obj.rdbms_server_list.split()
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
-    args_obj.sandesh_config = SandeshConfig(args_obj.sandesh_keyfile,
-        args_obj.sandesh_certfile, args_obj.sandesh_ca_cert, args_obj.sandesh_ssl_enable,
-        args_obj.introspect_ssl_enable)
+    args_obj.sandesh_config = SandeshConfig.from_parser_arguments(args_obj)
 
     args_obj.conf_file = saved_conf_file
     return args_obj, remaining_argv

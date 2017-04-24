@@ -72,16 +72,10 @@ optional arguments:
             'scan_frequency'  : 60,
             'http_server_port': 5922,
             'zookeeper'       : '127.0.0.1:2181',
-            'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
             'device_file'     : '/etc/contrail/bv_devices.conf',
         }
-        sandesh_opts = {
-            'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-            'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-            'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-            'sandesh_ssl_enable': False,
-            'introspect_ssl_enable': False
-        }
+        defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
+        sandesh_opts = SandeshConfig.get_default_options()
 
         config = None
         if args.conf_file:
@@ -90,14 +84,7 @@ optional arguments:
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
-            if 'SANDESH' in config.sections():
-                sandesh_opts.update(dict(config.items('SANDESH')))
-                if 'sandesh_ssl_enable' in config.options('SANDESH'):
-                    sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
-                        'SANDESH', 'sandesh_ssl_enable')
-                if 'introspect_ssl_enable' in config.options('SANDESH'):
-                    sandesh_opts['introspect_ssl_enable'] = config.getboolean(
-                        'SANDESH', 'introspect_ssl_enable')
+            SandeshConfig.update_options(sandesh_opts, config)
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -140,18 +127,7 @@ optional arguments:
             help="boardview devices")
         parser.add_argument("--zookeeper",
             help="ip:port of zookeeper server")
-        parser.add_argument("--sandesh_send_rate_limit", type=int,
-            help="Sandesh send rate limit in messages/sec.")
-        parser.add_argument("--sandesh_keyfile",
-            help="Sandesh ssl private key")
-        parser.add_argument("--sandesh_certfile",
-            help="Sandesh ssl certificate")
-        parser.add_argument("--sandesh_ca_cert",
-            help="Sandesh CA ssl certificate")
-        parser.add_argument("--sandesh_ssl_enable", action="store_true",
-            help="Enable ssl for sandesh connection")
-        parser.add_argument("--introspect_ssl_enable", action="store_true",
-            help="Enable ssl for introspect connection")
+        SandeshConfig.add_parser_arguments(parser)
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -215,15 +191,8 @@ optional arguments:
     def http_port(self):
         return self._args.http_server_port
 
-    def sandesh_send_rate_limit(self):
-        return self._args.sandesh_send_rate_limit
-
     def device_file(self):
         return self._args.device_file
 
     def sandesh_config(self):
-        return SandeshConfig(self._args.sandesh_keyfile,
-                             self._args.sandesh_certfile,
-                             self._args.sandesh_ca_cert,
-                             self._args.sandesh_ssl_enable,
-                             self._args.introspect_ssl_enable)
+        return SandeshConfig.from_parser_arguments(self._args)
