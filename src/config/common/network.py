@@ -32,7 +32,7 @@ class CommonQuantumClient(object):
         subnet_req = {'network_id': net_id,
                       'cidr': cidr,
                       'ip_version': 4,
-                      'contrail:ipam_fq_name': ipam_fq_name}
+                      'ipam_fq_name': ipam_fq_name}
         subnet_rsp = self._quantum.create_subnet({'subnet': subnet_req})
         print 'Response for create_subnet : ' + repr(subnet_rsp)
     # end _common_create_subnet
