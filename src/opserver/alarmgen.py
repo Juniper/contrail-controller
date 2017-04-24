@@ -872,6 +872,7 @@ class Controller(object):
         self._hostname = socket.gethostname()
         self._instance_id = self._conf.worker_id()
         self._disable_cb = False
+        self.active_alarms = 0
 
         self._libpart_name = self._conf.host_ip() + ":" + self._instance_id
         self._libpart = None
@@ -1285,14 +1286,18 @@ class Controller(object):
                 alm_copy.append(copy.deepcopy(uai))
         if len(alm_copy) == 0:
             ustruct = UVEAlarms(name = str(uk).split(':',1)[1], deleted = True)
-            self._logger.info('deleting alarm:')
+            self.active_alarms -= 1
+            self._logger.info('deleting alarm(%s) active_alarms(%u)'
+                              % (name, self.active_alarms))
         else:
             ustruct = UVEAlarms(name = str(uk).split(':',1)[1],
                                     alarms = alm_copy)
+            self.active_alarms += 1
         alarm_msg = AlarmTrace(data=ustruct, table=tab, \
                                     sandesh=self._sandesh)
         alarm_msg.send(sandesh=self._sandesh)
-        self._logger.info('raising alarm %s' % (alarm_msg.log()))
+        self._logger.info('raising alarm(%s) active_alarms(%u)'
+                          % (alarm_msg.log(), self.active_alarms))
 
     def run_alarm_timers(self, curr_time):
         delete_alarms, update_alarms = AlarmStateMachine.run_timers\
@@ -2172,6 +2177,7 @@ class Controller(object):
         au.alarmgens = []
         ags = AlarmgenStats()
         ags.instance =  self._instance_id
+        ags.active_alarms = self.active_alarms
         ags.partitions = len(s_partitions)
         ags.keys = len(s_keys)
         ags.updates = n_updates
