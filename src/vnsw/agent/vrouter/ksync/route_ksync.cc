@@ -812,7 +812,7 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         if (state) {
             UnRegisterEvpnRouteTableListener(vrf, state);
             vrf->ClearState(partition->parent(), vrf_listener_id_);
-            state->ksync_route_walker_->Delete();
+            state->ksync_route_walker_->EnqueueDelete();
             delete state;
         }
         return;
@@ -1060,7 +1060,8 @@ MacAddress VrfKSyncObject::GetIpMacBinding(VrfEntry *vrf,
 }
 
 KSyncRouteWalker::KSyncRouteWalker(Agent *agent, VrfKSyncObject::VrfState *state) :
-    AgentRouteWalker(agent, AgentRouteWalker::ALL), state_(state) {
+    AgentRouteWalker(agent, AgentRouteWalker::ALL), state_(state),
+    marked_for_deletion_(false) {
 }
 
 KSyncRouteWalker::~KSyncRouteWalker() {
@@ -1072,8 +1073,16 @@ bool IsStatePresent(AgentRoute *route, DBTableBase::ListenerId id,
     return (state != NULL);
 }
 
+void KSyncRouteWalker::EnqueueDelete() {
+    marked_for_deletion_ = true;
+    Delete();
+}
+
 bool KSyncRouteWalker::RouteWalkNotify(DBTablePartBase *partition,
                                       DBEntryBase *e) {
+    if (marked_for_deletion_)
+        return true;
+
     AgentRoute *route = static_cast<AgentRoute *>(e);
 
     switch (route->GetTableType()) {
@@ -1113,5 +1122,6 @@ bool KSyncRouteWalker::RouteWalkNotify(DBTablePartBase *partition,
 }
 
 void KSyncRouteWalker::NotifyRoutes(VrfEntry *vrf) {
-    StartRouteWalk(vrf);
+    if (marked_for_deletion_ == false)
+        StartRouteWalk(vrf);
 }

@@ -235,10 +235,12 @@ public:
     virtual ~KSyncRouteWalker();
 
     void NotifyRoutes(VrfEntry *vrf);
+    void EnqueueDelete();
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
 
 private:
     VrfKSyncObject::VrfState *state_;
+    bool marked_for_deletion_;
     DISALLOW_COPY_AND_ASSIGN(KSyncRouteWalker);
 };
 
