@@ -487,7 +487,6 @@ void Agent::CopyConfig(AgentParam *params) {
     flow_update_tokens_ = params_->flow_update_tokens();
     tbb_keepawake_timeout_ = params_->tbb_keepawake_timeout();
     task_monitor_timeout_msec_ = params_->task_monitor_timeout_msec();
-    send_ratelimit_ = params_->sandesh_send_rate_limit();
 }
 
 void Agent::set_cn_mcast_builder(AgentXmppChannel *peer) {
@@ -496,9 +495,6 @@ void Agent::set_cn_mcast_builder(AgentXmppChannel *peer) {
 
 void Agent::InitCollector() {
     /* We need to do sandesh initialization here */
-    if (params_->collector_server_list().size() == 0) {
-        return;
-    }
 
     /* If collector configuration is specified, use that for connection to
      * collector. If not we still need to invoke InitGenerator to initialize
@@ -507,7 +503,6 @@ void Agent::InitCollector() {
     Module::type module = static_cast<Module::type>(module_type_);
     NodeType::type node_type =
         g_vns_constants.Module2NodeType.find(module)->second;
-    Sandesh::set_send_rate_limit(params_->sandesh_send_rate_limit());
     if (GetCollectorlist().size() != 0) {
         Sandesh::InitGenerator(module_name(),
                 host_name(),
@@ -651,7 +646,7 @@ Agent::Agent() :
     metadata_server_port_(0), host_name_(""), agent_name_(""),
     prog_name_(""), introspect_port_(0),
     instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT),
-    module_type_(Module::VROUTER_AGENT), module_name_(), send_ratelimit_(0),
+    module_type_(Module::VROUTER_AGENT), module_name_(),
     db_(NULL), task_scheduler_(NULL), agent_init_(NULL), fabric_vrf_(NULL),
     intf_table_(NULL), health_check_table_(NULL), metadata_ip_allocator_(NULL),
     nh_table_(NULL), uc_rt_table_(NULL), mc_rt_table_(NULL),

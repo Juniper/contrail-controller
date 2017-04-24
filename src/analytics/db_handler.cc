@@ -280,12 +280,23 @@ void DbHandler::ProcessPendingCompactionTasks(
 bool DbHandler::DropMessage(const SandeshHeader &header,
     const VizMsg *vmsg) {
     SandeshType::type stype(header.get_Type());
+    if (!(stype == SandeshType::SYSTEM || stype == SandeshType::OBJECT ||
+          stype == SandeshType::FLOW || stype == SandeshType::UVE)) {
+        return false;
+    }
+    // First check again the queue watermark drop level
+    SandeshLevel::type slevel(static_cast<SandeshLevel::type>(
+        header.get_Level()));
+    if (slevel >= drop_level_) {
+        tbb::mutex::scoped_lock lock(smutex_);
+        dropped_msg_stats_.Update(vmsg);
+        return true;
+    }
+    // Next check against the disk usage and pending compaction tasks
+    // drop levels
     bool disk_usage_percentage_drop = false;
     bool pending_compaction_tasks_drop = false;
-    if (use_db_write_options_ && (stype == SandeshType::SYSTEM ||
-        stype == SandeshType::OBJECT ||
-        stype == SandeshType::FLOW)) {
-        SandeshLevel::type slevel((SandeshLevel::type)header.get_Level());
+    if (use_db_write_options_) {
         SandeshLevel::type disk_usage_percentage_drop_level =
                                         GetDiskUsagePercentageDropLevel();
         SandeshLevel::type pending_compaction_tasks_drop_level =
@@ -298,9 +309,7 @@ bool DbHandler::DropMessage(const SandeshHeader &header,
         }
     }
 
-    bool drop(DoDropSandeshMessage(header, drop_level_) ||
-              disk_usage_percentage_drop ||
-              pending_compaction_tasks_drop);
+    bool drop(disk_usage_percentage_drop || pending_compaction_tasks_drop);
     if (drop) {
         tbb::mutex::scoped_lock lock(smutex_);
         dropped_msg_stats_.Update(vmsg);

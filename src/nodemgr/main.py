@@ -73,17 +73,9 @@ def main(args_str=' '.join(sys.argv[1:])):
                'contrail_databases': 'config analytics',
                'cassandra_repair_interval': 24,
                'cassandra_repair_logdir': '/var/log/contrail/',
-               'sandesh_send_rate_limit': \
-                    SandeshSystem.get_sandesh_send_rate_limit(),
               }
-    sandesh_opts = {
-        'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-        'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-        'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-        'sandesh_ssl_enable': False,
-        'introspect_ssl_enable': False,
-        'sandesh_dscp_value': 0
-    }
+    default.update(SandeshConfig.get_default_options(['DEFAULTS']))
+    sandesh_opts = SandeshConfig.get_default_options()
     node_type = args.nodetype
     if (node_type == 'contrail-analytics'):
         config_file = '/etc/contrail/contrail-analytics-nodemgr.conf'
@@ -111,20 +103,7 @@ def main(args_str=' '.join(sys.argv[1:])):
             default['collectors'] = collector.split()
         except ConfigParser.NoOptionError as e:
             pass
-    if 'SANDESH' in config.sections():
-        sandesh_opts.update(dict(config.items('SANDESH')))
-        if 'sandesh_ssl_enable' in config.options('SANDESH'):
-            sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
-                'SANDESH', 'sandesh_ssl_enable')
-        if 'introspect_ssl_enable' in config.options('SANDESH'):
-            sandesh_opts['introspect_ssl_enable'] = config.getboolean(
-                'SANDESH', 'introspect_ssl_enable')
-        if 'sandesh_dscp_value' in config.options('SANDESH'):
-            try:
-                sandesh_opts['sandesh_dscp_value'] = config.getint(
-                    'SANDESH', 'sandesh_dscp_value')
-            except:
-                pass
+    SandeshConfig.update_options(sandesh_opts, config)
     parser = argparse.ArgumentParser(parents=[node_parser],
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     default.update(sandesh_opts)
@@ -135,20 +114,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                         nargs='+',
                         help='Collector addresses in format' +
                              'ip1:port1 ip2:port2')
-    parser.add_argument("--sandesh_send_rate_limit", type=int,
-            help="Sandesh send rate limit in messages/sec")
-    parser.add_argument("--sandesh_keyfile",
-                        help="Sandesh ssl private key")
-    parser.add_argument("--sandesh_certfile",
-                        help="Sandesh ssl certificate")
-    parser.add_argument("--sandesh_ca_cert",
-                        help="Sandesh CA ssl certificate")
-    parser.add_argument("--sandesh_ssl_enable", action="store_true",
-                        help="Enable ssl for sandesh connection")
-    parser.add_argument("--introspect_ssl_enable", action="store_true",
-                        help="Enable ssl for introspect connection")
-    parser.add_argument("--sandesh_dscp_value", type=int,
-                        help="DSCP bits for IP header of Sandesh messages")
+    SandeshConfig.add_parser_arguments(parser, add_dscp=True)
     if (node_type == 'contrail-database'):
         parser.add_argument("--minimum_diskGB",
                             type=int,
@@ -183,12 +149,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     collector_addr = _args.collectors
     sys.stderr.write("Random Collector address: " + str(collector_addr) + "\n")
 
-    if _args.sandesh_send_rate_limit is not None:
-        SandeshSystem.set_sandesh_send_rate_limit(_args.sandesh_send_rate_limit)
-    sandesh_config = SandeshConfig(_args.sandesh_keyfile,
-        _args.sandesh_certfile, _args.sandesh_ca_cert,
-        _args.sandesh_ssl_enable, _args.introspect_ssl_enable,
-        _args.sandesh_dscp_value)
+    sandesh_config = SandeshConfig.from_parser_arguments(_args)
     # done parsing arguments
 
     prog = None

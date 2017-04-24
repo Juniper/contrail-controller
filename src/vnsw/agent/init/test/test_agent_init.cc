@@ -87,6 +87,7 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.get_nic_queue(3), 1);
     EXPECT_EQ(param.get_nic_queue(8), 2);
     EXPECT_EQ(param.get_nic_queue(105), 8);
+    EXPECT_FALSE(param.sandesh_config().disable_object_logs);
 }
 
 TEST_F(AgentParamTest, Agent_Conf_file_2) {
@@ -119,6 +120,7 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     // Default value for pkt0_tx_buffer_count
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 1000);
     EXPECT_EQ(param.services_queue_limit(), 1024);
+    EXPECT_TRUE(param.sandesh_config().disable_object_logs);
 }
 
 TEST_F(AgentParamTest, Agent_Flows_Option_1) {
@@ -257,7 +259,7 @@ TEST_F(AgentParamTest, Agent_Conf_Xen_1) {
 }
 
 TEST_F(AgentParamTest, Agent_Param_1) {
-    int argc = 23;
+    int argc = 24;
     char *argv[] = {
         (char *) "",
         (char *) "--config_file", 
@@ -273,6 +275,7 @@ TEST_F(AgentParamTest, Agent_Param_1) {
         (char *) "--DEFAULT.dhcp_relay_mode",     (char *)"true",
         (char *) "--DEFAULT.agent_base_directory",     (char *)"/var/run/contrail",
         (char *) "--DEFAULT.pkt0_tx_buffers",  (char *)"3000",
+        (char *) "--SANDESH.disable_object_logs",
     };
 
     AgentParam param;
@@ -298,6 +301,7 @@ TEST_F(AgentParamTest, Agent_Param_1) {
     EXPECT_EQ(param.dhcp_relay_mode(), true);
     EXPECT_STREQ(param.agent_base_dir().c_str(), "/var/run/contrail");
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 3000);
+    EXPECT_TRUE(param.sandesh_config().disable_object_logs);
 }
 
 TEST_F(AgentParamTest, Agent_Arg_Override_Config_1) {
