@@ -2536,6 +2536,13 @@ void GlobalForwardingMode(std::string mode) {
     AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
 }
 
+void AddFlowExportRate(int cfg_flow_export_rate) {
+    std::stringstream str;
+    str << "<flow-export-rate>" << cfg_flow_export_rate <<
+        "</flow-export-rate>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+}
+
 void AddEncapList(const char *encap1, const char *encap2, const char *encap3) {
     std::stringstream str;
     str << "<encapsulation-priorities>" << endl;

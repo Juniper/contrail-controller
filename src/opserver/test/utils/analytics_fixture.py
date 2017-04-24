@@ -199,6 +199,9 @@ class Collector(object):
             if 'sandesh_ca_cert' in self.sandesh_config:
                 args.append('--SANDESH.sandesh_ca_cert')
                 args.append(self.sandesh_config['sandesh_ca_cert'])
+            if 'disable_object_logs' in self.sandesh_config and \
+                self.sandesh_config['disable_object_logs']:
+                args.append('--SANDESH.disable_object_logs')
         self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -309,7 +312,9 @@ class AlarmGen(object):
             if 'sandesh_ca_cert' in self.sandesh_config:
                 args.append('--sandesh_ca_cert')
                 args.append(self.sandesh_config['sandesh_ca_cert'])
-
+            if 'disable_object_logs' in self.sandesh_config and \
+                self.sandesh_config['disable_object_logs']:
+                args.append('--disable_object_logs')
         self._logger.info('Setting up AlarmGen: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -387,7 +392,7 @@ class OpServer(object):
                 str(self.analytics_fixture.cassandra_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
-                '--log_level', "SYS_INFO",
+                '--log_level', "SYS_DEBUG",
                 '--rest_api_port', str(self.rest_api_port),
                 '--admin_port', str(self.admin_port),
                 '--admin_user', self.admin_user,
@@ -436,6 +441,9 @@ class OpServer(object):
             if 'sandesh_ca_cert' in self.sandesh_config:
                 args.append('--sandesh_ca_cert')
                 args.append(self.sandesh_config['sandesh_ca_cert'])
+            if 'disable_object_logs' in self.sandesh_config and \
+                self.sandesh_config['disable_object_logs']:
+                args.append('--disable_object_logs')
         self._logger.info('Setting up OpServer: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -539,6 +547,9 @@ class QueryEngine(object):
             if 'sandesh_ca_cert' in self.sandesh_config:
                 args.append('--SANDESH.sandesh_ca_cert')
                 args.append(self.sandesh_config['sandesh_ca_cert'])
+            if 'disable_object_logs' in self.sandesh_config and \
+                self.sandesh_config['disable_object_logs']:
+                args.append('--SANDESH.disable_object_logs')
         self._logger.info('Setting up contrail-query-engine: %s' % ' '.join(args))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
@@ -640,11 +651,15 @@ class AnalyticsFixture(fixtures.Fixture):
         self.sandesh_config_struct = None
         if sandesh_config:
             self.sandesh_config_struct = SandeshConfig(
-                sandesh_config.get('sandesh_keyfile'),
-                sandesh_config.get('sandesh_certfile'),
-                sandesh_config.get('sandesh_ca_cert'),
-                sandesh_config.get('sandesh_ssl_enable', False),
-                sandesh_config.get('introspect_ssl_enable', False))
+                keyfile = sandesh_config.get('sandesh_keyfile'),
+                certfile = sandesh_config.get('sandesh_certfile'),
+                ca_cert = sandesh_config.get('sandesh_ca_cert'),
+                sandesh_ssl_enable = \
+                    sandesh_config.get('sandesh_ssl_enable', False),
+                introspect_ssl_enable = \
+                    sandesh_config.get('introspect_ssl_enable', False),
+                disable_object_logs = \
+                    sandesh_config.get('disable_object_logs', False))
     # end set_sandesh_config
 
     def __init__(self, logger, builddir, cassandra_port,

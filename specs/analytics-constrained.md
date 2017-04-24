@@ -6,7 +6,7 @@ cassandra recommended CPU, disk, and IO resources. In these cases, it has
 been observed that cassandra cannot keep up with the amount of data inserted
 by analytics and it can result in slowness or instability of the whole system.
 
-#2. Problem Statement
+# 2. Problem Statement
 Analytics uses cassandra as back-end database and in deployments with limited
 and/or shared CPU, disk, and IO resources issues have been observed with
 cassandra not keeping up with the amount of inserts done by analytics.

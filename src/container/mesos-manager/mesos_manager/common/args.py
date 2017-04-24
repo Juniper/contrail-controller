@@ -25,7 +25,6 @@ def parse_args():
         'mesos_api_port': mesos_consts._WEB_PORT,
         'http_server_port': HttpPortMesosManager,
         'worker_id': '0',
-        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'collectors': None,
         'logger_class': None,
         'logging_conf': '',
@@ -36,6 +35,7 @@ def parse_args():
         'disc_server_ip': 'localhost',
         'disc_server_port': DiscoveryServerPort,
     }
+    defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
     vnc_opts = {
         'rabbit_server': 'localhost',
@@ -58,13 +58,7 @@ def parse_args():
         'cluster_id': '',
     }
 
-    sandesh_opts = {
-        'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-        'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-        'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-        'sandesh_ssl_enable': False,
-        'introspect_ssl_enable': False
-    }
+    sandesh_opts = SandeshConfig.get_default_options()
 
     mesos_opts = {}
 
@@ -75,14 +69,7 @@ def parse_args():
             vnc_opts.update(dict(config.items("VNC")))
         if 'MESOS' in config.sections():
             mesos_opts.update(dict(config.items("MESOS")))
-        if 'SANDESH' in config.sections():
-            sandesh_opts.update(dict(config.items('SANDESH')))
-            if 'sandesh_ssl_enable' in config.options('SANDESH'):
-                sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
-                    'SANDESH', 'sandesh_ssl_enable')
-            if 'introspect_ssl_enable' in config.options('SANDESH'):
-                sandesh_opts['introspect_ssl_enable'] = config.getboolean(
-                    'SANDESH', 'introspect_ssl_enable')
+        SandeshConfig.update_options(sandesh_opts, config)
         if 'DEFAULTS' in config.sections():
             defaults.update(dict(config.items("DEFAULTS")))
 
@@ -103,9 +90,5 @@ def parse_args():
         args.pod_subnets = args.pod_subnets.split()
     if type(args.service_subnets) is str:
         args.service_subnets = args.service_subnets.split()
-    args.sandesh_config = SandeshConfig(args.sandesh_keyfile,
-                                        args.sandesh_certfile,
-                                        args.sandesh_ca_cert,
-                                        args.sandesh_ssl_enable,
-                                        args.introspect_ssl_enable)
+    args.sandesh_config = SandeshConfig.from_parser_arguments(args)
     return args

@@ -109,10 +109,6 @@ class ConfigServiceLogger(object):
     def sandesh_init(self, http_server_port=None):
         """ Init sandesh """
         self._sandesh = Sandesh()
-        # Reset the sandesh send rate limit value
-        if self._args.sandesh_send_rate_limit is not None:
-            SandeshSystem.set_sandesh_send_rate_limit(
-                self._args.sandesh_send_rate_limit)
         self.redefine_sandesh_handles()
         if not http_server_port:
             http_server_port = self._args.http_server_port
