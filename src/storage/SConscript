@@ -10,3 +10,8 @@ BuildEnv.SConscript('stats-daemon/SConscript',
                     exports='BuildEnv',
                     variant_dir='#build/noarch/stats-daemon',
                     duplicate=1)
+
+BuildEnv.SConscript('storage-provisioning/SConscript',
+                    exports='BuildEnv',
+                    variant_dir='#build/noarch/storage-provisioning',
+                    duplicate=1)
