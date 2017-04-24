@@ -576,6 +576,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='User provided name for this subnet'/>
         <xsd:element name="alloc-unit"   type="xsd:integer" default='1' required='optional' operation='CRD'
              description='allocation unit for this subnet to allocate bulk ip addresses'/>
+        <xsd:element name='community-attributes' type='CommunityAttributes' required='optional'
+             description='List of community values associated with this subnet'/>
     </xsd:all>
 </xsd:complexType>
 

@@ -128,7 +128,7 @@ public:
     }
 
 protected:
-    Peer *peer_;
+    BgpPeer *peer_;
     Agent *agent_;
     uint32_t seq_no;
 };
@@ -1396,6 +1396,61 @@ TEST_F(TestAap, ServiceIpTrackingIp_4) {
 
 }
 
+TEST_F(TestAap, AapRouteCommunities) {
+    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    std::vector<Ip4Address> v;
+    v.push_back(ip);
+
+    AddAap("intf1", 1, v);
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+    EXPECT_TRUE(RouteGet("vrf1", ip, 32)->GetActiveNextHop()->GetType() == 
+                NextHop::INTERFACE);
+
+    // Append existing ipam info with subnet for 10.10.10.0/24
+    // and associated community values
+    std::vector<std::string> communities = list_of("64512:200")("64512:500");
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"2.2.2.0", 24, "2.2.2.10"},
+        {"10.10.10.0", 24, "10.10.10.1", true, 1, communities}
+    };
+
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+
+    InetUnicastRouteEntry *rt;
+    const AgentPath *path;
+    WAIT_FOR(1000, 1000,
+             ((rt = RouteGet("vrf1", ip, 32)) != NULL &&
+              (path = rt->GetActivePath()) != NULL));
+    // Validate communties in the exported path
+    EXPECT_EQ(path->communities().size(), 2);
+    EXPECT_EQ(path->communities(), communities);
+
+    // update communities in the subnet and validate the same
+    // to reflect in the route path
+    std::vector<std::string> communities_2 = list_of("64512:200");
+    IpamInfo ipam_info_2[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"2.2.2.0", 24, "2.2.2.10"},
+        {"10.10.10.0", 24, "10.10.10.1", true, 1, communities_2}
+    };
+
+    AddIPAM("vn1", ipam_info_2, 3);
+    client->WaitForIdle();
+
+    rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    path = rt->GetActivePath();
+    EXPECT_TRUE(path != NULL);
+    WAIT_FOR(100, 1000, (path->communities().size() == 1));
+    EXPECT_EQ(path->communities(), communities_2);
+
+
+    v.clear();
+    AddAap("intf1", 1, v);
+    EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+}
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
