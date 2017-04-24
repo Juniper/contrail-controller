@@ -1941,6 +1941,15 @@ class Controller(object):
             resp.response(req.context(), mr)
             np = np + 1
 
+    def handle_UVETableAlarmCountReq(self):
+        parts = self.tab_alarms.keys()
+        active_alarms = 0;
+        for pt in parts:
+            if pt not in self.tab_alarms:
+                continue
+            active_alarms += len(self.tab_alarms[pt]);
+        return active_alarms
+
     def handle_UVETablePerfReq(self, req):
         status = False
         if req.table == "all":
@@ -2172,6 +2181,7 @@ class Controller(object):
         au.alarmgens = []
         ags = AlarmgenStats()
         ags.instance =  self._instance_id
+        ags.active_alarms = self.handle_UVETableAlarmCountReq()
         ags.partitions = len(s_partitions)
         ags.keys = len(s_keys)
         ags.updates = n_updates

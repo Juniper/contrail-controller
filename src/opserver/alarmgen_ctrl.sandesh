@@ -205,6 +205,7 @@ struct AlarmgenStats {
     2: u32                         partitions
     3: u32                         keys
     4: u64                         updates
+    5: u32                         active_alarms
 }
 
 /**
