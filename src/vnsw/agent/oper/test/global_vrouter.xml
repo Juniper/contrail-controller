@@ -20,7 +20,7 @@
     <!-- Remove flow-export-rate attribute. It should be set to default. -->
     <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic" />
     <validate name="change-flow-export-rate-2">
-        <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" flow-export-rate="100" />
+        <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" flow-export-rate="0" />
     </validate>
     <global-vrouter-config uuid="1" name="default-global-system-config:default-global-vrouter-config" vxlan-mode="automatic" del="1"/>
 </test>

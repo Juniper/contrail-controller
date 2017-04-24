@@ -25,6 +25,7 @@
 
 #include <base/logging.h>
 #include <base/misc_utils.h>
+#include <base/options_util.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
@@ -37,29 +38,7 @@ using namespace std;
 using namespace boost::property_tree;
 using boost::optional;
 namespace opt = boost::program_options;
-
-template <typename ElementType>
-bool AgentParam::GetOptValueImpl(
-    const boost::program_options::variables_map &var_map,
-    std::vector<ElementType> &var, const std::string &val,
-    std::vector<ElementType>*) {
-    // Check if the value is present.
-    if (var_map.count(val) && !var_map[val].defaulted()) {
-        std::vector<ElementType> tmp(
-            var_map[val].as<std::vector<ElementType> >());
-        // Now split the individual elements
-        for (typename std::vector<ElementType>::const_iterator it =
-                 tmp.begin();
-             it != tmp.end(); it++) {
-            std::stringstream ss(*it);
-            std::copy(istream_iterator<ElementType>(ss),
-                istream_iterator<ElementType>(),
-                std::back_inserter(var));
-        }
-        return true;
-    }
-    return false;
-}
+using namespace options::util;
 
 bool AgentParam::GetIpAddress(const string &str, Ip4Address *addr) {
     boost::system::error_code ec;
@@ -368,7 +347,7 @@ void AgentParam::ParseQueue() {
 void AgentParam::ParseCollectorArguments
     (const boost::program_options::variables_map &var_map) {
     collector_server_list_.clear();
-    GetOptValue< vector<string> >(var_map, collector_server_list_,
+    GetOptValueIfNotDefaulted< vector<string> >(var_map, collector_server_list_,
                                   "DEFAULT.collectors");
     if (collector_server_list_.size() == 1) {
         boost::split(collector_server_list_, collector_server_list_[0],
@@ -379,7 +358,7 @@ void AgentParam::ParseCollectorArguments
 void AgentParam::ParseControllerServersArguments
     (const boost::program_options::variables_map &var_map) {
     controller_server_list_.clear();
-    GetOptValue< vector<string> >(var_map, controller_server_list_,
+    GetOptValueIfNotDefaulted< vector<string> >(var_map, controller_server_list_,
                                   "CONTROL-NODE.servers");
     if (controller_server_list_.size() == 1) {
         boost::split(controller_server_list_, controller_server_list_[0],
@@ -390,7 +369,7 @@ void AgentParam::ParseControllerServersArguments
 void AgentParam::ParseDnsServersArguments
     (const boost::program_options::variables_map &var_map) {
     dns_server_list_.clear();
-    GetOptValue< vector<string> >(var_map, dns_server_list_,
+    GetOptValueIfNotDefaulted< vector<string> >(var_map, dns_server_list_,
                                   "DNS.servers");
     if (dns_server_list_.size() == 1) {
         boost::split(dns_server_list_, dns_server_list_[0],
@@ -400,10 +379,10 @@ void AgentParam::ParseDnsServersArguments
 
 void AgentParam::ParseCollectorDSArguments
     (const boost::program_options::variables_map &var_map) {
-    GetOptValue< vector<string> >(var_map, collector_server_list_,
+    GetOptValueIfNotDefaulted< vector<string> >(var_map, collector_server_list_,
                                       "DEFAULT.collectors");
     vector<string> dsvec;
-    if (GetOptValue< vector<string> >(var_map, dsvec,
+    if (GetOptValueIfNotDefaulted< vector<string> >(var_map, dsvec,
                                       "DEFAULT.derived_stats")) {
         derived_stats_map_ = ParseDerivedStats(dsvec);
     }
@@ -518,8 +497,6 @@ void AgentParam::ParseDefaultSectionArguments
                         "DEFAULT.xmpp_server_key");
     GetOptValue<string>(var_map, xmpp_ca_cert_, "DEFAULT.xmpp_ca_cert");
 
-    GetOptValue<uint32_t>(var_map, send_ratelimit_,
-                          "DEFAULT.sandesh_send_rate_limit");
     GetOptValue<bool>(var_map, subnet_hosts_resolvable_,
                       "DEFAULT.subnet_hosts_resolvable");
     GetOptValue<uint16_t>(var_map, mirror_client_port_,
@@ -675,16 +652,7 @@ void AgentParam::ParseServicesArguments
 
 void AgentParam::ParseSandeshArguments
     (const boost::program_options::variables_map &v) {
-    GetOptValue<string>(v, sandesh_config_.keyfile,
-                        "SANDESH.sandesh_keyfile");
-    GetOptValue<string>(v, sandesh_config_.certfile,
-                        "SANDESH.sandesh_certfile");
-    GetOptValue<string>(v, sandesh_config_.ca_cert,
-                        "SANDESH.sandesh_ca_cert");
-    GetOptValue<bool>(v, sandesh_config_.sandesh_ssl_enable,
-                      "SANDESH.sandesh_ssl_enable");
-    GetOptValue<bool>(v, sandesh_config_.introspect_ssl_enable,
-                      "SANDESH.introspect_ssl_enable");
+    sandesh::options::ProcessOptions(v, &sandesh_config_);
 }
 
 void AgentParam::ParseRestartArguments
@@ -1284,7 +1252,6 @@ AgentParam::AgentParam(bool enable_flow_options,
         physical_interface_pci_addr_(""),
         physical_interface_mac_addr_(""),
         agent_base_dir_(),
-        send_ratelimit_(sandesh_send_rate_limit()),
         flow_thread_count_(Agent::kDefaultFlowThreadCount),
         flow_trace_enable_(true),
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
@@ -1408,10 +1375,6 @@ AgentParam::AgentParam(bool enable_flow_options,
          "control-channel IP address used by WEB-UI to connect to vnswad")
         ("DEFAULT.platform", opt::value<string>(),
          "Mode in which vrouter is running, option are dpdk or vnic")
-        ("DEFAULT.sandesh_send_rate_limit",
-         opt::value<uint32_t>()->default_value(
-         g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
-         "Sandesh send rate limit in messages/sec")
         ("DEFAULT.subnet_hosts_resolvable",
          opt::bool_switch(&subnet_hosts_resolvable_)->default_value(true))
         ("DEFAULT.pkt0_tx_buffers", opt::value<uint32_t>()->default_value(default_pkt0_tx_buffers),
@@ -1602,23 +1565,7 @@ AgentParam::AgentParam(bool enable_flow_options,
     config_file_options_.add(tbb);
 
     opt::options_description sandesh("Sandesh specific options");
-    sandesh.add_options()
-        ("SANDESH.sandesh_keyfile", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/private/server-privkey.pem"),
-            "Sandesh ssl private key")
-        ("SANDESH.sandesh_certfile", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/certs/server.pem"),
-            "Sandesh ssl certificate")
-        ("SANDESH.sandesh_ca_cert", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/certs/ca-cert.pem"),
-            "Sandesh CA ssl certificate")
-        ("SANDESH.sandesh_ssl_enable",
-             opt::bool_switch(&sandesh_config_.sandesh_ssl_enable),
-             "Enable ssl for sandesh connection")
-        ("SANDESH.introspect_ssl_enable",
-             opt::bool_switch(&sandesh_config_.introspect_ssl_enable),
-             "Enable ssl for introspect connection")
-        ;
+    sandesh::options::AddOptions(&sandesh, &sandesh_config_);
     options_.add(sandesh);
     config_file_options_.add(sandesh);
 

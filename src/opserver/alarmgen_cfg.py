@@ -72,9 +72,9 @@ class CfgParser(object):
             'kombu_ssl_certfile': '',
             'kombu_ssl_ca_certs': '',
             'alarmgen_list'     : ['127.0.0.1:0'],
-            'sandesh_send_rate_limit' : SandeshSystem.get_sandesh_send_rate_limit(),
             'cluster_id'     :'',
         }
+        defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
         api_opts = {
             'api_server_list' : ['127.0.0.1:8082'],
@@ -96,13 +96,7 @@ class CfgParser(object):
             'admin_tenant_name': 'default-domain'
         }
 
-        sandesh_opts = {
-            'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-            'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-            'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-            'sandesh_ssl_enable': False,
-            'introspect_ssl_enable': False
-        }
+        sandesh_opts = SandeshConfig.get_default_options()
 
         config = None
         if args.conf_file:
@@ -117,14 +111,7 @@ class CfgParser(object):
                 redis_opts.update(dict(config.items('REDIS')))
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
-            if 'SANDESH' in config.sections():
-                sandesh_opts.update(dict(config.items('SANDESH')))
-                if 'sandesh_ssl_enable' in config.options('SANDESH'):
-                    sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
-                        'SANDESH', 'sandesh_ssl_enable')
-                if 'introspect_ssl_enable' in config.options('SANDESH'):
-                    sandesh_opts['introspect_ssl_enable'] = config.getboolean(
-                        'SANDESH', 'introspect_ssl_enable')
+            SandeshConfig.update_options(sandesh_opts, config)
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -198,8 +185,6 @@ class CfgParser(object):
         parser.add_argument("--alarmgen_list",
             help="List of alarmgens in ip:inst format. For internal use only",
             nargs="+")
-        parser.add_argument("--sandesh_send_rate_limit", type=int,
-            help="Sandesh send rate limit in messages/sec")
         parser.add_argument("--cluster_id",
             help="Analytics Cluster Id")
         parser.add_argument("--auth_host",
@@ -214,21 +199,12 @@ class CfgParser(object):
             help="Password of keystone admin user")
         parser.add_argument("--admin_tenant_name",
             help="Tenant name for keystone admin user")
-        parser.add_argument("--sandesh_keyfile",
-            help="Sandesh ssl private key")
-        parser.add_argument("--sandesh_certfile",
-            help="Sandesh ssl certificate")
-        parser.add_argument("--sandesh_ca_cert",
-            help="Sandesh CA ssl certificate")
-        parser.add_argument("--sandesh_ssl_enable", action="store_true",
-            help="Enable ssl for sandesh connection")
-        parser.add_argument("--introspect_ssl_enable", action="store_true",
-            help="Enable ssl for introspect connection")
         parser.add_argument("--api_server_list",
             help="List of api-servers in ip:port format separated by space",
             nargs="+")
         parser.add_argument("--api_server_use_ssl",
             help="Use SSL to connect to api-server")
+        SandeshConfig.add_parser_arguments(parser)
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -312,9 +288,6 @@ class CfgParser(object):
     def host_ip(self):
         return self._args.host_ip
 
-    def sandesh_send_rate_limit(self):
-        return self._args.sandesh_send_rate_limit
-
     def kafka_prefix(self):
         return self._args.cluster_id
 
@@ -340,8 +313,4 @@ class CfgParser(object):
                 'admin_tenant_name': self._args.admin_tenant_name}
 
     def sandesh_config(self):
-        return SandeshConfig(self._args.sandesh_keyfile,
-                             self._args.sandesh_certfile,
-                             self._args.sandesh_ca_cert,
-                             self._args.sandesh_ssl_enable,
-                             self._args.introspect_ssl_enable)
+        return SandeshConfig.from_parser_arguments(self._args)

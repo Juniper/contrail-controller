@@ -484,11 +484,6 @@ class OpServer(object):
         self.disk_usage_percentage = 0
         self.pending_compaction_tasks = 0
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self)
-        # Reset the sandesh send rate limit value
-        if self._args.sandesh_send_rate_limit is not None:
-            SandeshSystem.set_sandesh_send_rate_limit( \
-                self._args.sandesh_send_rate_limit)
-
         self.random_collectors = self._args.collectors
         if self._args.collectors:
             self._chksum = hashlib.md5("".join(self._args.collectors)).hexdigest()
@@ -860,14 +855,13 @@ class OpServer(object):
             'partitions'        : 15,
             'zk_list'           : None,
             'zk_prefix'         : '',
-            'sandesh_send_rate_limit': SandeshSystem. \
-                 get_sandesh_send_rate_limit(),
             'aaa_mode'          : AAA_MODE_RBAC,
             'api_server'        : '127.0.0.1:8082',
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
             'api_server_use_ssl': False,
         }
+        defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
         redis_opts = {
             'redis_query_port'   : 6379,
             'redis_password'       : None,
@@ -888,13 +882,7 @@ class OpServer(object):
             'admin_password': 'contrail123',
             'admin_tenant_name': 'default-domain'
         }
-        sandesh_opts = {
-            'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-            'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-            'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-            'sandesh_ssl_enable': False,
-            'introspect_ssl_enable': False
-        }
+        sandesh_opts = SandeshConfig.get_default_options()
 
         # read contrail-analytics-api own conf file
         config = None
@@ -909,14 +897,7 @@ class OpServer(object):
                 cassandra_opts.update(dict(config.items('CASSANDRA')))
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
-            if 'SANDESH' in config.sections():
-                sandesh_opts.update(dict(config.items('SANDESH')))
-                if 'sandesh_ssl_enable' in config.options('SANDESH'):
-                    sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
-                        'SANDESH', 'sandesh_ssl_enable')
-                if 'introspect_ssl_enable' in config.options('SANDESH'):
-                    sandesh_opts['introspect_ssl_enable'] = config.getboolean(
-                        'SANDESH', 'introspect_ssl_enable')
+            SandeshConfig.update_options(sandesh_opts, config)
             if 'DATABASE' in config.sections():
                 database_opts.update(dict(config.items('DATABASE')))
 
@@ -1004,8 +985,6 @@ class OpServer(object):
             nargs="+")
         parser.add_argument("--zk_prefix",
             help="System Prefix for zookeeper")
-        parser.add_argument("--sandesh_send_rate_limit", type=int,
-            help="Sandesh send rate limit in messages/sec")
         parser.add_argument("--cloud_admin_role",
             help="Name of cloud-admin role")
         parser.add_argument("--aaa_mode", choices=APIAAAModes,
@@ -1028,16 +1007,7 @@ class OpServer(object):
             help="Port with local auth for admin access")
         parser.add_argument("--api_server_use_ssl",
             help="Use SSL to connect with API server")
-        parser.add_argument("--sandesh_keyfile",
-            help="Sandesh ssl private key")
-        parser.add_argument("--sandesh_certfile",
-            help="Sandesh ssl certificate")
-        parser.add_argument("--sandesh_ca_cert",
-            help="Sandesh CA ssl certificate")
-        parser.add_argument("--sandesh_ssl_enable", action="store_true",
-            help="Enable ssl for sandesh connection")
-        parser.add_argument("--introspect_ssl_enable", action="store_true",
-            help="Enable ssl for introspect connection")
+        SandeshConfig.add_parser_arguments(parser)
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -1068,9 +1038,8 @@ class OpServer(object):
         auth_conf_info['api_server_port'] = int(api_server_info[1])
         self._args.auth_conf_info = auth_conf_info
         self._args.conf_file = args.conf_file
-        self._args.sandesh_config = SandeshConfig(self._args.sandesh_keyfile,
-            self._args.sandesh_certfile, self._args.sandesh_ca_cert,
-            self._args.sandesh_ssl_enable, self._args.introspect_ssl_enable)
+        self._args.sandesh_config = \
+            SandeshConfig.from_parser_arguments(self._args)
     # end _parse_args
 
     def get_args(self):

@@ -85,9 +85,9 @@ Mibs = LldpTable, ArpTable
             'fast_scan_frequency' : 60,
             'http_server_port'    : HttpPortSnmpCollector,
             'zookeeper'           : '127.0.0.1:2181',
-            'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
             'cluster_id'          :'',
         }
+        defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
         api_opts = {
             'api_server_list' : ['127.0.0.1:8082'],
             'api_server_use_ssl' : False
@@ -100,13 +100,7 @@ Mibs = LldpTable, ArpTable
             'admin_password': 'password1',
             'admin_tenant_name': 'default-domain'
         }
-        sandesh_opts = {
-            'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-            'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-            'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-            'sandesh_ssl_enable': False,
-            'introspect_ssl_enable': False
-        }
+        sandesh_opts = SandeshConfig.get_default_options()
 
         config = None
         if args.conf_file:
@@ -119,14 +113,7 @@ Mibs = LldpTable, ArpTable
                 api_opts.update(dict(config.items("API_SERVER")))
             if 'KEYSTONE' in config.sections():
                 ksopts.update(dict(config.items("KEYSTONE")))
-            if 'SANDESH' in config.sections():
-                sandesh_opts.update(dict(config.items('SANDESH')))
-                if 'sandesh_ssl_enable' in config.options('SANDESH'):
-                    sandesh_opts['sandesh_ssl_enable'] = config.getboolean(
-                        'SANDESH', 'sandesh_ssl_enable')
-                if 'introspect_ssl_enable' in config.options('SANDESH'):
-                    sandesh_opts['introspect_ssl_enable'] = config.getboolean(
-                        'SANDESH', 'introspect_ssl_enable')
+            SandeshConfig.update_options(sandesh_opts, config)
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -182,26 +169,15 @@ Mibs = LldpTable, ArpTable
             help="ip:port of zookeeper server")
         parser.add_argument("--cluster_id",
             help="Used for database keyspace separation")
-        parser.add_argument("--sandesh_keyfile",
-            help="Sandesh ssl private key")
-        parser.add_argument("--sandesh_certfile",
-            help="Sandesh ssl certificate")
-        parser.add_argument("--sandesh_ca_cert",
-            help="Sandesh CA ssl certificate")
-        parser.add_argument("--sandesh_ssl_enable", action="store_true",
-            help="Enable ssl for sandesh connection")
-        parser.add_argument("--introspect_ssl_enable", action="store_true",
-            help="Enable ssl for introspect connection")
         parser.add_argument("--api_server_list",
             help="List of api-servers in ip:port format separated by space",
             nargs="+")
         parser.add_argument("--api_server_use_ssl",
             help="Use SSL to connect to api-server")
+        SandeshConfig.add_parser_arguments(parser)
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument("--device-config-file",
             help="where to look for snmp credentials")
-        group.add_argument("--sandesh_send_rate_limit", type=int,
-            help="Sandesh send rate limit in messages/sec.")
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
@@ -264,12 +240,5 @@ Mibs = LldpTable, ArpTable
     def http_port(self):
         return self._args.http_server_port
 
-    def sandesh_send_rate_limit(self):
-        return self._args.sandesh_send_rate_limit
-
     def sandesh_config(self):
-        return SandeshConfig(self._args.sandesh_keyfile,
-                             self._args.sandesh_certfile,
-                             self._args.sandesh_ca_cert,
-                             self._args.sandesh_ssl_enable,
-                             self._args.introspect_ssl_enable)
+        return SandeshConfig.from_parser_arguments(self._args)
