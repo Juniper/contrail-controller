@@ -196,7 +196,7 @@ class LogQuerierTest(unittest.TestCase):
         test_num = 6
 
         argv = sys.argv
-        sys.argv = "contrail-logs --start-time now-30m --end-time now".split()
+        sys.argv = "contrail-logs --last 25m".split()
         self._querier.run()
         sys.argv = argv
 
@@ -210,7 +210,7 @@ class LogQuerierTest(unittest.TestCase):
             del query_list[i]['start_time']
             del query_list[i]['end_time']
             self.assertEqual(expected_result_dict, query_list[i])
-        self.assertEqual(int(query_list[2]['end_time']) - int(query_list[2]['start_time']),10*60*pow(10,6) - 2)
+        self.assertEqual(int(query_list[2]['end_time']) - int(query_list[2]['start_time']),5*60*pow(10,6) - 2)
         del query_list[2]['start_time']
         del query_list[2]['end_time']
         self.assertEqual(expected_result_dict, query_list[2])
