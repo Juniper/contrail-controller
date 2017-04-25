@@ -9,13 +9,26 @@ gevent.monkey.patch_all()
 from testtools.matchers import Contains
 
 from vnc_api.vnc_api import (VirtualNetwork, SequenceType,
-        VirtualNetworkPolicyType, NoIdError)
+        VirtualNetworkPolicyType, NoIdError, SecurityLoggingObjectRuleEntryType,
+        SecurityLoggingObjectRuleListType, SecurityLoggingObject, SecurityGroup,
+        PolicyRuleType, AddressType, SubnetType, PortType, PolicyEntriesType,
+        ActionListType)
 
 from test_case import STTestCase, retries, VerifyCommon
 sys.path.append("../common/tests")
 import test_common
 from schema_transformer.to_bgp import DBBaseST
 
+try:
+    import to_bgp
+except ImportError:
+    from schema_transformer import to_bgp
+try:
+    import config_db
+except ImportError:
+    from schema_transformer import config_db
+
+import uuid
 
 class VerifyPolicy(VerifyCommon):
     def __init__(self, vnc_lib):
@@ -115,6 +128,29 @@ class VerifyPolicy(VerifyCommon):
         ri_rt_refs = set([ref['to'][0] for ref in ri_obj.get_route_target_refs() or []])
         self.assertTrue(set(rt_list) <= ri_rt_refs)
 
+    @retries(5)
+    def check_rules_in_slo(self, st_slo, np_fqdn, rule_list):
+        if not np_fqdn:
+            self.assertTrue(len(st_slo.network_policys) == 0)
+        elif np_fqdn not in st_slo.network_policys:
+            raise Exception('Network Policy Ref not found in SLO')
+        if not rule_list:
+            self.assertTrue(len(st_slo._security_logging_object_rules) == 0)
+        else:
+            print rule_list
+            slo_vnc = self._vnc_lib.security_logging_object_read(id=st_slo.obj.uuid)
+            slo_vnc_rules = slo_vnc.get_security_logging_object_rules()
+            print slo_vnc_rules
+            for rule in rule_list:
+                slo_entry = SecurityLoggingObjectRuleEntryType(rule.rule_uuid,
+                                                               rule.rate)
+                if slo_entry not in st_slo._security_logging_object_rules:
+                    raise Exception('Rule not found in slo object')
+                elif slo_entry not in slo_vnc_rules.get_rule():
+                    raise Exception('Rule not found in vnc object')
+                else:
+                    continue
+        return
 
 class TestPolicy(STTestCase, VerifyPolicy):
 
@@ -313,6 +349,278 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.check_vn_is_deleted(uuid=vn1.uuid)
     # end test_policy_with_cidr
 
+    def test_security_logging_object(self):
+        vn1_name = self.id() + 'vn1'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+        rules = []
+        rule1 = {"protocol": "udp",
+                 "direction": "<>",
+                 "src": {"type": "vn", "value": vn1},
+                 "dst": {"type": "cidr", "value": "10.2.1.1/32"},
+                 "action": "deny"
+                 }
+        rule2 = {"protocol": "icmp",
+                 "direction": "<>",
+                 "src": {"type": "vn", "value": vn1},
+                 "dst": {"type": "cidr", "value": "10.2.1.2/32"},
+                 "action": "deny"
+                 }
+        rules.append(rule1)
+        rules.append(rule2)
+
+        np = self.create_network_policy_with_multiple_rules(rules)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1)
+        project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        slo_name = self.id() + '_slo1'
+        slo_obj = SecurityLoggingObject(name=slo_name,
+                                        parent_obj=project,
+                                        security_logging_object_rate=300)
+
+        self._vnc_lib.security_logging_object_create(slo_obj)
+        self.wait_to_get_object(config_db.SecurityLoggingObjectST,
+                                slo_obj.get_fq_name_str())
+
+        np_rule = np.get_network_policy_entries().get_policy_rule()[0]
+        np_fqdn = np.get_fq_name_str()
+        np_rule_uuid = np_rule.get_rule_uuid()
+
+        slo_obj = self._vnc_lib.security_logging_object_read(fq_name=slo_obj.get_fq_name())
+        slo_rule_entries = []
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(np_rule_uuid,
+                                                                   rate=200))
+
+        slo_rule_list = SecurityLoggingObjectRuleListType(slo_rule_entries)
+        slo_obj.add_network_policy(np, slo_rule_list)
+        self._vnc_lib.security_logging_object_update(slo_obj)
+
+        expected_rule_list = [SecurityLoggingObjectRuleEntryType(np_rule_uuid, rate=200)]
+
+        st_slo = to_bgp.SecurityLoggingObjectST.values().next()
+        self.check_rules_in_slo(st_slo, np_fqdn, expected_rule_list)
+
+        slo_obj.del_network_policy(np)
+        self._vnc_lib.security_logging_object_update(slo_obj)
+        gevent.sleep(3)
+
+        st_slo = to_bgp.SecurityLoggingObjectST.values().next()
+        self.check_rules_in_slo(st_slo, None, [])
+
+        # cleanup
+        self.delete_network_policy(np, auto_policy=True)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
+    # end test_security_logging_object
+
+    def test_security_logging_object_with_wildcard_rules(self):
+        vn1_name = self.id() + 'vn1'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+        rules = []
+        rule1 = {"protocol": "udp",
+                 "direction": "<>",
+                 "src": {"type": "vn", "value": vn1},
+                 "dst": {"type": "cidr", "value": "10.2.1.1/32"},
+                 "action": "deny"
+                 }
+        rule2 = {"protocol": "icmp",
+                 "direction": "<>",
+                 "src": {"type": "vn", "value": vn1},
+                 "dst": {"type": "cidr", "value": "10.2.1.2/32"},
+                 "action": "deny"
+                 }
+        rules.append(rule1)
+        rules.append(rule2)
+
+        np = self.create_network_policy_with_multiple_rules(rules)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1)
+        project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        slo_name = self.id() + '_slo1'
+        slo_obj = SecurityLoggingObject(name=slo_name,
+                                        parent_obj=project,
+                                        security_logging_object_rate=300)
+
+        self._vnc_lib.security_logging_object_create(slo_obj)
+        self.wait_to_get_object(config_db.SecurityLoggingObjectST,
+                                slo_obj.get_fq_name_str())
+
+        np_rule1 = np.get_network_policy_entries().get_policy_rule()[0]
+        np_rule2 = np.get_network_policy_entries().get_policy_rule()[1]
+        np_fqdn = np.get_fq_name_str()
+        np_rule1_uuid = np_rule1.get_rule_uuid()
+        np_rule2_uuid = np_rule2.get_rule_uuid()
+
+        slo_rule_entries = []
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(np_rule1_uuid,
+                                                                   rate=300))
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(np_rule2_uuid,
+                                                                   rate=300))
+        slo_obj = self._vnc_lib.security_logging_object_read(fq_name=slo_obj.get_fq_name())
+        slo_obj.add_network_policy(np, None)
+        self._vnc_lib.security_logging_object_update(slo_obj)
+
+        st_slo = to_bgp.SecurityLoggingObjectST.values().next()
+        self.check_rules_in_slo(st_slo, np_fqdn, slo_rule_entries)
+
+        slo_obj.del_network_policy(np)
+        self._vnc_lib.security_logging_object_update(slo_obj)
+        gevent.sleep(3)
+
+        st_slo = to_bgp.SecurityLoggingObjectST.values().next()
+        self.check_rules_in_slo(st_slo, None, [])
+
+        # cleanup
+        self.delete_network_policy(np, auto_policy=True)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
+    # end test_security_logging_object_with_wildcard_rules
+
+    def test_security_logging_object_with_network_policy_update(self):
+        vn1_name = self.id() + 'vn1'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+
+        np = self.create_network_policy_with_multiple_rules([])
+        np_fqdn = np.get_fq_name_str()
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1)
+
+        project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        slo_name = self.id() + '_slo1'
+        slo_obj = SecurityLoggingObject(name=slo_name,
+                                        parent_obj=project,
+                                        security_logging_object_rate=300)
+
+        self._vnc_lib.security_logging_object_create(slo_obj)
+        self.wait_to_get_object(config_db.SecurityLoggingObjectST,
+                                slo_obj.get_fq_name_str())
+
+        slo_obj.add_network_policy(np, None)
+        self._vnc_lib.security_logging_object_update(slo_obj)
+        gevent.sleep(3)
+
+        npr_uuid = str(uuid.uuid4())
+        action_list = ActionListType()
+        action_list.simple_action = 'pass'
+        np_rule = PolicyRuleType(rule_uuid=npr_uuid,
+                                 direction='>',
+                                 protocol='tcp',
+                                 src_addresses=[AddressType(subnet=SubnetType('11.0.0.0', 24))],
+                                 src_ports=[PortType(0, 65535)],
+                                 dst_addresses=[AddressType(subnet=SubnetType('10.0.0.0', 24))],
+                                 dst_ports=[PortType(0, 65535)],
+                                 ether_type='IPv4',
+                                 action_list=action_list
+                                 )
+        np.set_network_policy_entries(PolicyEntriesType([np_rule]))
+        self._vnc_lib.network_policy_update(np)
+
+        slo_obj = self._vnc_lib.security_logging_object_read(fq_name=slo_obj.get_fq_name())
+        expected_rule_list = [SecurityLoggingObjectRuleEntryType(npr_uuid, rate=300)]
+
+        st_slo = to_bgp.SecurityLoggingObjectST.values().next()
+        self.check_rules_in_slo(st_slo, np_fqdn, expected_rule_list)
+
+        slo_obj.del_network_policy(np)
+        self._vnc_lib.security_logging_object_update(slo_obj)
+        gevent.sleep(3)
+
+        st_slo = to_bgp.SecurityLoggingObjectST.values().next()
+        self.check_rules_in_slo(st_slo, None, [])
+
+        # cleanup
+        self.delete_network_policy(np, auto_policy=True)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
+    # end test_security_logging_object_with_network_policy_update
+
+    def test_security_logging_object_with_policy_and_security_group(self):
+        # Add a Network Policy Rule and a Security Group Rule to a
+        # SLO
+        vn1_name = self.id() + 'vn1'
+        vn1 = self.create_virtual_network(vn1_name, "10.1.1.0/24")
+        rule1 = {"protocol": "udp",
+                 "direction": "<>",
+                 "src": {"type": "vn", "value": vn1},
+                 "dst": {"type": "cidr", "value": "10.2.1.1/32"},
+                 "action": "deny"
+                 }
+        np = self.create_network_policy_with_multiple_rules([rule1])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1)
+        sg_obj = SecurityGroup(name=self.id() + '_sg1')
+        self._vnc_lib.security_group_create(sg_obj)
+        sgr_uuid = str(uuid.uuid4())
+        sg_rule = PolicyRuleType(rule_uuid=sgr_uuid,
+                                 direction='>',
+                                 protocol='tcp',
+                                 src_addresses=[AddressType(subnet=SubnetType('11.0.0.0', 24))],
+                                 src_ports=[PortType(0, 65535)],
+                                 dst_addresses=[AddressType(security_group='local')],
+                                 dst_ports=[PortType(0, 65535)],
+                                 ether_type='IPv4')
+        sg_policy_rules = PolicyEntriesType([sg_rule])
+        sg_obj.set_security_group_entries(sg_policy_rules)
+        self._vnc_lib.security_group_update(sg_obj)
+
+        project = self._vnc_lib.project_read(fq_name=[u'default-domain', u'default-project'])
+        slo_name = self.id() + '_slo1'
+        slo_obj = SecurityLoggingObject(name=slo_name,
+                                        parent_obj=project,
+                                        security_logging_object_rate=300)
+
+        self._vnc_lib.security_logging_object_create(slo_obj)
+        self.wait_to_get_object(config_db.SecurityLoggingObjectST,
+                                slo_obj.get_fq_name_str())
+
+        np_rule1 = np.get_network_policy_entries().get_policy_rule()[0]
+        np_fqdn = np.get_fq_name_str()
+        np_rule1_uuid = np_rule1.get_rule_uuid()
+
+        slo_rule_entries = []
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(np_rule1_uuid,
+                                                                   rate=300))
+        slo_rule_entries.append(SecurityLoggingObjectRuleEntryType(sgr_uuid,
+                                                                   rate=300))
+
+        slo_obj = self._vnc_lib.security_logging_object_read(fq_name=slo_obj.get_fq_name())
+        slo_obj.add_network_policy(np, None)
+        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.get_uuid())
+        slo_obj.add_security_group(sg_obj, None)
+        self._vnc_lib.security_logging_object_update(slo_obj)
+
+        st_slo = to_bgp.SecurityLoggingObjectST.values().next()
+        self.check_rules_in_slo(st_slo, np_fqdn, slo_rule_entries)
+
+        slo_obj.del_network_policy(np)
+        slo_obj.del_security_group(sg_obj)
+        self._vnc_lib.security_logging_object_update(slo_obj)
+        gevent.sleep(3)
+
+        st_slo = to_bgp.SecurityLoggingObjectST.values().next()
+        self.check_rules_in_slo(st_slo, None, [])
+
+        # cleanup
+        self.delete_network_policy(np, auto_policy=True)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1.get_fq_name())
+
+        # check if vn is deleted
+        self.check_vn_is_deleted(uuid=vn1.uuid)
+    # end test_security_logging_object_with_policy_and_security_group
+
     def test_policy_with_cidr_and_vn(self):
         vn1_name = self.id() + 'vn1'
         vn2_name = self.id() + 'vn2'
@@ -372,7 +680,9 @@ class TestPolicy(STTestCase, VerifyPolicy):
 
         # start st on a free port
         self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self.id(), self._api_server_ip, self._api_server_port)
+                                         self.id(), 
+                                         self._api_server_ip, 
+                                         self._api_server_port)
         test_common.wait_for_schema_transformer_up()
 
         # check if vn is deleted
@@ -389,7 +699,6 @@ class TestPolicy(STTestCase, VerifyPolicy):
         DBBaseST._vnc_lib.access_control_list_update = mock_acl_update
         test_common.reinit_schema_transformer()
         DBBaseST._vnc_lib.access_control_list_update = old_acl_update
-
 
     def test_acl_hash_entries(self):
         vn1_name = self.id() + 'vn1'
@@ -424,13 +733,12 @@ class TestPolicy(STTestCase, VerifyPolicy):
         self.delete_network_policy(np)
         self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
         self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
-    #end test_acl_hash_entries
+    # end test_acl_hash_entries
 
 class TestCompressPolicy(TestPolicy):
-
     def setUp(self):
-         extra_config_knobs = ("--acl_direction_comp True ")
-         super(TestCompressPolicy, self).setUp(extra_config_knobs=extra_config_knobs)
+        extra_config_knobs = ("--acl_direction_comp True ")
+        super(TestCompressPolicy, self).setUp(extra_config_knobs=extra_config_knobs)
 
     @retries(5)
     def check_compress_acl_match_condition(self, condition, fq_name):
@@ -528,6 +836,4 @@ class TestCompressPolicy(TestPolicy):
         self.check_vn_is_deleted(uuid=vn1.uuid)
         self.check_vn_is_deleted(uuid=vn2.uuid)
     # end test_compressed_policy_with_cidr
-
-
 # end TestPolicy
