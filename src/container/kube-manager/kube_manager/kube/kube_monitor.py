@@ -41,7 +41,7 @@ class KubeMonitor(object):
         else:
             self.db = None
 
-        if self.cloud_orchestrator == "openshift":
+        if self.token:
             protocol = "https"
             header = {'Authorization': "Bearer " + self.token}
             self.headers.update(header)
@@ -52,7 +52,7 @@ class KubeMonitor(object):
         # URL to the api server.
         self.url = "%s://%s:%s" % (protocol,
                                    self.args.kubernetes_api_server,
-                                   self.args.kubernetes_api_port)
+                                   self.args.kubernetes_api_secure_port)
         # URL to the v1-components in api server.
         self.v1_url = "%s/api/v1" % (self.url)
         # URL to v1-beta1 components to api server.
@@ -68,7 +68,7 @@ class KubeMonitor(object):
     def _is_kube_api_server_alive(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         result = sock.connect_ex((self.args.kubernetes_api_server, \
-                                  self.args.kubernetes_api_port))
+                                  self.args.kubernetes_api_secure_port))
         if result == 0:
             return True
         else:
