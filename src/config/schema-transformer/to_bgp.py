@@ -615,7 +615,7 @@ def run_schema_transformer(st_logger, args):
     global _vnc_lib
 
     st_logger.notice("Elected master Schema Transformer node. Initializing...")
-    st_logger.sandesh_init()
+    st_logger.introspect_init()
 
     def connection_state_update(status, message=None):
         ConnectionState.update(

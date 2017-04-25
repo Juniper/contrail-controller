@@ -869,7 +869,7 @@ def parse_args(args_str):
 
 def run_svc_monitor(sm_logger, args=None):
     sm_logger.notice("Elected master SVC Monitor node. Initializing... ")
-    sm_logger.sandesh_init()
+    sm_logger.introspect_init()
 
     monitor = SvcMonitor(sm_logger, args)
     monitor._zookeeper_client = _zookeeper_client

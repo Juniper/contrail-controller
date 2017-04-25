@@ -140,6 +140,9 @@ class ConfigServiceLogger(object):
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
 
+    def introspect_init(self):
+        self._sandesh.run_introspect_server(self._args.http_server_port)
+
     def sandesh_reconfig_collectors(self, args):
         self._sandesh.reconfig_collectors(args.random_collectors)
     # end sandesh_reconfig_collectors

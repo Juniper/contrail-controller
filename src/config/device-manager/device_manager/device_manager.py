@@ -572,7 +572,7 @@ def main(args_str=None):
 
 def run_device_manager(dm_logger, args):
     dm_logger.notice("Elected master Device Manager node. Initializing... ")
-    dm_logger.sandesh_init()
+    dm_logger.introspect_init()
     DeviceManager(dm_logger, args)
 # end run_device_manager
 
