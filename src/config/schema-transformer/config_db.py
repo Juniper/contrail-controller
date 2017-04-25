@@ -1472,7 +1472,7 @@ class NetworkPolicyST(DBBaseST):
         self.service_instances = set()
         self.internal = False
         self.rules = []
-
+        self.security_logging_objects = set()
         # policies referred in this policy as src or dst
         self.referred_policies = set()
         # policies referring to this policy as src or dst
@@ -1486,6 +1486,7 @@ class NetworkPolicyST(DBBaseST):
             vnp = VirtualNetworkPolicyType(**vn_ref['attr'])
             vn.add_policy(name, vnp)
         self.network_policys = NetworkPolicyST._network_policys.get(name, set())
+        self.update_multiple_refs('security_logging_object', self.obj)
     # end __init__
 
     def set_internal(self):
@@ -1711,6 +1712,7 @@ class SecurityGroupST(DBBaseST):
         self.egress_acl = None
         self.referred_sgs = set()
         self.security_group_entries = None
+        self.security_logging_objects = set()
         acls = self.obj.get_access_control_lists()
         for acl in acls or []:
             if acl['to'][-1] == 'egress-access-control-list':
@@ -1721,6 +1723,7 @@ class SecurityGroupST(DBBaseST):
                 self._vnc_lib.access_control_list_delete(id=acl['uuid'])
         self.update(self.obj)
         self.security_groups = SecurityGroupST._sg_dict.get(name, set())
+        self.update_multiple_refs('security_logging_object', self.obj)
     # end __init__
 
     def update(self, obj=None):
@@ -4451,6 +4454,7 @@ class BgpvpnST(DBBaseST):
     obj_type = 'bgpvpn'
     prop_fields = ['route_target_list', 'import_route_target_list',
                    'export_route_target_list']
+
     def __init__(self, name, obj=None):
         self.name = name
         self.virtual_networks = set()
@@ -4505,3 +4509,72 @@ class BgpvpnST(DBBaseST):
             self._get_sandesh_ref_list('logical_router'),
         ]
         return resp
+
+
+class SecurityLoggingObjectST(DBBaseST):
+    _dict = {}
+    obj_type = 'security_logging_object'
+    ref_fields = ['network_policy', 'security_group']
+    prop_fields = ['security_logging_object_rate']
+
+    def __init__(self, name, obj=None):
+        self.name = name
+        self.network_policys = set()
+        self.security_groups = set()
+        self.security_logging_object_rate = None
+        self.security_logging_object_rules = set()
+        self.update(obj)
+        self.uuid = self.obj.uuid
+    # end __init__
+
+    def evaluate(self):
+        slo_rule_entries = set(self.populate_rules('network_policy') +
+                               self.populate_rules('security_group'))
+        # Update the rules if it has changed.
+        if (slo_rule_entries != self.security_logging_object_rules):
+            self.obj.set_security_logging_object_rules(
+                            SecurityLoggingObjectRuleListType(list(slo_rule_entries)))
+            self._vnc_lib.security_logging_object_update(self.obj)
+            self.security_logging_object_rules = slo_rule_entries
+
+    def populate_rules(self, rule_type):
+        rule_type_refs = rule_type + '_refs'
+        slo_rule_entries = []
+        if hasattr(self.obj, rule_type_refs):
+            for np_sg in getattr(self.obj, rule_type_refs):
+                if np_sg.get('attr') and np_sg.get('attr').rule:
+                    # List of rule UUIDs is provided. Populate
+                    # the SLO with the list alone.
+                    np_sg_rule_list = np_sg.get('attr').rule
+                else:
+                    # No rule uuid is specified. Query for the
+                    # network policy or security group
+                    # and include all rules in them.
+                    # Use the default rule rate in the SLO.
+                    np_sg_fqdn = ':'.join(np_sg.get('to'))
+                    if rule_type == 'network_policy':
+                        np_sg_st_obj = NetworkPolicyST.locate(np_sg_fqdn)
+                    elif rule_type == 'security_group':
+                        np_sg_st_obj = SecurityGroupST.locate(np_sg_fqdn)
+                    np_sg_rule_list = getattr(np_sg_st_obj.obj,
+                                              'get_'+rule_type+'_entries')().get_policy_rule()
+                for rule_entry in np_sg_rule_list:
+                    rate_to_use = getattr(rule_entry, 'rate', None) or self.security_logging_object_rate
+                    slo_rule_entries.append(
+                                    SecurityLoggingObjectRuleEntryType(
+                                        rule_entry.rule_uuid,
+                                        rate=rate_to_use
+                                        )
+                                     )
+                # end for rule_entry
+            # end for np_sg
+        return slo_rule_entries
+    # end populate_rules
+
+    def handle_st_object_req(self):
+        resp = super(SecurityLoggingObjectST, self).handle_st_object_req()
+        resp.properties = [
+            sandesh.PropList('rule', str(rule)) for rule in self.security_logging_object_rules
+        ]
+        return resp
+# end SecurityLoggingObjectST
