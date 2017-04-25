@@ -27,35 +27,28 @@ class EncapsulationProvision(object):
             self._args.api_server_ip,
             self._args.api_server_port, '/',
             api_server_use_ssl=self._args.api_server_use_ssl)
-        encap_obj=EncapsulationPrioritiesType(encapsulation=self._args.encap_priority.split(","))
-        try:
-            current_config=self._vnc_lib.global_vrouter_config_read(
-                                fq_name=['default-global-system-config',
-                                         'default-global-vrouter-config'])
-        except Exception as e:
+
+        global_vrouter_fq_name = ['default-global-system-config',
+                                  'default-global-vrouter-config']
+        if self._args.oper == "add":
+            encap_obj = EncapsulationPrioritiesType(
+                    encapsulation=self._args.encap_priority.split(","))
+            conf_obj = GlobalVrouterConfig(encapsulation_priorities=encap_obj,
+                    vxlan_network_identifier_mode=self._args.vxlan_vn_id_mode,
+                    fq_name=global_vrouter_fq_name)
             try:
-                if self._args.oper == "add":
-                    conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj,vxlan_network_identifier_mode=self._args.vxlan_vn_id_mode)
-                    result=self._vnc_lib.global_vrouter_config_create(conf_obj)
-                    print 'Created.UUID is %s'%(result)
-                return
+                result = self._vnc_lib.global_vrouter_config_create(conf_obj)
+                print 'Created.UUID is %s' % result
             except RefsExistError:
-                print "Already created!"
-
-        current_linklocal=current_config.get_linklocal_services()
-        encapsulation_priorities=encap_obj
-        vxlan_network_identifier_mode=current_config.get_vxlan_network_identifier_mode()
-        if self._args.oper != "add":
-            encap_obj=EncapsulationPrioritiesType(encapsulation=[])
-            conf_obj=GlobalVrouterConfig(linklocal_services=current_linklocal,
-                                         encapsulation_priorities=encap_obj)
-        else :  
-            conf_obj=GlobalVrouterConfig(linklocal_services=current_linklocal,
-                                     encapsulation_priorities=encapsulation_priorities,
-                                     vxlan_network_identifier_mode=self._args.vxlan_vn_id_mode)  
-        result=self._vnc_lib.global_vrouter_config_update(conf_obj)
-        print 'Updated.%s'%(result)
-
+                print "Already created! Updating the object."
+                result = self._vnc_lib.global_vrouter_config_update(conf_obj)
+                print 'Updated.%s' % result
+            return
+        elif self._args.oper != "add":
+            encap_obj = EncapsulationPrioritiesType(encapsulation=[])
+            conf_obj = GlobalVrouterConfig(encapsulation_priorities=encap_obj,
+                    fq_name=global_vrouter_fq_name)
+            result = self._vnc_lib.global_vrouter_config_update(conf_obj)
     # end __init__
     
     def _parse_args(self, args_str):
