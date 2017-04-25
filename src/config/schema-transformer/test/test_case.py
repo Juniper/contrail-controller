@@ -182,7 +182,8 @@ class STTestCase(test_common.TestCase):
                 action_list.apply_service=service_list
             else:
                 action_list.simple_action=rule["action"]
-            prule = PolicyRuleType(direction=rule["direction"], protocol=rule["protocol"],
+            prule = PolicyRuleType(rule_uuid=str(uuid.uuid4()),
+                               direction=rule["direction"], protocol=rule["protocol"],
                                src_addresses=[addr1], dst_addresses=[addr2],
                                src_ports=[src_port], dst_ports=[dst_port],
                                action_list=action_list)
