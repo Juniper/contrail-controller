@@ -521,8 +521,14 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
+            if 'resource' in floatingip:
+                fip_resource = floatingip['resource']
+            else:
+                # non-existent body => clear fip to port assoc per neutron api
+                # simulate empty update for backend
+                fip_resource = {}
             floatingip_info = cfgdb.floatingip_update(context, floatingip['id'],
-                                                      floatingip['resource'])
+                                                      fip_resource)
             return floatingip_info
         except Exception as e:
             cgitb_hook(format="text")
