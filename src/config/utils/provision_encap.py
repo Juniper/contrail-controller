@@ -41,6 +41,7 @@ class EncapsulationProvision(object):
                 return
             except RefsExistError:
                 print "Already created!"
+                return
 
         current_linklocal=current_config.get_linklocal_services()
         encapsulation_priorities=encap_obj

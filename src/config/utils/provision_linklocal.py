@@ -50,6 +50,7 @@ class MetadataProvisioner(object):
                 return
             except RefsExistError:
                 print "Already created!"
+                return
 
         current_linklocal=current_config.get_linklocal_services()
         if current_linklocal is None:
