@@ -403,7 +403,6 @@ std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vn));
 }
 
-extern IFMapNode *vn_test_node;
 DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
     VnKey *key = static_cast<VnKey *>(req->key.get());
     VnData *data = static_cast<VnData *>(req->data.get());
