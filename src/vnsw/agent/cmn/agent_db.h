@@ -122,7 +122,7 @@ struct AgentData : public DBRequestData {
 /////////////////////////////////////////////////////////////////////////////
 class AgentDBEntry : public DBEntry {
 public:
-    AgentDBEntry() : DBEntry(), flags_(0) {};
+    AgentDBEntry() : DBEntry() {};
     virtual ~AgentDBEntry() {};
     virtual uint32_t GetRefCount() const = 0;
 
@@ -137,7 +137,6 @@ public:
     virtual bool DBEntrySandesh(Sandesh *resp, std::string &name) const = 0;
 private:
     friend class AgentDBTable;
-    uint8_t flags_;
     DISALLOW_COPY_AND_ASSIGN(AgentDBEntry);
 };
 
