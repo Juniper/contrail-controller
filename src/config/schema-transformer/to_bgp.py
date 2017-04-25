@@ -95,15 +95,18 @@ class SchemaTransformer(object):
             'network_policy': ['virtual_machine', 'port_tuple']
         },
         'network_policy': {
-            'self': ['virtual_network', 'network_policy', 'service_instance'],
+            'self': ['security_logging_object', 'virtual_network', 'network_policy', 'service_instance'],
             'service_instance': ['virtual_network'],
             'network_policy': ['virtual_network'],
             'virtual_network': ['virtual_network', 'network_policy',
                                 'service_instance']
         },
         'security_group': {
-            'self': ['security_group'],
+            'self': ['security_group', 'security_logging_object'],
             'security_group': [],
+        },
+        'security_logging_object': {
+            'self': [],
         },
         'route_table': {
             'self': ['virtual_network', 'service_instance', 'logical_router'],
