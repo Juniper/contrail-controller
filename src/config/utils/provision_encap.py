@@ -6,6 +6,7 @@
 import sys
 import argparse
 import ConfigParser
+from time import sleep
 
 from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import *
@@ -28,19 +29,27 @@ class EncapsulationProvision(object):
             self._args.api_server_port, '/',
             api_server_use_ssl=self._args.api_server_use_ssl)
         encap_obj=EncapsulationPrioritiesType(encapsulation=self._args.encap_priority.split(","))
+
         try:
-            current_config=self._vnc_lib.global_vrouter_config_read(
-                                fq_name=['default-global-system-config',
-                                         'default-global-vrouter-config'])
-        except Exception as e:
-            try:
-                if self._args.oper == "add":
-                    conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj,vxlan_network_identifier_mode=self._args.vxlan_vn_id_mode)
-                    result=self._vnc_lib.global_vrouter_config_create(conf_obj)
-                    print 'Created.UUID is %s'%(result)
-                return
-            except RefsExistError:
-                print "Already created!"
+            if self._args.oper == "add":
+                conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj,vxlan_network_identifier_mode=self._args.vxlan_vn_id_mode)
+                result=self._vnc_lib.global_vrouter_config_create(conf_obj)
+                print 'Created.UUID is %s'%(result)
+            return
+        except RefsExistError:
+            print "Already created! Updating the object."
+            wait_for_create_to_finish = 5
+            while wait_for_create_to_finish:
+                try:
+                    current_config=self._vnc_lib.global_vrouter_config_read(
+                            fq_name=['default-global-system-config', 'default-global-vrouter-config'])
+                except Exception:
+                    if wait_for_create_to_finish:
+                        wait_for_create_to_finish -= 1
+                        sleep(1)
+                        continue
+                    else:
+                        raise
 
         current_linklocal=current_config.get_linklocal_services()
         encapsulation_priorities=encap_obj
