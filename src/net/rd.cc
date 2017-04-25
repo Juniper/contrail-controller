@@ -33,6 +33,10 @@ uint32_t RouteDistinguisher::GetAddress() const {
     return (Type() == TypeIpAddressBased ? get_value(data_ + 2, 4) : 0);
 }
 
+uint16_t RouteDistinguisher::GetVrfId() const {
+    return (Type() == TypeIpAddressBased ? get_value(data_ + 6, 2) : 0);
+}
+
 std::string RouteDistinguisher::ToString() const {
     uint16_t rd_type = get_value(data_, 2);
     if (rd_type == Type2ByteASBased) {

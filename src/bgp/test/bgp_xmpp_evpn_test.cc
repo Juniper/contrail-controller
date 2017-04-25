@@ -9,6 +9,8 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/evpn/evpn_route.h"
+#include "bgp/evpn/evpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
 #include "control-node/control_node.h"
@@ -155,6 +157,54 @@ protected:
 
     void ConfigureWithoutRoutingInstances() {
         bs_x_->Configure(config_template_10);
+    }
+
+    EvpnTable *GetBgpTable(BgpServerTestPtr bs,
+        const std::string &instance_name) {
+        string table_name = instance_name + ".evpn.0";
+        return static_cast<EvpnTable *>(
+            bs->database()->FindTable(table_name));
+    }
+
+    EvpnRoute *BgpRouteLookup(BgpServerTestPtr bs,
+        const string &instance_name, const string &prefix) {
+        EvpnTable *table = GetBgpTable(bs, instance_name);
+        EXPECT_TRUE(table != NULL);
+        if (table == NULL)
+            return NULL;
+        boost::system::error_code error;
+        EvpnPrefix nlri = EvpnPrefix::FromString(prefix, &error);
+        EXPECT_FALSE(error);
+        EvpnTable::RequestKey key(nlri, NULL);
+        DBEntry *db_entry = table->Find(&key);
+        if (db_entry == NULL)
+            return NULL;
+        return dynamic_cast<EvpnRoute *>(db_entry);
+    }
+
+    bool CheckBgpRouteExists(BgpServerTestPtr bs, const string &instance,
+        const string &prefix) {
+        task_util::TaskSchedulerLock lock;
+        EvpnRoute *rt = BgpRouteLookup(bs, instance, prefix);
+        return (rt && rt->BestPath() != NULL);
+    }
+
+    EvpnRoute *VerifyBgpRouteExists(BgpServerTestPtr bs, const string &instance,
+        const string &prefix) {
+        TASK_UTIL_EXPECT_TRUE(CheckBgpRouteExists(bs, instance, prefix));
+        return BgpRouteLookup(bs, instance, prefix);
+    }
+
+    bool CheckBgpRouteNoExists(BgpServerTestPtr bs, const string &instance,
+        const string &prefix) {
+        task_util::TaskSchedulerLock lock;
+        EvpnRoute *rt = BgpRouteLookup(bs, instance, prefix);
+        return !rt;
+    }
+
+    void VerifyBgpRouteNoExists(BgpServerTestPtr bs, const string &instance,
+        const string &prefix) {
+        TASK_UTIL_EXPECT_TRUE(CheckBgpRouteNoExists(bs, instance, prefix));
     }
 
     EventManager evm_;
@@ -1181,6 +1231,67 @@ TEST_F(BgpXmppEvpnTest1, CreateInstanceLater) {
     TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount("blue"));
     TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Two agents.
+// They are active/backup TOR Agents responsible for the same TOR.
+// Hence they advertise the broadcast route with the same TOR address.
+// Verify that they generate the same Inclusive Multicast route with
+// different path ids.
+//
+TEST_F(BgpXmppEvpnTest1, 2TorAgentSameTor) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server X.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_x_->GetPort(),
+            "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->EnetSubscribe("blue", 99);
+    agent_b_->EnetSubscribe("blue", 99);
+
+    // Add broadcast routes from agents A and B.
+    // The TOR IP is 10.1.1.1 and the TSN IP is 10.1.1.5.
+    string eroute_tor("0-ff:ff:ff:ff:ff:ff,10.1.1.1/32");
+    test::RouteParams tor_params;
+    tor_params.replicator_address = "10.1.1.5";
+    agent_a_->AddEnetRoute("blue", eroute_tor, "10.1.1.1", &tor_params);
+    agent_b_->AddEnetRoute("blue", eroute_tor, "10.1.1.1", &tor_params);
+    task_util::WaitForIdle();
+
+    // Verify that a single inclusive multicast route got added with 2 paths.
+    string eroute_im("3-10.1.1.1:99-0-10.1.1.1");
+    EvpnRoute *rt = VerifyBgpRouteExists(bs_x_, "blue", eroute_im);
+    TASK_UTIL_EXPECT_EQ(2, rt->count());
+    boost::system::error_code ec;
+    uint32_t path_id_a =
+        IpAddress::from_string("127.0.0.1", ec).to_v4().to_ulong();
+    uint32_t path_id_b =
+        IpAddress::from_string("127.0.0.2", ec).to_v4().to_ulong();
+    TASK_UTIL_EXPECT_TRUE(rt->FindPath(BgpPath::Local, path_id_a) != NULL);
+    TASK_UTIL_EXPECT_TRUE(rt->FindPath(BgpPath::Local, path_id_b) != NULL);
+
+    // Delete broadcast routes from agents A and B.
+    agent_a_->DeleteEnetRoute("blue", eroute_tor);
+    agent_b_->DeleteEnetRoute("blue", eroute_tor);
+    task_util::WaitForIdle();
+
+    // Verify that the inclusive multicast route got deleted.
+    VerifyBgpRouteNoExists(bs_x_, "blue", eroute_im);
 
     // Close the sessions.
     agent_a_->SessionDown();
