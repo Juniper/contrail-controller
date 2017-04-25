@@ -68,6 +68,22 @@ static inline void TaskUtilPauseTest() {
     waitpid(pid, &status, 0);
 }
 
+// Get all possible sub-sets of a given set of elements
+template <typename T>
+static std::vector<std::vector<T> > GetSubSets(const std::vector<T> &vector) {
+    std::vector<std::vector<T> > subsets;
+
+    for (size_t i = 0; i < (1 << vector.size()); i++) {
+        std::vector<T> subset;
+        for (size_t j = 0; j < vector.size(); j++) {
+            if (i & (1 << j))
+                subset.push_back(vector[j]);
+        }
+        subsets.push_back(subset);
+    }
+    return subsets;
+}
+
 #define TASK_UTIL_WAIT_EQ_NO_MSG(expected, actual, wait, retry, msg)           \
 do {                                                                           \
     bool _satisfied = false;                                                   \
@@ -391,6 +407,18 @@ static inline unsigned long long int task_util_retry_count() {
         new_core_limit.rlim_max = 0;                                           \
         setrlimit(RLIMIT_CORE, &new_core_limit);                               \
         EXPECT_DEATH(statement, regex);                                        \
+        setrlimit(RLIMIT_CORE, &current_core_limit);                           \
+    } while (false)
+
+#define TASK_UTIL_EXPECT_EXIT(statement, type, regex)                          \
+    do {                                                                       \
+        rlimit current_core_limit;                                             \
+        getrlimit(RLIMIT_CORE, &current_core_limit);                           \
+        rlimit new_core_limit;                                                 \
+        new_core_limit.rlim_cur = 0;                                           \
+        new_core_limit.rlim_max = 0;                                           \
+        setrlimit(RLIMIT_CORE, &new_core_limit);                               \
+        EXPECT_EXIT(statement, type, regex);                                   \
         setrlimit(RLIMIT_CORE, &current_core_limit);                           \
     } while (false)
 
