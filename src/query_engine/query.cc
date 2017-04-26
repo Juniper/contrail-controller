@@ -1282,11 +1282,11 @@ QueryEngine::QueryExecWhere(void * handle, QueryParams qp, uint32_t chunk,
             static_cast<uint32_t>((UTCTimestampUsec() - q->where_start_)/1000);
 
     q->status_details = q->wherequery_->status_details;
-    if (q->query_status != QUERY_SUCCESS) 
+    if (q->query_status != QUERY_SUCCESS)
     {
         QE_TRACE_NOQID(DEBUG, "where processing failed with error:"  <<
                 q->query_status);
-        return q->query_status;
+        return false;
     }
 
     QE_TRACE_NOQID(DEBUG, " Finished where processing for QID " << qid << " chunk:" << chunk);
