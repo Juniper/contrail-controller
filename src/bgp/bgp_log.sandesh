@@ -577,7 +577,7 @@ systemlog sandesh BgpConfigProtocolUpdateLog {
 trace sandesh BgpPeerMessageTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -591,7 +591,7 @@ trace sandesh BgpPeerMessageTrace {
 systemlog sandesh BgpPeerMessageLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -603,7 +603,7 @@ systemlog sandesh BgpPeerMessageLog {
 trace sandesh BgpPeerMessageWarningTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -617,7 +617,7 @@ trace sandesh BgpPeerMessageWarningTrace {
 systemlog sandesh BgpPeerMessageWarningLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -629,7 +629,7 @@ systemlog sandesh BgpPeerMessageWarningLog {
 trace sandesh BgpPeerMessageNoticeTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -643,7 +643,7 @@ trace sandesh BgpPeerMessageNoticeTrace {
 systemlog sandesh BgpPeerMessageNoticeLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -655,7 +655,7 @@ systemlog sandesh BgpPeerMessageNoticeLog {
 trace sandesh BgpPeerTimerTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -669,7 +669,7 @@ trace sandesh BgpPeerTimerTrace {
 systemlog sandesh BgpPeerTimerLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -681,7 +681,7 @@ systemlog sandesh BgpPeerTimerLog {
 trace sandesh BgpPeerTimerCriticalTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -695,7 +695,7 @@ trace sandesh BgpPeerTimerCriticalTrace {
 systemlog sandesh BgpPeerTimerCriticalLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -707,7 +707,7 @@ systemlog sandesh BgpPeerTimerCriticalLog {
 trace sandesh BgpPeerMembershipTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -721,7 +721,7 @@ trace sandesh BgpPeerMembershipTrace {
 systemlog sandesh BgpPeerMembershipLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -733,7 +733,7 @@ systemlog sandesh BgpPeerMembershipLog {
 trace sandesh BgpPeerMembershipWarningTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -747,7 +747,7 @@ trace sandesh BgpPeerMembershipWarningTrace {
 systemlog sandesh BgpPeerMembershipWarningLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -759,7 +759,7 @@ systemlog sandesh BgpPeerMembershipWarningLog {
 trace sandesh BgpPeerEventTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -773,7 +773,7 @@ trace sandesh BgpPeerEventTrace {
 systemlog sandesh BgpPeerEventLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -785,7 +785,7 @@ systemlog sandesh BgpPeerEventLog {
 trace sandesh BgpPeerNotificationTrace {
     1 : "Bgp Peer";
     2 : string BgpPeer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3 : string Direction;
     4 : "Notification with Code";
     5 : i32 ErrorCode;
@@ -805,7 +805,7 @@ trace sandesh BgpPeerNotificationTrace {
 systemlog sandesh BgpPeerNotificationLog {
     1 : "Bgp Peer";
     2 : string BgpPeer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3 : string Direction;
     4 : "Notification with Code";
     5 : i32 ErrorCode;
@@ -823,7 +823,7 @@ systemlog sandesh BgpPeerNotificationLog {
 trace sandesh BgpPeerNotificationNoticeTrace {
     1 : "Bgp Peer";
     2 : string BgpPeer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3 : string Direction;
     4 : "Notification with Code";
     5 : i32 ErrorCode;
@@ -843,7 +843,7 @@ trace sandesh BgpPeerNotificationNoticeTrace {
 systemlog sandesh BgpPeerNotificationNoticeLog {
     1 : "Bgp Peer";
     2 : string BgpPeer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3 : string Direction;
     4 : "Notification with Code";
     5 : i32 ErrorCode;
@@ -861,7 +861,7 @@ systemlog sandesh BgpPeerNotificationNoticeLog {
 trace sandesh BgpPeerTableTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: "in table";
     5: string Table;
@@ -880,7 +880,7 @@ trace sandesh BgpPeerTableTrace {
 systemlog sandesh BgpPeerTableLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: "in table";
     5: string Table;
@@ -897,7 +897,7 @@ systemlog sandesh BgpPeerTableLog {
 trace sandesh BgpPeerInstanceTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: "in instance";
     5: string Instance;
@@ -914,7 +914,7 @@ trace sandesh BgpPeerInstanceTrace {
 systemlog sandesh BgpPeerInstanceLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: "in instance";
     5: string Instance;
@@ -929,7 +929,7 @@ systemlog sandesh BgpPeerInstanceLog {
 trace sandesh BgpPeerSendUpdateTrace {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: ":";
     5: string Message;
@@ -944,7 +944,7 @@ trace sandesh BgpPeerSendUpdateTrace {
 systemlog sandesh BgpPeerSendUpdateLog {
     1: "BGP Peer"
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: ":";
     5: string Message;
@@ -957,7 +957,7 @@ systemlog sandesh BgpPeerSendUpdateLog {
 trace sandesh BgpPeerStateMachineTrace {
     1: "Bgp Peer";
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -971,7 +971,7 @@ trace sandesh BgpPeerStateMachineTrace {
 systemlog sandesh BgpPeerStateMachineLog {
     1: "Bgp Peer";
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -983,7 +983,7 @@ systemlog sandesh BgpPeerStateMachineLog {
 trace sandesh BgpPeerStateMachineNoticeTrace {
     1: "Bgp Peer";
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -997,7 +997,7 @@ trace sandesh BgpPeerStateMachineNoticeTrace {
 systemlog sandesh BgpPeerStateMachineNoticeLog {
     1: "Bgp Peer";
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1009,7 +1009,7 @@ systemlog sandesh BgpPeerStateMachineNoticeLog {
 trace sandesh BgpPeerRouteTrace {
     1: "BGP Peer";
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
     5: string Route;
@@ -1026,7 +1026,7 @@ trace sandesh BgpPeerRouteTrace {
 systemlog sandesh BgpPeerRouteLog {
     1: "BGP Peer";
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
     5: string Route;
@@ -1041,7 +1041,7 @@ systemlog sandesh BgpPeerRouteLog {
 trace sandesh BgpPeerConfigTrace {
     1: "Bgp Peer";
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: ":";
     5: string Message;
@@ -1056,7 +1056,7 @@ trace sandesh BgpPeerConfigTrace {
 systemlog sandesh BgpPeerConfigLog {
     1: "Bgp Peer";
     2: string Peer (key="ObjectBgpPeer");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: ":";
     5: string Message;
@@ -1069,7 +1069,7 @@ systemlog sandesh BgpPeerConfigLog {
 trace sandesh XmppPeerMessageTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1083,7 +1083,7 @@ trace sandesh XmppPeerMessageTrace {
 systemlog sandesh XmppPeerMessageLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1095,7 +1095,7 @@ systemlog sandesh XmppPeerMessageLog {
 trace sandesh XmppPeerMessageWarningTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1109,7 +1109,7 @@ trace sandesh XmppPeerMessageWarningTrace {
 systemlog sandesh XmppPeerMessageWarningLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1121,7 +1121,7 @@ systemlog sandesh XmppPeerMessageWarningLog {
 trace sandesh XmppPeerMessageNoticeTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1135,7 +1135,7 @@ trace sandesh XmppPeerMessageNoticeTrace {
 systemlog sandesh XmppPeerMessageNoticeLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1147,7 +1147,7 @@ systemlog sandesh XmppPeerMessageNoticeLog {
 trace sandesh XmppPeerTimerTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1161,7 +1161,7 @@ trace sandesh XmppPeerTimerTrace {
 systemlog sandesh XmppPeerTimerLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1173,7 +1173,7 @@ systemlog sandesh XmppPeerTimerLog {
 trace sandesh XmppPeerTimerCriticalTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1187,7 +1187,7 @@ trace sandesh XmppPeerTimerCriticalTrace {
 systemlog sandesh XmppPeerTimerCriticalLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1199,7 +1199,7 @@ systemlog sandesh XmppPeerTimerCriticalLog {
 trace sandesh XmppPeerEventTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1213,7 +1213,7 @@ trace sandesh XmppPeerEventTrace {
 systemlog sandesh XmppPeerEventLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1225,7 +1225,7 @@ systemlog sandesh XmppPeerEventLog {
 trace sandesh XmppPeerTableTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: "in table";
     5: string Table;
@@ -1244,7 +1244,7 @@ trace sandesh XmppPeerTableTrace {
 systemlog sandesh XmppPeerTableLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: "in table";
     5: string Table;
@@ -1261,7 +1261,7 @@ systemlog sandesh XmppPeerTableLog {
 trace sandesh XmppPeerInstanceTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: "in instance";
     5: string Instance;
@@ -1278,7 +1278,7 @@ trace sandesh XmppPeerInstanceTrace {
 systemlog sandesh XmppPeerInstanceLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: "in instance";
     5: string Instance;
@@ -1293,7 +1293,7 @@ systemlog sandesh XmppPeerInstanceLog {
 trace sandesh XmppPeerSendUpdateTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: ":";
     5: string Message;
@@ -1308,7 +1308,7 @@ trace sandesh XmppPeerSendUpdateTrace {
 systemlog sandesh XmppPeerSendUpdateLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: ":";
     5: string Message;
@@ -1321,7 +1321,7 @@ systemlog sandesh XmppPeerSendUpdateLog {
 trace sandesh XmppPeerRouteTrace {
     1: "XMPP Peer";
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
     5: string Route;
@@ -1338,7 +1338,7 @@ trace sandesh XmppPeerRouteTrace {
 systemlog sandesh XmppPeerRouteLog {
     1: "XMPP Peer";
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
     5: string Route;
@@ -1353,7 +1353,7 @@ systemlog sandesh XmppPeerRouteLog {
 trace sandesh XmppPeerConfigTrace {
     1: "Xmpp Peer";
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: ":";
     5: string Message;
@@ -1368,7 +1368,7 @@ trace sandesh XmppPeerConfigTrace {
 systemlog sandesh XmppPeerConfigLog {
     1: "Xmpp Peer";
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: ":";
     5: string Message;
@@ -1381,7 +1381,7 @@ systemlog sandesh XmppPeerConfigLog {
 trace sandesh XmppPeerMembershipTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1395,7 +1395,7 @@ trace sandesh XmppPeerMembershipTrace {
 systemlog sandesh XmppPeerMembershipLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1407,7 +1407,7 @@ systemlog sandesh XmppPeerMembershipLog {
 trace sandesh XmppPeerMembershipWarningTrace {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }
@@ -1421,7 +1421,7 @@ trace sandesh XmppPeerMembershipWarningTrace {
 systemlog sandesh XmppPeerMembershipWarningLog {
     1: "XMPP Peer"
     2: string Peer (key="ObjectVRouter");
-    /** Direction is send '>' or receive '<' */
+    /** Direction is 'SEND' or 'RECV' */
     3: string Direction;
     4: string Message;
 }

@@ -336,8 +336,7 @@ TcpSession *XmppServer::CreateSession() {
     socket->set_option(reuse_addr_t(true), err);
 #endif
     if (err) {
-        XMPP_WARNING(SetSockOptFail, err.message());
-        return session;
+        XMPP_WARNING(SetSockOptFail, "", XMPP_PEER_DIR_OUT, err.message());
     }
 
     socket->bind(LocalEndpoint(), err);
@@ -348,7 +347,8 @@ TcpSession *XmppServer::CreateSession() {
     XmppSession *xmpps = static_cast<XmppSession *>(session);
     err = xmpps->EnableTcpKeepalive(tcp_hold_time_);
     if (err) {
-        XMPP_WARNING(ServerKeepAliveFailure, err.message());
+        XMPP_WARNING(ServerKeepAliveFailure, session->ToUVEKey(),
+                     XMPP_PEER_DIR_OUT, err.message());
     }
 
     return session;
@@ -417,10 +417,11 @@ void XmppServer::NotifyConnectionEvent(XmppChannelMux *mux,
 SslSession *XmppServer::AllocSession(SslSocket *socket) {
     SslSession *session = new XmppSession(this, socket);
     boost::system::error_code err;
-    XmppSession *xmpps = static_cast<XmppSession *>(session);
-    err = xmpps->EnableTcpKeepalive(tcp_hold_time_);
+    XmppSession *xmpp_session = static_cast<XmppSession *>(session);
+    err = xmpp_session->EnableTcpKeepalive(tcp_hold_time_);
     if (err) {
-        XMPP_WARNING(ServerKeepAliveFailure, err.message());
+        XMPP_WARNING(ServerKeepAliveFailure, xmpp_session->ToUVEKey(),
+                     XMPP_PEER_DIR_OUT, err.message());
     }
     return session;
 }
@@ -498,7 +499,8 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
     cfg.auth_enabled = auth_enabled_;
     cfg.dscp_value = dscp_value_;
 
-    XMPP_DEBUG(XmppCreateConnection, session->ToString());
+    XMPP_DEBUG(XmppCreateConnection, session->ToUVEKey(), XMPP_PEER_DIR_OUT,
+               session->ToString());
     connection = XmppObjectFactory::Create<XmppServerConnection>(this, &cfg);
 
     return connection;
@@ -539,8 +541,8 @@ bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     // it has a conflicting Endpoint name and decide to terminate it when
     // we process the Open message.
     if (old_connection) {
-        XMPP_DEBUG(XmppCreateConnection, "Close duplicate connection " +
-            session->ToString());
+        XMPP_DEBUG(XmppCreateConnection, session->ToUVEKey(), XMPP_PEER_DIR_IN,
+                   "Close duplicate connection " + session->ToString());
         DeleteSession(session);
         connection->set_duplicate();
         connection->ManagedDelete();
