@@ -119,7 +119,7 @@ class DeviceConf(object):
     def validate_device(self):
         if not self.device_config:
             self.device_config = self.device_get()
-        model = self.device_config.get('product-model')
+        model = self.device_config.get('product-model', '')
         if self._product.lower() not in model.lower():
             self._logger.error("product model mismatch: device model = %s,"
                       " plugin mode = %s" % (model, self._product))

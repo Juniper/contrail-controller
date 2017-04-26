@@ -26,6 +26,10 @@ class FakeNetconfManager(object):
     def set_model(cls, model):
         cls.model = model
 
+    @classmethod
+    def set_version(cls, version):
+        cls.version = version
+
     def rpc(self, ele):
         model = FakeNetconfManager.model
         version = FakeNetconfManager.version

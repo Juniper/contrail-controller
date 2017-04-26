@@ -13,6 +13,7 @@ from device_manager.dm_utils import DMUtils
 from test_common import *
 from test_dm_common import *
 from test_dm_utils import FakeDeviceConnect
+from test_dm_utils import FakeNetconfManager
 
 #
 # All BGP related DM test cases should go here
@@ -188,6 +189,68 @@ class TestBgpDM(TestCommonDM):
         self.delete_routers(bgp_router, pr)
         self.wait_for_routers_delete(bgp_router_fq, pr_fq)
     # end test_dm_router_id_config
+
+    def set_global_vrouter_config(self, encap_priority_list = []):
+        create = False
+        fq = ["default-global-system-config", "default-global-vrouter-config"]
+        try:
+            gv = self._vnc_lib.global_vrouter_config_read(fq_name=fq)
+        except NoIdError:
+            create = True
+            gv = GlobalVrouterConfig(fq_name=fq)
+        encaps = EncapsulationPrioritiesType()
+        encaps.set_encapsulation(encap_priority_list)
+        gv.set_encapsulation_priorities(encaps)
+        if create:
+            self._vnc_lib.global_vrouter_config_create(gv)
+        else:
+            self._vnc_lib.global_vrouter_config_update(gv)
+    # end set_global_vrouter_config
+
+    @retries(5, hook=retry_exc_handler)
+    def check_tunnel_encap(self, is_gre=False, is_udp=False):
+        config = FakeDeviceConnect.get_xml_config()
+        tunnels = self.get_dynamic_tunnels(config) or DynamicTunnels()
+        for tunnel in tunnels.get_dynamic_tunnel() or []:
+            if ((tunnel.gre == '' and is_gre) or \
+                      (tunnel.udp == '' and is_udp)):
+                 return
+        self.assertTrue(False)
+    # end check_tunnel_source_ip
+
+    # test dynamic tunnels encap mode
+    def test_dm_encap_udp_support(self):
+        FakeNetconfManager.set_version('16.2R1')
+        self.set_global_vrouter_config(["MPLSoGRE", "VXLAN"])
+        bgp_router, pr = self.create_router('router100' + self.id(), '1.1.1.1')
+        self.check_tunnel_encap(is_gre=True)
+
+        self.set_global_vrouter_config(["MPLSoUDP", "VXLAN", "MPLSoGRE"])
+        self.check_tunnel_encap(is_udp=True)
+
+        # cleanup
+        bgp_router_fq = bgp_router.get_fq_name()
+        pr_fq = pr.get_fq_name()
+        self.delete_routers(bgp_router, pr)
+        self.wait_for_routers_delete(bgp_router_fq, pr_fq)
+    # end test_dm_encap_udp_support
+
+    # test dynamic tunnels encap mode
+    def test_dm_encap_no_udp_support(self):
+        FakeNetconfManager.set_version('14.2R2.0')
+        self.set_global_vrouter_config(["MPLSoGRE", "VXLAN"])
+        bgp_router, pr = self.create_router('router100' + self.id(), '1.1.1.1')
+        self.check_tunnel_encap(is_gre=True)
+
+        self.set_global_vrouter_config(["MPLSoUDP", "VXLAN", "MPLSoGRE"])
+        self.check_tunnel_encap(is_gre=True)
+
+        # cleanup
+        bgp_router_fq = bgp_router.get_fq_name()
+        pr_fq = pr.get_fq_name()
+        self.delete_routers(bgp_router, pr)
+        self.wait_for_routers_delete(bgp_router_fq, pr_fq)
+    # end test_dm_encap_no_udp_support
 
 # end TestBgpDM
 

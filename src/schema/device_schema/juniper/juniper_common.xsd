@@ -151,6 +151,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="source-address" type="xsd:string"/>
         <xsd:element name="gre"/>
+        <xsd:element name="udp"/>
         <xsd:element name="destination-networks" type="DestinationNetworks" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>

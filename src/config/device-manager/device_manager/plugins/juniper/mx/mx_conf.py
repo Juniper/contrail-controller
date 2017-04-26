@@ -180,8 +180,11 @@ class MxConf(JuniperConf):
 
     def add_dynamic_tunnels(self, tunnel_source_ip,
                              ip_fabric_nets, bgp_router_ips):
+        encap = self.find_dynamic_tunnels_encap()
+        gre = '' if encap == 'gre' else None
+        udp = '' if encap == 'udp' else None
         dynamic_tunnel = DynamicTunnel(name=DMUtils.dynamic_tunnel_name(self.get_asn()),
-                                       source_address=tunnel_source_ip, gre='')
+                                       source_address=tunnel_source_ip, gre=gre, udp=udp)
         if ip_fabric_nets is not None:
             for subnet in ip_fabric_nets.get("subnet", []):
                 dest_net = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len'])
@@ -883,6 +886,16 @@ class MxConf(JuniperConf):
             self._get_neighbor_config_xml(ext_grp_config, self.external_peers)
         return
     # end set_bgp_group_config
+
+    def find_dynamic_tunnels_encap(self):
+        config_encap = GlobalVRouterConfigDM.global_encapsulation_priority
+        if not self.device_config:
+            self.device_config = self.device_get()
+        if config_encap == "MPLSoUDP":
+            device_software_version = self.device_config.get("software-version", '')
+            if device_software_version.lower() >= str("JUNOS 16.2R1").lower():
+                return "udp"
+        return "gre"
 
     def has_conf(self):
         if not self.proto_config or not self.proto_config.get_bgp():
