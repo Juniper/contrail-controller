@@ -2644,7 +2644,12 @@ class DBInterface(object):
             for fip_pool in fip_pools or []:
                 fip_pool_obj = self._vnc_lib.floating_ip_pool_read(id=fip_pool['uuid'])
                 fips = fip_pool_obj.get_floating_ips()
+                #Delete fip if it's not associated with any port
                 for fip in fips or []:
+                    fip_obj = self._vnc_lib.floating_ip_read(id=fip['uuid'])
+                    vmi_refs = fip_obj.get_virtual_machine_interface_refs()
+                    if vmi_refs is not None:
+                        raise RefsExistError
                     self.floatingip_delete(fip_id=fip['uuid'])
                 self._floating_ip_pool_delete(fip_pool_id=fip_pool['uuid'])
 
