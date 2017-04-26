@@ -2797,13 +2797,10 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
             BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
                          Sandesh::LoggingUtLevel(), BGP_LOG_FLAG_SYSLOG,
                          BGP_PEER_DIR_IN,
-                         "Received XmppChannel down event");
+                         "Received XmppChannel NOT_READY event");
 
             // Trigger closure of this channel
             bgp_xmpp_channel->Close();
-        } else {
-            BGP_LOG_NOTICE(BgpMessage, BGP_LOG_FLAG_ALL,
-                    "Peer not found on channel not ready event");
         }
     }
 }

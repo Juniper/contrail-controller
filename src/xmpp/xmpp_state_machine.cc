@@ -1398,16 +1398,16 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
                 if (ready) {
                     XmppStateMachine *sm =
                         endpoint->connection()->state_machine();
-                    XMPP_DEBUG(XmppDeleteConnection,
-                               "Delete old xmpp connection " +
-                               sm->session()->ToString() +
-                               " as a new connection as been initiated");
+                    XMPP_NOTICE(XmppDeleteConnection,
+                                "Delete old xmpp connection " +
+                                sm->session()->ToString() +
+                                " as a new connection as been initiated");
                     sm->Enqueue(xmsm::EvTcpClose(sm->session()));
                 }
 
-                XMPP_DEBUG(XmppDeleteConnection,
-                           "Drop new xmpp connection " + session->ToString() +
-                           " as current connection is still not deleted");
+                XMPP_NOTICE(XmppDeleteConnection,
+                            "Drop new xmpp connection " + session->ToString() +
+                            " as current connection is still not deleted");
                 ProcessEvent(xmsm::EvTcpClose(session));
                 delete msg;
                 return;
@@ -1718,8 +1718,8 @@ void XmppStateMachine::ResurrectOldConnection(XmppConnection *new_connection,
     XmppServer *server = dynamic_cast<XmppServer *>(new_connection->server());
     assert(server->IsPeerCloseGraceful());
 
-    XMPP_DEBUG(XmppCreateConnection, "Resurrect xmpp connection " +
-               new_session->ToString());
+    XMPP_NOTICE(XmppCreateConnection, "Resurrect xmpp connection " +
+                new_session->ToString());
 
     // Retrieve old XmppConnection and XmppStateMachine (to reuse)
     XmppConnection *old_xmpp_connection = connection_endpoint->connection();

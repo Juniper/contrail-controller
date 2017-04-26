@@ -31,6 +31,11 @@ systemlog sandesh XmppStateMachineDebug {
     2: string message;
 }
 
+trace sandesh XmppStateMachineDebugTrace {
+    1: string channel_type;
+    2: string message;
+}
+
 /**
  * @description: XMPP StateMachine related message
  * @severity: NOTICE
@@ -40,11 +45,26 @@ systemlog sandesh XmppStateMachineNotice {
     2: string message;
 }
 
+trace sandesh XmppStateMachineNoticeTrace {
+    1: string channel_type;
+    2: string message;
+}
+
 /**
  * @description: XMPP Event related message
  * @severity: NOTICE
  */
 systemlog sandesh XmppEventLog {
+    1: string channel_type;
+    2: string event;
+    3: "peer ip:";
+    4: string peer_address;
+    5: "(";
+    6: string local_address;
+    7: ")";
+}
+
+trace sandesh XmppEventLogTrace {
     1: string channel_type;
     2: string event;
     3: "peer ip:";
@@ -67,11 +87,29 @@ systemlog sandesh XmppOpen {
     6: string to;
 }
 
+trace sandesh XmppOpenTrace {
+    1: "Send Xmpp Open: ";
+    2: i32 length;
+    3: " bytes from: ";
+    4: string from;
+    5: " To: ";
+    6: string to;
+}
+
 /**
  * @description: XMPP OpenConfirm message send event
  * @severity: DEBUG
  */
 systemlog sandesh XmppOpenConfirm {
+    1: "Send Xmpp Open Confirm: ";
+    2: i32 length;
+    3: " bytes from: ";
+    4: string from;
+    5: " To: ";
+    6: string to;
+}
+
+trace sandesh XmppOpenConfirmTrace {
     1: "Send Xmpp Open Confirm: ";
     2: i32 length;
     3: " bytes from: ";
@@ -93,6 +131,15 @@ systemlog sandesh XmppControlMessage {
     6: string to;
 }
 
+trace sandesh XmppControlMessageTrace {
+    1: string message
+    2: i32 length;
+    3: " bytes from: ";
+    4: string from;
+    5: " To: ";
+    6: string to;
+}
+
 /**
  * @description: XMPP KeepAlive timer error
  * @severity: ERROR
@@ -106,11 +153,27 @@ systemlog sandesh XmppKeepaliveTimeError {
     4: string message;
 }
 
+trace sandesh XmppKeepaliveTimeErrorTrace {
+    1: "Xmpp Keepalive timer error: ";
+    2: string name;
+    3: "  ";
+    4: string message;
+}
+
 /**
  * @description: XMPP Close send event
  * @severity: DEBUG
  */
 systemlog sandesh XmppClose {
+    1: "Send Close: ";
+    2: i32 length;
+    3: " bytes from: ";
+    4: string from;
+    5: " To: ";
+    6: string to;
+}
+
+trace sandesh XmppCloseTrace {
     1: "Send Close: ";
     2: i32 length;
     3: " bytes from: ";
@@ -132,6 +195,15 @@ systemlog sandesh XmppConnectionDelete {
     6: string to;
 }
 
+trace sandesh XmppConnectionDeleteTrace {
+    1: "Deleted Xmpp ";
+    2: string type;
+    3: " connection from ";
+    4: string from;
+    5: " To : ";
+    6: string to;
+}
+
 /**
  * @description: XMPP Unknown event
  * @severity: WARNING
@@ -144,11 +216,25 @@ systemlog sandesh XmppUnknownEvent {
     3: i32 event;
 }
 
+trace sandesh XmppUnknownEventTrace {
+    1: string channel_type;
+    2: "Event :";
+    3: i32 event;
+}
+
 /**
  * @description: XMPP State Machine message discarded event
  * @severity: DEBUG
  */
 systemlog sandesh XmppUnconsumedEvent {
+    1: string channel_type;
+    2: "Unconsumed Event";
+    3: string event;
+    4: " in state ";
+    5: string state;
+}
+
+trace sandesh XmppUnconsumedEventTrace {
     1: string channel_type;
     2: "Unconsumed Event";
     3: string event;
@@ -168,6 +254,12 @@ systemlog sandesh XmppStateMachineUnsupportedMessage {
    3: i32 message_type;
 }
 
+trace sandesh XmppStateMachineUnsupportedMessageTrace {
+   1: "Xmpp message decode error ";
+   2: string channel_type;
+   3: i32 message_type;
+}
+
 /**
  * @description: XMPP State Machine timer expired event
  * @severity: DEBUG
@@ -179,11 +271,31 @@ systemlog sandesh XmppStateMachineTimerExpire {
     4: string state;
 }
 
+trace sandesh XmppStateMachineTimerExpireTrace {
+    1: string channel_type;
+    2: string f2;
+    3: "Expired in state: "
+    4: string state;
+}
+
 /**
  * @description: XMPP State Machine dequeue event
  * @severity: DEBUG
  */
 systemlog sandesh XmppStateMachineDequeueEvent {
+   1: "RECV Processing ";
+   2: string channel_type;
+   3: string event;
+   4: " In State ";
+   5: string state;
+   6: "peer";
+   7: string from;
+   8: "(";
+   9: string to;
+   10: ")"
+}
+
+trace sandesh XmppStateMachineDequeueEventTrace {
    1: "RECV Processing ";
    2: string channel_type;
    3: string event;
