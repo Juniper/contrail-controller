@@ -21,6 +21,15 @@ systemlog sandesh XmppConnectionCreate {
     6: string to;
 }
 
+trace sandesh XmppConnectionCreateTrace {
+    1: "Created Xmpp ";
+    2: string type;
+    3: " connection from ";
+    4: string from;
+    5: " To : ";
+    6: string to;
+}
+
 /**
  * @description: XMPP Session deletion event
  * @severity: DEBUG
@@ -28,6 +37,15 @@ systemlog sandesh XmppConnectionCreate {
  * @action: None
  */
 systemlog sandesh XmppSessionDelete {
+    1: "Delete Xmpp Session";
+    2: string type;
+    3: " connection from ";
+    4: string from;
+    5: " To : ";
+    6: string to;
+}
+
+trace sandesh XmppSessionDeleteTrace {
     1: "Delete Xmpp Session";
     2: string type;
     3: " connection from ";
@@ -46,6 +64,10 @@ systemlog sandesh XmppIqMessageInvalid {
     1: "Error: Mismatch in associated previous message"
 }
 
+trace sandesh XmppIqMessageInvalidTrace {
+    1: "Error: Mismatch in associated previous message"
+}
+
 /**
  * @description: XMPP IQ message parsing failure
  * @severity: WARNING
@@ -53,7 +75,11 @@ systemlog sandesh XmppIqMessageInvalid {
  * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp iq message. Peer clear might help as a work around.
  */
 systemlog sandesh XmppIqMessageParseFail {
-    1: "Iq message parse failed" 
+    1: "Iq message parse failed"
+}
+
+trace sandesh XmppIqMessageParseFailTrace {
+    1: "Iq message parse failed"
 }
 
 /**
@@ -63,7 +89,11 @@ systemlog sandesh XmppIqMessageParseFail {
  * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp chat message. Peer clear might help as a work around.
  */
 systemlog sandesh XmppChatMessageParseFail {
-    1: "Chat message parse failed" 
+    1: "Chat message parse failed"
+}
+
+trace sandesh XmppChatMessageParseFailTrace {
+    1: "Chat message parse failed"
 }
 
 /**
@@ -73,6 +103,13 @@ systemlog sandesh XmppChatMessageParseFail {
  * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp message. Peer clear might help as a work around.
  */
 systemlog sandesh XmppBadMessage {
+    1: string type;
+    2: "Begin Message(";
+    3: string message;
+    4: ")End Message";
+}
+
+trace sandesh XmppBadMessageTrace {
     1: string type;
     2: "Begin Message(";
     3: string message;
@@ -90,11 +127,21 @@ systemlog sandesh XmppSslHandShakeMessage {
     2: string error;
 }
 
+trace sandesh XmppSslHandShakeMessageTrace {
+    1: string type;
+    2: string error;
+}
+
 /**
  * @description: XMPP HandShake Failed
  * @severity: ALERT
  */
 systemlog sandesh XmppSslHandShakeFailure {
+    1: string type;
+    2: string error;
+}
+
+trace sandesh XmppSslHandShakeFailureTrace {
     1: string type;
     2: string error;
 }
@@ -109,6 +156,10 @@ systemlog sandesh XmppIqCollectionError {
     1: "Error: no associated previous IQ message for this collection"
 }
 
+trace sandesh XmppIqCollectionErrorTrace {
+    1: "Error: no associated previous IQ message for this collection"
+}
+
 /**
  * @description: XMPP IQ message reception event
  * @severity: DEBUG
@@ -116,6 +167,21 @@ systemlog sandesh XmppIqCollectionError {
  * @action: None
  */
 systemlog sandesh XmppIqMessageProcess {
+    1: "Received IQ message for node:";
+    2: string node;
+    3: "Action: ";
+    4: string action;
+    5: "From: ";
+    6: string from;
+    7: "To: ";
+    8: string to;
+    9: "ID: ";
+    10: string id;
+    11: "SubType: ";
+    12: string sub_type;
+}
+
+trace sandesh XmppIqMessageProcessTrace {
     1: "Received IQ message for node:";
     2: string node;
     3: "Action: ";
@@ -145,6 +211,15 @@ systemlog sandesh XmppChatMessageProcess {
     6: string to;
 }
 
+trace sandesh XmppChatMessageProcessTrace {
+    1: "Received Chat message of type: "
+    2: i32 type;
+    3: "From ";
+    4: string from;
+    5: "To ";
+    6: string to;
+}
+
 /**
  * @description: XMPP Open message reception event
  * @severity: DEBUG
@@ -152,6 +227,13 @@ systemlog sandesh XmppChatMessageProcess {
  * @action: None
  */
 systemlog sandesh XmppRxOpenMessage {
+    1: "Received open message From: ";
+    2: string from;
+    3: " To: ";
+    4: string to;
+}
+
+trace sandesh XmppRxOpenMessageTrace {
     1: "Received open message From: ";
     2: string from;
     3: " To: ";
@@ -168,6 +250,10 @@ systemlog sandesh XmppRxStreamTlsRequired {
     1: "Received Tls Feature Required ";
 }
 
+trace sandesh XmppRxStreamTlsRequiredTrace {
+    1: "Received Tls Feature Required ";
+}
+
 /**
  * @description: XMPP TLS Start message reception event
  * @severity: DEBUG
@@ -178,6 +264,10 @@ systemlog sandesh XmppRxStreamStartTls {
     1: "Received Start Tls ";
 }
 
+trace sandesh XmppRxStreamStartTlsTrace {
+    1: "Received Start Tls ";
+}
+
 /**
  * @description: XMPP TLS Proceed message reception event
  * @severity: DEBUG
@@ -185,5 +275,9 @@ systemlog sandesh XmppRxStreamStartTls {
  * @action: None
  */
 systemlog sandesh XmppRxStreamProceed {
+    1: "Received Proceed Tls ";
+}
+
+trace sandesh XmppRxStreamProceedTrace {
     1: "Received Proceed Tls ";
 }
