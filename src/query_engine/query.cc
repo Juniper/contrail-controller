@@ -1282,18 +1282,20 @@ QueryEngine::QueryExecWhere(void * handle, QueryParams qp, uint32_t chunk,
             static_cast<uint32_t>((UTCTimestampUsec() - q->where_start_)/1000);
 
     q->status_details = q->wherequery_->status_details;
+    bool query_status = true;
     if (q->query_status != QUERY_SUCCESS) 
     {
         QE_TRACE_NOQID(DEBUG, "where processing failed with error:"  <<
                 q->query_status);
-        return q->query_status;
+        query_status = false;
+        return query_status;
     }
 
     QE_TRACE_NOQID(DEBUG, " Finished where processing for QID " << qid << " chunk:" << chunk);
     q->qperf_.error = q->status_details;
     qosp_->QueryResult(handle, q->qperf_, q->wherequery_->where_result_);
     delete q;
-    return true;
+    return query_status;
 }
 
 // Query Execution of SELECT and post-processing
