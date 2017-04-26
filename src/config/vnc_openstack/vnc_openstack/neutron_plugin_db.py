@@ -659,41 +659,20 @@ class DBInterface(object):
         return project_obj.get_floating_ip_pool_refs()
     #end _fip_pool_refs_project
 
-    def _network_list_shared_and_ext(self):
-        ret_list = []
-        nets = self._network_list_project(project_id=None,
-            filters={'is_shared':True, 'router_external':True})
-        for net in nets:
-            if net.get_router_external() and net.get_is_shared():
-                ret_list.append(net)
-        return ret_list
-    # end _network_list_router_external
+    def _network_list_filter(self, shared=None, router_external=None):
+        filters = {}
+        if shared is not None:
+            filters['is_shared'] = shared
+        if router_external is not None:
+            filters['router_external'] = router_external
 
-    def _network_list_router_external(self):
-        ret_list = []
-        nets = self._network_list_project(project_id=None,
-            filters={'router_external':True})
-        for net in nets:
-            if not net.get_router_external():
-                continue
-            ret_list.append(net)
-        return ret_list
-    # end _network_list_router_external
-
-    def _network_list_shared(self):
-        ret_list = []
-        nets = self._network_list_project(project_id=None,
-            filters={'is_shared':True})
-        for net in nets:
-            if not net.get_is_shared():
-                continue
-            ret_list.append(net)
-        return ret_list
-    # end _network_list_shared
+        net_list = self._network_list_project(project_id=None, filters=filters)
+        return net_list
+    # end _network_list_filter
 
     # find networks of floating ip pools project has access to
     def _fip_pool_ref_networks(self, project_id):
-        ret_net_objs = self._network_list_shared()
+        ret_net_objs = self._network_list_filter(shared=True)
 
         proj_fip_pool_refs = self._fip_pool_refs_project(project_id)
         if not proj_fip_pool_refs:
@@ -2615,22 +2594,24 @@ class DBInterface(object):
             elif filters and 'name' in filters:
                 net_objs = self._network_list_project(context['tenant'])
                 all_net_objs.extend(net_objs)
-                all_net_objs.extend(self._network_list_shared())
-                all_net_objs.extend(self._network_list_router_external())
-            elif (filters and 'shared' in filters and filters['shared'][0] and
-                  'router:external' not in filters):
-                all_net_objs.extend(self._network_list_shared())
-            elif (filters and 'router:external' in filters and
-                  'shared' not in filters):
-                all_net_objs.extend(self._network_list_router_external())
-            elif (filters and 'router:external' in filters and
-                  'shared' in filters):
-                all_net_objs.extend(self._network_list_shared_and_ext())
+                all_net_objs.extend(self._network_list_filter(shared=True))
+                all_net_objs.extend(self._network_list_filter(
+                                    router_external=True))
+            elif filters and 'shared' in filters or 'router:external' in filters:
+                shared = None
+                router_external = None
+                if 'router:external' in filters:
+                    router_external = filters['router:external'][0]
+                if 'shared' in filters:
+                    shared = filters['shared'][0]
+                all_net_objs.extend(self._network_list_filter(
+                                    shared, router_external))
             else:
                 project_uuid = str(uuid.UUID(context['tenant']))
                 if not filters:
-                    all_net_objs.extend(self._network_list_router_external())
-                    all_net_objs.extend(self._network_list_shared())
+                    all_net_objs.extend(self._network_list_filter(
+                                 router_external=True))
+                    all_net_objs.extend(self._network_list_filter(shared=True))
                 all_net_objs.extend(self._network_list_project(project_uuid))
         # admin role from here on
         elif filters and 'tenant_id' in filters:
@@ -2645,7 +2626,8 @@ class DBInterface(object):
                 for p_id in self._validate_project_ids(context, filters) or []:
                     all_net_objs.extend(self._network_list_project(p_id))
                 if 'router:external' in filters:
-                    all_net_objs.extend(self._network_list_router_external())
+                    all_net_objs.extend(self._network_list_filter(
+                                 router_external=filters['router:external'][0]))
         elif filters and 'id' in filters:
             # required networks are specified, just read and populate ret_dict
             # prune is skipped because all_net_objs is empty
@@ -2653,19 +2635,18 @@ class DBInterface(object):
         elif filters and 'name' in filters:
             net_objs = self._network_list_project(None)
             all_net_objs.extend(net_objs)
-        elif filters and 'shared' in filters:
-            if filters['shared'][0] == True:
-                nets = self._network_list_shared()
-                for net in nets:
-                    net_info = self._network_vnc_to_neutron(net,
-                                                            net_repr='LIST')
-                    ret_dict[net.uuid] = net_info
-        elif filters and 'router:external' in filters:
-            nets = self._network_list_router_external()
-            if filters['router:external'][0] == True:
-                for net in nets:
-                    net_info = self._network_vnc_to_neutron(net, net_repr='LIST')
-                    ret_dict[net.uuid] = net_info
+        elif filters and 'shared' in filters or 'router:external' in filters:
+            shared = None
+            router_external = None
+            if 'router:external' in filters:
+                router_external = filters['router:external'][0]
+            if 'shared' in filters:
+                shared = filters['shared'][0]
+            nets = self._network_list_filter(shared, router_external)
+            for net in nets:
+                net_info = self._network_vnc_to_neutron(net,
+                                                        net_repr='LIST')
+                ret_dict[net.uuid] = net_info
         else:
             # read all networks in all projects
             all_net_objs.extend(self._virtual_network_list(detail=True))
@@ -2962,7 +2943,7 @@ class DBInterface(object):
                 proj_id = None
             net_objs = self._network_list_project(proj_id)
             all_net_objs.extend(net_objs)
-            net_objs = self._network_list_shared()
+            net_objs = self._network_list_filter(shared=True)
             all_net_objs.extend(net_objs)
 
         ret_dict = {}
