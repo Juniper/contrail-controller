@@ -74,10 +74,10 @@ class VncRbac(object):
             rbac_rules.append(rule)
         return rbac_rules
 
-    def get_rbac_rules_object(self, obj_type, obj_uuid):
-        obj_fields = ['api_access_lists']
+    def get_rbac_rules_object(self, type, uuid=None, fq_name=None):
         try:
-            (ok, result) = self._db_conn.dbe_read(obj_type, obj_uuid, obj_fields)
+            (ok, result) = self._db_conn.dbe_read(type, uuid, fq_name,
+                                                  ['api_access_lists'])
         except NoIdError:
             ok = False
         if not ok or 'api_access_lists' not in result:
@@ -86,7 +86,7 @@ class VncRbac(object):
 
         obj_fields = ['api_access_list_entries']
         (ok, result) = self._db_conn.dbe_read(
-            'api_access_list', api_access_lists[0]['uuid'], obj_fields)
+            'api_access_list', api_access_lists[0]['uuid'], fields=obj_fields)
         if not ok or 'api_access_list_entries' not in result:
             return []
         # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
@@ -105,7 +105,8 @@ class VncRbac(object):
         if domain_id is None:
             ok = False
             try:
-                (ok, result) = self._db_conn.dbe_read('project', project_id,  ['fq_name'])
+                (ok, result) = self._db_conn.dbe_read('project', project_id,
+                                                      fields=['fq_name'])
             except Exception as e:
                 ok = False
                 pass
@@ -123,19 +124,19 @@ class VncRbac(object):
         # print 'project:%s, domain:%s  ' % (project_id, domain_id)
 
         # get global rbac group
-        config_uuid = self._db_conn.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
-        rules = self.get_rbac_rules_object('global_system_config', config_uuid)
+        rules = self.get_rbac_rules_object(
+            'global_system_config', fq_name=['default-global-system-config'])
         rule_list.extend(rules)
 
         # get domain rbac group
-        rules = self.get_rbac_rules_object('domain', domain_id)
+        rules = self.get_rbac_rules_object('domain', uuid=domain_id)
         rule_list.extend(rules)
 
         # get project rbac group
         if project_id is None:
             return rule_list
 
-        rules = self.get_rbac_rules_object('project', project_id)
+        rules = self.get_rbac_rules_object('project', uuid=project_id)
         rule_list.extend(rules)
 
         # [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]
