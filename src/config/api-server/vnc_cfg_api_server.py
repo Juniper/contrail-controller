@@ -1806,6 +1806,15 @@ class VncApiServer(object):
     # end documentation_http_get
 
     def obj_perms_http_get(self):
+        if self.is_auth_disabled() or not self.is_multi_tenancy_set():
+            result = {
+                'token_info': None,
+                'is_cloud_admin_role': False,
+                'is_global_read_only_role': False,
+                'permissions': PERMS_RWX
+            }
+            return result
+
         if 'HTTP_X_USER_TOKEN' not in get_request().environ:
             raise cfgm_common.exceptions.HttpError(
                 400, 'User token needed for validation')
