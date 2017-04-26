@@ -490,13 +490,13 @@ class AddrMgmt(object):
         self._subnet_objs = {}
     # end __init__
 
-    def _get_db_conn(self):
+    @property
+    def db(self):
         if not self._db_conn:
             self._db_conn = self._server_mgr.get_db_connection()
             Subnet.set_db_conn(self._db_conn)
 
         return self._db_conn
-    # end _get_db_conn
 
     def _ipam_subnet_to_subnet_dict(self, ipam_subnets):
         subnet_dicts = OrderedDict()
@@ -523,29 +523,14 @@ class AddrMgmt(object):
         return subnet_dicts
     # end _ipam_subnet_to_subnet_dict
 
-    def _uuid_to_obj_dict(self, req_obj_type, obj_uuid, req_fields=None):
-        db_conn = self._get_db_conn()
-
-        (ok, obj_dict) = db_conn.dbe_read(
-                             obj_type=req_obj_type,
-                             obj_id=obj_uuid,
-                             obj_fields=req_fields)
-        return (ok, obj_dict)
-    # end _uuid_to_obj_dict
-
-    def _fq_name_to_obj_dict(self, req_obj_type, fq_name, req_fields=None):
-        db_conn = self._get_db_conn()
-        obj_uuid = db_conn.fq_name_to_uuid(req_obj_type, fq_name)
-
-        return self._uuid_to_obj_dict(req_obj_type, obj_uuid, req_fields)
-    #end
-
-    def _get_net_subnet_dicts(self, vn_uuid, vn_dict=None):
+    def _get_net_subnet_dicts(self, vn_uuid=None, vn_fq_name=None,
+                              vn_dict=None):
         # Read in the VN details if not passed in
         if not vn_dict:
-            obj_fields=['network_ipam_refs']
-            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
-                                                    vn_uuid, obj_fields)
+            ok, vn_dict = self.db.dbe_read(type='virtual_network',
+                                           uuid=vn_uuid,
+                                           fq_name=vn_fq_name,
+                                           fields=['network_ipam_refs'])
             if not ok:
                 raise cfgm_common.exceptions.VncError(vn_dict)
 
@@ -588,8 +573,7 @@ class AddrMgmt(object):
         if subnet_objs is None:
             self._subnet_objs[ipam_uuid] = {}
             #read ipam to get ipam_subnets and generate subnet_objs
-            (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
-                                                     ipam_uuid)
+            ok, ipam_dict = self.db.dbe_read('network_ipam', ipam_uuid)
             if not ok:
                 raise cfgm_common.exceptions.VncError(ipam_dict)
 
@@ -616,8 +600,7 @@ class AddrMgmt(object):
     def _get_ipam_subnet_dicts(self, ipam_uuid, ipam_dict=None):
         # Read in the ipam details if not passed in
         if not ipam_dict:
-            (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
-                                                     ipam_uuid)
+            ok, ipam_dict = self.db.dbe_read('network_ipam', ipam_uuid)
             if not ok:
                 raise cfgm_common.exceptions.VncError(ipam_dict)
 
@@ -691,17 +674,15 @@ class AddrMgmt(object):
     # end net_create_req
 
     def net_create_notify(self, obj_id):
-        db_conn = self._get_db_conn()
         try:
-            (ok, result) = db_conn.dbe_read(
-                               'virtual_network',
-                               obj_id=obj_id,
-                               obj_fields=['fq_name', 'network_ipam_refs'])
+            (ok, result) = self.db.dbe_read(
+                'virtual_network', obj_id,
+                fields=['fq_name', 'network_ipam_refs'])
         except cfgm_common.exceptions.NoIdError:
             return
 
         if not ok:
-            db_conn.config_log("Error: %s in net_create_notify" %(result),
+            self.db.config_log("Error: %s in net_create_notify" %(result),
                                level=SandeshLevel.SYS_ERR)
             return
 
@@ -718,8 +699,8 @@ class AddrMgmt(object):
 
         vn_fq_name_str = ':'.join(vn_fq_name)
         vn_uuid = db_vn_dict['uuid']
-        db_subnet_dicts = self._get_net_subnet_dicts(vn_uuid, db_vn_dict)
-        req_subnet_dicts = self._get_net_subnet_dicts(vn_uuid, req_vn_dict)
+        db_subnet_dicts = self._get_net_subnet_dicts(vn_dict=db_vn_dict)
+        req_subnet_dicts = self._get_net_subnet_dicts(vn_dict=req_vn_dict)
 
         db_subnet_names = set(db_subnet_dicts.keys())
         req_subnet_names = set(req_subnet_dicts.keys())
@@ -758,17 +739,14 @@ class AddrMgmt(object):
     # end net_update_req
 
     def net_update_notify(self, obj_id):
-        db_conn = self._get_db_conn()
         try:
-            (ok, result) = db_conn.dbe_read(
-                                obj_type='virtual_network',
-                                obj_id=obj_id,
-                                obj_fields=['fq_name', 'network_ipam_refs'])
+            (ok, result) = self.db.dbe_read('virtual_network', obj_id,
+                fields=['fq_name', 'network_ipam_refs'])
         except cfgm_common.exceptions.NoIdError:
             return
 
         if not ok:
-            db_conn.config_log("Error: %s in net_update_notify" %(result),
+            self.db.config_log("Error: %s in net_update_notify" %(result),
                                level=SandeshLevel.SYS_ERR)
             return
 
@@ -779,11 +757,11 @@ class AddrMgmt(object):
     # end net_update_notify
 
     # purge all subnets associated with a virtual network
-    def net_delete_req(self, obj_dict):
-        vn_fq_name = obj_dict['fq_name']
+    def net_delete_req(self, vn_dict):
+        vn_fq_name = vn_dict['fq_name']
         vn_fq_name_str = ':'.join(vn_fq_name)
-        vn_uuid = obj_dict['uuid']
-        subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
+        vn_uuid = vn_dict['uuid']
+        subnet_dicts = self._get_net_subnet_dicts(vn_dict=vn_dict)
 
         for subnet_name in subnet_dicts:
             Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name))
@@ -845,16 +823,11 @@ class AddrMgmt(object):
     # end _vn_to_subnets
 
     def net_check_subnet_quota(self, db_vn_dict, req_vn_dict, db_conn):
-        if 'parent_uuid' not in db_vn_dict:
-            proj_fq_name = db_vn_dict['fq_name'][:-1]
-            proj_uuid = db_conn.fq_name_to_uuid('project', proj_fq_name)
-        else:
-            proj_uuid = db_vn_dict['parent_uuid']
-
-        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid,
-                                                                 db_conn)
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            db_conn, fq_name=db_vn_dict['fq_name'][:-1])
         if not ok:
             return (False, 'Internal error : ' + pformat(proj_dict))
+        proj_uuid = proj_dict['uuid']
 
         obj_type = 'subnet'
         if QuotaHelper.get_quota_limit(proj_dict, obj_type) < 0:
@@ -865,7 +838,7 @@ class AddrMgmt(object):
 
         field_names = [u'network_ipam_refs']
         # Read list of virtual networks for the given project
-        (ok, result) = db_conn.dbe_list(
+        (ok, result) = self.db.dbe_list(
             'virtual_network', [proj_uuid], is_detail=True, field_names=field_names)
         if not ok:
             return (False, 'Internal error : Failed to read virtual networks')
@@ -994,11 +967,10 @@ class AddrMgmt(object):
     # in given virtual network, this includes instance_ip, fip and
     # alias_ip
     def _check_subnet_delete(self, subnets_set, vn_dict):
-        db_conn = self._get_db_conn()
         instip_refs = vn_dict.get('instance_ip_back_refs') or []
         for ref in instip_refs:
             try:
-                (ok, result) = db_conn.dbe_read('instance_ip', ref['uuid'])
+                (ok, result) = self.db.dbe_read('instance_ip', ref['uuid'])
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -1021,7 +993,7 @@ class AddrMgmt(object):
         fip_pool_refs = vn_dict.get('floating_ip_pools') or []
         for ref in fip_pool_refs:
             try:
-                (ok, result) = db_conn.dbe_read('floating_ip_pool', ref['uuid'])
+                (ok, result) = self.db.dbe_read('floating_ip_pool', ref['uuid'])
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -1034,7 +1006,7 @@ class AddrMgmt(object):
             floating_ips = result.get('floating_ips') or []
             for floating_ip in floating_ips:
                 try:
-                    (read_ok, read_result) = db_conn.dbe_read(
+                    (read_ok, read_result) = self.db.dbe_read(
                         'floating_ip', floating_ip['uuid'])
                 except cfgm_common.exceptions.NoIdError:
                     continue
@@ -1060,7 +1032,7 @@ class AddrMgmt(object):
         aip_pool_refs = vn_dict.get('alias_ip_pools') or []
         for ref in aip_pool_refs:
             try:
-                (ok, result) = db_conn.dbe_read('alias_ip_pool', ref['uuid'])
+                (ok, result) = self.db.dbe_read('alias_ip_pool', ref['uuid'])
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -1075,7 +1047,7 @@ class AddrMgmt(object):
                 # get alias_ip_address and this should be in
                 # new subnet_list
                 try:
-                    (read_ok, read_result) = db_conn.dbe_read(
+                    (read_ok, read_result) = self.db.dbe_read(
                         'alias_ip', floating_ip['uuid'])
                 except cfgm_common.exceptions.NoIdError:
                     continue
@@ -1119,7 +1091,6 @@ class AddrMgmt(object):
         if subnet_method != 'flat-subnet':
             return True, ""
 
-        db_conn = self._get_db_conn()
         delete_set = set(existing_subnets) - set(req_subnets)
         if not delete_set:
             return True, ""
@@ -1131,7 +1102,7 @@ class AddrMgmt(object):
         for ref in vn_refs:
             vn_id = ref.get('uuid')
             try:
-                (ok, read_result) = db_conn.dbe_read('virtual_network', vn_id)
+                (ok, read_result) = self.db.dbe_read('virtual_network', vn_id)
             except cfgm_common.exceptions.NoIdError:
                 continue
             if not ok:
@@ -1174,7 +1145,7 @@ class AddrMgmt(object):
     # end net_check_subnet_delete
 
     # validate any change in subnet and reject if
-    # dns server and gw_ip got changed 
+    # dns server and gw_ip got changed
     def _validate_subnet_update(self, req_subnets, db_subnets):
         for req_subnet in req_subnets:
             req_cidr = req_subnet.get('subnet')
@@ -1207,7 +1178,7 @@ class AddrMgmt(object):
 
                     if ((req_df_gw != None) and (req_df_gw != df_gw_ip)):
                         invalid_update = True
-                    if invalid_update is True: 
+                    if invalid_update is True:
                         err_msg = "default gateway change is not allowed" +\
                                   " orig:%s, new: %s" \
                                   %(db_df_gw, req_df_gw)
@@ -1222,7 +1193,7 @@ class AddrMgmt(object):
 
                     if ((req_dns != None) and (req_dns != df_dns)):
                         invalid_update = True
-                    if invalid_update is True: 
+                    if invalid_update is True:
                         err_msg = "dns server change is not allowed" +\
                                   " orig:%s, new: %s" \
                                   %(db_dns, req_dns)
@@ -1276,20 +1247,22 @@ class AddrMgmt(object):
                 (ok, result) = self._validate_subnet_update(req_subnets, db_subnets)
                 if not ok:
                     return ok, result
-               
+
         return True, ""
     # end net_validate_subnet_update
 
-                                
+
     # return number of ip address currently allocated for a subnet
     # count will also include reserved ips
     def ip_count_req(self, vn_fq_name, subnet_uuid):
         if subnet_uuid is None:
             return 0
 
-        db_conn = self._get_db_conn()
-        vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-        subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
+        ok, vn_dict = self.db.dbe_read('virtual_network', fq_name=vn_fq_name,
+                                       fields=['network_ipam_refs'])
+        if not ok:
+            raise cfgm_common.exceptions.VncError(vn_dict)
+        subnet_dicts = self._get_net_subnet_dicts(vn_dict=vn_dict)
         req_subnet_name = None
         for subnet_name, subnet_dict in subnet_dicts.items():
             if subnet_uuid == subnet_dict.get('subnet_uuid'):
@@ -1301,7 +1274,7 @@ class AddrMgmt(object):
             # is allocated from requested subnet_uuid
             return 0
 
-        subnet_obj = self._subnet_objs[vn_uuid][req_subnet_name]
+        subnet_obj = self._subnet_objs[vn_dict['uuid']][req_subnet_name]
         return subnet_obj.ip_count()
     # end ip_count_req
 
@@ -1329,7 +1302,6 @@ class AddrMgmt(object):
     def _ipam_ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None,
                           asked_ip_addr=None, asked_ip_version=4,
                           alloc_id=None):
-        db_conn = self._get_db_conn()
         ipam_refs = vn_dict['network_ipam_refs']
         subnets_tried = []
         found_subnet_match = False
@@ -1365,7 +1337,7 @@ class AddrMgmt(object):
                 if not found_subnet_match:
                     continue
 
-            ipam_uuid = db_conn.fq_name_to_uuid('network_ipam', ipam_fq_name)
+            ipam_uuid = self.db.fq_name_to_uuid('network_ipam', ipam_fq_name)
             subnet_objs = self._get_ipam_subnet_objs_from_ipam_uuid(
                                 ipam_fq_name, ipam_uuid, False)
             if not subnet_objs:
@@ -1418,18 +1390,17 @@ class AddrMgmt(object):
                           asked_ip_addr=None, asked_ip_version=4,
                           alloc_id=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
-        db_conn = self._get_db_conn()
         if not vn_dict:
-            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network', vn_uuid)
+            ok, vn_dict = self.db.dbe_read('virtual_network',
+                                           fq_name=vn_fq_name,
+                                           fields=['network_ipam_refs'])
             if not ok:
                 raise cfgm_common.exceptions.VncError(vn_dict)
-        else:
-            vn_uuid = vn_dict['uuid']
+        vn_uuid = vn_dict['uuid']
 
         subnets_tried = []
         found_subnet_match = False
-        subnet_dicts = self._get_net_subnet_dicts(vn_uuid, vn_dict)
+        subnet_dicts = self._get_net_subnet_dicts(vn_dict=vn_dict)
         if not subnet_dicts:
             raise AddrMgmtSubnetAbsent(vn_fq_name)
 
@@ -1491,11 +1462,10 @@ class AddrMgmt(object):
     # we use the first available subnet unless provided
     def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None,
                      asked_ip_addr=None, asked_ip_version=4, alloc_id=None):
-        db_conn = self._get_db_conn()
         if not vn_dict:
-            obj_fields=['network_ipam_refs']
-            (ok, vn_dict) = self._fq_name_to_obj_dict('virtual_network',
-                                                      vn_fq_name, obj_fields)
+            ok, vn_dict = self.db.dbe_read('virtual_network',
+                                           fq_name=vn_fq_name,
+                                           fields=['network_ipam_refs'])
             if not ok:
                 raise cfgm_common.exceptions.VncError(vn_dict)
 
@@ -1551,12 +1521,10 @@ class AddrMgmt(object):
     # end ip_alloc_req
 
     def _ipam_ip_alloc_notify(self, ip_addr, vn_uuid):
-        db_conn = self._get_db_conn()
 
         # Read in the VN
-        obj_fields=['network_ipam_refs']
-        (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
-                                                vn_uuid, obj_fields)
+        ok, vn_dict = self.db.dbe_read('virtual_network', vn_uuid,
+                                       fields=['network_ipam_refs'])
         if not ok:
             raise cfgm_common.exceptions.VncError(vn_dict)
 
@@ -1581,10 +1549,9 @@ class AddrMgmt(object):
     # end _ipam_ip_alloc_notify
 
     def _net_ip_alloc_notify(self, ip_addr, vn_uuid, vn_fq_name):
-        db_conn = self._get_db_conn()
         vn_fq_name_str = ':'.join(vn_fq_name)
         try:
-            subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
+            subnet_dicts = self._get_net_subnet_dicts(vn_uuid=vn_uuid)
         except cfgm_common.exceptions.NoIdError:
             return False
 
@@ -1604,19 +1571,16 @@ class AddrMgmt(object):
     # end _net_ip_alloc_notify
 
     def ip_alloc_notify(self, ip_addr, vn_fq_name):
-        db_conn = self._get_db_conn()
-        vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        vn_uuid = self.db.fq_name_to_uuid('virtual_network', vn_fq_name)
         if (self._ipam_ip_alloc_notify(ip_addr, vn_uuid) == False):
             self._net_ip_alloc_notify(ip_addr, vn_uuid, vn_fq_name)
     # end ip_alloc_notify
 
     def _ipam_ip_free_req(self, ip_addr, vn_uuid, sub=None):
-        db_conn = self._get_db_conn()
 
         # Read in the VN
-        obj_fields=['network_ipam_refs']
-        (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
-                                               vn_uuid, obj_fields)
+        ok, vn_dict = self.db.dbe_read('virtual_network', vn_uuid,
+                                       fields=['network_ipam_refs'])
         if not ok:
             raise cfgm_common.exceptions.VncError(vn_dict)
 
@@ -1642,7 +1606,7 @@ class AddrMgmt(object):
 
     def _net_ip_free_req(self, ip_addr, vn_uuid, vn_fq_name, sub=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
-        subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
+        subnet_dicts = self._get_net_subnet_dicts(vn_uuid=vn_uuid)
         for subnet_name in subnet_dicts:
             if sub and sub != subnet_name:
                 continue
@@ -1656,17 +1620,15 @@ class AddrMgmt(object):
     # end _net_ip_free_req
 
     def ip_free_req(self, ip_addr, vn_fq_name, sub=None):
-        db_conn = self._get_db_conn()
-        vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        vn_uuid = self.db.fq_name_to_uuid('virtual_network', vn_fq_name)
         if not (self._net_ip_free_req(ip_addr, vn_uuid, vn_fq_name, sub)):
             self._ipam_ip_free_req(ip_addr, vn_uuid, sub)
     # end ip_free_req
 
     def _ipam_is_ip_allocated(self, ip_addr, vn_uuid, sub=None):
         # Read in the VN
-        obj_fields=['network_ipam_refs']
-        (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
-                                               vn_uuid, obj_fields)
+        ok, vn_dict = self.db.dbe_read('virtual_network', vn_uuid,
+                                       fields=['network_ipam_refs'])
         if not ok:
             raise cfgm_common.exceptions.VncError(vn_dict)
 
@@ -1690,7 +1652,7 @@ class AddrMgmt(object):
     def _net_is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid, sub=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
 
-        subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
+        subnet_dicts = self._get_net_subnet_dicts(vn_uuid=vn_uuid)
         for subnet_name in subnet_dicts:
             if sub and sub != subnet_name:
                 continue
@@ -1703,9 +1665,8 @@ class AddrMgmt(object):
     # end _net_is_ip_allocated
 
     def is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid=None, sub=None):
-        db_conn = self._get_db_conn()
         if vn_uuid is None:
-            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+            vn_uuid = self.db.fq_name_to_uuid('virtual_network', vn_fq_name)
 
         try:
             return self._ipam_is_ip_allocated(ip_addr, vn_uuid, sub)
@@ -1717,11 +1678,9 @@ class AddrMgmt(object):
     # end is_ip_allocated
 
     def _ipam_ip_free_notify(self, ip_addr, vn_uuid):
-        db_conn = self._get_db_conn()
         # Read in the VN
-        obj_fields=['network_ipam_refs']
-        (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network', vn_uuid,
-                                               obj_fields)
+        ok, vn_dict = self.db.dbe_read('virtual_network', vn_uuid,
+                                       fields=['network_ipam_refs'])
         if not ok:
             raise cfgm_common.exceptions.VncError(vn_dict)
 
@@ -1748,8 +1707,7 @@ class AddrMgmt(object):
     # end _net_ip_free_notify
 
     def ip_free_notify(self, ip_addr, vn_fq_name):
-        db_conn = self._get_db_conn()
-        vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        vn_uuid = self.db.fq_name_to_uuid('virtual_network', vn_fq_name)
         if not (self._net_ip_free_notify(ip_addr, vn_uuid)):
             self._ipam_ip_free_notify(ip_addr, vn_uuid)
     # end _ip_free_notify
@@ -1771,9 +1729,8 @@ class AddrMgmt(object):
     # end ipam_create_req
 
     def ipam_create_notify(self, obj_id):
-        db_conn = self._get_db_conn()
         try:
-            (ok, obj_dict) = db_conn.dbe_read('network_ipam', obj_id=obj_id)
+            (ok, obj_dict) = self.db.dbe_read('network_ipam', obj_id)
         except cfgm_common.exceptions.NoIdError:
             return
 
@@ -1859,14 +1816,13 @@ class AddrMgmt(object):
     # end ipam_update_req
 
     def ipam_update_notify(self, obj_id):
-        db_conn = self._get_db_conn()
         try:
-            (ok, result) = db_conn.dbe_read('network_ipam', obj_id=obj_id)
+            (ok, result) = self.db.dbe_read('network_ipam', obj_id)
         except cfgm_common.exceptions.NoIdError:
             return
 
         if not ok:
-            db_conn.config_log("Error: %s in ipam_update_notify" %(result),
+            self.db.config_log("Error: %s in ipam_update_notify" %(result),
                                level=SandeshLevel.SYS_ERR)
             return
 
@@ -1879,8 +1835,7 @@ class AddrMgmt(object):
         ipam_refs = vn_dict['network_ipam_refs']
         for ipam_ref in ipam_refs:
             ipam_uuid = ipam_ref['uuid']
-            (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
-                                                     ipam_uuid)
+            ok, ipam_dict = self.db.dbe_read('network_ipam', ipam_uuid)
             if not ok:
                 raise cfgm_common.exceptions.VncError(ipam_dict)
 

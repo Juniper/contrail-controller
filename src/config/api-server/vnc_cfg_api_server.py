@@ -634,8 +634,7 @@ class VncApiServer(object):
             req_obj_type = db_conn.uuid_to_obj_type(id)
             if req_obj_type != obj_type:
                 raise cfgm_common.exceptions.HttpError(
-                    404, 'No %s object found for id %s' %(resource_type, id))
-            fq_name = db_conn.uuid_to_fq_name(id)
+                    404, 'No %s object found for id %s' % (resource_type, id))
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
 
@@ -680,7 +679,7 @@ class VncApiServer(object):
 
         try:
             (ok, result) = db_conn.dbe_read(obj_type, id,
-                list(obj_fields), ret_readonly=True)
+                fields=list(obj_fields), ret_readonly=True)
             if not ok:
                 self.config_object_error(id, None, obj_type, 'http_get', result)
         except NoIdError as e:
@@ -728,7 +727,8 @@ class VncApiServer(object):
         r_class = self.get_resource_class(resource_type)
         obj_links = r_class.obj_links & set(obj_dict.keys())
         obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
-        obj_dicts = self._db_conn._object_db.object_raw_read(obj_uuids, ["perms2"])
+        obj_dicts = self._db_conn._object_db.object_raw_read(
+            r_class.obj_type, uuids=obj_uuids, prop_names=["perms2"])
         uuid_to_perms2 = dict((o['uuid'], o['perms2']) for o in obj_dicts)
 
         for link_field in obj_links:
@@ -880,7 +880,6 @@ class VncApiServer(object):
             if req_obj_type != obj_type:
                 raise cfgm_common.exceptions.HttpError(
                     404, 'No %s object found for id %s' %(resource_type, id))
-            _ = db_conn.uuid_to_fq_name(id)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
                 404, 'ID %s does not exist' %(id))
@@ -915,15 +914,14 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(404, result)
 
         # common handling for all resource delete
+        fq_name = read_result.get('fq_name')
         parent_uuid = read_result.get('parent_uuid')
         (ok, del_result) = self._delete_common(
-            get_request(), obj_type, id, parent_uuid)
+            get_request(), obj_type, id, fq_name, parent_uuid)
         if not ok:
             (code, msg) = del_result
             self.config_object_error(id, None, obj_type, 'http_delete', msg)
             raise cfgm_common.exceptions.HttpError(code, msg)
-
-        fq_name = read_result['fq_name']
 
         # fail if non-default children or non-derived backrefs exist
         default_names = {}
@@ -1833,7 +1831,7 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
         (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
-                                                obj_fields=['perms2'])
+                                                fields=['perms2'])
         obj_dict['perms2']['owner'] = owner
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
 
@@ -1872,7 +1870,7 @@ class VncApiServer(object):
         global_access = request_params.get('global_access')
 
         (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
-                             obj_fields=['perms2', 'is_shared'])
+                                                fields=['perms2', 'is_shared'])
         obj_perms = obj_dict['perms2']
         old_perms = '%s/%d %d %s' % (obj_perms['owner'],
             obj_perms['owner_access'], obj_perms['global_access'],
@@ -2057,7 +2055,6 @@ class VncApiServer(object):
 
         # Validations over. Invoke type specific hook and extension manager
         try:
-            fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
             (read_ok, read_result) = self._db_conn.dbe_read(obj_type, obj_uuid)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
@@ -2070,6 +2067,7 @@ class VncApiServer(object):
             self.config_object_error(
                 obj_uuid, None, obj_type, 'prop_collection_update', read_result)
             raise cfgm_common.exceptions.HttpError(500, read_result)
+        fq_name = read_result['fq_name']
 
         # invoke the extension
         try:
@@ -2186,30 +2184,26 @@ class VncApiServer(object):
 
         obj_type = res_class.object_type
         ref_obj_type = ref_class.object_type
-        if not ref_uuid:
-            try:
-                ref_uuid = self._db_conn.fq_name_to_uuid(ref_obj_type, ref_fq_name)
-            except NoIdError:
-                raise cfgm_common.exceptions.HttpError(
-                    404, 'Name ' + pformat(ref_fq_name) + ' not found')
 
         # To verify existence of the reference being added
         if operation == 'ADD':
             try:
                 (read_ok, read_result) = self._db_conn.dbe_read(
-                    ref_obj_type, ref_uuid, obj_fields=['fq_name'])
+                    ref_obj_type, ref_uuid, ref_fq_name, fields=['fq_name'])
             except NoIdError:
                 raise cfgm_common.exceptions.HttpError(
-                    404, 'Object Not Found: ' + ref_uuid)
+                    404, 'Object Not Found: ' + ref_uuid or ref_fq_name)
             except Exception as e:
                 read_ok = False
                 read_result = cfgm_common.utils.detailed_traceback()
+            if ref_uuid is None:
+                ref_uuid = read_result['uuid']
 
         # To invoke type specific hook and extension manager
         try:
             obj_fields = [ref_field]
             (read_ok, read_result) = self._db_conn.dbe_read(
-                obj_type, obj_uuid, obj_fields)
+                obj_type, obj_uuid, fields=obj_fields)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
                 404, 'Object Not Found: '+obj_uuid)
@@ -2665,7 +2659,7 @@ class VncApiServer(object):
             obj_cache_exclude_types=obj_cache_exclude_types, connection=rdbms_connection)
 
         #TODO refacter db connection management.
-        self._addr_mgmt._get_db_conn()
+        self._addr_mgmt.db
     # end _db_connect
 
     def _ensure_id_perms_present(self, obj_uuid, obj_dict):
@@ -2824,11 +2818,10 @@ class VncApiServer(object):
         # make default ipam available across tenants for backward compatability
         obj_type = 'network_ipam'
         fq_name = ['default-domain', 'default-project', 'default-network-ipam']
-        obj_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
-        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
-                                                obj_fields=['perms2'])
+        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, fq_name=fq_name,
+                                                fields=['perms2'])
         obj_dict['perms2']['global_access'] = PERMS_RX
-        self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
+        self._db_conn.dbe_update(obj_type, obj_dict['uuid'], obj_dict)
     # end _db_init_entries
 
     # generate default rbac group rule
@@ -2895,43 +2888,44 @@ class VncApiServer(object):
     # end _resync_domains_projects
 
     def _create_singleton_entry(self, singleton_obj):
-        s_obj = singleton_obj
-        obj_type = s_obj.object_type
-        fq_name = s_obj.get_fq_name()
+        obj_type = singleton_obj.object_type
+        fq_name = singleton_obj.get_fq_name()
 
         # TODO remove backward compat create mapping in zk
         # for singleton START
         try:
-            cass_uuid = self._db_conn._object_db.fq_name_to_uuid(obj_type, fq_name)
+            cass_uuid = self._db_conn._object_db.fq_name_to_uuid(obj_type,
+                                                                 fq_name)
             try:
-                zk_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+                zk_uuid = self._db_conn._zk_db.get_fq_name_to_uuid_mapping(
+                    obj_type, fq_name)
             except NoIdError:
                 # doesn't exist in zookeeper but does so in cassandra,
                 # migrate this info to zookeeper
-                self._db_conn._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name, str(cass_uuid))
+                self._db_conn._zk_db.create_fq_name_to_uuid_mapping(
+                    obj_type, fq_name, str(cass_uuid))
         except NoIdError:
             # doesn't exist in cassandra as well as zookeeper, proceed normal
             pass
         # TODO backward compat END
 
-
         # create if it doesn't exist yet
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
-            obj_dict = s_obj.serialize_to_json()
+            obj_dict = singleton_obj.serialize_to_json()
             obj_dict['id_perms'] = self._get_default_id_perms()
             obj_dict['perms2'] = self._get_default_perms2()
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
             obj_id = result
             # For virtual networks, allocate an ID
             if obj_type == 'virtual_network':
-                vn_id = self.alloc_vn_id(s_obj.get_fq_name_str())
+                vn_id = self.alloc_vn_id(singleton_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
             self._db_conn.dbe_create(obj_type, obj_id, obj_dict)
-            self.create_default_children(obj_type, s_obj)
+            self.create_default_children(obj_type, singleton_obj)
 
-        return s_obj
+        return singleton_obj
     # end _create_singleton_entry
 
     def _list_collection(self, obj_type, parent_uuids=None,
@@ -3207,7 +3201,8 @@ class VncApiServer(object):
 
     # parent_type needed for perms check. None for derived objects (eg.
     # routing-instance)
-    def _http_delete_common(self, request, obj_type, uuid, parent_uuid):
+    def _http_delete_common(self, request, obj_type, uuid, fq_name,
+                            parent_uuid):
         # If not connected to zookeeper do not allow operations that
         # causes the state change
         if not self._db_conn._zk_db.is_connected():
@@ -3221,11 +3216,10 @@ class VncApiServer(object):
             err_str = str(MaxRabbitPendingError(npending))
             return (False, (500, err_str))
 
-        fq_name = self._db_conn.uuid_to_fq_name(uuid)
         apiConfig = VncApiCommon()
         apiConfig.object_type = obj_type
-        apiConfig.identifier_name=':'.join(fq_name)
         apiConfig.identifier_uuid = uuid
+        apiConfig.identifier_name = ':'.join(fq_name)
         apiConfig.operation = 'delete'
         self._set_api_audit_info(apiConfig)
         log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
@@ -3403,17 +3397,6 @@ class VncApiServer(object):
 
         # expected format {"subnet_list" : ["2.1.1.0/24", "1.1.1.0/24"]
         req_dict = get_request().json
-        try:
-            (ok, result) = self._db_conn.dbe_read('virtual_network', id)
-        except NoIdError as e:
-            raise cfgm_common.exceptions.HttpError(404, str(e))
-        except Exception as e:
-            ok = False
-            result = cfgm_common.utils.detailed_traceback()
-        if not ok:
-            raise cfgm_common.exceptions.HttpError(500, result)
-
-        obj_dict = result
         subnet_list = req_dict[
             'subnet_list'] if 'subnet_list' in req_dict else []
         result = vnc_cfg_types.VirtualNetworkServer.subnet_ip_count(

@@ -645,21 +645,20 @@ class VncDbClient(object):
         """
         default_quota = QuotaHelper.default_quota
 
-        proj_id = self.fq_name_to_uuid('project',
-                                       ['default-domain', 'default-project'])
+        proj_fq_name = ['default-domain', 'default-project']
         try:
-            (ok, result) = self.dbe_read('project', proj_id)
+            (ok, result) = self.dbe_read('project', fq_name=proj_fq_name)
         except NoIdError as e:
             ok = False
-            result = 'Project Not Found: %s' %(proj_id)
+            result = 'Project Not Found: %s' % proj_fq_name
         if not ok:
-            self.config_log("Updating default quota failed: %s." %(result),
-                level=SandeshLevel.SYS_ERR)
+            self.config_log("Updating default quota failed: %s." % result,
+                            level=SandeshLevel.SYS_ERR)
             return
 
         proj_dict = result
         proj_dict['quota'] = default_quota
-        self.dbe_update('project', proj_id, proj_dict)
+        self.dbe_update('project', proj_dict['uuid'], proj_dict)
     # end _update_default_quota
 
     def get_api_server(self):
@@ -694,8 +693,7 @@ class VncDbClient(object):
         # Read contents from cassandra
         read_results = self._object_db.walk(self._dbe_read)
         return read_results
-
-    # end db_check
+    # end db_read
 
     def _uuid_to_longs(self, id):
         msb_id = id.int >> 64
@@ -789,7 +787,7 @@ class VncDbClient(object):
         for vn_ref in iip_dict.get('virtual_network_refs', []):
             (ok, results) = self._object_db.object_read(
                 'virtual_network', [vn_ref['uuid']],
-                field_names=['network_ipam_refs'])
+                fields=['network_ipam_refs'])
             if not ok:
                 return
             vn_dict = results[0]
@@ -817,7 +815,7 @@ class VncDbClient(object):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
         (ok, obj_dicts) = self._object_db.object_read(
-                               obj_type, obj_uuids, field_names=obj_fields)
+                               obj_type, obj_uuids, fields=obj_fields)
         uve_trace_list = []
         for obj_dict in obj_dicts:
             try:
@@ -1077,16 +1075,18 @@ class VncDbClient(object):
     # end dbe_create
 
     # input id is uuid
-    def dbe_read(self, obj_type, obj_id, obj_fields=None,
+    def dbe_read(self, type, uuid=None, fq_name=None, fields=None,
                  ret_readonly=False):
+        uuids = [uuid] if uuid else None
+        fq_names = [fq_name] if fq_name else None
         try:
             (ok, cassandra_result) = self._object_db.object_read(
-                obj_type, [obj_id], obj_fields, ret_readonly=ret_readonly)
+                type, uuids, fq_names, fields, ret_readonly)
         except NoIdError as e:
             # if NoIdError is for obj itself (as opposed to say for parent
             # or ref), let caller decide if this can be handled gracefully
             # by re-raising
-            if e._unknown_id == obj_id:
+            if e._unknown_id == uuid:
                 raise
 
             return (False, str(e))
@@ -1209,7 +1209,7 @@ class VncDbClient(object):
         obj_ids_list = [obj_uuid for _, obj_uuid in result]
         try:
             return self._object_db.object_read(
-                obj_type, obj_ids_list, obj_fields, ret_readonly=True)
+                obj_type, obj_ids_list, fields=obj_fields, ret_readonly=True)
         except NoIdError as e:
             return (False, str(e))
     # end dbe_list
@@ -1406,8 +1406,9 @@ class VncDbClient(object):
     # end get_worker_id
 
     def get_autonomous_system(self):
-        config_uuid = self.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
-        ok, config = self._object_db.object_read('global_system_config', [config_uuid])
+        fq_name = ['default-global-system-config']
+        ok, config = self._object_db.object_read('global_system_config',
+                                                 fq_names=[fq_name])
         global_asn = config[0]['autonomous_system']
         return global_asn
 
