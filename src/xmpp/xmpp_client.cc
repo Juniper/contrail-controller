@@ -148,7 +148,8 @@ TcpSession *XmppClient::CreateSession() {
     boost::system::error_code err;
     socket->open(ip::tcp::v4(), err);
     if (err) {
-        XMPP_WARNING(ClientOpenFail, err.message());
+        XMPP_WARNING(ClientOpenFail, session->ToUVEKey(), XMPP_PEER_DIR_OUT,
+                     err.message());
         DeleteSession(session);
         return NULL;
     }
@@ -159,7 +160,8 @@ TcpSession *XmppClient::CreateSession() {
     socket->set_option(reuse_addr_t(true), err);
 #endif
     if (err) {
-        XMPP_WARNING(SetSockOptFail, err.message());
+        XMPP_WARNING(SetSockOptFail, session->ToUVEKey(), XMPP_PEER_DIR_OUT,
+                     err.message());
         return session;
     }
 

@@ -67,8 +67,8 @@ XmppConnection::XmppConnection(TcpServer *server,
 XmppConnection::~XmppConnection() {
     StopKeepAliveTimer();
     TimerManager::DeleteTimer(keepalive_timer_);
-    XMPP_UTDEBUG(XmppConnectionDelete, "XmppConnection destructor",
-               FromString(), ToString());
+    XMPP_UTDEBUG(XmppConnectionDelete, ToUVEKey(), XMPP_PEER_DIR_NA,
+                 "XmppConnection destructor", FromString(), ToString());
 }
 
 std::string XmppConnection::GetXmppAuthenticationType() const {
@@ -268,7 +268,7 @@ bool XmppConnection::SendOpen(XmppSession *session) {
         inc_open_fail();
         return false;
     } else {
-        XMPP_UTDEBUG(XmppOpen, len, from_, to_);
+        XMPP_UTDEBUG(XmppOpen, ToUVEKey(), XMPP_PEER_DIR_OUT, len, from_, to_);
         session->Send(data, len, NULL);
         stats_[1].open++;
         return true;
@@ -287,7 +287,8 @@ bool XmppConnection::SendOpenConfirm(XmppSession *session) {
         inc_open_fail();
         return false;
     } else {
-        XMPP_UTDEBUG(XmppOpenConfirm, len, from_, to_);
+        XMPP_UTDEBUG(XmppOpenConfirm, ToUVEKey(), XMPP_PEER_DIR_OUT, len,
+                     from_, to_);
         session_->Send(data, len, NULL);
         stats_[1].open++;
         return true;
@@ -307,8 +308,8 @@ bool XmppConnection::SendStreamFeatureRequest(XmppSession *session) {
         inc_stream_feature_fail();
         return false;
     } else {
-        XMPP_UTDEBUG(XmppControlMessage, "Send Stream Feature Request",
-                     len, from_, to_);
+        XMPP_UTDEBUG(XmppControlMessage, ToUVEKey(), XMPP_PEER_DIR_OUT,
+                     "Send Stream Feature Request", len, from_, to_);
         session_->Send(data, len, NULL);
         //stats_[1].open++;
         return true;
@@ -328,7 +329,8 @@ bool XmppConnection::SendStartTls(XmppSession *session) {
         inc_stream_feature_fail();
         return false;
     } else {
-        XMPP_UTDEBUG(XmppControlMessage, "Send Start Tls", len, from_, to_);
+        XMPP_UTDEBUG(XmppControlMessage, ToUVEKey(), XMPP_PEER_DIR_OUT,
+                     "Send Start Tls", len, from_, to_);
         session_->Send(data, len, NULL);
         //stats_[1].open++;
         return true;
@@ -348,7 +350,8 @@ bool XmppConnection::SendProceedTls(XmppSession *session) {
         inc_stream_feature_fail();
         return false;
     } else {
-        XMPP_UTDEBUG(XmppControlMessage, "Send Proceed Tls", len, from_, to_);
+        XMPP_UTDEBUG(XmppControlMessage, ToUVEKey(), XMPP_PEER_DIR_OUT,
+                     "Send Proceed Tls", len, from_, to_);
         session_->Send(data, len, NULL);
         //stats_[1].open++;
         return true;
@@ -361,7 +364,8 @@ void XmppConnection::SendClose(XmppSession *session) {
     string str("</stream:stream>");
     uint8_t data[64];
     memcpy(data, str.data(), str.size());
-    XMPP_UTDEBUG(XmppClose, str.size(), from_, to_);
+    XMPP_UTDEBUG(XmppClose, ToUVEKey(), XMPP_PEER_DIR_OUT, str.size(), from_,
+                 to_);
     session_->Send(data, str.size(), NULL);
     stats_[1].close++;
 }
@@ -385,11 +389,13 @@ void XmppConnection::ProcessSslHandShakeResponse(SslSessionPtr session,
              char buf[128];
              ::ERR_error_string_n(error.value(), buf, sizeof(buf));
              err += buf;
-             XMPP_ALERT(XmppSslHandShakeFailure, "failure", err);
+             XMPP_ALERT(XmppSslHandShakeFailure, ToUVEKey(), XMPP_PEER_DIR_IN,
+                        "failure", err);
         }
 
     } else {
-        XMPP_DEBUG(XmppSslHandShakeMessage, "success", "");
+        XMPP_DEBUG(XmppSslHandShakeMessage, session->ToUVEKey(),
+                   XMPP_PEER_DIR_IN, "success", "");
         state_machine()->OnEvent(session.get(), xmsm::EvTLSHANDSHAKE_SUCCESS);
     }
 }
@@ -441,7 +447,8 @@ bool XmppConnection::KeepAliveTimerExpired() {
 
 void XmppConnection::KeepaliveTimerErrorHanlder(string error_name,
                                                 string error_message) {
-    XMPP_WARNING(XmppKeepaliveTimeError, error_name, error_message);
+    XMPP_WARNING(XmppKeepaliveTimeError, ToUVEKey(), XMPP_PEER_DIR_NA,
+                 error_name, error_message);
 }
 
 void XmppConnection::StartKeepAliveTimer() {
@@ -573,9 +580,10 @@ void XmppConnection::ReceiveMsg(XmppSession *session, const string &msg) {
 }
 
 XmppStanza::XmppMessage *XmppConnection::XmppDecode(const string &msg) {
-    auto_ptr<XmppStanza::XmppMessage> minfo(XmppProto::Decode(msg));
+    auto_ptr<XmppStanza::XmppMessage> minfo(XmppProto::Decode(this, msg));
     if (minfo.get() == NULL) {
-        XMPP_INFO(XmppSessionDelete, "Server", FromString(), ToString());
+        XMPP_INFO(XmppSessionDelete, ToUVEKey(), XMPP_PEER_DIR_IN, "Server",
+                  FromString(), ToString());
         Clear();
         return NULL;
     }
@@ -604,11 +612,12 @@ XmppStanza::XmppMessage *XmppConnection::XmppDecode(const string &msg) {
                     //Save the complete ass/dissociate node
                     last_iq->as_node = iq->as_node;
                 } else {
-                    XMPP_WARNING(XmppIqMessageInvalid);
+                    XMPP_WARNING(XmppIqMessageInvalid, ToUVEKey(),
+                                 XMPP_PEER_DIR_IN);
                     goto error;
                 }
             } else {
-                XMPP_LOG(XmppIqCollectionError);
+                XMPP_ERROR(XmppIqCollectionError, ToUVEKey(), XMPP_PEER_DIR_IN);
                 goto error;
             }
             // iq message merged with collection info
@@ -711,19 +720,21 @@ XmppServerConnection::XmppServerConnection(XmppServer *server,
       deleter_(new DeleteActor(server, this)),
       server_delete_ref_(this, server->deleter()) {
     assert(!config->ClientOnly());
-    XMPP_INFO(XmppConnectionCreate, "Server", FromString(), ToString());
+    XMPP_INFO(XmppConnectionCreate, ToUVEKey(), XMPP_PEER_DIR_IN,
+              "Server", FromString(), ToString());
 }
 
 XmppServerConnection::~XmppServerConnection() {
     CHECK_CONCURRENCY("bgp::Config");
 
-    XMPP_INFO(XmppConnectionDelete, "Server", FromString(), ToString());
+    XMPP_INFO(XmppConnectionDelete, ToUVEKey(), XMPP_PEER_DIR_NA, "Server",
+              FromString(), ToString());
     server()->RemoveDeletedConnection(this);
 }
 
 void XmppServerConnection::ManagedDelete() {
-    XMPP_UTDEBUG(XmppConnectionDelete, "Managed server connection delete", 
-                 FromString(), ToString());
+    XMPP_UTDEBUG(XmppConnectionDelete, ToUVEKey(), XMPP_PEER_DIR_NA,
+                 "Managed server connection delete", FromString(), ToString());
     deleter_->Delete();
 }
 
@@ -848,19 +859,21 @@ XmppClientConnection::XmppClientConnection(XmppClient *server,
       deleter_(new DeleteActor(server, this)),
       server_delete_ref_(this, server->deleter()) {
     assert(config->ClientOnly());
-    XMPP_UTDEBUG(XmppConnectionCreate, "Client", FromString(), ToString());
+    XMPP_UTDEBUG(XmppConnectionCreate, ToUVEKey(), XMPP_PEER_DIR_NA, "Client",
+                 FromString(), ToString());
 }
 
 XmppClientConnection::~XmppClientConnection() {
     CHECK_CONCURRENCY("bgp::Config");
 
-    XMPP_INFO(XmppConnectionDelete, "Client", FromString(), ToString());
+    XMPP_INFO(XmppConnectionDelete, ToUVEKey(), XMPP_PEER_DIR_NA,
+              "Client", FromString(), ToString());
     server()->RemoveConnection(this);
 }
 
 void XmppClientConnection::ManagedDelete() {
-    XMPP_UTDEBUG(XmppConnectionDelete, "Managed Client Delete", 
-                 FromString(), ToString());
+    XMPP_UTDEBUG(XmppConnectionDelete, ToUVEKey(), XMPP_PEER_DIR_NA,
+                 "Managed Client Delete", FromString(), ToString());
     deleter_->Delete();
 }
 

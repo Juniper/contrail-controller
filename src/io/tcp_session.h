@@ -168,6 +168,7 @@ public:
     int ClearMd5SocketOption(uint32_t peer_ip);
     int SetDscpSocketOption(uint8_t value);
     uint8_t GetDscpValue() const;
+    const std::string &ToUVEKey() const { return uve_key_str_; }
 
 protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
@@ -266,6 +267,7 @@ private:
     tbb::atomic<int> refcount_;
     std::string name_;
     tbb::atomic<bool> defer_reader_;
+    std::string uve_key_str_;
 
     DISALLOW_COPY_AND_ASSIGN(TcpSession);
 };
