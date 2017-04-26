@@ -499,7 +499,23 @@ class DBInterface(object):
         return fip_pool_uuid
     # end _floating_ip_pool_create
 
-    def _floating_ip_pool_delete(self, fip_pool_id):
+    def _floating_ip_pool_delete(self, fip_pool):
+        if 'floating_ips' in fip_pool:
+            fip_list = fip_pool.get('floating_ips')
+            fip_ids = [fip_id['uuid'] for fip_id in fip_list]
+            fip_dict = self._vnc_lib.floating_ips_list(obj_uuids=fip_ids,
+                        fields=['virtual_machine_interface_refs'],
+                        detail=False)
+            fips = fip_dict.get('floating-ips')
+
+            #Delete fip if it's not associated with any port
+            for fip in fips:
+                if 'virtual_machine_interface_refs' in fip:
+                    raise RefsExistError
+            for fip in fips:
+                self.floatingip_delete(fip_id=fip['uuid'])
+
+        fip_pool_id = fip_pool['uuid']
         fip_pool_uuid = self._vnc_lib.floating_ip_pool_delete(id=fip_pool_id)
     # end _floating_ip_pool_delete
 
@@ -689,8 +705,8 @@ class DBInterface(object):
     #end _fip_pool_ref_networks
 
     # find floating ip pools defined by network
-    def _fip_pool_list_network(self, net_id):
-        resp_dict = self._vnc_lib.floating_ip_pools_list(parent_id=net_id)
+    def _fip_pool_list_network(self, net_id, fields=None):
+        resp_dict = self._vnc_lib.floating_ip_pools_list(parent_id=net_id, fields=fields)
 
         return resp_dict['floating-ip-pools']
     #end _fip_pool_list_network
@@ -2526,8 +2542,7 @@ class DBInterface(object):
             if fip_pools:
                 for fip_pool in fip_pools:
                     try:
-                        pool_id = fip_pool['uuid']
-                        self._floating_ip_pool_delete(fip_pool_id=pool_id)
+                        self._floating_ip_pool_delete(fip_pool)
                     except RefsExistError:
                         self._raise_contrail_exception('NetworkInUse',
                                                        net_id=net_id)
@@ -2553,14 +2568,9 @@ class DBInterface(object):
             return
 
         try:
-            fip_pools = net_obj.get_floating_ip_pools()
+            fip_pools = self._fip_pool_list_network(net_id, fields=['floating_ips'])
             for fip_pool in fip_pools or []:
-                fip_pool_obj = self._vnc_lib.floating_ip_pool_read(id=fip_pool['uuid'])
-                fips = fip_pool_obj.get_floating_ips()
-                for fip in fips or []:
-                    self.floatingip_delete(fip_id=fip['uuid'])
-                self._floating_ip_pool_delete(fip_pool_id=fip_pool['uuid'])
-
+                self._floating_ip_pool_delete(fip_pool=fip_pool)
             self._vnc_lib.virtual_network_delete(id=net_id)
         except RefsExistError:
             self._raise_contrail_exception('NetworkInUse', net_id=net_id)
