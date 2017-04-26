@@ -575,14 +575,15 @@ class PartitionHandler(gevent.Greenlet):
         while True:
             try:
                 if pause:
-                    gevent.sleep(2)
+                    gevent.sleep(5)
                     pause = False
                 self._logger.error("New KafkaClient %s" % self._topic)
                 self._kfk = KafkaClient(self._brokers , "kc-" + self._topic, timeout=5)
                 self._failed = False
                 try:
                     consumer = SimpleConsumer(self._kfk, self._group, self._topic,\
-                            buffer_size = 4096*4*4, max_buffer_size=4096*32*4)
+                            buffer_size = 4096*4*4, max_buffer_size=4096*32*4,\
+                            auto_commit = False)
                 except Exception as ex:
                     template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
                     messag = template.format(type(ex).__name__, ex.args)
@@ -592,23 +593,9 @@ class PartitionHandler(gevent.Greenlet):
                     raise RuntimeError(messag)
 
                 self._logger.error("Starting %s" % self._topic)
-
-                # Find the offset of the last message that has been queued
-                consumer.seek(-1,2)
-                try:
-                    mi = consumer.get_message(timeout=0.1)
-                    consumer.commit()
-                except common.OffsetOutOfRangeError:
-                    mi = None
-                #import pdb; pdb.set_trace()
-                self._logger.info("Last Queued for %s is %s" % \
-                                  (self._topic,str(mi)))
-
-                # start reading from last previously processed message
-                if mi != None:
-                    consumer.seek(-1,1)
-                else:
-                    consumer.seek(0,0)
+                
+                # Start consuming from the latest message
+                consumer.seek(0,2)
 
                 if self._limit:
                     raise gevent.GreenletExit
@@ -634,8 +621,8 @@ class PartitionHandler(gevent.Greenlet):
             except Exception as ex:
                 template = "An exception of type {0} occured. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
-                self._logger.error("%s : traceback %s" % \
-                                  (messag, traceback.format_exc()))
+                self._logger.error("%s %s : traceback %s" % \
+                                  (self._topic, messag, traceback.format_exc()))
                 self.stop_partition()
 		self._failed = True
                 pause = True
