@@ -13,8 +13,21 @@
  * @action: Process restart can help in getting around socket descriptors leakage, if any. lsof command can be used to find all sockets allocated by the process (in use or otherwise). ulimit command be used to see and tweak current socket descriptors limit (per process)
  */
 systemlog sandesh ClientOpenFail {
-    1: "Xmpp Client : open failed"
-    2: string error_message
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Xmpp Client : open failed"
+    5: string error_message
+}
+
+trace sandesh ClientOpenFailTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Xmpp Client : open failed"
+    5: string error_message
 }
 
 /**
@@ -24,8 +37,21 @@ systemlog sandesh ClientOpenFail {
  * @action: Check for kernel version and its ability to support the socket option that failed. Moving to a different kernel via kernel upgrade might help in working around this issue
  */
 systemlog sandesh SetSockOptFail {
-    1: "Xmpp Client: set_option: "
-    2: string error_message
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Xmpp Client: set_option: "
+    5: string error_message
+}
+
+trace sandesh SetSockOptFailTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Xmpp Client: set_option: "
+    5: string error_message
 }
 
 /**
@@ -35,6 +61,11 @@ systemlog sandesh SetSockOptFail {
  * @action: Process restart can help in getting around socket descriptors leakage, if any. lsof command can be used to find all sockets allocated by the process (in use or otherwise). ulimit command be used to see and tweak current socket descriptors limit (per process)
  */
 systemlog sandesh ServerOpenFail {
+    1: "Xmpp Server : open failed"
+    2: string error_message
+}
+
+trace sandesh ServerOpenFailTrace {
     1: "Xmpp Server : open failed"
     2: string error_message
 }
@@ -50,6 +81,11 @@ systemlog sandesh ServerBindFailure {
     2: string error_message;
 }
 
+trace sandesh ServerBindFailureTrace {
+    1: "Bind failure: ";
+    2: string error_message;
+}
+
 /**
  * @description: XMPP Server socket TCP KeepAlive option setting failure
  * @cause: Set Socket option error possibly due to lack of TCP KeepAlives support in the kernel
@@ -57,8 +93,21 @@ systemlog sandesh ServerBindFailure {
  * @action: Contact your technical support representative
  */
 systemlog sandesh ServerKeepAliveFailure {
-    1: "Tcp KeepAlive failure: ";
-    2: string error_message;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Tcp KeepAlive failure: ";
+    5: string error_message;
+}
+
+trace sandesh ServerKeepAliveFailureTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Tcp KeepAlive failure: ";
+    5: string error_message;
 }
 
 /**
@@ -66,8 +115,21 @@ systemlog sandesh ServerKeepAliveFailure {
  * @severity: DEBUG
  */
 systemlog sandesh XmppCreateConnection {
-    1: "Xmpp creating dynamic channel"
-    2: string to;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Xmpp creating dynamic channel"
+    5: string to;
+}
+
+trace sandesh XmppCreateConnectionTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Xmpp creating dynamic channel"
+    5: string to;
 }
 
 /**
@@ -75,6 +137,19 @@ systemlog sandesh XmppCreateConnection {
  * @severity: DEBUG
  */
 systemlog sandesh XmppDeleteConnection {
-    1: "Xmpp deleting dynamic channel"
-    2: string to;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Xmpp deleting dynamic channel"
+    5: string to;
+}
+
+trace sandesh XmppDeleteConnectionTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Xmpp deleting dynamic channel"
+    5: string to;
 }
