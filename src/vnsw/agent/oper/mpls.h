@@ -47,7 +47,7 @@ class MplsLabel : AgentRefCount<MplsLabel>, public AgentDBEntry {
 public:
     typedef DependencyList<AgentRoute, MplsLabel> DependentPathList;
 
-    MplsLabel(uint32_t label);
+    MplsLabel(Agent *agent, uint32_t label);
     virtual ~MplsLabel();
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -59,10 +59,10 @@ public:
     virtual uint32_t GetRefCount() const;
     virtual bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
 
-    void Add(Agent *agent, const DBRequest *req);
+    void Add(const DBRequest *req);
     bool Change(const DBRequest *req);
     void Delete(const DBRequest *req);
-    bool ChangeInternal(Agent *agent, const DBRequest *req);
+    bool ChangeInternal(const DBRequest *req);
     bool ChangeNH(NextHop *nh);
 
     void SyncDependentPath();
@@ -74,7 +74,9 @@ public:
     const NextHop *nexthop() const {return nh_;}
 private:
     friend class MplsTable;
+    Agent *agent_;
     uint32_t label_;
+    bool free_label_;
     NextHop *nh_;
     DEPENDENCY_LIST(AgentRoute, MplsLabel, mpls_label_);
     DISALLOW_COPY_AND_ASSIGN(MplsLabel);

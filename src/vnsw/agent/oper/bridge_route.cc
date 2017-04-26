@@ -827,7 +827,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     std::string dest_vn_name = "";
     bool unresolved = false;
     uint32_t vxlan_id = 0;
-    uint32_t label = 0;
     uint32_t tunnel_bmap = TunnelType::AllType();
 
     //Select based on priority of path peer.
@@ -836,29 +835,27 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         unresolved = local_vm_peer_path->unresolved();
         vxlan_id = local_vm_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::AllType();
-        label = local_vm_peer_path->label();
     } else if (tor_peer_path) {
         dest_vn_name = tor_peer_path->dest_vn_name();
         unresolved = tor_peer_path->unresolved();
         vxlan_id = tor_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::VxlanType();
-        label = tor_peer_path->label();
     } else if (fabric_peer_path) {
         dest_vn_name = fabric_peer_path->dest_vn_name();
         unresolved = fabric_peer_path->unresolved();
         vxlan_id = fabric_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::MplsType();
-        label = fabric_peer_path->label();
     } else if (evpn_peer_path) {
         dest_vn_name = evpn_peer_path->dest_vn_name();
         unresolved = evpn_peer_path->unresolved();
         vxlan_id = evpn_peer_path->vxlan_id();
         tunnel_bmap = TunnelType::VxlanType();
-        label = evpn_peer_path->label();
     }
 
+    //By default mark label stored in multicast_peer path to be evpn label.
+    uint32_t label = evpn_label;
     //Mpls label selection needs to be overridden by fabric label
-    //if fabric peer is present
+    //if fabric peer is present.
     if (fabric_peer_path) {
         label = fabric_peer_path->label();
     }
