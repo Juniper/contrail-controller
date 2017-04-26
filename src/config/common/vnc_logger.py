@@ -39,7 +39,8 @@ class ConfigServiceLogger(object):
         logging.DEBUG: SandeshLevel.SYS_DEBUG
     }
 
-    def __init__(self, discovery, module, module_pkg, args=None):
+    def __init__(self, discovery, module, module_pkg, args=None,
+                 http_server_port=None):
         self.discovery = discovery
         self.module_pkg = module_pkg
         if not hasattr(self, 'context'):
@@ -54,7 +55,7 @@ class ConfigServiceLogger(object):
         self._hostname = socket.gethostname()
 
         # sandesh init
-        self.sandesh_init()
+        self.sandesh_init(http_server_port)
 
     def _get_sandesh_logger_level(self, sandesh_level):
         return self._LOGGER_LEVEL_TO_SANDESH_LEVEL[sandesh_level]
@@ -107,7 +108,7 @@ class ConfigServiceLogger(object):
         """ Redefine sandesh handle requests for various object types. """
         pass
 
-    def sandesh_init(self):
+    def sandesh_init(self, http_server_port=None):
         """ Init sandesh """
         self._sandesh = Sandesh()
         # Reset the sandesh send rate limit value
@@ -115,10 +116,12 @@ class ConfigServiceLogger(object):
             SandeshSystem.set_sandesh_send_rate_limit(
                 self._args.sandesh_send_rate_limit)
         self.redefine_sandesh_handles()
+        if not http_server_port:
+            http_server_port = self._args.http_server_port
         self._sandesh.init_generator(
             self._module_name, self._hostname, self._node_type_name,
             self._instance_id, self._args.collectors,
-            '%s_context' % self.context, int(self._args.http_server_port),
+            '%s_context' % self.context, int(http_server_port),
             ['cfgm_common', '%s.sandesh' % self.module_pkg], self.discovery,
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf)
@@ -137,3 +140,6 @@ class ConfigServiceLogger(object):
                 self._instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
+
+    def introspect_init(self):
+        self._sandesh.run_introspect_server(int(self._args.http_server_port))
