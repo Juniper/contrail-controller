@@ -296,9 +296,13 @@ class DBBase(object):
     # end update_multiple_refs
 
     @classmethod
-    def read_obj(cls, uuid, obj_type=None, fields=None):
-        ok, objs = cls._object_db.object_read(obj_type or cls.obj_type, [uuid],
-                                              field_names=fields)
+    def read_obj(cls, uuid=None, obj_type=None, fields=None, fq_name=None):
+        uuids = [uuid] if uuid else None
+        fq_names = [fq_name] if fq_name else None
+        ok, objs = cls._object_db.object_read(obj_type or cls.obj_type,
+                                              uuids=uuids,
+                                              fq_names=fq_names,
+                                              fields=fields)
         if not ok:
             cls._logger.error(
                 'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
@@ -319,8 +323,7 @@ class DBBase(object):
         if uuid is None:
             if isinstance(fq_name, basestring):
                 fq_name = fq_name.split(':')
-            uuid = cls._object_db.fq_name_to_uuid(obj_type, fq_name)
-        obj_dict = cls.read_obj(uuid, obj_type, fields)
+        obj_dict = cls.read_obj(uuid, obj_type, fields, fq_name)
         obj = cls.vnc_obj_from_dict(obj_type, obj_dict)
         obj.clear_pending_updates()
         return obj
@@ -363,8 +366,8 @@ class DBBase(object):
         if not ok:
             return []
         uuids = [uuid for _, uuid in result]
-        ok, objs = cls._object_db.object_read(obj_type, uuids,
-                                              field_names=fields)
+        ok, objs = cls._object_db.object_read(obj_type, uuids=uuids,
+                                              fields=fields)
         if not ok:
             return []
         return objs

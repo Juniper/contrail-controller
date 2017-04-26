@@ -52,16 +52,17 @@ class ResourceDbMixin(object):
             return True, -1, None
 
         if 'project_refs' in obj_dict:
-            proj_dict = obj_dict['project_refs'][0]
-            proj_uuid = proj_dict.get('uuid')
-            if not proj_uuid:
-                proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
+            proj_ref = obj_dict['project_refs'][0]
+            proj_uuid = proj_ref.get('uuid')
+            proj_fq_name = proj_ref['to']
         elif 'parent_type' in obj_dict and obj_dict['parent_type'] == 'project':
             proj_uuid = obj_dict['parent_uuid']
+            proj_fq_name = None
         else:
             return True, -1, None
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            db_conn, proj_uuid, proj_fq_name)
         if not ok:
             return (False, (500, 'Internal error : ' + pformat(proj_dict)), None)
 
@@ -130,9 +131,9 @@ class Resource(ResourceDbMixin):
     server = None
 
     @classmethod
-    def dbe_read(cls, db_conn, res_type, obj_uuid, obj_fields=None):
+    def dbe_read(cls, db_conn, type, uuid=None, fq_name=None, fields=None):
         try:
-            ok, result = db_conn.dbe_read(res_type, obj_uuid, obj_fields)
+            ok, result = db_conn.dbe_read(type, uuid, fq_name, fields)
         except cfgm_common.exceptions.NoIdError:
             return (False, (404, 'No %s: %s' %(res_type, obj_uuid)))
         if not ok:
@@ -221,9 +222,8 @@ class FloatingIpServer(Resource, FloatingIp):
 
         # Get floating-ip-pool object.
         fip_pool_fq_name = fip_obj_dict['fq_name'][:-1]
-        fip_pool_uuid = db_conn.fq_name_to_uuid('floating_ip_pool',
-            fip_pool_fq_name)
-        ok, res = cls.dbe_read(db_conn, 'floating_ip_pool', fip_pool_uuid)
+        ok, res = cls.dbe_read(db_conn, 'floating_ip_pool',
+                               fq_name=fip_pool_fq_name)
         if ok:
             # Successful read returns fip pool.
             fip_pool_dict = res
@@ -430,7 +430,7 @@ class InstanceIpServer(Resource, InstanceIp):
         for vmi_ref in vmi_refs or []:
             ok, result = cls.dbe_read(db_conn, 'virtual_machine_interface',
                                       vmi_ref['uuid'],
-                                      obj_fields=['virtual_machine_refs'])
+                                      fields=['virtual_machine_refs'])
             if not ok:
                 continue
             if result.get('virtual_machine_refs'):
@@ -457,7 +457,7 @@ class InstanceIpServer(Resource, InstanceIp):
             return False
 
         ok, vn_dict = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
-                                   ['network_ipam_refs'])
+                                   fields=['network_ipam_refs'])
         if not ok:
             return False
 
@@ -473,10 +473,11 @@ class InstanceIpServer(Resource, InstanceIp):
             return True,  ""
 
         req_ip = obj_dict.get("instance_ip_address")
-        vn_id = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_id,
-                         obj_fields=['router_external', 'network_ipam_refs',
-                                     'address_allocation_mode'])
+        ok, result = cls.dbe_read(db_conn, 'virtual_network',
+                                  fq_name=vn_fq_name,
+                                  fields=['router_external',
+                                          'network_ipam_refs',
+                                          'address_allocation_mode'])
         if not ok:
             return ok, result
 
@@ -494,7 +495,7 @@ class InstanceIpServer(Resource, InstanceIp):
         # if request has ip and not g/w ip, report if already in use.
         # for g/w ip, creation allowed but only can ref to router port.
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name,
-                                                    vn_uuid=vn_id):
+                                                    vn_uuid=vn_dict['uuid']):
             if not cls.addr_mgmt.is_gateway_ip(vn_dict, req_ip):
                 return (False, (409, 'Ip address already in use'))
             elif cls._vmi_has_vm_ref(db_conn, obj_dict):
@@ -555,7 +556,7 @@ class InstanceIpServer(Resource, InstanceIp):
             return (False, (400, 'Instance IP Address can not be changed'))
 
         ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
-                                  obj_fields=['network_ipam_refs'])
+                                  fields=['network_ipam_refs'])
         if not ok:
             return ok, result
 
@@ -621,7 +622,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
         for vmi_ref in obj_dict.get('virtual_machine_interface_refs') or []:
             vmi_id = vmi_ref['uuid']
             ok, read_result = cls.dbe_read(
-                  db_conn, 'virtual_machine_interface', vmi_ref['uuid'])
+                  db_conn, 'virtual_machine_interface', vmi_id)
             if not ok:
                 return ok, read_result
             if (read_result['parent_type'] == 'virtual-machine' or
@@ -723,7 +724,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
         # Check if we can reference the BGP VPNs
         ok, result = cls.dbe_read(db_conn, 'logical_router', id,
-            obj_fields=['bgpvpn_refs', 'virtual_machine_interface_refs'])
+            fields=['bgpvpn_refs', 'virtual_machine_interface_refs'])
         if not ok:
             return ok, result
         return BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
@@ -837,16 +838,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict.get('uuid')
-        if not vn_uuid:
-            vn_fq_name = vn_dict.get('to')
-            if not vn_fq_name:
-                msg = 'Bad Request: Reference should have uuid or fq_name: %s'\
-                      %(pformat(vn_dict))
-                return (False, (400, msg))
-            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        vn_fq_name = vn_dict.get('to')
 
-        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
-                                  obj_fields=['parent_uuid', 'provider_properties'])
+        ok, result = cls.dbe_read(db_conn, 'virtual_network', uuid=vn_uuid,
+                                  fq_name=vn_fq_name,
+                                  fields=['parent_uuid', 'provider_properties'])
         if not ok:
             return ok, result
 
@@ -856,11 +852,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                      {}).get('sub_interface_vlan_tag'))
         if vlan_tag and 'virtual_machine_interface_refs' in obj_dict:
             primary_vmi_ref = obj_dict['virtual_machine_interface_refs']
-            ok, primary_vmi = cls.dbe_read(db_conn,
-                              'virtual_machine_interface',
-                              primary_vmi_ref[0]['uuid'],
-                              obj_fields=['virtual_machine_interface_refs',
-                              'virtual_machine_interface_properties'])
+            ok, primary_vmi = cls.dbe_read(
+                db_conn,
+                'virtual_machine_interface',
+                primary_vmi_ref[0]['uuid'],
+                fields=['virtual_machine_interface_refs',
+                        'virtual_machine_interface_properties']
+            )
             if not ok:
                 return ok, primary_vmi
 
@@ -1087,10 +1085,11 @@ class BridgeDomainServer(Resource, BridgeDomain):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_uuid = obj_dict.get('parent_uuid')
+        vn_fq_name = None
         if vn_uuid is None:
-            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', obj_dict['fq_name'][0:3])
+            vn_fq_name = obj_dict['fq_name'][-1]
         ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_uuid,
-                                  obj_fields=['bridge_domains'])
+                                  vn_fq_name, ['bridge_domains'])
         if not ok:
             return ok, result
         if 'bridge_domains' in result and len(result['bridge_domains']) == 1:
@@ -1136,10 +1135,13 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             return (True, '')
 
         if not create:
-            ok, result = cls.dbe_read(db_conn, 'virtual_network',
-                             obj_dict['uuid'],
-                             obj_fields=['virtual_machine_interface_back_refs',
-                                         'provider_properties'])
+            ok, result = cls.dbe_read(
+                db_conn,
+                'virtual_network',
+                obj_dict['uuid'],
+                fields=['virtual_machine_interface_back_refs',
+                        'provider_properties']
+            )
             if not ok:
                 return ok, result
 
@@ -1257,12 +1259,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         for ipam in ipam_refs:
             ipam_fq_name = ipam['to']
             ipam_uuid = ipam.get('uuid')
-            if not ipam_uuid:
-                ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
-                                                    ipam_fq_name)
-
-            (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
-                                               obj_id=ipam_uuid)
+            (ok, ipam_dict) = cls.dbe_read('network_ipam', ipam_uuid,
+                                            ipam_fq_name)
             if not ok:
                 return (ok, 400, ipam_dict)
 
@@ -1390,11 +1388,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             for ipam in ipam_refs:
                 ipam_fq_name = ipam['to']
                 ipam_uuid = ipam.get('uuid')
-                if not ipam_uuid:
-                    ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
-                                                        ipam_fq_name)
-                (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
-                                                   obj_id=ipam_uuid)
+                (ok, ipam_dict) = cls.dbe_read('network_ipam', ipam_uuid,
+                                               ipam_fq_name)
                 if not ok:
                     return (ok, (400, ipam_dict))
 
@@ -1454,7 +1449,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             elif global_access is not None:
                 obj_dict['is_shared'] = (global_access != 0)
             else:
-                ok, result = cls.dbe_read(db_conn, 'virtual_network', id, obj_fields=['perms2'])
+                ok, result = cls.dbe_read(db_conn, 'virtual_network', id,
+                                          fields=['perms2'])
                 if not ok:
                     return ok, result
                 obj_dict['perms2'] = result['perms2']
@@ -1525,11 +1521,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             #update link with a subnet_uuid if ipam in read_result or obj_dict
             # does not have it already
             for ipam in ipam_refs:
-                ipam_fq_name = ipam['to']
-                ipam_uuid = db_conn.fq_name_to_uuid('network_ipam',
-                                                    ipam_fq_name)
-                (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
-                                                   obj_id=ipam_uuid)
+                ipam_fq_name = ipam.get('to')
+                ipam_uuid = ipam.get('uuid')
+                (ok, ipam_dict) = cls.dbe_read('network_ipam', ipam_uuid,
+                                               ipam_fq_name)
                 if not ok:
                     return (ok, (409, ipam_dict))
 
@@ -1573,18 +1568,19 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         # Delete native/vn-default routing instance
         # For this find backrefs and remove their ref to RI
-        ri_fq_name = obj_dict['fq_name'][:]
+        ri_fq_name = obj_dict['fq_name']
         ri_fq_name.append(obj_dict['fq_name'][-1])
-        ri_uuid = db_conn.fq_name_to_uuid('routing_instance', ri_fq_name)
 
         backref_fields = RoutingInstance.backref_fields
         children_fields = RoutingInstance.children_fields
-        ok, result = cls.dbe_read(db_conn, 'routing_instance', ri_uuid,
-                                  obj_fields=backref_fields|children_fields)
+        ok, result = cls.dbe_read(db_conn, 'routing_instance',
+                                  fq_name=ri_fq_name,
+                                  fields=backref_fields | children_fields)
         if not ok:
             return ok, result
 
         ri_obj_dict = result
+        ri_uuid = ri_obj_dict['fq_name']
         backref_field_types = RoutingInstance.backref_field_types
         for backref_name in backref_fields:
             backref_res_type = backref_field_types[backref_name][0]
@@ -1759,7 +1755,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
             for ref in vn_refs:
                 vn_id = ref.get('uuid')
                 try:
-                    (ok, vn_dict) = db_conn.dbe_read('virtual_network', vn_id)
+                    (ok, vn_dict) = cls.dbe_read('virtual_network', vn_id)
                 except cfgm_common.exceptions.NoIdError:
                     continue
                 if not ok:
@@ -1896,8 +1892,12 @@ class NetworkIpamServer(Resource, NetworkIpam):
     @classmethod
     def is_active_vm_present(cls, obj_dict, db_conn):
         for vn in obj_dict.get('virtual_network_back_refs') or []:
-            ok, result = cls.dbe_read(db_conn, 'virtual_network', vn['uuid'],
-                            obj_fields=['virtual_machine_interface_back_refs'])
+            ok, result = cls.dbe_read(
+                db_conn,
+                'virtual_network',
+                vn['uuid'],
+                fields=['virtual_machine_interface_back_refs'],
+            )
             if not ok:
                 code, msg = result
                 if code == 404:
@@ -1974,8 +1974,6 @@ class VirtualDnsServer(Resource, VirtualDns):
                 return ok, read_result
             virtual_DNSs = read_result.get('virtual_DNSs') or []
             for vdns in virtual_DNSs:
-                vdns_uuid = vdns['uuid']
-                vdns_id = {'uuid': vdns_uuid}
                 ok, read_result = cls.dbe_read(db_conn, 'virtual_DNS',
                                                vdns['uuid'])
                 if not ok:
@@ -2312,7 +2310,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
             obj_dict['security_group_id'] = sg_dict['security_group_id']
 
         (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
-            sg_dict['parent_uuid'], db_conn)
+            db_conn, uuid=sg_dict['parent_uuid'])
         if not ok:
             return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
 
@@ -2461,7 +2459,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
         # do not allow change in display name
         if 'display_name' in obj_dict:
             ok, read_result = cls.dbe_read(db_conn, 'physical_interface',
-                                           id, obj_fields=['display_name'])
+                                           id, fields=['display_name'])
             if not ok:
                 return ok, read_result
 
@@ -2474,12 +2472,8 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
     @classmethod
     def _check_interface_name(cls, obj_dict, db_conn, vlan_tag):
         interface_name = obj_dict['display_name']
-        router = obj_dict['fq_name'][:2]
-        try:
-            router_uuid = db_conn.fq_name_to_uuid('physical_router', router)
-        except cfgm_common.exceptions.NoIdError:
-            return (False, (500, 'Internal error : Physical router ' +
-                                 ":".join(router) + ' not found'))
+        router_fq_name = obj_dict['fq_name'][:2]
+
         physical_interface_uuid = ""
         if obj_dict['parent_type'] == 'physical-interface':
             try:
@@ -2489,9 +2483,10 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
                 return (False, (500, 'Internal error : Physical interface ' +
                                      ":".join(physical_interface_name) + ' not found'))
 
-        ok, result = cls.dbe_read(db_conn, 'physical_router', router_uuid,
-                                  obj_fields=['physical_interfaces',
-                                              'physical_router_product_name'])
+        ok, result = cls.dbe_read(db_conn, 'physical_router',
+                                  fq_name=router_fq_name,
+                                  fields=['physical_interfaces',
+                                          'physical_router_product_name'])
         if not ok:
             return ok, result
 
@@ -2507,7 +2502,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
             (ok, interface_object) = cls.dbe_read(db_conn,
                                                   'physical_interface',
                                                   physical_interface['uuid'],
-                                                  obj_fields=['display_name'])
+                                                  fields=['display_name'])
             if not ok:
                 code, msg = interface_object
                 if code == 404:
@@ -2556,13 +2551,8 @@ class LoadbalancerMemberServer(Resource, LoadbalancerMember):
         if not user_visibility:
             return True, ""
 
-        try:
-            fq_name = obj_dict['fq_name']
-            proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except cfgm_common.exceptions.NoIdError:
-            return (False, (500, 'No Project ID error : ' + proj_uuid))
-
-        ok, result = cls.dbe_read(db_conn, 'project', proj_uuid)
+        ok, result = cls.dbe_read(db_conn, 'project',
+                                  fq_name=obj_dict['fq_name'])
         if not ok:
             return ok, result
 
@@ -2793,8 +2783,8 @@ class FloatingIpPoolServer(Resource, FloatingIpPool):
         try:
             # Get the virtual-network object.
             vn_fq_name = obj_dict['fq_name'][:-1]
-            vn_id = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-            ok, vn_dict = cls.dbe_read(db_conn, 'virtual_network', vn_id)
+            ok, vn_dict = cls.dbe_read(db_conn, 'virtual_network',
+                                       fq_name=vn_fq_name)
             if not ok:
                 return ok, vn_dict
 
@@ -2823,7 +2813,7 @@ class FloatingIpPoolServer(Resource, FloatingIpPool):
                     # Specified subnet was not found on the virtual-network.
                     # Return failure.
                     msg = "Subnet %s was not found in virtual-network %s" %\
-                        (fip_pool_subnet, vn_id)
+                        (fip_pool_subnet, vn_dict['uuid'])
                     return (False, (400, msg))
 
         except KeyError:
