@@ -17,6 +17,11 @@ systemlog sandesh ClientOpenFail {
     2: string error_message
 }
 
+trace sandesh ClientOpenFailTrace {
+    1: "Xmpp Client : open failed"
+    2: string error_message
+}
+
 /**
  * @description: XMPP socket option setting failure
  * @severity: WARNING
@@ -24,6 +29,11 @@ systemlog sandesh ClientOpenFail {
  * @action: Check for kernel version and its ability to support the socket option that failed. Moving to a different kernel via kernel upgrade might help in working around this issue
  */
 systemlog sandesh SetSockOptFail {
+    1: "Xmpp Client: set_option: "
+    2: string error_message
+}
+
+trace sandesh SetSockOptFailTrace {
     1: "Xmpp Client: set_option: "
     2: string error_message
 }
@@ -39,6 +49,11 @@ systemlog sandesh ServerOpenFail {
     2: string error_message
 }
 
+trace sandesh ServerOpenFailTrace {
+    1: "Xmpp Server : open failed"
+    2: string error_message
+}
+
 /**
  * @description: XMPP Server socket bind operation failure
  * @severity: WARNING
@@ -46,6 +61,11 @@ systemlog sandesh ServerOpenFail {
  * @action: Check if another/duplicate process is already using the same port using netstat and lsof command line tools. If found, kill such offending processes and restart the daemon. If the port is used by another application legitimately, try changing the xmpp server port to a different unused port in /etc/contrail/contrail-control.conf
  */
 systemlog sandesh ServerBindFailure {
+    1: "Bind failure: ";
+    2: string error_message;
+}
+
+trace sandesh ServerBindFailureTrace {
     1: "Bind failure: ";
     2: string error_message;
 }
@@ -61,6 +81,11 @@ systemlog sandesh ServerKeepAliveFailure {
     2: string error_message;
 }
 
+trace sandesh ServerKeepAliveFailureTrace {
+    1: "Tcp KeepAlive failure: ";
+    2: string error_message;
+}
+
 /**
  * @description: XMPP Connection created
  * @severity: DEBUG
@@ -70,11 +95,21 @@ systemlog sandesh XmppCreateConnection {
     2: string to;
 }
 
+trace sandesh XmppCreateConnectionTrace {
+    1: "Xmpp creating dynamic channel"
+    2: string to;
+}
+
 /**
  * @description: XMPP Connection deleted
  * @severity: DEBUG
  */
 systemlog sandesh XmppDeleteConnection {
+    1: "Xmpp deleting dynamic channel"
+    2: string to;
+}
+
+trace sandesh XmppDeleteConnectionTrace {
     1: "Xmpp deleting dynamic channel"
     2: string to;
 }
