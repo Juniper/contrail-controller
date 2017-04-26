@@ -7,7 +7,7 @@
 #include "base/logging.h"
 #include "testing/gunit.h"
 
-using namespace std;
+using std::string;
 
 class RouteDistinguisherTest : public ::testing::Test {
 };
@@ -86,6 +86,46 @@ TEST_F(RouteDistinguisherTest, ByteArrayType1_4) {
     EXPECT_EQ(1, rd.Type());
     EXPECT_EQ("10.1.1.1:65535", rd.ToString());
     EXPECT_EQ(rd, RouteDistinguisher(rd.GetAddress(), 65535));
+}
+
+TEST_F(RouteDistinguisherTest, ByteArrayType2_1) {
+    uint8_t data[] = { 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x12, 0x34 };
+    RouteDistinguisher rd(data);
+    EXPECT_FALSE(rd.IsZero());
+    EXPECT_EQ(2, rd.Type());
+    EXPECT_EQ("65536:4660", rd.ToString());
+}
+
+TEST_F(RouteDistinguisherTest, ByteArrayType2_2) {
+    uint8_t data[] = { 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x43, 0x21 };
+    RouteDistinguisher rd(data);
+    EXPECT_FALSE(rd.IsZero());
+    EXPECT_EQ(2, rd.Type());
+    EXPECT_EQ("65536:17185", rd.ToString());
+}
+
+TEST_F(RouteDistinguisherTest, ByteArrayType2_3) {
+    uint8_t data[] = { 0x00, 0x02, 0x01, 0x00, 0x00, 0x00, 0x12, 0x34 };
+    RouteDistinguisher rd(data);
+    EXPECT_FALSE(rd.IsZero());
+    EXPECT_EQ(2, rd.Type());
+    EXPECT_EQ("16777216:4660", rd.ToString());
+}
+
+TEST_F(RouteDistinguisherTest, ByteArrayTypeUnknown_1) {
+    uint8_t data[] = { 0x00, 0x10, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c };
+    RouteDistinguisher rd(data);
+    EXPECT_FALSE(rd.IsZero());
+    EXPECT_EQ(16, rd.Type());
+    EXPECT_EQ("16:07:08:09:0a:0b:0c", rd.ToString());
+}
+
+TEST_F(RouteDistinguisherTest, ByteArrayTypeUnknown_2) {
+    uint8_t data[] = { 0x01, 0x00, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c };
+    RouteDistinguisher rd(data);
+    EXPECT_FALSE(rd.IsZero());
+    EXPECT_EQ(256, rd.Type());
+    EXPECT_EQ("256:07:08:09:0a:0b:0c", rd.ToString());
 }
 
 TEST_F(RouteDistinguisherTest, FromStringType0_0) {
