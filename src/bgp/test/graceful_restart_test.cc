@@ -348,8 +348,7 @@ protected:
     void WaitForAgentToBeEstablished(test::NetworkAgentMock *agent);
     void WaitForPeerToBeEstablished( BgpPeerTest *peer);
     void BgpPeersAdminUpOrDown(bool down);
-    bool SkipNotificationReceive(BgpPeerTest *peer, int code,
-                                 int subcode) const;
+    bool AttemptGRHelperMode(BgpPeerTest *peer, int code, int subcode) const;
 
     void SandeshStartup();
     void SandeshShutdown();
@@ -634,9 +633,9 @@ void GracefulRestartTest::Configure() {
         BgpPeerTest *peer = bgp_servers_[0]->FindPeerByUuid(
                                 BgpConfigManager::kMasterInstance, uuid);
         peer->set_id(i-1);
-        peer->skip_notification_recv_fnc_ =
-            boost::bind(&GracefulRestartTest::SkipNotificationReceive, this,
-                        peer, _1, _2);
+        peer->attempt_gr_helper_mode_fnc_ =
+            boost::bind(&GracefulRestartTest::AttemptGRHelperMode, this, peer,
+                        _1, _2);
         bgp_server_peers_.push_back(peer);
     }
 }
@@ -1182,12 +1181,12 @@ void GracefulRestartTest::VerifyRoutingInstances(BgpServer *server) {
                                BgpConfigManager::kMasterInstance));
 }
 
-bool GracefulRestartTest::SkipNotificationReceive(BgpPeerTest *peer,
-                                                  int code, int subcode) const {
+bool GracefulRestartTest::AttemptGRHelperMode(BgpPeerTest *peer, int code,
+                                              int subcode) const {
     if (code == BgpProto::Notification::Cease &&
             subcode == BgpProto::Notification::AdminShutdown)
         return true;
-    return peer->SkipNotificationReceiveDefault(code, subcode);
+    return peer->AttemptGRHelperModeDefault(code, subcode);
 }
 
 // Invoke stale timer callbacks directly to speed up.

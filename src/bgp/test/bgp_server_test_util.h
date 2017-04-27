@@ -300,20 +300,20 @@ public:
         cond_var_.wait(lock);
     }
 
-    bool SkipNotificationReceiveDefault(int code, int subcode) const {
-        return BgpPeer::SkipNotificationReceive(code, subcode);
+    bool AttemptGRHelperModeDefault(int code, int subcode) const {
+        return BgpPeer::AttemptGRHelperMode(code, subcode);
     }
 
-    virtual bool SkipNotificationReceive(int code, int subcode) const {
-        if (skip_notification_recv_fnc_.empty())
-            return SkipNotificationReceiveDefault(code, subcode);
-        return skip_notification_recv_fnc_(code, subcode);
+    virtual bool AttemptGRHelperMode(int code, int subcode) const {
+        if (attempt_gr_helper_mode_fnc_.empty())
+            return AttemptGRHelperModeDefault(code, subcode);
+        return attempt_gr_helper_mode_fnc_(code, subcode);
     }
 
     boost::function<bool(const uint8_t *, size_t)> SendUpdate_fnc_;
     boost::function<bool(uint16_t, uint8_t)> MpNlriAllowed_fnc_;
     boost::function<bool()> IsReady_fnc_;
-    boost::function<bool(int, int)> skip_notification_recv_fnc_;
+    boost::function<bool(int, int)> attempt_gr_helper_mode_fnc_;
 
     BgpTestUtil util_;
 
