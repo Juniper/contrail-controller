@@ -263,6 +263,8 @@ class DBBase(object):
             return self.update_single_ref(ref_type, obj)
         elif isinstance(getattr(self, ref_type+'s', None), set):
             return self.update_multiple_refs(ref_type, obj)
+        elif isinstance(getattr(self, ref_type+'s', None), dict):
+            return self.update_multiple_refs_with_attr(ref_type, obj)
 
     def update_multiple_refs_with_attr(self, ref_type, obj):
         if isinstance(obj, dict):
