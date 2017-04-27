@@ -208,17 +208,6 @@ class OpServerUtils(object):
                         'now' in end_time:
                     ostart_time = start_time
                     oend_time = end_time
-                    now = OpServerUtils.utc_timestamp_usec()
-                    td = OpServerUtils.convert_to_time_delta(ostart_time[len('now'):])
-                    if td == None:
-                        ostart_time = now
-                    else:
-                        ostart_time = now + (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6)
-                    td = OpServerUtils.convert_to_time_delta(oend_time[len('now'):])
-                    if td == None:
-                        oend_time = now
-                    else:
-                        oend_time = now + (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6)
                 elif start_time.isdigit() and \
                         end_time.isdigit():
                     ostart_time = int(start_time)
@@ -242,6 +231,19 @@ class OpServerUtils(object):
             ostart_time = oend_time - OpServerUtils.DEFAULT_TIME_DELTA
         elif ostart_time is not None and oend_time is None:
             oend_time = ostart_time + OpServerUtils.DEFAULT_TIME_DELTA
+
+        if 'now' in str(ostart_time) and 'now' in str(oend_time):
+            now = OpServerUtils.utc_timestamp_usec()
+            td = OpServerUtils.convert_to_time_delta(ostart_time[len('now'):])
+            if td == None:
+                ostart_time = now
+            else:
+                ostart_time = now + (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6)
+            td = OpServerUtils.convert_to_time_delta(oend_time[len('now'):])
+            if td == None:
+                oend_time = now
+            else:
+                oend_time = now + (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10 ** 6)
 
         return ostart_time, oend_time
     # end parse_start_end_time
