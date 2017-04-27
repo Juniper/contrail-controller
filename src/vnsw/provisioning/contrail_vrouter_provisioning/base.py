@@ -283,6 +283,8 @@ class ContrailSetup(object):
         self.setup_coredump()
         self.fixup_config_files()
         self.run_services()
+        self.setup_sriov_grub()
+        self.setup_sriov_vfs()
 
 
 class ContrailUpgrade(object):
