@@ -31,12 +31,13 @@ class QfxConf(JuniperConf):
         return super(QfxConf, cls).register(qconf)
     # end register
 
-    def has_conf(self):
-        return True
-    # end has_conf
-
     def push_conf(self, is_delete=False):
-        return self.send_conf(is_delete)
+        if not self.physical_router:
+            return 0
+        if is_delete:
+            return self.send_conf(is_delete=True)
+        self.build_bgp_config()
+        return self.send_conf()
     # end push_conf
 
 # end QfxConf

@@ -144,20 +144,6 @@ class MxConf(JuniperConf):
                 self.add_routing_instance(ri_conf)
     # end add_pnf_vrfs
 
-    def add_lo0_unit_0_interface(self, loopback_ip=''):
-        if not loopback_ip:
-            return
-        if not self.interfaces_config:
-            self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
-        lo_intf = Interface(name="lo0")
-        self.interfaces_config.add_interface(lo_intf)
-        fam_inet = FamilyInet(address=[Address(name=loopback_ip + "/32",
-                                                   primary='', preferred='')])
-        intf_unit = Unit(name="0", family=Family(inet=fam_inet),
-                             comment=DMUtils.lo0_unit_0_comment())
-        lo_intf.add_unit(intf_unit)
-    # end add_lo0_unit_0_interface
-
     def add_static_routes(self, parent, static_routes):
         static_config = parent.get_static()
         if not static_config:
@@ -177,29 +163,6 @@ class MxConf(JuniperConf):
                     route_config.set_next_hop(next_hop_str)
             static_config.add_route(route_config)
     # end add_static_routes
-
-    def add_dynamic_tunnels(self, tunnel_source_ip,
-                             ip_fabric_nets, bgp_router_ips):
-        dynamic_tunnel = DynamicTunnel(name=DMUtils.dynamic_tunnel_name(self.get_asn()),
-                                       source_address=tunnel_source_ip, gre='')
-        if ip_fabric_nets is not None:
-            for subnet in ip_fabric_nets.get("subnet", []):
-                dest_net = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len'])
-                dynamic_tunnel.add_destination_networks(
-                    DestinationNetworks(name=dest_net,
-                                        comment=DMUtils.ip_fabric_subnet_comment()))
-
-        for r_name, bgp_router_ip in bgp_router_ips.items():
-            dynamic_tunnel.add_destination_networks(
-                DestinationNetworks(name=bgp_router_ip + '/32',
-                                    comment=DMUtils.bgp_router_subnet_comment(r_name)))
-
-        dynamic_tunnels = DynamicTunnels()
-        dynamic_tunnels.add_dynamic_tunnel(dynamic_tunnel)
-        if self.global_routing_options_config is None:
-            self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
-        self.global_routing_options_config.set_dynamic_tunnels(dynamic_tunnels)
-    # end add_dynamic_tunnels
 
     def add_inet_public_vrf_filter(self, forwarding_options_config,
                                          firewall_config, inet_type):
@@ -249,33 +212,6 @@ class MxConf(JuniperConf):
         return Term(name=DMUtils.make_vrf_term_name(ri_name),
                                         fromxx=from_, then=then_)
     # end add_inet_filter_term
-
-    def add_ibgp_export_policy(self, params):
-        if params.get('address_families') is None:
-            return
-        families = params['address_families'].get('family', [])
-        if not families:
-            return
-        if self.policy_config is None:
-            self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
-        ps = PolicyStatement(name=DMUtils.make_ibgp_export_policy_name())
-        self.policy_config.add_policy_statement(ps)
-        ps.set_comment(DMUtils.ibgp_export_policy_comment())
-        vpn_types = []
-        for family in ['inet-vpn', 'inet6-vpn']:
-            if family in families:
-                vpn_types.append(family)
-        for vpn_type in vpn_types:
-            is_v6 = True if vpn_type == 'inet6-vpn' else False
-            term = Term(name=DMUtils.make_ibgp_export_policy_term_name(is_v6))
-            ps.set_term(term)
-            then = Then()
-            from_ = From()
-            term.set_from(from_)
-            term.set_then(then)
-            from_.set_family(DMUtils.get_inet_family_name(is_v6))
-            then.set_next_hop(NextHop(selfxx=''))
-    # end add_ibgp_export_policy
 
     '''
      ri_name: routing instance name to be configured on mx
@@ -723,14 +659,6 @@ class MxConf(JuniperConf):
                                vlan_id=str(interface.vlan_tag)))
     # end build_l2_evpn_interface_config
 
-    def set_global_routing_options(self, bgp_params):
-        router_id = bgp_params.get('identifier') or bgp_params.get('address')
-        if router_id:
-            if not self.global_routing_options_config:
-                self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
-            self.global_routing_options_config.set_router_id(router_id)
-    # end set_global_routing_options
-
     def add_to_global_ri_opts(self, prefix):
         if not prefix:
             return
@@ -746,118 +674,6 @@ class MxConf(JuniperConf):
         static_config.add_route(Route(name=prefix, discard=''))
     # end add_to_global_ri_opts
 
-    def is_family_configured(self, params, family_name):
-        if params is None or params.get('address_families') is None:
-            return False
-        families = params['address_families'].get('family', [])
-        if family_name in families:
-            return True
-        return False
-     # end is_family_configured
-
-    def add_families(self, parent, params):
-        if params.get('address_families') is None:
-            return
-        families = params['address_families'].get('family', [])
-        if not families:
-            return
-        family_etree = Family()
-        parent.set_family(family_etree)
-        for family in families:
-            fam = family.replace('-', '_')
-            if family in ['e-vpn', 'e_vpn']:
-                fam = 'evpn'
-            if family in self._FAMILY_MAP:
-                getattr(family_etree, "set_" + fam)(self._FAMILY_MAP[family])
-            else:
-                getattr(family_etree, "set_" + fam)('')
-    # end add_families
-
-    def add_bgp_auth_config(self, bgp_config, bgp_params):
-        if bgp_params.get('auth_data') is None:
-            return
-        keys = bgp_params['auth_data'].get('key_items', [])
-        if len(keys) > 0:
-            bgp_config.set_authentication_key(keys[0].get('key'))
-    # end add_bgp_auth_config
-
-    def add_bgp_hold_time_config(self, bgp_config, bgp_params):
-        if bgp_params.get('hold_time') is None:
-            return
-        bgp_config.set_hold_time(bgp_params.get('hold_time'))
-    # end add_bgp_hold_time_config
-
-    def set_bgp_config(self, params, bgp_obj):
-        self.bgp_params = params
-        self.bgp_obj = bgp_obj
-    # end set_bgp_config
-
-    def _get_bgp_config_xml(self, external=False):
-        if self.bgp_params is None:
-            return None
-        bgp_group = BgpGroup()
-        bgp_group.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
-        if external:
-            bgp_group.set_name(DMUtils.make_bgp_group_name(self.get_asn(), True))
-            bgp_group.set_type('external')
-            bgp_group.set_multihop('')
-        else:
-            bgp_group.set_name(DMUtils.make_bgp_group_name(self.get_asn(), False))
-            bgp_group.set_type('internal')
-            self.add_ibgp_export_policy(self.bgp_params)
-            bgp_group.set_export(DMUtils.make_ibgp_export_policy_name())
-        bgp_group.set_local_address(self.bgp_params['address'])
-        self.add_families(bgp_group, self.bgp_params)
-        self.add_bgp_auth_config(bgp_group, self.bgp_params)
-        self.add_bgp_hold_time_config(bgp_group, self.bgp_params)
-        return bgp_group
-    # end _get_bgp_config_xml
-
-    def add_bgp_peer(self, router, params, attr, external, peer):
-        peer_data = {}
-        peer_data['params'] = params
-        peer_data['attr'] = attr
-        peer_data['obj'] = peer
-        if external:
-            self.external_peers[router] = peer_data
-        else:
-            self.bgp_peers[router] = peer_data
-    # end add_peer
-
-    def _get_neighbor_config_xml(self, bgp_config, peers):
-        for peer, peer_data in peers.items():
-            obj = peer_data.get('obj')
-            params = peer_data.get('params', {})
-            attr = peer_data.get('attr', {})
-            nbr = BgpGroup(name=peer)
-            nbr.set_comment(DMUtils.bgp_group_comment(obj))
-            bgp_config.add_neighbor(nbr)
-            bgp_sessions = attr.get('session')
-            if bgp_sessions:
-                # for now assume only one session
-                session_attrs = bgp_sessions[0].get('attributes', [])
-                for session_attr in session_attrs:
-                    # For not, only consider the attribute if bgp-router is
-                    # not specified
-                    if session_attr.get('bgp_router') is None:
-                        self.add_families(nbr, session_attr)
-                        self.add_bgp_auth_config(nbr, session_attr)
-                        break
-            peer_as = params.get('local_autonomous_system') or params.get('autonomous_system')
-            nbr.set_peer_as(peer_as)
-    # end _get_neighbor_config_xml
-
-    def get_asn(self):
-        return self.bgp_params.get('local_autonomous_system') or self.bgp_params.get('autonomous_system')
-    # end get_asn
-
-    def set_as_config(self):
-        if self.global_routing_options_config is None:
-            self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
-        self.global_routing_options_config.set_route_distinguisher_id(self.bgp_params['identifier'])
-        self.global_routing_options_config.set_autonomous_system(str(self.get_asn()))
-    # end set_as_config
-
     def set_route_targets_config(self):
         if self.policy_config is None:
             self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
@@ -867,62 +683,12 @@ class MxConf(JuniperConf):
             self.policy_config.add_community(comm)
     # end set_route_targets_config
 
-    def set_bgp_group_config(self):
-        bgp_config = self._get_bgp_config_xml()
-        if not bgp_config:
-            return
-        if not self.proto_config:
-            self.proto_config = Protocols(comment=DMUtils.protocols_comment())
-        bgp = Bgp()
-        self.proto_config.set_bgp(bgp)
-        bgp.add_group(bgp_config)
-        self._get_neighbor_config_xml(bgp_config, self.bgp_peers)
-        if self.external_peers:
-            ext_grp_config = self._get_bgp_config_xml(True)
-            bgp.add_group(ext_grp_config)
-            self._get_neighbor_config_xml(ext_grp_config, self.external_peers)
-        return
-    # end set_bgp_group_config
-
-    def has_conf(self):
-        if not self.proto_config or not self.proto_config.get_bgp():
-            return False
-        return True
-    # end has_conf
-
     def push_conf(self, is_delete=False):
         if not self.physical_router:
             return 0
         if is_delete:
             return self.send_conf(is_delete=True)
-        bgp_router = BgpRouterDM.get(self.physical_router.bgp_router)
-        if bgp_router:
-            for peer_uuid, attr in bgp_router.bgp_routers.items():
-                peer = BgpRouterDM.get(peer_uuid)
-                if peer is None:
-                    continue
-                local_as = (bgp_router.params.get('local_autonomous_system') or
-                               bgp_router.params.get('autonomous_system'))
-                peer_as = (peer.params.get('local_autonomous_system') or
-                               peer.params.get('autonomous_system'))
-                external = (local_as != peer_as)
-                self.add_bgp_peer(peer.params['address'],
-                                                 peer.params, attr, external, peer)
-            self.set_bgp_config(bgp_router.params, bgp_router)
-            self.set_global_routing_options(bgp_router.params)
-            bgp_router_ips = bgp_router.get_all_bgp_router_ips()
-            tunnel_ip = self.physical_router.dataplane_ip
-            if not tunnel_ip and bgp_router.params:
-                tunnel_ip = bgp_router.params.get('address')
-            if (tunnel_ip and self.physical_router.is_valid_ip(tunnel_ip)):
-                self.add_dynamic_tunnels(
-                    tunnel_ip,
-                    GlobalSystemConfigDM.ip_fabric_subnets,
-                    bgp_router_ips)
-
-        if self.physical_router.loopback_ip:
-            self.add_lo0_unit_0_interface(self.physical_router.loopback_ip)
-
+        self.build_bgp_config()
         vn_dict = self.get_vn_li_map()
         self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
         self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
