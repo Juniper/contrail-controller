@@ -55,5 +55,5 @@ bool LoggingUseSyslog();
 //
 bool LoggingDisabled();
 void SetLoggingDisabled(bool flag);
-
+void SetUseSysLog(bool); // To be used only for testing
 #endif /* __LOGGING_H__ */
