@@ -385,7 +385,8 @@ const NextHop *EvpnDerivedPath::ComputeNextHop(Agent *agent) const {
 }
 
 EvpnDerivedPathData::EvpnDerivedPathData(const EvpnRouteEntry *evpn_rt) :
-    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE,
+                   evpn_rt->is_multicast(), 0),
     ethernet_tag_(evpn_rt->ethernet_tag()), ip_addr_(evpn_rt->ip_addr()),
     reference_path_(evpn_rt->GetActivePath()), ecmp_suppressed_(false) {
     // For debuging add peer of active path in parent as well
@@ -966,7 +967,7 @@ bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                    vxlan_id_,
                    ((label_ == MplsTable::kInvalidLabel) ? path->label() : label_),
                    tunnel_type_,
-                   nh, rt);
+                   nh, rt, ha_stale);
     return ret;
 }
 
@@ -978,7 +979,8 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
                                         uint32_t label,
                                         uint32_t tunnel_type,
                                         NextHop *nh,
-                                        const AgentRoute *rt) {
+                                        const AgentRoute *rt,
+                                        bool ha_stale) {
     VnListType dest_vn_list;
     dest_vn_list.insert(vn_name);
     path->set_dest_vn_list(dest_vn_list);
@@ -999,6 +1001,17 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
 
     if (path->tunnel_type() != new_tunnel_type) {
         path->set_tunnel_type(new_tunnel_type);
+    }
+
+    PathPreference::Preference old_pref = path->path_preference().preference();
+    if (ha_stale) {
+        if (old_pref != PathPreference::HA_STALE) {
+            path->path_preference_non_const().set_preference(PathPreference::HA_STALE);
+        }
+    } else {
+        if (old_pref != PathPreference::LOW) {
+            path->path_preference_non_const().set_preference(PathPreference::LOW);
+        }
     }
 
     path->ChangeNH(agent, nh);
