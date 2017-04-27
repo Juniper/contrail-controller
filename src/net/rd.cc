@@ -4,10 +4,12 @@
 
 #include "net/rd.h"
 
+#include <string>
+
 #include "base/parse_object.h"
 #include "net/address.h"
 
-using namespace std;
+using std::string;
 
 RouteDistinguisher RouteDistinguisher::kZeroRd;
 
@@ -37,23 +39,31 @@ uint16_t RouteDistinguisher::GetVrfId() const {
     return (Type() == TypeIpAddressBased ? get_value(data_ + 6, 2) : 0);
 }
 
-std::string RouteDistinguisher::ToString() const {
+string RouteDistinguisher::ToString() const {
+    char temp[32];
+
     uint16_t rd_type = get_value(data_, 2);
     if (rd_type == Type2ByteASBased) {
-        char temp[50];
         uint16_t asn = get_value(data_ + 2, 2);
         uint32_t value = get_value(data_ + 4, 4);
         snprintf(temp, sizeof(temp), "%u:%u", asn, value);
-        return std::string(temp);
+        return string(temp);
     } else if (rd_type == TypeIpAddressBased) {
         Ip4Address ip(get_value(data_ + 2, 4));
         uint16_t value = get_value(data_ + 6, 2);
-        char temp[20];
         snprintf(temp, sizeof(temp), ":%u", value);
         return ip.to_string() + temp;
+    } else if (rd_type == Type4ByteASBased) {
+        uint32_t asn = get_value(data_ + 2, 4);
+        uint16_t value = get_value(data_ + 6, 2);
+        snprintf(temp, sizeof(temp), "%u:%u", asn, value);
+        return string(temp);
+    } else {
+        snprintf(temp, sizeof(temp), "%u:%02x:%02x:%02x:%02x:%02x:%02x",
+            rd_type, data_[2], data_[3], data_[4], data_[5], data_[6],
+            data_[7]);
+        return string(temp);
     }
-
-    return "";
 }
 
 RouteDistinguisher RouteDistinguisher::FromString(
@@ -72,13 +82,14 @@ RouteDistinguisher RouteDistinguisher::FromString(
     Ip4Address addr = Ip4Address::from_string(first, ec);
     int offset;
     char *endptr;
-    long asn = -1;
+    int32_t asn = -1;
     if (ec.value() != 0) {
-        //Not an IP address. Try ASN
+        // Not an IP address, try ASN.
         asn = strtol(first.c_str(), &endptr, 10);
         if (asn >= 65535 || *endptr != '\0') {
             if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
+                *errorp =
+                    make_error_code(boost::system::errc::invalid_argument);
             }
             return RouteDistinguisher::kZeroRd;
         }

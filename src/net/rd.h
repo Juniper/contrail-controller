@@ -16,6 +16,7 @@ public:
     enum RDType {
         Type2ByteASBased = 0,
         TypeIpAddressBased = 1,
+        Type4ByteASBased = 2,
     };
 
     RouteDistinguisher();
