@@ -90,6 +90,9 @@ private:
     uint32_t path_preference_;
     uint32_t vxlan_id_;
     uint64_t time_stamp_;
+    Ip4Address sip_;
+    Ip4Address dip_;
+    bool is_multicast_;
     DISALLOW_COPY_AND_ASSIGN(HaStaleL2RouteEntry);
 };
 };
