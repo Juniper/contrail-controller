@@ -27,7 +27,8 @@ std::string empty_string("");
 
 HaStaleL2RouteEntry::HaStaleL2RouteEntry(HaStaleL2RouteTable *table,
         const std::string &mac) : OvsdbDBEntry(table), mac_(mac),
-    path_preference_(0), vxlan_id_(0), time_stamp_(0) {
+    path_preference_(0), vxlan_id_(0), time_stamp_(0), sip_(), dip_(),
+    is_multicast_(false) {
 }
 
 HaStaleL2RouteEntry::~HaStaleL2RouteEntry() {
@@ -53,9 +54,17 @@ bool HaStaleL2RouteEntry::Add() {
     }
     HaStaleDevVnEntry *dev_vn = table->dev_vn_;
     vxlan_id_ = table->vxlan_id_;
-    dev_vn->route_peer()->AddOvsRoute(table->vrf_.get(), table->vxlan_id_,
-                                      table->vn_name_, MacAddress(mac_),
-                                      table->dev_ip_);
+    if (is_multicast_) {
+        dev_vn->route_peer()->AddOvsPeerMulticastRoute(table->vrf_.get(),
+                                                 vxlan_id_,
+                                                 table->vn_name_,
+                                                 sip_,
+                                                 table->dev_ip_);
+    } else {
+        dev_vn->route_peer()->AddOvsRoute(table->vrf_.get(), vxlan_id_,
+                                          table->vn_name_, MacAddress(mac_),
+                                          table->dev_ip_);
+    }
     OVSDB_TRACE(Trace, std::string("Adding Ha Stale route vrf ") +
                 table->vrf_->GetName() + ", VxlanId " +
                 integerToString(vxlan_id_) + ", MAC " + mac_ + ", dest ip " +
@@ -84,8 +93,14 @@ bool HaStaleL2RouteEntry::Delete() {
     OVSDB_TRACE(Trace, std::string("withdrawing Ha Stale route vrf ") +
                 table->vrf_->GetName() + ", VxlanId " +
                 integerToString(vxlan_id_) + ", MAC " + mac_);
-    dev_vn->route_peer()->DeleteOvsRoute(table->vrf_.get(), vxlan_id_,
-                                         MacAddress(mac_));
+    if (is_multicast_) {
+        dev_vn->route_peer()->DeleteOvsPeerMulticastRoute(table->vrf_.get(),
+                                                          vxlan_id_,
+                                                          table->dev_ip_);
+    } else {
+        dev_vn->route_peer()->DeleteOvsRoute(table->vrf_.get(), vxlan_id_,
+                                             MacAddress(mac_));
+    }
     return true;
 }
 
@@ -125,6 +140,16 @@ bool HaStaleL2RouteEntry::Sync(DBEntry *db_entry) {
             change = true;
         }
     }
+
+    //Extract sip_/dip_ if tunnel nh
+    if (path != NULL) {
+        TunnelNH *tnh = dynamic_cast<TunnelNH *>(path->nexthop());
+        if (tnh) {
+            sip_ = *tnh->GetSip();
+            dip_ = *tnh->GetDip();
+        }
+    }
+    is_multicast_ = entry->is_multicast();
 
     HaStaleL2RouteTable *table = static_cast<HaStaleL2RouteTable *>(table_);
     if (vxlan_id_ != table->vxlan_id_) {
@@ -196,12 +221,6 @@ KSyncDBObject::DBFilterResp HaStaleL2RouteTable::OvsdbDBEntryFilter(
         const DBEntry *db_entry, const OvsdbDBEntry *ovsdb_entry) {
     const BridgeRouteEntry *entry =
         static_cast<const BridgeRouteEntry *>(db_entry);
-    // Locally programmed multicast route should not be added in
-    // OVS.
-    if (entry->is_multicast()) {
-        return DBFilterIgnore;
-    }
-
     if (entry->vrf()->IsDeleted()) {
         // if notification comes for a entry with deleted vrf,
         // trigger delete since we donot resue same vrf object
@@ -215,7 +234,7 @@ KSyncDBObject::DBFilterResp HaStaleL2RouteTable::OvsdbDBEntryFilter(
     }
 
     const TunnelNH *tunnel = static_cast<const TunnelNH *>(nh);
-    if (*tunnel->GetDip() != dev_ip_) {
+    if (tunnel && (*tunnel->GetDip() != dev_ip_)) {
         // its not a route to replicate, return delete
         // need to return delete to handle MAC move scenarios
         // as well

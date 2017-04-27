@@ -249,6 +249,7 @@ public:
     uint32_t preference() const { return path_preference_.preference();}
     uint32_t sequence() const { return path_preference_.sequence();}
     const PathPreference& path_preference() const { return path_preference_;}
+    PathPreference& path_preference_non_const() { return path_preference_;}
     void set_path_preference(const PathPreference &rp) { path_preference_ = rp;}
     void set_composite_nh_key(CompositeNHKey *key) {
         composite_nh_key_.reset(key);
@@ -711,10 +712,12 @@ class MulticastRoute : public AgentRouteData {
 public:
     MulticastRoute(const string &vn_name, uint32_t label, int vxlan_id,
                    uint32_t tunnel_type, DBRequest &nh_req,
-                   COMPOSITETYPE comp_nh_type, uint64_t sequence_number):
+                   COMPOSITETYPE comp_nh_type, uint64_t sequence_number,
+                   bool ha_stale = false):
     AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, true, sequence_number),
     vn_name_(vn_name), label_(label), vxlan_id_(vxlan_id),
-    tunnel_type_(tunnel_type), comp_nh_type_(comp_nh_type) {
+    tunnel_type_(tunnel_type), comp_nh_type_(comp_nh_type),
+    ha_stale_(ha_stale) {
         composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
@@ -731,7 +734,8 @@ public:
                                    uint32_t label,
                                    uint32_t tunnel_type,
                                    NextHop *nh,
-                                   const AgentRoute *rt);
+                                   const AgentRoute *rt,
+                                   bool ha_stale = false);
     virtual bool CanDeletePath(Agent *agent, AgentPath *path,
                                const AgentRoute *rt) const;
 private:
@@ -741,6 +745,7 @@ private:
     uint32_t tunnel_type_;
     DBRequest composite_nh_req_;
     COMPOSITETYPE comp_nh_type_;
+    bool ha_stale_;
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
 };
 

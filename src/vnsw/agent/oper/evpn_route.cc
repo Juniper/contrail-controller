@@ -118,7 +118,8 @@ void EvpnAgentRouteTable::AddOvsPeerMulticastRouteInternal(const Peer *peer,
                                                            const std::string &vn_name,
                                                            Ip4Address tsn,
                                                            Ip4Address tor_ip,
-                                                           bool enqueue) {
+                                                           bool enqueue,
+                                                           bool ha_stale) {
     const VrfEntry *vrf = vrf_entry();
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new TunnelNHKey(vrf->GetName(), tsn, tor_ip,
@@ -134,7 +135,8 @@ void EvpnAgentRouteTable::AddOvsPeerMulticastRouteInternal(const Peer *peer,
     req.data.reset(new MulticastRoute(vn_name, 0, vxlan_id,
                                       TunnelType::VxlanType(),
                                       nh_req, Composite::L2COMP,
-                                      peer->sequence_number()));
+                                      peer->sequence_number(),
+                                      ha_stale));
     if (enqueue) {
         EvpnTableEnqueue(agent(), &req);
     } else {
@@ -146,8 +148,10 @@ void EvpnAgentRouteTable::AddOvsPeerMulticastRoute(const Peer *peer,
                                                    uint32_t vxlan_id,
                                                    const std::string &vn_name,
                                                    Ip4Address tsn,
-                                                   Ip4Address tor_ip) {
-    AddOvsPeerMulticastRouteInternal(peer, vxlan_id, vn_name, tsn, tor_ip, false);
+                                                   Ip4Address tor_ip,
+                                                   bool ha_stale) {
+    AddOvsPeerMulticastRouteInternal(peer, vxlan_id, vn_name, tsn, tor_ip,
+                                     false, ha_stale);
 }
 
 void EvpnAgentRouteTable::AddOvsPeerMulticastRouteReq(const Peer *peer,
@@ -155,7 +159,8 @@ void EvpnAgentRouteTable::AddOvsPeerMulticastRouteReq(const Peer *peer,
                                                       const std::string &vn_name,
                                                       Ip4Address tsn,
                                                       Ip4Address tor_ip) {
-    AddOvsPeerMulticastRouteInternal(peer, vxlan_id, vn_name, tsn, tor_ip, true);
+    AddOvsPeerMulticastRouteInternal(peer, vxlan_id, vn_name, tsn, tor_ip, true,
+                                     false);
 }
 
 void EvpnAgentRouteTable::AddControllerReceiveRouteReq(const Peer *peer,
