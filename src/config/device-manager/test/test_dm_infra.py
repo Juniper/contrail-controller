@@ -26,6 +26,10 @@ from test_dm_utils import FakeNetconfManager
 #
 class TestInfraDM(TestCommonDM):
 
+    def __init__(self, *args, **kwargs):
+        self.product = "mx"
+        super(TestInfraDM, self).__init__(*args, **kwargs)
+
     @retries(5, hook=retry_exc_handler)
     def check_if_xml_is_generated(self):
         pr_config = FakeDeviceConnect.params.get("pr_config")
@@ -39,7 +43,8 @@ class TestInfraDM(TestCommonDM):
 
     # check for xml conf generation, very basic validation
     def test_dm_xml_generation(self):
-        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1',
+                                                          product=self.product)
         self.check_if_xml_is_generated()
         bgp_router_fq = bgp_router.get_fq_name()
         pr_fq = pr.get_fq_name()
@@ -54,7 +59,8 @@ class TestInfraDM(TestCommonDM):
     def test_dm_unsupported_device(self):
         # product name, vendor is still configured as mx, juniper
         # but actual device is not mx
-        bgp_router, pr = self.create_router('router1' + self.id(), '199.199.199.199')
+        bgp_router, pr = self.create_router('router1' + self.id(), '199.199.199.199',
+                                                           product=self.product)
         self.check_if_config_is_not_pushed()
         bgp_router_fq = bgp_router.get_fq_name()
         pr_fq = pr.get_fq_name()
@@ -145,7 +151,8 @@ class TestInfraDM(TestCommonDM):
     # check plugin registration
     def test_dm_plugins(self):
         # check basic valid vendor, product plugin
-        bgp_router, pr = self.create_router('router100' + self.id(), '1.1.1.1')
+        bgp_router, pr = self.create_router('router100' + self.id(), '1.1.1.1',
+                                                            product=self.product)
         self.check_dm_plugin()
         pr_config = FakeDeviceConnect.params.get("pr_config")
 
