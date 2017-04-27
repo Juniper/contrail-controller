@@ -23,11 +23,13 @@ SandeshTraceBufferPtr MplsTraceBuf(SandeshTraceBufferCreate("MplsTrace", 1000));
 /****************************************************************************
  * MplsLabel routines
  ***************************************************************************/
-MplsLabel::MplsLabel(uint32_t label) :
-    label_(label) {
+MplsLabel::MplsLabel(Agent *agent, uint32_t label) :
+    agent_(agent), label_(label), free_label_(false) {
 }
 
 MplsLabel::~MplsLabel() { 
+    if (free_label_)
+        agent_->resource_manager()->Release(Resource::MPLS_INDEX, label_);
 }
 
 bool MplsLabel::IsLess(const DBEntry &rhs) const {
@@ -53,15 +55,16 @@ uint32_t MplsLabel::GetRefCount() const {
     return AgentRefCount<MplsLabel>::GetRefCount();
 }
 
-void MplsLabel::Add(Agent *agent, const DBRequest *req) {
-    ChangeInternal(agent, req);
-    SendObjectLog(agent->mpls_table(), AgentLogEvent::ADD);
+void MplsLabel::Add(const DBRequest *req) {
+    free_label_ = true;
+    ChangeInternal(req);
+    SendObjectLog(agent_->mpls_table(), AgentLogEvent::ADD);
     return;
 }
 
 bool MplsLabel::Change(const DBRequest *req) {
     const AgentDBTable *table = static_cast<const AgentDBTable *>(get_table());
-    bool ret = ChangeInternal(table->agent(), req);
+    bool ret = ChangeInternal(req);
     SendObjectLog(table, AgentLogEvent::CHANGE);
     return ret;
 }
@@ -72,8 +75,8 @@ void MplsLabel::Delete(const DBRequest *req) {
     return;
 }
 
-bool MplsLabel::ChangeInternal(Agent *agent, const DBRequest *req) {
-    NextHopTable *nh_table = agent->nexthop_table();
+bool MplsLabel::ChangeInternal(const DBRequest *req) {
+    NextHopTable *nh_table = agent_->nexthop_table();
     MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
     NextHop *nh =
         static_cast<NextHop *>(nh_table->FindActiveEntry(data->nh_key()));
@@ -236,8 +239,6 @@ uint32_t MplsTable::AllocLabel(ResourceManager::KeyPtr key) {
 
 //Free label from resource manager and delete db entry
 void MplsTable::FreeLabel(uint32_t label) {
-    agent()->resource_manager()->Release(Resource::MPLS_INDEX, label);
-
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
@@ -250,7 +251,7 @@ void MplsTable::FreeLabel(uint32_t label) {
 
 std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
     const MplsLabelKey *key = static_cast<const MplsLabelKey *>(k);
-    MplsLabel *mpls = new MplsLabel(key->label());
+    MplsLabel *mpls = new MplsLabel(agent(), key->label());
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(mpls));
 }
 
@@ -258,8 +259,8 @@ DBEntry *MplsTable::Add(const DBRequest *req) {
     MplsLabelKey *key = static_cast<MplsLabelKey *>(req->key.get());
     assert(key->label() != MplsTable::kInvalidLabel);
 
-    MplsLabel *mpls = new MplsLabel(key->label());
-    mpls->Add(agent(), req);
+    MplsLabel *mpls = new MplsLabel(agent(), key->label());
+    mpls->Add(req);
     return mpls;
 }
 
@@ -276,10 +277,6 @@ bool MplsTable::Delete(DBEntry *entry, const DBRequest *req) {
 
 void MplsTable::OnZeroRefcount(AgentDBEntry *e) {
     agent()->ConcurrencyCheck();
-
-    //Free Mpls label in resource manager
-    MplsLabel *mpls = static_cast<MplsLabel *>(e);
-    agent()->resource_manager()->Release(Resource::MPLS_INDEX, mpls->label());
 
     //Delete db entry
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
