@@ -691,6 +691,32 @@ class TestBasic(test_case.NeutronBackendTestCase):
             fip_dicts[created[0]['ports'][1]['id']]['fixed_ip_address'])
     # end test_floating_ip_list
 
+    def test_subnet_delete_when_port_is_present(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        sg_q = self.create_resource('security_group', proj_obj.uuid)
+        net_q = self.create_resource('network', proj_obj.uuid)
+        subnet_q = self.create_resource('subnet', proj_obj.uuid,
+            extra_res_fields={
+                'network_id': net_q['id'],
+                'cidr': '1.1.1.0/24',
+                'ip_version': 4,
+            })
+        port_q = self.create_resource('port', proj_obj.uuid,
+            extra_res_fields={
+                'network_id': net_q['id'],
+                'security_groups': [sg_q['id']],
+            })
+
+        with ExpectedException(webtest.app.AppError):
+            self.delete_resource('subnet', proj_obj.uuid, subnet_q['id'])
+
+        # cleanup
+        self.delete_resource('port', proj_obj.uuid, port_q['id'])
+        self.delete_resource('subnet', proj_obj.uuid, subnet_q['id'])
+        self.delete_resource('network', proj_obj.uuid, net_q['id'])
+        self.delete_resource('security_group', proj_obj.uuid, sg_q['id'])
+    # end test_subnet_delete_when_port_is_present
+
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):

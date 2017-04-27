@@ -2256,6 +2256,7 @@ class VncApiServer(object):
         res_type, res_class = self._validate_resource_type(type)
         obj_uuid = get_request().json.get('uuid')
         ref_type = get_request().json.get('ref-type')
+        ref_field = '%s_refs' %(ref_type.replace('-', '_'))
         ref_res_type, ref_class = self._validate_resource_type(ref_type)
         operation = get_request().json.get('operation')
         ref_uuid = get_request().json.get('ref-uuid')
@@ -2302,8 +2303,9 @@ class VncApiServer(object):
 
         # To invoke type specific hook and extension manager
         try:
+            obj_fields = [ref_field]
             (read_ok, read_result) = self._db_conn.dbe_read(
-                                         obj_type, get_request().json)
+                obj_type, get_request().json, obj_fields)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
                 404, 'Object Not Found: '+obj_uuid)
@@ -2315,7 +2317,9 @@ class VncApiServer(object):
             self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
             raise cfgm_common.exceptions.HttpError(500, read_result)
 
-        obj_dict = copy.deepcopy(read_result)
+        obj_dict = {'uuid': obj_uuid}
+        if ref_field in read_result:
+            obj_dict[ref_field] = copy.deepcopy(read_result[ref_field])
 
         # invoke the extension
         try:
