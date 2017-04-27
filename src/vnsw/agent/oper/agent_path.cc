@@ -503,19 +503,14 @@ bool HostRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
 } 
 
 bool HostRoute::UpdateRoute(AgentRoute *rt) {
-    bool ret = false;
     InetUnicastRouteEntry *uc_rt =
         static_cast<InetUnicastRouteEntry *>(rt);
     AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
     if ((table->GetTableType() != Agent::INET4_UNICAST) && 
         (table->GetTableType() != Agent::INET6_UNICAST))
-        return ret;
+        return false;
 
-    if (uc_rt->proxy_arp() != true) {
-        uc_rt->set_proxy_arp(true);
-        ret = true;
-    }
-    return ret;
+    return uc_rt->UpdateRouteFlags(false, false, true);
 }
 
 bool L2ReceiveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -563,25 +558,14 @@ bool L2ReceiveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
 }
 
 bool InetInterfaceRoute::UpdateRoute(AgentRoute *rt) {
-    bool ret = false;
     AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
     if ((table->GetTableType() != Agent::INET4_UNICAST) && 
         (table->GetTableType() != Agent::INET6_UNICAST))
-        return ret;
+        return false;
 
-    InetUnicastRouteEntry *uc_rt =
-        static_cast<InetUnicastRouteEntry *>(rt);
-    if (uc_rt->proxy_arp() != true) {
-        uc_rt->set_proxy_arp(true);
-        ret = true;
-    }
+    InetUnicastRouteEntry *uc_rt = static_cast<InetUnicastRouteEntry *>(rt);
 
-    if (uc_rt->ipam_subnet_route() == true) {
-        uc_rt->set_ipam_subnet_route(false);
-        ret = true;
-    }
-
-    return ret;
+    return uc_rt->UpdateRouteFlags(false, false, true);
 }
 
 bool InetInterfaceRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -952,19 +936,18 @@ bool ReceiveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
 }
 
 bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
-    bool ret = false;
     AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
     if ((table->GetTableType() != Agent::INET4_UNICAST) && 
         (table->GetTableType() != Agent::INET6_UNICAST))
-        return ret;
+        return false;
 
     InetUnicastRouteEntry *uc_rt =
         static_cast<InetUnicastRouteEntry *>(rt);
-    if (uc_rt->proxy_arp() != proxy_arp_) {
-        uc_rt->set_proxy_arp(proxy_arp_);
-        ret = true;
-    }
-    return ret;
+
+    // Receive route can be a /32 route of multicast-subnet route
+    // proxy_arp_ is set only for host route. So, set ipam_host_route_ if
+    // proxy_arp_ enabled
+    return uc_rt->UpdateRouteFlags(false, proxy_arp_, proxy_arp_);
 }
 
 bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -1090,20 +1073,9 @@ bool IpamSubnetRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
 }
 
 bool IpamSubnetRoute::UpdateRoute(AgentRoute *rt) {
-    bool ret = false;
-    InetUnicastRouteEntry *uc_rt =
-        static_cast<InetUnicastRouteEntry *>(rt);
-    if (uc_rt->ipam_subnet_route() != true) {
-        uc_rt->set_ipam_subnet_route(true);
-        ret = true;
-    }
+    InetUnicastRouteEntry *uc_rt = static_cast<InetUnicastRouteEntry *>(rt);
 
-    if (uc_rt->proxy_arp() == true) {
-        uc_rt->set_proxy_arp(false);
-        ret =true;
-    }
-
-    return ret;
+    return uc_rt->UpdateRouteFlags(true, false, false);
 }
 
 ///////////////////////////////////////////////

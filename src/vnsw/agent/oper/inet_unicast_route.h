@@ -129,12 +129,14 @@ public:
     bool IsHostRoute() const;
     bool IpamSubnetRouteAvailable() const;
     InetUnicastRouteEntry *GetIpamSuperNetRoute() const;
+
+    bool UpdateIpamHostFlags(bool ipam_host_route);
+    bool UpdateRouteFlags(bool ipam_subnet_route, bool ipam_host_route,
+                          bool proxy_arp);
+
     bool ipam_subnet_route() const {return ipam_subnet_route_;}
-    void set_ipam_subnet_route(bool ipam_subnet_route) {
-        ipam_subnet_route_ = ipam_subnet_route;}
+    bool ipam_host_route() const { return ipam_host_route_; }
     bool proxy_arp() const {return proxy_arp_;}
-    void set_proxy_arp(bool proxy_arp) {
-        proxy_arp_ = proxy_arp;}
 
 private:
     friend class InetUnicastAgentRouteTable;
@@ -142,7 +144,13 @@ private:
     IpAddress addr_;
     uint8_t plen_;
     Patricia::Node rtnode_;
+    // Flag set if route exactly matches a subnet in IPAM
+    // ARP packets hitting this route must be flooded even if its ECMP route
     bool ipam_subnet_route_;
+    // Flag set if this is host route and falls in an IPAM subnet
+    // ARP packets hitting this route are flooded if MAC stitching is missing
+    bool ipam_host_route_;
+    // Specifies if ARP must be force proxied for this route
     bool proxy_arp_;
     DISALLOW_COPY_AND_ASSIGN(InetUnicastRouteEntry);
 };
@@ -331,8 +339,7 @@ public:
     void AddClonedLocalPathReq(const Peer *peer, const string &vm_vrf,
                                const IpAddress &addr,
                                uint8_t plen, ClonedLocalPath *data);
-    bool ResyncSubnetRoutes(const InetUnicastRouteEntry *rt,
-                            bool add_change);
+    bool ResyncSubnetRoutes(const InetUnicastRouteEntry *rt, bool val);
     uint8_t GetHostPlen(const IpAddress &ip_addr) const;
     void AddEvpnRoute(const AgentRoute *evpn_entry);
     void DeleteEvpnRoute(const AgentRoute *rt);

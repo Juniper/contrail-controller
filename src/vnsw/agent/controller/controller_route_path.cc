@@ -95,8 +95,8 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
 
 bool ControllerVmRoute::UpdateRoute(AgentRoute *rt) {
     bool ret = false;
-    //For IP subnet routes with Tunnel NH, check if arp flood
-    //needs to be enabled for the path.
+    // For IP subnet routes with Tunnel NH, update arp_flood_ and
+    // local_host_flag_ flags
     if ((rt->GetTableType() == Agent::INET4_UNICAST) ||
         (rt->GetTableType() == Agent::INET6_UNICAST)) {
         InetUnicastRouteEntry *inet_rt =
@@ -107,23 +107,7 @@ bool ControllerVmRoute::UpdateRoute(AgentRoute *rt) {
             return ret;
 
         bool ipam_subnet_route = inet_rt->IpamSubnetRouteAvailable();
-        if (inet_rt->ipam_subnet_route() != ipam_subnet_route) {
-            inet_rt->set_ipam_subnet_route(ipam_subnet_route);
-            ret = true;
-        }
-
-        if (ipam_subnet_route) { 
-            if (inet_rt->proxy_arp() == true) {
-                inet_rt->set_proxy_arp(false);
-                ret = true;
-            }
-        } else {
-            if (inet_rt->proxy_arp() == false) {
-                inet_rt->set_proxy_arp(true);
-                ret = true;
-            }
-        }
-
+        ret = inet_rt->UpdateIpamHostFlags(ipam_subnet_route);
     }
     return ret;
 }

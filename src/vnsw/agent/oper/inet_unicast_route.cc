@@ -165,9 +165,8 @@ static void InetUnicastTableProcess(Agent *agent, const string &vrf_name,
  * Traverse all smaller subnets w.r.t. route sent and mark the arp flood flag
  * accordingly.
  */
-bool InetUnicastAgentRouteTable::ResyncSubnetRoutes(const InetUnicastRouteEntry *rt,
-                                                    bool add_change)
-{
+bool InetUnicastAgentRouteTable::ResyncSubnetRoutes
+(const InetUnicastRouteEntry *rt, bool val) {
     const IpAddress addr = rt->addr();
     uint16_t plen = rt->plen();
     InetUnicastRouteEntry *lpm_rt = GetNextNonConst(rt);
@@ -183,6 +182,7 @@ bool InetUnicastAgentRouteTable::ResyncSubnetRoutes(const InetUnicastRouteEntry 
                                                       plen);
     }
 
+    // Iterate thru all the routes under this subnet and update route flags
     while ((lpm_rt != NULL) && (plen < lpm_rt->plen())) {
         if (GetTableType() == Agent::INET4_UNICAST) {
             Ip4Address node_mask =
@@ -199,25 +199,14 @@ bool InetUnicastAgentRouteTable::ResyncSubnetRoutes(const InetUnicastRouteEntry 
                 break;
         }
 
-        //Ignored all non subnet routes.
-        if (lpm_rt->IsHostRoute() == false) {
-            bool notify = false;
-            if (lpm_rt->ipam_subnet_route() != add_change) {
-                lpm_rt->set_ipam_subnet_route(add_change);
-                notify = true;
-            }
+        // Update ipam_host_route_ and proxy_arp_ flags for host-routes
+        bool notify = false;
+        if (lpm_rt->UpdateIpamHostFlags(val)) {
+            notify = true;
+        }
 
-            if (lpm_rt->proxy_arp() == true) {
-                if (add_change == true) {
-                    lpm_rt->set_proxy_arp(false);
-                    notify = true;
-                } 
-            }
-
-            if (notify) {
-                //Send notify 
-                NotifyEntry(lpm_rt);
-            }
+        if (notify) {
+            NotifyEntry(lpm_rt);
         }
 
         lpm_rt = GetNextNonConst(lpm_rt);
@@ -315,7 +304,7 @@ InetUnicastRouteEntry::InetUnicastRouteEntry(VrfEntry *vrf,
                                              uint8_t plen,
                                              bool is_multicast) :
     AgentRoute(vrf, is_multicast), plen_(plen), ipam_subnet_route_(false),
-    proxy_arp_(false) {
+    ipam_host_route_(false), proxy_arp_(false) {
         if (addr.is_v4()) {
         addr_ = Address::GetIp4SubnetAddress(addr.to_v4(), plen);
     } else {
@@ -631,9 +620,8 @@ bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
     //Ipam path is getting deleted so all the smaller subnets should be
     //resynced to remove the arp flood marking.
     if (path->is_subnet_discard()) {
-        //Reset flag on route as ipam is going off.
-        ipam_subnet_route_ = false;
-        proxy_arp_ = false;
+        // Reset flag on route as ipam is going off.
+        UpdateRouteFlags(false, false, false);
         InetUnicastAgentRouteTable *uc_rt_table =
             static_cast<InetUnicastAgentRouteTable *>(get_table());
         uc_rt_table->ResyncSubnetRoutes(this, false);
@@ -956,6 +944,45 @@ const NextHop* InetUnicastRouteEntry::GetLocalNextHop() const {
     return NULL;
 }
 
+// ipam_host_route_ flag:
+// ipam_host_route_ is set if this is host-route and falls in ipam-subnet range
+//
+// proxy_arp_ flag:
+// For hosts within subnet, we assume ARP must not be proxied and should be
+// flooded instead. If we get EVPN route, in KSYNC the EVPN path processing
+// will take preference and KSYNC will set Proxy flag
+bool InetUnicastRouteEntry::UpdateIpamHostFlags(bool ipam_host_route) {
+    // For non-host routes, set proxy always
+    if (IsHostRoute() == false) {
+        return UpdateRouteFlags(false, false, true);
+    }
+
+    bool proxy_arp = ipam_host_route ? false : true;
+    return UpdateRouteFlags(false, ipam_host_route, proxy_arp);
+}
+
+bool InetUnicastRouteEntry::UpdateRouteFlags(bool ipam_subnet_route,
+                                             bool ipam_host_route,
+                                             bool proxy_arp) {
+    bool ret = false;
+    if (ipam_subnet_route_ != ipam_subnet_route) {
+        ipam_subnet_route_ = ipam_subnet_route;
+        ret = true;
+    }
+
+    if (ipam_host_route_ != ipam_host_route) {
+        ipam_host_route_ = ipam_host_route;
+        ret = true;
+    }
+
+    if (proxy_arp_ != proxy_arp) {
+        proxy_arp_ = proxy_arp;
+        ret = true;
+    }
+
+    return ret;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // AgentRouteData virtual functions
 /////////////////////////////////////////////////////////////////////////////
@@ -1157,6 +1184,7 @@ bool InetUnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
     data.set_src_ip(addr_.to_string());
     data.set_src_plen(plen_);
     data.set_ipam_subnet_route(ipam_subnet_route_);
+    data.set_ipam_host_route(ipam_host_route_);
     data.set_proxy_arp(proxy_arp_);
     data.set_src_vrf(vrf()->GetName());
     data.set_multicast(AgentRoute::is_multicast());
