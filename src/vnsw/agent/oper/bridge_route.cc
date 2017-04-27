@@ -442,8 +442,8 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                 if (force_delete && (path->peer()->GetType() ==
                                      Peer::BGP_PEER)) {
                     delete_path = true;
-                } else if (is_multicast()) {
-                    assert(path->peer()->GetType() == Peer::BGP_PEER); 
+                } else if (is_multicast() &&
+                           (path->peer()->GetType() == Peer::BGP_PEER)) {
                     //BGP peer path uses channel peer unicast sequence number.
                     //If it is stale, then delete same.
                     if (data->CanDeletePath(agent, path, this) == false) {
