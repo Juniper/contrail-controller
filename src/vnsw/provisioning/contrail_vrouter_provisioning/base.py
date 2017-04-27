@@ -282,6 +282,8 @@ class ContrailSetup(object):
         self.disable_iptables()
         self.setup_coredump()
         self.fixup_config_files()
+        self.setup_sriov_grub()
+        self.setup_sriov_vfs()
         self.run_services()
 
 
