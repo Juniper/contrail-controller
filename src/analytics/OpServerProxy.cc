@@ -341,6 +341,7 @@ class OpServerProxy::OpServerImpl {
                 tbb::mutex::scoped_lock lock(rac_mutex_);
                 redis_uve_.RedisStatusUpdate(RAC_DOWN);
             }
+            started_ = false;
             collector_->RedisUpdate(false);
             redis_up_ = false;
 
@@ -630,6 +631,8 @@ class OpServerProxy::OpServerImpl {
         }
 
         RedisInfo redis_uve_;
+        bool IsInitDone() { return started_;}
+
     private:
         /* these are made public, so they are accessed by OpServerProxy */
         EventManager *evm_;
@@ -865,5 +868,15 @@ RedisUVERequest::HandleRequest() const {
     resp->set_redis_uve_info(redis_uve_info);
     resp->set_context(context());
     resp->Response();
+}
+
+/*
+ * After redis collector connection is UP,
+ * we do initialization as part of a callback.
+ * We set the started_ flag during that step.
+ */
+bool
+OpServerProxy::IsRedisInitDone() {
+    return impl_->IsInitDone();
 }
 
