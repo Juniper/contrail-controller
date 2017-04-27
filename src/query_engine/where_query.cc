@@ -1083,14 +1083,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             }
         }
     }
-    if (or_number != -1) {
-        QE_LOG(INFO," WhereQuery Initialized, wquery id " << this << " mquery id "
-               << this->main_query << " chunk no " <<
-               ((AnalyticsQuery *)(this->main_query))->parallel_batch_num <<
-               " query status " << this->query_status
-               << " inp size " << this->inp.size() << " subquery size " <<
-               this->sub_queries.size() );
-    }
 }
 
 // For UT
