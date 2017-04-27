@@ -151,7 +151,7 @@ TEST_F(BgpPeerCloseGrTest, InGrTimerWaitingState) {
 TEST_F(BgpPeerCloseGrTest, RestartFlagsTest1) {
     boost::scoped_ptr<BgpProto::OpenMessage::Capability> cap;
     uint16_t time = 0;
-    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, false,
+    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, false, false,
             vector<uint8_t>(), vector<Address::Family>()));
     std::vector<BgpProto::OpenMessage::Capability *> capabilities;
     capabilities.push_back(cap.get());
@@ -159,13 +159,14 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest1) {
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
     EXPECT_EQ(false, bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
 TEST_F(BgpPeerCloseGrTest, RestartFlagsTest2) {
     boost::scoped_ptr<BgpProto::OpenMessage::Capability> cap;
     uint16_t time = 0xFF;
-    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, true,
+    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, true, false,
             vector<uint8_t>(), vector<Address::Family>()));
     std::vector<BgpProto::OpenMessage::Capability *> capabilities;
     capabilities.push_back(cap.get());
@@ -173,13 +174,14 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest2) {
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
     EXPECT_EQ(true, bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
 TEST_F(BgpPeerCloseGrTest, RestartFlagsTest3) {
     boost::scoped_ptr<BgpProto::OpenMessage::Capability> cap;
     uint16_t time = BgpProto::OpenMessage::Capability::GR::RestartTimeMask;
-    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, false,
+    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, false, false,
             vector<uint8_t>(), vector<Address::Family>()));
     std::vector<BgpProto::OpenMessage::Capability *> capabilities;
     capabilities.push_back(cap.get());
@@ -187,13 +189,14 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest3) {
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
     EXPECT_EQ(false, bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
 TEST_F(BgpPeerCloseGrTest, RestartFlagsTest4) {
     boost::scoped_ptr<BgpProto::OpenMessage::Capability> cap;
     uint16_t time = BgpProto::OpenMessage::Capability::GR::RestartTimeMask/2;
-    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, true,
+    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, true, false,
             vector<uint8_t>(), vector<Address::Family>()));
     std::vector<BgpProto::OpenMessage::Capability *> capabilities;
     capabilities.push_back(cap.get());
@@ -201,6 +204,67 @@ TEST_F(BgpPeerCloseGrTest, RestartFlagsTest4) {
     bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
     EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
     EXPECT_EQ(true, bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
+}
+
+TEST_F(BgpPeerCloseGrTest, RestartFlagsTest5) {
+    boost::scoped_ptr<BgpProto::OpenMessage::Capability> cap;
+    uint16_t time = 0;
+    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, false, true,
+            vector<uint8_t>(), vector<Address::Family>()));
+    std::vector<BgpProto::OpenMessage::Capability *> capabilities;
+    capabilities.push_back(cap.get());
+    bgp_peer_close_test_->set_capabilities(capabilities);
+    bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
+    EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
+    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
+}
+
+TEST_F(BgpPeerCloseGrTest, RestartFlagsTest6) {
+    boost::scoped_ptr<BgpProto::OpenMessage::Capability> cap;
+    uint16_t time = 0xFF;
+    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, true, true,
+            vector<uint8_t>(), vector<Address::Family>()));
+    std::vector<BgpProto::OpenMessage::Capability *> capabilities;
+    capabilities.push_back(cap.get());
+    bgp_peer_close_test_->set_capabilities(capabilities);
+    bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
+    EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
+    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
+}
+
+TEST_F(BgpPeerCloseGrTest, RestartFlagsTest7) {
+    boost::scoped_ptr<BgpProto::OpenMessage::Capability> cap;
+    uint16_t time = BgpProto::OpenMessage::Capability::GR::RestartTimeMask;
+    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, false, true,
+            vector<uint8_t>(), vector<Address::Family>()));
+    std::vector<BgpProto::OpenMessage::Capability *> capabilities;
+    capabilities.push_back(cap.get());
+    bgp_peer_close_test_->set_capabilities(capabilities);
+    bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
+    EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
+    EXPECT_EQ(false, bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().notification());
+    EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
+}
+
+TEST_F(BgpPeerCloseGrTest, RestartFlagsTest8) {
+    boost::scoped_ptr<BgpProto::OpenMessage::Capability> cap;
+    uint16_t time = BgpProto::OpenMessage::Capability::GR::RestartTimeMask/2;
+    cap.reset(BgpProto::OpenMessage::Capability::GR::Encode(time, true, true,
+            vector<uint8_t>(), vector<Address::Family>()));
+    std::vector<BgpProto::OpenMessage::Capability *> capabilities;
+    capabilities.push_back(cap.get());
+    bgp_peer_close_test_->set_capabilities(capabilities);
+    bgp_peer_close_test_->set_in_gr_timer_wait_state(false);
+    EXPECT_TRUE(bgp_peer_close_test_->SetGRCapabilities(NULL));
+    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().restarted());
+    EXPECT_EQ(true, bgp_peer_close_test_->gr_params().notification());
     EXPECT_EQ(time, bgp_peer_close_test_->gr_params().time);
 }
 
@@ -268,18 +332,16 @@ protected:
         vector<Address::Family> llgr_families = ::std::tr1::get<8>(GetParam());
 
         BgpProto::OpenMessage::Capability *cap;
-        cap = BgpProto::OpenMessage::Capability::GR::Encode(gr_time, 0,
-                                                            afi_flags,
-                                                            gr_families);
+        cap = BgpProto::OpenMessage::Capability::GR::Encode(
+                gr_time, false, true, afi_flags, gr_families);
         capabilities_.push_back(cap);
 
         afi_flags.clear();
         for (size_t i = 0; i < llgr_families.size(); i++) {
             afi_flags.push_back(llgr_afi_flags);
         }
-        cap = BgpProto::OpenMessage::Capability::LLGR::Encode(llgr_time,
-                                                              llgr_afi_flags,
-                                                              llgr_families);
+        cap = BgpProto::OpenMessage::Capability::LLGR::Encode(
+                llgr_time, llgr_afi_flags, llgr_families);
         for (size_t i = 0; i < llgr_families.size(); i++)
             families_str.push_back(Address::FamilyToString(llgr_families[i]));
         gr_info_.push_back(GRInfo(true, llgr_time, afi_flags, families_str));

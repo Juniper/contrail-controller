@@ -130,6 +130,7 @@ public:
                     ForwardingStatePreservedFlag = 0x80,
                     RestartTimeMask = 0x0FFF,
                     RestartedFlag = 0x8000,
+                    NotificationFlag = 0x4000,
                 };
                 explicit GR() { Initialize(); }
                 void Initialize() {
@@ -149,6 +150,7 @@ public:
                     }
                 };
                 static Capability *Encode(uint16_t gr_time, bool restarted,
+                        bool notification,
                         const std::vector<uint8_t> &gr_afi_flags,
                         const std::vector<Address::Family> &gr_families);
                 static bool Decode(GR *gr_params,
@@ -156,6 +158,9 @@ public:
                 static void GetFamilies(const GR &gr_params,
                                         std::vector<std::string> *families);
                 bool restarted() const { return (flags & RestartedFlag) != 0; }
+                bool notification() const {
+                    return (flags & NotificationFlag) != 0;
+                }
                 void set_flags(uint16_t gr_cap_bytes) {
                     flags = gr_cap_bytes & ~RestartTimeMask;
                 }
@@ -383,7 +388,8 @@ public:
             ConnectionRejected = 5,
             OtherConfigChange = 6,
             ConnectionCollision = 7,
-            OutOfResources = 8
+            OutOfResources = 8,
+            HardReset = 9,
         };
 
         static std::string CeaseSubcodeToString(CeaseSubCode sub_code) {
