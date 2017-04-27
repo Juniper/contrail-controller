@@ -367,7 +367,7 @@ void BgpPeerClose::AddGRCapabilities(
     // Indicate EOR support by default.
     if (!time) {
         BgpProto::OpenMessage::Capability *gr_cap =
-            BgpProto::OpenMessage::Capability::GR::Encode(0, restarted,
+            BgpProto::OpenMessage::Capability::GR::Encode(0, restarted, false,
                                                           afi_flags,
                                                           gr_families);
         opt_param->capabilities.push_back(gr_cap);
@@ -383,7 +383,7 @@ void BgpPeerClose::AddGRCapabilities(
     }
 
     BgpProto::OpenMessage::Capability *gr_cap =
-        BgpProto::OpenMessage::Capability::GR::Encode(time, restarted,
+        BgpProto::OpenMessage::Capability::GR::Encode(time, restarted, true,
                                                       afi_flags, gr_families);
     opt_param->capabilities.push_back(gr_cap);
 }

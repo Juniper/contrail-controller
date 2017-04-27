@@ -4,12 +4,13 @@
 
 #include "bgp/bgp_peer.h"
 
+#include <algorithm>
+#include <limits>
+#include <map>
+
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
-
-#include <algorithm>
-#include <map>
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
@@ -1280,218 +1281,25 @@ bool BgpPeer::FlushUpdate() {
     return FlushUpdateUnlocked();
 }
 
-//
-// Check if hard close can be skipped upon notification message reception
-// based on code. Typically, when we want to avail the use of GR/LLGR, it is
-// better not to do hard close and do GR instead for as many cases as possible.
-//
-bool BgpPeer::SkipNotificationReceive(int code, int subcode) const {
-    switch (static_cast<BgpProto::Notification::Code>(code)) {
-        case BgpProto::Notification::MsgHdrErr:
-            switch (static_cast<BgpProto::Notification::MsgHdrSubCode>(
-                        subcode)) {
-            case BgpProto::Notification::ConnNotSync:
-                break;
-            case BgpProto::Notification::BadMsgLength:
-                break;
-            case BgpProto::Notification::BadMsgType:
-                break;
-            }
-            break;
-        case BgpProto::Notification::OpenMsgErr:
-            switch (static_cast<BgpProto::Notification::OpenMsgSubCode>(
-                        subcode)) {
-            case BgpProto::Notification::UnsupportedVersion:
-                break;
-            case BgpProto::Notification::BadPeerAS:
-                break;
-            case BgpProto::Notification::BadBgpId:
-                break;
-            case BgpProto::Notification::UnsupportedOptionalParam:
-                break;
-            case BgpProto::Notification::AuthenticationFailure:
-                break;
-            case BgpProto::Notification::UnacceptableHoldTime:
-                break;
-            case BgpProto::Notification::UnsupportedCapability:
-                break;
-            }
-            break;
-        case BgpProto::Notification::UpdateMsgErr:
-            switch (static_cast<BgpProto::Notification::UpdateMsgSubCode>(
-                        subcode)) {
-            case BgpProto::Notification::MalformedAttributeList:
-                break;
-            case BgpProto::Notification::UnrecognizedWellKnownAttrib:
-                break;
-            case BgpProto::Notification::MissingWellKnownAttrib:
-                break;
-            case BgpProto::Notification::AttribFlagsError:
-                break;
-            case BgpProto::Notification::AttribLengthError:
-                break;
-            case BgpProto::Notification::InvalidOrigin:
-                break;
-            case BgpProto::Notification::InvalidNH:
-                break;
-            case BgpProto::Notification::OptionalAttribError:
-                break;
-            case BgpProto::Notification::InvalidNetworkField:
-                break;
-            case BgpProto::Notification::MalformedASPath:
-                break;
-            }
-            break;
-        case BgpProto::Notification::HoldTimerExp:
-            return true;
-        case BgpProto::Notification::FSMErr:
-            switch (static_cast<BgpProto::Notification::FsmSubcode>(subcode)) {
-            case BgpProto::Notification::UnspecifiedError:
-                break;
-            case BgpProto::Notification::OpenSentError:
-                break;
-            case BgpProto::Notification::OpenConfirmError:
-                break;
-            case BgpProto::Notification::EstablishedError:
-                break;
-            }
-            break;
-        case BgpProto::Notification::Cease:
-            switch (static_cast<BgpProto::Notification::CeaseSubCode>(
-                        subcode)) {
-            case BgpProto::Notification::Unknown:
-                return true;
-            case BgpProto::Notification::MaxPrefixes:
-                return true;
-            case BgpProto::Notification::AdminShutdown:
-                break;
-            case BgpProto::Notification::PeerDeconfigured:
-                break;
-            case BgpProto::Notification::AdminReset:
-                break;
-            case BgpProto::Notification::ConnectionRejected:
-                break;
-            case BgpProto::Notification::OtherConfigChange:
-                return true;
-            case BgpProto::Notification::ConnectionCollision:
-                break;
-            case BgpProto::Notification::OutOfResources:
-                return true;
-            }
-            break;
-    }
-    return false;
+bool BgpPeer::notification() const {
+    return peer_close_->gr_params().notification();
 }
 
-//
-// Check if notification send can be skipped. Typically, when we want to avail
-// the use of GR/LLGR, it is better not to send a notification message so that
-// peer retains the routes (as stale) we have already sent over this session.
-//
-bool BgpPeer::SkipNotificationSend(int code, int subcode) const {
-    switch (static_cast<BgpProto::Notification::Code>(code)) {
-        case BgpProto::Notification::MsgHdrErr:
-            switch (static_cast<BgpProto::Notification::MsgHdrSubCode>(
-                        subcode)) {
-            case BgpProto::Notification::ConnNotSync:
-                break;
-            case BgpProto::Notification::BadMsgLength:
-                break;
-            case BgpProto::Notification::BadMsgType:
-                break;
-            }
-            break;
-        case BgpProto::Notification::OpenMsgErr:
-            switch (static_cast<BgpProto::Notification::OpenMsgSubCode>(
-                        subcode)) {
-            case BgpProto::Notification::UnsupportedVersion:
-                break;
-            case BgpProto::Notification::BadPeerAS:
-                break;
-            case BgpProto::Notification::BadBgpId:
-                break;
-            case BgpProto::Notification::UnsupportedOptionalParam:
-                break;
-            case BgpProto::Notification::AuthenticationFailure:
-                break;
-            case BgpProto::Notification::UnacceptableHoldTime:
-                break;
-            case BgpProto::Notification::UnsupportedCapability:
-                break;
-            }
-            break;
-        case BgpProto::Notification::UpdateMsgErr:
-            switch (static_cast<BgpProto::Notification::UpdateMsgSubCode>(
-                        subcode)) {
-            case BgpProto::Notification::MalformedAttributeList:
-                break;
-            case BgpProto::Notification::UnrecognizedWellKnownAttrib:
-                break;
-            case BgpProto::Notification::MissingWellKnownAttrib:
-                break;
-            case BgpProto::Notification::AttribFlagsError:
-                break;
-            case BgpProto::Notification::AttribLengthError:
-                break;
-            case BgpProto::Notification::InvalidOrigin:
-                break;
-            case BgpProto::Notification::InvalidNH:
-                break;
-            case BgpProto::Notification::OptionalAttribError:
-                break;
-            case BgpProto::Notification::InvalidNetworkField:
-                break;
-            case BgpProto::Notification::MalformedASPath:
-                break;
-            }
-            break;
-        case BgpProto::Notification::HoldTimerExp:
-            return true;
-        case BgpProto::Notification::FSMErr:
-            switch (static_cast<BgpProto::Notification::FsmSubcode>(subcode)) {
-            case BgpProto::Notification::UnspecifiedError:
-                break;
-            case BgpProto::Notification::OpenSentError:
-                break;
-            case BgpProto::Notification::OpenConfirmError:
-                break;
-            case BgpProto::Notification::EstablishedError:
-                break;
-            }
-            break;
-        case BgpProto::Notification::Cease:
-            switch (static_cast<BgpProto::Notification::CeaseSubCode>(
-                        subcode)) {
-            case BgpProto::Notification::Unknown:
-                return true;
-            case BgpProto::Notification::MaxPrefixes:
-                return true;
-            case BgpProto::Notification::AdminShutdown:
-                break;
-            case BgpProto::Notification::PeerDeconfigured:
-                break;
-            case BgpProto::Notification::AdminReset:
-                break;
-            case BgpProto::Notification::ConnectionRejected:
-                break;
-            case BgpProto::Notification::OtherConfigChange:
-                return true;
-            case BgpProto::Notification::ConnectionCollision:
-                break;
-            case BgpProto::Notification::OutOfResources:
-                return true;
-            }
-            break;
+// Check if GR Helper mode sould be attempted.
+bool BgpPeer::AttemptGRHelperMode(int code, int subcode) const {
+    if (code == BgpProto::Notification::Cease &&
+            (subcode == BgpProto::Notification::HardReset ||
+             subcode == BgpProto::Notification::PeerDeconfigured)) {
+        return false;
     }
-    return false;
+
+    // If Peer supports Notification (N) bit, then attempt GR-Helper for all
+    // other notifications, not otherwise.
+    return notification();
 }
 
 void BgpPeer::SendNotification(BgpSession *session,
         int code, int subcode, const string &data) {
-    // Check if we can skip sending this notification message.
-    if (peer_close_->IsCloseGraceful() && SkipNotificationSend(code, subcode))
-        return;
-
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     session->SendNotification(code, subcode, data);
     state_machine_->set_last_notification_out(code, subcode, data);
