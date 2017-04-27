@@ -34,7 +34,8 @@ public:
                                   uint32_t vxlan_id,
                                   const std::string &vn_name,
                                   Ip4Address vtep,
-                                  Ip4Address tor_ip);
+                                  Ip4Address tor_ip,
+                                  bool ha_stale);
     void AddReceiveRouteReq(const Peer *peer, const std::string &vrf_name,
                             uint32_t label, const MacAddress &mac,
                             const IpAddress &ip_addr, uint32_t ethernet_tag,
@@ -131,7 +132,8 @@ private:
                                           const std::string &vn_name,
                                           Ip4Address vtep,
                                           Ip4Address tor_ip,
-                                          bool enqueue);
+                                          bool enqueue,
+                                          bool ha_stale);
     void DeleteOvsPeerMulticastRouteInternal(const Peer *peer,
                                              uint32_t vxlan_id,
                                              const Ip4Address &tor_ip,
@@ -171,8 +173,6 @@ public:
         publish_to_bridge_route_table_ = publish_to_bridge_route_table;
     }
     bool publish_to_bridge_route_table() const {
-        if (is_multicast())
-            return false;
         return publish_to_bridge_route_table_;
     }
     void set_publish_to_inet_route_table(bool publish_to_inet_route_table) {

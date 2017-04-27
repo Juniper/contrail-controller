@@ -43,6 +43,7 @@
 #include "ovs_tor_agent/ovsdb_client/logical_switch_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/physical_port_ovsdb.h"
 #include "ovs_tor_agent/ovsdb_client/unicast_mac_local_ovsdb.h"
+#include "ovs_tor_agent/ovsdb_client/multicast_mac_local_ovsdb.h"
 #include "test_ovs_agent_init.h"
 #include "test-xml/test_xml.h"
 #include "test-xml/test_xml_oper.h"
@@ -79,8 +80,18 @@ protected:
         return entry;
     }
 
+    MulticastMacLocalEntry *FindMcastLocal(const string &logical_switch) {
+        MulticastMacLocalOvsdb *table =
+            tcp_session_->client_idl()->multicast_mac_local_ovsdb();
+        MulticastMacLocalEntry key(table, logical_switch);
+        MulticastMacLocalEntry *entry =
+            static_cast<MulticastMacLocalEntry *> (table->Find(&key));
+        return entry;
+    }
+
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+        agent_->set_tor_agent_enabled(true);
         init_ = static_cast<TestOvsAgentInit *>(client->agent_init());
         tcp_server_ =
             static_cast<OvsdbClientTcpTest *>(init_->ovsdb_client());
@@ -207,6 +218,101 @@ TEST_F(HaStaleRouteTest, ConnectionCloseWhileUnicastLocalPresent) {
         WAIT_FOR(100, 10000,
                  (NULL == FindUcastLocal(entry->name(), "00:00:00:00:01:01")));
     }
+    client->WaitForIdle();
+}
+
+TEST_F(HaStaleRouteTest, ConnectionCloseWhileMulticastLocalPresent) {
+    LogicalSwitchTable *table =
+        tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key(table, UuidToString(MakeUuid(1)));
+    LogicalSwitchEntry *entry = static_cast<LogicalSwitchEntry *>
+        (table->Find(&key));
+    MacAddress mac("ff:ff:ff:ff:ff:ff");
+
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(100, 10000,
+                 (true == add_mcast_mac_local(entry->name(),
+                                              "unknown-dst",
+                                              "111.111.111.111")));
+        client->WaitForIdle();
+        // Wait for entry to add
+        MulticastMacLocalEntry *mcast_entry;
+        WAIT_FOR(1000, 10000,
+                 (NULL != (mcast_entry = FindMcastLocal(entry->name())) &&
+                  mcast_entry->IsResolved()));
+        client->WaitForIdle();
+
+        // execute OvsdbHaStaleDevVnExportReq request
+        OvsdbHaStaleDevVnExportReq *dev_vn_req =
+            new OvsdbHaStaleDevVnExportReq();
+        dev_vn_req->set_dev_name("test-router");
+        dev_vn_req->HandleRequest();
+        client->WaitForIdle();
+        dev_vn_req->Release();
+
+        // execute OvsdbHaStaleL2RouteExportReq request
+        OvsdbHaStaleL2RouteExportReq *l2_route_req =
+            new OvsdbHaStaleL2RouteExportReq();
+        l2_route_req->set_dev_name("test-router");
+        l2_route_req->set_vn_uuid(entry->name());
+        l2_route_req->HandleRequest();
+        client->WaitForIdle();
+        l2_route_req->Release();
+
+        // Take reference to idl so that session object itself is not deleted.
+        OvsdbClientIdlPtr tcp_idl = tcp_session_->client_idl();
+        // disable reconnect to Ovsdb Server
+        tcp_server_->set_enable_connect(false);
+        tcp_session_->TriggerClose();
+        client->WaitForIdle();
+
+        // validate refcount to be 2 one from session and one locally held
+        // to validate session closure, when we release refcount
+        WAIT_FOR(1000, 1000, (2 == tcp_idl->refcount()));
+        tcp_idl = NULL;
+        client->WaitForIdle();
+
+        VrfTable *vrf_table = agent_->vrf_table();
+        std::string vrf_name("vrf1");
+        EvpnAgentRouteTable *rt_table = static_cast<EvpnAgentRouteTable*>
+            (vrf_table->GetEvpnRouteTable(vrf_name));
+        EXPECT_TRUE(rt_table != NULL);
+        if (rt_table != NULL) {
+            Ip4Address tor_ip = Ip4Address::from_string("111.111.111.111");
+            EvpnRouteEntry *evpn_rt = rt_table->FindRoute(mac, tor_ip, 100);
+            // stale route should be present even after session close
+            EXPECT_TRUE(evpn_rt != NULL);
+            EXPECT_TRUE(evpn_rt->GetActivePath()->path_preference().preference()
+                        == PathPreference::HA_STALE);
+        }
+
+        // enable reconnect to Ovsdb Server
+        tcp_server_->set_enable_connect(true);
+        client->WaitForIdle();
+    }
+
+    WAIT_FOR(100, 10000,
+             (tcp_session_ = static_cast<OvsdbClientTcpSession *>
+              (init_->ovsdb_client()->NextSession(NULL))) != NULL &&
+              tcp_session_->client_idl() != NULL);
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (!tcp_session_->client_idl()->IsMonitorInProcess()));
+    client->WaitForIdle();
+
+    table = tcp_session_->client_idl()->logical_switch_table();
+    LogicalSwitchEntry key1(table, UuidToString(MakeUuid(1)));
+    entry = static_cast<LogicalSwitchEntry *> (table->Find(&key1));
+    EXPECT_TRUE((entry != NULL));
+    if (entry != NULL) {
+        WAIT_FOR(10, 10000,
+                 (true == del_mcast_mac_local(entry->name(), "unknown-dst",
+                                              "111.111.111.111")));
+        // Wait for entry to del
+        WAIT_FOR(100, 10000,
+                 (NULL == FindUcastLocal(entry->name(), "ff:ff:ff:ff:ff:ff")));
+    }
+    client->WaitForIdle();
 }
 
 TEST_F(HaStaleRouteTest, ToRRouteAddDelonBackupToRAgent) {

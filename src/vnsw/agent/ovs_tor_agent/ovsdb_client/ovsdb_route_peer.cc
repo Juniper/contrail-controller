@@ -107,7 +107,8 @@ void OvsPeer::AddOvsPeerMulticastRoute(const VrfEntry *vrf,
                                        const Ip4Address &tor_ip) {
     EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
         (vrf->GetEvpnRouteTable());
-    table->AddOvsPeerMulticastRoute(this, vxlan_id, vn_name, tsn_ip, tor_ip);
+    table->AddOvsPeerMulticastRoute(this, vxlan_id, vn_name, tsn_ip, tor_ip,
+                                    ha_stale_export_);
 }
 
 void OvsPeer::DeleteOvsPeerMulticastRoute(const VrfEntry *vrf,
