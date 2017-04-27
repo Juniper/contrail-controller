@@ -19,10 +19,9 @@ class VncCfgApiClient(object):
     # end __init__
 
     def _update_connection_state(self, status, message = ''):
-        server_addrs = ['%s:%d' % (self._conf_info['api_server_ip'], \
-            self._conf_info['api_server_port'])]
         ConnectionState.update(conn_type=ConnectionType.APISERVER, name='',
-            status=status, message=message, server_addrs=server_addrs)
+            status=status, message=message,
+            server_addrs=self._conf_info['api_servers'])
     # end _update_connection_state
 
     def _get_user_token_info(self, user_token, uuid=None):
@@ -33,9 +32,18 @@ class VncCfgApiClient(object):
             return None
     # end _get_user_token_info
 
+    def update_api_servers(self, api_servers):
+        self._conf_info['api_servers'] = api_servers
+        self._vnc_api_client = None
+        self.connect()
+    # end update_api_servers
+
     def connect(self):
         # Retry till API server is up
         connected = False
+        api_server_list = [s.split(':')[0] for s in self._conf_info['api_servers']]
+        api_server_port = self._conf_info['api_servers'][0].split(':')[1] \
+            if self._conf_info['api_servers'] else None
         self._update_connection_state(ConnectionStatus.INIT)
         while not connected:
             try:
@@ -43,8 +51,7 @@ class VncCfgApiClient(object):
                     self._conf_info['admin_user'],
                     self._conf_info['admin_password'],
                     self._conf_info['admin_tenant_name'],
-                    self._conf_info['api_server_ip'],
-                    self._conf_info['api_server_port'],
+                    api_server_list, api_server_port,
                     api_server_use_ssl=self._conf_info['api_server_use_ssl'],
                     auth_host=self._conf_info['auth_host'],
                     auth_port=self._conf_info['auth_port'],
