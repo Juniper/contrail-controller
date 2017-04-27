@@ -18,6 +18,10 @@ from test_dm_utils import FakeDeviceConnect
 #
 class TestNetworkDM(TestCommonDM):
 
+    def __init__(self, *args, **kwargs):
+        self.product = "mx"
+        super(TestNetworkDM, self).__init__(*args, **kwargs)
+
     @retries(5, hook=retry_exc_handler)
     def check_interface_ip_config(self, if_name='', ri_name='',
                      ip_check='', ip_type='v4', network_id='', is_free=False):

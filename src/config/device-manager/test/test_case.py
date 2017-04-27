@@ -12,6 +12,7 @@ from random import randint
 from ncclient import manager
 from flexmock import flexmock
 from test_dm_utils import FakeDeviceConnect
+from test_dm_utils import FakeNetconfManager
 from test_dm_utils import fake_netconf_connect
 from test_dm_utils import fake_send_netconf
 import device_manager
@@ -45,6 +46,7 @@ class DMTestCase(test_common.TestCase):
         flexmock(manager, connect=fake_netconf_connect)
         setattr(device_manager.mx_conf.MxConf, 'device_send', fake_send_netconf)
         setattr(device_manager.qfx_conf.QfxConf, 'device_send', fake_send_netconf)
+        FakeNetconfManager.set_model(self.product)
         return
 
     def tearDown(self):
