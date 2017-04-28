@@ -255,6 +255,7 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
+    args_str = args_str + "--cluster_id %s " %(test_id)
 
     vnc_cgitb.enable(format='text')
 
@@ -312,14 +313,16 @@ def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
         vnc_cfg_api_server.main(args_str, server)
 # end launch_api_server_rdbms
 
-def launch_svc_monitor(test_id, api_server_ip, api_server_port):
+def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port):
     args_str = ""
+    args_str = args_str + "--cluster_id %s " % (cluster_id)
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
     args_str = args_str + "--http_server_port %s " % (get_free_port())
     args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file svc_monitor_%s.log " %(test_id)
+    args_str = args_str + "--trace_file svc_monitor_%s.err " %(test_id)
     args_str = args_str + "--check_service_interval 2 "
 
     svc_monitor.main(args_str)
@@ -344,9 +347,11 @@ def kill_kube_manager(glet):
 def reinit_schema_transformer():
     to_bgp.transformer.reinit()
 
-def launch_schema_transformer(test_id, api_server_ip, api_server_port, extra_args=None):
+def launch_schema_transformer(cluster_id, test_id, api_server_ip,
+        api_server_port, extra_args=None):
     wait_for_schema_transformer_down()
     args_str = ""
+    args_str = args_str + "--cluster_id %s " % (cluster_id)
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
     args_str = args_str + "--http_server_port %s " % (get_free_port())
@@ -362,6 +367,7 @@ def launch_schema_transformer(test_id, api_server_ip, api_server_port, extra_arg
 def launch_device_manager(test_id, api_server_ip, api_server_port):
     wait_for_device_manager_down()
     args_str = ""
+    args_str = args_str + "--cluster_id %s " % (test_id)
     args_str = args_str + "--api_server_ip %s " % (api_server_ip)
     args_str = args_str + "--api_server_port %s " % (api_server_port)
     args_str = args_str + "--http_server_port %s " % (get_free_port())
@@ -591,6 +597,11 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def _delete_test_object(self, obj):
         self._vnc_lib.virtual_network_delete(id=obj.uuid)
 
+    def get_cf(self, keyspace_name, cf_name):
+        ks_name = '%s_%s' %(self._cluster_id, keyspace_name)
+        return CassandraCFs.get_cf(ks_name, cf_name)
+    # end get_cf
+
     def vnc_db_has_ident(self, obj=None, id=None, type_fq_name=None):
         if obj:
             _type = obj.get_type()
@@ -667,8 +678,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
         cls.orig_mocked_values = setup_mocks(cls.mocks + (extra_mocks or []))
 
+        cls._cluster_id = cls.__name__
         cls._server_info = create_api_server_instance(
-            cls.__name__, cls._config_knobs + (extra_config_knobs or []), db=db)
+            cls._cluster_id, cls._config_knobs + (extra_config_knobs or []),
+            db=db)
         try:
             cls._api_server_ip = cls._server_info['ip']
             cls._api_server_port = cls._server_info['service_port']

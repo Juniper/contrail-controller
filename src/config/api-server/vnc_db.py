@@ -389,7 +389,7 @@ class VncZkClient(object):
         self._db_prefix = db_prefix
         if db_prefix:
             client_pfx = db_prefix + '-'
-            zk_path_pfx = db_prefix + '/'
+            zk_path_pfx = db_prefix
         else:
             client_pfx = ''
             zk_path_pfx = ''

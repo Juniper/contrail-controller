@@ -112,7 +112,7 @@ class TestInfraDM(TestCommonDM):
         kill_device_manager(TestInfraDM._dm_greenlet)
         self.check_dm_instance()
         TestInfraDM._dm_greenlet = gevent.spawn(launch_device_manager,
-            "DM-Test-Suite", TestInfraDM._api_server_ip, TestInfraDM._api_server_port)
+            self._cluster_id, TestInfraDM._api_server_ip, TestInfraDM._api_server_port)
         wait_for_device_manager_up()
 
 # end TestInfraDM
