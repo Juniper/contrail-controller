@@ -355,14 +355,18 @@ public:
             if ((vr_response_code_ > 0) && rctx) {
                 vr_route_req req;
                 InitEncoder(req, rctx->vrf_id, sandesh_op::DUMP);
-                req.set_rtr_marker(rctx->marker);
-                req.set_rtr_marker_plen(rctx->marker_plen);
+                if (family_id_ == AF_BRIDGE) {
+                    req.set_rtr_mac(rctx->marker);
+                } else {
+                    req.set_rtr_marker(rctx->marker);
+                    req.set_rtr_marker_plen(rctx->marker_plen);
+                }
                 EncodeAndSend(req);
             }
         }
     }
 
-    static void Init(bool verify, int count = 0) {
+    static void Init(bool verify, int vrf_id, int family, int count = 0) {
         vr_route_req req;
         std::vector<int8_t> marker;
 
@@ -372,7 +376,7 @@ public:
         // The following object is deleted in KStateIoContext::Handler()
         // after the Handler is invoked.
         singleton_ = new TestRouteKState(verify, count, resp, "dummy", req,
-                                         0, AF_INET, sandesh_op::DUMP, 4);
+                                         vrf_id, family, sandesh_op::DUMP, 4);
         singleton_->EncodeAndSend(req);
     }
     ~TestRouteKState() {

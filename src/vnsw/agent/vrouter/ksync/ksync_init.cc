@@ -33,6 +33,7 @@
 #include <init/agent_param.h>
 
 #include "ksync_init.h"
+#include "vrouter/ksync/bridge_route_audit_ksync.h"
 #include "vrouter/ksync/interface_ksync.h"
 #include "vrouter/ksync/route_ksync.h"
 #include "vrouter/ksync/mirror_ksync.h"
@@ -64,6 +65,7 @@ KSync::KSync(Agent *agent)
       qos_queue_ksync_obj_(new QosQueueKSyncObject(this)),
       forwarding_class_ksync_obj_(new ForwardingClassKSyncObject(this)),
       qos_config_ksync_obj_(new QosConfigKSyncObject(this)),
+      bridge_route_audit_ksync_obj_(new BridgeRouteAuditKSyncObject(this)),
       ksync_bridge_memory_(new KSyncBridgeMemory(this, 1)) {
       for (uint16_t i = 0; i < agent->flow_thread_count(); i++) {
           FlowTableKSyncObject *obj = new FlowTableKSyncObject(this);
@@ -105,6 +107,7 @@ void KSync::Init(bool create_vhost) {
         flow_table_ksync_obj_list_[i]->Init();
     }
     ksync_flow_memory_.get()->Init();
+    ksync_bridge_memory_.get()->Init();
 }
 
 void KSync::InitDone() {
@@ -113,7 +116,7 @@ void KSync::InitDone() {
         flow_table_ksync_obj_list_[i]->set_flow_table(flow_table);
         flow_table->set_ksync_object(flow_table_ksync_obj_list_[i]);
     }
-    uint32_t count = ksync_flow_memory_->flow_table_entries_count();
+    uint32_t count = ksync_flow_memory_->table_entries_count();
     ksync_flow_index_manager_->InitDone(count);
     AgentProfile *profile = agent_->oper_db()->agent_profile();
     profile->RegisterKSyncStatsCb(boost::bind(&KSync::SetProfileData,
@@ -417,4 +420,5 @@ void KSyncTcp::Init(bool create_vhost) {
         flow_table_ksync_obj_list_[i]->Init();
     }
     ksync_flow_memory_.get()->Init();
+    ksync_bridge_memory_.get()->Init();
 }

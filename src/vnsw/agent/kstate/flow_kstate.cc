@@ -296,7 +296,7 @@ bool FlowKState::Run() {
         return true;
     }
     uint32_t idx = flow_iteration_key_;
-    uint32_t max_flows = ksync_obj->flow_table_entries_count();
+    uint32_t max_flows = ksync_obj->table_entries_count();
     
     resp = new KFlowResp();
     vector<KFlowInfo> &list = const_cast<std::vector<KFlowInfo>&>
