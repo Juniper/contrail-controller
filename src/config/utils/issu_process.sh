@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -x
 function issu_contrail_set_supervisord_config_files {
     local cmd="openstack-config --set /etc/contrail/supervisord_config_files/$1.ini program:$1"
     $cmd autostart $2
@@ -9,24 +9,42 @@ function issu_contrail_set_supervisord_config_files {
 
 function issu_contrail_prepare_new_control_node {
     contrail-status
-    issu_contrail_set_supervisord_config_files 'contrail-device-manager' 'false'
-    issu_contrail_set_supervisord_config_files 'contrail-svc-monitor' 'false'
-    issu_contrail_set_supervisord_config_files 'contrail-schema' 'false'
+    val="$(lsb_release -sr | cut -d \. -f 1)"
+    if [ $val == 14 ]
+    then
+        issu_contrail_set_supervisord_config_files 'contrail-device-manager' 'false'
+        issu_contrail_set_supervisord_config_files 'contrail-svc-monitor' 'false'
+        issu_contrail_set_supervisord_config_files 'contrail-schema' 'false'
 
-    openstack-config --set /etc/contrail/supervisord_config_files/contrail-config-nodemgr.ini eventlistener:contrail-config-nodemgr autorestart false
-    openstack-config --set /etc/contrail/supervisord_config_files/contrail-config-nodemgr.ini eventlistener:contrail-config-nodemgr autostart false
+        openstack-config --set /etc/contrail/supervisord_config_files/contrail-config-nodemgr.ini eventlistener:contrail-config-nodemgr autorestart false
+        openstack-config --set /etc/contrail/supervisord_config_files/contrail-config-nodemgr.ini eventlistener:contrail-config-nodemgr autostart false
 
-    contrail-status
-    service contrail-config-nodemgr stop
-    service contrail-control stop
-    service contrail-schema stop
-    service contrail-svc-monitor stop
-    service contrail-device-manager stop
+        service contrail-config-nodemgr stop
+        service contrail-control stop
+        service contrail-schema stop
+        service contrail-svc-monitor stop
+        service contrail-device-manager stop
+    fi
+    if [ $val == 16 ]
+    then
+        systemctl stop contrail-config-nodemgr
+        systemctl stop contrail-control
+        systemctl stop contrail-schema
+        systemctl stop contrail-svc-monitor
+        systemctl stop contrail-device-manager
+        systemctl disable contrail-config-nodemgr
+        systemctl disable contrail-svc-monitor
+	systemctl disable contrail-device-manager
+	systemctl disable contrail-schema
+    fi
     contrail-status
 }
 
 function issu_contrail_post_new_control_node {
     contrail-status
+    val="$(lsb_release -sr | cut -d \. -f 1)"
+    if [ $val == 14 ]
+    then
             #openstack-config --set /etc/contrail/supervisord_config.conf include files \"/etc/contrail/supervisord_config_files/*.ini\"
             
     issu_contrail_set_supervisord_config_files 'contrail-device-manager' 'true'
@@ -40,6 +58,19 @@ function issu_contrail_post_new_control_node {
     service contrail-schema start
     service contrail-svc-monitor start
     service contrail-device-manager start
+    fi
+    if [ $val == 16 ]
+    then
+        systemctl enable contrail-config-nodemgr
+        systemctl enable contrail-svc-monitor
+        systemctl enable contrail-device-manager
+	systemctl enable contrail-schema
+        systemctl start contrail-config-nodemgr
+        systemctl start contrail-control
+        systemctl start contrail-schema
+        systemctl start contrail-svc-monitor
+        systemctl start contrail-device-manager
+    fi
     contrail-status
 
 }
@@ -49,11 +80,29 @@ function issu_pre_sync {
 }
 
 function issu_run_sync {
-    supervisorctl start supervisord_issu
+    val="$(lsb_release -sr | cut -d \. -f 1)"
+    if [ $val == 14 ]
+    then
+        supervisorctl restart supervisord_issu
+    fi
+    if [ $val == 16 ]
+    then
+        systemctl enable contrail-issu-run-sync
+        systemctl restart contrail-issu-run-sync
+    fi
 }
 
 function issu_post_sync {
-    supervisorctl stop supervisord_issu
+    val="$(lsb_release -sr | cut -d \. -f 1)"
+    if [ $val == 14 ]
+    then
+        supervisorctl stop supervisord_issu
+    fi
+    if [ $val == 16 ]
+    then
+        systemctl stop contrail-issu-run-sync
+        systemctl disable contrail-issu-run-sync
+    fi
     contrail-issu-post-sync -c /etc/contrail/contrail-issu.conf
     contrail-issu-zk-sync -c /etc/contrail/contrail-issu.conf
 }
