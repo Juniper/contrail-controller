@@ -336,10 +336,19 @@ void KSyncSockTypeMap::MirrorDelete(int id) {
 
 void KSyncSockTypeMap::RouteAdd(vr_route_req &req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-    KSyncSockTypeMap::ksync_rt_tree::const_iterator it;
-    it = sock->rt_tree.find(req);
-    if (it == sock->rt_tree.end()) {
-        sock->rt_tree.insert(req);
+    //store in the route tree
+    std::pair<std::set<vr_route_req>::iterator, bool> ret;
+    ret = sock->rt_tree.insert(req);
+
+    /* If insertion fails, remove the existing entry and add the new one */
+    if (ret.second == false) {
+        int del_count = sock->rt_tree.erase(req);
+        assert(del_count);
+        ret = sock->rt_tree.insert(req);
+        assert(ret.second == true);
+    }
+    if (req.get_rtr_family() == AF_BRIDGE) {
+        sock->SetBridgeEntry((uint32_t)req.get_rtr_index(), &req, true);
     }
 }
 
@@ -715,8 +724,8 @@ vr_bridge_entry *KSyncSockTypeMap::GetBridgeEntry(int idx) {
     return &bridge_table_[idx];
 }
 
-void KSyncSockTypeMap::SetBridgeEntry(vr_route_req *req, bool set) {
-    uint32_t idx = 0;
+void KSyncSockTypeMap::SetBridgeEntry(uint32_t idx, vr_route_req *req,
+                                      bool set) {
     vr_bridge_entry *be = &bridge_table_[idx];
     if (!set) {
         be->be_packets = 0;
@@ -725,6 +734,27 @@ void KSyncSockTypeMap::SetBridgeEntry(vr_route_req *req, bool set) {
 
     if (be->be_packets == 0) {
         be->be_packets = 1;
+    }
+    vr_bridge_entry_key *key = &be->be_key;
+
+    //Copy VRF and mac
+    key->be_vrf_id = req->get_rtr_vrf_id();
+
+    uint8_t i = 0;
+    const std::vector<signed char> &prefix = req->get_rtr_mac();
+    for(std::vector<signed char>::const_iterator it = prefix.begin();
+        it != prefix.end(); ++it) {
+        key->be_mac[i] = ((uint8_t) *it);
+        i++;
+    }
+}
+
+void KSyncSockTypeMap::UpdateBridgeEntryInactiveFlag(int idx, bool set) {
+    vr_bridge_entry *be = &bridge_table_[idx];
+    if (set) {
+        be->be_flags |= VR_BE_MAC_NEW_FLAG;
+    } else {
+        be->be_flags &= ~VR_BE_MAC_NEW_FLAG;
     }
 }
 
@@ -950,27 +980,17 @@ void KSyncUserSockRouteContext::Process() {
 
     //delete from the route tree, if the command is delete
     if (req_->get_h_op() == sandesh_op::DELETE) {
+        if (req_->get_rtr_family() == AF_BRIDGE) {
+            sock->UpdateBridgeEntryInactiveFlag(req_->get_rtr_index(), false);
+        }
         sock->rt_tree.erase(*req_);
     } else if (req_->get_h_op() == sandesh_op::DUMP) {
         RouteDumpHandler dump;
-        sock->SetBridgeEntry(req_, false);
+        sock->SetBridgeEntry(req_->get_rtr_index(), req_, false);
         dump.SendDumpResponse(GetSeqNum(), req_);
         return;
     } else {
-        //store in the route tree
-        std::pair<std::set<vr_route_req>::iterator, bool> ret;
-        ret = sock->rt_tree.insert(*req_);
-
-        /* If insertion fails, remove the existing entry and add the new one */
-        if (ret.second == false) {
-            int del_count = sock->rt_tree.erase(*req_);
-            assert(del_count);
-            ret = sock->rt_tree.insert(*req_);
-            assert(ret.second == true);
-            if (req_->get_rtr_family() == AF_BRIDGE) {
-                sock->SetBridgeEntry(req_, true);
-            }
-        }
+        sock->RouteAdd(*req_);
     }
     KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
 }
@@ -1496,21 +1516,33 @@ Sandesh* RouteDumpHandler::GetFirst(Sandesh *from_req) {
     vr_route_req *orig_req, key;
     orig_req = static_cast<vr_route_req *>(from_req);
 
-    if (orig_req->get_rtr_marker().size()) {
-        key.set_rtr_vrf_id(orig_req->get_rtr_vrf_id());
-        key.set_rtr_prefix(orig_req->get_rtr_marker());
-        key.set_rtr_prefix_len(orig_req->get_rtr_marker_plen());
+    key.set_rtr_family(orig_req->get_rtr_family());
+    key.set_rtr_vrf_id(orig_req->get_rtr_vrf_id());
+    if (orig_req->get_rtr_marker().size() || orig_req->get_rtr_mac().size()) {
+        if (orig_req->get_rtr_family() == AF_BRIDGE) {
+            key.set_rtr_mac(orig_req->get_rtr_mac());
+        } else {
+            key.set_rtr_prefix(orig_req->get_rtr_marker());
+            key.set_rtr_prefix_len(orig_req->get_rtr_marker_plen());
+        }
         it = sock->rt_tree.upper_bound(key);
     } else {
         std::vector<int8_t> rtr_prefix;
-        key.set_rtr_vrf_id(orig_req->get_rtr_vrf_id());
-        key.set_rtr_prefix(rtr_prefix);
-        key.set_rtr_prefix_len(0);
+        if (orig_req->get_rtr_family() == AF_BRIDGE) {
+            key.set_rtr_mac(rtr_prefix);
+        } else {
+            key.set_rtr_prefix(rtr_prefix);
+            key.set_rtr_prefix_len(0);
+        }
         it = sock->rt_tree.lower_bound(key);
     }
 
 
     if (it != sock->rt_tree.end()) {
+        if ((it->get_rtr_vrf_id() != orig_req->get_rtr_vrf_id()) ||
+            (it->get_rtr_family() != orig_req->get_rtr_family())) {
+            return NULL;
+        }
         req = *it;
         return &req;
     }
@@ -1525,11 +1557,20 @@ Sandesh* RouteDumpHandler::GetNext(Sandesh *input) {
     r = static_cast<vr_route_req *>(input);
 
     key.set_rtr_vrf_id(r->get_rtr_vrf_id());
-    key.set_rtr_prefix(r->get_rtr_prefix());
-    key.set_rtr_prefix_len(r->get_rtr_prefix_len());
+    key.set_rtr_family(r->get_rtr_family());
+    if (r->get_rtr_family() == AF_BRIDGE) {
+        key.set_rtr_mac(r->get_rtr_mac());
+    } else {
+        key.set_rtr_prefix(r->get_rtr_prefix());
+        key.set_rtr_prefix_len(r->get_rtr_prefix_len());
+    }
     it = sock->rt_tree.upper_bound(key);
 
     if (it != sock->rt_tree.end()) {
+        if ((it->get_rtr_vrf_id() != r->get_rtr_vrf_id()) ||
+            (it->get_rtr_family() != r->get_rtr_family())) {
+            return NULL;
+        }
         req = *it;
         return &req;
     }

@@ -297,8 +297,12 @@ void KState::RouteMsgHandler(vr_route_req *r) {
         rctx = new RouteContext;
     }
     rctx->vrf_id = r->get_rtr_vrf_id();
-    rctx->marker = r->get_rtr_prefix();
-    rctx->marker_plen = r->get_rtr_prefix_len();
+    if (r->get_rtr_family() == AF_BRIDGE) {
+        rctx->marker = r->get_rtr_mac();
+    } else {
+        rctx->marker = r->get_rtr_prefix();
+        rctx->marker_plen = r->get_rtr_prefix_len();
+    }
     UpdateContext(rctx);
 }
 
