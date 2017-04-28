@@ -489,6 +489,13 @@ class OpServer(object):
             self._chksum = hashlib.md5("".join(self._args.collectors)).hexdigest()
             self.random_collectors = random.sample(self._args.collectors, \
                                                    len(self._args.collectors))
+        self._api_server_checksum = ''
+        if self._args.api_server:
+            self._api_server_checksum = hashlib.md5(''.join(
+                self._args.api_server)).hexdigest()
+            self._args.api_server = random.sample(self._args.api_server,
+                len(self._args.api_server))
+
         self._sandesh.init_generator(
             self._moduleid, self._hostname, self._node_type_name,
             self._instance_id, self.random_collectors, 'opserver_context',
@@ -528,6 +535,7 @@ class OpServer(object):
         body = gevent.queue.Queue()
 
         self._vnc_api_client = None
+        self._vnc_api_client_connect = None
         if self._args.auth_conf_info.get('cloud_admin_access_only'):
             self._vnc_api_client = VncCfgApiClient(self._args.auth_conf_info,
                 self._sandesh, self._logger)
@@ -856,7 +864,7 @@ class OpServer(object):
             'zk_list'           : None,
             'zk_prefix'         : '',
             'aaa_mode'          : AAA_MODE_RBAC,
-            'api_server'        : '127.0.0.1:8082',
+            'api_server'        : ['127.0.0.1:8082'],
             'admin_port'        : OpServerAdminPort,
             'cloud_admin_role'  : CLOUD_ADMIN_ROLE,
             'api_server_use_ssl': False,
@@ -1002,7 +1010,8 @@ class OpServer(object):
         parser.add_argument("--admin_tenant_name",
             help="Tenant name for keystone admin user")
         parser.add_argument("--api_server",
-            help="Address of VNC API server in ip:port format")
+            help="List of api-servers in ip:port format separated by space",
+            nargs="+")
         parser.add_argument("--admin_port",
             help="Port with local auth for admin access")
         parser.add_argument("--api_server_use_ssl",
@@ -1017,6 +1026,8 @@ class OpServer(object):
             self._args.cassandra_server_list = self._args.cassandra_server_list.split()
         if type(self._args.zk_list) is str:
             self._args.zk_list= self._args.zk_list.split()
+        if type(self._args.api_server) is str:
+            self._args.api_server = self._args.api_server.split()
 
         auth_conf_info = {}
         auth_conf_info['admin_user'] = self._args.admin_user
@@ -1033,9 +1044,7 @@ class OpServer(object):
         auth_conf_info['cloud_admin_role'] = self._args.cloud_admin_role
         auth_conf_info['aaa_mode'] = self._args.aaa_mode
         auth_conf_info['admin_port'] = self._args.admin_port
-        api_server_info = self._args.api_server.split(':')
-        auth_conf_info['api_server_ip'] = api_server_info[0]
-        auth_conf_info['api_server_port'] = int(api_server_info[1])
+        auth_conf_info['api_servers'] = self._args.api_server
         self._args.auth_conf_info = auth_conf_info
         self._args.conf_file = args.conf_file
         self._args.sandesh_config = \
@@ -2500,7 +2509,9 @@ class OpServer(object):
             self._ad.start()
 
         if self._vnc_api_client:
-            self.gevs.append(gevent.spawn(self._vnc_api_client.connect))
+            self._vnc_api_client_connect = gevent.spawn(
+                self._vnc_api_client.connect)
+            self.gevs.append(self._vnc_api_client_connect)
         self._local_app = LocalApp(bottle.app(), self._args.auth_conf_info)
         self.gevs.append(gevent.spawn(self._local_app.start_http_server))
 
@@ -2542,6 +2553,9 @@ class OpServer(object):
             if 'DEFAULTS' in config.sections():
                 try:
                     collectors = config.get('DEFAULTS', 'collectors')
+                except ConfigParser.NoOptionError as e:
+                    pass
+                else:
                     if type(collectors) is str:
                         collectors = collectors.split()
                         new_chksum = hashlib.md5("".join(collectors)).hexdigest()
@@ -2549,8 +2563,28 @@ class OpServer(object):
                             self._chksum = new_chksum
                             random_collectors = random.sample(collectors, len(collectors))
                             self._sandesh.reconfig_collectors(random_collectors)
+                try:
+                    api_servers = config.get('DEFAULTS', 'api_server')
                 except ConfigParser.NoOptionError as e:
                     pass
+                else:
+                    if type(api_servers) is str:
+                        api_servers = api_servers.split()
+                    new_api_server_checksum = hashlib.md5(''.join(
+                        api_servers)).hexdigest()
+                    if new_api_server_checksum != self._api_server_checksum:
+                        self._api_server_checksum = new_api_server_checksum
+                        random_api_servers = random.sample(api_servers,
+                            len(api_servers))
+                        if self._vnc_api_client_connect:
+                            self.gevs.remove(self._vnc_api_client_connect)
+                            if not self._vnc_api_client_connect.ready():
+                                self._vnc_api_client_connect.kill()
+                        if self._vnc_api_client:
+                            self._vnc_api_client_connect = gevent.spawn(
+                                self._vnc_api_client.update_api_servers,
+                                    random_api_servers)
+                            self.gevs.append(self._vnc_api_client_connect)
     # end sighup_handler
 
 def main(args_str=' '.join(sys.argv[1:])):
