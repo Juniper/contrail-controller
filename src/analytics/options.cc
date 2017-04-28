@@ -16,6 +16,7 @@
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
+#include <base/options_util.h>
 #include "net/address_util.h"
 #include "viz_constants.h"
 #include <database/gendb_constants.h>
@@ -24,6 +25,7 @@ using namespace std;
 using namespace boost::asio::ip;
 using namespace boost::assign;
 namespace opt = boost::program_options;
+using namespace options::util;
 
 // Process command line options for collector   .
 Options::Options() {
@@ -364,10 +366,6 @@ void Options::Initialize(EventManager &evm,
              "ipfix listener UDP port (< 0 will disable ipfix Collector)")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable collector to run in test-mode")
-        ("DEFAULT.sandesh_send_rate_limit",
-              opt::value<uint32_t>()->default_value(
-              g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT),
-              "Sandesh send rate limit in messages/sec")
         ("DEFAULT.disable_flow_collection",
             opt::bool_switch(&disable_flow_collection_),
             "Disable flow message collection")
@@ -417,23 +415,7 @@ void Options::Initialize(EventManager &evm,
 
     // Command line and config file options.
     opt::options_description sandesh_config("Sandesh Configuration options");
-    sandesh_config.add_options()
-        ("SANDESH.sandesh_keyfile", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/private/server-privkey.pem"),
-            "Sandesh ssl private key")
-        ("SANDESH.sandesh_certfile", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/certs/server.pem"),
-            "Sandesh ssl certificate")
-        ("SANDESH.sandesh_ca_cert", opt::value<string>()->default_value(
-            "/etc/contrail/ssl/certs/ca-cert.pem"),
-            "Sandesh CA ssl certificate")
-        ("SANDESH.sandesh_ssl_enable",
-             opt::bool_switch(&sandesh_config_.sandesh_ssl_enable),
-             "Enable ssl for sandesh connection")
-        ("SANDESH.introspect_ssl_enable",
-             opt::bool_switch(&sandesh_config_.introspect_ssl_enable),
-             "Enable ssl for introspect connection")
-        ;
+    sandesh::options::AddOptions(&sandesh_config, &sandesh_config_);
 
     // Command line and config file options for api-server
     opt::options_description api_server_config("Api-Server Configuration options");
@@ -453,62 +435,6 @@ void Options::Initialize(EventManager &evm,
     cmdline_options.add(generic).add(config).add(cassandra_config)
         .add(database_config).add(sandesh_config).add(keystone_config)
         .add(collector_config).add(redis_config).add(api_server_config);
-}
-
-template <typename ValueType>
-void Options::GetOptValue(const boost::program_options::variables_map &var_map,
-                          ValueType &var, std::string val) {
-    GetOptValueImpl(var_map, var, val, static_cast<ValueType *>(0));
-}
-
-template <typename ValueType>
-void Options::GetOptValueImpl(
-    const boost::program_options::variables_map &var_map,
-    ValueType &var, std::string val, ValueType*) {
-    // Check if the value is present.
-    if (var_map.count(val)) {
-        var = var_map[val].as<ValueType>();
-    }
-}
-
-template <typename ValueType>
-bool Options::GetOptValueIfNotDefaulted(
-    const boost::program_options::variables_map &var_map,
-    ValueType &var, std::string val) {
-    return GetOptValueIfNotDefaultedImpl(var_map, var, val,
-        static_cast<ValueType *>(0));
-}
-
-template <typename ValueType>
-bool Options::GetOptValueIfNotDefaultedImpl(
-    const boost::program_options::variables_map &var_map,
-    ValueType &var, std::string val, ValueType*) {
-    // Check if the value is present.
-    if (var_map.count(val) && !var_map[val].defaulted()) {
-        var = var_map[val].as<ValueType>();
-        return true;
-    }
-    return false;
-}
-
-template <typename ElementType>
-void Options::GetOptValueImpl(
-    const boost::program_options::variables_map &var_map,
-    std::vector<ElementType> &var, std::string val, std::vector<ElementType>*) {
-    // Check if the value is present.
-    if (var_map.count(val)) {
-        std::vector<ElementType> tmp(
-            var_map[val].as<std::vector<ElementType> >());
-        // Now split the individual elements
-        for (typename std::vector<ElementType>::const_iterator it =
-                 tmp.begin();
-             it != tmp.end(); it++) {
-            std::stringstream ss(*it);
-            std::copy(istream_iterator<ElementType>(ss),
-                istream_iterator<ElementType>(),
-                std::back_inserter(var));
-        }
-    }
 }
 
 static bool ValidateCompactionStrategyOption(
@@ -704,8 +630,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
     GetOptValue<int>(var_map, sflow_port_, "DEFAULT.sflow_port");
     GetOptValue<int>(var_map, ipfix_port_, "DEFAULT.ipfix_port");
-    GetOptValue<uint32_t>(var_map, sandesh_ratelimit_,
-                              "DEFAULT.sandesh_send_rate_limit");
 
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");
@@ -744,16 +668,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, ks_key_, "KEYSTONE.keyfile");
     GetOptValue<string>(var_map, ks_ca_, "KEYSTONE.cafile");
 
-    GetOptValue<string>(var_map, sandesh_config_.keyfile,
-                        "SANDESH.sandesh_keyfile");
-    GetOptValue<string>(var_map, sandesh_config_.certfile,
-                        "SANDESH.sandesh_certfile");
-    GetOptValue<string>(var_map, sandesh_config_.ca_cert,
-                        "SANDESH.sandesh_ca_cert");
-    GetOptValue<bool>(var_map, sandesh_config_.sandesh_ssl_enable,
-                      "SANDESH.sandesh_ssl_enable");
-    GetOptValue<bool>(var_map, sandesh_config_.introspect_ssl_enable,
-                      "SANDESH.introspect_ssl_enable");
+    sandesh::options::ProcessOptions(var_map, &sandesh_config_);
 
     GetOptValue< vector<string> >(var_map, api_server_list_,
                                   "API_SERVER.api_server_list");

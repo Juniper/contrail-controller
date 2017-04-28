@@ -353,7 +353,6 @@ public:
         return physical_interface_mac_addr_;
     }
     std::string agent_base_dir() const { return agent_base_dir_; }
-    uint32_t sandesh_send_rate_limit() { return send_ratelimit_; }
     const std::string &bgp_as_a_service_port_range() const {
         return bgp_as_a_service_port_range_;
     }
@@ -474,27 +473,6 @@ protected:
     virtual void ReInitFromConfig();
     virtual void ProcessArguments();
     boost::property_tree::ptree &tree() { return tree_; }
-    template <typename ValueType>
-    bool GetOptValue(const boost::program_options::variables_map &var_map, 
-                     ValueType &var, const std::string &val) {
-        return GetOptValueImpl(var_map, var, val,
-            static_cast<ValueType *>(0));
-    }
-    // Implementation overloads
-    template <typename ValueType>
-    bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         ValueType &var, const std::string &val, ValueType*) {
-        // Check if the value is present.
-        if (var_map.count(val)) {
-            var = var_map[val].as<ValueType>();
-            return true;
-        }
-        return false;
-    }
-    template <typename ElementType>
-    bool GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         std::vector<ElementType> &var, const std::string &val,
-                         std::vector<ElementType> *);
     template <typename ValueType>
     bool GetValueFromTree(ValueType &var, const std::string &val) {
         boost::optional<ValueType> opt;
@@ -680,7 +658,6 @@ private:
     std::string physical_interface_pci_addr_;
     std::string physical_interface_mac_addr_;
     std::string agent_base_dir_;
-    uint32_t send_ratelimit_;
     uint16_t flow_thread_count_;
     bool flow_trace_enable_;
     uint16_t flow_latency_limit_;

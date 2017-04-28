@@ -86,8 +86,9 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.max_tasks(), 0);
     EXPECT_EQ(options_.max_slice(), 100);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(),
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit,
         g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, DefaultConfFile) {
@@ -126,8 +127,9 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.max_tasks(), 0);
     EXPECT_EQ(options_.max_slice(), 100);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(),
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit,
         g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -169,18 +171,20 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.max_tasks(), 0);
     EXPECT_EQ(options_.max_slice(), 100);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/query_engine/contrail-query-engine.conf";
     char argv_2[] = "--DEFAULT.test_mode";
+    char argv_3[] = "--SANDESH.disable_object_logs";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
     vector<string> passed_conf_files;
@@ -209,6 +213,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.max_tasks(), 0);
     EXPECT_EQ(options_.max_slice(), 100);
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
+    EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, CustomConfigFile) {
@@ -239,6 +244,10 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "[REDIS]\n"
         "server=1.2.3.4\n"
         "port=200\n"
+        "\n"
+        "\n"
+        "[SANDESH]\n"
+        "disable_object_logs=0\n"
         "\n"
     ;
 
@@ -306,7 +315,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.test_mode(), true);
     EXPECT_EQ(options_.cassandra_user(), "cassandra1");
     EXPECT_EQ(options_.cassandra_password(), "cassandra1");
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -339,6 +349,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "server=1.2.3.4\n"
         "port=200\n"
         "\n"
+        "[SANDESH]\n"
+        "disable_object_logs=0\n"
+        "\n"
     ;
 
     ofstream config_file;
@@ -355,7 +368,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << cassandra_config;
     config_file.close();
 
-    int argc = 18;
+    int argc = 19;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_query_engine.conf";
@@ -375,6 +388,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_15[] = "--CASSANDRA.cassandra_password=cassandra";
     char argv_16[] = "--conf_file=./options_test_cassandra_config_file.conf";
     char argv_17[] = "--DEFAULT.sandesh_send_rate_limit=7";
+    char argv_18[] = "--SANDESH.disable_object_logs";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -393,6 +407,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[15] = argv_15;
     argv[16] = argv_16;
     argv[17] = argv_17;
+    argv[18] = argv_18;
 
     options_.Parse(evm_, argc, argv);
 
@@ -434,7 +449,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.max_tasks(), 900);
     EXPECT_EQ(options_.max_slice(), 800);
     EXPECT_EQ(options_.test_mode(), true);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7);
+    EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, MultitokenVector) {

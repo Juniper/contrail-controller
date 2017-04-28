@@ -646,6 +646,69 @@ void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg
     }
 }
 
+bool Ruleeng::handle_uve_statistics(const pugi::xml_node& parent,
+    const VizMsg *rmsg, DbHandler *db, const SandeshHeader& header,
+    GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    const SandeshType::type& sandesh_type(header.get_Type());
+    if ((sandesh_type != SandeshType::UVE) &&
+        (sandesh_type != SandeshType::ALARM)) {
+        return true;
+    }
+
+    std::string type(rmsg->msg->GetMessageType());
+    std::string source(header.get_Source());
+    std::string module(header.get_Module());
+    std::string instance_id(header.get_InstanceId());
+    std::string node_type(header.get_NodeType());
+    int64_t ts(header.get_Timestamp());
+
+    pugi::xml_node object(parent);
+    if (!object) {
+        LOG(ERROR, __func__ << " Message: " << type << " : " << source <<
+            ":" << node_type << ":" << module << ":" << instance_id <<
+            " object NOT PRESENT: " << rmsg->msg->ExtractMessage());
+        return false;
+    }
+
+    object = object.child("data");
+    object = object.first_child();
+
+    for (pugi::xml_node node = object.first_child(); node;
+           node = node.next_sibling()) {
+        if (strcmp(node.attribute("key").value(), "")) {
+            continue;
+        }
+        // Ignore deleted
+        if (!strcmp(node.name(), "deleted")) {
+            if (!strcmp(node.child_value(), "true")) {
+                return true;
+            }
+        }
+        if (!node.attribute("tags").empty()) {
+            // For messages send during UVE Sync, stats must be ignored
+            if (header.get_Hints() & g_sandesh_constants.SANDESH_SYNC_HINT) {
+                continue;
+            }
+            pugi::xml_node anode_p =
+                object.child(g_viz_constants.STAT_OBJECTID_FIELD.c_str());
+            StatWalker::TagMap m1;
+            StatWalker::TagVal h1,h2;
+            h1.val = ParseNode(anode_p);
+            m1.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, h1));
+            h2.val = source;
+            m1.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD, h2));
+            // Process this UVE's Stat attributes.
+            // We will always index by Source and UVE key (name)
+            // Other indexes depend on the "tags" attribute
+            if (!DomTopStatWalker(object, db, ts, node,
+                    m1, source, db_cb)) {
+                continue;
+            }
+        }
+    }
+    return true;
+}
+
 bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     const VizMsg *rmsg, DbHandler *db, const SandeshHeader& header,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
@@ -756,33 +819,6 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
             agg = std::string("None");
         }
 
-        if (!node.attribute("tags").empty()) {
-
-            // For messages send during UVE Sync, stats must be ignored
-            if (header.get_Hints() & g_sandesh_constants.SANDESH_SYNC_HINT) {
-                continue;
-            }
-
-            pugi::xml_node anode_p =
-                object.child(g_viz_constants.STAT_OBJECTID_FIELD.c_str());
-           
-            StatWalker::TagMap m1;
-            StatWalker::TagVal h1,h2;
-            h1.val = ParseNode(anode_p);
-            m1.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, h1));
-            h2.val = source;
-            m1.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD, h2));
-
-            // Process this UVE's Stat attributes.
-            // We will always index by Source and UVE key (name) 
-            // Other indexes depend on the "tags" attribute
-            if (!DomTopStatWalker(object, db, ts, node,
-                    m1, source, db_cb)) {
-                continue;
-            }
-
-        }
-        
         if (!osp_->UVEUpdate(object_name, node.name(),
                              source, node_type, module, instance_id,
                              table, barekey, ostr.str(), seq,
@@ -821,25 +857,23 @@ bool Ruleeng::handle_flow_object(const pugi::xml_node &parent,
 
 bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    const SandeshHeader &header(vmsgp->msg->GetHeader());
+    const SandeshXMLMessage *sxmsg =
+        static_cast<const SandeshXMLMessage *>(vmsgp->msg);
+    const SandeshHeader &header(sxmsg->GetHeader());
+    const pugi::xml_node &parent(sxmsg->GetMessageNode());
+    remove_identifier(parent);
+    // First publish to redis and kafka
+    if (uveproc) handle_uve_publish(parent, vmsgp, db, header, db_cb);
+    // Check if the message needs to be dropped
     if (db->DropMessage(header, vmsgp)) {
         return true;
     }
     // Insert into the message and message index tables
     db->MessageTableInsert(vmsgp, db_cb);
-    /*
-     *  We would like to execute some actions globally here, before going
-     *  through the ruleeng rules
-     *  First set of actions is for Object Tracing
-     */
-    const SandeshXMLMessage *sxmsg = 
-        static_cast<const SandeshXMLMessage *>(vmsgp->msg);
-    const pugi::xml_node &parent(sxmsg->GetMessageNode());
-    remove_identifier(parent);
 
     handle_object_log(parent, vmsgp, db, header, db_cb);
 
-    if (uveproc) handle_uve_publish(parent, vmsgp, db, header, db_cb);
+    if (uveproc) handle_uve_statistics(parent, vmsgp, db, header, db_cb);
 
     handle_flow_object(parent, db, header, db_cb);
 

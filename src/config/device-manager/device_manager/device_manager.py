@@ -382,13 +382,13 @@ def parse_args(args_str):
         'push_delay_per_kb': '0.01',
         'push_delay_max': '100',
         'push_delay_enable': True,
-        'sandesh_send_rate_limit': SandeshSystem.get_sandesh_send_rate_limit(),
         'rabbit_use_ssl': False,
         'kombu_ssl_version': '',
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
     }
+    defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     secopts = {
         'use_certs': False,
         'keyfile': '',
@@ -404,13 +404,7 @@ def parse_args(args_str):
         'cassandra_user': None,
         'cassandra_password': None
     }
-    sandeshopts = {
-        'sandesh_keyfile': '/etc/contrail/ssl/private/server-privkey.pem',
-        'sandesh_certfile': '/etc/contrail/ssl/certs/server.pem',
-        'sandesh_ca_cert': '/etc/contrail/ssl/certs/ca-cert.pem',
-        'sandesh_ssl_enable': False,
-        'introspect_ssl_enable': False
-    }
+    sandeshopts = SandeshConfig.get_default_options()
 
     saved_conf_file = args.conf_file
     if args.conf_file:
@@ -425,14 +419,7 @@ def parse_args(args_str):
             ksopts.update(dict(config.items("KEYSTONE")))
         if 'CASSANDRA' in config.sections():
             cassandraopts.update(dict(config.items('CASSANDRA')))
-        if 'SANDESH' in config.sections():
-            sandeshopts.update(dict(config.items('SANDESH')))
-            if 'sandesh_ssl_enable' in config.options('SANDESH'):
-                sandeshopts['sandesh_ssl_enable'] = config.getboolean(
-                    'SANDESH', 'sandesh_ssl_enable')
-            if 'introspect_ssl_enable' in config.options('SANDESH'):
-                sandeshopts['introspect_ssl_enable'] = config.getboolean(
-                    'SANDESH', 'introspect_ssl_enable')
+        SandeshConfig.update_options(sandeshopts, config)
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -512,16 +499,13 @@ def parse_args(args_str):
                         help="Cassandra user name")
     parser.add_argument("--cassandra_password",
                         help="Cassandra password")
-    parser.add_argument("--sandesh_send_rate_limit", type=int,
-                        help="Sandesh send rate limit in messages/sec")
+    SandeshConfig.add_parser_arguments(parser)
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
-    args.sandesh_config = SandeshConfig(args.sandesh_keyfile,
-        args.sandesh_certfile, args.sandesh_ca_cert,
-        args.sandesh_ssl_enable, args.introspect_ssl_enable)
+    args.sandesh_config = SandeshConfig.from_parser_arguments(args)
 
     args.conf_file = saved_conf_file
     return args

@@ -72,23 +72,11 @@ public:
     std::string xmpp_ca_cert() const { return xmpp_ca_cert_; }
     bool test_mode() const { return test_mode_; }
     bool collectors_configured() const { return collectors_configured_; }
-    uint32_t sandesh_send_rate_limit() const { return send_ratelimit_; }
     const SandeshConfig &sandesh_config() const {
         return sandesh_config_;
     }
 private:
 
-    template <typename ValueType>
-    void GetOptValue(const boost::program_options::variables_map &var_map,
-                     ValueType &var, std::string val);
-    // Implementation overloads
-    template <typename ValueType>
-    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         ValueType &var, std::string val, ValueType*);
-    template <typename ElementType>
-    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         std::vector<ElementType> &var, std::string val,
-                         std::vector<ElementType> *);
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,

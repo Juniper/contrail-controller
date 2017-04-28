@@ -881,10 +881,6 @@ class Controller(object):
         if test_logger is not None:
             is_collector = False
         self._sandesh = Sandesh()
-        # Reset the sandesh send rate limit value
-        if self._conf.sandesh_send_rate_limit() is not None:
-            SandeshSystem.set_sandesh_send_rate_limit( \
-                self._conf.sandesh_send_rate_limit())
         self._conf.random_collectors = self._conf.collectors()
         if self._conf.collectors():
             self._chksum = hashlib.md5("".join(self._conf.collectors())).hexdigest()

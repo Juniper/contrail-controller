@@ -253,6 +253,7 @@ int main(int argc, char *argv[]) {
     client->agent()->flow_stats_manager()->
         default_flow_stats_collector_obj()->SetExpiryTime(1000*1000);
     client->agent()->flow_stats_manager()->set_delete_short_flow(false);
+    AddFlowExportRate(100);
     boost::system::error_code ec;
     bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                           "xmpp channel");

@@ -71,7 +71,6 @@ public:
     bool optimize_snat() const { return optimize_snat_; }
     bool gr_helper_bgp_disable() const { return gr_helper_bgp_disable_; }
     bool gr_helper_xmpp_disable() const { return gr_helper_xmpp_disable_; }
-    uint32_t sandesh_send_rate_limit() const { return sandesh_ratelimit_; }
     const std::string cassandra_user() const { return cassandra_user_; }
     const std::string cassandra_password() const { return cassandra_password_; }
     const std::vector<std::string> cassandra_server_list() const {
@@ -83,17 +82,6 @@ public:
 
 private:
 
-    template <typename ValueType>
-    void GetOptValue(const boost::program_options::variables_map &var_map,
-                     ValueType &var, std::string val);
-    // Implementation overloads
-    template <typename ValueType>
-    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         ValueType &var, std::string val, ValueType*);
-    template <typename ElementType>
-    void GetOptValueImpl(const boost::program_options::variables_map &var_map,
-                         std::vector<ElementType> &var, std::string val,
-                         std::vector<ElementType> *);
     bool Process(int argc, char *argv[],
                  boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,

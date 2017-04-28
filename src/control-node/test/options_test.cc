@@ -82,7 +82,7 @@ TEST_F(OptionsTest, NoArguments) {
   
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(),
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit,
               g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
@@ -118,6 +118,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
@@ -159,20 +160,23 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
                      options_.config_db_server_list());
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
-    int argc = 3;
+    int argc = 4;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
     char argv_2[] = "--DEFAULT.test_mode";
+    char argv_3[] = "--SANDESH.disable_object_logs";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
+    argv[3] = argv_3;
 
     options_.Parse(evm_, argc, argv);
 
@@ -203,6 +207,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), false);
+    EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, CustomConfigFile) {
@@ -239,6 +244,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "[CONFIGDB]\n"
         "rabbitmq_user=test-user\n"
         "rabbitmq_password=test-password\n"
+        "\n"
+        "[SANDESH]\n"
+        "disable_object_logs=0\n"
         "\n";
 
     ofstream config_file;
@@ -286,9 +294,10 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.xmpp_server_cert(), "/etc/server.pem");
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server.key");
     EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/ca-cert.pem");
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -316,6 +325,9 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "[CONFIGDB]\n"
         "rabbitmq_user=test-user\n"
         "rabbitmq_password=test-password\n"
+        "\n"
+        "[SANDESH]\n"
+        "disable_object_logs=0\n"
         "\n";
 
     ofstream config_file;
@@ -323,7 +335,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 10;
+    int argc = 11;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_config_file.conf";
@@ -335,6 +347,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_7[] = "--DEFAULT.sandesh_send_rate_limit=7";
     char argv_8[] = "--DEFAULT.gr_helper_bgp_disable";
     char argv_9[] = "--DEFAULT.gr_helper_xmpp_disable";
+    char argv_10[] = "--SANDESH.disable_object_logs";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -345,6 +358,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[7] = argv_7;
     argv[8] = argv_8;
     argv[9] = argv_9;
+    argv[10] = argv_10;
 
     options_.Parse(evm_, argc, argv);
 
@@ -375,9 +389,10 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.test_mode(), true);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), true);
     EXPECT_EQ(options_.gr_helper_xmpp_disable(), true);
+    EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, CustomConfigFileWithInvalidHostIp) {

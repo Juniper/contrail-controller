@@ -84,13 +84,14 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(),
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit,
         g_sandesh_constants.DEFAULT_SANDESH_SEND_RATELIMIT);
     EXPECT_EQ(options_.disable_flow_collection(), false);
     EXPECT_EQ(options_.disable_db_messages_writes(), false);
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
     EXPECT_EQ(options_.disable_db_statistics_writes(), false);
     EXPECT_EQ(options_.disable_all_db_writes(), false);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
     EXPECT_EQ(options_.cluster_id(), "");
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
@@ -140,6 +141,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.enable_db_messages_keyword_writes(), false);
     EXPECT_EQ(options_.disable_db_statistics_writes(), false);
     EXPECT_EQ(options_.disable_all_db_writes(), false);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
     EXPECT_EQ(options_.cluster_id(), "");
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
@@ -188,8 +190,9 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
     EXPECT_EQ(options_.test_mode(), false);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
     EXPECT_EQ(options_.disable_flow_collection(), false);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
     EXPECT_EQ(options_.cluster_id(), "");
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
@@ -198,7 +201,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
-    int argc = 8;
+    int argc = 9;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/analytics/contrail-collector.conf";
@@ -208,6 +211,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     char argv_5[] = "--DATABASE.enable_message_keyword_writes";
     char argv_6[] = "--DATABASE.cluster_id";
     char argv_7[] = "C1";
+    char argv_8[] = "--SANDESH.disable_object_logs";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -216,6 +220,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     argv[5] = argv_5;
     argv[6] = argv_6;
     argv[7] = argv_7;
+    argv[8] = argv_8;
 
     options_.Parse(evm_, argc, argv);
     vector<string> passed_conf_files;
@@ -245,10 +250,17 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.analytics_flow_ttl(), g_viz_constants.TtlValuesDefault.find(TtlType::FLOWDATA_TTL)->second);
     EXPECT_EQ(options_.syslog_port(), -1);
     EXPECT_EQ(options_.dup(), false);
-    EXPECT_EQ(options_.test_mode(), true); // Overridden from command line.
-    EXPECT_EQ(options_.disable_flow_collection(), true); // Overridden from command line.
-    EXPECT_EQ(options_.disable_all_db_writes(), true); // Overridden from command line.
-    EXPECT_EQ(options_.enable_db_messages_keyword_writes(), true); // Overriden from command line.
+    // Overridden from command line.
+    EXPECT_EQ(options_.test_mode(), true);
+    // Overridden from command line.
+    EXPECT_EQ(options_.disable_flow_collection(), true);
+    // Overridden from command line.
+    EXPECT_EQ(options_.disable_all_db_writes(), true);
+    // Overridden from command line.
+    EXPECT_EQ(options_.enable_db_messages_keyword_writes(), true);
+    // Overridden from command line.
+    EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
+    // Overridden from command line.
     EXPECT_EQ(options_.cluster_id(), "C1");
     uint16_t protobuf_port(0);
     EXPECT_FALSE(options_.collector_protobuf_port(&protobuf_port));
@@ -289,6 +301,9 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "[REDIS]\n"
         "server=1.2.3.4\n"
         "port=200\n"
+        "\n"
+        "[SANDESH]\n"
+        "disable_object_logs=0\n"
         "\n"
     ;
 
@@ -369,7 +384,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(cassandra_options.flow_tables_compaction_strategy_,
         "SizeTieredCompactionStrategy");
     EXPECT_EQ(options_.cluster_id(), "");
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 5);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
+    EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
@@ -406,9 +422,12 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "server=1.2.3.4\n"
         "port=200\n"
         "\n"
+        "[SANDESH]\n"
+        "disable_object_logs=0\n"
+        "\n"
     ;
 
-    int argc = 14;
+    int argc = 15;
 
     ofstream config_file;
     config_file.open("./options_test_collector_config_file.conf");
@@ -440,7 +459,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_11[] = "--conf_file=./options_test_cassandra_config_file.conf";
     char argv_12[] = "--DEFAULT.sandesh_send_rate_limit=7";
     char argv_13[] = "--STRUCTURED_SYSLOG_COLLECTOR.port=3515";
-
+    char argv_14[] = "--SANDESH.disable_object_logs";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -455,6 +474,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[11] = argv_11;
     argv[12] = argv_12;
     argv[13] = argv_13;
+    argv[14] = argv_14;
 
     options_.Parse(evm_, argc, argv);
 
@@ -501,7 +521,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     uint16_t structured_syslog_port(0);
     EXPECT_TRUE(options_.collector_structured_syslog_port(&structured_syslog_port));
     EXPECT_EQ(structured_syslog_port, 3515);
-    EXPECT_EQ(options_.sandesh_send_rate_limit(), 7);
+    EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 7);
+    EXPECT_TRUE(options_.sandesh_config().disable_object_logs);
 }
 
 TEST_F(OptionsTest, MultitokenVector) {
