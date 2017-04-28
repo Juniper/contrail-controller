@@ -25,9 +25,10 @@ class RouteKSyncObject;
 
 class RouteKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    RouteKSyncEntry(RouteKSyncObject* obj, const RouteKSyncEntry *entry, 
+    RouteKSyncEntry(KSyncObject* obj, const RouteKSyncEntry *entry,
                     uint32_t index);
-    RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *route); 
+    RouteKSyncEntry(KSyncObject* obj, const AgentRoute *route);
+    RouteKSyncEntry(KSyncObject* obj, uint32_t vrf_id, const MacAddress &mac);
     virtual ~RouteKSyncEntry();
 
     uint32_t prefix_len() const { return prefix_len_; }
@@ -42,7 +43,7 @@ public:
     }
     void set_prefix_len(uint32_t len) { prefix_len_ = len; }
     void set_ip(IpAddress addr) { addr_ = addr; }
-    KSyncDBObject *GetObject() const;
+    KSyncObject *GetObject() const;
 
     void FillObjectLog(sandesh_op::type op, KSyncRouteInfo &info) const;
     virtual bool IsLess(const KSyncEntry &rhs) const;
@@ -68,7 +69,7 @@ private:
     const NextHop *GetActiveNextHop(const AgentRoute *route) const;
     const AgentPath *GetActivePath(const AgentRoute *route) const;
 
-    RouteKSyncObject* ksync_obj_;
+    KSyncObject* ksync_obj_;
     Agent::RouteTableType rt_type_;
     uint32_t vrf_id_;
     IpAddress addr_;

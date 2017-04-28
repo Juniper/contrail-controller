@@ -51,7 +51,9 @@ private:
 class KSyncNetlinkDBEntry : public KSyncDBEntry {
 public:
     KSyncNetlinkDBEntry() : KSyncDBEntry() { };
-    KSyncNetlinkDBEntry(uint32_t index) : KSyncDBEntry(index) { };
+    KSyncNetlinkDBEntry(uint32_t index) : KSyncDBEntry(index) { }
+    KSyncNetlinkDBEntry(uint32_t index, bool oper_valid) :
+        KSyncDBEntry(index, oper_valid) { }
     virtual ~KSyncNetlinkDBEntry() { };
 
     // Generate netlink add message for the object

@@ -166,6 +166,7 @@ public:
     void RouteGet(int id) {
         KRouteReq *req = new KRouteReq();
         req->set_vrf_id(id);
+        req->set_family("inet");
         Sandesh::set_response_callback(
             boost::bind(&KStateSandeshTest::RouteResponse, this, _1));
         req->HandleRequest();
@@ -842,9 +843,11 @@ TEST_F(KStateSandeshTest, RouteTest) {
     req1.set_rtr_vrf_id(1);
     req1.set_rtr_prefix(prefix1);
     req1.set_rtr_prefix_len(32);
-    req1.set_rtr_vrf_id(2);
+    req1.set_rtr_family(AF_INET);
+    req2.set_rtr_vrf_id(2);
     req2.set_rtr_prefix(prefix2);
     req2.set_rtr_prefix_len(32);
+    req2.set_rtr_family(AF_INET);
     KSyncSockTypeMap::RouteAdd(req1);
     KSyncSockTypeMap::RouteAdd(req2);
 
@@ -878,6 +881,7 @@ TEST_F(KStateSandeshTest, RouteTest_MultiResponse) {
     vr_route_req req;
     req.set_rtr_vrf_id(10);
     req.set_rtr_prefix_len(32);
+    req.set_rtr_family(AF_INET);
     for(int i = 1; i <= 50; i++) {
         boost::array<unsigned char, 3> bytes = { {0x30, 0x30, 0x30} };
         std::vector<int8_t> prefix(bytes.begin(), bytes.end());

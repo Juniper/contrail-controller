@@ -25,7 +25,6 @@
 #include "vrouter/ksync/interface_ksync.h"
 #include "vrouter/ksync/nexthop_ksync.h"
 #include "vrouter/ksync/route_ksync.h"
-#include "vrouter/ksync/bridge_route_ksync.h"
 
 #include "ksync_init.h"
 #include "vr_types.h"
@@ -35,13 +34,13 @@
 #include "vr_os.h"
 #endif
 
-RouteKSyncEntry::RouteKSyncEntry(KSyncObject* obj,
-                                 const RouteKSyncEntry *entry,
+RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, 
+                                 const RouteKSyncEntry *entry, 
                                  uint32_t index) :
-    KSyncNetlinkDBEntry(index, entry->oper_entry_valid()), ksync_obj_(obj),
-    rt_type_(entry->rt_type_), vrf_id_(entry->vrf_id_),
-    addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_),
-    prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_),
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), 
+    rt_type_(entry->rt_type_), vrf_id_(entry->vrf_id_), 
+    addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_), 
+    prefix_len_(entry->prefix_len_), nh_(entry->nh_), label_(entry->label_), 
     proxy_arp_(false), flood_dhcp_(entry->flood_dhcp_),
     address_string_(entry->address_string_),
     tunnel_type_(entry->tunnel_type_),
@@ -51,7 +50,7 @@ RouteKSyncEntry::RouteKSyncEntry(KSyncObject* obj,
     layer2_control_word_(entry->layer2_control_word_) {
 }
 
-RouteKSyncEntry::RouteKSyncEntry(KSyncObject* obj, const AgentRoute *rt) :
+RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     vrf_id_(rt->vrf_id()), mac_(), nh_(NULL), label_(0), proxy_arp_(false),
     flood_dhcp_(false), tunnel_type_(TunnelType::DefaultType()),
@@ -98,20 +97,10 @@ RouteKSyncEntry::RouteKSyncEntry(KSyncObject* obj, const AgentRoute *rt) :
     address_string_ = rt->GetAddressString();
 }
 
-RouteKSyncEntry::RouteKSyncEntry(KSyncObject* obj, uint32_t vrf_id,
-                                 const MacAddress &mac) :
-    KSyncNetlinkDBEntry(kInvalidIndex, false), ksync_obj_(obj),
-    rt_type_(Agent::BRIDGE), vrf_id_(vrf_id), mac_(mac), nh_(NULL), label_(0),
-    proxy_arp_(false), flood_dhcp_(false),
-    tunnel_type_(TunnelType::DefaultType()), wait_for_traffic_(false),
-    local_vm_peer_route_(false), flood_(false), ethernet_tag_(0),
-    layer2_control_word_(false) {
-}
-
 RouteKSyncEntry::~RouteKSyncEntry() {
 }
 
-KSyncObject *RouteKSyncEntry::GetObject() const {
+KSyncDBObject *RouteKSyncEntry::GetObject() const {
     return ksync_obj_;
 }
 
@@ -153,13 +142,6 @@ bool RouteKSyncEntry::L2IsLess(const KSyncEntry &rhs) const {
 
 bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const RouteKSyncEntry &entry = static_cast<const RouteKSyncEntry &>(rhs);
-    if (!oper_entry_valid()) {
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-
-        return mac_ < entry.mac_;
-    }
     if (rt_type_ != entry.rt_type_)
         return rt_type_ < entry.rt_type_;
 
@@ -203,22 +185,9 @@ std::string RouteKSyncEntry::ToString() const {
     NHKSyncEntry *nexthop;
     nexthop = nh();
 
-    Agent *agent = NULL;
-    RouteKSyncObject *obj = dynamic_cast<RouteKSyncObject *>(ksync_obj_);
-    if (obj) {
-        agent = obj->ksync()->agent();
-    } else {
-        BridgeRouteKSyncObject *obj = dynamic_cast<BridgeRouteKSyncObject *>
-            (ksync_obj_);
-        if (obj) {
-            agent = obj->ksync()->agent();
-        }
-    }
-    VrfEntry *vrf = NULL;
-    if (agent) {
-        vrf = agent->vrf_table()->FindVrfFromId(vrf_id_);
-    }
     s << "Type : " << RouteTypeToString(rt_type_) << " ";
+    const VrfEntry* vrf =
+        ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
     if (vrf) {
         s << "Route Vrf : " << vrf->GetName() << " ";
     }
@@ -282,8 +251,7 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
         (rt_type_ != Agent::INET4_UNICAST))
         return false;
 
-    RouteKSyncObject *obj = static_cast<RouteKSyncObject *>(ksync_obj_);
-    Agent *agent = obj->ksync()->agent();
+    Agent *agent = ksync_obj_->ksync()->agent();
     const InetUnicastRouteEntry *rt =
         static_cast<const InetUnicastRouteEntry *>(e);
 
@@ -401,8 +369,7 @@ const NextHop *RouteKSyncEntry::GetActiveNextHop(const AgentRoute *route) const 
     const AgentPath *path = GetActivePath(route);
     if (path == NULL)
         return NULL;
-    RouteKSyncObject *obj = static_cast<RouteKSyncObject *>(ksync_obj_);
-    return path->ComputeNextHop(obj->ksync()->agent());
+    return path->ComputeNextHop(ksync_obj_->ksync()->agent());
 }
 
 //Returns the usable path.
@@ -415,12 +382,8 @@ const AgentPath *RouteKSyncEntry::GetActivePath(const AgentRoute *route) const {
 }
 
 bool RouteKSyncEntry::Sync(DBEntry *e) {
-    if (!oper_entry_valid()) {
-        return false;
-    }
     bool ret = false;
-    RouteKSyncObject *kobj = static_cast<RouteKSyncObject *>(ksync_obj_);
-    Agent *agent = kobj->ksync()->agent();
+    Agent *agent = ksync_obj_->ksync()->agent();
     const AgentRoute *route = static_cast<AgentRoute *>(e);
 
     const AgentPath *path = GetActivePath(route);
@@ -429,7 +392,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     else
         local_vm_peer_route_ = false;
 
-    NHKSyncObject *nh_object = kobj->ksync()->nh_ksync_obj();
+    NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
     NHKSyncEntry *old_nh = nh();
 
     const NextHop *tmp = NULL;
@@ -478,7 +441,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     }
 
     if (rt_type_ == Agent::INET4_UNICAST || rt_type_ == Agent::INET6_UNICAST) {
-        VrfKSyncObject *obj = kobj->ksync()->vrf_ksync_obj();
+        VrfKSyncObject *obj = ksync_obj_->ksync()->vrf_ksync_obj();
         const InetUnicastRouteEntry *uc_rt =
             static_cast<const InetUnicastRouteEntry *>(e);
         MacAddress mac = MacAddress::ZeroMac();
@@ -647,10 +610,6 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
 
 
 int RouteKSyncEntry::AddMsg(char *buf, int buf_len) {
-    /* Don't send any message to vrouter if we don't have oper object */
-    if (!oper_entry_valid()) {
-        return 0;
-    }
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(Route, GetObject(), info);
@@ -658,10 +617,6 @@ int RouteKSyncEntry::AddMsg(char *buf, int buf_len) {
 }
 
 int RouteKSyncEntry::ChangeMsg(char *buf, int buf_len){
-    /* Don't send any message to vrouter if we don't have oper object */
-    if (!oper_entry_valid()) {
-        return 0;
-    }
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(Route, GetObject(), info);
@@ -749,22 +704,18 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop,
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
-    if (!oper_entry_valid()) {
-        return NULL;
-    }
     NHKSyncEntry *nexthop = nh();
     if (!nexthop->IsResolved()) {
         return nexthop;
     }
 
-    RouteKSyncObject *obj = static_cast<RouteKSyncObject *>(ksync_obj_);
     if ((rt_type_ == Agent::INET4_UNICAST) ||
         (rt_type_ == Agent::INET6_UNICAST)) {
         if (!mac_.IsZero()) {
             //Get Vrf and bridge ksync object
-            VrfKSyncObject *vrf_obj = obj->ksync()->vrf_ksync_obj();
+            VrfKSyncObject *vrf_obj = ksync_obj_->ksync()->vrf_ksync_obj();
             VrfEntry* vrf =
-                obj->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
+                ksync_obj_->ksync()->agent()->vrf_table()->FindVrfFromId(vrf_id_);
             if (vrf) {
                 VrfKSyncObject::VrfState *state =
                     static_cast<VrfKSyncObject::VrfState *>

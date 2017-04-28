@@ -205,8 +205,19 @@ class KSyncDBEntry : public KSyncEntry, public DBState {
 public:
     typedef std::list<DBEntry *> DupEntryList;
 
-    KSyncDBEntry() : KSyncEntry(), DBState() { db_entry_ = NULL; };
-    KSyncDBEntry(uint32_t index) : KSyncEntry(index), DBState() { db_entry_ = NULL; };
+    KSyncDBEntry() : KSyncEntry(), DBState(), db_entry_(NULL),
+        oper_entry_valid_(true) {
+    }
+    KSyncDBEntry(bool oper_valid) : KSyncEntry(), DBState(), db_entry_(NULL),
+        oper_entry_valid_(oper_valid) {
+    }
+    KSyncDBEntry(uint32_t index) : KSyncEntry(index), DBState(),
+        db_entry_(NULL), oper_entry_valid_(true) {
+    }
+    KSyncDBEntry(uint32_t index, bool oper_valid) : KSyncEntry(index),
+        DBState(), db_entry_(NULL), oper_entry_valid_(oper_valid) {
+    }
+
     virtual ~KSyncDBEntry() { assert(dup_entry_list_.empty()); }
 
     // Check if object is in-sync with kernel.
@@ -215,12 +226,14 @@ public:
 
     void SetDBEntry(DBEntry *db_entry) { db_entry_ = db_entry; }
     DBEntry * GetDBEntry() { return db_entry_; }
+    bool oper_entry_valid() const { return oper_entry_valid_; }
 
 private:
     friend class KSyncDBObject;
 
     DBEntry *db_entry_;
     DupEntryList dup_entry_list_;
+    bool oper_entry_valid_;
     DISALLOW_COPY_AND_ASSIGN(KSyncDBEntry);
 };
 
