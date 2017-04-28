@@ -1575,7 +1575,8 @@ class Controller(object):
                 # increment alarm set count here.
                 if not self._alarmstats[part][table_str].has_key(nm):
                     self._alarmstats[part][table_str][nm] = \
-                                            AlarmgenAlarmStats(0, 0)
+                                            AlarmgenAlarmStats(table_str, nm,
+                                                               0, 0, 0)
                 self._alarmstats[part][table_str][nm].set_count += 1
             # These alarm types are now gone
             for dnm in del_types:
@@ -1583,7 +1584,8 @@ class Controller(object):
                     # increment alarm reset count here.
                     if not self._alarmstats[part][table_str].has_key(dnm):
                         self._alarmstats[part][table_str][dnm] = \
-                                                AlarmgenAlarmStats(0, 0)
+                                            AlarmgenAlarmStats(table_str, dnm,
+                                                               0, 0, 0)
                     self._alarmstats[part][table_str][dnm].reset_count += 1
                     delete_alarm = \
                         self.tab_alarms[table][uve_key][dnm].clear_alarms()
@@ -2093,6 +2095,7 @@ class Controller(object):
         s_partitions = set()
         s_keys = set()
         n_updates = 0
+        alarm_stats = {}
         for pk,pc in self._workers.iteritems():
             s_partitions.add(pk)
             din = pc.stats()
@@ -2115,7 +2118,6 @@ class Controller(object):
                         table = ktab,
                         i = None,
                         uve_stats = uve_stats,
-                        alarm_stats = None,
                         sandesh=self._sandesh)
                 self._logger.debug('send output stats: %s' % (au_obj.log()))
                 au_obj.send(sandesh=self._sandesh)
@@ -2143,24 +2145,34 @@ class Controller(object):
                 au_obj.send(sandesh=self._sandesh)
 
             # alarm stats
-            for ktab,tab in alarm_stats_pk.iteritems():
-                alarm_stats = {}
-                for uk,uc in tab.iteritems():
-                    alarm_stats[uk] = AlarmgenAlarmStats(uc.set_count,
-                                                         uc.reset_count)
-
-                au_obj = AlarmgenUpdate(name=self._sandesh._source + ':' + \
-                        self._sandesh._node_type + ':' + \
-                        self._sandesh._module + ':' + \
-                        self._sandesh._instance_id,
-                        partition = pk,
-                        table = ktab,
-                        i = None,
-                        uve_stats = None,
-                        alarm_stats = alarm_stats,
-                        sandesh=self._sandesh)
-                self._logger.debug('send alarm stats: %s' % (au_obj.log()))
-                au_obj.send(sandesh=self._sandesh)
+            # data structure is as follows: _alarmstats[partition][table_name][alarm_name]
+            # we want to collect alarm-stats across partitions
+            for table_name,table_val in alarm_stats_pk.iteritems():
+                if not alarm_stats.has_key(table_name):
+                    alarm_stats[table_name] = {}
+                for alarm_name,alarm_val in table_val.iteritems():
+                    if not alarm_stats[table_name].has_key(alarm_name):
+                        alarm_stats[table_name][alarm_name] \
+                            = AlarmgenAlarmStats(table_name, alarm_name,
+                                                 alarm_val.set_count,
+                                                 alarm_val.reset_count,
+                                                 0)
+                    else:
+                        alarm_stats[table_name][alarm_name].set_count \
+                                += alarm_val.set_count
+                        alarm_stats[table_name][alarm_name].reset_count \
+                                += alarm_val.reset_count
+        # set active alarm count
+        for table_name in self.tab_alarms.keys():
+            for alarm_name in self.tab_alarms[table_name]:
+                if not alarm_stats.has_key(table_name):
+                    alarm_stats[table_name] = {}
+                if not alarm_stats[table_name].has_key(alarm_name):
+                    alarm_stats[table_name][alarm_name] \
+                        = AlarmgenAlarmStats(table_name, alarm_name,
+                                             0, 0, 0)
+                alarm_stats[table_name][alarm_name].active_count \
+                    = len(self.tab_alarms[table_name][alarm_name])
 
         au = AlarmgenStatus()
         au.name = self._hostname
@@ -2168,6 +2180,10 @@ class Controller(object):
         au.alarmgens = []
         ags = AlarmgenStats()
         ags.instance =  self._instance_id
+        ags.table_stats = []
+        for table_name,table in alarm_stats.iteritems():
+            for alarm_name,alarm in alarm_stats[table_name].iteritems():
+                ags.table_stats.append(alarm_stats[table_name][alarm_name])
         ags.partitions = len(s_partitions)
         ags.keys = len(s_keys)
         ags.updates = n_updates

@@ -180,8 +180,11 @@ struct AlarmgenUVEStats {
 }
 
 struct AlarmgenAlarmStats {
-    1: u32                      set_count
-    2: u32                      reset_count
+    1: string                   table_name
+    2: string                   alarm_name
+    3: u32                      set_count       /* count per query interval */
+    4: u32                      reset_count     /* count per query interval */
+    5: u32                      active_count    /* currently active alarms */
 }
 
 /**
@@ -196,8 +199,6 @@ objectlog sandesh AlarmgenUpdate {
     6: list<UVETypeInfo>  i    (tags="partition,table,.collector,.generator,.type")
     /** @display_name:Alarmgen UVE Stats */
     7: map<string,AlarmgenUVEStats>    uve_stats   (tags="partition,table,.__key")
-    /** @display_name:Alarmgen Alarm Stats */
-    8: map<string,AlarmgenAlarmStats>  alarm_stats (tags="partition,table,.__key")
 }
 
 struct AlarmgenStats {
@@ -205,6 +206,8 @@ struct AlarmgenStats {
     2: u32                         partitions
     3: u32                         keys
     4: u64                         updates
+    /** @display_name:Alarmgen Alarm Stats */
+    5: list<AlarmgenAlarmStats> table_stats (tags=".table_name,.alarm_name")
 }
 
 /**
