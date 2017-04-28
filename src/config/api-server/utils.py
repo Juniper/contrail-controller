@@ -100,6 +100,8 @@ def parse_args(args_str):
         'admin_tenant_name': '',
         'insecure': True,
         'cafile': ''
+        'certfile': ''
+        'keyfile': ''
     }
     # cassandra options
     cassandraopts = {
