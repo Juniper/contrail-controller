@@ -78,7 +78,7 @@ class VncPod(VncCommon):
         self._clear_label_to_pod_cache(vm)
         self._set_label_to_pod_cache(new_labels, vm)
 
-    def _get_network(self, pod_id, pod_namespace):
+    def _get_network(self, pod_id, pod_name, pod_namespace):
         """
         Get virtual network to be associated with the pod.
         The heuristics to determine which virtual network to use for the pod
@@ -95,8 +95,13 @@ class VncPod(VncCommon):
 
         # Check for virtual-network configured on the pod.
         pod = PodKM.find_by_name_or_uuid(pod_id)
-        vn_fq_name = pod.get_vn_fq_name()
+        if not pod:
+            self._logger.notice("%s - Pod %s:%s:%s Not Found"
+                "(Might Got Delete Event From K8s)"
+                %(self._name, pod_namespace, pod_name, pod_id))
+            return
 
+        vn_fq_name = pod.get_vn_fq_name()
         ns = self._get_namespace(pod_namespace)
 
         # Check of virtual network configured on the namespace.
@@ -305,14 +310,16 @@ class VncPod(VncCommon):
         if vm:
             self._set_label_to_pod_cache(labels, vm)
             return vm
-        if not vm:
+        else:
             self._check_pod_uuid_change(pod_id, pod_name, pod_namespace)
 
-        vn_obj = self._get_network(pod_id, pod_namespace)
-        vm_obj = self._create_vm(pod_namespace, pod_id, pod_name, labels)
-        vmi_uuid = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj,
-                       vm_vmi)
+        vn_obj = self._get_network(pod_id, pod_name, pod_namespace)
+        if not vn_obj:
+            return
 
+        vm_obj = self._create_vm(pod_namespace, pod_id, pod_name, labels)
+        vmi_uuid = self._create_vmi(pod_name, pod_namespace,
+                vm_obj, vn_obj, vm_vmi)
         vmi = VirtualMachineInterfaceKM.get(vmi_uuid)
 
         if self._is_pod_nested() and vm_vmi:
