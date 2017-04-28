@@ -141,6 +141,8 @@ class DatabaseExim(object):
         # seed zookeeper
         for path_value_ts in json.loads(self.import_data['zookeeper'] or "[]"):
             path = path_value_ts[0]
+            if path.startswith('/zookeeper'):
+                continue
             if path.endswith('/'):
                 path = path[:-1]
             value = path_value_ts[1][0]
