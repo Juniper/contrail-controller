@@ -1365,6 +1365,53 @@ class TestPermissions(test_case.ApiServerTestCase):
         self.assertTrue(ipam1_obj.uuid in net_ipams_seen)
         self.assertTrue(ipam2_obj.uuid in net_ipams_seen)
 
+    def test_bug_1650404(self):
+        """
+        1) Create a VN for Alice and Bob each
+        2) Count of virtual-networks by Alice and Bob should show one VN
+        3) list of virtual-networks by Alice and Bob should show one VN
+        3) count/list of virtual-networks by Admin should show two
+        """
+
+        # cleanup - delete existing VN
+        for user in [self.alice, self.bob, self.admin]:
+            z = user.vnc_lib.resource_list('virtual-network')
+            for vn in z['virtual-networks']:
+                self.admin.vnc_lib.virtual_network_delete(fq_name = vn['fq_name'])
+
+        # create VN for Alice
+        vn_name = "alice-vn-%s" % self.id()
+        vn_fq_name = [self.domain_name, self.alice.project, vn_name]
+        test_vn = VirtualNetwork(vn_name, self.alice.project_obj)
+        self.alice.vnc_lib.virtual_network_create(test_vn)
+
+        # create VN for Bon
+        vn_name = "bob-vn-%s" % self.id()
+        vn_fq_name = [self.domain_name, self.bob.project, vn_name]
+        test_vn = VirtualNetwork(vn_name, self.bob.project_obj)
+        self.bob.vnc_lib.virtual_network_create(test_vn)
+
+        # list/count by Alice should be one
+        z = self.alice.vnc_lib.resource_list('virtual-network')
+        self.assertEquals(len(z['virtual-networks']), 1)
+        result = self.alice.vnc_lib._request_server(
+            rest.OP_GET, '/virtual-networks', data=json.dumps({'count':True}))
+        self.assertEquals(len(result['virtual-networks']), 1)
+
+        # list/count by Bob should be one
+        z = self.bob.vnc_lib.resource_list('virtual-network')
+        self.assertEquals(len(z['virtual-networks']), 1)
+        result = self.bob.vnc_lib._request_server(
+            rest.OP_GET, '/virtual-networks', data=json.dumps({'count':True}))
+        self.assertEquals(len(result['virtual-networks']), 1)
+
+        # list/count by Admin should be two
+        z = self.admin.vnc_lib.resource_list('virtual-network')
+        self.assertEquals(len(z['virtual-networks']), 2)
+        result = self.admin.vnc_lib._request_server(
+            rest.OP_GET, '/virtual-networks', data=json.dumps({'count':True}))
+        self.assertEquals(len(result['virtual-networks']), 2)
+
     def tearDown(self):
         super(TestPermissions, self).tearDown()
     # end tearDown
