@@ -685,7 +685,7 @@ class TestCrud(test_case.ApiServerTestCase):
         # updating a port with allowed address pair should throw an exception
         # when port security enabled is set to false
         port_obj.virtual_machine_interface_allowed_address_pairs = addr_pair
-        with ExpectedException(RefsExistError) as e:
+        with ExpectedException(BadRequest) as e:
             self._vnc_lib.virtual_machine_interface_update(port_obj)
     # end test_port_security_and_allowed_address_pairs
 # end class TestCrud

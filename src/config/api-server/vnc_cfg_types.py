@@ -854,7 +854,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if not port_security and address_pairs is not None:
             msg = "Allowed address pairs are not allowed when port "\
                   "security is disabled"
-            return (False, (409, msg))
+            return (False, (400, msg))
 
         return True, ""
 
