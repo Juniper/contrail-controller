@@ -3742,7 +3742,11 @@ class DBInterface(object):
     @wait_for_api_server_connection
     def port_create(self, context, port_q):
         net_id = port_q['network_id']
-        net_obj = self._network_read(net_id)
+        try:
+            net_obj = self._network_read(net_id)
+        except NoIdError:
+            self._raise_contrail_exception('NetworkNotFound',
+                                           net_id=net_id)
         tenant_id = self._get_tenant_id_for_create(context, port_q);
         proj_id = str(uuid.UUID(tenant_id))
 
