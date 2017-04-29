@@ -228,6 +228,7 @@ class LoadbalancerKM(DBBaseKM):
         self.loadbalancer_listeners = set()
         self.selectors = None
         self.annotations = None
+        self.external_ip = None
         super(LoadbalancerKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
@@ -241,6 +242,11 @@ class LoadbalancerKM(DBBaseKM):
         self.build_fq_name_to_uuid(self.uuid, obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('loadbalancer_listener', obj)
+        if self.annotations:
+            for kvp in self.annotations['key_value_pair'] or []:
+                if kvp['key'] == 'externalIP':
+                    self.external_ip = kvp['value']
+                    break
         return obj
 
     @classmethod
