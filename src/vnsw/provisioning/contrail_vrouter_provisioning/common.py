@@ -413,19 +413,12 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         "/etc/contrail/agent_param.tmpl > agent_param.new"]
                 local(''.join(cmds))
                 local("sudo mv agent_param.new /etc/contrail/agent_param")
-            vmware_dev = ""
-            hypervisor_type = "kvm"
-            mode = ""
-            gateway_mode = ""
-            if self._args.mode == 'vcenter':
-                mode = "vcenter"
+
+            vmware_dev = None
+            gateway_mode = None
+            if (self._args.mode == 'vcenter' or
+                    self._args.hypervisor == 'vmware'):
                 vmware_dev = self.get_secondary_device(self.dev)
-                hypervisor_type = "vmware"
-            if self._args.vmware:
-                vmware_dev = self.get_secondary_device(self.dev)
-                hypervisor_type = "vmware"
-            if self._args.hypervisor == 'docker':
-                hypervisor_type = "docker"
             if compute_ip in gateway_server_list:
                 gateway_mode = "server"
 
@@ -482,7 +475,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             configs = {
                     'DEFAULT': {
                         'platform': platform_mode,
-                        'gateway_mode': gateway_mode,
+                        'gateway_mode': gateway_mode or '',
                         'physical_interface_address': pci_dev,
                         'physical_interface_mac': self.mac,
                         'collectors': collector_servers,
@@ -495,9 +488,10 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         'gateway': self.gateway,
                         'physical_interface': self.dev},
                     'HYPERVISOR': {
-                        'type': hypervisor_type,
-                        'vmware_mode': mode,
-                        'vmware_physical_interface': vmware_dev},
+                        'type': ('kvm' if self._args.hypervisor == 'libvirt'
+                                 else self._args.hypervisor),
+                        'vmware_mode': self._args.mode or '',
+                        'vmware_physical_interface': vmware_dev or ''},
                     'CONTROL-NODE': {
                         'servers': control_servers},
                     'DNS': {
