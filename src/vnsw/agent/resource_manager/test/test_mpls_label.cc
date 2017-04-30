@@ -150,6 +150,43 @@ TEST_F(AgentDbEntry, bug_1680720) {
     delete nh_state;
 }
 
+//Bug# 1681083
+TEST_F(AgentDbEntry, fmg_label_freed_on_no_use_1681083) {
+   struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    //Alloc label
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    agent_->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+
+    //Test
+    //Add fabric group multicast route
+    TunnelOlist olist;
+    Ip4Address sip(0);
+    Ip4Address broadcast(0xFFFFFFFF);
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
+                                       oper_db()->multicast());
+    olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+                                     IpAddress::from_string("8.8.8.8").to_v4(),
+                                     TunnelType::MplsType()));
+    mc_handler->ModifyFabricMembers(agent_->multicast_tree_builder_peer(),
+                                    "vrf1", broadcast, sip, 4100, olist, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(agent_->mpls_table()->FindMplsLabel(4100) != NULL);
+    mc_handler->ModifyFabricMembers(agent_->multicast_tree_builder_peer(),
+                                    "vrf1", broadcast, sip, 4101, olist, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(agent_->mpls_table()->FindMplsLabel(4100) == NULL);
+    EXPECT_TRUE(agent_->mpls_table()->FindMplsLabel(4101) != NULL);
+
+    //Delete label
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, false);

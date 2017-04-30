@@ -442,8 +442,8 @@ void BridgeRouteEntry::DeletePathUsingKeyData(const AgentRouteKey *key,
                 if (force_delete && (path->peer()->GetType() ==
                                      Peer::BGP_PEER)) {
                     delete_path = true;
-                } else if (is_multicast()) {
-                    assert(path->peer()->GetType() == Peer::BGP_PEER); 
+                } else if (is_multicast() &&
+                           (path->peer()->GetType() == Peer::BGP_PEER)) {
                     //BGP peer path uses channel peer unicast sequence number.
                     //If it is stale, then delete same.
                     if (data->CanDeletePath(agent, path, this) == false) {
@@ -644,7 +644,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     AgentPath *tor_peer_path = NULL;
     AgentPath *local_peer_path = NULL;
     bool tor_path = false;
-    uint32_t old_fabric_mpls_label = 0;
 
     const CompositeNH *cnh =
          static_cast<const CompositeNH *>(path->nexthop());
@@ -696,7 +695,6 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         } else if (it_path->peer()->GetType() ==
                    Peer::MULTICAST_FABRIC_TREE_BUILDER) {
             fabric_peer_path = it_path;
-            old_fabric_mpls_label = fabric_peer_path->label();
         } else if (it_path->peer() == agent->multicast_peer()) {
             multicast_peer_path = it_path;
         } else if (it_path->peer() == agent->local_peer()) {
@@ -735,9 +733,18 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
 
     bool learning_enabled = false;
     bool pbb_nh = false;
+    uint32_t old_fabric_mpls_label = 0;
     if (multicast_peer_path == NULL) {
         multicast_peer_path = new AgentPath(agent->multicast_peer(), NULL);
         InsertPath(multicast_peer_path);
+    } else {
+        //Multicast peer path can have evpn or fabric label.
+        //Identify using isfabricmulticastlabel.
+        if (agent->mpls_table()->
+             IsFabricMulticastLabel(multicast_peer_path->label()))
+        {
+            old_fabric_mpls_label = multicast_peer_path->label();
+        }
     }
 
     ComponentNHKeyList component_nh_list;
