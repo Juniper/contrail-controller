@@ -92,6 +92,8 @@ env.Alias('install', env.Install(env['INSTALL_CONF'],
     'supervisord_issu.conf'))
 env.Alias('install', env.Install(env['INSTALL_CONF']+
     '/supervisord_issu_files', 'contrail-issu-run-sync.ini'))
+env.Alias('install', env.InstallAs( env['INSTALL_SYSTEMD'] +
+    '/contrail-issu-run-sync.service', 'systemd/contrail-issu-run-sync.service'))
 # Local Variables:
 # mode: python
 # End:

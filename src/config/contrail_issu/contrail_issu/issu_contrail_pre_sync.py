@@ -13,7 +13,7 @@ def _issu_cassandra_pre_sync_main():
 
     logging.basicConfig(
         level=logging.INFO,
-        filename='/var/log/issu_contrail_pre_sync.log',
+        filename='/var/log/contrail/issu_contrail_pre_sync.log',
         format='%(asctime)s %(message)s')
 
     args, remaining_args = issu_contrail_config.parse_args()

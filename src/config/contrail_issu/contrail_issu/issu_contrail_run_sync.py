@@ -41,13 +41,21 @@ class ICKombuClient(VncKombuClient):
                                             q_name, subscribe_cb, logger)
 
     def _act_on_api(self, action):
-        cmd = '%s %s' % ("docker exec -i controller service contrail-control", action)
-        self.logger(cmd, level=SandeshLevel.SYS_INFO)
+        cmd1 = 'docker exec -i controller service contrail-control %s' % (action)
+        cmd2 = 'docker exec -i controller systemctl %s contrail-control' % (action)
+
         for addr, clist in self._new_api_info.items():
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(addr, username=clist[0], password=clist[1])
-            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd)
+            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command('lsb_release -sr')
+            val = ssh_stdout.readlines()
+            if str(val[0]).split('.')[0] == '14':
+                self.logger(cmd1, level=SandeshLevel.SYS_INFO)
+                ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd1)
+            else:
+                self.logger(cmd2, level=SandeshLevel.SYS_INFO)
+                ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(cmd2)
             exit_status = ssh_stdout.channel.recv_exit_status()
             self.logger(exit_status, level=SandeshLevel.SYS_INFO)
             ssh_cmd_dict = ssh_stdout.readlines()
@@ -131,7 +139,7 @@ class ICRMQMain():
 def _issu_rmq_main():
     # Create Instance of cassandra info
     logging.basicConfig(level=logging.INFO,
-                        filename='/var/log/issu_contrail_run_sync.log',
+                        filename='/var/log/contrail/issu_contrail_run_sync.log',
                         format='%(asctime)s %(message)s')
     args, remaining_args = issu_contrail_config.parse_args()
     new_cassandra_info = ICCassandraInfo(

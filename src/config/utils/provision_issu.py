@@ -92,7 +92,7 @@ class ISSUContrailPostProvisioner(object):
         )
         parser.set_defaults(**defaults)
 
-        group.add_argument(
+        parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument("--api_server_use_ssl",
