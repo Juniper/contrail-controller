@@ -39,7 +39,7 @@ using namespace autogen;
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     Interface(Interface::VM_INTERFACE, uuid, "", NULL), vm_(NULL, this),
-    vn_(NULL), primary_ip_addr_(0), mdata_ip_(NULL), subnet_bcast_addr_(0),
+    vn_(NULL), primary_ip_addr_(0), subnet_bcast_addr_(0),
     primary_ip6_addr_(), vm_mac_(MacAddress::kZeroMac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), drop_new_flows_(false),
@@ -49,9 +49,16 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL, this),
     local_preference_(0), oper_dhcp_options_(),
+    mac_vm_binding_state_(new MacVmBindingState()),
+    nexthop_state_(new NextHopState()),
+    vrf_table_label_state_(new VrfTableLabelState()),
+    metadata_ip_state_(new MetaDataIpState()),
+    resolve_route_state_(new ResolveRouteState()),
+    interface_route_state_(new VmiRouteState()),
     sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
-    static_route_list_(), allowed_address_pair_list_(), fat_flow_list_(),
-    vrf_assign_rule_list_(), vrf_assign_acl_(NULL), vm_ip_service_addr_(0),
+    static_route_list_(), allowed_address_pair_list_(),
+    instance_ipv4_list_(true), instance_ipv6_list_(false), fat_flow_list_(),
+    vrf_assign_rule_list_(), vm_ip_service_addr_(0),
     device_type_(VmInterface::DEVICE_TYPE_INVALID),
     vmi_type_(VmInterface::VMI_TYPE_INVALID),
     configurer_(0), subnet_(0), subnet_plen_(0), ethernet_tag_(0),
@@ -64,10 +71,6 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
-    l3_interface_nh_policy_.reset();
-    l2_interface_nh_policy_.reset();
-    l3_interface_nh_no_policy_.reset();
-    l2_interface_nh_no_policy_.reset();
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -79,7 +82,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          Interface *parent, const Ip6Address &a6,
                          DeviceType device_type, VmiType vmi_type) :
     Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL, this),
-    vn_(NULL), primary_ip_addr_(addr), mdata_ip_(NULL), subnet_bcast_addr_(0),
+    vn_(NULL), primary_ip_addr_(addr), subnet_bcast_addr_(0),
     primary_ip6_addr_(a6), vm_mac_(mac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
     fabric_port_(true), need_linklocal_ip_(false), drop_new_flows_(false),
@@ -90,9 +93,16 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent, this),
     local_preference_(0), oper_dhcp_options_(),
+    mac_vm_binding_state_(new MacVmBindingState()),
+    nexthop_state_(new NextHopState()),
+    vrf_table_label_state_(new VrfTableLabelState()),
+    metadata_ip_state_(new MetaDataIpState()),
+    resolve_route_state_(new ResolveRouteState()),
+    interface_route_state_(new VmiRouteState()),
     sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
-    static_route_list_(), allowed_address_pair_list_(), vrf_assign_rule_list_(),
-    vrf_assign_acl_(NULL), device_type_(device_type),
+    static_route_list_(), allowed_address_pair_list_(),
+    instance_ipv4_list_(true), instance_ipv6_list_(false), fat_flow_list_(),
+    vrf_assign_rule_list_(), device_type_(device_type),
     vmi_type_(vmi_type), configurer_(0), subnet_(0),
     subnet_plen_(0), ethernet_tag_(0), logical_interface_(nil_uuid()),
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
@@ -106,7 +116,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
 }
 
 VmInterface::~VmInterface() {
-    mdata_ip_.reset(NULL);
+    // Release metadata first to ensure metadata_ip_map_ is empty
+    metadata_ip_state_.reset(NULL);
     assert(metadata_ip_map_.empty());
     assert(hc_instance_set_.empty());
 }
@@ -201,19 +212,11 @@ bool VmInterface::Resync(const InterfaceTable *table,
     bool old_l2_active = l2_active_;
     bool old_policy = policy_enabled_;
     VrfEntryRef old_vrf = vrf_;
-    Ip4Address old_addr = primary_ip_addr_;
-    Ip6Address old_v6_addr = primary_ip6_addr_;
-    bool old_need_linklocal_ip = need_linklocal_ip_;
     bool force_update = false;
     Ip4Address old_subnet = subnet_;
     uint8_t  old_subnet_plen = subnet_plen_;
-    int old_ethernet_tag = ethernet_tag_;
-    bool old_dhcp_enable = dhcp_enable_;
-    bool old_layer3_forwarding = layer3_forwarding_;
-    Ip4Address old_dhcp_addr = dhcp_addr_;
     bool old_metadata_ip_active = metadata_ip_active_;
     bool old_metadata_l2_active = metadata_l2_active_;
-    bool old_bridging = bridging_;
 
     if (data) {
         ret = data->OnResync(table, this, &force_update);
@@ -255,117 +258,151 @@ bool VmInterface::Resync(const InterfaceTable *table,
         ret = true;
     }
 
-    // Apply config based on old and new values
-    ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
-                old_addr, old_ethernet_tag, old_need_linklocal_ip,
-                old_ipv6_active, old_v6_addr, old_subnet, old_subnet_plen,
-                old_dhcp_enable, old_layer3_forwarding, force_update,
-                old_dhcp_addr, old_metadata_ip_active, old_bridging);
+    //Update DHCP and DNS flag in Interface Class.
+    if (dhcp_enable_) {
+        dhcp_enabled_ = true;
+        dns_enabled_ = true;
+    } else {
+        dhcp_enabled_ = false;
+        dns_enabled_ = false;
+    }
 
+    // Compute service-ip for the interface
+    vm_ip_service_addr_ = GetServiceIp(primary_ip_addr()).to_v4();
+
+    // Add/Update L2 
+    if (l2_active_) {
+        UpdateL2();
+    }
+
+    // Apply config based on old and new values
+    ApplyConfig(old_ipv4_active, old_l2_active, old_ipv6_active,
+                old_subnet, old_subnet_plen);
     return ret;
 }
 
 // Apply the latest configuration
 void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
-                              bool old_policy, VrfEntry *old_vrf,
-                              const Ip4Address &old_addr,
-                              int old_ethernet_tag, bool old_need_linklocal_ip,
                               bool old_ipv6_active,
-                              const Ip6Address &old_v6_addr,
                               const Ip4Address &old_subnet,
-                              uint8_t old_subnet_plen,
-                              bool old_dhcp_enable,
-                              bool old_layer3_forwarding,
-                              bool force_update,
-                              const Ip4Address &old_dhcp_addr,
-                              bool old_metadata_ip_active,
-                              bool old_bridging) {
+                              uint8_t old_subnet_plen) {
+    VmInterfaceState::Op l2_force_op = VmInterfaceState::INVALID;
+    VmInterfaceState::Op l3_force_op = VmInterfaceState::INVALID;
 
-    //For SRIOV we dont generate any things lile l2 routes, l3 routes
-    //etc
+    // For SRIOV we dont generate any things like l2 routes, l3 routes etc
     if (device_type_ == VmInterface::VM_SRIOV) {
-        return;
+        l2_force_op = VmInterfaceState::DEL;
+        l3_force_op = VmInterfaceState::DEL;
     }
 
-    // Appy common changes first
-    //DHCP MAC IP binding
-    ApplyMacVmBindingConfig(old_vrf, old_l2_active,  old_dhcp_enable);
-    //Security Group update
-    if (IsActive()) {
-        UpdateSecurityGroup();
-        UpdateFatFlow();
-        UpdateBridgeDomain();
-    } else {
-        DeleteSecurityGroup();
-        DeleteFatFlow();
-        DeleteBridgeDomain();
+    /////////////////////////////////////////////////////////////////////////
+    // PHASE-1 Updates follows.
+    //
+    // Changes independnt of any state
+    // NOTE: Dont move updates below across PHASE-1 block
+    /////////////////////////////////////////////////////////////////////////
+
+    // DHCP MAC IP binding
+    UpdateState(mac_vm_binding_state_.get(), l2_force_op, l3_force_op);
+
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    // Security Group
+    sg_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
+
+    // Fat flow configuration
+    fat_flow_list_.UpdateList(agent, this);
+
+    // Bridge Domain configuration
+    bridge_domain_list_.Update(agent, this);
+    if (bridge_domain_list_.list_.size() == 0) {
+        pbb_interface_ = false;
     }
 
-    //Need not apply config for TOR VMI as it is more of an inidicative
-    //interface. No route addition or NH addition happens for this interface.
-    //Also, when parent is not updated for a non-Nova interface, device type
-    //remains invalid.
+    // NOTE : The updates are independnt of any state and agent-mode. They
+    // must not move beyond this part
+
+    // Need not apply config for TOR VMI as it is more of an inidicative
+    // interface. No route addition or NH addition happens for this interface.
+    // Also, when parent is not updated for a non-Nova interface, device type
+    // remains invalid.
     if ((device_type_ == VmInterface::TOR ||
          device_type_ == VmInterface::DEVICE_TYPE_INVALID) &&
-        (old_subnet.is_unspecified() && old_subnet_plen == 0)) {
+         (old_subnet.is_unspecified() && old_subnet_plen == 0)) {
+        // TODO : Should force_op be set to VmInterfaceState::DEL instead?
         return;
     }
 
-    bool policy_change = (policy_enabled_ != old_policy);
+    /////////////////////////////////////////////////////////////////////////
+    // PHASE-2 Updates follows.
+    //
+    // Appy changes independent of L2/L3 modes first
+    // NOTE: Dont move updates below across PHASE-2 block
+    /////////////////////////////////////////////////////////////////////////
 
-    if (vrf_ && vmi_type() == GATEWAY) {
-        vrf_->CreateTableLabel(false, false, false, false);
-    }
+    // Update VRF Table Label
+    UpdateState(vrf_table_label_state_.get(), l2_force_op, l3_force_op);
 
-    //Update common prameters
-    if (IsActive()) {
-        UpdateCommonNextHop(force_update);
-    }
+    // Update NextHop parameters
+    UpdateState(nexthop_state_.get(), l2_force_op, l3_force_op);
+    GetNextHopInfo();
+
     // Add/Update L3 Metadata
-    if (metadata_ip_active_) {
-        UpdateL3MetadataIp(old_vrf, force_update, policy_change,
-                           old_metadata_ip_active);
+    UpdateState(metadata_ip_state_.get(), l2_force_op, l3_force_op);
+
+    /////////////////////////////////////////////////////////////////////////
+    // PHASE-3 Updates follows.
+    //
+    // Updates dependent on l2-active state and healtch-check-state
+    // NOTE : Dont move updates below across PHASE-3
+    /////////////////////////////////////////////////////////////////////////
+
+    // Dont add any l2-states if l2 is not active
+    if (device_type() == VmInterface::TOR ||
+        device_type() == VmInterface::DEVICE_TYPE_INVALID) {
+        l2_force_op = VmInterfaceState::DEL;
+    }
+    if (l2_active_ == false || is_hc_active_ == false) {
+        l2_force_op = VmInterfaceState::DEL;
     }
 
-    // Add/Del/Update L3 
-    if ((ipv4_active_ || ipv6_active_) && layer3_forwarding_) {
-        UpdateL3(old_ipv4_active, old_vrf, old_addr, old_ethernet_tag,
-                 force_update, policy_change, old_ipv6_active, old_v6_addr,
-                 old_subnet, old_subnet_plen, old_dhcp_addr);
-    } else {
-        DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip,
-                 old_ipv6_active, old_v6_addr, old_subnet, old_subnet_plen,
-                 old_ethernet_tag, old_dhcp_addr,
-                 (force_update || policy_change));
-    }
+    // Add EVPN and L3 route for do_dhcp_relay_ before instance-ip routes
+    UpdateState(interface_route_state_.get(), l2_force_op, l3_force_op);
 
-    // Del L3 Metadata after deleting L3
-    if (!metadata_ip_active_ && old_metadata_ip_active) {
-        DeleteL3MetadataIp(old_vrf, force_update, policy_change,
-                           old_metadata_ip_active, old_need_linklocal_ip);
-    }
+    // Add/Update L3/L2 routes routes resulting from instance-ip
+    instance_ipv4_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
 
-    // Add/Update L2 
-    if (l2_active_) {
-        UpdateL2(old_l2_active, policy_change);
-    }
+    // Add/Update L3/L2 routes routes resulting from instance-ip
+    instance_ipv6_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
 
-    if (InstallBridgeRoutes()) {
-        UpdateBridgeRoutes(old_l2_active, old_vrf, old_ethernet_tag,
-                           force_update, policy_change, old_addr, old_v6_addr,
-                           old_layer3_forwarding);
-    } else {
-        DeleteBridgeRoutes(old_l2_active, old_vrf, old_ethernet_tag,
-                           old_addr, old_v6_addr, old_layer3_forwarding,
-                           (force_update || policy_change));
-    }
+    // Update floating-ip related configuration
+    floating_ip_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
 
-    // Delete L2
-    if (!l2_active_ && old_l2_active) {
-        DeleteL2(old_l2_active);
-    }
+    alias_ip_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
 
-    UpdateFlowKeyNextHop();
+    UpdateState(resolve_route_state_.get(), l2_force_op, l3_force_op);
+
+    static_route_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
+
+    service_vlan_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
+
+    vrf_assign_rule_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
+
+    allowed_address_pair_list_.UpdateList(agent, this, l2_force_op,
+                                          l3_force_op);
+
+    /////////////////////////////////////////////////////////////////////////
+    // PHASE-3 Updates follows.
+    // Only cleanup and deletes follow below
+    //
+    // NOTE : Dont move updates below across PHASE-3
+    /////////////////////////////////////////////////////////////////////////
+
+    // Del L3 Metadata after deleting L3 information
+    DeleteState(metadata_ip_state_.get());
+
+    // Delete NextHop if inactive
+    DeleteState(nexthop_state_.get());
+    GetNextHopInfo();
 
     // Remove floating-ip entries marked for deletion
     CleanupFloatingIpList();
@@ -373,9 +410,6 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     // Remove Alias-ip entries marked for deletion
     CleanupAliasIpList();
 
-    if (!IsActive()) {
-        DeleteCommonNextHop();
-    }
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     if (old_l2_active != l2_active_) {
         if (l2_active_) {
@@ -402,509 +436,11 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     }
 }
 
-/*
- * L2 nexthops:
- * These L2 nexthop are used by multicast and bridge.
- * Presence of multicast forces it to be present in
- * ipv4 mode(l3-only).
- *
- * L3 nexthops:
- * Also creates L3 interface NH, if layer3_forwarding is set.
- * It does not depend on oper state of ip forwarding.
- * Needed as health check can disable oper ip_active and will result in flow key
- * pointing to L2 interface NH. This has to be avoided as interface still points
- * to l3 nh and flow should use same. For this fix it is also required that l3
- * i/f nh is also created on seeing config and not oper state of l3. Reason
- * being if vmi(irrespective of health check) is coming up and transitioning
- * from ipv4_inactive to ip4_active and during this transition a flow is added
- * then flow_key in vmi will return null because l3 config is set and interface
- * nh not created yet.
- */
-void VmInterface::UpdateCommonNextHop(bool force_update) {
-    UpdateL2NextHop(force_update);
-    UpdateL3NextHop();
-}
-
-void VmInterface::DeleteCommonNextHop() {
-    DeleteL2NextHop();
-    DeleteL3NextHop();
-}
-
-void VmInterface::UpdateL3MetadataIp(VrfEntry *old_vrf, bool force_update,
-                                     bool policy_change,
-                                     bool old_metadata_ip_active) {
-    assert(metadata_ip_active_);
-    UpdateMetadataRoute(old_metadata_ip_active, old_vrf);
-}
-
-// Delete meta-data route
-void VmInterface::DeleteMetadataRoute(bool old_active, VrfEntry *old_vrf,
-                                      bool old_need_linklocal_ip) {
-    if (!old_need_linklocal_ip) {
-        return;
-    }
-    if (mdata_ip_.get() != NULL) {
-        mdata_ip_->set_active(false);
-    }
-}
-
-void VmInterface::DeleteL3MetadataIp(VrfEntry *old_vrf, bool force_update,
-                                     bool policy_change,
-                                     bool old_metadata_ip_active,
-                                     bool old_need_linklocal_ip) {
-    assert(!metadata_ip_active_);
-    DeleteL3TunnelId();
-    DeleteMetadataRoute(old_metadata_ip_active, old_vrf,
-                        old_need_linklocal_ip);
-}
-
-void VmInterface::UpdateFlowKeyNextHop() {
-    if (!IsActive()) {
-        flow_key_nh_.reset();
-        return;
-    }
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    Agent *agent = table->agent();
-
-    //If Layer3 forwarding is configured irrespective of ipv4/v6 status,
-    //flow_key_nh should be l3 based.
-    if (layer3_forwarding()) {
-        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                              GetUuid(), ""),
-                           true, InterfaceNHFlags::INET4, vm_mac_);
-        flow_key_nh_ = static_cast<const NextHop *>(
-                agent->nexthop_table()->FindActiveEntry(&key));
-        return;
-    }
-
-    //L2 mode is identified if layer3_forwarding is diabled.
-    InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                          GetUuid(), ""),
-                       true, InterfaceNHFlags::BRIDGE, vm_mac_);
-    flow_key_nh_ = static_cast<const NextHop *>
-        (agent->nexthop_table()->FindActiveEntry(&key));
-}
-
-void VmInterface::ApplyMacVmBindingConfig(const VrfEntry *old_vrf,
-                                          bool old_active,
-                                          bool old_dhcp_enable) {
-    if (!IsActive() || old_vrf != vrf()) {
-        DeleteMacVmBinding(old_vrf);
-    }
-
-    //Update DHCP and DNS flag in Interface Class.
-    if (dhcp_enable_) {
-        dhcp_enabled_ = true;
-        dns_enabled_ = true;
-    } else {
-        dhcp_enabled_ = false;
-        dns_enabled_ = false;
-    }
-
-    if (!IsActive())
-        return;
-
-    UpdateMacVmBinding();
-}
-
-void VmInterface::UpdateMacVmBinding() {
-    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-        (vrf_->GetBridgeRouteTable());
-    Agent *agent = table->agent();
-    table->AddMacVmBindingRoute(agent->mac_vm_binding_peer(), vrf_->GetName(),
-                                vm_mac_, this);
-}
-
-void VmInterface::DeleteMacVmBinding(const VrfEntry *old_vrf) {
-    if (old_vrf == NULL)
-        return;
-    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-        (old_vrf->GetBridgeRouteTable());
-    if (table == NULL)
-        return;
-    Agent *agent = table->agent();
-    table->DeleteMacVmBindingRoute(agent->mac_vm_binding_peer(),
-                                   old_vrf->GetName(), vm_mac_, this);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// L3 related routines
-/////////////////////////////////////////////////////////////////////////////
-void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
-                           const Ip4Address &old_addr, int old_ethernet_tag,
-                           bool force_update, bool policy_change,
-                           bool old_ipv6_active,
-                           const Ip6Address &old_v6_addr,
-                           const Ip4Address &old_subnet,
-                           const uint8_t old_subnet_plen,
-                           const Ip4Address &old_dhcp_addr) {
-    if (ipv4_active_) {
-        if (do_dhcp_relay_) {
-            UpdateIpv4InterfaceRoute(old_ipv4_active,
-                                     force_update||policy_change, old_vrf,
-                                     old_dhcp_addr);
-        }
-        UpdateIpv4InstanceIp(force_update, policy_change, false,
-                             old_ethernet_tag, old_vrf);
-        UpdateFloatingIp(force_update, policy_change, false, old_ethernet_tag);
-        UpdateAliasIp(force_update, policy_change);
-        UpdateResolveRoute(old_ipv4_active, force_update, policy_change, 
-                           old_vrf, old_subnet, old_subnet_plen);
-    }
-    if (ipv6_active_) {
-        UpdateIpv6InstanceIp(force_update, policy_change, false,
-                             old_ethernet_tag);
-    }
-    UpdateServiceVlan(force_update, policy_change, old_ipv4_active,
-                      old_ipv6_active);
-    UpdateAllowedAddressPair(force_update, policy_change, false, false, false);
-    UpdateVrfAssignRule();
-    UpdateStaticRoute(force_update||policy_change);
-}
-
-void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
-                           const Ip4Address &old_addr,
-                           bool old_need_linklocal_ip, bool old_ipv6_active,
-                           const Ip6Address &old_v6_addr,
-                           const Ip4Address &old_subnet,
-                           const uint8_t old_subnet_plen,
-                           int old_ethernet_tag,
-                           const Ip4Address &old_dhcp_addr,
-                           bool force_update) {
-    // trigger delete instance ip v4/v6 unconditionally, it internally
-    // handles cases where delete is already processed
-    DeleteIpv4InstanceIp(false, old_ethernet_tag, old_vrf, force_update);
-    DeleteIpv4InstanceIp(true, old_ethernet_tag, old_vrf, force_update);
-    DeleteIpv6InstanceIp(false, old_ethernet_tag, old_vrf, force_update);
-    DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf, force_update);
-
-    if (old_ipv4_active) {
-        if (old_dhcp_addr != Ip4Address(0)) {
-            DeleteIpv4InterfaceRoute(old_vrf, old_dhcp_addr);
-        }
-    }
-    // Process following deletes only if any of old ipv4 or ipv6
-    // was active
-    if ((old_ipv4_active || old_ipv6_active)) {
-        DeleteFloatingIp(false, old_ethernet_tag);
-        DeleteAliasIp();
-        DeleteServiceVlan();
-        DeleteStaticRoute();
-        DeleteAllowedAddressPair(false);
-        DeleteVrfAssignRule();
-        DeleteResolveRoute(old_vrf, old_subnet, old_subnet_plen);
-    }
-
-}
-
-void VmInterface::UpdateL3NextHop() {
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    Agent *agent = table->agent();
-    //layer3_forwarding config is not set, so delete as i/f is active.
-    if (!layer3_forwarding_) {
-        if ((l3_interface_nh_policy_.get() != NULL) ||
-            (l3_interface_nh_no_policy_.get() != NULL)) {
-            DeleteL3NextHop();
-        }
-        return;
-    }
-
-    InterfaceNH::CreateL3VmInterfaceNH(GetUuid(), vm_mac_, vrf_->GetName(),
-                                       learning_enabled_);
-    InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, GetUuid(),
-                                           ""),
-                        true, InterfaceNHFlags::INET4, vm_mac_);
-    l3_interface_nh_policy_ =
-        static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key1));
-    InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, GetUuid(),
-                                           ""),
-                        false, InterfaceNHFlags::INET4, vm_mac_);
-    l3_interface_nh_no_policy_ =
-        static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key2));
-
-    bool new_entry = false;
-    if (label_ == MplsTable::kInvalidLabel) {
-        new_entry = true;
-    }
-
-    // Update L3 mpls label from nh entry
-    if (policy_enabled()) {
-        label_ = l3_interface_nh_policy_->mpls_label()->label();
-    } else {
-        label_ = l3_interface_nh_no_policy_->mpls_label()->label();
-    }
-
-    if (new_entry) {
-        UpdateMetaDataIpInfo();
-    }
-}
-
-void VmInterface::DeleteL3NextHop() {
-    InterfaceNH::DeleteL3InterfaceNH(GetUuid(), vm_mac_);
-    l3_interface_nh_policy_.reset();
-    l3_interface_nh_no_policy_.reset();
-}
-
-// Add/Update route. Delete old route if VRF or address changed
-void VmInterface::UpdateIpv4InterfaceRoute(bool old_ipv4_active,
-                                           bool force_update,
-                                           VrfEntry * old_vrf,
-                                           const Ip4Address &old_addr) {
-    Ip4Address ip = GetServiceIp(primary_ip_addr_).to_v4();
-
-    // If interface was already active earlier and there is no force_update or
-    // policy_change, return
-    if (old_ipv4_active == true && force_update == false
-        && old_addr == primary_ip_addr_ &&
-        vm_ip_service_addr_ == ip) {
-        return;
-    }
-
-    // We need to have valid IP and VRF to add route
-    if (primary_ip_addr_.to_ulong() != 0 && vrf_.get() != NULL) {
-        // Add route if old was inactive or force_update is set
-        if (old_ipv4_active == false || force_update == true ||
-            old_addr != primary_ip_addr_ || vm_ip_service_addr_ != ip) {
-            vm_ip_service_addr_ = ip;
-            AddRoute(vrf_->GetName(), primary_ip_addr_, 32, vn_->GetName(),
-                     false, ecmp_, false, false, vm_ip_service_addr_,
-                     Ip4Address(0), CommunityList(), label_);
-        }
-    }
-
-    // If there is change in VRF or IP address, delete old route
-    if (old_vrf != vrf_.get() || primary_ip_addr_ != old_addr) {
-        DeleteIpv4InterfaceRoute(old_vrf, old_addr);
-    }
-}
-
-void VmInterface::DeleteIpv4InterfaceRoute(VrfEntry *old_vrf,
-                                           const Ip4Address &old_addr) {
-    if ((old_vrf == NULL) || (old_addr.to_ulong() == 0))
-        return;
-
-    DeleteRoute(old_vrf->GetName(), old_addr, 32);
-}
-
-void VmInterface::UpdateResolveRoute(bool old_ipv4_active, bool force_update,
-                                     bool policy_change, VrfEntry * old_vrf,
-                                     const Ip4Address &old_addr,
-                                     uint8_t old_plen) {
-    if (old_ipv4_active == true && force_update == false
-        && policy_change == false && old_addr == subnet_ &&
-        subnet_plen_ == old_plen) {
-        return;
-    }
-
-    if (old_vrf && (old_vrf != vrf_.get() || 
-        old_addr != subnet_ ||
-        subnet_plen_ != old_plen)) {
-        DeleteResolveRoute(old_vrf, old_addr, old_plen);
-    }
-
-    if (subnet_.to_ulong() != 0 && vrf_.get() != NULL && vn_.get() != NULL) {
-        SecurityGroupList sg_id_list;
-        CopySgIdList(&sg_id_list);
-        VmInterfaceKey vm_intf_key(AgentKey::ADD_DEL_CHANGE, GetUuid(), "");
-
-        InetUnicastAgentRouteTable::AddResolveRoute
-            (peer_.get(), vrf_->GetName(),
-             Address::GetIp4SubnetAddress(subnet_, subnet_plen_), subnet_plen_,
-             vm_intf_key, vrf_->table_label(), policy_enabled_, vn_->GetName(),
-             sg_id_list);
-    }
-}
-
-void VmInterface::DeleteResolveRoute(VrfEntry *old_vrf,
-                                     const Ip4Address &old_addr,
-                                     const uint8_t plen) {
-    DeleteRoute(old_vrf->GetName(), old_addr, plen);
-}
-
-void VmInterface::UpdateIpv4InstanceIp(bool force_update, bool policy_change,
-                                       bool l2, uint32_t old_ethernet_tag,
-                                       VrfEntry *old_vrf) {
-    if (l2 && old_ethernet_tag != ethernet_tag()) {
-        force_update = true;
-    }
-
-    InstanceIpSet::iterator it = instance_ipv4_list_.list_.begin();
-    while (it != instance_ipv4_list_.list_.end()) {
-        InstanceIpSet::iterator prev = it++;
-        if (prev->del_pending_) {
-            prev->DeActivate(this, l2, vrf(), old_ethernet_tag);
-            if (prev->installed() == false) {
-                instance_ipv4_list_.list_.erase(prev);
-            }
-        } else {
-            if (old_vrf && (old_vrf != vrf())) {
-                prev->DeActivate(this, l2, old_vrf, old_ethernet_tag);
-            }
-            prev->Activate(this, force_update||policy_change, l2,
-                           old_ethernet_tag);
-        }
-    }
-}
-
-void VmInterface::DeleteIpv4InstanceIp(bool l2, uint32_t old_ethernet_tag,
-                                       VrfEntry *old_vrf_entry,
-                                       bool force_update) {
-    if (l2 && old_ethernet_tag != ethernet_tag()) {
-        force_update = true;
-    }
-
-    InstanceIpSet::iterator it = instance_ipv4_list_.list_.begin();
-    while (it != instance_ipv4_list_.list_.end()) {
-        InstanceIpSet::iterator prev = it++;
-        if (prev->is_service_health_check_ip_) {
-            // for service health check instance ip do not withdraw
-            // the route till it is marked del_pending
-            // interface itself is not active
-            bool interface_active = false;
-            if (l2) {
-                interface_active = metadata_l2_active_;
-            } else {
-                interface_active = metadata_ip_active_;
-            }
-            if (!prev->del_pending_ && interface_active) {
-                prev->Activate(this, force_update, l2,
-                               old_ethernet_tag);
-                continue;
-            }
-        }
-        prev->DeActivate(this, l2, old_vrf_entry, old_ethernet_tag);
-        if (prev->del_pending_ && prev->installed() == false) {
-            instance_ipv4_list_.list_.erase(prev);
-        }
-    }
-}
-
-void VmInterface::UpdateIpv6InstanceIp(bool force_update, bool policy_change,
-                                       bool l2, uint32_t old_ethernet_tag) {
-    if (l2 && old_ethernet_tag != ethernet_tag()) {
-        force_update = true;
-    }
-
-    InstanceIpSet::iterator it = instance_ipv6_list_.list_.begin();
-    while (it != instance_ipv6_list_.list_.end()) {
-        InstanceIpSet::iterator prev = it++;
-        if (prev->del_pending_) {
-            prev->DeActivate(this, l2, vrf(), old_ethernet_tag);
-            if (prev->installed() == false) {
-                instance_ipv6_list_.list_.erase(prev);
-            }
-        } else {
-            prev->Activate(this, force_update||policy_change, l2,
-                           old_ethernet_tag);
-        }
-    }
-}
-
-void VmInterface::DeleteIpv6InstanceIp(bool l2, uint32_t old_ethernet_tag,
-                                       VrfEntry *old_vrf_entry,
-                                       bool force_update) {
-    if (l2 && old_ethernet_tag != ethernet_tag()) {
-        force_update = true;
-    }
-
-    InstanceIpSet::iterator it = instance_ipv6_list_.list_.begin();
-    while (it != instance_ipv6_list_.list_.end()) {
-        InstanceIpSet::iterator prev = it++;
-        if (prev->is_service_health_check_ip_) {
-            // for service health check instance ip do not withdraw
-            // the route till it is marked del_pending
-            // interface itself is not active
-            bool interface_active = false;
-            if (l2) {
-                interface_active = metadata_l2_active_;
-            } else {
-                interface_active = metadata_ip_active_;
-            }
-            if (!prev->del_pending_ && interface_active) {
-                prev->Activate(this, force_update, l2,
-                               old_ethernet_tag);
-                continue;
-            }
-        }
-        prev->DeActivate(this, l2, old_vrf_entry, old_ethernet_tag);
-        if (prev->del_pending_ && prev->installed() == false) {
-            instance_ipv6_list_.list_.erase(prev);
-        }
-    }
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// L2 related routines
-/////////////////////////////////////////////////////////////////////////////
-void VmInterface::AddL2ReceiveRoute(bool old_bridging) {
-    if (BridgingActivated(old_bridging)) {
-        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        Agent *agent = table->agent();
-        BridgeAgentRouteTable *l2_table = static_cast<BridgeAgentRouteTable *>
-            (vrf_->GetRouteTable(Agent::BRIDGE));
-
-        l2_table->AddBridgeReceiveRoute(peer_.get(), vrf_->GetName(), 0,
-                                        GetVifMac(agent), vn_->GetName());
-    }
-}
-
-void VmInterface::DeleteL2ReceiveRoute(const VrfEntry *old_vrf,
-                                       bool old_bridging) {
-    if (old_vrf) {
-        InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-        Agent *agent = table->agent();
-        BridgeAgentRouteTable::Delete(peer_.get(), old_vrf->GetName(),
-                                      GetVifMac(agent), 0);
-    }
-}
-
-void VmInterface::UpdateBridgeRoutes(bool old_bridging, VrfEntry *old_vrf,
-                                     int old_ethernet_tag,
-                                     bool force_update, bool policy_change,
-                                     const Ip4Address &old_v4_addr,
-                                     const Ip6Address &old_v6_addr,
-                                     bool old_layer3_forwarding) {
+void VmInterface::UpdateL2() {
     if (device_type() == VmInterface::TOR ||
         device_type() == VmInterface::DEVICE_TYPE_INVALID)
         return;
 
-    UpdateL2InterfaceRoute(old_bridging, force_update, old_vrf, Ip4Address(),
-                           Ip6Address(), old_ethernet_tag,
-                           old_layer3_forwarding, policy_change, Ip4Address(),
-                           Ip6Address(), vm_mac_, Ip4Address(0));
-    UpdateIpv4InstanceIp(force_update, policy_change, true, old_ethernet_tag,
-                         old_vrf);
-    UpdateIpv6InstanceIp(force_update, policy_change, true, old_ethernet_tag);
-    UpdateFloatingIp(force_update, policy_change, true, old_ethernet_tag);
-    UpdateAllowedAddressPair(force_update, policy_change, true, old_bridging,
-                             old_layer3_forwarding);
-    //If the interface is Gateway we need to add a receive route,
-    //such the packet gets routed. Bridging on gateway
-    //interface is not supported
-    if ((vmi_type() == GATEWAY || vmi_type() == REMOTE_VM) &&
-        BridgingActivated(old_bridging)) {
-        AddL2ReceiveRoute(old_bridging);
-    }
-}
-
-void VmInterface::DeleteBridgeRoutes(bool old_bridging, VrfEntry *old_vrf,
-                                     int old_ethernet_tag,
-                                     const Ip4Address &old_v4_addr,
-                                     const Ip6Address &old_v6_addr,
-                                     bool old_layer3_forwarding,
-                                     bool force_update) {
-    DeleteIpv4InstanceIp(true, old_ethernet_tag, old_vrf, force_update);
-    DeleteIpv6InstanceIp(true, old_ethernet_tag, old_vrf, force_update);
-    if (old_bridging) {
-        DeleteL2InterfaceRoute(old_bridging, old_vrf, Ip4Address(0),
-                               Ip6Address(), old_ethernet_tag, vm_mac_);
-        DeleteFloatingIp(true, old_ethernet_tag);
-        DeleteL2ReceiveRoute(old_vrf, old_bridging);
-        DeleteAllowedAddressPair(true);
-    }
-}
-
-void VmInterface::UpdateVxLan() {
     int new_vxlan_id = vn_.get() ? vn_->GetVxLanId() : 0;
     if (l2_active_ && ((vxlan_id_ == 0) ||
                        (vxlan_id_ != new_vxlan_id))) {
@@ -913,176 +449,779 @@ void VmInterface::UpdateVxLan() {
     ethernet_tag_ = IsVxlanMode() ? vxlan_id_ : 0;
 }
 
-void VmInterface::UpdateL2(bool old_l2_active, bool policy_change) {
-    if (device_type() == VmInterface::TOR ||
-        device_type() == VmInterface::DEVICE_TYPE_INVALID)
-        return;
-
-    UpdateVxLan();
+////////////////////////////////////////////////////////////////////////////
+// VmInterface attribute methods
+////////////////////////////////////////////////////////////////////////////
+bool VmInterface::UpdateState(const VmInterfaceState *state,
+                              VmInterfaceState::Op l2_force_op,
+                              VmInterfaceState::Op l3_force_op) {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    return state->Update(agent, this, l2_force_op, l3_force_op);
 }
 
-void VmInterface::DeleteL2(bool old_l2_active) {
-    l2_label_ = MplsTable::kInvalidLabel;
+bool VmInterface::DeleteState(VmInterfaceState *state) {
+    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
+    bool ret = true;
+    if (state->l2_installed_) {
+        if (state->DeleteL2(agent, this))
+            state->l2_installed_ = false;
+        else
+            ret = false;
+    }
+
+    if (state->l3_installed_) {
+        if (state->DeleteL3(agent, this))
+            state->l3_installed_ = false;
+        else
+            ret = false;
+    }
+
+    return ret;
 }
 
-//Create these NH irrespective of mode, as multicast uses l2 NH.
-void VmInterface::UpdateL2NextHop(bool force_update) {
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    Agent *agent = table->agent();
-    if (l2_interface_nh_policy_.get() == NULL || force_update) {
-        InterfaceNH::CreateL2VmInterfaceNH(GetUuid(), vm_mac_, vrf_->GetName(),
-                                           learning_enabled_, etree_leaf_,
-                                           layer2_control_word_);
-        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                              GetUuid(), ""),
-                           true, InterfaceNHFlags::BRIDGE, vm_mac_);
-        l2_interface_nh_policy_ = static_cast<NextHop *>
-            (agent->nexthop_table()->FindActiveEntry(&key));
+/////////////////////////////////////////////////////////////////////////////
+// VmInterfaceAttr basic routines
+/////////////////////////////////////////////////////////////////////////////
+VmInterfaceState::Op VmInterfaceState::RecomputeOp(Op old_op, Op new_op) {
+    return (new_op > old_op) ? new_op : old_op;
+}
+
+bool VmInterfaceState::Update(const Agent *agent, VmInterface *vmi,
+                              Op l2_force_op, Op l3_force_op) const {
+    Op l2_op = RecomputeOp(l2_force_op, GetOpL2(agent, vmi));
+    Op l3_op = RecomputeOp(l3_force_op, GetOpL3(agent, vmi));
+
+    if ((l2_op == DEL || l2_op == DEL_ADD) && l2_installed_) {
+        DeleteL2(agent, vmi);
+        l2_installed_ = false;
     }
-    if (l2_interface_nh_no_policy_.get() == NULL || force_update) {
-        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                              GetUuid(), ""),
-                           false, InterfaceNHFlags::BRIDGE, vm_mac_);
-        l2_interface_nh_no_policy_ =static_cast<NextHop *>
-            (agent->nexthop_table()->FindActiveEntry(&key));
+    if ((l3_op == DEL || l3_op == DEL_ADD) && l3_installed_) {
+        DeleteL3(agent, vmi);
+        l3_installed_ = false;
     }
+
+    Copy(agent, vmi);
+
+    if (l3_op == ADD || l3_op == DEL_ADD) {
+        if (AddL3(agent, vmi))
+            l3_installed_ = true;
+    }
+    if (l2_op == ADD || l2_op == DEL_ADD) {
+        if (AddL2(agent, vmi))
+            l2_installed_ = true;
+    }
+
+    return true;
+}
+
+// Force operation to be DEL if del_pending_ is set
+VmInterfaceState::Op VmInterface::ListEntry::GetOp(VmInterfaceState::Op op)
+    const {
+    if (del_pending_ == false)
+        return op;
+
+    return VmInterfaceState::RecomputeOp(op, VmInterfaceState::DEL);
+}
+
+static bool GetIpActiveState(const IpAddress &ip, const VmInterface *vmi) {
+    if (ip.is_v6())
+        return vmi->ipv6_active();
+
+    return vmi->ipv4_active();
+}
+
+////////////////////////////////////////////////////////////////////////////
+// MacVmBinding attribute method
+// Adds a path to MacVmBinding is responsible to update flood-dhcp flag
+////////////////////////////////////////////////////////////////////////////
+MacVmBindingState::MacVmBindingState() :
+    VmInterfaceState(), vrf_(NULL), dhcp_enabled_(false) {
+}
+
+MacVmBindingState::~MacVmBindingState() {
+}
+
+VmInterfaceState::Op MacVmBindingState::GetOpL3(const Agent *agent,
+                                                const VmInterface *vmi) const {
+    if (vmi->IsActive() == false)
+        return VmInterfaceState::DEL;
+
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool MacVmBindingState::DeleteL3(const Agent *agent, VmInterface *vmi) const {
+    BridgeAgentRouteTable *table =
+            static_cast<BridgeAgentRouteTable *>(vrf_->GetBridgeRouteTable());
+    table->DeleteMacVmBindingRoute(agent->mac_vm_binding_peer(),
+                                   vrf_->GetName(), vmi->vm_mac(), vmi);
+    return true;
+}
+
+void MacVmBindingState::Copy(const Agent *agent, const VmInterface *vmi) const {
+    vrf_ = vmi->vrf();
+    dhcp_enabled_ = vmi->dhcp_enable_config();
+}
+
+bool MacVmBindingState::AddL3(const Agent *agent, VmInterface *vmi) const {
+    BridgeAgentRouteTable *table =
+        static_cast<BridgeAgentRouteTable *>(vrf_->GetBridgeRouteTable());
+    // flood_dhcp must be set in route if dhcp is disabled for interface
+    bool flood_dhcp = !vmi->dhcp_enable_config();
+    table->AddMacVmBindingRoute(agent->mac_vm_binding_peer(), vrf_->GetName(),
+                                vmi->vm_mac(), vmi, flood_dhcp);
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// SecurityGroup routines
+// Does not generate any new state. Only holds reference to SG for interface
+/////////////////////////////////////////////////////////////////////////////
+void VmInterface::SecurityGroupEntryList::Insert
+    (const SecurityGroupEntry *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::SecurityGroupEntryList::Update
+        (const SecurityGroupEntry *lhs, const SecurityGroupEntry *rhs) {
+}
+
+void VmInterface::SecurityGroupEntryList::Remove
+        (SecurityGroupEntrySet::iterator &it) {
+    it->set_del_pending(true);
+}
+
+bool VmInterface::SecurityGroupEntryList::UpdateList
+(const Agent *agent, VmInterface *vmi, VmInterfaceState::Op l2_force_op,
+ VmInterfaceState::Op l3_force_op) {
+    SecurityGroupEntrySet::iterator it = list_.begin();
+    while (it != list_.end()) {
+        SecurityGroupEntrySet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
+        if (prev->del_pending()) {
+            list_.erase(prev);
+        }
+    }
+
+    return true;
+}
+
+VmInterface::SecurityGroupEntry::SecurityGroupEntry() : 
+    ListEntry(), VmInterfaceState(), uuid_(nil_uuid()) {
+}
+
+VmInterface::SecurityGroupEntry::SecurityGroupEntry
+(const SecurityGroupEntry &rhs) : 
+    ListEntry(rhs.del_pending_),
+    VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
+    uuid_(rhs.uuid_) {
+}
+
+VmInterface::SecurityGroupEntry::SecurityGroupEntry(const uuid &u) : 
+    ListEntry(), VmInterfaceState(), uuid_(u) {
+}
+
+VmInterface::SecurityGroupEntry::~SecurityGroupEntry() {
+}
+
+bool VmInterface::SecurityGroupEntry::operator ==
+    (const SecurityGroupEntry &rhs) const {
+    return uuid_ == rhs.uuid_;
+}
+
+bool VmInterface::SecurityGroupEntry::operator() 
+    (const SecurityGroupEntry &lhs, const SecurityGroupEntry &rhs) const {
+    return lhs.IsLess(&rhs);
+}
+
+bool VmInterface::SecurityGroupEntry::IsLess
+    (const SecurityGroupEntry *rhs) const {
+    return uuid_ < rhs->uuid_;
+}
+
+// Remove reference to SG when list entry is deleted. Note, the SG states are
+// not dependent on any interface active state
+VmInterfaceState::Op VmInterface::SecurityGroupEntry::GetOpL3
+(const Agent *agent, const VmInterface *vmi) const {
+    if (del_pending_)
+        return VmInterfaceState::INVALID;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmInterface::SecurityGroupEntry::AddL3(const Agent *agent,
+                                            VmInterface *vmi) const {
+    if (sg_.get() != NULL)
+        return false;
+
+    SgKey sg_key(uuid_);
+    sg_ = static_cast<SgEntry *>(agent->sg_table()->FindActiveEntry(&sg_key));
+    return true;
+}
+
+bool VmInterface::SecurityGroupEntry::DeleteL3(const Agent *agent,
+                                               VmInterface *vmi) const {
+    sg_ = NULL;
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Fat Flow list routines
+// Only updates fat-flow configuraion in interface
+// NOTE: Its not derived from VmInterfaceState and also does not generate
+// any new states
+/////////////////////////////////////////////////////////////////////////////
+void VmInterface::FatFlowList::Insert(const FatFlowEntry *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::FatFlowList::Update(const FatFlowEntry *lhs,
+                                      const FatFlowEntry *rhs) {
+}
+
+void VmInterface::FatFlowList::Remove(FatFlowEntrySet::iterator &it) {
+    it->set_del_pending(true);
+}
+
+bool VmInterface::FatFlowList::UpdateList(const Agent *agent,
+                                          VmInterface *vmi) {
+    FatFlowEntrySet::iterator it = list_.begin();
+    while (it != list_.end()) {
+        FatFlowEntrySet::iterator prev = it++;
+        if (prev->del_pending_) {
+            list_.erase(prev);
+        }
+    }
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Bridge Domain List
+// NOTE: Its not derived from VmInterfaceState and also does not generate
+// any new states
+////////////////////////////////////////////////////////////////////////////
+void VmInterface::BridgeDomainList::Insert(const BridgeDomain *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::BridgeDomainList::Update(const BridgeDomain *lhs,
+                                           const BridgeDomain *rhs) {
+}
+
+void VmInterface::BridgeDomainList::Remove(BridgeDomainEntrySet::iterator &it) {
+    it->set_del_pending(true);
+}
+
+bool VmInterface::BridgeDomainList::Update(const Agent *agent,
+                                           VmInterface *vmi) {
+    InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
+    BridgeDomainEntrySet::iterator it = list_.begin();
+    while (it != list_.end()) {
+        BridgeDomainEntrySet::iterator prev = it++;
+        if (prev->del_pending_ == false) {
+            BridgeDomainKey key(prev->uuid_);
+            prev->bridge_domain_ = static_cast<const BridgeDomainEntry *>
+                (table->agent()->bridge_domain_table()->FindActiveEntry(&key));
+            // Ignore bridge domain without VRF
+            // Interface will get config update again when VRF is created
+            if (prev->bridge_domain_->vrf() == NULL) {
+                prev->del_pending_ = true;
+            }
+        }
+
+        if (prev->del_pending_) {
+            list_.erase(prev);
+        }
+    }
+
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////
+// VRF Table label
+// Create VRF-NextHop based on interface-type. The NextHop is not explicitly
+// deleted. It gets deleted when reference count drops to 0
+////////////////////////////////////////////////////////////////////////////
+VrfTableLabelState::VrfTableLabelState() : VmInterfaceState() {
+}
+
+VrfTableLabelState::~VrfTableLabelState() {
+}
+
+VmInterfaceState::Op VrfTableLabelState::GetOpL3(const Agent *agent,
+                                                 const VmInterface *vmi) const {
+    return VmInterfaceState::ADD;
+}
+
+// Take care of only adding VRF Table label. The label will be freed when
+// VRF is deleted
+bool VrfTableLabelState::AddL3(const Agent *agent, VmInterface *vmi) const {
+    if (vmi->vrf() == NULL || vmi->vmi_type() != VmInterface::GATEWAY) {
+        return false;
+    }
+
+    vmi->vrf()->CreateTableLabel(false, false, false, false);
+    return false;
+}
+
+////////////////////////////////////////////////////////////////////////////
+// NextHop attribute
+//
+// L2 nexthops:
+// These L2 nexthop are used by multicast and bridge. Presence of multicast
+// forces it to be present in ipv4 mode(l3-only).
+// 
+// L3 nexthops:
+// Also creates L3 interface NH, if layer3_forwarding is set.
+// It does not depend on oper state of ip forwarding.
+// Needed as health check can disable oper ip_active and will result in flow
+// key pointing to L2 interface NH. This has to be avoided as interface still
+// points to l3 nh and flow should use same. For this fix it is also required
+// that l3 i/f nh is also created on seeing config and not oper state of l3.
+// Reason being if vmi(irrespective of health check) is coming up and
+// transitioning from ipv4_inactive to ip4_active and during this transition
+// a flow is added then flow_key in vmi will return null because l3 config is
+// set and interface nh not created yet.
+////////////////////////////////////////////////////////////////////////////
+NextHopState::NextHopState() : VmInterfaceState() {
+}
+
+NextHopState::~NextHopState() {
+}
+
+// The nexthops are deleted after all update processing by explicitly
+// calling delete. So, dont return DEL operation from here
+VmInterfaceState::Op NextHopState::GetOpL2(const Agent *agent,
+                                           const VmInterface *vmi) const {
+    if (vmi->IsActive() == false)
+        return VmInterfaceState::INVALID;
+    return VmInterfaceState::ADD;
+}
+
+// The nexthops must be deleted after all update processing. So, dont return
+// DEL operation from here
+VmInterfaceState::Op NextHopState::GetOpL3(const Agent *agent,
+                                           const VmInterface *vmi) const {
+    if ((vmi->IsActive() == false) || (vmi->layer3_forwarding() == false))
+        return VmInterfaceState::INVALID;
+
+    return VmInterfaceState::ADD;
+}
+
+bool NextHopState::AddL2(const Agent *agent, VmInterface *vmi) const {
+    InterfaceNH::CreateL2VmInterfaceNH(vmi->GetUuid(), vmi->vm_mac(),
+                                       vmi->vrf()->GetName(),
+                                       vmi->learning_enabled(),
+                                       vmi->etree_leaf(),
+                                       vmi->layer2_control_word());
+
+    InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           vmi->GetUuid(), ""),
+                        true, InterfaceNHFlags::BRIDGE, vmi->vm_mac());
+    l2_nh_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key1));
+
+    InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           vmi->GetUuid(), ""),
+                        false, InterfaceNHFlags::BRIDGE, vmi->vm_mac());
+    l2_nh_no_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key2));
 
     // Update L2 mpls label from nh entry
-    if (policy_enabled()) {
-        l2_label_ = l2_interface_nh_policy_->mpls_label()->label();
+    if (vmi->policy_enabled()) {
+        l2_label_ = l2_nh_policy_->mpls_label()->label();
     } else {
-        l2_label_ = l2_interface_nh_no_policy_->mpls_label()->label();
+        l2_label_ = l2_nh_no_policy_->mpls_label()->label();
+    }
+
+    return true;
+}
+
+bool NextHopState::DeleteL2(const Agent *agent, VmInterface *vmi) const {
+    // Delete is called independent of interface active-state.
+    // Dont delete NH if interface is still active
+    if (vmi->IsActive())
+        return false;
+
+    l2_nh_policy_.reset();
+    l2_nh_no_policy_.reset();
+    l2_label_ = MplsTable::kInvalidLabel;
+    InterfaceNH::DeleteL2InterfaceNH(vmi->GetUuid(), vmi->vm_mac());
+    return true;
+}
+
+bool NextHopState::AddL3(const Agent *agent, VmInterface *vmi) const {
+    InterfaceNH::CreateL3VmInterfaceNH(vmi->GetUuid(), vmi->vm_mac(),
+                                       vmi->vrf()->GetName(),
+                                       vmi->learning_enabled());
+    InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           vmi->GetUuid(), ""),
+                        true, InterfaceNHFlags::INET4, vmi->vm_mac());
+    l3_nh_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key1));
+
+    InterfaceNHKey key2(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                           vmi->GetUuid(), ""),
+                        false, InterfaceNHFlags::INET4, vmi->vm_mac());
+    l3_nh_no_policy_ = static_cast<NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key2));
+
+    // Update L3 mpls label from nh entry
+    if (vmi->policy_enabled()) {
+        l3_label_ = l3_nh_policy_->mpls_label()->label();
+    } else {
+        l3_label_ = l3_nh_no_policy_->mpls_label()->label();
+    }
+
+    return true;
+}
+
+bool NextHopState::DeleteL3(const Agent *agent, VmInterface *vmi) const {
+    // Delete is called independent of interface active-state.
+    // Keep NH as long as interface is active and layer3-forwarding is enabled
+    // TODO : It should be ok to keep the NH even if l3-forwarding is disabled?
+    if (vmi->IsActive() && vmi->layer3_forwarding())
+        return false;
+
+    l3_nh_policy_.reset();
+    l3_nh_no_policy_.reset();
+    l3_label_ = MplsTable::kInvalidLabel;
+    InterfaceNH::DeleteL3InterfaceNH(vmi->GetUuid(), vmi->vm_mac());
+    return true;
+}
+
+const NextHop* VmInterface::l3_interface_nh_no_policy() const {
+    return nexthop_state_->l3_nh_no_policy_.get();
+}
+
+const NextHop* VmInterface::l2_interface_nh_no_policy() const {
+    return nexthop_state_->l2_nh_no_policy_.get();
+}
+
+const NextHop* VmInterface::l2_interface_nh_policy() const {
+    return nexthop_state_->l2_nh_policy_.get();
+}
+
+void VmInterface::GetNextHopInfo() {
+    l2_label_ = nexthop_state_->l2_label();
+    label_ = nexthop_state_->l3_label();
+    // If Layer3 forwarding is configured irrespective of ipv4/v6 status,
+    // flow_key_nh should be l3 based.
+    if (layer3_forwarding()) {
+        flow_key_nh_ = nexthop_state_->l3_nh_policy_;
+    } else {
+        flow_key_nh_ = nexthop_state_->l2_nh_policy_;
     }
 }
 
-void VmInterface::DeleteL2NextHop() {
-    InterfaceNH::DeleteL2InterfaceNH(GetUuid(),
-                                     vm_mac_);
-    if (l2_interface_nh_policy_.get() != NULL)
-        l2_interface_nh_policy_.reset();
-    if (l2_interface_nh_no_policy_.get() != NULL)
-        l2_interface_nh_no_policy_.reset();
+////////////////////////////////////////////////////////////////////////////
+// MetaData Ip Routines
+////////////////////////////////////////////////////////////////////////////
+MetaDataIpState::MetaDataIpState() : VmInterfaceState(), mdata_ip_() {
 }
 
-void VmInterface::UpdateL2InterfaceRoute(bool old_bridging, bool force_update,
-                                         VrfEntry *old_vrf,
-                                         const Ip4Address &old_v4_addr,
-                                         const Ip6Address &old_v6_addr,
-                                         int old_ethernet_tag,
-                                         bool old_layer3_forwarding,
-                                         bool policy_changed,
-                                         const Ip4Address &new_ip_addr,
-                                         const Ip6Address &new_ip6_addr,
-                                         const MacAddress &mac,
-                                         const IpAddress &dependent_ip) const {
-    if (ethernet_tag_ != old_ethernet_tag) {
-        force_update = true;
+MetaDataIpState::~MetaDataIpState() {
+    mdata_ip_.reset(NULL);
+}
+
+// metadata-ip is deleted after all update processing by explicitly
+// calling delete. So, dont return DEL operation from here
+VmInterfaceState::Op MetaDataIpState::GetOpL3(const Agent *agent,
+                                              const VmInterface *vmi) const {
+    if (vmi->need_linklocal_ip() == false ||
+        vmi->metadata_ip_active() == false)
+        return VmInterfaceState::INVALID;
+
+    return VmInterfaceState::ADD;
+}
+
+bool MetaDataIpState::AddL3(const Agent *agent, VmInterface *vmi) const {
+    if (mdata_ip_.get() == NULL) {
+        mdata_ip_.reset(new MetaDataIp(agent->metadata_ip_allocator(), vmi,
+                                       vmi->id()));
+    }
+    mdata_ip_->set_active(true);
+    vmi->UpdateMetaDataIpInfo();
+    return true;
+}
+
+// Delete meta-data route
+bool MetaDataIpState::DeleteL3(const Agent *agent, VmInterface *vmi) const {
+    if (vmi->metadata_ip_active() && vmi->need_linklocal_ip())
+        return false;
+
+    if (mdata_ip_.get() == NULL) {
+        return true;
     }
 
-    if (old_layer3_forwarding != layer3_forwarding_) {
-        force_update = true;
+    // Call UpdateMetaDataIpInfo before setting mdata_ip_ state to inactive
+    vmi->UpdateMetaDataIpInfo();
+    mdata_ip_->set_active(false);
+    return true;
+}
+
+Ip4Address VmInterface::mdata_ip_addr() const {
+    if (metadata_ip_state_.get() == NULL)
+        return Ip4Address(0);
+
+    if (metadata_ip_state_->mdata_ip_.get() == NULL) {
+        return Ip4Address(0);
     }
 
-    if (old_vrf && old_vrf != vrf()) {
-        force_update = true;
-    }
+    return metadata_ip_state_->mdata_ip_->GetLinkLocalIp();
+}
 
-    //Encap change will result in force update of l2 routes.
-    if (force_update) {
-        DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr,
-                               old_v6_addr, old_ethernet_tag, mac);
-    } else {
-        if (new_ip_addr != old_v4_addr) {
-            force_update = true;
-            DeleteL2InterfaceRoute(true, old_vrf, old_v4_addr, Ip6Address(),
-                                   old_ethernet_tag, mac);
-        }
+////////////////////////////////////////////////////////////////////////////
+// ResolveRoute Attribute Routines
+////////////////////////////////////////////////////////////////////////////
+ResolveRouteState::ResolveRouteState() :
+    VmInterfaceState(), vrf_(NULL), subnet_(), plen_(0) {
+}
 
-        if (new_ip6_addr != old_v6_addr) {
-            force_update = true;
-            DeleteL2InterfaceRoute(true, old_vrf, Ip4Address(), old_v6_addr,
-                                   old_ethernet_tag, mac);
-        }
-    }
+ResolveRouteState::~ResolveRouteState() {
+}
 
-    assert(peer_.get());
-    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
-        (vrf_->GetEvpnRouteTable());
+void ResolveRouteState::Copy(const Agent *agent, const VmInterface *vmi) const {
+    vrf_ = vmi->vrf();
+    subnet_ = vmi->subnet();
+    plen_ = vmi->subnet_plen();
+}
+
+VmInterfaceState::Op ResolveRouteState::GetOpL3(const Agent *agent,
+                                                const VmInterface *vmi) const {
+    if (vmi->ipv4_active() == false)
+        return VmInterfaceState::DEL;
+
+    if (vrf_ != vmi->vrf() || subnet_ != vmi->subnet() ||
+        plen_ != vmi->subnet_plen())
+        return VmInterfaceState::DEL_ADD;
+        
+    return VmInterfaceState::ADD;
+}
+
+bool ResolveRouteState::DeleteL3(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    vmi->DeleteRoute(vrf_->GetName(), subnet_, plen_);
+    return true;
+}
+
+bool ResolveRouteState::AddL3(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_ == NULL || vmi->vn() == NULL || subnet_.is_unspecified())
+        return false;
 
     SecurityGroupList sg_id_list;
-    CopySgIdList(&sg_id_list);
-
-    PathPreference path_preference;
-    SetPathPreference(&path_preference, false, dependent_ip);
-
-    if (policy_changed == true) {
-        table->ResyncVmRoute(peer_.get(), vrf_->GetName(), mac, new_ip_addr,
-                             ethernet_tag_, NULL);
-        table->ResyncVmRoute(peer_.get(), vrf_->GetName(), mac, new_ip6_addr,
-                             ethernet_tag_, NULL);
-    }
-
-    if (old_bridging && force_update == false)
-        return;
-
-    uint32_t label = l2_label_;
-    if (pbb_interface()) {
-        label = GetPbbLabel();
-    }
-
-    if (new_ip_addr.is_unspecified() || layer3_forwarding_ == true) {
-        table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this,
-                               new_ip_addr, label, vn_->GetName(), sg_id_list,
-                               path_preference, ethernet_tag_, etree_leaf_);
-    }
-
-    if (new_ip6_addr.is_unspecified() == false && layer3_forwarding_ == true) {
-        table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this,
-                               new_ip6_addr, label, vn_->GetName(), sg_id_list,
-                               path_preference, ethernet_tag_, etree_leaf_);
-    }
+    vmi->CopySgIdList(&sg_id_list);
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, vmi->GetUuid(), "");
+    InetUnicastAgentRouteTable::AddResolveRoute
+        (vmi->peer(), vrf_->GetName(),
+         Address::GetIp4SubnetAddress(subnet_, plen_), plen_, key,
+         vrf_->table_label(), vmi->policy_enabled(), vmi->vn()->GetName(),
+         sg_id_list);
+    return true;
 }
 
-void VmInterface::DeleteL2InterfaceRoute(bool old_bridging, VrfEntry *old_vrf,
-                                         const Ip4Address &old_v4_addr,
-                                         const Ip6Address &old_v6_addr,
-                                         int old_ethernet_tag,
-                                         const MacAddress &mac) const {
-    if (old_bridging == false)
-        return;
+// If the interface is Gateway we need to add a receive route,
+// such the packet gets routed. Bridging on gateway
+// interface is not supported
+VmInterfaceState::Op ResolveRouteState::GetOpL2(const Agent *agent,
+                                                const VmInterface *vmi) const {
+    if ((vmi->vmi_type() != VmInterface::GATEWAY &&
+         vmi->vmi_type() != VmInterface::REMOTE_VM))
+        return VmInterfaceState::DEL;
 
-    if (old_vrf == NULL)
-        return;
+    if (vmi->bridging() == false)
+        return VmInterfaceState::DEL;
 
-    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>
-        (old_vrf->GetEvpnRouteTable());
-    if (table == NULL)
-        return;
-    table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), mac,
-                           this, old_v4_addr,
-                           old_ethernet_tag);
-    table->DelLocalVmRoute(peer_.get(), old_vrf->GetName(), mac,
-                           this, old_v6_addr,
-                           old_ethernet_tag);
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool ResolveRouteState::DeleteL2(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    BridgeAgentRouteTable::Delete(vmi->peer(), vrf_->GetName(),
+                                  vmi->GetVifMac(agent), 0);
+    return true;
+}
+
+bool ResolveRouteState::AddL2(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_ == NULL || vmi->vn() == NULL)
+        return false;
+
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf_->GetRouteTable(Agent::BRIDGE));
+    table->AddBridgeReceiveRoute(vmi->peer(), vrf_->GetName(), 0,
+                                 vmi->GetVifMac(agent), vmi->vn()->GetName());
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////
+// VmiRouteState Routines
+// This is responsible to manage following routes,
+// - Manages the <0.0.0.0, MAC> EVPN route for the interface
+// - Manage the L3 route for dhcp-relay when do_dhcp_relay_ is enabled
+//   ip_ here is set to primary-ip when do_dhcp_relay_ is enabled
+//   When do_dhcp_relay_ is enabled, adds route for ip_ along with service-ip.
+//
+//   Note, instance-ip can also potentially add/delete route for same ip-address
+////////////////////////////////////////////////////////////////////////////
+VmiRouteState::VmiRouteState() :
+    VmInterfaceState(), vrf_(NULL), ip_(), ethernet_tag_(0),
+    do_dhcp_relay_(false) {
+}
+
+VmiRouteState::~VmiRouteState() {
+}
+
+void VmiRouteState::Copy(const Agent *agent, const VmInterface *vmi) const {
+    vrf_ = vmi->vrf();
+    ethernet_tag_ = vmi->ethernet_tag();
+    do_dhcp_relay_ = vmi->do_dhcp_relay();
+    ip_ = do_dhcp_relay_ ?  ip_ = vmi->dhcp_addr() : Ip4Address(0);
+}
+
+VmInterfaceState::Op VmiRouteState::GetOpL3
+(const Agent *agent, const VmInterface *vmi) const {
+    if (vmi->ipv4_active() == false)
+        return VmInterfaceState::DEL;
+
+    // On do_dhcp_relay_ change from enable to disbale, delete the route
+    // Normally, we should not look at old value of do_dhcp_relay_ here, but
+    // ignoring it will result in delete and add of route for primary-ip
+    // Check old value of do_dhcp_relay_ to avoid this
+    //
+    // Even on transition, if instance-ip is present matching the primary-ip
+    // the route will added again due to instance-ip later
+    if (do_dhcp_relay_ && vmi->do_dhcp_relay() == false)
+        return VmInterfaceState::DEL;
+
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+        
+    if (ip_ != vmi->dhcp_addr())
+        return VmInterfaceState::DEL_ADD;
+
+    // Dont have to add L3 route if DHCP Relay not enabled
+    if (vmi->do_dhcp_relay() == false)
+        return VmInterfaceState::INVALID;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmiRouteState::DeleteL3(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_ == NULL || ip_.is_unspecified())
+        return false;
+
+    vmi->DeleteRoute(vrf_->GetName(), ip_, 32);
+    return true;
+}
+
+bool VmiRouteState::AddL3(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_ == NULL || vmi->vn() == NULL || ip_.is_unspecified())
+        return false;
+
+    vmi->AddRoute(vrf_->GetName(), ip_, 32, vmi->vn()->GetName(), false,
+                  vmi->ecmp(), false, false, vmi->vm_ip_service_addr(),
+                  Ip4Address(0), CommunityList(), vmi->label());
+    return true;
+}
+
+VmInterfaceState::Op VmiRouteState::GetOpL2
+(const Agent *agent, const VmInterface *vmi) const {
+    if (vmi->l2_active() == false || vmi->is_hc_active() == false)
+        return VmInterfaceState::DEL;
+
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+
+    if (ethernet_tag_ != vmi->ethernet_tag())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmiRouteState::DeleteL2(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    vmi->DeleteL2InterfaceRoute(vrf_, ethernet_tag_, Ip4Address(0),
+                                vmi->vm_mac());
+    return true;
+}
+
+bool VmiRouteState::AddL2(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_ == NULL || vmi->vn() == NULL)
+        return false;
+
+    vmi->AddL2InterfaceRoute(Ip4Address(), vmi->vm_mac(), Ip4Address(0)); 
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// InstanceIp routines
+// InstanceIp routines. Manages following,
+// - Manages the L3 and L2 routes derived from the instance-ip.
 /////////////////////////////////////////////////////////////////////////////
+void VmInterface::InstanceIpList::Insert(const InstanceIp *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
+                                         const InstanceIp *rhs) {
+    lhs->ecmp_ = rhs->ecmp_;
+    lhs->is_service_health_check_ip_ = rhs->is_service_health_check_ip_;
+    lhs->is_local_ = rhs->is_local_;
+    lhs->tracking_ip_ = rhs->tracking_ip_;
+
+    lhs->set_del_pending(false);
+}
+
+void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
+    it->set_del_pending(true);
+}
+
+bool VmInterface::InstanceIpList::UpdateList
+(const Agent *agent, VmInterface *vmi, VmInterfaceState::Op l2_force_op,
+ VmInterfaceState::Op l3_force_op) {
+    InstanceIpSet::iterator it = list_.begin();
+    // Apply the instance-ip configured for interface
+    while (it != list_.end()) {
+        InstanceIpSet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
+        if (prev->del_pending()) {
+            list_.erase(prev);
+        } else {
+            prev->SetPrefixForAllocUnitIpam(vmi);
+        }
+    }
+
+    return true;
+}
+
 VmInterface::InstanceIp::InstanceIp() :
-    ListEntry(), ip_(), plen_(), ecmp_(false), l2_installed_(false),
-    old_ecmp_(false), is_primary_(false), is_service_health_check_ip_(false),
-    is_local_(false), old_tracking_ip_(), tracking_ip_() {
+    ListEntry(), VmInterfaceState(), ip_(), plen_(), ecmp_(false),
+    is_primary_(false), is_service_health_check_ip_(false), is_local_(false),
+    tracking_ip_(), vrf_(NULL), ethernet_tag_(0) {
 }
 
 VmInterface::InstanceIp::InstanceIp(const InstanceIp &rhs) :
-    ListEntry(rhs.installed_, rhs.del_pending_),
+    ListEntry(rhs.del_pending_),
+    VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
     ip_(rhs.ip_), plen_(rhs.plen_), ecmp_(rhs.ecmp_),
-    l2_installed_(rhs.l2_installed_), old_ecmp_(rhs.old_ecmp_),
     is_primary_(rhs.is_primary_),
     is_service_health_check_ip_(rhs.is_service_health_check_ip_),
-    is_local_(rhs.is_local_), old_tracking_ip_(rhs.old_tracking_ip_),
-    tracking_ip_(rhs.tracking_ip_) {
+    is_local_(rhs.is_local_), tracking_ip_(rhs.tracking_ip_),
+    vrf_(NULL), ethernet_tag_(0) {
 }
 
 VmInterface::InstanceIp::InstanceIp(const IpAddress &addr, uint8_t plen,
@@ -1090,10 +1229,11 @@ VmInterface::InstanceIp::InstanceIp(const IpAddress &addr, uint8_t plen,
                                     bool is_service_health_check_ip,
                                     bool is_local,
                                     const IpAddress &tracking_ip) :
-    ListEntry(), ip_(addr), plen_(plen), ecmp_(ecmp),
-    l2_installed_(false), old_ecmp_(false), is_primary_(is_primary),
+    ListEntry(), VmInterfaceState(), ip_(addr), plen_(plen), ecmp_(ecmp),
+    is_primary_(is_primary),
     is_service_health_check_ip_(is_service_health_check_ip),
-    is_local_(is_local), tracking_ip_(tracking_ip) {
+    is_local_(is_local), tracking_ip_(tracking_ip), vrf_(NULL),
+    ethernet_tag_(0) {
 }
 
 VmInterface::InstanceIp::~InstanceIp() {
@@ -1108,142 +1248,11 @@ bool VmInterface::InstanceIp::IsLess(const InstanceIp *rhs) const {
     return ip_ < rhs->ip_;
 }
 
-void VmInterface::InstanceIp::L3Activate(VmInterface *interface,
-                                         bool force_update) const {
-    if (old_ecmp_ != ecmp_) {
-        force_update = true;
-        old_ecmp_ = ecmp_;
-    }
-
-    if (old_tracking_ip_ != tracking_ip_) {
-        force_update = true;
-    }
-
-    // Add route if not installed or if force requested
-    if (installed_ && force_update == false) {
+void VmInterface::InstanceIp::SetPrefixForAllocUnitIpam(VmInterface *vmi) const{
+    if (vmi->vn() == NULL)
         return;
-    }
 
-    // Add route only when vn IPAM exists
-    if (!interface->vn()->GetIpam(ip_)) {
-        return;
-    }
-
-    // Set prefix len for instance_ip based on Alloc-unit in VnIPAM
-    SetPrefixForAllocUnitIpam(interface);
-
-    if (ip_.is_v4()) {
-        interface->AddRoute(interface->vrf()->GetName(), ip_.to_v4(), plen_,
-                            interface->vn()->GetName(), is_force_policy(),
-                            ecmp_, is_local_, is_service_health_check_ip_,
-                            interface->GetServiceIp(ip_), tracking_ip_,
-                            CommunityList(), interface->label());
-    } else if (ip_.is_v6()) {
-        interface->AddRoute(interface->vrf()->GetName(), ip_.to_v6(), plen_,
-                            interface->vn()->GetName(), is_force_policy(),
-                            ecmp_, is_local_, is_service_health_check_ip_,
-                            interface->GetServiceIp(ip_), tracking_ip_,
-                            CommunityList(), interface->label());
-    }
-    installed_ = true;
-}
-
-void VmInterface::InstanceIp::L3DeActivate(VmInterface *interface,
-                                           VrfEntry *old_vrf) const {
-    if (installed_ == false) {
-        return;
-    }
-
-    if (ip_.is_v4()) {
-        interface->DeleteRoute(old_vrf->GetName(), ip_, plen_);
-    } else if (ip_.is_v6()) {
-        interface->DeleteRoute(old_vrf->GetName(), ip_, plen_);
-    }
-    installed_ = false;
-}
-
-void VmInterface::InstanceIp::L2Activate(VmInterface *interface,
-                                         bool force_update,
-                                         uint32_t old_ethernet_tag) const {
-
-    Ip4Address ipv4(0);
-    Ip6Address ipv6;
-
-    if (IsL3Only()) {
-        return;
-    }
-
-    if (ip_.is_v4()) {
-        // check if L3 route is already installed or not 
-        if (installed_ == false) {
-            return;
-        }
-        ipv4 = ip_.to_v4();
-    } else {
-        // check if L3 route is already installed or not 
-        if (installed_ == false) {
-            return;
-        }
-        ipv6 = ip_.to_v6();
-    }
-
-    if (tracking_ip_ != old_tracking_ip_) {
-        force_update = true;
-    }
-
-    if (l2_installed_ == false || force_update) {
-        interface->UpdateL2InterfaceRoute
-            (false, force_update, interface->vrf(), ipv4, ipv6,
-             old_ethernet_tag, false, false, ipv4, ipv6, interface->vm_mac(),
-             tracking_ip_);
-        l2_installed_ = true;
-    }
-}
-
-void VmInterface::InstanceIp::L2DeActivate(VmInterface *interface,
-                                           VrfEntry *old_vrf,
-                                           uint32_t old_ethernet_tag) const {
-    if (l2_installed_ == false) {
-        return;
-    }
-
-    Ip4Address ipv4(0);
-    Ip6Address ipv6;
-
-    if (ip_.is_v4()) {
-        ipv4 = ip_.to_v4();
-    } else {
-        ipv6 = ip_.to_v6();
-    }
-
-    interface->DeleteL2InterfaceRoute(true, old_vrf, ipv4, ipv6,
-                                      old_ethernet_tag, interface->vm_mac());
-    l2_installed_ = false;
-}
-
-void VmInterface::InstanceIp::Activate(VmInterface *interface,
-                                       bool force_update, bool l2,
-                                       int old_ethernet_tag) const {
-    if (l2) {
-        L2Activate(interface, force_update, old_ethernet_tag);
-    } else {
-        L3Activate(interface, force_update);
-    }
-}
-
-void VmInterface::InstanceIp::DeActivate(VmInterface *interface, bool l2,
-                                         VrfEntry *old_vrf,
-                                         uint32_t old_ethernet_tag) const {
-    if (l2) {
-        L2DeActivate(interface, old_vrf, old_ethernet_tag);
-    } else {
-        L3DeActivate(interface, old_vrf);
-    }
-}
-
-void VmInterface::InstanceIp::SetPrefixForAllocUnitIpam
-(VmInterface *interface) const {
-    uint32_t alloc_unit = interface->vn()->GetAllocUnitFromIpam(ip_);
+    uint32_t alloc_unit = vmi->vn()->GetAllocUnitFromIpam(ip_);
 
     uint8_t alloc_prefix = 0;
     if (alloc_unit > 0) {
@@ -1257,77 +1266,180 @@ void VmInterface::InstanceIp::SetPrefixForAllocUnitIpam
     }
 }
 
-void VmInterface::InstanceIpList::Insert(const InstanceIp *rhs) {
-    list_.insert(*rhs);
-}
-
-void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
-                                         const InstanceIp *rhs) {
-    if (lhs->ecmp_ != rhs->ecmp_) {
-        lhs->ecmp_ = rhs->ecmp_;
+static bool GetInstanceIpActiveState(const VmInterface::InstanceIp *instance_ip,
+                                     const VmInterface *vmi) {
+    if (instance_ip->is_service_health_check_ip_) {
+        // for service health check instance ip keep the route based on
+        // metadata-active state
+        return vmi->metadata_ip_active();
     }
 
-    lhs->is_service_health_check_ip_ = rhs->is_service_health_check_ip_;
-    lhs->is_local_ = rhs->is_local_;
-
-    lhs->old_tracking_ip_ = lhs->tracking_ip_;
-    lhs->tracking_ip_ = rhs->tracking_ip_;
-
-    lhs->set_del_pending(false);
-}
-
-void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
-    it->set_del_pending(true);
-}
-
-void VmInterface::FatFlowList::Insert(const FatFlowEntry *rhs) {
-    list_.insert(*rhs);
-}
-
-void VmInterface::FatFlowList::Update(const FatFlowEntry *lhs,
-                                      const FatFlowEntry *rhs) {
-}
-
-void VmInterface::FatFlowList::Remove(FatFlowEntrySet::iterator &it) {
-    it->set_del_pending(true);
-}
-
-void VmInterface::UpdateFatFlow() {
-    DeleteFatFlow();
-}
-
-void VmInterface::DeleteFatFlow() { 
-    FatFlowEntrySet::iterator it = fat_flow_list_.list_.begin();
-    while (it != fat_flow_list_.list_.end()) {
-        FatFlowEntrySet::iterator prev = it++;
-        if (prev->del_pending_) {
-            fat_flow_list_.list_.erase(prev);
-        }
+    if (instance_ip->ip_.is_v6()) {
+        return vmi->ipv6_active();
     }
+
+    return vmi->ipv4_active();
+}
+
+VmInterfaceState::Op VmInterface::InstanceIp::GetOpL2
+(const Agent *agent, const VmInterface *vmi) const {
+    if (GetInstanceIpActiveState(this, vmi) == false)
+        return VmInterfaceState::DEL;
+
+    // Add route only when vn IPAM exists for the IP
+    if (vmi->vn()->GetIpam(ip_) == false)
+        return VmInterfaceState::DEL;
+
+    if (IsL3Only())
+        return VmInterfaceState::DEL;
+
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+
+    if (ethernet_tag_ != vmi->ethernet_tag())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmInterface::InstanceIp::AddL2(const Agent *agent,
+                                    VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    vmi->AddL2InterfaceRoute(ip_, vmi->vm_mac(), tracking_ip_);
+    return true;
+}
+
+bool VmInterface::InstanceIp::DeleteL2(const Agent *agent,
+                                       VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    vmi->DeleteL2InterfaceRoute(vrf_, ethernet_tag_, ip_, vmi->vm_mac());
+    return true;
+}
+
+VmInterfaceState::Op VmInterface::InstanceIp::GetOpL3
+(const Agent *agent, const VmInterface *vmi) const {
+    // TODO : Should be check health-check state here?
+    if (GetInstanceIpActiveState(this, vmi) == false)
+        return VmInterfaceState::DEL;
+
+    // Add route only when vn IPAM exists for the IP
+    if (vmi->vn()->GetIpam(ip_) == false)
+        return VmInterfaceState::DEL;
+
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmInterface::InstanceIp::AddL3(const Agent *agent,
+                                    VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+    assert(ip_.is_unspecified() == false);
+    vmi->AddRoute(vmi->vrf()->GetName(), ip_, plen_, vmi->vn()->GetName(),
+                  is_force_policy(), ecmp_,is_local_,
+                  is_service_health_check_ip_, vmi->GetServiceIp(ip_),
+                  tracking_ip_, CommunityList(), vmi->label());
+    return true;
+}
+
+bool VmInterface::InstanceIp::DeleteL3(const Agent *agent,
+                                       VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+    vmi->DeleteRoute(vrf_->GetName(), ip_, plen_);
+    return true;
+}
+
+void VmInterface::InstanceIp::Copy(const Agent *agent,
+                                   const VmInterface *vmi) const {
+    vrf_ = vmi->vrf();
+    ethernet_tag_ = vmi->ethernet_tag();
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // FloatingIp routines
 /////////////////////////////////////////////////////////////////////////////
+void VmInterface::CleanupFloatingIpList() {
+    FloatingIpSet::iterator it = floating_ip_list_.list_.begin();
+    while (it != floating_ip_list_.list_.end()) {
+        FloatingIpSet::iterator prev = it++;
+        if (prev->del_pending_ == false)
+            continue;
+
+        if (prev->floating_ip_.is_v4()) {
+            floating_ip_list_.v4_count_--;
+            assert(floating_ip_list_.v4_count_ >= 0);
+        } else {
+            floating_ip_list_.v6_count_--;
+            assert(floating_ip_list_.v6_count_ >= 0);
+        }
+        floating_ip_list_.list_.erase(prev);
+    }
+}
+
+void VmInterface::FloatingIpList::Insert(const FloatingIp *rhs) {
+    std::pair<FloatingIpSet::iterator, bool> ret = list_.insert(*rhs);
+    if (ret.second) {
+        if (rhs->floating_ip_.is_v4()) {
+            v4_count_++;
+        } else {
+            v6_count_++;
+        }
+    }
+}
+
+void VmInterface::FloatingIpList::Update(const FloatingIp *lhs,
+                                         const FloatingIp *rhs) {
+    if (lhs->fixed_ip_ != rhs->fixed_ip_) {
+        lhs->fixed_ip_ = rhs->fixed_ip_;
+    }
+
+    lhs->direction_ = rhs->direction_;
+    lhs->port_map_enabled_ = rhs->port_map_enabled_;
+    lhs->src_port_map_ = rhs->src_port_map_;
+    lhs->dst_port_map_ = rhs->dst_port_map_;
+    lhs->set_del_pending(false);
+}
+
+void VmInterface::FloatingIpList::Remove(FloatingIpSet::iterator &it) {
+    it->set_del_pending(true);
+}
+
+bool VmInterface::FloatingIpList::UpdateList(const Agent *agent,
+                                             VmInterface *vmi,
+                                             VmInterfaceState::Op l2_force_op,
+                                             VmInterfaceState::Op l3_force_op) {
+    FloatingIpSet::iterator it = list_.begin();
+    while (it != list_.end()) {
+        FloatingIpSet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
+    }
+    return true;
+}
 
 VmInterface::FloatingIp::FloatingIp() : 
-    ListEntry(), floating_ip_(), vn_(NULL),
-    vrf_(NULL, this), vrf_name_(""), vn_uuid_(), l2_installed_(false),
-    fixed_ip_(), force_l3_update_(false), force_l2_update_(false),
-    direction_(DIRECTION_BOTH),
-    port_map_enabled_(false), src_port_map_(), dst_port_map_() {
+    ListEntry(), VmInterfaceState(), floating_ip_(), vn_(NULL),
+    vrf_(NULL, this), vrf_name_(""), vn_uuid_(),
+    fixed_ip_(), direction_(DIRECTION_BOTH), port_map_enabled_(false),
+    src_port_map_(), dst_port_map_(), ethernet_tag_(0) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
-    ListEntry(rhs.installed_, rhs.del_pending_),
+    ListEntry(rhs.del_pending_),
+    VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
     floating_ip_(rhs.floating_ip_), vn_(rhs.vn_), vrf_(rhs.vrf_, this),
-    vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_),
-    l2_installed_(rhs.l2_installed_), fixed_ip_(rhs.fixed_ip_),
-    force_l3_update_(rhs.force_l3_update_),
-    force_l2_update_(rhs.force_l2_update_),
-    direction_(rhs.direction_),
-    port_map_enabled_(rhs.port_map_enabled_), src_port_map_(rhs.src_port_map_),
-    dst_port_map_(rhs.dst_port_map_) {
+    vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_), fixed_ip_(rhs.fixed_ip_),
+    direction_(rhs.direction_), port_map_enabled_(rhs.port_map_enabled_),
+    src_port_map_(rhs.src_port_map_), dst_port_map_(rhs.dst_port_map_),
+    ethernet_tag_(rhs.ethernet_tag_) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
@@ -1338,12 +1450,10 @@ VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
                                     bool port_map_enabled,
                                     const PortMap &src_port_map,
                                     const PortMap &dst_port_map) :
-    ListEntry(), floating_ip_(addr), vn_(NULL), vrf_(NULL, this),
-    vrf_name_(vrf), vn_uuid_(vn_uuid), l2_installed_(false),
-    fixed_ip_(fixed_ip), force_l3_update_(false), force_l2_update_(false),
-    direction_(direction),
-    port_map_enabled_(port_map_enabled), src_port_map_(src_port_map),
-    dst_port_map_(dst_port_map) {
+    ListEntry(), VmInterfaceState(),floating_ip_(addr), vn_(NULL),
+    vrf_(NULL, this), vrf_name_(vrf), vn_uuid_(vn_uuid), fixed_ip_(fixed_ip),
+    direction_(direction), port_map_enabled_(port_map_enabled),
+    src_port_map_(src_port_map), dst_port_map_(dst_port_map), ethernet_tag_(0) {
 }
 
 VmInterface::FloatingIp::~FloatingIp() {
@@ -1363,146 +1473,13 @@ bool VmInterface::FloatingIp::IsLess(const FloatingIp *rhs) const {
     return (vrf_name_ < rhs->vrf_name_);
 }
 
-void VmInterface::FloatingIp::L3Activate(VmInterface *interface,
-                                         bool force_update) const {
-    // Add route if not installed or if force requested
-    if (installed_ && force_update == false && force_l3_update_ == false) {
-        return;
-    }
-
-    fixed_ip_ = GetFixedIp(interface);
-
-    InterfaceTable *table =
-        static_cast<InterfaceTable *>(interface->get_table());
-
-    if (floating_ip_.is_v4()) {
-        interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v4(),
-                        Address::kMaxV4PrefixLen, vn_->GetName(), false,
-                        interface->ecmp(), false, false, Ip4Address(0),
-                        fixed_ip_, CommunityList(),
-                        interface->label());
-        if (table->update_floatingip_cb().empty() == false) {
-            table->update_floatingip_cb()(interface, vn_.get(),
-                                          floating_ip_.to_v4(), false);
-        }
-    } else if (floating_ip_.is_v6()) {
-        interface->AddRoute(vrf_.get()->GetName(), floating_ip_.to_v6(),
-                            Address::kMaxV6PrefixLen, vn_->GetName(), false,
-                            interface->ecmp6(), false, false, Ip6Address(),
-                            fixed_ip_, CommunityList(), interface->label());
-        //TODO:: callback for DNS handling
-    }
-
-    installed_ = true;
-    force_l3_update_ = false;
-}
-
-void VmInterface::FloatingIp::L3DeActivate(VmInterface *interface) const {
-    if (installed_ == false)
-        return;
-
-    if (floating_ip_.is_v4()) {
-        interface->DeleteRoute(vrf_.get()->GetName(), floating_ip_,
-                               Address::kMaxV4PrefixLen);
-        InterfaceTable *table =
-            static_cast<InterfaceTable *>(interface->get_table());
-        if (table->update_floatingip_cb().empty() == false) {
-            table->update_floatingip_cb()(interface, vn_.get(),
-                                          floating_ip_.to_v4(), true);
-        }
-    } else if (floating_ip_.is_v6()) {
-        interface->DeleteRoute(vrf_.get()->GetName(), floating_ip_,
-                               Address::kMaxV6PrefixLen);
-        //TODO:: callback for DNS handling
-    }
-    installed_ = false;
-}
-
-void VmInterface::FloatingIp::L2Activate(VmInterface *interface,
-                                         bool force_update,
-                                         uint32_t old_ethernet_tag) const {
-    // Add route if not installed or if force requested
-    if (l2_installed_ && force_update == false &&
-            force_l2_update_ == false) {
-        return;
-    }
-
-    SecurityGroupList sg_id_list;
-    interface->CopySgIdList(&sg_id_list);
-
-    PathPreference path_preference;
-    interface->SetPathPreference(&path_preference, false, GetFixedIp(interface));
-
-    EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
-        (vrf_->GetEvpnRouteTable());
-    if (old_ethernet_tag != interface->ethernet_tag()) {
-        L2DeActivate(interface, old_ethernet_tag);
-    }
-    evpn_table->AddReceiveRoute(interface->peer_.get(), vrf_->GetName(),
-                                interface->l2_label(),
-                                interface->vm_mac(),
-                                floating_ip_, interface->ethernet_tag(),
-                                vn_->GetName(), path_preference);
-    l2_installed_ = true;
-    force_l2_update_ = false;
-}
-
-void VmInterface::FloatingIp::L2DeActivate(VmInterface *interface,
-                                           uint32_t ethernet_tag) const {
-    if (l2_installed_ == false)
-        return;
-
-    EvpnAgentRouteTable *evpn_table =
-        static_cast<EvpnAgentRouteTable *>(vrf_->GetEvpnRouteTable());
-    if (evpn_table) {
-        evpn_table->DelLocalVmRoute(interface->peer_.get(), vrf_->GetName(),
-                                    interface->vm_mac(),
-                                    interface, floating_ip_, ethernet_tag);
-    }
-    //Reset the interface ethernet_tag
-    l2_installed_ = false;
-}
-
-void VmInterface::FloatingIp::Activate(VmInterface *interface,
-                                       bool force_update, bool l2,
-                                       uint32_t old_ethernet_tag) const {
-    InterfaceTable *table =
-        static_cast<InterfaceTable *>(interface->get_table());
-
-    if (vn_.get() == NULL) {
-        vn_ = table->FindVnRef(vn_uuid_);
-        assert(vn_.get());
-    }
-
-    if (vrf_.get() == NULL) {
-        vrf_ = table->FindVrfRef(vrf_name_);
-        assert(vrf_.get());
-    }
-
-    if (l2)
-        L2Activate(interface, force_update, old_ethernet_tag);
-    else
-        L3Activate(interface, force_update);
-}
-
-void VmInterface::FloatingIp::DeActivate(VmInterface *interface, bool l2,
-                                         uint32_t old_ethernet_tag) const{
-    if (l2)
-        L2DeActivate(interface, old_ethernet_tag);
-    else
-        L3DeActivate(interface);
-
-    if (installed_ == false && l2_installed_ == false)
-        vrf_ = NULL;
-}
-
 const IpAddress
-VmInterface::FloatingIp::GetFixedIp(const VmInterface *interface) const {
+VmInterface::FloatingIp::GetFixedIp(const VmInterface *vmi) const {
     if (fixed_ip_.is_unspecified()) {
         if (floating_ip_.is_v4() == true) {
-            return interface->primary_ip_addr();
+            return vmi->primary_ip_addr();
         } else {
-            return interface->primary_ip6_addr();
+            return vmi->primary_ip6_addr();
         }
     }
     return fixed_ip_;
@@ -1532,164 +1509,137 @@ int32_t VmInterface::FloatingIp::GetDstPortMap(uint8_t protocol,
     return it->second;
 }
 
-void VmInterface::FloatingIpList::Insert(const FloatingIp *rhs) {
-    std::pair<FloatingIpSet::iterator, bool> ret = list_.insert(*rhs);
-    if (ret.second) {
-        if (rhs->floating_ip_.is_v4()) {
-            v4_count_++;
-        } else {
-            v6_count_++;
-        }
-    }
-}
-
-void VmInterface::FloatingIpList::Update(const FloatingIp *lhs,
-                                         const FloatingIp *rhs) {
-    if (lhs->fixed_ip_ != rhs->fixed_ip_) {
-        lhs->fixed_ip_ = rhs->fixed_ip_;
-        lhs->force_l3_update_ = true;
-        lhs->force_l2_update_ = true;
+void VmInterface::FloatingIp::Copy(const Agent *agent,
+                                   const VmInterface *vmi) const {
+    // Delete for FloatingIp happens in CleanupFloatingIpList(). So, dont
+    // update vn_ and vrf_ fields in case of delete
+    if (del_pending_) {
+        vn_ = NULL;
+        vrf_ = NULL;
+        return;
     }
 
-    lhs->direction_ = rhs->direction_;
-    lhs->port_map_enabled_ = rhs->port_map_enabled_;
-    lhs->src_port_map_ = rhs->src_port_map_;
-    lhs->dst_port_map_ = rhs->dst_port_map_;
-    lhs->set_del_pending(false);
+    InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
+    if (vn_.get() == NULL)
+        vn_ = table->FindVnRef(vn_uuid_);
+
+    if (vrf_.get() == NULL)
+        vrf_ = table->FindVrfRef(vrf_name_);
+
+    return;
 }
 
-void VmInterface::FloatingIpList::Remove(FloatingIpSet::iterator &it) {
-    it->set_del_pending(true);
+VmInterfaceState::Op VmInterface::FloatingIp::GetOpL3
+(const Agent *agent, const VmInterface *vmi) const {
+    if (GetIpActiveState(floating_ip_, vmi) == false)
+        return VmInterfaceState::DEL;
+
+    if (vmi->vrf() == NULL || vmi->vn() == NULL)
+        return VmInterfaceState::DEL;
+
+    return VmInterfaceState::ADD;
 }
 
-void VmInterface::CleanupFloatingIpList() {
-    FloatingIpSet::iterator it = floating_ip_list_.list_.begin();
-    while (it != floating_ip_list_.list_.end()) {
-        FloatingIpSet::iterator prev = it++;
-        if (prev->del_pending_ == false)
-            continue;
+bool VmInterface::FloatingIp::AddL3(const Agent *agent,
+                                    VmInterface *vmi) const {
+    if (vrf_.get() == NULL || vn_.get() == NULL)
+        return false;
 
-        if (prev->floating_ip_.is_v4()) {
-            floating_ip_list_.v4_count_--;
-            assert(floating_ip_list_.v4_count_ >= 0);
-        } else {
-            floating_ip_list_.v6_count_--;
-            assert(floating_ip_list_.v6_count_ >= 0);
-        }
-        floating_ip_list_.list_.erase(prev);
+    fixed_ip_ = GetFixedIp(vmi);
+    uint8_t plen = floating_ip_.is_v4() ?
+        Address::kMaxV4PrefixLen : Address::kMaxV6PrefixLen;
+    IpAddress service_ip = Ip4Address();
+    if (floating_ip_.is_v6())
+        service_ip = Ip6Address();
+
+    bool ecmp = floating_ip_.is_v4() ? vmi->ecmp() : vmi->ecmp6();
+    vmi->AddRoute(vrf_.get()->GetName(), floating_ip_, plen, vn_->GetName(),
+                  false, ecmp, false, false, service_ip, fixed_ip_,
+                  CommunityList(), vmi->label());
+
+    InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
+    if (floating_ip_.is_v4() && table->update_floatingip_cb().empty()==false) {
+        table->update_floatingip_cb()(vmi, vn_.get(), floating_ip_.to_v4(),
+                                      false);
+        //TODO:: callback for DNS handling
     }
+
+    return true;
 }
 
-void VmInterface::UpdateFloatingIp(bool force_update, bool policy_change,
-                                   bool l2, uint32_t old_ethernet_tag) {
-    FloatingIpSet::iterator it = floating_ip_list_.list_.begin();
-    while (it != floating_ip_list_.list_.end()) {
-        FloatingIpSet::iterator prev = it++;
-        if (prev->del_pending_) {
-            prev->DeActivate(this, l2, old_ethernet_tag);
-        } else {
-            prev->Activate(this, force_update||policy_change, l2,
-                           old_ethernet_tag);
-        }
+bool VmInterface::FloatingIp::DeleteL3(const Agent *agent,
+                                       VmInterface *vmi) const {
+    if (vrf_.get() == NULL)
+        return false;
+    uint8_t plen = floating_ip_.is_v4() ?
+        Address::kMaxV4PrefixLen : Address::kMaxV6PrefixLen;
+
+    vmi->DeleteRoute(vrf_.get()->GetName(), floating_ip_, plen);
+
+    InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
+    if (floating_ip_.is_v4() && table->update_floatingip_cb().empty()==false) {
+        table->update_floatingip_cb()(vmi, vn_.get(), floating_ip_.to_v4(),
+                                      true);
+        //TODO:: callback for DNS handling
     }
+    return true;
 }
 
-void VmInterface::DeleteFloatingIp(bool l2, uint32_t old_ethernet_tag) {
-    FloatingIpSet::iterator it = floating_ip_list_.list_.begin();
-    while (it != floating_ip_list_.list_.end()) {
-        FloatingIpSet::iterator prev = it++;
-        prev->DeActivate(this, l2, old_ethernet_tag);
+VmInterfaceState::Op VmInterface::FloatingIp::GetOpL2
+(const Agent *agent, const VmInterface *vmi) const {
+    if (GetIpActiveState(floating_ip_, vmi) == false)
+        return VmInterfaceState::DEL;
+
+    if (vmi->vrf() == NULL || vmi->vn() == NULL)
+        return VmInterfaceState::DEL;
+
+    if (ethernet_tag_ != vmi->ethernet_tag())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmInterface::FloatingIp::AddL2(const Agent *agent,
+                                    VmInterface *vmi) const {
+    if (vrf_.get() == NULL || vn_.get() == NULL)
+        return false;
+
+    SecurityGroupList sg_id_list;
+    vmi->CopySgIdList(&sg_id_list);
+
+    PathPreference path_preference;
+    vmi->SetPathPreference(&path_preference, false, GetFixedIp(vmi));
+
+    EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
+        (vrf_->GetEvpnRouteTable());
+
+    evpn_table->AddReceiveRoute(vmi->peer_.get(), vrf_->GetName(),
+                                vmi->l2_label(), vmi->vm_mac(), floating_ip_,
+                                ethernet_tag_, vn_->GetName(),
+                                path_preference);
+    return true;
+}
+
+bool VmInterface::FloatingIp::DeleteL2(const Agent *agent,
+                                       VmInterface *vmi) const {
+    if (vrf_.get() == NULL)
+        return false;
+
+    EvpnAgentRouteTable *evpn_table =
+        static_cast<EvpnAgentRouteTable *>(vrf_->GetEvpnRouteTable());
+    if (evpn_table == NULL) {
+        return false;
     }
+
+    evpn_table->DelLocalVmRoute(vmi->peer_.get(), vrf_->GetName(),
+                                vmi->vm_mac(), vmi, floating_ip_,
+                                ethernet_tag_);
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // AliasIp routines
 /////////////////////////////////////////////////////////////////////////////
-VmInterface::AliasIp::AliasIp() :
-    ListEntry(), alias_ip_(), vn_(NULL),
-    vrf_(NULL, this), vrf_name_(""), vn_uuid_(), force_update_(false) {
-}
-
-VmInterface::AliasIp::AliasIp(const AliasIp &rhs) :
-    ListEntry(rhs.installed_, rhs.del_pending_),
-    alias_ip_(rhs.alias_ip_), vn_(rhs.vn_), vrf_(rhs.vrf_, this),
-    vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_),
-    force_update_(rhs.force_update_) {
-}
-
-VmInterface::AliasIp::AliasIp(const IpAddress &addr,
-                              const std::string &vrf,
-                              const boost::uuids::uuid &vn_uuid) :
-    ListEntry(), alias_ip_(addr), vn_(NULL), vrf_(NULL, this), vrf_name_(vrf),
-    vn_uuid_(vn_uuid), force_update_(false) {
-}
-
-VmInterface::AliasIp::~AliasIp() {
-}
-
-bool VmInterface::AliasIp::operator() (const AliasIp &lhs,
-                                       const AliasIp &rhs) const {
-    return lhs.IsLess(&rhs);
-}
-
-// Compare key for AliasIp. Key is <alias_ip_ and vrf_name_> for both
-// Config and Operational processing
-bool VmInterface::AliasIp::IsLess(const AliasIp *rhs) const {
-    if (alias_ip_ != rhs->alias_ip_)
-        return alias_ip_ < rhs->alias_ip_;
-
-    return (vrf_name_ < rhs->vrf_name_);
-}
-
-void VmInterface::AliasIp::Activate(VmInterface *interface,
-                                    bool force_update) const {
-    InterfaceTable *table =
-        static_cast<InterfaceTable *>(interface->get_table());
-
-    if (vn_.get() == NULL) {
-        vn_ = table->FindVnRef(vn_uuid_);
-        assert(vn_.get());
-    }
-
-    if (vrf_.get() == NULL) {
-        vrf_ = table->FindVrfRef(vrf_name_);
-        assert(vrf_.get());
-    }
-
-    // Add route if not installed or if force requested
-    if (installed_ && force_update == false && force_update_ == false) {
-        return;
-    }
-
-    if (alias_ip_.is_v4()) {
-        interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v4(), 32,
-                            vn_->GetName(), false, interface->ecmp(), false,
-                            false, Ip4Address(0), Ip4Address(0),
-                            CommunityList(), interface->label());
-    } else if (alias_ip_.is_v6()) {
-        interface->AddRoute(vrf_.get()->GetName(), alias_ip_.to_v6(), 128,
-                            vn_->GetName(), false, interface->ecmp6(), false,
-                            false, Ip6Address(), Ip6Address(), CommunityList(),
-                            interface->label());
-    }
-
-    installed_ = true;
-    force_update_ = false;
-}
-
-void VmInterface::AliasIp::DeActivate(VmInterface *interface) const {
-    if (installed_) {
-        if (alias_ip_.is_v4()) {
-            interface->DeleteRoute(vrf_.get()->GetName(), alias_ip_, 32);
-        } else if (alias_ip_.is_v6()) {
-            interface->DeleteRoute(vrf_.get()->GetName(), alias_ip_, 128);
-        }
-        installed_ = false;
-    }
-
-    vrf_ = NULL;
-}
-
 void VmInterface::AliasIpList::Insert(const AliasIp *rhs) {
     std::pair<AliasIpSet::iterator, bool> ret = list_.insert(*rhs);
     if (ret.second) {
@@ -1701,13 +1651,25 @@ void VmInterface::AliasIpList::Insert(const AliasIp *rhs) {
     }
 }
 
-void VmInterface::AliasIpList::Update(const AliasIp *lhs,
-                                      const AliasIp *rhs) {
+void VmInterface::AliasIpList::Update(const AliasIp *lhs, const AliasIp *rhs) {
     lhs->set_del_pending(false);
 }
 
 void VmInterface::AliasIpList::Remove(AliasIpSet::iterator &it) {
     it->set_del_pending(true);
+}
+
+bool VmInterface::AliasIpList::UpdateList(const Agent *agent, VmInterface *vmi,
+                                          VmInterfaceState::Op l2_force_op,
+                                          VmInterfaceState::Op l3_force_op) {
+    AliasIpSet::iterator it = list_.begin();
+    while (it != list_.end()) {
+        AliasIpSet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
+    }
+    return true;
 }
 
 void VmInterface::CleanupAliasIpList() {
@@ -1728,117 +1690,101 @@ void VmInterface::CleanupAliasIpList() {
     }
 }
 
-void VmInterface::UpdateAliasIp(bool force_update, bool policy_change) {
-    AliasIpSet::iterator it = alias_ip_list_.list_.begin();
-    while (it != alias_ip_list_.list_.end()) {
-        AliasIpSet::iterator prev = it++;
-        if (prev->del_pending_) {
-            prev->DeActivate(this);
-        } else {
-            prev->Activate(this, force_update||policy_change);
-        }
-    }
+VmInterface::AliasIp::AliasIp() :
+    ListEntry(), VmInterfaceState(), alias_ip_(), vn_(NULL), vrf_(NULL, this),
+    vrf_name_(""), vn_uuid_() {
 }
 
-void VmInterface::DeleteAliasIp() {
-    AliasIpSet::iterator it = alias_ip_list_.list_.begin();
-    while (it != alias_ip_list_.list_.end()) {
-        AliasIpSet::iterator prev = it++;
-        prev->DeActivate(this);
+VmInterface::AliasIp::AliasIp(const AliasIp &rhs) :
+    ListEntry(rhs.del_pending_),
+    VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
+    alias_ip_(rhs.alias_ip_), vn_(rhs.vn_), vrf_(rhs.vrf_, this),
+    vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_) {
+}
+
+VmInterface::AliasIp::AliasIp(const IpAddress &addr, const std::string &vrf,
+                              const boost::uuids::uuid &vn_uuid) :
+    ListEntry(), VmInterfaceState(), alias_ip_(addr), vn_(NULL),
+    vrf_(NULL, this), vrf_name_(vrf), vn_uuid_(vn_uuid) {
+}
+
+VmInterface::AliasIp::~AliasIp() {
+}
+
+bool VmInterface::AliasIp::operator() (const AliasIp &lhs,
+                                       const AliasIp &rhs) const {
+    return lhs.IsLess(&rhs);
+}
+
+// Compare key for AliasIp. Key is <alias_ip_ and vrf_name_> for both
+// Config and Operational processing
+bool VmInterface::AliasIp::IsLess(const AliasIp *rhs) const {
+    if (alias_ip_ != rhs->alias_ip_)
+        return alias_ip_ < rhs->alias_ip_;
+
+    return (vrf_name_ < rhs->vrf_name_);
+}
+
+VmInterfaceState::Op VmInterface::AliasIp::GetOpL3(const Agent *agent,
+                                                   const VmInterface *vmi) const {
+    if (GetIpActiveState(alias_ip_, vmi) == false)
+        return VmInterfaceState::DEL;
+
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+void VmInterface::AliasIp::Copy(const Agent *agent,
+                                const VmInterface *vmi) const {
+    if (del_pending_) {
+        vrf_ = NULL;
+        vn_ = NULL;
+        return;
     }
+
+    InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
+    if (vn_.get() == NULL) {
+        vn_ = table->FindVnRef(vn_uuid_);
+        assert(vn_.get());
+    }
+
+    if (vrf_.get() == NULL) {
+        vrf_ = table->FindVrfRef(vrf_name_);
+        assert(vrf_.get());
+    }
+    return;
+}
+
+bool VmInterface::AliasIp::AddL3(const Agent *agent, VmInterface *vmi) const {
+    if (vrf_.get() == NULL)
+        return false;
+
+    uint8_t plen = alias_ip_.is_v4() ?
+        Address::kMaxV4PrefixLen : Address::kMaxV6PrefixLen;
+    IpAddress service_ip = Ip4Address();
+    if (alias_ip_.is_v6())
+        service_ip = Ip6Address();
+    vmi->AddRoute(vrf_->GetName(), alias_ip_, plen, vn_->GetName(), false,
+                  vmi->ecmp(), false, false, service_ip, service_ip,
+                  CommunityList(), vmi->label());
+    return true;
+}
+
+bool VmInterface::AliasIp::DeleteL3(const Agent *agent,
+                                    VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+    uint8_t plen = alias_ip_.is_v4() ?
+        Address::kMaxV4PrefixLen : Address::kMaxV6PrefixLen;
+    vmi->DeleteRoute(vrf_.get()->GetName(), alias_ip_, plen);
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // StaticRoute routines
 /////////////////////////////////////////////////////////////////////////////
-VmInterface::StaticRoute::StaticRoute() :
-    ListEntry(), vrf_(""), addr_(), plen_(0), gw_(), communities_() {
-}
-
-VmInterface::StaticRoute::StaticRoute(const StaticRoute &rhs) :
-    ListEntry(rhs.installed_, rhs.del_pending_), vrf_(rhs.vrf_),
-    addr_(rhs.addr_), plen_(rhs.plen_), gw_(rhs.gw_),
-    communities_(rhs.communities_) {
-}
-
-VmInterface::StaticRoute::StaticRoute(const std::string &vrf,
-                                      const IpAddress &addr,
-                                      uint32_t plen, const IpAddress &gw,
-                                      const CommunityList &communities) :
-    ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), gw_(gw),
-    communities_(communities) {
-}
-
-VmInterface::StaticRoute::~StaticRoute() {
-}
-
-bool VmInterface::StaticRoute::operator() (const StaticRoute &lhs,
-                                           const StaticRoute &rhs) const {
-    return lhs.IsLess(&rhs);
-}
-
-bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
-#if 0
-    //Enable once we can add static routes across vrf
-    if (vrf_name_ != rhs->vrf_name_)
-        return vrf_name_ < rhs->vrf_name_;
-#endif
-
-    if (addr_ != rhs->addr_)
-        return addr_ < rhs->addr_;
-
-    if (plen_ != rhs->plen_) {
-        return plen_ < rhs->plen_;
-    }
-
-    return gw_ < rhs->gw_;
-}
-
-void VmInterface::StaticRoute::Activate(VmInterface *interface,
-                                        bool force_update) const {
-    if (installed_ && force_update == false)
-        return;
-
-    if (vrf_ != interface->vrf()->GetName()) {
-        vrf_ = interface->vrf()->GetName();
-    }
-
-    if (installed_ == false || force_update) {
-        Ip4Address gw_ip(0);
-        if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != gw_ip) {
-            SecurityGroupList sg_id_list;
-            interface->CopySgIdList(&sg_id_list);
-            InetUnicastAgentRouteTable::AddGatewayRoute
-                (interface->peer_.get(), vrf_, addr_.to_v4(), plen_,
-                 gw_.to_v4(), interface->vn_->GetName(),
-                 interface->vrf_->table_label(), sg_id_list, communities_);
-        } else {
-            IpAddress dependent_ip;
-            bool ecmp = false;
-            if (addr_.is_v4()) {
-                dependent_ip = interface->primary_ip_addr();
-                ecmp = interface->ecmp();
-            } else if (addr_.is_v6()) {
-                dependent_ip = interface->primary_ip6_addr();
-                ecmp = interface->ecmp6();
-            }
-            interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                                false, ecmp, false, false,
-                                interface->GetServiceIp(addr_),dependent_ip,
-                                communities_, interface->label());
-        }
-    }
-
-    installed_ = true;
-}
-
-void VmInterface::StaticRoute::DeActivate(VmInterface *interface) const {
-    if (installed_ == false)
-        return;
-    interface->DeleteRoute(vrf_, addr_, plen_);
-    installed_ = false;
-}
-
 void VmInterface::StaticRouteList::Insert(const StaticRoute *rhs) {
     list_.insert(*rhs);
 }
@@ -1855,85 +1801,50 @@ void VmInterface::StaticRouteList::Remove(StaticRouteSet::iterator &it) {
     it->set_del_pending(true);
 }
 
-void VmInterface::UpdateStaticRoute(bool force_update) {
-    StaticRouteSet::iterator it = static_route_list_.list_.begin();
-    while (it != static_route_list_.list_.end()) {
+bool VmInterface::StaticRouteList::UpdateList
+(const Agent *agent, VmInterface *vmi, VmInterfaceState::Op l2_force_op,
+ VmInterfaceState::Op l3_force_op) {
+    StaticRouteSet::iterator it = list_.begin();
+    while (it != list_.end()) {
         StaticRouteSet::iterator prev = it++;
-        /* V4 static routes should be enabled only if ipv4_active_ is true
-         * V6 static routes should be enabled only if ipv6_active_ is true
-         */
-        if ((!ipv4_active_ && prev->addr_.is_v4()) ||
-            (!ipv6_active_ && prev->addr_.is_v6())) {
-            continue;
-        }
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
         if (prev->del_pending_) {
-            prev->DeActivate(this);
-            static_route_list_.list_.erase(prev);
-        } else {
-            prev->Activate(this, force_update);
+            list_.erase(prev);
         }
     }
+    return true;
 }
 
-void VmInterface::DeleteStaticRoute() {
-    StaticRouteSet::iterator it = static_route_list_.list_.begin();
-    while (it != static_route_list_.list_.end()) {
-        StaticRouteSet::iterator prev = it++;
-        prev->DeActivate(this);
-        if (prev->del_pending_) {
-            static_route_list_.list_.erase(prev);
-        }
-    }
+VmInterface::StaticRoute::StaticRoute() :
+    ListEntry(), VmInterfaceState(), vrf_(), addr_(), plen_(0), gw_(),
+    communities_() {
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//Allowed addresss pair route
-///////////////////////////////////////////////////////////////////////////////
-VmInterface::AllowedAddressPair::AllowedAddressPair() :
-    ListEntry(), vrf_(""), addr_(), plen_(0), ecmp_(false), mac_(),
-    l2_entry_installed_(false), ecmp_config_changed_(false), ethernet_tag_(0),
-    vrf_ref_(NULL, this), service_ip_(), label_(MplsTable::kInvalidLabel),
-    policy_enabled_nh_(NULL), policy_disabled_nh_(NULL) {
+VmInterface::StaticRoute::StaticRoute(const StaticRoute &rhs) :
+    ListEntry(rhs.del_pending_),
+    VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
+    vrf_(rhs.vrf_), addr_(rhs.addr_), plen_(rhs.plen_), gw_(rhs.gw_),
+    communities_(rhs.communities_) {
 }
 
-VmInterface::AllowedAddressPair::AllowedAddressPair(
-    const AllowedAddressPair &rhs) : ListEntry(rhs.installed_,
-    rhs.del_pending_), vrf_(rhs.vrf_), addr_(rhs.addr_), plen_(rhs.plen_),
-    ecmp_(rhs.ecmp_), mac_(rhs.mac_),
-    l2_entry_installed_(rhs.l2_entry_installed_),
-    ecmp_config_changed_(rhs.ecmp_config_changed_),
-    ethernet_tag_(rhs.ethernet_tag_), vrf_ref_(rhs.vrf_ref_, this),
-    service_ip_(rhs.service_ip_), label_(rhs.label_),
-    policy_enabled_nh_(rhs.policy_enabled_nh_),
-    policy_disabled_nh_(rhs.policy_disabled_nh_) {
+VmInterface::StaticRoute::StaticRoute(const IpAddress &addr,
+                                      uint32_t plen, const IpAddress &gw,
+                                      const CommunityList &communities) :
+    ListEntry(), VmInterfaceState(), vrf_(), addr_(addr), plen_(plen), gw_(gw),
+    communities_(communities) {
 }
 
-VmInterface::AllowedAddressPair::AllowedAddressPair(const std::string &vrf,
-                                                    const IpAddress &addr,
-                                                    uint32_t plen, bool ecmp,
-                                                    const MacAddress &mac) :
-    ListEntry(), vrf_(vrf), addr_(addr), plen_(plen), ecmp_(ecmp), mac_(mac),
-    l2_entry_installed_(false), ecmp_config_changed_(false), ethernet_tag_(0),
-    vrf_ref_(NULL, this), label_(MplsTable::kInvalidLabel),
-    policy_enabled_nh_(NULL), policy_disabled_nh_(NULL) {
+VmInterface::StaticRoute::~StaticRoute() {
 }
 
-VmInterface::AllowedAddressPair::~AllowedAddressPair() {
-}
-
-bool VmInterface::AllowedAddressPair::operator() (const AllowedAddressPair &lhs,
-                                                  const AllowedAddressPair &rhs) 
-                                                  const {
+bool VmInterface::StaticRoute::operator() (const StaticRoute &lhs,
+                                           const StaticRoute &rhs) const {
     return lhs.IsLess(&rhs);
 }
 
-bool VmInterface::AllowedAddressPair::IsLess(const AllowedAddressPair *rhs) const {
-#if 0
-    //Enable once we can add static routes across vrf
-    if (vrf_name_ != rhs->vrf_name_)
-        return vrf_name_ < rhs->vrf_name_;
-#endif
-
+bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
     if (addr_ != rhs->addr_)
         return addr_ < rhs->addr_;
 
@@ -1941,174 +1852,66 @@ bool VmInterface::AllowedAddressPair::IsLess(const AllowedAddressPair *rhs) cons
         return plen_ < rhs->plen_;
     }
 
-    return mac_ < rhs->mac_;
+    return gw_ < rhs->gw_;
 }
 
-void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
-                                                 bool force_update,
-                                                 bool policy_change,
-                                                 bool old_layer2_forwarding,
-                                                 bool old_layer3_forwarding) const {
-    if (mac_ == MacAddress::kZeroMac) {
-        return;
-    }
-
-    if (l2_entry_installed_ && force_update == false &&
-        policy_change == false && ethernet_tag_ == interface->ethernet_tag() &&
-        old_layer3_forwarding == interface->layer3_forwarding() &&
-        ecmp_config_changed_ == false) {
-        return;
-    }
-
-    if (vrf_ != interface->vrf()->GetName()) {
-        vrf_ = interface->vrf()->GetName();
-    }
-
-    vrf_ref_ = interface->vrf();
-    if (old_layer3_forwarding != interface->layer3_forwarding() ||
-        l2_entry_installed_ == false || ecmp_config_changed_) {
-        force_update = true;
-    }
-
-    if (ethernet_tag_ != interface->ethernet_tag()) {
-        force_update = true;
-    }
-
-    if (l2_entry_installed_ == false || force_update || policy_change) {
-        IpAddress dependent_rt;
-        Ip4Address v4ip(0);
-        Ip6Address v6ip;
-        if (addr_.is_v4()) {
-            dependent_rt = Ip4Address(0);
-            v4ip = addr_.to_v4();
-        } else if (addr_.is_v6()) {
-            dependent_rt = Ip6Address();
-            v6ip = addr_.to_v6();
-        }
-
-        if (interface->bridging()) {
-            interface->UpdateL2InterfaceRoute(old_layer2_forwarding,
-                                   force_update, interface->vrf(), v4ip, v6ip,
-                                   ethernet_tag_, old_layer3_forwarding,
-                                   policy_change, v4ip, v6ip, mac_,
-                                   dependent_rt);
-        }
-        ethernet_tag_ = interface->ethernet_tag();
-        //If layer3 forwarding is disabled
-        //  * IP + mac allowed address pair should not be published
-        //  * Only mac allowed address pair should be published
-        //Logic for same is present in UpdateL2InterfaceRoute
-        if (interface->layer3_forwarding() || addr_.is_unspecified() == true) {
-            l2_entry_installed_ = true;
-        } else {
-            l2_entry_installed_ = false;
-        }
-        ecmp_config_changed_ = false;
-    }
+void VmInterface::StaticRoute::Copy(const Agent *agent,
+                                    const VmInterface *vmi) const {
+    vrf_ = vmi->vrf();
 }
 
-void VmInterface::AllowedAddressPair::L2DeActivate(VmInterface *interface)
-    const {
-    if (mac_ == MacAddress::kZeroMac) {
-        return;
-    }
+VmInterfaceState::Op VmInterface::StaticRoute::GetOpL3
+(const Agent *agent, const VmInterface *vmi) const {
+    if (GetIpActiveState(addr_, vmi) == false)
+        return VmInterfaceState::DEL;
 
-    if (l2_entry_installed_ == false) {
-        return;
-    }
+    if (vrf_ != vmi->vrf())
+        return VmInterfaceState::DEL_ADD;
 
-    Ip4Address v4ip(0);
-    Ip6Address v6ip;
-    if (addr_.is_v4()) {
-        v4ip = addr_.to_v4();
-    } else if (addr_.is_v6()) {
-        v6ip = addr_.to_v6();
-    }
-    interface->DeleteL2InterfaceRoute(true, vrf_ref_.get(), v4ip,
-                                      v6ip, ethernet_tag_, mac_);
-    l2_entry_installed_ = false;
-    vrf_ref_ = NULL;
+    return VmInterfaceState::ADD;
 }
 
-void VmInterface::AllowedAddressPair::CreateLabelAndNH(Agent *agent,
-                                                       VmInterface *interface,
-                                                       bool policy_change)
-                                                       const {
-    InterfaceNH::CreateL3VmInterfaceNH(interface->GetUuid(), mac_,
-                                       interface->vrf_->GetName(),
-                                       interface->learning_enabled_);
+bool VmInterface::StaticRoute::AddL3(const Agent *agent,
+                                     VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
 
-    VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, interface->GetUuid(),
-                           interface->name());
-    InterfaceNHKey key(vmi_key.Clone(), false, InterfaceNHFlags::INET4, mac_);
-    InterfaceNH *nh = static_cast<InterfaceNH *>(agent->nexthop_table()->
-                                                 FindActiveEntry(&key));
-    policy_disabled_nh_ = nh;
-    //Ensure nexthop to be deleted upon refcount falling to 0
-    nh->set_delete_on_zero_refcount(true);
-
-    InterfaceNHKey key1(vmi_key.Clone(), true, InterfaceNHFlags::INET4, mac_);
-    nh = static_cast<InterfaceNH *>(agent->
-                                    nexthop_table()->FindActiveEntry(&key1));
-    //Ensure nexthop to be deleted upon refcount falling to 0
-    nh->set_delete_on_zero_refcount(true);
-    policy_enabled_nh_ = nh;
-
-    // Update AAP mpls label from nh entry
-    if (interface->policy_enabled()) {
-        label_ = policy_enabled_nh_->mpls_label()->label();
+    if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != Ip4Address(0)) {
+        SecurityGroupList sg_id_list;
+        vmi->CopySgIdList(&sg_id_list);
+        InetUnicastAgentRouteTable::AddGatewayRoute
+            (vmi->peer_.get(), vrf_->GetName(), addr_.to_v4(), plen_,
+             gw_.to_v4(), vmi->vn_->GetName(), vmi->vrf_->table_label(),
+             sg_id_list, communities_);
     } else {
-        label_ = policy_disabled_nh_->mpls_label()->label();
-    }
-}
-
-void VmInterface::AllowedAddressPair::Activate(VmInterface *interface,
-                                               bool force_update,
-                                               bool policy_change) const {
-    IpAddress ip = interface->GetServiceIp(addr_);
-
-    if (installed_ && force_update == false && service_ip_ == ip &&
-        policy_change == false && ecmp_config_changed_ == false) {
-        return;
-    }
-
-    Agent *agent = interface->agent();
-    if (vrf_ != interface->vrf()->GetName()) {
-        vrf_ = interface->vrf()->GetName();
-    }
-
-    if (installed_ == false || force_update || service_ip_ != ip ||
-        policy_change || ecmp_config_changed_) {
-        service_ip_ = ip;
-        if (mac_ == MacAddress::kZeroMac ||
-            mac_ == interface->vm_mac_) {
-            interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                                false, ecmp_, false, false, service_ip_,
-                                Ip4Address(0), CommunityList(),
-                                interface->label());
-        } else {
-            CreateLabelAndNH(agent, interface, policy_change);
-            interface->AddRoute(vrf_, addr_, plen_, interface->vn_->GetName(),
-                                false, ecmp_, false, false, service_ip_,
-                                Ip6Address(), CommunityList(), label_);
+        IpAddress dependent_ip;
+        bool ecmp = false;
+        if (addr_.is_v4()) {
+            dependent_ip = vmi->primary_ip_addr();
+            ecmp = vmi->ecmp();
+        } else if (addr_.is_v6()) {
+            dependent_ip = vmi->primary_ip6_addr();
+            ecmp = vmi->ecmp6();
         }
+        vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
+                      false, ecmp, false, false, vmi->GetServiceIp(addr_),
+                      dependent_ip, communities_, vmi->label());
     }
-    installed_ = true;
-    ecmp_config_changed_ = false;
+    return true;
 }
 
-void VmInterface::AllowedAddressPair::DeActivate(VmInterface *interface) const {
-    if (installed_ == false)
-        return;
-    interface->DeleteRoute(vrf_, addr_, plen_);
-    if (label_ != MplsTable::kInvalidLabel) {
-        label_ = MplsTable::kInvalidLabel;
-    }
-    policy_enabled_nh_ = NULL;
-    policy_disabled_nh_ = NULL;
-    installed_ = false;
+bool VmInterface::StaticRoute::DeleteL3(const Agent *agent,
+                                        VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    vmi->DeleteRoute(vrf_->GetName(), addr_, plen_);
+    return true;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//Allowed addresss pair route
+///////////////////////////////////////////////////////////////////////////////
 void VmInterface::AllowedAddressPairList::Insert
 (const AllowedAddressPair *rhs){
     list_.insert(*rhs);
@@ -2128,257 +1931,188 @@ void VmInterface::AllowedAddressPairList::Remove
     it->set_del_pending(true);
 }
 
-void VmInterface::UpdateAllowedAddressPair(bool force_update,
-                                           bool policy_change, bool l2,
-                                           bool old_layer2_forwarding,
-                                           bool old_layer3_forwarding) {
-    AllowedAddressPairSet::iterator it =
-        allowed_address_pair_list_.list_.begin();
-    while (it != allowed_address_pair_list_.list_.end()) {
+bool VmInterface::AllowedAddressPairList::UpdateList
+(const Agent *agent, VmInterface *vmi, VmInterfaceState::Op l2_force_op,
+ VmInterfaceState::Op l3_force_op) {
+    AllowedAddressPairSet::iterator it = list_.begin();
+    while (it != list_.end()) {
         AllowedAddressPairSet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
         if (prev->del_pending_) {
-            prev->L2DeActivate(this);
-            prev->DeActivate(this);
-            allowed_address_pair_list_.list_.erase(prev);
+            list_.erase(prev);
         }
     }
-
-    for (it = allowed_address_pair_list_.list_.begin();
-         it != allowed_address_pair_list_.list_.end(); it++) {
-        /* V4 AAP entries should be enabled only if ipv4_active_ is true
-         * V6 AAP entries should be enabled only if ipv6_active_ is true
-         */
-        if ((!ipv4_active_ && it->addr_.is_v4()) ||
-            (!ipv6_active_ && it->addr_.is_v6())) {
-            continue;
-        }
-        if (l2) {
-            it->L2Activate(this, force_update, policy_change,
-                    old_layer2_forwarding, old_layer3_forwarding);
-        } else {
-           it->Activate(this, force_update, policy_change);
-        }
-    }
+    return true;
 }
 
-void VmInterface::DeleteAllowedAddressPair(bool l2) {
-    AllowedAddressPairSet::iterator it =
-        allowed_address_pair_list_.list_.begin();
-    while (it != allowed_address_pair_list_.list_.end()) {
-        AllowedAddressPairSet::iterator prev = it++;
-        if (l2) {
-            prev->L2DeActivate(this);
-        } else {
-            prev->DeActivate(this);
-        }
-
-        if (prev->del_pending_) {
-            prev->L2DeActivate(this);
-            prev->DeActivate(this);
-            allowed_address_pair_list_.list_.erase(prev);
-        }
-    }
+VmInterface::AllowedAddressPair::AllowedAddressPair() :
+    ListEntry(), VmInterfaceState(), addr_(), plen_(0), ecmp_(false), mac_(),
+    ecmp_config_changed_(false),
+    service_ip_(), label_(MplsTable::kInvalidLabel), policy_enabled_nh_(NULL),
+    policy_disabled_nh_(NULL), vrf_(NULL), ethernet_tag_(0) {
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// SecurityGroup routines
-/////////////////////////////////////////////////////////////////////////////
-VmInterface::SecurityGroupEntry::SecurityGroupEntry() : 
-    ListEntry(), uuid_(nil_uuid()) {
+VmInterface::AllowedAddressPair::AllowedAddressPair(
+    const AllowedAddressPair &rhs) : ListEntry(rhs.del_pending_),
+    VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
+    addr_(rhs.addr_), plen_(rhs.plen_), ecmp_(rhs.ecmp_),
+    mac_(rhs.mac_),
+    ecmp_config_changed_(rhs.ecmp_config_changed_),
+    service_ip_(rhs.service_ip_), label_(rhs.label_),
+    policy_enabled_nh_(rhs.policy_enabled_nh_),
+    policy_disabled_nh_(rhs.policy_disabled_nh_),
+    vrf_(rhs.vrf_), ethernet_tag_(rhs.ethernet_tag_) {
 }
 
-VmInterface::SecurityGroupEntry::SecurityGroupEntry
-    (const SecurityGroupEntry &rhs) : 
-        ListEntry(rhs.installed_, rhs.del_pending_), uuid_(rhs.uuid_) {
+VmInterface::AllowedAddressPair::AllowedAddressPair(const IpAddress &addr,
+                                                    uint32_t plen, bool ecmp,
+                                                    const MacAddress &mac) :
+    ListEntry(), VmInterfaceState(), addr_(addr), plen_(plen), ecmp_(ecmp),
+    mac_(mac), ecmp_config_changed_(false),
+    label_(MplsTable::kInvalidLabel), policy_enabled_nh_(NULL),
+    policy_disabled_nh_(NULL), vrf_(NULL), ethernet_tag_(0) {
 }
 
-VmInterface::SecurityGroupEntry::SecurityGroupEntry(const uuid &u) : 
-    ListEntry(), uuid_(u) {
+VmInterface::AllowedAddressPair::~AllowedAddressPair() {
 }
 
-VmInterface::SecurityGroupEntry::~SecurityGroupEntry() {
-}
-
-bool VmInterface::SecurityGroupEntry::operator ==
-    (const SecurityGroupEntry &rhs) const {
-    return uuid_ == rhs.uuid_;
-}
-
-bool VmInterface::SecurityGroupEntry::operator() 
-    (const SecurityGroupEntry &lhs, const SecurityGroupEntry &rhs) const {
+bool VmInterface::AllowedAddressPair::operator() (const AllowedAddressPair &lhs,
+                                                  const AllowedAddressPair &rhs) 
+                                                  const {
     return lhs.IsLess(&rhs);
 }
 
-bool VmInterface::SecurityGroupEntry::IsLess
-    (const SecurityGroupEntry *rhs) const {
-    return uuid_ < rhs->uuid_;
-}
+bool VmInterface::AllowedAddressPair::IsLess(const AllowedAddressPair *rhs)
+    const {
+    if (addr_ != rhs->addr_)
+        return addr_ < rhs->addr_;
 
-void VmInterface::SecurityGroupEntry::Activate(VmInterface *interface) const {
-    if (sg_.get() != NULL)
-        return; 
-
-    Agent *agent = static_cast<InterfaceTable *>
-        (interface->get_table())->agent();
-    SgKey sg_key(uuid_);
-    sg_ = static_cast<SgEntry *> 
-        (agent->sg_table()->FindActiveEntry(&sg_key));
-}
-
-void VmInterface::SecurityGroupEntry::DeActivate(VmInterface *interface) const {
-}
-
-void VmInterface::SecurityGroupEntryList::Insert
-    (const SecurityGroupEntry *rhs) {
-    list_.insert(*rhs);
-}
-
-void VmInterface::SecurityGroupEntryList::Update
-        (const SecurityGroupEntry *lhs, const SecurityGroupEntry *rhs) {
-}
-
-void VmInterface::SecurityGroupEntryList::Remove
-        (SecurityGroupEntrySet::iterator &it) {
-    it->set_del_pending(true);
-}
-
-void VmInterface::UpdateSecurityGroup() {
-    SecurityGroupEntrySet::iterator it = sg_list_.list_.begin();
-    while (it != sg_list_.list_.end()) {
-        SecurityGroupEntrySet::iterator prev = it++;
-        if (prev->del_pending_) {
-            sg_list_.list_.erase(prev);
-        } else {
-            prev->Activate(this);
-        }
+    if (plen_ != rhs->plen_) {
+        return plen_ < rhs->plen_;
     }
+
+    return mac_ < rhs->mac_;
 }
 
-void VmInterface::DeleteSecurityGroup() {
-    SecurityGroupEntrySet::iterator it = sg_list_.list_.begin();
-    while (it != sg_list_.list_.end()) {
-        SecurityGroupEntrySet::iterator prev = it++;
-        if (prev->del_pending_) {
-            sg_list_.list_.erase(prev);
-        }
+void VmInterface::AllowedAddressPair::Copy(const Agent *agent,
+                                           const VmInterface *vmi) const {
+    vrf_ = vmi->vrf();
+    ethernet_tag_ = vmi->ethernet_tag();
+}
+
+VmInterfaceState::Op VmInterface::AllowedAddressPair::GetOpL2
+(const Agent *agent, const VmInterface *vmi) const {
+    if (GetIpActiveState(addr_, vmi) == false)
+        return VmInterfaceState::DEL;
+
+    if (vmi->bridging() == false)
+        return VmInterfaceState::DEL;
+
+    if (ethernet_tag_ != vmi->ethernet_tag())
+        return VmInterfaceState::DEL_ADD;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmInterface::AllowedAddressPair::AddL2(const Agent *agent,
+                                            VmInterface *vmi) const {
+    if (vrf_ == NULL || mac_ == MacAddress::kZeroMac)
+        return false;
+
+    IpAddress dependent_rt;
+    if (addr_.is_v4()) {
+        dependent_rt = Ip4Address(0);
+    } else if (addr_.is_v6()) {
+        dependent_rt = Ip6Address();
     }
+    vmi->AddL2InterfaceRoute(addr_, mac_, dependent_rt);
+    return true;
+}
+
+bool VmInterface::AllowedAddressPair::DeleteL2(const Agent *agent,
+                                               VmInterface *vmi) const {
+    if (vrf_ == NULL || mac_ == MacAddress::kZeroMac)
+        return false;
+
+    vmi->DeleteL2InterfaceRoute(vrf_, ethernet_tag_, addr_, mac_);
+    return true;
+}
+
+VmInterfaceState::Op VmInterface::AllowedAddressPair::GetOpL3
+(const Agent *agent, const VmInterface *vmi) const {
+    if (GetIpActiveState(addr_, vmi) == false)
+        return VmInterfaceState::DEL;
+
+    return VmInterfaceState::ADD;
+}
+
+bool VmInterface::AllowedAddressPair::DeleteL3(const Agent *agent,
+                                               VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    vmi->DeleteRoute(vrf_->GetName(), addr_, plen_);
+    if (label_ != MplsTable::kInvalidLabel) {
+        label_ = MplsTable::kInvalidLabel;
+    }
+    policy_enabled_nh_ = NULL;
+    policy_disabled_nh_ = NULL;
+    return true;
+}
+
+bool VmInterface::AllowedAddressPair::AddL3(const Agent *agent,
+                                            VmInterface *vmi) const {
+    if (vrf_ == NULL)
+        return false;
+
+    service_ip_ = vmi->GetServiceIp(addr_);
+    if (mac_ == MacAddress::kZeroMac || mac_ == vmi->vm_mac_) {
+        vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
+                      false, ecmp_, false, false, service_ip_, Ip4Address(0),
+                      CommunityList(), vmi->label());
+        return true;
+    }
+
+    InterfaceNH::CreateL3VmInterfaceNH
+        (vmi->GetUuid(), mac_, vmi->vrf_->GetName(), vmi->learning_enabled_);
+
+    VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, vmi->GetUuid(),
+                           vmi->name());
+
+    // Get policy disabled nh first
+    InterfaceNHKey key(vmi_key.Clone(), false, InterfaceNHFlags::INET4, mac_);
+    InterfaceNH *nh =static_cast<InterfaceNH *>
+        (agent->nexthop_table()->FindActiveEntry(&key));
+    policy_disabled_nh_ = nh;
+    // Ensure nexthop to be deleted upon refcount falling to 0
+    nh->set_delete_on_zero_refcount(true);
+
+    // Get policy enabled nh first
+    InterfaceNHKey key1(vmi_key.Clone(), true, InterfaceNHFlags::INET4, mac_);
+    nh = static_cast<InterfaceNH *>(agent->
+                                    nexthop_table()->FindActiveEntry(&key1));
+    // Ensure nexthop to be deleted upon refcount falling to 0
+    nh->set_delete_on_zero_refcount(true);
+    policy_enabled_nh_ = nh;
+
+    // Update AAP mpls label from nh entry
+    if (vmi->policy_enabled()) {
+        label_ = policy_enabled_nh_->mpls_label()->label();
+    } else {
+        label_ = policy_disabled_nh_->mpls_label()->label();
+    }
+
+    vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
+                  false, ecmp_, false, false, service_ip_, Ip6Address(),
+                  CommunityList(), label_);
+    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // ServiceVlan routines
 /////////////////////////////////////////////////////////////////////////////
-VmInterface::ServiceVlan::ServiceVlan() :
-    ListEntry(), tag_(0), vrf_name_(""), addr_(0), addr6_(), smac_(), dmac_(),
-    vrf_(NULL, this), label_(MplsTable::kInvalidLabel), v4_rt_installed_(false),
-    v6_rt_installed_(false) {
-}
-
-VmInterface::ServiceVlan::ServiceVlan(const ServiceVlan &rhs) :
-    ListEntry(rhs.installed_, rhs.del_pending_), tag_(rhs.tag_),
-    vrf_name_(rhs.vrf_name_), addr_(rhs.addr_), addr6_(rhs.addr6_),
-    smac_(rhs.smac_), dmac_(rhs.dmac_), vrf_(rhs.vrf_, this),
-    label_(rhs.label_), v4_rt_installed_(rhs.v4_rt_installed_),
-    v6_rt_installed_(rhs.v6_rt_installed_) {
-}
-
-VmInterface::ServiceVlan::ServiceVlan(uint16_t tag, const std::string &vrf_name,
-                                      const Ip4Address &addr,
-                                      const Ip6Address &addr6,
-                                      const MacAddress &smac,
-                                      const MacAddress &dmac) :
-    ListEntry(), tag_(tag), vrf_name_(vrf_name), addr_(addr), addr6_(addr6),
-    smac_(smac), dmac_(dmac), vrf_(NULL, this), label_(MplsTable::kInvalidLabel)
-    , v4_rt_installed_(false), v6_rt_installed_(false) {
-}
-
-VmInterface::ServiceVlan::~ServiceVlan() {
-}
-
-bool VmInterface::ServiceVlan::operator() (const ServiceVlan &lhs,
-                                           const ServiceVlan &rhs) const {
-    return lhs.IsLess(&rhs);
-}
-
-bool VmInterface::ServiceVlan::IsLess(const ServiceVlan *rhs) const {
-    return tag_ < rhs->tag_;
-}
-
-void VmInterface::ServiceVlan::Activate(VmInterface *interface,
-                                        bool force_update,
-                                        bool old_ipv4_active,
-                                        bool old_ipv6_active) const {
-    InterfaceTable *table =
-        static_cast<InterfaceTable *>(interface->get_table());
-    VrfEntry *vrf = table->FindVrfRef(vrf_name_);
-    if (!vrf) {
-        /* If vrf is delete marked VMI will eventually get delete of link which
-         * will trigger ServiceVlan::DeActivate */
-        return;
-    }
-
-    //Change in VRF, delete and readd the entry
-    if (vrf_.get() != vrf) {
-        DeActivate(interface);
-        vrf_ = vrf;
-    }
-
-    if (label_ == MplsTable::kInvalidLabel) {
-        Agent *agent = interface->agent();
-        VlanNH::Create(interface->GetUuid(), tag_, vrf_name_, smac_, dmac_);
-        VrfAssignTable::CreateVlan(interface->GetUuid(), vrf_name_, tag_);
-        // Assign label_ from vlan NH db entry
-        VlanNHKey key(interface->GetUuid(), tag_);
-        const NextHop *nh = static_cast<const NextHop *>
-            (agent->nexthop_table()->FindActiveEntry(&key));
-        label_ = nh->mpls_label()->label();
-    }
-
-    if (!interface->ipv4_active() && !interface->ipv6_active() &&
-        (old_ipv4_active || old_ipv6_active)) {
-        V4RouteDelete(interface->peer());
-        V6RouteDelete(interface->peer());
-    }
-
-    if (!old_ipv4_active && !old_ipv6_active &&
-        (interface->ipv4_active() || interface->ipv6_active())) {
-        installed_ = false;
-    }
-
-    if (installed_ && force_update == false)
-        return;
-
-    interface->ServiceVlanRouteAdd(*this, force_update);
-    installed_ = true;
-}
-
-void VmInterface::ServiceVlan::V4RouteDelete(const Peer *peer) const {
-    if (v4_rt_installed_) {
-        InetUnicastAgentRouteTable::Delete(peer, vrf_->GetName(), addr_,
-                                           Address::kMaxV4PrefixLen);
-        v4_rt_installed_ = false;
-    }
-}
-
-void VmInterface::ServiceVlan::V6RouteDelete(const Peer *peer) const {
-    if (v6_rt_installed_) {
-        InetUnicastAgentRouteTable::Delete(peer, vrf_->GetName(), addr6_,
-                                           Address::kMaxV6PrefixLen);
-        v6_rt_installed_ = false;
-    }
-}
-
-void VmInterface::ServiceVlan::DeActivate(VmInterface *interface) const {
-    if (label_ != MplsTable::kInvalidLabel) {
-        VrfAssignTable::DeleteVlan(interface->GetUuid(), tag_);
-        interface->ServiceVlanRouteDel(*this);
-        label_ = MplsTable::kInvalidLabel;
-        VlanNH::Delete(interface->GetUuid(), tag_);
-        vrf_ = NULL;
-    }
-    installed_ = false;
-    return;
-}
-
 void VmInterface::ServiceVlanList::Insert(const ServiceVlan *rhs) {
     list_.insert(*rhs);
 }
@@ -2393,102 +2127,166 @@ void VmInterface::ServiceVlanList::Remove(ServiceVlanSet::iterator &it) {
     it->set_del_pending(true);
 }
 
-void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry,
-                                      bool force_update) {
-    if (vrf_.get() == NULL ||
-        vn_.get() == NULL) {
-        return;
+bool VmInterface::ServiceVlanList::UpdateList
+(const Agent *agent, VmInterface *vmi, VmInterfaceState::Op l2_force_op,
+ VmInterfaceState::Op l3_force_op) {
+    ServiceVlanSet::iterator it = list_.begin();
+    while (it != list_.end()) {
+        ServiceVlanSet::iterator prev = it++;
+        prev->Update(agent, vmi);
+        if (prev->del_pending_) {
+            list_.erase(prev);
+        } 
+    }
+    return true;
+}
+
+VmInterface::ServiceVlan::ServiceVlan() :
+    ListEntry(), tag_(0), vrf_name_(""), addr_(0),
+    addr6_(), smac_(), dmac_(), vrf_(NULL, this),
+    label_(MplsTable::kInvalidLabel), v4_rt_installed_(false),
+    v6_rt_installed_(false) {
+}
+
+VmInterface::ServiceVlan::ServiceVlan(const ServiceVlan &rhs) :
+    ListEntry(rhs.del_pending_), tag_(rhs.tag_),
+    vrf_name_(rhs.vrf_name_), addr_(rhs.addr_), addr6_(rhs.addr6_),
+    smac_(rhs.smac_), dmac_(rhs.dmac_), vrf_(rhs.vrf_, this),
+    label_(rhs.label_), v4_rt_installed_(rhs.v4_rt_installed_),
+    v6_rt_installed_(rhs.v6_rt_installed_) {
+}
+
+VmInterface::ServiceVlan::ServiceVlan(uint16_t tag, const std::string &vrf_name,
+                                      const Ip4Address &addr,
+                                      const Ip6Address &addr6,
+                                      const MacAddress &smac,
+                                      const MacAddress &dmac) :
+    ListEntry(), tag_(tag), vrf_name_(vrf_name), addr_(addr), addr6_(addr6),
+    smac_(smac), dmac_(dmac), vrf_(NULL, this),
+    label_(MplsTable::kInvalidLabel) , v4_rt_installed_(false),
+    v6_rt_installed_(false) {
+}
+
+VmInterface::ServiceVlan::~ServiceVlan() {
+}
+
+bool VmInterface::ServiceVlan::operator() (const ServiceVlan &lhs,
+                                           const ServiceVlan &rhs) const {
+    return lhs.IsLess(&rhs);
+}
+
+bool VmInterface::ServiceVlan::IsLess(const ServiceVlan *rhs) const {
+    return tag_ < rhs->tag_;
+}
+
+void VmInterface::ServiceVlan::Update(const Agent *agent,
+                                      VmInterface *vmi) const {
+    InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
+    VrfEntry *vrf = table->FindVrfRef(vrf_name_);
+
+    if (del_pending_ || vrf_ != vrf || vmi->ipv4_active() == false) {
+        if (v4_rt_installed_) {
+            InetUnicastAgentRouteTable::Delete(vmi->peer(), vrf_->GetName(),
+                                               addr_, Address::kMaxV4PrefixLen);
+            v4_rt_installed_ = false;
+        }
     }
 
-    if (!ipv4_active_ && !ipv6_active_) {
+    if (del_pending_ || vrf_ != vrf || vmi->ipv6_active() == false) {
+        if (v6_rt_installed_) {
+            InetUnicastAgentRouteTable::Delete(vmi->peer(), vrf_->GetName(),
+                                               addr6_,
+                                               Address::kMaxV6PrefixLen);
+            v6_rt_installed_ = false;
+        }
+    }
+
+    if (del_pending_ || vrf_ != vrf) {
+        DeleteCommon(vmi);
+    }
+
+    vrf_ = vrf;
+    if (del_pending_ || vrf_ == NULL)
         return;
+
+    if (vmi->ipv4_active() == false && vmi->ipv6_active() == false)
+        return;
+
+    if (label_ == MplsTable::kInvalidLabel) {
+        AddCommon(agent, vmi);
     }
 
     SecurityGroupList sg_id_list;
-    CopySgIdList(&sg_id_list);
+    vmi->CopySgIdList(&sg_id_list);
+
+    VnListType vn_list;
+    vn_list.insert(vmi->vn()->GetName());
+
+    // Add both ipv4 *and* ipv6 service vlan route if one of v4 or v6 is active
+    // TODO : Shouldnt route be added only if corresponding state is active?
+    if (addr_.is_unspecified() == false) {
+        PathPreference pref;
+        vmi->SetServiceVlanPathPreference(&pref, addr_);
+
+        InetUnicastAgentRouteTable::AddVlanNHRoute
+            (vmi->peer(), vrf_->GetName(), addr_, Address::kMaxV4PrefixLen,
+             vmi->GetUuid(), tag_, label_, vn_list, sg_id_list, pref);
+        v4_rt_installed_ = true;
+    }
+
+    if (addr6_.is_unspecified() == false) {
+        PathPreference pref;
+        vmi->SetServiceVlanPathPreference(&pref, addr6_);
+
+        InetUnicastAgentRouteTable::AddVlanNHRoute
+            (vmi->peer(), vrf_->GetName(), addr6_, Address::kMaxV6PrefixLen,
+             vmi->GetUuid(), tag_, label_, vn_list, sg_id_list, pref);
+        v6_rt_installed_ = true;
+    }
+
+    return;
+}
+
+void VmInterface::ServiceVlan::DeleteCommon(const VmInterface *vmi) const {
+    if (label_ == MplsTable::kInvalidLabel)
+        return;
+
+    // Delete the L2 Recive routes added for smac_ and dmac_
+    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
+        (vrf_->GetBridgeRouteTable());
+    if (table) {
+        table->Delete(vmi->peer(), vrf_->GetName(), dmac_, 0);
+        table->Delete(vmi->peer(), vrf_->GetName(), smac_, 0);
+    }
+
+    VrfAssignTable::DeleteVlan(vmi->GetUuid(), tag_);
+    VlanNH::Delete(vmi->GetUuid(), tag_);
+    label_ = MplsTable::kInvalidLabel;
+}
+
+void VmInterface::ServiceVlan::AddCommon(const Agent *agent,
+                                         const VmInterface *vmi) const {
+    if (label_ != MplsTable::kInvalidLabel)
+        return;
+
+    assert(vrf_);
+    VlanNH::Create(vmi->GetUuid(), tag_, vrf_name_, smac_, dmac_);
+    VrfAssignTable::CreateVlan(vmi->GetUuid(), vrf_name_, tag_);
+    // Assign label_ from vlan NH db entry
+    VlanNHKey key(vmi->GetUuid(), tag_);
+    const NextHop *nh = static_cast<const NextHop *>
+        (agent->nexthop_table()->FindActiveEntry(&key));
+    label_ = nh->mpls_label()->label();
 
     // With IRB model, add L2 Receive route for SMAC and DMAC to ensure
     // packets from service vm go thru routing
     BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
         (vrf_->GetBridgeRouteTable());
-    table->AddBridgeReceiveRoute(peer_.get(), entry.vrf_->GetName(),
-                                 0, entry.dmac_, vn()->GetName());
-    table->AddBridgeReceiveRoute(peer_.get(), entry.vrf_->GetName(),
-                                 0, entry.smac_, vn()->GetName());
-    VnListType vn_list;
-    vn_list.insert(vn()->GetName());
-    if (force_update ||
-        (!entry.v4_rt_installed_ && !entry.addr_.is_unspecified())) {
-        PathPreference path_preference;
-        SetServiceVlanPathPreference(&path_preference, entry.addr_);
-
-        InetUnicastAgentRouteTable::AddVlanNHRoute
-            (peer_.get(), entry.vrf_->GetName(), entry.addr_,
-             Address::kMaxV4PrefixLen, GetUuid(), entry.tag_, entry.label_,
-             vn_list, sg_id_list, path_preference);
-        entry.v4_rt_installed_ = true;
-    }
-    if ((!entry.v6_rt_installed_ && !entry.addr6_.is_unspecified()) ||
-        force_update) {
-        PathPreference path_preference;
-        SetServiceVlanPathPreference(&path_preference, entry.addr6_);
-
-        InetUnicastAgentRouteTable::AddVlanNHRoute
-            (peer_.get(), entry.vrf_->GetName(), entry.addr6_,
-             Address::kMaxV6PrefixLen, GetUuid(), entry.tag_, entry.label_,
-             vn_list, sg_id_list, path_preference);
-        entry.v6_rt_installed_ = true;
-    }
-
-    entry.installed_ = true;
-    return;
+    table->AddBridgeReceiveRoute(vmi->peer(), vrf_->GetName(), 0, dmac_,
+                                 vmi->vn()->GetName());
+    table->AddBridgeReceiveRoute(vmi->peer(), vrf_->GetName(), 0, smac_,
+                                 vmi->vn()->GetName());
 }
-
-void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
-    if (entry.installed_ == false) {
-        return;
-    }
-
-    entry.V4RouteDelete(peer_.get());
-    entry.V6RouteDelete(peer_.get());
-
-    // Delete the L2 Recive routes added for smac_ and dmac_
-    BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-        (entry.vrf_->GetBridgeRouteTable());
-    if (table) {
-        table->Delete(peer_.get(), entry.vrf_->GetName(), entry.dmac_, 0);
-        table->Delete(peer_.get(), entry.vrf_->GetName(), entry.smac_, 0);
-    }
-    entry.installed_ = false;
-    return;
-}
-
-void VmInterface::UpdateServiceVlan(bool force_update, bool policy_change,
-                                    bool old_ipv4_active,
-                                    bool old_ipv6_active) {
-    ServiceVlanSet::iterator it = service_vlan_list_.list_.begin();
-    while (it != service_vlan_list_.list_.end()) {
-        ServiceVlanSet::iterator prev = it++;
-        if (prev->del_pending_) {
-            prev->DeActivate(this);
-            service_vlan_list_.list_.erase(prev);
-        } else {
-            prev->Activate(this, force_update, old_ipv4_active,
-                           old_ipv6_active);
-        }
-    }
-}
-
-void VmInterface::DeleteServiceVlan() {
-    ServiceVlanSet::iterator it = service_vlan_list_.list_.begin();
-    while (it != service_vlan_list_.list_.end()) {
-        ServiceVlanSet::iterator prev = it++;
-        prev->DeActivate(this);
-        if (prev->del_pending_) {
-            service_vlan_list_.list_.erase(prev);
-        }
-    }
-} 
 
 ////////////////////////////////////////////////////////////////////////////
 // VRF assign rule routines
@@ -2498,24 +2296,23 @@ VmInterface::VrfAssignRule::VrfAssignRule():
 }
 
 VmInterface::VrfAssignRule::VrfAssignRule(const VrfAssignRule &rhs):
-    ListEntry(rhs.installed_, rhs.del_pending_), id_(rhs.id_),
+    ListEntry(rhs.del_pending_), id_(rhs.id_),
     vrf_name_(rhs.vrf_name_), ignore_acl_(rhs.ignore_acl_),
     match_condition_(rhs.match_condition_) {
 }
 
-VmInterface::VrfAssignRule::VrfAssignRule(uint32_t id,
-    const autogen::MatchConditionType &match_condition, 
-    const std::string &vrf_name,
-    bool ignore_acl):
-    ListEntry(), id_(id), vrf_name_(vrf_name),
-    ignore_acl_(ignore_acl), match_condition_(match_condition) {
+VmInterface::VrfAssignRule::VrfAssignRule
+(uint32_t id, const autogen::MatchConditionType &match_condition,
+ const std::string &vrf_name, bool ignore_acl):
+    ListEntry(), id_(id), vrf_name_(vrf_name), ignore_acl_(ignore_acl),
+    match_condition_(match_condition) {
 }
 
 VmInterface::VrfAssignRule::~VrfAssignRule() {
 }
 
-bool VmInterface::VrfAssignRule::operator() (const VrfAssignRule &lhs,
-                                             const VrfAssignRule &rhs) const {
+bool VmInterface::VrfAssignRule::operator()(const VrfAssignRule &lhs,
+                                            const VrfAssignRule &rhs) const {
     return lhs.IsLess(&rhs);
 }
 
@@ -2539,42 +2336,44 @@ void VmInterface::VrfAssignRuleList::Remove(VrfAssignRuleSet::iterator &it) {
     it->set_del_pending(true);
 }
 
-void VmInterface::UpdateVrfAssignRule() {
-    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    //Erase all delete marked entry
-    VrfAssignRuleSet::iterator it = vrf_assign_rule_list_.list_.begin();
-    while (it != vrf_assign_rule_list_.list_.end()) {
+bool VmInterface::VrfAssignRuleList::UpdateList
+(const Agent *agent, VmInterface *vmi, VmInterfaceState::Op l2_force_op,
+ VmInterfaceState::Op l3_force_op) {
+    // Erase all delete marked entry
+    VrfAssignRuleSet::iterator it = list_.begin();
+    while (it != list_.end()) {
         VrfAssignRuleSet::iterator prev = it++;
         if (prev->del_pending_) {
-            vrf_assign_rule_list_.list_.erase(prev);
+            list_.erase(prev);
         }
     }
 
-    if (vrf_assign_rule_list_.list_.size() == 0 && 
-        vrf_assign_acl_.get() != NULL) {
-        DeleteVrfAssignRule();
-        return;
+    // Delete vrf_assign_acl_ if there are no more ACE entries
+    if (list_.size() == 0 || vmi->IsActive() == false) {
+        if (vrf_assign_acl_.get() != NULL) {
+            vrf_assign_acl_ = NULL;
+            DBRequest req(DBRequest::DB_ENTRY_DELETE);
+            req.key.reset(new AclKey(vmi->GetUuid()));
+            req.data.reset(NULL);
+            agent->acl_table()->Process(req);
+        }
+        return true;
     }
 
-    if (vrf_assign_rule_list_.list_.size() == 0) {
-        return;
-    }
-
+    // One or more ace-entries present, create corresponding ACL
     AclSpec acl_spec;
-    acl_spec.acl_id = uuid_;
-    //Create the ACL
-    it = vrf_assign_rule_list_.list_.begin();
+    acl_spec.acl_id = vmi->GetUuid();
     uint32_t id = 0;
-    for (;it != vrf_assign_rule_list_.list_.end();it++) {
-        //Go thru all match condition and create ACL entry
+    for (it = list_.begin(); it != list_.end(); it++) {
         AclEntrySpec ace_spec;
         ace_spec.id = id++;
+
         if (ace_spec.Populate(&(it->match_condition_)) == false) {
             continue;
         }
-        /* Add both v4 and v6 rules regardless of whether interface is
-         * ipv4_active_/ipv6_active_
-         */
+
+        // Add both v4 and v6 rules regardless of whether interface is
+        //ipv4_active_/ipv6_active_
         ActionSpec vrf_translate_spec;
         vrf_translate_spec.ta_type = TrafficAction::VRF_TRANSLATE_ACTION;
         vrf_translate_spec.simple_action = TrafficAction::VRF_TRANSLATE;
@@ -2584,86 +2383,17 @@ void VmInterface::UpdateVrfAssignRule() {
         acl_spec.acl_entry_specs_.push_back(ace_spec);
     }
 
-    DBRequest req;
-    AclKey *key = new AclKey(acl_spec.acl_id);
-    AclData *data = new AclData(agent, NULL, acl_spec);
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    req.data.reset(data);
+    // ACL entries populated, add the DBEntry
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new AclKey(acl_spec.acl_id));
+    Agent *agent1 = static_cast<InterfaceTable *>(vmi->get_table())->agent();
+    req.data.reset(new AclData(agent1, NULL, acl_spec));
     agent->acl_table()->Process(req);
 
-    AclKey entry_key(uuid_);
-    AclDBEntry *acl = static_cast<AclDBEntry *>(
-        agent->acl_table()->FindActiveEntry(&entry_key));
-    assert(acl);
-    vrf_assign_acl_ = acl;
-}
-
-void VmInterface::DeleteVrfAssignRule() {
-    Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    VrfAssignRuleSet::iterator it = vrf_assign_rule_list_.list_.begin();
-    while (it != vrf_assign_rule_list_.list_.end()) {
-        VrfAssignRuleSet::iterator prev = it++;
-        if (prev->del_pending_) {
-            vrf_assign_rule_list_.list_.erase(prev);
-        }
-    }
-
-    if (vrf_assign_acl_ != NULL) {
-        vrf_assign_acl_ = NULL;
-        DBRequest req;
-        AclKey *key = new AclKey(uuid_);
-        req.oper = DBRequest::DB_ENTRY_DELETE;
-        req.key.reset(key);
-        req.data.reset(NULL);
-        agent->acl_table()->Process(req);
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////
-// Bridge Domain List
-////////////////////////////////////////////////////////////////////////////
-void VmInterface::BridgeDomainList::Insert(const BridgeDomain *rhs) {
-    list_.insert(*rhs);
-}
-
-void VmInterface::BridgeDomainList::Update(const BridgeDomain *lhs,
-                                           const BridgeDomain *rhs) {
-}
-
-void VmInterface::BridgeDomainList::Remove(BridgeDomainEntrySet::iterator &it) {
-    it->set_del_pending(true);
-}
-
-void VmInterface::UpdateBridgeDomain() {
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    BridgeDomainEntrySet::iterator it = bridge_domain_list_.list_.begin();
-    while (it != bridge_domain_list_.list_.end()) {
-        if (it->del_pending_ == false) {
-            BridgeDomainKey key(it->uuid_);
-            it->bridge_domain_ = static_cast<const BridgeDomainEntry *>(
-                  table->agent()->bridge_domain_table()->FindActiveEntry(&key));
-            if (it->bridge_domain_->vrf() == NULL) {
-                //Ignore bridge domain without VRF
-                it->del_pending_ = true;
-            }
-        }
-        it++;
-    }
-
-    DeleteBridgeDomain();
-
-    if (bridge_domain_list_.list_.size() == 0) {
-        pbb_interface_ = false;
-    }
-}
-
-void VmInterface::DeleteBridgeDomain() {
-    BridgeDomainEntrySet::iterator it = bridge_domain_list_.list_.begin();
-    while (it != bridge_domain_list_.list_.end()) {
-        BridgeDomainEntrySet::iterator prev = it++;
-        if (prev->del_pending_) {
-            bridge_domain_list_.list_.erase(prev);
-        }
-    }
+    // Query the ACL entry and store it
+    AclKey entry_key(vmi->GetUuid());
+    vrf_assign_acl_ = static_cast<AclDBEntry *>
+        (agent->acl_table()->FindActiveEntry(&entry_key));
+    assert(vrf_assign_acl_);
+    return true;
 }

@@ -301,8 +301,7 @@ static void BuildStaticRouteList(VmInterfaceConfigData *data, IFMapNode *node) {
         if (add) {
             data->static_route_list_.list_.insert
                 (VmInterface::StaticRoute
-                 (data->vrf_name_, ip, plen, gw,
-                  it->community_attributes.community_attribute));
+                 (ip, plen, gw, it->community_attributes.community_attribute));
         }
     }
 }
@@ -386,8 +385,7 @@ static void BuildAllowedAddressPairRouteList(VirtualMachineInterface *cfg,
             ecmp = true;
         }
 
-        VmInterface::AllowedAddressPair entry(data->vrf_name_, ip, plen,
-                                              ecmp, mac);
+        VmInterface::AllowedAddressPair entry(ip, plen, ecmp, mac);
         data->allowed_address_pair_list_.list_.insert(entry);
     }
 }

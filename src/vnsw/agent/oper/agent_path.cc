@@ -1451,9 +1451,8 @@ bool MacVmBindingPathData::AddChangePathExtended(Agent *agent, AgentPath *path,
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
-    bool flood_dhcp = !(vm_intf_->dhcp_enable_config());
-    if (dhcp_path->flood_dhcp() != flood_dhcp) {
-        dhcp_path->set_flood_dhcp(flood_dhcp);
+    if (dhcp_path->flood_dhcp() != flood_dhcp_) {
+        dhcp_path->set_flood_dhcp(flood_dhcp_);
         ret = true;
     }
 

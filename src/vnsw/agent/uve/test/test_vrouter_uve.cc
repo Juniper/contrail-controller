@@ -331,8 +331,8 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     client->WaitForIdle();
     vr->WaitForWalkCompletion();
 
-    EXPECT_EQ(1U, vr->vrouter_msg_count());
-    EXPECT_EQ(1U, uve.get_virtual_machine_list().size());
+    WAIT_FOR(100, 100, (1U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (1U == uve.get_virtual_machine_list().size()));
 
     util_.VmAdd(2);
     client->WaitForIdle();
@@ -340,8 +340,8 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    EXPECT_EQ(2U, vr->vrouter_msg_count());
-    EXPECT_EQ(2U, uve.get_virtual_machine_list().size());
+    WAIT_FOR(100, 100, (2U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (2U == uve.get_virtual_machine_list().size()));
 
     util_.VmDelete(2);
     client->WaitForIdle();
@@ -349,8 +349,8 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    EXPECT_EQ(3U, vr->vrouter_msg_count());
-    EXPECT_EQ(1U, uve.get_virtual_machine_list().size());
+    WAIT_FOR(100, 100, (3U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (1U == uve.get_virtual_machine_list().size()));
 
     util_.VmDelete(1);
     client->WaitForIdle();
@@ -358,8 +358,8 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    EXPECT_EQ(4U, vr->vrouter_msg_count());
-    EXPECT_EQ(0U, uve.get_virtual_machine_list().size());
+    WAIT_FOR(100, 100, (4U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (0U == uve.get_virtual_machine_list().size()));
     vr->clear_count();
 }
 
@@ -378,9 +378,9 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    EXPECT_EQ(1U, vr->vrouter_msg_count());
-    EXPECT_EQ(1U, uve.get_connected_networks().size());
-    EXPECT_EQ(1U, uve.get_vn_count());
+    WAIT_FOR(100, 100, (1U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (1U == uve.get_connected_networks().size()));
+    WAIT_FOR(100, 100, (1U == uve.get_vn_count()));
 
     util_.VnAdd(2);
     client->WaitForIdle();
@@ -388,9 +388,9 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    EXPECT_EQ(2U, vr->vrouter_msg_count());
-    EXPECT_EQ(2U, uve.get_connected_networks().size());
-    EXPECT_EQ(2U, uve.get_vn_count());
+    WAIT_FOR(100, 100, (2U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (2U == uve.get_connected_networks().size()));
+    WAIT_FOR(100, 100, (2U == uve.get_vn_count()));
 
     util_.VnDelete(2);
     client->WaitForIdle();
@@ -398,9 +398,9 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    EXPECT_EQ(3U, vr->vrouter_msg_count());
-    EXPECT_EQ(1U, uve.get_connected_networks().size());
-    EXPECT_EQ(1U, uve.get_vn_count());
+    WAIT_FOR(100, 100, (3U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (1U == uve.get_connected_networks().size()));
+    WAIT_FOR(100, 100, (1U == uve.get_vn_count()));
 
     util_.VnDelete(1);
     client->WaitForIdle();
@@ -408,9 +408,9 @@ TEST_F(UveVrouterUveTest, VnAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    EXPECT_EQ(4U, vr->vrouter_msg_count());
-    EXPECT_EQ(0U, uve.get_connected_networks().size());
-    EXPECT_EQ(0U, uve.get_vn_count());
+    WAIT_FOR(100, 100, (4U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (0U == uve.get_connected_networks().size()));
+    WAIT_FOR(100, 100, (0U == uve.get_vn_count()));
     vr->clear_count();
 }
 
@@ -444,8 +444,8 @@ TEST_F(UveVrouterUveTest, IntfAddDel) {
     vr->WaitForWalkCompletion();
 
     //Verify interface lists in UVE
-    EXPECT_EQ(1U, uve.get_interface_list().size());
-    EXPECT_EQ(1U, uve.get_error_intf_list().size());
+    WAIT_FOR(100, 100, (1U == uve.get_interface_list().size()));
+    WAIT_FOR(100, 100, (1U == uve.get_error_intf_list().size()));
 
     //Add necessary objects and links to make vm-intf active
     util_.VmAdd(input[0].vm_id);
@@ -475,8 +475,8 @@ TEST_F(UveVrouterUveTest, IntfAddDel) {
     vr->WaitForWalkCompletion();
 
     //Verify interface lists in UVE
-    EXPECT_EQ(1U, uve.get_interface_list().size());
-    EXPECT_EQ(0U, uve.get_error_intf_list().size());
+    WAIT_FOR(100, 100, (1U == uve.get_interface_list().size()));
+    WAIT_FOR(100, 100, (0U == uve.get_error_intf_list().size()));
 
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
@@ -493,8 +493,8 @@ TEST_F(UveVrouterUveTest, IntfAddDel) {
     vr->WaitForWalkCompletion();
 
     //Verify interface lists in UVE
-    EXPECT_EQ(1U, uve.get_interface_list().size());
-    EXPECT_EQ(1U, uve.get_error_intf_list().size());
+    WAIT_FOR(100, 100, (1U == uve.get_interface_list().size()));
+    WAIT_FOR(100, 100, (1U == uve.get_error_intf_list().size()));
 
     //other cleanup
     DelLink("virtual-machine-interface", input[0].name,

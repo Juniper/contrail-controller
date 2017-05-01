@@ -13,7 +13,7 @@
 #include "oper/metadata_ip.h"
 #include "pkt/flow_table.h"
 
-#define VMI_MAX_COUNT 256
+#define HC_VMI_MAX_COUNT 256
 
 IpamInfo ipam_info_1[] = {
     {"1.1.1.0", 24, "1.1.1.254"},
@@ -89,7 +89,7 @@ public:
     }
 
     void GetInfo() {
-        for (uint32_t i = 1; i <= VMI_MAX_COUNT; i++) {
+        for (uint32_t i = 1; i < HC_VMI_MAX_COUNT; i++) {
             vmi_[i] = VmInterfaceGet(i);
             if (vmi_[i] == NULL)
                 continue;
@@ -211,9 +211,9 @@ protected:
     Ip4Address router_id_;
     FlowProto *flow_proto_;
     InetInterface *vhost_;
-    VmInterface *vmi_[VMI_MAX_COUNT];
-    HealthCheckInstance *hc_instance_[VMI_MAX_COUNT];
-    const MetaDataIp *mip_[VMI_MAX_COUNT];
+    VmInterface *vmi_[HC_VMI_MAX_COUNT];
+    HealthCheckInstance *hc_instance_[HC_VMI_MAX_COUNT];
+    const MetaDataIp *mip_[HC_VMI_MAX_COUNT];
 };
 
 TEST_F(HealthCheckFlowTest, Ping_Active_1) {

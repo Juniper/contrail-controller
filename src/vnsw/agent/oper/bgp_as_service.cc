@@ -376,13 +376,14 @@ bool BgpAsAService::GetBgpRouterServiceDestination(const VmInterface *vm_intf,
 // BGP as a service routines.
 ////////////////////////////////////////////////////////////////////////////
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry() :
-    VmInterface::ListEntry(),
+    VmInterface::ListEntry(), installed_(false),
     local_peer_ip_(), source_port_(0) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
 (const BgpAsAService::BgpAsAServiceEntry &rhs) :
-    VmInterface::ListEntry(rhs.installed_, rhs.del_pending_),
+    VmInterface::ListEntry(rhs.del_pending_),
+    installed_(rhs.installed_),
     local_peer_ip_(rhs.local_peer_ip_), 
     source_port_(rhs.source_port_) {
 }
@@ -390,6 +391,7 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry(const IpAddress &local_peer_ip,
                                                       uint32_t source_port) :
     VmInterface::ListEntry(),
+    installed_(false),
     local_peer_ip_(local_peer_ip),
     source_port_(source_port) {
 }

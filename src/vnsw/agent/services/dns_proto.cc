@@ -201,7 +201,7 @@ void DnsProto::InterfaceNotify(DBEntryBase *entry) {
             const VmInterface::FloatingIpList &fip = vmitf->floating_ip_list();
             for (VmInterface::FloatingIpSet::iterator it = fip.list_.begin();
                  it != fip.list_.end(); ++it) {
-                if (it->installed_) {
+                if (it->Installed()) {
                     if (it->floating_ip_.is_v4()) {
                         UpdateFloatingIp(vmitf, it->vn_.get(),
                                 it->floating_ip_.to_v4(), false);

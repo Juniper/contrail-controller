@@ -881,9 +881,9 @@ private:
 //provided.
 class MacVmBindingPathData : public AgentRouteData {
 public:
-    MacVmBindingPathData(const VmInterface *vm_intf) :
+    MacVmBindingPathData(const VmInterface *vm_intf, bool flood_dhcp) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
-        vm_intf_(vm_intf) { }
+        vm_intf_(vm_intf), flood_dhcp_(flood_dhcp) { }
     virtual ~MacVmBindingPathData() { }
     virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -892,6 +892,7 @@ public:
 
 private:
     const VmInterface *vm_intf_;
+    bool flood_dhcp_;
     DISALLOW_COPY_AND_ASSIGN(MacVmBindingPathData);
 };
 

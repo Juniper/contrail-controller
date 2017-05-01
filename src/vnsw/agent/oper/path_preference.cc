@@ -630,11 +630,12 @@ void PathPreferenceIntfState::Notify() {
         static_rt_list.begin();
     for (;static_rt_it != static_rt_list.end(); ++static_rt_it) {
         if (static_rt_it->addr_.is_v4()) {
-            if (static_rt_it->vrf_ == "") {
+            if (static_rt_it->vrf_ == NULL) {
                 continue;
             }
             RouteAddrList rt(Address::INET, static_rt_it->addr_,
-                             static_rt_it->plen_, static_rt_it->vrf_);
+                             static_rt_it->plen_,
+                             static_rt_it->vrf_->GetName());
             Insert(rt, traffic_seen);
         }
     }
