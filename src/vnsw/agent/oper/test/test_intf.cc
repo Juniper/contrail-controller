@@ -2002,6 +2002,8 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_3) {
     //gets deleted
     DelLink("virtual-network", "vn1", "virtual-machine-interface",
             input[0].name);
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
     client->WaitForIdle();
     EXPECT_FALSE(VmPortActive(input, 0));
     service_ip = Ip4Address::from_string("2.2.2.100");
@@ -2015,6 +2017,8 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_3) {
     //Activate VM
     AddLink("virtual-network", "vn1", "virtual-machine-interface",
             input[0].name);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
     EXPECT_TRUE(FindNH(&vlan_nh_key));
@@ -2084,7 +2088,7 @@ TEST_F(IntfTest, VmPortServiceVlanVrfDelete_1) {
     //Verify that service vlan count is still 1 and route is still present in
     //service VRF
     EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
-    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_FALSE(RouteFind("vrf2", service_ip, 32));
 
     //Clean-up
     DelLink("virtual-machine-interface", input[0].name,

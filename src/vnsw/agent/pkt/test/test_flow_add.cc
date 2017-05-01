@@ -580,7 +580,7 @@ TEST_F(FlowTest, FlowReval_1) {
         },
         {
             TestFlowPkt(Address::INET, remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5",
-                    remote_router_ip, 20),
+                    remote_router_ip, flow0->label()),
             {}
         }
     };

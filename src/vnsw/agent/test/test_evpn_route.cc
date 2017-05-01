@@ -495,19 +495,16 @@ TEST_F(RouteTest, LocalVmRoute_with_ipam_2) {
     subnet_rt = RouteGet("vrf1", ipam_subnet_ip4_, 24);
     EXPECT_TRUE(subnet_rt == NULL);
 
-    evpn_inet_path = inet_rt->FindPath(agent_->inet_evpn_peer());
-    EXPECT_TRUE(evpn_inet_path != NULL);
-    EXPECT_TRUE(evpn_inet_path->nexthop() == NULL);
-    EXPECT_TRUE(inet_rt->GetActivePath() != evpn_inet_path);
-    //EXPECT_TRUE(evpn_inet_path->ComputeNextHop(agent_) == NULL);
-    EXPECT_TRUE(evpn_inet_path->label() == MplsTable::kInvalidLabel);
-    EXPECT_TRUE(evpn_inet_path->unresolved() == true);
+    inet_rt = RouteGet("vrf1", local_vm_ip4_, 32);
+    EXPECT_TRUE(inet_rt == NULL);
 
     //Re-add same IPAM
     AddIPAM("vn1", ipam_info, 1);
     client->WaitForIdle();
     subnet_rt = RouteGet("vrf1", ipam_subnet_ip4_, 24);
     EXPECT_TRUE(subnet_rt != NULL);
+    inet_rt = RouteGet("vrf1", local_vm_ip4_, 32);
+    EXPECT_TRUE(inet_rt != NULL);
     evpn_inet_path = inet_rt->FindPath(agent_->inet_evpn_peer());
     EXPECT_TRUE(evpn_inet_path != NULL);
     EXPECT_TRUE(evpn_inet_path->nexthop() == NULL);

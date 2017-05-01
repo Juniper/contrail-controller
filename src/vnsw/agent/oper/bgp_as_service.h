@@ -80,6 +80,7 @@ public:
                          const BgpAsAServiceEntry &rhs) const;
         bool IsLess(const BgpAsAServiceEntry *rhs) const;
 
+        bool installed_;
         IpAddress local_peer_ip_;
         uint32_t source_port_;
     };
