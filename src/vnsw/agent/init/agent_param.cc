@@ -1333,7 +1333,7 @@ AgentParam::AgentParam(bool enable_flow_options,
           "XMPP Server ssl private key")
         ("DEFAULT.xmpp_ca_cert",
           opt::value<string>()->default_value(
-          "/etc/contrail/ssl/certs/ca.pem"),
+          "/etc/contrail/ssl/certs/ca-cert.pem"),
           "XMPP CA ssl certificate")
         ("DEFAULT.xmpp_dns_auth_enable", opt::bool_switch(&xmpp_dns_auth_enable_),
          "Enable Xmpp over TLS for DNS")
