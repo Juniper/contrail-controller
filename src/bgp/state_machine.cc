@@ -17,6 +17,7 @@
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_peer_close.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session.h"
@@ -1359,8 +1360,7 @@ void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
 
     set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
     reset_hold_time();
-
-    bool graceful = !code || peer_->SkipNotificationReceive(code, subcode);
+    bool graceful = !code || peer_->AttemptGRHelperMode(code, subcode);
     peer_->Close(graceful);
 }
 

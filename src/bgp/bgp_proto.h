@@ -113,8 +113,6 @@ public:
                     return "LongLivedGracefulRestart";
                 case RouteRefreshCisco:
                     return "RouteRefreshCisco";
-                default:
-                    break;
                 }
 
                 std::ostringstream oss;
@@ -126,10 +124,11 @@ public:
                 code(code), capability(src, src + size) {}
 
             struct GR {
-                enum {
+                enum Flags {
                     ForwardingStatePreservedFlag = 0x80,
-                    RestartTimeMask = 0x0FFF,
                     RestartedFlag = 0x8000,
+                    NotificationFlag = 0x4000,
+                    RestartTimeMask = 0x0FFF,
                 };
                 explicit GR() { Initialize(); }
                 void Initialize() {
@@ -149,6 +148,7 @@ public:
                     }
                 };
                 static Capability *Encode(uint16_t gr_time, bool restarted,
+                        bool notification,
                         const std::vector<uint8_t> &gr_afi_flags,
                         const std::vector<Address::Family> &gr_families);
                 static bool Decode(GR *gr_params,
@@ -156,6 +156,9 @@ public:
                 static void GetFamilies(const GR &gr_params,
                                         std::vector<std::string> *families);
                 bool restarted() const { return (flags & RestartedFlag) != 0; }
+                bool notification() const {
+                    return (flags & NotificationFlag) != 0;
+                }
                 void set_flags(uint16_t gr_cap_bytes) {
                     flags = gr_cap_bytes & ~RestartTimeMask;
                 }
@@ -246,8 +249,6 @@ public:
                 return "Finite State Machine Error";
             case Cease:
                 return "Cease";
-            default:
-                break;
             }
 
             std::ostringstream oss;
@@ -267,8 +268,6 @@ public:
                 return "Bad Message Length";
             case BadMsgType:
                 return "Bad Message Type";
-            default:
-                break;
             }
 
             std::ostringstream oss;
@@ -300,8 +299,6 @@ public:
                 return "Unacceptable Hold Time";
             case UnsupportedCapability:
                 return "Unsupported Capability";
-            default:
-                break;
             }
 
             std::ostringstream oss;
@@ -342,8 +339,6 @@ public:
                 return "Invalid Network Field";
             case MalformedASPath:
                 return "Malformed AS_PATH";
-            default:
-                break;
             }
 
             std::ostringstream oss;
@@ -366,8 +361,6 @@ public:
                 return "Receive Unexpected Message in OpenConfirm State";
             case EstablishedError:
                 return "Receive Unexpected Message in Established State";
-            default:
-                break;
             }
 
             std::ostringstream oss;
@@ -383,7 +376,8 @@ public:
             ConnectionRejected = 5,
             OtherConfigChange = 6,
             ConnectionCollision = 7,
-            OutOfResources = 8
+            OutOfResources = 8,
+            HardReset = 9,
         };
 
         static std::string CeaseSubcodeToString(CeaseSubCode sub_code) {
@@ -406,8 +400,8 @@ public:
                 return "Connection collision";
             case OutOfResources:
                 return "Unable handle peer due to resource limit";
-            default:
-                break;
+            case HardReset:
+                return "Received HardReset to skip GR Helper mode";
             }
 
             std::ostringstream oss;
