@@ -1355,6 +1355,9 @@ bool XmppStateMachine::PassiveOpen(XmppSession *session) {
 // Return true if msg is enqueued for further processing, false otherwise.
 bool XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
         const XmppStanza::XmppMessage *msg) {
+    XmppConnectionManager *connection_manager =
+        dynamic_cast<XmppConnectionManager *>(connection_->server());
+    tbb::mutex::scoped_lock lock(connection_manager->mutex());
 
     // Update "To" information which can be used to map an older session
     session->Connection()->SetTo(msg->from);
@@ -1370,7 +1373,18 @@ bool XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
     // check if older connection is under graceful-restart.
     if (endpoint && endpoint->connection()) {
         if (connection_ != endpoint->connection()) {
-            XmppChannel *channel = endpoint->connection()->ChannelMux();
+            // Close new connection and retain old connection if the endpoint
+            // IP addresses do not match.
+            boost::asio::ip::address addr =
+                endpoint->connection()->endpoint().address();
+            if (connection_->endpoint().address() != addr) {
+                XMPP_INFO(XmppConnectionDelete, "Server", connection()->FromString(),
+                          connection()->ToString());
+                Enqueue(xmsm::EvTcpClose(session));
+                return false;
+            }
+
+            XmppChannelMux *channel = endpoint->connection()->ChannelMux();
 
             // If GR is not supported, then close all new connections until old
             // one is completely deleted. Even if GR is supported, new 
@@ -1387,8 +1401,14 @@ bool XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
                 if (ready) {
                     XmppStateMachine *sm =
                         endpoint->connection()->state_machine();
+                    XMPP_INFO(XmppConnectionDelete, "Server",
+                              connection()->FromString(),
+                              connection()->ToString());
                     sm->Enqueue(xmsm::EvTcpClose(sm->session()));
                 }
+
+                XMPP_INFO(XmppConnectionDelete, "Server",
+                          connection()->FromString(), connection()->ToString());
                 Enqueue(xmsm::EvTcpClose(session));
                 return false;
             }
