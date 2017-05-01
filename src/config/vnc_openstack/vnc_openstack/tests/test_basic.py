@@ -747,6 +747,41 @@ class TestBasic(test_case.NeutronBackendTestCase):
             fip_dicts[created[0]['ports'][1]['id']]['fixed_ip_address'])
     # end test_floating_ip_list
 
+    def test_network_delete_when_fip_associated_w_port(self):
+        proj_obj = vnc_api.Project('proj-%s' %(self.id()), vnc_api.Domain())
+        self._vnc_lib.project_create(proj_obj)
+
+        vn_obj = vnc_api.VirtualNetwork(self.id(), proj_obj)
+        vn_obj.set_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(vnc_api.SubnetType('20.1.1.0', 24))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        vmi_obj = vnc_api.VirtualMachineInterface(
+                      'vmi-%s' %(self.id()), proj_obj)
+        vmi_obj.set_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        fip_pool_obj = vnc_api.FloatingIpPool(self.id(), vn_obj)
+        self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
+
+        fip_obj = vnc_api.FloatingIp('fip-%s' %(self.id()), fip_pool_obj)
+        fip_obj.set_project(proj_obj)
+        fip_obj.add_virtual_machine_interface(vmi_obj)
+        self._vnc_lib.floating_ip_create(fip_obj)
+
+        # deleting network when it has associated fip
+        # should give an error.
+        with ExpectedException(webtest.app.AppError):
+            self.delete_resource('network', proj_obj.uuid, vn_obj.uuid)
+
+        # cleanup
+        self._vnc_lib.floating_ip_delete(id=fip_obj.uuid)
+        self._vnc_lib.floating_ip_pool_delete(id=fip_pool_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+        self._vnc_lib.project_delete(id=proj_obj.uuid)
+    # end test_network_delete_when_fip_associated_w_port
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
