@@ -65,6 +65,7 @@ protected:
     virtual void TearDown() {
         evm_.Shutdown();
         server_->Shutdown();
+        thread_.Join();
         task_util::WaitForIdle();
     }
 
