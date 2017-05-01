@@ -24,12 +24,14 @@ public:
     void EnqueueSession(XmppSession *session);
     size_t GetSessionQueueSize() const;
     virtual LifetimeActor *deleter() = 0;
+    tbb::mutex &mutex() const { return mutex_; }
 
 private:
     bool DequeueSession(TcpSessionPtr tcp_session);
     void WorkQueueExitCallback(bool done);
 
     WorkQueue<TcpSessionPtr> session_queue_;
+    mutable tbb::mutex mutex_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppConnectionManager);
 };

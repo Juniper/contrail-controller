@@ -109,7 +109,7 @@ protected:
             xs_x_ = new XmppServer(&evm_,
                         test::XmppDocumentMock::kControlNodeJID, &xs_cfg);
         } else {
-            xs_x_ = new XmppServer(&evm_, 
+            xs_x_ = new XmppServer(&evm_,
                         test::XmppDocumentMock::kControlNodeJID);
         }
         xs_x_->Initialize(0, false);
@@ -123,14 +123,17 @@ protected:
     }
 
     virtual void TearDown() {
+        XmppStateMachineTest::set_notify_fn(NULL);
         xs_x_->Shutdown();
         task_util::WaitForIdle();
-        bs_x_->Shutdown();
-        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_EQ(0, xs_x_->ConnectionCount());
         cm_x_.reset();
+        task_util::WaitForIdle();
 
         TcpServerManager::DeleteServer(xs_x_);
         xs_x_ = NULL;
+        bs_x_->Shutdown();
+        task_util::WaitForIdle();
 
         evm_.Shutdown();
         thread_.Join();
@@ -274,6 +277,7 @@ public:
                                 bool queue_disable) {
         if (sm->IsActiveChannel())
             return;
+        tbb::mutex::scoped_lock lock(mutex_);
         if (create) {
             xmpp_state_machines_.insert(sm);
             sm->set_queue_disable(queue_disable);
@@ -285,7 +289,7 @@ public:
 protected:
     EventManager evm_;
     ServerThread thread_;
-    BgpServerTestPtr bs_x_;
+    boost::scoped_ptr<BgpServerTest> bs_x_;
     XmppServer *xs_x_;
     XmppLifetimeManagerTest *xltm_x_;
     bool auth_enabled_;
@@ -303,6 +307,7 @@ protected:
     test::NetworkAgentMockPtr agent_x3_;
     boost::scoped_ptr<BgpXmppChannelManager> cm_x_;
     std::set<XmppStateMachineTest *> xmpp_state_machines_;
+    mutable tbb::mutex mutex_;
 };
 
 bool BgpXmppBasicTest::validate_done_ = false;
@@ -1279,7 +1284,7 @@ class BgpXmppBasicParamTest2 : public BgpXmppBasicTest,
     public ::testing::WithParamInterface<TestParams2> {
 protected:
     virtual void SetUp() {
-        bool agent_address_same_ = std::tr1::get<0>(GetParam());
+        agent_address_same_ = std::tr1::get<0>(GetParam());
         auth_enabled_ = std::tr1::get<1>(GetParam());
 
         LOG(DEBUG, "BgpXmppBasicParamTest Agent Address: " <<
@@ -1318,13 +1323,19 @@ protected:
     }
 
     void DestroyAgents() {
+        agent_x1_->SessionDown();
+        agent_x2_->SessionDown();
+        agent_x3_->SessionDown();
+
         agent_x1_->Delete();
         agent_x2_->Delete();
         agent_x3_->Delete();
     }
+
+    bool agent_address_same_;
 };
 
-TEST_P(BgpXmppBasicParamTest2, DISABLED_DuplicateEndpointName1) {
+TEST_P(BgpXmppBasicParamTest2, DuplicateEndpointName1) {
     CreateAgents();
 
     // Bring up one agent with given name.
@@ -1339,18 +1350,34 @@ TEST_P(BgpXmppBasicParamTest2, DISABLED_DuplicateEndpointName1) {
     agent_x2_->SessionUp();
     agent_x3_->SessionUp();
 
-    // Make sure that latter two agents see sessions getting closed.
-    TASK_UTIL_EXPECT_TRUE(
-        agent_x2_->get_session_close() >= client_x2_session_close + 3);
-    TASK_UTIL_EXPECT_TRUE(
-        agent_x3_->get_session_close() >= client_x3_session_close + 3);
-    TASK_UTIL_EXPECT_TRUE(
-        agent_x1_->get_session_close() >= client_x1_session_close);
+    // Make sure that latter two agents see sessions getting closed if their IP
+    // address is not the same.
+    if (!agent_address_same_) {
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x2_->get_session_close() >= client_x2_session_close + 3);
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x3_->get_session_close() >= client_x3_session_close + 3);
+
+        // Session which was up to begin with should remain up and not flap.
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x1_->get_session_close() == client_x1_session_close);
+    } else {
+        // Sessions flap, triggering GR Helper mode if configured so. Even
+        // otherwise, in case like 'reboot' we expect existing session to reset
+        // if new connection formation is attempted from the same name-address
+        // combination.
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x2_->get_session_close() >= client_x2_session_close + 3);
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x3_->get_session_close() >= client_x3_session_close + 3);
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x1_->get_session_close() >= client_x1_session_close + 3);
+    }
 
     DestroyAgents();
 }
 
-TEST_P(BgpXmppBasicParamTest2, DISABLED_DuplicateEndpointName2) {
+TEST_P(BgpXmppBasicParamTest2, DuplicateEndpointName2) {
     CreateAgents();
 
     // Bring up one agent with given name.
@@ -1364,10 +1391,18 @@ TEST_P(BgpXmppBasicParamTest2, DISABLED_DuplicateEndpointName2) {
     agent_x2_->SessionUp();
 
     // Make sure that second agent sees sessions getting closed.
-    TASK_UTIL_EXPECT_TRUE(
-        agent_x2_->get_session_close() >= client_x2_session_close + 3);
-    TASK_UTIL_EXPECT_TRUE(
-        agent_x1_->get_session_close() >= client_x1_session_close);
+    if (!agent_address_same_) {
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x2_->get_session_close() >= client_x2_session_close + 3);
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x1_->get_session_close() == client_x1_session_close);
+
+    } else {
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x2_->get_session_close() >= client_x2_session_close + 3);
+        TASK_UTIL_EXPECT_TRUE(
+            agent_x1_->get_session_close() >= client_x1_session_close + 3);
+    }
 
     // Bring down the first agent and make sure that second comes up.
     agent_x1_->SessionDown();
