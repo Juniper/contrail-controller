@@ -17,14 +17,32 @@ libcontrol_test = env.Library('control_test',
                               ['control_node_test.cc',
                                'network_agent_mock.cc'])
 
-env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/io')
+env.Append(LIBPATH = env['TOP'] + '/db')
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/bgp')
+env.Append(LIBPATH = env['TOP'] + '/base/test')
+env.Append(LIBPATH = env['TOP'] + '/control-node')
+env.Append(LIBPATH = env['TOP'] + '/ifmap')
 env.Append(LIBPATH = env['TOP'] + '/net')
+env.Append(LIBPATH = env['TOP'] + '/xml')
+env.Append(LIBPATH = env['TOP'] + '/xmpp')
+env.Append(LIBPATH = env['TOP'] + '/schema')
 
-env.Prepend(LIBS = ['gunit', 'io', 'sandesh', 'http', 'net',
-                    'process_info', 'io', 'base', 'http_parser', 'curl',
-                    'ssl', 'crypto', 'boost_filesystem',
-                    'boost_program_options', 'pugixml', 'sandeshvns'])
+env.Prepend(LIBS = [
+                    'ifmapio', 'bgp_schema', 'ifmap_vnc', 'ifmap_server',
+                    'xmpp', 'peer_sandesh',
+                    'sandesh', 'http', 'net', 'http_parser', 'httpc',
+                    'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
+                    'ifmap_common', 'bgp_schema', 'ifmap_vnc',
+                    'pugixml', 'xml', 'task_test', 'db', 'curl',
+                    'base', 'gunit', 'crypto', 'ssl', 'boost_regex',
+                    'ifmapio', 'libbgp_schema',
+                    'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
+                    'cassandra', 'gendb', 'httpc',
+                    'SimpleAmqpClient', 'rabbitmq',
+                    'boost_filesystem', 'boost_program_options'
+                    ])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])

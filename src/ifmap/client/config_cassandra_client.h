@@ -235,6 +235,7 @@ protected:
     PartitionList &partitions() {
         return partitions_;
     }
+    virtual void PostShutdown();
 
 private:
     friend class ConfigCassandraPartition;
@@ -250,7 +251,7 @@ private:
     };
     typedef std::map<std::string, FQNameCacheType> FQNameCacheMap;
 
-    void InitRetry();
+    bool InitRetry();
 
     virtual void ParseObjUUIDTableEntry(const std::string &uuid,
         const GenDb::ColList &col_list, CassColumnKVVec *cass_data_vec,
