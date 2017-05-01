@@ -309,11 +309,17 @@ class VncKubernetes(VncCommon):
         return self._cluster_pod_ipam_fq_name
 
     def vnc_timer(self):
-        self.network_policy_mgr.network_policy_timer()
-        self.ingress_mgr.ingress_timer()
-        self.service_mgr.service_timer()
-        self.pod_mgr.pod_timer()
-        self.pod_mgr.namespace_timer()
+        try:
+            self.network_policy_mgr.network_policy_timer()
+            self.ingress_mgr.ingress_timer()
+            self.service_mgr.service_timer()
+            self.pod_mgr.pod_timer()
+            self.namespace_mgr.namespace_timer()
+        except Exception as e:
+            string_buf = StringIO()
+            cgitb_hook(file=string_buf, format="text")
+            err_msg = string_buf.getvalue()
+            self.logger.error("vnc_timer: %s - %s" %(self._name, err_msg))
 
     def vnc_process(self):
         while True:
