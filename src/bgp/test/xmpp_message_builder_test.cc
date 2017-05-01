@@ -84,7 +84,8 @@ protected:
                 string("192.168.1.") + integerToString(idx) + "/32";
             InetRoute *route = new InetRoute(Ip4Prefix::FromString(prefix_str));
             routes_.push_back(route);
-            RibOutAttr *roattr = new RibOutAttr(table_, attr_.get(), 100 + idx);
+            RibOutAttr *roattr = new RibOutAttr(table_, attr_.get(),
+                100 + idx, 0, true);
             roattrs_.push_back(roattr);
         }
     }
