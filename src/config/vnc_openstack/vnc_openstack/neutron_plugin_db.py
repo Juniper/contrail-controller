@@ -1247,6 +1247,7 @@ class DBInterface(object):
 
         extra_dict['contrail:fq_name'] = net_obj.get_fq_name()
         net_q_dict['tenant_id'] = net_obj.parent_uuid.replace('-', '')
+        net_q_dict['project_id'] = net_obj.parent_uuid.replace('-', '')
         net_q_dict['admin_state_up'] = id_perms.enable
         if net_obj.is_shared:
             net_q_dict['shared'] = True
