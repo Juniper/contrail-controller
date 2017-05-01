@@ -755,6 +755,7 @@ class TestCrud(test_case.ApiServerTestCase):
         port_obj = VirtualMachineInterface(
                    str(uuid.uuid4()), parent_obj=Project(),
                    virtual_machine_interface_properties=vmi_prop)
+
         port_obj.uuid = port_obj.name
         port_obj.set_virtual_network(vn)
 
@@ -762,7 +763,7 @@ class TestCrud(test_case.ApiServerTestCase):
         #service_interface_type are: management|left|right|other[0-9]*
         with ExpectedException(BadRequest) as e:
             port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
-       # end test_service_interface_type_value
+    # end test_service_interface_type_value
 
     def test_physical_router_credentials(self):
         phy_rout_name = self.id() + '-phy-router-1'
@@ -785,6 +786,27 @@ class TestCrud(test_case.ApiServerTestCase):
         phy_rout_obj = self._vnc_lib.physical_router_read(id=phy_router.uuid)
         # end test_physical_router_w_no_user_credentials
 
+    def test_port_security_and_allowed_address_pairs(self):
+        vn = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+
+        port_obj = VirtualMachineInterface(
+                   str(uuid.uuid4()), parent_obj=Project(),
+                   port_security_enabled=False)
+        port_obj.uuid = port_obj.name
+        port_obj.set_virtual_network(vn)
+
+        port_id = self._vnc_lib.virtual_machine_interface_create(port_obj)
+        addr_pair = AllowedAddressPairs(allowed_address_pair=
+                                        [AllowedAddressPair(
+                                        ip=SubnetType('1.1.1.0', 24),
+                                        mac='02:ce:1b:d7:a6:e7')])
+        # updating a port with allowed address pair should throw an exception
+        # when port security enabled is set to false
+        port_obj.virtual_machine_interface_allowed_address_pairs = addr_pair
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_machine_interface_update(port_obj)
+    # end test_port_security_and_allowed_address_pairs
 # end class TestCrud
 
 
