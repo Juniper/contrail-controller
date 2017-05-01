@@ -140,7 +140,8 @@ class VrouterProvisioner(object):
             "--dpdk_enabled", action="store_true", help="Whether forwarding mode on vrouter is DPDK based")
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
-            "--api_server_ip", help="IP address of api server")
+            "--api_server_ip", help="IP address of api server",
+            nargs='+', type=str)
         group.add_argument("--use_admin_api",
                             default=False,
                             help = "Connect to local api-server on admin port",

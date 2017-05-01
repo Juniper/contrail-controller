@@ -4,7 +4,6 @@
 """
 Provides utility routines for modules in api-server
 """
-import sys
 import argparse
 from cfgm_common import jsonutils as json
 import ConfigParser
@@ -99,7 +98,9 @@ def parse_args(args_str):
         'admin_password': '',
         'admin_tenant_name': '',
         'insecure': True,
-        'cafile': ''
+        'cafile': '',
+        'certfile': '',
+        'keyfile': ''
     }
     # cassandra options
     cassandraopts = {
