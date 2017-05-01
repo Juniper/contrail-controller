@@ -42,8 +42,6 @@ public:
                                               KFlowData *info) const;
     bool GetFlowKey(uint32_t index, FlowKey *key);
 
-    uint32_t flow_table_entries_count() { return table_entries_count_; }
-
     bool IsEvictionMarked(const vr_flow_entry *entry, uint16_t flags) const;
 
     virtual int get_entry_size();

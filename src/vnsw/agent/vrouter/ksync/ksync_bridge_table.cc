@@ -34,6 +34,7 @@
 
 #include "ksync_init.h"
 #include "ksync_bridge_table.h"
+#include "bridge_route_audit_ksync.h"
 #include "sandesh_ksync.h"
 
 using namespace boost::asio::ip;
@@ -62,11 +63,33 @@ int KSyncBridgeMemory::EncodeReq(nl_client *cl, uint32_t attr_len) {
 }
 
 bool KSyncBridgeMemory::IsInactiveEntry(uint32_t idx, uint8_t &gen_id) {
+    vr_bridge_entry* entry = GetBridgeEntry(idx);
+    if (entry) {
+        const uint16_t &flags = entry->be_flags;
+        if (flags & VR_BE_MAC_NEW_FLAG) {
+            return true;
+        }
+    }
     return false;
 }
 
 void KSyncBridgeMemory::CreateProtoAuditEntry(uint32_t idx, uint8_t gen_id) {
+    if (!IsInactiveEntry(idx, gen_id)) {
+        return;
+    }
+    vr_bridge_entry* entry = GetBridgeEntry(idx);
+    BridgeRouteAuditKSyncObject *obj = ksync_->bridge_route_audit_ksync_obj();
+    uint8_t *mac = entry->be_key.be_mac;
+    MacAddress bmac(mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
+    //Create a BridgeRouteAuditKSyncEntry. This will NOT send any message to
+    //vrouter
+    BridgeRouteAuditKSyncEntry key(obj, entry->be_key.be_vrf_id, bmac);
+    KSyncEntry *kentry = obj->Create(&key);
+    assert(kentry != NULL);
+
+    //Delete BridgeRouteAuditKSyncEntry to send delete message to Vrouter
+    obj->Delete(kentry);
 }
 
 vr_bridge_entry*

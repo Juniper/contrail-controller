@@ -23,6 +23,7 @@
 
 class KSyncFlowMemory;
 class FlowTableKSyncObject;
+class BridgeRouteAuditKSyncObject;
 
 class KSync {
 public:
@@ -78,6 +79,10 @@ public:
         return qos_config_ksync_obj_.get();
     }
 
+    BridgeRouteAuditKSyncObject* bridge_route_audit_ksync_obj() const {
+        return bridge_route_audit_ksync_obj_.get();
+    }
+
     KSyncBridgeMemory* ksync_bridge_memory() const {
         return ksync_bridge_memory_.get();
     }
@@ -98,6 +103,8 @@ protected:
     boost::scoped_ptr<QosQueueKSyncObject> qos_queue_ksync_obj_;
     boost::scoped_ptr<ForwardingClassKSyncObject> forwarding_class_ksync_obj_;
     boost::scoped_ptr<QosConfigKSyncObject> qos_config_ksync_obj_;
+    boost::scoped_ptr<BridgeRouteAuditKSyncObject>
+        bridge_route_audit_ksync_obj_;
     boost::scoped_ptr<KSyncBridgeMemory> ksync_bridge_memory_;
     virtual void InitFlowMem();
     void VRouterInterfaceSnapshot();
