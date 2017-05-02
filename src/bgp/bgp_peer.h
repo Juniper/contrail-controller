@@ -316,8 +316,7 @@ public:
                                 KeyType key_type);
     void ClearListenSocketAuthKey();
     void SetSessionSocketAuthKey(TcpSession *session);
-    bool SkipNotificationSend(int code, int subcode) const;
-    virtual bool SkipNotificationReceive(int code, int subcode) const;
+    virtual bool AttemptGRHelperMode(int code, int subcode) const;
     void Register(BgpTable *table, const RibExportPolicy &policy);
     void Register(BgpTable *table);
     bool EndOfRibSendTimerExpired(Address::Family family);
@@ -341,6 +340,7 @@ protected:
     virtual void SendEndOfRIBActual(Address::Family family);
     virtual void SendEndOfRIB(Address::Family family);
     int membership_req_pending() const { return membership_req_pending_; }
+    virtual bool notification() const;
 
 private:
     friend class BgpConfigTest;
