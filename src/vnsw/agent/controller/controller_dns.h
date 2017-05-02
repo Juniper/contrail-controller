@@ -47,6 +47,7 @@ public:
     Agent *agent() const {return agent_;}
     void RegisterXmppChannel(XmppChannel *channel);
     void ReceiveDnsMessage(std::auto_ptr<XmlBase> impl);
+    void TimedOut();
 
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
