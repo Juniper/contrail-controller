@@ -23,13 +23,16 @@ class VncKubernetesTest(unittest.TestCase):
         self.args.admin_user = "admin"
         self.args.admin_password = "qwerty"
         self.args.admin_tenant = "default"
-        self.args.vnc_endpoint_ip = "127.0.0.1"
+        self.args.vnc_endpoint_ip = ['127.0.0.1']
         self.args.vnc_endpoint_port = "8082"
         self.args.auth_token_url = "token"
         self.args.cluster_project = None
         self.args.pod_subnets = ['10.10.0.0/16']
         self.args.service_subnets = ['192.168.0.0/24']
         self.args.kubernetes_api_secure_port = "8443"
+        self.args.auth_user = "admin"
+        self.args.auth_password = "qwerty"
+        self.args.auth_tenant = "default"
 
     def tearDown(self):
         pass
@@ -154,8 +157,8 @@ class VncKubernetesTest(unittest.TestCase):
     @patch("kube_manager.vnc.vnc_kubernetes.VncApi", new=VncApiMock)
     @patch("kube_manager.vnc.vnc_kubernetes.VncAmqpHandle", new=Mock())
     def test_resources_exists(self):
-        api = VncApiMock(self.args.admin_user, self.args.admin_password,
-                             self.args.admin_tenant, self.args.vnc_endpoint_ip,
+        api = VncApiMock(self.args.auth_user, self.args.auth_password,
+                             self.args.auth_tenant, self.args.vnc_endpoint_ip,
                              self.args.vnc_endpoint_port, self.args.auth_token_url)
         domain_uuid = api.domain_create(Domain("default-domain"))
         domain = api.domain_read(id=domain_uuid)
