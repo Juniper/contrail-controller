@@ -392,8 +392,9 @@ def get_svc_uve_status(svc_name, debug, timeout, keyfile, certfile, cacert):
     http_server_port = get_http_server_port(svc_name, debug)
     if http_server_port == -1:
         return None, None
+    host = socket.gethostname()
     # Now check the NodeStatus UVE
-    svc_introspect = IntrospectUtil('127.0.0.1', http_server_port, debug, \
+    svc_introspect = IntrospectUtil(host, http_server_port, debug, \
                                     timeout, keyfile, certfile, cacert)
     node_status = svc_introspect.get_uve('NodeStatus')
     if node_status is None:
