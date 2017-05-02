@@ -106,6 +106,14 @@ class LinkObject(object):
     # end __init__
 # end class LinkObject
 
+class OpserverStdLog(object):
+    def __init__(self, server_name, http_port):
+        self._server_name = server_name
+        self._port = http_port
+
+    def write(self, text):
+        sys.stderr.write('[' + self._server_name + ':' + str(self._port) + ']' + text)
+
 class ContrailGeventServer(bottle.GeventServer):
     def run(self, handler):
         from gevent import wsgi as wsgi_fast, pywsgi, monkey, local
@@ -113,7 +121,8 @@ class ContrailGeventServer(bottle.GeventServer):
             import threading
             if not threading.local is local.local: monkey.patch_all()
         wsgi = wsgi_fast if self.options.get('fast') else pywsgi
-        self.srv = wsgi.WSGIServer((self.host, self.port), handler)
+        self._std_log = OpserverStdLog("API", self.port)
+        self.srv = wsgi.WSGIServer((self.host, self.port), handler, log = self._std_log)
         self.srv.serve_forever()
     def stop(self):
         if hasattr(self, 'srv'):
