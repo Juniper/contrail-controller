@@ -4081,6 +4081,10 @@ class DBInterface(object):
                                   if p.parent_uuid in project_ids])
             else:
                 port_objs.extend(port_objs_filtered_by_device_id)
+        elif filters.get('network_id'):
+            port_objs = self._virtual_machine_interface_list(
+                obj_uuids=filters.get('id'),
+                back_ref_id=filters.get('network_id'))
         else:
             port_objs = self._virtual_machine_interface_list(
                 obj_uuids=filters.get('id'),
