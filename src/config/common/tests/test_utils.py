@@ -125,13 +125,13 @@ class CassandraCFs(object):
     _all_cfs = {}
 
     @classmethod
-    def add_cf(cls, name, cf):
-        CassandraCFs._all_cfs[name] = cf
+    def add_cf(cls, keyspace, cf_name, cf):
+        CassandraCFs._all_cfs[keyspace + '_' + cf_name] = cf
     # end add_cf
 
     @classmethod
-    def get_cf(cls, name):
-        return CassandraCFs._all_cfs[name]
+    def get_cf(cls, keyspace, cf_name):
+        return CassandraCFs._all_cfs[keyspace + '_' + cf_name]
     # end get_cf
 
     @classmethod
@@ -144,18 +144,34 @@ class CassandraCFs(object):
         cls._all_cfs = {}
 # end CassandraCFs
 
-class FakeCF(object):
+class FakeConnectionPool(object):
 
     def __init__(*args, **kwargs):
         self = args[0]
+        if "keyspace" in kwargs:
+            self.keyspace = kwargs['keyspace']
+        else:
+            self.keyspace = args[2]
+    # end __init__
+# end FakeConnectionPool
+
+class FakeCF(object):
+    # 2 initializations for same CF get same contents
+    _all_cf_rows = {}
+
+    def __init__(*args, **kwargs):
+        self = args[0]
+        self._pool = args[2]
         self._name = args[3]
+        self._ks_cf_name = '%s_%s' %(self._pool.keyspace, self._name)
         try:
-            old_cf = CassandraCFs.get_cf(self._name)
-            self._rows = old_cf._rows
+            self._rows = self._all_cf_rows[self._ks_cf_name]
         except KeyError:
-            self._rows = OrderedDict({})
+            self._all_cf_rows[self._ks_cf_name] = OrderedDict({})
+            self._rows = self._all_cf_rows[self._ks_cf_name]
+
         self.column_validators = {}
-        CassandraCFs.add_cf(self._name, self)
+        CassandraCFs.add_cf(self._pool.keyspace, self._name, self)
     # end __init__
 
     def get_range(self, *args, **kwargs):
@@ -333,12 +349,12 @@ class FakeCF(object):
 
     @contextlib.contextmanager
     def patch_cf(self, new_contents=None):
-        orig_contents = self._rows
+        orig_contents = self._all_cf_rows[self._ks_cf_name]
         try:
-            self._rows = new_contents
+            self._all_cf_rows[self._ks_cf_name] = new_contents
             yield
         finally:
-            self._rows = orig_contents
+            self._all_cf_rows[self._ks_cf_name] = orig_contents
     # end patch_cf
 
     @contextlib.contextmanager
