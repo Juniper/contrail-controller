@@ -213,8 +213,6 @@ public:
             rpi = reinterpret_cast<ExternalProcIf<RawResultT> *>(qid);
 
         if (rpi) {
-            QE_LOG_NOQID(DEBUG,  " Rx data from QE for " <<
-                    rpi->Key());
             auto_ptr<RawResultT> rp(raw);
             rpi->Response(rp);
         }
@@ -233,8 +231,6 @@ public:
             rpi = reinterpret_cast<ExternalProcIf<RawResultT> *>(qid);
 
         if (rpi) {
-            QE_LOG_NOQID(DEBUG,  " Rx data from QE for " <<
-                    rpi->Key());
             auto_ptr<RawResultT> rp(raw);
             rpi->Response(rp);
         }
@@ -283,8 +279,6 @@ public:
                 string rkey = "REPLY:" + res.inp.qp.qid;
                 char stat[40];
                 uint prg = 10 + (chunknum * 75)/inp.chunk_size.size();
-                QE_LOG_NOQID(DEBUG,  "QueryExec for inst " << inst <<
-                    " step " << step << " PROGRESS " << prg);
                 sprintf(stat,"{\"progress\":%d}", prg);
                 RedisAsyncArgCommand(rac, NULL, 
                     list_of(string("RPUSH"))(rkey)(stat));
@@ -389,8 +383,6 @@ public:
                 string rkey = "REPLY:" + res.inp.qp.qid;
                 char stat[40];
                 uint prg = 10 + (chunknum * 75)/inp.chunk_size.size();
-                QE_LOG_NOQID(DEBUG,  "QueryExec for inst " << inst <<
-                    " step " << step << " PROGRESS " << prg);
                 sprintf(stat,"{\"progress\":%d}", prg);
                 RedisAsyncArgCommand(rac, NULL, 
                     list_of(string("RPUSH"))(rkey)(stat));         
