@@ -14,6 +14,7 @@
 #include "net/bgp_af.h"
 
 using std::sort;
+using std::vector;
 
 int BgpAttrOrigin::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
@@ -142,6 +143,16 @@ std::string BgpAttrOriginatorId::ToString() const {
     return std::string(repr);
 }
 
+ClusterListSpec::ClusterListSpec(uint32_t cluster_id,
+    const ClusterListSpec *rhs)
+    : BgpAttribute(BgpAttribute::ClusterList, kFlags) {
+    cluster_list.push_back(cluster_id);
+    if (rhs) {
+        cluster_list.insert(cluster_list.end(), rhs->cluster_list.begin(),
+            rhs->cluster_list.end());
+    }
+}
+
 int ClusterListSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
     if (ret != 0) return ret;
@@ -158,12 +169,21 @@ std::string ClusterListSpec::ToString() const {
     std::stringstream repr;
     repr << "CLUSTER_LIST <code: " << std::dec << code;
     repr << ", flags: 0x" << std::hex << int(flags) << "> :";
-    for (std::vector<uint32_t>::const_iterator iter = cluster_list.begin();
+    for (vector<uint32_t>::const_iterator iter = cluster_list.begin();
          iter != cluster_list.end(); ++iter) {
         repr << " " << Ip4Address(*iter).to_string();
     }
     repr << std::endl;
     return repr.str();
+}
+
+bool ClusterListSpec::ClusterListLoop(uint32_t cluster_id) const {
+    for (vector<uint32_t>::const_iterator iter = cluster_list.begin();
+         iter != cluster_list.end(); ++iter) {
+        if (*iter == cluster_id)
+            return true;
+    }
+    return false;
 }
 
 ClusterList::ClusterList(ClusterListDB *cluster_list_db,

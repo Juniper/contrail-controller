@@ -235,6 +235,9 @@ vector<string> BgpPath::GetFlagsStringList() const {
         case LlgrStale:
             flag_names.push_back("LlgrStale");
             break;
+        case ClusterListLooped:
+            flag_names.push_back("ClusterListLooped");
+            break;
         }
     }
     return flag_names;

@@ -177,6 +177,9 @@ public:
         private_as_action_ = private_as_action;
     }
 
+    uint32_t cluster_id() const { return cluster_id_; }
+    void set_cluster_id(uint32_t cluster_id) { cluster_id_ = cluster_id; }
+
     uint32_t peer_as() const { return peer_as_; }
     void set_peer_as(uint32_t peer_as) { peer_as_ = peer_as; }
 
@@ -263,6 +266,7 @@ private:
     bool passive_;
     bool as_override_;
     std::string private_as_action_;
+    uint32_t cluster_id_;
     uint32_t peer_as_;
     uint32_t identifier_;
     IpAddress address_;

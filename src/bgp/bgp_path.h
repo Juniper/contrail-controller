@@ -28,6 +28,7 @@ public:
         ResolvedPath = 1 << 6,
         RoutingPolicyReject = 1 << 7,
         LlgrStale = 1 << 8,
+        ClusterListLooped = 1 << 9,
     };
 
     // Ordered in the ascending order of path preference
@@ -42,7 +43,7 @@ public:
 
     static const uint32_t INFEASIBLE_MASK = (AsPathLooped |
         NoNeighborAs | NoTunnelEncap | OriginatorIdLooped | ResolveNexthop |
-        RoutingPolicyReject);
+        RoutingPolicyReject | ClusterListLooped);
 
     static std::string PathIdString(uint32_t path_id);
 

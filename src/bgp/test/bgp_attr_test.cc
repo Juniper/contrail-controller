@@ -964,7 +964,7 @@ TEST_F(BgpAttrTest, AsPathFormat2) {
     EXPECT_EQ("100 200 {300 400} 600 500", path.path().ToString());
 }
 
-TEST_F(BgpAttrTest, ClusterList) {
+TEST_F(BgpAttrTest, ClusterList1) {
     BgpAttrSpec attr_spec;
     ClusterListSpec spec;
     for (int idx = 1; idx < 5; idx++)
@@ -974,6 +974,18 @@ TEST_F(BgpAttrTest, ClusterList) {
     EXPECT_EQ(4, attr_ptr->cluster_list_length());
     BgpAttr attr(*attr_ptr);
     EXPECT_EQ(attr_ptr->cluster_list(), attr.cluster_list());
+}
+
+TEST_F(BgpAttrTest, ClusterList2) {
+    ClusterListSpec spec1;
+    for (int idx = 1; idx < 5; idx++)
+        spec1.cluster_list.push_back(100 * idx);
+    ClusterListSpec spec2;
+    for (int idx = 2; idx < 5; idx++)
+        spec2.cluster_list.push_back(100 * idx);
+    ClusterListSpec spec3(100, &spec2);
+    EXPECT_EQ(0, spec1.CompareTo(spec3));
+    EXPECT_EQ(0, spec3.CompareTo(spec1));
 }
 
 TEST_F(BgpAttrTest, ClusterListCompare1) {
@@ -1008,6 +1020,17 @@ TEST_F(BgpAttrTest, ClusterListCompare2) {
 
     EXPECT_EQ(-1, clist1.CompareTo(clist2));
     EXPECT_EQ(1, clist2.CompareTo(clist1));
+}
+
+TEST_F(BgpAttrTest, ClusterListLoop) {
+    ClusterListSpec spec;
+    for (int idx = 1; idx < 5; idx++)
+        spec.cluster_list.push_back(100 * idx);
+    for (int idx = 1; idx < 5; idx++) {
+        EXPECT_FALSE(spec.ClusterListLoop(100 * idx - 1));
+        EXPECT_TRUE(spec.ClusterListLoop(100 * idx));
+        EXPECT_FALSE(spec.ClusterListLoop(100 * idx + 1));
+    }
 }
 
 TEST_F(BgpAttrTest, CommunityCompare1) {
