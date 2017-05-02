@@ -123,8 +123,12 @@ class DBBaseST(DBBase):
             st_obj.object_uuid = self.obj.uuid
         except AttributeError:
             pass
-        st_obj.obj_refs = [self._get_sandesh_ref_list(field)
-                           for field in self.ref_fields]
+
+        st_obj.obj_refs = []
+        for field in self.ref_fields:
+            if self._get_sandesh_ref_list(field):
+                st_obj.obj_refs.append(self._get_sandesh_ref_list(field))
+
         st_obj.properties = [sandesh.PropList(field, str(getattr(self, field)))
                              for field in self.prop_fields
                              if hasattr(self, field)]
@@ -135,9 +139,12 @@ class DBBaseST(DBBase):
             ref = getattr(self, ref_type)
             refs = [ref] if ref else []
         except AttributeError:
-            refs = getattr(self, ref_type + 's')
-            if isinstance(refs, dict):
-                refs = refs.keys()
+            try:
+                refs = getattr(self, ref_type + 's')
+                if isinstance(refs, dict):
+                    refs = refs.keys()
+            except AttributeError:
+                return
         return sandesh.RefList(ref_type, refs)
 # end DBBaseST
 
@@ -255,7 +262,7 @@ class VirtualNetworkST(DBBaseST):
     _dict = {}
     obj_type = 'virtual_network'
     ref_fields = ['network_policy', 'virtual_machine_interface', 'route_table',
-                  'bgpvpn', 'network_ipam']
+                  'bgpvpn', 'ipams']
     prop_fields = ['virtual_network_properties', 'route_target_list',
                    'multi_policy_service_chains_enabled']
 
@@ -1371,11 +1378,18 @@ class VirtualNetworkST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(VirtualNetworkST, self).handle_st_object_req()
-        resp.obj_refs.extend([
-            self._get_sandesh_ref_list('routing_instance'),
-            sandesh.RefList('virtual_network', self.connections),
-            self._get_sandesh_ref_list('service_chain')
-        ])
+        ref_list=[]
+        if self._get_sandesh_ref_list('routing_instance'):
+            ref_list.append(self._get_sandesh_ref_list('routing_instance'))
+
+        ref_list.append(sandesh.RefList('virtual_network', self.connections))
+
+        if self._get_sandesh_ref_list('service_chain'):
+            ref_list.append(self._get_sandesh_ref_list('service_chain'))
+
+        if ref_list is not []:
+            resp.obj_refs.extend(ref_list)
+
         resp.properties.extend([
             sandesh.PropList('route_target', self.get_route_target()),
             sandesh.PropList('network_id',
@@ -1597,12 +1611,16 @@ class NetworkPolicyST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(NetworkPolicyST, self).handle_st_object_req()
-        resp.obj_refs = [
-            self._get_sandesh_ref_list('virtual_network'),
-            self._get_sandesh_ref_list('service_instance'),
-            self._get_sandesh_ref_list('network_policy'),
-            sandesh.RefList('referred_policy', self.referred_policies)
-        ]
+        resp.obj_refs=[]
+        if self._get_sandesh_ref_list('virtual_network'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('virtual_network'))
+        if self._get_sandesh_ref_list('service_instance'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('service_instance'))
+        if self._get_sandesh_ref_list('network_policy'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('network_policy'))
+
+        resp.obj_refs.append(sandesh.RefList('referred_policy', self.referred_policies))
+
         resp.properties = [
             sandesh.PropList('rule', str(rule)) for rule in self.rules
         ]
@@ -1675,11 +1693,14 @@ class RouteTableST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(RouteTableST, self).handle_st_object_req()
-        resp.obj_refs = [
-            self._get_sandesh_ref_list('virtual_network'),
-            self._get_sandesh_ref_list('service_instance'),
-            self._get_sandesh_ref_list('logical_router'),
-        ]
+        resp.obj_refs=[]
+        if self._get_sandesh_ref_list('virtual_network'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('virtual_network'))
+        if self._get_sandesh_ref_list('service_instance'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('service_instance'))
+        if self._get_sandesh_ref_list('logical_router'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('logical_router'))
+
         resp.properties = [
             sandesh.PropList('route', str(route)) for route in self.routes
         ]
@@ -1927,10 +1948,15 @@ class SecurityGroupST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(SecurityGroupST, self).handle_st_object_req()
-        resp.obj_refs = [
-            self._get_sandesh_ref_list('security_group'),
-            sandesh.RefList('referred_security_group', self.referred_sgs)
-        ]
+        if self._get_sandesh_ref_list('security_group'):
+            resp.obj_refs = [
+                self._get_sandesh_ref_list('security_group'),
+                sandesh.RefList('referred_security_group', self.referred_sgs)
+            ]
+        else:
+            resp.obj_refs = [
+                sandesh.RefList('referred_security_group', self.referred_sgs)
+            ]
         resp.properties.extend([
             sandesh.PropList('sg_id', str(self.sg_id)),
         ] + [sandesh.PropList('rule', str(rule))
@@ -2474,10 +2500,15 @@ class RoutingInstanceST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(RoutingInstanceST, self).handle_st_object_req()
-        resp.obj_refs = [
-            self._get_sandesh_ref_list('virtual_network'),
-            sandesh.RefList('routing_instance', self.connections),
-        ]
+        if self._get_sandesh_ref_list('virtual_network'):
+            resp.obj_refs = [
+                self._get_sandesh_ref_list('virtual_network'),
+                sandesh.RefList('routing_instance', self.connections)
+            ]
+        else:
+            resp.obj_refs = [
+                sandesh.RefList('routing_instance', self.connections)
+            ]
         resp.properties = [
             sandesh.PropList('service_chain', self.service_chain),
             sandesh.PropList('is_default', str(self.is_default)),
@@ -3673,11 +3704,17 @@ class VirtualMachineInterfaceST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(VirtualMachineInterfaceST, self).handle_st_object_req()
-        resp.obj_refs.extend([
-            self._get_sandesh_ref_list('instance_ip'),
-            self._get_sandesh_ref_list('floating_ip'),
-            self._get_sandesh_ref_list('alias_ip'),
-        ])
+        ref_list=[]
+        if self._get_sandesh_ref_list('instance_ip'):
+            ref_list.append(self._get_sandesh_ref_list('instance_ip'))
+        if self._get_sandesh_ref_list('floating_ip'):
+            ref_list.append(self._get_sandesh_ref_list('floating_ip'))
+        if self._get_sandesh_ref_list('alias_ip'):
+            ref_list.append(self._get_sandesh_ref_list('alias_ip'))
+
+        if ref_list is not []:
+            resp.obj_refs.extend(ref_list)
+
         resp.properties = [
             sandesh.PropList('service_interface_type',
                              self.service_interface_type),
@@ -3824,9 +3861,10 @@ class VirtualMachineST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(VirtualMachineST, self).handle_st_object_req()
-        resp.obj_refs.extend([
-            self._get_sandesh_ref_list('virtual_machine_interface'),
-        ])
+        if self._get_sandesh_ref_list('virtual_machine_interface'):
+            resp.obj_refs.extend([
+                self._get_sandesh_ref_list('virtual_machine_interface'),
+            ])
         resp.properties.extend([
             sandesh.PropList('service_mode', self.get_service_mode()),
         ])
@@ -4233,11 +4271,16 @@ class ServiceInstanceST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(ServiceInstanceST, self).handle_st_object_req()
-        resp.obj_refs.extend([
-            self._get_sandesh_ref_list('port_tuple'),
-            self._get_sandesh_ref_list('network_policy'),
-            self._get_sandesh_ref_list('route_table'),
-        ])
+        ref_list = []
+        if self._get_sandesh_ref_list('port_tuple'):
+            ref_list.append(self._get_sandesh_ref_list('port_tuple'))
+        if self._get_sandesh_ref_list('network_policy'):
+            ref_list.append(self._get_sandesh_ref_list('network_policy'))
+        if self._get_sandesh_ref_list('route_table'):
+            ref_list.append(self._get_sandesh_ref_list('route_table'))
+        if ref_list is not []:
+            resp.obj_refs.extend(ref_list)
+
         resp.properties.extend([
             sandesh.PropList('left_network', self.left_vn_str),
             sandesh.PropList('right_network', self.right_vn_str),
@@ -4308,9 +4351,10 @@ class RoutingPolicyST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(RoutingPolicyST, self).handle_st_object_req()
-        resp.obj_refs.extend([
-            self._get_sandesh_ref_list('routing_instance'),
-        ])
+        if self._get_sandesh_ref_list('routing_instance'):
+            resp.obj_refs.extend([
+                self._get_sandesh_ref_list('routing_instance')])
+
         return resp
     # end handle_st_object_req
 # end RoutingPolicyST
@@ -4389,9 +4433,9 @@ class RouteAggregateST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(RouteAggregateST, self).handle_st_object_req()
-        resp.obj_refs.extend([
-            self._get_sandesh_ref_list('routing_instance'),
-        ])
+        if self._get_sandesh_ref_list('routing_instance'):
+            resp.obj_refs.extend([
+                self._get_sandesh_ref_list('routing_instance')])
         return resp
     # end handle_st_object_req
 # end RouteAggregateST
@@ -4441,10 +4485,13 @@ class PortTupleST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(PortTupleST, self).handle_st_object_req()
-        resp.obj_refs = [
-            self._get_sandesh_ref_list('virtual_machine_interface'),
-            self._get_sandesh_ref_list('service_instance'),
-        ]
+        resp.obj_refs = []
+        if self._get_sandesh_ref_list('virtual_machine_interface'):
+            resp.obj_refs.append(
+                      self._get_sandesh_ref_list('virtual_machine_interface'))
+        if self._get_sandesh_ref_list('service_instance'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('service_instance'))
+
         return resp
     # end handle_st_object_req
 # end PortTupleST
@@ -4505,10 +4552,12 @@ class BgpvpnST(DBBaseST):
 
     def handle_st_object_req(self):
         resp = super(BgpvpnST, self).handle_st_object_req()
-        resp.obj_refs = [
-            self._get_sandesh_ref_list('virtual_network'),
-            self._get_sandesh_ref_list('logical_router'),
-        ]
+        resp.obj_refs = []
+        if self._get_sandesh_ref_list('virtual_network'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('virtual_network'))
+        if self._get_sandesh_ref_list('logical_router'):
+            resp.obj_refs.append(self._get_sandesh_ref_list('logical_router'))
+
         return resp
 
 
