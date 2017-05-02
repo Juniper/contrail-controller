@@ -123,8 +123,11 @@ class DBBaseST(DBBase):
             st_obj.object_uuid = self.obj.uuid
         except AttributeError:
             pass
-        st_obj.obj_refs = [self._get_sandesh_ref_list(field)
-                           for field in self.ref_fields]
+        st_obj.obj_refs = []
+        for field in self.ref_fields:
+            if self._get_sandesh_ref_list(field):
+                st_obj.obj_refs.append(self._get_sandesh_ref_list(field))
+
         st_obj.properties = [sandesh.PropList(field, str(getattr(self, field)))
                              for field in self.prop_fields
                              if hasattr(self, field)]
@@ -135,9 +138,12 @@ class DBBaseST(DBBase):
             ref = getattr(self, ref_type)
             refs = [ref] if ref else []
         except AttributeError:
-            refs = getattr(self, ref_type + 's')
-            if isinstance(refs, dict):
-                refs = refs.keys()
+            try:
+                refs = getattr(self, ref_type + 's')
+                if isinstance(refs, dict):
+                    refs = refs.keys()
+            except AttributeError:
+                return
         return sandesh.RefList(ref_type, refs)
 # end DBBaseST
 
