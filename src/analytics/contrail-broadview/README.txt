@@ -6,7 +6,7 @@ Contrail Broadview periodically polls switches with
 broadview supported asics (Trident and Tomahawk) and collets 
 data using the rest API and creates contrail uve
 
-daemon runs on analytics node 
+daemon runs on analytics node  
 
 contrail-broadview -c /etc/contrail/contrail-broadview.conf 
 
