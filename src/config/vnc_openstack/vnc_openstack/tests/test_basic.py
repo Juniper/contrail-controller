@@ -568,6 +568,62 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.delete_resource('security_group', proj_obj.uuid, sg_q['id'])
     # end test_fixed_ip_conflicts_with_floating_ip
 
+    def test_empty_floating_ip_body_disassociates(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        sg_q = self.create_resource('security_group', proj_obj.uuid)
+
+        pvt_net_q = self.create_resource('network', proj_obj.uuid,
+            extra_res_fields={'router:external': True})
+        pvt_subnet_q = self.create_resource('subnet', proj_obj.uuid,
+            extra_res_fields={
+                'network_id': pvt_net_q['id'],
+                'cidr': '1.1.1.0/24',
+                'ip_version': 4,
+            })
+        port_q = self.create_resource('port', proj_obj.uuid,
+            extra_res_fields={
+                'network_id': pvt_net_q['id'],
+                'security_groups': [sg_q['id']],
+            })
+
+
+        pub_net_q = self.create_resource('network', proj_obj.uuid,
+            extra_res_fields={'router:external': True})
+        pub_subnet_q = self.create_resource('subnet', proj_obj.uuid,
+            extra_res_fields={
+                'network_id': pub_net_q['id'],
+                'cidr': '10.1.1.0/24',
+                'ip_version': 4,
+            })
+        fip_q = self.create_resource('floatingip', proj_obj.uuid,
+            extra_res_fields={
+                'floating_network_id': pub_net_q['id'],
+                'port_id': port_q['id'],
+            })
+
+        # update fip with no 'resource' key and assert port disassociated
+        context = {'operation': 'UPDATE',
+                   'user_id': '',
+                   'is_admin': False,
+                   'roles': '',
+                   'tenant_id': proj_obj.uuid}
+        data = {'id': fip_q['id']}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/floatingip', body)
+        self.assertEqual(resp.status_code, 200)
+        fip_read = self.read_resource('floatingip', fip_q['id'])
+        self.assertEqual(fip_read['port_id'], None)
+
+        # cleanup
+        self.delete_resource('port', proj_obj.uuid, port_q['id'])
+        self.delete_resource('subnet', proj_obj.uuid, pvt_subnet_q['id'])
+        self.delete_resource('network', proj_obj.uuid, pvt_net_q['id'])
+        self.delete_resource('floatingip', proj_obj.uuid, fip_q['id'])
+        self.delete_resource('subnet', proj_obj.uuid, pub_subnet_q['id'])
+        self.delete_resource('network', proj_obj.uuid, pub_net_q['id'])
+        self.delete_resource('security_group', proj_obj.uuid, sg_q['id'])
+    # end test_empty_floating_ip_body_disassociates
+
     def test_floating_ip_list(self):
         proj_objs = []
         for i in range(3):
