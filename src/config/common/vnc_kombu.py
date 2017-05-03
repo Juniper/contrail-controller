@@ -326,8 +326,8 @@ class VncKombuClientV2(VncKombuClientBase):
         _hosts = self._parse_rabbit_hosts(rabbit_hosts)
         self._urls = []
         for h in _hosts:
-            h['vhost'] = "" if not rabbit_vhost else rabbit_vhost
-            _url = "pyamqp://%(user)s:%(password)s@%(host)s:%(port)s/%(vhost)s" % h
+            h['vhost'] = "/" if not rabbit_vhost else rabbit_vhost
+            _url = "pyamqp://%(user)s:%(password)s@%(host)s:%(port)s%(vhost)s" % h
             self._urls.append(_url)
 
         msg = "Initializing RabbitMQ connection, urls %s" % self._urls
