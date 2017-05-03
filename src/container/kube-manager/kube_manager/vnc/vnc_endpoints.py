@@ -155,7 +155,7 @@ class VncEndpoints(VncCommon):
                     member_match = True
                     break
             if member_match:
-                self.logger.debug("Delete LB member for Pod/VM: %s from LB: %s" 
+                self.logger.debug("Delete LB member for Pod/VM: %s from LB: %s"
                                    % (pod_id, lb.name))
                 self.service_lb_member_mgr.delete(member_id)
                 LoadbalancerMemberKM.delete(member.uuid)
@@ -201,10 +201,12 @@ class VncEndpoints(VncCommon):
             return pod_members
 
     def _get_ports_from_endpoint_event(self, event):
+        ports = []
         subsets = event['object'].get('subsets', [])
         for subset in subsets:
-            ports = subset.get('ports', None)
-            return ports
+            ports = subset.get('ports', [])
+            break
+        return ports
 
     def _get_service_pod_list(self, event):
         pods_in_event = set()
@@ -217,7 +219,7 @@ class VncEndpoints(VncCommon):
             endpoints = subset.get('addresses', [])
             for endpoint in endpoints:
                 pod = endpoint.get('targetRef')
-                if pod: 
+                if pod:
                     if pod.get('uid'):
                         pods_in_event.add(pod.get('uid'))
                 else: #hosts
@@ -226,7 +228,7 @@ class VncEndpoints(VncCommon):
                         host_vm = self._get_host_vm(host_ip)
                         if host_vm:
                             pods_in_event.add(host_vm)
-        
+
         return pods_in_event, port
 
 
@@ -259,7 +261,7 @@ class VncEndpoints(VncCommon):
             del_pod_members = prev_pod_ids.difference(cur_pod_ids)
             for pod_id in del_pod_members:
                 self._remove_pod_from_service(service_id, pod_id, port)
- 
+
             # If Pod present in both lists, do nothing
 
     def vnc_endpoint_delete(self, uid, name, namespace):
