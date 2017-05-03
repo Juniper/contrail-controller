@@ -3782,9 +3782,9 @@ class LogicalRouterST(DBBaseST):
         self.route_tables = set()
         self.rt_list = set()
         self.configured_route_target_list = None
-        self.update_vnc_obj()
+        obj = obj or self.read_vnc_obj(fq_name=name)
 
-        rt_ref = self.obj.get_route_target_refs()
+        rt_ref = obj.get_route_target_refs()
         old_rt_key = None
         if rt_ref:
             rt_key = rt_ref[0]['to'][0]
@@ -3797,12 +3797,13 @@ class LogicalRouterST(DBBaseST):
             rt_key = "target:%s:%d" % (
                 GlobalSystemConfigST.get_autonomous_system(), rtgt_num)
             rtgt_obj = RouteTargetST.locate(rt_key)
-            self.obj.set_route_target(rtgt_obj.obj)
-            self._vnc_lib.logical_router_update(self.obj)
+            obj.set_route_target(rtgt_obj.obj)
+            self._vnc_lib.logical_router_update(obj)
 
         if old_rt_key:
             RouteTargetST.delete_vnc_obj(old_rt_key)
         self.route_target = rt_key
+        self.update(obj)
     # end __init__
 
     def update(self, obj=None):
