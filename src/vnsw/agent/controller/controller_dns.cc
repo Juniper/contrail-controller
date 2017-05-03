@@ -102,12 +102,43 @@ void AgentDnsXmppChannel::XmppClientChannelEvent(AgentDnsXmppChannel *peer,
     peer->agent()->controller()->Enqueue(data);
 }
 
+/*
+ * AgentDnsXmppChannel state TimedOut
+ *
+ * If there are more than two channels available in config, then try picking
+ * other channel to replace this timed out channel. And push this channel at the
+ * end of the channel list so that it is picked only in worst case.
+ *
+ * If there are only two channels configured, no action to be taken.
+ */
+void AgentDnsXmppChannel::TimedOut() {
+    bool update_list = false;
+    std::vector<string>::iterator iter = agent_->GetDnslist().begin();
+    std::vector<string>::iterator end = agent_->GetDnslist().end();
+    for (; iter != end; iter++) {
+	std::vector<string> server;
+	boost::split(server, *iter, boost::is_any_of(":"));
+	if (GetXmppServer().compare(server[0]) == 0) {
+	    // Add the TIMEDOUT server to the end.
+	    if (iter+1 == end) break;
+	    std::rotate(iter, iter+1, end);
+	    update_list = true;
+	    break;
+	}
+    }
+    if (update_list) {
+	agent_->controller()->ReConnectDnsServer();
+    }
+}
+
 void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer,
                                                        xmps::PeerState state) {
     peer->UpdateConnectionInfo(state);
     if (state == xmps::READY) {
         if (!peer->dns_xmpp_event_handler_cb_.empty())
             peer->dns_xmpp_event_handler_cb_(peer);
+    } else if (state == xmps::TIMEDOUT) {
+        peer->TimedOut();
     }
 }
 
