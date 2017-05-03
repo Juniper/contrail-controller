@@ -489,8 +489,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Default domain name for this virtual DNS server'/>
         <xsd:element name="dynamic-records-from-client" type="xsd:boolean" required='optional'
              description='Allow automatic addition of records on VM launch, default is True'/>
-        <xsd:element name="record-order"        type="DnsRecordOrderType"  required='optional'
-             description='Order of DNS load balancing, fixed, random, round-robin'/>
+        <xsd:element name="record-order"        type="DnsRecordOrderType"  default="random" required='optional'
+             description='Order of DNS load balancing, fixed, random, round-robin. Default is random'/>
         <xsd:element name="default-ttl-seconds" type="xsd:integer"  required='optional'
              description='Default Time To Live for DNS records'/>
         <xsd:element name="next-virtual-DNS"    type="xsd:string"  required='optional'
