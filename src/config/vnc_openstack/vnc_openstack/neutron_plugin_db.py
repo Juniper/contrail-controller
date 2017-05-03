@@ -3767,7 +3767,18 @@ class DBInterface(object):
 
         # always request for v4 and v6 ip object and handle the failure
         # create the object
-        port_id = self._resource_create('virtual_machine_interface', port_obj)
+        try:
+            port_id = self._resource_create('virtual_machine_interface', port_obj)
+        except BadRequest as e:
+            msg = "Allowed address pairs are not allowed when port "\
+                  "security is disabled"
+            if msg == str(e):
+                self._raise_contrail_exception(
+                   'AddressPairAndPortSecurityRequired')
+            else:
+                self._raise_contrail_exception(
+                   'BadRequest', resource='port', msg=str(e))
+
         self._vnc_lib.chown(port_id, tenant_id)
         # add support, nova boot --nic subnet-id=subnet_uuid
         subnet_id = port_q.get('subnet_id')
@@ -3869,7 +3880,18 @@ class DBInterface(object):
         port_obj = self._port_neutron_to_vnc(port_q, None, UPDATE)
         net_id = port_obj.get_virtual_network_refs()[0]['uuid']
         net_obj = self._network_read(net_id)
-        self._virtual_machine_interface_update(port_obj)
+        try:
+            self._virtual_machine_interface_update(port_obj)
+        except BadRequest as e:
+            msg = "Allowed address pairs are not allowed when port "\
+                  "security is disabled"
+            if msg == str(e):
+                self._raise_contrail_exception(
+                   'AddressPairAndPortSecurityRequired')
+            else:
+                self._raise_contrail_exception(
+                   'BadRequest', resource='port', msg=str(e))
+
         port_obj = self._virtual_machine_interface_read(port_id=port_id)
         ret_port_q = self._port_vnc_to_neutron(port_obj)
 
