@@ -1265,7 +1265,8 @@ class Controller(object):
                 alm_copy.append(copy.deepcopy(uai))
         if len(alm_copy) == 0:
             ustruct = UVEAlarms(name = str(uk).split(':',1)[1], deleted = True)
-            self._logger.info('deleting alarm:')
+            self._logger.info('deleting alarm: %s' % (uk))
+            del self.tab_alarms[tab][uk]
         else:
             ustruct = UVEAlarms(name = str(uk).split(':',1)[1],
                                     alarms = alm_copy)
