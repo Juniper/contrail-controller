@@ -194,8 +194,11 @@ class VncNetworkPolicy(VncCommon):
 
     def _get_ns_address(self, ns_name):
         address = {}
+        proj_fq_name = vnc_kube_config.cluster_project_fq_name(ns_name)
+        ns_sg_fq_name = proj_fq_name[:]
         ns_sg = "-".join([vnc_kube_config.cluster_name(), ns_name, 'sg'])
-        address['security_group'] = ns_sg
+        ns_sg_fq_name.append(ns_sg)
+        address['security_group'] = ns_sg_fq_name
         return address
 
     def _get_ns_address_list(self, np_sg_uuid, labels=None):
@@ -211,8 +214,11 @@ class VncNetworkPolicy(VncCommon):
             ns = NamespaceKM.get(ns_uuid)
             if not ns:
                 continue
+            proj_fq_name = vnc_kube_config.cluster_project_fq_name(ns.name)
+            ns_sg_fq_name = proj_fq_name[:]
             ns_sg = "-".join([vnc_kube_config.cluster_name(), ns.name, 'sg'])
-            address['security_group'] = ns_sg
+            ns_sg_fq_name.append(ns_sg)
+            address['security_group'] = ns_sg_fq_name
             address['ns_selector'] = labels
             if ns_sg in self._default_ns_sgs[ns.name]:
                 address['ns_sg_uuid'] = self._default_ns_sgs[ns.name][ns_sg]
@@ -418,12 +424,12 @@ class VncNetworkPolicy(VncCommon):
                     for pod_id in pod_ids:
                         self._update_sg_pod_link(namespace,
                             pod_id, pod_sg.uuid, 'ADD', validate_vm=True)
+                src_sg_fq_name.append(src_sg_name)
             else:
-                src_sg_name = src_address['security_group']
                 if 'ns_selector' in src_address:
                     ns_sg_uuid = src_address['ns_sg_uuid']
                     ingress_ns_sgs.add(ns_sg_uuid)
-            src_sg_fq_name.append(src_sg_name)
+                src_sg_fq_name = src_address['security_group']
             ingress_sg_rule = self._get_ingress_sg_rule(
                     src_sg_fq_name, dst_port)
             ingress_sg_rule_list.append(ingress_sg_rule)
