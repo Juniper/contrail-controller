@@ -1,5 +1,5 @@
 #  Schema to APIs are generated using the following python lib
-#     https://pypi.python.org/pypi/generateDS 
+#     https://pypi.python.org/pypi/generateDS  
 #
 #  Help document which describes the usage of Generated Python API
 # 
@@ -13,7 +13,7 @@
 from juniper_common_xsd import *
 
 # The following sample explains how to generate XML data using API.
-# Data types are generated based on data model 
+# Data types are generated based on data model  
 # defined in juniper_common.xsd
 
 # Set address data type

@@ -7,7 +7,7 @@ broadview supported asics (Trident and Tomahawk) and collets
 data using the rest API and creates contrail uve
 
 daemon runs on analytics node 
-
+ 
 contrail-broadview -c /etc/contrail/contrail-broadview.conf 
 
 Command Line
