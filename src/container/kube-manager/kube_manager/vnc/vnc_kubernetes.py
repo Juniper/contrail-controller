@@ -28,6 +28,8 @@ from vnc_common import VncCommon
 
 class VncKubernetes(VncCommon):
 
+    _vnc_kubernetes = None
+
     def __init__(self, args=None, logger=None, q=None, kube=None):
         self._name = type(self).__name__
         self.args = args
@@ -85,6 +87,8 @@ class VncKubernetes(VncCommon):
             'kube_manager.vnc.vnc_endpoints.VncEndpoints')
         self.ingress_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_ingress.VncIngress')
+
+        VncKubernetes._vnc_kubernetes = self
 
     def _vnc_connect(self):
         # Retry till API server connection is up
@@ -355,3 +359,22 @@ class VncKubernetes(VncCommon):
                 cgitb_hook(file=string_buf, format="text")
                 err_msg = string_buf.getvalue()
                 self.logger.error("%s - %s" %(self._name, err_msg))
+
+    @classmethod
+    def get_instance(cls):
+        return VncKubernetes._vnc_kubernetes
+
+    @classmethod
+    def destroy_instance(cls):
+        inst = cls.get_instance()
+        if inst is None:
+            return
+        inst.rabbit.close()
+        for obj_cls in DBBaseKM.get_obj_type_map().values():
+            obj_cls.reset()
+        DBBase.clear()
+        inst._db = None
+        VncKubernetes._vnc_kubernetes = None
+
+
+

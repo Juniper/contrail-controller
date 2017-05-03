@@ -23,6 +23,9 @@ import kube.endpoint_monitor as endpoint_monitor
 import kube.ingress_monitor as ingress_monitor
 
 class KubeNetworkManager(object):
+
+    _kube_network_manager = None
+
     def __init__(self, args=None, kube_api_connected=False, queue=None):
         self.args = args
         if 'kube_timer_interval' not in self.args:
@@ -104,12 +107,28 @@ class KubeNetworkManager(object):
         gevent.joinall(greenlets)
 
     def reset(self):
-        for cls in DBBaseST.get_obj_type_map().values():
+        for cls in DBBaseKM.get_obj_type_map().values():
             cls.reset()
+
+    @classmethod
+    def get_instance(cls):
+        return KubeNetworkManager._kube_network_manager
+
+    @classmethod
+    def destroy_instance(cls):
+        inst = cls.get_instance()
+        if inst is None:
+            return
+        inst.vnc.destroy_instance()
+        inst.vnc = None
+        inst.q = None
+        KubeNetworkManager._kube_network_manager = None
+
 
 def main(args_str=None, kube_api_skip=False, event_queue=None):
     args = kube_args.parse_args(args_str)
     kube_nw_mgr = KubeNetworkManager(args,kube_api_connected=kube_api_skip, queue=event_queue)
+    KubeNetworkManager._kube_network_manager = kube_nw_mgr
     kube_nw_mgr.start_tasks()
 
 if __name__ == '__main__':

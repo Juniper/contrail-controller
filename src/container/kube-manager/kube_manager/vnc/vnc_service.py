@@ -318,14 +318,35 @@ class VncService(VncCommon):
                 # Allocate floating-ip from public-pool, if none exists.
                 # if "loadBalancerIp" if specified in Service definition,
                 # allocate the specific ip.
-                allocated_fip = self._allocate_floating_ip(service_id, loadBalancerIp)
-
-            if allocated_fip:
-                if external_ip != allocated_fip:
-                    # If Service's EXTERNAL-IP is not same as allocated floating-ip,
-                    # update kube-api server with allocated fip as the EXTERNAL-IP
+                if loadBalancerIp:
+                    allocated_fip = self._allocate_floating_ip(service_id, loadBalancerIp)
+                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                elif external_ip:
+                    allocated_fip = self._allocate_floating_ip(service_id, external_ip)
+                else:
+                    allocated_fip = self._allocate_floating_ip(service_id)
                     self._update_service_external_ip(service_namespace, service_name, allocated_fip)
 
+                return
+
+            if allocated_fip:
+                if loadBalancerIp and loadBalancerIp != allocated_fip:
+                    self._deallocate_floating_ip(service_id)
+                    self._allocate_floating_ip(service_id, loadBalancerIp)
+                    self._update_service_external_ip(service_namespace, service_name, loadBalancerIp)
+                    return
+
+                if external_ip and external_ip != allocated_fip:
+                    # If Service's EXTERNAL-IP is not same as allocated floating-ip,
+                    # update kube-api server with allocated fip as the EXTERNAL-IP
+                    self._deallocate_floating_ip(service_id)
+                    self._allocate_floating_ip(service_id, external_ip)
+                    self._update_service_external_ip(service_namespace, service_name, external_ip)
+                    return
+
+                if external_ip is None:
+                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                    return
             return
 
         if service_type in ["ClusterIP"]:

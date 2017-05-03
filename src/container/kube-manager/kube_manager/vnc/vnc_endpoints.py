@@ -276,7 +276,7 @@ class VncEndpoints(VncCommon):
 
         #Get curr list of Pods matching Service Selector as listed
         # in 'event' elements.
-        cur_pod_ids = self._get_pod_list(event)
+        cur_pod_ids = self._get_service_pod_list(event)
 
         # Compare 2 lists. Should be same.. any diff is a sign of warning
         pod_diff = set(prev_pod_ids) - set(cur_pod_ids)

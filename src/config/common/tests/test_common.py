@@ -133,6 +133,7 @@ def launch_kube_manager(test_id, conf_sections, kube_api_skip, event_queue):
     args_str = ""
     vnc_cgitb.enable(format='text')
 
+    wait_for_kube_manager_down()
     with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
         cfg_parser.write(conf)
@@ -342,7 +343,7 @@ def kill_device_manager(glet):
 
 def kill_kube_manager(glet):
     glet.kill()
-    #kube_manager.reset()
+    kube_manager.KubeNetworkManager.destroy_instance()
 
 def reinit_schema_transformer():
     to_bgp.transformer.reinit()
@@ -396,6 +397,16 @@ def wait_for_device_manager_up():
 def wait_for_device_manager_down():
     if device_manager.DeviceManager.get_instance():
         raise Exception("DM instance is up, no new instances allowed")
+
+@retries(5, hook=retry_exc_handler)
+def wait_for_kube_manager_up():
+    if not kube_manager.KubeNetworkManager.get_instance():
+        raise Exception("KM instance is not up")
+
+@retries(5, hook=retry_exc_handler)
+def wait_for_kube_manager_down():
+    if kube_manager.KubeNetworkManager.get_instance():
+        raise Exception("KM instance is up, no new instances allowed")
 
 @contextlib.contextmanager
 def flexmocks(mocks):
