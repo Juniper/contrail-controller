@@ -25,15 +25,30 @@ class KMTestCase(test_common.TestCase):
             extra_config.append(extra_config_knobs)
         super(KMTestCase, cls).setUpClass(extra_config_knobs=extra_config)
         cls._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
-            cls.__name__, cls._api_server_ip, cls._api_server_port)
+            cls._cluster_id, cls.__name__, cls._api_server_ip, cls._api_server_port)
         cls._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            cls.__name__, cls._api_server_ip, cls._api_server_port)
+            cls._cluster_id, cls.__name__, cls._api_server_ip, cls._api_server_port)
         test_common.wait_for_schema_transformer_up()
+        kube_config = [
+            ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
+            ('VNC', 'vnc_endpoint_ip', cls._api_server_ip),
+            ('VNC', 'vnc_endpoint_port', cls._api_server_port),
+            ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
+            ('VNC', 'cluster_id', cls._cluster_id),
+            ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
+            ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
+            ('KUBERNETES', 'cluster_name', "test-cluster"),
+        ]
+        cls.event_queue = Queue()
+        cls._km_greenlet = gevent.spawn(test_common.launch_kube_manager,
+            cls.__name__, kube_config, True, cls.event_queue)
+        test_common.wait_for_kube_manager_up()
 
     @classmethod
     def tearDownClass(cls):
         test_common.kill_svc_monitor(cls._svc_mon_greenlet)
         test_common.kill_schema_transformer(cls._st_greenlet)
+        test_common.kill_kube_manager(cls._km_greenlet)
         super(KMTestCase, cls).tearDownClass()
 
     def _class_str(self):
@@ -41,21 +56,8 @@ class KMTestCase(test_common.TestCase):
 
     def setUp(self, extra_config_knobs=None):
         super(KMTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
-        kube_config = [
-            ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
-            ('VNC', 'vnc_endpoint_ip', self._api_server_ip),
-            ('VNC', 'vnc_endpoint_port', self._api_server_port),
-            ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
-            ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
-            ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
-            ('KUBERNETES', 'cluster_name', "test-cluster"),
-        ]
-        self.event_queue = Queue()
-        self._km_greenlet = gevent.spawn(test_common.launch_kube_manager,
-            self.id(), kube_config, True, self.event_queue)
 
     def tearDown(self):
-        test_common.kill_kube_manager(self._km_greenlet)
         super(KMTestCase, self).tearDown()
 
     def enqueue_event(self, event):
