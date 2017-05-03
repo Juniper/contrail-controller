@@ -191,7 +191,7 @@ class KubeMonitor(object):
         return json_data
 
     def patch_resource(self, resource_type, resource_name, \
-                       merge_patch, namespace=None, beta=False):
+            merge_patch, namespace=None, beta=False, sub_resource_name=None):
         if beta == False:
             base_url = self.v1_url
         else:
@@ -202,6 +202,8 @@ class KubeMonitor(object):
         else:
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               resource_type, resource_name)
+            if sub_resource_name:
+                url = "%s/%s" %(url, sub_resource_name)
 
         headers = {'Accept': 'application/json', \
                    'Content-Type': 'application/strategic-merge-patch+json'}

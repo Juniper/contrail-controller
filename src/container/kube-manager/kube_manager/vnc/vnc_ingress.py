@@ -153,6 +153,29 @@ class VncIngress(VncCommon):
             self._vnc_lib.floating_ip_delete(id=fip_obj.uuid)
             FloatingIpKM.delete(fip_obj.uuid)
 
+    def _update_floating_ip(self, name, ns_name, external_ip, lb_obj):
+        proj_obj = self._get_project(ns_name)
+        fip = self._allocate_floating_ip(lb_obj,
+                        name, proj_obj, external_ip)
+        if fip:
+            lb_obj.add_annotations(
+                KeyValuePair(key='externalIP', value=external_ip))
+            self._vnc_lib.loadbalancer_update(lb_obj)
+        return fip
+
+    def _update_kube_api_server(self, name, ns_name, lb_obj, fip):
+        vip_dict_list = []
+        if fip:
+            vip_dict = {}
+            vip_dict['ip'] = fip.address
+            vip_dict_list.append(vip_dict)
+        vip_dict = {}
+        vip_dict['ip'] = lb_obj._loadbalancer_properties.vip_address
+        vip_dict_list.append(vip_dict)
+        patch = {'status': {'loadBalancer': {'ingress': vip_dict_list}}}
+        self._kube.patch_resource("ingresses", name, patch,
+                ns_name, beta=True, sub_resource_name='status')
+
     def _vnc_create_member(self, pool, address, port, annotations):
         pool_obj = self.service_lb_pool_mgr.read(pool.uuid)
         member_obj = self.service_lb_member_mgr.create(pool_obj,
@@ -185,22 +208,15 @@ class VncIngress(VncCommon):
 
         vip_address = None
         pod_ipam_subnet_uuid = self._get_pod_ipam_subnet_uuid(vn_obj)
-        lb_obj = self.service_lb_mgr.create(self._k8s_event_type, ns_name,
-                            uid, name, proj_obj, vn_obj, vip_address,
-                            pod_ipam_subnet_uuid)
+        lb_obj = self.service_lb_mgr.create(self._k8s_event_type, ns_name, uid,
+                    name, proj_obj, vn_obj, vip_address, pod_ipam_subnet_uuid)
         if lb_obj:
-            vip_info = {}
             external_ip = None
-            vip_info['clusterIP'] = lb_obj._loadbalancer_properties.vip_address
             if annotations and 'externalIP' in annotations:
                 external_ip = annotations['externalIP']
-            fip_obj = self._allocate_floating_ip(lb_obj,
-                        name, proj_obj, external_ip)
-            if fip_obj:
-                vip_info['externalIP'] = fip_obj.address
-            patch = {'metadata': {'annotations': vip_info}}
-            self._kube.patch_resource("ingresses", name,
-                                      patch, ns_name, beta=True)
+            fip = self._update_floating_ip(name,
+                            ns_name, external_ip, lb_obj)
+            self._update_kube_api_server(name, ns_name, lb_obj, fip)
         else:
             self._logger.error("%s - %s LB Not Created" %(self._name, name))
 
@@ -417,13 +433,25 @@ class VncIngress(VncCommon):
         return ll
 
     def _create_lb(self, uid, name, ns_name, event):
+        annotations = event['object']['metadata'].get('annotations')
         lb = LoadbalancerKM.get(uid)
         if not lb:
-            annotations = event['object']['metadata'].get('annotations')
             lb_obj = self._vnc_create_lb(uid, name, ns_name, annotations)
             if lb_obj is None:
                 return
             lb = LoadbalancerKM.locate(uid)
+        else:
+            external_ip = None
+            if annotations and 'externalIP' in annotations:
+                external_ip = annotations['externalIP']
+            if external_ip != lb.external_ip:
+                self._deallocate_floating_ip(lb)
+                lb_obj = self._vnc_lib.loadbalancer_read(id=lb.uuid)
+                fip = self._update_floating_ip(name, ns_name,
+                            external_ip, lb_obj)
+                if fip:
+                    lb.external_ip = external_ip
+                self._update_kube_api_server(name, ns_name, lb_obj, fip)
 
         spec = event['object']['spec']
         new_backend_list = self._get_new_backend_list(spec)
