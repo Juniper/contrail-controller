@@ -111,6 +111,9 @@ class VncAmqpHandle(object):
             self.handle_update()
         elif oper == 'DELETE':
             self.handle_delete()
+        elif oper == 'UPDATE-IMPLICIT':
+            # Ignore this operation
+            return
         else:
             self.handle_unknown()
             return

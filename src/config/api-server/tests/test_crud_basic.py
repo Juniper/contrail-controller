@@ -969,6 +969,37 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                         prop_name='display_name', prop_value='test_update_2')
     # end test_reconnect_to_rabbit
 
+    def test_update_implicit(self):
+        self.ignore_err_in_log = True
+        api_server = self._server_info['api_server']
+        orig_rabbitq_pub = api_server._db_conn._msgbus._producer.publish
+        try:
+            update_implicit = {}
+
+            def rabbitq_pub(*args, **kwargs):
+                if args[0]['oper'] == 'UPDATE-IMPLICIT':
+                    update_implicit.update(args[0])
+                orig_rabbitq_pub(*args, **kwargs)
+
+            logger.info("Creating VN objects")
+            # every VN create, creates RI too
+            vn_objs = self._create_test_objects(count=2)
+            api_server._db_conn._msgbus._producer.publish = rabbitq_pub
+
+            ri_objs = [self._vnc_lib.routing_instance_read(
+                fq_name=vn.fq_name + [vn.name]) for vn in vn_objs]
+            ri_objs[0].add_routing_instance(ri_objs[1], None)
+            self._vnc_lib.routing_instance_update(ri_objs[0])
+
+            for i in range(0, 10):
+                gevent.sleep(0.1)
+                if update_implicit.get('uuid') == ri_objs[1].uuid:
+                    break
+            else:
+                self.assertTrue(False, 'update-implicit was not published')
+        finally:
+            api_server._db_conn._msgbus._producer.publish = orig_rabbitq_pub
+
     def test_handle_trap_on_exception(self):
         self.ignore_err_in_log = True
         api_server = self._server_info['api_server']

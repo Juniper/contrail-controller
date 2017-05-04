@@ -644,7 +644,8 @@ bool ConfigCassandraPartition::ConfigReader() {
         ++itnext;
         ObjectProcessRequestType *obj_req = it->second;
 
-        if (obj_req->oper == "CREATE" || obj_req->oper == "UPDATE") {
+        if (obj_req->oper == "CREATE" || obj_req->oper == "UPDATE" ||
+                obj_req->oper == "UPDATE-IMPLICIT") {
             bunch_req_list.insert(obj_req->uuid);
             bool is_last = (itnext == uuid_read_set_.end());
             if (is_last ||

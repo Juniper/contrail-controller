@@ -635,9 +635,10 @@ class VncRDBMSClient(object):
                     )
                     session.add(element_obj)
 
+        symmetric_ref_updates = []
         # create obj_refs
         for ref_field in obj_class.ref_fields:
-            ref_type = ref_field[:-5] # string trailing _refs
+            ref_type = ref_field[:-5]  # string trailing _refs
             refs = obj_dict.get(ref_field, [])
             sqa_ref_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
             for ref in refs:
@@ -647,19 +648,22 @@ class VncRDBMSClient(object):
                     ref_uuid = self.fq_name_to_uuid(ref_type, ref['to'])
                 ref_attr = ref.get('attr')
                 ref_value = {'attr': ref_attr, 'is_weakref': False}
-                sqa_ref_obj = sqa_ref_class(from_obj_uuid=obj_id, to_obj_uuid=ref_uuid,
-                                    ref_value=json.dumps(ref_value))
+                sqa_ref_obj = sqa_ref_class(from_obj_uuid=obj_id,
+                                            to_obj_uuid=ref_uuid,
+                                            ref_value=json.dumps(ref_value))
                 session.add(sqa_ref_obj)
                 if obj_type == ref_type:
-                    sqa_ref_obj2 = sqa_ref_class(from_obj_uuid=ref_uuid, to_obj_uuid=obj_id,
-                                        ref_value=json.dumps(ref_value))
+                    symmetric_ref_updates.append(ref_uuid)
+                    sqa_ref_obj2 = sqa_ref_class(from_obj_uuid=ref_uuid,
+                                                 to_obj_uuid=obj_id,
+                                                 ref_value=json.dumps(ref_value))
                     session.add(sqa_ref_obj2)
                 # TODO update epoch on parent and refs
         # end handled refs
 
         session.commit()
 
-        return (True, '')
+        return (True, symmetric_ref_updates)
     # end object_create
 
     def _wrapper_field(self, obj_class, prop_name):
@@ -668,7 +672,8 @@ class VncRDBMSClient(object):
         wrapper_cls = self._get_xsd_class(wrapper_type)
         return wrapper_cls.attr_fields[0]
 
-    def _format_rows(self, res_type, rows, extra_sqa_classes=None, req_prop_fields=None):
+    def _format_rows(self, res_type, rows, extra_sqa_classes=None,
+                     req_prop_fields=None):
         obj_class = self._get_resource_class(res_type)
         objs_dict = {}
         for base_and_extra_objs in rows:
@@ -699,7 +704,7 @@ class VncRDBMSClient(object):
                     continue
 
                 prop_value_json = getattr(sqa_obj, prop_field)
-                if prop_value_json != None:
+                if prop_value_json is not None:
                     obj_dict[prop_field] = json.loads(prop_value_json)
 
             objs_dict[obj_uuid] = obj_dict
@@ -715,7 +720,7 @@ class VncRDBMSClient(object):
                     ref_info = {}
                     try:
                         ref_info['to'] = self.uuid_to_fq_name(ref_uuid)
-                    except NoIdError as e:
+                    except NoIdError:
                         ref_info['to'] = ['ERROR']
 
                     if ref_attr:
@@ -736,13 +741,13 @@ class VncRDBMSClient(object):
                     backref_info = {}
                     try:
                         backref_info['to'] = self.uuid_to_fq_name(backref_uuid)
-                    except NoIdError as e:
+                    except NoIdError:
                         backref_info['to'] = ['ERROR']
 
                     if backref_attr:
                         backref_info['attr'] = backref_attr
                     backref_info['href'] = self._generate_url(
-                                               backref_type, backref_uuid)
+                        backref_type, backref_uuid)
                     backref_info['uuid'] = backref_uuid
 
                     try:
@@ -809,12 +814,12 @@ class VncRDBMSClient(object):
             req_list_fields = field_names_set & obj_class.prop_list_fields
         session = self.session_ctx
 
-        sqa_ref_classes = [aliased(self.sqa_classes['ref_%s_%s' %(
-                             obj_type, ref_field[:-5])])
-                             for ref_field in req_ref_fields]
-        sqa_backref_classes = [aliased(self.sqa_classes['ref_%s_%s' %(
-             backref_field[:-10], obj_type)])
-             for backref_field in req_backref_fields]
+        sqa_ref_classes = [aliased(self.sqa_classes['ref_%s_%s' % (
+                           obj_type, ref_field[:-5])])
+                           for ref_field in req_ref_fields]
+        sqa_backref_classes = [aliased(self.sqa_classes['ref_%s_%s' % (
+            backref_field[:-10], obj_type)])
+            for backref_field in req_backref_fields]
 
         sqa_list_classes = [aliased(self.sqa_classes[to_list_type(obj_type, prop_field)])
              for prop_field in req_list_fields]
@@ -823,16 +828,16 @@ class VncRDBMSClient(object):
 
         extra_sqa_classes = sqa_ref_classes + sqa_backref_classes + sqa_map_classes + sqa_list_classes
         extra_join_clauses = [(cls, sqa_class.obj_uuid == cls.from_obj_uuid)
-                        for cls in sqa_ref_classes]
+                              for cls in sqa_ref_classes]
         extra_join_clauses.extend([(cls, sqa_class.obj_uuid == cls.to_obj_uuid)
-                              for cls in sqa_backref_classes])
+                                   for cls in sqa_backref_classes])
         extra_join_clauses.extend([(cls, sqa_class.obj_uuid == cls.owner)
-                              for cls in sqa_list_classes])
+                                   for cls in sqa_list_classes])
         extra_join_clauses.extend([(cls, sqa_class.obj_uuid == cls.owner)
-                              for cls in sqa_map_classes])
+                                   for cls in sqa_map_classes])
         sqa_base_and_extra_objs_list = session.query(
             sqa_class, *extra_sqa_classes).outerjoin(
-               *extra_join_clauses).filter(
+                *extra_join_clauses).filter(
                     sqa_class.obj_uuid.in_(obj_uuids)).all()
 
         objs_dict = self._format_rows(
@@ -840,25 +845,25 @@ class VncRDBMSClient(object):
             extra_sqa_classes, req_prop_fields)
 
         if req_children_fields:
-           sqa_children_objs = self.get_children(
-               obj_type, obj_uuids, req_children_fields)
+            sqa_children_objs = self.get_children(
+                obj_type, obj_uuids, req_children_fields)
         else:
             sqa_children_objs = []
 
         for sqa_child_obj in sqa_children_objs:
-           child_uuid = sqa_child_obj.obj_uuid
-           child_type = sqa_child_obj.obj_type
-           obj_uuid = sqa_child_obj.obj_parent_uuid
-           obj_dict = objs_dict[obj_uuid]
-           child_info = {
-               'to': self.uuid_to_fq_name(child_uuid),
-               'href': self._generate_url(child_type, child_uuid),
-               'uuid': child_uuid,
-           }
-           try:
-               obj_dict['%ss' % (child_type)].append(child_info)
-           except KeyError:
-               obj_dict['%ss' % (child_type)] = [child_info]
+            child_uuid = sqa_child_obj.obj_uuid
+            child_type = sqa_child_obj.obj_type
+            obj_uuid = sqa_child_obj.obj_parent_uuid
+            obj_dict = objs_dict[obj_uuid]
+            child_info = {
+                'to': self.uuid_to_fq_name(child_uuid),
+                'href': self._generate_url(child_type, child_uuid),
+                'uuid': child_uuid,
+            }
+            try:
+                obj_dict['%ss' % (child_type)].append(child_info)
+            except KeyError:
+                obj_dict['%ss' % (child_type)] = [child_info]
 
         return (True, objs_dict.values())
     # end object_read
@@ -870,14 +875,14 @@ class VncRDBMSClient(object):
         sqa_class = self.sqa_classes[obj_type]
         new_ref_infos = {}
         new_props = {}
+        symmetric_ref_updates = []
         for prop_field in obj_class.prop_fields:
 
             if prop_field in new_obj_dict:
                 new_props[prop_field] = new_obj_dict[prop_field]
 
         for ref_field in obj_class.ref_fields:
-            ref_type, ref_link_type, _, _ = \
-                obj_class.ref_field_types[ref_field]
+            ref_type, _, _, _ = obj_class.ref_field_types[ref_field]
             ref_obj_type = to_obj_type(ref_type)
 
             if ref_field in new_obj_dict:
@@ -949,7 +954,7 @@ class VncRDBMSClient(object):
             sqa_ref_objs = []
         else:
             sqa_ref_objs, _ = self.get_refs_backrefs(obj_type, [obj_uuid],
-                               new_ref_types, None)
+                                                     new_ref_types, None)
 
         for sqa_ref_obj in sqa_ref_objs:
             ref_type = sqa_ref_obj.ref_type
@@ -962,6 +967,9 @@ class VncRDBMSClient(object):
             new_ref_info = new_ref_infos.pop(ref_type)
             if ref_uuid not in new_ref_info:
                 session.delete(sqa_ref_obj)
+                if obj_type == ref_type:
+                    symmetric_ref_updates.append(ref_uuid)
+                    # TODO: Also remove the reverse link?
             else:
                 new_ref_value = json.loads(sqa_ref_obj.ref_value)
                 try:
@@ -984,17 +992,21 @@ class VncRDBMSClient(object):
                                         to_obj_uuid=new_ref_uuid,
                                         ref_value=json.dumps(new_ref_value))
                 session.add(new_sqa_ref_obj)
+                if obj_type == ref_type:
+                    symmetric_ref_updates.append(ref_uuid)
+                    # TODO: Also add the reverse link?
 
         # TODO update epoch on refs
 
         session.commit()
 
-        return (True, '')
+        return (True, symmetric_ref_updates)
     # end object_update
+
     @use_session
     def object_list(self, res_type, parent_uuids=None, back_ref_uuids=None,
-                     obj_uuids=None, count=False, filters=None, field_names=None,
-                     is_detail=False, tenant_id=None, domain=None):
+                    obj_uuids=None, count=False, filters=None, field_names=None,
+                    is_detail=False, tenant_id=None, domain=None):
         obj_type = to_obj_type(res_type)
         obj_class = self._get_resource_class(obj_type)
         sqa_class = self.sqa_classes[obj_type]
@@ -1120,25 +1132,23 @@ class VncRDBMSClient(object):
                 if is_detail:
                     objs.append(detail_obj)
                 else:
-                    obj = {
-                            "uuid": detail_obj["uuid"],
-                            "fq_name": detail_obj["fq_name"],
-                            "href": self._generate_url(res_type, detail_obj["uuid"]),
-                            "id_perms": detail_obj["id_perms"]
+                    obj = {"uuid": detail_obj["uuid"],
+                           "fq_name": detail_obj["fq_name"],
+                           "href": self._generate_url(res_type, detail_obj["uuid"]),
+                           "id_perms": detail_obj["id_perms"]
                     }
                     for field in field_names_set:
                         if field in detail_obj:
-                           obj[field] = detail_obj[field]
+                            obj[field] = detail_obj[field]
 
                     objs.append(obj)
         else:
             objs = []
             for row in rows:
-                obj = {
-                        "uuid": row.obj_uuid,
-                        "fq_name": json.loads(row.obj_fq_name),
-                        "href": self._generate_url(res_type, row.obj_uuid),
-                        "id_perms": json.loads(row.id_perms)
+                obj = {"uuid": row.obj_uuid,
+                       "fq_name": json.loads(row.obj_fq_name),
+                       "href": self._generate_url(res_type, row.obj_uuid),
+                       "id_perms": json.loads(row.id_perms)
                 }
                 for field in field_names_set:
                     obj[field] = json.loads(getattr(row, field))
@@ -1151,39 +1161,47 @@ class VncRDBMSClient(object):
         obj_type = to_obj_type(res_type)
         obj_class = self._get_resource_class(obj_type)
         sqa_class = self.sqa_classes[obj_type]
+        symmetric_ref_updates = []
 
         session = self.session_ctx
         for ref_field in obj_class.ref_fields:
             ref_type = ref_field[:-5] # string trailing _refs
             sqa_ref_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
             for sqa_ref_obj in session.query(sqa_ref_class).filter_by(
-                               from_obj_uuid=obj_uuid).all():
+                    from_obj_uuid=obj_uuid).all():
                 session.delete(sqa_ref_obj)
+                if obj_type == ref_type:
+                    symmetric_ref_updates.append(sqa_ref_obj.to_obj_uuid)
+                    # TODO: also delete reverse link?
 
         sqa_share_class = self.sqa_classes[to_share_type(obj_type)]
         session.query(sqa_share_class).filter_by(owner=obj_uuid).delete()
 
         sqa_obj = session.query(sqa_class).filter_by(
-                       obj_uuid=obj_uuid).one()
+            obj_uuid=obj_uuid).one()
 
         # TODO update epoch of ref'd and parent
         session.delete(sqa_obj)
 
         object_metadata = session.query(ObjectMetadata).filter_by(
-                       obj_uuid=obj_uuid).one()
+            obj_uuid=obj_uuid).one()
         session.delete(object_metadata)
         session.commit()
 
-        return (True, '')
+        return (True, symmetric_ref_updates)
     # end object_delete
 
-    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
-        self._ref_update(obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation)
+    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
+                   operation):
+        self._ref_update(obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
+                         operation)
         if obj_type == ref_type:
-            self._ref_update(ref_type, ref_uuid, obj_type, obj_uuid, ref_data, operation)
+            self._ref_update(ref_type, ref_uuid, obj_type, obj_uuid, ref_data,
+                             operation)
 
     @use_session
-    def _ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
+    def _ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
+                    operation):
         session = self.session_ctx
         sqa_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
 
@@ -1217,8 +1235,7 @@ class VncRDBMSClient(object):
         sqa_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
 
         sqa_ref_obj = session.query(sqa_class).filter_by(
-                         from_obj_uuid=obj_uuid,
-                         to_obj_uuid=ref_uuid).one()
+            from_obj_uuid=obj_uuid, to_obj_uuid=ref_uuid).one()
         sqa_ref_obj.is_relaxed_ref = True
         session.commit()
     # end ref_relax_for_delete
@@ -1572,7 +1589,7 @@ class VncRDBMSClient(object):
     @use_session
     def prop_collection_read(self, obj_type, obj_uuid, obj_fields, position):
         obj_class = self._get_resource_class(obj_type)
-        field_names=obj_fields
+        field_names = obj_fields
         field_names.append("id_perms")
         ok, results = self.object_read(obj_type, [obj_uuid], field_names=field_names)
         if ok:
