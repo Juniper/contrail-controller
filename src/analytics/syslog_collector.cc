@@ -57,34 +57,6 @@ namespace phx = boost::phoenix;
 
 class SyslogQueueEntry;
 
-class SyslogTcpSession : public TcpSession
-{
-  public:
-    typedef boost::intrusive_ptr<SyslogTcpSession> SyslogTcpSessionPtr;
-
-    SyslogTcpSession (SyslogTcpListener *server, Socket *socket);
-    virtual void OnRead (const boost::asio::const_buffer buf);
-};
-
-class TCPSyslogQueueEntry : public SyslogQueueEntry
-{
-    private:
-        typedef boost::intrusive_ptr<SyslogTcpSession> SyslogTcpSessionPtr;
-    public:
-    TCPSyslogQueueEntry (SyslogTcpSessionPtr ses, boost::asio::const_buffer b,
-            ip::tcp::endpoint e):
-      SyslogQueueEntry (b, buffer_size (b), e.address ().to_string (),
-        e.port ()),
-      buf_ (b), ep_ (e), session_(ses)  {
-    }
-    virtual void free ();
-    virtual ~TCPSyslogQueueEntry() {}
-    private:
-    boost::asio::const_buffer   buf_;
-    ip::tcp::endpoint           ep_;
-    SyslogTcpSessionPtr         session_;
-};
-
 class SyslogUDPListener;
 class UDPSyslogQueueEntry : public SyslogQueueEntry
 {
@@ -567,32 +539,6 @@ void SyslogQueueEntry::free ()
 {
 }
 
-SyslogTcpListener::SyslogTcpListener (EventManager *evm,
-    SyslogMsgReadFn read_cb):
-          TcpServer(evm), session_(NULL), read_cb_(read_cb)
-{
-}
-
-TcpSession *SyslogTcpListener::AllocSession(Socket *socket)
-{
-    session_ = new SyslogTcpSession (this, socket);
-    return session_;
-}
-void SyslogTcpListener::Shutdown ()
-{
-    // server shutdown
-    TcpServer::Shutdown();
-}
-void SyslogTcpListener::Start (std::string ipaddress, int port)
-{
-    Initialize (port);
-    LOG(DEBUG, __func__ << " Initialization of TCP syslog listener @" << port);
-}
-
-void SyslogTcpListener::ReadMsg(SyslogQueueEntry *sqe) {
-    read_cb_(sqe);
-}
-
 SyslogUDPListener::SyslogUDPListener (EventManager *evm,
     SyslogMsgReadFn read_cb): UdpServer (evm), read_cb_(read_cb)
 {
@@ -630,8 +576,6 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
               parser_(new SyslogParser (this)),
               udp_listener_(new SyslogUDPListener(evm,
                             boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
-              tcp_listener_(new SyslogTcpListener(evm,
-                            boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
               port_(port),
               ipaddress_(ipaddress), inited_(false), cb_(cb),
               db_handler_ (db_handler),
@@ -645,8 +589,6 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
           parser_(new SyslogParser (this)),
           udp_listener_(new SyslogUDPListener(evm,
                         boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
-          tcp_listener_(new SyslogTcpListener(evm,
-                        boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
           port_(port), ipaddress_(),
           inited_(false), cb_(cb), db_handler_ (db_handler),
           builder_ (SandeshMessageBuilder::GetInstance(
@@ -657,31 +599,24 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
 void SyslogListeners::Start ()
 {
     if (port_ >= 0) {
-        tcp_listener_->Start(ipaddress_, port_);
         udp_listener_->Start(ipaddress_, port_);
         inited_ = true;
     } else {
         LOG(DEBUG, __func__ << " skip starting syslog listener port:" << port_);
     }
 }
+
 bool SyslogListeners::IsRunning ()
 {
     return inited_;
 }
+
 void SyslogListeners::Shutdown ()
 {
-    tcp_listener_->Shutdown ();
     udp_listener_->Shutdown ();
     parser_->Shutdown ();
-    TcpServerManager::DeleteServer(tcp_listener_);
     UdpServerManager::DeleteServer(udp_listener_);
     inited_ = false;
-}
-
-int
-SyslogListeners::GetTcpPort()
-{
-    return tcp_listener_->GetPort();
 }
 
 int
@@ -691,27 +626,7 @@ SyslogListeners::GetUdpPort()
 }
 
 void
-TCPSyslogQueueEntry::free () {
-    session_->server()->DeleteSession (session_.get());
-    session_->ReleaseBuffer(buf_);
-}
-void
 UDPSyslogQueueEntry::free () {
     //server_->DeallocateEndPoint (ep_);
     server_->DeallocateBuffer (b_);
 }
-SyslogTcpSession::SyslogTcpSession (SyslogTcpListener *server, Socket *socket) :
-      TcpSession(server, socket) {
-          //set_observer(boost::bind(&SyslogTcpSession::OnEvent, this, _1, _2));
-}
-void
-SyslogTcpSession::OnRead (const boost::asio::const_buffer buf)
-{
-    boost::system::error_code ec;
-    // TODO: handle error
-    TCPSyslogQueueEntry *sqe = new TCPSyslogQueueEntry (SyslogTcpSessionPtr (
-        this), buf, socket ()->remote_endpoint(ec));
-    SyslogTcpListener *sserver = dynamic_cast<SyslogTcpListener *>(server());
-    sserver->ReadMsg(sqe);
-}
-

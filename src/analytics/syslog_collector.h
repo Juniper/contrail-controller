@@ -3,9 +3,6 @@
  */
 #ifndef __SYSLOG_COLLECTOR_H__
 #define __SYSLOG_COLLECTOR_H__
-
-#include "io/tcp_server.h"
-#include "io/tcp_session.h"
 #include "io/udp_server.h"
 #include "io/io_log.h"
 #include "viz_message.h"
@@ -85,7 +82,6 @@ class SyslogListeners
     private:
       boost::scoped_ptr<SyslogParser> parser_;
       SyslogUDPListener *udp_listener_;
-      SyslogTcpListener *tcp_listener_;
       int           port_;
       std::string   ipaddress_;
       bool          inited_;
