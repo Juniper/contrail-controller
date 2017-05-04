@@ -483,6 +483,11 @@ int TcpServer::SetListenSocketMd5Option(uint32_t peer_ip,
 }
 
 int TcpServer::SetDscpSocketOption(int fd, uint8_t value) {
+    /* The 'value' argument is expected to have DSCP value between 0 and 63 ie
+     * in the lower order 6 bits of a byte. However, setsockopt expects DSCP
+     * value in upper 6 bits of a byte. Hence left shift the value by 2 digits
+     * before passing it to setsockopt */
+    value = value << 2;
     int retval = setsockopt(fd, IPPROTO_IP, IP_TOS, &value, sizeof(value));
     if (retval < 0) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,

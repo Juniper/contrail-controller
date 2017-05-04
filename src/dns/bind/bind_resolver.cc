@@ -59,8 +59,13 @@ BindResolver::BindResolver(boost::asio::io_service &io,
 }
 
 void BindResolver::SetDscpSocketOption() {
+    /* The dscp_value_ field is expected to have DSCP value between 0 and 63 ie
+     * in the lower order 6 bits of a byte. However, setsockopt expects DSCP
+     * value in upper 6 bits of a byte. Hence left shift the value by 2 digits
+     * before passing it to setsockopt */
+    uint8_t value = dscp_value_ << 2;
     int retval = setsockopt(sock_.native_handle(), IPPROTO_IP, IP_TOS,
-                            &dscp_value_, sizeof(dscp_value_));
+                            &value, sizeof(value));
     if (retval < 0) {
         DNS_BIND_TRACE(DnsBindError, "Setting DSCP bits on socket failed for "
                        << dscp_value_ << " with errno " << strerror(errno));
@@ -70,6 +75,18 @@ void BindResolver::SetDscpSocketOption() {
 void BindResolver::SetDscpValue(uint8_t val) {
     dscp_value_ = val;
     SetDscpSocketOption();
+}
+
+uint8_t BindResolver::GetDscpValue() {
+    uint8_t dscp = 0;
+    unsigned int optlen = sizeof(dscp);
+    int retval = getsockopt(sock_.native_handle(), IPPROTO_IP, IP_TOS,
+                            &dscp, &optlen);
+    if (retval < 0) {
+        DNS_BIND_TRACE(DnsBindError, "Getting DSCP bits on socket failed "
+                       "with errno " << strerror(errno));
+    }
+    return dscp;
 }
 
 BindResolver::~BindResolver() {

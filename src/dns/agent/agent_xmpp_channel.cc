@@ -14,6 +14,7 @@
 #include "mgr/dns_mgr.h"
 #include "mgr/dns_oper.h"
 #include "bind/bind_util.h"
+#include "bind/bind_resolver.h"
 #include "bind/named_config.h"
 #include "bind/xmpp_dns_agent.h"
 #include "sandesh/sandesh_types.h"
@@ -236,6 +237,17 @@ DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
     }
 }
 
+uint8_t DnsAgentXmppChannelManager::ChannelToDscp(const XmppChannel *xc) const {
+    const XmppConnection *conn = xc->connection();
+    if (conn) {
+        const XmppSession *sess = conn->session();
+        if (sess) {
+            return sess->GetDscpValue();
+        }
+    }
+    return 0;
+}
+
 void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
     for (ChannelMap::iterator iter = channel_map_.begin(); 
          iter != channel_map_.end(); ++iter) {
@@ -250,6 +262,7 @@ void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
         agent_data.set_last_event(channel->LastEvent());
         agent_data.set_last_state(channel->LastStateName());
         agent_data.set_last_state_at(channel->LastStateChangeAt());
+        agent_data.set_dscp(ChannelToDscp(channel));
         list.push_back(agent_data);
     }
 }

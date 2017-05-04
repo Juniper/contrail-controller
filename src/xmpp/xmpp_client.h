@@ -51,7 +51,7 @@ public:
 
     LifetimeManager *lifetime_manager();
     virtual LifetimeActor *deleter();
-    int SetDscpValue(uint8_t value);
+    int SetDscpValue(uint8_t value, const char *conn_id);
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);

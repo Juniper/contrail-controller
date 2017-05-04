@@ -861,11 +861,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Value to be slapped on DSCP field of IP header for various traffic types-->
 <xsd:complexType name="ControlTrafficDscpType">
     <xsd:all>
-    <xsd:element name="control"   type="xsd:integer" required='optional'
+    <xsd:element name="control"   type="DscpValueType" required='optional'
          description='DSCP value for control protocols traffic'/>
-    <xsd:element name="analytics" type="xsd:integer" required='optional'
+    <xsd:element name="analytics" type="DscpValueType" required='optional'
          description='DSCP value for traffic towards analytics'/>
-    <xsd:element name="dns"  type="xsd:integer" required='optional'
+    <xsd:element name="dns"  type="DscpValueType" required='optional'
          description='DSCP value for DNS traffic'/>
     </xsd:all>
 </xsd:complexType>

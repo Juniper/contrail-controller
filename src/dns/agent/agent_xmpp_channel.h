@@ -69,6 +69,7 @@ public:
     void GetAgentDnsData(std::vector<AgentDnsData> &dt);
 
 private:
+    uint8_t ChannelToDscp(const XmppChannel *xc) const;
     XmppServer *server_;
     ChannelMap channel_map_;
     RecordRequestWorkQueue work_queue_;

@@ -19,6 +19,7 @@
 #include <services/metadata_proxy.h>
 #include <services/services_types.h>
 #include <services/services_sandesh.h>
+#include <bind/bind_resolver.h>
 #include <vr_defs.h>
 
 #define SET_ICMPV6_INTERFACE_STATS(it, list)                                   \
@@ -236,6 +237,14 @@ void ServicesSandesh::DnsStatsSandesh(std::string ctxt, bool more) {
         list.push_back(dns_servers[0]);
         count++;
     }
+
+    BindResolver *resolv = BindResolver::Resolver();
+    uint16_t dscp = 0;
+    if (resolv) {
+        dscp = resolv->GetDscpValue();
+    }
+    dns->set_dscp(dscp);
+
     dns->set_dns_requests(nstats.requests);
     dns->set_dns_resolved(nstats.resolved);
     dns->set_dns_retransmit_reqs(nstats.retransmit_reqs);

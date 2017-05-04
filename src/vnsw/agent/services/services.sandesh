@@ -208,6 +208,7 @@ response sandesh ArpStats {
  */
 response sandesh DnsStats {
     7: list<string> dns_resolver;
+    8: u16 dscp;
     1: i32 dns_requests;
     2: i32 dns_resolved;
     3: i32 dns_retransmit_reqs;

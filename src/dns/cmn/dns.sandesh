@@ -74,6 +74,7 @@ struct AgentData {
     5: string last_event;
     6: string last_state;
     7: string last_state_at;
+    8: u16 dscp;
 }
 
 struct AgentDnsDataItem {
