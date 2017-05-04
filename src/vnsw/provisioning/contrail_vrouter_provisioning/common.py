@@ -162,6 +162,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             line = "vm.max_map_count = %d" % requested_max_map_count
             insert_line_to_file(pattern=pattern, line=line,
                                 file_name='/etc/sysctl.conf')
+        local('sudo sysctl -p', warn_only=True)
 
         mounted = local("sudo mount | grep hugetlbfs | cut -d' ' -f 3",
                         capture=True, warn_only=False)
