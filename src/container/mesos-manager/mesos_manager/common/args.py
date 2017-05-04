@@ -98,8 +98,8 @@ def parse_args(args_str=None):
 
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
-    if type(args.pod_subnets) is str:
-        args.pod_subnets = args.pod_subnets.split()
+    if type(args.app_subnets) is str:
+        args.app_subnets = args.app_subnets.split()
     if type(args.service_subnets) is str:
         args.service_subnets = args.service_subnets.split()
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
