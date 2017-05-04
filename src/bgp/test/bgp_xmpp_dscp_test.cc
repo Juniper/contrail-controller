@@ -205,9 +205,9 @@ TEST_F(BgpXmppDscpTest, VerifyBgpXmppDscp_change) {
     TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
 
     //Verify DSCP value in XmppSession is set to configured value
-    VerifySessionDscp(agent_a_->hostname(), 44);
-    VerifySessionDscp(agent_b_->hostname(), 44);
-    VerifySessionDscp(agent_c_->hostname(), 44);
+    VerifySessionDscp(agent_a_->hostname(), (44 << 2));
+    VerifySessionDscp(agent_b_->hostname(), (44 << 2));
+    VerifySessionDscp(agent_c_->hostname(), (44 << 2));
 
     ConfigureDscp(60);
     task_util::WaitForIdle();
@@ -216,9 +216,9 @@ TEST_F(BgpXmppDscpTest, VerifyBgpXmppDscp_change) {
     TASK_UTIL_EXPECT_EQ(60, xs_x_->dscp_value());
 
     //Verify DSCP value in XmppSession is set to configured value
-    VerifySessionDscp(agent_a_->hostname(), 60);
-    VerifySessionDscp(agent_b_->hostname(), 60);
-    VerifySessionDscp(agent_c_->hostname(), 60);
+    VerifySessionDscp(agent_a_->hostname(), (60 << 2));
+    VerifySessionDscp(agent_b_->hostname(), (60 << 2));
+    VerifySessionDscp(agent_c_->hostname(), (60 << 2));
 
     ConfigureDscp(0);
     task_util::WaitForIdle();
@@ -238,9 +238,9 @@ TEST_F(BgpXmppDscpTest, VerifyBgpXmppDscp_change) {
     TASK_UTIL_EXPECT_EQ(44, xs_x_->dscp_value());
 
     //Verify DSCP value in XmppSession is set to configured value
-    VerifySessionDscp(agent_a_->hostname(), 44);
-    VerifySessionDscp(agent_b_->hostname(), 44);
-    VerifySessionDscp(agent_c_->hostname(), 44);
+    VerifySessionDscp(agent_a_->hostname(), (44 << 2));
+    VerifySessionDscp(agent_b_->hostname(), (44 << 2));
+    VerifySessionDscp(agent_c_->hostname(), (44 << 2));
 
     DestroyAgents();
     task_util::WaitForIdle();

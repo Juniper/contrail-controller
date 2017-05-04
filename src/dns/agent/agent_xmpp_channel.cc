@@ -14,6 +14,7 @@
 #include "mgr/dns_mgr.h"
 #include "mgr/dns_oper.h"
 #include "bind/bind_util.h"
+#include "bind/bind_resolver.h"
 #include "bind/named_config.h"
 #include "bind/xmpp_dns_agent.h"
 #include "sandesh/sandesh_types.h"
@@ -136,6 +137,12 @@ std::string DnsAgentXmppChannel::GetDnsRecordName(std::string &vdns_name,
 
 void DnsAgentXmppChannel::GetAgentDnsData(AgentDnsData &data) {
     data.set_agent(channel_->connection()->endpoint().address().to_string());
+    BindResolver *resolv = BindResolver::Resolver();
+    uint16_t dscp = 0;
+    if (resolv) {
+        dscp = resolv->GetDscpValue();
+    }
+    data.set_dscp(dscp);
     std::vector<AgentDnsDataItem> items;
     for (DataSet::iterator it = update_data_.begin(); 
          it != update_data_.end(); ++it) {
@@ -236,6 +243,17 @@ DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
     }
 }
 
+uint8_t DnsAgentXmppChannelManager::ChannelToDscp(const XmppChannel *xc) const {
+    const XmppConnection *conn = xc->connection();
+    if (conn) {
+        const XmppSession *sess = conn->session();
+        if (sess) {
+            return sess->GetDscpValue();
+        }
+    }
+    return 0;
+}
+
 void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
     for (ChannelMap::iterator iter = channel_map_.begin(); 
          iter != channel_map_.end(); ++iter) {
@@ -250,6 +268,7 @@ void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
         agent_data.set_last_event(channel->LastEvent());
         agent_data.set_last_state(channel->LastStateName());
         agent_data.set_last_state_at(channel->LastStateChangeAt());
+        agent_data.set_dscp(ChannelToDscp(channel));
         list.push_back(agent_data);
     }
 }

@@ -108,6 +108,8 @@ struct AgentXmppData {
     10: u32 flap_count;
     /** Xmpp last time Flap */
     11: string flap_time;
+    /** DSCP value used in IP header of XMPP packets */
+    19: u16 dscp;
     /** Xmpp receive protocol stats */
     12: ControllerProtoStats rx_proto_stats;
     /** Xmpp transmit protocol stats */
@@ -146,6 +148,8 @@ struct AgentXmppDnsData {
     8: u32 flap_count;
     /** Xmpp last time Flap */
     9: string flap_time;
+    /** DSCP value used in IP header of XMPP packets */
+    19: u16 dscp;
     /** Xmpp dns receive protocol stats */
     10: ControllerProtoStats rx_proto_stats;
     /** Xmpp transmit protocol stats */
