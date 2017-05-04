@@ -64,6 +64,15 @@ $ contrail-compute-setup --self_ip 5.5.5.1\
                          --dpdk coremask=0x3,huge_pages=50,uio_driver=uio_pci_generic
 ```
 
+* The dpdk argument takes the following
+    * `coremask` - Forwarding cores for vrouter
+    * `huge_pages` - The percentage of memory that needs to be reserved for hugepages
+    * `uio_driver` - This is optional and can take values of `uio_pci_generic`/`igb_uio`/`vfio-pci`. Default is `igb_uio`
+* Internally the script does the following
+    * Configures hugepages by adding an entry `vm.nr_hugepages` in /etc/sysctl.conf
+    * Mounts the hugetlbfs in /hugepages
+    * Configures the maximum number of memory map pages for qemu using `vm.max_map_count`
+
 ### Filing Bugs
 Use http://bugs.launchpad.net/juniperopenstack
 It will be useful to include the log file in the bug, log files will be created at `/var/log/contrail/contrail_vrouter_provisioning.log` in the compute node.
