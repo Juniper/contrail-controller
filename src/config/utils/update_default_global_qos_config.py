@@ -20,15 +20,15 @@ class SetDefaultGlobalQos(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
-        if self._args.control < 0 or self._args.control > 255:
+        if self._args.control < 0 or self._args.control > 63:
             print 'Invalid control DSCP value ' , self._args.control
             return
 
-        if self._args.analytics < 0 or self._args.analytics > 255:
+        if self._args.analytics < 0 or self._args.analytics > 63:
             print 'Invalid Analytics DSCP value ' , self._args.analytics
             return
 
-        if self._args.dns < 0 or self._args.dns > 255:
+        if self._args.dns < 0 or self._args.dns > 63:
             print 'Invalid DNS DSCP value ' , self._args.dns
             return
         

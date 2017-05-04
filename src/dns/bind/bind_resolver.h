@@ -34,6 +34,7 @@ public:
     bool DnsSend(uint8_t *pkt, boost::asio::ip::udp::endpoint ep,
                  std::size_t len);
     void SetDscpValue(uint8_t val);
+    uint8_t GetDscpValue();
 
     static void Init(boost::asio::io_service &io,
                      const std::vector<DnsServer> &dns_servers,
