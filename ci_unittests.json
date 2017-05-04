@@ -122,7 +122,8 @@
         "scons_test_targets" : [
             "controller/src/config/svc_monitor:test",
             "controller/src/config/schema-transformer:test",
-            "controller/src/container/kube-manager:test"
+            "controller/src/container/kube-manager:test",
+            "controller/src/container/mesos-manager:test"
         ],
         "misc_test_targets" : [ ]
     },

@@ -40,7 +40,8 @@ local_sources = [
     'mesos_manager/vnc/config_db.py',
     'mesos_manager/vnc/reaction_map.py',
     'mesos_manager/tests/__init__.py',
-    'mesos_manager/tests/test_mesos_manager.py',
+    'mesos_manager/tests/vnc/__init__.py',
+    'mesos_manager/tests/vnc/test_case.py'
 ]
 
 # Sandesh source files.
@@ -107,10 +108,8 @@ env.Alias('coverage', cov_cmd)
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-mesos-manager/', doc_files))
 
-env.Alias('controller/src/container/mesos_manager:test', test_cmd)
-env.Alias('controller/src/container/mesos_manager:coverage', cov_cmd)
-# This add'l alias is to allow retry of UT in CI
-env.Alias('controller/src/container/mesos-manager/mesos_manager:test', test_cmd)
+env.Alias('controller/src/container/mesos-manager:test', test_cmd)
+env.Alias('controller/src/container/mesos-manager:coverage', cov_cmd)
 
 # Local Variables:
 # mode: python
