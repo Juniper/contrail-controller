@@ -231,7 +231,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
             GeneratorFixture("VRouterAgent", collectors,
-                             logging, vizd_obj.get_opserver_port()))
+                             logging, vizd_obj.get_opserver_port(),
+                             sandesh_config = {'system_logs_rate_limit' : 10}))
         assert generator_obj.verify_on_setup()
         # Messagetype is stored in the FieldNames.fields table only
         # for objectlog and systemlog. For systemlog it is stored as
@@ -383,7 +384,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
             GeneratorFixture('contrail-control', collectors,
-                             logging, None, node_type='Control'))
+                             logging, None, node_type='Control',
+                             sandesh_config={'system_logs_rate_limit':10}))
         assert generator_obj.verify_on_setup()
         msg_types = generator_obj.send_sandesh_types_object_logs(
                         socket.gethostname())
