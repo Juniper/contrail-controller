@@ -207,11 +207,11 @@ bool BgpPeerTest::ProcessRequest(Request *request) {
     CHECK_CONCURRENCY("bgp::Config");
     switch (request->type) {
         case ADMIN_UP:
-            BgpPeer::SetAdminState(false);
+            BgpPeer::SetAdminState(false, request->subcode);
             request->result = true;
             break;
         case ADMIN_DOWN:
-            BgpPeer::SetAdminState(true);
+            BgpPeer::SetAdminState(true, request->subcode);
             request->result = true;
             break;
     }
