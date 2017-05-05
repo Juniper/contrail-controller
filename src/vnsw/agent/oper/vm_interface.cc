@@ -68,7 +68,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
     ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false),
     learning_enabled_(false), etree_leaf_(false), layer2_control_word_(false),
-    slo_list_(), forwarding_vrf_(NULL) {
+    slo_list_(), forwarding_vrf_(NULL), vhostuser_mode_(vHostUserClient) {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -83,7 +83,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          const boost::uuids::uuid &vm_project_uuid,
                          uint16_t tx_vlan_id, uint16_t rx_vlan_id,
                          Interface *parent, const Ip6Address &a6,
-                         DeviceType device_type, VmiType vmi_type) :
+                         DeviceType device_type, VmiType vmi_type,
+                         uint8_t vhostuser_mode) :
     Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL, this),
     vn_(NULL), primary_ip_addr_(addr), subnet_bcast_addr_(0),
     primary_ip6_addr_(a6), vm_mac_(mac), policy_enabled_(false),
@@ -112,7 +113,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
     hc_instance_set_(), service_health_check_ip_(), is_vn_qos_config_(false),
     learning_enabled_(false), etree_leaf_(false), layer2_control_word_(false),
-    slo_list_(), forwarding_vrf_(NULL) {
+    slo_list_(), forwarding_vrf_(NULL), vhostuser_mode_(vhostuser_mode) {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;

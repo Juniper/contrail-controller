@@ -320,15 +320,21 @@ VmiSubscribeEntry *PortIpcHandler::MakeAddVmiUuidRequest
         return NULL;
     }
 
+    // Dont return in case of error as this is an optional parameter for
+    // DPDK/vhostuser
+    uint32_t vhostuser_mode = 0;
+    GetUint32Member(d, "vhostuser-mode", &vhostuser_mode, &err_msg);
+
     CONFIG_TRACE(AddPortEnqueue, "Add", UuidToString(vmi_uuid),
                  UuidToString(instance_uuid), UuidToString(vn_uuid),
                  ip4.to_string(), ifname, mac, vm_name, tx_vlan_id, rx_vlan_id,
                  UuidToString(project_uuid),
                  PortSubscribeEntry::TypeToString(vmi_type),
-                 ip6.to_string(), version_);
+                 ip6.to_string(), version_, vhostuser_mode);
     return new VmiSubscribeEntry(vmi_type, ifname, version_, vmi_uuid,
                                  instance_uuid, vm_name, vn_uuid, project_uuid,
-                                 ip4, ip6, mac, tx_vlan_id, rx_vlan_id);
+                                 ip4, ip6, mac, tx_vlan_id, rx_vlan_id,
+                                 vhostuser_mode);
 }
 
 bool PortIpcHandler::AddVmiUuidEntry(PortSubscribeEntryPtr entry_ref,
@@ -350,7 +356,8 @@ bool PortIpcHandler::AddVmiUuidEntry(PortSubscribeEntryPtr entry_ref,
                  entry->mac_addr(), entry->vm_name(), entry->tx_vlan_id(),
                  entry->rx_vlan_id(), UuidToString(entry->project_uuid()),
                  PortSubscribeEntry::TypeToString(entry->type()),
-                 entry->ip6_addr().to_string(), entry->version());
+                 entry->ip6_addr().to_string(), entry->version(),
+                 entry->vhostuser_mode());
     port_subscribe_table_->AddVmi(entry->vmi_uuid(), entry_ref);
     return true;
 }
@@ -466,6 +473,7 @@ void PortIpcHandler::MakeVmiUuidJson(const VmiSubscribeEntry *entry,
     doc.AddMember("type", (int)entry->type(), a);
     doc.AddMember("rx-vlan-id", (int)entry->rx_vlan_id(), a);
     doc.AddMember("tx-vlan-id", (int)entry->tx_vlan_id(), a);
+    doc.AddMember("vhostuser-mode", (int)entry->vhostuser_mode(), a);
     if (meta_info) {
         AddMember("author", agent_->program_name().c_str(), &doc);
         string now = duration_usecs_to_string(UTCTimestampUsec());
@@ -969,6 +977,7 @@ bool PortIpcHandler::MakeJsonFromVmi(const uuid &vmi_uuid, string &resp) const {
     AddMember("system-name", vmi->name().c_str(), &doc);
     doc.AddMember("rx-vlan-id", (int)vmi->rx_vlan_id(), a);
     doc.AddMember("tx-vlan-id", (int)vmi->tx_vlan_id(), a);
+    doc.AddMember("vhostuser-mode", (int)vmi->vhostuser_mode(), a);
     string str8 = ipam->dns_server.to_v4().to_string();
     AddMember("dns-server", str8.c_str(), &doc);
     string str9 = ipam->default_gw.to_v4().to_string();
