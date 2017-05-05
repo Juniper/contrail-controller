@@ -1098,6 +1098,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
         data.set_sub_type(DeviceTypeToString(vintf->device_type()));
         data.set_vmi_type(VmiTypeToString(vintf->vmi_type()));
+        data.set_vhostuser_mode(vintf->vhostuser_mode());
 
         if (vintf->vrf_assign_acl()) {
             std::string vrf_assign_acl;
