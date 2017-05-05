@@ -20,6 +20,7 @@ import time
 from util import retry
 from pysandesh.sandesh_base import *
 from pysandesh.util import UTCTimestampUsec
+from pysandesh.gen_py.sandesh.constants import DEFAULT_SANDESH_SEND_RATELIMIT
 from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
 from sandesh.virtual_machine.ttypes import *
 from sandesh.virtual_network.ttypes import *
@@ -58,7 +59,8 @@ class GeneratorFixture(fixtures.Fixture):
                 ca_cert = sandesh_config.get('sandesh_ca_cert'),
                 sandesh_ssl_enable = sandesh_config.get('sandesh_ssl_enable', False),
                 introspect_ssl_enable = sandesh_config.get('introspect_ssl_enable', False),
-                disable_object_logs = sandesh_config.get('disable_object_logs', False))
+                disable_object_logs = sandesh_config.get('disable_object_logs', False),
+                system_logs_rate_limit = sandesh_config.get('system_logs_rate_limit', DEFAULT_SANDESH_SEND_RATELIMIT))
         else:
             self._sandesh_config = None
         self.flow_vmi_uuid = str(uuid.uuid1())
