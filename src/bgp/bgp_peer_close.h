@@ -67,6 +67,7 @@ private:
     virtual const std::vector<BgpProto::OpenMessage::Capability *>
         &capabilities() const;
     bool IsLlgrSupportedForFamilies() const;
+    bool IsCloseLongLivedGracefulInternal() const;
 
     BgpPeer *peer_;
     uint64_t flap_count_;

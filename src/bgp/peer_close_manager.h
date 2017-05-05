@@ -69,6 +69,7 @@ public:
                           uint32_t path_flags) const;
 
 private:
+    friend class BgpServerUnitTest;
     friend class PeerCloseTest;
     friend class PeerCloseManagerTest;
     friend class GracefulRestartTest;

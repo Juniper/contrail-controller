@@ -189,6 +189,11 @@ TEST_F(BgpMsgBuilderTest, Build) {
 
 void BgpMsgBuilderTest::TestAttemptGRHelperMode(bool notification, int code,
                                                 int subcode) const {
+    if (!code) {
+        EXPECT_TRUE(peer_->AttemptGRHelperMode(code, subcode));
+        return;
+    }
+
     if (code < BgpProto::Notification::MsgHdrErr ||
         code > BgpProto::Notification::Cease)
         return;
