@@ -67,10 +67,10 @@ class ComputeArgsParser(object):
             'priority_id': None,
             'priority_scheduling': None,
             'priority_bandwidth': None,
-            'collectors': self.get_config(
-                'GLOBAL', 'analytics_list', ['127.0.0.1']),
-            'control_nodes': self.get_config(
-                'GLOBAL', 'controller_list', ['127.0.0.1']),
+            'collectors': self.get_config_list(
+                'GLOBAL', 'analytics_nodes', ['127.0.0.1']),
+            'control_nodes': self.get_config_list(
+                'GLOBAL', 'controller_nodes', ['127.0.0.1']),
             'xmpp_auth_enable': self.get_config(
                 'GLOBAL', 'xmpp_auth_enable', False),
             'sandesh_ssl_enable': self.get_config(
@@ -106,6 +106,12 @@ class ComputeArgsParser(object):
     def get_config(self, section, option, default):
         if self.config.has_option(section, option):
             return self.evaluate(self.config.get(section, option))
+        else:
+            return default
+
+    def get_config_list(self, section, option, default):
+        if self.config.has_option(section, option):
+            return self.evaluate(self.config.get(section, option)).split(',')
         else:
             return default
 
