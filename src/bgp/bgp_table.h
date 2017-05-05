@@ -169,7 +169,7 @@ private:
 
     void ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const;
     void ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
-                          BgpAttr *attr);
+                          BgpAttr *attr, bool llgr_stale_comm);
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
             const DBRequestKey *prefix) = 0;
 
