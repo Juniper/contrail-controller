@@ -607,8 +607,9 @@ void SyslogTcpListener::Shutdown ()
 }
 void SyslogTcpListener::Start (std::string ipaddress, int port)
 {
-    Initialize (port);
-    LOG(DEBUG, __func__ << " Initialization of TCP syslog listener @" << port);
+    //Initialize (port);
+    //LOG(DEBUG, __func__ << " Initialization of TCP syslog listener @" << port);
+    LOG(ERROR, __func__ << " TCP syslog listener not supported");
 }
 
 void SyslogTcpListener::ReadMsg(SyslogQueueEntry *sqe) {
