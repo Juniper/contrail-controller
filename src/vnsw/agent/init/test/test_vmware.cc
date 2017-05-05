@@ -81,7 +81,7 @@ TEST_F(VmwareTest, VmwarPhysicalPort_2) {
 
     client->Reset();
     IntfCfgAdd(1, "vnet1", "1.1.1.1", 1, 1, "00:00:00:01:01:01", 1,
-               "::0101:0101", 1);
+               "::0101:0101", 1, 0);
     CreateVmportEnv(input1, 1);
     client->WaitForIdle();
 
@@ -116,7 +116,7 @@ TEST_F(VmwareTest, VmwareVmPort_1) {
 
     client->Reset();
     IntfCfgAdd(1, "vnet1", "1.1.1.1", 1, 1, "00:00:00:01:01:01", 1,
-               "::0101:0101", 1);
+               "::0101:0101", 1, 0);
     CreateVmportEnv(input1, 1);
     client->WaitForIdle();
 
