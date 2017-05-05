@@ -165,16 +165,13 @@ void BgpTable::ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const {
 // attach NO_EXPORT community instead.
 //
 void BgpTable::ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
-                                BgpAttr *attr) {
+                                BgpAttr *attr, bool llgr_stale_comm) {
     if (!server() || !server()->comm_db())
         return;
 
     // Skip LLGR specific attributes manipulation for rtarget routes.
     if (family() == Address::RTARGET)
         return;
-
-    bool llgr_stale_comm = attr->community() &&
-        attr->community()->ContainsValue(CommunityType::LlgrStale);
 
     // If the path is not marked as llgr_stale or if it does not have the
     // LLGR_STALE community, then no action is necessary.
@@ -210,8 +207,6 @@ void BgpTable::ProcessLlgrState(const RibOut *ribout, const BgpPath *path,
                                 attr->community(), CommunityType::NoExport);
         attr->set_community(comm);
     }
-
-    return;
 }
 
 UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
@@ -257,6 +252,8 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
 
         const IPeer *peer = path->GetPeer();
         BgpAttr *clone = NULL;
+        bool llgr_stale_comm = attr->community() &&
+            attr->community()->ContainsValue(CommunityType::LlgrStale);
         if (ribout->peer_type() == BgpProto::IBGP) {
             // Split horizon check.
             if (peer && peer->PeerType() == BgpProto::IBGP)
@@ -302,6 +299,13 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                 server()->rtarget_group_mgr()->GetRibOutInterestedPeers(
                     ribout, attr->ext_community(), peerset, &new_peerset);
                 if (new_peerset.empty())
+                    return NULL;
+            }
+
+            // Do not advertise LLGR Stale paths to ebgp peers if they do not
+            // support LLGR.
+            if (!ribout->llgr()) {
+                if (path->IsLlgrStale() || llgr_stale_comm)
                     return NULL;
             }
 
@@ -371,7 +375,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         }
 
         assert(clone);
-        ProcessLlgrState(ribout, path, clone);
+        ProcessLlgrState(ribout, path, clone, llgr_stale_comm);
 
         // Locate the new BgpAttrPtr.
         attr_ptr = clone->attr_db()->Locate(clone);
