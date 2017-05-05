@@ -37,6 +37,7 @@ ControllerPeerPath::ControllerPeerPath(const BgpPeer *peer) :
 bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                                 const AgentRoute *rt) {
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
+    bool ret = false;
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
     bool comp_nh_policy = comp_key->GetPolicy();
@@ -50,10 +51,11 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     path->set_peer_sequence_number(sequence_number());
     if (path->ecmp_load_balance() != ecmp_load_balance_) {
         path->UpdateEcmpHashFields(agent, ecmp_load_balance_,
-                                   nh_req_);
+                                          nh_req_);
+        ret = true;
     }
 
-    return InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
+    ret |= InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
                                                  label_, local_ecmp_nh_,
                                                  vrf_name_, sg_list_,
                                                  CommunityList(),
@@ -62,6 +64,7 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                                  ecmp_load_balance_,
                                                  nh_req_, agent, path, "",
                                                  false);
+    return ret;
 }
 
 ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
