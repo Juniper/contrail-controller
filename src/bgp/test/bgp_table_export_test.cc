@@ -1427,7 +1427,7 @@ class BgpTableExportParamTest6 :
     }
 
 public:
-    void VerifyLlgrState() {
+    bool VerifyLlgrState() {
         const UpdateInfo &uinfo = uinfo_slist_->front();
         const BgpAttr *attr = uinfo.roattr.attr();
 
@@ -1436,7 +1436,7 @@ public:
         if (!path_llgr_ && !comm_llgr_) {
             EXPECT_EQ(static_cast<Community *>(NULL), attr->community());
             EXPECT_EQ(internal_ ? 100 : 0, attr->local_pref());
-            return;
+            return true;
         }
 
         // If peer supports LLGR, then expect attribute with LLGR_STALE
@@ -1445,13 +1445,14 @@ public:
             EXPECT_TRUE(
                     attr->community()->ContainsValue(CommunityType::LlgrStale));
             EXPECT_EQ(internal_ ? 100 : 0, attr->local_pref());
-            return;
+            return true;
         }
 
-        // Since peer does not support LLGR, expect NoExport community.
-        // Local preference should be down as well to 1. (for ibgp)
+        // Since peer does not support LLGR, expect NoExport community and
+        // local preference as 0.
         EXPECT_TRUE(attr->community()->ContainsValue(CommunityType::NoExport));
         EXPECT_EQ(0, attr->local_pref());
+        return true;
     }
 
     bool peer_llgr_;
@@ -1482,8 +1483,11 @@ TEST_P(BgpTableExportParamTest6, Llgr) {
 
     // Run through the export routine and verify generated LLGR attributes.
     RunExport();
-    VerifyExportAccept();
-    VerifyLlgrState();
+    if (VerifyLlgrState()) {
+        VerifyExportAccept();
+    } else {
+        VerifyExportReject();
+    }
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest6,
