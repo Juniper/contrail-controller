@@ -113,7 +113,8 @@ public:
 
     BgpSession *CreateSession();
 
-    virtual void SetAdminState(bool down);
+    virtual void SetAdminState(bool down,
+                    int subcode = BgpProto::Notification::AdminShutdown);
 
     // Messages
 
@@ -316,7 +317,7 @@ public:
                                 KeyType key_type);
     void ClearListenSocketAuthKey();
     void SetSessionSocketAuthKey(TcpSession *session);
-    virtual bool AttemptGRHelperMode(int code, int subcode) const;
+    bool AttemptGRHelperMode(int code, int subcode) const;
     void Register(BgpTable *table, const RibExportPolicy &policy);
     void Register(BgpTable *table);
     bool EndOfRibSendTimerExpired(Address::Family family);

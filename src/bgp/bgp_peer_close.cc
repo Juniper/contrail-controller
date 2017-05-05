@@ -184,14 +184,6 @@ bool BgpPeerClose::IsGRReady() const {
         return false;
     }
 
-    // Restart time must be non-zero in order to enable GR Helper mode.
-    if (!gr_params_.time) {
-        BGP_LOG_PEER(Message, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-            BGP_PEER_DIR_IN, "GR Helper mode is not enabled because received "
-            "GR restart time value is 0 seconds");
-        return false;
-    }
-
     // Abort GR if currently negotiated families differ from already
     // staled address families.
     if (!negotiated_families().empty() &&
@@ -362,14 +354,13 @@ void BgpPeerClose::AddGRCapabilities(
         BgpProto::OpenMessage::OptParam *opt_param) {
     vector<Address::Family> gr_families;
     vector<uint8_t> afi_flags;
-    uint16_t time = peer_->server()->GetGracefulRestartTime();
 
     // Indicate to the Peer if we are restarting (equiv when the session is
     // being formed for the first time.
     bool restarted = peer_->flap_count() == 0;
 
     // Indicate EOR support by default.
-    if (!time) {
+    if (!peer_->server()->global_config()->gr_enable()) {
         BgpProto::OpenMessage::Capability *gr_cap =
             BgpProto::OpenMessage::Capability::GR::Encode(0, restarted, false,
                                                           afi_flags,
@@ -386,6 +377,7 @@ void BgpPeerClose::AddGRCapabilities(
                                 ForwardingStatePreservedFlag);
     }
 
+    uint16_t time = peer_->server()->GetGracefulRestartTime();
     BgpProto::OpenMessage::Capability *gr_cap =
         BgpProto::OpenMessage::Capability::GR::Encode(time, restarted, true,
                                                       afi_flags, gr_families);
@@ -429,9 +421,10 @@ bool BgpPeerClose::SetGRCapabilities(BgpPeerInfoData *peer_info) {
 
 void BgpPeerClose::AddLLGRCapabilities(
         BgpProto::OpenMessage::OptParam *opt_param) {
-    if (!peer_->server()->GetGracefulRestartTime() ||
-            !peer_->server()->GetLongLivedGracefulRestartTime())
+    if (!peer_->server()->global_config()->gr_enable() ||
+            !peer_->server()->GetLongLivedGracefulRestartTime()) {
         return;
+    }
 
     vector<Address::Family> llgr_families;
     BOOST_FOREACH(Address::Family family, peer_->supported_families()) {

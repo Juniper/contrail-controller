@@ -349,7 +349,6 @@ protected:
     void WaitForAgentToBeEstablished(test::NetworkAgentMock *agent);
     void WaitForPeerToBeEstablished( BgpPeerTest *peer);
     void BgpPeersAdminUpOrDown(bool down);
-    bool AttemptGRHelperMode(BgpPeerTest *peer, int code, int subcode) const;
 
     void SandeshStartup();
     void SandeshShutdown();
@@ -634,9 +633,6 @@ void GracefulRestartTest::Configure() {
         BgpPeerTest *peer = bgp_servers_[0]->FindPeerByUuid(
                                 BgpConfigManager::kMasterInstance, uuid);
         peer->set_id(i-1);
-        peer->attempt_gr_helper_mode_fnc_ =
-            boost::bind(&GracefulRestartTest::AttemptGRHelperMode, this, peer,
-                        _1, _2);
         bgp_server_peers_.push_back(peer);
     }
 }
@@ -1178,14 +1174,6 @@ void GracefulRestartTest::VerifyRoutingInstances(BgpServer *server) {
     TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
                         server->routing_instance_mgr()->GetRoutingInstance(
                                BgpConfigManager::kMasterInstance));
-}
-
-bool GracefulRestartTest::AttemptGRHelperMode(BgpPeerTest *peer, int code,
-                                              int subcode) const {
-    if (code == BgpProto::Notification::Cease &&
-            subcode == BgpProto::Notification::AdminShutdown)
-        return true;
-    return peer->AttemptGRHelperModeDefault(code, subcode);
 }
 
 // Invoke stale timer callbacks directly to speed up.

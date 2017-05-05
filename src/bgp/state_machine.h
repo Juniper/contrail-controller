@@ -98,7 +98,7 @@ public:
 
     void Initialize();
     void Shutdown(int subcode);
-    void SetAdminState(bool down);
+    void SetAdminState(bool down, int subcode);
     bool IsQueueEmpty() const;
 
     template <typename Ev, int code> void OnIdle(const Ev &event);
@@ -135,8 +135,8 @@ public:
         size_t msgsize = 0);
     void OnMessageError(BgpSession *session, const ParseErrorContext *context);
 
-    void SendNotificationAndClose(BgpSession *session,
-        int code, int subcode = 0, const std::string &data = std::string());
+    void SendNotification(BgpSession *session, int code, int subcode = 0,
+                          const std::string &data = std::string());
     bool ProcessNotificationEvent(BgpSession *session);
     void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
 
@@ -211,6 +211,7 @@ private:
     bool DequeueEvent(EventContainer ec);
     void DequeueEventDone(bool done);
     void UpdateFlapCount();
+    void PeerClose(int code, int subcode);
 
     WorkQueue<EventContainer> work_queue_;
     BgpPeer *peer_;
