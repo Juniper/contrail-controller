@@ -72,10 +72,11 @@ class VrouterPortControl(object):
                     ret_code = 4
                 else:
                     ret_code = 0
-                if ret_code == 0 and self._args.vif_type == "VhostUser":
-                    # In DPDK mode we should wait until socket is created by
-                    # vrouter module
-                    ret_code = self.WaitForSocketFile()
+                if ret_code == 0 and self._args.vif_type == "VhostUser" and \
+                        self._args.vhostuser_mode == 0:
+                    #In DPDK mode we should wait until socket is created by
+                    #vrouter module
+                    ret_code  = self.WaitForSocketFile()
 
             except ConnectionError:
                 '''In DPDK mode return failure when we are not able to connect
@@ -152,6 +153,9 @@ class VrouterPortControl(object):
                             default=False)
         parser.add_argument("--vif_type", help="VIF type", default="Vrouter")
         parser.add_argument("--vhostuser_socket", help="Path of vhostuser socket file")
+        parser.add_argument("--vhostuser_mode",
+                            help = "mode of operation of vhostuser socket",
+                            default="0")
 
         self._args = parser.parse_args(remaining_argv)
 
@@ -171,6 +175,7 @@ class VrouterPortControl(object):
             self._args.tx_vlan_id = self.StripQuotes(self._args.tx_vlan_id)
             self._args.vif_type = self.StripQuotes(self._args.vif_type)
             self._args.vhostuser_socket = self.StripQuotes(self._args.vhostuser_socket)
+            self._args.vhostuser_mode = self.StripQuotes(self._args.vhostuser_mode)
             if self._args.no_persist:
                 self._args.no_persist = True
 
@@ -201,7 +206,15 @@ class VrouterPortControl(object):
                     print "Invalid argument for tx_vlan_id %s" % (self._args.tx_vlan_id)
                     sys.exit(1)
                 self._args.tx_vlan_id = int(self._args.tx_vlan_id)
+<<<<<<< HEAD
     # end _parse_args
+=======
+
+            if self._args.vhostuser_mode:
+                self._args.vhostuser_mode = int(self._args.vhostuser_mode)
+
+    #end _parse_args
+>>>>>>> e4393f2... server mode qemu support with dpdk vhostuser
 
     def CreateDirectoryTree(self, path):
         try:
@@ -215,6 +228,7 @@ class VrouterPortControl(object):
 
     def GetJSonDict(self, port_type, project_id):
         data = {
+<<<<<<< HEAD
             "id": self._args.uuid,
             "instance-id": self._args.instance_uuid,
             "ip-address": self._args.ip_address,
@@ -232,6 +246,26 @@ class VrouterPortControl(object):
         }
         return data
     # end GetJSonDict
+=======
+                    "id" : self._args.uuid,
+                    "instance-id" : self._args.instance_uuid,
+                    "ip-address" : self._args.ip_address,
+                    "ip6-address" : self._args.ipv6_address,
+                    "vn-id" : self._args.vn_uuid,
+                    "display-name": self._args.vm_name,
+                    "vm-project-id" : project_id,
+                    "mac-address" : self._args.mac,
+                    "system-name" : self._args.tap_name,
+                    "type" : port_type,
+                    "rx-vlan-id" : self._args.rx_vlan_id,
+                    "tx-vlan-id" : self._args.tx_vlan_id,
+                    "vhostuser-mode" : self._args.vhostuser_mode,
+                    "author" : __file__,
+                    "time" : str(datetime.datetime.now())
+               }
+        return data;
+    #end GetJSonDict
+>>>>>>> e4393f2... server mode qemu support with dpdk vhostuser
 
     def WriteToFile(self, port_type, project_id):
         filename = ("%s%s" % (PORT_PATH, self._args.uuid))

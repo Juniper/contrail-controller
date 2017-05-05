@@ -80,7 +80,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     learning_enabled_(entry->learning_enabled_),
     isid_(entry->isid_), pbb_cmac_vrf_(entry->pbb_cmac_vrf_),
     etree_leaf_(entry->etree_leaf_),
-    pbb_interface_(entry->pbb_interface_) {
+    pbb_interface_(entry->pbb_interface_),
+    vhostuser_mode_(entry->vhostuser_mode_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
@@ -126,7 +127,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     flood_unknown_unicast_(false), qos_config_(NULL),
     learning_enabled_(false), isid_(VmInterface::kInvalidIsid),
     pbb_cmac_vrf_(VrfEntry::kInvalidIndex), etree_leaf_(false),
-    pbb_interface_(false) {
+    pbb_interface_(false), vhostuser_mode_(0) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -141,6 +142,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         network_id_ = vmitf->vxlan_id();
         rx_vlan_id_ = vmitf->rx_vlan_id();
         tx_vlan_id_ = vmitf->tx_vlan_id();
+        vhostuser_mode_ = vmitf->vhostuser_mode();
         if (vmitf->parent()) {
             InterfaceKSyncEntry tmp(ksync_obj_, vmitf->parent());
             parent_ = ksync_obj_->GetReference(&tmp);
@@ -278,6 +280,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
         if (tx_vlan_id_ != vm_port->tx_vlan_id()) {
             tx_vlan_id_ = vm_port->tx_vlan_id();
+            ret = true;
+        }
+
+        if (vhostuser_mode_ != vm_port->vhostuser_mode()) {
+            vhostuser_mode_ = vm_port->vhostuser_mode();
             ret = true;
         }
 
@@ -689,6 +696,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 vrf_id = pbb_cmac_vrf_;
             }
         }
+        encoder.set_vifr_vhostuser_mode(vhostuser_mode_);
         break;
     }
 
