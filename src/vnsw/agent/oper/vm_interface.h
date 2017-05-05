@@ -979,7 +979,8 @@ public:
                 const std::string &vm_name,
                 const boost::uuids::uuid &vm_project_uuid, uint16_t tx_vlan_id,
                 uint16_t rx_vlan_id, Interface *parent,
-                const Ip6Address &addr6, DeviceType dev_type, VmiType vmi_type);
+                const Ip6Address &addr6, DeviceType dev_type, VmiType vmi_type,
+                uint8_t vhostuser_mode);
     virtual ~VmInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const;
@@ -1040,6 +1041,7 @@ public:
     const std::string &cfg_name() const { return cfg_name_; }
     uint16_t tx_vlan_id() const { return tx_vlan_id_; }
     uint16_t rx_vlan_id() const { return rx_vlan_id_; }
+    uint8_t vhostuser_mode() const { return vhostuser_mode_; }
     const Interface *parent() const { return parent_.get(); }
     bool ecmp() const { return ecmp_;}
     bool ecmp6() const { return ecmp6_;}
@@ -1233,6 +1235,7 @@ public:
                         const boost::uuids::uuid &vm_project_uuid,
                         uint16_t tx_vlan_id, uint16_t rx_vlan_id,
                         const std::string &parent, const Ip6Address &ipv6,
+                        uint8_t vhostuser_mode,
                         Interface::Transport transport);
     // Del a vm-interface
     static void Delete(InterfaceTable *table,
@@ -1419,6 +1422,8 @@ private:
     FirewallPolicyList fw_policy_list_;
     UuidList slo_list_;
     VrfEntryRef forwarding_vrf_;
+    // vhostuser mode
+    uint8_t vhostuser_mode_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -1591,6 +1596,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     boost::uuids::uuid qos_config_uuid_;
     bool learning_enabled_;
     UuidList slo_list_;
+    uint8_t vhostuser_mode_;
 };
 
 // Definition for structures when request queued from Nova
@@ -1607,6 +1613,7 @@ struct VmInterfaceNovaData : public VmInterfaceData {
                         uint16_t rx_vlan_id,
                         VmInterface::DeviceType device_type,
                         VmInterface::VmiType vmi_type,
+                        uint8_t vhostuser_mode,
                         Interface::Transport transport);
     virtual ~VmInterfaceNovaData();
     virtual VmInterface *OnAdd(const InterfaceTable *table,
@@ -1627,6 +1634,7 @@ struct VmInterfaceNovaData : public VmInterfaceData {
     uint16_t rx_vlan_id_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
+    uint8_t vhostuser_mode_;
 };
 
 struct VmInterfaceGlobalVrouterData : public VmInterfaceData {
