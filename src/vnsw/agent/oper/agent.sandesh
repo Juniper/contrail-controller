@@ -291,6 +291,8 @@ struct ItfSandeshData {
    58: bool drop_new_flows;
    /** List of bridge domain entries configured on this interface */
    59: list<VmIntfBridgeDomainUuid> bridge_domain_list;
+   /** Mode of vhostuser */
+   60: byte vhostuser_mode;
 }
 
 /**

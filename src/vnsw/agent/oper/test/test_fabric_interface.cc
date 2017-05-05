@@ -115,7 +115,7 @@ static void NovaIntfAdd(FabricInterfaceTest *t, int id, const char *name,
                          mac, "", MakeUuid(kProjectUuid),
                          VmInterface::kInvalidVlanId,
                          VmInterface::kInvalidVlanId, Agent::NullString(),
-                         Ip6Address(), Interface::TRANSPORT_ETHERNET);
+                         Ip6Address(), 0, Interface::TRANSPORT_ETHERNET);
 }
 
 // Fabric port with IP Address 0.0.0.0. Needs dhcp_relay

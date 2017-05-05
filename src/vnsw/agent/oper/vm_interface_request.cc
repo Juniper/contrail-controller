@@ -85,7 +85,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     logical_interface_(nil_uuid()), ecmp_load_balance_(),
     service_health_check_ip_(), service_ip_(0),
     service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false), 
-    qos_config_uuid_(), learning_enabled_(false) {
+    qos_config_uuid_(), learning_enabled_(false), vhostuser_mode_(0) {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -116,7 +116,7 @@ VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, addr_, mac, vm_name_,
                         nil_uuid(), tx_vlan_id_, rx_vlan_id_, parent,
-                        ip6_addr_, device_type_, vmi_type_);
+                        ip6_addr_, device_type_, vmi_type_, vhostuser_mode_);
     vmi->SetConfigurer(VmInterface::CONFIG);
     return vmi;
 }
@@ -213,6 +213,12 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (vmi_type_ != data->vmi_type_) {
         *etree_leaf_mode_changed = true;
         vmi_type_ = data->vmi_type_;
+        ret = true;
+    }
+
+    if (vhostuser_mode_ != data->vhostuser_mode_) {
+        *etree_leaf_mode_changed = true;
+        vhostuser_mode_ = data->vhostuser_mode_;
         ret = true;
     }
 
@@ -631,7 +637,8 @@ VmInterfaceNovaData::VmInterfaceNovaData() :
     vm_project_uuid_(),
     physical_interface_(),
     tx_vlan_id_(),
-    rx_vlan_id_() {
+    rx_vlan_id_(),
+    vhostuser_mode_() {
 }
 
 VmInterfaceNovaData::VmInterfaceNovaData(const Ip4Address &ipv4_addr,
@@ -645,6 +652,7 @@ VmInterfaceNovaData::VmInterfaceNovaData(const Ip4Address &ipv4_addr,
                                          uint16_t rx_vlan_id,
                                          VmInterface::DeviceType device_type,
                                          VmInterface::VmiType vmi_type,
+                                         uint8_t vhostuser_mode,
                                          Interface::Transport transport) :
     VmInterfaceData(NULL, NULL, INSTANCE_MSG, transport),
     ipv4_addr_(ipv4_addr),
@@ -657,7 +665,8 @@ VmInterfaceNovaData::VmInterfaceNovaData(const Ip4Address &ipv4_addr,
     tx_vlan_id_(tx_vlan_id),
     rx_vlan_id_(rx_vlan_id),
     device_type_(device_type),
-    vmi_type_(vmi_type) {
+    vmi_type_(vmi_type),
+    vhostuser_mode_(vhostuser_mode) {
 }
 
 VmInterfaceNovaData::~VmInterfaceNovaData() {
@@ -684,7 +693,8 @@ VmInterface *VmInterfaceNovaData::OnAdd(const InterfaceTable *table,
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, ipv4_addr_, mac, vm_name_,
                         vm_project_uuid_, tx_vlan_id_, rx_vlan_id_,
-                        parent, ipv6_addr_, device_type_, vmi_type_);
+                        parent, ipv6_addr_, device_type_, vmi_type_,
+                        vhostuser_mode_);
     vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
     vmi->nova_ip_addr_ = ipv4_addr_;
     vmi->nova_ip6_addr_ = ipv6_addr_;
@@ -748,6 +758,7 @@ void VmInterface::NovaAdd(InterfaceTable *table, const uuid &intf_uuid,
                           const uuid &vm_project_uuid, uint16_t tx_vlan_id,
                           uint16_t rx_vlan_id, const std::string &parent,
                           const Ip6Address &ip6,
+                          uint8_t vhostuser_mode,
                           Interface::Transport transport) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
@@ -758,6 +769,7 @@ void VmInterface::NovaAdd(InterfaceTable *table, const uuid &intf_uuid,
                                            tx_vlan_id, rx_vlan_id,
                                            VmInterface::VM_ON_TAP,
                                            VmInterface::INSTANCE,
+                                           vhostuser_mode,
                                            transport));
     table->Enqueue(&req);
 }
@@ -970,7 +982,7 @@ VmInterface *VmInterfaceIfNameData::OnAdd(const InterfaceTable *table,
         new VmInterface(key->uuid_, key->name_, Ip4Address(), MacAddress(), "",
                         nil_uuid(), VmInterface::kInvalidVlanId,
                         VmInterface::kInvalidVlanId, NULL, Ip6Address(),
-                        VmInterface::VM_ON_TAP, VmInterface::INSTANCE);
+                        VmInterface::VM_ON_TAP, VmInterface::INSTANCE, 0);
     vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
     return vmi;
 }

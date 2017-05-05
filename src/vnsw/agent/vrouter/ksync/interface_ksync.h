@@ -126,6 +126,7 @@ private:
     MacAddress pbb_mac_;
     bool etree_leaf_;
     bool pbb_interface_;
+    uint8_t vhostuser_mode_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 

@@ -32,6 +32,7 @@ traceobject sandesh ConfigAddPortEnqueue {
     12: string port_type;
     13: string ip6_address;
     14: i32 version;
+    15: byte vhostuser_mode;
 }
 
 /**
@@ -128,6 +129,7 @@ struct SandeshVmiPortSubscriptionInfo {
     9: string mac;
     10: i16 tx_vlan;
     11: i16 rx_vlan;
+    12: byte vhostuser_mode;
 }
 
 /**
