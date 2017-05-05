@@ -33,9 +33,6 @@ import copy
 from cfgm_common import jsonutils as json
 import uuid
 import datetime
-import pycassa
-import pycassa.util
-import pycassa.cassandra.ttypes
 from pycassa.system_manager import *
 from pycassa.util import *
 
@@ -300,6 +297,8 @@ class VncServerKombuClient(VncKombuClient):
                 self._dbe_update_notification(oper_info)
             elif oper_info['oper'] == 'DELETE':
                 self._dbe_delete_notification(oper_info)
+            else:
+                return
 
             trace_msg([trace], 'MessageBusNotifyTraceBuf', self._sandesh)
         except Exception:
@@ -1066,12 +1065,14 @@ class VncDbClient(object):
     @dbe_trace('create')
     @build_shared_index('create')
     def dbe_create(self, obj_type, obj_uuid, obj_dict):
-        (ok, result) = self._object_db.object_create(obj_type, obj_uuid, obj_dict)
+        (ok, result) = self._object_db.object_create(obj_type, obj_uuid,
+                                                     obj_dict)
 
         if ok:
             # publish to msgbus
             self._msgbus.dbe_publish('CREATE', obj_type, obj_uuid,
                                      obj_dict['fq_name'], obj_dict)
+            self._dbe_publish_update_implicit(obj_type, result)
 
         return (ok, result)
     # end dbe_create
@@ -1116,17 +1117,29 @@ class VncDbClient(object):
             return (False, str(e))
     # end dbe_is_latest
 
+    def _dbe_publish_update_implicit(self, obj_type, uuid_list):
+        for ref_uuid in uuid_list:
+            try:
+                ref_fq_name = self.uuid_to_fq_name(ref_uuid)
+                self._msgbus.dbe_publish('UPDATE-IMPLICIT', obj_type,
+                                         ref_uuid, ref_fq_name)
+            except NoIdError:
+                # ignore if the object disappeared
+                pass
+    # end _dbe_publish_update_implicit
+
     @dbe_trace('update')
     @build_shared_index('update')
     def dbe_update(self, obj_type, obj_uuid, new_obj_dict):
-        (ok, cassandra_result) = self._object_db.object_update(
-            obj_type, obj_uuid, new_obj_dict)
+        (ok, result) = self._object_db.object_update(obj_type, obj_uuid,
+                                                     new_obj_dict)
 
-        # publish to message bus (rabbitmq)
-        fq_name = self.uuid_to_fq_name(obj_uuid)
-        self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name)
-
-        return (ok, cassandra_result)
+        if ok:
+            # publish to message bus (rabbitmq)
+            fq_name = self.uuid_to_fq_name(obj_uuid)
+            self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name)
+            self._dbe_publish_update_implicit(obj_type, result)
+        return (ok, result)
     # end dbe_update
 
     def _owner_id(self):
@@ -1146,19 +1159,19 @@ class VncDbClient(object):
         return domain, tenant_uuid
 
     def dbe_list_rdbms(self, obj_type, parent_uuids=None, back_ref_uuids=None,
-                 obj_uuids=None, is_count=False, filters=None,
-                 paginate_start=None, paginate_count=None, is_detail=False,
-                 field_names=None, include_shared=False):
+                       obj_uuids=None, is_count=False, filters=None,
+                       paginate_start=None, paginate_count=None, is_detail=False,
+                       field_names=None, include_shared=False):
         domain = None
         tenant_id = None
         if include_shared:
             domain, tenant_id = self._owner_id()
 
         return self._object_db.object_list(
-                 obj_type, parent_uuids=parent_uuids,
-                 back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-                 count=is_count, filters=filters, is_detail=is_detail,
-                 field_names=field_names, tenant_id=tenant_id, domain=domain)
+            obj_type, parent_uuids=parent_uuids,
+            back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
+            count=is_count, filters=filters, is_detail=is_detail,
+            field_names=field_names, tenant_id=tenant_id, domain=domain)
 
     def dbe_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
                  obj_uuids=None, is_count=False, filters=None,
@@ -1170,9 +1183,9 @@ class VncDbClient(object):
                  paginate_start, paginate_count, is_detail,
                  field_names, include_shared)
         (ok, result) = self._object_db.object_list(
-                 obj_type, parent_uuids=parent_uuids,
-                 back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-                 count=is_count, filters=filters)
+            obj_type, parent_uuids=parent_uuids,
+            back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
+            count=is_count, filters=filters)
 
         if not ok or is_count:
             return (ok, result)
@@ -1216,17 +1229,18 @@ class VncDbClient(object):
 
     @dbe_trace('delete')
     def dbe_delete(self, obj_type, obj_uuid, obj_dict):
-        (ok, cassandra_result) = self._object_db.object_delete(
-            obj_type, obj_uuid)
+        (ok, result) = self._object_db.object_delete(obj_type, obj_uuid)
 
-        # publish to message bus (rabbitmq)
-        self._msgbus.dbe_publish('DELETE', obj_type, obj_uuid,
-                                 obj_dict['fq_name'], obj_dict)
+        if ok:
+            # publish to message bus (rabbitmq)
+            self._msgbus.dbe_publish('DELETE', obj_type, obj_uuid,
+                                     obj_dict['fq_name'], obj_dict)
+            self._dbe_publish_update_implicit(obj_type, result)
 
-        # finally remove mapping in zk
-        self.dbe_release(obj_type, obj_dict['fq_name'])
+            # finally remove mapping in zk
+            self.dbe_release(obj_type, obj_dict['fq_name'])
 
-        return ok, cassandra_result
+        return ok, result
     # end dbe_delete
 
     def dbe_release(self, obj_type, obj_fq_name):
@@ -1259,7 +1273,7 @@ class VncDbClient(object):
 
     def subnet_reset_in_use(self, subnet, addr):
         return self._zk_db.subnet_reset_in_use(subnet, addr)
-    #end subnet_reset_in_use
+    # end subnet_reset_in_use
 
     def subnet_alloc_count(self, subnet):
         return self._zk_db.subnet_alloc_count(subnet)
@@ -1280,9 +1294,9 @@ class VncDbClient(object):
     def subnet_create_allocator(self, subnet, subnet_alloc_list,
                                 addr_from_start, should_persist,
                                 start_subnet, size, alloc_unit):
-        return self._zk_db.create_subnet_allocator(subnet,
-                               subnet_alloc_list, addr_from_start,
-                               should_persist, start_subnet, size, alloc_unit)
+        return self._zk_db.create_subnet_allocator(
+            subnet, subnet_alloc_list, addr_from_start,
+            should_persist, start_subnet, size, alloc_unit)
     # end subnet_create_allocator
 
     def subnet_delete_allocator(self, subnet):
@@ -1336,6 +1350,8 @@ class VncDbClient(object):
                                    ref_uuid, ref_data, operation)
         fq_name = self.uuid_to_fq_name(obj_uuid)
         self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name)
+        if obj_type == ref_obj_type:
+            self._dbe_publish_update_implicit(obj_type, [ref_uuid])
     # ref_update
 
     def ref_relax_for_delete(self, obj_uuid, ref_uuid):
@@ -1345,7 +1361,6 @@ class VncDbClient(object):
     def uuid_to_obj_perms2(self, obj_uuid):
         return self._object_db.uuid_to_obj_perms2(obj_uuid)
     # end uuid_to_obj_perms2
-
 
     def get_resource_class(self, type):
         return self._api_svr_mgr.get_resource_class(type)
@@ -1379,13 +1394,15 @@ class VncDbClient(object):
         shared = []
         # specifically shared with us
         if tenant_uuid:
-            l1 = self._object_db.get_shared(obj_type, share_id = tenant_uuid, share_type = 'tenant')
+            l1 = self._object_db.get_shared(obj_type, share_id=tenant_uuid,
+                                            share_type='tenant')
             if l1:
                 shared.extend(l1)
 
         # shared at domain level
         if domain_uuid:
-            l1 = self._object_db.get_shared(obj_type, share_id = domain_uuid, share_type = 'domain')
+            l1 = self._object_db.get_shared(obj_type, share_id=domain_uuid,
+                                            share_type='domain')
             if l1:
                 shared.extend(l1)
 
@@ -1406,8 +1423,10 @@ class VncDbClient(object):
     # end get_worker_id
 
     def get_autonomous_system(self):
-        config_uuid = self.fq_name_to_uuid('global_system_config', ['default-global-system-config'])
-        ok, config = self._object_db.object_read('global_system_config', [config_uuid])
+        config_uuid = self.fq_name_to_uuid('global_system_config',
+                                           ['default-global-system-config'])
+        ok, config = self._object_db.object_read('global_system_config',
+                                                 [config_uuid])
         global_asn = config[0]['autonomous_system']
         return global_asn
 

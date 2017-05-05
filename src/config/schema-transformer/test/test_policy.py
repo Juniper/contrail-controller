@@ -207,24 +207,23 @@ class TestPolicy(STTestCase, VerifyPolicy):
         np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'deny'
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn2_obj))
 
-        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
-                                  self.get_ri_name(vn2_obj))
         np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'pass'
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
+        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
+                                  self.get_ri_name(vn2_obj))
+
         np2.network_policy_entries.policy_rule[0].action_list.simple_action = 'deny'
         np2.set_network_policy_entries(np2.network_policy_entries)
         self._vnc_lib.network_policy_update(np2)
+        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn2_obj))
 
-        self.check_ri_ref_present(self.get_ri_name(vn1_obj),
-                                  self.get_ri_name(vn2_obj))
         vn1_obj.del_network_policy(np1)
         vn2_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.virtual_network_update(vn2_obj)
-
-        self.check_ri_refs_are_deleted(fq_name=self.get_ri_name(vn2_obj))
 
         self.delete_network_policy(np1)
         self.delete_network_policy(np2)
@@ -277,9 +276,10 @@ class TestPolicy(STTestCase, VerifyPolicy):
         @retries(5)
         def _match_acl_rule():
             acl = self._vnc_lib.access_control_list_read(
-                    fq_name=self.get_ri_name(vn1_obj))
+                fq_name=self.get_ri_name(vn1_obj))
             for rule in acl.get_access_control_list_entries().get_acl_rule():
-                if rule.match_condition.dst_address.virtual_network == vn3_obj.get_fq_name_str():
+                if (rule.match_condition.dst_address.virtual_network ==
+                        vn3_obj.get_fq_name_str()):
                     raise Exception("ACL rule still present")
 
         _match_acl_rule()
