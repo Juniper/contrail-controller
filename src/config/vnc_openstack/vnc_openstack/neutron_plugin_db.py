@@ -945,7 +945,6 @@ class DBInterface(object):
             si_vnc = ServiceInstance(name=si_q['name'],
                          parent_obj=project_obj,
                          service_instance_properties=si_prop)
-
         return si_vnc
     #end _svc_instance_neutron_to_vnc
 
@@ -963,8 +962,10 @@ class DBInterface(object):
             si_q_dict['external_net'] = str(vn_obj.uuid) + ' ' + vn_obj.name
             si_q_dict['internal_net'] = ''
 
+        si_q_dict['description'] = si_obj.get_id_perms().get_description()
+
         return si_q_dict
-    #end _route_table_vnc_to_neutron
+    #end _svc_instance_vnc_to_neutron
 
     def _route_table_neutron_to_vnc(self, rt_q, oper):
         if oper == CREATE:
@@ -1023,6 +1024,8 @@ class DBInterface(object):
             for route in rt_q_dict['routes']['route']:
                 if route['next_hop_type']:
                     route['next_hop'] = route['next_hop_type']
+
+        rt_q_dict['description'] = rt_obj.get_id_perms().get_description()
 
         return rt_q_dict
     # end _route_table_vnc_to_neutron
@@ -1297,6 +1300,11 @@ class DBInterface(object):
             if 'port_security_enabled' in network_q:
                 net_obj.set_port_security_enabled(network_q['port_security_enabled'])
 
+        if 'description' in network_q:
+            id_perms = net_obj.get_id_perms()
+            id_perms.set_description(network_q['description'])
+            net_obj.set_id_perms(id_perms)
+
         return net_obj
     #end _network_neutron_to_vnc
 
@@ -1368,6 +1376,8 @@ class DBInterface(object):
         if self._contrail_extensions_enabled:
             net_q_dict.update(extra_dict)
         net_q_dict['port_security_enabled'] = net_obj.get_port_security_enabled()
+
+        net_q_dict['description'] = net_obj.get_id_perms().get_description()
 
         return net_q_dict
     #end _network_vnc_to_neutron
@@ -1561,6 +1571,8 @@ class DBInterface(object):
                 net_fq_name = net_back_ref['to']
                 ipam_q_dict['nets_using'].append(net_fq_name)
 
+        ipam_q_dict['description'] = ipam_obj.get_id_perms().get_description()
+
         return ipam_q_dict
     #end _ipam_vnc_to_neutron
 
@@ -1604,6 +1616,9 @@ class DBInterface(object):
                 net_fq_name = net_back_ref['to']
                 policy_q_dict['nets_using'].append(net_fq_name)
 
+
+        policy_q_dict['description'] = policy_obj.get_id_perms().get_description()
+
         return policy_q_dict
     #end _policy_vnc_to_neutron
 
@@ -1624,6 +1639,11 @@ class DBInterface(object):
 
         if 'name' in router_q and router_q['name']:
             rtr_obj.display_name = router_q['name']
+
+        if 'description' in router_q:
+            id_perms = rtr_obj.get_id_perms()
+            id_perms.set_description(router_q['description'])
+            rtr_obj.set_id_perms(id_perms)
 
         return rtr_obj
     #end _router_neutron_to_vnc
@@ -1660,6 +1680,9 @@ class DBInterface(object):
 
         if self._contrail_extensions_enabled:
             rtr_q_dict.update(extra_dict)
+
+        rtr_q_dict['description'] = rtr_obj.get_id_perms().get_description()
+
         return rtr_q_dict
     #end _router_vnc_to_neutron
 
@@ -1853,6 +1876,7 @@ class DBInterface(object):
         fip_q_dict['port_id'] = port_id
         fip_q_dict['fixed_ip_address'] = fip_obj.get_floating_ip_fixed_ip_address()
         fip_q_dict['status'] = constants.PORT_STATUS_ACTIVE
+        fip_q_dict['description'] = fip_obj.get_id_perms().get_description()
 
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
@@ -2054,6 +2078,11 @@ class DBInterface(object):
         id_perms = port_obj.get_id_perms()
         if 'admin_state_up' in port_q:
             id_perms.enable = port_q['admin_state_up']
+            port_obj.set_id_perms(id_perms)
+
+        if 'description' in port_q:
+            id_perms = port_obj.get_id_perms()
+            id_perms.set_description(port_q['description'])
             port_obj.set_id_perms(id_perms)
 
         if ('extra_dhcp_opts' in port_q):
@@ -2365,6 +2394,9 @@ class DBInterface(object):
         if self._contrail_extensions_enabled:
             port_q_dict.update(extra_dict)
         port_q_dict['port_security_enabled'] = port_obj.get_port_security_enabled()
+
+        port_q_dict['description'] = port_obj.get_id_perms().get_description()
+
         return port_q_dict
     #end _port_vnc_to_neutron
 
