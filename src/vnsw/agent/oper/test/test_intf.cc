@@ -194,7 +194,7 @@ static void NovaIntfAdd(int id, const char *name, const char *addr,
                          MakeUuid(id), name, ip.to_v4(), mac, "",
                          MakeUuid(kProjectUuid), VmInterface::kInvalidVlanId,
                          VmInterface::kInvalidVlanId, Agent::NullString(),
-                         Ip6Address(), Interface::TRANSPORT_ETHERNET);
+                         Ip6Address(), 0, Interface::TRANSPORT_ETHERNET);
 }
 
 static void NovaDel(int id) {
