@@ -3985,20 +3985,24 @@ class DBInterface(object):
         iip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None)
         if iip_back_refs:
             for iip_back_ref in iip_back_refs:
-                # if name contains IP address then this is shared ip
-                iip_obj = self._vnc_lib.instance_ip_read(
-                    id=iip_back_ref['uuid'])
+                try:
+                    iip_obj = self._vnc_lib.instance_ip_read(
+                        id=iip_back_ref['uuid'])
 
-                # in case of shared ip only delete the link to the VMI
-                iip_obj.del_virtual_machine_interface(port_obj)
-                if not iip_obj.get_virtual_machine_interface_refs():
-                    try:
-                        self._instance_ip_delete(
-                            instance_ip_id=iip_back_ref['uuid'])
-                    except RefsExistError:
+                    # in case of shared ip only delete the link to the VMI
+                    iip_obj.del_virtual_machine_interface(port_obj)
+                    if not iip_obj.get_virtual_machine_interface_refs():
+                        try:
+                            self._instance_ip_delete(
+                                instance_ip_id=iip_back_ref['uuid'])
+                        except RefsExistError:
+                            self._instance_ip_update(iip_obj)
+                    else:
                         self._instance_ip_update(iip_obj)
-                else:
-                    self._instance_ip_update(iip_obj)
+                except NoIdError:
+                    # instance ip could be deleted by svc monitor if it is
+                    # a shared ip. Ignore this error
+                    continue
 
         # disassociate any floating IP used by instance
         fip_back_refs = getattr(port_obj, 'floating_ip_back_refs', None)
@@ -4024,10 +4028,10 @@ class DBInterface(object):
         try:
             if instance_id:
                 self._vnc_lib.virtual_machine_delete(id=instance_id)
-        except RefsExistError:
+        except (NoIdError, RefsExistError):
             pass
 
-    #end port_delete
+    # end port_delete
 
     def _port_fixed_ips_is_present(self, check, against):
         # filters = {'fixed_ips': {'ip_address': ['20.0.0.5', '20.0.0.6']}}
