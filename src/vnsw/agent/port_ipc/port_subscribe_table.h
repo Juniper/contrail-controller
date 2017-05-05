@@ -73,7 +73,8 @@ public:
                       const boost::uuids::uuid &project_uuid,
                       const Ip4Address &ip4_addr, const Ip6Address &ip6_addr,
                       const std::string &mac_addr, uint16_t tx_vlan_id,
-                      uint16_t rx_vlan_id);
+                      uint16_t rx_vlan_id,
+                      uint8_t vhostuser_mode);
     ~VmiSubscribeEntry();
 
     virtual bool MatchVn(const boost::uuids::uuid &u) const;
@@ -93,6 +94,7 @@ public:
     const std::string &mac_addr() const { return mac_addr_; }
     uint16_t tx_vlan_id() const { return tx_vlan_id_; }
     uint16_t rx_vlan_id() const { return rx_vlan_id_; }
+    uint8_t vhostuser_mode() const { return vhostuser_mode_; }
 private:
     boost::uuids::uuid vmi_uuid_;
     boost::uuids::uuid vm_uuid_;
@@ -104,6 +106,7 @@ private:
     std::string mac_addr_;
     uint16_t tx_vlan_id_;
     uint16_t rx_vlan_id_;
+    uint8_t vhostuser_mode_;
     DISALLOW_COPY_AND_ASSIGN(VmiSubscribeEntry);
 };
 
@@ -203,10 +206,11 @@ public:
         boost::uuids::uuid parent_vmi_;
         uint16_t vlan_tag_;
         std::string mac_;
+        uint8_t vhostuser_mode_;
 
         VmiEntry() :
             vm_uuid_(), vn_uuid_(), sub_interface_(), parent_vmi_(),
-            vlan_tag_(), mac_() {
+            vlan_tag_(), mac_(), vhostuser_mode_() {
         }
     };
 

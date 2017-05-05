@@ -331,6 +331,7 @@ bool LibvirtInstanceAdapter::RegisterInterfaces(
                          VmInterface::kInvalidVlanId,
                          Agent::NullString(),
                          Ip6Address(),
+                         VmInterface::vHostUserClient,
                          Interface::TRANSPORT_ETHERNET);
         agent_->cfg()->cfg_interface_client()->FetchInterfaceData(
             si_properties.vmi_management);
@@ -347,6 +348,7 @@ bool LibvirtInstanceAdapter::RegisterInterfaces(
                          VmInterface::kInvalidVlanId,
                          Agent::NullString(),
                          Ip6Address(),
+                         VmInterface::vHostUserClient,
                          Interface::TRANSPORT_ETHERNET);
         agent_->cfg()->cfg_interface_client()->FetchInterfaceData(
             si_properties.vmi_outside);
@@ -363,6 +365,7 @@ bool LibvirtInstanceAdapter::RegisterInterfaces(
                          VmInterface::kInvalidVlanId,
                          Agent::NullString(),
                          Ip6Address(),
+                         VmInterface::vHostUserClient,
                          Interface::TRANSPORT_ETHERNET);
         agent_->cfg()->cfg_interface_client()->FetchInterfaceData(
             si_properties.vmi_inside);

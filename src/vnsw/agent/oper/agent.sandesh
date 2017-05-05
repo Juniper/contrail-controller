@@ -311,6 +311,8 @@ struct ItfSandeshData {
    61: list<string> policy_set_acl_list;
    /** List of security-logging-objects configured on this interface */
    62: list<SecurityLoggingObjectLink> slo_list;
+   /** Mode of vhostuser */
+   63: byte vhostuser_mode;
 }
 
 /**

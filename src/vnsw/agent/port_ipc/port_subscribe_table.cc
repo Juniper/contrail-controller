@@ -81,11 +81,13 @@ VmiSubscribeEntry::VmiSubscribeEntry(PortSubscribeEntry::Type type,
                                      const Ip4Address &ip4_addr,
                                      const Ip6Address &ip6_addr,
                                      const std::string &mac_addr,
-                                     uint16_t tx_vlan_id, uint16_t rx_vlan_id) :
+                                     uint16_t tx_vlan_id, uint16_t rx_vlan_id,
+                                     uint8_t vhostuser_mode) :
     PortSubscribeEntry(type, ifname, version), vmi_uuid_(vmi_uuid),
     vm_uuid_(vm_uuid), vm_name_(vm_name), vn_uuid_(vn_uuid),
     project_uuid_(project_uuid), ip4_addr_(ip4_addr), ip6_addr_(ip6_addr),
-    mac_addr_(mac_addr), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id) {
+    mac_addr_(mac_addr), tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id),
+    vhostuser_mode_(vhostuser_mode) {
 }
 
 VmiSubscribeEntry::~VmiSubscribeEntry() {
@@ -117,6 +119,7 @@ void VmiSubscribeEntry::OnAdd(Agent *agent, PortSubscribeTable *table) const {
     VmInterface::NovaAdd(agent->interface_table(), vmi_uuid_, ifname_,
                          ip4_addr_, mac_addr_, vm_name_, project_uuid_,
                          tx_vlan_id_p, rx_vlan_id_p, port, ip6_addr_,
+                         vhostuser_mode_,
                          transport);
 
     // Notify controller module about new port
@@ -363,6 +366,7 @@ static void CopyVmiConfigToInfo(PortSubscribeTable::VmiEntry *entry,
     entry->sub_interface_ = (entry->parent_vmi_.is_nil() == false);
     entry->parent_vmi_ = data->parent_vmi_;
     entry->vlan_tag_ = data->rx_vlan_id_;
+    entry->vhostuser_mode_ = data->vhostuser_mode_;
     entry->mac_ = data->vm_mac_;
 }
 
@@ -615,6 +619,7 @@ bool SandeshVmiPortSubscribeTask::Run() {
         info.set_mac(entry->mac_addr());
         info.set_tx_vlan(entry->tx_vlan_id());
         info.set_rx_vlan(entry->rx_vlan_id());
+        info.set_vhostuser_mode(entry->vhostuser_mode());
 
         port_list.push_back(info);
     }
