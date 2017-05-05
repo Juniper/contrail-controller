@@ -73,6 +73,29 @@ $ contrail-compute-setup --self_ip 5.5.5.1\
     * Mounts the hugetlbfs in /hugepages
     * Configures the maximum number of memory map pages for qemu using `vm.max_map_count`
 
+### SRIOV mode
+Commandline with mandatory argument to provision vrouter in SRIOV mode follows,
+
+```sh
+$ contrail-compute-setup --self_ip 5.5.5.1\
+                         --hypervisor libvirt\
+                         --cfgm_ip 2.2.2.1\
+                         --collectors 3.3.3.1 3.3.3.2 3.3.3.3\
+                         --control-nodes 4.4.4.1 4.4.4.2 4.4.4.3\
+                         --keystone_ip 1.1.1.1\
+                         --keystone_auth_protocol http\
+                         --keystone_auth_port 35357\
+                         --keystone_admin_user admin\
+                         --keystone_admin_password contrail123\
+                         --keystone_admin_tenant_name admin\
+                         --sriov "p6p1:7,p6p2:5"
+```
+
+* The SRIOV argument takes the following
+    * Interface where the VF's needs to be created
+    * Number of VF's needed for that interface
+* SRIOV argument can work with DPDK argument also
+
 ### Filing Bugs
 Use http://bugs.launchpad.net/juniperopenstack
 It will be useful to include the log file in the bug, log files will be created at `/var/log/contrail/contrail_vrouter_provisioning.log` in the compute node.
