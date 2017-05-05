@@ -233,6 +233,8 @@ protected:
                         bool delete_config,
                         vector<ConfigUTAuthKeyItem> auth_keys =
                                 vector<ConfigUTAuthKeyItem>());
+    void GRTestCommon(bool hard_reset, size_t expected_stale_count,
+                      size_t expected_llgr_stale_count);
 
     auto_ptr<EventManager> evm_;
     auto_ptr<ServerThread> thread_;
@@ -247,6 +249,8 @@ protected:
     as_t a_old_local_as_;
     as_t b_old_local_as_;
     bool gr_enabled_;
+    string gr_time_;
+    string llgr_time_;
 };
 
 bool BgpServerUnitTest::validate_done_;
@@ -297,8 +301,9 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         config << "<global-system-config>\
                    <graceful-restart-parameters>\
                        <enable>true</enable>\
-                       <restart-time>600</restart-time>\
-                       <long-lived-restart-time>60000</long-lived-restart-time>\
+                       <restart-time>" + gr_time_ + "</restart-time>\
+                       <long-lived-restart-time>" + llgr_time_ +
+                           "</long-lived-restart-time>\
                        <end-of-rib-timeout>120</end-of-rib-timeout>\
                        <bgp-helper-enable>true</bgp-helper-enable>\
                        <xmpp-helper-enable>true</xmpp-helper-enable>\
@@ -2667,12 +2672,13 @@ TEST_F(BgpServerUnitTest, DeleteInProgress) {
     }
 }
 
-TEST_F(BgpServerUnitTest, DeleteDuringGR) {
+void BgpServerUnitTest::GRTestCommon(bool hard_reset,
+                                     size_t expected_stale_count,
+                                     size_t expected_llgr_stale_count) {
     vector<string> families_a;
     vector<string> families_b;
     families_a.push_back("inet");
     families_b.push_back("inet");
-
     gr_enabled_ = true;
 
     SetupPeers(1, a_->session_manager()->GetPort(),
@@ -2734,15 +2740,34 @@ TEST_F(BgpServerUnitTest, DeleteDuringGR) {
     // Close bgp-session and trigger GR process. Also keep idle-hold time long
     // in order to hold the state in idle after GR session restart..
     string uuid = BgpConfigParser::session_uuid("A", "B", 1);
-    BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
-                                         uuid);
-    task_util::TaskFire(boost::bind(&BgpPeer::Clear, peer_a,
-                        BgpProto::Notification::Unknown), "bgp::Config");
+    BgpPeerTest *peer_a = static_cast<BgpPeerTest *>(
+        a_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid));
+    BgpPeerTest *peer_b = static_cast<BgpPeerTest *>(
+        b_->FindPeerByUuid(BgpConfigManager::kMasterInstance, uuid));
+    TASK_UTIL_EXPECT_TRUE(peer_b->IsReady());
+
+    int subcode = hard_reset ? BgpProto::Notification::HardReset :
+                               BgpProto::Notification::AdminShutdown;
+    peer_b->SetAdminState(true, subcode); // Trigger GR Helper in peer_a
+    TASK_UTIL_EXPECT_FALSE(peer_a->IsReady());
+    TASK_UTIL_EXPECT_FALSE(peer_b->IsReady());
     task_util::WaitForIdle();
-    BGP_VERIFY_ROUTE_COUNT(table_a, 1);
-    BGP_VERIFY_ROUTE_COUNT(table_b, 1);
-    BGP_VERIFY_ROUTE_PRESENCE(table_a, &key1);
-    BGP_VERIFY_ROUTE_PRESENCE(table_b, &key1);
+
+    TASK_UTIL_EXPECT_EQ(expected_stale_count,
+                        peer_a->close_manager()->stats().stale);
+    TASK_UTIL_EXPECT_EQ(expected_llgr_stale_count,
+                        peer_a->close_manager()->stats().llgr_stale);
+
+    // If timer value quite large, verify for the presence of routes as well.
+    if (!hard_reset && (gr_time_ == "1024" || llgr_time_== "1024")) {
+        BGP_VERIFY_ROUTE_COUNT(table_a, 1);
+        BGP_VERIFY_ROUTE_COUNT(table_b, 1);
+        BGP_VERIFY_ROUTE_PRESENCE(table_a, &key1);
+        BGP_VERIFY_ROUTE_PRESENCE(table_b, &key1);
+        TASK_UTIL_EXPECT_EQ(expected_stale_count, table_a->GetStalePathCount());
+        TASK_UTIL_EXPECT_EQ(expected_llgr_stale_count,
+                            table_a->GetLlgrStalePathCount());
+    }
 
     // Delete all the prefixes from A and make sure they are gone from B.
     // Let TearDown() delete all the peers as well, triggering cleanup in the
@@ -2752,6 +2777,54 @@ TEST_F(BgpServerUnitTest, DeleteDuringGR) {
     table_b->Enqueue(&req);
     task_util::WaitForIdle();
     BGP_VERIFY_ROUTE_COUNT(table_b, 0);
+}
+
+TEST_F(BgpServerUnitTest, GR_NonZeroGrTimeAndNonZeroLlgrTime) {
+    gr_time_ = "1";
+    llgr_time_ = "1024";
+    GRTestCommon(false, 1, 1);
+}
+
+TEST_F(BgpServerUnitTest, GR_NonZeroGrTimeAndZeroLlgrTime) {
+    gr_time_ = "1024";
+    llgr_time_ = "0";
+    GRTestCommon(false, 1, 0);
+}
+
+TEST_F(BgpServerUnitTest, GR_ZeroGrTimeAndNonZeroLlgrTime) {
+    gr_time_ = "0";
+    llgr_time_ = "1024";
+    GRTestCommon(false, 1, 1);
+}
+
+TEST_F(BgpServerUnitTest, GR_ZeroGrTimeAndZeroLlgrTime) {
+    gr_time_ = "0";
+    llgr_time_ = "0";
+    GRTestCommon(false, 0, 0);
+}
+
+TEST_F(BgpServerUnitTest, GR_NonZeroGrTimeAndNonZeroLlgrTime_HardReset) {
+    gr_time_ = "1";
+    llgr_time_ = "1024";
+    GRTestCommon(true, 0, 0);
+}
+
+TEST_F(BgpServerUnitTest, GR_NonZeroGrTimeAndZeroLlgrTime_HardReset) {
+    gr_time_ = "1024";
+    llgr_time_ = "0";
+    GRTestCommon(true, 0, 0);
+}
+
+TEST_F(BgpServerUnitTest, GR_ZeroGrTimeAndNonZeroLlgrTime_HardReset) {
+    gr_time_ = "0";
+    llgr_time_ = "1024";
+    GRTestCommon(true, 0, 0);
+}
+
+TEST_F(BgpServerUnitTest, GR_ZeroGrTimeAndZeroLlgrTime_HardReset) {
+    gr_time_ = "0";
+    llgr_time_ = "0";
+    GRTestCommon(true, 0, 0);
 }
 
 TEST_F(BgpServerUnitTest, CloseInProgress) {
