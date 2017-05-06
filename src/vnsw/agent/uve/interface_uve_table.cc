@@ -97,6 +97,7 @@ void InterfaceUveTable::UveInterfaceEntry::SetVnVmInfo(UveVMInterfaceAgent *uve)
     }
     if (intf_->vn() != NULL) {
         uve->set_virtual_network(intf_->vn()->GetName());
+        uve->set_vn_uuid(to_string(intf_->vn()->GetUuid()));
     } else {
         uve->set_virtual_network("");
     }
@@ -117,6 +118,17 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     s_intf->set_ip6_address(intf_->primary_ip6_addr().to_string());
     s_intf->set_ip6_active(intf_->ipv6_active());
     s_intf->set_is_health_check_active(intf_->is_hc_active());
+    s_intf->set_tx_vlan(intf_->tx_vlan_id());
+    s_intf->set_rx_vlan(intf_->rx_vlan_id());
+    const Interface *parent = intf_->parent();
+    if (parent) {
+        const VmInterface *p_vmi = dynamic_cast<const VmInterface*>(parent);
+        if (p_vmi) {
+            s_intf->set_parent_interface(p_vmi->cfg_name());
+        } else {
+            s_intf->set_parent_interface(parent->name());
+        }
+    }
 
     vector<VmFloatingIPAgent> uve_fip_list;
     if (intf_->HasFloatingIp(Address::INET)) {

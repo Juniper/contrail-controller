@@ -98,6 +98,14 @@ struct UveVMInterfaceAgent {
                      (stats="flow_rate.deleted_flows:DSAnomaly:EWM:0.1")
    43: optional derived_stats_results.AnomalyResult active_flows_ewm
                      (stats="flow_rate.active_flows:DSAnomaly:EWM:0.1")
+   /** UUID of VMI's VN */
+   37: optional string vn_uuid;
+   /** Transmit VLAN tag for packets over this VMI */
+   38: optional u16 tx_vlan;
+   /** Recieve VLAN tag for packets over this VMI */
+   39: optional u16 rx_vlan;
+   /** Parent interface name */
+   40: optional string parent_interface;
 }
 
 /**
