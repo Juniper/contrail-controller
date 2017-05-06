@@ -117,6 +117,14 @@ struct UveVMInterfaceAgent {
    /** @display_name:VMI Packet drop Statistics*/
    34: optional vrouter.AgentDropStats drop_stats (stats="raw_drop_stats:DSNon0:", tags="virtual_network")
    35: optional vrouter.AgentDropStats drop_stats_1h (stats="raw_drop_stats:DSSum:3600")
+   /** UUID of VMI's VN */
+   37: optional string vn_uuid;
+   /** Transmit VLAN tag for packets over this VMI */
+   38: optional u16 tx_vlan;
+   /** Recieve VLAN tag for packets over this VMI */
+   39: optional u16 rx_vlan;
+   /** Parent interface name */
+   40: optional string parent_interface;
 }
 
 /**

@@ -39,11 +39,9 @@ public:
     void Shutdown(void);
     void SendVnAclRuleCount();
     bool TimerExpiry();
-    void DeleteVnEntry(const UveVnMap::iterator &it);
 
 protected:
     void Delete(const std::string &name);
-    virtual void Delete(const VnEntry *vn);
     VnUveEntryBase* UveEntryFromVn(const VnEntry *vn);
     //The following API is made protected for UT.
     virtual void DispatchVnMsg(const UveVirtualNetworkAgent &uve);
