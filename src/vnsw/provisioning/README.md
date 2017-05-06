@@ -14,7 +14,8 @@ $ contrail-compute-setup --help
 Following modes of contrail vrouter provisioning are supported.
 
 * Kernel mode
-* dpdk mode
+* DPDK mode
+* SRIOV mode
 
 ###  kernel mode
 Commandline with mandatory argument to provision vrouter in kernel mode follows,
@@ -46,8 +47,8 @@ The  script does the following,
 * Enable agent services
 * Create virtual-router object for the compute in api-server (Optional based on the `--register` flag)
 
-### dpdk mode
-Commandline with mandatory argument to provision vrouter in dpdk mode follows,
+### DPDK mode
+Commandline with mandatory argument to provision vrouter in DPDK mode follows,
 
 ```sh
 $ contrail-compute-setup --self_ip 5.5.5.1\
@@ -64,7 +65,7 @@ $ contrail-compute-setup --self_ip 5.5.5.1\
                          --dpdk coremask=0x3,huge_pages=50,uio_driver=uio_pci_generic
 ```
 
-* The dpdk argument takes the following
+* The DPDK argument takes the following
     * `coremask` - Forwarding cores for vrouter
     * `huge_pages` - The percentage of memory that needs to be reserved for hugepages
     * `uio_driver` - This is optional and can take values of `uio_pci_generic`/`igb_uio`/`vfio-pci`. Default is `igb_uio`
@@ -72,6 +73,29 @@ $ contrail-compute-setup --self_ip 5.5.5.1\
     * Configures hugepages by adding an entry `vm.nr_hugepages` in /etc/sysctl.conf
     * Mounts the hugetlbfs in /hugepages
     * Configures the maximum number of memory map pages for qemu using `vm.max_map_count`
+
+### SRIOV mode
+Commandline with mandatory argument to provision vrouter in SRIOV mode follows,
+
+```sh
+$ contrail-compute-setup --self_ip 5.5.5.1\
+                         --hypervisor libvirt\
+                         --cfgm_ip 2.2.2.1\
+                         --collectors 3.3.3.1 3.3.3.2 3.3.3.3\
+                         --control-nodes 4.4.4.1 4.4.4.2 4.4.4.3\
+                         --keystone_ip 1.1.1.1\
+                         --keystone_auth_protocol http\
+                         --keystone_auth_port 35357\
+                         --keystone_admin_user admin\
+                         --keystone_admin_password contrail123\
+                         --keystone_admin_tenant_name admin\
+                         --sriov "p6p1:7,p6p2:5"
+```
+
+* The SRIOV argument takes the following
+    * Interface where the VF's needs to be created
+    * Number of VF's needed for that interface
+* SRIOV argument can work with DPDK argument also
 
 ### Filing Bugs
 Use http://bugs.launchpad.net/juniperopenstack
