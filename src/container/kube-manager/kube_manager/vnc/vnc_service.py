@@ -17,10 +17,11 @@ from vnc_common import VncCommon
 
 class VncService(VncCommon):
 
-    def __init__(self):
+    def __init__(self, ingress_mgr):
         self._k8s_event_type = 'Service'
         super(VncService,self).__init__(self._k8s_event_type)
         self._name = type(self).__name__
+        self._ingress_mgr = ingress_mgr
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
         self._args = vnc_kube_config.args()
@@ -384,8 +385,10 @@ class VncService(VncCommon):
     def vnc_service_add(self, service_id, service_name,
                         service_namespace, service_ip, selectors, ports,
                         service_type, externalIp, loadBalancerIp):
+        ingress_update = False
         lb = LoadbalancerKM.get(service_id)
         if not lb:
+            ingress_update = True
             self._check_service_uuid_change(service_id, service_name,
                                             service_namespace, ports)
 
@@ -402,6 +405,10 @@ class VncService(VncCommon):
 
         self._update_service_public_ip(service_id, service_name,
                         service_namespace, service_type, externalIp, loadBalancerIp)
+
+        if ingress_update:
+            self._ingress_mgr.update_ingress_backend(
+                service_namespace, service_name, 'ADD')
 
 
     def _vnc_delete_pool(self, pool_id):
@@ -461,6 +468,8 @@ class VncService(VncCommon):
         if service_name == self._kubernetes_service_name:
             self._delete_link_local_service(service_name, service_namespace,
                 ports)
+        self._ingress_mgr.update_ingress_backend(
+            service_namespace, service_name, 'DELETE')
 
     def _create_service_event(self, event_type, service_id, lb):
         event = {}

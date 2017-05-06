@@ -451,6 +451,7 @@ class IngressKM(KubeDBBase):
         self.name = None
         self.namespace = None
         self.labels = {}
+        self.spec = {}
 
         # Spec.
         self.rules = []
@@ -476,6 +477,7 @@ class IngressKM(KubeDBBase):
     def _update_spec(self, spec):
         if spec is None:
             return
+        self.spec = spec
         self.rules = spec.get('rules', {})
         self.default_backend = spec.get('backend', {})
 
