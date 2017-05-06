@@ -5,7 +5,6 @@
 import sys
 if 'threading' in sys.modules:
     del sys.modules['threading']
-from opserver.opserver_util import OpServerUtils
 import json
 from cliff.command import Command
 import xmltodict
@@ -83,6 +82,64 @@ class ContrailCli(Command):
         return url
     #end _prepare_query_url
 
+    def _json_loads_check(self, value):
+        try:
+            json_value = json.loads(value)
+        except:
+            return False, None
+        else:
+            return True, json_value
+    # end _json_loads_check
+
+    def _messages_dict_remove_keys(self, messages_dict, key_pattern):
+        for key, value in messages_dict.items():
+            if key_pattern in key:
+                del messages_dict[key]
+            if isinstance(value, list):
+                for elem in value:
+                    if isinstance(elem, dict):
+                        self._messages_dict_remove_keys(
+                            elem, key_pattern)
+            if isinstance(value, dict):
+                self._messages_dict_remove_keys(value, key_pattern)
+    # end _messages_dict_remove_keys
+
+    def _messages_dict_flatten_key(self, messages_dict, key_match):
+        for key, value in messages_dict.items():
+            if isinstance(value, dict):
+                if key_match in value:
+                    messages_dict[key] = value[key_match]
+                else:
+                    self._messages_dict_flatten_key(value, key_match)
+            if isinstance(value, list):
+                for elem in value:
+                    if isinstance(elem, dict):
+                        self._messages_dict_flatten_key(elem,
+                            key_match)
+    #end _messages_dict_flatten_key
+
+    def _messages_dict_eval(self, messages_dict):
+        for key, value in messages_dict.iteritems():
+            if isinstance(value, basestring):
+                # try json.loads
+                success, json_value = self._json_loads_check(value)
+                if success:
+                    messages_dict[key] = json_value
+                    continue
+            if isinstance(value, dict):
+                self._messages_dict_eval(value)
+            if isinstance(value, list):
+                for elem in value:
+                    if isinstance(elem, dict):
+                        self._messages_dict_eval(elem)
+    # end _messages_dict_eval
+
+    def messages_dict_scrub(self, messages_dict):
+        self._messages_dict_remove_keys(messages_dict, '@')
+        self._messages_dict_flatten_key(messages_dict, '#text')
+        self._messages_dict_eval(messages_dict)
+    # end messages_dict_scrub
+
     def take_action(self, parsed_args):
         cmd_name = self.cmd_name
         for command in self.cmd_list:
@@ -91,5 +148,5 @@ class ContrailCli(Command):
                 result = self.web_invoke(url)
                 if result:
                     output = xmltodict.parse(result)
-                    OpServerUtils.messages_dict_scrub(output)
+                    self.messages_dict_scrub(output)
                     print json.dumps(output, indent=4)
