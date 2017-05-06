@@ -24,6 +24,7 @@ import ast
 import re
 import logging
 from functools import partial
+from gevent.lock import Semaphore
 try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
     from pysandesh.connection_info import ConnectionState
@@ -81,7 +82,6 @@ class AnalyticsDiscovery(gevent.Greenlet):
             self._logger.error(msg)
 
         self._conn_state = new_conn_state
-        #import pdb; pdb.set_trace()
     # end _sandesh_connection_info_update
 
     def _zk_listen(self, state):
@@ -131,6 +131,7 @@ class AnalyticsDiscovery(gevent.Greenlet):
         self._sandesh_connection_info_update(status='INIT', message='')
         self._zk = KazooClient(hosts=zkservers)
         self._pubinfo = None
+        self._publock = Semaphore()
         self._watchers = watchers
         self._wchildren = {}
         self._pendingcb = set()
@@ -140,8 +141,13 @@ class AnalyticsDiscovery(gevent.Greenlet):
         self._freq = freq
 
     def publish(self, pubinfo):
+
+        # This function can be called concurrently by the main AlarmDiscovery
+        # processing loop as well as by clients.
+        # It is NOT re-entrant
+        self._publock.acquire()
+
         self._pubinfo = pubinfo
-        #import pdb; pdb.set_trace()
         if self._conn_state == ConnectionStatus.UP:
             try:
                 self._logger.error("ensure %s" % (self._basepath + "/" + self._svc_name))
@@ -175,6 +181,7 @@ class AnalyticsDiscovery(gevent.Greenlet):
                 self._reconnect = True
         else:
             self._logger.error("Analytics Discovery cannot publish while down")
+        self._publock.release()
 
     def _run(self):
         while True:
