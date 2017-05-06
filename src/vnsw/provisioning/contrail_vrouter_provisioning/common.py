@@ -435,7 +435,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                     iface = self.get_physical_interface_of_vlan(self.dev)
                 local("ls /opt/contrail/bin/dpdk_nic_bind.py", warn_only=False)
                 cmd = "sudo /opt/contrail/bin/dpdk_nic_bind.py --status | "
-                cmd += "sudo grep -w %s | cut -d' ' -f 1" % iface
+                cmd += "sudo grep -w %s | cut -d' ' -f 1" % iface.strip()
                 pci_dev = local(cmd, capture=True, warn_only=False)
                 # If there is no PCI address, the device is a bond.
                 # Bond interface in DPDK has zero PCI address.
