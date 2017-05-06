@@ -83,6 +83,14 @@ struct UveVMInterfaceAgent {
    23: optional bool is_health_check_active;
    24: optional list<VmHealthCheckInstance> health_check_instance_list;
    25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
+   /** UUID of VMI's VN */
+   37: optional string vn_uuid;
+   /** Transmit VLAN tag for packets over this VMI */
+   38: optional u16 tx_vlan;
+   /** Recieve VLAN tag for packets over this VMI */
+   39: optional u16 rx_vlan;
+   /** Parent interface name */
+   40: optional string parent_interface;
 }
 
 /**

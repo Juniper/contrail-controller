@@ -30,25 +30,6 @@ void VmUveTable::UpdateBitmap(const VmEntry* vm, uint8_t proto,
     }
 }
 
-VmUveEntry *VmUveTable::InterfaceIdToVmUveEntry(uint32_t id) {
-    Interface *intf = InterfaceTable::GetInstance()->FindInterface(id);
-    if (!intf || intf->type() != Interface::VM_INTERFACE) {
-        return NULL;
-    }
-    VmInterface *vm_intf = static_cast<VmInterface *>(intf);
-    /* Ignore if Vm interface does not have a VM */
-    if (vm_intf->vm() == NULL) {
-        return NULL;
-    }
-
-    UveVmMap::iterator it = uve_vm_map_.find(vm_intf->vm()->GetUuid());
-    if (it == uve_vm_map_.end()) {
-        return NULL;
-    }
-
-    return static_cast<VmUveEntry *>(it->second.get());
-}
-
 VmUveTableBase::VmUveEntryPtr VmUveTable::Allocate(const VmEntry *vm) {
     VmUveEntryPtr uve(new VmUveEntry(agent_, vm->GetCfgName()));
     return uve;

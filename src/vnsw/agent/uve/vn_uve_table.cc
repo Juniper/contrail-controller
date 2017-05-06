@@ -109,21 +109,6 @@ void VnUveTable::UpdateInterVnStats(const string &src, const string &dst,
     entry->UpdateInterVnStats(dst, bytes, pkts, outgoing);
 }
 
-void VnUveTable::RemoveInterVnStats(const string &vn) {
-    UveVnMap::iterator it = uve_vn_map_.find(vn);
-    if (it == uve_vn_map_.end()) {
-        return;
-    }
-
-    VnUveEntry * entry = static_cast<VnUveEntry *>(it->second.get());
-    entry->ClearInterVnStats();
-}
-
-void VnUveTable::Delete(const VnEntry *vn) {
-    RemoveInterVnStats(vn->GetName());
-    VnUveTableBase::Delete(vn);
-}
-
 void VnUveTable::IncrVnAceStats(const std::string &vn, const std::string &u) {
     if (vn.empty() || u.empty()) {
         return;
