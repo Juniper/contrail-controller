@@ -43,9 +43,7 @@ protected:
 private:
     virtual VnUveEntryPtr Allocate(const VnEntry *vn);
     virtual VnUveEntryPtr Allocate();
-    virtual void Delete(const VnEntry *vn);
     bool SendUnresolvedVnMsg(const std::string &vn, UveVirtualNetworkAgent &u);
-    void RemoveInterVnStats(const std::string &vn);
 
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;

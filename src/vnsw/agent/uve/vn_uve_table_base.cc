@@ -153,10 +153,6 @@ void VnUveTableBase::Delete(const std::string &name) {
     }
 }
 
-void VnUveTableBase::Delete(const VnEntry *vn) {
-    Delete(vn->GetName());
-}
-
 VnUveEntryBase* VnUveTableBase::Add(const VnEntry *vn) {
     VnUveEntryPtr uve = Allocate(vn);
     pair<UveVnMap::iterator, bool> ret;
