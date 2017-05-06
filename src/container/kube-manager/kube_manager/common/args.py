@@ -57,7 +57,7 @@ def parse_args(args_str=None):
         'cassandra_password': None,
         'cassandra_server_list': '',
         'cluster_id': '',
-        'vnc_endpoint_ip': 'localhost',
+        'vnc_endpoint_ip': '[127.0.0.1]',
         'vnc_endpoint_port': ApiServerPort,
         'admin_user' : '',
         'admin_password' : '',
@@ -85,7 +85,10 @@ def parse_args(args_str=None):
     sandesh_opts = SandeshConfig.get_default_options()
 
     auth_opts = {
-        'auth_token_url': None
+        'auth_token_url': None,
+        'auth_user': 'admin',
+        'auth_password': 'admin',
+        'auth_tenant': 'admin',
     }
 
     config = ConfigParser.SafeConfigParser()

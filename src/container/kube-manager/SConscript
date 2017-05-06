@@ -55,6 +55,7 @@ local_sources = [
     'kube_manager/vnc/vnc_ingress.py',
     'kube_manager/vnc/loadbalancer.py',
     'kube_manager/vnc/link_local_manager.py',
+    'kube_manager/vnc/flow_aging_manager.py',
     'kube_manager/tests/__init__.py',
     'kube_manager/tests/vnc/__init__.py',
     'kube_manager/tests/vnc/test_vnc_namespace.py',

@@ -25,6 +25,7 @@ import label_cache
 from reaction_map import REACTION_MAP
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
+import flow_aging_manager
 
 class VncKubernetes(VncCommon):
 
@@ -40,6 +41,19 @@ class VncKubernetes(VncCommon):
 
         # init vnc connection
         self.vnc_lib = self._vnc_connect()
+
+        # HACK ALERT.
+        # Till we have an alternate means to get config objects,  we will
+        # direcly connect to cassandra. Such a persistant connection is
+        # discouraged, but is the only option we have for now.
+        #
+        # Disable flow timeout on this connection, so the flow persists.
+        #
+        if self.args.nested_mode is '1':
+            for cassandra_server in self.args.cassandra_server_list:
+                cassandra_port = cassandra_server.split(':')[-1]
+                flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
+                    "tcp", cassandra_port, 1800)
 
         # init access to db
         self._db = db.KubeNetworkManagerDB(self.args, self.logger)
@@ -95,8 +109,8 @@ class VncKubernetes(VncCommon):
         connected = False
         while not connected:
             try:
-                vnc_lib = VncApi(self.args.admin_user,
-                    self.args.admin_password, self.args.admin_tenant,
+                vnc_lib = VncApi(self.args.auth_user,
+                    self.args.auth_password, self.args.auth_tenant,
                     self.args.vnc_endpoint_ip, self.args.vnc_endpoint_port,
                     auth_token_url=self.args.auth_token_url)
                 connected = True

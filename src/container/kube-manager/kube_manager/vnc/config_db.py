@@ -188,7 +188,7 @@ class DBBaseKM(DBBase):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        if not obj.ann_fq_name is None:
+        if obj.ann_fq_name:
             del cls._ann_fq_name_to_uuid[tuple(obj.ann_fq_name)]
         del cls._fq_name_to_uuid[tuple(obj.fq_name)]
 
