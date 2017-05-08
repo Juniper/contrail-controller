@@ -960,13 +960,13 @@ bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
             FindActiveEntry(composite_nh_req_.key.get()));
     assert(nh);
     ret = MulticastRoute::CopyPathParameters(agent,
-                                             path,
-                                             vn_name_,
-                                             false,
-                                             vxlan_id_,
-                                             label_,
-                                             tunnel_type_,
-                                             nh, rt);
+                   path,
+                   vn_name_,
+                   false,
+                   vxlan_id_,
+                   ((label_ == MplsTable::kInvalidLabel) ? path->label() : label_),
+                   tunnel_type_,
+                   nh, rt);
     return ret;
 }
 
