@@ -79,12 +79,15 @@ void ResourceTable::FlushStale() {
 
 // Allocate the resource and mark the key usable
 ResourceTable::DataPtr ResourceTable::Allocate(KeyPtr key) {
-    ResourceManager::DataPtr data = FindKeyPtr(key);
-    if (data.get() == NULL) {
+    KeyDataMapIter it = key_data_map_.find(key);
+    ResourceManager::DataPtr data = DataPtr();
+    if (it == key_data_map_.end()) {
         data = AllocateData(key);
         InsertKey(key, data);
+        key->reset_dirty();
+    } else {
+        data = (*it).second;
+        (*it).first->reset_dirty();
     }
-    key->reset_dirty();
     return data;
 }
-
