@@ -10,7 +10,7 @@ template = string.Template("""
 # IP address to be used to connect to control-node. Maximum of 2 IP addresses
 # (separated by a space) can be provided. If no IP is configured then the
 # value provided by discovery service will be used. (optional)
-# server=10.0.0.1 10.0.0.2
+servers=$__contrail_control_servers__
 
 [DEFAULT]
 agent_name=$__contrail_agent_name__
@@ -19,7 +19,7 @@ agent_name=$__contrail_agent_name__
 # IP address and port to be used to connect to collector. If these are not
 # configured, value provided by discovery service will be used. Multiple
 # IP:port strings separated by space can be provided
-# collectors=127.0.0.1:8086
+collectors=$__contrail_collector_servers__
 
 # Enable/disable debug logging. Possible values are 0 (disable) and 1 (enable)
 # debug=0
@@ -63,13 +63,6 @@ log_file=/var/log/contrail/contrail-tor-agent-$__contrail_tor_id__.log
 # http_server_port=8085
 http_server_port=$__contrail_http_server_port__
 
-[DISCOVERY]
-#If DEFAULT.collectors and/or CONTROL-NODE and/or DNS is not specified this
-#section is mandatory. Else this section is optional
-
-# IP address of discovery server
-server=$__contrail_discovery_ip__
-
 # Number of control-nodes info to be provided by Discovery service. Possible
 # values are 1 and 2
 # max_control_nodes=1
@@ -78,7 +71,7 @@ server=$__contrail_discovery_ip__
 # IP address to be used to connect to dns-node. Maximum of 2 IP addresses
 # (separated by a space) can be provided. If no IP is configured then the
 # value provided by discovery service will be used. (Optional)
-# server=10.0.0.1 10.0.0.2
+servers=$__contrail_dns_servers__
 
 [NETWORKS]
 # control-channel IP address used by WEB-UI to connect to vnswad to fetch
