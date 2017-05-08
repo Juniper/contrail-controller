@@ -26,8 +26,6 @@
 #include <base/logging.h>
 #include <base/misc_utils.h>
 #include <base/options_util.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 
 #include <cmn/agent_cmn.h>

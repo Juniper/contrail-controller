@@ -11,8 +11,6 @@
 #include "viz_message.h"
 #include "base/queue_task.h"
 
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_uve_types.h>
 #include <sandesh/sandesh_state_machine.h>
 #include "collector_uve_types.h"
 #include "syslog_collector.h"

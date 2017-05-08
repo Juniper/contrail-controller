@@ -4,8 +4,6 @@
 
 #include <base/task.h>
 #include <base/task_monitor.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include <base/sandesh/task_types.h>
 #include <base/task_tbbkeepawake.h>
 

@@ -16,8 +16,6 @@
 #include <base/logging.h>
 #include <io/event_manager.h>
 #include <base/connection_info.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_message_builder.h>
 #include <sandesh/protocol/TXMLProtocol.h>
 #include <database/cassandra/cql/cql_if.h>

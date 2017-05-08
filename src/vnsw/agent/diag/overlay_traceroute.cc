@@ -5,8 +5,6 @@
 #include <stdint.h>
 #include <netinet/udp.h>
 #include "vr_defs.h"
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
 #include "oper/route_common.h"
 #include "pkt/proto.h"

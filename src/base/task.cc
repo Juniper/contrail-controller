@@ -17,8 +17,6 @@
 #include "base/task_tbbkeepawake.h"
 #include "base/task_monitor.h"
 
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include <base/sandesh/task_types.h>
 
 #if defined(__FreeBSD__)

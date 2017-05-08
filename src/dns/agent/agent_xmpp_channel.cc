@@ -17,8 +17,6 @@
 #include "bind/bind_resolver.h"
 #include "bind/named_config.h"
 #include "bind/xmpp_dns_agent.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
 #include "cmn/dns_types.h"
 

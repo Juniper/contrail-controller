@@ -5,8 +5,6 @@
 #include "vizd_table_desc.h"
 
 #include <boost/assign/list_of.hpp>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "viz_constants.h"
 #include <database/gendb_constants.h>
 

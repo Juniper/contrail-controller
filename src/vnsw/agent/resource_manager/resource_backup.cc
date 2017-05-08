@@ -6,8 +6,6 @@
 #include <cmn/agent.h>
 #include <cmn/event_notifier.h>
 #include <base/timer.h>
-#include <sandesh/sandesh_types.h>
-#include <sandesh/sandesh.h>
 #include "resource_manager/resource_backup.h"
 #include "resource_manager/resource_table.h"
 #include "resource_manager/sandesh_map.h"
