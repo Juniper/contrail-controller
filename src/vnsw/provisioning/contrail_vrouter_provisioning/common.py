@@ -8,6 +8,7 @@ import socket
 import netaddr
 import logging
 import netifaces
+import tempfile
 
 from contrail_vrouter_provisioning import local
 
@@ -364,12 +365,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         vgw_intf_list = self._args.vgw_intf_list
         vgw_gateway_routes = self._args.vgw_gateway_routes
         gateway_server_list = self._args.gateway_server_list
-        qos_logical_queue = self._args.qos_logical_queue
-        qos_queue_id_list = self._args.qos_queue_id
-        default_hw_queue_qos = self._args.default_hw_queue_qos
-        priority_id_list = self._args.priority_id
-        priority_scheduling = self._args.priority_scheduling
-        priority_bandwidth = self._args.priority_bandwidth
 
         self.mac = None
         if self.dev and self.dev != 'vhost0':
@@ -532,36 +527,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                                                  'ip_blocks': ip_blocks,
                                                  'routes': routes}
 
-            # QOS configs
-            if qos_queue_id_list is not None:
-                qos_str = ""
-                qos_str += "[QOS]\n"
-                num_sections = len(qos_logical_queue)
-                if(len(qos_logical_queue) == len(qos_queue_id_list) and
-                        default_hw_queue_qos):
-                    num_sections = num_sections - 1
-                for i in range(num_sections):
-                    configs['QUEUE-%s' % qos_queue_id_list[i]] = {
-                        'logical_queue':
-                            '[%s]' % qos_logical_queue[i].replace(",", ", ")}
-
-                if (default_hw_queue_qos):
-                    if(len(qos_logical_queue) == len(qos_queue_id_list)):
-                        logical_queue = '[%s]' %\
-                                qos_logical_queue[-1].replace(",", ", ")
-                    else:
-                        logical_queue = '[ ]'
-
-                    configs['QUEUE-%s' % qos_queue_id_list[-1]] = {
-                        'default_hw_queue': 'true',
-                        'logical_queue': logical_queue}
-
-            if priority_id_list is not None:
-                for i in range(len(priority_id_list)):
-                    configs['PG-%s' % priority_id_list[i]] = {
-                        'scheduling': priority_scheduling[i],
-                        'bandwidth': priority_bandwidth[i]}
-
             if self._args.metadata_secret:
                 configs['METADATA'] = {
                     'metadata_proxy_secret': self._args.metadata_secret}
@@ -715,11 +680,82 @@ SUBCHANNELS=1,2,3
         cmd = "sudo python /opt/contrail/utils/provision_vrouter.py "
         local(cmd + prov_args)
 
+    def add_qos_config(self):
+        qos_logical_queue = self._args.qos_logical_queue
+        qos_queue_id_list = self._args.qos_queue_id
+        default_hw_queue_qos = self._args.default_hw_queue_qos
+        priority_id_list = self._args.priority_id
+        priority_scheduling = self._args.priority_scheduling
+        priority_bandwidth = self._args.priority_bandwidth
+        agent_conf = "/etc/contrail/contrail-vrouter-agent.conf"
+        conf_file = "contrail-vrouter-agent.conf"
+        configs = {}
+
+        if (qos_queue_id_list or priority_id_list):
+            # Set qos_enabled in agent_param
+            pattern = 'qos_enabled='
+            line = 'qos_enabled=true'
+            insert_line_to_file(pattern=pattern, line=line,
+                                file_name='/etc/contrail/agent_param')
+
+        # QOS configs
+        if qos_queue_id_list is not None:
+            # Clean existing config
+            ltemp_dir = tempfile.mkdtemp()
+            local("cp %s %s/" %(agent_conf, ltemp_dir))
+            local("sed -i -e '/^\[QUEUE-/d' -e '/^logical_queue/d' %s/%s" % (ltemp_dir, conf_file))
+            local("sed -i -e '/^\# Logical nic queues/d' -e '/^# This is the default/d' -e '/^default_hw_queue/d' %s/%s" % (ltemp_dir, conf_file))
+            local("cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
+            local('rm -rf %s' % (ltemp_dir))
+
+            local('sudo contrail-config --set /etc/contrail/contrail-vrouter-agent.conf  QOS')
+            num_sections = len(qos_logical_queue)
+            if(len(qos_logical_queue) == len(qos_queue_id_list) and
+                    default_hw_queue_qos):
+                num_sections = num_sections - 1
+            for i in range(num_sections):
+                configs['QUEUE-%s' % qos_queue_id_list[i]] = {
+                    'logical_queue':
+                        '[%s]' % qos_logical_queue[i].replace(",", ", ")}
+
+            if (default_hw_queue_qos):
+                if(len(qos_logical_queue) == len(qos_queue_id_list)):
+                    logical_queue = '[%s]' %\
+                            qos_logical_queue[-1].replace(",", ", ")
+                else:
+                    logical_queue = '[ ]'
+
+                configs['QUEUE-%s' % qos_queue_id_list[-1]] = {
+                    'default_hw_queue': 'true',
+                    'logical_queue': logical_queue}
+
+        if priority_id_list is not None:
+            # Clean existing config
+            ltemp_dir = tempfile.mkdtemp()
+            local("sudo cp %s %s/" %(agent_conf, ltemp_dir))
+            local("sed -i -e '/^\[QOS-NIANTIC\]/d' -e '/^\[PG-/d' -e '/^scheduling/d' -e '/^bandwidth/d' %s/%s" % (ltemp_dir, conf_file))
+            local("sed -i -e '/^# Scheduling algorithm for/d' -e '/^# Total hardware queue bandwidth/d' %s/%s" % (ltemp_dir, conf_file))
+            local("sudo cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
+            local('rm -rf %s' % (ltemp_dir))
+
+            local('sudo contrail-config --set /etc/contrail/contrail-vrouter-agent.conf  QOS-NIANTIC')
+            for i in range(len(priority_id_list)):
+                configs['PG-%s' % priority_id_list[i]] = {
+                    'scheduling': priority_scheduling[i],
+                    'bandwidth': priority_bandwidth[i]}
+
+        for section, key_vals in configs.items():
+            for key, val in key_vals.items():
+                self.set_config(
+                        '/etc/contrail/contrail-vrouter-agent.conf',
+                        section, key, val)
+
     def setup(self):
         self.disable_selinux()
         self.disable_iptables()
         self.setup_coredump()
         self.fixup_config_files()
+        self.add_qos_config()
         self.run_services()
         if self._args.register:
             self.add_vnc_config()
