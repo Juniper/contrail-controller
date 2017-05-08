@@ -295,6 +295,7 @@ uint32_t MplsTable::CreateRouteLabel(uint32_t label, const NextHopKey *nh_key,
         label = ((static_cast<IndexResourceData *>(agent()->resource_manager()->
                                       Allocate(key).get()))->index());
         assert(label != MplsTable::kInvalidLabel);
+        assert(FindMplsLabel(label) == NULL);
     }
 
     DBRequest req;

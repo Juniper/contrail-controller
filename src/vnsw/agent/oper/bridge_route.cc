@@ -567,14 +567,15 @@ void BridgeRouteEntry::HandleMulticastLabel(const Agent *agent,
         else if ((path->peer() == agent->local_vm_peer()) ||
                  (path->peer() == agent->local_peer())) {
             if (local_peer_path == NULL &&
-                local_vm_peer_path == NULL)
+                local_vm_peer_path == NULL) {
                 delete_label = true;
+                //Reset evpn label to invalid as it is freed
+                if (*evpn_label == path->label()) {
+                    *evpn_label = MplsTable::kInvalidLabel;
+                }
+            }
         }
         if (delete_label) {
-            //Reset evpn label to invalid as it is freed
-            if (*evpn_label == path->label()) {
-                *evpn_label = MplsTable::kInvalidLabel;
-            }
             agent->mpls_table()->FreeLabel(path->label());
             //Reset path label to invalid as it is freed
             path->set_label(MplsTable::kInvalidLabel);
