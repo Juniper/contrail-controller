@@ -964,7 +964,7 @@ bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                              vn_name_,
                                              false,
                                              vxlan_id_,
-                                             label_,
+                                             path->label(),
                                              tunnel_type_,
                                              nh, rt);
     return ret;
