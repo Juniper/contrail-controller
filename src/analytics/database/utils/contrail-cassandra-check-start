@@ -1,0 +1,59 @@
+#! /bin/sh
+# Description:       Determines if cassandra can be started, returns 0 if
+#                    cassandra can be started, non-zero otherwise:
+#                    Checks the time since last cassandra shutdown:
+#                    1. If greater than gc_grace_seconds, then cassandra
+#                       cannot be started
+#                    2. If less than gc_grace_seconds, then cassandra can
+#                       be started
+# Author: Megh Bhatt <meghb@juniper.net>
+
+CLUSTER_STATUS_UP_FILE=/var/log/cassandra/status-up
+DEFAULT_GC_GRACE_SECONDS=864000
+
+#
+# Function that determines secs since last stop of cassandra
+#
+seconds_since_last_stop()
+{
+    if [ -f $CLUSTER_STATUS_UP_FILE ]; then
+        local time_last_up=`stat -c %Y $CLUSTER_STATUS_UP_FILE`
+        local now=`date +%s`
+        SECONDS_SINCE_LAST_STOP=$((now - time_last_up))
+    else
+        SECONDS_SINCE_LAST_STOP=0
+    fi
+}
+
+#
+# Function that determines the maximum allowed down seconds. By default
+# this is 90% of DEFAULT_GC_GRACE_SECONDS
+#
+max_allowed_down_seconds()
+{
+    MAX_ALLOWED_DOWN_SECONDS=$((DEFAULT_GC_GRACE_SECONDS * 9 / 10))
+}
+
+#
+# Function that determines if cassandra can be started
+#
+do_start()
+{
+    # Return
+    #   0 if daemon can be started, non-zero otherwise
+    max_allowed_down_seconds
+    seconds_since_last_stop
+
+    if [ "$SECONDS_SINCE_LAST_STOP" -lt "$MAX_ALLOWED_DOWN_SECONDS" ]; then
+        return 0
+    else
+        echo "Cassandra has been down for at least $MAX_ALLOWED_DOWN_SECONDS seconds, not starting"
+        return -1
+    fi
+}
+
+do_start
+
+:
+
+# vi:ai sw=4 ts=4 tw=0 et
