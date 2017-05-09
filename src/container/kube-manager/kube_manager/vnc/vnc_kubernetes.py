@@ -92,15 +92,15 @@ class VncKubernetes(VncCommon):
         self.namespace_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_namespace.VncNamespace',
             self.network_policy_mgr)
+        self.ingress_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_ingress.VncIngress')
         self.service_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_service.VncService')
+            'kube_manager.vnc.vnc_service.VncService', self.ingress_mgr)
         self.pod_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_pod.VncPod', self.service_mgr,
             self.network_policy_mgr)
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints')
-        self.ingress_mgr = importutils.import_object(
-            'kube_manager.vnc.vnc_ingress.VncIngress')
 
         VncKubernetes._vnc_kubernetes = self
 
