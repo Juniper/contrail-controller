@@ -398,7 +398,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetTaskInstance()),
-          buffer_len_(0),
+          buffer_capacity_(GetBufferCapacity()),
           session_(NULL),
           keepalive_timer_(TimerManager::CreateTimer(*server->ioservice(),
                      "BGP keepalive timer",
@@ -429,6 +429,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           total_flap_count_(0),
           last_flap_(0),
           inuse_authkey_type_(AuthenticationData::NIL) {
+    buffer_.reserve(buffer_capacity_);
     close_manager_.reset(
         BgpObjectFactory::Create<PeerCloseManager>(peer_close_.get()));
     ostringstream oss1;
@@ -480,7 +481,8 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     total_path_count_ = 0;
     primary_path_count_ = 0;
 
-    if (resolve_paths_) {
+    // Check rtinstance_ to accommodate unit tests.
+    if (resolve_paths_ && rtinstance_) {
         rtinstance_->GetTable(Address::INET)->LocatePathResolver();
         rtinstance_->GetTable(Address::INET6)->LocatePathResolver();
     }
@@ -535,6 +537,26 @@ BgpPeer::~BgpPeer() {
 void BgpPeer::Initialize() {
     if (!admin_down_)
         state_machine_->Initialize();
+}
+
+size_t BgpPeer::GetBufferCapacity() const {
+    // For testing only - configure through environment variable.
+    char *buffer_capacity_str = getenv("BGP_PEER_BUFFER_SIZE");
+    if (buffer_capacity_str) {
+        size_t env_buffer_capacity = strtoul(buffer_capacity_str, NULL, 0);
+        if (env_buffer_capacity < kMinBufferCapacity)
+            env_buffer_capacity = kMinBufferCapacity;
+        if (env_buffer_capacity > kMaxBufferCapacity)
+            env_buffer_capacity = kMaxBufferCapacity;
+        return env_buffer_capacity;
+    }
+
+    // Return internal default based on peer router-type.
+    if (router_type_ == "bgpaas-client") {
+        return kMinBufferCapacity;
+    } else {
+        return kMaxBufferCapacity;
+    }
 }
 
 void BgpPeer::NotifyEstablished(bool established) {
@@ -1229,36 +1251,35 @@ static bool SkipUpdateSend() {
 //
 // Accumulate the message in the update buffer.
 // Flush the existing buffer if the message can't fit.
-// Note that FlushUpdateUnlocked resets buffer_len_ to 0.
+// Note that FlushUpdateUnlocked clears the buffer.
 //
 bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize,
     const string *msg_str) {
     tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     bool send_ready = true;
-    if (buffer_len_ + msgsize > kBufferSize) {
+    if (buffer_.size() + msgsize > buffer_capacity_) {
         send_ready = FlushUpdateUnlocked();
-        assert(buffer_len_ == 0);
+        assert(buffer_.empty());
     }
-    copy(msg, msg + msgsize, buffer_ + buffer_len_);
-    buffer_len_ += msgsize;
+    buffer_.insert(buffer_.end(), msg, msg + msgsize);
     inc_tx_update();
     return send_ready;
 }
 
 bool BgpPeer::FlushUpdateUnlocked() {
     // Bail if the update buffer is empty.
-    if (buffer_len_ == 0)
+    if (buffer_.empty())
         return true;
 
     // Bail if there's no session for the peer anymore.
     if (!session_) {
-        buffer_len_ = 0;
+        buffer_.clear();
         return true;
     }
 
     if (!SkipUpdateSend()) {
-        send_ready_ = session_->Send(buffer_, buffer_len_, NULL);
-        buffer_len_ = 0;
+        send_ready_ = session_->Send(buffer_.data(), buffer_.size(), NULL);
+        buffer_.clear();
         if (send_ready_) {
             StartKeepaliveTimerUnlocked();
         } else {
