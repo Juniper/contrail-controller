@@ -33,6 +33,7 @@ ControllerPeerPath::ControllerPeerPath(const Peer *peer) :
 bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
                                         const AgentRoute *rt) {
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
+    bool ret = false;
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
     bool comp_nh_policy = comp_key->GetPolicy();
@@ -42,7 +43,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
     if (!comp_nh_policy) {
         comp_key->SetPolicy(new_comp_nh_policy);
     }
-    return InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
+    ret |= InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
                                                  label_, local_ecmp_nh_,
                                                  vrf_name_, sg_list_,
                                                  CommunityList(),
@@ -50,6 +51,7 @@ bool ControllerEcmpRoute::AddChangePath(Agent *agent, AgentPath *path,
                                                  tunnel_bmap_,
                                                  ecmp_load_balance_,
                                                  nh_req_, agent, path);
+    return ret;
 }
 
 ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(const Peer *peer,
