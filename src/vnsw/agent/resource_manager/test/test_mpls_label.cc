@@ -19,6 +19,29 @@ public:
     Agent *agent_;
 };
 
+//Every time allocate is called and if key is present in resource manager then
+//reset of dirty bit should happen for key in map.
+TEST_F(AgentDbEntry, dirty_bit_in_resource_key) {
+    ResourceManager::KeyPtr key(new TestMplsResourceKey(agent_->
+                                resource_manager(), "test"));
+    uint32_t label_l = ((static_cast<IndexResourceData *>(agent_->
+                                                          resource_manager()->
+                                      Allocate(key).get()))->index());
+    EXPECT_TRUE(key.get()->dirty() == false);
+    key.get()->set_dirty();
+    EXPECT_TRUE(key.get()->dirty() == true);
+    ResourceManager::KeyPtr key2(new TestMplsResourceKey(agent_->
+                                resource_manager(), "test"));
+    uint32_t label_l_2 = ((static_cast<IndexResourceData *>(agent_->
+                                                          resource_manager()->
+                                      Allocate(key2).get()))->index());
+    EXPECT_TRUE(label_l == label_l_2);
+    EXPECT_TRUE(key.get()->dirty() == false);
+
+    agent_->resource_manager()->Release(Resource::MPLS_INDEX, label_l);
+    client->WaitForIdle();
+}
+
 //Bug# 1666139
 TEST_F(AgentDbEntry, evpn_mcast_label_1666139) {
    struct PortInfo input[] = {
