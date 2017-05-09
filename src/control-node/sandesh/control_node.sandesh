@@ -39,6 +39,8 @@ struct BgpRouterState {
    14: optional string collector_ip;
    15: optional list<string> bgp_router_ip_list;
    16: optional list<string> core_files_list;
+   36: optional list<string> bgp_config_peer_list;
+   37: optional list<string> bgp_oper_peer_list;
    17: optional ifmap_server_show.IFMapPeerServerInfoUI ifmap_info;
    18: optional ifmap_server_show.IFMapServerInfoUI ifmap_server_info;
    34: optional ifmap_server_show.ConfigDBConnInfo db_conn_info;
