@@ -1127,9 +1127,9 @@ void StateMachine::Shutdown(int subcode) {
     Enqueue(fsm::EvStop(subcode));
 }
 
-void StateMachine::SetAdminState(bool down) {
+void StateMachine::SetAdminState(bool down, int subcode) {
     if (down) {
-        Enqueue(fsm::EvStop(BgpProto::Notification::AdminShutdown));
+        Enqueue(fsm::EvStop(subcode));
     } else {
         // Reset all previous state.
         reset_idle_hold_time();
@@ -1151,21 +1151,24 @@ void StateMachine::UpdateFlapCount() {
     }
 }
 
+void StateMachine::PeerClose(int code, int subcode) {
+    UpdateFlapCount();
+    peer_->Close(peer_->AttemptGRHelperMode(code, subcode));
+    set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
+    reset_hold_time();
+}
+
 template <typename Ev, int code>
 void StateMachine::OnIdle(const Ev &event) {
-    UpdateFlapCount();
-
-    // Release all resources.
-    SendNotificationAndClose(peer_->session(), code);
+    SendNotification(peer_->session(), code);
+    PeerClose(code, 0);
 }
 
 template <typename Ev>
 void StateMachine::OnIdleCease(const Ev &event) {
-    UpdateFlapCount();
-
-    // Release all resources.
-    SendNotificationAndClose(
-        peer_->session(), BgpProto::Notification::Cease, event.subcode);
+    SendNotification(peer_->session(), BgpProto::Notification::Cease,
+                     event.subcode);
+    PeerClose(BgpProto::Notification::Cease, event.subcode);
 }
 
 //
@@ -1174,19 +1177,16 @@ void StateMachine::OnIdleCease(const Ev &event) {
 //
 template <typename Ev, int code>
 void StateMachine::OnIdleError(const Ev &event) {
-    UpdateFlapCount();
-
-    // Release all resources.
-    SendNotificationAndClose(event.session, code, event.subcode, event.data);
+    SendNotification(event.session, code, event.subcode, event.data);
+    PeerClose(code, event.subcode);
 }
 
+// Close the peer. No need to send a notification as peer has already closed
+// this session by sending us a notification message.
 void StateMachine::OnIdleNotification(const fsm::EvBgpNotification &event) {
-    UpdateFlapCount();
-
-    // Release all resources.
-    SendNotificationAndClose(peer()->session(), 0);
+    PeerClose(event.msg->error, event.msg->subcode);
     set_last_notification_in(event.msg->error, event.msg->subcode,
-        event.Name());
+                             event.Name());
 }
 
 int StateMachine::GetConnectTime() const {
@@ -1348,8 +1348,8 @@ BgpSession *StateMachine::passive_session() {
     return passive_session_;
 }
 
-void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
-        int subcode, const std::string &data) {
+void StateMachine::SendNotification(BgpSession *session, int code, int subcode,
+                                    const std::string &data) {
     // Prefer the passive session if available since it's operational.
     if (!session)
         session = passive_session_;
@@ -1357,11 +1357,6 @@ void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
         session = active_session_;
     if (session && code != 0)
         peer_->SendNotification(session, code, subcode, data);
-
-    set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
-    reset_hold_time();
-    bool graceful = !code || peer_->AttemptGRHelperMode(code, subcode);
-    peer_->Close(graceful);
 }
 
 //

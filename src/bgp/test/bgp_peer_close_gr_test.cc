@@ -394,11 +394,6 @@ TEST_P(BgpPeerCloseGrTestParam, TestSetGRCapabilities) {
             expected = false;
         }
 
-        if (expected && !gr_info->time) {
-            mismatch = __LINE__;
-            expected = false;
-        }
-
         if (expected && !bgp_peer_close_test_->negotiated_families().empty() &&
                 bgp_peer_close_test_->PeerNegotiatedFamilies() !=
                     bgp_peer_close_test_->negotiated_families()) {
@@ -428,7 +423,10 @@ TEST_P(BgpPeerCloseGrTestParam, TestSetGRCapabilities) {
             }
         }
 
-        if (expected && bgp_peer_close_test_->IsInLlgrTimerWaitState()) {
+        // If there GR time is zero of if in LLGR timer state, check if LLGR
+        // should take into effect.
+        if (expected && (bgp_peer_close_test_->IsInLlgrTimerWaitState() ||
+                         !gr_info->time)) {
             if (!llgr_info  || !llgr_info->time || llgr_families.empty()) {
                 mismatch = __LINE__;
                 expected = false;
@@ -474,6 +472,7 @@ TEST_P(BgpPeerCloseGrTestParam, TestSetGRCapabilities) {
                 }
             }
         }
+
         EXPECT_EQ(expected, bgp_peer_close_test_->SetGRCapabilities(NULL));
         if (expected)
             EXPECT_EQ(0, mismatch);
