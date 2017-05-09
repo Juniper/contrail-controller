@@ -67,6 +67,7 @@ class ComputeArgsParser(object):
             'priority_id': None,
             'priority_scheduling': None,
             'priority_bandwidth': None,
+            'tsn_mode': None,
             'collectors': self.get_config(
                 'GLOBAL', 'analytics_list', ['127.0.0.1']),
             'control_nodes': self.get_config(
@@ -241,6 +242,7 @@ class ComputeArgsParser(object):
         parser.add_argument(
                 "--vrouter_module_params", help="vRouter module parameters.")
         parser.add_argument("--sriov", help="sriov configuration")
+        parser.add_argument("--tsn_mode", help="tsn mode ")
         parser.add_argument(
                 "--gateway_server_list", help="Compute's acting as gateway",
                 nargs='+', type=str)
