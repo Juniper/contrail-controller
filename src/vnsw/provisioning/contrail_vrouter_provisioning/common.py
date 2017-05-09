@@ -61,6 +61,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
     def fixup_config_files(self):
         self.add_dev_tun_in_cgroup_device_acl()
         self.fixup_contrail_vrouter_agent()
+        self.add_qos_config()
         self.fixup_contrail_vrouter_nodemgr()
         self.fixup_contrail_lbaas()
 
@@ -691,20 +692,12 @@ SUBCHANNELS=1,2,3
         conf_file = "contrail-vrouter-agent.conf"
         configs = {}
 
-        if (qos_queue_id_list or priority_id_list):
-            # Set qos_enabled in agent_param
-            pattern = 'qos_enabled='
-            line = 'qos_enabled=true'
-            insert_line_to_file(pattern=pattern, line=line,
-                                file_name='/etc/contrail/agent_param')
-
         # QOS configs
         if qos_queue_id_list is not None:
             # Clean existing config
             ltemp_dir = tempfile.mkdtemp()
             local("cp %s %s/" %(agent_conf, ltemp_dir))
-            local("sed -i -e '/^\[QUEUE-/d' -e '/^logical_queue/d' %s/%s" % (ltemp_dir, conf_file))
-            local("sed -i -e '/^\# Logical nic queues/d' -e '/^# This is the default/d' -e '/^default_hw_queue/d' %s/%s" % (ltemp_dir, conf_file))
+            local("sed -i -e '/^\[QOS\]/d' -e '/^\[QUEUE-/d' -e '/^logical_queue/d' -e '/^default_hw_queue/d'  %s/%s" % (ltemp_dir, conf_file))
             local("cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
             local('rm -rf %s' % (ltemp_dir))
 
@@ -734,7 +727,6 @@ SUBCHANNELS=1,2,3
             ltemp_dir = tempfile.mkdtemp()
             local("sudo cp %s %s/" %(agent_conf, ltemp_dir))
             local("sed -i -e '/^\[QOS-NIANTIC\]/d' -e '/^\[PG-/d' -e '/^scheduling/d' -e '/^bandwidth/d' %s/%s" % (ltemp_dir, conf_file))
-            local("sed -i -e '/^# Scheduling algorithm for/d' -e '/^# Total hardware queue bandwidth/d' %s/%s" % (ltemp_dir, conf_file))
             local("sudo cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
             local('rm -rf %s' % (ltemp_dir))
 
@@ -750,12 +742,26 @@ SUBCHANNELS=1,2,3
                         '/etc/contrail/contrail-vrouter-agent.conf',
                         section, key, val)
 
+        if (qos_queue_id_list or priority_id_list):
+            # Set qos_enabled in agent_param
+            pattern = 'qos_enabled='
+            line = 'qos_enabled=true'
+            insert_line_to_file(pattern=pattern, line=line,
+                                file_name='/etc/contrail/agent_param')
+
+            # Run qosmap script on physical interface (on all members for bond interface)
+            physical_interface = local("sudo openstack-config --get /etc/contrail/contrail-vrouter-agent.conf VIRTUAL-HOST-INTERFACE physical_interface")
+            if os.path.isdir('/sys/class/net/%s/bonding' % physical_interface):
+                physical_interfaces_str = local("sudo cat /sys/class/net/%s/bonding/slaves | tr ' ' '\n' | sort | tr '\n' ' '" % physical_interface)
+            else:
+                physical_interfaces_str = physical_interface
+            local("cd /opt/contrail/utils; python qosmap.py --interface_list %s " % physical_interfaces_str)
+
     def setup(self):
         self.disable_selinux()
         self.disable_iptables()
         self.setup_coredump()
         self.fixup_config_files()
-        self.add_qos_config()
         self.run_services()
         if self._args.register:
             self.add_vnc_config()
