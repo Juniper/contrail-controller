@@ -71,7 +71,7 @@ def parse_args(args_str=None):
         'mesos_api_secure_ip': None,
         'mesos_service_name': 'mesos',
         'service_subnets': '',
-        'pod_subnets': ''
+        'app_subnets': ''
     }
 
     config = ConfigParser.SafeConfigParser()

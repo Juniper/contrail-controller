@@ -76,11 +76,10 @@ class VncMesos(object):
     def process_q_event(self, event):
         """Process ADD/DEL event"""
         obj_labels = MesosCniLabels(event, self.logger)
+        vnc_service = VncService(self.args, self.logger)
         if obj_labels.operation == 'ADD':
-            vnc_service = VncService(self.args, self.logger)
             vnc_service.add_mesos_task_and_define_network(obj_labels)
         elif obj_labels.operation == 'DEL':
-            vnc_service = VncService(self.args, self.logger)
             vnc_service.del_mesos_task_and_remove_network(obj_labels)
         else:
             self.logger.error('Invalid operation')
