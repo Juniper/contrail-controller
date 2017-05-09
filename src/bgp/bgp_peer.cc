@@ -222,12 +222,13 @@ RibExportPolicy BgpPeer::BuildRibExportPolicy(Address::Family family) const {
     if (!family_attributes ||
         family_attributes->gateway_address.is_unspecified()) {
         policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
-            as_override_, peer_close_->IsCloseLongLivedGraceful(), -1, 0);
+            as_override_, peer_close_->IsCloseLongLivedGraceful(),
+            -1, cluster_id_);
     } else {
         IpAddress nexthop = family_attributes->gateway_address;
         policy = RibExportPolicy(peer_type_, RibExportPolicy::BGP, peer_as_,
             as_override_, peer_close_->IsCloseLongLivedGraceful(), nexthop,
-            -1, 0);
+            -1, cluster_id_);
     }
 
     if (private_as_action_ == "remove") {
@@ -410,6 +411,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           passive_(config->passive()),
           resolve_paths_(config->router_type() == "bgpaas-client"),
           as_override_(config->as_override()),
+          cluster_id_(config->cluster_id()),
           defer_close_(false),
           graceful_close_(true),
           vpn_tables_registered_(false),
@@ -497,6 +499,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_passive(passive_);
     peer_info.set_as_override(as_override_);
     peer_info.set_router_type(router_type_);
+    peer_info.set_cluster_id(Ip4Address(cluster_id_).to_string());
     peer_info.set_peer_type(
         PeerType() == BgpProto::IBGP ? "internal" : "external");
     peer_info.set_local_asn(local_as_);
@@ -745,6 +748,12 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (as_override_ != config->as_override()) {
         as_override_ = config->as_override();
         peer_info.set_as_override(as_override_);
+        clear_session = true;
+    }
+
+    if (cluster_id_ != config->cluster_id()) {
+        cluster_id_ = config->cluster_id();
+        peer_info.set_cluster_id(Ip4Address(cluster_id_).to_string());
         clear_session = true;
     }
 
@@ -1463,6 +1472,12 @@ uint32_t BgpPeer::GetPathFlags(Address::Family family,
         flags |= BgpPath::OriginatorIdLooped;
     }
 
+    // Check for ClusterList loop in case we are an RR.
+    if (cluster_id_ && attr->cluster_list() &&
+        attr->cluster_list()->cluster_list().ClusterListLoop(cluster_id_)) {
+        flags |= BgpPath::ClusterListLooped;
+    }
+
     if (!attr->as_path())
         return flags;
 
@@ -2044,6 +2059,7 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_local_address(server_->ToString());
     bnr->set_local_id(Ip4Address(ntohl(local_bgp_id_)).to_string());
     bnr->set_local_asn(local_as());
+    bnr->set_cluster_id(Ip4Address(cluster_id_).to_string());
     bnr->set_negotiated_hold_time(state_machine_->hold_time());
     bnr->set_primary_path_count(GetPrimaryPathCount());
     bnr->set_task_instance(GetTaskInstance());

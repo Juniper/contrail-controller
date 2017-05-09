@@ -173,9 +173,11 @@ struct ClusterListSpec : public BgpAttribute {
         : BgpAttribute(BgpAttribute::ClusterList, kFlags) {
         cluster_list = rhs.cluster_list;
     }
+    ClusterListSpec(uint32_t cluster_id, const ClusterListSpec *rhs);
     virtual int CompareTo(const BgpAttribute &rhs) const;
     virtual void ToCanonical(BgpAttr *attr);
     virtual std::string ToString() const;
+    bool ClusterListLoop(uint32_t cluster_id) const;
     std::vector<uint32_t> cluster_list;
 };
 

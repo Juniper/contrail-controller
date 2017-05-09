@@ -456,6 +456,7 @@ private:
     bool resolve_paths_;
     bool as_override_;
     string private_as_action_;
+    uint32_t cluster_id_;
 
     tbb::atomic<int> membership_req_pending_;
     bool defer_close_;

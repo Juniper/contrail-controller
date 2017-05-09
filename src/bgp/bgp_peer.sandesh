@@ -93,6 +93,7 @@ struct BgpNeighborResp {
     4: string local_address;    // local ip address and port
     26: string local_id;
     5: u32 local_asn;
+    64: string cluster_id;
     56: u32 task_instance;
     54: optional PeerCloseInfo peer_close_info;
     9: optional string send_state;       // in sync/not in sync
@@ -122,8 +123,8 @@ struct BgpNeighborResp {
     33: optional peer_info.PeerUpdateStats tx_update_stats;
     34: optional peer_info.PeerSocketStats rx_socket_stats;
     35: optional peer_info.PeerSocketStats tx_socket_stats;
-    63: i16 dscp_value;
     42: optional peer_info.PeerRxErrorStats rx_error_stats;
+    63: optional i16 dscp_value;
 }
 
 response sandesh BgpNeighborListResp {
@@ -648,6 +649,7 @@ struct ShowBgpNeighborConfig {
     4: i32 autonomous_system;
     5: string identifier;
     6: string address;
+    22: string cluster_id;
     19: u32 source_port;
     14: i32 hold_time;
     16: i32 loop_count;
@@ -695,6 +697,7 @@ struct BgpPeerInfoData {
     24: optional bool passive;
     27: optional bool as_override;
     25: optional string router_type;      // bgp_schema.xsd:BgpRouterType
+    32: optional string cluster_id;
     3: optional string peer_type;         // internal/external
     20: optional string peer_address;
     4: optional u32 local_asn;
