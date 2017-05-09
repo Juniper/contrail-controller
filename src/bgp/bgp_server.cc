@@ -4,6 +4,7 @@
 
 #include "bgp/bgp_server.h"
 
+#include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
 
 #include "base/connection_info.h"
@@ -35,6 +36,7 @@ using std::boolalpha;
 using std::make_pair;
 using std::map;
 using std::noboolalpha;
+using std::sort;
 using std::string;
 
 // The ConfigUpdater serves as glue between the BgpConfigManager and the
@@ -985,6 +987,36 @@ bool BgpServer::CollectStats(BgpRouterState *state, bool first) const {
     uint32_t out_load = inst_mgr_->SendTableStatsUve();
     if (first || out_load != state->get_output_queue_depth()) {
         state->set_output_queue_depth(out_load);
+        change = true;
+    }
+
+    vector<string> bgp_config_peer_list;
+    BOOST_FOREACH(BgpConfigManager::NeighborMap::value_type value,
+        config_mgr_->NeighborMapItems(BgpConfigManager::kMasterInstance)) {
+        const BgpNeighborConfig *neighbor = value.second;
+        string name(BgpConfigManager::kMasterInstance);
+        name += ":";
+        name += localname();
+        name += ":";
+        name += neighbor->name();
+        bgp_config_peer_list.push_back(name);
+    }
+    sort(bgp_config_peer_list.begin(), bgp_config_peer_list.end());
+    if (first || bgp_config_peer_list != state->get_bgp_config_peer_list()) {
+        state->set_bgp_config_peer_list(bgp_config_peer_list);
+        change = true;
+    }
+
+    vector<string> bgp_oper_peer_list;
+    const RoutingInstance *rtinstance = inst_mgr_->GetDefaultRoutingInstance();
+    const PeerManager *peer_manager = rtinstance->peer_manager();
+    for (const BgpPeer *peer = peer_manager->NextPeer(BgpPeerKey());
+        peer != NULL; peer = peer_manager->NextPeer(peer->peer_key())) {
+        bgp_oper_peer_list.push_back(peer->ToUVEKey());
+    }
+    sort(bgp_oper_peer_list.begin(), bgp_oper_peer_list.end());
+    if (first || bgp_oper_peer_list != state->get_bgp_oper_peer_list()) {
+        state->set_bgp_oper_peer_list(bgp_oper_peer_list);
         change = true;
     }
 
