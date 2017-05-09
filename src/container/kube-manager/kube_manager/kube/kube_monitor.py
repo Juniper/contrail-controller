@@ -41,18 +41,21 @@ class KubeMonitor(object):
         else:
             self.db = None
 
+        kubernetes_api_server = self.args.kubernetes_api_server
         if self.token:
             protocol = "https"
             header = {'Authorization': "Bearer " + self.token}
             self.headers.update(header)
             self.verify = False
+            kubernetes_api_server_port = self.args.kubernetes_api_secure_port
         else: # kubernetes
             protocol = "http"
+            kubernetes_api_server_port = self.args.kubernetes_api_port
 
         # URL to the api server.
         self.url = "%s://%s:%s" % (protocol,
-                                   self.args.kubernetes_api_server,
-                                   self.args.kubernetes_api_secure_port)
+                                   kubernetes_api_server,
+                                   kubernetes_api_server_port)
         # URL to the v1-components in api server.
         self.v1_url = "%s/api/v1" % (self.url)
         # URL to v1-beta1 components to api server.

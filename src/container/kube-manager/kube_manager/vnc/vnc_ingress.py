@@ -33,6 +33,8 @@ class VncIngress(VncCommon):
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._logger = vnc_kube_config.logger()
         self._kube = vnc_kube_config.kube()
+        self._label_cache = vnc_kube_config.label_cache()
+        self._ingress_label_cache = {}
         self._default_vn_obj = None
         self._fip_pool_obj = None
         self.service_lb_mgr = ServiceLbManager()
@@ -175,6 +177,57 @@ class VncIngress(VncCommon):
         patch = {'status': {'loadBalancer': {'ingress': vip_dict_list}}}
         self._kube.patch_resource("ingresses", name, patch,
                 ns_name, beta=True, sub_resource_name='status')
+
+    def _find_ingress(self, ingress_cache, ns_name, service_name):
+        if not ns_name or not service_name:
+            return
+        key = 'service'
+        value = '-'.join([ns_name, service_name])
+        labels = {key:value}
+        result = set()
+        for label in labels.items():
+            key = self._label_cache._get_key(label)
+            ingress_ids = ingress_cache.get(key, set())
+            #no matching label
+            if not ingress_ids:
+                return ingress_ids
+            if not result:
+                result = ingress_ids.copy()
+            else:
+                result.intersection_update(ingress_ids)
+        return result
+
+    def _clear_ingress_cache_uuid(self, ingress_cache, ingress_uuid):
+        if not ingress_uuid:
+            return
+        key_list = [k for k,v in ingress_cache.items() if ingress_uuid in v]
+        for key in key_list or []:
+            label = tuple(key.split(':'))
+            self._label_cache._remove_label(key, ingress_cache, label, ingress_uuid)
+
+    def _clear_ingress_cache(self, ingress_cache,
+            ns_name, service_name, ingress_uuid):
+        if not ns_name or not service_name:
+            return
+        key = 'service'
+        value = '-'.join([ns_name, service_name])
+        labels = {key:value}
+        for label in labels.items() or []:
+            key = self._label_cache._get_key(label)
+            self._label_cache._remove_label(key,
+                ingress_cache, label, ingress_uuid)
+
+    def _update_ingress_cache(self, ingress_cache,
+            ns_name, service_name, ingress_uuid):
+        if not ns_name or not service_name:
+            return
+        key = 'service'
+        value = '-'.join([ns_name, service_name])
+        labels = {key:value}
+        for label in labels.items() or []:
+            key = self._label_cache._get_key(label)
+            self._label_cache._locate_label(key,
+                ingress_cache, label, ingress_uuid)
 
     def _vnc_create_member(self, pool, address, port, annotations):
         pool_obj = self.service_lb_pool_mgr.read(pool.uuid)
@@ -432,6 +485,47 @@ class VncIngress(VncCommon):
                  %(self._name, lb.name, str(port)))
         return ll
 
+    def _create_listener_pool_member(self, ns_name, lb, backend):
+        port = {}
+        lb_algorithm = "ROUND_ROBIN"
+        port['protocol'] = 'HTTP'
+        port['port'] = '80'
+        ll = self._create_listener(ns_name, lb, port)
+        annotations = {}
+        for key in backend['annotations']:
+            annotations[key] = backend['annotations'][key]
+        port['protocol'] = backend['protocol']
+        pool = self._create_pool(ns_name, ll, port, lb_algorithm, annotations)
+        backend_member = backend['member']
+        member = self._create_member(ns_name, backend_member, pool)
+        if member is None:
+            self._logger.error("%s - Deleting Listener %s and Pool %s" \
+                %(self._name, ll.name, pool.name))
+            self._vnc_delete_pool(pool.uuid)
+            LoadbalancerPoolKM.delete(pool.uuid)
+            self._vnc_delete_listener(ll.uuid)
+            LoadbalancerListenerKM.delete(ll.uuid)
+
+    def update_ingress_backend(self, ns_name, service_name, oper):
+        ingress_ids = self._find_ingress(
+            self._ingress_label_cache, ns_name, service_name)
+        for ingress_id in ingress_ids or []:
+            ingress = IngressKM.get(ingress_id)
+            lb = LoadbalancerKM.get(ingress_id)
+            if not ingress or not lb:
+                continue
+            if oper == 'ADD':
+                new_backend_list = self._get_new_backend_list(ingress.spec)
+                for new_backend in new_backend_list[:] or []:
+                    if new_backend['member']['serviceName'] == service_name:
+                        self._create_listener_pool_member(
+                            ns_name, lb, new_backend)
+            else:
+                old_backend_list = self._get_old_backend_list(lb)
+                for old_backend in old_backend_list[:] or []:
+                    if old_backend['member']['serviceName'] == service_name:
+                        self._delete_listener(old_backend['listener_id'])
+
     def _create_lb(self, uid, name, ns_name, event):
         annotations = event['object']['metadata'].get('annotations')
         lb = LoadbalancerKM.get(uid)
@@ -453,17 +547,22 @@ class VncIngress(VncCommon):
                     lb.external_ip = external_ip
                 self._update_kube_api_server(name, ns_name, lb_obj, fip)
 
+        self._clear_ingress_cache_uuid(self._ingress_label_cache, uid)
+
         spec = event['object']['spec']
         new_backend_list = self._get_new_backend_list(spec)
         old_backend_list = self._get_old_backend_list(lb)
 
         # find the unchanged backends
         for new_backend in new_backend_list[:] or []:
+            self._update_ingress_cache(self._ingress_label_cache,
+                ns_name, new_backend['member']['serviceName'], uid)
             for old_backend in old_backend_list[:] or []:
                 if new_backend['annotations'] == old_backend['annotations'] \
                     and new_backend['member'] == old_backend['member']:
                     old_backend_list.remove(old_backend)
                     new_backend_list.remove(new_backend)
+                    break
         if len(old_backend_list) == 0 and len(new_backend_list) == 0:
             return lb
 
@@ -502,26 +601,8 @@ class VncIngress(VncCommon):
             self._delete_listener(backend['listener_id'])
 
         # create the new backends
-        port = {}
-        lb_algorithm = "ROUND_ROBIN"
-        port['protocol'] = 'HTTP'
-        port['port'] = '80'
         for backend in new_backend_list:
-            ll = self._create_listener(ns_name, lb, port)
-            annotations = {}
-            for key in backend['annotations']:
-                annotations[key] = backend['annotations'][key]
-            port['protocol'] = backend['protocol']
-            pool = self._create_pool(ns_name, ll, port, lb_algorithm, annotations)
-            backend_member = backend['member']
-            member = self._create_member(ns_name, backend_member, pool)
-            if member is None:
-                self._logger.error("%s - Deleting Listener %s and Pool %s" \
-                     %(self._name, ll.name, pool.name))
-                self._vnc_delete_pool(pool.uuid)
-                LoadbalancerPoolKM.delete(pool.uuid)
-                self._vnc_delete_listener(ll.uuid)
-                LoadbalancerListenerKM.delete(ll.uuid)
+            self._create_listener_pool_member(ns_name, lb, backend)
 
         return lb
 
@@ -569,6 +650,7 @@ class VncIngress(VncCommon):
 
     def _delete_ingress(self, uid):
         self._delete_lb(uid)
+        self._clear_ingress_cache_uuid(self._ingress_label_cache, uid)
 
     def _create_ingress_event(self, event_type, ingress_id, lb):
         event = {}
