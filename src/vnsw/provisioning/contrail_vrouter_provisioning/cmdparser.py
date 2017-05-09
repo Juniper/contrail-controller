@@ -67,6 +67,7 @@ class ComputeArgsParser(object):
             'priority_id': None,
             'priority_scheduling': None,
             'priority_bandwidth': None,
+            'tsn_mode': None
             'collectors': self.get_config(
                 'GLOBAL', 'analytics_list', ['127.0.0.1']),
             'control_nodes': self.get_config(
@@ -290,6 +291,7 @@ class ComputeArgsParser(object):
                 "--register",
                 help="create virtual-router object in api-server",
                 action="store_true")
+        parser.add_argument("--tsn_mode", help="tsn mode ")
 
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)

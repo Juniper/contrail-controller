@@ -8,7 +8,7 @@ import sys
 import argparse
 import ConfigParser
 from setup import TorAgentSetup
-from contrail_provisioning.common.base import ContrailSetup
+from contrail_vrouter_provisioning.common.base import ContrailSetup
 
 class TorAgentBaseCleanup(ContrailSetup):
     def __init__(self, tor_agent_args, args_str=None):

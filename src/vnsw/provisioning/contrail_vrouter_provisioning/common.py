@@ -750,6 +750,41 @@ SUBCHANNELS=1,2,3
                         '/etc/contrail/contrail-vrouter-agent.conf',
                         section, key, val)
 
+    def disable_nova_compute(self):
+        # Check if nova-compute is allready running
+        # Stop if running on TSN node
+        if local("sudo service nova-compute status | grep running").succeeded:
+            # Stop the service
+            local("sudo service nova-compute stop")
+            if self.pdist in DEBIAN:
+                local('sudo echo "manual" >> /etc/init/nova-compute.override')
+            else:
+                local('sudo chkconfig nova-compute off')
+
+    def add_tsn_vnc_config(self):
+        tsn_ip = self._args.self_ip
+        self.tsn_hostname = socket.gethostname()
+        prov_args = "--host_name %s --host_ip %s --api_server_ip %s --oper add "\
+                    "--admin_user %s --admin_password %s --admin_tenant_name %s "\
+                    "--openstack_ip %s --router_type tor-service-node"\
+                    %(self.tsn_hostname, tsn_ip, self._args.cfgm_ip,
+                      self._args.keystone_admin_user,
+                      self._args.keystone_admin_password,
+                      self._args.keystone_admin_tenant_name, self._args.keystone_ip)
+        if apiserver_ssl_enabled():
+           prov_args += " --api_server_use_ssl True"
+        local("python /opt/contrail/utils/provision_vrouter.py %s" %(prov_args))
+
+    def start_tsn_service():
+        nova_conf_file = '/etc/contrail/contrail-vrouter-agent.conf'
+        sudo("openstack-config --set %s DEFAULT agent_mode tsn" % nova_conf_file)
+        sudo("service supervisor-vrouter restart")
+
+    def setup_tsn_node():
+        self.disable_nova_compute()
+        self.add_tsn_vnc_config()
+        self.start_tsn_service()
+
     def setup(self):
         self.disable_selinux()
         self.disable_iptables()
@@ -757,5 +792,8 @@ SUBCHANNELS=1,2,3
         self.fixup_config_files()
         self.add_qos_config()
         self.run_services()
-        if self._args.register:
-            self.add_vnc_config()
+        if self._args.tsn_mode:
+            self.setup_tsn_node()
+        else:
+            if self._args.register:
+                self.add_vnc_config()
