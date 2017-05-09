@@ -13,12 +13,29 @@
  * @action: None
  */
 systemlog sandesh XmppConnectionCreate {
-    1: "Created Xmpp ";
-    2: string type;
-    3: " connection from ";
-    4: string from;
-    5: " To : ";
-    6: string to;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Created Xmpp ";
+    5: string type;
+    6: " connection from ";
+    7: string from;
+    8: " To : ";
+    9: string to;
+}
+
+trace sandesh XmppConnectionCreateTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Created Xmpp ";
+    5: string type;
+    6: " connection from ";
+    7: string from;
+    8: " To : ";
+    9: string to;
 }
 
 /**
@@ -28,12 +45,29 @@ systemlog sandesh XmppConnectionCreate {
  * @action: None
  */
 systemlog sandesh XmppSessionDelete {
-    1: "Delete Xmpp Session";
-    2: string type;
-    3: " connection from ";
-    4: string from;
-    5: " To : ";
-    6: string to;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Delete Xmpp Session";
+    5: string type;
+    6: " connection from ";
+    7: string from;
+    8: " To : ";
+    9: string to;
+}
+
+trace sandesh XmppSessionDeleteTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Delete Xmpp Session";
+    5: string type;
+    6: " connection from ";
+    7: string from;
+    8: " To : ";
+    9: string to;
 }
 
 /**
@@ -43,7 +77,19 @@ systemlog sandesh XmppSessionDelete {
  * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp chat message. Peer clear might help as a work around.
  */
 systemlog sandesh XmppIqMessageInvalid {
-    1: "Error: Mismatch in associated previous message"
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Error: Mismatch in associated previous message"
+}
+
+trace sandesh XmppIqMessageInvalidTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Error: Mismatch in associated previous message"
 }
 
 /**
@@ -53,7 +99,19 @@ systemlog sandesh XmppIqMessageInvalid {
  * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp iq message. Peer clear might help as a work around.
  */
 systemlog sandesh XmppIqMessageParseFail {
-    1: "Iq message parse failed" 
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Iq message parse failed"
+}
+
+trace sandesh XmppIqMessageParseFailTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Iq message parse failed"
 }
 
 /**
@@ -63,7 +121,19 @@ systemlog sandesh XmppIqMessageParseFail {
  * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp chat message. Peer clear might help as a work around.
  */
 systemlog sandesh XmppChatMessageParseFail {
-    1: "Chat message parse failed" 
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Chat message parse failed"
+}
+
+trace sandesh XmppChatMessageParseFailTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Chat message parse failed"
 }
 
 /**
@@ -73,10 +143,25 @@ systemlog sandesh XmppChatMessageParseFail {
  * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp message. Peer clear might help as a work around.
  */
 systemlog sandesh XmppBadMessage {
-    1: string type;
-    2: "Begin Message(";
-    3: string message;
-    4: ")End Message";
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: string type;
+    5: "Begin Message(";
+    6: string message;
+    7: ")End Message";
+}
+
+trace sandesh XmppBadMessageTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: string type;
+    5: "Begin Message(";
+    6: string message;
+    7: ")End Message";
 }
 
 /**
@@ -86,8 +171,21 @@ systemlog sandesh XmppBadMessage {
  * @action: None
  */
 systemlog sandesh XmppSslHandShakeMessage {
-    1: string type;
-    2: string error;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: string type;
+    5: string error;
+}
+
+trace sandesh XmppSslHandShakeMessageTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: string type;
+    5: string error;
 }
 
 /**
@@ -95,8 +193,21 @@ systemlog sandesh XmppSslHandShakeMessage {
  * @severity: ALERT
  */
 systemlog sandesh XmppSslHandShakeFailure {
-    1: string type;
-    2: string error;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: string type;
+    5: string error;
+}
+
+trace sandesh XmppSslHandShakeFailureTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: string type;
+    5: string error;
 }
 
 /**
@@ -106,7 +217,19 @@ systemlog sandesh XmppSslHandShakeFailure {
  * @action: Check logs from offending contrail-vrouter-agent which has sent incorrect or malformed xmpp message. Peer clear might help as a work around.
  */
 systemlog sandesh XmppIqCollectionError {
-    1: "Error: no associated previous IQ message for this collection"
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Error: no associated previous IQ message for this collection"
+}
+
+trace sandesh XmppIqCollectionErrorTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Error: no associated previous IQ message for this collection"
 }
 
 /**
@@ -116,18 +239,41 @@ systemlog sandesh XmppIqCollectionError {
  * @action: None
  */
 systemlog sandesh XmppIqMessageProcess {
-    1: "Received IQ message for node:";
-    2: string node;
-    3: "Action: ";
-    4: string action;
-    5: "From: ";
-    6: string from;
-    7: "To: ";
-    8: string to;
-    9: "ID: ";
-    10: string id;
-    11: "SubType: ";
-    12: string sub_type;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received IQ message for node:";
+    5: string node;
+    6: "Action: ";
+    7: string action;
+    8: "From: ";
+    9: string from;
+    10: "To: ";
+    11: string to;
+    12: "ID: ";
+    13: string id;
+    14: "SubType: ";
+    15: string sub_type;
+}
+
+trace sandesh XmppIqMessageProcessTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received IQ message for node:";
+    5: string node;
+    6: "Action: ";
+    7: string action;
+    8: "From: ";
+    9: string from;
+    10: "To: ";
+    11: string to;
+    12: "ID: ";
+    13: string id;
+    14: "SubType: ";
+    15: string sub_type;
 }
 
 /**
@@ -137,12 +283,29 @@ systemlog sandesh XmppIqMessageProcess {
  * @action: None
  */
 systemlog sandesh XmppChatMessageProcess {
-    1: "Received Chat message of type: "
-    2: i32 type;
-    3: "From ";
-    4: string from;
-    5: "To ";
-    6: string to;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received Chat message of type: "
+    5: i32 type;
+    6: "From ";
+    7: string from;
+    8: "To ";
+    9: string to;
+}
+
+trace sandesh XmppChatMessageProcessTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received Chat message of type: "
+    5: i32 type;
+    6: "From ";
+    7: string from;
+    8: "To ";
+    9: string to;
 }
 
 /**
@@ -152,10 +315,25 @@ systemlog sandesh XmppChatMessageProcess {
  * @action: None
  */
 systemlog sandesh XmppRxOpenMessage {
-    1: "Received open message From: ";
-    2: string from;
-    3: " To: ";
-    4: string to;
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received open message From: ";
+    5: string from;
+    6: " To: ";
+    7: string to;
+}
+
+trace sandesh XmppRxOpenMessageTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received open message From: ";
+    5: string from;
+    6: " To: ";
+    7: string to;
 }
 
 /**
@@ -165,7 +343,19 @@ systemlog sandesh XmppRxOpenMessage {
  * @action: None
  */
 systemlog sandesh XmppRxStreamTlsRequired {
-    1: "Received Tls Feature Required ";
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received Tls Feature Required ";
+}
+
+trace sandesh XmppRxStreamTlsRequiredTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received Tls Feature Required ";
 }
 
 /**
@@ -175,7 +365,19 @@ systemlog sandesh XmppRxStreamTlsRequired {
  * @action: None
  */
 systemlog sandesh XmppRxStreamStartTls {
-    1: "Received Start Tls ";
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received Start Tls ";
+}
+
+trace sandesh XmppRxStreamStartTlsTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received Start Tls ";
 }
 
 /**
@@ -185,5 +387,17 @@ systemlog sandesh XmppRxStreamStartTls {
  * @action: None
  */
 systemlog sandesh XmppRxStreamProceed {
-    1: "Received Proceed Tls ";
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received Proceed Tls ";
+}
+
+trace sandesh XmppRxStreamProceedTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    /** Direction is 'SEND' or 'RECV' */
+    3: string Direction;
+    4: "Received Proceed Tls ";
 }

@@ -8,6 +8,7 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
+#include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_log.h"
 #include "xmpp/xmpp_session.h"
 #include "xmpp/xmpp_str.h"
@@ -207,13 +208,14 @@ int XmppProto::EncodeFeatureTlsProceed(uint8_t *buf) {
     return len;
 }
 
-XmppStanza::XmppMessage *XmppProto::Decode(const string &ts) {
+XmppStanza::XmppMessage *XmppProto::Decode(const XmppConnection *connection,
+                                           const string &ts) {
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
     if (impl.get() == NULL) {
         return NULL;
     }
 
-    XmppStanza::XmppMessage *msg = DecodeInternal(ts, impl.get());
+    XmppStanza::XmppMessage *msg = DecodeInternal(connection, ts, impl.get());
     if (!msg) {
         return NULL;
     }
@@ -224,8 +226,8 @@ XmppStanza::XmppMessage *XmppProto::Decode(const string &ts) {
     return msg;
 }
 
-XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts, 
-                                                   XmlBase *impl) {
+XmppStanza::XmppMessage *XmppProto::DecodeInternal(
+        const XmppConnection *connection, const string &ts, XmlBase *impl) {
     XmppStanza::XmppMessage *ret = NULL;
 
     string ns(sXMPP_STREAM_O);
@@ -236,7 +238,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         string ts_tmp = ts;
 
         if (impl->LoadDoc(ts) == -1) {
-            XMPP_WARNING(XmppIqMessageParseFail);
+            XMPP_WARNING(XmppIqMessageParseFail, connection->ToUVEKey(),
+                         XMPP_PEER_DIR_IN);
             assert(false);
             goto done;
         }
@@ -270,14 +273,16 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
 
         ret = msg;
 
-        XMPP_UTDEBUG(XmppIqMessageProcess, msg->node, msg->action, 
-                   msg->from, msg->to, msg->id, msg->iq_type);
+        XMPP_UTDEBUG(XmppIqMessageProcess, connection->ToUVEKey(),
+                     XMPP_PEER_DIR_IN, msg->node, msg->action, msg->from,
+                     msg->to, msg->id, msg->iq_type);
         goto done;
 
     } else if (ts.find(sXMPP_MESSAGE) != string::npos) {
 
         if (impl->LoadDoc(ts) == -1) {
-            XMPP_WARNING(XmppChatMessageParseFail);
+            XMPP_WARNING(XmppChatMessageParseFail, connection->ToUVEKey(),
+                         XMPP_PEER_DIR_IN);
             goto done;
         }
         XmppStanza::XmppMessage *msg = new XmppStanza::XmppChatMessage(
@@ -288,7 +293,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         msg->from = XmppProto::GetFrom(impl);
         ret = msg;
 
-        XMPP_UTDEBUG(XmppChatMessageProcess, msg->type, msg->from, msg->to);
+        XMPP_UTDEBUG(XmppChatMessageProcess, connection->ToUVEKey(),
+                     XMPP_PEER_DIR_IN, msg->type, msg->from, msg->to);
         goto done;
 
     } else if (ts.find(sXMPP_STREAM_O) != string::npos) {
@@ -301,7 +307,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
              sXMPP_STREAM_START) != 0) && 
             (ts_tmp.compare(0, strlen(sXMPP_STREAM_START_S), 
              sXMPP_STREAM_START_S) != 0)) {
-            XMPP_WARNING(XmppBadMessage, 
+            XMPP_WARNING(XmppBadMessage, connection->ToUVEKey(),
+                         XMPP_PEER_DIR_IN,
                          "Open message not at the beginning.", ts);
             goto done;
         }
@@ -311,7 +318,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
         // string for stream open, else dom decoder will fail 
         boost::algorithm::replace_last(ts_tmp, ">", "/>");
         if (impl->LoadDoc(ts_tmp) == -1) {
-            XMPP_WARNING(XmppBadMessage, "Open message parse failed.", ts);
+            XMPP_WARNING(XmppBadMessage, connection->ToUVEKey(),
+                         XMPP_PEER_DIR_IN, "Open message parse failed.", ts);
             goto done;
         }
 
@@ -324,12 +332,14 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
 
         ret = strm;
 
-        XMPP_UTDEBUG(XmppRxOpenMessage, strm->from, strm->to);
+        XMPP_UTDEBUG(XmppRxOpenMessage, connection->ToUVEKey(),
+                     XMPP_PEER_DIR_IN, strm->from, strm->to);
 
     } else if (ts.find(sXMPP_STREAM_NS_TLS) != string::npos) {
 
         if (impl->LoadDoc(ts) == -1) {
-            XMPP_WARNING(XmppBadMessage, "Stream TLS parse failed.", ts);
+            XMPP_WARNING(XmppBadMessage, connection->ToUVEKey(),
+                         XMPP_PEER_DIR_IN, "Stream TLS parse failed.", ts);
             goto done;
         }
 
@@ -345,7 +355,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
 
             ret = strm;
 
-            XMPP_UTDEBUG(XmppRxStreamTlsRequired);
+            XMPP_UTDEBUG(XmppRxStreamTlsRequired, connection->ToUVEKey(),
+                         XMPP_PEER_DIR_IN);
 
         } else if (ts.find(sXMPP_STREAM_STARTTLS_O) != string::npos) {
             XmppStanza::XmppStreamMessage *strm =
@@ -354,7 +365,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
             strm->strmtlstype = XmppStanza::XmppStreamMessage::TLS_START;
             ret = strm;
 
-            XMPP_UTDEBUG(XmppRxStreamStartTls);
+            XMPP_UTDEBUG(XmppRxStreamStartTls, connection->ToUVEKey(),
+                         XMPP_PEER_DIR_IN);
 
         } else if (ts.find(sXMPP_STREAM_PROCEED_O) != string::npos) {
             XmppStanza::XmppStreamMessage *strm =
@@ -364,7 +376,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
 
             ret = strm;
 
-            XMPP_UTDEBUG(XmppRxStreamProceed);
+            XMPP_UTDEBUG(XmppRxStreamProceed, connection->ToUVEKey(),
+                         XMPP_PEER_DIR_IN);
         }
         goto done;
 
@@ -374,7 +387,8 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(const string &ts,
             new XmppStanza::XmppMessage(WHITESPACE_MESSAGE_STANZA);
         return msg;
     } else {
-        XMPP_WARNING(XmppBadMessage, "Message not supported", ts);
+        XMPP_WARNING(XmppBadMessage, connection->ToUVEKey(),
+                     XMPP_PEER_DIR_IN, "Message not supported", ts);
     }
 
 done:
