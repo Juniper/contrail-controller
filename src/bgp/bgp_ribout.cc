@@ -43,21 +43,14 @@ RibOutAttr::NextHop::NextHop(const BgpTable *table, IpAddress address,
 }
 
 int RibOutAttr::NextHop::CompareTo(const NextHop &rhs) const {
-    if (address_ < rhs.address_) return -1;
-    if (address_ > rhs.address_) return 1;
-    if (mac_ < rhs.mac_) return -1;
-    if (mac_ > rhs.mac_) return 1;
-    if (label_ < rhs.label_) return -1;
-    if (label_ > rhs.label_) return 1;
-    if (l3_label_ < rhs.l3_label_) return -1;
-    if (l3_label_ > rhs.l3_label_) return 1;
-    if (origin_vn_index_ < rhs.origin_vn_index_) return -1;
-    if (origin_vn_index_ > rhs.origin_vn_index_) return 1;
-    if (encap_.size() < rhs.encap_.size()) return -1;
-    if (encap_.size() > rhs.encap_.size()) return 1;
-    for (size_t idx = 0; idx < encap_.size(); idx++) {
-        if (encap_[idx] < rhs.encap_[idx]) return -1;
-        if (encap_[idx] > rhs.encap_[idx]) return 1;
+    KEY_COMPARE(address_, rhs.address_);
+    KEY_COMPARE(mac_, rhs.mac_) ;
+    KEY_COMPARE(label_, rhs.label_);
+    KEY_COMPARE(l3_label_, rhs.l3_label_);
+    KEY_COMPARE(origin_vn_index_, rhs.origin_vn_index_);
+    KEY_COMPARE(encap_.size(), rhs.encap_.size());
+    for (size_t idx = 0; idx < encap_.size(); ++idx) {
+        KEY_COMPARE(encap_[idx], rhs.encap_[idx]);
     }
     return 0;
 }
@@ -70,6 +63,17 @@ bool RibOutAttr::NextHop::operator!=(const NextHop &rhs) const {
     return CompareTo(rhs) != 0;
 }
 
+bool RibOutAttr::NextHop::operator<(const NextHop &rhs) const {
+    return CompareTo(rhs) < 0;
+}
+
+RibOutAttr::RibOutAttr()
+    : label_(0),
+      l3_label_(0),
+      is_xmpp_(false),
+      vrf_originated_(false) {
+}
+
 //
 // Copy constructor.
 // Do not copy the string representation;
@@ -77,16 +81,20 @@ bool RibOutAttr::NextHop::operator!=(const NextHop &rhs) const {
 RibOutAttr::RibOutAttr(const RibOutAttr &rhs) {
     attr_out_ = rhs.attr_out_;
     nexthop_list_ = rhs.nexthop_list_;
+    label_ = rhs.label_;
+    l3_label_ = rhs.l3_label_;
     is_xmpp_ = rhs.is_xmpp_;
     vrf_originated_ = rhs.vrf_originated_;
 }
 
 RibOutAttr::RibOutAttr(const BgpTable *table, const BgpAttr *attr,
-    uint32_t label, uint32_t l3_label)
+    uint32_t label, uint32_t l3_label, bool is_xmpp)
     : attr_out_(attr),
-      is_xmpp_(false),
+      label_(label),
+      l3_label_(l3_label),
+      is_xmpp_(is_xmpp),
       vrf_originated_(false) {
-    if (attr) {
+    if (attr && is_xmpp) {
         nexthop_list_.push_back(NextHop(table, attr->nexthop(),
             attr->mac_address(), label, l3_label, attr->ext_community(),
             false));
@@ -99,9 +107,14 @@ RibOutAttr::RibOutAttr(const BgpTable *table, const BgpRoute *route,
       is_xmpp_(is_xmpp),
       vrf_originated_(route->BestPath()->IsVrfOriginated()) {
     if (attr && include_nh) {
-        nexthop_list_.push_back(NextHop(table, attr->nexthop(),
-            attr->mac_address(), label, 0, attr->ext_community(),
-            vrf_originated_));
+        if (is_xmpp) {
+            nexthop_list_.push_back(NextHop(table, attr->nexthop(),
+                attr->mac_address(), label, 0, attr->ext_community(),
+                vrf_originated_));
+        } else {
+            label_ = label;
+            l3_label_ = 0;
+        }
     }
 }
 
@@ -115,14 +128,15 @@ RibOutAttr::RibOutAttr(const BgpRoute *route, const BgpAttr *attr,
     // Always encode best path's attributes (including it's nexthop) and label.
     if (!is_xmpp) {
         set_attr(table, attr, route->BestPath()->GetLabel(),
-            route->BestPath()->GetL3Label(), false);
+            route->BestPath()->GetL3Label(), false, is_xmpp);
         return;
     }
 
     // Encode ECMP nexthops only for XMPP peers.
     // Vrf Origination matters only for XMPP peers.
     set_attr(table, attr, route->BestPath()->GetLabel(),
-        route->BestPath()->GetL3Label(), route->BestPath()->IsVrfOriginated());
+        route->BestPath()->GetL3Label(), route->BestPath()->IsVrfOriginated(),
+        is_xmpp);
 
     for (Route::PathList::const_iterator it = route->GetPathList().begin();
         it != route->GetPathList().end(); ++it) {
@@ -162,45 +176,43 @@ RibOutAttr::RibOutAttr(const BgpRoute *route, const BgpAttr *attr,
 RibOutAttr &RibOutAttr::operator=(const RibOutAttr &rhs) {
     attr_out_ = rhs.attr_out_;
     nexthop_list_ = rhs.nexthop_list_;
+    label_ = rhs.label_;
+    l3_label_ = rhs.l3_label_;
     is_xmpp_ = rhs.is_xmpp_;
     vrf_originated_ = rhs.vrf_originated_;
     return *this;
 }
 
 //
-// Comparator for RibOutAttr. First compare the BgpAttr and then the nexthops.
+// Comparator for RibOutAttr.
+// First compare the BgpAttr and then the nexthops.
 //
 int RibOutAttr::CompareTo(const RibOutAttr &rhs) const {
-    if (attr_out_.get() < rhs.attr_out_.get()) {
-        return -1;
+    KEY_COMPARE(attr_out_.get(), rhs.attr_out_.get());
+    KEY_COMPARE(nexthop_list_.size(), rhs.nexthop_list_.size());
+    for (size_t idx = 0; idx < nexthop_list_.size(); ++idx) {
+        KEY_COMPARE(nexthop_list_[idx], rhs.nexthop_list_[idx]);
     }
-    if (attr_out_.get() > rhs.attr_out_.get()) {
-        return 1;
-    }
-    if (nexthop_list_.size() < rhs.nexthop_list_.size()) {
-        return -1;
-    }
-    if (nexthop_list_.size() > rhs.nexthop_list_.size()) {
-        return 1;
-    }
-    for (size_t i = 0; i < nexthop_list_.size(); i++) {
-        int cmp = nexthop_list_[i].CompareTo(rhs.nexthop_list_[i]);
-        if (cmp) {
-            return cmp;
-        }
-    }
-
+    KEY_COMPARE(label_, rhs.label());
+    KEY_COMPARE(l3_label_, rhs.l3_label());
+    KEY_COMPARE(is_xmpp_, rhs.is_xmpp());
+    KEY_COMPARE(vrf_originated_, rhs.vrf_originated());
     return 0;
 }
 
 void RibOutAttr::set_attr(const BgpTable *table, const BgpAttrPtr &attrp,
-    uint32_t label, uint32_t l3_label, bool vrf_originated) {
+    uint32_t label, uint32_t l3_label, bool vrf_originated, bool is_xmpp) {
     if (!attr_out_) {
         attr_out_ = attrp;
         assert(nexthop_list_.empty());
-        NextHop nexthop(table, attrp->nexthop(), attrp->mac_address(),
-            label, l3_label, attrp->ext_community(), vrf_originated);
-        nexthop_list_.push_back(nexthop);
+        if (is_xmpp) {
+            NextHop nexthop(table, attrp->nexthop(), attrp->mac_address(),
+                label, l3_label, attrp->ext_community(), vrf_originated);
+            nexthop_list_.push_back(nexthop);
+        } else {
+            label_ = label;
+            l3_label_ = l3_label;
+        }
         return;
     }
 
