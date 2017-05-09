@@ -35,6 +35,9 @@ TODO:
 
 class VncService(object):
     """"Client to handle vnc api server interactions"""
+
+    _vnc_mesos = None
+
     def __init__(self, args=None, logger=None):
         self.args = args
         self.logger = logger
@@ -54,6 +57,8 @@ class VncService(object):
         # sync api server db in local cache
         self._sync_sm()
         self.rabbit._db_resync_done.set()
+
+        VncService._vnc_mesos = self
 
     def _vnc_connect(self):
         """Retry till API server connection is up"""
@@ -79,6 +84,22 @@ class VncService(object):
         for cls in DBBaseMM.get_obj_type_map().values():
             for obj in cls.list_obj():
                 cls.locate(obj['uuid'], obj)
+
+    @classmethod
+    def get_instance(cls):
+        return VncService._vnc_mesos
+
+    @classmethod
+    def destroy_instance(cls):
+        inst = cls.get_instance()
+        if inst is None:
+            return
+        inst.rabbit.close()
+        for obj_cls in DBBaseMM.get_obj_type_map().values():
+            obj_cls.reset()
+        DBBase.clear()
+        inst._db = None
+        VncService._vnc_mesos = None
 
     @staticmethod
     def reset():

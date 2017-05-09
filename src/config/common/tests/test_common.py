@@ -158,6 +158,7 @@ def launch_mesos_manager(test_id, conf_sections, mesos_api_skip, event_queue):
     args_str = ""
     vnc_cgitb.enable(format='text')
 
+    wait_for_mesos_manager_down()
     with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
         cfg_parser = generate_conf_file_contents(conf_sections)
         cfg_parser.write(conf)
@@ -371,6 +372,7 @@ def kill_kube_manager(glet):
 
 def kill_mesos_manager(glet):
     glet.kill()
+    mesos_manager.MesosNetworkManager.destroy_instance()
 
 def reinit_schema_transformer():
     to_bgp.transformer.reinit()
@@ -434,6 +436,16 @@ def wait_for_kube_manager_up():
 def wait_for_kube_manager_down():
     if kube_manager.KubeNetworkManager.get_instance():
         raise Exception("KM instance is up, no new instances allowed")
+
+@retries(5, hook=retry_exc_handler)
+def wait_for_mesos_manager_up():
+    if not mesos_manager.MesosNetworkManager.get_instance():
+        raise Exception("MM instance is not up")
+
+@retries(5, hook=retry_exc_handler)
+def wait_for_mesos_manager_down():
+    if mesos_manager.MesosNetworkManager.get_instance():
+        raise Exception("MM instance is up, no new instances allowed")
 
 @contextlib.contextmanager
 def flexmocks(mocks):
