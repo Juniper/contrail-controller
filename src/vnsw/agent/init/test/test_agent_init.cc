@@ -473,7 +473,7 @@ TEST_F(AgentParamTest, Restart_1) {
     AgentParam param;
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini",
                "test-param");
-    EXPECT_TRUE(param.restart_backup_enable());
+    EXPECT_TRUE(param.restart_backup_enable() == false);
     EXPECT_EQ(param.restart_backup_idle_timeout(), CFG_BACKUP_IDLE_TIMEOUT);
     EXPECT_STREQ(param.restart_backup_dir().c_str(), CFG_BACKUP_DIR);
     EXPECT_EQ(param.restart_backup_count(), CFG_BACKUP_COUNT);
