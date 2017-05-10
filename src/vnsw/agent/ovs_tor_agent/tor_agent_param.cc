@@ -33,8 +33,12 @@ void TorAgentParam::AddOptions() {
          "IP Address of the ToR Service Node")
         ("TOR.tor_id", boost_po::value<string>()->default_value(""),
          "Identifier of the TOR")
+        ("TOR.tor_type", boost_po::value<string>()->default_value(""),
+         "ToR management scheme")
         ("TOR.tor_ovs_protocol", boost_po::value<string>()->default_value(""),
          "Protocol to be used for connection to TOR")
+        ("TOR.tor_ovs_port", boost_po::value<uint16_t>()->default_value(0),
+         "ToR OVS port")
         ("TOR.ssl_cert", boost_po::value<string>()->default_value(""),
          "SSL Certificate file to be used")
         ("TOR.ssl_privkey", boost_po::value<string>()->default_value(""),
@@ -47,6 +51,7 @@ void TorAgentParam::AddOptions() {
          boost_po::value<int>()->default_value(-1),
          "Interval in millisecond for TOR Agent to hold unicast routes as HA Stale");
     AgentParam::AddOptions(tor);
+    AgentParam::ConfigAddOptions(tor);
 }
 
 void TorAgentParam::ProcessArguments() {
@@ -56,16 +61,15 @@ void TorAgentParam::ProcessArguments() {
 }
 
 void TorAgentParam::ParseTorArguments() {
-
     // Parse ToR specific arguments
-    boost::program_options::variables_map vars = var_map();
+    const boost::program_options::variables_map &vars = var_map();
 
     ParseIpArgument(vars, tor_info_.ip_, "TOR.tor_ip");
     ParseIpArgument(vars, tor_info_.tsn_ip_, "TOR.tsn_ip");
     GetOptValue<string>(vars, tor_info_.id_, "TOR.tor_id");
     GetOptValue<string>(vars, tor_info_.type_, "TOR.tor_type");
     GetOptValue<string>(vars, tor_info_.protocol_, "TOR.tor_ovs_protocol");
-    GetOptValue<int>(vars, tor_info_.port_, "TOR.tor_ovs_port");
+    GetOptValue<uint16_t>(vars, tor_info_.port_, "TOR.tor_ovs_port");
     GetOptValue<string>(vars, tor_info_.ssl_cert_,"TOR.ssl_cert");
     GetOptValue<string>(vars, tor_info_.ssl_privkey_,"TOR.ssl_privkey");
     GetOptValue<string>(vars, tor_info_.ssl_cacert_,"TOR.ssl_cacert");
