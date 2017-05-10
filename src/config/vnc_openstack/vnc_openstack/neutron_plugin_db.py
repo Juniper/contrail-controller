@@ -3757,6 +3757,7 @@ class DBInterface(object):
             ip_obj.set_instance_ip_address(ip_addr)
 
         ip_id = self._instance_ip_create(ip_obj)
+
         # set instance ip ownership to real tenant
         tenant_id = self._get_obj_tenant_id('port', port_obj.get_uuid())
         self._vnc_lib.chown(ip_id, tenant_id)
