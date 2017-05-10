@@ -514,7 +514,8 @@ OpServerProxy::UVENotif(const std::string &type,
                        const std::string &module, 
                        const std::string &instance_id,
                        const std::string &table, const std::string &barekey,
-                       const std::map<std::string,std::string>& value,
+                       std::map<std::string,
+                           std::pair<std::string, pugi::xml_node> >& value,
                        bool deleted) {
      
     std::string key = table + ":" + barekey;
@@ -548,17 +549,24 @@ OpServerProxy::UVENotif(const std::string &type,
     } else {
         contrail_rapidjson::Document dd;
         dd.SetObject();
-        for (map<string,string>::const_iterator it = value.begin();
-                    it != value.end(); it++) {
+        for (map<string, pair<string, pugi::xml_node> >::iterator it =
+                value.begin(); it != value.end(); it++) {
             // Send the attribute out on a Aggregated Topic if needed
             std::string astream(type + std::string("-") + it->first);
             if (impl_->aggconf_.find(astream) != impl_->aggconf_.end()) {
-                impl_->KafkaPub(astream, key, it->second);
+                // Add timestamp to the attribute before publishing proxy UVE
+                std::ostringstream ostr;
+                std::ostringstream tstr;
+                tstr << UTCTimestampUsec();
+                it->second.second.append_attribute("timestamp") = tstr.str().c_str();
+                it->second.second.print(ostr, "",
+                        pugi::format_raw | pugi::format_no_escapes);
+                impl_->KafkaPub(astream, key, ostr.str());
             }
             // TODO: don't sent attribute on UVE topic if it goes on Aggregate topic
             if (type == "UVEAlarms") {
                 contrail_rapidjson::Value sval(contrail_rapidjson::kStringType);
-                sval.SetString((it->second).c_str(), dd.GetAllocator());
+                sval.SetString((it->second.first).c_str(), dd.GetAllocator());
                 contrail_rapidjson::Value skey(contrail_rapidjson::kStringType);
                 dd.AddMember(skey.SetString(it->first.c_str(), dd.GetAllocator()),
                              sval, dd.GetAllocator());
@@ -681,7 +689,7 @@ OpServerProxy::DeleteUVEs(const string &source, const string &module,
             barekey += ":";
             barekey += v[idx];
         }
-        std::map<std::string,std::string> val;
+        std::map<std::string, std::pair<std::string, pugi::xml_node> > val;
         assert(UVENotif(typ, source, node_type, module, instance_id,
                 table, barekey, val, true));
     }
