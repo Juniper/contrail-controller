@@ -11,6 +11,7 @@
 #include <db/db_table_walker.h>
 #include <net/address.h>
 #include <boost/intrusive_ptr.hpp>
+#include <oper/agent_route_walker.h>
 
 #define LOCAL_PEER_NAME "Local"
 #define LOCAL_VM_PEER_NAME "Local_Vm"
@@ -164,20 +165,22 @@ public:
     DBTableBase::ListenerId GetVrfExportListenerId() { return id_; } 
 
     // Table Walkers
+    //Notify walker
+    void PeerNotifyRoutes(WalkDoneCb cb);
+    void PeerNotifyMulticastRoutes(bool associate);
+    void AllocPeerNotifyWalker();
+    void ReleasePeerNotifyWalker();
+    void StopPeerNotifyRoutes();
+    //Del peer walker
     void DelPeerRoutes(WalkDoneCb walk_done_cb,
                        uint64_t sequence_number);
-    void PeerNotifyRoutes(WalkDoneCb cb);
-    void StopPeerNotifyRoutes();
-    void PeerNotifyMulticastRoutes(bool associate);
     void DeleteStale();
+    void AllocDeleteStaleWalker();
+    void ReleaseDeleteStaleWalker();
     void StopDeleteStale();
 
-    ControllerRouteWalker *route_walker() const {
-        return route_walker_.get(); 
-    }
-    ControllerRouteWalker *delete_stale_walker() const {
-        return delete_stale_walker_.get();
-    }
+    ControllerRouteWalker *route_walker() const;
+    ControllerRouteWalker *delete_stale_walker() const;
 
     //Helper routines to get export state for vrf and route
     DBState *GetVrfExportState(DBTablePartBase *partition,
@@ -198,8 +201,8 @@ private:
     Ip4Address server_ip_;
     DBTableBase::ListenerId id_;
     uint32_t setup_time_;
-    boost::scoped_ptr<ControllerRouteWalker> route_walker_;
-    boost::scoped_ptr<ControllerRouteWalker> delete_stale_walker_;
+    AgentRouteWalkerPtr route_walker_;
+    AgentRouteWalkerPtr delete_stale_walker_;
     WalkDoneCb route_walker_cb_;
     WalkDoneCb delete_stale_walker_cb_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);

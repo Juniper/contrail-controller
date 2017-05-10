@@ -438,27 +438,26 @@ bool ArpVrfState::DeleteEvpnRouteState(DBTablePartBase *part,
 
 
 void ArpVrfState::Delete() {
-    if (walk_id_ != DBTableWalker::kInvalidWalkerId)
+    if (managed_delete_walk_ref.get() == NULL)
         return;
+
+    rt_table->WalkAgain(managed_delete_walk_ref);
+    if (evpn_walk_ref_.get())
+        evpn_rt_table->WalkAgain(evpn_walk_ref_);
     deleted = true;
-    DBTableWalker *walker = agent->db()->GetWalker();
-    walk_id_ = walker->WalkTable(rt_table, NULL,
-            boost::bind(&ArpVrfState::DeleteRouteState, this, _1, _2),
-            boost::bind(&ArpVrfState::WalkDone, _1, this));
-    evpn_walk_id_ = walker->WalkTable(evpn_rt_table, NULL,
-            boost::bind(&ArpVrfState::DeleteEvpnRouteState, this, _1, _2),
-            boost::bind(&ArpVrfState::WalkDone, _1, this));
 }
 
 void ArpVrfState::WalkDone(DBTableBase *partition, ArpVrfState *state) {
     if (partition == state->rt_table) {
-        state->walk_id_ = DBTableWalker::kInvalidWalkerId;
+        state->rt_table->ReleaseWalker(state->managed_delete_walk_ref);
+        state->managed_delete_walk_ref = NULL;
         state->l3_walk_completed_ = true;
     } else {
-        state->evpn_walk_id_ = DBTableWalker::kInvalidWalkerId;
+        //Get rt table from partition
+        state->evpn_rt_table->ReleaseWalker(state->evpn_walk_ref_);
+        state->evpn_walk_ref_ = NULL;
         state->evpn_walk_completed_ = true;
     }
-
     if (state->PreWalkDone(partition)) {
         delete state;
     }
@@ -499,9 +498,13 @@ ArpVrfState::ArpVrfState(Agent *agent_ptr, ArpProto *proto, VrfEntry *vrf_entry,
     table_delete_ref(this, table->deleter()),
     evpn_table_delete_ref(this, evpn_table->deleter()),
     deleted(false),
-    walk_id_(DBTableWalker::kInvalidWalkerId),
-    evpn_walk_id_(DBTableWalker::kInvalidWalkerId),
     l3_walk_completed_(false), evpn_walk_completed_(false) {
+    evpn_walk_ref_ = evpn_rt_table->AllocWalker(
+            boost::bind(&ArpVrfState::DeleteEvpnRouteState, this, _1, _2),
+            boost::bind(&ArpVrfState::WalkDone, _2, this));
+    managed_delete_walk_ref = rt_table->AllocWalker(
+            boost::bind(&ArpVrfState::DeleteRouteState, this, _1, _2),
+            boost::bind(&ArpVrfState::WalkDone, _2, this));
 }
 
 ArpVrfState::~ArpVrfState() {
@@ -761,8 +764,8 @@ bool ArpProto::ValidateAndClearVrfState(VrfEntry *vrf,
         return false;
     }
 
-    if (vrf_state->walk_id_ != DBTableWalker::kInvalidWalkerId ||
-        vrf_state->evpn_walk_id_ != DBTableWalker::kInvalidWalkerId) {
+    if (vrf_state->managed_delete_walk_ref.get() != NULL ||
+        vrf_state->evpn_walk_ref_.get() != NULL) {
         ARP_TRACE(Trace, "ARP state not cleared - Route table walk not complete",
                   "", vrf->GetName(), "");
         return false;

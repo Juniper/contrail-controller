@@ -799,7 +799,10 @@ void RouteKSyncObject::EmptyTable() {
 VrfKSyncObject::VrfState::VrfState(Agent *agent) :
     DBState(), seen_(false),
     evpn_rt_table_listener_id_(DBTableBase::kInvalidId) {
-    ksync_route_walker_ = new KSyncRouteWalker(agent, this);
+    ksync_route_walker_.reset(new KSyncRouteWalker(agent, this));
+    agent->oper_db()->agent_route_walk_manager()->
+        RegisterWalker(static_cast<AgentRouteWalker *>
+                       (ksync_route_walker_.get()));
 }
 
 void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
@@ -810,7 +813,7 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         if (state) {
             UnRegisterEvpnRouteTableListener(vrf, state);
             vrf->ClearState(partition->parent(), vrf_listener_id_);
-            state->ksync_route_walker_->EnqueueDelete();
+            (static_cast<KSyncRouteWalker *>(state->ksync_route_walker_.get()))->EnqueueDelete();
             delete state;
         }
         return;
@@ -855,7 +858,8 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
                 rt_table->Register(boost::bind(&VrfKSyncObject::EvpnRouteTableNotify,
                                            this, _1, _2));
         }
-        state->ksync_route_walker_->NotifyRoutes(vrf);
+        (static_cast<KSyncRouteWalker *>(state->ksync_route_walker_.get()))->
+            NotifyRoutes(vrf);
     }
 }
 
@@ -1058,7 +1062,7 @@ MacAddress VrfKSyncObject::GetIpMacBinding(VrfEntry *vrf,
 }
 
 KSyncRouteWalker::KSyncRouteWalker(Agent *agent, VrfKSyncObject::VrfState *state) :
-    AgentRouteWalker(agent, AgentRouteWalker::ALL), state_(state),
+    AgentRouteWalker("ksyncroutewalker", agent), state_(state),
     marked_for_deletion_(false) {
 }
 
@@ -1073,7 +1077,7 @@ bool IsStatePresent(AgentRoute *route, DBTableBase::ListenerId id,
 
 void KSyncRouteWalker::EnqueueDelete() {
     marked_for_deletion_ = true;
-    Delete();
+    mgr()->ReleaseWalker(static_cast<AgentRouteWalker *>(this));
 }
 
 bool KSyncRouteWalker::RouteWalkNotify(DBTablePartBase *partition,

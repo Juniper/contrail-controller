@@ -194,7 +194,7 @@ public:
         RouteKSyncObject *bridge_route_table_;
         IpToMacBinding  ip_mac_binding_;
         DBTableBase::ListenerId evpn_rt_table_listener_id_;
-        KSyncRouteWalker *ksync_route_walker_;
+        AgentRouteWalkerPtr ksync_route_walker_;
     };
 
     VrfKSyncObject(KSync *ksync);

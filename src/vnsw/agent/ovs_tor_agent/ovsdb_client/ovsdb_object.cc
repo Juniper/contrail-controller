@@ -44,8 +44,7 @@ void OvsdbObject::EmptyTable(void) {
 OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl,
                              bool init_stale_entry_cleanup) :
     KSyncDBObject("OvsdbDBObject"),
-    client_idl_(idl), walkid_(DBTableWalker::kInvalidWalkerId),
-    delete_triggered_(false) {
+    client_idl_(idl), delete_triggered_(false) {
     if (init_stale_entry_cleanup) {
         InitStaleEntryCleanup(*(idl->agent()->event_manager())->io_service(),
                               StaleEntryCleanupTimer, StaleEntryYeildTimer,
@@ -56,13 +55,13 @@ OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl,
 OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl, DBTable *tbl,
                              bool init_stale_entry_cleanup) :
     KSyncDBObject("OvsdbDBObject", tbl), client_idl_(idl),
-    walkid_(DBTableWalker::kInvalidWalkerId), delete_triggered_(false) {
-    DBTableWalker *walker = client_idl_->agent()->db()->GetWalker();
+    delete_triggered_(false) {
     // Start a walker to get the entries which were already present,
     // when we register to the DB Table
-    walkid_ = walker->WalkTable(tbl, NULL,
+    walk_ref_ = tbl->AllocWalker(
             boost::bind(&OvsdbDBObject::DBWalkNotify, this, _1, _2),
-            boost::bind(&OvsdbDBObject::DBWalkDone, this, _1));
+            boost::bind(&OvsdbDBObject::DBWalkDone, this, _2));
+    tbl->WalkAgain(walk_ref_);
     if (init_stale_entry_cleanup) {
         InitStaleEntryCleanup(*(idl->agent()->event_manager())->io_service(),
                               StaleEntryCleanupTimer, StaleEntryYeildTimer,
@@ -71,29 +70,23 @@ OvsdbDBObject::OvsdbDBObject(OvsdbClientIdl *idl, DBTable *tbl,
 }
 
 OvsdbDBObject::~OvsdbDBObject() {
-    assert(walkid_ == DBTableWalker::kInvalidWalkerId);
+    assert(walk_ref_ == NULL);
 }
 
 void OvsdbDBObject::OvsdbRegisterDBTable(DBTable *tbl) {
     RegisterDb(tbl);
-    DBTableWalker *walker = agent()->db()->GetWalker();
     // Start a walker to get the entries which were already present,
     // when we register to the DB Table
-    walkid_ = walker->WalkTable(tbl, NULL,
-            boost::bind(&OvsdbDBObject::DBWalkNotify, this, _1, _2),
-            boost::bind(&OvsdbDBObject::DBWalkDone, this, _1));
+    if (walk_ref_.get() == NULL) {
+        walk_ref_ = tbl->AllocWalker(
+                      boost::bind(&OvsdbDBObject::DBWalkNotify, this, _1, _2),
+                      boost::bind(&OvsdbDBObject::DBWalkDone, this, _2));
+    }
+    tbl->WalkAgain(walk_ref_);
 }
 
 void OvsdbDBObject::OvsdbStartResyncWalk() {
-    DBTableWalker *walker = agent()->db()->GetWalker();
-    // stop the previous walk if already running and start new.
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        walker->WalkCancel(walkid_);
-        walkid_ = DBTableWalker::kInvalidWalkerId;
-    }
-    walkid_ = walker->WalkTable(static_cast<DBTable*>(GetDBTable()), NULL,
-            boost::bind(&OvsdbDBObject::DBWalkNotify, this, _1, _2),
-            boost::bind(&OvsdbDBObject::DBWalkDone, this, _1));
+    (static_cast<DBTable*>(GetDBTable()))->WalkAgain(walk_ref_);
 }
 
 void OvsdbDBObject::NotifyAddOvsdb(OvsdbDBEntry *key, struct ovsdb_idl_row *row) {
@@ -139,7 +132,6 @@ bool OvsdbDBObject::DBWalkNotify(DBTablePartBase *part, DBEntryBase *entry) {
 }
 
 void OvsdbDBObject::DBWalkDone(DBTableBase *partition) {
-    walkid_ = DBTableWalker::kInvalidWalkerId;
 }
 
 Agent *OvsdbDBObject::agent() const {
@@ -162,11 +154,9 @@ void OvsdbDBObject::DeleteTable(void) {
 
 void OvsdbDBObject::EmptyTable(void) {
     if (delete_scheduled()) {
-        if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-            DBTableWalker *walker = agent()->db()->GetWalker();
-            walker->WalkCancel(walkid_);
-            walkid_ = DBTableWalker::kInvalidWalkerId;
-        }
+        if (walk_ref_.get() != NULL)
+            (static_cast<DBTable*>(GetDBTable()))->ReleaseWalker(walk_ref_);
+        walk_ref_ = NULL;
         client_idl_ = NULL;
     }
 }

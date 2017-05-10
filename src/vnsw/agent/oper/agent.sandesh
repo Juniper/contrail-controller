@@ -2385,27 +2385,11 @@ trace sandesh MplsTrace {
  * @type: Trace
  * @severity: DEBUG
  */
-trace sandesh AgentRouteWalkerTrace {
-    /** Message for agent route walker */
-    1: string message;
-    2: "Walk Type:";
-    /** Walk type for agent route walker */
-    3: i32 walk_type;
-    4: "Vrf name:";
-    /** Name of vrf associated with agent route walker */
-    5: string vrf_name;
-    6: "VRF walkid:";
-    /** Id for vrf walk */
-    7: i32 vrf_walk_id;
-    8: "Route table Type:";
-    /** Type of agent route table - unicast/multicast/... */
-    9: i32 route_table_type;
-   10: "Route table name:";
-   /** Name of agent route table */
-   11: string route_table_name;
-   12: "Route Walk Id:";
-   /** Id for route walk */
-   13: i32 route_walk_id;
+traceobject sandesh AgentRouteWalkerTrace {
+    1: string name;
+    2: string message;
+    6: string vrf_name;
+    8: string route_table_type;
 }
 
 /**
@@ -2491,14 +2475,10 @@ systemlog sandesh AgentRouteWalkerLog {
     /** Walk id for agent route walker */
     2: u32 walk_id;
     3: "walktype:";
-    /** Type of walk for agent route walker */
-    4: u32 walk_type;
     /** Message for agent route walker */
     5: string message;
     /** Name of vrf for agent route walker */
     6: string vrf_name;
-    /** Type of route table for agent route walker - unicast/multicast/... */
-    7: u32 route_table_type;
 }
 
 /**

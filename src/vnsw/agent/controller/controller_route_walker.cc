@@ -21,9 +21,10 @@
 #include "controller/controller_export.h"
 #include "controller/controller_route_path.h"
 
-ControllerRouteWalker::ControllerRouteWalker(Agent *agent, Peer *peer) : 
-    AgentRouteWalker(agent, AgentRouteWalker::ALL), peer_(peer), 
-    associate_(false), type_(NOTIFYALL), sequence_number_(0) {
+ControllerRouteWalker::ControllerRouteWalker(const std::string &name,
+                                             Peer *peer) :
+    AgentRouteWalker(name, dynamic_cast<BgpPeer *>(peer)->agent()),
+    peer_(peer), associate_(false), type_(NOTIFYALL), sequence_number_(0) {
 }
 
 // Takes action based on context of walk. These walks are not parallel.
@@ -98,6 +99,14 @@ bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
                                        DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     if (peer_->GetType() == Peer::BGP_PEER) {
+        BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
+        VrfExport::State *state = static_cast<VrfExport::State *>
+            (bgp_peer->GetVrfExportState(partition, vrf));
+        // State can be NULL, when vrf delete has happened before peer goes down
+        // and VRF is not deleted before delpeer walker reaches the entry.
+        // Controller Notify would have deleted state before delpeer was invoked.
+        if (!state)
+            return true;
         // skip starting walk on route tables if all the the route tables
         // are already delete, this also safe-gaurds that StartRouteWalk
         // will not be the first reference on the deleted VRF which will
@@ -319,10 +328,9 @@ void ControllerRouteWalker::Start(Type type, bool associate,
     type_ = type;
     WalkDoneCallback(walk_done_cb);
 
-    StartVrfWalk(); 
+    StartVrfWalk();
 }
 
-void ControllerRouteWalker::Cancel() {
-    CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Cancel Vrf Walk", "", peer_->GetName());
-    CancelVrfWalk(); 
+bool ControllerRouteWalker::IsDeleteWalk() const {
+    return ((type_ == DELSTALE) || (type_ == DELPEER));
 }

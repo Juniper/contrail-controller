@@ -95,14 +95,28 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     admin_state_(true), table_label_(0), enable_rpf_(true),
     flood_unknown_unicast_(false), old_vxlan_id_(0),
     forwarding_mode_(Agent::L2_L3),
-    route_resync_walker_(new AgentRouteResync(agent)), mirror_destination_(false)
+    mirror_destination_(false)
 {
-    route_resync_walker_.get()->
-        set_walkable_route_tables((1 << Agent::INET4_UNICAST) |
-                                  (1 << Agent::INET6_UNICAST));
 }
 
 VnEntry::~VnEntry() {
+}
+
+void VnEntry::AllocWalker() {
+    assert(route_resync_walker_.get() == NULL);
+    route_resync_walker_ = new AgentRouteResync("VnRouteResyncWalker",
+                                                agent_);
+    agent_->oper_db()->agent_route_walk_manager()->
+        RegisterWalker(static_cast<AgentRouteWalker *>
+                       (route_resync_walker_.get()));
+}
+
+void VnEntry::ReleaseWalker() {
+    if (route_resync_walker_.get() == NULL)
+        return;
+    agent_->oper_db()->agent_route_walk_manager()->
+        ReleaseWalker(route_resync_walker_.get());
+    route_resync_walker_.reset(NULL);
 }
 
 bool VnEntry::IsLess(const DBEntry &rhs) const {
@@ -267,7 +281,22 @@ bool VnEntry::Resync() {
 void VnEntry::ResyncRoutes() {
     if (vrf_.get() == NULL)
         return;
-    route_resync_walker_.get()->UpdateRoutesInVrf(vrf_.get());
+    (static_cast<AgentRouteResync *>(route_resync_walker_.get()))->
+     UpdateRoutesInVrf(vrf_.get());
+}
+
+VnTable::VnTable(DB *db, const std::string &name) : AgentOperDBTable(db, name) {
+    walk_ref_ = AllocWalker(boost::bind(&VnTable::VnEntryWalk,
+                                        this, _1, _2),
+                            boost::bind(&VnTable::VnEntryWalkDone, this,
+                                        _1, _2));
+}
+
+VnTable::~VnTable() {
+}
+
+void VnTable::Clear() {
+    ReleaseWalker(walk_ref_);
 }
 
 bool VnTable::GetLayer3ForwardingConfig
@@ -379,22 +408,15 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
     return true;
 }
 
-void VnTable::VnEntryWalkDone(DBTableBase *partition) {
-    walkid_ = DBTableWalker::kInvalidWalkerId;
+void VnTable::VnEntryWalkDone(DBTable::DBTableWalkRef walk_ref,
+                              DBTableBase *partition) {
     agent()->interface_table()->GlobalVrouterConfigChanged();
     agent()->physical_device_vn_table()->
         UpdateVxLanNetworkIdentifierMode();
 }
 
 void VnTable::GlobalVrouterConfigChanged() {
-    DBTableWalker *walker = agent()->db()->GetWalker();
-    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
-        walker->WalkCancel(walkid_);
-    }
-    walkid_ = walker->WalkTable(VnTable::GetInstance(), NULL,
-                      boost::bind(&VnTable::VnEntryWalk, 
-                                  this, _1, _2),
-                      boost::bind(&VnTable::VnEntryWalkDone, this, _1));
+    WalkAgain(walk_ref_);
 }
 
 std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
@@ -408,6 +430,7 @@ DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
     VnData *data = static_cast<VnData *>(req->data.get());
     VnEntry *vn = new VnEntry(agent(), key->uuid_);
     vn->name_ = data->name_;
+    vn->AllocWalker();
 
     ChangeHandler(vn, req);
     vn->SendObjectLog(AgentLogEvent::ADD);
@@ -613,6 +636,7 @@ bool VnTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     DeleteAllIpamRoutes(vn);
     RebakeVxlan(vn, true);
+    vn->ReleaseWalker();
     vn->SendObjectLog(AgentLogEvent::DELETE);
     return true;
 }

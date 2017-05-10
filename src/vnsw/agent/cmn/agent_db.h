@@ -146,21 +146,9 @@ private:
 class AgentDBTable : public DBTable {
 public:
     static const int kPartitionCount = 1;
-    AgentDBTable(DB *db, const std::string &name) : 
-        DBTable(db, name), ref_listener_id_(-1), agent_(NULL),
-        OperDBTraceBuf(SandeshTraceBufferCreate(("Oper " + name), 5000)) {
-        ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
-                                                this, _1, _2));
-    };
-
-    AgentDBTable(DB *db, const std::string &name, bool del_on_zero_refcount) : 
-        DBTable(db, name), ref_listener_id_(-1) , agent_(NULL),
-        OperDBTraceBuf(SandeshTraceBufferCreate(("Oper " + name), 5000)) {
-        ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
-                                                this, _1, _2));
-    };
-
-    virtual ~AgentDBTable() { };
+    AgentDBTable(DB *db, const std::string &name);
+    AgentDBTable(DB *db, const std::string &name, bool del_on_zero_refcount);
+    virtual ~AgentDBTable();
 
     virtual int PartitionCount() const { return kPartitionCount; }
     virtual void Input(DBTablePartition *root, DBClient *client,
@@ -222,7 +210,8 @@ public:
     void set_agent(Agent *agent) { agent_ = agent; }
     Agent *agent() const { return agent_; }
 
-    void Flush(DBTableWalker *walker);
+    void Flush();
+    void reset_flush_walk_ref();
     SandeshTraceBufferPtr GetOperDBTraceBuf() const {return OperDBTraceBuf;}
 private:
     AgentDBEntry *Find(const DBEntry *key);
@@ -231,6 +220,7 @@ private:
     DBTableBase::ListenerId ref_listener_id_;
     Agent *agent_;
     SandeshTraceBufferPtr OperDBTraceBuf;
+    DBTable::DBTableWalkRef flush_walk_ref_;
     DISALLOW_COPY_AND_ASSIGN(AgentDBTable);
 };
 
