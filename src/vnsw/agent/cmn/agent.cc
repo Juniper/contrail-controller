@@ -682,7 +682,8 @@ Agent::Agent() :
     vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),
     vrouter_max_interfaces_(0), vrouter_max_vrfs_(0),
     vrouter_max_mirror_entries_(0), vrouter_max_bridge_entries_(0),
-    vrouter_max_oflow_bridge_entries_(0), flow_stats_req_handler_(NULL),
+    vrouter_max_oflow_bridge_entries_(0), vrouter_priority_tagging_(true),
+    flow_stats_req_handler_(NULL),
     tbb_keepawake_timeout_(kDefaultTbbKeepawakeTimeout),
     task_monitor_timeout_msec_(kDefaultTaskMonitorTimeout) {
 
@@ -1016,6 +1017,7 @@ VrouterObjectLimits Agent::GetVrouterObjectLimits() {
    vr_limits.set_vrouter_build_info(vrouter_build_info());
    vr_limits.set_vrouter_max_flow_entries(vrouter_max_flow_entries());
    vr_limits.set_vrouter_max_oflow_entries(vrouter_max_oflow_entries());
+   vr_limits.set_vrouter_priority_tagging(vrouter_priority_tagging());
    return vr_limits;
 }
 

@@ -111,6 +111,7 @@ protected:
     void ResetVRouter(bool run_sync_mode);
     int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
 private:
+    void InitVrouterOps(vrouter_ops *v);
     void NetlinkInit();
     void CreateVhostIntf();
     DISALLOW_COPY_AND_ASSIGN(KSync);

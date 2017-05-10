@@ -26,6 +26,9 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     AgentParam param;
     param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
 
+    // QOS.priorty_tagging is not configured in cfg.ini. Verify the default
+    // value of true is set
+    EXPECT_TRUE(param.qos_priority_tagging());
     EXPECT_STREQ(param.vhost_name().c_str(), "vhost0");
     EXPECT_EQ(param.vhost_addr().to_ulong(),
               Ip4Address::from_string("10.1.1.1").to_ulong());
@@ -95,6 +98,8 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     AgentParam param;
     param.Init("controller/src/vnsw/agent/init/test/cfg1.ini", "test-param");
 
+    // QOS.priorty_tagging is configured as true in cfg1.ini.
+    EXPECT_TRUE(param.qos_priority_tagging());
     EXPECT_EQ(param.max_vm_flows(), 100);
     EXPECT_EQ(param.linklocal_system_flows(), 2048);
     EXPECT_EQ(param.linklocal_vm_flows(), 2048);
@@ -433,6 +438,8 @@ TEST_F(AgentParamTest, Default_Cmdline_arg3) {
     EXPECT_STREQ(param.log_file().c_str(), "3.log");
     EXPECT_TRUE(param.isVmwareMode());
     EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
+    // QOS.priorty_tagging is configured as false in cfg-default1.ini.
+    EXPECT_FALSE(param.qos_priority_tagging());
 }
 
 TEST_F(AgentParamTest, MultitokenVector) {
