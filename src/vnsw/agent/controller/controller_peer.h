@@ -175,6 +175,7 @@ public:
     EndOfRibRxTimer *end_of_rib_rx_timer();
     //Sequence number for this channel
     uint64_t sequence_number() const;
+    void Unregister();
 
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
@@ -238,6 +239,7 @@ private:
                    VnListType *vn_list);
 
     XmppChannel *channel_;
+    std::string channel_str_;
     std::string xmpp_server_;
     std::string label_range_;
     uint8_t xs_idx_;
