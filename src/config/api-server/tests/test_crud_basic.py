@@ -1230,7 +1230,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         ip_allocated = fip_fixt.getObj().floating_ip_address
 
         logger.info("Creating auto-alloc instance-ip, expecting an error")
-        with ExpectedException(RefsExistError) as e:
+        with ExpectedException(BadRequest) as e:
             iip_fixt = self.useFixture(
                 InstanceIpTestFixtureGen(
                     self._vnc_lib, 'iip1', auto_prop_val=False,
@@ -1266,7 +1266,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         ip_allocated = aip_fixt.getObj().alias_ip_address
 
         logger.info("Creating auto-alloc instance-ip, expecting an error")
-        with ExpectedException(RefsExistError) as e:
+        with ExpectedException(BadRequest) as e:
             iip_fixt = self.useFixture(
                 InstanceIpTestFixtureGen(
                     self._vnc_lib, 'iip1', auto_prop_val=False,
