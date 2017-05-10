@@ -401,7 +401,7 @@ class PhysicalRouterConfig(object):
         ri = Instance(name=ri_name)
         if vn:
             is_nat = True if fip_map else False
-            ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat))
+            ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat, router_external))
         ri_config.add_instance(ri)
         ri_opt = None
         if router_external and is_l2 == False:
@@ -603,7 +603,6 @@ class PhysicalRouterConfig(object):
                 bd_config = BridgeDomains()
                 ri.set_bridge_domains(bd_config)
                 bd = Domain(name=DMUtils.make_bridge_name(vni), vlan_id='none', vxlan=VXLan(vni=vni))
-                bd.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
                 bd_config.add_domain(bd)
                 for interface in interfaces:
                      bd.add_interface(Interface(name=interface.name))
@@ -667,6 +666,7 @@ class PhysicalRouterConfig(object):
             inet = None
             inet6 = None
             for (lo_ip, _) in gateways:
+                subnet = lo_ip
                 (ip, _) = lo_ip.split('/')
                 if ':' in lo_ip:
                     if not inet6:
@@ -683,7 +683,7 @@ class PhysicalRouterConfig(object):
                     inet.add_address(addr)
                     lo_ip = ip + '/' + '32'
                 addr.set_name(lo_ip)
-                addr.set_comment(DMUtils.lo0_ip_comment(lo_ip))
+                addr.set_comment(DMUtils.lo0_ip_comment(subnet))
             ri.add_interface(Interface(name="lo0." + ifl_num,
                                        comment=DMUtils.lo0_ri_intf_comment(vn)))
 
