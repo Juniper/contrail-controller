@@ -1185,6 +1185,11 @@ void AgentParam::AddOptions
     options_.add(opt);
 }
 
+void AgentParam::ConfigAddOptions
+(const boost::program_options::options_description &opt) {
+    config_file_options_.add(opt);
+}
+
 void AgentParam::ParseArguments(int argc, char *argv[]) {
     boost::program_options::store(opt::parse_command_line(argc, argv, options_),
                                   var_map_);
@@ -1560,7 +1565,6 @@ AgentParam::AgentParam(bool enable_flow_options,
     config_file_options_.add(tbb);
 
     opt::options_description sandesh("Sandesh specific options");
-    sandesh::options::AddOptions(&sandesh, &sandesh_config_);
     options_.add(sandesh);
     config_file_options_.add(sandesh);
 
