@@ -496,7 +496,7 @@ class InstanceIpServer(Resource, InstanceIp):
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name,
                                                     vn_uuid=vn_id):
             if not cls.addr_mgmt.is_gateway_ip(vn_dict, req_ip):
-                return (False, (409, 'Ip address already in use'))
+                return (False, (400, 'Ip address already in use'))
             elif cls._vmi_has_vm_ref(db_conn, obj_dict):
                 return (False,
                     (400, 'Gateway IP cannot be used by VM port'))

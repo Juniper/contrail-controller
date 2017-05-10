@@ -3756,7 +3756,12 @@ class DBInterface(object):
         if ip_addr:
             ip_obj.set_instance_ip_address(ip_addr)
 
-        ip_id = self._instance_ip_create(ip_obj)
+        try:
+            ip_id = self._instance_ip_create(ip_obj)
+        except BadRequest as e:
+            self._raise_contrail_exception('BadRequest',
+                resource='port', msg=str(e))
+
         # set instance ip ownership to real tenant
         tenant_id = self._get_obj_tenant_id('port', port_obj.get_uuid())
         self._vnc_lib.chown(ip_id, tenant_id)
