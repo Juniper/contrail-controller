@@ -9,6 +9,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/detail/socket_option.hpp>
+#include <boost/asio/ip/host_name.hpp>
 #include <boost/bind.hpp>
 #include <boost/scoped_array.hpp>
 
@@ -237,6 +238,11 @@ void TcpSession::SetName() {
     out << remote_.address().to_string() << ":" << remote_.port();
 
     name_ = out.str();
+
+    out.str("");
+    string hostname = boost::asio::ip::host_name(error);
+    out << hostname << ":" << remote_.address().to_string();
+    uve_key_str_ = out.str();
 }
 
 void TcpSession::SessionEstablished(Endpoint remote,

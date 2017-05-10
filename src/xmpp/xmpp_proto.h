@@ -8,6 +8,8 @@
 #include "xmpp/xmpp_str.h"
 #include "xml/xml_base.h"
 
+class XmppConnection;
+
 class XmppStanza  {
 public:
     enum XmppMessageType {
@@ -170,7 +172,8 @@ private:
 class XmppProto : public XmppStanza {
 public:
 
-    static XmppStanza::XmppMessage *Decode(const std::string &ts);
+    static XmppStanza::XmppMessage *Decode(const XmppConnection *connection,
+                                           const std::string &ts);
     static int EncodeStream(const XmppStreamMessage &str, std::string &to, 
                             std::string &from, uint8_t *data, size_t size);
     static int EncodeStream(const XmppMessage &str, uint8_t *data, size_t size);
@@ -201,8 +204,9 @@ private:
     static const char *GetAsNode(XmlBase *doc);
     static const char *GetDsNode(XmlBase *doc);
 
-    static XmppStanza::XmppMessage *DecodeInternal(const std::string &ts,
-                                                   XmlBase *impl); 
+    static XmppStanza::XmppMessage *DecodeInternal(
+            const XmppConnection *connection, const std::string &ts,
+            XmlBase *impl); 
 
     static std::auto_ptr<XmlBase> open_doc_;
 
