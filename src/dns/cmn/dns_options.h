@@ -50,6 +50,12 @@ public:
     bool log_local() const { return log_local_; }
     bool use_syslog() const { return use_syslog_; }
     std::string syslog_facility() const { return syslog_facility_; }
+    std::string config_db_user() const {
+        return configdb_options_.config_db_username;
+    }
+    std::string config_db_password() const {
+        return configdb_options_.config_db_password;
+    }
     std::vector<std::string> config_db_server_list() const {
         return configdb_options_.config_db_server_list;
     }
