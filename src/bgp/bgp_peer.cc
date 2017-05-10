@@ -912,7 +912,6 @@ string BgpPeer::gateway_address_string(Address::Family family) const {
 // Reset all stored capabilities information and cancel outstanding timers.
 //
 void BgpPeer::CustomClose() {
-    negotiated_families_.clear();
     ResetCapabilities();
     keepalive_timer_->Cancel();
 
@@ -1013,11 +1012,11 @@ BgpSession *BgpPeer::CreateSession() {
     return bgp_session;
 }
 
-void BgpPeer::SetAdminState(bool down) {
+void BgpPeer::SetAdminState(bool down, int subcode) {
     if (admin_down_ == down)
         return;
     admin_down_ = down;
-    state_machine_->SetAdminState(down);
+    state_machine_->SetAdminState(down, subcode);
     if (admin_down_) {
         BGP_LOG_PEER(Config, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA, "Session cleared due to admin down");
@@ -1287,6 +1286,9 @@ bool BgpPeer::notification() const {
 
 // Check if GR Helper mode sould be attempted.
 bool BgpPeer::AttemptGRHelperMode(int code, int subcode) const {
+    if (!code)
+        return true;
+
     if (code == BgpProto::Notification::Cease &&
             (subcode == BgpProto::Notification::HardReset ||
              subcode == BgpProto::Notification::PeerDeconfigured)) {
