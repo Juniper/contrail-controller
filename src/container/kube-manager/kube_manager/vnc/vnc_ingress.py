@@ -57,7 +57,7 @@ class VncIngress(VncCommon):
     def _get_network(self, ns_name):
         ns = self._get_namespace(ns_name)
         if ns.is_isolated():
-            vn_fq_name = ns.get_network_fq_name()
+            vn_fq_name = ns.get_isolated_network_fq_name()
         else:
             if self._default_vn_obj:
                 return self._default_vn_obj
