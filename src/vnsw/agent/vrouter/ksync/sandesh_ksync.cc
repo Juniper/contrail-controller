@@ -142,5 +142,6 @@ void KSyncSandeshContext::VrouterOpsMsgHandler(vrouter_ops *r) {
     agent->set_vrouter_max_flow_entries(r->get_vo_flow_entries());
     agent->set_vrouter_max_oflow_entries(r->get_vo_oflow_entries());
     agent->set_vrouter_build_info(r->get_vo_build_info());
+    agent->set_vrouter_priority_tagging(r->get_vo_priority_tagging());
     return;
 }

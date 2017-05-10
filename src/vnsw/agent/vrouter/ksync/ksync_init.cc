@@ -219,6 +219,39 @@ void KSync::VRouterInterfaceSnapshot() {
     ctxt->Reset();
 }
 
+void KSync::InitVrouterOps(vrouter_ops *v) {
+    v->set_vo_rid(0);
+    v->set_vo_mpls_labels(-1);
+    v->set_vo_mpls_labels(-1);
+    v->set_vo_nexthops(-1);
+    v->set_vo_bridge_entries(-1);
+    v->set_vo_oflow_bridge_entries(-1);
+    v->set_vo_flow_entries(-1);
+    v->set_vo_oflow_entries(-1);
+    v->set_vo_interfaces(-1);
+    v->set_vo_mirror_entries(-1);
+    v->set_vo_vrfs(-1);
+    v->set_vo_log_level(0);
+    v->set_vo_perfr(-1);
+    v->set_vo_perfs(-1);
+    v->set_vo_from_vm_mss_adj(-1);
+    v->set_vo_to_vm_mss_adj(-1);
+    v->set_vo_perfr1(-1);
+    v->set_vo_perfr2(-1);
+    v->set_vo_perfr3(-1);
+    v->set_vo_perfp(-1);
+    v->set_vo_perfq1(-1);
+    v->set_vo_perfq2(-1);
+    v->set_vo_perfq3(-1);
+    v->set_vo_udp_coff(-1);
+    v->set_vo_flow_hold_limit(-1);
+    v->set_vo_mudp(-1);
+    v->set_vo_burst_tokens(-1);
+    v->set_vo_burst_interval(-1);
+    v->set_vo_burst_step(-1);
+    v->set_vo_memory_alloc_checks(-1);
+}
+
 void KSync::ResetVRouter(bool run_sync_mode) {
     int len = 0;
     vrouter_ops encoder;
@@ -231,6 +264,18 @@ void KSync::ResetVRouter(bool run_sync_mode) {
     if (sock->BlockingRecv()) {
         LOG(ERROR, "Error resetting VROUTER. Skipping KSync Start");
         return;
+    }
+
+    //configure vrouter with priority_tagging configuration
+    encoder.set_h_op(sandesh_op::ADD);
+    encoder.set_vo_priority_tagging(agent_->params()->qos_priority_tagging());
+    //Initialize rest of the fields to values so that vrouter does not take any
+    //action on those field values
+    InitVrouterOps(&encoder);
+    len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
+    sock->BlockingSend((char *)msg, len);
+    if (sock->BlockingRecv()) {
+        LOG(ERROR, "Error setting Qos priority-tagging for vrouter");
     }
 
     //Get configured mpls, vmi, vni and nexthop parameters
