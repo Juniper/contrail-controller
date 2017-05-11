@@ -72,7 +72,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     ecmp6_(false), dhcp_enable_(true),
     proxy_arp_mode_(VmInterface::PROXY_ARP_NONE), admin_state_(true),
     disable_policy_(false), analyzer_name_(""),
-    local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+    local_preference_(0), oper_dhcp_options_(),
     mirror_direction_(Interface::UNKNOWN), sg_list_(),
     floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),

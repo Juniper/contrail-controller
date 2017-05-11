@@ -561,6 +561,14 @@ TEST_F(TestAap6, StaticMachine_11) {
     EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
     EXPECT_TRUE(path->path_preference().static_preference() == true);
 
+    // verify value other than HIGH and LOW
+    AddStaticPreference("intf1", 1, 50);
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 50);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == true);
+
     AddStaticPreference("intf1", 1, 100);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
 

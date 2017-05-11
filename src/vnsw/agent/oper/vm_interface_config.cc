@@ -1035,17 +1035,7 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
                             VmInterfaceConfigData *data) {
     //Extract the local preference
     if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
-        autogen::VirtualMachineInterfacePropertiesType prop = cfg->properties();
-        //Service instance also would have VirtualMachineInterface
-        //properties field set, pick up local preference
-        //value only when it has been initialized to proper
-        //value, if its 0, ignore the local preference
-        if (prop.local_preference) {
-            data->local_preference_ = VmInterface::LOW;
-            if (prop.local_preference == VmInterface::HIGH) {
-                data->local_preference_ = VmInterface::HIGH;
-            }
-        }
+        data->local_preference_ = cfg->properties().local_preference;
     }
 
     ReadAnalyzerNameAndCreate(agent, cfg, *data);

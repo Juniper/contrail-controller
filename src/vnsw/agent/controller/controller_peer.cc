@@ -630,10 +630,11 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
     EcmpLoadBalance ecmp_load_balance;
     GetEcmpHashFieldsToUse(item, ecmp_load_balance);
 
-    PathPreference::Preference preference = PathPreference::LOW;
+    // use LOW PathPreference if local preference attribute is not set
+    uint32_t preference = PathPreference::LOW;
     TunnelType::TypeBmap encap = TunnelType::MplsType(); //default
-    if (item->entry.local_preference == PathPreference::HIGH) {
-        preference = PathPreference::HIGH;
+    if (item->entry.local_preference != 0) {
+        preference = item->entry.local_preference;
     }
     PathPreference rp(item->entry.sequence_number, preference, false, false);
     InetUnicastAgentRouteTable *rt_table = PrefixToRouteTable(vrf_name,
@@ -837,11 +838,10 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     uint32_t label = item->entry.next_hops.next_hop[n].label;
     TunnelType::TypeBmap encap = GetEnetTypeBitmap
         (item->entry.next_hops.next_hop[n].tunnel_encapsulation_list);
-    PathPreference::Preference preference = PathPreference::LOW;
-    if (item->entry.local_preference == PathPreference::HIGH) {
-        preference = PathPreference::HIGH;
-    } else if (item->entry.local_preference == PathPreference::HA_STALE) {
-        preference = PathPreference::HA_STALE;
+    // use LOW PathPreference if local preference attribute is not set
+    uint32_t preference = PathPreference::LOW;
+    if (item->entry.local_preference != 0) {
+        preference = item->entry.local_preference;
     }
     PathPreference path_preference(item->entry.sequence_number, preference,
                                    false, false);
@@ -986,9 +986,10 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
         return;
     }
 
-    PathPreference::Preference preference = PathPreference::LOW;
-    if (item->entry.local_preference == PathPreference::HIGH) {
-        preference = PathPreference::HIGH;
+    // use LOW PathPreference if local preference attribute is not set
+    uint32_t preference = PathPreference::LOW;
+    if (item->entry.local_preference != 0) {
+        preference = item->entry.local_preference;
     }
     PathPreference path_preference(item->entry.sequence_number, preference,
                                    false, false);
