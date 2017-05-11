@@ -81,6 +81,7 @@ public:
 class BgpPeerTest : public ::testing::Test {
 protected:
     BgpPeerTest() : server_(&evm_), peer_(NULL) {
+        unsetenv("BGP_PEER_BUFFER_SIZE");
     }
 
     void SetUp() {
@@ -88,7 +89,7 @@ protected:
         session_.reset(new BgpSessionMock(server_.session_manager()));
         peer_.reset(new BgpPeerMock(&server_, &config_));
         peer_->set_session(session_.get());
-        TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+        TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     }
 
     void TearDown() {
@@ -97,6 +98,14 @@ protected:
         server_.Shutdown();
         task_util::WaitForIdle();
         peer_.reset();
+    }
+
+    void Reset(const BgpNeighborConfig *config) {
+        ConcurrencyScope scope("bgp::Config");
+        peer_->clear_session();
+        peer_->PostCloseRelease();
+        peer_.reset(new BgpPeerMock(&server_, config));
+        peer_->set_session(session_.get());
     }
 
     RibExportPolicy BuildRibExportPolicy() {
@@ -108,6 +117,8 @@ protected:
         ConcurrencyScope scope("bgp::Config");
         peer_->ConfigUpdate(config);
     }
+
+    size_t BufferCapacity() { return peer_->buffer_capacity_; }
 
     BgpNeighborConfig config_;
     BgpServer server_;
@@ -171,11 +182,98 @@ TEST_F(BgpPeerTest, PrivateAsAction) {
 }
 
 //
+// Default buffer capacity for regular peer.
+//
+TEST_F(BgpPeerTest, BufferCapacity1) {
+    BgpNeighborConfig config;
+    config.set_router_type("control-node");
+    Reset(&config);
+    size_t capacity = BgpPeer::kMaxBufferCapacity;
+    TASK_UTIL_EXPECT_EQ(capacity, BufferCapacity());
+}
+
+//
+// Default buffer capacity for bgpaas peer.
+//
+TEST_F(BgpPeerTest, BufferCapacity2) {
+    BgpNeighborConfig config;
+    config.set_router_type("bgpaas-client");
+    Reset(&config);
+    size_t capacity = BgpPeer::kMinBufferCapacity;
+    TASK_UTIL_EXPECT_EQ(capacity, BufferCapacity());
+}
+
+//
+// Buffer capacity set via env variable for regular peer.
+//
+TEST_F(BgpPeerTest, BufferCapacity3) {
+    char value[8];
+    snprintf(value, sizeof(value), "%zu", BgpPeer::kMaxBufferCapacity / 2);
+    setenv("BGP_PEER_BUFFER_SIZE", value, true);
+    BgpNeighborConfig config;
+    config.set_router_type("control-node");
+    Reset(&config);
+    size_t capacity = BgpPeer::kMaxBufferCapacity / 2;
+    TASK_UTIL_EXPECT_EQ(capacity, BufferCapacity());
+}
+
+//
+// Buffer capacity set via env variable for for bgpaas peer.
+//
+TEST_F(BgpPeerTest, BufferCapacity4) {
+    char value[8];
+    snprintf(value, sizeof(value), "%zu", BgpPeer::kMaxBufferCapacity / 2);
+    setenv("BGP_PEER_BUFFER_SIZE", value, true);
+    BgpNeighborConfig config;
+    config.set_router_type("bgpaas-client");
+    Reset(&config);
+    size_t capacity = BgpPeer::kMaxBufferCapacity / 2;
+    TASK_UTIL_EXPECT_EQ(capacity, BufferCapacity());
+}
+
+//
+// Buffer capacity set via env variable is too small.
+//
+TEST_F(BgpPeerTest, BufferCapacity5) {
+    char value[8];
+    snprintf(value, sizeof(value), "%zu", BgpPeer::kMinBufferCapacity - 1);
+    setenv("BGP_PEER_BUFFER_SIZE", value, true);
+    BgpNeighborConfig config;
+    Reset(&config);
+    size_t capacity = BgpPeer::kMinBufferCapacity;
+    TASK_UTIL_EXPECT_EQ(capacity, BufferCapacity());
+}
+
+//
+// Buffer capacity set via env variable is too big.
+//
+TEST_F(BgpPeerTest, BufferCapacity6) {
+    char value[8];
+    snprintf(value, sizeof(value), "%zu", BgpPeer::kMaxBufferCapacity + 1);
+    setenv("BGP_PEER_BUFFER_SIZE", value, true);
+    BgpNeighborConfig config;
+    Reset(&config);
+    size_t capacity = BgpPeer::kMaxBufferCapacity;
+    TASK_UTIL_EXPECT_EQ(capacity, BufferCapacity());
+}
+
+//
+// Buffer capacity set via env variable is invalid.
+//
+TEST_F(BgpPeerTest, BufferCapacity7) {
+    setenv("BGP_PEER_BUFFER_SIZE", "xyz", true);
+    BgpNeighborConfig config;
+    Reset(&config);
+    size_t capacity = BgpPeer::kMinBufferCapacity;
+    TASK_UTIL_EXPECT_EQ(capacity, BufferCapacity());
+}
+
+//
 // FlushUpdate with an empty buffer does not cause any problems.
 //
 TEST_F(BgpPeerTest, MessageBuffer1) {
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(0, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 }
@@ -188,12 +286,12 @@ TEST_F(BgpPeerTest, MessageBuffer2) {
     uint8_t msg[msgsize];
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(1, session_->message_count());
 }
@@ -207,22 +305,22 @@ TEST_F(BgpPeerTest, MessageBuffer3) {
     uint8_t msg[msgsize];
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(2 * msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(2 * msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(3 * msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(3 * msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(3, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(3, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(1, session_->message_count());
 }
@@ -232,22 +330,22 @@ TEST_F(BgpPeerTest, MessageBuffer3) {
 // Buffer has 1 byte left after all SendUpdates.
 //
 TEST_F(BgpPeerTest, MessageBuffer4) {
-    static const size_t msgsize = BgpPeer::kBufferSize - 128;
-    static const size_t bufsize = BgpPeer::kBufferSize;
+    static const size_t msgsize = BufferCapacity() - 128;
+    static const size_t bufcap = BufferCapacity();
     uint8_t msg[msgsize];
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->SendUpdate(msg, 127);
-    TASK_UTIL_EXPECT_EQ(bufsize - 1, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(bufcap - 1, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(1, session_->message_count());
 }
@@ -257,22 +355,22 @@ TEST_F(BgpPeerTest, MessageBuffer4) {
 // Buffer is exactly full after all SendUpdates.
 //
 TEST_F(BgpPeerTest, MessageBuffer5) {
-    static const size_t msgsize = BgpPeer::kBufferSize - 128;
-    static const size_t bufsize = BgpPeer::kBufferSize;
+    static const size_t msgsize = BufferCapacity() - 128;
+    static const size_t bufcap = BufferCapacity();
     uint8_t msg[msgsize];
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->SendUpdate(msg, 128);
-    TASK_UTIL_EXPECT_EQ(bufsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(bufcap, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(1, session_->message_count());
 }
@@ -282,21 +380,21 @@ TEST_F(BgpPeerTest, MessageBuffer5) {
 // Another FlushUpdate flushes the last update.
 //
 TEST_F(BgpPeerTest, MessageBuffer6) {
-    static const size_t msgsize = BgpPeer::kBufferSize - 128;
+    static const size_t msgsize = BufferCapacity() - 128;
     uint8_t msg[msgsize];
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->SendUpdate(msg, 129);
-    TASK_UTIL_EXPECT_EQ(129, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(129, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(1, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(2, session_->message_count());
 }
@@ -307,23 +405,23 @@ TEST_F(BgpPeerTest, MessageBuffer6) {
 // Session gets cleared before the call to FlushUpdate.
 //
 TEST_F(BgpPeerTest, MessageBuffer7) {
-    static const size_t msgsize = BgpPeer::kBufferSize - 128;
-    static const size_t bufsize = BgpPeer::kBufferSize;
+    static const size_t msgsize = BufferCapacity() - 128;
+    static const size_t bufcap = BufferCapacity();
     uint8_t msg[msgsize];
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->SendUpdate(msg, 128);
-    TASK_UTIL_EXPECT_EQ(bufsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(bufcap, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->clear_session();
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 }
@@ -334,22 +432,22 @@ TEST_F(BgpPeerTest, MessageBuffer7) {
 // Another FlushUpdate flushes the last update.
 //
 TEST_F(BgpPeerTest, MessageBuffer8) {
-    static const size_t msgsize = BgpPeer::kBufferSize - 128;
+    static const size_t msgsize = BufferCapacity() - 128;
     uint8_t msg[msgsize];
 
     peer_->SendUpdate(msg, msgsize);
-    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(msgsize, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(1, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->clear_session();
     peer_->SendUpdate(msg, 129);
-    TASK_UTIL_EXPECT_EQ(129, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(129, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 
     peer_->FlushUpdate();
-    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_len());
+    TASK_UTIL_EXPECT_EQ(0, peer_->buffer_size());
     TASK_UTIL_EXPECT_EQ(2, peer_->get_tx_update());
     TASK_UTIL_EXPECT_EQ(0, session_->message_count());
 }
