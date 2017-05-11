@@ -11,7 +11,10 @@ import platform
 import ConfigParser
 import socket
 import requests
-from requests.packages.urllib3.exceptions import SubjectAltNameWarning
+try:
+    from requests.packages.urllib3.exceptions import SubjectAltNameWarning
+except:
+    from urllib3.exceptions import SubjectAltNameWarning
 import warnings
 warnings.filterwarnings('ignore', ".*SNIMissingWarning.*")
 warnings.filterwarnings('ignore', ".*InsecurePlatformWarning.*")
