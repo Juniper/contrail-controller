@@ -2947,7 +2947,7 @@ class VncApiServer(object):
             field_names = [u'id_perms'] + (req_fields or [])
 
         (ok, result) = self._db_conn.dbe_list(obj_type,
-                             parent_uuids, back_ref_uuids, obj_uuids, is_count,
+                             parent_uuids, back_ref_uuids, obj_uuids, is_count and self.is_admin_request(),
                              filters, is_detail=is_detail, field_names=field_names,
                              include_shared=include_shared)
         if not ok:
@@ -2956,7 +2956,7 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(404, result)
 
         # If only counting, return early
-        if is_count:
+        if is_count and self.is_admin_request():
             return {'%ss' %(resource_type): {'count': result}}
 
         allowed_fields = ['uuid', 'href', 'fq_name'] + (req_fields or [])
@@ -3011,6 +3011,8 @@ class VncApiServer(object):
                 if not exclude_hrefs:
                     obj_dict['href'] = self.generate_url(resource_type, obj_result['uuid'])
 
+        if is_count:
+            return {'%ss' %(resource_type): {'count': len(obj_dicts)}}
         return {'%ss' %(resource_type): obj_dicts}
     # end _list_collection
 
