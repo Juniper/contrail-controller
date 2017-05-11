@@ -53,7 +53,7 @@ class VncKubernetes(VncCommon):
             for cassandra_server in self.args.cassandra_server_list:
                 cassandra_port = cassandra_server.split(':')[-1]
                 flow_aging_manager.create_flow_aging_timeout_entry(self.vnc_lib,
-                    "tcp", cassandra_port, 1800)
+                    "tcp", cassandra_port, 2147483647)
 
         # init access to db
         self._db = db.KubeNetworkManagerDB(self.args, self.logger)
