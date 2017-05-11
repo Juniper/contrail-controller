@@ -596,12 +596,6 @@ public:
         SERVICE_CHANGE,
     };
 
-    enum Preference {
-        INVALID = 0,
-        LOW     = 100,
-        HIGH    = 200
-    };
-
     VmInterface(const boost::uuids::uuid &uuid);
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
                 const Ip4Address &addr, const MacAddress &mac,
@@ -686,7 +680,7 @@ public:
     const std::string &vm_name() const { return vm_name_; }
     const boost::uuids::uuid &vm_project_uuid() const {return vm_project_uuid_;}
 
-    Preference local_preference() const { return local_preference_; }
+    uint32_t local_preference() const { return local_preference_; }
     void SetPathPreference(PathPreference *pref, bool ecmp,
                            const IpAddress &dependent_ip) const;
 
@@ -1084,7 +1078,7 @@ private:
     uint16_t tx_vlan_id_;
     uint16_t rx_vlan_id_;
     InterfaceBackRef parent_;
-    Preference local_preference_;
+    uint32_t local_preference_;
     // DHCP options defined for the interface
     OperDhcpOptions oper_dhcp_options_;
 
@@ -1265,7 +1259,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool admin_state_;
     bool disable_policy_;
     std::string analyzer_name_;
-    VmInterface::Preference local_preference_;
+    uint32_t local_preference_;
     OperDhcpOptions oper_dhcp_options_;
     Interface::MirrorDirection mirror_direction_;
     VmInterface::SecurityGroupEntryList sg_list_;

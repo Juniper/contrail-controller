@@ -320,10 +320,12 @@ bool VmInterface::Ipv6Deactivated(bool old_ipv6_active) {
 void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
                                     const IpAddress &dependent_ip) const {
     pref->set_ecmp(ecmp);
-    if (local_preference_ != INVALID) {
+    if (local_preference_ != 0) {
         pref->set_static_preference(true);
+        pref->set_preference(local_preference_);
     }
-    if (local_preference_ == HIGH || ecmp == true) {
+    // Override user defined local preference with HIGH for ECMP
+    if (ecmp == true) {
         pref->set_preference(PathPreference::HIGH);
     }
     pref->set_dependent_ip(dependent_ip);
@@ -367,13 +369,9 @@ void VmInterface::SetServiceVlanPathPreference(PathPreference *pref,
     }
 
     pref->set_ecmp(ecmp_mode);
-    if (local_preference_ != INVALID) {
+    if (local_preference_ != 0) {
         pref->set_static_preference(true);
-    }
-    if (local_preference_ == HIGH) {
-        pref->set_preference(PathPreference::HIGH);
-    } else {
-        pref->set_preference(PathPreference::LOW);
+        pref->set_preference(local_preference_);
     }
 
     pref->set_dependent_ip(dependent_ip);

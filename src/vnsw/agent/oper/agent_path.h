@@ -31,12 +31,12 @@ public:
     PathPreference(): sequence_(0), preference_(LOW),
         wait_for_traffic_(true), ecmp_(false), static_preference_(false),
         dependent_ip_(Ip4Address(0)) {}
-    PathPreference(uint32_t sequence, Preference preference,
+    PathPreference(uint32_t sequence, uint32_t preference,
         bool wait_for_traffic, bool ecmp): sequence_(sequence),
         preference_(preference), wait_for_traffic_(wait_for_traffic),
         ecmp_(ecmp), static_preference_(false), dependent_ip_(Ip4Address(0)) {}
     uint32_t sequence() const { return sequence_;}
-    Preference preference() const { return preference_;}
+    uint32_t preference() const { return preference_;}
     bool wait_for_traffic() const {
         return wait_for_traffic_;
     }
@@ -66,7 +66,7 @@ public:
     void set_sequence(uint32_t sequence) {
         sequence_ = sequence;
     }
-    void set_preference(Preference preference) {
+    void set_preference(uint32_t preference) {
         preference_ = preference;
     }
     void set_wait_for_traffic(bool wait_for_traffic) {
@@ -139,7 +139,7 @@ public:
 
 private:
     uint32_t sequence_;
-    Preference preference_;
+    uint32_t preference_;
     bool wait_for_traffic_;
     bool ecmp_;
     bool static_preference_;
