@@ -353,6 +353,14 @@ private:
     class DeleteActor;
     class PeerStats;
 
+    struct OriginOverride {
+        OriginOverride(const BgpNeighborConfig::OriginOverrideConfig &config);
+        bool operator!=(const OriginOverride &rhs) const;
+
+        bool origin_override;
+        BgpAttrOrigin::OriginType origin;
+    };
+
     typedef std::map<Address::Family, const uint8_t *> FamilyToCapabilityMap;
     typedef std::vector<BgpPeerFamilyAttributes *> FamilyAttributesList;
 
@@ -457,6 +465,7 @@ private:
     bool as_override_;
     string private_as_action_;
     uint32_t cluster_id_;
+    OriginOverride origin_override_;
 
     tbb::atomic<int> membership_req_pending_;
     bool defer_close_;

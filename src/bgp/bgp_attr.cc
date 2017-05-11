@@ -962,8 +962,8 @@ void BgpAttr::set_leaf_olist(const BgpOListSpec *leaf_olist_spec) {
     }
 }
 
-std::string BgpAttr::origin_string() const {
-    switch (origin()) {
+std::string BgpAttr::OriginToString(BgpAttrOrigin::OriginType origin) {
+    switch (origin) {
     case BgpAttrOrigin::IGP:
         return "igp";
         break;
@@ -975,6 +975,20 @@ std::string BgpAttr::origin_string() const {
         break;
     }
     return "unknown";
+}
+
+BgpAttrOrigin::OriginType BgpAttr::OriginFromString(
+        const std::string &bgp_origin_type) {
+    if(bgp_origin_type ==  "IGP"){
+        return BgpAttrOrigin::IGP;
+    } else if( bgp_origin_type ==  "EGP") {
+        return BgpAttrOrigin::EGP;
+    }
+    return BgpAttrOrigin::INCOMPLETE;
+}
+
+std::string BgpAttr::origin_string() const {
+    return OriginToString(origin());
 }
 
 Address::Family BgpAttr::nexthop_family() const {
@@ -1128,6 +1142,14 @@ BgpAttrPtr BgpAttrDB::ReplaceCommunityAndLocate(const BgpAttr *attr,
                                                 CommunityPtr community) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_community(community);
+    return Locate(clone);
+}
+
+//Return a clone of attribute with updated origin
+BgpAttrPtr BgpAttrDB::ReplaceOriginAndLocate(const BgpAttr *attr,
+                                             BgpAttrOrigin::OriginType origin) {
+    BgpAttr *clone = new BgpAttr(*attr);
+    clone->set_origin(origin);
     return Locate(clone);
 }
 
