@@ -95,7 +95,7 @@ class ControlProvisioner(object):
                                         --md5 <key value>|None(optional)
                                         --graceful_restart_time 100
                                         --long_lived_graceful_restart_time 100
-                                        --end_of_rib_time 300
+                                        --end_of_rib_timeout 300
                                         --set_graceful_restart_parameters False
                                         --graceful_restart_bgp_helper_enable False
                                         --graceful_restart_xmpp_helper_enable False

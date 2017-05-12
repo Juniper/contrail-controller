@@ -44,10 +44,14 @@ public:
                         const RibPeerSet &peerset,
                         UpdateInfoSList &info_slist);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    time_t last_updated() const { return last_updated_; }
 
 private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
+    void AddRemoveCallback(const DBEntryBase *entry, bool add) const;
+
+    mutable tbb::atomic<time_t> last_updated_;
 
     DISALLOW_COPY_AND_ASSIGN(RTargetTable);
 };

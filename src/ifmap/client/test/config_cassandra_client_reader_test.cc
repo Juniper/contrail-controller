@@ -211,7 +211,6 @@ public:
                                     config_options) {
         ifmap_server->set_config_manager(this);
     }
-    void set_end_of_rib_computed(bool flag) { end_of_rib_computed_ = flag; }
 };
 
 class ConfigCassandraClientReaderTest : public ::testing::Test {

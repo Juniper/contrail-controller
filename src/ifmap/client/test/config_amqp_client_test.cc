@@ -90,7 +90,7 @@ public:
         const IFMapConfigOptions& config_options) :
                 ConfigClientManager(evm, ifmap_server, hostname, module_name,
                                     config_options, true) {
-        end_of_rib_computed_ = true;
+        set_end_of_rib_computed(true);
     }
     void Initialize() {
         config_amqp_client()->StartRabbitMQReader();
