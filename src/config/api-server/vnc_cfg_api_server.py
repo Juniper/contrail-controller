@@ -384,8 +384,11 @@ class VncApiServer(object):
     def _validate_perms_in_request(self, resource_class, obj_type, obj_dict):
         for ref_name in resource_class.ref_fields:
             for ref in obj_dict.get(ref_name) or []:
-                ref_uuid = self._db_conn.fq_name_to_uuid(ref_name[:-5],
-                                                         ref['to'])
+                try:
+                    ref_uuid = ref['uuid']
+                except KeyError:
+                    ref_uuid = self._db_conn.fq_name_to_uuid(ref_name[:-5],
+                                                             ref['to'])
                 (ok, status) = self._permissions.check_perms_link(
                     get_request(), ref_uuid)
                 if not ok:
@@ -400,6 +403,26 @@ class VncApiServer(object):
         except TypeError:
             raise cfgm_common.exceptions.HttpError(
                 404, "Resource type '%s' not found" % type)
+    # end _validate_resource_type
+
+    def _ensure_services_conn(
+            self, api_name, obj_type, obj_uuid=None, obj_fq_name=None):
+        # If not connected to zookeeper do not allow operations that
+        # causes the state change
+        if not self._db_conn._zk_db.is_connected():
+            errmsg = 'No connection to zookeeper.'
+            fq_name_str = ':'.join(obj_fq_name or [])
+            self.config_object_error(
+                obj_uuid, fq_name_str, obj_type, api_name, errmsg)
+            raise cfgm_common.exceptions.HttpError(503, errmsg)
+
+        # If there are too many pending updates to rabbit, do not allow
+        # operations that cause state change
+        npending = self._db_conn.dbe_oper_publish_pending()
+        if (npending >= int(self._args.rabbit_max_pending_updates)):
+            err_str = str(MaxRabbitPendingError(npending))
+            raise cfgm_common.exceptions.HttpError(500, err_str)
+    # end _ensure_services_conn
 
     def undo(self, result, obj_type, id=None, fq_name=None):
         (code, msg) = result
@@ -455,8 +478,7 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(400, result)
 
         # common handling for all resource create
-        (ok, result) = self._post_common(get_request(), obj_type,
-                                         obj_dict)
+        (ok, result) = self._post_common(obj_type, obj_dict)
         if not ok:
             (code, msg) = result
             fq_name_str = ':'.join(obj_dict.get('fq_name', []))
@@ -739,6 +761,8 @@ class VncApiServer(object):
                 if self._permissions.check_perms_read(get_request(), l['uuid'], id_perms=uuid_to_perms2[l['uuid']])[0] == True]
 
         return ret_obj_dict
+    # end obj_view
+
 
     @log_api_stats
     def http_resource_update(self, obj_type, id):
@@ -752,119 +776,22 @@ class VncApiServer(object):
             return
 
         obj_dict = get_request().json[resource_type]
-        try:
-            self._extension_mgrs['resourceApi'].map_method(
-                'pre_%s_update' %(obj_type), id, obj_dict)
-        except RuntimeError:
-            # lack of registered extension leads to RuntimeError
-            pass
-        except Exception as e:
-            err_msg = 'In pre_%s_update an extension had error for %s' \
-                      %(obj_type, obj_dict)
-            err_msg += cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
-        db_conn = self._db_conn
         try:
-            req_obj_type = db_conn.uuid_to_obj_type(id)
-            if req_obj_type != obj_type:
-                raise cfgm_common.exceptions.HttpError(
-                    404, 'No %s object found for id %s' %(resource_type, id))
-            (read_ok, read_result) = db_conn.dbe_read(obj_type, id)
+            obj_fields = r_class.prop_fields | r_class.ref_fields
+            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, id, obj_fields)
             if not read_ok:
                 bottle.abort(
                     404, 'No %s object found for id %s' %(resource_type, id))
-            fq_name = read_result['fq_name']
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
 
-        # check visibility
-        if (not read_result['id_perms'].get('user_visible', True) and
-            not self.is_admin_request()):
-            result = 'This object is not visible by users: %s' % id
-            self.config_object_error(id, None, obj_type, 'http_put', result)
-            raise cfgm_common.exceptions.HttpError(404, result)
-
-        # properties validator
-        ok, result = self._validate_props_in_request(r_class, obj_dict)
-        if not ok:
-            result = 'Bad property in update: ' + result
-            raise cfgm_common.exceptions.HttpError(400, result)
-
-        # references validator
-        ok, result = self._validate_refs_in_request(r_class, obj_dict)
-        if not ok:
-            result = 'Bad reference in update: ' + result
-            raise cfgm_common.exceptions.HttpError(400, result)
-
-        # common handling for all resource put
-        (ok, result) = self._put_common(
-            get_request(), obj_type, id, fq_name, obj_dict)
-        if not ok:
-            (code, msg) = result
-            self.config_object_error(id, None, obj_type, 'http_put', msg)
-            raise cfgm_common.exceptions.HttpError(code, msg)
-
-        # Validate perms on references
-        try:
-            self._validate_perms_in_request(r_class, obj_type, obj_dict)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(400,
-                'Unknown reference in resource update %s %s.'
-                %(obj_type, obj_dict))
-
-        # State modification starts from here. Ensure that cleanup is done for all state changes
-        cleanup_on_failure = []
-        obj_dict['uuid'] = id
-
-        def stateful_update():
-            get_context().set_state('PRE_DBE_UPDATE')
-            # type-specific hook
-            (ok, result) = r_class.pre_dbe_update(
-                id, fq_name, obj_dict, self._db_conn)
-            if not ok:
-                return (ok, result)
-
-            get_context().set_state('DBE_UPDATE')
-            (ok, result) = db_conn.dbe_update(obj_type, id, obj_dict)
-            if not ok:
-                return (ok, result)
-
-            get_context().set_state('POST_DBE_UPDATE')
-            # type-specific hook
-            (ok, result) = r_class.post_dbe_update(id, fq_name, obj_dict, self._db_conn)
-            if not ok:
-                return (ok, result)
-
-            return (ok, result)
-        # end stateful_update
-
-        try:
-            ok, result = stateful_update()
-        except Exception as e:
-            ok = False
-            err_msg = cfgm_common.utils.detailed_traceback()
-            result = (500, err_msg)
-        if not ok:
-            self.undo(result, obj_type, id=id)
-            code, msg = result
-            raise cfgm_common.exceptions.HttpError(code, msg)
+        self._put_common(
+            'http_put', obj_type, id, read_result, req_obj_dict=obj_dict)
 
         rsp_body = {}
         rsp_body['uuid'] = id
         rsp_body['href'] = self.generate_url(resource_type, id)
-
-        try:
-            self._extension_mgrs['resourceApi'].map_method(
-                'post_%s_update' %(obj_type), id, obj_dict, read_result)
-        except RuntimeError:
-            # lack of registered extension leads to RuntimeError
-            pass
-        except Exception as e:
-            err_msg = 'In post_%s_update an extension had error for %s' \
-                      %(obj_type, obj_dict)
-            err_msg += cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
         return {resource_type: rsp_body}
     # end http_resource_update
@@ -1310,8 +1237,6 @@ class VncApiServer(object):
 
     def __init__(self, args_str=None):
         self._db_conn = None
-        self._get_common = None
-        self._post_common = None
         self._resource_classes = {}
         self._args = None
         if not args_str:
@@ -1359,13 +1284,6 @@ class VncApiServer(object):
 
         #GreenletProfiler.set_clock_type('wall')
         self._profile_info = None
-
-        # REST interface initialization
-        self._get_common = self._http_get_common
-        self._put_common = self._http_put_common
-        self._delete_common = self._http_delete_common
-        self._post_validate = self._http_post_validate
-        self._post_common = self._http_post_common
 
         for act_res in _ACTION_RESOURCES:
             link = LinkObject('action', self._base_url, act_res['uri'],
@@ -1811,7 +1729,6 @@ class VncApiServer(object):
 
     # change ownership of an object
     def obj_chown_http_post(self):
-        self._post_common(get_request(), None, None)
 
         try:
             obj_uuid = get_request().json['uuid']
@@ -1826,6 +1743,8 @@ class VncApiServer(object):
             obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(400, 'Invalid object id')
+
+        self._ensure_services_conn('chown', obj_type, obj_uuid=obj_uuid)
 
         # ensure user has RW permissions to object
         perms = self._permissions.obj_perms(get_request(), obj_uuid)
@@ -1845,8 +1764,6 @@ class VncApiServer(object):
 
     # chmod for an object
     def obj_chmod_http_post(self):
-        self._post_common(get_request(), None, None)
-
         try:
             obj_uuid = get_request().json['uuid']
         except Exception as e:
@@ -1859,6 +1776,8 @@ class VncApiServer(object):
             obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(400, 'Invalid object id')
+
+        self._ensure_services_conn('chmod', obj_type, obj_uuid=obj_uuid)
 
         # ensure user has RW permissions to object
         perms = self._permissions.obj_perms(get_request(), obj_uuid)
@@ -1986,8 +1905,6 @@ class VncApiServer(object):
     # end prop_collection_http_get
 
     def prop_collection_http_post(self):
-        self._post_common(get_request(), None, None)
-
         request_params = get_request().json
         # validate each requested operation
         obj_uuid = request_params.get('uuid')
@@ -2057,7 +1974,7 @@ class VncApiServer(object):
 
         # Validations over. Invoke type specific hook and extension manager
         try:
-            fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
+            obj_fields = resource_class.prop_fields | resource_class.ref_fields
             (read_ok, read_result) = self._db_conn.dbe_read(obj_type, obj_uuid)
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
@@ -2071,90 +1988,12 @@ class VncApiServer(object):
                 obj_uuid, None, obj_type, 'prop_collection_update', read_result)
             raise cfgm_common.exceptions.HttpError(500, read_result)
 
-        # invoke the extension
-        try:
-            pre_func = 'pre_'+obj_type+'_update'
-            self._extension_mgrs['resourceApi'].map_method(pre_func, obj_uuid, {},
-                prop_collection_updates=request_params.get('updates'))
-        except RuntimeError:
-            # lack of registered extension leads to RuntimeError
-            pass
-        except Exception as e:
-            err_msg = 'In pre_%s_update an extension had error for %s' \
-                      %(obj_type, request_params)
-            err_msg += cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
-
-        # type-specific hook
-        r_class = self.get_resource_class(obj_type)
-        get_context().set_state('PRE_DBE_UPDATE')
-        (ok, pre_update_result) = r_class.pre_dbe_update(
-            obj_uuid, fq_name, {}, self._db_conn,
-            prop_collection_updates=request_params.get('updates'))
-        if not ok:
-            (code, msg) = pre_update_result
-            self.config_object_error(
-                obj_uuid, None, obj_type, 'prop_collection_update', msg)
-            raise cfgm_common.exceptions.HttpError(code, msg)
-
-        # the actual db update
-        try:
-            get_context().set_state('DBE_UPDATE')
-            ok, update_result = self._db_conn.prop_collection_update(
-                obj_type, obj_uuid, request_params.get('updates'))
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'uuid ' + obj_uuid + ' not found')
-        if not ok:
-            (code, msg) = update_result
-            self.config_object_error(
-                obj_uuid, None, obj_type, 'prop_collection_update', msg)
-            raise cfgm_common.exceptions.HttpError(code, msg)
-
-        # type-specific hook
-        get_context().set_state('POST_DBE_UPDATE')
-        (ok, post_update_result) = r_class.post_dbe_update(
-            obj_uuid, fq_name, {}, self._db_conn,
-            prop_collection_updates=request_params.get('updates'))
-        if not ok:
-            (code, msg) = pre_update_result
-            self.config_object_error(
-                obj_uuid, None, obj_type, 'prop_collection_update', msg)
-            raise cfgm_common.exceptions.HttpError(code, msg)
-
-        # invoke the extension
-        try:
-            post_func = 'post_'+obj_type+'_update'
-            self._extension_mgrs['resourceApi'].map_method(
-                post_func, obj_uuid, {}, read_result,
-                prop_collection_updates=request_params.get('updates'))
-        except RuntimeError:
-            # lack of registered extension leads to RuntimeError
-            pass
-        except Exception as e:
-            err_msg = 'In post_%s_update an extension had error for %s' \
-                      %(obj_type, request_params)
-            err_msg += cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
-
-        apiConfig = VncApiCommon()
-        apiConfig.object_type = obj_type
-        apiConfig.identifier_name=':'.join(fq_name)
-        apiConfig.identifier_uuid = obj_uuid
-        apiConfig.operation = 'prop-collection-update'
-        try:
-            body = json.dumps(get_request().json)
-        except:
-            body = str(get_request().json)
-        apiConfig.body = body
-
-        self._set_api_audit_info(apiConfig)
-        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
-        log.send(sandesh=self._sandesh)
+        self._put_common(
+            'prop-collection-update', obj_type, obj_uuid, read_result,
+             req_prop_coll_updates=request_params.get('updates'))
     # end prop_collection_http_post
 
     def ref_update_http_post(self):
-        self._post_common(get_request(), None, None)
         # grab fields
         type = get_request().json.get('type')
         res_type, res_class = self._validate_resource_type(type)
@@ -2207,7 +2046,7 @@ class VncApiServer(object):
 
         # To invoke type specific hook and extension manager
         try:
-            obj_fields = [ref_field]
+            obj_fields = res_class.prop_fields | res_class.ref_fields
             (read_ok, read_result) = self._db_conn.dbe_read(
                 obj_type, obj_uuid, obj_fields)
         except NoIdError:
@@ -2225,92 +2064,31 @@ class VncApiServer(object):
         if ref_field in read_result:
             obj_dict[ref_field] = copy.deepcopy(read_result[ref_field])
 
-        # invoke the extension
-        try:
-            pre_func = 'pre_' + obj_type + '_update'
-            self._extension_mgrs['resourceApi'].map_method(pre_func, obj_uuid, obj_dict)
-        except RuntimeError:
-            # lack of registered extension leads to RuntimeError
-            pass
-        except Exception as e:
-            err_msg = 'In pre_%s_update an extension had error for %s' \
-                      %(obj_type, obj_dict)
-            err_msg += cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+        if operation == 'ADD':
+            if ref_obj_type+'_refs' not in obj_dict:
+                obj_dict[ref_obj_type+'_refs'] = []
+            existing_ref = [ref for ref in obj_dict[ref_obj_type+'_refs']
+                            if ref['uuid'] == ref_uuid]
+            if existing_ref:
+                ref['attr'] = attr
+            else:
+                obj_dict[ref_obj_type+'_refs'].append(
+                    {'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr})
+        elif operation == 'DELETE':
+            for old_ref in obj_dict.get(ref_obj_type+'_refs', []):
+                if old_ref['to'] == ref_fq_name or old_ref['uuid'] == ref_uuid:
+                    obj_dict[ref_obj_type+'_refs'].remove(old_ref)
+                    break
 
-        # type-specific hook
-        if res_class:
-            try:
-                fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
-            except NoIdError:
-                raise cfgm_common.exceptions.HttpError(
-                    404, 'UUID ' + obj_uuid + ' not found')
-
-            if operation == 'ADD':
-                if ref_obj_type+'_refs' not in obj_dict:
-                    obj_dict[ref_obj_type+'_refs'] = []
-                existing_ref = [ref for ref in obj_dict[ref_obj_type+'_refs']
-                                if ref['uuid'] == ref_uuid]
-                if existing_ref:
-                    ref['attr'] = attr
-                else:
-                    obj_dict[ref_obj_type+'_refs'].append(
-                        {'to':ref_fq_name, 'uuid': ref_uuid, 'attr':attr})
-            elif operation == 'DELETE':
-                for old_ref in obj_dict.get(ref_obj_type+'_refs', []):
-                    if old_ref['to'] == ref_fq_name or old_ref['uuid'] == ref_uuid:
-                        obj_dict[ref_obj_type+'_refs'].remove(old_ref)
-                        break
-
-            (ok, put_result) = res_class.pre_dbe_update(
-                obj_uuid, fq_name, obj_dict, self._db_conn)
-            if not ok:
-                (code, msg) = put_result
-                self.config_object_error(obj_uuid, None, obj_type, 'ref_update', msg)
-                raise cfgm_common.exceptions.HttpError(code, msg)
-        # end if res_class
-
-        try:
-            self._db_conn.ref_update(obj_type, obj_uuid, ref_obj_type,
-                                     ref_uuid, {'attr': attr}, operation)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'uuid ' + obj_uuid + ' not found')
-
-        # invoke the extension
-        try:
-            post_func = 'post_' + obj_type + '_update'
-            self._extension_mgrs['resourceApi'].map_method(post_func, obj_uuid, obj_dict, read_result)
-        except RuntimeError:
-            # lack of registered extension leads to RuntimeError
-            pass
-        except Exception as e:
-            err_msg = 'In post_%s_update an extension had error for %s' \
-                      %(obj_type, obj_dict)
-            err_msg += cfgm_common.utils.detailed_traceback()
-            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
-
-        apiConfig = VncApiCommon()
-        apiConfig.object_type = obj_type
-        fq_name = self._db_conn.uuid_to_fq_name(obj_uuid)
-        apiConfig.identifier_name=':'.join(fq_name)
-        apiConfig.identifier_uuid = obj_uuid
-        apiConfig.operation = 'ref-update'
-        try:
-            body = json.dumps(get_request().json)
-        except:
-            body = str(get_request().json)
-        apiConfig.body = body
-
-        self._set_api_audit_info(apiConfig)
-        log = VncApiConfigLog(api_log=apiConfig, sandesh=self._sandesh)
-        log.send(sandesh=self._sandesh)
+        self._put_common(
+            'ref-update', obj_type, obj_uuid, read_result,
+             req_obj_dict=obj_dict)
 
         return {'uuid': obj_uuid}
     # end ref_update_http_post
 
     def ref_relax_for_delete_http_post(self):
-        self._post_common(get_request(), None, None)
+        self._post_common(None, {})
         # grab fields
         obj_uuid = get_request().json.get('uuid')
         ref_uuid = get_request().json.get('ref-uuid')
@@ -2348,7 +2126,7 @@ class VncApiServer(object):
     # end ref_relax_for_delete_http_post
 
     def fq_name_to_id_http_post(self):
-        self._post_common(get_request(), None, None)
+        self._post_common(None, {})
         type = get_request().json.get('type')
         res_type, r_class = self._validate_resource_type(type)
         obj_type = r_class.object_type
@@ -2370,7 +2148,7 @@ class VncApiServer(object):
     # end fq_name_to_id_http_post
 
     def id_to_fq_name_http_post(self):
-        self._post_common(get_request(), None, None)
+        self._post_common(None, {})
         obj_uuid = get_request().json['uuid']
 
         # ensure user has access to this id
@@ -2393,7 +2171,7 @@ class VncApiServer(object):
     # Enables a user-agent to store and retrieve key-val pair
     # TODO this should be done only for special/quantum plugin
     def useragent_kv_http_post(self):
-        self._post_common(get_request(), None, None)
+        self._post_common(None, {})
 
         request_params = get_request().json
         oper = request_params.get('operation')
@@ -3136,7 +2914,7 @@ class VncApiServer(object):
     # end _set_api_audit_info
 
     # uuid is parent's for collections
-    def _http_get_common(self, request, uuid=None):
+    def _get_common(self, request, uuid=None):
         # TODO check api + resource perms etc.
         if self.is_multi_tenancy_set() and uuid:
             if isinstance(uuid, list):
@@ -3149,67 +2927,162 @@ class VncApiServer(object):
                 return self._permissions.check_perms_read(request, uuid)
 
         return (True, '')
-    # end _http_get_common
+    # end _get_common
 
-    def _http_put_common(self, request, obj_type, obj_uuid, obj_fq_name,
-                         obj_dict):
-        # If not connected to zookeeper do not allow operations that
-        # causes the state change
-        if not self._db_conn._zk_db.is_connected():
-            return (False,
-                    (503, "Not connected to zookeeper. Not able to perform requested action"))
+    def _put_common(
+            self, api_name, obj_type, obj_uuid, db_obj_dict, req_obj_dict=None,
+            req_prop_coll_updates=None):
 
-        # If there are too many pending updates to rabbit, do not allow
-        # operations that cause state change
-        npending = self._db_conn.dbe_oper_publish_pending()
-        if (npending >= int(self._args.rabbit_max_pending_updates)):
-            err_str = str(MaxRabbitPendingError(npending))
-            return (False, (500, err_str))
+        obj_fq_name = db_obj_dict.get('fq_name', 'missing-fq-name')
+        # ZK and rabbitmq should be functional
+        self._ensure_services_conn(
+            api_name, obj_type, obj_uuid, obj_fq_name)
 
-        if obj_dict:
-            fq_name_str = ":".join(obj_fq_name)
+        resource_type, r_class = self._validate_resource_type(obj_type)
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'pre_%s_update' %(obj_type), obj_uuid, req_obj_dict)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In pre_%s_update an extension had error for %s' \
+                      %(obj_type, req_obj_dict)
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
 
-            # TODO keep _id_perms.uuid_xxlong immutable in future
-            # dsetia - check with ajay regarding comment above
-            # if 'id_perms' in obj_dict:
-            #    del obj_dict['id_perms']
-            if 'id_perms' in obj_dict and obj_dict['id_perms']['uuid']:
-                if not self._db_conn.match_uuid(obj_dict, obj_uuid):
+        db_conn = self._db_conn
+
+        # check visibility
+        if (not db_obj_dict['id_perms'].get('user_visible', True) and
+            not self.is_admin_request()):
+            result = 'This object is not visible by users: %s' % obj_uuid
+            self.config_object_error(obj_uuid, None, obj_type, api_name, result)
+            raise cfgm_common.exceptions.HttpError(404, result)
+
+        # properties validator (for collections validation in caller)
+        if req_obj_dict is not None:
+            ok, result = self._validate_props_in_request(r_class, req_obj_dict)
+            if not ok:
+                result = 'Bad property in %s: %s' %(api_name, result)
+                raise cfgm_common.exceptions.HttpError(400, result)
+
+        # references validator
+        if req_obj_dict is not None:
+            ok, result = self._validate_refs_in_request(r_class, req_obj_dict)
+            if not ok:
+                result = 'Bad reference in %s: %s' %(api_name, result)
+                raise cfgm_common.exceptions.HttpError(400, result)
+
+        # common handling for all resource put
+        request = get_request()
+        fq_name_str = ":".join(obj_fq_name or [])
+        if req_obj_dict:
+            if 'id_perms' in req_obj_dict and req_obj_dict['id_perms']['uuid']:
+                if not self._db_conn.match_uuid(req_obj_dict, obj_uuid):
                     log_msg = 'UUID mismatch from %s:%s' \
                         % (request.environ['REMOTE_ADDR'],
                            request.environ['HTTP_USER_AGENT'])
                     self.config_object_error(
                         obj_uuid, fq_name_str, obj_type, 'put', log_msg)
-                    self._db_conn.set_uuid(obj_type, obj_dict,
+                    self._db_conn.set_uuid(obj_type, req_obj_dict,
                                            uuid.UUID(obj_uuid),
                                            do_lock=False)
 
-            # TODO remove this when the generator will be adapted to
-            # be consistent with the post method
-
             # Ensure object has at least default permissions set
-            self._ensure_id_perms_present(obj_uuid, obj_dict)
+            self._ensure_id_perms_present(obj_uuid, req_obj_dict)
 
-            apiConfig = VncApiCommon()
-            apiConfig.object_type = obj_type
-            apiConfig.identifier_name = fq_name_str
-            apiConfig.identifier_uuid = obj_uuid
-            apiConfig.operation = 'put'
-            self._set_api_audit_info(apiConfig)
-            log = VncApiConfigLog(api_log=apiConfig,
-                    sandesh=self._sandesh)
-            log.send(sandesh=self._sandesh)
+        apiConfig = VncApiCommon()
+        apiConfig.object_type = obj_type
+        apiConfig.identifier_name = fq_name_str
+        apiConfig.identifier_uuid = obj_uuid
+        apiConfig.operation = api_name
+        self._set_api_audit_info(apiConfig)
+        log = VncApiConfigLog(api_log=apiConfig,
+                sandesh=self._sandesh)
+        log.send(sandesh=self._sandesh)
 
-        # TODO check api + resource perms etc.
         if self.is_multi_tenancy_set():
-            return self._permissions.check_perms_write(request, obj_uuid)
+            ok, result = self._permissions.check_perms_write(request, obj_uuid)
 
-        return (True, '')
-    # end _http_put_common
+        if not ok:
+            (code, msg) = result
+            self.config_object_error(
+                obj_uuid, fq_name_str, obj_type, api_name, msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
+        # Validate perms on references
+        if req_obj_dict is not None:
+            try:
+                self._validate_perms_in_request(
+                    r_class, obj_type, req_obj_dict)
+            except NoIdError:
+                raise cfgm_common.exceptions.HttpError(400,
+                    'Unknown reference in resource update %s %s.'
+                    %(obj_type, req_obj_dict))
+
+        # State modification starts from here. Ensure that cleanup is done for all state changes
+        cleanup_on_failure = []
+        if req_obj_dict is not None:
+            req_obj_dict['uuid'] = obj_uuid
+
+        def stateful_update():
+            get_context().set_state('PRE_DBE_UPDATE')
+            # type-specific hook
+            (ok, result) = r_class.pre_dbe_update(
+                obj_uuid, obj_fq_name, req_obj_dict or {}, self._db_conn,
+                prop_collection_updates=req_prop_coll_updates)
+            if not ok:
+                return (ok, result)
+
+            get_context().set_state('DBE_UPDATE')
+            if req_obj_dict:
+                (ok, result) = db_conn.dbe_update(obj_type, obj_uuid, req_obj_dict)
+            elif req_prop_coll_updates:
+                (ok, result) = db_conn.prop_collection_update(
+                    obj_type, obj_uuid, req_prop_coll_updates)
+            if not ok:
+                return (ok, result)
+
+            get_context().set_state('POST_DBE_UPDATE')
+            # type-specific hook
+            (ok, result) = r_class.post_dbe_update(
+                obj_uuid, obj_fq_name, req_obj_dict or {}, self._db_conn,
+                prop_collection_updates=req_prop_coll_updates)
+            if not ok:
+                return (ok, result)
+
+            return (ok, result)
+        # end stateful_update
+
+        try:
+            ok, result = stateful_update()
+        except Exception as e:
+            ok = False
+            err_msg = cfgm_common.utils.detailed_traceback()
+            result = (500, err_msg)
+        if not ok:
+            self.undo(result, obj_type, id=obj_uuid)
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
+        try:
+            self._extension_mgrs['resourceApi'].map_method(
+                'post_%s_update' %(obj_type), obj_uuid,
+                 req_obj_dict, db_obj_dict)
+        except RuntimeError:
+            # lack of registered extension leads to RuntimeError
+            pass
+        except Exception as e:
+            err_msg = 'In post_%s_update an extension had error for %s' \
+                      %(obj_type, req_obj_dict)
+            err_msg += cfgm_common.utils.detailed_traceback()
+            self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+    # end _put_common
 
     # parent_type needed for perms check. None for derived objects (eg.
     # routing-instance)
-    def _http_delete_common(self, request, obj_type, uuid, parent_uuid):
+    def _delete_common(self, request, obj_type, uuid, parent_uuid):
         # If not connected to zookeeper do not allow operations that
         # causes the state change
         if not self._db_conn._zk_db.is_connected():
@@ -3245,7 +3118,7 @@ class VncApiServer(object):
                                                     parent_uuid)
     # end _http_delete_common
 
-    def _http_post_validate(self, obj_type=None, obj_dict=None):
+    def _post_validate(self, obj_type=None, obj_dict=None):
         if not obj_dict:
             return
 
@@ -3269,24 +3142,15 @@ class VncApiServer(object):
             raise cfgm_common.exceptions.HttpError(400,
                 "Bad Request, name has one of invalid chars %s"
                 %(invalid_chars))
-    # end _http_post_validate
+    # end _post_validate
 
-    def _http_post_common(self, request, obj_type, obj_dict):
-        # If not connected to zookeeper do not allow operations that
-        # causes the state change
-        if not self._db_conn._zk_db.is_connected():
-            return (False,
-                    (503, "Not connected to zookeeper. Not able to perform requested action"))
+    def _post_common(self, obj_type, obj_dict):
+        self._ensure_services_conn(
+            'http_post', obj_type, obj_fq_name=obj_dict.get('fq_name'))
+
         if not obj_dict:
             # TODO check api + resource perms etc.
             return (True, None)
-
-        # If there are too many pending updates to rabbit, do not allow
-        # operations that cause state change
-        npending = self._db_conn.dbe_oper_publish_pending()
-        if (npending >= int(self._args.rabbit_max_pending_updates)):
-            err_str = str(MaxRabbitPendingError(npending))
-            return (False, (500, err_str))
 
         # Fail if object exists already
         try:
@@ -3301,7 +3165,7 @@ class VncApiServer(object):
         # Ensure object has at least default permissions set
         self._ensure_id_perms_present(None, obj_dict)
         self._ensure_perms2_present(obj_type, None, obj_dict,
-            request.headers.environ.get('HTTP_X_PROJECT_ID', None))
+            get_request().headers.environ.get('HTTP_X_PROJECT_ID', None))
 
         # TODO check api + resource perms etc.
 
@@ -3319,9 +3183,9 @@ class VncApiServer(object):
         apiConfig.identifier_uuid = uuid_in_req
         apiConfig.operation = 'post'
         try:
-            body = json.dumps(request.json)
+            body = json.dumps(get_request().json)
         except:
-            body = str(request.json)
+            body = str(get_request().json)
         apiConfig.body = body
         if uuid_in_req:
             if uuid_in_req != str(uuid.UUID(uuid_in_req)):
@@ -3340,7 +3204,7 @@ class VncApiServer(object):
         log.send(sandesh=self._sandesh)
 
         return (True, uuid_in_req)
-    # end _http_post_common
+    # end _post_common
 
     def reset(self):
         # cleanup internal state/in-flight operations
