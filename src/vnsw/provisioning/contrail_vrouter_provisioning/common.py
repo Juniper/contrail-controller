@@ -477,7 +477,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         'physical_interface_address': pci_dev,
                         'physical_interface_mac': self.mac,
                         'collectors': collector_servers,
-                        'xmpp_auth_enable': self._args.xmpp_auth_enable},
+                        'xmpp_auth_enable': self._args.xmpp_auth_enable,
+                        'xmpp_dns_auth_enable': self._args.xmpp_dns_auth_enable},
                     'NETWORKS': {
                         'control_network_ip': compute_ip},
                     'VIRTUAL-HOST-INTERFACE': {
