@@ -161,6 +161,12 @@ void Options::Initialize(EventManager &evm,
              opt::value<vector<string> >()->default_value(
              default_config_db_server_list, default_config_db_server),
              "Config database server list")
+        ("CONFIGDB.config_db_username",
+             opt::value<string>()->default_value(""),
+             "ConfigDB user")
+        ("CONFIGDB.config_db_password",
+             opt::value<string>()->default_value(""),
+             "ConfigDB password")
         ("CONFIGDB.rabbitmq_server_list",
              opt::value<vector<string> >()->default_value(
              default_rabbitmq_server_list, default_rabbitmq_server),
@@ -213,6 +219,8 @@ uint32_t Options::GenerateHash(const IFMapConfigOptions &config) {
     boost::hash<std::string> string_hash;
     chk_sum += string_hash(config.rabbitmq_user);
     chk_sum += string_hash(config.rabbitmq_password);
+    chk_sum += string_hash(config.config_db_username);
+    chk_sum += string_hash(config.config_db_password);
     return chk_sum;
 }
 
@@ -340,6 +348,12 @@ void Options::ParseConfigOptions(const boost::program_options::variables_map
     GetOptValue< vector<string> >(var_map,
                                   configdb_options_.config_db_server_list,
                                   "CONFIGDB.config_db_server_list");
+    GetOptValue<string>(var_map,
+                     configdb_options_.config_db_username,
+                     "CONFIGDB.config_db_username");
+    GetOptValue<string>(var_map,
+                     configdb_options_.config_db_password,
+                     "CONFIGDB.config_db_password");
     configdb_options_.rabbitmq_server_list.clear();
     GetOptValue< vector<string> >(var_map,
                      configdb_options_.rabbitmq_server_list,
