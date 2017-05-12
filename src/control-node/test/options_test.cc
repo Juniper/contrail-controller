@@ -72,6 +72,8 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.config_db_user(), "");
+    EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
@@ -151,6 +153,8 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
+    EXPECT_EQ(options_.config_db_user(), "");
+    EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
@@ -196,6 +200,8 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
+    EXPECT_EQ(options_.config_db_user(), "");
+    EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
@@ -242,6 +248,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "\n"
         "\n"
         "[CONFIGDB]\n"
+        "config_db_username=test-db-user\n"
+        "config_db_password=test-db-password\n"
         "rabbitmq_user=test-user\n"
         "rabbitmq_password=test-password\n"
         "\n"
@@ -295,6 +303,8 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.xmpp_server_key(), "/etc/server.key");
     EXPECT_EQ(options_.xmpp_ca_cert(), "/etc/ca-cert.pem");
     EXPECT_EQ(options_.sandesh_config().system_logs_rate_limit, 5);
+    EXPECT_EQ(options_.config_db_user(), "test-db-user");
+    EXPECT_EQ(options_.config_db_password(), "test-db-password");
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_FALSE(options_.sandesh_config().disable_object_logs);
@@ -323,6 +333,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "sandesh_send_rate_limit=5\n"
         "\n"
         "[CONFIGDB]\n"
+        "config_db_username=test-db-user\n"
+        "config_db_password=test-db-password\n"
         "rabbitmq_user=test-user\n"
         "rabbitmq_password=test-password\n"
         "\n"
@@ -384,7 +396,8 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 1024);
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
-
+    EXPECT_EQ(options_.config_db_user(), "test-db-user");
+    EXPECT_EQ(options_.config_db_password(), "test-db-password");
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");
     EXPECT_EQ(options_.rabbitmq_password(), "test-password");
     EXPECT_EQ(options_.xmpp_port(), 100);
@@ -513,7 +526,7 @@ TEST_F(OptionsTest, DISABLED_UnresolvableHostName) {
 }
 
 TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
-    int argc = 7;
+    int argc = 9; 
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
@@ -522,6 +535,8 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     char argv_4[] = "--CONFIGDB.rabbitmq_use_ssl=false";
     char argv_5[] = "--CONFIGDB.rabbitmq_server_list=10.1.1.1:100 10.1.1.2:100";
     char argv_6[] = "--CONFIGDB.config_db_server_list=20.1.1.1:100 20.1.1.2:100";
+    char argv_7[] = "--CONFIGDB.config_db_username=dbuser";
+    char argv_8[] = "--CONFIGDB.config_db_password=dbpassword";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -529,9 +544,13 @@ TEST_F(OptionsTest, OverrideConfigdbOptionsFromCommandLine) {
     argv[4] = argv_4;
     argv[5] = argv_5;
     argv[6] = argv_6;
+    argv[7] = argv_7;
+    argv[8] = argv_8;
 
     options_.Parse(evm_, argc, argv);
 
+    EXPECT_EQ(options_.config_db_user(), "dbuser");
+    EXPECT_EQ(options_.config_db_password(), "dbpassword");
     EXPECT_EQ(options_.rabbitmq_user(), "myuser");
     EXPECT_EQ(options_.rabbitmq_password(), "mynewpassword");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
