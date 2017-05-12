@@ -10,6 +10,25 @@
 #include "db/db.h"
 #include "ifmap/client/config_client_manager.h"
 
+bool ControlNode::end_of_config_;
+
+int ControlNode::GetNumConfigReader() {
+    static bool init_ = false;
+    static int num_config_readers = 0;
+
+    if (!init_) {
+        // XXX To be used for testing purposes only.
+        char *count_str = getenv("CONTRAIL_CONFIG_NUM_WORKERS");
+        if (count_str) {
+            num_config_readers = strtol(count_str, NULL, 0);
+        } else {
+            num_config_readers = kNumConfigReaderTasks;
+        }
+        init_ = true;
+    }
+    return num_config_readers;
+}
+
 //
 // Default scheduler policy for control-node daemon and test processes.
 //
@@ -222,7 +241,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy cassadra_reader_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("cassandra::init")))
         (TaskExclusion(scheduler->GetTaskId("cassandra::FQNameReader")));
-    for (int idx = 0; idx < ConfigClientManager::GetNumConfigReader(); ++idx) {
+    for (int idx = 0; idx < ControlNode::GetNumConfigReader(); ++idx) {
         cassadra_reader_policy.push_back(
         TaskExclusion(scheduler->GetTaskId("cassandra::ObjectProcessor"), idx));
     }
@@ -232,7 +251,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // Policy for cassandra::ObjectProcessor Task.
     TaskPolicy cassadra_obj_process_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("cassandra::init")));
-    for (int idx = 0; idx < ConfigClientManager::GetNumConfigReader(); ++idx) {
+    for (int idx = 0; idx < ControlNode::GetNumConfigReader(); ++idx) {
         cassadra_obj_process_policy.push_back(
                  TaskExclusion(scheduler->GetTaskId("cassandra::Reader"), idx));
     }

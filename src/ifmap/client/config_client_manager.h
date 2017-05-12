@@ -33,7 +33,6 @@ class TaskTrigger;
  */
 class ConfigClientManager {
 public:
-    static const int kNumConfigReaderTasks = 8;
     static const std::set<std::string> skip_properties;
 
     typedef std::list<struct DBRequest *> RequestList;
@@ -73,12 +72,6 @@ public:
 
     std::string GetWrapperFieldName(const std::string &type_name,
                                     const std::string &property_name) const;
-    static int GetNumConfigReader();
-
-    static int GetNumWorkers() {
-        // AMQP reader and ConfigDB readers
-        return GetNumConfigReader() + 1;
-    }
 
     void EndOfConfig();
     void WaitForEndOfConfig();

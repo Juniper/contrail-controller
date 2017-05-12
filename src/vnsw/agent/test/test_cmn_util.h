@@ -524,8 +524,8 @@ public:
     xmps::PeerState GetPeerState() const { return xmps::READY; }
     const XmppConnection *connection() const { return NULL; }
     virtual XmppConnection *connection() { return NULL; }
-    virtual bool LastReceived(uint64_t durationMsec) const { return false; }
-    virtual bool LastSent(uint64_t durationMsec) const { return false; }
+    virtual bool LastReceived(time_t duration) const { return false; }
+    virtual bool LastSent(time_t duration) const { return false; }
 
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) {
     }

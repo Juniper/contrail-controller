@@ -10,6 +10,7 @@ Import('BuildEnv')
 env = BuildEnv.Clone()
 
 env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/control-node')
 env.Append(LIBPATH = env['TOP'] + '/ifmap')
 env.Append(LIBPATH = env['TOP'] + '/db')
 env.Append(LIBPATH = env['TOP'] + '/io')
@@ -21,7 +22,7 @@ env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Prepend(LIBS = ['db', 'xmpp', 'peer_sandesh', 'sandesh', 'sandeshvns',
                     'process_info', 'io', 'crypto', 'ssl', 'base', 'gunit',
                     'pugixml', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
-                    'cassandra', 'gendb', 'http', 'http_parser',
+                    'cassandra', 'gendb', 'http', 'http_parser', 'control_node',
                     'curl', 'ifmap_vnc', 'bgp_schema', 'boost_regex', 'xml'])
 
 lib_ifmap_server = File('../../ifmap/libifmap_server.a')

@@ -5,10 +5,10 @@
 #include <boost/assign.hpp>
 #include <base/logging.h>
 #include <base/task.h>
-#include <io/event_manager.h>
 #include <cmn/dns.h>
 #include <cmn/buildinfo.h>
-
+#include <control-node/control_node.h>
+#include <io/event_manager.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
@@ -84,7 +84,7 @@ void Dns::SetTaskSchedulingPolicy() {
     TaskPolicy cassadra_reader_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("cassandra::init")))
         (TaskExclusion(scheduler->GetTaskId("cassandra::FQNameReader")));
-    for (int idx = 0; idx < ConfigClientManager::GetNumConfigReader(); ++idx) {
+    for (int idx = 0; idx < ControlNode::GetNumConfigReader(); ++idx) {
         cassadra_reader_policy.push_back(
         TaskExclusion(scheduler->GetTaskId("cassandra::ObjectProcessor"), idx));
     }
@@ -94,7 +94,7 @@ void Dns::SetTaskSchedulingPolicy() {
     // Policy for cassandra::ObjectProcessor Task.
     TaskPolicy cassadra_obj_process_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("cassandra::init")));
-    for (int idx = 0; idx < ConfigClientManager::GetNumConfigReader(); ++idx) {
+    for (int idx = 0; idx < ControlNode::GetNumConfigReader(); ++idx) {
         cassadra_obj_process_policy.push_back(
                  TaskExclusion(scheduler->GetTaskId("cassandra::Reader"), idx));
     }

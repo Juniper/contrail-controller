@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
     }
 
     int num_threads_to_tbb = TaskScheduler::GetDefaultThreadCount() +
-        ConfigClientManager::GetNumWorkers();
+        ControlNode::GetNumConfigReader() + 1;
     TaskScheduler::Initialize(num_threads_to_tbb, &evm);
     TaskScheduler::GetInstance()->SetTrackRunTime(
         options.task_track_run_time());

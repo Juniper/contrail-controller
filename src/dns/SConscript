@@ -12,7 +12,7 @@ def MapBuildDir(list):
 env = BuildEnv.Clone()
 
 env.Prepend(CPPPATH = env['TOP'])
-env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
+env.Append(CPPPATH = env['TOP'] + '/base/sandesh')
 env.Prepend(CPPPATH = env['TOP'] + '/dns')
 env.Prepend(CPPPATH = env['TOP'] + '/dns/cmn')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
@@ -22,8 +22,9 @@ env.Prepend(CPPPATH = env['TOP'] + '/bgp')
 
 env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
                   'xmpp', 'sandeshvns', 'peer_sandesh',
-                  'curl', 'process_info',
-                  'db', 'io', 'base', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
+                  'curl', 'process_info', 'control_node',
+                  'db', 'io', 'base', 'ifmapio', 'ifmap_server', 'ifmap_common',
+                  'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
                   'cassandra', 'gendb', 'xml', 'pugixml', 'libxml2',
                   'cpuinfo', 'process_info', 'nodeinfo',
                   'boost_regex', 'boost_chrono', 'boost_program_options',
@@ -35,7 +36,7 @@ env.Append(LIBS=['sandesh', 'http', 'http_parser'])
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
 
-libs = MapBuildDir(['base', 'db', 'ifmap', 'io', 'net', 'xml', 'schema', 'xmpp', 'bgp',
+libs = MapBuildDir(['base', 'db', 'ifmap', 'io', 'net', 'xml', 'schema', 'xmpp', 'bgp', 'control-node',
                     'dns/bind', 'dns/cfg', 'dns/cmn', 'dns/mgr', 'dns/agent', 'dns/uve'])
 env.Append(LIBPATH=libs)
 

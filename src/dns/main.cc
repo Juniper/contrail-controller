@@ -13,6 +13,7 @@
 #include <base/misc_utils.h>
 #include <base/contrail_ports.h>
 #include <base/task.h>
+#include "control-node/control_node.h"
 #include <db/db_graph.h>
 #include <ifmap/client/config_client_manager.h>
 #include <ifmap/ifmap_link_table.h>
@@ -136,7 +137,7 @@ void InitializeSignalHandlers() {
 int main(int argc, char *argv[]) {
     // Initialize the task scheduler
     int num_threads_to_tbb = TaskScheduler::GetDefaultThreadCount() +
-        ConfigClientManager::GetNumWorkers();
+        ControlNode::GetNumConfigReader() + 1;
     TaskScheduler::Initialize(num_threads_to_tbb);
 
     // Create DB table and event manager
