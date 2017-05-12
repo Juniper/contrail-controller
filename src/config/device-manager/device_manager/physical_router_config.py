@@ -347,7 +347,7 @@ class PhysicalRouterConfig(object):
         for vpn_type in vpn_types:
             is_v6 = True if vpn_type == 'inet6-vpn' else False
             term = Term(name=DMUtils.make_ibgp_export_policy_term_name(is_v6))
-            ps.set_term(term)
+            ps.add_term(term)
             then = Then()
             from_ = From()
             term.set_from(from_)
@@ -401,7 +401,7 @@ class PhysicalRouterConfig(object):
         ri = Instance(name=ri_name)
         if vn:
             is_nat = True if fip_map else False
-            ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat))
+            ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat, router_external))
         ri_config.add_instance(ri)
         ri_opt = None
         if router_external and is_l2 == False:
@@ -498,7 +498,7 @@ class PhysicalRouterConfig(object):
         ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
         ps.set_comment(DMUtils.vn_ps_comment(vn, "Export"))
         then = Then()
-        ps.set_term(Term(name="t1", then=then))
+        ps.add_term(Term(name="t1", then=then))
         for route_target in export_targets:
             comm = Community(add='',
                              community_name=DMUtils.make_community_name(route_target))
@@ -515,7 +515,7 @@ class PhysicalRouterConfig(object):
         ps.set_comment(DMUtils.vn_ps_comment(vn, "Import"))
         from_ = From()
         term = Term(name="t1", fromxx=from_)
-        ps.set_term(term)
+        ps.add_term(term)
         for route_target in import_targets:
             from_.add_community(DMUtils.make_community_name(route_target))
         term.set_then(Then(accept=''))
@@ -603,7 +603,6 @@ class PhysicalRouterConfig(object):
                 bd_config = BridgeDomains()
                 ri.set_bridge_domains(bd_config)
                 bd = Domain(name=DMUtils.make_bridge_name(vni), vlan_id='none', vxlan=VXLan(vni=vni))
-                bd.set_comment(DMUtils.vn_bd_comment(vn, "VXLAN"))
                 bd_config.add_domain(bd)
                 for interface in interfaces:
                      bd.add_interface(Interface(name=interface.name))
@@ -667,6 +666,7 @@ class PhysicalRouterConfig(object):
             inet = None
             inet6 = None
             for (lo_ip, _) in gateways:
+                subnet = lo_ip
                 (ip, _) = lo_ip.split('/')
                 if ':' in lo_ip:
                     if not inet6:
@@ -683,7 +683,7 @@ class PhysicalRouterConfig(object):
                     inet.add_address(addr)
                     lo_ip = ip + '/' + '32'
                 addr.set_name(lo_ip)
-                addr.set_comment(DMUtils.lo0_ip_comment(lo_ip))
+                addr.set_comment(DMUtils.lo0_ip_comment(subnet))
             ri.add_interface(Interface(name="lo0." + ifl_num,
                                        comment=DMUtils.lo0_ri_intf_comment(vn)))
 
