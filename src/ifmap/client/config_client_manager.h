@@ -118,9 +118,10 @@ public:
     bool is_reinit_triggered() {
         return reinit_triggered_;
     }
-
-protected:
-    bool end_of_rib_computed_;
+    static bool end_of_rib_computed() { return end_of_rib_computed_; }
+    static void set_end_of_rib_computed(bool end_of_rib_computed) {
+        end_of_rib_computed_ = end_of_rib_computed;
+    }
 
 private:
     typedef std::pair<std::string, std::string> LinkMemberPair;
@@ -150,8 +151,8 @@ private:
     std::string module_name_;
     IFMapConfigOptions config_options_;
     tbb::atomic<bool> reinit_triggered_;
-
     boost::shared_ptr<TaskTrigger> init_trigger_;
+    static bool end_of_rib_computed_;
 };
 
 #endif // ctrlplane_config_client_manager_h

@@ -684,7 +684,7 @@ string GracefulRestartTest::GetConfig(bool delete_config) {
                    <enable>true</enable>\
                    <restart-time>600</restart-time>\
                    <long-lived-restart-time>60000</long-lived-restart-time>\
-                   <end-of-rib-timeout>120</end-of-rib-timeout>\
+                   <end-of-rib-timeout>10</end-of-rib-timeout>\
                    <bgp-helper-enable>true</bgp-helper-enable>\
                    <xmpp-helper-enable>true</xmpp-helper-enable>\
                </graceful-restart-parameters>\

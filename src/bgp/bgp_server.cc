@@ -8,6 +8,7 @@
 #include <boost/tuple/tuple.hpp>
 
 #include "base/connection_info.h"
+#include "base/misc_utils.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/bgp_factory.h"
@@ -561,6 +562,10 @@ uint32_t BgpServer::GetEndOfRibReceiveTime() const {
 
 uint32_t BgpServer::GetEndOfRibSendTime() const {
     return global_config_->end_of_rib_timeout();
+}
+
+bool BgpServer::IsStartingUp() const {
+    return MiscUtils::GetUpTimeSeconds() < 0.20 * GetEndOfRibSendTime();
 }
 
 bool BgpServer::IsGRHelperModeEnabled() const {
