@@ -54,7 +54,6 @@ class XmppServer;
 
 class BgpServer {
 public:
-    static const int kEndOfRibTime = 30; // seconds
     typedef boost::function<void()> AdminDownCb;
     typedef boost::function<void(uint8_t)> DSCPUpdateCb;
     typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
@@ -262,6 +261,8 @@ public:
     }
     bool IsGRHelperModeEnabled() const;
     bool CollectStats(BgpRouterState *state, bool first) const;
+    bool IsServerStartingUp() const;
+    time_t GetRTargetTableLastUpdatedTimeStamp() const;
 
 private:
     class ConfigUpdater;

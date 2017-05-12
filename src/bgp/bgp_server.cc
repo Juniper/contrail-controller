@@ -8,6 +8,7 @@
 #include <boost/tuple/tuple.hpp>
 
 #include "base/connection_info.h"
+#include "base/misc_utils.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_condition_listener.h"
 #include "bgp/bgp_factory.h"
@@ -16,6 +17,7 @@
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout_updates.h"
+#include "bgp/rtarget/rtarget_table.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_update_sender.h"
 #include "bgp/peer_stats.h"
@@ -563,6 +565,10 @@ uint32_t BgpServer::GetEndOfRibSendTime() const {
     return global_config_->end_of_rib_timeout();
 }
 
+bool BgpServer::IsServerStartingUp() const {
+    return MiscUtils::GetUpTimeSeconds() < 0.20 * GetEndOfRibSendTime();
+}
+
 bool BgpServer::IsGRHelperModeEnabled() const {
 
     // Check if disabled in .conf file.
@@ -1021,4 +1027,11 @@ bool BgpServer::CollectStats(BgpRouterState *state, bool first) const {
     }
 
     return change;
+}
+
+time_t BgpServer::GetRTargetTableLastUpdatedTimeStamp() const {
+    const RoutingInstanceMgr *ri_mgr = routing_instance_mgr();
+    const RTargetTable *rtarget_table = dynamic_cast<const RTargetTable *>(
+            ri_mgr->GetDefaultRoutingInstance()->GetTable(Address::RTARGET));
+    return rtarget_table->last_updated();
 }

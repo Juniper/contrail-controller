@@ -20,6 +20,7 @@ using namespace std;
 const std::string MiscUtils::ContrailVersionCmd = "/usr/bin/contrail-version";
 const map<MiscUtils::BuildModule, string> MiscUtils::BuildModuleNames =
     MiscUtils::MapInit();
+time_t MiscUtils::startup_time_secs_ = MiscUtils::set_startup_time_secs();
 
 SandeshTraceBufferPtr VersionTraceBuf(SandeshTraceBufferCreate(
                                        VERSION_TRACE_BUF, 500));
@@ -159,4 +160,12 @@ bool MiscUtils::GetPlatformInfo(std::string &distro, std::string &code_name) {
         return false;
     }
     return true;
+}
+
+time_t MiscUtils::GetUpTimeSeconds() {
+    return (UTCTimestamp() - startup_time_secs_);
+}
+
+time_t MiscUtils::set_startup_time_secs() {
+    return (startup_time_secs_ = UTCTimestamp());
 }
