@@ -9,6 +9,7 @@ import netaddr
 import logging
 import netifaces
 import tempfile
+import paramiko
 
 from contrail_vrouter_provisioning import local
 
@@ -767,6 +768,16 @@ SUBCHANNELS=1,2,3
                 local('sudo echo "manual" >> /etc/init/nova-compute.override')
             else:
                 local('sudo chkconfig nova-compute off')
+        # Remove TSN node from nova manage service list
+        # Mostly require when converting an exiting compute to TSN
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        session = ssh.connect(self._args.keystone_ip, \
+                              self._args.keystone_admin_user, \
+                              self._args.keystone_admin_password)
+        cmd = "nova-manage service disable --host=%s --service=nova-compute" \
+                %(compute_hostname)
+        stdin, stdout, stderr = session.exec_command(cmd)
 
     def add_tsn_vnc_config(self):
         tsn_ip = self._args.self_ip
