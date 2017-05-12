@@ -8,6 +8,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/regex.hpp>
 #include "base/logging.h"
+#include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
 #include "db/db_graph_vertex.h"
@@ -2120,7 +2121,7 @@ void ConfigDBUUIDCacheReq::HandleRequest() const {
     s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
     s0.allocFn_ = ShowConfigDBUUIDCache::AllocBuffer;
     s0.cbFn_ = ShowConfigDBUUIDCache::BufferStage;
-    for (int i = 0; i < ConfigClientManager::GetNumConfigReader(); ++i) {
+    for (int i = 0; i < ControlNode::GetNumConfigReader(); ++i) {
         s0.instances_.push_back(i);
     }
 
@@ -2144,7 +2145,7 @@ void ConfigDBUUIDCacheReqIterate::HandleRequest() const {
     s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
     s0.allocFn_ = ShowConfigDBUUIDCache::AllocBuffer;
     s0.cbFn_ = ShowConfigDBUUIDCache::BufferStageIterate;
-    for (int i = 0; i < ConfigClientManager::GetNumConfigReader(); ++i) {
+    for (int i = 0; i < ControlNode::GetNumConfigReader(); ++i) {
         s0.instances_.push_back(i);
     }
 

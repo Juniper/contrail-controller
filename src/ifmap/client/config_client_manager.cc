@@ -9,6 +9,7 @@
 #include "base/connection_info.h"
 #include "base/task.h"
 #include "base/task_trigger.h"
+#include "control-node/control_node.h"
 #include "config_amqp_client.h"
 #include "config_db_client.h"
 #include "config_cassandra_client.h"
@@ -29,26 +30,9 @@ using namespace std;
 
 const set<string> ConfigClientManager::skip_properties = list_of("perms2");
 
-int ConfigClientManager::GetNumConfigReader() {
-    static bool init_ = false;
-    static int num_config_readers = 0;
-
-    if (!init_) {
-        // XXX To be used for testing purposes only.
-        char *count_str = getenv("CONFIG_NUM_WORKERS");
-        if (count_str) {
-            num_config_readers = strtol(count_str, NULL, 0);
-        } else {
-            num_config_readers = kNumConfigReaderTasks;
-        }
-        init_ = true;
-    }
-    return num_config_readers;
-}
-
 void ConfigClientManager::SetUp() {
     config_json_parser_.reset(new ConfigJsonParser(this));
-    thread_count_ = GetNumConfigReader();
+    thread_count_ = ControlNode::GetNumConfigReader();
     end_of_rib_computed_at_ = UTCTimestampUsec();
     config_db_client_.reset(
             IFMapFactory::Create<ConfigCassandraClient>(this, evm_,
@@ -234,6 +218,7 @@ void ConfigClientManager::EndOfConfig() {
         tbb::mutex::scoped_lock lock(end_of_rib_sync_mutex_);
         assert(!end_of_rib_computed_);
         end_of_rib_computed_ = true;
+        ControlNode::set_end_of_config(true);
         cond_var_.notify_all();
         end_of_rib_computed_at_ = UTCTimestampUsec();
     }

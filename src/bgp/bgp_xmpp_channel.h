@@ -46,7 +46,7 @@ class XmppSession;
 
 class BgpXmppChannel {
 public:
-    static const int kEndOfRibSendRetryTimeMsecs = 2000; // 2 Seconds
+    static const int kEndOfRibSendRetryTime = 1; // Seconds
     enum StatsIndex {
         RX,
         TX,
@@ -329,6 +329,7 @@ private:
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
     void SendEndOfRIB();
+    virtual time_t GetEndOfRibSendTime() const;
 
     xmps::PeerId peer_id_;
     boost::scoped_ptr<BgpXmppRTargetManager> rtarget_manager_;
@@ -353,8 +354,8 @@ private:
     bool eor_sent_;
     Timer *eor_receive_timer_;
     Timer *eor_send_timer_;
-    uint64_t eor_receive_timer_start_time_;
-    uint64_t eor_send_timer_start_time_;
+    time_t eor_receive_timer_start_time_;
+    time_t eor_send_timer_start_time_;
     WorkQueue<std::string> membership_response_worker_;
     SubscribedRoutingInstanceList routing_instances_;
 

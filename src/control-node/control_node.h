@@ -31,8 +31,14 @@ public:
         const BgpXmppChannelManager *xmpp_channel_mgr,
         const IFMapServer *ifmap_server, const string &build_info);
     static void Shutdown();
+    static int GetNumConfigReader();
+    static bool end_of_config() { return end_of_config_; }
+    static void set_end_of_config(bool end_of_config) {
+        end_of_config_ = end_of_config;
+    }
 
 private:
+    static const int kNumConfigReaderTasks = 8;
     static bool ControlNodeInfoLogger(const BgpServer *server,
         const BgpXmppChannelManager *xmpp_channel_mgr,
         const IFMapServer *ifmap_server, const std::string &build_info);
@@ -42,6 +48,7 @@ private:
     static std::string prog_name_;
     static std::string self_ip_;
     static bool test_mode_;
+    static bool end_of_config_;
 
 };
 
