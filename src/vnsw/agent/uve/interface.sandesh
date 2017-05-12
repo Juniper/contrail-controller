@@ -242,3 +242,63 @@ uve sandesh UveVMInterfaceAgentTrace {
     /** Virtual Machine interface details */
     1: UveVMInterfaceAgent data;
 }
+
+/**
+ * Structure definition for holding details of single endpoint along with its
+ * statistics
+ */
+struct SecurityPolicyFlowStats {
+    /** Remote Application ID */
+    1:  string remote_app_id;
+    /** Remote Tier ID */
+    2:  string remote_tier_id;
+    /** Remote Site ID */
+    3:  string remote_site_id;
+    /** Remote deployment ID */
+    4:  string remote_deployment_id;
+    /** Remote prefix when app/tier/site/deployment is missing */
+    5:  string remote_prefix;
+    /** Remote Virtual network name*/
+    6:  string remote_vn;
+    7:  u64    hits;
+    /** Incoming statistics in bytes */
+    8:  u64    in_bytes;
+    /** Outgoing statistics in bytes */
+    9:  u64    out_bytes;
+    /** Incoming statistics in packets */
+    10: u64    in_pkts;
+    /** Outgoing statistics in packets */
+    11: u64    out_pkts;
+}
+
+/**
+ * Structure definition for holding details of list of endpoints
+ */
+struct EndpointStats {
+    /** @display_name:Endpoints and their Statistics */
+    1: list<SecurityPolicyFlowStats> traffic (tags="")
+}
+
+/**
+ * @description: Object log for Endpoint Security Stats
+ * @type: objectlog
+ * @object: virtual-machine-interface
+ */
+objectlog sandesh EndpointSecurityStats {
+    /** Name of Virtual Machine Interface */
+    1: string name (key="ObjectVMITable");
+    /** Name of application */
+    2: string app;
+    /** Name of Tier */
+    3: string tier;
+    /** Name of site */
+    4: string site;
+    /** Name of deployment */
+    5: string deployment;
+    /** Name of Virtual network */
+    6: string vn;
+
+    /** The key of this map is Security Policy name and rule-uuid */
+    /** @display_name:Security Policy Endpoint Statistics*/
+    7: map<string, EndpointStats> eps (tags="app,tier,site,deployment,vn,.__key")
+}
