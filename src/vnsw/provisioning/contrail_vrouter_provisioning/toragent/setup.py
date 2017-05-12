@@ -94,16 +94,16 @@ class TorAgentBaseSetup(ContrailSetup):
 
     def add_physical_device(self):
         cmd = "sudo python /opt/contrail/utils/provision_physical_device.py"
-        cmd += " --device_name %s" % self.args_tor_name
-        cmd += " --vendor_name %s" % self.args_.tor_vendor_name
-        cmd += " --device_mgmt_ip %s" % self.args_.tor_ip
-        cmd += " --device_tunnel_ip %s" % self.args_.tor_tunnel_ip
+        cmd += " --device_name %s" % self._args.tor_name
+        cmd += " --vendor_name %s" % self._args.tor_vendor_name
+        cmd += " --device_mgmt_ip %s" % self._args.tor_ip
+        cmd += " --device_tunnel_ip %s" % self._args.tor_tunnel_ip
         cmd += " --device_tor_agent %s" % self._args.tor_agent_name
-        cmd += " --device_tsn %s" % self.args_.tor_tsn_name
+        cmd += " --device_tsn %s" % self._args.tor_tsn_name
         cmd += " --api_server_ip %s" % self._args.cfgm_ip
         cmd += " --admin_user %s"  % self._args.admin_user
         cmd += " --admin_password %s" % self._args.admin_password
-        cmd += " --admin_tenant_name %s" % self._args.admin_tenant
+        cmd += " --admin_tenant_name %s" % self._args.admin_tenant_name
         cmd += " --openstack_ip %s" % self._args.authserver_ip
         if self._args.auth_protocol == 'https':
             cmd += " --api_server_use_ssl True"
