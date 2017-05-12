@@ -259,7 +259,7 @@ void PeerCloseManager::ProcessEORMarkerReceived(Event *event) {
 void PeerCloseManager::StartRestartTimer(int time) {
     stale_timer_->Cancel();
     PEER_CLOSE_MANAGER_LOG("GR Timer started to fire after " << time <<
-                           " milliseconds");
+                           " seconds");
     stale_timer_->Start(time,
         boost::bind(&PeerCloseManager::RestartTimerCallback, this));
 }

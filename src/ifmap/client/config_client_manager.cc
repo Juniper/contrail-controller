@@ -28,6 +28,7 @@ using namespace boost::assign;
 using namespace std;
 
 const set<string> ConfigClientManager::skip_properties = list_of("perms2");
+bool ConfigClientManager::end_of_rib_computed_;
 
 int ConfigClientManager::GetNumConfigReader() {
     static bool init_ = false;
@@ -103,18 +104,19 @@ void ConfigClientManager::SetUp() {
 ConfigClientManager::ConfigClientManager(EventManager *evm,
         IFMapServer *ifmap_server, string hostname, string module_name,
         const IFMapConfigOptions& config_options, bool end_of_rib_computed)
-    : end_of_rib_computed_(end_of_rib_computed), evm_(evm),
-    ifmap_server_(ifmap_server), hostname_(hostname), module_name_(module_name),
-    config_options_(config_options) {
+    : evm_(evm), ifmap_server_(ifmap_server), hostname_(hostname),
+      module_name_(module_name), config_options_(config_options) {
+    end_of_rib_computed_ = end_of_rib_computed;
     SetUp();
 }
 
 ConfigClientManager::ConfigClientManager(EventManager *evm,
         IFMapServer *ifmap_server, string hostname, string module_name,
         const IFMapConfigOptions& config_options)
-    : end_of_rib_computed_(false), evm_(evm), ifmap_server_(ifmap_server),
+    : evm_(evm), ifmap_server_(ifmap_server),
     hostname_(hostname), module_name_(module_name),
     config_options_(config_options) {
+    end_of_rib_computed_ = false;
     SetUp();
 }
 

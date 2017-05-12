@@ -561,7 +561,7 @@ private:
 // Route Policy configuration.
 class BgpGlobalSystemConfig {
 public:
-    static const int kEndOfRibTime = 30; // seconds
+    static const int kEndOfRibTime = 300; // seconds
     BgpGlobalSystemConfig() :
             last_change_at_(0), gr_time_(0), llgr_time_(0),
             end_of_rib_timeout_(kEndOfRibTime), gr_enable_(false),
