@@ -15,6 +15,7 @@ import requests
 from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
 from cfgm_common.vnc_amqp import VncAmqpHandle
+from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 import mesos_manager.mesos_consts as mesos_consts
 from vnc_api.vnc_api import *
 from config_db import *

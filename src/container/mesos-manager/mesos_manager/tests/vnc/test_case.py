@@ -94,5 +94,40 @@ class MMTestCase(test_common.TestCase):
             args = mesos_args.parse_args(args_str)
             return args
 
-    def test_test(self):
+    def create_add_event_object(self, uuid):
+        event = {}
+        event['labels'] = {}
+        event['cmd'] = 'ADD'
+        event['cid'] = uuid
+        return event
+
+    def create_project(self, name):
+        proj_fq_name = ['default-domain', name]
+        proj_obj = Project(name=name, fq_name=proj_fq_name)
+        try:
+            uuid = self._vnc_lib.project_create(proj_obj)
+            if uuid:
+                proj_obj = self._vnc_lib.project_read(id=uuid)
+        except RefsExistError:
+            proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        return proj_obj
+
+    def test_add_network_with_task(self):
+        task_uuid = str(uuid.uuid4())
+        event = self.create_add_event_object(task_uuid)
+        label_dict = event['labels']
+        label_dict['domain-name'] = 'default-domain'
+        label_dict['project-name'] = 'default-project'
+        label_dict['networks'] = 'yellow-net'
+        label_dict['cluster-name'] = 's2s33'
+
+        self.enqueue_event(event)
+        #verify project name
+        proj_fq_name = ['default-domain', 'default-project']
+        try:
+            proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        except NoIdError:
+            pass
+
+    def test_pass(self):
         pass
