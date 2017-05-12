@@ -31,7 +31,8 @@ env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/schema', env['TOP'] + '/xmpp', env['TOP'] + '/xml'])
 
 env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
-                    'bgp_test_factory', 'bgp_schema',
+                    'ifmapio', 'ifmap_server', 'ds', 'xmpp', 'io', 'http',
+                    'httpc', 'bgp_test_factory', 'bgp_schema',
                     'control_node', 'dbtest', 'ifmap_vnc', 'task_test',
                     'ifmap_test_util', 'ifmap_test_util_server',
                     'ifmap_server', 'ifmap_common', 'ifmapio', 'ds',

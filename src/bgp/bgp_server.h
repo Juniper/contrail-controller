@@ -50,7 +50,6 @@ class RTargetGroupMgr;
 
 class BgpServer {
 public:
-    static const int kEndOfRibTime = 30; // seconds
     typedef boost::function<void()> AdminDownCb;
     typedef boost::function<void(as_t, as_t)> ASNUpdateCb;
     typedef boost::function<void(Ip4Address)> IdentifierUpdateCb;
@@ -253,6 +252,8 @@ public:
     }
     bool IsGRHelperModeEnabled() const;
     bool CollectStats(BgpRouterState *state, bool first) const;
+    bool IsServerStartingUp() const;
+    time_t GetRTargetTableLastUpdatedTimeStamp() const;
 
 private:
     class ConfigUpdater;

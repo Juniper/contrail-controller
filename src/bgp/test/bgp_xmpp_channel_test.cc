@@ -44,8 +44,8 @@ public:
     xmps::PeerState GetPeerState() const { return xmps::READY; }
     const XmppConnection *connection() const { return NULL; }
     virtual XmppConnection *connection() { return NULL; }
-    virtual bool LastReceived(uint64_t durationMsec) const { return false; }
-    virtual bool LastSent(uint64_t durationMsec) const { return false; }
+    virtual bool LastReceived(time_t duration) const { return false; }
+    virtual bool LastSent(time_t duration) const { return false; }
 
     virtual std::string LastStateName() const {
         return "";
@@ -131,6 +131,7 @@ public:
         receive_updates_queue_.Enqueue(message);
     }
 
+    time_t GetEndOfRibSendTime() const { return 1; }
     size_t Count() const { return count_; }
     void ResetCount() { count_ = 0; }
 
@@ -495,9 +496,12 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
     msg = RouteDelMsg("purple", "10.1.1.2");
     this->ReceiveUpdate(a.get(), msg.get());
 
+    sleep(2);
+
     // Trigger EndOfRib timer callback
     task_util::TaskFire(boost::bind(&BgpXmppChannel::EndOfRibSendTimerExpired,
                         channel_a_), "xmpp::StateMachine");
+
     TASK_UTIL_EXPECT_TRUE(channel_a_->eor_sent());
     TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
 
@@ -630,9 +634,12 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_3) {
     EXPECT_TRUE(channel_a_->eor_send_timer()->running());
     EXPECT_FALSE(channel_a_->eor_sent());
 
+    sleep(2);
+
     // Trigger EndOfRib timer callback
     task_util::TaskFire(boost::bind(&BgpXmppChannel::EndOfRibSendTimerExpired,
                         channel_a_), "xmpp::StateMachine");
+
     TASK_UTIL_EXPECT_TRUE(channel_a_->eor_sent());
     TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
 

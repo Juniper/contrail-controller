@@ -181,10 +181,10 @@ public:
     int stale_entries_cleanup_timeout_ms() {
         return stale_entries_cleanup_timeout_ms_;
     }
-    void set_end_of_rib_computed(bool value) {
+    static void set_end_of_rib_computed(bool value) {
         end_of_rib_computed_ = value;
     }
-    bool end_of_rib_computed() const { return end_of_rib_computed_; }
+    static bool end_of_rib_computed() { return end_of_rib_computed_; }
     int end_of_rib_timeout_ms() { return end_of_rib_timeout_ms_; }
     bool EndOfRibTimerRunning();
 
@@ -271,7 +271,7 @@ private:
     // default values in seconds src/control-node/contrail-control.conf
     int end_of_rib_timeout_ms_;
     Timer *end_of_rib_timer_;
-    tbb::atomic<bool> end_of_rib_computed_;
+    static tbb::atomic<bool> end_of_rib_computed_;
 
     std::string GetSizeAsString(size_t stream_sz, std::string log) {
         std::ostringstream ss;
