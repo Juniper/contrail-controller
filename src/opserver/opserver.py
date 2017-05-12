@@ -1300,6 +1300,7 @@ class OpServer(object):
             for i in range(0, len(self._VIRTUAL_TABLES)):
                 if self._VIRTUAL_TABLES[i].name == tabl:
                     tabn = i
+                    break
 
             if (tabn is not None) and (tabl.find("StatTable") == 0):
                 query_err = self._is_valid_stats_table_query(request.json, tabn)
