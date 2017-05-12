@@ -652,6 +652,7 @@ class VirtualNetworkKM(DBBaseKM):
     obj_type = 'virtual_network'
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
+    ann_fq_name_key = ["kind","name"]
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -659,6 +660,9 @@ class VirtualNetworkKM(DBBaseKM):
         self.instance_ips = set()
         self.network_ipams = set()
         self.network_ipam_subnets = {}
+        self.annotations = None
+        self.k8s_namespace = None
+        self.k8s_namespace_isolated = False
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
 
@@ -667,7 +671,6 @@ class VirtualNetworkKM(DBBaseKM):
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
-        self.annotations = obj.get('annotations', None)
         self.build_fq_name_to_uuid(self.uuid, obj)
 
         # Cache ipam-subnet-uuid to ipam-fq-name mapping.
@@ -686,6 +689,15 @@ class VirtualNetworkKM(DBBaseKM):
                     subnet_uuid = subnet.get('subnet_uuid', None)
                     if subnet_uuid:
                         self.network_ipam_subnets[subnet_uuid] = ipam_fq_name
+
+        # Get annotations on this virtual network.
+        self.annotations = obj.get('annotations', {})
+        for kvp in self.annotations.get('key_value_pair', []):
+            if kvp.get('key') == 'namespace':
+                self.k8s_namespace = kvp.get('value')
+            if kvp.get('key') == 'isolated':
+                self.k8s_namespace_isolated = True if kvp.get('value') ==\
+                    'True' else False
 
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('instance_ip', obj)
@@ -709,6 +721,9 @@ class VirtualNetworkKM(DBBaseKM):
             if fq_name == ipam_fq_name:
                 return subnet_uuid
         return None
+
+    def is_k8s_namespace_isolated(self):
+        return self.k8s_namespace_isolated
 
 class InstanceIpKM(DBBaseKM):
     _dict = {}
@@ -772,7 +787,7 @@ class ProjectKM(DBBaseKM):
         self.k8s_namespace_isolated = False
         self.k8s_namespace_uuid = None
         self.k8s_namespace_name = None
-        self.security_groups = []
+        self.security_groups = set()
         obj_dict = self.update(obj_dict)
         self.set_children('virtual_network', obj_dict)
 
@@ -782,7 +797,12 @@ class ProjectKM(DBBaseKM):
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.build_fq_name_to_uuid(self.uuid, obj)
-        self.security_groups = obj.get('security_groups', [])
+
+        # Update SecurityGroup info.
+        sg_list = obj.get('security_groups', [])
+        for sg in sg_list:
+            self.security_groups.add(sg['uuid'])
+
         self.annotations = obj.get('annotations', {})
         for kvp in self.annotations.get('key_value_pair', []):
             if kvp.get('key') == 'isolated':
@@ -802,7 +822,7 @@ class ProjectKM(DBBaseKM):
         del cls._dict[uuid]
 
     def get_security_groups(self):
-        return self.security_groups
+        return set(self.security_groups)
 
     def is_k8s_namespace_isolated(self):
         return self.k8s_namespace_isolated
@@ -812,6 +832,12 @@ class ProjectKM(DBBaseKM):
 
     def get_k8s_namespace_name(self):
         return self.k8s_namespace_name
+
+    def add_security_group(self, sg_uuid):
+        self.security_groups.add(sg_uuid)
+
+    def remove_security_group(self, sg_uuid):
+        self.security_groups.discard(sg_uuid)
 
 class DomainKM(DBBaseKM):
     _dict = {}
@@ -846,6 +872,7 @@ class SecurityGroupKM(DBBaseKM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.project_uuid = None
         self.virtual_machine_interfaces = set()
         self.annotations = None
         self.namespace = None
@@ -884,6 +911,17 @@ class SecurityGroupKM(DBBaseKM):
                 self.ingress_ns_sgs = set(json.loads(kvp.get('value')))
             elif kvp.get('key') == 'np_sgs':
                 self.np_sgs = set(json.loads(kvp.get('value')))
+
+        # Register this SG uuid with its project.
+        #
+        # This information is used during k8s namespace deletion to cross
+        # validate SG-Project association.
+        if obj['parent_type'] == "project":
+            proj = ProjectKM.get(obj['parent_uuid'])
+            if proj:
+                proj.add_security_group(self.uuid)
+                self.project_uuid = proj.uuid
+
         self.rule_entries = obj.get('security_group_entries', None)
         self.update_multiple_refs('virtual_machine_interface', obj)
         return obj
@@ -893,6 +931,13 @@ class SecurityGroupKM(DBBaseKM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+
+        # Un-register this SG uuid from its project.
+        if obj.project_uuid:
+            proj = ProjectKM.get(obj.project_uuid)
+            if proj:
+                proj.remove_security_group(uuid)
+
         obj.update_multiple_refs('virtual_machine_interface', {})
         super(SecurityGroupKM, cls).delete(uuid)
         del cls._dict[uuid]
