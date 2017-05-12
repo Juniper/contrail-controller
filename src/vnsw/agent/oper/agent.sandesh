@@ -2709,6 +2709,8 @@ struct VrouterObjectLimits {
     9: u32 vrouter_max_flow_entries;
    /*** Maximum of overflow entries supported by vrouter */
    10: u32 vrouter_max_oflow_entries;
+   /*** vrouter priority tagging*/
+   11: bool vrouter_priority_tagging;
 }
 
 /**

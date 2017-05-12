@@ -1093,6 +1093,14 @@ public:
     std::string vrouter_build_info() const {
         return vrouter_build_info_;
     }
+
+    void set_vrouter_priority_tagging(bool tagging) {
+        vrouter_priority_tagging_ = tagging;
+    }
+
+    bool vrouter_priority_tagging() const {
+        return vrouter_priority_tagging_;
+    }
     Agent::ForwardingMode TranslateForwardingMode(const std::string &mode) const;
 
     FlowStatsReqHandler& flow_stats_req_handler() {
@@ -1307,6 +1315,8 @@ private:
     //Max OverFlow entries
     uint32_t vrouter_max_oflow_entries_;
     std::string vrouter_build_info_;
+    //Priority tagging status
+    bool vrouter_priority_tagging_;
     FlowStatsReqHandler flow_stats_req_handler_;
 
     uint32_t tbb_keepawake_timeout_;
