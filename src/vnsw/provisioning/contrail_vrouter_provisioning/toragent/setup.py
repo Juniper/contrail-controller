@@ -41,6 +41,7 @@ class TorAgentBaseSetup(ContrailSetup):
                 '__contrail_tor_agent_name__': self._args.tor_agent_name,
                 '__contrail_tor_tunnel_ip__': self._args.tor_tunnel_ip,
                 '__contrail_tor_product_name__': self._args.tor_product_name,
+                '__contrail_tor_vendor_name__': self._args.tor_vendor_name,
                 '__contrail_tor_ssl_cert__': self.ssl_cert,
                 '__contrail_tor_ssl_privkey__': self.ssl_privkey,
                 '__contrail_tor_ssl_cacert__': self.ssl_cacert,
@@ -94,16 +95,16 @@ class TorAgentBaseSetup(ContrailSetup):
 
     def add_physical_device(self):
         cmd = "sudo python /opt/contrail/utils/provision_physical_device.py"
-        cmd += " --device_name %s" % self.args_tor_name
-        cmd += " --vendor_name %s" % self.args_.tor_vendor_name
-        cmd += " --device_mgmt_ip %s" % self.args_.tor_ip
-        cmd += " --device_tunnel_ip %s" % self.args_.tor_tunnel_ip
+        cmd += " --device_name %s" % self._args.tor_name
+        cmd += " --vendor_name %s" % self._args.tor_vendor_name
+        cmd += " --device_mgmt_ip %s" % self._args.tor_ip
+        cmd += " --device_tunnel_ip %s" % self._args.tor_tunnel_ip
         cmd += " --device_tor_agent %s" % self._args.tor_agent_name
-        cmd += " --device_tsn %s" % self.args_.tor_tsn_name
+        cmd += " --device_tsn %s" % self._args.tor_tsn_name
         cmd += " --api_server_ip %s" % self._args.cfgm_ip
         cmd += " --admin_user %s"  % self._args.admin_user
         cmd += " --admin_password %s" % self._args.admin_password
-        cmd += " --admin_tenant_name %s" % self._args.admin_tenant
+        cmd += " --admin_tenant_name %s" % self._args.admin_tenant_name
         cmd += " --openstack_ip %s" % self._args.authserver_ip
         if self._args.auth_protocol == 'https':
             cmd += " --api_server_use_ssl True"
@@ -177,6 +178,7 @@ class TorAgentSetup(ContrailSetup):
                 "--collectors",
                 help="List of IP of the VNC collectors",
                 nargs='+', type=str)
+        parser.add_argument("--tor_id_list", help="tor id list", nargs='+', type=str)
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)
 

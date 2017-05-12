@@ -13,7 +13,7 @@ template = string.Template("""
 servers=$__contrail_control_servers__
 
 [DEFAULT]
-agent_name=$__contrail_agent_name__
+agent_name=$__contrail_tor_agent_name__
 # Everything in this section is optional
 
 # IP address and port to be used to connect to collector. If these are not
@@ -93,6 +93,15 @@ tor_ovs_port=$__contrail_tsn_ovs_port__
 
 # IP-Transport protocol used to connect to tor. Supported values are "tcp", "pssl"
 tor_ovs_protocol=$__contrail_tor_ovs_protocol__
+
+#tor name on the TOR
+tor_name=$__contrail_tor_name__
+
+# tor vendor name
+tor_vendor_name=$__contrail_tor_vendor_name__
+
+#tor product name
+tor_product_name=$__contrail_tor_product_name__
 
 # Path to ssl certificate for tor-agent, needed for pssl
 ssl_cert=$__contrail_tor_ssl_cert__
