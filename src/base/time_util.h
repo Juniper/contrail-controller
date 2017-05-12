@@ -20,6 +20,11 @@ static inline uint64_t UTCTimestampUsec() {
     return ts.tv_sec * 1000000 + ts.tv_nsec/1000;
 }
 
+/* timestamp - returns seconds since epoch */
+static inline time_t UTCTimestamp() {
+    return time(NULL);
+}
+
 // Monotonically increasing timer starting from an arbitrary value
 // 10x more efficient than UTCTimestampUsec
 static inline uint64_t ClockMonotonicUsec() {

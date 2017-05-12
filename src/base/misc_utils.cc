@@ -20,6 +20,7 @@ using namespace std;
 const std::string MiscUtils::ContrailVersionCmd = "/usr/bin/contrail-version";
 const map<MiscUtils::BuildModule, string> MiscUtils::BuildModuleNames =
     MiscUtils::MapInit();
+time_t MiscUtils::startup_time_secs_ = MiscUtils::set_startup_time_secs();
 
 SandeshTraceBufferPtr VersionTraceBuf(SandeshTraceBufferCreate(
                                        VERSION_TRACE_BUF, 500));

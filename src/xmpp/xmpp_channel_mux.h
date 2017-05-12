@@ -54,8 +54,8 @@ public:
     virtual std::string LastFlap() const;
     virtual std::string AuthType() const;
     virtual std::string PeerAddress() const;
-    virtual bool LastReceived(uint64_t durationMsec) const;
-    virtual bool LastSent(uint64_t durationMsec) const;
+    virtual bool LastReceived(time_t duration) const;
+    virtual bool LastSent(time_t duration) const;
 
     virtual void ProcessXmppMessage(const XmppStanza::XmppMessage *msg);
     void WriteReady(const boost::system::error_code &ec);
@@ -89,8 +89,8 @@ private:
     tbb::mutex mutex_;
     RxMessageTraceCb rx_message_trace_cb_;
     TxMessageTraceCb tx_message_trace_cb_;
-    tbb::atomic<uint64_t> last_received_;
-    tbb::atomic<uint64_t> last_sent_;
+    tbb::atomic<time_t> last_received_;
+    tbb::atomic<time_t> last_sent_;
 };
 
 #endif // __XMPP_CHANNEL_MUX_H__
