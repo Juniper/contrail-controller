@@ -248,7 +248,7 @@ class ComputeArgsParser(object):
         parser.add_argument(
                 "--vrouter_module_params", help="vRouter module parameters.")
         parser.add_argument("--sriov", help="sriov configuration")
-        parser.add_argument("--tsn_mode", help="tsn mode ")
+        parser.add_argument("--tsn_mode", help="tsn mode ", action="store_true")
         parser.add_argument(
                 "--gateway_server_list", help="Compute's acting as gateway",
                 nargs='+', type=str)
