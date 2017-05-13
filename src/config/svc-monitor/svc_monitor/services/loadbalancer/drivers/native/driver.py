@@ -214,6 +214,10 @@ class OpencontrailLoadbalancerDriver(
         if vmi is None:
             return
 
+        proj_obj = None
+        if vmi.parent_type == 'project':
+            proj_obj = self._api.project_read(id=vmi.parent_key)
+
         if set(lb.instance_ips) == vmi.instance_ips and \
                 set(lb.floating_ips) == vmi.floating_ips:
             return
@@ -264,6 +268,8 @@ class OpencontrailLoadbalancerDriver(
                              floating_ip_address=iip.instance_ip_address)
                 fip.uuid = fq_name
                 fip.floating_ip_traffic_direction = "ingress"
+                if proj_obj:
+                    fip.add_project(proj_obj)
                 self._api.floating_ip_create(fip)
 
         if len(new_floating_ips):
