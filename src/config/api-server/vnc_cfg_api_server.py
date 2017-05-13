@@ -3004,12 +3004,11 @@ class VncApiServer(object):
 
         if self.is_multi_tenancy_set():
             ok, result = self._permissions.check_perms_write(request, obj_uuid)
-
-        if not ok:
-            (code, msg) = result
-            self.config_object_error(
-                obj_uuid, fq_name_str, obj_type, api_name, msg)
-            raise cfgm_common.exceptions.HttpError(code, msg)
+            if not ok:
+                (code, msg) = result
+                self.config_object_error(
+                    obj_uuid, fq_name_str, obj_type, api_name, msg)
+                raise cfgm_common.exceptions.HttpError(code, msg)
 
         # Validate perms on references
         if req_obj_dict is not None:
