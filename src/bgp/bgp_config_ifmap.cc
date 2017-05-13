@@ -266,6 +266,10 @@ static void NeighborSetSessionAttributes(
         }
         BuildFamilyAttributesList(neighbor, attributes);
         BuildKeyChain(neighbor, attributes->auth_data);
+        const autogen::RouteOriginOverride &origin_override =
+                attributes->route_origin_override;
+        neighbor->SetOriginOverride(origin_override.origin_override,
+                                    origin_override.origin);
     }
 }
 

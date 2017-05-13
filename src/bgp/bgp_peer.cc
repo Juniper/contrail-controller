@@ -412,6 +412,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           resolve_paths_(config->router_type() == "bgpaas-client"),
           as_override_(config->as_override()),
           cluster_id_(config->cluster_id()),
+          origin_override_(config->origin_override()),
           defer_close_(false),
           graceful_close_(true),
           vpn_tables_registered_(false),
@@ -498,6 +499,13 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     peer_info.set_admin_down(admin_down_);
     peer_info.set_passive(passive_);
     peer_info.set_as_override(as_override_);
+    peer_info.set_origin_override(origin_override_.origin_override);
+    if (origin_override_.origin_override) {
+        peer_info.set_route_origin(
+            BgpAttr::OriginToString(origin_override_.origin));
+    } else {
+        peer_info.set_route_origin("-");
+    }
     peer_info.set_router_type(router_type_);
     peer_info.set_cluster_id(Ip4Address(cluster_id_).to_string());
     peer_info.set_peer_type(
@@ -754,6 +762,18 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (cluster_id_ != config->cluster_id()) {
         cluster_id_ = config->cluster_id();
         peer_info.set_cluster_id(Ip4Address(cluster_id_).to_string());
+        clear_session = true;
+    }
+
+    OriginOverride origin_override(config->origin_override());
+    if (origin_override_ != origin_override) {
+        origin_override_ = origin_override;
+        peer_info.set_origin_override(origin_override_.origin_override);
+        if (origin_override_.origin_override) {
+            peer_info.set_route_origin(config->origin_override().origin);
+        } else {
+            peer_info.set_route_origin("-");
+        }
         clear_session = true;
     }
 
@@ -1257,6 +1277,24 @@ static bool SkipUpdateSend() {
     return skip_;
 }
 
+BgpPeer::OriginOverride::OriginOverride(
+                const BgpNeighborConfig::OriginOverrideConfig &config)
+        : origin_override(config.origin_override),
+        origin(BgpAttr::OriginFromString(config.origin)) {
+}
+
+bool BgpPeer::OriginOverride::operator!=(const OriginOverride &rhs) const {
+    if (origin_override != rhs.origin_override) {
+        return true;
+    }
+
+    // compare origin only if override is set
+    if (origin_override && origin != rhs.origin) {
+        return true;
+    }
+    return false;
+}
+
 //
 // Accumulate the message in the update buffer.
 // Flush the existing buffer if the message can't fit.
@@ -1517,6 +1555,12 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
     if (local_pref) {
         attr = server_->attr_db()->ReplaceLocalPreferenceAndLocate(attr.get(),
             local_pref);
+    }
+
+    // Check if peer is marked to override the route origin attribute
+    if (origin_override_.origin_override) {
+        attr = server_->attr_db()->ReplaceOriginAndLocate(attr.get(),
+                                                       origin_override_.origin);
     }
 
     uint32_t reach_count = 0, unreach_count = 0;
@@ -2046,6 +2090,12 @@ void BgpPeer::FillNeighborInfo(const BgpSandeshContext *bsc,
     bnr->set_admin_down(admin_down_);
     bnr->set_passive(passive_);
     bnr->set_as_override(as_override_);
+    bnr->set_origin_override(origin_override_.origin_override);
+    if (origin_override_.origin_override) {
+        bnr->set_route_origin(BgpAttr::OriginToString(origin_override_.origin));
+    } else {
+        bnr->set_route_origin("-");
+    }
     bnr->set_private_as_action(private_as_action_);
     bnr->set_peer_address(peer_address_string());
     bnr->set_peer_id(bgp_identifier_string());

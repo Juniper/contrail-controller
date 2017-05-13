@@ -108,6 +108,14 @@ protected:
     bool GetPeerResolvePaths(BgpPeer *peer) { return peer->resolve_paths_; }
     bool GetPeerAsOverride(BgpPeer *peer) { return peer->as_override_; }
 
+    BgpAttrOrigin::OriginType GetPeerRouteOrigin(BgpPeer *peer) {
+        return peer->origin_override_.origin;
+    }
+
+    bool GetPeerRouteOriginOverride(BgpPeer *peer) {
+        return peer->origin_override_.origin_override;
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph db_graph_;
@@ -915,12 +923,15 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors8) {
     BgpPeer *peer1 = rti->peer_manager()->PeerLookup("test:vm1:0");
     TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
     TASK_UTIL_EXPECT_TRUE(GetPeerAsOverride(peer1));
+    TASK_UTIL_EXPECT_TRUE(GetPeerRouteOriginOverride(peer1));
+    TASK_UTIL_EXPECT_EQ(BgpAttrOrigin::EGP, GetPeerRouteOrigin(peer1));
 
     TASK_UTIL_EXPECT_TRUE(
         rti->peer_manager()->PeerLookup("test:vm2:0") != NULL);
     BgpPeer *peer2 = rti->peer_manager()->PeerLookup("test:vm2:0");
     TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
     TASK_UTIL_EXPECT_FALSE(GetPeerAsOverride(peer2));
+    TASK_UTIL_EXPECT_FALSE(GetPeerRouteOriginOverride(peer2));
 
     // Update as-override.
     content = FileRead("controller/src/bgp/testdata/config_test_41b.xml");
@@ -930,10 +941,13 @@ TEST_F(BgpConfigTest, BGPaaSNeighbors8) {
     TASK_UTIL_EXPECT_EQ(peer1, server_.FindPeer(peer1->endpoint()));
     TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer1));
     TASK_UTIL_EXPECT_FALSE(GetPeerAsOverride(peer1));
+    TASK_UTIL_EXPECT_FALSE(GetPeerRouteOriginOverride(peer1));
 
     TASK_UTIL_EXPECT_EQ(peer2, server_.FindPeer(peer2->endpoint()));
     TASK_UTIL_EXPECT_TRUE(GetPeerResolvePaths(peer2));
     TASK_UTIL_EXPECT_TRUE(GetPeerAsOverride(peer2));
+    TASK_UTIL_EXPECT_TRUE(GetPeerRouteOriginOverride(peer2));
+    TASK_UTIL_EXPECT_EQ(BgpAttrOrigin::INCOMPLETE, GetPeerRouteOrigin(peer2));
 
     // Cleanup.
     boost::replace_all(content, "<config>", "<delete>");

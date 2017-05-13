@@ -37,7 +37,8 @@ protected:
           master_(NULL),
           peer_(NULL),
           rib1_(NULL), rib2_(NULL),
-          tid1_(DBTableBase::kInvalidId), tid2_(DBTableBase::kInvalidId) {
+          tid1_(DBTableBase::kInvalidId), tid2_(DBTableBase::kInvalidId),
+          route_origin_override_(false), route_origin_("IGP") {
         ConcurrencyScope scope("bgp::Config");
         BgpInstanceConfig instance_config(BgpConfigManager::kMasterInstance);
         boost::system::error_code ec;
@@ -90,6 +91,7 @@ protected:
         nbr_config.set_peer_as(peer_as);
         nbr_config.set_loop_count(loop_count);
         nbr_config.set_cluster_id(local_identifier_.to_ulong());
+        nbr_config.SetOriginOverride(route_origin_override_, route_origin_);
 
         BgpNeighborConfig::FamilyAttributesList family_attributes_list;
         BgpFamilyAttributesConfig family_attributes1("inet");
@@ -114,6 +116,9 @@ protected:
 
     DBTableBase::ListenerId tid1_;
     DBTableBase::ListenerId tid2_;
+
+    bool route_origin_override_;
+    std::string route_origin_;
 };
 
 TEST_F(BgpUpdateRxTest, AdvertiseWithdraw) {
@@ -489,6 +494,84 @@ TEST_P(BgpUpdateRxParamTest2, AsPathLoop) {
     TASK_UTIL_EXPECT_TRUE(rib2_->Find(&key) == NULL);
 
     peer_->ResetCapabilities();
+}
+
+TEST_P(BgpUpdateRxParamTest1, RouteOriginOverride) {
+    route_origin_override_ = true;
+    if (GetParam()) {
+        route_origin_ = "EGP";
+    } else {
+        route_origin_ = "IGP";
+    }
+
+    CreatePeer();
+    EXPECT_EQ(rib2_, server_.database()->FindTable("bgp.l3vpn.0"));
+
+    BgpProto::OpenMessage open;
+    uint8_t capc[] = {0, 1, 0, 128};
+    BgpProto::OpenMessage::Capability *cap =
+        new BgpProto::OpenMessage::Capability(
+            BgpProto::OpenMessage::Capability::MpExtension, capc, 4);
+    BgpProto::OpenMessage::OptParam *opt = new BgpProto::OpenMessage::OptParam;
+    opt->capabilities.push_back(cap);
+    open.opt_params.push_back(opt);
+    peer_->SetCapabilities(&open);
+
+    // Advertise the prefix.
+    BgpProto::Update update;
+    InetVpnPrefix iv_prefix(InetVpnPrefix::FromString("2:20:192.168.24.0/24"));
+    BgpAttrOrigin *origin = new BgpAttrOrigin(BgpAttrOrigin::INCOMPLETE);
+    update.path_attributes.push_back(origin);
+    BgpAttrNextHop *nexthop = new BgpAttrNextHop(0xabcdef01);
+    update.path_attributes.push_back(nexthop);
+    AsPathSpec *path_spec = new AsPathSpec;
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    path_spec->path_segments.push_back(ps);
+    update.path_attributes.push_back(path_spec);
+
+    BgpMpNlri *mp_nlri = new BgpMpNlri;
+    BgpProtoPrefix *bpp = new BgpProtoPrefix;
+    iv_prefix.BuildProtoPrefix(12, bpp);
+    mp_nlri->code = BgpAttribute::MPReachNlri;
+    mp_nlri->afi = 1;
+    mp_nlri->safi = 128;
+    uint8_t nh[12] = {0,0,0,0,0,0,0,0,192,168,1,1};
+    mp_nlri->nexthop.assign(&nh[0], &nh[12]);
+    mp_nlri->nlri.push_back(bpp);
+    update.path_attributes.push_back(mp_nlri);
+
+    peer_->ProcessUpdate(&update);
+    task_util::WaitForIdle();
+    InetVpnTable::RequestKey key(iv_prefix, peer_);
+    TASK_UTIL_EXPECT_TRUE(rib2_->Find(&key) != NULL);
+    BgpRoute *rt = static_cast<BgpRoute *>(rib2_->Find(&key));
+    TASK_UTIL_EXPECT_TRUE(rt->BestPath() != NULL);
+    const BgpPath *path = rt->BestPath();
+
+    if (GetParam()) {
+        EXPECT_TRUE(path->GetAttr()->origin() == BgpAttrOrigin::EGP);
+    } else {
+        EXPECT_TRUE(path->GetAttr()->origin() == BgpAttrOrigin::IGP);
+    }
+
+    // Withdraw the prefix.
+    BgpProto::Update withdraw;
+    BgpMpNlri *mp_nlri2 = new BgpMpNlri;
+    BgpProtoPrefix *bpp2 = new BgpProtoPrefix;
+    iv_prefix.BuildProtoPrefix(12, bpp2);
+    mp_nlri2->code = BgpAttribute::MPUnreachNlri;
+    mp_nlri2->afi = 1;
+    mp_nlri2->safi = 128;
+    mp_nlri2->nlri.push_back(bpp2);
+    withdraw.path_attributes.push_back(mp_nlri2);
+
+    peer_->ProcessUpdate(&withdraw);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(rib2_->Find(&key) == NULL);
+
+    peer_->ResetCapabilities();
+    route_origin_override_ = false;
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpUpdateRxParamTest1, ::testing::Bool());

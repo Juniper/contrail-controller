@@ -192,6 +192,21 @@
          description='There can be upto 3 instances BGP session attributes, representing configuration for both ends and common. Currently only 1 instance representing common attributes is supported.'/>
 </xsd:complexType>
 
+<xsd:simpleType name='RouteOriginAttributeType'>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value='IGP'/>
+        <xsd:enumeration value='EGP'/>
+        <xsd:enumeration value='INCOMPLETE'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name='RouteOriginOverride'>
+    <xsd:element name="origin-override" type="xsd:boolean" default="false" required='optional' operations='CRUD'
+         description='Set true to override Route origin with the given value'/>
+    <xsd:element name="origin" type="RouteOriginAttributeType" default="IGP" required='optional' operations='CRUD'
+         description='User define route origin value'/>
+</xsd:complexType>
+
 <xsd:complexType name='BgpSessionAttributes'>
     <xsd:annotation>
         <xsd:documentation>
@@ -226,6 +241,8 @@
                  description='Session attributes over ride per BGP address family. Attributes like address family, loop-count and prefix-limit.'/>
     <xsd:element name='private-as-action' type='BgpPrivateAsAction' required='optional' operations='CRUD'
          description='Remove or replace private ASes from AS Path attributes advertised to this session.'/>
+    <xsd:element name='route-origin-override' type='RouteOriginOverride' required='optional' operations='CRUD'
+         description='User defined route origin value to override'/>
 </xsd:complexType>
 
 <xsd:complexType name='BgpFamilyAttributes'>

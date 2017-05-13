@@ -140,6 +140,14 @@ public:
         EBGP,
     };
 
+    struct OriginOverrideConfig {
+        OriginOverrideConfig();
+        bool operator<(const OriginOverrideConfig &rhs) const;
+
+        bool origin_override;
+        std::string origin;
+    };
+
     BgpNeighborConfig();
 
     void CopyValues(const BgpNeighborConfig &rhs);
@@ -255,6 +263,11 @@ public:
         return CompareTo(rhs) != 0;
     }
 
+    const OriginOverrideConfig &origin_override() const {
+        return origin_override_;
+    }
+    void SetOriginOverride(bool origin_override, std::string origin);
+
 private:
     std::string name_;
     std::string uuid_;
@@ -282,6 +295,7 @@ private:
     mutable uint64_t last_change_at_;
     AuthenticationData auth_data_;
     FamilyAttributesList family_attributes_list_;
+    OriginOverrideConfig origin_override_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpNeighborConfig);
 };
