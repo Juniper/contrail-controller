@@ -635,8 +635,8 @@ void Agent::ReconfigSignalHandler(boost::system::error_code ec, int signum) {
 Agent::Agent() :
     params_(NULL), cfg_(NULL), stats_(NULL), ksync_(NULL), uve_(NULL),
     stats_collector_(NULL), flow_stats_manager_(NULL), pkt_(NULL),
-    services_(NULL), vgw_(NULL), rest_server_(NULL), oper_db_(NULL),
-    diag_table_(NULL), controller_(NULL), resource_manager_(),
+    services_(NULL), vgw_(NULL), rest_server_(NULL), port_ipc_handler_(NULL),
+    oper_db_(NULL), diag_table_(NULL), controller_(NULL), resource_manager_(),
     event_notifier_(), event_mgr_(NULL),
     agent_xmpp_channel_(), ifmap_channel_(),
     xmpp_client_(), xmpp_init_(), dns_xmpp_channel_(), dns_xmpp_client_(),

@@ -1286,14 +1286,18 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     BuildEcmpHashingIncludeFields(cfg, vn_node, data);
 
     // Compare and log any mismatch in vm/vn between config and port-subscribe
+    PortSubscribeEntry *port_subscribe_entry = NULL;
     PortIpcHandler *pih =  agent_->port_ipc_handler();
-    PortSubscribeEntryPtr subscribe_entry =
-        pih->port_subscribe_table()->Get(u, data->vm_uuid_);
-    CompareVnVm(u, data, subscribe_entry.get());
-    pih->port_subscribe_table()->HandleVmiIfnodeAdd(u, data);
+    if (pih) {
+        PortSubscribeEntryPtr subscribe_entry =
+            pih->port_subscribe_table()->Get(u, data->vm_uuid_);
+        CompareVnVm(u, data, subscribe_entry.get());
+        pih->port_subscribe_table()->HandleVmiIfnodeAdd(u, data);
+        port_subscribe_entry = subscribe_entry.get();
+    }
 
     // Compute device-type and vmi-type for the interface
-    ComputeTypeInfo(agent_, data, subscribe_entry.get(), prouter, node,
+    ComputeTypeInfo(agent_, data, port_subscribe_entry, prouter, node,
                     li_node);
 
     InterfaceKey *key = NULL; 
@@ -1356,7 +1360,9 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req,
         agent_->oper_db()->bgp_as_a_service()->DeleteVmInterface(u);
         DelPhysicalDeviceVnEntry(u);
         PortIpcHandler *pih =  agent_->port_ipc_handler();
-        pih->port_subscribe_table()->HandleVmiIfnodeDelete(u);
+        if (pih) {
+            pih->port_subscribe_table()->HandleVmiIfnodeDelete(u);
+        }
         return DeleteVmi(this, u, &req);
     }
 
