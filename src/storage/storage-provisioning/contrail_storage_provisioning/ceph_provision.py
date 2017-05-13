@@ -33,92 +33,19 @@ class SetupCeph(object):
         global storage_disk_list
         new_storage_disk_list = []
 
-        if self._args.storage_journal_config[0] != 'none':
-            for hostname in self._args.storage_hostnames:
-                # Find the number of host disk and journal disks
-                # This is done to make the calculation to divide
-                # Journal among the data drives.
-                host_disks = 0
-                journal_disks = 0
-                if self._args.storage_disk_config[0] != 'none':
-                    for disks in self._args.storage_disk_config:
-                        disksplit = disks.split(':')
-                        if disksplit[0] == hostname:
-                            host_disks += 1
-                if self._args.storage_ssd_disk_config[0] != 'none':
-                    for disks in self._args.storage_ssd_disk_config:
-                        disksplit = disks.split(':')
-                        if disksplit[0] == hostname:
-                            host_disks += 1
-                journal_disks_list = ''
-                for journal in self._args.storage_journal_config:
-                    journalsplit = journal.split(':')
-                    if journalsplit[0] == hostname:
-                        journal_disks += 1
-                        if journal_disks_list == '':
-                            journal_disks_list = journalsplit[1]
-                        else:
-                            journal_disks_list = journal_disks_list + ':' + \
-                                                                journalsplit[1]
-                # Find the number of journal partitions for each journal
-                # and create a list of journal disks
-                if journal_disks != 0:
-                    num_partitions = (host_disks / journal_disks) + \
-                                                (host_disks % journal_disks > 0)
-                    #print 'num partitions %d' %(num_partitions)
-                    index = num_partitions
-                    init_journal_disks_list = journal_disks_list
-                    while True:
-                        index -= 1
-                        if index == 0:
-                            break
-                        journal_disks_list = journal_disks_list + ':' + \
-                                                        init_journal_disks_list
-                    #print journal_disks_list
-                    journal_disks_split = journal_disks_list.split(':')
-                # Create the final disk list in the form of
-                # hostname:disk:journaldisk for both HDD and SSD
-                index = 0
-                if self._args.storage_disk_config[0] != 'none':
-                    for disks in self._args.storage_disk_config:
-                        disksplit = disks.split(':')
-                        if disksplit[0] == hostname:
-                            #print journal_disks_list
-                            if journal_disks_list != '':
-                                storage_disk_node = hostname + ':' + \
-                                                    disksplit[1] + ':' + \
-                                                    journal_disks_split[index]
-                                index += 1
-                            else:
-                                storage_disk_node = disks
-                            storage_disk_list.append(storage_disk_node)
-                if self._args.storage_ssd_disk_config[0] != 'none':
-                    for disks in self._args.storage_ssd_disk_config:
-                        disksplit = disks.split(':')
-                        if disksplit[0] == hostname:
-                            #print journal_disks_list
-                            if journal_disks_list != '':
-                                storage_disk_node = hostname + ':' + \
-                                                    disksplit[1] + ':' + \
-                                                    journal_disks_split[index]
-                                index += 1
-                            else:
-                                storage_disk_node = disks
-                            storage_disk_list.append(storage_disk_node)
         # If there is no 'journal' configuration, may be its inline in disk
         # Just use the storage_disk_config/storage_ssd_disk_config
-        else:
+        for hostname in self._args.storage_hostnames:
+            for disks in self._args.storage_disk_config:
+                disksplit = disks.split(':')
+                if disksplit[0] == hostname:
+                    storage_disk_list.append(disks)
+        if self._args.storage_ssd_disk_config[0] != 'none':
             for hostname in self._args.storage_hostnames:
-                for disks in self._args.storage_disk_config:
-                    disksplit = disks.split(':')
+                for ssd_disks in self._args.storage_ssd_disk_config:
+                    disksplit = ssd_disks.split(':')
                     if disksplit[0] == hostname:
-                        storage_disk_list.append(disks)
-            if self._args.storage_ssd_disk_config[0] != 'none':
-                for hostname in self._args.storage_hostnames:
-                    for ssd_disks in self._args.storage_ssd_disk_config:
-                        disksplit = ssd_disks.split(':')
-                        if disksplit[0] == hostname:
-                            storage_disk_list.append(ssd_disks)
+                        storage_disk_list.append(ssd_disks)
 
         # Remove the Pool numbers from the disk list. The pool name should
         # always start with 'P'
@@ -238,6 +165,9 @@ class SetupCeph(object):
 
         # Parse the arguments
         self._parse_args(args_str)
+
+        # prepare storage disk list
+        self.get_storage_disk_list()
 
         # Do crush/pool configuration
         self.do_crush_map_pool_config()
