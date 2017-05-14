@@ -69,7 +69,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         if self.pdist in ['centos', 'redhat']:
             local('sudo groupadd -f nogroup')
             cmd = "sudo sed -i s/'Defaults    requiretty'/'#Defaults    "
-            cmd += "requiretty'/g /etc/ers"
+            cmd += "requiretty'/g /etc/sudoers"
             local(cmd)
 
     def add_dev_tun_in_cgroup_device_acl(self):
@@ -623,7 +623,7 @@ SUBCHANNELS=1,2,3
                 local("sudo mv %s %s" % (src, dst), warn_only=True)
                 local("sudo sync", warn_only=True)
                 # make ifcfg-$dev
-                ifcfg = "/etc/sysconfig/network-scripts/ifcfg-%s %s" % self.dev
+                ifcfg = "/etc/sysconfig/network-scripts/ifcfg-%s" % self.dev
                 ifcfg_bkp = "/etc/sysconfig/network-scripts/ifcfg-%s.rpmsave"\
                             % self.dev
                 if not os.path.isfile(ifcfg_bkp):
