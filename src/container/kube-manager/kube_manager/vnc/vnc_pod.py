@@ -396,6 +396,12 @@ class VncPod(VncCommon):
         if not vm:
             return
 
+        # If this VM's vrouter info is not available in our config db,
+        # then it is a case of race between delete and ref updates.
+        # So explicitly update this entry in config db.
+        if not vm.virtual_router:
+            vm.update()
+
         self._clear_label_to_pod_cache(vm)
 
         if vm.virtual_router:
