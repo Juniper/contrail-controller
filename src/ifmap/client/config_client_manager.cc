@@ -79,7 +79,7 @@ void ConfigClientManager::SetUp() {
     bgp_schema_Server_GenerateObjectTypeList(&obj_type_to_read_);
     vnc_cfg_Server_GenerateObjectTypeList(&obj_type_to_read_);
 
-    // Init/Reinit task trigger runs in the context of "cassandra::init" task
+    // Init/Reinit task trigger runs in the context of "cassandra::Init" task
     // This task is mutually exclusive to amqp reader task, config reader tasks
     // (both FQName reader or Object UUID table reader) and object processing
     // work queue task
@@ -95,7 +95,7 @@ void ConfigClientManager::SetUp() {
     // cassandra cluster.
     init_trigger_.reset(new
          TaskTrigger(boost::bind(&ConfigClientManager::InitConfigClient, this),
-         TaskScheduler::GetInstance()->GetTaskId("cassandra::init"), 0));
+         TaskScheduler::GetInstance()->GetTaskId("cassandra::Init"), 0));
 
     reinit_triggered_ = false;
 }
@@ -302,7 +302,7 @@ void ConfigClientManager::PostShutdown() {
 
 bool ConfigClientManager::InitConfigClient() {
     if (is_reinit_triggered()) {
-        // "cassandra::init" task is mutually exclusive to
+        // "cassandra::Init" task is mutually exclusive to
         // 1. FQName reader task
         // 2. Object UUID Table reader task
         // 3. AMQP reader task
@@ -316,6 +316,7 @@ bool ConfigClientManager::InitConfigClient() {
     // Common code path for both init/reinit
     config_db_client_->InitDatabase();
     config_amqp_client_->StartRabbitMQReader();
+    if (is_reinit_triggered()) return false;
     return true;
 }
 
