@@ -78,6 +78,7 @@ from functools import wraps
 from vnc_cfg_api_client import VncCfgApiClient
 from opserver_local import LocalApp
 from opserver_util import AnalyticsDiscovery
+from strict_redis_wrapper import StrictRedisWrapper
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -136,8 +137,8 @@ def obj_to_dict(obj):
 
 
 def redis_query_start(host, port, redis_password, qid, inp, columns):
-    redish = redis.StrictRedis(db=0, host=host, port=port,
-                                   password=redis_password)
+    redish = StrictRedisWrapper(db=0, host=host, port=port,
+                               password=redis_password)
     for key, value in inp.items():
         redish.hset("QUERY:" + qid, key, json.dumps(value))
     col_list = []
@@ -165,7 +166,7 @@ def redis_query_start(host, port, redis_password, qid, inp, columns):
 
 
 def redis_query_status(host, port, redis_password, qid):
-    redish = redis.StrictRedis(db=0, host=host, port=port,
+    redish = StrictRedisWrapper(db=0, host=host, port=port,
                                password=redis_password)
     resp = {"progress": 0}
     chunks = []
@@ -190,7 +191,7 @@ def redis_query_status(host, port, redis_password, qid):
 
 
 def redis_query_chunk_iter(host, port, redis_password, qid, chunk_id):
-    redish = redis.StrictRedis(db=0, host=host, port=port,
+    redish = StrictRedisWrapper(db=0, host=host, port=port,
                                password=redis_password)
 
     iters = 0
@@ -327,7 +328,7 @@ class OpStateServer(object):
             % (msg_type, destination, msg_encode)
         # Publish message in the Redis bus
         for redis_server in self._redis_list:
-            redis_inst = redis.StrictRedis(redis_server[0], 
+            redis_inst = StrictRedisWrapper(redis_server[0],
                                            redis_server[1], db=0,
                                            password=self._redis_password)
             try:
@@ -1490,7 +1491,7 @@ class OpServer(object):
             bottle.abort(code, msg)
         queries = {}
         try:
-            redish = redis.StrictRedis(db=0, host='127.0.0.1',
+            redish = StrictRedisWrapper(db=0, host='127.0.0.1',
                                        port=int(self._args.redis_query_port),
                                        password=self._args.redis_password)
             pending_queries = redish.lrange('QUERYQ', 0, -1)
@@ -2340,7 +2341,7 @@ class OpServer(object):
             ulist = self.redis_uve_list
             
             for redis_uve in ulist:
-                redish = redis.StrictRedis(
+                redish = StrictRedisWrapper(
                     db=1,
                     host=redis_uve[0],
                     port=redis_uve[1],
