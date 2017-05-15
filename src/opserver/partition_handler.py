@@ -19,6 +19,7 @@ import select
 import redis
 import errno
 from collections import namedtuple
+from strict_redis_wrapper import StrictRedisWrapper
 
 PartInfo = namedtuple("PartInfo",["ip_address","instance_id","acq_time","port"])
 
@@ -105,7 +106,7 @@ class UveCacheProcessor(object):
         
         for pkey,pvalue in uveparts.iteritems():
             pi = self._agp[pkey]
-            lredis = redis.StrictRedis(
+            lredis = StrictRedisWrapper(
                     host=pi.ip_address, 
                     port=pi.port,
                     password=self._rpass,
@@ -340,7 +341,7 @@ class UveStreamPart(gevent.Greenlet):
                 if pause:
                     gevent.sleep(2)
                     pause = False
-                lredis = redis.StrictRedis(
+                lredis = StrictRedisWrapper(
                         host=self._pi.ip_address,
                         port=self._pi.port,
                         password=self._rpass,
