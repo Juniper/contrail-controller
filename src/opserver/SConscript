@@ -46,6 +46,7 @@ local_sources = [
            'alarmgen_config_handler.py',
            'vnc_cfg_api_client.py',
            'opserver_local.py',
+           'strict_redis_wrapper.py',
           ]
 
 plugins_sources = [

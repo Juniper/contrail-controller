@@ -30,6 +30,7 @@ from cassandra.query import named_tuple_factory
 from cassandra.query import PreparedStatement, tuple_factory
 import platform
 from opserver_util import OpServerUtils
+from strict_redis_wrapper import StrictRedisWrapper
 
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
@@ -195,7 +196,7 @@ class AnalyticsDb(object):
 
     def set_analytics_db_purge_status(self, purge_id, purge_cutoff):
         try:
-            redish = redis.StrictRedis(db=0, host='127.0.0.1',
+            redish = StrictRedisWrapper(db=0, host='127.0.0.1',
                      port=self._redis_query_port, password=self._redis_password)
             redish.hset('ANALYTICS_DB_PURGE', 'status', 'running')
             redish.hset('ANALYTICS_DB_PURGE', 'purge_input', str(purge_cutoff))
@@ -219,7 +220,7 @@ class AnalyticsDb(object):
 
     def delete_db_purge_status(self):
         try:
-            redish = redis.StrictRedis(db=0, host='127.0.0.1',
+            redish = StrictRedisWrapper(db=0, host='127.0.0.1',
                      port=self._redis_query_port, password=self._redis_password)
             redish.delete('ANALYTICS_DB_PURGE')
         except redis.exceptions.ConnectionError:
@@ -233,7 +234,7 @@ class AnalyticsDb(object):
     def get_analytics_db_purge_status(self, redis_list):
         for redis_ip_port in redis_list:
             try:
-                redish = redis.StrictRedis(redis_ip_port[0],
+                redish = StrictRedisWrapper(redis_ip_port[0],
                                            redis_ip_port[1], db=0,
                                            password=self._redis_password)
                 if (redish.exists('ANALYTICS_DB_PURGE')):
