@@ -3508,6 +3508,10 @@ class DBInterface(object):
         router_obj = self._logical_router_read(router_id)
         if port_id:
             port = self.port_read(port_id)
+            if port['tenant_id'] != context['tenant_id'].replace('-', ''):
+                self._raise_contrail_exception('RouterInterfaceNotFound',
+                                               router_id=router_id,
+                                               port_id=port_id)
             if (port['device_owner'] == constants.DEVICE_OWNER_ROUTER_INTF and
                     port['device_id']):
                 self._raise_contrail_exception('PortInUse',
@@ -3528,6 +3532,11 @@ class DBInterface(object):
 
         elif subnet_id:
             subnet = self.subnet_read(subnet_id)
+            if subnet['tenant_id'] != context['tenant_id'].replace('-', ''):
+                self._raise_contrail_exception(
+                     'RouterInterfaceNotFoundForSubnet',
+                     router_id=router_id,
+                     subnet_id=subnet_id)
             if not subnet['gateway_ip']:
                 self._raise_contrail_exception(
                     'BadRequest', resource='router',
