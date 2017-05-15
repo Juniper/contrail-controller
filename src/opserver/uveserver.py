@@ -15,6 +15,7 @@ import xmltodict
 import redis
 import datetime
 import sys
+import socket
 from opserver_util import OpServerUtils
 import re
 from gevent.lock import BoundedSemaphore
@@ -25,6 +26,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
      ConnectionStatus
 import traceback
 from collections import namedtuple
+from strict_redis_wrapper import StrictRedisWrapper
 
 RedisInfo = namedtuple("RedisInfo",["ip","port","pid"])
 
@@ -121,9 +123,10 @@ class UVEServer(object):
                         continue
 
                     if rinst.redis_handle is None:
-                        rinst.redis_handle = redis.StrictRedis(
+                        rinst.redis_handle = StrictRedisWrapper(
                             host=rkey.ip, port=rkey.port,
-                            password=self._redis_password, db=1, socket_timeout=90)
+                            password=self._redis_password, db=1,
+                            socket_timeout=90)
                         rinst.collector_pid = None
 
                     # check for known collector pid string
