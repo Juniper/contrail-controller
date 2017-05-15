@@ -15,6 +15,7 @@ import xmltodict
 import redis
 import datetime
 import sys
+import socket
 from opserver_util import OpServerUtils
 import re
 from gevent.lock import BoundedSemaphore
@@ -106,6 +107,9 @@ class UVEServer(object):
 
     def run(self):
         exitrun = False
+        # tcp keepalive options for the redis connection
+        tcp_keep_alive_opts = {socket.TCP_KEEPIDLE:3,socket.TCP_KEEPINTVL:1,\
+                               socket.TCP_KEEPCNT:3}
         while not exitrun:
             for rkey in self._redis_uve_map.keys():
                 rinst = self._redis_uve_map[rkey]
@@ -123,7 +127,10 @@ class UVEServer(object):
                     if rinst.redis_handle is None:
                         rinst.redis_handle = redis.StrictRedis(
                             host=rkey.ip, port=rkey.port,
-                            password=self._redis_password, db=1, socket_timeout=90)
+                            password=self._redis_password, db=1,
+                            socket_timeout=90,
+                            socket_keepalive=True,
+                            socket_keepalive_options=tcp_keep_alive_opts)
                         rinst.collector_pid = None
 
                     # check for known collector pid string

@@ -88,6 +88,9 @@ _ERRORS = {
     errno.EBUSY: 503
 }
 
+tcp_keepalive_opts = {socket.TCP_KEEPIDLE:3,socket.TCP_KEEPINTVL:1,\
+                      socket.TCP_KEEPCNT:3}
+
 @bottle.error(400)
 @bottle.error(403)
 @bottle.error(404)
@@ -137,7 +140,10 @@ def obj_to_dict(obj):
 
 def redis_query_start(host, port, redis_password, qid, inp, columns):
     redish = redis.StrictRedis(db=0, host=host, port=port,
-                                   password=redis_password)
+                               password=redis_password,
+                               socket_keepalive=True,
+                               socket_keepalive_options=\
+                                   tcp_keepalive_opts)
     for key, value in inp.items():
         redish.hset("QUERY:" + qid, key, json.dumps(value))
     col_list = []
@@ -166,7 +172,10 @@ def redis_query_start(host, port, redis_password, qid, inp, columns):
 
 def redis_query_status(host, port, redis_password, qid):
     redish = redis.StrictRedis(db=0, host=host, port=port,
-                               password=redis_password)
+                               password=redis_password,
+                               socket_keepalive=True,
+                               socket_keepalive_options=\
+                                   tcp_keepalive_opts)
     resp = {"progress": 0}
     chunks = []
     # For now, the number of chunks will be always 1
@@ -191,7 +200,9 @@ def redis_query_status(host, port, redis_password, qid):
 
 def redis_query_chunk_iter(host, port, redis_password, qid, chunk_id):
     redish = redis.StrictRedis(db=0, host=host, port=port,
-                               password=redis_password)
+                               password=redis_password,
+                               socket_keepalive=True,
+                               socket_keepalive_options=tcp_keepalive_opts)
 
     iters = 0
     fin = False
@@ -329,7 +340,10 @@ class OpStateServer(object):
         for redis_server in self._redis_list:
             redis_inst = redis.StrictRedis(redis_server[0], 
                                            redis_server[1], db=0,
-                                           password=self._redis_password)
+                                           password=self._redis_password,
+                                           socket_keepalive=True,
+                                           socket_keepalive_options=\
+                                               tcp_keepalive_opts)
             try:
                 redis_inst.publish('analytics', redis_msg)
             except redis.exceptions.ConnectionError:
@@ -1500,7 +1514,10 @@ class OpServer(object):
         try:
             redish = redis.StrictRedis(db=0, host='127.0.0.1',
                                        port=int(self._args.redis_query_port),
-                                       password=self._args.redis_password)
+                                       password=self._args.redis_password,
+                                       socket_keepalive=True,
+                                       socket_keepalive_options=\
+                                           tcp_keepalive_opts)
             pending_queries = redish.lrange('QUERYQ', 0, -1)
             pending_queries_info = []
             for query_id in pending_queries:
@@ -2391,7 +2408,9 @@ class OpServer(object):
                     db=1,
                     host=redis_uve[0],
                     port=redis_uve[1],
-                    password=self._args.redis_password)
+                    password=self._args.redis_password,
+                    socket_keepalive=True,
+                    socket_keepalive_options=tcp_keepalive_opts)
                 try:
                     for key in redish.smembers("NGENERATORS"):
                         source = key.split(':')[0]

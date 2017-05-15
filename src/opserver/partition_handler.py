@@ -21,6 +21,8 @@ import errno
 from collections import namedtuple
 
 PartInfo = namedtuple("PartInfo",["ip_address","instance_id","acq_time","port"])
+tcp_keepalive_opts = {socket.TCP_KEEPIDLE:3,socket.TCP_KEEPINTVL:1,\
+                      socket.TCP_KEEPCNT:3}
 
 def sse_pack(d):
     """Pack data in SSE format"""
@@ -109,7 +111,9 @@ class UveCacheProcessor(object):
                     host=pi.ip_address, 
                     port=pi.port,
                     password=self._rpass,
-                    db=7, socket_timeout=90)
+                    db=7, socket_timeout=90,
+                    socket_keepalive=True,
+                    socket_keepalive_options=tcp_keepalive_opts)
             ppe = lredis.pipeline()
             luves = list(uveparts[pkey])
             for elem in luves:
@@ -344,7 +348,9 @@ class UveStreamPart(gevent.Greenlet):
                         host=self._pi.ip_address,
                         port=self._pi.port,
                         password=self._rpass,
-                        db=7, socket_timeout=90)
+                        db=7, socket_timeout=90,
+                        socket_keepalive=True,
+                        socket_keepalive_options=tcp_keepalive_opts)
                 pb = lredis.pubsub()
                 inst = self._pi.instance_id
                 part = self._partno
