@@ -70,6 +70,7 @@ from libpartition.libpartition import PartitionClient
 from kafka import KafkaClient, SimpleProducer
 import redis
 from collections import namedtuple
+from strict_redis_wrapper import StrictRedisWrapper
 
 OutputRow = namedtuple("OutputRow",["key","typ","val"])
 
@@ -1369,7 +1370,7 @@ class Controller(object):
             prev = time.time()
             try:
                 if lredis is None:
-                    lredis = redis.StrictRedis(
+                    lredis = StrictRedisWrapper(
                             host="127.0.0.1",
                             port=self._conf.redis_server_port(),
                             password=self._conf.redis_password(),
