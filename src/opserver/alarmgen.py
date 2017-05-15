@@ -72,6 +72,8 @@ import redis
 from collections import namedtuple
 
 OutputRow = namedtuple("OutputRow",["key","typ","val"])
+tcp_keepalive_opts = {socket.TCP_KEEPIDLE:3,socket.TCP_KEEPINTVL:1,\
+                      socket.TCP_KEEPCNT:3}
 
 class AGTabStats(object):
     """ This class is used to store per-UVE-table information
@@ -1373,7 +1375,8 @@ class Controller(object):
                             host="127.0.0.1",
                             port=self._conf.redis_server_port(),
                             password=self._conf.redis_password(),
-                            db=7)
+                            db=7, socket_keepalive=True,
+                            socket_keepalive_options=tcp_keepalive_opts)
                     self.reconnect_agg_uve(lredis)
                     ConnectionState.update(conn_type = ConnectionType.REDIS_UVE,
                           name = 'AggregateRedis', status = ConnectionStatus.UP,

@@ -31,6 +31,8 @@ from cassandra.query import PreparedStatement, tuple_factory
 import platform
 from opserver_util import OpServerUtils
 
+tcp_keepalive_opts = {socket.TCP_KEEPIDLE:3,socket.TCP_KEEPINTVL:1,\
+                      socket.TCP_KEEPCNT:3}
 class AnalyticsDb(object):
     def __init__(self, logger, cassandra_server_list,
                     redis_query_port, redis_password, cassandra_user,
@@ -196,7 +198,9 @@ class AnalyticsDb(object):
     def set_analytics_db_purge_status(self, purge_id, purge_cutoff):
         try:
             redish = redis.StrictRedis(db=0, host='127.0.0.1',
-                     port=self._redis_query_port, password=self._redis_password)
+                     port=self._redis_query_port, password=self._redis_password,
+                     socket_keepalive=True,
+                     socket_keepalive_options=tcp_keepalive_opts)
             redish.hset('ANALYTICS_DB_PURGE', 'status', 'running')
             redish.hset('ANALYTICS_DB_PURGE', 'purge_input', str(purge_cutoff))
             redish.hset('ANALYTICS_DB_PURGE', 'purge_start_time',
@@ -220,7 +224,9 @@ class AnalyticsDb(object):
     def delete_db_purge_status(self):
         try:
             redish = redis.StrictRedis(db=0, host='127.0.0.1',
-                     port=self._redis_query_port, password=self._redis_password)
+                     port=self._redis_query_port, password=self._redis_password,
+                     socket_keepalive=True,
+                     socket_keepalive_options=tcp_keepalive_opts)
             redish.delete('ANALYTICS_DB_PURGE')
         except redis.exceptions.ConnectionError:
             self._logger.error("Exception: "
@@ -235,7 +241,10 @@ class AnalyticsDb(object):
             try:
                 redish = redis.StrictRedis(redis_ip_port[0],
                                            redis_ip_port[1], db=0,
-                                           password=self._redis_password)
+                                           password=self._redis_password,
+                                           socket_keepalive=True,
+                                           socket_keepalive_options=\
+                                               tcp_keepalive_opts)
                 if (redish.exists('ANALYTICS_DB_PURGE')):
                     return redish.hgetall('ANALYTICS_DB_PURGE')
             except redis.exceptions.ConnectionError:
