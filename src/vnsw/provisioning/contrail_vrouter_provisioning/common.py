@@ -797,7 +797,6 @@ SUBCHANNELS=1,2,3
     def start_tsn_service():
         nova_conf_file = '/etc/contrail/contrail-vrouter-agent.conf'
         sudo("openstack-config --set %s DEFAULT agent_mode tsn" % nova_conf_file)
-        sudo("service supervisor-vrouter restart")
 
     def setup_tsn_node():
         self.disable_nova_compute()
@@ -809,9 +808,10 @@ SUBCHANNELS=1,2,3
         self.disable_iptables()
         self.setup_coredump()
         self.fixup_config_files()
-        self.run_services()
         if self._args.tsn_mode:
             self.setup_tsn_node()
+            self.run_services()
         else:
+            self.run_services()
             if self._args.register:
                 self.add_vnc_config()
