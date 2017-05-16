@@ -1681,6 +1681,26 @@ class DBInterface(object):
         return rtr_q_dict
     #end _router_vnc_to_neutron
 
+    def _check_port_fip_assoc(self, port_obj, fixed_ip_address, fip_obj):
+        # check if port already has floating ip associated
+        fip_refs = port_obj.get_floating_ip_back_refs()
+        fip_ids= [ref['uuid'] for ref in fip_refs or []
+                                  if ref['uuid'] != fip_obj.uuid]
+        if fip_ids:
+            fip_dict = self._vnc_lib.floating_ips_list(obj_uuids=fip_ids,
+                        fields=['parent_uuid', 'floating_ip_fixed_ip_address'],
+                        detail=False)
+            fip_list = fip_dict.get('floating-ips')
+            for fip in fip_list:
+                if fip['floating_ip_fixed_ip_address'] == fixed_ip_address:
+                    pool_obj = self._vnc_lib.floating_ip_pool_read(
+                                             id=fip['parent_uuid'])
+                    self._raise_contrail_exception(
+                         'FloatingIPPortAlreadyAssociated',
+                         floating_ip_address=fip_obj.get_floating_ip_address(),
+                         fip_id=fip_obj.uuid, port_id=port_obj.uuid,
+                         fixed_ip=fixed_ip_address, net_id=pool_obj.parent_uuid)
+
     def _floatingip_neutron_to_vnc(self, context, fip_q, oper):
         if oper == CREATE:
             # TODO for now create from default pool, later
@@ -1713,6 +1733,7 @@ class DBInterface(object):
                                                floatingip_id=fip_q['id'])
 
         port_id = fip_q.get('port_id')
+        fixed_ip_address = fip_q.get('fixed_ip_address')
         if port_id:
             try:
                 port_obj = self._virtual_machine_interface_read(port_id=port_id)
@@ -1773,8 +1794,13 @@ class DBInterface(object):
         else:
             fip_obj.set_virtual_machine_interface_list([])
 
-        if fip_q.get('fixed_ip_address'):
+        if fixed_ip_address and port_id:
+            self._check_port_fip_assoc(port_obj, fixed_ip_address, fip_obj)
             fip_obj.set_floating_ip_fixed_ip_address(fip_q['fixed_ip_address'])
+        elif fixed_ip_address and not port_id:
+            msg = _("fixed_ip_address cannot be specified without a port_id")
+            self._raise_contrail_exception('BadRequest',
+                                           resource="floatingip", msg=msg)
         else:
             # fixed_ip_address not specified, pick from port_obj in create,
             # reset in case of disassociate
@@ -1783,11 +1809,23 @@ class DBInterface(object):
                 fip_obj.set_floating_ip_fixed_ip_address(None)
             else:
                 port_obj = self._virtual_machine_interface_read(
-                    port_id=port_refs[0]['uuid'], fields=['instance_ip_back_refs'])
+                    port_id=port_refs[0]['uuid'],
+                    fields=['instance_ip_back_refs', 'floating_ip_back_refs'])
                 iip_refs = port_obj.get_instance_ip_back_refs()
+                if len(iip_refs) > 1:
+                    msg = (_('Port %s has multiple fixed IP addresses.  Must '
+                         'provide a specific IP address when assigning a '
+                         'floating IP') % port_obj.uuid)
+                    self._raise_contrail_exception('BadRequest',
+                                                   resource="floatingip",
+                                                   msg=msg)
                 if iip_refs:
-                    iip_obj = self._instance_ip_read(instance_ip_id=iip_refs[0]['uuid'])
-                    fip_obj.set_floating_ip_fixed_ip_address(iip_obj.get_instance_ip_address())
+                    iip_obj = self._instance_ip_read(
+                                   instance_ip_id=iip_refs[0]['uuid'])
+                    self._check_port_fip_assoc(
+                         port_obj, iip_obj.get_instance_ip_address(), fip_obj)
+                    fip_obj.set_floating_ip_fixed_ip_address(
+                            iip_obj.get_instance_ip_address())
 
         return fip_obj
     #end _floatingip_neutron_to_vnc
