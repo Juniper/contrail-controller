@@ -18,6 +18,7 @@ sources = [
     'contrail_vrouter_provisioning/upgrade.py',
     'contrail_vrouter_provisioning/toragent/__init__.py',
     'contrail_vrouter_provisioning/toragent/setup.py',
+    'contrail_vrouter_provisioning/toragent/haproxy.py',
     'contrail_vrouter_provisioning/toragent/templates/__init__.py',
     'contrail_vrouter_provisioning/toragent/templates/tor_agent_conf.py',
     'contrail_vrouter_provisioning/toragent/templates/tor_agent_ini.py',
