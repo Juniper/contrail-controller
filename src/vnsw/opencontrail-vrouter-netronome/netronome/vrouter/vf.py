@@ -140,7 +140,7 @@ class GcExpired(object):
 
 
 class RandomVFChooser(object):
-    def __call__(self, avail):
+    def __call__(self, avail, session, fallback_map):
         return random.choice(list(avail))
 
 DefaultVFChooser = RandomVFChooser
@@ -152,9 +152,10 @@ class Pool(object):
 
         self.fallback_map = fallback_map
 
-        self.choose_vf = (
-            vf_chooser if vf_chooser is not None else DefaultVFChooser()
-        )
+        if vf_chooser is not None:
+            self.vf_chooser = vf_chooser
+        else:
+            self.vf_chooser = lambda m: DefaultVFChooser()
 
         self._vfset = frozenset(fallback_map.vfset)
         if self.fallback_map_len() == 0:
@@ -191,8 +192,8 @@ class Pool(object):
         return reclaimed
 
     def allocate_vf(
-        self,
-        session, neutron_port, expires, raise_on_failure=False, _now=None
+        self, session, neutron_port, plug_mode, expires,
+        raise_on_failure=False, _now=None
     ):
         """
         Allocate a VF. Perform GC as needed.
@@ -263,6 +264,10 @@ class Pool(object):
             else:
                 return None
 
+        # Set up an object that can perform the allocation. vf_chooser()
+        # allowed to perform virtiorelayd configuration queries (VRT-802).
+        choose_vf = self.vf_chooser(m=plug_mode)
+
         # Perform the allocation. Retry on concurrent allocation conflict
         # (VRT-755).
         RETRIES = 10
@@ -281,7 +286,9 @@ class Pool(object):
                 return _not_avail()
 
             # Choose one.
-            addr = self.choose_vf(avail)
+            addr = choose_vf(
+                avail=avail, session=session, fallback_map=self.fallback_map
+            )
             try:
                 session.add(VF(addr, neutron_port, expires))
                 session.commit()

@@ -58,7 +58,7 @@ from netronome.vrouter.tests.helpers.config import (
 )
 from netronome.vrouter.tests.helpers.plug import (
     _enable_fake_intel_iommu, _make_fake_sysfs_fallback_map, _DisableGC,
-    FakeAgent, FakeVirtIOServer, URLLIB3_LOGGERS
+    FakeAgent, FakeVirtIOPortControlServer, URLLIB3_LOGGERS
 )
 from netronome.vrouter.tests.helpers.vf import (fake_FallbackMap)
 from netronome.vrouter.tests.unit.rest import test_rest
@@ -1544,7 +1544,7 @@ class TestAllocateVF(unittest.TestCase):
         pool = vf.Pool(
             fake_FallbackMap([pci.parse_pci_address('0000:00:00.0')])
         )
-        step = plug._AllocateVF(vf_pool=pool)
+        step = plug._AllocateVF(vf_pool=pool, plug_mode=PM.SRIOV)
         if hasattr(step, 'configure'):
             step.configure()
 
@@ -1575,7 +1575,7 @@ class TestAllocateVF(unittest.TestCase):
         with attachLogHandler(_VF_LOGGER()):
             pool = vf.Pool(fallback.FallbackMap())
 
-        step = plug._AllocateVF(vf_pool=pool)
+        step = plug._AllocateVF(vf_pool=pool, plug_mode=PM.SRIOV)
         if hasattr(step, 'configure'):
             step.configure()
 
@@ -1621,7 +1621,7 @@ class TestBringUpFallback(unittest.TestCase):
         )
         pool = vf.Pool(fallback_map)
 
-        allocate_step = plug._AllocateVF(vf_pool=pool)
+        allocate_step = plug._AllocateVF(vf_pool=pool, plug_mode=PM.SRIOV)
         if hasattr(allocate_step, 'configure'):
             allocate_step.configure()
 
@@ -1684,7 +1684,7 @@ class TestBringUpFallback(unittest.TestCase):
 # this was not covered in the original set of test cases, which I
 # noticed because there was a BUG comment left after I added the +OK,
 # -ERROR, -SKIP return value checking on 2016-06-29.
-def _preallocate_vf(session, port, fallback_map=None, vf_pool=None):
+def _preallocate_vf(session, port, plug_mode, fallback_map=None, vf_pool=None):
     if fallback_map is None:
         fallback_map = fallback.FallbackMap()
     if vf_pool is None:
@@ -1695,7 +1695,8 @@ def _preallocate_vf(session, port, fallback_map=None, vf_pool=None):
     # good enough!"
     expires = vf.calculate_expiration_datetime(timedelta(minutes=30))
     addr = vf_pool.allocate_vf(
-        session, port.uuid, expires=expires, raise_on_failure=True
+        session=session, neutron_port=port.uuid, plug_mode=plug_mode,
+        expires=expires, raise_on_failure=True
     )
     port.vf = session.query(vf.VF).get(addr)
 
@@ -1736,7 +1737,10 @@ class TestPlugSRIOV(_DisableGC, unittest.TestCase):
 
         if customize_port is not None:
             # Hook for testing "VF already allocated for this port"
-            customize_port(fallback_map=fallback_map, session=s, port=po)
+            customize_port(
+                fallback_map=fallback_map, session=s, port=po,
+                plug_mode=PM.SRIOV,
+            )
 
         cr = _CommandRecorder()
         pl = plug._PlugSRIOV(
@@ -2320,7 +2324,7 @@ class TestGetVifDevnames(unittest.TestCase):
 
 
 @unittest.skipIf(
-    FakeVirtIOServer is None, 'virtiorelay interface not installed'
+    FakeVirtIOPortControlServer is None, 'virtiorelay interface not installed'
 )
 class TestSetupVirtIO(_DisableGC, unittest.TestCase):
     @contextlib.contextmanager
@@ -2328,7 +2332,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
         d_root = tempfile.mkdtemp(prefix=_TMP_PREFIX)
         d = os.path.join(d_root, 'test_SetupVirtIO/virtiorelayd')
         plug.makedirs(d)
-        zmq_ep = 'ipc://' + os.path.join(d, 'port_control')
+        zmq_port_control_ep = 'ipc://' + os.path.join(d, 'port_control')
 
         pf_addr = _random_pci_address()
         vf_addr = _random_pci_address()
@@ -2341,7 +2345,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
         )
 
         step = plug._SetupVirtIO(fallback_map=fallback_map)
-        step.configure(ep=zmq_ep, rcvtimeo_ms=5000)
+        step.configure(port_control_ep=zmq_port_control_ep, rcvtimeo_ms=5000)
 
         engine = database.create_engine('tmp')[0]
         set_sqlite_synchronous_off(engine)
@@ -2357,7 +2361,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
         po.vf = v
 
         # Boot the fake server.
-        kwds.setdefault('server_zmq_ep', zmq_ep)
+        kwds.setdefault('server_zmq_port_control_ep', zmq_port_control_ep)
         server, thr = cls.boot(assertTrue=self.assertTrue, **kwds)
 
         yield (step, s, po, server)
@@ -2373,7 +2377,9 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
         s.commit()
 
     def test_SetupVirtIO_connect_timeout(self):
-        with self._rig(FakeVirtIOServer, server_zmq_ep=None) as rig:
+        with self._rig(
+            FakeVirtIOPortControlServer, server_zmq_port_control_ep=None
+        ) as rig:
             step, s, po, server = rig
 
             log_message_counter = LogMessageCounter()
@@ -2389,7 +2395,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
             self.assertEqual(len(server.request_log), 0)
 
     def test_SetupVirtIO_recv_timeout(self):
-        with self._rig(FakeVirtIOServer) as rig:
+        with self._rig(FakeVirtIOPortControlServer) as rig:
             step, s, po, server = rig
 
             log_message_counter = LogMessageCounter()
@@ -2405,7 +2411,9 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
             self.assertEqual(len(server.request_log), 1)
 
     def test_SetupVirtIO_invalid_response(self):
-        with self._rig(FakeVirtIOServer, handle_request=lambda req: '') as rig:
+        with self._rig(
+            FakeVirtIOPortControlServer, handle_request=lambda req: ''
+        ) as rig:
             step, s, po, server = rig
 
             log_message_counter = LogMessageCounter()
@@ -2425,7 +2433,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
             response = relay.PortControlResponse()
             return response.SerializePartialToString()
 
-        with self._rig(FakeVirtIOServer, handle_request=h) as rig:
+        with self._rig(FakeVirtIOPortControlServer, handle_request=h) as rig:
             step, s, po, server = rig
 
             log_message_counter = LogMessageCounter()
@@ -2448,7 +2456,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
             response.error_code_source = 'moonbeams()'
             return response.SerializeToString()
 
-        with self._rig(FakeVirtIOServer, handle_request=h) as rig:
+        with self._rig(FakeVirtIOPortControlServer, handle_request=h) as rig:
             step, s, po, server = rig
 
             log_message_counter = LogMessageCounter()
@@ -2471,7 +2479,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
             response.status = response.OK
             return response.SerializeToString()
 
-        with self._rig(FakeVirtIOServer, handle_request=h) as rig:
+        with self._rig(FakeVirtIOPortControlServer, handle_request=h) as rig:
             step, s, po, server = rig
 
             log_message_counter = LogMessageCounter()
@@ -2502,7 +2510,7 @@ class TestSetupVirtIO(_DisableGC, unittest.TestCase):
 
 
 @unittest.skipIf(
-    FakeVirtIOServer is None, 'virtiorelay interface not installed'
+    FakeVirtIOPortControlServer is None, 'virtiorelay interface not installed'
 )
 class TestPlugVirtIO(_DisableGC, unittest.TestCase):
     def test_virtio_get_vif_devname(self):
@@ -2548,7 +2556,9 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
         d = os.path.join(d_root, 'test_PlugVirtIO')
         control_d = os.path.join(d, 'virtiorelayd')
         plug.makedirs(control_d)
-        zmq_ep = 'ipc://' + os.path.join(control_d, 'port_control')
+        zmq_port_control_ep = (
+            'ipc://' + os.path.join(control_d, 'port_control')
+        )
 
         # Setup the fake PCI device.
         pf_addr = _random_pci_address()
@@ -2606,8 +2616,10 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
             response.status = response.OK
             return response.SerializeToString()
 
-        virtiorelayd, virtiorelayd_thr = FakeVirtIOServer.boot(
-            assertTrue=self.assertTrue, server_zmq_ep=zmq_ep, handle_request=h
+        virtiorelayd, virtiorelayd_thr = FakeVirtIOPortControlServer.boot(
+            assertTrue=self.assertTrue,
+            server_zmq_port_control_ep=zmq_port_control_ep,
+            handle_request=h,
         )
 
         fake_fallback_devname = 'teapot_{}.{}'.format(
@@ -2622,7 +2634,10 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
 
         if customize_port is not None:
             # Hook for testing "VF already allocated for this port"
-            customize_port(fallback_map=fallback_map, session=s, port=po)
+            customize_port(
+                fallback_map=fallback_map, session=s, port=po,
+                plug_mode=PM.VirtIO,
+            )
 
         cr = _CommandRecorder()
         pl = plug._PlugVirtIO(
@@ -2638,7 +2653,7 @@ class TestPlugVirtIO(_DisableGC, unittest.TestCase):
                     },
                 },
                 'fallback': {'execute': cr.record_cmd},
-                'virtio.zmq': {'ep': zmq_ep},
+                'virtio.zmq': {'port_control_ep': zmq_port_control_ep},
                 'vrouter-port-control': {'directory': d},
             },
         )
@@ -3279,7 +3294,7 @@ class TestGetPlugDriver(unittest.TestCase):
 
         conf_virtio = Mock()
         setattr(conf, 'virtio-relay', conf_virtio)
-        conf_virtio.zmq_ep = 'nonexistent:///'
+        conf_virtio.zmq_port_control_ep = 'nonexistent:///'
         conf_virtio.zmq_receive_timeout = timedelta(seconds=1)
         conf_virtio.driver = 'igb_uio'
         conf_virtio.stub_driver = 'pci-stub'

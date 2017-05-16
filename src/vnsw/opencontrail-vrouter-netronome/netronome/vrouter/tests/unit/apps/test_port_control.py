@@ -38,7 +38,8 @@ from netronome.vrouter.sa.helpers import one_or_none
 from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import FakeSysfs
 from netronome.vrouter.tests.helpers.plug import (
-    _DisableGC, _enable_fake_intel_iommu, FakeAgent, URLLIB3_LOGGERS
+    _DisableGC, _enable_fake_intel_iommu, FakeAgent, FakeVirtIOConfigServer,
+    URLLIB3_LOGGERS
 )
 from netronome.vrouter.tests.randmac import RandMac
 from netronome.vrouter.tests.unit import *
@@ -50,6 +51,12 @@ from nova.virt.libvirt.config import LibvirtConfigGuestInterface
 from oslo_config import cfg
 from sqlalchemy.orm.session import sessionmaker
 from StringIO import StringIO
+
+try:
+    import zmq
+    import netronome.virtiorelayd.virtiorelayd_pb2 as relay
+except ImportError:
+    relay = None
 
 try:
     from netronome import iommu_check
@@ -918,6 +925,34 @@ class TestConfigCmd_AppTest(unittest.TestCase):
         Session = sessionmaker(bind=engine)
         yield Session()
 
+    def _start_virtio_config(self, handle_request):
+        if FakeVirtIOConfigServer is None:
+            return None, None, None
+
+        d_root = tempfile.mkdtemp(prefix=_TMP_PREFIX)
+        d = os.path.join(d_root, 'TestConfigCmd_AppTest/virtiorelayd')
+        plug.makedirs(d)
+        zmq_config_ep = 'ipc://' + os.path.join(d, 'config')
+
+        server, thr = FakeVirtIOConfigServer.boot(
+            assertTrue=self.assertTrue, server_zmq_config_ep=zmq_config_ep,
+            handle_request=handle_request,
+        )
+
+        return zmq_config_ep, server, thr
+
+    def _stop_virtio_config(self, server, thr):
+        if server is None and thr is None:
+            return
+
+        server.stop()
+        JOIN_TIMEOUT_SEC = 9
+        thr.join(JOIN_TIMEOUT_SEC)
+        self.assertFalse(
+            thr.isAlive(),
+            'server did not shut down within {}s'.format(JOIN_TIMEOUT_SEC)
+        )
+
     @contextlib.contextmanager
     def _test_config(
         self, _cm_parse=None, _cm_run=None, cmd_args=(),
@@ -928,6 +963,19 @@ class TestConfigCmd_AppTest(unittest.TestCase):
         fake_sysfs = FakeSysfs(nfp_status=1, physical_vif_count=1)
         _enable_fake_intel_iommu(fake_sysfs.root_dir)
 
+        # Setup the fake virtiorelayd config endpoint (for VF load balancing,
+        # VRT-802).
+        def h(request):
+            # No CPU pins (same as leaving VIRTIORELAYD_CPU_PINS blank in
+            # /etc/default/virtiorelayd).
+            response = relay.ConfigResponse()
+            response.status = response.OK
+            return response.SerializeToString()
+
+        config_ep, config_server, config_thr = self._start_virtio_config(
+            handle_request=h
+        )
+
         io = StringIO()
         cmd = port_control.ConfigCmd(
             _fh=io,
@@ -937,6 +985,11 @@ class TestConfigCmd_AppTest(unittest.TestCase):
         )
         u = uuid.uuid1() if neutron_port is None else neutron_port
         a = cmd_args + ('--neutron-port', str(u))
+        if config_ep is not None:
+            a += (
+                '--virtio-relay-zmq-config-ep', config_ep,
+                '--virtio-relay-zmq-receive-timeout', '5s',
+            )
 
         with attachLogHandler(_VROUTER_LOGGER(), LogMessageCounter()) as lmc:
             c = {'database': database}
@@ -972,6 +1025,8 @@ class TestConfigCmd_AppTest(unittest.TestCase):
                 rc = _run()
 
             yield (io.getvalue(), lmc.count, rc)
+
+        self._stop_virtio_config(config_server, config_thr)
 
     def test_config_unaccelerated_json(self):
         """
@@ -1040,11 +1095,15 @@ class TestConfigCmd_AppTest(unittest.TestCase):
             hw_acceleration_modes=(PM.VirtIO,),
             cmd_args=('--output-format', 'none'),
         ) as (output, logs, rc):
+            VF_LOGS = (
+                {'INFO': 1} if FakeVirtIOConfigServer is None else
+                {'INFO': 3, 'DEBUG': 2, 'WARNING': 1}
+            )
 
             self.assertEqual(rc, 0)
             self.assertEqual(logs, {
                 _PORT_CONTROL_LOGGER.name: {'DEBUG': 1},
-                _VF_LOGGER.name: {'INFO': 1},
+                _VF_LOGGER.name: VF_LOGS,
             })
 
             self.assertEqual(output, '')
@@ -1068,11 +1127,15 @@ class TestConfigCmd_AppTest(unittest.TestCase):
                 '--output-format', 'none',
             ),
         ) as (output, logs, rc):
+            VF_LOGS = (
+                {'INFO': 1} if FakeVirtIOConfigServer is None else
+                {'INFO': 3, 'DEBUG': 2, 'WARNING': 1}
+            )
 
             self.assertEqual(rc, 0)
             self.assertEqual(logs, {
                 _PORT_CONTROL_LOGGER.name: {'DEBUG': 2},
-                _VF_LOGGER.name: {'INFO': 1},
+                _VF_LOGGER.name: VF_LOGS,
             })
             self.assertEqual(output, '')
 
@@ -1114,11 +1177,18 @@ class TestConfigCmd_AppTest(unittest.TestCase):
                 database=db_fname,
                 _fallback_map_str='',
             ) as (output, logs, rc):
+                if (
+                    preferred_mode == PM.VirtIO
+                    and FakeVirtIOConfigServer is not None
+                ):
+                    VF_LOGS = {'WARNING': 1, 'ERROR': 1, 'INFO': 2, 'DEBUG': 2}
+                else:
+                    VF_LOGS = {'WARNING': 1, 'ERROR': 1}
 
                 self.assertEqual(rc, 0)
                 self.assertEqual(logs, {
                     _PORT_CONTROL_LOGGER.name: {'DEBUG': 1, 'WARNING': 1},
-                    _VF_LOGGER.name: {'WARNING': 1, 'ERROR': 1},
+                    _VF_LOGGER.name: VF_LOGS,
                 })
 
                 self.assertEqual(output, '')
@@ -1244,11 +1314,15 @@ class TestConfigCmd_AppTest(unittest.TestCase):
                 '--image-metadata', json.dumps(image_metadata),
             ),
         ) as (output, logs, rc):
+            VF_LOGS = (
+                {'INFO': 1} if FakeVirtIOConfigServer is None else
+                {'INFO': 3, 'DEBUG': 2, 'WARNING': 1}
+            )
 
             self.assertEqual(rc, 0)
             self.assertEqual(logs, {
                 _PORT_CONTROL_LOGGER.name: {'DEBUG': 2},
-                _VF_LOGGER.name: {'INFO': 1},
+                _VF_LOGGER.name: VF_LOGS,
             })
             self.assertEqual(output, '')
 
@@ -1311,11 +1385,15 @@ class TestConfigCmd_AppTest(unittest.TestCase):
                 '--image-metadata', json.dumps(image_metadata),
             ),
         ) as (output, logs, rc):
+            VF_LOGS = (
+                {'INFO': 1} if FakeVirtIOConfigServer is None else
+                {'INFO': 3, 'DEBUG': 2, 'WARNING': 1}
+            )
 
             self.assertEqual(rc, 0)
             self.assertEqual(logs, {
                 _PORT_CONTROL_LOGGER.name: {'DEBUG': 2},
-                _VF_LOGGER.name: {'INFO': 1},
+                _VF_LOGGER.name: VF_LOGS,
             })
             self.assertEqual(output, '')
 
@@ -1451,11 +1529,15 @@ class TestConfigCmd_AppTest(unittest.TestCase):
                 '--image-metadata', json.dumps(image_metadata),
             ),
         ) as (output, logs, rc):
+            VF_LOGS = (
+                {'INFO': 1} if FakeVirtIOConfigServer is None else
+                {'INFO': 3, 'DEBUG': 2, 'WARNING': 1}
+            )
 
             self.assertEqual(rc, 0)
             self.assertEqual(logs, {
                 _PORT_CONTROL_LOGGER.name: {'DEBUG': 2},
-                _VF_LOGGER.name: {'INFO': 1},
+                _VF_LOGGER.name: VF_LOGS,
             })
             self.assertEqual(output, '')
 

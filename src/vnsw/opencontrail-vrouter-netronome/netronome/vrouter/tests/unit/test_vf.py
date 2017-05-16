@@ -27,7 +27,7 @@ import uuid
 
 from datetime import datetime, timedelta
 
-from netronome.vrouter import (database, fallback, pci, vf)
+from netronome.vrouter import (database, fallback, pci, plug_modes as PM, vf)
 from netronome.vrouter.sa.sqlite import set_sqlite_synchronous_off
 from netronome.vrouter.tests.helpers.config import _random_pci_address
 from netronome.vrouter.tests.helpers.vf import *
@@ -97,7 +97,10 @@ class TestPool(unittest.TestCase):
 
             s = Session()
 
-            addr = p.allocate_vf(s, uuid.uuid1(), expires=None)
+            addr = p.allocate_vf(
+                session=s, neutron_port=uuid.uuid1(), expires=None,
+                plug_mode=PM.SRIOV,
+            )
             self.assertIsNone(addr)
             self.assertEqual(lmc.count, {
                 _VF_LOGGER.name: {'WARNING': 1, 'ERROR': 1}
@@ -121,7 +124,10 @@ class TestPool(unittest.TestCase):
         s.add(vf.VF(pci.parse_pci_address('eeee:22:33.4'), uuid.uuid1()))
 
         with _VF_LMC() as lmc:
-            addr = p.allocate_vf(s, uuid.uuid1(), None)
+            addr = p.allocate_vf(
+                session=s, neutron_port=uuid.uuid1(), expires=None,
+                plug_mode=PM.SRIOV,
+            )
             self.assertIsInstance(addr, pci.PciAddress)
             self.assertEqual(
                 lmc.count, {_VF_LOGGER.name: {'WARNING': 1, 'INFO': 1}}
@@ -130,14 +136,19 @@ class TestPool(unittest.TestCase):
             # this one expires just to sanity check adding expiration dates to
             # the tables
             addr = p.allocate_vf(
-                s, uuid.uuid1(), datetime.utcnow() + timedelta(days=100)
+                session=s, neutron_port=uuid.uuid1(),
+                expires=datetime.utcnow() + timedelta(days=100),
+                plug_mode=PM.SRIOV,
             )
             self.assertIsInstance(addr, pci.PciAddress)
             self.assertEqual(
                 lmc.count, {_VF_LOGGER.name: {'WARNING': 2, 'INFO': 2}}
             )
 
-            addr = p.allocate_vf(s, uuid.uuid1(), None)
+            addr = p.allocate_vf(
+                session=s, neutron_port=uuid.uuid1(), expires=None,
+                plug_mode=PM.SRIOV,
+            )
             self.assertIsNone(addr)
             self.assertEqual(lmc.count, {
                 _VF_LOGGER.name: {'WARNING': 3, 'ERROR': 1, 'INFO': 2}
@@ -171,7 +182,10 @@ class TestPool(unittest.TestCase):
         ))
 
         with _VF_LMC() as lmc:
-            addr = p.allocate_vf(s, uuid.uuid1(), None)
+            addr = p.allocate_vf(
+                session=s, neutron_port=uuid.uuid1(), expires=None,
+                plug_mode=PM.SRIOV,
+            )
             self.assertIsInstance(addr, pci.PciAddress)
             self.assertEqual(
                 lmc.count, {
@@ -195,7 +209,10 @@ class TestPool(unittest.TestCase):
             # when do we run out?
             n = 0
             while True:
-                addr = p.allocate_vf(s, uuid.uuid1(), None)
+                addr = p.allocate_vf(
+                    session=s, neutron_port=uuid.uuid1(), expires=None,
+                    plug_mode=PM.SRIOV,
+                )
                 if addr is None:
                     break
                 n += 1
@@ -233,7 +250,11 @@ class TestPool(unittest.TestCase):
             # when do we run out?
             n = 0
             while True:
-                addr = p.allocate_vf(s, uuid.uuid1(), now_p1h, _now=now)
+                addr = p.allocate_vf(
+                    session=s, neutron_port=uuid.uuid1(), expires=now_p1h,
+                    _now=now,
+                    plug_mode=random.choice(PM.accelerated_plug_modes),
+                )
                 if addr is None:
                     break
                 n += 1
@@ -249,7 +270,9 @@ class TestPool(unittest.TestCase):
             with self.assertRaises(vf.AllocationError) as cm:
                 u = uuid.uuid1()
                 addr = p.allocate_vf(
-                    s, u, now_p1h, raise_on_failure=True, _now=now
+                    session=s, neutron_port=u, expires=now_p1h,
+                    raise_on_failure=True, _now=now,
+                    plug_mode=random.choice(PM.accelerated_plug_modes),
                 )
             self.assertEqual(cm.exception.neutron_port, u)
 
@@ -258,7 +281,11 @@ class TestPool(unittest.TestCase):
             # when do we run out?
             n = 0
             while True:
-                addr = p.allocate_vf(s, uuid.uuid1(), now_p2h, _now=now_p1h1s)
+                addr = p.allocate_vf(
+                    session=s, neutron_port=uuid.uuid1(), expires=now_p2h,
+                    _now=now_p1h1s,
+                    plug_mode=random.choice(PM.accelerated_plug_modes),
+                )
                 if addr is None:
                     break
                 n += 1
@@ -274,7 +301,11 @@ class TestPool(unittest.TestCase):
         with _VF_LMC() as lmc:
             # when do we run out?
             for n in xrange(1, N + 1):  # "never"
-                addr = p.allocate_vf(s, uuid.uuid1(), now_p2h, _now=now_p2h1s)
+                addr = p.allocate_vf(
+                    session=s, neutron_port=uuid.uuid1(), expires=now_p2h,
+                    _now=now_p2h1s,
+                    plug_mode=random.choice(PM.accelerated_plug_modes),
+                )
                 self.assertIsNotNone(addr)
 
         self.assertEqual(lmc.count, {

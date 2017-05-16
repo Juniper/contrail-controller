@@ -20,7 +20,7 @@ from netronome import subcmd
 from netronome.subcmd import exception_msg
 from netronome.vrouter import (
     config, config_opts, config_editor, database, fallback, flavor, glance,
-    plug, plug_modes as PM, port, vf
+    plug, plug_modes as PM, port, vf, vf_load_balancer
 )
 from netronome.vrouter.config_opts import (choices_help, default_help)
 from netronome.vrouter.sa.helpers import one_or_none
@@ -117,9 +117,19 @@ def fixup(args):
     return reduce((lambda x, y: y(x)), fixups, args)
 
 
-def _make_vf_pool(fallback_map, port_dir, grace_period):
+def _make_vf_pool(
+    fallback_map, port_dir, grace_period, zmq_config_ep, rcvtimeo_ms
+):
+    if zmq_config_ep is None:
+        vf_chooser = None
+    else:
+        vf_chooser = vf_load_balancer.vf_chooser(
+            zmq_config_ep=zmq_config_ep, rcvtimeo_ms=rcvtimeo_ms,
+        )
+
     return vf.Pool(
         fallback_map,
+        vf_chooser=vf_chooser,
         gc=port.GcNotInPortDir(port_dir=port_dir, grace_period=grace_period),
     )
 
@@ -415,6 +425,35 @@ AGENT_CLI_OPTS = (
     AgentPortDir,
 )
 
+VirtioRelayGroup = cfg.OptGroup(
+    name='virtio-relay',
+    title='Netronome VirtIO Relay options',
+)
+
+VirtioRelayZmqConfigEpOpt = cfg.Opt(
+    'zmq-config-ep',
+    type=types.String(),
+    metavar='ENDPOINT',
+    default=plug.DEFAULT_VIRTIO_ZMQ_CONFIG_EP,
+    help=default_help(
+        'ZeroMQ endpoint to perform VirtIO Relay configuration queries',
+        plug.DEFAULT_VIRTIO_ZMQ_CONFIG_EP
+    )
+)
+
+VirtioRelayRcvtimeoOpt_default = config_opts.format_timedelta(
+    timedelta(milliseconds=plug.DEFAULT_VIRTIO_RCVTIMEO_MS)
+)
+VirtioRelayRcvtimeoOpt = cfg.Opt(
+    'zmq-receive-timeout',
+    type=config_opts.TimeDelta(),
+    metavar='TIMEOUT',
+    default=VirtioRelayRcvtimeoOpt_default,
+    help=default_help(
+        'Receive timeout for VirtIO Relay RPC', VirtioRelayRcvtimeoOpt_default
+    )
+)
+
 
 class ConfigCmd(OsloConfigSubcmd):
     """Edit libvirt configuration to allow plugging accelerated vRouter."""
@@ -544,6 +583,13 @@ class ConfigCmd(OsloConfigSubcmd):
         conf.register_group(AgentGroup)
         conf.register_cli_opt(AgentPortDir, group=AgentGroup)
 
+        VIRTIO_CONFIG_CLI_OPTS = (
+            VirtioRelayZmqConfigEpOpt,
+            VirtioRelayRcvtimeoOpt,
+        )
+        conf.register_group(VirtioRelayGroup)
+        conf.register_cli_opts(VIRTIO_CONFIG_CLI_OPTS, group=VirtioRelayGroup)
+
         return conf
 
     def run(self):
@@ -592,10 +638,14 @@ class ConfigCmd(OsloConfigSubcmd):
             # Testing knob.
             _in=self._fallback_map_str
         )
+
+        virtio_relay_conf = getattr(conf, 'virtio-relay')
         vf_pool = _make_vf_pool(
             fallback_map,
             port_dir=getattr(conf, 'contrail-agent').port_dir,
             grace_period=_VRT_604_GRACE_PERIOD,
+            zmq_config_ep=virtio_relay_conf.zmq_config_ep,
+            rcvtimeo_ms=plug.get_rcvtimeo_ms(virtio_relay_conf),
         )
 
         # Perform the configuration.
@@ -686,33 +736,14 @@ NoPersistOpt = cfg.Opt(
     default=False,
 )
 
-VirtioRelayGroup = cfg.OptGroup(
-    name='virtio-relay',
-    title='Netronome VirtIO Relay options',
-)
-
-VirtioRelayZmqEpOpt = cfg.Opt(
-    'zmq-ep',
+VirtioRelayZmqPortControlEpOpt = cfg.Opt(
+    'zmq-port-control-ep',
     type=types.String(),
     metavar='ENDPOINT',
-    default=plug.DEFAULT_VIRTIO_ZMQ_EP,
+    default=plug.DEFAULT_VIRTIO_ZMQ_PORT_CONTROL_EP,
     help=default_help(
-        'ZeroMQ endpoint to plug/unplug ports in Netronome VirtIO Relay',
-        plug.DEFAULT_VIRTIO_ZMQ_EP
-    )
-)
-
-VirtioRelayRcvtimeoOpt_default = config_opts.format_timedelta(
-    timedelta(milliseconds=plug.DEFAULT_VIRTIO_RCVTIMEO_MS)
-)
-VirtioRelayRcvtimeoOpt = cfg.Opt(
-    'zmq-receive-timeout',
-    type=config_opts.TimeDelta(),
-    metavar='TIMEOUT',
-    default=VirtioRelayRcvtimeoOpt_default,
-    help=default_help(
-        'ZeroMQ receive timeout for RPC to Netronome VirtIO Relay',
-        VirtioRelayRcvtimeoOpt_default
+        'ZeroMQ endpoint to plug/unplug ports in VirtIO Relay',
+        plug.DEFAULT_VIRTIO_ZMQ_PORT_CONTROL_EP
     )
 )
 
@@ -738,12 +769,7 @@ VirtioRelayStubDriverOpt = cfg.Opt(
     )
 )
 
-VIRTIO_CLI_OPTS = (
-    VirtioRelayZmqEpOpt,
-)
-
-VIRTIO_OPTS = (
-    VirtioRelayRcvtimeoOpt,
+VIRTIO_DRIVER_OPTS = (
     VirtioRelayDriverOpt,
     VirtioRelayStubDriverOpt,
 )
@@ -991,10 +1017,15 @@ class AddCmd(OsloConfigSubcmd):
         conf.register_group(AgentGroup)
         conf.register_cli_opts(AGENT_CLI_OPTS, group=AgentGroup)
 
+        VIRTIO_PLUG_CLI_OPTS = (
+            VirtioRelayZmqConfigEpOpt,
+            VirtioRelayZmqPortControlEpOpt,
+            VirtioRelayRcvtimeoOpt,
+        )
+
         conf.register_group(VirtioRelayGroup)
-        conf.register_cli_opts(VIRTIO_CLI_OPTS, group=VirtioRelayGroup)
-        # FIXME: should not be CLI
-        conf.register_cli_opts(VIRTIO_OPTS, group=VirtioRelayGroup)
+        conf.register_cli_opts(VIRTIO_PLUG_CLI_OPTS, group=VirtioRelayGroup)
+        conf.register_opts(VIRTIO_DRIVER_OPTS, group=VirtioRelayGroup)
 
         return conf
 
@@ -1007,10 +1038,14 @@ class AddCmd(OsloConfigSubcmd):
             # Testing knob.
             _in=self._fallback_map_str
         )
+
+        virtio_relay_conf = getattr(conf, 'virtio-relay')
         vf_pool = _make_vf_pool(
             fallback_map,
             port_dir=getattr(conf, 'contrail-agent').port_dir,
             grace_period=_VRT_604_GRACE_PERIOD,
+            zmq_config_ep=virtio_relay_conf.zmq_config_ep,
+            rcvtimeo_ms=plug.get_rcvtimeo_ms(virtio_relay_conf),
         )
 
         Session = _init_Session(conf, self.logger)
@@ -1046,10 +1081,14 @@ class DeleteCmd(OsloConfigSubcmd):
         conf.register_group(AgentGroup)
         conf.register_cli_opts(AGENT_CLI_OPTS, group=AgentGroup)
 
+        VIRTIO_UNPLUG_CLI_OPTS = (
+            VirtioRelayZmqPortControlEpOpt,
+            VirtioRelayRcvtimeoOpt,
+        )
+
         conf.register_group(VirtioRelayGroup)
-        conf.register_cli_opts(VIRTIO_CLI_OPTS, group=VirtioRelayGroup)
-        # FIXME: should not be CLI
-        conf.register_cli_opts(VIRTIO_OPTS, group=VirtioRelayGroup)
+        conf.register_cli_opts(VIRTIO_UNPLUG_CLI_OPTS, group=VirtioRelayGroup)
+        conf.register_opts(VIRTIO_DRIVER_OPTS, group=VirtioRelayGroup)
 
         return conf
 
@@ -1058,10 +1097,13 @@ class DeleteCmd(OsloConfigSubcmd):
         conf = self.conf
 
         fallback_map = fallback.read_sysfs_fallback_map()
+        virtio_relay_conf = getattr(conf, 'virtio-relay')
         vf_pool = _make_vf_pool(
             fallback_map,
             port_dir=getattr(conf, 'contrail-agent').port_dir,
             grace_period=_VRT_604_GRACE_PERIOD,
+            zmq_config_ep=None,
+            rcvtimeo_ms=plug.get_rcvtimeo_ms(virtio_relay_conf),
         )
 
         Session = _init_Session(conf, self.logger)

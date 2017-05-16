@@ -18,6 +18,7 @@ from netronome.vrouter import (
     database as netro_db,
     fallback,
     pci,
+    plug_modes as PM,
     vf as netro_vf
 )
 
@@ -80,7 +81,9 @@ def child_task(engine, vf_pool):
     session = Session()
 
     addr = vf_pool.allocate_vf(
-        session, neutron_port=u, expires=None, raise_on_failure=True
+        session=session, neutron_port=u, expires=None,
+        plug_mode=random.choice(PM.accelerated_plug_modes),
+        raise_on_failure=True
     )
     logger.info('port %s got address %s', u, addr)
 

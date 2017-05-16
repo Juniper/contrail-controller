@@ -248,9 +248,12 @@ def set_acceleration_mode_for_port(
             # e.g., for a plug operation
             expires = None
 
-        # Allocate a VF (can raise vf.AllocationError).
+        # Allocate a VF (can raise vf.AllocationError). Note, this can perform
+        # a session commit, so it is NOT safe to add the plug mode to the
+        # database before calling this.
         vf_pool.allocate_vf(
-            session, neutron_port, expires=expires, raise_on_failure=True
+            session=session, neutron_port=neutron_port, plug_mode=mode,
+            expires=expires, raise_on_failure=True
         )
 
     # Find existing plug mode, if any.

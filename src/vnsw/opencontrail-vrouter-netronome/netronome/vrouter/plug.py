@@ -828,8 +828,9 @@ class _CheckKSM(_Step, _RootDirKnob):
 
 
 class _AllocateVF(_Step):
-    def __init__(self, vf_pool, **kwds):
+    def __init__(self, vf_pool, plug_mode, **kwds):
         super(_AllocateVF, self).__init__(**kwds)
+        self.plug_mode = plug_mode
         self.vf_pool = vf_pool
 
     def forward_action(self, session, port, journal):
@@ -852,7 +853,8 @@ class _AllocateVF(_Step):
         # convert temporary reservations to permanent.
 
         addr = self.vf_pool.allocate_vf(
-            session, port.uuid, expires=None, raise_on_failure=True
+            session=session, neutron_port=port.uuid, plug_mode=self.plug_mode,
+            expires=None, raise_on_failure=True
         )
         port.vf = session.query(vf.VF).get(addr)
 
@@ -1128,8 +1130,72 @@ class VirtIORelayUnplugError(VirtIORelayError):
     pass
 
 
-DEFAULT_VIRTIO_ZMQ_EP = 'ipc:///run/virtiorelayd/port_control'
+DEFAULT_VIRTIO_ZMQ_CONFIG_EP = 'ipc:///run/virtiorelayd/config'
+DEFAULT_VIRTIO_ZMQ_PORT_CONTROL_EP = 'ipc:///run/virtiorelayd/port_control'
 DEFAULT_VIRTIO_RCVTIMEO_MS = 60000
+
+
+def _zmq_transaction(
+    ep, req, req_to_str, response, response_to_str, rcvtimeo_ms, logger
+):
+    n = lambda o: type(o).__name__
+
+    context = zmq.Context()
+
+    socket = context.socket(zmq.REQ)
+    socket.setsockopt(zmq.LINGER, 0)
+    socket.setsockopt(zmq.SNDTIMEO, 0)
+    socket.setsockopt(zmq.RCVTIMEO, rcvtimeo_ms)
+
+    logger.debug('ZeroMQ: connecting to %s', ep)
+    socket.connect(ep)
+
+    if req_to_str is not None:
+        logger.info('sending %s to virtiorelayd: %s', n(req), req_to_str(req))
+    else:
+        logger.info('sending %s to virtiorelayd', n(req))
+
+    socket.send(req.SerializeToString())
+
+    timeout_str = config_opts.format_timedelta(
+        timedelta(milliseconds=rcvtimeo_ms)
+    )
+    logger.debug(
+        'waiting up to %s for %s from virtiorelayd', timeout_str, n(response)
+    )
+    try:
+        response_data = socket.recv()
+    except zmq.error.Again as e:
+        msg = (
+            'timeout waiting for {} from virtiorelayd ({})'
+            .format(n(response), ep)
+        )
+        logger.error('%s', msg)
+        raise VirtIORelayPlugError(msg)
+
+    try:
+        response.ParseFromString(response_data)
+    except Exception as e:
+        msg = _exception_msg(e, n(response))
+        logger.error('%s', msg)
+        raise VirtIORelayPlugError(msg)
+
+    if not response.IsInitialized():
+        e = ValueError('incomplete {}'.format(n(response)))
+        logger.error('%s', _exception_msg(e, n(response)))
+        raise e
+
+    response_str = response_to_str(response)
+    log = logger.info if response.status is response.OK else logger.error
+    log('%s: %s', n(response), response_str)
+    if response.status != response.OK:
+        raise VirtIORelayPlugError(response_str)
+
+    return response
+
+
+def get_rcvtimeo_ms(g):
+    return int(round(g.zmq_receive_timeout.total_seconds() * 1000))
 
 
 class _SetupVirtIO(_Step):
@@ -1139,13 +1205,14 @@ class _SetupVirtIO(_Step):
     def __init__(self, fallback_map, **kwds):
         super(_SetupVirtIO, self).__init__(**kwds)
         self.fallback_map = fallback_map
-        self.zmq_ep = None
+        self.zmq_port_control_ep = None
 
     @config_section('virtio.zmq')
     def configure(
-        self, ep=DEFAULT_VIRTIO_ZMQ_EP, rcvtimeo_ms=DEFAULT_VIRTIO_RCVTIMEO_MS
+        self, port_control_ep=DEFAULT_VIRTIO_ZMQ_PORT_CONTROL_EP,
+        rcvtimeo_ms=DEFAULT_VIRTIO_RCVTIMEO_MS
     ):
-        self.zmq_ep = ep
+        self.zmq_port_control_ep = port_control_ep
         self.rcvtimeo_ms = int(rcvtimeo_ms)
 
     @staticmethod
@@ -1155,70 +1222,35 @@ class _SetupVirtIO(_Step):
         g = getattr(conf, 'virtio-relay')
         ans.update({
             'virtio.zmq': {
-                'ep': g.zmq_ep,
-                'rcvtimeo_ms': int(round(
-                    g.zmq_receive_timeout.total_seconds() * 1000
-                )),
+                'port_control_ep': g.zmq_port_control_ep,
+                'rcvtimeo_ms': get_rcvtimeo_ms(g),
             },
         })
 
         return ans
 
     def _send_request(self, vf_addr, op):
-        context = zmq.Context()
-
-        socket = context.socket(zmq.REQ)
-        socket.setsockopt(zmq.LINGER, 0)
-        socket.setsockopt(zmq.SNDTIMEO, 0)
-        socket.setsockopt(zmq.RCVTIMEO, self.rcvtimeo_ms)
-
-        logger.debug('ZeroMQ: connecting to %s', self.zmq_ep)
-        socket.connect(self.zmq_ep)
-
         req = relay.PortControlRequest(
             op=op,
+
+            # Set relay number (misnamed as "PortControlRequest.vf") equal to
+            # the VF number. This will need to be changed for multi-card
+            # support.
+            #
+            # TAGS: VIO-22
             vf=self.fallback_map.vfmap[vf_addr].vf_number,
         )
         vf_addr.copy_to(req.pci_addr)
 
-        logger.info(
-            'sending PortControlRequest: %s', _format_PortControlRequest(req)
+        _zmq_transaction(
+            ep=self.zmq_port_control_ep,
+            req=req,
+            req_to_str=_format_PortControlRequest,
+            response=relay.PortControlResponse(),
+            response_to_str=_format_PortControlResponse,
+            rcvtimeo_ms=self.rcvtimeo_ms,
+            logger=logger,
         )
-
-        socket.send(req.SerializeToString())
-
-        timeout_str = config_opts.format_timedelta(
-            timedelta(milliseconds=self.rcvtimeo_ms)
-        )
-        logger.debug(
-            'waiting up to %s for PortControlResponse from virtiorelayd',
-            timeout_str
-        )
-        response = relay.PortControlResponse()
-        try:
-            response_data = socket.recv()
-        except zmq.error.Again as e:
-            msg = 'timeout waiting for PortControlResponse from virtiorelayd'
-            logger.error('%s', msg)
-            raise VirtIORelayPlugError(msg)
-
-        try:
-            response.ParseFromString(response_data)
-        except Exception as e:
-            msg = _exception_msg(e, 'PortControlResponse')
-            logger.error('%s', msg)
-            raise VirtIORelayPlugError(msg)
-
-        if not response.IsInitialized():
-            e = ValueError('incomplete PortControlResponse')
-            logger.error('%s', _exception_msg(e, 'PortControlResponse'))
-            raise e
-
-        response_str = _format_PortControlResponse(response)
-        log = logger.info if response.status is response.OK else logger.error
-        log('PortControlResponse: %s', response_str)
-        if response.status != response.OK:
-            raise VirtIORelayPlugError(response_str)
 
         return _StepStatus.OK
 
@@ -1536,7 +1568,7 @@ class _PlugSRIOV(_PlugDriver):
         self.set_steps(
             config, (
                 _CheckIOMMU(sriov_iommu_check, mode=PM.SRIOV),
-                _AllocateVF(vf_pool=vf_pool),
+                _AllocateVF(vf_pool=vf_pool, plug_mode=PM.SRIOV),
                 _BringUpFallback(fallback_map=vf_pool.fallback_map),
                 _AgentFileWrite(get_vif_devname=sriov_vif_devname),
                 _AgentPost(
@@ -1576,7 +1608,7 @@ class _PlugVirtIO(_PlugDriver):
             config, (
                 _CheckIOMMU(virtio_iommu_check, mode=PM.VirtIO),
                 _CheckKSM(),
-                _AllocateVF(vf_pool=vf_pool),
+                _AllocateVF(vf_pool=vf_pool, plug_mode=PM.VirtIO),
                 _AttachDriver(),
                 _BringUpFallback(fallback_map=vf_pool.fallback_map),
                 _SetupVirtIO(fallback_map=vf_pool.fallback_map),

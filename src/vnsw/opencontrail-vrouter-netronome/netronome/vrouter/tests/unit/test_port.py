@@ -202,7 +202,7 @@ class TestPort(unittest.TestCase):
         self.assertEqual(ans['ip6-address'], 'None')
 
 
-def _create_Port_with_VF(test, session):
+def _create_Port_with_VF(test, session, plug_mode):
     addr_in = _random_pci_address()
     pool = vf.Pool(fake_FallbackMap([addr_in]))
 
@@ -213,7 +213,9 @@ def _create_Port_with_VF(test, session):
         ans['tap_name'] = 'nfp{}'.format(random.randint(100, 199))
 
     p = port.Port(**_test_data(_tweak))
-    addr_out = pool.allocate_vf(session, u, expires=None)
+    addr_out = pool.allocate_vf(
+        session=session, neutron_port=u, plug_mode=plug_mode, expires=None
+    )
     test.assertIsNotNone(addr_out)
     test.assertEqual(addr_in, addr_out)
     p.vf = session.query(vf.VF).get(addr_out)
@@ -270,7 +272,7 @@ class TestPortDB(unittest.TestCase):
         self.assertIsNone(p1.vf)
 
         # 2. adding a port with a VF is possible, and links the VF to the port
-        u2, addr2 = _create_Port_with_VF(self, Session())
+        u2, addr2 = _create_Port_with_VF(self, Session(), plug_mode=PM.SRIOV)
 
         p2 = s.query(port.Port).get(u2)
         self.assertIsNotNone(p2.vf)
@@ -318,7 +320,9 @@ class TestPortDB(unittest.TestCase):
         # 7. changing the expiration time on the VF associated with a port
         #    updates it in the VF object too (and in the database)
         with attachLogHandler(_VF_LOGGER()):
-            u4, addr4 = _create_Port_with_VF(self, Session())
+            u4, addr4 = _create_Port_with_VF(
+                self, Session(), plug_mode=PM.SRIOV
+            )
         p4 = s.query(port.Port).get(u4)
         self.assertIsNotNone(p4)
         self.assertIsNotNone(p4.vf)
@@ -579,6 +583,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
             with self.assertRaises(vf.AllocationError):
                 pool.allocate_vf(
                     session=s, neutron_port=np, expires=None,
+                    plug_mode=random.choice(PM.accelerated_plug_modes),
                     raise_on_failure=True, _now=now
                 )
             self.assertEqual(lmc.count, {
@@ -598,6 +603,7 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
             np = uuid.uuid1()
             addr = pool.allocate_vf(
                 session=s, neutron_port=np, expires=None,
+                plug_mode=random.choice(PM.accelerated_plug_modes),
                 raise_on_failure=True, _now=now
             )
             self.assertIsNotNone(addr)
@@ -957,12 +963,18 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
             d = {}
             for i in xrange(0, 62):
                 u = uuid.uuid1()
-                addr = p.allocate_vf(s, u, None)
+                addr = p.allocate_vf(
+                    session=s, neutron_port=u, expires=None,
+                    plug_mode=random.choice(PM.accelerated_plug_modes),
+                )
                 self.assertIsNotNone(addr)
                 d[u] = addr
 
             for u, v in d.iteritems():
-                addr = p.allocate_vf(s, u, None)
+                addr = p.allocate_vf(
+                    session=s, neutron_port=u, expires=None,
+                    plug_mode=random.choice(PM.accelerated_plug_modes),
+                )
                 self.assertIsNotNone(addr)
                 self.assertEqual(addr, v)
 
@@ -1007,7 +1019,10 @@ class Test_VRT_604_VF_gc(unittest.TestCase):
                     # reuse existing VF
                     u = random.choice(list(uuids))
 
-                addr = p.allocate_vf(s, u, e, _now=now)
+                addr = p.allocate_vf(
+                    session=s, neutron_port=u, expires=e, _now=now,
+                    plug_mode=random.choice(PM.accelerated_plug_modes),
+                )
                 self.assertIsNotNone(addr)
 
 
@@ -1029,7 +1044,7 @@ class Test_VRT_604_gc(unittest.TestCase):
         Session = sessionmaker(bind=engine)
 
         s = Session()
-        u, addr = _create_Port_with_VF(self, s)
+        u, addr = _create_Port_with_VF(self, s, plug_mode=PM.VirtIO)
 
         po = s.query(port.Port).filter(port.Port.uuid == u).one()
         self.assertIsNone(po.plug)
@@ -1076,7 +1091,7 @@ class Test_VRT_604_gc(unittest.TestCase):
         Session = sessionmaker(bind=engine)
 
         s = Session()
-        u, addr = _create_Port_with_VF(self, s)
+        u, addr = _create_Port_with_VF(self, s, plug_mode=PM.VirtIO)
 
         po = s.query(port.Port).filter(port.Port.uuid == u).one()
         self.assertIsNone(po.plug)
