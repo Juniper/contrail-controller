@@ -450,10 +450,14 @@ class PhysicalRouterConfig(object):
                     ri.add_interface(Interface(name=interface.name))
             if static_routes:
                 self.add_static_routes(ri_opt, static_routes)
+            family = Family()
             if has_ipv4_prefixes:
-                ri_opt.set_auto_export(AutoExport(family=Family(inet=FamilyInet(unicast=''))))
+                family.set_inet(FamilyInet(unicast=''))
             if has_ipv6_prefixes:
-                ri_opt.set_auto_export(AutoExport(family=Family(inet6=FamilyInet6(unicast=''))))
+                family.set_inet6(FamilyInet6(unicast=''))
+            if has_ipv4_prefixes or has_ipv6_prefixes:
+                auto_export = AutoExport(family=family)
+                ri_opt.set_auto_export(auto_export)
         else:
             if highest_enapsulation_priority == "VXLAN":
                 ri.set_instance_type("virtual-switch")
