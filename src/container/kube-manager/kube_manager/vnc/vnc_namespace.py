@@ -400,9 +400,8 @@ class VncNamespace(VncCommon):
             # delete the namespace
             self._delete_namespace(name)
 
-            # If an isolated project was created for this namespace, delete
-            # the same.
-            if project.is_k8s_namespace_isolated():
+            # If namespace=project, delete the project
+            if vnc_kube_config.cluster_project_name(name) == name:
                 self._vnc_lib.project_delete(fq_name=proj_fq_name)
         except Exception as e:
             pass
