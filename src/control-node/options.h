@@ -94,8 +94,8 @@ private:
                     boost::program_options::options_description &options);
     void ParseConfigOptions(const boost::program_options::variables_map
                             &var_map);
-    uint32_t GenerateHash(const std::vector<std::string> &);
-    uint32_t GenerateHash(const IFMapConfigOptions&);
+    uint32_t GenerateHash(const std::vector<std::string> &list);
+    uint32_t GenerateHash(const IFMapConfigOptions &config);
 
     std::string bgp_config_file_;
     uint16_t bgp_port_;
