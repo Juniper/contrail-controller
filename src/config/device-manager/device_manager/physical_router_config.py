@@ -450,10 +450,14 @@ class PhysicalRouterConfig(object):
                     ri.add_interface(Interface(name=interface.name))
             if static_routes:
                 self.add_static_routes(ri_opt, static_routes)
+            family = Family()
             if has_ipv4_prefixes:
-                ri_opt.set_auto_export(AutoExport(family=Family(inet=FamilyInet(unicast=''))))
+                family.set_inet(FamilyInet(unicast=''))
             if has_ipv6_prefixes:
-                ri_opt.set_auto_export(AutoExport(family=Family(inet6=FamilyInet6(unicast=''))))
+                family.set_inet6(FamilyInet6(unicast=''))
+            if has_ipv4_prefixes or has_ipv6_prefixes:
+                auto_export = AutoExport(family=family)
+                ri_opt.set_auto_export(auto_export)
         else:
             if highest_enapsulation_priority == "VXLAN":
                 ri.set_instance_type("virtual-switch")
@@ -848,7 +852,10 @@ class PhysicalRouterConfig(object):
             if family in self._FAMILY_MAP:
                 getattr(family_etree, "set_" + fam)(self._FAMILY_MAP[family])
             else:
-                getattr(family_etree, "set_" + fam)('')
+                try:
+                    getattr(family_etree, "set_" + fam)('')
+                except AttributeError:
+                    self._logger.info("DM does not support address family: %s" % fam)
     # end add_families
 
     def add_bgp_auth_config(self, bgp_config, bgp_params):
