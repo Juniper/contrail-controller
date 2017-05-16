@@ -1,12 +1,13 @@
 #!/usr/bin/python
 #
-#Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
+# Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
 
 import sys
 import argparse
 import ConfigParser
 import requests
+from requests.exceptions import ConnectionError
 import json
 import os
 import errno
@@ -16,21 +17,21 @@ import time
 import socket
 
 sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
-from vnc_api.vnc_api import *
-from requests.exceptions import ConnectionError
-PORT_PATH="/var/lib/contrail/ports/"
-PORT_IPC_VROUTER_AGENT_PORT=9091
-TIMEOUT_SECS=15
-DPDK_NETLINK_TCP_PORT=20914
-PORT_OPEN_TIMEOUT_SECS=120
+PORT_PATH = "/var/lib/contrail/ports/"
+PORT_IPC_VROUTER_AGENT_PORT = 9091
+TIMEOUT_SECS = 15
+DPDK_NETLINK_TCP_PORT = 20914
+PORT_OPEN_TIMEOUT_SECS = 120
+
 
 class VrouterPortControl(object):
-    def __init__(self, args_str = None):
+
+    def __init__(self, args_str=None):
         self._args = None
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
-        #TODO:Move this to other place as it tries to create directory every time
+        # TODO: Move this to other place as it tries to create directory every time
         self.CreateDirectoryTree(PORT_PATH)
         port_type_value = 0
         ret_code = 0
@@ -58,7 +59,7 @@ class VrouterPortControl(object):
                 u = u[:18] + '-' + u[18:]
                 project_id = u[:23] + '-' + u[23:]
 
-            url =  base_url + "/port"
+            url = base_url + "/port"
             payload = self.GetJSonDict(port_type_value, project_id)
             json_dump = json.dumps(payload)
             if not self._args.no_persist:
@@ -74,9 +75,9 @@ class VrouterPortControl(object):
                 else:
                     ret_code = 0
                 if ret_code == 0 and self._args.vif_type == "VhostUser":
-                    #In DPDK mode we should wait until socket is created by
-                    #vrouter module
-                    ret_code  = self.WaitForSocketFile()
+                    # In DPDK mode we should wait until socket is created by
+                    # vrouter module
+                    ret_code = self.WaitForSocketFile()
 
             except ConnectionError:
                 '''In DPDK mode return failure when we are not able to connect
@@ -90,19 +91,18 @@ class VrouterPortControl(object):
                 self.DeleteFile()
             url = base_url + "/port/" + self._args.uuid
             try:
-                r = requests.delete(url, data=None, headers=headers);
+                r = requests.delete(url, data=None, headers=headers)
                 if r.status_code != 200:
                     ret_code = 1
             except ConnectionError:
                 pass
         sys.exit(ret_code)
-
-    #end __init__
+    # end __init__
 
     def StripQuotes(self, arg):
         if arg and arg.startswith('"') and arg.endswith('"'):
             return arg[1:-1]
-    #end StripQuotes
+    # end StripQuotes
 
     def IsNumber(self, s):
         try:
@@ -110,7 +110,7 @@ class VrouterPortControl(object):
             return True
         except ValueError:
             return False
-    #end IsNumber
+    # end IsNumber
 
     def _parse_args(self, args_str):
         strip_quotes = False
@@ -120,10 +120,10 @@ class VrouterPortControl(object):
         else:
             regex = re.compile("\s+(?=\-\-)")
         # Turn off help, so we print all options in response to -h
-        conf_parser = argparse.ArgumentParser(add_help = False)
+        conf_parser = argparse.ArgumentParser(add_help=False)
         args, remaining_argv = conf_parser.parse_known_args(
             regex.split(args_str)
-            )
+        )
 
         # Don't surpress add_help here so it will handle -h
         parser = argparse.ArgumentParser(
@@ -133,11 +133,11 @@ class VrouterPortControl(object):
             description=__doc__,
             # Don't mess with format of description
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            )
+        )
 
         parser.add_argument('--oper', help="Operation add/delete ",
-                            required = True)
-        parser.add_argument('--uuid', help="port UUID", required = True)
+                            required=True)
+        parser.add_argument('--uuid', help="port UUID", required=True)
         parser.add_argument('--instance_uuid', help="instance UUID")
         parser.add_argument('--vn_uuid', help="VN UUID")
         parser.add_argument('--vm_project_uuid', help="VM UUID")
@@ -146,14 +146,14 @@ class VrouterPortControl(object):
         parser.add_argument('--vm_name', help="VM Name")
         parser.add_argument('--mac', help="MAC address")
         parser.add_argument('--tap_name', help="System name of interface")
-        parser.add_argument("--port_type", help = "Port type", default="NovaVMPort")
-        parser.add_argument("--tx_vlan_id", help = "Transmit VLAN ID")
-        parser.add_argument("--rx_vlan_id", help = "Receive VLAN ID")
-        parser.add_argument("--no_persist", type = bool,
-                            help = "Dont't store port information in files",
+        parser.add_argument("--port_type", help="Port type", default="NovaVMPort")
+        parser.add_argument("--tx_vlan_id", help="Transmit VLAN ID")
+        parser.add_argument("--rx_vlan_id", help="Receive VLAN ID")
+        parser.add_argument("--no_persist", type=bool,
+                            help="Dont't store port information in files",
                             default=False)
-        parser.add_argument("--vif_type", help = "VIF type", default="Vrouter")
-        parser.add_argument("--vhostuser_socket", help = "Path of vhostuser socket file")
+        parser.add_argument("--vif_type", help="VIF type", default="Vrouter")
+        parser.add_argument("--vhostuser_socket", help="Path of vhostuser socket file")
 
         self._args = parser.parse_args(remaining_argv)
 
@@ -203,7 +203,7 @@ class VrouterPortControl(object):
                     print "Invalid argument for tx_vlan_id %s" % (self._args.tx_vlan_id)
                     sys.exit(1)
                 self._args.tx_vlan_id = int(self._args.tx_vlan_id)
-    #end _parse_args
+    # end _parse_args
 
     def CreateDirectoryTree(self, path):
         try:
@@ -211,31 +211,32 @@ class VrouterPortControl(object):
         except OSError as exc:
             if exc.errno == errno.EEXIST and os.path.isdir(path):
                 pass
-            else: raise
-    #end CreateDirectoryTree
+            else:
+                raise
+    # end CreateDirectoryTree
 
     def GetJSonDict(self, port_type, project_id):
         data = {
-                    "id" : self._args.uuid,
-                    "instance-id" : self._args.instance_uuid,
-                    "ip-address" : self._args.ip_address,
-                    "ip6-address" : self._args.ipv6_address,
-                    "vn-id" : self._args.vn_uuid,
-                    "display-name": self._args.vm_name,
-                    "vm-project-id" : project_id,
-                    "mac-address" : self._args.mac,
-                    "system-name" : self._args.tap_name,
-                    "type" : port_type,
-                    "rx-vlan-id" : self._args.rx_vlan_id,
-                    "tx-vlan-id" : self._args.tx_vlan_id,
-                    "author" : __file__,
-                    "time" : str(datetime.datetime.now())
-               }
-        return data;
-    #end GetJSonDict
+            "id": self._args.uuid,
+            "instance-id": self._args.instance_uuid,
+            "ip-address": self._args.ip_address,
+            "ip6-address": self._args.ipv6_address,
+            "vn-id": self._args.vn_uuid,
+            "display-name": self._args.vm_name,
+            "vm-project-id": project_id,
+            "mac-address": self._args.mac,
+            "system-name": self._args.tap_name,
+            "type": port_type,
+            "rx-vlan-id": self._args.rx_vlan_id,
+            "tx-vlan-id": self._args.tx_vlan_id,
+            "author": __file__,
+            "time": str(datetime.datetime.now())
+        }
+        return data
+    # end GetJSonDict
 
     def WriteToFile(self, port_type, project_id):
-        filename = ("%s%s" %(PORT_PATH, self._args.uuid))
+        filename = ("%s%s" % (PORT_PATH, self._args.uuid))
         data = self.GetJSonDict(port_type, project_id)
         try:
             with open(filename, 'w') as outfile:
@@ -244,24 +245,24 @@ class VrouterPortControl(object):
         except:
             return 1
         return 0
-    #end WriteToFile
+    # end WriteToFile
 
     def DeleteFile(self):
-        filename = ("%s%s" %(PORT_PATH, self._args.uuid))
+        filename = ("%s%s" % (PORT_PATH, self._args.uuid))
         if os.path.isfile(filename):
             os.remove(filename)
-    #end DeleteFile
+    # end DeleteFile
 
     def WaitForSocketFile(self):
         timeout_usecs = TIMEOUT_SECS * 1000000
         sleep_usecs = 1000
-        for i in range(1,(timeout_usecs/sleep_usecs)):
+        for i in range(1, (timeout_usecs / sleep_usecs)):
             if os.path.exists(self._args.vhostuser_socket):
                 return 0
-            #sleep takes time in seconds. Convert usecs to secs.
-            time.sleep(sleep_usecs/1000000.0)
+            # sleep takes time in seconds. Convert usecs to secs.
+            time.sleep(sleep_usecs / 1000000.0)
         return 6
-    #end WaitForSocketFile
+    # end WaitForSocketFile
 
     def IsPortOpen(self, port_num):
         s = socket.socket()
@@ -270,26 +271,27 @@ class VrouterPortControl(object):
             s.shutdown(socket.SHUT_RDWR)
             s.close()
             return True
-        except socket.error, e:
+        except socket.error:
             return False
-    #end IsPortOpen
+    # end IsPortOpen
 
     def WaitForPortOpen(self, port_num):
         timeout_usecs = PORT_OPEN_TIMEOUT_SECS * 1000000
         sleep_usecs = 1000000
-        for i in range(1,(timeout_usecs/sleep_usecs)):
+        for i in range(1, (timeout_usecs / sleep_usecs)):
             if self.IsPortOpen(port_num):
                 return True
-            #sleep takes time in seconds. Convert usecs to secs.
-            time.sleep(sleep_usecs/1000000.0)
+            # sleep takes time in seconds. Convert usecs to secs.
+            time.sleep(sleep_usecs / 1000000.0)
         return False
-    #end WaitForPortOpen
-
+    # end WaitForPortOpen
 # end class VrouterPortControl
 
-def main(args_str = None):
+
+def main(args_str=None):
     VrouterPortControl(args_str)
-#end main
+# end main
+
 
 if __name__ == "__main__":
     main()
