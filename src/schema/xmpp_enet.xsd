@@ -19,6 +19,10 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
     <xsd:element name="tunnel-encapsulation" type="EnetTunnelEncapsulationType" maxOccurs="unbounded"/>
 </xsd:complexType> 
 
+<xsd:complexType name="EnetTagListType">
+     <xsd:element name="tag" type="xsd:integer" maxOccurs="unbounded"/>
+</xsd:complexType>
+
 <xsd:complexType name="EnetNextHopType">
     <xsd:element name="af" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
@@ -26,6 +30,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
     <xsd:element name="label" type="xsd:integer"/>
     <xsd:element name="l3-label" type="xsd:integer"/>
     <xsd:element name="tunnel-encapsulation-list" type="EnetTunnelEncapsulationListType"/>
+    <xsd:element name="tag-list" type="EnetTagListType"/>
 </xsd:complexType>
 
 <xsd:complexType name="EnetOlistType">

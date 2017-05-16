@@ -17,6 +17,10 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
     <xsd:element name="tunnel-encapsulation" type="TunnelEncapsulationType" maxOccurs="unbounded"/>
 </xsd:complexType>
 
+<xsd:complexType name="TagListType">
+     <xsd:element name="tag" type="xsd:integer" maxOccurs="unbounded"/>
+</xsd:complexType>
+
 <xsd:complexType name="NextHopType">
     <xsd:element name="af" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
@@ -25,6 +29,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
     <xsd:element name="vni" type="xsd:integer"/>
     <xsd:element name="tunnel-encapsulation-list" type="TunnelEncapsulationListType"/>
     <xsd:element name="virtual-network" type="xsd:string"/>
+    <xsd:element name="tag-list" type="TagListType"/>
 </xsd:complexType>
 
 <xsd:complexType name="NextHopListType">
