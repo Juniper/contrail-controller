@@ -2471,6 +2471,15 @@ void AgentXmppChannel::EndOfRibRx() {
 }
 
 void AgentXmppChannel::EndOfRibTx() {
+    //This is a callback from walker for bgp peer.
+    //It may happen that channel went down and stop of this walk was executed.
+    //However stop of the walk is enqueued and by that time, walk done for
+    //previously started walk for this peer gets executed.
+    //This can result in channel_ being NULL on walk done call.
+    if (channel_ == NULL) {
+        return;
+    }
+
     string msg;
     msg += "\n<message from=\"";
     msg += channel_->FromString();
