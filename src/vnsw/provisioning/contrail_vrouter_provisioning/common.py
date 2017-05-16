@@ -527,7 +527,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
 
                     configs['GATEWAY-%s' % i] = {'interface': vgw_intf_list[i],
                                                  'ip_blocks': ip_blocks,
-                                                 'routes': routes}
+                                                 'routes': routes,
+                                                 'routing_instance': vgw_public_vn_name[i]}
 
             if self._args.metadata_secret:
                 configs['METADATA'] = {
