@@ -26,6 +26,16 @@ from reaction_map import REACTION_MAP
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
 import flow_aging_manager
+from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from cfgm_common.uve.virtual_network.ttypes import *
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
+          NodeTypeNames, INSTANCE_ID_DEFAULT
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
 
 class VncKubernetes(VncCommon):
 
@@ -104,9 +114,18 @@ class VncKubernetes(VncCommon):
 
         VncKubernetes._vnc_kubernetes = self
 
+    def connection_state_update(self, status, message=None):
+        ConnectionState.update(
+            conn_type=ConnType.APISERVER, name='ApiServer',
+            status=status, message=message or '',
+            server_addrs=['%s:%s' % (self.args.vnc_endpoint_ip,
+                                     self.args.vnc_endpoint_port)])
+    # end connection_state_update
+
     def _vnc_connect(self):
         # Retry till API server connection is up
         connected = False
+        self.connection_state_update(ConnectionStatus.INIT)
         while not connected:
             try:
                 vnc_lib = VncApi(self.args.auth_user,
@@ -114,7 +133,10 @@ class VncKubernetes(VncCommon):
                     self.args.vnc_endpoint_ip, self.args.vnc_endpoint_port,
                     auth_token_url=self.args.auth_token_url)
                 connected = True
+                self.connection_state_update(ConnectionStatus.UP)
             except requests.exceptions.ConnectionError as e:
+                # Update connection info
+                self.connection_state_update(ConnectionStatus.DOWN, str(e))
                 time.sleep(3)
             except ResourceExhaustionError:
                 time.sleep(3)
