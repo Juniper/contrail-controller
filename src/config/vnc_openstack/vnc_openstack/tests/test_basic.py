@@ -782,6 +782,61 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
         self._vnc_lib.project_delete(id=proj_obj.uuid)
     # end test_network_delete_when_fip_associated_w_port
+
+    def test_create_fip_w_port_associated_w_another_fip_negative(self):
+        proj_obj = vnc_api.Project('proj-%s' %(self.id()), vnc_api.Domain())
+        self._vnc_lib.project_create(proj_obj)
+        proj_id = proj_obj.uuid
+        # external network
+        net_q = self.create_resource('network', proj_id,
+                                      extra_res_fields={'router:external':True})
+        subnet_q = self.create_resource('subnet', proj_id,
+                                         extra_res_fields=
+                                         {'network_id': net_q['id'],
+                                          'cidr': '10.2.0.0/24',
+                                          'ip_version': 4})
+
+        # private network
+        pvt_net_q = self.create_resource('network', proj_id)
+        pvt_subnet_q = self.create_resource('subnet', proj_id,
+                                             extra_res_fields=
+                                             {'network_id': pvt_net_q['id'],
+                                              'cidr': '20.1.0.0/24',
+                                              'ip_version': 4})
+
+        sg_q = self.create_resource('security_group', proj_id)
+        port_q = self.create_resource('port', proj_id,
+                                       extra_res_fields=
+                                       {'network_id':
+                                        pvt_subnet_q['network_id'],
+                                        'security_groups': [sg_q['id']]})
+
+        fip_q = self.create_resource('floatingip', proj_id,
+                                      extra_res_fields=
+                                      {'floating_network_id': net_q['id'],
+                                       'port_id': port_q['id']})
+
+        # updating a fip should be succesull that already has an assoc. port
+        self.update_resource('floatingip', fip_q['id'], proj_id,
+                             extra_res_fields={'display_name':'test-fip',
+                                               'port_id': port_q['id']})
+
+        # creating a fip with a port that already has another fip associated
+        # should fail.
+        with ExpectedException(webtest.app.AppError):
+            fip_q_2 = self.create_resource('floatingip', proj_id,
+                extra_res_fields={'floating_network_id': net_q['id'],
+                                  'port_id': port_q['id']})
+
+        # cleanup
+        self.delete_resource('floatingip', proj_id, fip_q['id'])
+        self.delete_resource('port', proj_id, port_q['id'])
+        self.delete_resource('subnet', proj_id, subnet_q['id'])
+        self.delete_resource('subnet', proj_id, pvt_subnet_q['id'])
+        self.delete_resource('security_group', proj_id, sg_q['id'])
+        self.delete_resource('network', proj_id, net_q['id'])
+        self.delete_resource('network', proj_id, pvt_net_q['id'])
+    # end test_create_fip_w_port_associated_w_another_fip_negative
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
