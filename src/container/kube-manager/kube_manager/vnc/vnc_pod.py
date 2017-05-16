@@ -308,6 +308,7 @@ class VncPod(VncCommon):
             vm_vmi):
         vm = VirtualMachineKM.get(pod_id)
         if vm:
+            vm.pod_namespace = pod_namespace
             self._set_label_to_pod_cache(labels, vm)
             return vm
         else:
@@ -365,7 +366,7 @@ class VncPod(VncCommon):
                 pod_node, labels, vm_vmi)
             if not vm:
                 return
-            vm.pod_namespace = pod_namespace
+        vm.pod_namespace = pod_namespace
         self._update_label_to_pod_cache(labels, vm)
         return vm
 
