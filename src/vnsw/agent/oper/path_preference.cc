@@ -1050,7 +1050,7 @@ void PathPreferenceModule::EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
 
     //If the local preference is set by config, we dont identify Active
     //node dynamically
-    if (vm_intf->local_preference() != VmInterface::INVALID) {
+    if (vm_intf->local_preference() != 0) {
         return;
     }
 

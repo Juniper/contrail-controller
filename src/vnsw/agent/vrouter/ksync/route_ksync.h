@@ -138,7 +138,7 @@ struct MacBinding {
 
     const MacAddress& get_mac() const {
         const MacAddress *mac = &MacAddress::ZeroMac();
-        PathPreference::Preference pref = PathPreference::INVALID;
+        uint32_t pref = PathPreference::INVALID;
         for (MacPreferenceMap::const_iterator it = mac_preference_map_.begin();
                 it != mac_preference_map_.end(); it++) {
             if (*mac == MacAddress::ZeroMac() || pref < it->second.preference()) {
@@ -211,7 +211,7 @@ public:
                                           VrfState *state);
     void AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac,
-                         const PathPreference::Preference &pref,
+                         uint32_t pref,
                          bool wait_for_traffic);
     void DelIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac);

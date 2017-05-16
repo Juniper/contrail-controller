@@ -62,7 +62,7 @@ bool OvsdbRouteData::AddChangePathExtended(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    PathPreference::Preference pref = PathPreference::LOW;
+    uint32_t pref = PathPreference::LOW;
     // if it is a ha stale export check for path preference to be HA_STALE
     if (ha_stale_export_) {
         pref = PathPreference::HA_STALE;
