@@ -19,6 +19,7 @@ import platform
 import random
 import hashlib
 import select
+import copy
 try:
     import pydbus
     pydbus_present = True
@@ -352,7 +353,8 @@ class EventManager(object):
             config = sandesh_config)
         self.sandesh_instance.set_logging_params(enable_local_log=True)
         self.add_current_process()
-        self.send_init_info()
+        for group in self.process_state_db:
+            self.send_init_info(group)
         self.third_party_process_dict = self.type_info._third_party_processes
     # end __init__
 
@@ -394,7 +396,9 @@ class EventManager(object):
                 process_stat_ent.start_time = str(proc_info['start'])
                 process_stat_ent.start_count += 1
             process_stat_ent.pid = proc_pid
-            process_state_db[proc_name] = process_stat_ent
+            if not process_stat_ent.group in process_state_db:
+                process_state_db[process_stat_ent.group] = {}
+            process_state_db[process_stat_ent.group][proc_name] = process_stat_ent
         return process_state_db
     # end get_current_process
 
@@ -406,30 +410,33 @@ class EventManager(object):
     # In case the processes in the Node can change, update current processes
     def update_current_process(self):
         process_state_db = self.get_current_process()
-        old_process_set = set(self.process_state_db.keys())
-        new_process_set = set(process_state_db.keys())
+        old_process_set = set(key for group in self.process_state_db for key in self.process_state_db[group])
+        new_process_set = set(key for group in process_state_db for key in process_state_db[group])
         common_process_set = new_process_set.intersection(old_process_set)
         added_process_set = new_process_set - common_process_set
         deleted_process_set = old_process_set - common_process_set
         for deleted_process in deleted_process_set:
             self.delete_process_handler(deleted_process)
         for added_process in added_process_set:
-            self.add_process_handler(
-                added_process, process_state_db[added_process])
+            for group in process_state_db:
+                if added_process in process_state_db[group]:
+                    self.add_process_handler(
+                        added_process, process_state_db[group][added_process])
     # end update_current_process
 
     # process is deleted, send state & remove it from db
     def delete_process_handler(self, deleted_process):
-        self.process_state_db[deleted_process].deleted = True
-        group_val = self.process_state_db[deleted_process].group
-        self.send_process_state_db([group_val])
-        del self.process_state_db[deleted_process]
+        for group in process_state_db:
+            if deleted_process in process_state_db[group]:
+                self.process_state_db[group][deleted_process].deleted = True
+                self.send_process_state_db([group])
+                del self.process_state_db[group][deleted_process]
     # end delete_process_handler
 
     # new process added, update db & send state
     def add_process_handler(self, added_process, process_info):
-        self.process_state_db[added_process] = process_info
-        group_val = self.process_state_db[added_process].group
+        group_val = process_info.group
+        self.process_state_db[group_val][added_process] = process_info
         self.send_process_state_db([group_val])
     # end add_process_handler
 
@@ -483,24 +490,22 @@ class EventManager(object):
                 ls_command.split(),
                 stdout=PIPE, close_fds=True).communicate()
 
-            process_state_db_tmp = {}
-            for key in self.process_state_db:
-                #LOG_DEBUG sys.stderr.write('update_process_core_file_list: key: '+key+'\n')
-                proc_stat = self.get_process_stat_object(key)
-                process_state_db_tmp[key] = proc_stat
+            process_state_db_tmp = copy.deepcopy(self.process_state_db)
 
             #LOG_DEBUG sys.stderr.write('update_process_core_file_list: corenames: '+corenames+'\n')
             for corename in corenames.split():
                 exec_name = corename.split('.')[1]
-                for key in self.process_state_db:
-                    if key.startswith(exec_name):
-                        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: startswith: '+exec_name+'\n')
-                        process_state_db_tmp[key].core_file_list.append(corename.rstrip())
+                for group in self.process_state_db:
+                    for key in self.process_state_db[group]:
+                        if key.startswith(exec_name):
+                            #LOG_DEBUG sys.stderr.write('update_process_core_file_list: startswith: '+exec_name+'\n')
+                            process_state_db_tmp[group][key].core_file_list.append(corename.rstrip())
 
-            for key in self.process_state_db:
-                if set(process_state_db_tmp[key].core_file_list) != set(self.process_state_db[key].core_file_list):
-                    self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
-                    ret_value = True
+            for group in self.process_state_db:
+                for key in self.process_state_db[group]:
+                    if set(process_state_db_tmp[group][key].core_file_list) != set(self.process_state_db[group][key].core_file_list):
+                        self.process_state_db[group][key].core_file_list = process_state_db_tmp[group][key].core_file_list
+                        ret_value = True
         except Exception as e:
             sys.stderr.write('update_process_core_file_list: exception: '+str(e))
 
@@ -513,10 +518,8 @@ class EventManager(object):
         for group in group_names:
             process_infos = []
             delete_status = True
-            for key in self.process_state_db:
-                pstat = self.process_state_db[key]
-                if (pstat.group != group):
-                    continue
+            for key in self.process_state_db[group]:
+                pstat = self.process_state_db[group][key]
                 process_info = ProcessInfo()
                 process_info.process_name = key
                 process_info.process_state = pstat.process_state
@@ -576,12 +579,12 @@ class EventManager(object):
     def send_process_state(self, process_info):
         pname = self.get_process_name(process_info)
         # update process stats
-        if pname in self.process_state_db.keys():
-            proc_stat = self.process_state_db[pname]
+        if pname in list(key for group in self.process_state_db for key in self.process_state_db[group]):
+            for group in self.process_state_db:
+                if pname in self.process_state_db[group]:
+                    proc_stat = self.process_state_db[group][pname]
         else:
             proc_stat = self.get_process_stat_object(pname)
-            if not proc_stat.group in self.group_names:
-                self.group_names.append(proc_stat.group)
 
         pstate = process_info['state']
         proc_stat.process_state = pstate
@@ -654,11 +657,14 @@ class EventManager(object):
                         str(len(proc_stat.core_file_list)) + "\n")
 
         # update process state database
-        self.process_state_db[pname] = proc_stat
+        if not proc_stat.group in self.process_state_db:
+            self.process_state_db[proc_stat.group] = {}
+        self.process_state_db[proc_stat.group][pname] = proc_stat
         if not(send_uve):
             return
 
         if (send_uve):
+            self.send_init_info(proc_stat.group)
             self.send_process_state_db([proc_stat.group])
 
     def send_nodemgr_process_status_base(self, ProcessStateNames,
@@ -686,45 +692,41 @@ class EventManager(object):
             ProcessStateNames, ProcessState, ProcessStatus)
     # end send_nodemgr_process_status
 
-    def send_init_info(self):
-        self.group_names = list(set([pstat.group for pstat in self.process_state_db.values()]))
-        for group in self.group_names:
-            key = next(key for key, pstat in self.process_state_db.items() if pstat.group == group)
-            # system_cpu_info
-            mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
-            sys_cpu = SystemCpuInfo()
-            sys_cpu.num_socket = mem_cpu_usage_data.get_num_socket()
-            sys_cpu.num_cpu = mem_cpu_usage_data.get_num_cpu()
-            sys_cpu.num_core_per_socket = mem_cpu_usage_data.get_num_core_per_socket()
-            sys_cpu.num_thread_per_core = mem_cpu_usage_data.get_num_thread_per_core()
+    def send_init_info(self, group_name):
+        key = next(key for key in self.process_state_db[group_name])
+        # system_cpu_info
+        mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
+        sys_cpu = SystemCpuInfo()
+        sys_cpu.num_socket = mem_cpu_usage_data.get_num_socket()
+        sys_cpu.num_cpu = mem_cpu_usage_data.get_num_cpu()
+        sys_cpu.num_core_per_socket = mem_cpu_usage_data.get_num_core_per_socket()
+        sys_cpu.num_thread_per_core = mem_cpu_usage_data.get_num_thread_per_core()
 
-            node_status = NodeStatus(
-                            name=self.process_state_db[key].name,
-                            system_cpu_info=sys_cpu,
-                            build_info = self.get_build_info())
+        node_status = NodeStatus(
+                        name=self.process_state_db[group_name][key].name,
+                        system_cpu_info=sys_cpu,
+                        build_info = self.get_build_info())
 
-            # installed/running package version
-            installed_package_version = \
-                NodeMgrUtils.get_package_version(self.get_package_name())
-            if installed_package_version is None:
-                sys.stderr.write("Error getting %s package version\n"
-                             % (self.get_package_name()))
-                exit(-1)
-            else:
-                self.installed_package_version = installed_package_version
-                node_status.installed_package_version = installed_package_version
-                node_status.running_package_version = installed_package_version
+        # installed/running package version
+        installed_package_version = \
+            NodeMgrUtils.get_package_version(self.get_package_name())
+        if installed_package_version is None:
+            sys.stderr.write("Error getting %s package version\n"
+                         % (self.get_package_name()))
+            exit(-1)
+        else:
+            self.installed_package_version = installed_package_version
+            node_status.installed_package_version = installed_package_version
+            node_status.running_package_version = installed_package_version
 
-            node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
-                                            data=node_status)
-            node_status_uve.send()
+        node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
+                                        data=node_status)
+        node_status_uve.send()
 
     def get_group_processes_mem_cpu_usage(self, group_name):
         process_mem_cpu_usage = {}
-        for key in self.process_state_db:
-            pstat = self.process_state_db[key]
-            if pstat.group != group_name:
-                continue
+        for key in self.process_state_db[group_name]:
+            pstat = self.process_state_db[group_name][key]
             if (pstat.process_state == 'PROCESS_STATE_RUNNING'):
                 try:
                     mem_cpu_usage_data = MemCpuUsageData(pstat.pid, pstat.last_cpu, pstat.last_time)
@@ -869,8 +871,8 @@ class EventManager(object):
     def event_tick_60(self):
         self.tick_count += 1
 
-        for group in self.group_names:
-            key = next(key for key, pstat in self.process_state_db.items() if pstat.group == group)
+        for group in self.process_state_db:
+            key = next(key for key in self.process_state_db[group])
             # get disk usage info periodically
             disk_usage_info = self.get_disk_usage()
 
@@ -895,7 +897,7 @@ class EventManager(object):
             self.last_time = system_mem_cpu_usage_data.last_time
 
             # send above encoded buffer
-            node_status = NodeStatus(name=self.process_state_db[key].name,
+            node_status = NodeStatus(name=self.process_state_db[group][key].name,
                                      disk_usage_info=disk_usage_info,
                                      system_mem_usage=system_mem_usage,
                                      system_cpu_usage=system_cpu_usage,
