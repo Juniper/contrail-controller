@@ -73,6 +73,8 @@ class ComputeArgsParser(object):
                 'GLOBAL', 'controller_nodes', ['127.0.0.1']),
             'xmpp_auth_enable': self.get_config(
                 'GLOBAL', 'xmpp_auth_enable', False),
+            'xmpp_dns_auth_enable': self.get_config(
+                'GLOBAL', 'xmpp_dns_auth_enable', False),
             'sandesh_ssl_enable': self.get_config(
                 'GLOBAL', 'sandesh_ssl_enable', False),
             'introspect_ssl_enable': self.get_config(
@@ -283,6 +285,9 @@ class ComputeArgsParser(object):
                 help="Metadata Proxy secret from openstack node")
         parser.add_argument(
                 "--xmpp_auth_enable", help="Enable xmpp auth",
+                action="store_true")
+        parser.add_argument(
+                "--xmpp_dns_auth_enable", help="Enable DNS xmpp auth",
                 action="store_true")
         parser.add_argument(
                 "--sandesh_ssl_enable",
