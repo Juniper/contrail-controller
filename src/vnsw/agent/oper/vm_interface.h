@@ -211,6 +211,8 @@ public:
         mutable bool port_map_enabled_;
         mutable PortMap src_port_map_;
         mutable PortMap dst_port_map_;
+        // list of community values associated to Floating IP
+        mutable CommunityList cv_list_;
     };
     typedef std::set<FloatingIp, FloatingIp> FloatingIpSet;
     typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
@@ -249,6 +251,8 @@ public:
         std::string vrf_name_;
         boost::uuids::uuid vn_uuid_;
         mutable bool force_update_;
+        // list of community values associated to Alias IP
+        mutable CommunityList cv_list_;
     };
     typedef std::set<AliasIp, AliasIp> AliasIpSet;
 
@@ -368,6 +372,8 @@ public:
         mutable uint32_t label_;
         mutable NextHopRef policy_enabled_nh_;
         mutable NextHopRef policy_disabled_nh_;
+        // list of community values associated to AllowedAddressPair
+        mutable CommunityList cv_list_;
     };
     typedef std::set<AllowedAddressPair, AllowedAddressPair>
         AllowedAddressPairSet;
@@ -495,6 +501,8 @@ public:
         mutable bool is_local_;
         mutable IpAddress old_tracking_ip_;
         mutable IpAddress tracking_ip_;
+        // list of community values associated to Instance IP
+        mutable CommunityList cv_list_;
     };
     typedef std::set<InstanceIp, InstanceIp> InstanceIpSet;
 
@@ -1035,6 +1043,8 @@ private:
     VmEntryBackRef vm_;
     VnEntryRef vn_;
     Ip4Address primary_ip_addr_;
+    // list of community values associated to primary IP
+    CommunityList primary_ip_cv_list_;
     std::auto_ptr<MetaDataIp> mdata_ip_;
     Ip4Address subnet_bcast_addr_;
     Ip6Address primary_ip6_addr_;

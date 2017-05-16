@@ -44,9 +44,9 @@ VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
                const std::string& dns, bool dhcp, const std::string &name,
                const std::vector<autogen::DhcpOptionType> &dhcp_options,
                const std::vector<autogen::RouteType> &host_routes,
-               uint32_t alloc)
+               uint32_t alloc, const std::vector<std::string> &comm)
         : plen(len), installed(false), dhcp_enable(dhcp), ipam_name(name),
-          alloc_unit(alloc) {
+          alloc_unit(alloc), comm_list(comm) {
     boost::system::error_code ec;
     ip_prefix = IpAddress::from_string(ip, ec);
     default_gw = IpAddress::from_string(gw, ec);
@@ -297,6 +297,22 @@ VnTable::~VnTable() {
 
 void VnTable::Clear() {
     ReleaseWalker(walk_ref_);
+}
+
+// Api to reterive list of community values from a subnet in Virtual network
+// to which the provided IP belongs
+CommunityList &VnEntry::GetSubnetCommunityList(CommunityList &cv_list,
+                                               const IpAddress &ip) const {
+    uint32_t index;
+    for (index = 0; index < ipam_.size(); ++index) {
+        if (ipam_[index].IsSubnetMember(ip)) {
+            break;
+        }
+    }
+    if (index < ipam_.size()) {
+        cv_list = ipam_[index].comm_list;
+    }
+    return cv_list;
 }
 
 bool VnTable::GetLayer3ForwardingConfig
@@ -785,7 +801,8 @@ VnTable::BuildVnIpamData(const std::vector<autogen::IpamSubnetType> &subnets,
                     subnets[i].enable_dhcp, ipam_name,
                     subnets[i].dhcp_option_list.dhcp_option,
                     subnets[i].host_routes.route,
-                    subnets[i].alloc_unit));
+                    subnets[i].alloc_unit,
+                    subnets[i].community_attributes.community_attribute));
     }
 }
 
@@ -1005,7 +1022,12 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
             bool gateway_changed = ((*it_old).default_gw !=
                                     (*it_new).default_gw);
             bool service_address_changed = ((*it_old).dns_server != (*it_new).dns_server);
-
+            
+            if ((*it_old).comm_list != (*it_new).comm_list) {
+                (*it_old).comm_list = (*it_new).comm_list;
+                change = true;
+            }
+ 
             if ((*it_old).installed) {
                 (*it_new).installed = true;
                 // VNIPAM comparator does not check for gateway.
@@ -1218,6 +1240,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         entry.set_ipam_name(vn_ipam[i].ipam_name);
         entry.set_dhcp_enable(vn_ipam[i].dhcp_enable ? "true" : "false");
         entry.set_dns_server(vn_ipam[i].dns_server.to_string());
+        entry.set_community_list(vn_ipam[i].comm_list);
         vn_subnet_sandesh_list.push_back(entry);
     }
     data.set_ipam_data(vn_subnet_sandesh_list);

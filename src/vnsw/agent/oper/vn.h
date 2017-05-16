@@ -39,12 +39,14 @@ struct VnIpam {
     std::string ipam_name;
     OperDhcpOptions oper_dhcp_options;
     uint32_t alloc_unit;
+    // list of community values associate with the subnet
+    CommunityList comm_list;
 
     VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
            const std::string& dns, bool dhcp, const std::string &name,
            const std::vector<autogen::DhcpOptionType> &dhcp_options,
            const std::vector<autogen::RouteType> &host_routes,
-           uint32_t alloc);
+           uint32_t alloc, const std::vector<std::string> &comm);
 
     bool IsV4() const {
         return ip_prefix.is_v4();
@@ -205,6 +207,7 @@ public:
     const bool mirror_destination() const {
         return mirror_destination_;
     }
+<<<<<<< HEAD
     int vnid() const {return vnid_;}
     void AllocWalker();
     void ReleaseWalker();
@@ -220,6 +223,11 @@ public:
     bool layer2_control_word() const {
         return layer2_control_word_;
     }
+=======
+    
+    CommunityList &GetSubnetCommunityList(CommunityList &cv_list,
+                                          const IpAddress &ip) const;
+>>>>>>> 208440a... Support for BGP Standard Communities on Subnet
 
 private:
     friend class VnTable;
