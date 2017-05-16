@@ -20,6 +20,10 @@ class TorAgentBaseCleanup(ContrailSetup):
         self.tor_vendor_name = ""
         self.tor_agent_name = ""
         self.tor_id_list_old = []
+        # if the non_mgmt_ip is set use this as control ip
+        if self._args.non_mgmt_ip:
+            self._args.self_ip = self._args.non_mgmt_ip
+
 
     def remove_tor_agent_conf_files(self, tor_id):
         ssl_cert = '/etc/contrail/ssl/certs/tor.' + tor_id + '.cert.pem'

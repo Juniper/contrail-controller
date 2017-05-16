@@ -16,6 +16,9 @@ class TorAgentBaseSetup(ContrailSetup):
     def __init__(self, tor_agent_args, args_str=None):
         super(TorAgentBaseSetup, self).__init__()
         self._args = tor_agent_args
+        # if the non_mgmt_ip is set use this as control ip  
+        if self._args.non_mgmt_ip:
+            self._args.self_ip = self._args.non_mgmt_ip
 
     def fixup_tor_agent(self):
         #if self._args.tor_ovs_protocol.lower() == 'pssl':
@@ -151,6 +154,10 @@ class TorAgentSetup(ContrailSetup):
         parser = argparse.ArgumentParser() 
         parser.add_argument("--cfgm_ip", help = "IP Address of the config node")
         parser.add_argument("--self_ip", help="IP Address of this(compute) node")
+        parser.add_argument(
+                "--non_mgmt_ip",
+                help="IP Address of non-management interface(fabric network)"
+                     "on the compute  node")
         parser.add_argument("--authserver_ip", help = "IP Address of the authserver(keystone) node")
         parser.add_argument("--admin_user", help = "Authserver admin tenants user name")
         parser.add_argument("--admin_password", help = "AuthServer admin user's password")
