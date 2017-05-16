@@ -76,6 +76,6 @@ class VrouterProcessStat(ProcessStat):
                 sys.stderr.write("Error reading file : " + conf_file +
                                  " Error : " + str(err) + "\n")
                 return tor_agent_name
-            tor_agent_name = Config.get("DEFAULT", "agent_name")
+            tor_agent_name = Config.get("DEFAULT", "tor_agent_name")
         return tor_agent_name
     # end get_vrouter_tor_agent_name
