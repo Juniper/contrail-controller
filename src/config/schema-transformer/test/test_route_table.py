@@ -138,8 +138,8 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
 
     def test_add_delete_static_route(self):
 
-        vn1_name = 'vn1'
-        vn2_name = 'vn2'
+        vn1_name = self.id() + 'vn1'
+        vn2_name = self.id() + 'vn2'
         vn1 = self.create_virtual_network(vn1_name, "1.0.0.0/24")
         vn2 = self.create_virtual_network(vn2_name, "2.0.0.0/24")
 
