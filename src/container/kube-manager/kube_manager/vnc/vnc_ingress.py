@@ -19,6 +19,7 @@ from kube_manager.vnc.loadbalancer import ServiceLbPoolManager
 from kube_manager.vnc.loadbalancer import ServiceLbMemberManager
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
+from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 
 from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
@@ -83,10 +84,12 @@ class VncIngress(VncCommon):
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
             return self._fip_pool_obj
-        fip_pool_fq_name = [vnc_kube_config.cluster_domain(),
-                            self._args.public_network_project,
-                            self._args.public_network,
-                            self._args.public_fip_pool]
+
+        if not vnc_kube_config.is_public_fip_pool_configured():
+            return None
+
+        fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
+            self._args.public_fip_pool)
         try:
             fip_pool_obj = self._vnc_lib. \
                            floating_ip_pool_read(fq_name=fip_pool_fq_name)
