@@ -13,7 +13,7 @@ template = string.Template("""
 servers=$__contrail_control_servers__
 
 [DEFAULT]
-tor_agent_name=$__contrail_tor_agent_name__
+agent_name=$__contrail_tor_agent_name__
 # Everything in this section is optional
 
 # IP address and port to be used to connect to collector. If these are not
