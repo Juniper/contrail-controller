@@ -3020,6 +3020,12 @@ class VncApiServer(object):
                          req_fields=None, include_shared=False,
                          exclude_hrefs=False):
         resource_type, r_class = self._validate_resource_type(obj_type)
+
+        (ok, result) = r_class.pre_dbe_list(obj_uuids, self._db_conn)
+        if not ok:
+            (code, msg) = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
         (ok, result) = self._db_conn.dbe_list(obj_type,
                              parent_uuids, back_ref_uuids, obj_uuids, is_count,
                              filters)
@@ -3156,6 +3162,11 @@ class VncApiServer(object):
                     if not ok and status[0] == 403:
                         continue
                     obj_dicts.append({resource_type: obj_dict})
+
+        (ok, err_msg) = r_class.post_dbe_list(obj_dicts, self._db_conn)
+        if not ok:
+            (code, msg) = err_msg
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         return {'%ss' %(resource_type): obj_dicts}
     # end _list_collection
