@@ -2,9 +2,11 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 from kube_manager.common.utils import (get_vn_fq_name_from_dict_string,
-                                       get_domain_name_from_vn_dict_string,
-                                       get_project_name_from_vn_dict_string,
-                                       get_vn_name_from_vn_dict_string)
+                                     get_domain_name_from_vn_dict_string,
+                                     get_project_name_from_vn_dict_string,
+                                     get_vn_name_from_vn_dict_string,
+                                     get_domain_name_from_project_dict_string,
+                                     get_project_name_from_project_dict_string)
 
 class VncKubernetesConfig(object):
     """VNC kubernetes common config.
@@ -62,10 +64,27 @@ class VncKubernetesConfig(object):
         return cls.args().cluster_name
 
     @classmethod
+    def is_cluster_project_configured(cls):
+        args = cls.args()
+        if args.cluster_project and args.cluster_project != '{}':
+            return True
+        return False
+
+    @classmethod
+    def is_public_fip_pool_configured(cls):
+        args = cls.args()
+        if args.public_fip_pool and args.public_fip_pool != '{}':
+            return True
+        return False
+
+    @classmethod
     def get_configured_domain_name(cls):
         args = cls.args()
         if args.cluster_network:
             return get_domain_name_from_vn_dict_string(args.cluster_network)
+        if cls.is_cluster_project_configured():
+            return get_domain_name_from_project_dict_string(
+                args.cluster_project)
         return None
 
     @classmethod
@@ -80,8 +99,9 @@ class VncKubernetesConfig(object):
         args = cls.args()
         if args.cluster_network:
             return get_project_name_from_vn_dict_string(args.cluster_network)
-        if args.cluster_project:
-            return args.cluster_project
+        if cls.is_cluster_project_configured():
+            return get_project_name_from_project_dict_string(
+                args.cluster_project)
         return None
 
     @classmethod

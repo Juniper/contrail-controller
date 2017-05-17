@@ -62,9 +62,7 @@ def parse_args(args_str=None):
         'admin_user' : '',
         'admin_password' : '',
         'admin_tenant' : '',
-        'public_network_project':'default-project',
-        'public_network':'__public__',
-        'public_fip_pool':'__fip_pool_public__',
+        'public_fip_pool': '{}',
     }
 
     k8s_opts = {
@@ -78,7 +76,7 @@ def parse_args(args_str=None):
         'kubernetes_cluster_owner': 'k8s',
         'kubernetes_cluster_domain' : 'default-domain',
         'cluster_name': None,
-        'cluster_project' : None,
+        'cluster_project' : "{}",
         'cluster_network' : None,
     }
 
