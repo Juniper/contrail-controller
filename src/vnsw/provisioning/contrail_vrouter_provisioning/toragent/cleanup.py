@@ -86,7 +86,7 @@ class TorAgentBaseCleanup(ContrailSetup):
         config.read(tor_conf_file)
         self.tor_name = config.get('TOR', 'tor_name')
         self.tor_vendor_name = config.get('TOR', 'tor_vendor_name')
-        self.tor_agent_name = config.get('DEFAULT', 'tor_agent_name')
+        self.tor_agent_name = config.get('DEFAULT', 'agent_name')
         self.cleanup(tor_id)
 
     def audit(self):
