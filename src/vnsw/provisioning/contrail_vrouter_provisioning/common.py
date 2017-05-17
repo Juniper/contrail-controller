@@ -725,6 +725,12 @@ SUBCHANNELS=1,2,3
                     'default_hw_queue': 'true',
                     'logical_queue': logical_queue}
 
+            for section, key_vals in configs.items():
+                for key, val in key_vals.items():
+                    self.set_config(
+                            agent_conf,
+                            section, key, val)
+
         if priority_id_list is not None:
             # Clean existing config
             ltemp_dir = tempfile.mkdtemp()
@@ -739,11 +745,11 @@ SUBCHANNELS=1,2,3
                     'scheduling': priority_scheduling[i],
                     'bandwidth': priority_bandwidth[i]}
 
-        for section, key_vals in configs.items():
-            for key, val in key_vals.items():
-                self.set_config(
-                        '/etc/contrail/contrail-vrouter-agent.conf',
-                        section, key, val)
+            for section, key_vals in configs.items():
+                for key, val in key_vals.items():
+                    self.set_config(
+                            agent_conf,
+                            section, key, val)
 
         if (qos_queue_id_list or priority_id_list):
             # Set qos_enabled in agent_param
