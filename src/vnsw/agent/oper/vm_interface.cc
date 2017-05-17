@@ -65,7 +65,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     layer3_forwarding_(true), flood_unknown_unicast_(false),
     mac_set_(false), ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(kInvalidVlanId), rx_vlan_id_(kInvalidVlanId), parent_(NULL, this),
-    local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+    local_preference_(0), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(), fat_flow_list_(),
     vrf_assign_rule_list_(), vrf_assign_acl_(NULL), vm_ip_service_addr_(0),
@@ -105,7 +105,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     flood_unknown_unicast_(false), mac_set_(false),
     ecmp_(false), ecmp6_(false), disable_policy_(false),
     tx_vlan_id_(tx_vlan_id), rx_vlan_id_(rx_vlan_id), parent_(parent, this),
-    local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+    local_preference_(0), oper_dhcp_options_(),
     sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(), vrf_assign_rule_list_(),
     vrf_assign_acl_(NULL), device_type_(device_type),
@@ -967,17 +967,7 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
                             VmInterfaceConfigData *data) {
     //Extract the local preference
     if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
-        autogen::VirtualMachineInterfacePropertiesType prop = cfg->properties();
-        //Service instance also would have VirtualMachineInterface
-        //properties field set, pick up local preference
-        //value only when it has been initialized to proper
-        //value, if its 0, ignore the local preference
-        if (prop.local_preference) {
-            data->local_preference_ = VmInterface::LOW;
-            if (prop.local_preference == VmInterface::HIGH) {
-                data->local_preference_ = VmInterface::HIGH;
-            }
-        }
+        data->local_preference_ = cfg->properties().local_preference;
     }
 
     ReadAnalyzerNameAndCreate(agent, cfg, *data);
@@ -1952,7 +1942,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     layer3_forwarding_(true), mirror_enable_(false), ecmp_(false),
     ecmp6_(false), dhcp_enable_(true), admin_state_(true),
     disable_policy_(false), analyzer_name_(""),
-    local_preference_(VmInterface::INVALID), oper_dhcp_options_(),
+    local_preference_(0), oper_dhcp_options_(),
     mirror_direction_(Interface::UNKNOWN), sg_list_(),
     floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
@@ -3752,10 +3742,12 @@ void VmInterface::CopySgIdList(SecurityGroupList *sg_id_list) const {
 void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
                                     const IpAddress &dependent_ip) const {
     pref->set_ecmp(ecmp);
-    if (local_preference_ != INVALID) {
+    if (local_preference_ != 0) {
         pref->set_static_preference(true);
+        pref->set_preference(local_preference_);
     }
-    if (local_preference_ == HIGH || ecmp == true) {
+    // Override user defined local preference with HIGH for ECMP
+    if (ecmp == true) {
         pref->set_preference(PathPreference::HIGH);
     }
     pref->set_dependent_ip(dependent_ip);
@@ -3799,13 +3791,9 @@ void VmInterface::SetServiceVlanPathPreference(PathPreference *pref,
     }
 
     pref->set_ecmp(ecmp_mode);
-    if (local_preference_ != INVALID) {
+    if (local_preference_ != 0) {
         pref->set_static_preference(true);
-    }
-    if (local_preference_ == HIGH) {
-        pref->set_preference(PathPreference::HIGH);
-    } else {
-        pref->set_preference(PathPreference::LOW);
+        pref->set_preference(local_preference_);
     }
 
     pref->set_dependent_ip(dependent_ip);

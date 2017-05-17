@@ -52,7 +52,7 @@ public:
         path_preference_.set_sequence(seq_no);
     }
 
-    void set_preference(PathPreference::Preference preference) {
+    void set_preference(uint32_t preference) {
         path_preference_.set_preference(preference);
     }
 

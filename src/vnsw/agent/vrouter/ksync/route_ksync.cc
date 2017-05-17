@@ -980,7 +980,7 @@ void VrfKSyncObject::NotifyUcRoute(VrfEntry *vrf, VrfState *state,
 
 void VrfKSyncObject::AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                                      const MacAddress &mac,
-                                     const PathPreference::Preference &pref,
+                                     uint32_t pref,
                                      bool wait_for_traffic) {
     VrfState *state = static_cast<VrfState *>
         (vrf->GetState(vrf->get_table(), vrf_listener_id_));
