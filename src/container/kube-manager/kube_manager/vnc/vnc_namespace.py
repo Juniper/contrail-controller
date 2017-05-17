@@ -25,6 +25,7 @@ class VncNamespace(VncCommon):
         self._ns_sg = {}
         self._label_cache = vnc_kube_config.label_cache()
         self._logger = vnc_kube_config.logger()
+        self._queue = vnc_kube_config.queue()
 
     def _get_namespace(self, ns_name):
         """
