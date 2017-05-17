@@ -124,6 +124,14 @@ class ResourceDbMixin(object):
     def post_dbe_read(cls, obj_dict, db_conn):
         return True, ''
 
+    @classmethod
+    def pre_dbe_list(cls, obj_uuids, db_conn):
+        return True, ''
+
+    @classmethod
+    def post_dbe_list(cls, obj_dict_list, db_conn):
+        return True, ''
+
 # end class ResourceDbMixin
 
 class Resource(ResourceDbMixin):
@@ -2875,7 +2883,14 @@ class PhysicalRouterServer(Resource, PhysicalRouter):
         if obj_dict.get('physical_router_user_credentials'):
             if obj_dict['physical_router_user_credentials'].get('password'):
                 obj_dict['physical_router_user_credentials']['password'] = "**Password Hidden**"
+        return True, ''
 
+    @classmethod
+    def post_dbe_list(cls, obj_dict_list, db_conn):
+        for obj_dict in obj_dict_list:
+            if obj_dict.get('physical_router_user_credentials'):
+                if obj_dict['physical_router_user_credentials'].get('password'):
+                    obj_dict['physical_router_user_credentials']['password'] = "**Password Hidden**"
         return True, ''
 # end class PhysicalRouterServer
 

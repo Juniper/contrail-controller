@@ -2724,6 +2724,11 @@ class VncApiServer(object):
         else:
             field_names = [u'id_perms'] + (req_fields or [])
 
+        (ok, result) = r_class.pre_dbe_list(obj_uuids, self._db_conn)
+        if not ok:
+            (code, msg) = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
         (ok, result) = self._db_conn.dbe_list(obj_type,
                              parent_uuids, back_ref_uuids, obj_uuids, is_count and self.is_admin_request(),
                              filters, is_detail=is_detail, field_names=field_names,
@@ -2732,6 +2737,11 @@ class VncApiServer(object):
             self.config_object_error(None, None, '%ss' %(obj_type),
                                      'dbe_list', result)
             raise cfgm_common.exceptions.HttpError(404, result)
+
+        (ok, err_msg) = r_class.post_dbe_list(result, self._db_conn)
+        if not ok:
+            (code, msg) = err_msg
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         # If only counting, return early
         if is_count and self.is_admin_request():
