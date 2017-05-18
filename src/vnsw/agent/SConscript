@@ -152,6 +152,10 @@ if GetOption('with_libvirt'):
 
 # Common agent libraries
 env.Prepend(LIBS = [
+    'cpuinfo',
+    'port_ipc',
+    'vnswoperdb',
+    'vnswcmn',
     'vnswctrl',
     'cfg',
     'filter',
@@ -159,22 +163,23 @@ env.Prepend(LIBS = [
     'resource_manager',
     'uve',
     'vgw',
-    'vnswnhserver',
-    'mac_learning'
+    'vnswnhserver'
 ])
 
 ##########################################################################
 # Build LINKFLAGS - libraries needing multi-pass linking
 ##########################################################################
 AGENT_MULTIPATH_LIBS = [
+    'base',
     'cpuinfo',
+    'ifmap_agent',
     'port_ipc',
+    'sandesh',
     'vnswoperdb',
     'vnswcmn',
+    'vnswctrl',
+    'xmpp',
 ]
-
-# Set LIBS environment to ensure libraries are built
-env.Prepend(LIBS = AGENT_MULTIPATH_LIBS)
 
 def MakeLinkCmd(list):
     return map(lambda x: '-l' + x, list)
@@ -204,6 +209,16 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'kstate',
     'vrutil',
     'isc',
+    'mac_learning'
+])
+
+AgentEnv.AppendUnique(CONTRAIL_MULTIPATH_LIBS = [
+    'agent_services',
+    'flowstats',
+    'mac_learning',
+    'pkt',
+    'statsuve',
+    'statscollector'
 ])
 
 # Common libraries for agent test code
