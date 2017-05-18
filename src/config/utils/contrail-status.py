@@ -13,13 +13,17 @@ import socket
 import requests
 try:
     from requests.packages.urllib3.exceptions import SubjectAltNameWarning
+    warnings.filterwarnings('ignore', category=SubjectAltNameWarning)
 except:
-    from urllib3.exceptions import SubjectAltNameWarning
+    try:
+        from urllib3.exceptions import SubjectAltNameWarning
+        warnings.filterwarnings('ignore', category=SubjectAltNameWarning)
+    except:
+        pass
 import warnings
 warnings.filterwarnings('ignore', ".*SNIMissingWarning.*")
 warnings.filterwarnings('ignore', ".*InsecurePlatformWarning.*")
 warnings.filterwarnings('ignore', ".*SubjectAltNameWarning.*")
-warnings.filterwarnings('ignore', category=SubjectAltNameWarning)
 from StringIO import StringIO
 from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
