@@ -14,6 +14,7 @@ from cfgm_common import importutils
 import link_local_manager as ll_mgr
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
+from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 
 class VncService(VncCommon):
 
@@ -87,10 +88,12 @@ class VncService(VncCommon):
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
             return self._fip_pool_obj
-        fip_pool_fq_name = [vnc_kube_config.cluster_domain(),
-                            self._args.public_network_project,
-                            self._args.public_network,
-                            self._args.public_fip_pool]
+
+        if not vnc_kube_config.is_public_fip_pool_configured():
+            return None
+
+        fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
+            self._args.public_fip_pool)
         try:
             fip_pool_obj = self._vnc_lib.floating_ip_pool_read(fq_name=fip_pool_fq_name)
         except NoIdError:
@@ -256,9 +259,8 @@ class VncService(VncCommon):
 
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
-            self.logger.warning("public_fip_pool [%s, %s] doesn't exists" %
-                                 (self._args.public_network,
-                                 self._args.public_fip_pool))
+            self.logger.warning("public_fip_pool [%s] doesn't exists" %
+                                 (self._args.public_fip_pool))
             return None
 
         fip_obj = FloatingIp(lb.name + "-externalIP", fip_pool)
