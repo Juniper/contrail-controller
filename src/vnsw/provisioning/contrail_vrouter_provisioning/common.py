@@ -443,13 +443,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 self.setup_coremask_node(dpdk_args)
                 self.setup_vm_coremask_node(False, dpdk_args)
 
-                if self._args.vrouter_module_params:
-                    vrouter_module_params_args = dict(
-                            u.split("=") for u in
-                            self._args.vrouter_module_params.split(","))
-                    self.dpdk_increase_vrouter_limit(
-                            vrouter_module_params_args)
-
                 if self.pdist == 'Ubuntu':
                     # Fix /dev/vhost-net permissions. It is required for
                     # multiqueue operation
@@ -809,11 +802,33 @@ SUBCHANNELS=1,2,3
         self.add_tsn_vnc_config()
         self.start_tsn_service()
 
+    def increase_vrouter_limit(self):
+        """Increase the maximum number of mpls label
+        and nexthop on tsn node"""
+
+        if self._args.vrouter_module_params:
+            vrouter_module_params = self._args.vrouter_module_params.rstrip(',')
+            vrouter_module_params_args = dict(
+                        u.split("=") for u in
+                        vrouter_module_params.split(","))
+            if self._args.dpdk:
+                self.dpdk_increase_vrouter_limit(
+                        vrouter_module_params_args)
+            else:
+                cmd = "options vrouter"
+                cmd += " vr_mpls_labels=%s" % vrouter_module_params_args.setdefault('mpls_labels', '5120')
+                cmd += " vr_nexthops=%s" % vrouter_module_params_args.setdefault('nexthops', '65536')
+                cmd += " vr_vrfs=%s" % vrouter_module_params_args.setdefault('vrfs', '5120')
+                cmd += " vr_bridge_entries=%s" % vrouter_module_params_args.setdefault('macs', '262144')
+                cmd += " vr_flow_entries=%s" % vrouter_module_params_args.setdefault('flow_entries', '524288')
+                local("echo %s > %s" %(cmd, '/etc/modprobe.d/vrouter.conf'), warn_only=True)
+
     def setup(self):
         self.disable_selinux()
         self.disable_iptables()
         self.setup_coredump()
         self.fixup_config_files()
+        self.increase_vrouter_limit()
         if self._args.tsn_mode:
             self.setup_tsn_node()
             self.run_services()
