@@ -609,7 +609,9 @@ void MirrorEntry::set_mirror_entrySandeshData(MirrorEntrySandeshData &data) cons
     data.set_sport(GetSPort());
     data.set_dport(GetDPort());
     data.set_ref_count(GetRefCount());
-    nh_->SetNHSandeshData(data.nh);
+    if (nh_) {
+        nh_->SetNHSandeshData(data.nh);
+    }
 }
 
 bool MirrorEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
