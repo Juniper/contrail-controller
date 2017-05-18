@@ -117,6 +117,7 @@ void TcpServer::Shutdown() {
     tbb::mutex::scoped_lock lock(mutex_);
     error_code ec;
 
+    evm_->io_service().stop();
     if (acceptor_) {
         acceptor_->close(ec);
         if (ec) {
