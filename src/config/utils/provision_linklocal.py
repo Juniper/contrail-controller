@@ -6,6 +6,7 @@
 import sys
 import argparse
 import ConfigParser
+from time import sleep
 
 from cfgm_common.exceptions import RefsExistError
 from vnc_api.vnc_api import *
@@ -37,20 +38,18 @@ class MetadataProvisioner(object):
             linklocal_obj.ip_fabric_service_ip=[self._args.ipfabric_service_ip]
 
         try:
-            current_config=self._vnc_lib.global_vrouter_config_read(
-                                fq_name=['default-global-system-config',
-                                         'default-global-vrouter-config'])
-        except Exception as e:
-            try:
-                if self._args.oper == "add":
-                    linklocal_services_obj=LinklocalServicesTypes([linklocal_obj])
-                    conf_obj=GlobalVrouterConfig(linklocal_services=linklocal_services_obj)
-                    result=self._vnc_lib.global_vrouter_config_create(conf_obj)
-                    print 'Created.UUID is %s'%(result)
+            if self._args.oper == "add":
+                linklocal_services_obj = LinklocalServicesTypes([linklocal_obj])
+                conf_obj = GlobalVrouterConfig(linklocal_services=linklocal_services_obj)
+                result = self._vnc_lib.global_vrouter_config_create(conf_obj)
+                print 'Created.UUID is %s'%(result)
                 return
-            except RefsExistError:
-                print "Already created!"
+        except RefsExistError:
+            print "Already created! Updating the object."
+            sleep(5)
 
+        current_config = self._vnc_lib.global_vrouter_config_read(
+                fq_name=['default-global-system-config', 'default-global-vrouter-config'])
         current_linklocal=current_config.get_linklocal_services()
         if current_linklocal is None:
             obj = {'linklocal_service_entry': []}
