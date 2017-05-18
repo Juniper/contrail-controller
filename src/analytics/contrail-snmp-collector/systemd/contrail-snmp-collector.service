@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
+Environment=SNMPCONFPATH=/etc/contrail
 ExecStart=/usr/bin/contrail-snmp-collector
 PIDFile=/var/run/contrail/contrail-snmp-collector.pid
 TimeoutStopSec=0
