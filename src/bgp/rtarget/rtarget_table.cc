@@ -61,6 +61,11 @@ bool RTargetTable::Export(RibOut *ribout, Route *route,
     return true;
 }
 
+void RTargetTable::AddRemoveCallback(const DBEntryBase *entry, bool add) const {
+    if (add)
+        last_updated_ = UTCTimestamp();
+}
+
 static void RegisterFactory() {
     DB::RegisterFactory("bgp.rtarget.0", &RTargetTable::CreateTable);
 }

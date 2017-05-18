@@ -75,9 +75,7 @@ struct BgpPeerFamilyAttributesCompare {
 // A BGP peer along with its session and state machine.
 class BgpPeer : public IPeer {
 public:
-    static const int kMinEndOfRibSendTimeUsecs = 10000000;  // 10 Seconds
-    static const int kMaxEndOfRibSendTimeUsecs = 60000000;  // 60 Seconds
-    static const int kEndOfRibSendRetryTimeMsecs = 2000;    // 2 Seconds
+    static const int kEndOfRibSendRetryTime = 1; /* seconds */
     static const int kRouteTargetEndOfRibTimeSecs = 30;     // Seconds
     static const size_t kMinBufferCapacity = 4096;
     static const size_t kMaxBufferCapacity = 32768;
@@ -217,7 +215,7 @@ public:
     virtual bool IsXmppPeer() const;
     virtual bool CanUseMembershipManager() const;
     virtual bool IsRegistrationRequired() const { return true; }
-    virtual uint64_t GetEorSendTimerElapsedTimeUsecs() const;
+    virtual time_t GetEorSendTimerElapsedTime() const;
     virtual bool send_ready() const { return send_ready_; }
 
     void Close(bool graceful);
@@ -337,6 +335,7 @@ public:
     }
     virtual bool IsInGRTimerWaitState() const;
     PeerCloseManager *close_manager() { return close_manager_.get(); }
+    virtual bool IsServerStartingUp() const;
 
 protected:
     virtual void SendEndOfRIBActual(Address::Family family);
@@ -378,7 +377,6 @@ private:
     void EndOfRibTimerErrorHandler(std::string error_name,
                                    std::string error_message);
     uint32_t GetEndOfRibReceiveTime(Address::Family family) const;
-    uint32_t GetEndOfRibSendTime(Address::Family family) const;
 
     virtual void BindLocalEndpoint(BgpSession *session);
     void UnregisterAllTables();
@@ -412,6 +410,7 @@ private:
 
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
     virtual uint32_t GetOutputQueueDepth(Address::Family family) const;
+    virtual time_t GetRTargetTableLastUpdatedTimeStamp() const;
 
     static const std::vector<Address::Family> supported_families_;
     BgpServer *server_;
@@ -457,7 +456,7 @@ private:
     Timer *keepalive_timer_;
     Timer *eor_receive_timer_[Address::NUM_FAMILIES];
     Timer *eor_send_timer_[Address::NUM_FAMILIES];
-    uint64_t eor_send_timer_start_time_;
+    time_t eor_send_timer_start_time_;
     bool send_ready_;
     bool admin_down_;
     bool passive_;

@@ -367,9 +367,8 @@ void BgpPeerClose::AddGRCapabilities(
     vector<Address::Family> gr_families;
     vector<uint8_t> afi_flags;
 
-    // Indicate to the Peer if we are restarting (equiv when the session is
-    // being formed for the first time.
-    bool restarted = peer_->flap_count() == 0;
+    // Indicate to the Peer if we are in restarting phase.
+    bool restarted = peer_->IsServerStartingUp();
 
     // Indicate EOR support by default.
     if (!peer_->server()->global_config()->gr_enable()) {

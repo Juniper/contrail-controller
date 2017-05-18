@@ -32,6 +32,8 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_table.h"
+#include "control-node/control_node.h"
+#include "ifmap/client/config_client_manager.h"
 
 using boost::assign::list_of;
 using boost::assign::map_list_of;
@@ -281,13 +283,8 @@ uint32_t BgpPeer::GetOutputQueueDepth(Address::Family family) const {
     return server_->membership_mgr()->GetRibOutQueueDepth(this, table);
 }
 
-uint64_t BgpPeer::GetEorSendTimerElapsedTimeUsecs() const {
-    return UTCTimestampUsec() - eor_send_timer_start_time_;
-}
-
-// For RTargets, send eor right away.
-uint32_t BgpPeer::GetEndOfRibSendTime(Address::Family family) const {
-    return family == Address::RTARGET ? 0 : server_->GetEndOfRibSendTime();
+time_t BgpPeer::GetEorSendTimerElapsedTime() const {
+    return UTCTimestamp() - eor_send_timer_start_time_;
 }
 
 uint32_t BgpPeer::GetEndOfRibReceiveTime(Address::Family family) const {
@@ -295,41 +292,95 @@ uint32_t BgpPeer::GetEndOfRibReceiveTime(Address::Family family) const {
         kRouteTargetEndOfRibTimeSecs : server_->GetEndOfRibReceiveTime();
 }
 
+bool BgpPeer::IsServerStartingUp() const {
+    return server_->IsServerStartingUp();
+}
+
+time_t BgpPeer::GetRTargetTableLastUpdatedTimeStamp() const {
+    return server_->GetRTargetTableLastUpdatedTimeStamp();
+}
+
 bool BgpPeer::EndOfRibSendTimerExpired(Address::Family family) {
     if (!IsReady())
         return false;
 
-    // Retry if wait time has not exceeded the max (10 times configured) and
-    // the output queue has not been fully drained yet.
-    if (GetEorSendTimerElapsedTimeUsecs() <
-            GetEndOfRibSendTime(family) * 1000000 * 10) {
-        uint32_t output_depth = GetOutputQueueDepth(family);
-        if (output_depth) {
-            eor_send_timer_[family]->Reschedule(kEndOfRibSendRetryTimeMsecs);
-            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
-                    BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
-                    "EndOfRib Send Timer rescheduled for family " <<
-                    Address::FamilyToString(family) << " to fire after " <<
-                    kEndOfRibSendRetryTimeMsecs/1000 << " seconds " <<
-                    "due to non-empty output queue (" << output_depth << ")");
-            return true;
-        }
+    // Send EoR if wait time has exceeded the configured maximum.
+    if (GetEorSendTimerElapsedTime() >= server_->GetEndOfRibSendTime()) {
+        SendEndOfRIBActual(family);
+        return false;
     }
 
+    // Defer if output queue has not been fully drained yet.
+    uint32_t output_depth = GetOutputQueueDepth(family);
+    if (output_depth) {
+        eor_send_timer_[family]->Reschedule(kEndOfRibSendRetryTime * 1000);
+        BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+                BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+                "EndOfRib Send Timer rescheduled for family " <<
+                Address::FamilyToString(family) << " to fire after " <<
+                kEndOfRibSendRetryTime << " second(s) " <<
+                "due to non-empty output queue (" << output_depth << ")");
+        return true;
+    }
+
+    // Send EoR if we are not still under [re-]starting phase.
+    if (!IsServerStartingUp()) {
+        SendEndOfRIBActual(family);
+        return false;
+    }
+
+    // Defer if configuration processing is not complete yet.
+    if (!ConfigClientManager::end_of_rib_computed()) {
+        eor_send_timer_[family]->Reschedule(kEndOfRibSendRetryTime * 1000);
+        BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+                BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+                "EndOfRib Send Timer rescheduled for family " <<
+                Address::FamilyToString(family) << " to fire after " <<
+                kEndOfRibSendRetryTime << " second(s) " <<
+                "as bgp (under restart) has not completed initial configuration"
+                " processing");
+        return true;
+    }
+
+    // For all families except route-target, wait for a certain amount of time
+    // before sending eor as bgp is still in [re-]starting phase (60s).
+    if (family != Address::RTARGET) {
+        eor_send_timer_[family]->Reschedule(kEndOfRibSendRetryTime * 1000);
+        BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+                BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+                "EndOfRib Send Timer rescheduled for family " <<
+                Address::FamilyToString(family) << " to fire after " <<
+                kEndOfRibSendRetryTime << " second(s) " <<
+                "as bgp is still under [re-]starting phase");
+        return true;
+    }
+
+    // Defer EoR if any new route-target was added to the table recently (6s).
+    if (UTCTimestamp() - GetRTargetTableLastUpdatedTimeStamp() <
+            0.02 * server_->GetEndOfRibSendTime()) {
+        eor_send_timer_[family]->Reschedule(kEndOfRibSendRetryTime * 1000);
+        BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
+                BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
+                "EndOfRib Send Timer rescheduled for family " <<
+                Address::FamilyToString(family) << " to fire after " <<
+                kEndOfRibSendRetryTime << " second(s) " <<
+                "as new route-targets are still being added to the table");
+        return true;
+    }
+
+    // Send eor as [re-]starting phase is complete for this family.
     SendEndOfRIBActual(family);
     return false;
 }
 
 void BgpPeer::SendEndOfRIB(Address::Family family) {
-    uint32_t timeout = GetEndOfRibSendTime(family);
-
-    eor_send_timer_start_time_ = UTCTimestampUsec();
+    eor_send_timer_start_time_ = UTCTimestamp();
     BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO,
         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
         "EndOfRib Send Timer scheduled for family " <<
         Address::FamilyToString(family) <<
-        " to fire after " << timeout * 1000 << " milliseconds");
-    eor_send_timer_[family]->Start(timeout * 1000,
+        " to fire after " << kEndOfRibSendRetryTime  << " second(s)");
+    eor_send_timer_[family]->Start(kEndOfRibSendRetryTime * 1000,
         boost::bind(&BgpPeer::EndOfRibSendTimerExpired, this, family),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
 }
@@ -1739,7 +1790,7 @@ void BgpPeer::StartEndOfRibReceiveTimer(Address::Family family) {
         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
         "EndOfRib Receive Timer scheduled for family " <<
         Address::FamilyToString(family) <<
-        " to fire after " << timeout * 1000 << " milliseconds");
+        " to fire after " << timeout  << " second(s)");
     eor_receive_timer_[family]->Start(timeout * 1000,
         boost::bind(&BgpPeer::EndOfRibReceiveTimerExpired, this, family),
         boost::bind(&BgpPeer::EndOfRibTimerErrorHandler, this, _1, _2));
