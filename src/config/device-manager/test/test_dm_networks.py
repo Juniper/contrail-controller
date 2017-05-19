@@ -94,6 +94,73 @@ class TestNetworkDM(TestCommonDM):
 
     #end test_flat_subnet
 
+    @retries(5, hook=retry_exc_handler)
+    def check_auto_export_config(self, vrf_name_l3='', ip_type='v4', check=True):
+        config = FakeDeviceConnect.get_xml_config()
+        ri = self.get_routing_instances(config, vrf_name_l3)[0]
+        ri_opts = ri.get_routing_options()
+        auto_export = ri_opts.get_auto_export()
+        family = auto_export.get_family()
+        if ip_type == 'v4':
+            if check:
+                self.assertIsNotNone(family.get_inet().get_unicast())
+            else:
+                self.assertTrue(not family.get_inet() or
+                                not family.get_inet().get_unicast())
+        elif ip_type == 'v6':
+            if check:
+                self.assertIsNotNone(family.get_inet6().get_unicast())
+            else:
+                self.assertTrue(not family.get_inet6() or
+                                not family.get_inet6().get_unicast())
+    # end check_auto_export_config
+
+    def test_dm_auto_export_config(self):
+        vn1_name = 'vn1' + self.id()
+        vn1_obj = VirtualNetwork(vn1_name)
+        vn1_obj_properties = VirtualNetworkType()
+        vn1_obj_properties.set_forwarding_mode('l3')
+        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
+
+        ipam_obj = NetworkIpam('ipam1' + self.id())
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("10.0.0.0", 24)),
+             IpamSubnetType(SubnetType("2001:db8:abcd:0012::0", 64))]))
+
+        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
+        pr.set_virtual_network(vn1_obj)
+        self._vnc_lib.physical_router_update(pr)
+        vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_uuid)
+        vrf_name_l3 = DMUtils.make_vrf_name(vn1_obj.fq_name[-1],
+                                            vn1_obj.virtual_network_network_id, 'l3')
+        self.check_auto_export_config(vrf_name_l3, 'v4', check=True)
+        self.check_auto_export_config(vrf_name_l3, 'v6', check=True)
+
+        vn1_obj.set_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("2001:ab8:abcd:0012::0", 64))]))
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_auto_export_config(vrf_name_l3, 'v4', check=False)
+        self.check_auto_export_config(vrf_name_l3, 'v6', check=True)
+
+        vn1_obj.set_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("11.0.0.0", 24))]))
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self.check_auto_export_config(vrf_name_l3, 'v4', check=True)
+        self.check_auto_export_config(vrf_name_l3, 'v6', check=False)
+
+        # cleanup
+        pr.del_virtual_network(vn1_obj)
+        self._vnc_lib.physical_router_update(pr)
+
+        bgp_router_fq = bgp_router.get_fq_name()
+        pr_fq = pr.get_fq_name()
+        self.delete_routers(bgp_router, pr)
+        self.wait_for_routers_delete(bgp_router_fq, pr_fq)
+    # end test_dm_auto_export_config
+
     # test vn  lo0 ip allocation
     def test_dm_lo0_ip_alloc(self):
         vn1_name = 'vn1' + self.id()
