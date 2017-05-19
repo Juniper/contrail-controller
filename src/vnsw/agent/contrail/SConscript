@@ -90,6 +90,13 @@ env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
 env.Prepend(LINKFLAGS = ['-Wl,--whole-archive', '-rdynamic', '-lkstate', '-ldiag',
                          '-Wl,--no-whole-archive'])
 
+def MakeLinkCmd(list):
+    return map(lambda x: '-l' + x, list)
+
+env.Prepend(LINKFLAGS = [ '-Wl,--whole-archive', '-rdynamic'] +
+                          MakeLinkCmd(AgentEnv['CONTRAIL_MULTIPATH_LIBS']) +
+                        ['-Wl,--no-whole-archive'])
+
 #Add -Wno-return-type to ignore errors from thrift generated code in
 #InstanceService.h
 if sys.platform.startswith('freebsd'):

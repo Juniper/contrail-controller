@@ -31,7 +31,6 @@ pkt_srcs = [
                 'flow_trace_filter.cc',
                 'packet_buffer.cc',
                 'pkt_init.cc',
-                'pkt_init.cc',
                 'pkt_handler.cc',
                 'pkt_flow_info.cc',
                 'pkt_sandesh_flow.cc',
