@@ -5,7 +5,7 @@
 # 
 #  Schema File: juniper_common.xsd
 #  Generated Py API: juniper_common_xsd.py
-# 
+#  
 #  Build: API is generated when device manager scons is invoked
 #
 
