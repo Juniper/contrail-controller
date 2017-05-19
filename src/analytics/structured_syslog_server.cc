@@ -392,6 +392,11 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
             if (boost::iequals(an, "unknown")) {
                 an = SyslogParser::GetMapVals(v, "application", "unknown");
             }
+            size_t found = an.find_first_of(':');
+            while (found != string::npos) {
+                an[found] = '/';
+                found = an.find_first_of(':', found+1);
+            }
             v.insert(std::pair<std::string, SyslogParser::Holder>("app-category",
             SyslogParser::Holder("app-category", "UNKNOWN")));
             v.insert(std::pair<std::string, SyslogParser::Holder>("app-subcategory",
