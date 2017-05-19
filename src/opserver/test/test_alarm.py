@@ -259,9 +259,10 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     def setUpClass(cls):
         cls._pc = mock.patch('opserver.alarmgen.PartitionClient', autospec=True)
         cls._pc.start()
+        cls._kc = mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
         cls._kc = mock.patch('opserver.partition_handler.KafkaClient', autospec=True)
         cls._kc.start()
-        cls._ac = mock.patch('opserver.alarmgen.KafkaClient', autospec=True)
+        cls._ac = mock.patch('opserver.alarmgen.KafkaConsumer', autospec=True)
         cls._ac.start()
         cls._sc = mock.patch('opserver.alarmgen.SimpleProducer', autospec=True)
         cls._sc.start()
