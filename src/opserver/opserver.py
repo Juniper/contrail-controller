@@ -390,8 +390,6 @@ class OpServer(object):
         * ``/analytics/tables``:
         * ``/analytics/table/<table>``:
         * ``/analytics/table/<table>/schema``:
-        * ``/analytics/table/<table>/column-values``:
-        * ``/analytics/table/<table>/column-values/<column>``:
         * ``/analytics/query/<queryId>``
         * ``/analytics/query/<queryId>/chunk-final/<chunkId>``
         * ``/analytics/send-tracebuffer/<source>/<module>/<name>``
@@ -783,12 +781,6 @@ class OpServer(object):
         bottle.route('/analytics/table/<table>', 'GET', self.table_process)
         bottle.route('/analytics/table/<table>/schema',
                      'GET', self.table_schema_process)
-        for i in range(0, len(self._VIRTUAL_TABLES)):
-            if len(self._VIRTUAL_TABLES[i].columnvalues) > 0:
-                bottle.route('/analytics/table/<table>/column-values',
-                             'GET', self.column_values_process)
-                bottle.route('/analytics/table/<table>/column-values/<column>',
-                             'GET', self.column_process)
         bottle.route('/analytics/send-tracebuffer/<source>/<module>/<instance_id>/<name>',
                      'GET', self.send_trace_buffer)
         bottle.route('/doc-style.css', 'GET',
@@ -2306,10 +2298,6 @@ class OpServer(object):
             if (self._VIRTUAL_TABLES[i].name == table):
                 link = LinkObject('schema', base_url + 'schema')
                 json_links.append(obj_to_dict(link))
-                if len(self._VIRTUAL_TABLES[i].columnvalues) > 0:
-                    link = LinkObject(
-                        'column-values', base_url + 'column-values')
-                    json_links.append(obj_to_dict(link))
                 break
 
         if(len(json_links) == 0):
@@ -2317,8 +2305,6 @@ class OpServer(object):
             tables = self._uve_server.get_tables()
             if table in tables:
                 link = LinkObject('schema', base_url + 'schema')
-                json_links.append(obj_to_dict(link))
-                link = LinkObject('column-values', base_url + 'column-values')
                 json_links.append(obj_to_dict(link))
 
         bottle.response.set_header('Content-Type', 'application/json')
@@ -2346,39 +2332,6 @@ class OpServer(object):
 
         return (json.dumps({}))
     # end table_schema_process
-
-    @validate_user_token
-    def column_values_process(self, table):
-        (ok, result) = self._get_common(bottle.request)
-        if not ok:
-            (code, msg) = result
-            bottle.abort(code, msg)
-
-        base_url = bottle.request.urlparts.scheme + '://' + \
-            bottle.request.urlparts.netloc + \
-            '/analytics/table/' + table + '/column-values/'
-
-        bottle.response.set_header('Content-Type', 'application/json')
-        json_links = []
-        found_table = False
-        for i in range(0, len(self._VIRTUAL_TABLES)):
-            if (self._VIRTUAL_TABLES[i].name == table):
-                found_table = True
-                for col in self._VIRTUAL_TABLES[i].columnvalues:
-                    link = LinkObject(col, base_url + col)
-                    json_links.append(obj_to_dict(link))
-                break
-
-        if (found_table == False):
-            # Also check for the table in actual raw UVE contents
-            tables = self._uve_server.get_tables()
-            if table in tables:
-                for col in _OBJECT_TABLE_COLUMN_VALUES:
-                    link = LinkObject(col, base_url + col)
-                    json_links.append(obj_to_dict(link))
-
-        return (json.dumps(json_links))
-    # end column_values_process
 
     def generator_info(self, table, column):
         if ((column == MODULE) or (column == SOURCE)):
