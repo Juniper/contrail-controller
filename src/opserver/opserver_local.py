@@ -1,7 +1,7 @@
 #
 # Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
 #
-
+import sys
 import gevent
 from gevent import monkey
 monkey.patch_all()
@@ -10,20 +10,28 @@ import base64
 from bottle import GeventServer
 from gevent.pool import Pool
 
-def get_bottle_server(pool_size):
-    """
-    Custom gevent pool server for bottle
-    """
+class OpserverLocalStdLog(object):
+    def __init__(self, server_name, http_port):
+        self._server_name = server_name
+        self._port = http_port
 
-    class GeventPoolServer(GeventServer):
-        """ Gevent server with limited pool size
-        """
-        def __init__(self, host='127.0.0.1', port=8181, **options):
-            super(GeventPoolServer, self ).__init__(host, port,
-                spawn=Pool(size=pool_size), **options)
+    def write(self, text):
+        sys.stderr.write('[' + self._server_name + ':' + str(self._port) + ']' + text)
 
-    return GeventPoolServer
-# end get_bottle_server
+class GeventPoolServer(GeventServer):    
+    def run(self, handler):
+        from gevent import wsgi as wsgi_fast, pywsgi, monkey, local
+        if self.options.get('monkey', True):
+            import threading
+            if not threading.local is local.local: monkey.patch_all()
+        wsgi = wsgi_fast if self.options.get('fast') else pywsgi
+        self._std_log = OpserverLocalStdLog("LOCAL API", self.port)
+        self.srv = wsgi.WSGIServer((self.host, self.port), handler,
+                          spawn=Pool(size=self.pool_size), log = self._std_log)
+        self.srv.serve_forever()
+
+    def set_pool_size(self, pool_size):
+        self.pool_size = pool_size
 
 # Open port for access to API server for trouble shooting
 class LocalApp(object):
@@ -65,8 +73,9 @@ class LocalApp(object):
     # end __init__
 
     def start_http_server(self):
-        self._http_app.run(
-            host=self._http_host, port=self._http_port,
-            server=get_bottle_server(1024))
+        self._poolserver = GeventPoolServer(host = self._http_host,
+                                            port = self._http_port)
+        self._poolserver.set_pool_size(1024)
+        bottle.run(app = self._http_app, server = self._poolserver)
     # end start_http_server
 # end class LocalApp
