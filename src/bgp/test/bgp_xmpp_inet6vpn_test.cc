@@ -3,6 +3,7 @@
  */
 
 #include <sstream>
+#include <boost/assign/list_of.hpp>
 
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
@@ -14,6 +15,7 @@
 #include "io/test/event_manager_test.h"
 
 using namespace std;
+using boost::assign::list_of;
 
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
@@ -1391,6 +1393,26 @@ protected:
                     return false;
                 }
             }
+        } else {
+            return false;
+        }
+    }
+
+    bool VerifyRouteUpdateTagList(string instance_name, string route,
+            vector<int> &tag_list, test::NetworkAgentMock *agent) {
+        const autogen::ItemType *rt =
+            agent->Inet6RouteLookup(instance_name, route);
+        if (rt) {
+            autogen::TagListType rcvd_tag_list =
+                rt->entry.next_hops.next_hop[0].tag_list;
+            if (rcvd_tag_list.tag.size() != tag_list.size())
+                return false;
+            for (size_t idx = 0; idx < tag_list.size(); ++idx) {
+                if (rcvd_tag_list.tag[idx] != tag_list[idx]) {
+                    return false;
+                }
+            }
+            return true;
         } else {
             return false;
         }
@@ -4242,6 +4264,67 @@ TEST_F(BgpXmppInet6Test2Peers, RouteWithNoExportCommunity) {
     // Verify the community-list at agent A
     TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateCommunities("blue", route_a.str(), 
                                                community_a, agent_a_.get()));
+    // Delete route
+    agent_a_->DeleteInet6Route("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->Inet6RouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_a_->Inet6RouteCount("blue"));
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->Inet6RouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_b_->Inet6RouteCount("blue"));
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+
+// Add route with tag-list
+TEST_F(BgpXmppInet6Test2Peers, RouteWithTagList) {
+    Configure(two_cns_unconnected_instances_config);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server 1.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xmpp_server1_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server 2.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xmpp_server2_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue from A.
+    agent_a_->Inet6Subscribe("blue", 1);
+
+    // Register to blue from B.
+    agent_b_->Inet6Subscribe("blue", 1);
+
+    // Add route from agent A to blue instance.
+    stringstream route_a;
+    route_a << "2001:db8:85a3::8a2e:370:aaaa/128";
+    vector<int> tag_list = list_of (1)(2);
+    test::NextHop nexthop_a("192.168.1.1", 0, tag_list);
+
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
+    task_util::WaitForIdle();
+
+    // Verify that routes show up on Agent A.
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount("blue"));
+
+    // Verify that routes show up on Agent B.
+    TASK_UTIL_EXPECT_EQ(1, agent_b_->Inet6RouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_b_->Inet6RouteCount("blue"));
+
+    // Verify the community-list at both the agents.
+    TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateTagList("blue", route_a.str(), 
+                                               tag_list, agent_a_.get()));
+    TASK_UTIL_EXPECT_TRUE(VerifyRouteUpdateTagList("blue", route_a.str(), 
+                                               tag_list, agent_b_.get()));
+
     // Delete route
     agent_a_->DeleteInet6Route("blue", route_a.str());
     task_util::WaitForIdle();

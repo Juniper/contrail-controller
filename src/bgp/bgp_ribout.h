@@ -58,6 +58,7 @@ public:
             uint32_t l3_label() const { return l3_label_; }
             int origin_vn_index() const { return origin_vn_index_; }
             std::vector<std::string> encap() const { return encap_; }
+            std::vector<int> tag_list() const { return tag_list_; }
 
             int CompareTo(const NextHop &rhs) const;
             bool operator==(const NextHop &rhs) const;
@@ -71,6 +72,7 @@ public:
             uint32_t l3_label_;
             int origin_vn_index_;
             std::vector<std::string> encap_;
+            std::vector<int> tag_list_;
     };
 
     typedef std::vector<NextHop> NextHopList;

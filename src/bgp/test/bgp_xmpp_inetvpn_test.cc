@@ -539,10 +539,24 @@ protected:
         return (rt_encap.tunnel_encapsulation[0] == encap);
     }
 
+    bool CheckTagList(autogen::TagListType &rt_tag_list,
+                      const vector<int> &tag_list) {
+        if (rt_tag_list.tag.size() != tag_list.size())
+            return false;
+        for (size_t idx = 0; idx < tag_list.size(); ++idx) {
+            if (rt_tag_list.tag[idx] != tag_list[idx]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
     bool CheckRoute(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, int local_pref, int med, int seq,
         const string &encap, const string &origin_vn, const vector<int> sgids,
-        const LoadBalance &loadBalance, const vector<string> communities) {
+        const LoadBalance &loadBalance, const vector<string> communities,
+        const vector<int> tag_list) {
         const autogen::ItemType *rt = agent->RouteLookup(net, prefix);
         if (!rt)
             return false;
@@ -570,6 +584,10 @@ protected:
             rt->entry.next_hops.next_hop[0].tunnel_encapsulation_list;
         if (!encap.empty() && !CheckEncap(rt_encap, encap))
             return false;
+
+        autogen::TagListType rt_tag = rt->entry.next_hops.next_hop[0].tag_list;
+        if (!tag_list.empty() && !CheckTagList(rt_tag, tag_list))
+            return false;
         return true;
     }
 
@@ -577,7 +595,7 @@ protected:
         string prefix, string nexthop, int local_pref, int med) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(agent, net, prefix, nexthop,
             local_pref, med, 0, string(), string(), vector<int>(),
-            LoadBalance(), vector<string>()));
+            LoadBalance(), vector<string>(), vector<int>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
@@ -587,14 +605,15 @@ protected:
         const LoadBalance lb = LoadBalance()) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, net, prefix, nexthop, local_pref, 0, 0, encap, origin_vn,
-            sgids, lb, vector<string>()));
+            sgids, lb, vector<string>(), vector<int>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
-        string prefix, string nexthop, const vector<int> sgids) {
+        string prefix, string nexthop, const vector<int> sgids,
+        const vector<int> tag_list = vector<int>()) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, net, prefix, nexthop, 0, 0, 0, string(), string(), sgids,
-            LoadBalance(), vector<string>()));
+            LoadBalance(), vector<string>(), tag_list));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
@@ -602,14 +621,14 @@ protected:
         const vector<int> sgids) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, net, prefix, nexthop, local_pref, 0, seq, string(), string(),
-            sgids, LoadBalance(), vector<string>()));
+            sgids, LoadBalance(), vector<string>(), vector<int>()));
     }
 
     void VerifyRouteExists(test::NetworkAgentMockPtr agent, string net,
         string prefix, string nexthop, const LoadBalance &lb) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, net, prefix, nexthop, 0, 0, 0, string(), string(),
-            vector<int>(), lb, vector<string>()));
+            vector<int>(), lb, vector<string>(), vector<int>()));
     }
 
 
@@ -617,7 +636,7 @@ protected:
         string prefix, string nexthop, const vector<string> &communities) {
         TASK_UTIL_EXPECT_TRUE(CheckRoute(
             agent, net, prefix, nexthop, 0, 0, 0, string(), string(),
-            vector<int>(), LoadBalance(), communities));
+            vector<int>(), LoadBalance(), communities, vector<int>()));
     }
 
     void VerifyRouteNoExists(test::NetworkAgentMockPtr agent, string net,
@@ -2642,6 +2661,53 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, TunnelEncap) {
         agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "udp");
     VerifyRouteExists(
         agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "udp");
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+TEST_F(BgpXmppInetvpn2ControlNodeTest, TagList) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    vector<int> tag_list = list_of (1)(2);
+    test::NextHop next_hop("192.168.1.1", 0, tag_list);
+    agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B.
+    VerifyRouteExists(
+       agent_a_, "blue", route_a.str(), "192.168.1.1", vector<int>(), tag_list);
+    VerifyRouteExists(
+       agent_b_, "blue", route_a.str(), "192.168.1.1", vector<int>(), tag_list);
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());

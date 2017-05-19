@@ -34,6 +34,7 @@ RibOutAttr::NextHop::NextHop(const BgpTable *table, IpAddress address,
       origin_vn_index_(-1) {
     if (ext_community) {
         encap_ = ext_community->GetTunnelEncap();
+        tag_list_ = ext_community->GetTagList();
         origin_vn_index_ = ext_community->GetOriginVnIndex();
     }
     if (origin_vn_index_ < 0 && vrf_originated) {
@@ -51,6 +52,10 @@ int RibOutAttr::NextHop::CompareTo(const NextHop &rhs) const {
     KEY_COMPARE(encap_.size(), rhs.encap_.size());
     for (size_t idx = 0; idx < encap_.size(); ++idx) {
         KEY_COMPARE(encap_[idx], rhs.encap_[idx]);
+    }
+    KEY_COMPARE(tag_list_.size(), rhs.tag_list_.size());
+    for (size_t idx = 0; idx < tag_list_.size(); ++idx) {
+        KEY_COMPARE(tag_list_[idx], rhs.tag_list_[idx]);
     }
     return 0;
 }

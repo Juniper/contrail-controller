@@ -173,6 +173,7 @@ public:
     }
 
     std::vector<std::string> GetTunnelEncap() const;
+    std::vector<int> GetTagList() const;
     bool ContainsTunnelEncapVxlan() const;
     int GetOriginVnIndex() const;
 
@@ -280,6 +281,12 @@ public:
         // Load Balance extended community
         return (val[0] == BgpExtendedCommunityType::Opaque) &&
                (val[1] == BgpExtendedCommunityOpaqueSubType::LoadBalance);
+    }
+
+    static bool is_tag(const ExtCommunityValue &val) {
+        // Tag extended community
+        return (val[0] == BgpExtendedCommunityType::Experimental) &&
+               (val[1] == BgpExtendedCommunityExperimentalSubType::Tag);
     }
 
     friend std::size_t hash_value(ExtCommunity const &comm) {
