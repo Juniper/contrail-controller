@@ -244,6 +244,8 @@ int main(int argc, char *argv[]) {
         SetLoggingDisabled(true);
     }
 
+    ControlNode::SetSelfIp(options.host_ip());
+
     ControlNode::SetTestMode(options.test_mode());
 
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
