@@ -5,12 +5,16 @@
 import os
 import sys
 import argparse
+import platform
 
 from contrail_vrouter_provisioning import local
 from contrail_vrouter_provisioning.base import ContrailSetup
 from contrail_vrouter_provisioning.toragent.templates import tor_agent_conf
 from contrail_vrouter_provisioning.toragent.templates import tor_agent_ini
+from contrail_vrouter_provisioning.toragent.templates import tor_agent_service
+from distutils.version import LooseVersion
 
+(PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 
 class TorAgentBaseSetup(ContrailSetup):
     def __init__(self, tor_agent_args, args_str=None):
@@ -78,6 +82,21 @@ class TorAgentBaseSetup(ContrailSetup):
               self.tor_ini_file_name
         local("sudo mv %s %s" % (src, dst))
 
+    def fixup_tor_service(self):
+        self.tor_process_name = 'contrail-tor-agent-' + self._args.tor_id
+
+        template_vals = {
+                '__contrail_tor_agent_conf_file__': self.tor_file_name,
+                        }
+        self._template_substitute_write(
+                tor_agent_service.template, template_vals,
+                self._temp_dir_name + '/tor_agent_service')
+        self.tor_service_file_name = self.tor_process_name + '.service'
+        src = "%s/tor_agent_service" % self._temp_dir_name
+        dst = "/lib/systemd/system/%s" %\
+              self.tor_service_file_name
+        local("sudo mv %s %s" % (src, dst))
+
     def create_init_file(self):
         local("sudo cp /etc/init.d/contrail-vrouter-agent /etc/init.d/%s" %(self.tor_process_name))
 
@@ -115,17 +134,29 @@ class TorAgentBaseSetup(ContrailSetup):
         cmd += " --oper add "
         local(cmd)
     
-    def run_services(self):
+    def update_supervisor(self):
         if self._args.restart:
             local("sudo supervisorctl -c /etc/contrail/supervisord_vrouter.conf update")
 
+    def run_services(self):
+        if self._args.restart:
+            cmd = "sudo service %s start" % self.tor_process_name
+            local(cmd)
+
     def setup(self):
         self.fixup_tor_agent()
-        self.fixup_tor_ini()
-        self.create_init_file()
-        self.add_vnc_config()
-        self.add_physical_device()
-        self.run_services()
+        if (('ubuntu' in PLATFORM.lower()) and
+            (LooseVersion(VERSION) >= LooseVersion('16.04'))):
+            self.fixup_tor_service()
+            self.add_vnc_config()
+            self.add_physical_device()
+            self.run_services()
+        else:
+            self.fixup_tor_ini()
+            self.create_init_file()
+            self.add_vnc_config()
+            self.add_physical_device()
+            self.update_supervisor()
 
 class TorAgentSetup(ContrailSetup):
     def __init__(self, args_str=None):
@@ -138,6 +169,9 @@ class TorAgentSetup(ContrailSetup):
             'admin_passwd':None,
             'admin_tenant_name':'admin',
             'auth_protocol':None,
+            'tor_vendor_name':'',
+            'tor_product_name':'',
+            'tor_agent_ovs_ka':10000,
             'restart':True
         }
 
