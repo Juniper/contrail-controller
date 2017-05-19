@@ -67,7 +67,7 @@ from opserver_util import AnalyticsDiscovery
 from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
 from libpartition.libpartition import PartitionClient
-from kafka import KafkaClient, SimpleProducer
+from kafka import KafkaConsumer, SimpleProducer
 import redis
 from collections import namedtuple
 
