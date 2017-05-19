@@ -5,7 +5,8 @@ monkey.patch_all()
 import logging
 import gevent
 from gevent.lock import BoundedSemaphore
-from kafka import KafkaClient, KeyedProducer, SimpleConsumer, common
+from kafka.client import SimpleClient
+from kafka import KeyedProducer, KafkaConsumer, common
 from uveserver import UVEServer
 import os
 import json
@@ -575,13 +576,12 @@ class PartitionHandler(gevent.Greenlet):
                 if pause:
                     gevent.sleep(5)
                     pause = False
-                self._logger.error("New KafkaClient %s" % self._topic)
-                self._kfk = KafkaClient(self._brokers , "kc-" + self._topic, timeout=5)
+                self._logger.error("Newer KafkaClient %s" % self._topic)
                 self._failed = False
                 try:
-                    consumer = SimpleConsumer(self._kfk, self._group, self._topic,\
-                            buffer_size = 4096*4*4, max_buffer_size=4096*32*4,\
-                            auto_commit = False)
+                    consumer = KafkaConsumer(self._topic,
+                        bootstrap_servers=self._brokers.split(','),
+                        group_id = None)
                 except Exception as ex:
                     template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
                     messag = template.format(type(ex).__name__, ex.args)
@@ -592,18 +592,25 @@ class PartitionHandler(gevent.Greenlet):
 
                 self._logger.error("Starting %s" % self._topic)
                 
-                # Start consuming from the latest message
-                consumer.seek(0,2)
-
                 if self._limit:
                     raise gevent.GreenletExit
 
                 while True:
                     try:
-                        mlist = consumer.get_messages(10,timeout=0.5)
-                        if not self.msg_handler(mlist):
-                            raise gevent.GreenletExit
-                        pcount += len(mlist) 
+                        mdict = consumer.poll()
+                        if len(mdict):
+                            counts = {}
+                            for tp,tv in mdict.iteritems():
+                                if tp not in counts:
+                                    counts[tp] = 0
+                                counts[tp] += len(tv)
+                                if not self.msg_handler(tv):
+                                    raise gevent.GreenletExit
+                                pcount += len(tv)
+                            self._logger.debug("poll for topic %s : %s" % (self._topic, str(counts)))
+                        else:
+                            gevent.sleep(0.5)
+
                     except TypeError as ex:
                         self._logger.error("Type Error: %s trace %s" % \
                                 (str(ex.args), traceback.format_exc()))
@@ -619,8 +626,8 @@ class PartitionHandler(gevent.Greenlet):
             except Exception as ex:
                 template = "An exception of type {0} occured. Arguments:\n{1!r}"
                 messag = template.format(type(ex).__name__, ex.args)
-                self._logger.error("%s %s : traceback %s" % \
-                                  (self._topic, messag, traceback.format_exc()))
+                self._logger.error("%s : traceback %s" % \
+                                  (messag, traceback.format_exc()))
                 self.stop_partition()
 		self._failed = True
                 pause = True
@@ -769,8 +776,9 @@ class UveStreamProc(PartitionHandler):
         for mm in mlist:
             if mm is None:
                 continue
-            self._logger.debug("%s Reading offset %d" % \
-                    (self._topic, mm.offset))
+            # TODO : Anish
+            #self._logger.debug("%s Reading offset %d" % \
+            #        (self._topic, mm.offset))
             if not self.msg_handler_single(mm):
                 self._logger.info("%s could not handle %s" % \
                     (self._topic, str(mm)))
@@ -781,16 +789,16 @@ class UveStreamProc(PartitionHandler):
         self._partoffset = om.offset
         chg = {}
         try:
-            params = om.message.key.split("|")
+            params = om.key.split("|")
             gen = params[2]
             coll = params[3]
             uv = {}
             uv["type"] = params[1]
             uv["key"] = params[0]
-            if om.message.value is None or len(om.message.value) == 0:
+            if om.value is None or len(om.value) == 0:
                 uv["value"] = None
             else:
-                uv["value"] = json.loads(om.message.value)
+                uv["value"] = json.loads(om.value)
 
             if not self._uvedb.has_key(coll):
                 # This partition is not synced yet.
@@ -871,7 +879,7 @@ if __name__ == '__main__':
     brokers = "localhost:9092,localhost:9093,localhost:9094"
     group = "workers"
     
-    kafka = KafkaClient(brokers,str(os.getpid()))
+    kafka = SimpleClient(brokers,str(os.getpid()))
     cons = SimpleConsumer(kafka, group, "ctrl")
     cons.provide_partition_info()
     print "Starting control"
