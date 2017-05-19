@@ -20,7 +20,8 @@ libextended_community = env.Library('extended_community',
                                      'load_balance.cc',
                                      'mac_mobility.cc',
                                      'router_mac.cc',
-                                     'site_of_origin.cc'])
+                                     'site_of_origin.cc',
+                                     'tag.cc'])
 
 extended_community_test_cases = env.SConscript('test/SConscript', exports='BuildEnv',
                                      duplicate = 0)

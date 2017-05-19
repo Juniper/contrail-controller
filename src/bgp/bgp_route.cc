@@ -15,6 +15,7 @@
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
 #include "bgp/extended-community/site_of_origin.h"
+#include "bgp/extended-community/tag.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -409,6 +410,9 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
             ShowLoadBalance show_load_balance;
             load_balance.ShowAttribute(&show_load_balance);
             show_path->set_load_balance(show_load_balance);
+        } else if (ExtCommunity::is_tag(*it)) {
+            Tag tag(*it);
+            communities->push_back(tag.ToString());
         } else {
             char temp[50];
             int len = snprintf(temp, sizeof(temp), "ext community: ");

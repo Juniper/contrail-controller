@@ -417,6 +417,7 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
             }
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
                 nh.tunnel_encapsulations_;
+            item_nexthop.tag_list.tag = nh.tag_list_;
             rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
         }
     }
@@ -491,6 +492,7 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddDeleteXmlDoc(
                     item_nexthop.label = label_alloc_;
                 }
             }
+            item_nexthop.tag_list.tag = nh.tag_list_;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
                 nh.tunnel_encapsulations_;
             if (!nh.tunnel_encapsulations_.empty()) {
@@ -552,6 +554,7 @@ pugi::xml_document *XmppDocumentMock::Inet6RouteAddBogusXmlDoc(
         item_nexthop.af = BgpAf::IPv4;
         item_nexthop.address = nh.address_;
         item_nexthop.label = 0xfffff;
+        item_nexthop.tag_list.tag = nh.tag_list_;
         item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.
         push_back(nh.tunnel_encapsulations_[0]);
         rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
@@ -650,6 +653,7 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
             item_nexthop.l3_label = nh.l3_label_;
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation =
                 nh.tunnel_encapsulations_;
+            item_nexthop.tag_list.tag = nh.tag_list_;
             rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
         }
 

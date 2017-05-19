@@ -207,6 +207,14 @@ struct NextHop {
             tunnel_encapsulations_.push_back(tunnel);
         }
     }
+
+    NextHop(std::string address, uint32_t label, std::vector<int> &tag_list,
+            const std::string virtual_network = "") :
+            address_(address), no_label_(false), label_(label), l3_label_(0),
+            tag_list_(tag_list), virtual_network_(virtual_network) {
+        tunnel_encapsulations_.push_back("gre");
+    }
+
     NextHop(std::string address, std::string mac, uint32_t label,
         uint32_t l3_label, const std::string virtual_network = "") :
                 address_(address), mac_(mac), no_label_(false), label_(label),
@@ -234,6 +242,19 @@ struct NextHop {
                 return false;
             }
         }
+
+        if (tag_list_.size() != other.tag_list_.size()) {
+            return false;
+        }
+
+        std::vector<int>::iterator it;
+        for (it = tag_list_.begin(); it != tag_list_.end(); it++) {
+            if (std::find(other.tag_list_.begin(), other.tag_list_.end(), *it)
+                == other.tag_list_.end()) {
+                return false;
+            }
+        }
+
         if (virtual_network_ != other.virtual_network_) return false;
         return true;
     }
@@ -244,6 +265,7 @@ struct NextHop {
     int label_;
     int l3_label_;
     std::vector<std::string> tunnel_encapsulations_;
+    std::vector<int> tag_list_;
     std::string virtual_network_;
 };
 

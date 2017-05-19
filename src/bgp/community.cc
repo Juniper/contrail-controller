@@ -11,6 +11,7 @@
 
 #include "base/string_util.h"
 #include "bgp/bgp_proto.h"
+#include "bgp/extended-community/tag.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "net/community_type.h"
@@ -321,6 +322,22 @@ vector<string> ExtCommunity::GetTunnelEncap() const {
         unique(encap_list.begin(), encap_list.end());
     encap_list.erase(encap_iter, encap_list.end());
     return encap_list;
+}
+
+vector<int> ExtCommunity::GetTagList() const {
+    vector<int> tag_list;
+    for (ExtCommunityList::const_iterator iter = communities_.begin();
+         iter != communities_.end(); ++iter) {
+        if (!ExtCommunity::is_tag(*iter))
+            continue;
+        Tag tag_comm(*iter);
+        tag_list.push_back(tag_comm.tag());
+    }
+
+    sort(tag_list.begin(), tag_list.end());
+    vector<int>::iterator tag_iter = unique(tag_list.begin(), tag_list.end());
+    tag_list.erase(tag_iter, tag_list.end());
+    return tag_list;
 }
 
 bool ExtCommunity::ContainsTunnelEncapVxlan() const {

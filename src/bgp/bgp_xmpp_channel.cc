@@ -26,6 +26,7 @@
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
+#include "bgp/extended-community/tag.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/peer_close_manager.h"
@@ -57,6 +58,7 @@ using autogen::NextHopListType;
 using autogen::SecurityGroupListType;
 using autogen::CommunityTagListType;
 using autogen::TunnelEncapsulationListType;
+using autogen::TagListType;
 
 using boost::assign::list_of;
 using boost::regex;
@@ -1101,6 +1103,13 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                 flags = BgpPath::NoTunnelEncap;
             }
 
+            // Process tag list.
+            for (TagListType::const_iterator tit = nit->tag_list.begin();
+                tit != nit->tag_list.end(); ++tit) {
+                Tag tag(*tit);
+                ext.communities.push_back(tag.GetExtCommunityValue());
+            }
+
             BgpAttrLocalPref local_pref(item.entry.local_preference);
             if (local_pref.local_pref != 0)
                 attrs.push_back(&local_pref);
@@ -1373,6 +1382,13 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             // by agent are invalid.
             if (!no_tunnel_encap && no_valid_tunnel_encap && !master) {
                 flags = BgpPath::NoTunnelEncap;
+            }
+
+            // Process tag list.
+            for (TagListType::const_iterator tit = nit->tag_list.begin();
+                tit != nit->tag_list.end(); ++tit) {
+                Tag tag(*tit);
+                ext.communities.push_back(tag.GetExtCommunityValue());
             }
 
             BgpAttrLocalPref local_pref(item.entry.local_preference);
@@ -1654,6 +1670,13 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         // by agent are invalid.
         if (!no_tunnel_encap && no_valid_tunnel_encap) {
             flags = BgpPath::NoTunnelEncap;
+        }
+
+        // Process tag list.
+        for (TagListType::const_iterator tit = nit->tag_list.begin();
+            tit != nit->tag_list.end(); ++tit) {
+            Tag tag(*tit);
+            ext.communities.push_back(tag.GetExtCommunityValue());
         }
 
         BgpAttrLocalPref local_pref(item.entry.local_preference);

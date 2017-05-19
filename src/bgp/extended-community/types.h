@@ -45,6 +45,7 @@ struct BgpExtendedCommunityExperimentalSubType {
     enum SubType {
         OriginVn = 0x71,
         SgId = 0x04,
+        Tag = 0x84,
     };
 };
 
