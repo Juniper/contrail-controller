@@ -598,11 +598,15 @@ class EventManager(object):
             send_uve = True
             proc_stat.stop_time = str(int(time.time() * 1000000))
             proc_stat.last_exit_unexpected = False
+            proc_stat.last_cpu = None
+            proc_stat.last_time = 0
 
         if (pstate == 'PROCESS_STATE_EXITED'):
             proc_stat.exit_count += 1
             send_uve = True
             proc_stat.exit_time = str(int(time.time() * 1000000))
+            proc_stat.last_cpu = None
+            proc_stat.last_time = 0
             if not process_info['expected']:
                 self.stderr.write(
                     pname + " with pid:" + process_info['pid'] +
