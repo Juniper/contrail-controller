@@ -128,6 +128,63 @@ None
 10.84.32.12
 ```
 
+### 9.1.3 analytics standalone solution server.json
+
+```
+; single node
+{                                                                
+    "cluster_id": "cluster1",                                    
+    "domain": "sm-domain.com",                                   
+    "id": "server1",                                             
+    "parameters" : {                                             
+        "provision": {                                           
+            "contrail_4": {                                      
+               "controller_components": "['config',’webui']"   
+            },                  
+    …
+    …
+}
+```
+
+; multi node
+{                                                                
+    "cluster_id": "cluster1",                                    
+    "domain": "sm-domain.com",                                   
+    "id": "server1",                                             
+    "parameters" : {                                             
+        "provision": {                                           
+            "contrail_4": {                                      
+               "controller_components": "['config',’webui']"   
+            },                  
+    …
+    …
+},
+{                                                                
+    "cluster_id": "cluster1",                                    
+    "domain": "sm-domain.com",                                   
+    "id": "server2",                                             
+    "parameters" : {                                             
+        "provision": {                                           
+            "contrail_4": {                                      
+               "controller_components": "['config',’webui']"   
+            },                  
+    …
+    …
+},
+{                                                                
+    "cluster_id": "cluster1",                                    
+    "domain": "sm-domain.com",                                   
+    "id": "server3",                                             
+    "parameters" : {                                             
+        "provision": {                                           
+            "contrail_4": {                                      
+               "controller_components": "['config',’webui']"   
+            },                  
+    …
+    …
+}
+```
+
 ## 9.2 Dev tests
 ## 9.3 System tests
 
