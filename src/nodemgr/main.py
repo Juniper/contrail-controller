@@ -176,7 +176,6 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-svc-monitor.service',
                       'contrail-device-manager.service',
                       'contrail-config-nodemgr.service',
-                      'ifmap.service',
                      ]
         cassandra_repair_interval = _args.cassandra_repair_interval
 	cassandra_repair_logdir = _args.cassandra_repair_logdir
