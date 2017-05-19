@@ -129,12 +129,11 @@ class Mock_get_messages(Mock_base):
     def __init__(self, *args, **kwargs):
         Mock_base.__init__(self)
 
-    def __call__(self, num, timeout):
+    def __call__(self):
         vals = []
         for key in self.store.keys():
             vals.append(self.store[key])
             del self.store[key]
-        gevent.sleep(timeout)
         if len(vals):
             return vals
         else:
@@ -261,8 +260,6 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         cls._pc.start()
         cls._kc = mock.patch('opserver.partition_handler.KafkaClient', autospec=True)
         cls._kc.start()
-        cls._ac = mock.patch('opserver.alarmgen.KafkaClient', autospec=True)
-        cls._ac.start()
         cls._sc = mock.patch('opserver.alarmgen.SimpleProducer', autospec=True)
         cls._sc.start()
 
@@ -374,11 +371,11 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
-    @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
+    @mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
     # Test partition Initialization, including boot-straping using UVEServer
     # Test partition shutdown as well
     def test_00_init(self,
-            mock_SimpleConsumer,
+            mock_KafkaConsumer,
             mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
@@ -397,7 +394,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         mock_redis_instances.side_effect = m_redis_instances
 
         m_get_messages = Mock_get_messages()
-        mock_SimpleConsumer.return_value.get_messages.side_effect = \
+        mock_KafkaConsumer.return_value.poll.side_effect = \
             m_get_messages
 
         self._ag.libpart_cb([1])
@@ -417,11 +414,11 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
-    @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
+    @mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
     # Test initialization followed by read from Kafka
     # Also test for deletetion of a boot-straped UVE
     def test_01_rxmsg(self,
-            mock_SimpleConsumer,
+            mock_KafkaConsumer,
             mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
@@ -445,7 +442,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                     message=Message(magic=0, attributes=0,
                     key='ObjectYY:uve2|type2|gen1|127.0.0.1:0',
                     value='{}'))
-        mock_SimpleConsumer.return_value.get_messages.side_effect = \
+        mock_KafkaConsumer.return_value.poll.side_effect = \
             m_get_messages
 
         self._ag.libpart_cb([1])
@@ -460,11 +457,11 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
-    @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
+    @mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
     # Test late bringup of collector
     # Also test collector shutdown
     def test_02_collectorha(self,
-            mock_SimpleConsumer,
+            mock_KafkaConsumer,
             mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
@@ -493,7 +490,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                     message=Message(magic=0, attributes=0,
                     key='ObjectYY:uve2|type2|gen1|127.0.0.5:0',
                     value='{}'))
-        mock_SimpleConsumer.return_value.get_messages.side_effect = \
+        mock_SimpleConsumer.return_value.poll.side_effect = \
             m_get_messages
 
         self._ag.libpart_cb([1])
