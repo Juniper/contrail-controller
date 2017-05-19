@@ -261,7 +261,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         cls._pc.start()
         cls._kc = mock.patch('opserver.partition_handler.KafkaClient', autospec=True)
         cls._kc.start()
-        cls._ac = mock.patch('opserver.alarmgen.KafkaClient', autospec=True)
+        cls._ac = mock.patch('opserver.alarmgen.KafkaConsumer', autospec=True)
         cls._ac.start()
         cls._sc = mock.patch('opserver.alarmgen.SimpleProducer', autospec=True)
         cls._sc.start()
@@ -374,11 +374,11 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
-    @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
+    @mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
     # Test partition Initialization, including boot-straping using UVEServer
     # Test partition shutdown as well
     def test_00_init(self,
-            mock_SimpleConsumer,
+            mock_KafkaConsumer,
             mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
@@ -397,7 +397,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         mock_redis_instances.side_effect = m_redis_instances
 
         m_get_messages = Mock_get_messages()
-        mock_SimpleConsumer.return_value.get_messages.side_effect = \
+        mock_KafkaConsumer.return_value.poll.side_effect = \
             m_get_messages
 
         self._ag.libpart_cb([1])
