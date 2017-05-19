@@ -79,11 +79,17 @@ class DBBase(object):
 
     @classmethod
     def delete(cls, key):
-        obj = cls.get(key)
-        if obj is None:
-            return
-        obj.delete_obj()
-        del cls._dict[key]
+        try:
+            obj = cls.get(key)
+            if obj is None:
+                return
+            obj.delete_obj()
+        finally:
+            # Even if an error is encountered, delete the object from cache
+            try:
+                del cls._dict[key]
+            except KeyError:
+                pass
     # end delete
 
     def get_ref_uuid_from_dict(self, obj_dict, ref_name):
@@ -416,4 +422,3 @@ class DBBase(object):
             return None
 
 # end class DBBase
-
