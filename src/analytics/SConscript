@@ -58,6 +58,8 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'protobuf',
         'zookeeper_client',
         'zookeeper_mt',
+        'ssl',
+        'crypto',
         'boost_filesystem',
         'boost_program_options'])
 
