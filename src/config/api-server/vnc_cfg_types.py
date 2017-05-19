@@ -909,23 +909,20 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
             sub_vmi_uuids = [ref['uuid'] for ref in sub_vmi_refs]
 
-            if not sub_vmi_uuids:
-                return True, ''
+            if sub_vmi_uuids:
+                ok, sub_vmis = db_conn.dbe_list(
+                    'virtual_machine_interface', obj_uuids=sub_vmi_uuids,
+                    field_names=['virtual_machine_interface_properties'])
+                if not ok:
+                    return ok, sub_vmis
 
-            ok, sub_vmis = db_conn.dbe_list(
-                           'virtual_machine_interface',
-                           obj_uuids=sub_vmi_uuids,
-                           field_names=['virtual_machine_interface_properties'])
-            if not ok:
-                return ok, sub_vmis
-
-            sub_vmi_vlan_tags = [
-                ((vmi.get('virtual_machine_interface_properties') or {}).get(
-                    'sub_interface_vlan_tag')) for vmi in sub_vmis]
-            if vlan_tag in sub_vmi_vlan_tags:
-                msg = "Two sub interfaces under same primary port "\
-                      "can't have same Vlan tag"
-                return (False, (400, msg))
+                sub_vmi_vlan_tags = [((vmi.get(
+                    'virtual_machine_interface_properties') or {}).get(
+                        'sub_interface_vlan_tag')) for vmi in sub_vmis]
+                if vlan_tag in sub_vmi_vlan_tags:
+                    msg = "Two sub interfaces under same primary port "\
+                          "can't have same Vlan tag"
+                    return (False, (400, msg))
 
         (ok, error) = cls._check_bridge_domain_vmi_association(obj_dict, None,
                                                        db_conn, vn_uuid, True)
