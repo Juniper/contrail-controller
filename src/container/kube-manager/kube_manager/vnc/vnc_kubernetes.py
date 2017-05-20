@@ -126,11 +126,12 @@ class VncKubernetes(VncCommon):
         # Retry till API server connection is up
         connected = False
         self.connection_state_update(ConnectionStatus.INIT)
+        api_server_list = self.args.vnc_endpoint_ip.split(',')
         while not connected:
             try:
                 vnc_lib = VncApi(self.args.auth_user,
                     self.args.auth_password, self.args.auth_tenant,
-                    self.args.vnc_endpoint_ip, self.args.vnc_endpoint_port,
+                    api_server_list, self.args.vnc_endpoint_port,
                     auth_token_url=self.args.auth_token_url)
                 connected = True
                 self.connection_state_update(ConnectionStatus.UP)
