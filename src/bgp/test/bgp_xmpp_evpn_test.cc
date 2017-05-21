@@ -2120,7 +2120,7 @@ TEST_F(BgpXmppEvpnTest2, RouteAddWithTagList) {
     agent_a_->EnetSubscribe("blue", 1);
     agent_b_->EnetSubscribe("blue", 1);
 
-    // Add route from agent A with sticky bit and ETree Leaf mode
+    // Add route from agent A with TagList
     stringstream eroute_a;
     eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
     vector<int> tag_list = list_of (1)(2);
@@ -2128,7 +2128,7 @@ TEST_F(BgpXmppEvpnTest2, RouteAddWithTagList) {
     agent_a_->AddEnetRoute("blue", eroute_a.str(), next_hop1);
     task_util::WaitForIdle();
 
-    // Add route from agent B with non-sticky bit and ETree Root mode
+    // Add route from agent B with TagList
     stringstream eroute_b;
     eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
     vector<int> tag_list_1 = list_of (3)(4);
@@ -2142,11 +2142,11 @@ TEST_F(BgpXmppEvpnTest2, RouteAddWithTagList) {
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
 
-    // Verify local pref and sequence on A.
+    // Verify the TagList
     VerifyRouteTagList(agent_a_, "blue", eroute_a.str(), tag_list);
     VerifyRouteTagList(agent_a_, "blue", eroute_b.str(), tag_list_1);
 
-    // Verify local pref and sequence on B.
+    // Verify the TagList
     VerifyRouteTagList(agent_b_, "blue", eroute_a.str(), tag_list);
     VerifyRouteTagList(agent_b_, "blue", eroute_b.str(), tag_list_1);
 
