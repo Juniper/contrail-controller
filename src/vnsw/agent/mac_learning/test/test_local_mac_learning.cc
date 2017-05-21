@@ -144,6 +144,9 @@ TEST_F(MacLearningTest, Test2) {
 
 //Test token allocation and relinquishing
 TEST_F(MacLearningTest, Test4) {
+    AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
+    client->WaitForIdle();
+
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     const VmInterface *intf2 = static_cast<const VmInterface *>(VmPortGet(2));
 
@@ -171,6 +174,8 @@ TEST_F(MacLearningTest, Test4) {
     WAIT_FOR(1000, 1000,(EvpnRouteGet("vrf1", smac, Ip4Address(0), 0) == NULL));
     EXPECT_TRUE(agent_->mac_learning_proto()->add_tokens()->token_count() ==
                 tokens);
+    DelEncapList();
+    client->WaitForIdle();
 }
 
 //Stop DB processing and verify DB processing stops after tokens
