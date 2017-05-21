@@ -26,12 +26,12 @@ void XmppChannelMux::Close() {
     connection_->Clear();
 }
 
-bool XmppChannelMux::LastReceived(uint64_t durationMsec) const {
-    return (UTCTimestampUsec() - last_received_) <= durationMsec * 1000;
+bool XmppChannelMux::LastReceived(time_t duration) const {
+    return (UTCTimestamp() - last_received_) <= duration;
 }
 
-bool XmppChannelMux::LastSent(uint64_t durationMsec) const {
-    return (UTCTimestampUsec() - last_sent_) <= durationMsec * 1000;
+bool XmppChannelMux::LastSent(time_t duration) const {
+    return (UTCTimestamp() - last_sent_) <= duration;
 }
 
 xmps::PeerState XmppChannelMux::GetPeerState() const {
@@ -59,7 +59,7 @@ bool XmppChannelMux::Send(const uint8_t *msg, size_t msgsize,
     if (!connection_) return false;
 
     tbb::mutex::scoped_lock lock(mutex_);
-    last_sent_ = UTCTimestampUsec();
+    last_sent_ = UTCTimestamp();
     bool res = connection_->Send(msg, msgsize, msg_str);
     if (res == false) {
         RegisterWriteReady(id, cb);
@@ -165,7 +165,7 @@ inline bool MatchCallback(string to, xmps::PeerId peer) {
 }
 
 void XmppChannelMux::ProcessXmppMessage(const XmppStanza::XmppMessage *msg) {
-    last_received_ = UTCTimestampUsec();
+    last_received_ = UTCTimestamp();
     ReceiveCbMap::iterator iter = rxmap_.begin();
     for (; iter != rxmap_.end(); ++iter) {
         if (MatchCallback(msg->to, iter->first)) {

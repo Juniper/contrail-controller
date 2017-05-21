@@ -32,6 +32,7 @@ env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
 env.Append(LIBPATH = env['TOP'] + '/bgp/security_group')
 env.Append(LIBPATH = env['TOP'] + '/bgp/tunnel_encap')
 env.Append(LIBPATH = env['TOP'] + '/control-node')
+env.Append(LIBPATH = env['TOP'] + '/discovery/client')
 env.Append(LIBPATH = env['TOP'] + '/db')
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/ifmap')
@@ -48,6 +49,13 @@ env.Prepend(LIBS = [
                     'bgp',
                     'bgp_ifmap_config',
                     'peer_sandesh',
+                    'ifmapio',
+                    'ifmap_server',
+                    'ds',
+                    'xmpp',
+                    'io',
+                    'http',
+                    'httpc',
                     'control_node',
                     'origin_vn',
                     'routing_instance',

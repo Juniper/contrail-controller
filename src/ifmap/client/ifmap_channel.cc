@@ -45,6 +45,7 @@
 
 const int IFMapChannel::kSocketCloseTimeout = 2 * 1000;
 const uint64_t IFMapChannel::kRetryConnectionMax = 0;
+tbb::atomic<bool> IFMapChannel::end_of_rib_computed_;
 
 using namespace boost::assign;
 using namespace std;
