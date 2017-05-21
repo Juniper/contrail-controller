@@ -72,7 +72,6 @@ bool MacLearningEntryLocal::Add() {
         return false;
     }
 
-    ethernet_tag_ = vm_intf->ethernet_tag();
     SecurityGroupList sg_list;
     vm_intf->CopySgIdList(&sg_list);
 
@@ -82,8 +81,7 @@ bool MacLearningEntryLocal::Add() {
                            mac(), vm_intf, Ip4Address(0),
                            vm_intf->l2_label(),
                            vm_intf->vn()->GetName(), sg_list,
-                           PathPreference(),
-                           vm_intf->ethernet_tag(),
+                           PathPreference(), 0,
                            vm_intf->etree_leaf());
     return true;
 }
