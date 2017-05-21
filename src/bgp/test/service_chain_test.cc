@@ -23,6 +23,7 @@
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/extended-community/site_of_origin.h"
+#include "bgp/extended-community/tag.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
@@ -283,7 +284,8 @@ protected:
                       const SiteOfOrigin &soo = SiteOfOrigin(),
                       string nexthop_str = "", uint32_t flags = 0,
                       int label = 0, const LoadBalance &lb = LoadBalance(),
-                      const RouteDistinguisher &rd = RouteDistinguisher()) {
+                      const RouteDistinguisher &rd = RouteDistinguisher(),
+                      vector<int> tag_list = vector<int>()) {
         boost::system::error_code error;
         PrefixT nlri = PrefixT::FromString(prefix, &error);
         EXPECT_FALSE(error);
@@ -324,6 +326,11 @@ protected:
             it != encap.end(); it++) {
             TunnelEncap tunnel_encap(*it);
             ext_comm.communities.push_back(tunnel_encap.GetExtCommunityValue());
+        }
+        for (vector<int>::iterator it = tag_list.begin();
+            it != tag_list.end(); it++) {
+            Tag tag(0, *it);
+            ext_comm.communities.push_back(tag.GetExtCommunityValue());
         }
         if (!soo.IsNull())
             ext_comm.communities.push_back(soo.GetExtCommunityValue());
@@ -371,7 +378,8 @@ protected:
                          string nexthop_str = "",
                          uint32_t flags = 0, int label = 0,
                          const LoadBalance &lb = LoadBalance(),
-                         const RouteDistinguisher &rd = RouteDistinguisher()) {
+                         const RouteDistinguisher &rd = RouteDistinguisher(),
+                         vector<int> tag_list = vector<int>()) {
         BgpTable *table = GetTable(instance_name);
         ASSERT_TRUE(table != NULL);
         const RoutingInstance *rtinstance = table->routing_instance();
@@ -416,6 +424,13 @@ protected:
             SecurityGroup sgid(0, *it);
             extcomm_spec.communities.push_back(sgid.GetExtCommunityValue());
         }
+
+        for (vector<int>::iterator it = tag_list.begin();
+            it != tag_list.end(); it++) {
+            Tag tag(0, *it);
+            extcomm_spec.communities.push_back(tag.GetExtCommunityValue());
+        }
+
         for (set<string>::iterator it = encap.begin();
             it != encap.end(); it++) {
             TunnelEncap tunnel_encap(*it);
@@ -547,9 +562,10 @@ protected:
                    vector<uint32_t> sglist = vector<uint32_t>(),
                    set<string> encap = set<string>(),
                    const LoadBalance &lb = LoadBalance(),
-                   const RouteDistinguisher &rd = RouteDistinguisher()) {
+                   const RouteDistinguisher &rd = RouteDistinguisher(),
+                   vector<int> tag_list = vector<int>()) {
         AddConnectedRoute(1, peer, prefix, localpref, nexthop, flags, label,
-                sglist, encap, lb, rd);
+                sglist, encap, lb, rd, tag_list);
     }
 
     void AddConnectedRoute(int chain_idx, IPeer *peer, const string &prefix,
@@ -558,7 +574,8 @@ protected:
                    vector<uint32_t> sglist = vector<uint32_t>(),
                    set<string> encap = set<string>(),
                    const LoadBalance &lb = LoadBalance(),
-                   const RouteDistinguisher &rd = RouteDistinguisher()) {
+                   const RouteDistinguisher &rd = RouteDistinguisher(),
+                   vector<int> tag_list = vector<int>()) {
         assert(1 <= chain_idx && chain_idx <= 3);
         string connected_table;
         if (chain_idx == 1) {
@@ -572,11 +589,11 @@ protected:
             nexthop = BuildNextHopAddress("7.8.9.1");
         if (connected_rt_is_vpn_) {
             AddVpnRoute(peer, connected_table, prefix,
-                    localpref, sglist, encap, nexthop, flags, label, lb, rd);
+            localpref, sglist, encap, nexthop, flags, label, lb, rd, tag_list);
         } else {
             AddRoute(peer, connected_table, prefix, localpref,
                 vector<uint32_t>(), sglist, encap, SiteOfOrigin(), nexthop,
-                flags, label, lb, rd);
+                flags, label, lb, rd, tag_list);
         }
         task_util::WaitForIdle();
     }
@@ -668,7 +685,8 @@ protected:
         const string &path_id, const string &origin_vn, uint32_t label,
         const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist,
-        const vector<string> &origin_vn_path, const LoadBalance &lb) {
+        const vector<string> &origin_vn_path, const LoadBalance &lb,
+        const vector<int> tag_list) {
         BgpAttrPtr attr = path->GetAttr();
         if (attr->nexthop().to_v4().to_string() != path_id)
             return false;
@@ -693,6 +711,11 @@ protected:
         if (tunnel_encaps.size()) {
             set<string> path_tunnel_encaps = GetTunnelEncapListFromRoute(path);
             if (path_tunnel_encaps != tunnel_encaps)
+                return false;
+        }
+        if (tag_list.size()) {
+            vector<int> path_tag_list = GetTagListFromRoute(path);
+            if (path_tag_list != tag_list)
                 return false;
         }
         if (!soo.IsNull()) {
@@ -726,7 +749,8 @@ protected:
         const vector<uint32_t> sg_ids, const set<string> tunnel_encaps,
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist,
         const vector<string> &origin_vn_path,
-        const LoadBalance &lb = LoadBalance()) {
+        const LoadBalance &lb,
+        const vector<int> tag_list) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(instance, prefix);
         if (!route)
@@ -737,7 +761,8 @@ protected:
             if (BgpPath::PathIdString(path->GetPathId()) != path_id)
                 continue;
             if (MatchPathAttributes(path, path_id, origin_vn, label,
-                sg_ids, tunnel_encaps, soo, commlist, origin_vn_path, lb)) {
+                sg_ids, tunnel_encaps, soo, commlist, origin_vn_path,
+                lb, tag_list)) {
                 return true;
             }
             return false;
@@ -753,7 +778,8 @@ protected:
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckPathAttributes(instance, prefix,
             path_id, origin_vn, 0, vector<uint32_t>(), tunnel_encaps,
-            SiteOfOrigin(), commlist, vector<string>()));
+            SiteOfOrigin(), commlist, vector<string>(), LoadBalance(),
+            vector<int>()));
     }
 
     bool CheckRouteAttributes(const string &instance, const string &prefix,
@@ -761,7 +787,7 @@ protected:
         const vector<uint32_t> sg_ids, const set<string> tunnel_encap,
         const SiteOfOrigin &soo, const vector<uint32_t> &commlist,
         const vector<string> &origin_vn_path,
-        const LoadBalance &lb = LoadBalance()) {
+        const LoadBalance &lb, const vector<int> tag_list) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(instance, prefix);
         if (!route)
@@ -777,7 +803,8 @@ protected:
                     continue;
                 found = true;
                 if (MatchPathAttributes(path, path_id, origin_vn, label,
-                    sg_ids, tunnel_encap, soo, commlist, origin_vn_path, lb)) {
+                    sg_ids, tunnel_encap, soo, commlist, origin_vn_path,
+                    lb, tag_list)) {
                     break;
                 }
                 return false;
@@ -798,7 +825,8 @@ protected:
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), commlist, vector<string>(), lb));
+            set<string>(), SiteOfOrigin(), commlist, vector<string>(), lb,
+            vector<int>()));
     }
 
     void VerifyRouteAttributes(const string &instance,
@@ -809,7 +837,8 @@ protected:
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, label, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), commlist, vector<string>()));
+            set<string>(), SiteOfOrigin(), commlist, vector<string>(),
+            LoadBalance(), vector<int>()));
     }
 
     void VerifyRouteAttributes(const string &instance, const string &prefix,
@@ -818,7 +847,8 @@ protected:
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), commlist, vector<string>()));
+            set<string>(), SiteOfOrigin(), commlist, vector<string>(),
+            LoadBalance(), vector<int>()));
     }
 
     void VerifyRouteAttributes(const string &instance,
@@ -829,7 +859,8 @@ protected:
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, sg_ids, set<string>(),
-            SiteOfOrigin(), commlist, vector<string>()));
+            SiteOfOrigin(), commlist, vector<string>(),
+            LoadBalance(), vector<int>()));
     }
 
     void VerifyRouteAttributes(const string &instance,
@@ -840,7 +871,8 @@ protected:
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            tunnel_encaps, SiteOfOrigin(), commlist, vector<string>()));
+            tunnel_encaps, SiteOfOrigin(), commlist, vector<string>(),
+            LoadBalance(), vector<int>()));
     }
 
     void VerifyRouteAttributes(const string &instance,
@@ -851,7 +883,8 @@ protected:
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), soo, commlist, vector<string>()));
+            set<string>(), soo, commlist, vector<string>(),
+            LoadBalance(), vector<int>()));
     }
 
     void VerifyRouteAttributes(const string &instance,
@@ -862,7 +895,7 @@ protected:
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
             set<string>(), SiteOfOrigin(), commspec.communities,
-            vector<string>()));
+            vector<string>(), LoadBalance(), vector<int>()));
     }
 
     void VerifyRouteAttributes(const string &instance,
@@ -873,8 +906,22 @@ protected:
         vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
         TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
             instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
-            set<string>(), SiteOfOrigin(), commlist, origin_vn_path));
+            set<string>(), SiteOfOrigin(), commlist, origin_vn_path,
+            LoadBalance(), vector<int>()));
     }
+
+    void VerifyRouteAttributes(const string &instance,
+        const string &prefix, const string &path_id, const string &origin_vn,
+        const vector<int> tag_list) {
+        task_util::WaitForIdle();
+        vector<string> path_ids = list_of(path_id);
+        vector<uint32_t> commlist = list_of(CommunityType::AcceptOwnNexthop);
+        TASK_UTIL_EXPECT_TRUE(CheckRouteAttributes(
+            instance, prefix, path_ids, origin_vn, 0, vector<uint32_t>(),
+            set<string>(), SiteOfOrigin(), commlist, vector<string>(),
+            LoadBalance(), tag_list));
+    }
+
 
     string FileRead(const string &filename) {
         ifstream file(filename.c_str());
@@ -1014,6 +1061,22 @@ protected:
         sort(list.begin(), list.end());
         return list;
     }
+
+
+    vector<int> GetTagListFromRoute(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        vector<int> list;
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_tag(comm))
+                continue;
+            Tag tag(comm);
+            list.push_back(tag.tag());
+        }
+        return list;
+    }
+
 
     set<string> GetTunnelEncapListFromRoute(const BgpPath *path) {
         const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
@@ -1576,6 +1639,42 @@ TYPED_TEST(ServiceChainTest, StopServiceChain) {
 
     // Check for aggregated route
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+
+    // Delete More specific & connected
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
+    this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
+}
+
+TYPED_TEST(ServiceChainTest, TagList) {
+    this->DisableServiceChainAggregation();
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    // Add More specific & connected
+    vector<int> tag_list_o = list_of(101)(202);
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100,
+                   vector<uint32_t>(), vector<uint32_t>(), set<string>(),
+                   SiteOfOrigin(), "", 0, 0, LoadBalance(),
+                   RouteDistinguisher(), tag_list_o);
+
+    vector<int> tag_list_c = list_of(100)(200);
+    // Add Tag list attribute to connected route and verify
+    this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("3.4.5.6"),
+                            0, 0, vector<uint32_t>(), set<string>(),
+                            LoadBalance(), RouteDistinguisher(), tag_list_c);
+
+    // Check for aggregated route
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.1", 32));
+    this->VerifyRouteAttributes("blue", this->BuildPrefix("192.168.1.1", 32),
+                                this->BuildNextHopAddress("3.4.5.6"), "red",
+                                tag_list_o);
 
     // Delete More specific & connected
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));

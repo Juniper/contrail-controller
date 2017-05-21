@@ -261,6 +261,17 @@ void ExtCommunity::RemoveSGID() {
     }
 }
 
+void ExtCommunity::RemoveTag() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_tag(*it)) {
+            it = communities_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 void ExtCommunity::RemoveSiteOfOrigin() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
@@ -324,13 +335,15 @@ vector<string> ExtCommunity::GetTunnelEncap() const {
     return encap_list;
 }
 
-vector<int> ExtCommunity::GetTagList() const {
+vector<int> ExtCommunity::GetTagList(as_t asn) const {
     vector<int> tag_list;
     for (ExtCommunityList::const_iterator iter = communities_.begin();
          iter != communities_.end(); ++iter) {
         if (!ExtCommunity::is_tag(*iter))
             continue;
         Tag tag_comm(*iter);
+        if (asn && tag_comm.as_number() != asn && !tag_comm.IsGlobal())
+            continue;
         tag_list.push_back(tag_comm.tag());
     }
 
@@ -429,6 +442,21 @@ ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(
 
     clone->RemoveSGID();
     clone->Append(sgid_list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceTagListAndLocate(
+    const ExtCommunity *src,
+    const ExtCommunity::ExtCommunityList &tag_list) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveTag();
+    clone->Append(tag_list);
     return Locate(clone);
 }
 
