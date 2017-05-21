@@ -1106,7 +1106,7 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
             // Process tag list.
             for (TagListType::const_iterator tit = nit->tag_list.begin();
                 tit != nit->tag_list.end(); ++tit) {
-                Tag tag(*tit);
+                Tag tag(bgp_server_->autonomous_system(), *tit);
                 ext.communities.push_back(tag.GetExtCommunityValue());
             }
 
@@ -1387,7 +1387,7 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             // Process tag list.
             for (TagListType::const_iterator tit = nit->tag_list.begin();
                 tit != nit->tag_list.end(); ++tit) {
-                Tag tag(*tit);
+                Tag tag(bgp_server_->autonomous_system(), *tit);
                 ext.communities.push_back(tag.GetExtCommunityValue());
             }
 
@@ -1675,7 +1675,7 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         // Process tag list.
         for (TagListType::const_iterator tit = nit->tag_list.begin();
             tit != nit->tag_list.end(); ++tit) {
-            Tag tag(*tit);
+            Tag tag(bgp_server_->autonomous_system(), *tit);
             ext.communities.push_back(tag.GetExtCommunityValue());
         }
 
