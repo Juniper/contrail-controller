@@ -147,11 +147,17 @@ class StatsManager {
     struct FlowRuleMatchInfo {
         std::string interface;
         std::string sg_rule_uuid;
+        std::string fw_policy;
+        TagList remote_tagset;
+        std::string remote_prefix;
         std::string vn;
         std::string nw_ace_uuid;
         FlowRuleMatchInfo(const std::string &itf, const std::string &sg_rule,
-                          const std::string &net, const std::string &nw_ace)
-            : interface(itf), sg_rule_uuid(sg_rule), vn(net),
+                          const std::string &fw_pol, const TagList &rset,
+                          const std::string &rprefix, const std::string &net,
+                          const std::string &nw_ace)
+            : interface(itf), sg_rule_uuid(sg_rule), fw_policy(fw_pol),
+              remote_tagset(rset), remote_prefix(rprefix), vn(net),
               nw_ace_uuid(nw_ace) {
         }
     };

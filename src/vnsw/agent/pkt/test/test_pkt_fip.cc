@@ -369,7 +369,7 @@ static void Setup() {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 
@@ -382,7 +382,8 @@ static void Setup() {
                                       vnet[3]->GetUuid(),
                                       vn_list,
                                       vnet[3]->label(),
-                                      SecurityGroupList(), CommunityList(), 0,
+                                      SecurityGroupList(), TagList(),
+                                      CommunityList(), 0,
                                       PathPreference(), Ip4Address(0),
                                       EcmpLoadBalance(), false, false);
     client->WaitForIdle();
@@ -392,7 +393,7 @@ static void Setup() {
     addr = Ip4Address::from_string("20.1.1.0");
     Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2", addr, 24, gw,
                         TunnelType::AllType(), 8, "vn3",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", addr, 24));
 
@@ -401,7 +402,7 @@ static void Setup() {
     gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 
@@ -1155,7 +1156,7 @@ TEST_F(FlowTest, NonNat2Nat) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
             "default-project:vn2");
@@ -1383,7 +1384,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                       vnet[5]->GetUuid(), 
                                       vn_list,
                                       vnet[5]->label(), SecurityGroupList(),
-                                      CommunityList(), 0,
+                                      TagList(), CommunityList(), 0,
                                       PathPreference(), Ip4Address(0),
                                       EcmpLoadBalance(), false, false);
     client->WaitForIdle();
@@ -1410,7 +1411,7 @@ TEST_F(FlowTest, Fip_preference_over_policy) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
@@ -1431,11 +1432,11 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_1) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     Ip4Address addr1 = Ip4Address::from_string("2.1.1.100");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr1, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
@@ -1458,11 +1459,11 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy_2) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     Ip4Address addr1 = Ip4Address::from_string("2.1.1.100");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr1, 32, gw,
                         TunnelType::AllType(), 8, "vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
@@ -1485,11 +1486,11 @@ TEST_F(FlowTest, DNAT_Fip_preference_over_policy) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     Ip4Address addr1 = Ip4Address::from_string("2.1.1.100");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr1, 32, gw,
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr,
                    vnet[1]->label(), "2.1.1.1", "2.1.1.100", 1, 1);
@@ -1517,7 +1518,7 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_find) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
@@ -1555,14 +1556,14 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
     uint32_t old_vrf_id = fe->data().vrf;
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     // adding default route should not cause recompute on flow
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1",
                         default_route, 0, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     // After flow recompute verify it to be in same vrf.
@@ -1586,7 +1587,7 @@ TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 30, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
@@ -1598,7 +1599,7 @@ TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
 
     Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     // since route in fip VRF should be prefered adding  the route should
     // result in picking floating-ip, so due to conversion from NON-NAT to NAT
@@ -1622,7 +1623,7 @@ TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2", addr, 32, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "20.1.1.1", 10, 20, 1, 1);
     client->WaitForIdle();
@@ -1633,7 +1634,7 @@ TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
 
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 30, gw,
                         TunnelType::AllType(), 8, "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     // addition of route with lower prefix length should be a no op
     // so flow doesnot become short flow

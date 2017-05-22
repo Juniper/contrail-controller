@@ -154,7 +154,7 @@ protected:
         //Passing vn name as vrf name itself
         Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip, plen, server_ip,
                             bmap, label, vrf_name_,
-                            SecurityGroupList(), PathPreference());
+                            SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle();
     }
 
@@ -169,7 +169,7 @@ protected:
         InetInterfaceKey vhost_intf_key(agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute
             (agent_->local_peer(), agent_->fabric_vrf_name(), server_ip, plen,
-             vhost_intf_key, 0, false, "", SecurityGroupList());
+             vhost_intf_key, 0, false, "", SecurityGroupList(), TagList());
         client->WaitForIdle();
     }
 
@@ -178,7 +178,8 @@ protected:
                          const Ip4Address &server) {
         agent_->fabric_inet4_unicast_table()->AddGatewayRouteReq
             (agent_->local_peer(), vrf_name, ip, plen, server, "",
-             MplsTable::kInvalidLabel, SecurityGroupList(), CommunityList());
+             MplsTable::kInvalidLabel, SecurityGroupList(), TagList(),
+             CommunityList());
 
         client->WaitForIdle();
     }
@@ -192,7 +193,8 @@ protected:
         vn_list.insert(vn_name);
         agent_->fabric_inet4_unicast_table()->AddVlanNHRouteReq
             (agent_->local_peer(), vrf_name_, Ip4Address::from_string(ip), plen,
-             MakeUuid(id), tag, label, vn_list, sg_l, PathPreference());
+             MakeUuid(id), tag, label, vn_list, sg_l,
+             TagList(), PathPreference());
         client->WaitForIdle();
     }
 
@@ -1034,6 +1036,7 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
                                                             MakeUuid(1), vn_list,
                                                             10,
                                                             SecurityGroupList(),
+                                                            TagList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
@@ -1087,6 +1090,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             MakeUuid(1),
                                                             vn_list, 10,
                                                             SecurityGroupList(),
+                                                            TagList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
@@ -1098,6 +1102,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             MakeUuid(1),
                                                             vn_list, 10,
                                                             SecurityGroupList(),
+                                                            TagList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
@@ -1115,6 +1120,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             MakeUuid(1),
                                                             vn_list, 10,
                                                             SecurityGroupList(),
+                                                            TagList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
@@ -1162,6 +1168,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
                                                             MakeUuid(1),
                                                             vn_list, 10,
                                                             SecurityGroupList(),
+                                                            TagList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
@@ -1179,6 +1186,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
                                                             MakeUuid(1),
                                                             vn_list, 10,
                                                             SecurityGroupList(),
+                                                            TagList(),
                                                             CommunityList(),
                                                             false,
                                                             PathPreference(),
@@ -1297,7 +1305,7 @@ TEST_F(RouteTest, ScaleRouteAddDel_3) {
     for (uint32_t i = 0; i < kScaleCount; i++) {    
         EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32, 
                            comp_nh_list, false, "test", sg_id_list,
-                           PathPreference());
+                           TagList(), PathPreference());
         client->WaitForIdle();
         DeleteRoute(bgp_peer_, vrf_name_, remote_vm_ip_, 32);
         client->WaitForIdle(5);
@@ -1331,7 +1339,7 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
     for (uint32_t i = 0; i < repeat; i++) {    
         EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32, 
                            comp_nh_list, -1, "test", sg_id_list,
-                           PathPreference());
+                           TagList(), PathPreference());
         client->WaitForIdle(5);
         if (i != (repeat - 1)) {
             DeleteRoute(bgp_peer_, vrf_name_, remote_vm_ip_, 32);
@@ -1445,7 +1453,7 @@ TEST_F(RouteTest, Enqueue_uc_route_add_on_deleted_vrf) {
     Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32, server1_ip_,
                         TunnelType::AllType(), MplsTable::kStartLabel,
                         vrf_name_,
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
@@ -1803,7 +1811,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, subnet_vm_ip_1_, 24, server1_ip_,
                         TunnelType::MplsType(), MplsTable::kStartLabel,
                         vrf_name_,
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
     EXPECT_TRUE(rt1->GetPathList().size() == 2);
@@ -1823,7 +1831,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, subnet_vm_ip_3_, 16, server1_ip_,
                         TunnelType::MplsType(), MplsTable::kStartLabel,
                         vrf_name_,
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
     EXPECT_TRUE(rt3->GetPathList().size() == 2);
@@ -1835,7 +1843,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, smaller_subnet_3, 28, server1_ip_,
                         TunnelType::MplsType(), MplsTable::kStartLabel,
                         vrf_name_,
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     rt3 = RouteGet(vrf_name_, smaller_subnet_3, 28);
     EXPECT_FALSE(rt3->ipam_subnet_route());
@@ -1885,7 +1893,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, subnet_supernet_2, 24, server1_ip_,
                         TunnelType::MplsType(), MplsTable::kStartLabel,
                         vrf_name_,
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     rt2 = RouteGet(vrf_name_, subnet_supernet_2, 24);
     EXPECT_FALSE(rt2->ipam_subnet_route());
@@ -1908,7 +1916,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
     Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, subnet_vm_ip_non_ipam, 24, server1_ip_,
                         TunnelType::MplsType(), MplsTable::kStartLabel,
                         vrf_name_,
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *rt4 = RouteGet(vrf_name_, subnet_vm_ip_non_ipam, 24);
     EXPECT_FALSE(rt4->ipam_subnet_route());
@@ -1924,7 +1932,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
                         server1_ip_,
                         TunnelType::MplsType(), MplsTable::kStartLabel,
                         vrf_name_,
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *rt5 = RouteGet(vrf_name_, subnet_vm_ip_non_ipam_2, 28);
     EXPECT_FALSE(rt5->ipam_subnet_route());
@@ -1938,7 +1946,7 @@ TEST_F(RouteTest, route_arp_flags_1) {
                         server1_ip_,
                         TunnelType::MplsType(), MplsTable::kStartLabel,
                         vrf_name_,
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *rt6 = RouteGet(vrf_name_, subnet_vm_ip_non_ipam_3, 16);
     EXPECT_FALSE(rt6->ipam_subnet_route());
@@ -2267,7 +2275,7 @@ TEST_F(RouteTest, EcmpTest_1) {
     //Now add ecmp tunnel add request
     EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32, 
                        comp_nh_list, false, "test", sg_id_list,
-                       PathPreference());
+                       TagList(), PathPreference());
     client->WaitForIdle();
     TaskScheduler::GetInstance()->Start();
 

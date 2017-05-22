@@ -69,7 +69,7 @@ protected:
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn2:vn2", ip2, 24, MakeUuid(1),
                                vn_list,
-                               16, SecurityGroupList(),
+                               16, SecurityGroupList(), TagList(),
                                CommunityList(), false,
                                PathPreference(), Ip4Address(0),
                                EcmpLoadBalance(), false, false);
@@ -77,7 +77,7 @@ protected:
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn3:vn3", ip2, 24, MakeUuid(1),
                                vn_list,
-                               16, SecurityGroupList(),
+                               16, SecurityGroupList(), TagList(),
                                CommunityList(), false,
                                PathPreference(), Ip4Address(0),
                                EcmpLoadBalance(), false, false);
@@ -165,7 +165,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           vn_list, 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(), TagList(),
                            CommunityList(), false,
                            PathPreference(), Ip4Address(0), EcmpLoadBalance(),
                            false, false);
@@ -258,15 +258,15 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl6) {
     Ip4Address remote_server1 = Ip4Address::from_string("10.1.1.100");
     Ip4Address remote_server2 = Ip4Address::from_string("10.1.1.101");
 
-    Inet4TunnelRouteAdd(agent_->local_peer(), "default-project:vn1:vn1",
+    Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn1:vn1",
                         ip, 32, remote_server1, TunnelType::AllType(), 20,
                         "default-project:vn2", SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
 
-    Inet4TunnelRouteAdd(agent_->local_peer(), "default-project:vn2:vn2",
+    Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2",
                         ip, 32, remote_server2, TunnelType::AllType(), 20,
                         "default-project:vn2", SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
@@ -291,9 +291,9 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl6) {
     CreateFlow(flow, 1);
 
     //Delete the leaked routes
-    agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+    agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer_,
             "default-project:vn2:vn2", ip, 32, NULL);
-    agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+    agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer_,
             "default-project:vn1:vn1", ip, 32, NULL);
     client->WaitForIdle();
 }
@@ -324,15 +324,15 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl7) {
                 server_ip2, false, TunnelType::AllType()));
     comp_nh.push_back(comp_nh_data2);
 
-    EcmpTunnelRouteAdd(agent_->local_peer(), "default-project:vn1:vn1",
+    EcmpTunnelRouteAdd(bgp_peer_, "default-project:vn1:vn1",
                        ip, 32, comp_nh, false,
                        "default-project:vn2", SecurityGroupList(),
-                       PathPreference());
+                       TagList(), PathPreference());
 
-    EcmpTunnelRouteAdd(agent_->local_peer(), "default-project:vn2:vn2",
+    EcmpTunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2",
                        ip, 32, comp_nh, false,
                        "default-project:vn2", SecurityGroupList(),
-                       PathPreference());
+                       TagList(), PathPreference());
     client->WaitForIdle();
 
     VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
@@ -347,9 +347,9 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl7) {
     CreateFlow(flow, 1);
 
     //Delete the leaked routes
-    agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+    agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer_,
             "default-project:vn2:vn2", ip, 32, NULL);
-    agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
+    agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer_,
             "default-project:vn1:vn1", ip, 32, NULL);
     client->WaitForIdle();
     client->agent()->flow_stats_manager()->set_delete_short_flow(true);
@@ -361,7 +361,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl8) {
     Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn1:vn1", vm_ip, 32,
                         server_ip, TunnelType::AllType(), 16,
                         "default-project:vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     TestFlow flow[] = {
@@ -457,7 +457,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           vn_list, 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(), TagList(),
                            CommunityList(), false,
                            PathPreference(), Ip4Address(0), EcmpLoadBalance(),
                            false, false);
@@ -505,7 +505,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror2) {
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                            "default-project:vn1:vn1", ip1, 24, MakeUuid(3),
-                           vn_list, 16, SecurityGroupList(),
+                           vn_list, 16, SecurityGroupList(), TagList(),
                            CommunityList(), false,
                            PathPreference(), Ip4Address(0), EcmpLoadBalance(),
                            false, false);

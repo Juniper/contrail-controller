@@ -115,7 +115,8 @@ public:
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
                 Agent::GetInstance()->local_peer(),
                 Agent::GetInstance()->fabric_vrf_name(), server_ip_, 24,
-                vhost_intf_key, 0, false, "", SecurityGroupList());
+                vhost_intf_key, 0, false, "", SecurityGroupList(),
+                TagList());
         client->WaitForIdle();
         client->WaitForIdle();
         if (num_vrfs > 0) {

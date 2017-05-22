@@ -143,7 +143,7 @@ void MetaDataIpAllocator::AddFabricRoute(MetaDataIp *ip) {
         (agent_->link_local_peer(), agent_->fabric_vrf_name(),
          ip->GetLinkLocalIp(), 32, ip->intf_->GetUuid(),
          vn_list, ip->intf_->label(), SecurityGroupList(),
-         CommunityList(), true, path_preference, Ip4Address(0),
+         TagList(), CommunityList(), true, path_preference, Ip4Address(0),
          ecmp_load_balance, false, false);
 }
 

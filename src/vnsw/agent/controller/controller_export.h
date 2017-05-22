@@ -27,6 +27,7 @@ public:
         uint32_t label_;
         std::string vn_;
         SecurityGroupList sg_list_;
+        TagList tag_list_;
         CommunityList communities_;
         TunnelType::Type tunnel_type_;
         PathPreference path_preference_;

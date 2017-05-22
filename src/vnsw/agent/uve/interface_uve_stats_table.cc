@@ -14,6 +14,17 @@ InterfaceUveStatsTable::InterfaceUveStatsTable(Agent *agent,
 InterfaceUveStatsTable::~InterfaceUveStatsTable() {
 }
 
+bool InterfaceUveStatsTable::FrameInterfaceObjectLog(UveInterfaceEntry* entry,
+                                            EndpointSecurityStats *obj) const {
+    assert(!entry->deleted_);
+    const VmInterface *vm_intf = entry->intf_;
+    if (vm_intf->cfg_name().empty()) {
+        return false;
+    }
+    entry->FillEndpointStats(agent_, obj);
+    return true;
+}
+
 bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
                                             UveVMInterfaceAgent *uve) const {
     uint64_t in_band = 0, out_band = 0;
@@ -101,6 +112,8 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
     bool built = agent_uve->stats_manager()->BuildFlowRate(s->added, s->deleted,
                                                            s->flow_info,
                                                            flow_rate);
+    /* Populate TagSet and policy-list in UVE */
+    entry->FillTagSetAndPolicyList(agent_, uve);
     if (built) {
         flow_rate.set_active_flows(active_flows);
         uve->set_flow_rate(flow_rate);
@@ -118,6 +131,11 @@ void InterfaceUveStatsTable::SendInterfaceStatsMsg(UveInterfaceEntry* entry) {
     bool send = FrameInterfaceStatsMsg(entry, &uve);
     if (send) {
         DispatchInterfaceMsg(uve);
+    }
+    EndpointSecurityStats *obj_log = ENDPOINT_SECURITY_STATS_CREATE();
+    send = FrameInterfaceObjectLog(entry, obj_log);
+    if (send) {
+        DispatchInterfaceObjectLog(obj_log);
     }
 }
 
@@ -229,10 +247,68 @@ void InterfaceUveStatsTable::IncrInterfaceAceStats(const std::string &itf,
     }
 }
 
+void InterfaceUveStatsTable::IncrInterfaceEndpointHits
+    (const std::string &itf, const std::string &fw_pol,
+     const TagList &tglist, const std::string &rprefix, bool initiator) {
+    if (itf.empty() || fw_pol.empty()) {
+        return;
+    }
+    if ((tglist.size() == 0) && rprefix.empty()) {
+        return;
+    }
+    InterfaceMap::iterator intf_it = interface_tree_.find(itf);
+
+    if (intf_it != interface_tree_.end()) {
+        UveInterfaceEntry *entry = intf_it->second.get();
+        entry->UpdateInterfaceFwPolicyStats(fw_pol, tglist, rprefix, initiator);
+    }
+}
 void InterfaceUveStatsTable::SendInterfaceAceStats(const string &name,
                                                    UveInterfaceEntry *entry) {
     UveVMInterfaceAgent uve;
     if (entry->FrameInterfaceAceStatsMsg(name, &uve)) {
         DispatchInterfaceMsg(uve);
     }
+}
+
+void InterfaceUveStatsTable::UpdateVmiTagBasedStats(const EndpointStatsInfo
+                                                    &info) {
+    tbb::mutex::scoped_lock lock(interface_tree_mutex_);
+    InterfaceMap::iterator intf_it = interface_tree_.find(info.vmi->cfg_name());
+    if (intf_it != interface_tree_.end()) {
+        UveInterfaceEntry *entry = intf_it->second.get();
+        entry->UpdateSecurityPolicyStats(info);
+    }
+}
+
+void InterfaceUveStatsTable::BuildInterfaceUveInfo(InterfaceUveInfoResp *r) {
+
+    vector<InterfaceUveInfo> &list =
+        const_cast<std::vector<InterfaceUveInfo>&>(r->get_resp_list());
+    tbb::mutex::scoped_lock lock(interface_tree_mutex_);
+    InterfaceMap::iterator intf_it = interface_tree_.begin();
+    while (intf_it != interface_tree_.end()) {
+        InterfaceUveInfo item;
+        UveInterfaceEntry *entry = intf_it->second.get();
+        ++intf_it;
+        /* Skip entries for which endpoint records have not been added by
+         * flow module */
+        if ((entry->local_tagset_.size() == 0) && entry->local_vn_.empty()) {
+            continue;
+        }
+        entry->BuildInterfaceUveInfo(&item);
+        list.push_back(item);
+    }
+
+}
+
+void InterfaceUveInfoReq::HandleRequest() const {
+    InterfaceUveInfoResp *resp = new InterfaceUveInfoResp();
+    Agent *agent = Agent::GetInstance();
+    InterfaceUveStatsTable *table = static_cast<InterfaceUveStatsTable *>
+        (agent->uve()->interface_uve_table());
+    table->BuildInterfaceUveInfo(resp);
+    resp->set_context(context());
+    resp->Response();
+    return;
 }

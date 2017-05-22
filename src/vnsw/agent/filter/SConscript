@@ -14,7 +14,7 @@ libfilter = env.Library('filter',
                       'traffic_action.cc',
                       'acl_entry.cc',
                       'acl.cc',
-                      #'policy.cc',
+                      'policy_set.cc'
                       ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

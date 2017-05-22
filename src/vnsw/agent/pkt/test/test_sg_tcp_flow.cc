@@ -224,8 +224,8 @@ bool ValidateAction(uint32_t vrfid, const char *sip, const char *dip, int proto,
     FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport, nh_id);
     FlowEntry *rfe = fe->reverse_flow_entry();
 
-    EXPECT_TRUE((fe->match_p().sg_action_summary & (1 << action)) != 0);
-    if ((fe->match_p().sg_action_summary & (1 << action)) == 0) {
+    EXPECT_TRUE((fe->match_p().sg_policy.action_summary & (1 << action)) != 0);
+    if ((fe->match_p().sg_policy.action_summary & (1 << action)) == 0) {
         ret = false;
     }
 
@@ -236,8 +236,10 @@ bool ValidateAction(uint32_t vrfid, const char *sip, const char *dip, int proto,
 
     if (!fe->is_flags_set(FlowEntry::Trap) &&
         !rfe->is_flags_set(FlowEntry::Trap)) {
-        EXPECT_EQ(fe->match_p().sg_action_summary, rfe->match_p().sg_action_summary);
-        if (fe->match_p().sg_action_summary != rfe->match_p().sg_action_summary) {
+        EXPECT_EQ(fe->match_p().sg_policy.action_summary,
+                  rfe->match_p().sg_policy.action_summary);
+        if (fe->match_p().sg_policy.action_summary !=
+                rfe->match_p().sg_policy.action_summary) {
             ret = false;
         }
     }
@@ -313,14 +315,16 @@ public:
         Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn1:vn1",
              Ip4Address::from_string("1.1.1.0", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
-             17, "default-project:vn1", sg_id_list, PathPreference());
+             17, "default-project:vn1", sg_id_list, TagList(),
+             PathPreference());
         client->WaitForIdle();
 
         //Add a remote route for floating-ip VN pointing to SG id 2
         Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn3:vn3",
              Ip4Address::from_string("3.3.3.2", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
-             18, "default-project:vn3", sg_id_list, PathPreference());
+             18, "default-project:vn3", sg_id_list, TagList(),
+             PathPreference());
         client->WaitForIdle();
 
 

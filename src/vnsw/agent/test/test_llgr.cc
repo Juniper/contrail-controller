@@ -135,7 +135,7 @@ protected:
         //Use any other peer than localvmpeer
         Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, ip_addr, 32, server_ip, 
                             bmap, label+1, vrf_name_,
-                            SecurityGroupList(), PathPreference());
+                            SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle();
         BridgeTunnelRouteAdd(bgp_peer_, vrf_name_, bmap, server_ip,
                              label, remote_vm_mac, ip_addr, 32);
@@ -147,7 +147,7 @@ protected:
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),
                 agent_->fabric_vrf_name(), server_ip, plen, vhost_key,
-                0, false, "", SecurityGroupList());
+                0, false, "", SecurityGroupList(), TagList());
         client->WaitForIdle();
     }
 

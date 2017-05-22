@@ -22,7 +22,7 @@
 RouteExport::State::State() : 
     DBState(), exported_(false), fabric_multicast_exported_(false),
     force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(), sg_list_(),
-    tunnel_type_(TunnelType::INVALID), path_preference_(),
+    tag_list_(), tunnel_type_(TunnelType::INVALID), path_preference_(),
     destination_(), source_(), ecmp_load_balance_(), isid_(0) {
 }
 
@@ -46,6 +46,9 @@ bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path)
     if (sg_list_ != path->sg_list())
         return true;
 
+    if (tag_list_ != path->tag_list())
+        return true;
+
     if (communities_ != path->communities())
         return true;
 
@@ -66,6 +69,7 @@ void RouteExport::State::Update(const AgentRoute *route, const AgentPath *path) 
     label_ = path->GetActiveLabel();
     vn_ = path->dest_vn_name();
     sg_list_ = path->sg_list();
+    tag_list_ = path->tag_list();
     communities_ = path->communities();
     tunnel_type_ = path->tunnel_type();
     path_preference_ = path->path_preference();
@@ -205,7 +209,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                         static_cast<AgentRoute * >(route),
                         path->NexthopIp(table->agent()), vn_list,
                         state->label_, path->GetTunnelBmap(),
-                        &path->sg_list(), &path->communities(),
+                        &path->sg_list(), &path->tag_list(), &path->communities(),
                         type, state->path_preference_,
                         state->ecmp_load_balance_);
         }
@@ -217,7 +221,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                     static_cast<AgentRoute *>(route), vn_list,
                     (state->tunnel_type_ == TunnelType::VXLAN ?
                      state->label_ : 0),
-                    TunnelType::AllType(), NULL, NULL,
+                    TunnelType::AllType(), NULL, NULL, NULL,
                     type, state->path_preference_);
             state->exported_ = false;
         }
@@ -469,13 +473,14 @@ void RouteExport::SubscribeIngressReplication(Agent *agent,
             state->source_ = tnh->GetSip()->to_string();
         }
         SecurityGroupList sg;
+        TagList tag;
         state->ingress_replication_exported_ =
             AgentXmppChannel::ControllerSendEvpnRouteAdd
             (bgp_xmpp_peer, route,
              active_path->NexthopIp(agent),
              route->dest_vn_name(), state->label_,
              TunnelType::GetTunnelBmap(state->tunnel_type_),
-             &sg, NULL, state->destination_,
+             &sg, &tag, NULL, state->destination_,
              state->source_, PathPreference());
     }
 }

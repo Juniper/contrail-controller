@@ -55,13 +55,14 @@ public:
                   const Ip4Address &addr, uint32_t label,
                   const VnListType &dest_vn_list, int bmap,
                   const SecurityGroupList &sg_list,
+                  const TagList &tag_list,
                   const PathPreference &path_preference,
                   DBRequest &req, bool ecmp_suppressed,
                   const EcmpLoadBalance &ecmp_load_balance,
                   bool etree_leaf):
         ControllerPeerPath(peer), server_vrf_(vrf_name), tunnel_dest_(addr),
         tunnel_bmap_(bmap), label_(label), dest_vn_list_(dest_vn_list),
-        sg_list_(sg_list),path_preference_(path_preference),
+        sg_list_(sg_list),tag_list_(tag_list), path_preference_(path_preference),
         ecmp_suppressed_(ecmp_suppressed), ecmp_load_balance_(ecmp_load_balance),
         etree_leaf_(etree_leaf)
         {nh_req_.Swap(&req);}
@@ -75,6 +76,7 @@ public:
     virtual bool UpdateRoute(AgentRoute *route);
     virtual string ToString() const {return "remote VM";}
     const SecurityGroupList &sg_list() const {return sg_list_;}
+    const TagList &tag_list() const {return tag_list_;}
     static ControllerVmRoute *MakeControllerVmRoute(const BgpPeer *peer,
                                             const string &default_vrf,
                                             const Ip4Address &router_id,
@@ -84,6 +86,7 @@ public:
                                             uint32_t label,
                                             const VnListType &dest_vn_list,
                                             const SecurityGroupList &sg_list,
+                                            const TagList &tag_list,
                                             const PathPreference &path_preference,
                                             bool ecmp_suppressed,
                                             const EcmpLoadBalance &ecmp_load_balance,
@@ -96,6 +99,7 @@ private:
     uint32_t label_;
     VnListType dest_vn_list_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     PathPreference path_preference_;
     DBRequest nh_req_;
     bool ecmp_suppressed_;
@@ -110,13 +114,14 @@ public:
                         uint8_t plen, const VnListType &vn_list,
                         uint32_t label, bool local_ecmp_nh,
                         const string &vrf_name, SecurityGroupList sg_list,
+                        TagList tag_list,
                         const PathPreference &path_preference,
                         TunnelType::TypeBmap tunnel_bmap,
                         const EcmpLoadBalance &ecmp_load_balance,
                         DBRequest &nh_req) :
         ControllerPeerPath(peer), dest_addr_(dest_addr), plen_(plen),
         vn_list_(vn_list), label_(label), local_ecmp_nh_(local_ecmp_nh),
-        vrf_name_(vrf_name), sg_list_(sg_list),
+        vrf_name_(vrf_name), sg_list_(sg_list), tag_list_(tag_list),
         path_preference_(path_preference), tunnel_bmap_(tunnel_bmap),
         ecmp_load_balance_(ecmp_load_balance)
         {nh_req_.Swap(&nh_req);}
@@ -134,6 +139,7 @@ private:
     bool local_ecmp_nh_;
     string vrf_name_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     PathPreference path_preference_;
     TunnelType::TypeBmap tunnel_bmap_;
     EcmpLoadBalance ecmp_load_balance_;
@@ -154,9 +160,11 @@ class ClonedLocalPath : public AgentRouteData {
 public:
     ClonedLocalPath(uint32_t label, const VnListType &vn_list,
                     const SecurityGroupList &sg_list,
+                    const TagList &tag_list,
                     uint64_t sequence_number):
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
-        mpls_label_(label), vn_list_(vn_list), sg_list_(sg_list) {}
+        mpls_label_(label), vn_list_(vn_list),
+        sg_list_(sg_list), tag_list_(tag_list) {}
     virtual ~ClonedLocalPath() {}
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
@@ -167,6 +175,7 @@ private:
     uint32_t mpls_label_;
     const VnListType vn_list_;
     const SecurityGroupList sg_list_;
+    const TagList tag_list_;
     DISALLOW_COPY_AND_ASSIGN(ClonedLocalPath);
 };
 

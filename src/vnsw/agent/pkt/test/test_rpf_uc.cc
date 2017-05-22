@@ -113,7 +113,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(srvr);
         Inet4TunnelRouteAdd(peer_, vrf, addr, plen, gw, TunnelType::MplsType(),
-                            label, vn, SecurityGroupList(), PathPreference());
+                            label, vn, SecurityGroupList(),
+                            TagList(), PathPreference());
         client->WaitForIdle();
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, plen) == true));
     }
@@ -136,7 +137,7 @@ public:
             label++;
         }
         EcmpTunnelRouteAdd(peer_, vrf_name, vm_ip, plen, comp_nh_list, -1, vn,
-                           sg_id_list, PathPreference());
+                           sg_id_list, TagList(), PathPreference());
     }
 
     void DeleteRemoteRoute(const char *vrf, const char *ip, uint8_t plen) {

@@ -29,6 +29,7 @@ struct FlowPolicyInfo {
     bool other;
     std::string src_match_vn;  // source VN that matched
     std::string dst_match_vn;  // destination VN that matched
+    std::string acl_name;
     FlowPolicyInfo(const std::string &u);
 };
 
@@ -153,7 +154,7 @@ public:
     // for ACL. The callback is defined to avoid linking error
     // when flow is not enabled
     typedef boost::function<void(const AclDBEntry *acl, AclFlowCountResp &data,
-                                 int ace_id)> FlowAceSandeshDataFn;
+                                 const std::string &ace_id)> FlowAceSandeshDataFn;
     typedef boost::function<void(const AclDBEntry *acl, AclFlowResp &data,
                                  const int last_count)> FlowAclSandeshDataFn;
 
@@ -172,6 +173,12 @@ public:
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
+    void FirewallPolicyIFNodeToReq(IFMapNode *node, DBRequest &req,
+                                   const boost::uuids::uuid &u,
+                                   AclSpec &acl_spec);
+    void AclIFNodeToReq(IFMapNode *node, DBRequest &req,
+                        const boost::uuids::uuid &u,
+                        AclSpec &acl_spec);
     virtual bool IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
@@ -181,7 +188,8 @@ public:
     static void AclFlowResponse(const std::string acl_uuid_str, 
                                 const std::string ctx, const int last_count);
     static void AclFlowCountResponse(const std::string acl_uuid_str, 
-                                     const std::string ctx, int ace_id);
+                                     const std::string ctx,
+                                     const std::string &ace_id);
     void set_ace_flow_sandesh_data_cb(FlowAceSandeshDataFn fn);
     void set_acl_flow_sandesh_data_cb(FlowAclSandeshDataFn fn);
     void ListenerInit();
@@ -192,6 +200,10 @@ private:
     static const AclDBEntry* GetAclDBEntry(const std::string uuid_str, 
                                            const std::string ctx,
                                            SandeshResponse *resp);
+    void AddImplicitRule(AclSpec &acl_spec, AclEntrySpec &ace_spec,
+                         const autogen::FirewallRule *rule);
+    void PopulateServicePort(AclEntrySpec &ace_spec, IFMapNode *node);
+    IFMapNode *GetFirewallRule(IFMapNode *node);
     void ActionInit();
     DBTableBase::ListenerId qos_config_listener_id_;
     UnResolvedAclEntries unresolved_acl_entries_;

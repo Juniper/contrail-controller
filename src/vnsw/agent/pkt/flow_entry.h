@@ -204,6 +204,33 @@ struct FlowKey {
 };
 
 typedef std::list<MatchAclParams> MatchAclParamsList;
+
+struct SessionPolicy {
+    void Reset();
+    void ResetAction();
+    void ResetPolicy();
+
+    MatchAclParamsList m_acl_l;
+    bool rule_present;
+    uint32_t action;
+
+    MatchAclParamsList m_out_acl_l;
+    bool out_rule_present;
+    uint32_t out_action;
+
+    MatchAclParamsList m_reverse_acl_l;
+    bool reverse_rule_present;
+    uint32_t reverse_action;
+
+    MatchAclParamsList m_reverse_out_acl_l;
+    bool reverse_out_rule_present;
+    uint32_t reverse_out_action;
+
+    std::string rule_uuid_;
+    std::string acl_name_;
+    uint32_t action_summary;
+};
+
 // IMPORTANT: Keep this structure assignable. Assignment operator is used in
 // FlowEntry::Copy() on this structure
 struct MatchPolicy {
@@ -219,21 +246,8 @@ struct MatchPolicy {
     MatchAclParamsList m_out_acl_l;
     uint32_t out_policy_action;
 
-    MatchAclParamsList m_out_sg_acl_l;
-    bool out_sg_rule_present;
-    uint32_t out_sg_action;
-
-    MatchAclParamsList m_sg_acl_l;
-    bool sg_rule_present;
-    uint32_t sg_action;
-
-    MatchAclParamsList m_reverse_sg_acl_l;
-    bool reverse_sg_rule_present;
-    uint32_t reverse_sg_action;
-
-    MatchAclParamsList m_reverse_out_sg_acl_l;
-    bool reverse_out_sg_rule_present;
-    uint32_t reverse_out_sg_action;
+    SessionPolicy sg_policy;
+    SessionPolicy aps_policy;
 
     MatchAclParamsList m_mirror_acl_l;
     uint32_t mirror_action;
@@ -244,8 +258,6 @@ struct MatchPolicy {
     MatchAclParamsList m_vrf_assign_acl_l;
     uint32_t vrf_assign_acl_action;
 
-    // Summary of SG actions
-    uint32_t sg_action_summary;
     FlowAction action_info;
 };
 
@@ -267,6 +279,8 @@ struct FlowData {
     VnListType dest_vn_list;
     SecurityGroupList source_sg_id_l;
     SecurityGroupList dest_sg_id_l;
+    TagList source_tag_id_l;
+    TagList dest_tag_id_l;
     uint32_t flow_source_vrf;
     uint32_t flow_dest_vrf;
 
@@ -560,8 +574,21 @@ class FlowEntry {
     void UpdateFipStatsInfo(uint32_t fip, uint32_t id, Agent *agent);
     const boost::uuids::uuid &uuid() const { return uuid_; }
     const boost::uuids::uuid &egress_uuid() const { return egress_uuid_;}
-    const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
+    const std::string &sg_rule_uuid() const {
+        return data_.match_p.sg_policy.rule_uuid_;
+    }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
+    const std::string fw_policy_name_uuid() const;
+    const std::string &policy_set_ace_uuid() const {
+        return data_.match_p.aps_policy.rule_uuid_;
+    }
+    const std::string &policy_set_acl_name() const {
+        return data_.match_p.aps_policy.acl_name_;
+    }
+
+    const std::string RemotePrefix() const;
+    const TagList &remote_tagset() const;
+    const TagList &local_tagset() const;
     const std::string &peer_vrouter() const { return peer_vrouter_; }
     TunnelType tunnel_type() const { return tunnel_type_; }
 
@@ -629,6 +656,8 @@ class FlowEntry {
     void GetLocalFlowSgList(const VmInterface *vm_port,
                             const VmInterface *reverse_vm_port);
     void GetSgList(const Interface *intf);
+    void GetApplicationPolicySet(const Interface *intf,
+                                 const FlowEntry *rflow);
     void SetPacketHeader(PacketHeader *hdr);
     void SetOutPacketHeader(PacketHeader *hdr);
     void set_deleted(bool deleted) { deleted_ = deleted; }
@@ -697,8 +726,13 @@ private:
     const std::string InterfaceIdToVmCfgName(Agent *agent, uint32_t id);
     const VrfEntry *GetDestinationVrf() const;
     bool SetQosConfigIndex();
-    void SetSgAclInfo(const FlowPolicyInfo &fwd_flow_info,
-                      const FlowPolicyInfo &rev_flow_info, bool tcp_rev_sg);
+    void SetAclInfo(SessionPolicy *sp, SessionPolicy *rsp,
+                    const FlowPolicyInfo &fwd_flow_info,
+                    const FlowPolicyInfo &rev_flow_info, bool tcp_rev_sg);
+    void SessionMatch(SessionPolicy *sp, SessionPolicy *rsp);
+    void UpdateReflexiveAction(SessionPolicy *sp, SessionPolicy *rsp);
+    const std::string BuildRemotePrefix(const FlowRouteRefMap &rt_list,
+                                        uint32_t vr, const IpAddress &ip) const;
     FlowKey key_;
     FlowTable *flow_table_;
     FlowData data_;
@@ -748,6 +782,7 @@ private:
     // Field used by flow-mgmt module. Its stored here to optimize flow-mgmt
     // and avoid lookups
     FlowMgmtEntryInfoPtr flow_mgmt_info_;
+    const std::string fw_policy_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
 };
