@@ -242,9 +242,14 @@ class KafkaDeliveryReportCb : public RdKafka::DeliveryReportCb {
 
   void dr_cb (RdKafka::Message &message) {
     if (message.err() != RdKafka::ERR_NO_ERROR) {
-        LOG(ERROR, "Message delivery for " << message.key() << " " <<
-            message.errstr() << " gen " <<
-            string((char *)(message.msg_opaque())));
+        if (message.msg_opaque() != 0) {
+            LOG(ERROR, "Message delivery for " << message.key() << " " <<
+                message.errstr() << " gen " <<
+                string((char *)(message.msg_opaque())));
+        } else {
+            LOG(ERROR, "Message delivery for " << message.key() << " " <<
+                message.errstr());
+        }
     } else {
         count++;
     }
