@@ -31,6 +31,7 @@
 #include <oper/vxlan.h>
 #include <oper/qos_config.h>
 #include <oper/ifmap_dependency_manager.h>
+#include <oper/tag.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -39,6 +40,7 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include <filter/acl.h>
+#include <filter/policy_set.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -1079,6 +1081,25 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_analyzer_name(vintf->GetAnalyzer());
         data.set_config_name(vintf->cfg_name());
 
+        VmInterface::TagEntrySet::const_iterator tag_it;
+        std::vector<VmiTagData> vmi_tag_l;
+        const VmInterface::TagEntryList &tag_l = vintf->tag_list();
+        for (tag_it = tag_l.list_.begin(); tag_it != tag_l.list_.end();
+             ++tag_it) {
+            VmiTagData vmi_tag_data;
+            if (tag_it->tag_.get()) {
+                vmi_tag_data.set_name(tag_it->tag_->name());
+                vmi_tag_data.set_id(tag_it->tag_->tag_id());
+                if (tag_it->tag_->policy_set()) {
+                    std::string aps_id =
+                        UuidToString(tag_it->tag_->policy_set()->uuid());
+                    vmi_tag_data.set_application_policy_set(aps_id);
+                }
+                vmi_tag_l.push_back(vmi_tag_data);
+            }
+        }
+        data.set_vmi_tag_list(vmi_tag_l);
+
         VmInterface::SecurityGroupEntrySet::const_iterator sgit;
         std::vector<VmIntfSgUuid> intf_sg_uuid_l;
         const VmInterface::SecurityGroupEntryList &sg_uuid_l = vintf->sg_list();
@@ -1089,6 +1110,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             intf_sg_uuid_l.push_back(sg_id);
         }
         data.set_sg_uuid_list(intf_sg_uuid_l);
+
         data.set_vm_name(vintf->vm_name());
         data.set_vm_project_uuid(UuidToString(vintf->vm_project_uuid()));
         data.set_local_preference(vintf->local_preference());
@@ -1128,6 +1150,13 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             intf_bd_uuid_l.push_back(bd_id);
         }
         data.set_bridge_domain_list(intf_bd_uuid_l);
+
+        std::vector<std::string> policy_set_acl_list;
+        FirewallPolicyList::const_iterator fw_it = vintf->fw_policy_list().begin();
+        for(; fw_it != vintf->fw_policy_list().end(); fw_it++) {
+            policy_set_acl_list.push_back(UuidToString(fw_it->get()->GetUuid()));
+        }
+        data.set_policy_set_acl_list(policy_set_acl_list);
         break;
     }
     case Interface::INET: {

@@ -392,7 +392,8 @@ TEST_F(VrfTest, AddReqonDeletedVrfRouteTable) {
     Ip4Address server_ip(0);
     Inet4TunnelRouteAdd(agent->local_peer(), "vrf1", vip, 32,
                         server_ip, TunnelType::AllType(),
-                        16, "vn1", SecurityGroupList(), PathPreference());
+                        16, "vn1", SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
     agent->fabric_inet4_unicast_table()->DeleteReq(agent->local_peer(), "vrf1",
                                                    vip, 32, NULL);

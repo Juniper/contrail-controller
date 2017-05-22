@@ -19,10 +19,12 @@ struct PacketHeader {
     IpAddress src_ip;
     const VnListType *src_policy_id;
     const SecurityGroupList *src_sg_id_l;
+    TagList src_tags_;
     uint32_t src_sg_id;
     IpAddress dst_ip;
     const VnListType *dst_policy_id;
     const SecurityGroupList *dst_sg_id_l;
+    TagList dst_tags_;
     uint8_t protocol;
     uint16_t src_port;
     uint16_t dst_port;

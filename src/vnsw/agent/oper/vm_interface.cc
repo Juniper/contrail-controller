@@ -22,8 +22,10 @@
 #include <oper/qos_config.h>
 #include <oper/bridge_domain.h>
 #include <oper/sg.h>
+#include <oper/tag.h>
 
 #include <filter/acl.h>
+#include <filter/policy_set.h>
 #include <port_ipc/port_ipc_handler.h>
 #include <port_ipc/port_subscribe_table.h>
 #include <resource_manager/resource_manager.h>
@@ -55,7 +57,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     metadata_ip_state_(new MetaDataIpState()),
     resolve_route_state_(new ResolveRouteState()),
     interface_route_state_(new VmiRouteState()),
-    sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
+    sg_list_(), tag_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
     instance_ipv4_list_(true), instance_ipv6_list_(false), fat_flow_list_(),
     vrf_assign_rule_list_(), vm_ip_service_addr_(0),
@@ -99,7 +101,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     metadata_ip_state_(new MetaDataIpState()),
     resolve_route_state_(new ResolveRouteState()),
     interface_route_state_(new VmiRouteState()),
-    sg_list_(), floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
+    sg_list_(), tag_list_(),
+    floating_ip_list_(), alias_ip_list_(), service_vlan_list_(),
     static_route_list_(), allowed_address_pair_list_(),
     instance_ipv4_list_(true), instance_ipv6_list_(false), fat_flow_list_(),
     vrf_assign_rule_list_(), device_type_(device_type),
@@ -278,6 +281,10 @@ bool VmInterface::Resync(const InterfaceTable *table,
     // Apply config based on old and new values
     ApplyConfig(old_ipv4_active, old_l2_active, old_ipv6_active,
                 old_subnet, old_subnet_plen);
+    if (UpdatePolicySet(table->agent())) {
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -311,6 +318,8 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
 
     // Fat flow configuration
     fat_flow_list_.UpdateList(agent, this);
+
+    tag_list_.UpdateList(agent, this, l2_force_op, l3_force_op);
 
     // Bridge Domain configuration
     bridge_domain_list_.Update(agent, this);
@@ -1017,12 +1026,16 @@ bool ResolveRouteState::AddL3(const Agent *agent, VmInterface *vmi) const {
 
     SecurityGroupList sg_id_list;
     vmi->CopySgIdList(&sg_id_list);
+
+    TagList tag_id_list;
+    vmi->CopyTagIdList(&tag_id_list);
+
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, vmi->GetUuid(), "");
     InetUnicastAgentRouteTable::AddResolveRoute
         (vmi->peer(), vrf_->GetName(),
          Address::GetIp4SubnetAddress(subnet_, plen_), plen_, key,
          vrf_->table_label(), vmi->policy_enabled(), vmi->vn()->GetName(),
-         sg_id_list);
+         sg_id_list, tag_id_list);
     return true;
 }
 
@@ -1607,6 +1620,9 @@ bool VmInterface::FloatingIp::AddL2(const Agent *agent,
     SecurityGroupList sg_id_list;
     vmi->CopySgIdList(&sg_id_list);
 
+    TagList tag_id_list;
+    vmi->CopyTagIdList(&tag_id_list);
+
     PathPreference path_preference;
     vmi->SetPathPreference(&path_preference, false, GetFixedIp(vmi));
 
@@ -1879,10 +1895,14 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
     if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != Ip4Address(0)) {
         SecurityGroupList sg_id_list;
         vmi->CopySgIdList(&sg_id_list);
+
+        TagList tag_id_list;
+        vmi->CopyTagIdList(&tag_id_list);
+
         InetUnicastAgentRouteTable::AddGatewayRoute
             (vmi->peer_.get(), vrf_->GetName(), addr_.to_v4(), plen_,
              gw_.to_v4(), vmi->vn_->GetName(), vmi->vrf_->table_label(),
-             sg_id_list, communities_);
+             sg_id_list, tag_id_list, communities_);
     } else {
         IpAddress dependent_ip;
         bool ecmp = false;
@@ -2141,6 +2161,112 @@ bool VmInterface::ServiceVlanList::UpdateList
     return true;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// TagGroup routines
+/////////////////////////////////////////////////////////////////////////////
+VmInterface::TagEntry::TagEntry() :
+    ListEntry(), VmInterfaceState() , type_(0xFFFFFFFF), uuid_(nil_uuid()) {
+}
+
+VmInterface::TagEntry::TagEntry(const TagEntry &rhs) :
+    ListEntry(rhs.del_pending_),
+    VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
+    type_(rhs.type_), uuid_(rhs.uuid_) {
+}
+
+VmInterface::TagEntry::TagEntry(uint32_t type, const uuid &u) :
+    ListEntry(), VmInterfaceState(), type_(type), uuid_(u) {
+}
+
+VmInterface::TagEntry::~TagEntry() {
+}
+
+bool VmInterface::TagEntry::operator ==(const TagEntry &rhs) const {
+    return uuid_ == rhs.uuid_;
+}
+
+bool VmInterface::TagEntry::operator()(const TagEntry &lhs,
+                                       const TagEntry &rhs) const {
+    return lhs.IsLess(&rhs);
+}
+
+bool VmInterface::TagEntry::IsLess(const TagEntry *rhs) const {
+    if (type_ != rhs->type_) {
+        return type_ < rhs->type_;
+    }
+
+    //We can only have duplicate of tag of type Label
+    //Rest of tags would be unique
+    if (type_ != TagTable::LABEL) {
+        return type_ < rhs->type_;
+    }
+    return uuid_ < rhs->uuid_;
+}
+
+bool VmInterface::TagEntry::AddL3(const Agent *agent,
+                                  VmInterface *interface) const {
+    if (tag_.get() && tag_->tag_uuid() == uuid_) {
+        return false;
+    }
+
+    TagKey tag_key(uuid_);
+    typedef ::TagEntry GlobalTagEntry;
+    tag_ = static_cast<GlobalTagEntry *>(agent->tag_table()->
+                                             FindActiveEntry(&tag_key));
+    return true;
+}
+
+bool VmInterface::TagEntry::DeleteL3(const Agent *agent,
+                                     VmInterface *interface) const {
+    tag_.reset();
+    return true;
+}
+
+VmInterfaceState::Op
+VmInterface::TagEntry::GetOpL3(const Agent *agent,
+                               const VmInterface *vmi) const {
+    if (del_pending_)
+        return VmInterfaceState::INVALID;
+
+    return VmInterfaceState::ADD;
+}
+
+void VmInterface::TagEntryList::Insert(const TagEntry *rhs) {
+    list_.insert(*rhs);
+}
+
+void VmInterface::TagEntryList::Update(const TagEntry *lhs,
+                                       const TagEntry *rhs) {
+    if (lhs->uuid_ != rhs->uuid_) {
+        lhs->uuid_ = rhs->uuid_;
+    }
+}
+
+void VmInterface::TagEntryList::Remove(TagEntrySet::iterator &it) {
+    it->set_del_pending(true);
+}
+
+bool VmInterface::TagEntryList::UpdateList(const Agent *agent,
+                                           VmInterface *vmi,
+                                           VmInterfaceState::Op l2_force_op,
+                                           VmInterfaceState::Op l3_force_op) {
+    TagEntrySet::iterator it = list_.begin();
+    while (it != list_.end()) {
+        TagEntrySet::iterator prev = it++;
+        VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
+        VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        vmi->UpdateState(&(*prev), l2_op, l3_op);
+        if (prev->del_pending()) {
+            list_.erase(prev);
+        }
+    }
+
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// ServiceVlan routines
+/////////////////////////////////////////////////////////////////////////////
 VmInterface::ServiceVlan::ServiceVlan() :
     ListEntry(), tag_(0), vrf_name_(""), addr_(0),
     addr6_(), smac_(), dmac_(), vrf_(NULL, this),
@@ -2219,6 +2345,9 @@ void VmInterface::ServiceVlan::Update(const Agent *agent,
     SecurityGroupList sg_id_list;
     vmi->CopySgIdList(&sg_id_list);
 
+    TagList tag_id_list;
+    vmi->CopyTagIdList(&tag_id_list);
+
     VnListType vn_list;
     vn_list.insert(vmi->vn()->GetName());
 
@@ -2230,7 +2359,8 @@ void VmInterface::ServiceVlan::Update(const Agent *agent,
 
         InetUnicastAgentRouteTable::AddVlanNHRoute
             (vmi->peer(), vrf_->GetName(), addr_, Address::kMaxV4PrefixLen,
-             vmi->GetUuid(), tag_, label_, vn_list, sg_id_list, pref);
+             vmi->GetUuid(), tag_, label_, vn_list, sg_id_list,
+             tag_id_list, pref);
         v4_rt_installed_ = true;
     }
 
@@ -2240,7 +2370,8 @@ void VmInterface::ServiceVlan::Update(const Agent *agent,
 
         InetUnicastAgentRouteTable::AddVlanNHRoute
             (vmi->peer(), vrf_->GetName(), addr6_, Address::kMaxV6PrefixLen,
-             vmi->GetUuid(), tag_, label_, vn_list, sg_id_list, pref);
+             vmi->GetUuid(), tag_, label_, vn_list, sg_id_list,
+             tag_id_list, pref);
         v6_rt_installed_ = true;
     }
 
@@ -2396,4 +2527,45 @@ bool VmInterface::VrfAssignRuleList::UpdateList
         (agent->acl_table()->FindActiveEntry(&entry_key));
     assert(vrf_assign_acl_);
     return true;
+}
+
+bool VmInterface::UpdatePolicySet(Agent *agent) {
+    FirewallPolicyList new_firewall_policy_list;
+
+    PolicySet *gps = agent->policy_set_table()->global_policy_set();
+    if (gps) {
+        new_firewall_policy_list = gps->fw_policy_list();
+    }
+
+    TagEntrySet::const_iterator it = tag_list_.list_.begin();
+    for(; it != tag_list_.list_.end(); it++) {
+        if (it->tag_ == NULL || it->tag_->policy_set() == NULL) {
+            continue;
+        }
+
+        FirewallPolicyList &tag_fp_list =
+            it->tag_->policy_set()->fw_policy_list();
+        FirewallPolicyList::iterator fw_policy_it = tag_fp_list.begin();
+        for (; fw_policy_it != tag_fp_list.end(); fw_policy_it++) {
+            new_firewall_policy_list.push_back(*fw_policy_it);
+        }
+    }
+
+    if (fw_policy_list_ != new_firewall_policy_list) {
+        fw_policy_list_ = new_firewall_policy_list;
+        return true;
+    }
+
+    return false;
+}
+
+void VmInterface::CopyTagIdList(TagList *tag_id_list) const {
+    TagEntrySet::const_iterator it;
+    for (it = tag_list_.list_.begin(); it != tag_list_.list_.end(); ++it) {
+        if (it->del_pending_)
+            continue;
+        if (it->tag_.get() == NULL)
+            continue;
+        tag_id_list->push_back(it->tag_->tag_id());
+    }
 }

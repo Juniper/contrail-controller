@@ -103,7 +103,7 @@ public:
         Inet4TunnelRouteAdd(Agent::GetInstance()->local_peer(), 
                             vrf_name_, remote_vm_ip_, 32, server1_ip_,
                             l3_bmap, 1000, vrf_name_,
-                            SecurityGroupList(), PathPreference());
+                            SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle();
 
         BridgeTunnelRouteAdd(Agent::GetInstance()->local_peer(), vrf_name_,
@@ -129,7 +129,7 @@ public:
         EcmpTunnelRouteAdd(agent->local_peer(), vrf_name_,
                            remote_ecmp_vm_ip_, 32,
                            comp_nh_list1, false, "vn1",
-                           sg_id_list, PathPreference());
+                           sg_id_list, TagList(), PathPreference());
         client->WaitForIdle();
 
         TunnelOlist olist_map;

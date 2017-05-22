@@ -329,7 +329,8 @@ TEST_F(TestAap6, StateMachine_3) {
     PathPreference path_preference(1, PathPreference::LOW, false, false);
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
     Inet6TunnelRouteAdd(peer_, "vrf1", ip, 128, server_ip, bmap,
-                        16, "vn1", SecurityGroupList(), path_preference);
+                        16, "vn1", SecurityGroupList(), TagList(),
+                        path_preference);
     client->WaitForIdle();
 
     VmInterface *vm_intf = VmInterfaceGet(1);

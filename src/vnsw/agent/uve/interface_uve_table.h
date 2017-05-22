@@ -17,6 +17,23 @@
 #include <oper/peer.h>
 #include <cmn/index_vector.h>
 #include <oper/interface_common.h>
+#include <vnsw/agent/uve/uve_types.h>
+
+/* Structure used to pass Endpoint data from FlowStatsCollector to UVE module */
+struct EndpointStatsInfo {
+    const VmInterface *vmi;
+    TagList local_tagset;
+    std::string policy; //has policy-name and rule-uuid
+    std::string local_vn;
+    std::string remote_vn;
+    TagList remote_tagset;
+    std::string remote_prefix;
+    uint64_t diff_bytes;
+    uint64_t diff_pkts;
+    /* The following bool field indicates diff_bytes and diff_pkts are
+     * in_stats or out_stats */
+    bool in_stats;
+};
 
 //The container class for objects representing VMInterface UVEs
 //Defines routines for storing and managing (add, delete, change and send)
@@ -99,6 +116,50 @@ public:
             return ace_uuid < rhs.ace_uuid;
         }
     };
+    //Forward declaration
+    struct UveInterfaceEntry;
+    struct UveSecurityPolicyStats {
+        TagList remote_tagset;
+        std::string remote_prefix;
+        std::string remote_vn;
+        uint64_t initiator_session_count;
+        uint64_t responder_session_count;
+        uint64_t in_bytes;
+        uint64_t in_pkts;
+        uint64_t out_bytes;
+        uint64_t out_pkts;
+        uint64_t prev_in_bytes;
+        uint64_t prev_in_pkts;
+        uint64_t prev_out_bytes;
+        uint64_t prev_out_pkts;
+        UveSecurityPolicyStats(const TagList &tset, const std::string &rprefix,
+                               const std::string &rvn) :
+            remote_tagset(tset), remote_prefix(rprefix), remote_vn(rvn),
+            initiator_session_count(0), responder_session_count(0),
+            in_bytes(0), in_pkts(0), out_bytes(0), out_pkts(0),
+            prev_in_bytes(0) , prev_in_pkts(0), prev_out_bytes(0),
+            prev_out_pkts(0) {
+        }
+        std::string GetTagStr(const InterfaceUveTable::UveInterfaceEntry *entry,
+                              uint32_t type) const;
+        void UpdateSessionCount(bool initiator);
+    };
+    typedef boost::shared_ptr<UveSecurityPolicyStats> UveSecurityPolicyStatsPtr;
+    struct PolicyCmp {
+        bool operator() (const UveSecurityPolicyStatsPtr &lhs,
+                         const UveSecurityPolicyStatsPtr &rhs) {
+            if (lhs->remote_prefix.compare(rhs->remote_prefix) != 0) {
+                return lhs->remote_prefix < rhs->remote_prefix;
+            }
+            return lhs->remote_tagset < rhs->remote_tagset;
+        }
+    };
+    typedef std::set<UveSecurityPolicyStatsPtr, PolicyCmp>
+        SecurityPolicyStatsSet;
+    typedef std::map<std::string, SecurityPolicyStatsSet>
+        SecurityPolicyStatsMap;
+    typedef std::pair<std::string, SecurityPolicyStatsSet>
+        SecurityPolicyStatsPair;
     typedef std::set<AceStats> AceStatsSet;
     struct UveInterfaceEntry {
         const VmInterface *intf_;
@@ -112,6 +173,9 @@ public:
         bool ace_stats_changed_;
         UveVMInterfaceAgent uve_info_;
         AceStatsSet ace_set_;
+        TagList local_tagset_;
+        std::string local_vn_;
+        SecurityPolicyStatsMap security_policy_stats_map_;
         /* For exclusion between kTaskFlowStatsCollector and Agent::Uve */
         tbb::mutex mutex_;
 
@@ -147,6 +211,22 @@ public:
         void UpdateInterfaceAceStats(const std::string &ace_uuid);
         void Reset();
         void UpdatePortBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
+        void UpdateInterfaceFwPolicyStats(const std::string &fw_policy,
+                                          const TagList &tglist,
+                                          const std::string &rprefix,
+                                          bool initiator);
+        void UpdateSecurityPolicyStats(const EndpointStatsInfo &info);
+        void UpdateSecurityPolicyStatsInternal(const EndpointStatsInfo &info,
+                                               UveSecurityPolicyStats *stats);
+        void FillEndpointStats(Agent *agent, EndpointSecurityStats *obj) const;
+        uint32_t GetTagOfType(uint32_t tag_type_value, const TagList &list)
+            const;
+        std::string GetTagStr(Agent *agent, uint32_t type) const;
+        void BuildInterfaceUveInfo(InterfaceUveInfo *r) const;
+        void FillTagSetAndPolicyList(Agent *agent, UveVMInterfaceAgent *obj)
+            const;
+        void BuildSandeshUveTagList(const TagList &list,
+                                    std::vector<SandeshUveTagInfo> *rts) const;
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;
 
@@ -158,6 +238,7 @@ public:
     void RegisterDBClients();
     void Shutdown(void);
     virtual void DispatchInterfaceMsg(const UveVMInterfaceAgent &uve);
+    virtual void DispatchInterfaceObjectLog(EndpointSecurityStats *obj);
     bool TimerExpiry();
     virtual void SendInterfaceAceStats(const string &name,
                                        UveInterfaceEntry *entry) {

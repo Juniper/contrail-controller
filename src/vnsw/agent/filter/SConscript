@@ -14,6 +14,7 @@ libfilter = env.Library('filter',
                       'traffic_action.cc',
                       'acl_entry.cc',
                       'acl.cc',
+                      'policy_set.cc'
                       #'policy.cc',
                       ])
 

@@ -75,12 +75,15 @@ bool MacLearningEntryLocal::Add() {
     SecurityGroupList sg_list;
     vm_intf->CopySgIdList(&sg_list);
 
+    TagList tag_list;
+    vm_intf->CopyTagIdList(&tag_list);
+
     mac_learning_table_->agent()->fabric_evpn_table()->
         AddLocalVmRouteReq(mac_learning_table_->agent()->mac_learning_peer(),
                            vrf()->GetName(),
                            mac(), vm_intf, Ip4Address(0),
                            vm_intf->l2_label(),
-                           vm_intf->vn()->GetName(), sg_list,
+                           vm_intf->vn()->GetName(), sg_list, tag_list,
                            PathPreference(), 0,
                            vm_intf->etree_leaf());
     return true;
@@ -112,7 +115,7 @@ bool MacLearningEntryPBB::Add() {
     std::string bmac_vrf_name = vrf_->bmac_vrf_name();
     PBBRoute *data = new PBBRoute(VrfKey(bmac_vrf_name), bmac_, isid,
                                    VnListType(),
-                                   SecurityGroupList());
+                                   SecurityGroupList(), TagList());
     EvpnAgentRouteTable::AddRemoteVmRouteReq(mac_learning_table_->agent()->
                                              mac_learning_peer(),
                                              vrf()->GetName(),

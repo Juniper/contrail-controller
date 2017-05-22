@@ -261,19 +261,45 @@ void StatsManager::AddFlow(const FlowAceStatsRequest *req) {
     VnUveTable *vtable = static_cast<VnUveTable *>(uve->vn_uve_table());
     if (it == flow_ace_tree_.end()) {
         InterfaceStats stats;
-        FlowRuleMatchInfo info(req->interface(), req->sg_rule_uuid(), req->vn(),
+        FlowRuleMatchInfo info(req->interface(), req->sg_rule_uuid(),
+                               req->fw_policy(), req->remote_tagset(),
+                               req->remote_prefix(), req->vn(),
                                req->nw_ace_uuid());
         flow_ace_tree_.insert(FlowAcePair(req->uuid(), info));
         itable->IncrInterfaceAceStats(req->interface(), req->sg_rule_uuid());
+        if (req->session_count()) {
+            itable->IncrInterfaceEndpointHits(req->interface(),
+                                              req->fw_policy(),
+                                              req->remote_tagset(),
+                                              req->remote_prefix(),
+                                              req->initiator());
+        }
         vtable->IncrVnAceStats(req->vn(), req->nw_ace_uuid());
     } else {
         FlowRuleMatchInfo &info = it->second;
-        if ((req->interface() != info.interface) ||
-            (req->sg_rule_uuid() != info.sg_rule_uuid)) {
+        bool intf_changed = false;
+        if (req->interface() != info.interface) {
+            info.interface = req->interface();
+            intf_changed = true;
+        }
+        if (intf_changed || (req->sg_rule_uuid() != info.sg_rule_uuid)) {
             itable->IncrInterfaceAceStats(req->interface(),
                                           req->sg_rule_uuid());
-            info.interface = req->interface();
             info.sg_rule_uuid = req->sg_rule_uuid();
+        }
+        if (intf_changed || (req->fw_policy() != info.fw_policy) ||
+            (req->remote_tagset() != info.remote_tagset) ||
+            (req->remote_prefix() != info.remote_prefix)) {
+            if (req->session_count()) {
+                itable->IncrInterfaceEndpointHits(req->interface(),
+                                                  req->fw_policy(),
+                                                  req->remote_tagset(),
+                                                  req->remote_prefix(),
+                                                  req->initiator());
+            }
+            info.fw_policy = req->fw_policy();
+            info.remote_tagset = req->remote_tagset();
+            info.remote_prefix = req->remote_prefix();
         }
         if ((req->vn() != info.vn) ||
             (req->nw_ace_uuid() != info.nw_ace_uuid)) {

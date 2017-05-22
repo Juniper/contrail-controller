@@ -176,6 +176,7 @@ public:
     virtual bool Sync(AgentRoute *sync_route);
 
     const SecurityGroupList &sg_list() const {return sg_list_;}
+    const TagList &tag_list() const {return tag_list_;}
     const CommunityList &communities() const {return communities_;}
     const std::string &dest_vn_name() const {
         assert(dest_vn_list_.size() <= 1);
@@ -216,8 +217,10 @@ public:
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
     void set_tunnel_type(TunnelType::Type type) {tunnel_type_ = type;}
     void set_sg_list(const SecurityGroupList &sg) {sg_list_ = sg;}
+    void set_tag_list(const TagList &tag) {tag_list_ = tag;}
     void set_communities(const CommunityList &communities) {communities_ = communities;}
     void clear_sg_list() { sg_list_.clear(); }
+    void clear_tag_list() { tag_list_.clear(); }
     void clear_communities() { communities_.clear(); }
     void set_tunnel_dest(const Ip4Address &tunnel_dest) {
         tunnel_dest_ = tunnel_dest;
@@ -349,6 +352,7 @@ private:
     //     Use nexthop with policy irrespective of interface configuration
     bool force_policy_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     CommunityList communities_;
 
     // tunnel destination address
@@ -489,10 +493,12 @@ private:
 class ResolveRoute : public AgentRouteData {
 public:
     ResolveRoute(const InterfaceKey *key, bool policy, const uint32_t label,
-                 const std::string &vn_name, const SecurityGroupList &sg_list) :
+                 const std::string &vn_name, const SecurityGroupList &sg_list,
+                 const TagList &tag_list) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
         intf_key_(key->Clone()), policy_(policy),
-        label_(label), dest_vn_name_(vn_name), path_sg_list_(sg_list) {}
+        label_(label), dest_vn_name_(vn_name), path_sg_list_(sg_list),
+        path_tag_list_(tag_list) {}
     virtual ~ResolveRoute() { }
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
@@ -503,6 +509,7 @@ private:
     uint32_t label_;
     const std::string dest_vn_name_;
     const SecurityGroupList path_sg_list_;
+    const TagList path_tag_list_;
     DISALLOW_COPY_AND_ASSIGN(ResolveRoute);
 };
 
@@ -511,6 +518,7 @@ public:
     LocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label,
                  uint32_t vxlan_id, bool force_policy, const VnListType &vn_list,
                  uint8_t flags, const SecurityGroupList &sg_list,
+                 const TagList &tag_list,
                  const CommunityList &communities,
                  const PathPreference &path_preference,
                  const IpAddress &subnet_service_ip,
@@ -521,7 +529,8 @@ public:
         intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_list_(vn_list), proxy_arp_(false), sync_route_(false),
-        flags_(flags), sg_list_(sg_list), communities_(communities),
+        flags_(flags), sg_list_(sg_list), tag_list_(tag_list),
+        communities_(communities),
         tunnel_bmap_(TunnelType::MplsType()),
         path_preference_(path_preference),
         subnet_service_ip_(subnet_service_ip),
@@ -536,6 +545,7 @@ public:
                                        const AgentRoute *rt);
     const CommunityList &communities() const {return communities_;}
     const SecurityGroupList &sg_list() const {return sg_list_;}
+    const TagList &tag_list() const {return tag_list_;}
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
     const PathPreference& path_preference() const { return path_preference_;}
     void set_path_preference(const PathPreference &path_preference) {
@@ -555,6 +565,7 @@ private:
     bool sync_route_;
     uint8_t flags_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     CommunityList communities_;
     TunnelType::TypeBmap tunnel_bmap_;
     PathPreference path_preference_;
@@ -569,10 +580,11 @@ private:
 class PBBRoute : public AgentRouteData {
 public:
     PBBRoute(const VrfKey &vrf_key, const MacAddress &mac, uint32_t isid,
-             const VnListType &vn_list, const SecurityGroupList &sg_list):
+             const VnListType &vn_list, const SecurityGroupList &sg_list,
+             const TagList &tag_list):
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
         vrf_key_(vrf_key), dmac_(mac), isid_(isid),
-        dest_vn_list_(vn_list), sg_list_(sg_list) {
+        dest_vn_list_(vn_list), sg_list_(sg_list), tag_list_(tag_list) {
     }
 
     virtual ~PBBRoute() { }
@@ -580,6 +592,7 @@ public:
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
     const SecurityGroupList &sg_list() const {return sg_list_;}
+    const TagList &tag_list() const {return tag_list_;}
 
 private:
     VrfKey vrf_key_;
@@ -587,6 +600,7 @@ private:
     uint32_t isid_;
     VnListType dest_vn_list_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     PathPreference path_preference_;
     DISALLOW_COPY_AND_ASSIGN(PBBRoute);
 };
@@ -666,10 +680,11 @@ class VlanNhRoute : public AgentRouteData {
 public:
     VlanNhRoute(const VmInterfaceKey &intf, uint16_t tag, uint32_t label,
                 const VnListType &dest_vn_list, const SecurityGroupList &sg_list,
+                const TagList &tag_list,
                 const PathPreference &path_preference, uint64_t sequence_number) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
         intf_(intf), tag_(tag), label_(label),
-        dest_vn_list_(dest_vn_list), sg_list_(sg_list),
+        dest_vn_list_(dest_vn_list), sg_list_(sg_list), tag_list_(tag_list),
         path_preference_(path_preference), tunnel_bmap_(TunnelType::MplsType()) {
     }
     virtual ~VlanNhRoute() { }
@@ -683,6 +698,7 @@ private:
     uint32_t label_;
     VnListType dest_vn_list_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     PathPreference path_preference_;
     TunnelType::TypeBmap tunnel_bmap_;
     DISALLOW_COPY_AND_ASSIGN(VlanNhRoute);
@@ -745,7 +761,7 @@ public:
                  uint32_t tunnel_bmap, bool policy, const std::string &vn) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
         intf_(intf), label_(label), tunnel_bmap_(tunnel_bmap),
-        policy_(policy), proxy_arp_(false), vn_(vn), sg_list_() {
+        policy_(policy), proxy_arp_(false), vn_(vn), sg_list_(), tag_list_() {
     }
     virtual ~ReceiveRoute() { }
     void set_proxy_arp() {proxy_arp_ = true;}
@@ -762,6 +778,7 @@ private:
     bool proxy_arp_;
     std::string vn_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     DISALLOW_COPY_AND_ASSIGN(ReceiveRoute);
 };
 
@@ -769,10 +786,11 @@ class Inet4UnicastArpRoute : public AgentRouteData {
 public:
     Inet4UnicastArpRoute(const std::string &vrf_name,
                          const Ip4Address &addr, bool policy,
-                         const VnListType &vn_list, const SecurityGroupList &sg) :
+                         const VnListType &vn_list, const SecurityGroupList &sg,
+                         const TagList &tag) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
         vrf_name_(vrf_name), addr_(addr), policy_(policy),
-        vn_list_(vn_list), sg_list_(sg) {
+        vn_list_(vn_list), sg_list_(sg), tag_list_(tag) {
     }
     virtual ~Inet4UnicastArpRoute() { }
 
@@ -785,6 +803,7 @@ private:
     bool policy_;
     VnListType vn_list_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastArpRoute);
 };
 
@@ -794,10 +813,11 @@ public:
                              const std::string &vrf_name,
                              const std::string &vn_name,
                              uint32_t label, const SecurityGroupList &sg,
+                             const TagList &tag,
                              const CommunityList &communities) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
         gw_ip_(gw_ip), vrf_name_(vrf_name), vn_name_(vn_name),
-        mpls_label_(label), sg_list_(sg), communities_(communities) {
+        mpls_label_(label), sg_list_(sg), tag_list_(tag), communities_(communities) {
     }
     virtual ~Inet4UnicastGatewayRoute() { }
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -810,6 +830,7 @@ private:
     std::string vn_name_;
     uint32_t mpls_label_;
     const SecurityGroupList sg_list_;
+    const TagList tag_list_;
     const CommunityList communities_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastGatewayRoute);
 };

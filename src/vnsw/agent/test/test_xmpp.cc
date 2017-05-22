@@ -658,7 +658,8 @@ TEST_F(AgentXmppUnitTest, Del_db_req_by_deleted_peer_non_hv) {
     Inet4TunnelRouteAdd(old_bgp_peer, "vrf10", addr, 32,
                         Ip4Address::from_string("8.8.8.8"),
                         TunnelType::ComputeType(TunnelType::MplsType()),
-                        100, "vn10", SecurityGroupList(), PathPreference());
+                        100, "vn10", SecurityGroupList(), TagList(),
+                        PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetPathList().size() == 2);
 
@@ -888,14 +889,10 @@ TEST_F(AgentXmppUnitTest, Add_db_inetinterface_req_by_deleted_peer_non_hv) {
         new LocalVmRoute(intf_key, 10, 100, false, vn_list1,
                                    InterfaceNHFlags::INET4,
                                    SecurityGroupList(),
+                                   TagList(),
                                    CommunityList(),
-<<<<<<< HEAD
-                                   PathPreference(),
-                                   EcmpLoadBalance(), false, false, 0);
-=======
                                    PathPreference(), Ip4Address(0),
                                    EcmpLoadBalance(), false, false, false);
->>>>>>> 996b840... * Changes to support mac learning and PBB EVPN
     agent->fabric_inet4_unicast_table()->AddLocalVmRouteReq(old_bgp_peer, "vrf1",
                                   addr, 32,
                                   static_cast<LocalVmRoute *>(local_vm_route));

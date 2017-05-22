@@ -115,19 +115,20 @@ class RemoteEcmpTest : public ::testing::Test {
         Inet4TunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip1_, 32,
                             remote_server_ip_, TunnelType::GREType(),
                             30, "vn2", SecurityGroupList(),
+                            TagList(),
                             PathPreference());
 
         Inet4TunnelRouteAdd(bgp_peer, "default-project:vn3:vn3",
                             remote_vm_ip2_, 32,
                             remote_server_ip_, TunnelType::GREType(),
                             30, "default-project:vn3", SecurityGroupList(),
-                            PathPreference());
+                            TagList(), PathPreference());
 
         Inet4TunnelRouteAdd(bgp_peer, "default-project:vn4:vn4",
                             remote_vm_ip3_, 32,
                             remote_server_ip_, TunnelType::GREType(),
                             30, "default-project:vn4", SecurityGroupList(),
-                            PathPreference());
+                            TagList(), PathPreference());
         client->WaitForIdle();
         FlowStatsTimerStartStop(agent_, true);
     }
@@ -217,7 +218,7 @@ public:
             }
         }
         EcmpTunnelRouteAdd(bgp_peer, vrf_name, vm_ip, plen,
-                           comp_nh_list, -1, vn, sg_id_list,
+                           comp_nh_list, -1, vn, sg_id_list, TagList(),
                            PathPreference());
     }
 
@@ -232,7 +233,8 @@ public:
             new LocalVmRoute(intf_key, vm_intf->label(),
                              VxLanTable::kInvalidvxlan_id, false, vn_list,
                              InterfaceNHFlags::INET4, SecurityGroupList(),
-                             CommunityList(), PathPreference(), Ip4Address(0),
+                             TagList(), CommunityList(),
+                             PathPreference(), Ip4Address(0),
                              EcmpLoadBalance(), false, false,
                              bgp_peer->sequence_number(), false);
         InetUnicastAgentRouteTable *rt_table =
@@ -252,7 +254,7 @@ public:
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer,
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr, TunnelType::GREType(), 16,
-                               vn_list, SecurityGroupList(),
+                               vn_list, SecurityGroupList(), TagList(),
                                PathPreference(), false, EcmpLoadBalance(),
                                false);
         InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer,
@@ -409,7 +411,7 @@ TEST_F(RemoteEcmpTest, Fabric_DstFip_EcmpToNonEcmp_1) {
 
     SecurityGroupList sg_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", ip, 24, comp_nh, -1, "vn2", sg_list,
-                       PathPreference());
+                       TagList(), PathPreference());
     client->WaitForIdle();
 
     //VIP of vrf2 interfaces
@@ -497,7 +499,7 @@ TEST_F(RemoteEcmpTest, Vmi_DstFip_NonEcmpToEcmp_FlowMove_1) {
     comp_nh_list.push_back(nh_data2);
     EcmpTunnelRouteAdd(bgp_peer, "default-project:vn10:vn10", gw_rt, 0,
                        comp_nh_list, -1, "default-project:vn10",
-                       SecurityGroupList(), PathPreference());
+                       SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     TxIpPacket(VmPortGetId(9), "9.1.1.1", "10.1.1.1", 1);
@@ -602,7 +604,7 @@ TEST_F(RemoteEcmpTest, Vmi_EcmpTest_13) {
     comp_nh_list.push_back(nh_data2);
     EcmpTunnelRouteAdd(bgp_peer, "default-project:vn10:vn10", gw_rt, 0,
                        comp_nh_list, false, "default-project:vn10",
-                       SecurityGroupList(), PathPreference());
+                       SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *rt = RouteGet("default-project:vn10:vn10", gw_rt, 0);
 
@@ -649,7 +651,7 @@ TEST_F(RemoteEcmpTest, Vmi_EcmpTest_13) {
     comp_nh_list.push_back(nh_data3);
     EcmpTunnelRouteAdd(bgp_peer, "default-project:vn10:vn10", gw_rt, 0,
                        comp_nh_list, false, "default-project:vn10",
-                       SecurityGroupList(), PathPreference());
+                       SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
@@ -720,7 +722,7 @@ TEST_F(RemoteEcmpTest, EcmpTest_14) {
     comp_nh_list.push_back(nh_data2);
     EcmpTunnelRouteAdd(bgp_peer, "default-project:vn10:vn10", gw_rt, 0,
                        comp_nh_list, false, "default-project:vn10",
-                       SecurityGroupList(), PathPreference());
+                       SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     TxIpPacket(VmPortGetId(9), "9.1.1.1", "10.1.1.1", 1);
@@ -738,7 +740,7 @@ TEST_F(RemoteEcmpTest, EcmpTest_14) {
                         Ip4Address::from_string("8.8.8.8"),
                         TunnelType::ComputeType(TunnelType::MplsType()),
                         100, "default-project:vn10", SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
     //Make sure flow has the right nexthop set.
     InetUnicastRouteEntry *rt = RouteGet("default-project:vn10:vn10", gw_rt, 0);
@@ -793,7 +795,7 @@ TEST_F(RemoteEcmpTest, EcmpTest_15) {
     comp_nh_list.push_back(nh_data2);
     EcmpTunnelRouteAdd(bgp_peer, "vrf9", gw_rt, 0,
                        comp_nh_list, false, "vn9",
-                       SecurityGroupList(), PathPreference());
+                       SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     TxIpPacket(VmPortGetId(9), "9.1.1.1", "10.1.1.1", 1);
@@ -811,7 +813,7 @@ TEST_F(RemoteEcmpTest, EcmpTest_15) {
                         Ip4Address::from_string("8.8.8.8"),
                         TunnelType::ComputeType(TunnelType::MplsType()),
                         100, "vn9", SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
     //Make sure flow has the right nexthop set.
     InetUnicastRouteEntry *rt = RouteGet("vrf9", gw_rt, 0);
@@ -863,10 +865,10 @@ TEST_F(RemoteEcmpTest, EcmpTest_16) {
                                                    ip, 32, NULL);
     EcmpTunnelRouteAdd(bgp_peer, "vrf9", ip, 32,
                        comp_nh_list, false, "vn3",
-                       SecurityGroupList(), PathPreference());
+                       SecurityGroupList(), TagList(), PathPreference());
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", ip, 32,
                        comp_nh_list, false, "vn2",
-                       SecurityGroupList(), PathPreference());
+                       SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     //Add a vrf assign ACL to vn1, so that traffic is forwarded via
@@ -968,7 +970,7 @@ TEST_F(RemoteEcmpTest, EcmpReEval_2) {
     Ip4Address remote_server_ip = Ip4Address::from_string("10.10.10.10");
     Inet4TunnelRouteAdd(bgp_peer, "vrf2",remote_vm_ip, 32, 
                         remote_server_ip, TunnelType::GREType(), 16, "vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     TxIpPacket(VmPortGetId(1), "1.1.1.1", "3.1.1.10", 1);
     client->WaitForIdle();
@@ -1088,7 +1090,7 @@ TEST_F(RemoteEcmpTest, DISABLE_VgwFlag) {
     comp_nh_list.push_back(nh_data2);
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", ip, 0,
                        comp_nh_list, false, "vn2",
-                       SecurityGroupList(), PathPreference());
+                       SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     //Send packet on vgw interface

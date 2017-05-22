@@ -256,10 +256,12 @@ void ArpEntry::AddArpRoute(bool resolved) {
 
     bool policy = false;
     SecurityGroupList sg;
+    TagList tag;
     VnListType vn_list;
     if (entry) {
         policy = entry->GetActiveNextHop()->PolicyEnabled();
         sg = entry->GetActivePath()->sg_list();
+        tag = entry->GetActivePath()->tag_list();
         vn_list = entry->GetActivePath()->dest_vn_list();
     }
 
@@ -272,7 +274,7 @@ void ArpEntry::AddArpRoute(bool resolved) {
     handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
                        DBRequest::DB_ENTRY_ADD_CHANGE, vrf_name, ip, mac,
                        nh_vrf_->GetName(), *itf, resolved, 32, policy,
-                       vn_list, sg);
+                       vn_list, sg, tag);
 }
 
 bool ArpEntry::DeleteArpRoute() {
@@ -300,15 +302,16 @@ bool ArpEntry::DeleteArpRoute() {
     handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
                        DBRequest::DB_ENTRY_DELETE, vrf_name, ip, mac, nh_vrf_->GetName(),
                        *interface_, false, 32, false, Agent::NullStringList(),
-                       SecurityGroupList());
+                       SecurityGroupList(), TagList());
     return false;
 }
 
 void ArpEntry::Resync(bool policy, const VnListType &vnlist,
-                      const SecurityGroupList &sg) {
+                      const SecurityGroupList &sg,
+                      const TagList &tag) {
     Ip4Address ip(key_.ip);
     handler_->agent()->fabric_inet4_unicast_table()->ArpRoute(
                        DBRequest::DB_ENTRY_ADD_CHANGE, key_.vrf->GetName(), ip,
                        mac_address_, nh_vrf_->GetName(), *interface_, IsResolved(),
-                       32, policy, vnlist, sg);
+                       32, policy, vnlist, sg, tag);
 }

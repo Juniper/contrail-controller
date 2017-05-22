@@ -96,12 +96,14 @@ public:
                             Ip4Address::from_string(REMOTE_NON_ECMP_1), 32,
                             Ip4Address::from_string(REMOTE_COMPUTE_1),
                             TunnelType::AllType(),
-                            16, "vn1", SecurityGroupList(), PathPreference());
+                            16, "vn1", SecurityGroupList(),
+                            TagList(), PathPreference());
         Inet4TunnelRouteAdd(bgp_peer_, "vrf1",
                             Ip4Address::from_string(REMOTE_NON_ECMP_2), 32,
                             Ip4Address::from_string(REMOTE_COMPUTE_1),
                             TunnelType::AllType(),
-                            17, "vn1", SecurityGroupList(), PathPreference());
+                            17, "vn1", SecurityGroupList(),
+                            TagList(), PathPreference());
         client->WaitForIdle();
 
         // Add ECMP Route members to 1.1.1.30. It has both local and remote
@@ -189,7 +191,7 @@ public:
             }
         }
         EcmpTunnelRouteAdd(bgp_peer_, vrf_name, vm_ip, plen, comp_nh_list, -1,
-                           vn, sg_id_list, PathPreference());
+                           vn, sg_id_list, TagList(), PathPreference());
     }
 
     void AddLocalVmRoute(const std::string &vrf_name, const std::string &ip,
@@ -205,7 +207,8 @@ public:
             new LocalVmRoute(intf_key, vm_intf->label(),
                              VxLanTable::kInvalidvxlan_id, false, vn_list,
                              InterfaceNHFlags::INET4, SecurityGroupList(),
-                             CommunityList(), PathPreference(), Ip4Address(0),
+                             TagList(), CommunityList(),
+                             PathPreference(), Ip4Address(0),
                              EcmpLoadBalance(), false, false,
                              bgp_peer_->sequence_number(), false);
         InetUnicastAgentRouteTable *rt_table =
@@ -224,8 +227,8 @@ public:
         ControllerVmRoute *data = ControllerVmRoute::MakeControllerVmRoute
             (bgp_peer_, agent_->fabric_vrf_name(), agent_->router_id(),
              vrf_name, addr, TunnelType::GREType(), 16, vn_list,
-             SecurityGroupList(), PathPreference(), false, EcmpLoadBalance(),
-             false);
+             SecurityGroupList(), TagList(), PathPreference(),
+             false, EcmpLoadBalance(), false);
         InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vrf_name,
                                                         addr, plen, data);
     }

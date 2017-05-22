@@ -95,7 +95,7 @@ TEST_F(FlowQosTest, Test_2) {
     char server_ip[] = "10.1.1.3";
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", vm_ip, 32, server_ip,
                         TunnelType::AllType(), 16, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     TestFlow flow[] = {

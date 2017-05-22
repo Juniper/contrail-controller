@@ -10,6 +10,7 @@
 #include "oper/ifmap_dependency_manager.h"
 #include "oper/vn.h"
 #include "oper/sg.h"
+#include "oper/tag.h"
 #include "oper/interface_common.h"
 #include "oper/health_check.h"
 #include "oper/vrf.h"
@@ -24,6 +25,7 @@
 #include "oper/global_qos_config.h"
 #include "oper/global_vrouter.h"
 #include "oper/bridge_domain.h"
+#include "filter/policy_set.h"
 #include "cfg/cfg_init.h"
 
 #include <boost/assign/list_of.hpp>
@@ -80,10 +82,16 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
     agent_ = agent;
     static const char *ifmap_types[] = {
         "access-control-list",
+        "address-group",
         "alias-ip",
         "alias-ip-pool",
+        "application-policy-set",
+        "application-policy-set-firewall-policy",
         "bgp-as-a-service",
         "bgp-router",
+        "config-root",
+        "firewall-policy",
+        "firewall-rule",
         "floating-ip",
         "floating-ip-pool",
         "forwarding-class",
@@ -93,14 +101,17 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "network-ipam",
         "physical-interface",
         "physical-router",
+        "project",
         "qos-config",
         "qos-queue",
         "routing-instance",
         "security-group",
+        "service-group",
         "service-health-check",
         "service-instance",
         "service-template",
         "subnet",
+        "tag",
         "virtual-ip",
         "virtual-machine",
         "virtual-machine-interface",
@@ -112,7 +123,8 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "virtual-router",
         "interface-route-table",
         "bridge-domain",
-        "virtual-machine-interface-bridge-domain"
+        "virtual-machine-interface-bridge-domain",
+        "firewall-policy-firewall-rule"
     };
 
     // Link table
@@ -619,6 +631,11 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     RegisterConfigHandler(this, "security-group",
                          agent ? agent->sg_table() : NULL);
 
+    RegisterConfigHandler(this, "tag",
+                         agent ? agent->tag_table() : NULL);
+    AddDependencyPath("tag",
+                      MakePath("application-policy-set-tag",
+                               "application-policy-set", true));
     ////////////////////////////////////////////////////////////////////////
     // VMI <----> VN
     //     <----> VM
@@ -651,6 +668,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-security-group",
                                "security-group", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-tag",
+                               "tag", true));
     AddDependencyPath("virtual-machine-interface",
                       MakePath("alias-ip-virtual-machine-interface",
                                "alias-ip", true,
@@ -722,6 +742,51 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                true,
                                "virtual-machine-interface-bridge-domain",
                                "bridge-domain", true));
+
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-tag",
+                               "tag", true,
+                               "application-policy-set-tag",
+                               "application-policy-set", true,
+                               "application-policy-set-firewall-policy",
+                               "application-policy-set-firewall-policy", true,
+                               "application-policy-set-firewall-policy",
+                               "firewall-policy", true));
+
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-virtual-network",
+                               "virtual-network", true,
+                               "virtual-network-tag", "tag", true,
+                               "application-policy-set-tag",
+                               "application-policy-set", true,
+                               "application-policy-set-firewall-policy",
+                               "application-policy-set-firewall-policy", true,
+                               "application-policy-set-firewall-policy",
+                               "firewall-policy", true));
+
+
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-virtual-machine",
+                               "virtual-machine", true,
+                               "virtual-machine-tag", "tag", true,
+                               "application-policy-set-tag",
+                               "application-policy-set", true,
+                               "application-policy-set-firewall-policy",
+                               "application-policy-set-firewall-policy", true,
+                               "application-policy-set-firewall-policy",
+                               "firewall-policy", true));
+
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("project-virtual-machine-interface",
+                               "project", true,
+                               "project-tag", "tag", true,
+                               "application-policy-set-tag",
+                               "application-policy-set", true,
+                               "application-policy-set-firewall-policy",
+                               "application-policy-set-firewall-policy", true,
+                               "application-policy-set-firewall-policy",
+                               "firewall-policy", true));
+
 
     RegisterConfigHandler(this, "virtual-machine-interface",
                           agent ? agent->interface_table() : NULL);
@@ -807,6 +872,48 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
 
     RegisterConfigHandler(this, "bridge-domain",
                           agent ? agent->bridge_domain_table() : NULL);
+
+    AddDependencyPath("application-policy-set",
+                      MakePath("application-policy-set-firewall-policy",
+                               "application-policy-set-firewall-policy", true,
+                               "application-policy-set-firewall-policy",
+                               "firewall-policy", true));
+    RegisterConfigHandler(this, "application-policy-set",
+                          agent ? agent->policy_set_table() : NULL);
+
+    AddDependencyPath("firewall-policy",
+                      MakePath("firewall-policy-firewall-rule",
+                               "firewall-policy-firewall-rule", true,
+                               "firewall-policy-firewall-rule",
+                               "firewall-rule", true,
+                               "firewall-rule-service-group",
+                               "service-group", true));
+    AddDependencyPath("firewall-policy",
+                      MakePath("firewall-policy-firewall-rule",
+                               "firewall-policy-firewall-rule", true,
+                               "firewall-policy-firewall-rule",
+                                "firewall-rule", true,
+                                "firewall-rule-address-group",
+                                "address-group", true,
+                                "address-group-tag", "tag", "true"));
+
+    AddDependencyPath("firewall-policy",
+                      MakePath("firewall-policy-firewall-rule",
+                               "firewall-policy-firewall-rule", true,
+                               "firewall-policy-firewall-rule",
+                               "firewall-rule", true,
+                               "firewall-rule-tag",
+                               "tag", true,
+                               "config-root-tag", "config-root", false));
+
+    AddDependencyPath("firewall-policy",
+                      MakePath("firewall-policy-firewall-rule",
+                               "firewall-policy-firewall-rule", true,
+                               "firewall-policy-firewall-rule",
+                               "firewall-rule", true));
+
+    RegisterConfigHandler(this, "firewall-policy",
+                          agent ? agent->acl_table() : NULL);
 }
 
 void IFMapNodePolicyReq::HandleRequest() const {

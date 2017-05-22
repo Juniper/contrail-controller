@@ -28,6 +28,7 @@
 #include <oper/qos_queue.h>
 #include <oper/bridge_domain.h>
 #include <filter/acl.h>
+#include <filter/policy_set.h>
 
 /////////////////////////////////////////////////////////////////////////////
 // Utility routines
@@ -1256,5 +1257,49 @@ bool BridgeDomainSandesh::Filter(const DBEntryBase *entry) {
 bool BridgeDomainSandesh::FilterToArgs(AgentSandeshArguments *args) {
     args->Add("uuid", uuid_str_);
     args->Add("name", name_);
+    return true;
+}
+
+DBTable *AgentPolicySetSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->policy_set_table());
+}
+
+AgentPolicySetSandesh::AgentPolicySetSandesh(const std::string &context,
+                                             const std::string &u,
+                                             const std::string &name) :
+    AgentSandesh(context, ""), uuid_str_(u), name_(name) {
+    boost::system::error_code ec;
+    uuid_ = StringToUuid(u);
+}
+
+void AgentPolicySetSandesh::Alloc() {
+    resp_ = new ApplicationPolicySetResp();
+}
+
+bool AgentPolicySetSandesh::UpdateResp(DBEntryBase *entry) {
+    PolicySet *ent = static_cast<PolicySet *>(entry);
+    return ent->DBEntrySandesh(resp_, name_);
+}
+
+bool AgentPolicySetSandesh::FilterToArgs(AgentSandeshArguments *args) {
+    args->Add("uuid", uuid_str_);
+    args->Add("name", name_);
+    return true;
+}
+
+bool AgentPolicySetSandesh::Filter(const DBEntryBase *entry) {
+    const PolicySet *ps =
+        dynamic_cast<const PolicySet *>(entry);
+    assert(ps);
+
+    if (MatchUuid(uuid_str_ , uuid_,  ps->uuid()) == false) {
+        return false;
+    }
+
+    if (name_.empty() == false &&
+            ps->name() != name_) {
+        return false;
+    }
+
     return true;
 }

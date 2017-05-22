@@ -98,7 +98,7 @@ void FlowMgmtManager::ControllerNotify(uint8_t index) {
 /////////////////////////////////////////////////////////////////////////////
 void FlowMgmtManager::SetAceSandeshData(const AclDBEntry *acl,
                                         AclFlowCountResp &data,
-                                        int ace_id) {
+                                        const std::string &ace_id) {
     AclFlowMgmtKey key(acl, NULL);
     AclFlowMgmtEntry *entry = static_cast<AclFlowMgmtEntry *>
         (acl_flow_mgmt_tree_.Find(&key));
@@ -576,11 +576,25 @@ void FlowMgmtManager::EnqueueUveAddEvent(const FlowEntry *flow) const {
         const VnEntry *vn = flow->vn_entry();
         string vn_name = vn? vn->GetName() : "";
         string itf_name = vmi? vmi->cfg_name() : "";
-        if ((!itf_name.empty() && !flow->sg_rule_uuid().empty()) ||
-            (!vn_name.empty() && !flow->nw_ace_uuid().empty())) {
+        if ((!itf_name.empty() && ((!flow->sg_rule_uuid().empty()) ||
+                ((!flow->fw_policy_name_uuid().empty()) &&
+                 ((flow->remote_tagset().size() != 0) ||
+                  (!flow->RemotePrefix().empty()))))
+            ) ||
+           (!vn_name.empty() && !flow->nw_ace_uuid().empty())) {
+            bool initiator_session = false;
+            uint8_t count = 0;
+            if (!flow->is_flags_set(FlowEntry::ReverseFlow)) {
+                count = 1;
+                if (flow->is_flags_set(FlowEntry::IngressDir)) {
+                    initiator_session = true;
+                }
+            }
             boost::shared_ptr<FlowAceStatsRequest> req(new FlowAceStatsRequest
                 (FlowAceStatsRequest::ADD_FLOW, flow->uuid(), itf_name,
-                 flow->sg_rule_uuid(), vn_name, flow->nw_ace_uuid()));
+                 flow->sg_rule_uuid(), flow->fw_policy_name_uuid(),
+                 flow->remote_tagset(), flow->RemotePrefix(), count,
+                 initiator_session, vn_name, flow->nw_ace_uuid()));
             uve->stats_manager()->EnqueueEvent(req);
         }
     }
@@ -1160,7 +1174,7 @@ string AclFlowMgmtEntry::GetAclFlowSandeshDataKey(const AclDBEntry *acl,
 }
 
 string AclFlowMgmtEntry::GetAceSandeshDataKey(const AclDBEntry *acl,
-                                              int ace_id) {
+                                              const std::string &ace_id) {
     string uuid_str = UuidToString(acl->GetUuid());
     stringstream ss;
     ss << uuid_str << ":";
@@ -1170,7 +1184,7 @@ string AclFlowMgmtEntry::GetAceSandeshDataKey(const AclDBEntry *acl,
 
 void AclFlowMgmtEntry::FillAceFlowSandeshInfo(const AclDBEntry *acl,
                                               AclFlowCountResp &data,
-                                              int ace_id) {
+                                              const std::string& ace_id) {
     int count = 0;
     bool key_set = false;
     AceIdFlowCntMap::iterator aceid_it = aceid_cnt_map_.upper_bound(ace_id);
@@ -1194,7 +1208,7 @@ void AclFlowMgmtEntry::FillAceFlowSandeshInfo(const AclDBEntry *acl,
     data.set_flow_miss(flow_miss_);
 
     if (!key_set) {
-        data.set_iteration_key(GetAceSandeshDataKey(acl, 0));
+        data.set_iteration_key(GetAceSandeshDataKey(acl, Agent::NullString()));
     }
 }
 
@@ -1237,7 +1251,7 @@ void AclFlowMgmtEntry::FillAclFlowSandeshInfo(const AclDBEntry *acl,
 void AclFlowMgmtEntry::DecrementAceIdCountMap(const AclEntryIDList *id_list) {
     AclEntryIDList::const_iterator id_it;
     for (id_it = id_list->begin(); id_it != id_list->end(); ++id_it) {
-        aceid_cnt_map_[*id_it] -= 1;
+        aceid_cnt_map_[id_it->id_] -= 1;
     }
 }
 
@@ -1250,7 +1264,7 @@ bool AclFlowMgmtEntry::Add(const AclEntryIDList *id_list, FlowEntry *flow,
     if (id_list->size()) {
         AclEntryIDList::const_iterator id_it;
         for (id_it = id_list->begin(); id_it != id_list->end(); ++id_it) {
-            aceid_cnt_map_[*id_it] += 1;
+            aceid_cnt_map_[id_it->id_] += 1;
         }
     } else {
         flow_miss_++;
@@ -1286,6 +1300,8 @@ void AclFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree) {
     ExtractKeys(flow, tree, &flow->match_p().m_mirror_acl_l);
     ExtractKeys(flow, tree, &flow->match_p().m_out_mirror_acl_l);
     ExtractKeys(flow, tree, &flow->match_p().m_vrf_assign_acl_l);
+    ExtractKeys(flow, tree, &flow->match_p().m_application_policy_set_l);
+    ExtractKeys(flow, tree, &flow->match_p().m_out_application_policy_set_l);
 }
 
 FlowMgmtEntry *AclFlowMgmtTree::Allocate(const FlowMgmtKey *key) {

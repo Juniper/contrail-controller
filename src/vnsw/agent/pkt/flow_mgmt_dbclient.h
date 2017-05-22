@@ -47,6 +47,7 @@ public:
         AclDBEntryConstRef vrf_assign_acl_;
         bool is_vn_qos_config_;
         AgentQosConfigConstRef qos_config_;
+        FirewallPolicyList fw_policy_list_;
     };
 
     struct VrfFlowHandlerState : public FlowMgmtState {
@@ -77,7 +78,7 @@ public:
 
     struct RouteFlowHandlerState : public FlowMgmtState {
         RouteFlowHandlerState() : sg_l_(), active_nh_(NULL), local_nh_(NULL),
-            ecmp_load_balance_() {}
+            ecmp_load_balance_(), tags_l_() {}
         virtual ~RouteFlowHandlerState() { }
         typedef std::map<InterfaceConstRef, IpAddress> FixedIpMap;
         typedef std::pair<InterfaceConstRef, IpAddress> FixedIpEntry;
@@ -87,6 +88,7 @@ public:
         const NextHop* local_nh_;
         FixedIpMap fixed_ip_map_;
         EcmpLoadBalance ecmp_load_balance_;
+        TagList tags_l_;
     };
 
     struct NhFlowHandlerState : public FlowMgmtState {

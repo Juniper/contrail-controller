@@ -233,6 +233,8 @@ private:
 
     void UpdateInterVnStats(FlowExportInfo *info,
                             uint64_t bytes, uint64_t pkts);
+    void UpdateVmiTagBasedStats(FlowExportInfo *info,
+                                uint64_t bytes, uint64_t pkts);
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowExportInfo *info, const vr_flow_entry *k_flow,
                       const vr_flow_stats &k_stats, uint64_t curr_time);

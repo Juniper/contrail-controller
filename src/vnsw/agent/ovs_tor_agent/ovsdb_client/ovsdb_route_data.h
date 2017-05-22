@@ -14,7 +14,8 @@ public:
     OvsdbRouteData(const Peer *peer, uint32_t vxlan_id,
                    const Ip4Address &tor_ip, const Ip4Address &router_id,
                    const std::string &tor_vrf, const std::string &dest_vn_name,
-                   const SecurityGroupList &sg_list, bool ha_stale_export,
+                   const SecurityGroupList &sg_list,
+                   bool ha_stale_export,
                    uint32_t sequence);
     OvsdbRouteData(const Peer *peer);
     virtual ~OvsdbRouteData();
@@ -31,6 +32,7 @@ private:
     Ip4Address router_id_;
     std::string dest_vn_name_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     bool ha_stale_export_;
     uint32_t sequence_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbRouteData);
@@ -47,6 +49,7 @@ public:
 
 private:
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     DISALLOW_COPY_AND_ASSIGN(OvsdbRouteResyncData);
 };
 

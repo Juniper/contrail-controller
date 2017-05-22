@@ -318,7 +318,7 @@ static void RestoreInetConfig(Agent *agent) {
                            Ip4Address(0), 0, param->vhost_gw(),
                            agent->fabric_vrf_name(),
                            MplsTable::kInvalidLabel, SecurityGroupList(),
-                           CommunityList());
+                           TagList(), CommunityList());
     client->WaitForIdle();
 }
 

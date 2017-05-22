@@ -540,4 +540,20 @@ private:
     std::string name_;
     boost::uuids::uuid uuid_;
 };
+
+class AgentPolicySetSandesh : public AgentSandesh {
+public:
+    AgentPolicySetSandesh(const std::string &context, const std::string &uuid,
+                          const std::string &name);
+    virtual bool Filter(const DBEntryBase *entry);
+    virtual bool FilterToArgs(AgentSandeshArguments *args);
+
+private:
+    DBTable *AgentGetTable();
+    std::string uuid_str_;
+    std::string name_;
+    boost::uuids::uuid uuid_;
+    void Alloc();
+    bool UpdateResp(DBEntryBase *entry);
+};
 #endif // vnsw_agent_sandesh_h_

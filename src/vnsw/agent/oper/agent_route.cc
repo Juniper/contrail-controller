@@ -577,6 +577,7 @@ void AgentRoute::InsertPath(const AgentPath *path) {
 void AgentRoute::RemovePathInternal(AgentPath *path) {
     remove(path);
     path->clear_sg_list();
+    path->clear_tag_list();
 }
 
 void AgentRoute::RemovePath(AgentPath *path) {

@@ -9,6 +9,7 @@
 #include "test/test_init.h"
 #include "oper/ecmp_load_balance.h"
 #include "oper/mirror_table.h"
+#include "oper/tag.h"
 #include "oper/physical_device_vn.h"
 #include "ksync/ksync_sock_user.h"
 #include "uve/test/vn_uve_table_test.h"
@@ -128,6 +129,7 @@ static void BuildLinkToMetadata() {
         return;
 
     AddLinkToMetadata("virtual-machine-interface", "virtual-network");
+    AddLinkToMetadata("project", "virtual-machine-interface");
     AddLinkToMetadata("virtual-machine-interface", "virtual-machine");
     AddLinkToMetadata("virtual-machine-interface", "security-group");
     AddLinkToMetadata("virtual-machine-interface",
@@ -138,6 +140,7 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("virtual-machine-interface",
                       "virtual-machine-interface-bridge-domain",
                       "virtual-machine-interface-bridge-domain");
+    AddLinkToMetadata("virtual-machine-interface", "tag");
     AddLinkToMetadata("instance-ip", "virtual-machine-interface");
     AddLinkToMetadata("instance-ip", "virtual-network");
     AddLinkToMetadata("instance-ip", "floating-ip");
@@ -186,6 +189,25 @@ static void BuildLinkToMetadata() {
                       "virtual-machine-interface-bridge-domain",
                       "virtual-machine-interface-bridge-domain");
     AddLinkToMetadata("virtual-network", "bridge-domain");
+    AddLinkToMetadata("firewall-policy", "firewall-policy-firewall-rule",
+                      "firewall-policy-firewall-rule");
+    AddLinkToMetadata("firewall-rule", "firewall-policy-firewall-rule",
+                      "firewall-policy-firewall-rule");
+    AddLinkToMetadata("application-policy-set",
+                      "application-policy-set-firewall-policy",
+                      "application-policy-set-firewall-policy");
+    AddLinkToMetadata("firewall-policy",
+                      "application-policy-set-firewall-policy",
+                      "application-policy-set-firewall-policy");
+
+    AddLinkToMetadata("firewall-rule", "service-group");
+    AddLinkToMetadata("firewall-rule", "address-group");
+    AddLinkToMetadata("firewall-rule", "tag", "firewall-rule-tag");
+    AddLinkToMetadata("address-group", "tag", "address-group-tag");
+    AddLinkToMetadata("virtual-network", "tag", "virtual-network-tag");
+    AddLinkToMetadata("virtual-machine", "tag", "virtual-machine-tag");
+    AddLinkToMetadata("project", "tag", "project-tag");
+    AddLinkToMetadata("application-policy-set", "tag");
 }
 
 string GetMetadata(const char *node1, const char *node2,
@@ -703,6 +725,22 @@ bool AclFind(int id) {
 AclDBEntry *AclGet(int id) {
     AclKey key(MakeUuid(id));
     return static_cast<AclDBEntry *>(Agent::GetInstance()->acl_table()->FindActiveEntry(&key));
+}
+
+bool PolicySetFind(int id) {
+    PolicySet *ps;
+    PolicySetKey key(MakeUuid(id));
+    ps = static_cast<PolicySet *>(Agent::GetInstance()->
+                                      policy_set_table()->FindActiveEntry(&key));
+    return (ps != NULL);
+}
+
+PolicySet *PolicySetGet(int id) {
+    PolicySet *ps;
+    PolicySetKey key(MakeUuid(id));
+    ps = static_cast<PolicySet *>(Agent::GetInstance()->
+                                      policy_set_table()->FindActiveEntry(&key));
+    return ps;
 }
 
 VmEntry *VmGet(int id) {
@@ -1549,6 +1587,7 @@ bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
                               bmap, label, vn_list, SecurityGroupList(),
+                              TagList(),
                               PathPreference(), false, EcmpLoadBalance(),
                               leaf);
     EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
@@ -1570,6 +1609,7 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
                         const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
+                       const TagList &tag,
                        const PathPreference &path_preference) {
     COMPOSITETYPE type = Composite::ECMP;
     if (local_ecmp) {
@@ -1584,7 +1624,7 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
     vn_list.insert(vn_name);
     ControllerEcmpRoute *data =
         new ControllerEcmpRoute(peer, vm_ip, plen, vn_list, -1, false, vrf_name,
-                                sg, path_preference, TunnelType::MplsType(),
+                                sg, tag, path_preference, TunnelType::MplsType(),
                                 EcmpLoadBalance(), nh_req);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
@@ -1593,6 +1633,7 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
                         const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
+                       const TagList &tag,
                        const PathPreference &path_preference,
                        EcmpLoadBalance &ecmp_load_balance) {
     COMPOSITETYPE type = Composite::ECMP;
@@ -1608,7 +1649,7 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
     vn_list.insert(vn_name);
     ControllerEcmpRoute *data =
         new ControllerEcmpRoute(peer, vm_ip, plen, vn_list, -1, false, vrf_name,
-                                sg, path_preference, TunnelType::MplsType(),
+                                sg, tag, path_preference, TunnelType::MplsType(),
                                 ecmp_load_balance, nh_req);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
@@ -1617,6 +1658,7 @@ bool Inet6TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip6Add
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
+                         const TagList &tag,
                          const PathPreference &path_preference) {
     VnListType vn_list;
     vn_list.insert(dest_vn_name);
@@ -1625,7 +1667,7 @@ bool Inet6TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip6Add
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, vn_list, sg,
+                              bmap, label, vn_list, sg, tag,
                               path_preference, false, EcmpLoadBalance(),
                               false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
@@ -1657,8 +1699,10 @@ bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf,
     comp_nh_list.push_back(nh_data2);
 
     SecurityGroupList sg_id_list;
+    TagList tag_id_list;
     EcmpTunnelRouteAdd(peer, vrf, Ip4Address::from_string(prefix), plen,
-                       comp_nh_list, false, vn, sg_id_list, PathPreference());
+                       comp_nh_list, false, vn, sg_id_list, tag_id_list,
+                       PathPreference());
     client->WaitForIdle();
 }
 
@@ -1666,6 +1710,7 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip4Add
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
+                         const TagList &tag,
                          const PathPreference &path_preference) {
     VnListType vn_list;
     vn_list.insert(dest_vn_name);
@@ -1674,7 +1719,7 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip4Add
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, vn_list, sg,
+                              bmap, label, vn_list, sg, tag,
                               path_preference, false, EcmpLoadBalance(),
                               false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
@@ -1686,11 +1731,12 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_add
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
+                         const TagList &tag,
                          const PathPreference &path_preference) {
     boost::system::error_code ec;
     Inet4TunnelRouteAdd(peer, vm_vrf, Ip4Address::from_string(vm_addr, ec), plen,
                         Ip4Address::from_string(server_ip, ec), bmap, label,
-                        dest_vn_name, sg, path_preference);
+                        dest_vn_name, sg, tag, path_preference);
 }
 
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
@@ -1704,7 +1750,8 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                               Agent::GetInstance()->router_id(),
                               vm_vrf, Ip4Address::from_string(server, ec),
                               TunnelType::AllType(), label, vn_list,
-                              SecurityGroupList(), PathPreference(), false,
+                              SecurityGroupList(), TagList(),
+                              PathPreference(), false,
                               EcmpLoadBalance(), false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
@@ -1729,7 +1776,8 @@ bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
                               Agent::GetInstance()->fabric_vrf_name(),
                               Ip4Address::from_string(ip, ec), mac,
                               Agent::GetInstance()->fabric_vrf_name(),
-                              *intf, true, 32, false, vn_list, SecurityGroupList());
+                              *intf, true, 32, false, vn_list, SecurityGroupList(),
+                              TagList());
 
     return true;
 }
@@ -1745,7 +1793,8 @@ bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
                               Agent::GetInstance()->fabric_vrf_name(),
                               Ip4Address::from_string(ip, ec),
                               mac, Agent::GetInstance()->fabric_vrf_name(), *intf,
-                              false, 32, false, vn_list, SecurityGroupList());
+                              false, 32, false, vn_list, SecurityGroupList(),
+                              TagList());
     return true;
 }
 
@@ -1783,6 +1832,42 @@ void AddBridgeDomain(const char *name, uint32_t id, uint32_t isid,
     int len = 0;
     AddXmlHdr(buff, len);
     AddNodeString(buff, len, "bridge-domain", name, id, str.str().c_str());
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+}
+
+void AddTag(const char *name, uint32_t uuid, uint32_t id,
+            const std::string type) {
+    std::stringstream str;
+    str << "<tag-type>" << type << "</tag-type>";
+    str << "<tag-id> " << id << "</tag-id>";
+    str << "<display-name>" << name << "</display-name>";
+
+    char buff[10240];
+    int len = 0;
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, "tag", name, uuid, str.str().c_str());
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+}
+
+void AddAddressGroup(const char *name, uint32_t uuid,
+                     TestIp4Prefix *prefix, uint32_t count) {
+    std::stringstream str;
+
+    str << "<address-group-prefix>";
+    for(uint32_t i = 0; i < count; i++) {
+        str << "<subnet>";
+        str << "<ip-prefix>" << prefix[i].addr_.to_string() << "</ip-prefix>";
+        str << "<ip-prefix-len>" << prefix[i].plen_ << "</ip-prefix-len>";
+        str << "</subnet>";
+    }
+    str << "</address-group-prefix>";
+
+    char buff[10240];
+    int len = 0;
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, "address-group", name, uuid, str.str().c_str());
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
 }
@@ -2168,6 +2253,12 @@ void DelOperDBAcl(int id) {
     Agent::GetInstance()->acl_table()->Enqueue(&req);
 }
 
+void AddTag(const char *name, int id) {
+    char buff[128];
+    sprintf(buff, "<tag-id>%d</tag-id>", id);
+    AddNode("tag", name, id, buff);
+}
+
 void AddSg(const char *name, int id, int sg_id) {
     char buff[128];
     sprintf(buff, "<security-group-id>%d</security-group-id>", sg_id);
@@ -2379,6 +2470,55 @@ void AddVmportBridgeDomain(const char *name, uint32_t vlan_tag) {
 
     AddLinkNode("virtual-machine-interface-bridge-domain", name,
                 str.str().c_str());
+}
+
+void AddFirewallPolicyRuleLink(const std::string &node_name,
+                               const std::string &fp,
+                               const std::string &fr,
+                               const std::string &id) {
+    std::stringstream str;
+    str << "<sequence>" << id << "</sequence>";
+
+    AddLinkNode("firewall-policy-firewall-rule", node_name.c_str(),
+                str.str().c_str());
+    AddLink("firewall-policy", fp.c_str(),
+            "firewall-policy-firewall-rule", node_name.c_str());
+    AddLink("firewall-policy-firewall-rule", node_name.c_str(),
+            "firewall-rule", fr.c_str());
+}
+
+void DelFirewallPolicyRuleLink(const std::string &node_name,
+                               const std::string &fp, const std::string &fr) {
+    DelNode("firewall-policy-firewall-rule", node_name.c_str());
+    DelLink("firewall-policy", fp.c_str(),
+            "firewall-policy-firewall-rule", node_name.c_str());
+    DelLink("firewall-policy-firewall-rule", node_name.c_str(),
+            "firewall-rule", fr.c_str());
+}
+
+void AddPolicySetFirewallPolicyLink(const std::string &node_name,
+                               const std::string &aps,
+                               const std::string &fp,
+                               const std::string &id) {
+    std::stringstream str;
+    str << "<sequence>" << id << "</sequence>";
+
+    AddLinkNode("application-policy-set-firewall-policy", node_name.c_str(),
+                str.str().c_str());
+    AddLink("application-policy-set", aps.c_str(),
+            "application-policy-set-firewall-policy", node_name.c_str());
+    AddLink("application-policy-set-firewall-policy", node_name.c_str(),
+            "firewall-policy", fp.c_str());
+}
+
+void DelPolicySetFirewallPolicyLink(const std::string &node_name,
+                                    const std::string &aps,
+                                    const std::string &fp) {
+    DelNode("application-policy-set-firewall-policy", node_name.c_str());
+    DelLink("application-policy-set", aps.c_str(),
+            "application-policy-set-firewall-policy", node_name.c_str());
+    DelLink("application-policy-set-firewall-policy", node_name.c_str(),
+            "firewall-policy", fp.c_str());
 }
 
 void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_attr,
@@ -4696,4 +4836,162 @@ BridgeDomainEntry* BridgeDomainGet(int id) {
     BridgeDomainKey key(MakeUuid(id));
     return static_cast<BridgeDomainEntry *>(Agent::GetInstance()->
                            bridge_domain_table()->FindActiveEntry(&key));
+}
+
+
+void AddFwRuleTagLink(std::string fw_rule, TestTag *tag, uint32_t count) {
+    for (uint32_t i = 0; i < count; i++) {
+        AddLink("firewall-rule", fw_rule.c_str(), "tag",
+                tag[i].name_.c_str());
+    }
+}
+
+void DelFwRuleTagLink(std::string fw_rule, TestTag *tag, uint32_t count) {
+    for (uint32_t i = 0; i < count; i++) {
+        DelLink("firewall-rule", fw_rule.c_str(), "tag",
+                tag[i].name_.c_str());
+    }
+}
+
+void AddFirewall(const std::string &name, uint32_t id,
+        const std::string &src_ag, const std::string &dst_ag,
+        const std::string &action, const std::string direction) {
+    std::stringstream str;
+    if (direction == ">") {
+        str << "<direction>" << "&gt;" << "</direction>";
+    } else if (direction == "<") {
+        str << "<direction>" << "&lt;" << "</direction>";
+    } else {
+        str << "<direction>" << "&lt;&gt;" << "</direction>";
+    }
+
+    str << "<endpoint-1>";
+    str << "<address-group>" << src_ag << "</address-group>";
+    str << "</endpoint-1>";
+
+    str << "<endpoint-2>";
+    str << "<address-group>" << dst_ag << "</address-group>";
+    str << "</endpoint-2>";
+
+    str << "<action-list>";
+    str << "<simple-action>" << action << "</simple-action>";
+    str << "</action-list>";
+
+    AddNode("firewall-rule", name.c_str(),
+            id, str.str().c_str());
+}
+
+void AddFirewall(const std::string &name, uint32_t id,
+        const std::vector<std::string> &match,
+        TestTag *src, uint32_t src_count,
+        TestTag *dst, uint32_t dst_count,
+        const std::string action, const std::string direction) {
+
+    std::stringstream str;
+
+    if (direction == ">") {
+        str << "<direction>" << "&gt;" << "</direction>";
+    } else if (direction == "<") {
+        str << "<direction>" << "&lt;" << "</direction>";
+    } else {
+        str << "<direction>" << "&lt;&gt;" << "</direction>";
+    }
+
+    if (match.size())  {
+        str << "<match-tags>";
+        std::vector<std::string>::const_iterator it = match.begin();
+        for(; it != match.end(); it++) {
+            str << "<tag-list>";
+            str << *it;
+            str << "</tag-list>";
+        }
+        str << "</match-tags>";
+    }
+
+    if (match.size())  {
+        str << "<match-tag-types>";
+        std::vector<std::string>::const_iterator it = match.begin();
+        for(; it != match.end(); it++) {
+            str << "<tag-type>";
+            str << TagTable::GetTypeVal(*it);
+            str << "</tag-type>";
+        }
+        str << "</match-tag-types>";
+    }
+
+    str << "<endpoint-1>";
+    for(uint32_t i = 0; i < src_count; i++) {
+        str << "<tags>";
+        str << MakeUuid(src[i].uuid_);
+        str << "</tags>";
+
+        str << "<tag-ids>";
+        str << src[i].id_;
+        str << "</tag-ids>";
+    }
+    str << "</endpoint-1>";
+
+    str << "<endpoint-2>";
+    for(uint32_t i = 0; i < dst_count; i++) {
+        str << "<tags>";
+        str << MakeUuid(dst[i].uuid_);
+        str << "</tags>";
+
+        str << "<tag-ids>";
+        str << dst[i].id_;
+        str << "</tag-ids>";
+    }
+    str << "</endpoint-2>";
+
+    str << "<action-list>";
+    str << "<simple-action>";
+    str << action;
+    str << "</simple-action>";
+    str << "</action-list>";
+
+    AddNode("firewall-rule", name.c_str(),
+            id, str.str().c_str());
+}
+
+void AddServiceGroup(const std::string &name, uint32_t id,
+        const std::vector<std::string> &protocol,
+        const std::vector<uint16_t> &port) {
+
+    std::stringstream str;
+    str << "<service-group-firewall-service-list>";
+    std::vector<std::string>::const_iterator it = protocol.begin();
+    std::vector<uint16_t>::const_iterator port_it = port.begin();
+
+    for (; it != protocol.end(); it++, port_it++) {
+        str << "<firewall-service>";
+        str << "<protocol>" << *it << "</protocol>";
+        str << "<protocol-id>" << Agent::ProtocolStringToInt(*it)
+            << "</protocol-id>";
+        str << "<dst-ports>";
+        str << "<start-port>" << *port_it << "</start-port>";
+        str << "<end-port>" << *port_it + 1 << "</end-port>";
+        str << "</dst-ports>";
+        str << "</firewall-service>";
+    }
+    str << "</service-group-firewall-service-list>";
+    AddNode("service-group", name.c_str(), id, str.str().c_str());
+}
+
+void CreateTags(TestTag *tag, uint32_t count) {
+    for (uint32_t i = 0; i < count; i++) {
+        AddTag(tag[i].name_.c_str(), tag[i].uuid_, tag[i].id_,
+               TagTable::GetTypeStr(tag[i].id_ >> TagTable::kTagTypeBitShift));
+    }
+}
+
+void DeleteTags(TestTag *tag, uint32_t count) {
+    for (uint32_t i = 0; i < count; i++) {
+        DelNode("tag", tag[i].name_.c_str());
+    }
+}
+
+void AddGlobalPolicySet(const std::string &name, uint32_t id) {
+    std::stringstream str;
+    str << "<is-global>true</is-global>";
+    AddNode("application-policy-set", name.c_str(), id, str.str().c_str());
 }

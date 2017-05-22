@@ -208,6 +208,54 @@ void AgentConfig::RegisterDBClients(DB *db) {
                                    "virtual-machine-interface-bridge-domain")));
     assert(cfg_vm_port_bridge_domain_table_);
 
+    cfg_policy_set_table_ = (static_cast<IFMapAgentTable *>
+                            (IFMapTable::FindTable(agent_->db(),
+                                                   "application-policy-set")));
+    assert(cfg_policy_set_table_);
+
+    cfg_firewall_policy_table_ = (static_cast<IFMapAgentTable *>
+                                 (IFMapTable::FindTable(agent_->db(),
+                                                        "firewall-policy")));
+    assert(cfg_firewall_policy_table_);
+
+    cfg_firewall_rule_table_ = (static_cast<IFMapAgentTable *>
+                               (IFMapTable::FindTable(agent_->db(),
+                                                      "firewall-rule")));
+    assert(cfg_firewall_rule_table_);
+
+    cfg_service_group_table_ = (static_cast<IFMapAgentTable *>
+                               (IFMapTable::FindTable(agent_->db(),
+                                                      "service-group")));
+    assert(cfg_service_group_table_);
+
+    cfg_address_group_table_ = (static_cast<IFMapAgentTable *>
+                               (IFMapTable::FindTable(agent_->db(),
+                                                      "address-group")));
+    assert(cfg_address_group_table_);
+
+    cfg_firewall_policy_firewall_rule_table_ =
+        (static_cast<IFMapAgentTable *>(IFMapTable::FindTable(agent_->db(),
+                                        "firewall-policy-firewall-rule")));
+    assert(cfg_firewall_policy_firewall_rule_table_);
+
+    cfg_tag_table_ =
+        (static_cast<IFMapAgentTable *>(IFMapTable::FindTable(agent_->db(),
+                                                              "tag")));
+    assert(cfg_tag_table_);
+
+    cfg_policy_set_firewall_policy_table_ =
+        (static_cast<IFMapAgentTable *>(IFMapTable::FindTable(agent_->db(),
+                                  "application-policy-set-firewall-policy")));
+    assert(cfg_policy_set_firewall_policy_table_);
+
+    cfg_root_table_ = (static_cast<IFMapAgentTable *>(
+                IFMapTable::FindTable(agent_->db(), "config-root")));
+    assert(cfg_root_table_);
+
+    cfg_project_table_ =
+        (static_cast<IFMapAgentTable *>(IFMapTable::FindTable(agent_->db(),
+                                                              "project")));
+    assert(cfg_project_table_);
 }
 
 void AgentConfig::Init() {

@@ -77,7 +77,8 @@ public:
         rt_table->AddLocalVmRouteReq(agent()->local_peer(), vrf, addr,
                                      128, intf->GetUuid(),
                                      vn_list, label,
-                                     SecurityGroupList(), CommunityList(), false,
+                                     SecurityGroupList(), TagList(),
+                                     CommunityList(), false,
                                      PathPreference(),
                                      Ip6Address(),
                                      EcmpLoadBalance(), false, false);
@@ -90,7 +91,7 @@ public:
         Ip6Address addr = Ip6Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
         Inet6TunnelRouteAdd(peer_, vrf, addr, 128, gw, TunnelType::MplsType(), label, vn,
-                            SecurityGroupList(), PathPreference());
+                            SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFindV6(vrf, addr, 128) == true));
     }

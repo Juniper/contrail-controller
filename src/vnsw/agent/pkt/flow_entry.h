@@ -244,6 +244,12 @@ struct MatchPolicy {
     MatchAclParamsList m_vrf_assign_acl_l;
     uint32_t vrf_assign_acl_action;
 
+    MatchAclParamsList m_application_policy_set_l;
+    uint32_t application_policy_set_action;
+
+    MatchAclParamsList m_out_application_policy_set_l;
+    uint32_t out_application_policy_set_action;
+
     // Summary of SG actions
     uint32_t sg_action_summary;
     FlowAction action_info;
@@ -267,6 +273,8 @@ struct FlowData {
     VnListType dest_vn_list;
     SecurityGroupList source_sg_id_l;
     SecurityGroupList dest_sg_id_l;
+    TagList source_tag_id_l;
+    TagList dest_tag_id_l;
     uint32_t flow_source_vrf;
     uint32_t flow_dest_vrf;
 
@@ -562,6 +570,15 @@ class FlowEntry {
     const boost::uuids::uuid &egress_uuid() const { return egress_uuid_;}
     const std::string &sg_rule_uuid() const { return sg_rule_uuid_; }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
+    const std::string fw_policy_name_uuid() const;
+    const std::string &policy_set_ace_uuid() const { return policy_set_ace_uuid_; }
+    const std::string &policy_set_acl_name() const {
+        return policy_set_acl_name_;
+    }
+
+    const std::string RemotePrefix() const;
+    const TagList &remote_tagset() const;
+    const TagList &local_tagset() const;
     const std::string &peer_vrouter() const { return peer_vrouter_; }
     TunnelType tunnel_type() const { return tunnel_type_; }
 
@@ -629,6 +646,8 @@ class FlowEntry {
     void GetLocalFlowSgList(const VmInterface *vm_port,
                             const VmInterface *reverse_vm_port);
     void GetSgList(const Interface *intf);
+    void GetApplicationPolicySet(const Interface *intf,
+                                 const FlowEntry *rflow);
     void SetPacketHeader(PacketHeader *hdr);
     void SetOutPacketHeader(PacketHeader *hdr);
     void set_deleted(bool deleted) { deleted_ = deleted; }
@@ -699,6 +718,8 @@ private:
     bool SetQosConfigIndex();
     void SetSgAclInfo(const FlowPolicyInfo &fwd_flow_info,
                       const FlowPolicyInfo &rev_flow_info, bool tcp_rev_sg);
+    const std::string BuildRemotePrefix(const FlowRouteRefMap &rt_list,
+                                        uint32_t vr, const IpAddress &ip) const;
     FlowKey key_;
     FlowTable *flow_table_;
     FlowData data_;
@@ -714,6 +735,8 @@ private:
     boost::uuids::uuid egress_uuid_;
     std::string sg_rule_uuid_;
     std::string nw_ace_uuid_;
+    std::string policy_set_ace_uuid_;
+    std::string policy_set_acl_name_;
     //IP address of the src vrouter for egress flows and dst vrouter for
     //ingress flows. Used only during flow-export
     std::string peer_vrouter_;
@@ -737,6 +760,7 @@ private:
     uint16_t event_log_index_;
     FlowPendingAction pending_actions_;
     static SecurityGroupList default_sg_list_;
+    static TagList default_tag_list_;
     uint8_t flow_retry_attempts_;
     bool is_flow_on_unresolved_list;
     // flow_mgmt_request used for compressing events to flow-mgmt queue.
@@ -750,6 +774,7 @@ private:
     FlowMgmtEntryInfoPtr flow_mgmt_info_;
     // IMPORTANT: Remember to update Reset() routine if new fields are added
     // IMPORTANT: Remember to update Copy() routine if new fields are added
+    const std::string fw_policy_;
 };
  
 void intrusive_ptr_add_ref(FlowEntry *fe);

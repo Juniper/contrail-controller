@@ -67,6 +67,7 @@ public:
                          const IpAddress &ip, uint32_t label,
                          const std::string &vn_name,
                          const SecurityGroupList &sg_id_list,
+                         const TagList &tag_id_list,
                          const PathPreference &path_pref,
                          uint32_t ethernet_tag,
                          bool etree_leaf);
@@ -76,6 +77,7 @@ public:
                          const IpAddress &ip, uint32_t label,
                          const std::string &vn_name,
                          const SecurityGroupList &sg_id_list,
+                         const TagList &tag_id_list,
                          const PathPreference &path_pref,
                          uint32_t ethernet_tag,
                          bool etree_leaf);
