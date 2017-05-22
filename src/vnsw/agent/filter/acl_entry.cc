@@ -23,6 +23,7 @@
 #include <filter/acl.h>
 #include <oper/qos_config.h>
 #include <oper/mirror_table.h>
+#include <oper/tag.h>
 
 AclEntry::ActionList AclEntry::kEmptyActionList;
 
@@ -47,6 +48,11 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
     id_ = acl_entry_spec.id;
     uuid_ = acl_entry_spec.rule_uuid;
 
+    if (acl_entry_spec.match_tags.size()) {
+        TagsMatch *tags_match = new TagsMatch(acl_entry_spec.match_tags);
+        matches_.push_back(tags_match);
+    }
+
     if (acl_entry_spec.src_addr_type == AddressMatch::IP_ADDR) {
         AddressMatch *src_addr = new AddressMatch();
         src_addr->SetSource(true);
@@ -61,6 +67,17 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
         AddressMatch *src_addr = new AddressMatch();
         src_addr->SetSource(true);
         src_addr->SetSGId(acl_entry_spec.src_sg_id);
+        matches_.push_back(src_addr);
+    } else if (acl_entry_spec.src_addr_type == AddressMatch::TAGS) {
+        AddressMatch *src_addr = new AddressMatch();
+        src_addr->SetSource(true);
+        src_addr->SetTags(acl_entry_spec.src_tags);
+        matches_.push_back(src_addr);
+    } else if (acl_entry_spec.src_addr_type == AddressMatch::ADDRESS_GROUP) {
+        AddressMatch *src_addr = new AddressMatch();
+        src_addr->SetSource(true);
+        src_addr->SetAddressGroup(acl_entry_spec.src_ip_list,
+                                  acl_entry_spec.src_tags);
         matches_.push_back(src_addr);
     }
 
@@ -79,7 +96,18 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
         dst_addr->SetSource(false);
         dst_addr->SetSGId(acl_entry_spec.dst_sg_id);
         matches_.push_back(dst_addr);
-    }    
+    } else if (acl_entry_spec.dst_addr_type == AddressMatch::TAGS) {
+        AddressMatch *dst_addr = new AddressMatch();
+        dst_addr->SetSource(false);
+        dst_addr->SetTags(acl_entry_spec.dst_tags);
+        matches_.push_back(dst_addr);
+    } else if (acl_entry_spec.dst_addr_type == AddressMatch::ADDRESS_GROUP) {
+        AddressMatch *dst_addr = new AddressMatch();
+        dst_addr->SetSource(false);
+        dst_addr->SetAddressGroup(acl_entry_spec.dst_ip_list,
+                                  acl_entry_spec.dst_tags);
+        matches_.push_back(dst_addr);
+    }
 
     if (acl_entry_spec.protocol.size() > 0) {
         ProtocolMatch *proto = new ProtocolMatch();
@@ -109,6 +137,12 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
             port->SetPortRange((*it).min, (*it).max);
         }
         matches_.push_back(port);
+    }
+
+    if (acl_entry_spec.service_group.size() > 0) {
+        ServiceGroupMatch *service_group_match =
+            new ServiceGroupMatch(acl_entry_spec.service_group);
+        matches_.push_back(service_group_match);
     }
 
     if (acl_entry_spec.action_l.size() > 0) {
@@ -226,8 +260,11 @@ void AclEntry::SetAclEntrySandeshData(AclEntrySandeshData &data) const {
         data.rule_type = "Unknown";
     }
 
+    int ace_id = 0;
+    stringToInteger(id_.id_, ace_id);
+
     // AclEntry ID
-    data.ace_id = integerToString(id_);
+    data.ace_id = ace_id;
     // UUID
     data.uuid = uuid_;
 }
@@ -294,6 +331,13 @@ void AddressMatch::SetIPAddress(const std::vector<AclAddressInfo> &list)
     ip_list_ = list;
 }
 
+void AddressMatch::SetAddressGroup(const std::vector<AclAddressInfo> &list,
+                                   const TagList &tags) {
+    addr_type_ = ADDRESS_GROUP;
+    ip_list_ = list;
+    tags_ = tags;
+}
+
 void AddressMatch::SetNetworkID(const uuid id)
 {
     addr_type_ = NETWORK_ID;
@@ -344,6 +388,36 @@ bool AddressMatch::SGMatch(const SecurityGroupList &sg_l, int id) const
     for (it = sg_l.begin(); it != sg_l.end(); ++it) {
         if (*it == id) return true;
     }
+    return false;
+}
+
+bool AddressMatch::TagsMatch(const TagList &pkt_tag_list) const {
+    TagList::const_iterator it = tags_.begin();
+    TagList::const_iterator pkt_it = pkt_tag_list.begin();
+
+    while(it != tags_.end() && pkt_it != pkt_tag_list.end()) {
+
+        if (*pkt_it == *it) {
+            it++;
+            pkt_it++;
+            continue;
+        }
+
+        //Packet tag list are sorted, hence if the packet tag
+        //id is greater then there is no match and hence return
+        if (*pkt_it > *it) {
+            return false;
+        }
+
+        if (*pkt_it < *it) {
+            pkt_it++;
+        }
+    }
+
+    if (it == tags_.end()) {
+        return true;
+    }
+
     return false;
 }
 
@@ -411,6 +485,11 @@ bool AddressMatch::Match(const PacketHeader *pheader,
             return false;
         } else if (addr_type_ == SG) {
             return SGMatch(pheader->src_sg_id_l, sg_id_);
+        } else if (addr_type_ == TAGS) {
+            return TagsMatch(pheader->src_tags_);
+        } else if (addr_type_ == ADDRESS_GROUP) {
+            return (SubnetMatch(ip_list_, pheader->src_ip) &&
+                    TagsMatch(pheader->src_tags_));
         }
     } else { 
         if (addr_type_ == IP_ADDR) {
@@ -430,6 +509,11 @@ bool AddressMatch::Match(const PacketHeader *pheader,
             return false;
         } else if (addr_type_ == SG) {
             return SGMatch(pheader->dst_sg_id_l, sg_id_);
+        } else if (addr_type_ == TAGS) {
+            return TagsMatch(pheader->dst_tags_);
+        } else if (addr_type_ == ADDRESS_GROUP) {
+            return (SubnetMatch(ip_list_, pheader->dst_ip) &&
+                    TagsMatch(pheader->dst_tags_));
         }
     }
     return false;
@@ -463,6 +547,20 @@ bool AddressMatch::Compare(const AclEntryMatch &rhs) const {
             return true;
         }
     }
+
+    if (addr_type_ == TAGS) {
+        if (tags_ == rhs_address_match.tags_) {
+            return true;
+        }
+    }
+
+    if (addr_type_ == ADDRESS_GROUP) {
+        if (tags_ == rhs_address_match.tags_ &&
+            ip_list_ == rhs_address_match.ip_list_) {
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -477,6 +575,25 @@ std::string AddressMatch::BuildIpMaskList
         ss << " ";
         ss << mask.to_string();
         ++it;
+        if (it != list.end()) {
+            ss << ", ";
+        }
+    }
+    return ss.str();
+}
+
+std::string AddressMatch::BuildTags(const TagList &list) {
+
+    TagList::const_iterator it = list.begin();
+    std::stringstream ss;
+
+    if (it == list.end()) {
+        ss << "Empty";
+    }
+
+    while (it != list.end()) {
+        ss << *it;
+        it++;
         if (it != list.end()) {
             ss << ", ";
         }
@@ -509,6 +626,15 @@ void AddressMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
         ss << sg_id_;
         *str = ss.str();
         *addr_type_str = "sg";
+    } else if (addr_type_ == TAGS) {
+        *addr_type_str = "tags";
+        *str = BuildTags(tags_);
+    } else if (addr_type_ == ADDRESS_GROUP) {
+        *addr_type_str = "AddressGroup";
+        std::ostringstream ss;
+        ss << BuildIpMaskList(ip_list_);
+        ss << BuildTags(tags_);
+        *str = ss.str();
     } else {
         *str = "Unknown Address Type";
         *addr_type_str = "unknown";
@@ -572,6 +698,146 @@ void ProtocolMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
     }
 }
 
+bool ServicePort::PortMatch(uint32_t s_port, uint32_t d_port) const {
+    if (s_port < src_port.min ||
+            s_port > src_port.max) {
+        return false;
+    }
+
+    if (d_port < dst_port.min ||
+            d_port > dst_port.max) {
+        return false;
+    }
+
+    return true;
+}
+
+bool ServiceGroupMatch::Match(const PacketHeader *packet_header,
+                              FlowPolicyInfo *info) const
+{
+    ServicePortList::const_iterator it = service_port_list_.begin();
+    for(; it != service_port_list_.end(); it++) {
+        if (packet_header->protocol < it->protocol.min ||
+            packet_header->protocol > it->protocol.max) {
+            continue;
+        }
+
+        if (packet_header->protocol != IPPROTO_TCP &&
+            packet_header->protocol != IPPROTO_UDP &&
+            packet_header->protocol != IPPROTO_SCTP) {
+            return true;
+        }
+
+        if (it->PortMatch(packet_header->src_port, packet_header->dst_port)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ServiceGroupMatch::Compare(const AclEntryMatch &rhs) const {
+    const ServiceGroupMatch &rhs_port_match =
+        static_cast<const ServiceGroupMatch &>(rhs);
+
+    if (service_port_list_ == rhs_port_match.service_port_list_) {
+        return true;
+    }
+
+    return false;
+}
+
+void ServiceGroupMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data) {
+    ServicePortList::const_iterator it = service_port_list_.begin();
+    for(; it != service_port_list_.end(); it++) {
+        class SandeshRange proto;
+        proto.min = it->protocol.min;
+        proto.max = it->protocol.max;
+        data.proto_l.push_back(proto);
+
+        class SandeshRange port;
+        port.min = it->src_port.min;
+        port.max = it->src_port.max;
+        data.src_port_l.push_back(port);
+
+        port.min = it->dst_port.min;
+        port.max = it->dst_port.max;
+        data.dst_port_l.push_back(port);
+    }
+}
+
+bool TagsMatch::Match(const PacketHeader *packet_header,
+                      FlowPolicyInfo *info) const {
+    TagList::const_iterator tag_type_it = tag_list_.begin();
+    TagList::const_iterator src_tag_it = packet_header->src_tags_.begin();
+    TagList::const_iterator dst_tag_it = packet_header->dst_tags_.begin();
+
+    while (tag_type_it != tag_list_.end() &&
+           src_tag_it != packet_header->src_tags_.end() &&
+           dst_tag_it != packet_header->dst_tags_.end()) {
+
+        int src_tag_type = *src_tag_it >> TagEntry::kTagTypeBitShift;
+        int dst_tag_type = *dst_tag_it >> TagEntry::kTagTypeBitShift;
+
+        if (*tag_type_it < src_tag_type || *tag_type_it < dst_tag_type) {
+            return false;
+        }
+
+        if (*tag_type_it == src_tag_type &&
+            *tag_type_it == dst_tag_type) {
+            //Tag type matches check if the value match
+            if (*src_tag_it == *dst_tag_it) {
+                //Tag match found
+                tag_type_it++;
+                src_tag_it++;
+                dst_tag_it++;
+            } else {
+                //Only Label tags are allowed to be duplicate
+                //and they are not expected in tags match
+                //As a safe check handle the same
+                if (*src_tag_it < *dst_tag_it) {
+                    src_tag_it++;
+                } else {
+                    dst_tag_it++;
+                }
+            }
+            continue;
+        }
+
+        if (*tag_type_it > src_tag_type) {
+            src_tag_it++;
+        }
+
+        if (*tag_type_it > dst_tag_type) {
+            dst_tag_it++;
+        }
+    }
+
+    if (tag_type_it == tag_list_.end()) {
+        return true;
+    }
+
+    return false;
+}
+
+bool TagsMatch::Compare(const AclEntryMatch &rhs) const {
+    const TagsMatch &rhs_tags_match = static_cast<const TagsMatch &>(rhs);
+
+    if (rhs_tags_match.tag_list_ == tag_list_) {
+        return true;
+    }
+
+    return false;
+}
+
+void TagsMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data) {
+    std::stringstream str;
+    TagList::const_iterator it = tag_list_.begin();
+    for(; it != tag_list_.end(); it++) {
+        str << TagEntry::GetTypeStr(*it) << " ";
+    }
+
+    data.set_match_condition(str.str());
+}
 
 void PortMatch::SetPortRange(const uint16_t min_port, const uint16_t max_port)
 {

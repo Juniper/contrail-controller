@@ -47,7 +47,8 @@ public:
                             Ip4Address::from_string(FIP_REMOTE_NON_ECMP_1), 32,
                             Ip4Address::from_string(REMOTE_COMPUTE_1),
                             TunnelType::AllType(),
-                            16, "vn2", SecurityGroupList(), PathPreference());
+                            16, "vn2", SecurityGroupList(),
+                            TagList(), PathPreference());
         client->WaitForIdle();
         GetInfo();
     }

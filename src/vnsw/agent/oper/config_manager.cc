@@ -23,6 +23,7 @@
 #include <oper/vn.h>
 #include <oper/vrf.h>
 #include <oper/sg.h>
+#include <oper/tag.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
 #include <oper/global_qos_config.h>
@@ -32,6 +33,7 @@
 #include <oper/forwarding_class.h>
 #include<oper/qos_queue.h>
 #include <oper/bridge_domain.h>
+#include <filter/policy_set.h>
 #include <vector>
 #include <string>
 
@@ -267,6 +269,7 @@ void ConfigManager::Init() {
     device_list_.reset(new ConfigManagerNodeList
                        (agent_->physical_device_table()));
     sg_list_.reset(new ConfigManagerNodeList(agent_->sg_table()));
+    tag_list_.reset(new ConfigManagerNodeList(agent_->tag_table()));
     vn_list_.reset(new ConfigManagerNodeList(agent_->vn_table()));
     vrf_list_.reset(new ConfigManagerNodeList(agent_->vrf_table()));
     vm_list_.reset(new ConfigManagerNodeList(agent_->vm_table()));
@@ -274,6 +277,8 @@ void ConfigManager::Init() {
                        (agent_->health_check_table()));
     bridge_domain_list_.reset(new ConfigManagerNodeList(
                                   agent_->bridge_domain_table()));
+    policy_set_list_.reset(new ConfigManagerNodeList(
+                                  agent_->policy_set_table()));
     qos_config_list_.reset(new ConfigManagerNodeList(agent_->qos_config_table()));
     device_vn_list_.reset(new ConfigManagerDeviceVnList
                           (agent_->physical_device_vn_table()));
@@ -305,13 +310,15 @@ uint32_t ConfigManager::Size() const {
         logical_interface_list_->Size() +
         device_list_->Size() +
         sg_list_->Size() +
+        tag_list_->Size() +
         vn_list_->Size() +
         vrf_list_->Size() +
         vm_list_->Size() +
         hc_list_->Size() +
         device_vn_list_->Size() +
         qos_config_list_->Size() +
-        bridge_domain_list_->Size();
+        bridge_domain_list_->Size() +
+        policy_set_list_->Size();
 }
 
 uint32_t ConfigManager::ProcessCount() const {
@@ -326,12 +333,14 @@ uint32_t ConfigManager::ProcessCount() const {
         logical_interface_list_->process_count() +
         device_list_->process_count() +
         sg_list_->process_count() +
+        tag_list_->process_count() +
         vn_list_->process_count() +
         vrf_list_->process_count() +
         vm_list_->process_count() +
         hc_list_->process_count() +
         device_vn_list_->process_count() +
-        qos_config_list_->process_count();
+        qos_config_list_->process_count() +
+        policy_set_list_->process_count();
 }
 
 void ConfigManager::Start() {
@@ -383,6 +392,7 @@ int ConfigManager::Run() {
     count += network_ipam_list_->Process(max_count - count);
     count += virtual_dns_list_->Process(max_count - count);
     count += sg_list_->Process(max_count - count);
+    count += tag_list_->Process(max_count - count);
     count += physical_interface_list_->Process(max_count - count);
     count += qos_queue_list_->Process(max_count - count);
     count += forwarding_class_list_->Process(max_count - count);
@@ -391,6 +401,7 @@ int ConfigManager::Run() {
     count += vm_list_->Process(max_count - count);
     count += vrf_list_->Process(max_count - count);
     count += bridge_domain_list_->Process(max_count - count);
+    count += policy_set_list_->Process(max_count - count);
     count += logical_interface_list_->Process(max_count - count);
     count += vmi_list_->Process(max_count - count);
     count += device_list_->Process(max_count - count);
@@ -427,8 +438,16 @@ void ConfigManager::AddBridgeDomainNode(IFMapNode *node) {
     bridge_domain_list_->Add(agent_, this, node);
 }
 
+void ConfigManager::AddPolicySetNode(IFMapNode *node) {
+    policy_set_list_->Add(agent_, this, node);
+}
+
 void ConfigManager::AddSgNode(IFMapNode *node) {
     sg_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddTagNode(IFMapNode *node) {
+    tag_list_->Add(agent_, this, node);
 }
 
 void ConfigManager::AddVnNode(IFMapNode *node) {

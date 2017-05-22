@@ -92,7 +92,8 @@ public:
         data = ControllerVmRoute::MakeControllerVmRoute
             (NULL, agent_->fabric_vrf_name(), agent_->router_id(),
              "vrf1", Ip4Address::from_string("10.10.10.2"), TunnelType::GREType(),
-             100, vn_list, sg_list, path_pref, false, EcmpLoadBalance(), false);
+             100, vn_list, sg_list, TagList(),
+             path_pref, false, EcmpLoadBalance(), false);
         vrf1_uc_table_->AddRemoteVmRouteReq(peer, "vrf1", addr, plen, data);
         client->WaitForIdle();
     }
@@ -109,8 +110,8 @@ public:
         data = ControllerVmRoute::MakeControllerVmRoute
             (NULL, agent_->fabric_vrf_name(), agent_->router_id(),
              "vrf1", Ip4Address::from_string("10.10.10.2"), TunnelType::GREType(),
-             100, vn_list, sg_list, path_pref, false, EcmpLoadBalance(),
-             false);
+             100, vn_list, sg_list, TagList(), path_pref, false,
+             EcmpLoadBalance(), false);
         vrf1_evpn_table_->AddRemoteVmRouteReq(peer, "vrf1", mac, addr,
                                               ethernet_tag, data);
         client->WaitForIdle();

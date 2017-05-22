@@ -401,7 +401,8 @@ TEST_F(VrfTest, AddReqonDeletedVrfRouteTable) {
     BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
     Inet4TunnelRouteAdd(bgp_peer, "vrf1", vip, 32,
                         server_ip, TunnelType::AllType(),
-                        16, "vn1", SecurityGroupList(), PathPreference());
+                        16, "vn1", SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
     agent->fabric_inet4_unicast_table()->DeleteReq(agent->local_peer(), "vrf1",
                                                    vip, 32, NULL);

@@ -580,7 +580,7 @@ void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
                 agent->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent->local_peer(),
                 agent->fabric_vrf_name(), server_ip, plen, vhost_key,
-                0, false, "", SecurityGroupList());
+                0, false, "", SecurityGroupList(), TagList());
         client->WaitForIdle();
 }
 

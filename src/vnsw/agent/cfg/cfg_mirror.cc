@@ -260,7 +260,7 @@ const char *MirrorCfgTable::UpdateAclEntry (AclUuid &uuid, bool create,
     AclData *data = new AclData(agent_cfg_->agent(), NULL, acl_spec);
     data->ace_add = true;
     LOG(DEBUG, "Ace add: " << data->ace_add << ", Ace spec id:" 
-        << ace_spec.id);
+        << ace_spec.id.id_);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(data);

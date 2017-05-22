@@ -115,19 +115,19 @@ class EcmpTest : public ::testing::Test {
         Inet4TunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip1_, 32,
                             remote_server_ip_, TunnelType::GREType(),
                             30, "vn2", SecurityGroupList(),
-                            PathPreference());
+                            TagList(), PathPreference());
 
         Inet4TunnelRouteAdd(bgp_peer, "default-project:vn3:vn3",
                             remote_vm_ip2_, 32,
                             remote_server_ip_, TunnelType::GREType(),
                             30, "default-project:vn3", SecurityGroupList(),
-                            PathPreference());
+                            TagList(), PathPreference());
 
         Inet4TunnelRouteAdd(bgp_peer, "default-project:vn4:vn4",
                             remote_vm_ip3_, 32,
                             remote_server_ip_, TunnelType::GREType(),
                             30, "default-project:vn4", SecurityGroupList(),
-                            PathPreference());
+                            TagList(), PathPreference());
         client->WaitForIdle();
         FlowStatsTimerStartStop(agent_, true);
     }
@@ -218,7 +218,7 @@ public:
         }
         EcmpTunnelRouteAdd(bgp_peer, vrf_name, vm_ip, plen,
                            comp_nh_list, -1, vn, sg_id_list,
-                           PathPreference());
+                           TagList(), PathPreference());
     }
 
     void AddLocalVmRoute(const string vrf_name, const string ip, uint32_t plen,
@@ -232,7 +232,8 @@ public:
             new LocalVmRoute(intf_key, vm_intf->label(),
                              VxLanTable::kInvalidvxlan_id, false, vn_list,
                              InterfaceNHFlags::INET4, SecurityGroupList(),
-                             CommunityList(), PathPreference(), Ip4Address(0),
+                             TagList(), CommunityList(),
+                             PathPreference(), Ip4Address(0),
                              EcmpLoadBalance(), false, false,
                              bgp_peer->sequence_number(), false);
         InetUnicastAgentRouteTable *rt_table =
@@ -252,7 +253,7 @@ public:
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer,
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr, TunnelType::GREType(), 16,
-                               vn_list, SecurityGroupList(),
+                               vn_list, SecurityGroupList(), TagList(),
                                PathPreference(), false, EcmpLoadBalance(),
                                false);
         InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer,

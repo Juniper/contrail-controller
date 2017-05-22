@@ -389,6 +389,7 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
                                             uint32_t label, bool local_ecmp_nh,
                                             const string &vrf_name,
                                             SecurityGroupList sg_list,
+                                            TagList tag_list,
                                             const CommunityList &communities,
                                             const PathPreference &path_preference,
                                             TunnelType::TypeBmap tunnel_bmap,
@@ -421,7 +422,7 @@ bool InetUnicastRouteEntry::ModifyEcmpPath(const IpAddress &dest_addr,
         ret = true;
     }
 
-    ret = SyncEcmpPath(path, sg_list, communities, path_preference,
+    ret = SyncEcmpPath(path, sg_list, tag_list, communities, path_preference,
                        tunnel_bmap, ecmp_load_balance);
 
     path->set_dest_vn_list(vn_list);
@@ -482,6 +483,7 @@ AgentPath *InetUnicastRouteEntry::AllocateEcmpPath(Agent *agent,
                                           MplsTable::kInvalidLabel, true,
                                           vrf()->GetName(),
                                           path2->sg_list(),
+                                          path2->tag_list(),
                                           path2->communities(),
                                           path2->path_preference(),
                                           path2->tunnel_bmap(),
@@ -634,6 +636,7 @@ bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
 
 bool InetUnicastRouteEntry::SyncEcmpPath(AgentPath *path,
                                          const SecurityGroupList sg_list,
+                                         const TagList tag_list,
                                          const CommunityList &communities,
                                          const PathPreference &path_preference,
                                          TunnelType::TypeBmap tunnel_bmap,
@@ -656,6 +659,13 @@ bool InetUnicastRouteEntry::SyncEcmpPath(AgentPath *path,
     path_sg_list = path->sg_list();
     if (path_sg_list != sg_list) {
         path->set_sg_list(sg_list);
+        ret = true;
+    }
+
+    TagList path_tag_list;
+    path_tag_list = path->tag_list();
+    if (path_tag_list != tag_list) {
+        path->set_tag_list(tag_list);
         ret = true;
     }
 
@@ -745,7 +755,7 @@ bool InetUnicastRouteEntry::EcmpAddPath(AgentPath *path) {
     } else if (ecmp) {
         AgentPath *ecmp_path = FindPath(agent->ecmp_peer());
         bool updated = UpdateComponentNH(agent, ecmp_path, path);
-        ret = SyncEcmpPath(ecmp_path, path->sg_list(),
+        ret = SyncEcmpPath(ecmp_path, path->sg_list(), path->tag_list(),
                            path->communities(), path->path_preference(),
                            path->tunnel_bmap(),
                            path->ecmp_load_balance());
@@ -785,7 +795,8 @@ void InetUnicastRouteEntry::AppendEcmpPath(Agent *agent,
 
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_, path->dest_vn_list(),
                                ecmp_path->label(), true, vrf()->GetName(),
-                               path->sg_list(), path->communities(),
+                               path->sg_list(), path->tag_list(),
+                               path->communities(),
                                path->path_preference(),
                                path->tunnel_bmap(),
                                path->ecmp_load_balance(),
@@ -841,7 +852,8 @@ bool InetUnicastRouteEntry::UpdateComponentNH(Agent *agent,
     InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_,
                                ecmp_path->dest_vn_list(),
                                ecmp_path->label(), true, vrf()->GetName(),
-                               ecmp_path->sg_list(), ecmp_path->communities(),
+                               ecmp_path->sg_list(), ecmp_path->tag_list(),
+                               ecmp_path->communities(),
                                ecmp_path->path_preference(),
                                ecmp_path->tunnel_bmap(),
                                ecmp_path->ecmp_load_balance(),
@@ -888,7 +900,8 @@ void InetUnicastRouteEntry::DeleteComponentNH(Agent *agent, AgentPath *path) {
     if (!InetUnicastRouteEntry::ModifyEcmpPath(addr_, plen_,
                                ecmp_path->dest_vn_list(),
                                ecmp_path->label(), true, vrf()->GetName(),
-                               ecmp_path->sg_list(), ecmp_path->communities(),
+                               ecmp_path->sg_list(), ecmp_path->tag_list(),
+                               ecmp_path->communities(),
                                ecmp_path->path_preference(),
                                ecmp_path->tunnel_bmap(),
                                ecmp_path->ecmp_load_balance(),
@@ -1006,6 +1019,11 @@ bool Inet4UnicastArpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    if (path->tag_list() != tag_list_) {
+        path->set_tag_list(tag_list_);
+        ret = true;
+    }
+
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
@@ -1037,7 +1055,7 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
         InetUnicastAgentRouteTable::AddArpReq(vrf_name_, gw_ip_.to_v4(),
                                               nh->interface()->vrf()->GetName(),
                                               nh->interface(), nh->PolicyEnabled(),
-                                              vn_list, sg_list_);
+                                              vn_list, sg_list_, tag_list_);
     } else {
         path->set_unresolved(false);
     }
@@ -1050,6 +1068,12 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
     path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
         path->set_sg_list(sg_list_);
+    }
+
+    TagList path_tag_list;
+    path_tag_list = path->tag_list();
+    if (path_tag_list != tag_list_) {
+        path->set_tag_list(tag_list_);
     }
 
     CommunityList path_communities;
@@ -1381,11 +1405,12 @@ InetUnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
                                               uint32_t label,
                                               const VnListType &dest_vn_list,
                                               const SecurityGroupList &sg_list,
+                                              const TagList &tag_list,
                                               const PathPreference
                                               &path_preference) {
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     VlanNhRoute *data = new VlanNhRoute(intf_key, tag, label, dest_vn_list,
-                                        sg_list, path_preference,
+                                        sg_list, tag_list, path_preference,
                                         peer->sequence_number());
     AddVlanNHRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1401,6 +1426,7 @@ InetUnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
                                            uint32_t label,
                                            const VnListType &dest_vn_list,
                                            const SecurityGroupList &sg_list,
+                                           const TagList &tag_list,
                                            const PathPreference
                                            &path_preference) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -1408,7 +1434,7 @@ InetUnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_list,
-                                   sg_list, path_preference,
+                                   sg_list, tag_list, path_preference,
                                    peer->sequence_number()));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
@@ -1436,6 +1462,7 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const VnListType &vn_list,
                                                uint32_t label,
                                                const SecurityGroupList &sg_list,
+                                               const TagList &tag_list,
                                                const CommunityList &communities,
                                                bool force_policy,
                                                const PathPreference
@@ -1449,7 +1476,7 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
                                     VxLanTable::kInvalidvxlan_id, force_policy,
                                     vn_list, InterfaceNHFlags::INET4, sg_list,
-                                    communities, path_preference,
+                                    tag_list, communities, path_preference,
                                     subnet_service_ip, ecmp_load_balance,
                                     is_local, is_health_check_service,
                                     peer->sequence_number(),
@@ -1481,6 +1508,7 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             const VnListType &vn_list,
                                             uint32_t label,
                                             const SecurityGroupList &sg_list,
+                                            const TagList &tag_list,
                                             const CommunityList &communities,
                                             bool force_policy,
                                             const PathPreference
@@ -1496,8 +1524,9 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_list,
-                                    InterfaceNHFlags::INET4, sg_list, communities,
-                                    path_preference, subnet_service_ip,
+                                    InterfaceNHFlags::INET4, sg_list, tag_list,
+                                    communities, path_preference,
+                                    subnet_service_ip,
                                     ecmp_load_balance, is_local,
                                     is_health_check_service,
                                     peer->sequence_number(), false));
@@ -1524,7 +1553,8 @@ InetUnicastAgentRouteTable::AddArpReq(const string &route_vrf_name,
                                       const string &nexthop_vrf_name,
                                       const Interface *intf, bool policy,
                                       const VnListType &vn_list,
-                                      const SecurityGroupList &sg_list) {
+                                      const SecurityGroupList &sg_list,
+                                      const TagList &tag_list) {
     Agent *agent = Agent::GetInstance();
     DBRequest  nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new ArpNHKey(route_vrf_name, ip, policy));
@@ -1536,7 +1566,7 @@ InetUnicastAgentRouteTable::AddArpReq(const string &route_vrf_name,
     rt_req.key.reset(new InetUnicastRouteKey(agent->local_peer(),
                                               route_vrf_name, ip, 32));
     rt_req.data.reset(new Inet4UnicastArpRoute(nexthop_vrf_name, ip, policy,
-                                               vn_list, sg_list));
+                                               vn_list, sg_list, tag_list));
     Inet4UnicastTableEnqueue(agent, &rt_req);
 }
 
@@ -1551,7 +1581,8 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
                                      const uint8_t plen,
                                      bool policy,
                                      const VnListType &vn_list,
-                                     const SecurityGroupList &sg) {
+                                     const SecurityGroupList &sg,
+                                     const TagList &tag) {
     Agent *agent = Agent::GetInstance();
     DBRequest  nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     ArpNHKey *nh_key = new ArpNHKey(nexthop_vrf_name, ip, policy);
@@ -1576,7 +1607,8 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
     switch(op) {
     case DBRequest::DB_ENTRY_ADD_CHANGE:
         agent->nexthop_table()->Enqueue(&nh_req);
-        data = new Inet4UnicastArpRoute(nexthop_vrf_name, ip, policy, vn_list, sg);
+        data = new Inet4UnicastArpRoute(nexthop_vrf_name, ip, policy,
+                                        vn_list, sg, tag);
         break;
 
     case DBRequest::DB_ENTRY_DELETE: {
@@ -1590,7 +1622,7 @@ InetUnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
         // If no other route is dependent on this, remove the route; else ignore
         if (rt && rt->IsDependantRouteEmpty() && rt->IsTunnelNHListEmpty()) {
             data = new Inet4UnicastArpRoute(nexthop_vrf_name, ip, policy,
-                                            vn_list, sg);
+                                            vn_list, sg, tag);
         } else {
             rt_key->sub_op_ = AgentKey::RESYNC;
             rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -1612,7 +1644,8 @@ InetUnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
                                               const Ip4Address &ip,
                                               const Interface *intf,
                                               const VnListType &vn_list,
-                                              const SecurityGroupList &sg) {
+                                              const SecurityGroupList &sg,
+                                              const TagList &tag) {
 
     if (ip == Agent::GetInstance()->router_id() ||
         !IsIp4SubnetMember(ip, Agent::GetInstance()->router_id(),
@@ -1621,7 +1654,7 @@ InetUnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
         // Currently, default GW Arp is added during init
         return;
     }
-    AddArpReq(vrf_name, ip, intf->vrf()->GetName(), intf, false, vn_list, sg);
+    AddArpReq(vrf_name, ip, intf->vrf()->GetName(), intf, false, vn_list, sg, tag);
 }
 
 void InetUnicastAgentRouteTable::AddResolveRoute(const Peer *peer,
@@ -1633,13 +1666,15 @@ void InetUnicastAgentRouteTable::AddResolveRoute(const Peer *peer,
                                                  bool policy,
                                                  const std::string &vn_name,
                                                  const SecurityGroupList
-                                                 &sg_list) {
+                                                 &sg_list,
+                                                 const TagList
+                                                 &tag_list) {
     Agent *agent = Agent::GetInstance();
     ResolveNH::CreateReq(&intf, policy);
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(peer, vrf_name, ip,
                                           plen));
-    req.data.reset(new ResolveRoute(&intf, policy, label, vn_name, sg_list));
+    req.data.reset(new ResolveRoute(&intf, policy, label, vn_name, sg_list, tag_list));
     Inet4UnicastTableEnqueue(agent, &req);
 }
 
@@ -1757,13 +1792,14 @@ static void AddGatewayRouteInternal(const Peer *peer,
                                     const Ip4Address &gw_ip,
                                     const string &vn_name, uint32_t label,
                                     const SecurityGroupList &sg_list,
+                                    const TagList &tag_list,
                                     const CommunityList &communities) {
     req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req->key.reset(new InetUnicastRouteKey(peer,
                                            vrf_name, dst_addr, plen));
     req->data.reset(new Inet4UnicastGatewayRoute(gw_ip, vrf_name,
                                                  vn_name, label, sg_list,
-                                                 communities));
+                                                 tag_list, communities));
 }
 
 void InetUnicastAgentRouteTable::AddGatewayRoute(const Peer *peer,
@@ -1775,11 +1811,13 @@ void InetUnicastAgentRouteTable::AddGatewayRoute(const Peer *peer,
                                                  uint32_t label,
                                                  const SecurityGroupList
                                                  &sg_list,
+                                                 const TagList
+                                                 &tag_list,
                                                  const CommunityList
                                                  &communities) {
     DBRequest req;
     AddGatewayRouteInternal(peer, &req, vrf_name, dst_addr, plen, gw_ip, vn_name,
-                            label, sg_list, communities);
+                            label, sg_list, tag_list, communities);
     Inet4UnicastTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
@@ -1793,11 +1831,13 @@ InetUnicastAgentRouteTable::AddGatewayRouteReq(const Peer *peer,
                                                uint32_t label,
                                                const SecurityGroupList
                                                &sg_list,
+                                               const TagList
+                                               &tag_list,
                                                const CommunityList
                                                &communities) {
     DBRequest req;
     AddGatewayRouteInternal(peer, &req, vrf_name, dst_addr, plen, gw_ip,
-                            vn_name, label, sg_list, communities);
+                            vn_name, label, sg_list, tag_list, communities);
     Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
 }
 

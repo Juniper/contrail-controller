@@ -96,7 +96,8 @@ public:
         agent()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent()->local_peer(), vrf, addr, 32,
                                intf->GetUuid(), vn_list, label,
-                               SecurityGroupList(), CommunityList(), false,
+                               SecurityGroupList(), TagList(),
+                               CommunityList(), false,
                                PathPreference(), Ip4Address(0),
                                EcmpLoadBalance(), false, false);
         client->WaitForIdle();

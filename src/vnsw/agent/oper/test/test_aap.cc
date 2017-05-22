@@ -117,7 +117,7 @@ public:
             TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
             PathPreference path_preference(seq_no++, PathPreference::HIGH, false, false);
             Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
-                    16, "vn1", SecurityGroupList(), path_preference);
+                    16, "vn1", SecurityGroupList(), TagList(), path_preference);
             client->WaitForIdle();
             if (i < PathPreferenceSM::kMaxFlapCount) {
                 EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
@@ -381,7 +381,8 @@ TEST_F(TestAap, StateMachine_2) {
     PathPreference path_preference(1, PathPreference::LOW, false, false);
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
     Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
-                        16, "vn1", SecurityGroupList(), path_preference);
+                        16, "vn1", SecurityGroupList(),
+                        TagList(), path_preference);
     client->WaitForIdle();
 
     VmInterface *vm_intf = VmInterfaceGet(1);
@@ -403,7 +404,8 @@ TEST_F(TestAap, StateMachine_3) {
     PathPreference path_preference(1, PathPreference::LOW, false, false);
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
     Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
-                        16, "vn1", SecurityGroupList(), path_preference);
+                        16, "vn1", SecurityGroupList(),
+                        TagList(), path_preference);
     client->WaitForIdle();
 
     VmInterface *vm_intf = VmInterfaceGet(1);
@@ -676,7 +678,7 @@ TEST_F(TestAap, StateMachine_9) {
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
     PathPreference path_preference(100, PathPreference::HIGH, false, false);
     Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
-            16, "vn1", SecurityGroupList(), path_preference);
+            16, "vn1", SecurityGroupList(), TagList(), path_preference);
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 0);
     EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
@@ -783,7 +785,8 @@ TEST_F(TestAap, StateMachine_13) {
         TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
         PathPreference path_preference(seq_no++, PathPreference::HIGH, false, false);
         Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
-                16, "vn1", SecurityGroupList(), path_preference);
+                16, "vn1", SecurityGroupList(),
+                TagList(), path_preference);
         client->WaitForIdle();
         if (i != PathPreferenceSM::kMaxFlapCount) {
             EXPECT_TRUE(path->path_preference().preference() ==
@@ -944,7 +947,8 @@ TEST_F(TestAap, StateMachine_16) {
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
     PathPreference path_preference(100, PathPreference::HIGH, false, false);
     Inet4TunnelRouteAdd(peer_, "vrf1", aap_ip, 32, server_ip, bmap,
-            16, "vn1", SecurityGroupList(), path_preference);
+            16, "vn1", SecurityGroupList(),
+            TagList(), path_preference);
 
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 0);
@@ -1007,7 +1011,7 @@ TEST_F(TestAap, StateMachine_17) {
     TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
     PathPreference path_preference(100, PathPreference::HIGH, false, false);
     Inet4TunnelRouteAdd(peer_, "vrf1", ip, 32, server_ip, bmap,
-            16, "vn1", SecurityGroupList(), path_preference);
+            16, "vn1", SecurityGroupList(), TagList(), path_preference);
 
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 0);

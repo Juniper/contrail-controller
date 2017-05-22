@@ -23,6 +23,7 @@
 #include <oper/bridge_domain.h>
 #include <oper/sg.h>
 #include <oper/bgp_as_service.h>
+#include <oper/tag.h>
 
 #include <filter/acl.h>
 #include <port_ipc/port_ipc_handler.h>
@@ -142,15 +143,16 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
     bool ecmp_load_balance_changed = false;
     bool static_route_config_changed = false;
     bool etree_leaf_mode_changed = false;
+    bool tag_changed = false;
     bool ret = false;
 
     ret = vmi->CopyConfig(table, this, &sg_changed, &ecmp_changed,
                           &local_pref_changed, &ecmp_load_balance_changed,
                           &static_route_config_changed,
-                          &etree_leaf_mode_changed);
+                          &etree_leaf_mode_changed, &tag_changed);
     if (sg_changed || ecmp_changed || local_pref_changed ||
         ecmp_load_balance_changed || static_route_config_changed
-        || etree_leaf_mode_changed)
+        || etree_leaf_mode_changed || tag_changed)
         *force_update = true;
 
     vmi->SetConfigurer(VmInterface::CONFIG);
@@ -182,7 +184,8 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
                              bool *local_pref_changed,
                              bool *ecmp_load_balance_changed,
                              bool *static_route_config_changed,
-                             bool *etree_leaf_mode_changed) {
+                             bool *etree_leaf_mode_changed,
+                             bool *tag_changed) {
     bool ret = false;
     if (table) {
         VmEntry *vm = table->FindVmRef(data->vm_uuid_);
@@ -527,6 +530,18 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (AuditList<BridgeDomainList, BridgeDomainEntrySet::iterator>
             (bridge_domain_list_, old_bd_list.begin(), old_bd_list.end(),
              new_bd_list.begin(), new_bd_list.end())) {
+        ret = true;
+    }
+
+
+    TagEntrySet &old_tag_list = tag_list_.list_;
+    const TagEntrySet &new_tag_list = data->tag_list_.list_;
+    *tag_changed = AuditList<TagEntryList, TagEntrySet::iterator>(tag_list_,
+                                                           old_tag_list.begin(),
+                                                           old_tag_list.end(),
+                                                           new_tag_list.begin(),
+                                                           new_tag_list.end());
+    if (*tag_changed) {
         ret = true;
     }
 

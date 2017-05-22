@@ -128,7 +128,8 @@ public:
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
                                vn_list, label,
-                               SecurityGroupList(), CommunityList(), false, PathPreference(),
+                               SecurityGroupList(), TagList(),
+                               CommunityList(), false, PathPreference(),
                                Ip4Address(0), EcmpLoadBalance(), false, false);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
@@ -138,8 +139,9 @@ public:
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
-        Inet4TunnelRouteAdd(NULL, vrf, addr, 32, gw, TunnelType::AllType(), 
-                            label, vn, SecurityGroupList(), PathPreference());
+        Inet4TunnelRouteAdd(NULL, vrf, addr, 32, gw, TunnelType::AllType(),
+                            label, vn, SecurityGroupList(),
+                            TagList(), PathPreference());
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
@@ -207,9 +209,9 @@ public:
                     it->sg_->GetIngressAcl() == NULL) {
                     continue;
                 }
-                if (FindAcl(flow->match_p().m_sg_acl_l, 
+                if (FindAcl(flow->match_p().sg_policy.m_acl_l,
                             (it->sg_->GetEgressAcl())) == false &&
-                    FindAcl(flow->match_p().m_sg_acl_l, 
+                    FindAcl(flow->match_p().sg_policy.m_acl_l,
                             (it->sg_->GetIngressAcl())) == false) {
                     EXPECT_STREQ("SG not found in flow", "");
                     ret = false;
@@ -223,9 +225,10 @@ public:
 
         if (!flow->is_flags_set(FlowEntry::LocalFlow)) {
             WAIT_FOR(1000, 100, (flow->match_p().m_out_acl_l.size() == 0U));
-            WAIT_FOR(1000, 100, (flow->match_p().m_out_sg_acl_l.size() == 0U));
+            WAIT_FOR(1000, 100,
+                    (flow->match_p().sg_policy.m_out_acl_l.size() == 0U));
             if ((flow->match_p().m_out_acl_l.size() != 0) || 
-                (flow->match_p().m_out_sg_acl_l.size() != 0)) {
+                (flow->match_p().sg_policy.m_out_acl_l.size() != 0)) {
                 ret = false;
             }
 
@@ -249,9 +252,9 @@ public:
                     it->sg_->GetIngressAcl() == NULL) {
                     continue;
                 }
-                if (FindAcl(flow->match_p().m_out_sg_acl_l,
+                if (FindAcl(flow->match_p().sg_policy.m_out_acl_l,
                             it->sg_->GetEgressAcl()) == false &&
-                    FindAcl(flow->match_p().m_out_sg_acl_l,
+                    FindAcl(flow->match_p().sg_policy.m_out_acl_l,
                             it->sg_->GetIngressAcl()) == false) {
                     EXPECT_STREQ("Out SG not found in flow", "");
                     ret = false;

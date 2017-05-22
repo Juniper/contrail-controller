@@ -56,6 +56,7 @@ test_control_word = AgentEnv.MakeTestCmd(env, 'test_control_word',
                                          oper_test_suite)
 test_instance_task = AgentEnv.MakeTestCmd(env, 'test_instance_task', oper_test_suite)
 env.Alias('agent:test_ipv6', test_ipv6)
+test_tag = AgentEnv.MakeTestCmd(env, 'test_tag', oper_test_suite)
 
 env.Append(LIBPATH = [
         '../../../../base/test',

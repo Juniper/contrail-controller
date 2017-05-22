@@ -82,6 +82,7 @@ public:
                                uint32_t label, bool local_ecmp_nh,
                                const string &vrf_name,
                                SecurityGroupList sg_list,
+                               TagList tag_list,
                                const CommunityList &communities,
                                const PathPreference &path_preference,
                                TunnelType::TypeBmap tunnel_bmap,
@@ -91,6 +92,7 @@ public:
                                AgentPath *path, const string &route_str,
                                bool alloc_label);
     static bool SyncEcmpPath(AgentPath *path, SecurityGroupList sg_list,
+                             TagList tag_list,
                              const CommunityList &communities,
                              const PathPreference &path_preference,
                              TunnelType::TypeBmap tunnel_bmap,
@@ -220,6 +222,7 @@ public:
                             const VnListType &vn_list,
                             uint32_t label,
                             const SecurityGroupList &sg_list,
+                            const TagList &tag_list,
                             const CommunityList &communities,
                             bool force_policy,
                             const PathPreference &path_preference,
@@ -233,6 +236,7 @@ public:
                                 const VnListType &vn_list,
                                 uint32_t label,
                                 const SecurityGroupList &sg_list,
+                                const TagList &tag_list,
                                 const CommunityList &communities,
                                 bool force_policy,
                                 const PathPreference &path_preference,
@@ -250,12 +254,14 @@ public:
                            const uuid &intf_uuid, uint16_t tag,
                            uint32_t label, const VnListType &dest_vn_list,
                            const SecurityGroupList &sg_list_,
+                           const TagList &tag_list,
                            const PathPreference &path_preference);
     static void AddVlanNHRoute(const Peer *peer, const string &vm_vrf,
                                const IpAddress &addr, uint8_t plen,
                                const uuid &intf_uuid, uint16_t tag,
                                uint32_t label, const VnListType &dest_vn_list,
                                const SecurityGroupList &sg_list_,
+                               const TagList &tag_list,
                                const PathPreference &path_preference);
     InetUnicastRouteEntry *FindResolveRoute(const Ip4Address &ip);
     static InetUnicastRouteEntry *FindResolveRoute(const string &vrf_name, 
@@ -263,14 +269,16 @@ public:
     static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip,
                                   const Interface *intf,
                                   const VnListType &vn_list,
-                                  const SecurityGroupList &sg);
+                                  const SecurityGroupList &sg,
+                                  const TagList &tag);
     static void AddArpReq(const string &route_vrf_name,
                           const Ip4Address &ip,
                           const string &nh_vrf_name,
                           const Interface *intf,
                           bool policy,
                           const VnListType &dest_vn_list,
-                          const SecurityGroupList &sg_list);
+                          const SecurityGroupList &sg_list,
+                          const TagList &tag_list);
     static void ArpRoute(DBRequest::DBOperation op,
                          const string &route_vrf_name,
                          const Ip4Address &ip,
@@ -281,14 +289,16 @@ public:
                          const uint8_t plen,
                          bool policy,
                          const VnListType &dest_vn_list,
-                         const SecurityGroupList &sg_list);
+                         const SecurityGroupList &sg_list,
+                         const TagList &tag_list);
     static void AddResolveRoute(const Peer *peer,
                                 const string &vrf_name, const Ip4Address &ip,
                                 const uint8_t plen,
                                 const InterfaceKey &intf_key,
                                 const uint32_t label, bool policy,
                                 const std::string &vn_name,
-                                const SecurityGroupList &sg_list);
+                                const SecurityGroupList &sg_list,
+                                const TagList &tag_list);
     void AddInetInterfaceRouteReq(const Peer *peer, const string &vm_vrf,
                                   const Ip4Address &addr, uint8_t plen,
                                   InetInterfaceRoute *data);
@@ -321,6 +331,7 @@ public:
                                 const Ip4Address &gw_ip,
                                 const std::string &vn_name, uint32_t label,
                                 const SecurityGroupList &sg_list,
+                                const TagList &tag_list,
                                 const CommunityList &communities);
     static void AddGatewayRouteReq(const Peer *peer,
                                    const string &vrf_name,
@@ -328,6 +339,7 @@ public:
                                    const Ip4Address &gw_ip,
                                    const std::string &vn_name, uint32_t label,
                                    const SecurityGroupList &sg_list,
+                                   const TagList &tag_list,
                                    const CommunityList &communities);
     void AddIpamSubnetRoute(const string &vm_vrf, const IpAddress &addr,
                             uint8_t plen, const std::string &vn_name);

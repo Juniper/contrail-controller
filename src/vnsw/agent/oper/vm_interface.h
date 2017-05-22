@@ -104,6 +104,7 @@
 
 typedef std::vector<boost::uuids::uuid> SgUuidList;
 typedef std::vector<SgEntryRef> SgList;
+typedef std::vector<AclDBEntryConstRef> FirewallPolicyList;
 struct VmInterfaceData;
 struct VmInterfaceConfigData;
 struct VmInterfaceNovaData;
@@ -738,6 +739,43 @@ public:
         SecurityGroupEntrySet list_;
     };
 
+    struct TagEntry : ListEntry, VmInterfaceState {
+        TagEntry();
+        TagEntry(const TagEntry &rhs);
+        TagEntry(uint32_t tag_type, const boost::uuids::uuid &uuid);
+        virtual ~TagEntry();
+
+        bool operator == (const TagEntry &rhs) const;
+        bool operator() (const TagEntry &lhs, const TagEntry &rhs) const;
+        bool IsLess(const TagEntry *rhs) const;
+
+        VmInterfaceState::Op GetOpL3(const Agent *agent,
+                                     const VmInterface *vmi) const;
+        bool AddL3(const Agent *agent, VmInterface *vmi) const;
+        bool DeleteL3(const Agent *agent, VmInterface *vmi) const;
+
+        mutable TagEntryRef tag_;
+        uint32_t type_;
+        mutable boost::uuids::uuid uuid_;
+    };
+    typedef std::set<TagEntry, TagEntry> TagEntrySet;
+    typedef std::vector<boost::uuids::uuid> TagGroupUuidList;
+
+    struct TagEntryList {
+        TagEntryList() : list_() { }
+        ~TagEntryList() { }
+
+        void Insert(const TagEntry *rhs);
+        void Update(const TagEntry *lhs,
+                    const TagEntry *rhs);
+        void Remove(TagEntrySet::iterator &it);
+        bool UpdateList(const Agent *agent, VmInterface *vmi,
+                        VmInterfaceState::Op l2_force_op,
+                        VmInterfaceState::Op l3_force_op);
+
+        TagEntrySet list_;
+    };
+
     struct VrfAssignRule : ListEntry {
         VrfAssignRule();
         VrfAssignRule(const VrfAssignRule &rhs);
@@ -1076,6 +1114,11 @@ public:
         return sg_list_;
     }
     void CopySgIdList(SecurityGroupList *sg_id_list) const;
+    void CopyTagIdList(TagList *tag_id_list) const;
+
+    const TagEntryList &tag_list() const {
+        return tag_list_;
+    }
 
     const VrfAssignRuleList &vrf_assign_rule_list() const {
         return vrf_assign_rule_list_;
@@ -1165,6 +1208,11 @@ public:
     uint32_t GetPbbLabel() const;
 
     void GetNextHopInfo();
+    bool UpdatePolicySet(const Agent *agent);
+    const FirewallPolicyList& fw_policy_list() const {
+        return fw_policy_list_;
+    }
+
     // Static methods
     // Add a vm-interface
     static void NovaAdd(InterfaceTable *table,
@@ -1215,7 +1263,8 @@ private:
                     bool *ecmp_changed, bool *local_pref_changed,
                     bool *ecmp_load_balance_changed,
                     bool *static_route_config_changed,
-                    bool *etree_leaf_mode_changed);
+                    bool *etree_leaf_mode_changed,
+                    bool *tag_changed);
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,
                      bool old_ipv6_active,
                      const Ip4Address &old_subnet,
@@ -1320,6 +1369,7 @@ private:
 
     // Lists
     SecurityGroupEntryList sg_list_;
+    TagEntryList tag_list_;
     FloatingIpList floating_ip_list_;
     AliasIpList alias_ip_list_;
     ServiceVlanList service_vlan_list_;
@@ -1354,6 +1404,8 @@ private:
     bool etree_leaf_;
     bool pbb_interface_;
     bool layer2_control_word_;
+    //Includes global policy apply and application policy set
+    FirewallPolicyList fw_policy_list_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -1495,6 +1547,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     Interface::MirrorDirection mirror_direction_;
 
     VmInterface::SecurityGroupEntryList sg_list_;
+    VmInterface::TagEntryList tag_list_;
     VmInterface::FloatingIpList floating_ip_list_;
     VmInterface::AliasIpList alias_ip_list_;
     VmInterface::ServiceVlanList service_vlan_list_;

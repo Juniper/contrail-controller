@@ -58,7 +58,8 @@ protected:
         vn_list.insert("default-project:vn2");
         agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(vm_intf->peer(),
                 std::string("__internal__"), fip_src_ip, 32, vm_intf->GetUuid(), 
-                vn_list, vm_intf->label(), SecurityGroupList(), CommunityList(), 
+                vn_list, vm_intf->label(), SecurityGroupList(),
+                TagList(), CommunityList(),
                 false, PathPreference(), Ip4Address(0), EcmpLoadBalance(),
                 false, false);
         client->WaitForIdle();
@@ -67,7 +68,7 @@ protected:
                         fip_dest_ip, 32, remote_server,
                         TunnelType::AllType(), 20,
                         "default-project:vn2", SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
         client->WaitForIdle();
 
         AddFloatingIpPool("fip-pool1", 1);

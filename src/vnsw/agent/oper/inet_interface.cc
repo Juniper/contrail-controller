@@ -163,7 +163,7 @@ static void AddDefaultRoute(Agent *agent, InetUnicastAgentRouteTable *table,
     table->AddGatewayRoute(agent->local_peer(),
                            vrf->GetName(), Ip4Address(0), 0, gw, vn_name,
                            MplsTable::kInvalidLabel, SecurityGroupList(),
-                           CommunityList());
+                           TagList(), CommunityList());
     return;
 }
 
@@ -202,7 +202,7 @@ static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
         table->AddResolveRoute(agent->local_peer(), vrf->GetName(),
                 Address::GetIp4SubnetAddress(addr, plen), plen,
                 intf_key, MplsTable::kInvalidLabel, false, vn_name,
-                SecurityGroupList());
+                SecurityGroupList(), TagList());
     }
 }
 
