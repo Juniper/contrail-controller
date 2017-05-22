@@ -12,8 +12,8 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <vnc_cfg_types.h>
-
 #include <filter/traffic_action.h>
+#include <filter/acl_entry.h>
 #include <filter/acl_entry_match.h>
 #include <vnc_cfg_types.h>
 
@@ -110,19 +110,21 @@ typedef enum AclTypeSpec {
 
 class AclEntrySpec {
 public:
-  AclEntrySpec(): src_addr_type(AddressMatch::UNKNOWN_TYPE),
+    //XXX Any field addition update Reverse API also
+    //so that bidirectionaly ACL spec can be update
+    AclEntrySpec(): id(0), src_addr_type(AddressMatch::UNKNOWN_TYPE),
         dst_addr_type(AddressMatch::UNKNOWN_TYPE), terminal(true) { }
+    //AclEntrySpec(const AclEntrySpec &rhs);
     typedef boost::uuids::uuid uuid;
     AclTypeSpecT type;
-    uint32_t id;
-    
+    AclEntryID id;
+
     // Address
     AddressMatch::AddressType src_addr_type;
     std::vector<AclAddressInfo> src_ip_list;
     uuid src_policy_id;
     std::string src_policy_id_str;
     int src_sg_id;
-
 
     AddressMatch::AddressType dst_addr_type;
     std::vector<AclAddressInfo> dst_ip_list;
@@ -132,7 +134,7 @@ public:
 
     // Protocol
     std::vector<RangeSpec> protocol;
-    
+
     // Source port range
     std::vector<RangeSpec> src_port;
 
@@ -140,18 +142,38 @@ public:
     std::vector<RangeSpec> dst_port;
 
     bool terminal;
+    TagList src_tags;
+    TagList dst_tags;
+
+    ServiceGroupMatch::ServicePortList service_group;
+    TagList match_tags;
 
     // Action
     std::vector<ActionSpec> action_l;
 
+    //XXX Any field addition update Reverse API also
+    //so that bidirectionaly ACL spec can be update
+
     // Rule-UUID
     std::string rule_uuid;
     bool Populate(const autogen::MatchConditionType *match_condition);
+    bool Populate(Agent *agent, IFMapNode *node,
+                  const autogen::FirewallRule *fw_rule);
+    bool PopulateServiceGroup(const autogen::ServiceGroup *service_group);
     void PopulateAction(const AclTable *acl_table,
                         const autogen::ActionListType &action_list);
     void AddMirrorEntry(Agent *agent) const;
     void BuildAddressInfo(const std::string &prefix, int plen,
                           std::vector<AclAddressInfo> *list);
+    void Reverse(AclEntrySpec *ace_spec, AclEntryID::Type type,
+                 bool swap_address, bool swap_port);
+    void ReverseAddress(AclEntrySpec *ace_spec);
+    void ReversePort(AclEntrySpec *ace_spec);
+    bool BuildAddressGroup(Agent *agent, IFMapNode *node,
+                           const std::string &name, bool source);
+    IFMapNode* GetAddressGroup(Agent *agent, IFMapNode *node,
+                              const std::string &name);
+    void PopulateServiceType(const autogen::FirewallServiceType *fst);
 };
 
 struct AclSpec {

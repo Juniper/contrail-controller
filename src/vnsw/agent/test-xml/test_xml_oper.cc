@@ -730,6 +730,45 @@ string AgentUtXmlSg::NodeType() {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+//  AgentUtXmlTag routines
+/////////////////////////////////////////////////////////////////////////////
+AgentUtXmlTag::AgentUtXmlTag(const string &name, const uuid &id,
+                           const xml_node &node,
+                           AgentUtXmlTestCase *test_case) :
+    AgentUtXmlConfig(name, id, node, test_case) {
+}
+
+AgentUtXmlTag::~AgentUtXmlTag() {
+}
+
+bool AgentUtXmlTag::ReadXml() {
+    if (AgentUtXmlConfig::ReadXml() == false)
+        return false;
+
+    GetStringAttribute(node(), "tag_id", &tag_id_);
+    return true;
+}
+
+bool AgentUtXmlTag::ToXml(xml_node *parent) {
+    xml_node n = AddXmlNodeWithAttr(parent, NodeType().c_str());
+    AddXmlNodeWithValue(&n, "name", name());
+    AddXmlNodeWithValue(&n, "tag-id", tag_id_);
+    AddIdPerms(&n);
+
+    return true;
+}
+
+void AgentUtXmlTag::ToString(string *str) {
+    AgentUtXmlConfig::ToString(str);
+    *str += "\n";
+    return;
+}
+
+string AgentUtXmlTag::NodeType() {
+    return "tag";
+}
+
+/////////////////////////////////////////////////////////////////////////////
 //  AgentUtXmlInstanceIp routines
 /////////////////////////////////////////////////////////////////////////////
 AgentUtXmlInstanceIp::AgentUtXmlInstanceIp(const string &name, const uuid &id,
@@ -1410,6 +1449,7 @@ bool AgentUtXmlL2Route::ReadXml() {
     GetStringAttribute(node(), "tunnel-dest", &tunnel_dest_);
     GetStringAttribute(node(), "tunnel-type", &tunnel_type_);
     GetUintAttribute(node(), "sg", &sg_id_);
+    GetUintAttribute(node(), "tag", &tag_id_);
     GetUintAttribute(node(), "label", &label_);
     if (ip_.empty()) {
         ip_ = "0.0.0.0";
@@ -1438,8 +1478,11 @@ bool AgentUtXmlL2Route::Run() {
         (Agent::GetInstance()->vrf_table()->GetEvpnRouteTable(vrf_));
 
     SecurityGroupList sg_list;
+    TagList tag_list;
     if (sg_id_)
         sg_list.push_back(sg_id_);
+    if (tag_id_)
+        tag_list.push_back(tag_id_);
 
     TunnelType::TypeBmap bmap = 0;
     TunnelEncapType::Encap encap =
@@ -1463,7 +1506,7 @@ bool AgentUtXmlL2Route::Run() {
                                                      agent->fabric_vrf_name(),
                                                      agent->router_id(), vrf_,
                                                      Ip4Address::from_string(tunnel_dest_),
-                                                     bmap, label_, vn_list, sg_list,
+                                                     bmap, label_, vn_list, sg_list, tag_list,
                                                      PathPreference(), false,
                                                      EcmpLoadBalance(), false);
         rt_table->AddRemoteVmRouteReq(bgp_peer_, vrf_,
@@ -1564,6 +1607,7 @@ bool AgentUtXmlL3Route::ReadXml() {
     GetStringAttribute(node(), "tunnel-dest", &tunnel_dest_);
     GetStringAttribute(node(), "tunnel-type", &tunnel_type_);
     GetUintAttribute(node(), "sg", &sg_id_);
+    GetUintAttribute(node(), "tag", &tag_id_);
     GetUintAttribute(node(), "label", &label_);
     if (ip_.empty()) {
         ip_ = "0.0.0.0";
@@ -1592,8 +1636,11 @@ bool AgentUtXmlL3Route::Run() {
         (Agent::GetInstance()->vrf_table()->GetInet4UnicastRouteTable(vrf_));
 
     SecurityGroupList sg_list;
+    TagList tag_list;
     if (sg_id_)
         sg_list.push_back(sg_id_);
+    if (tag_id_)
+        tag_list.push_back(tag_id_);
 
     TunnelType::TypeBmap bmap = 0;
     TunnelEncapType::Encap encap =
@@ -1616,7 +1663,7 @@ bool AgentUtXmlL3Route::Run() {
                                                      agent->fabric_vrf_name(),
                                                      agent->router_id(), vrf_,
                                                      Ip4Address::from_string(tunnel_dest_),
-                                                     bmap, label_, vn_list, sg_list,
+                                                     bmap, label_, vn_list, sg_list, tag_list,
                                                      PathPreference(), false,
                                                      EcmpLoadBalance(),
                                                      false);

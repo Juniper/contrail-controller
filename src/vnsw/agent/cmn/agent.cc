@@ -921,21 +921,29 @@ bool Agent::vrouter_on_host() const {
 }
 
 uint16_t
-Agent::ProtocolStringToInt(const std::string &proto) {
-    if (proto == "tcp" || proto == "TCP") {
+Agent::ProtocolStringToInt(const std::string &proto_arg) {
+    std::string proto = proto_arg;
+
+    std::transform(proto.begin(), proto.end(), proto.begin(), ::tolower);
+
+    if (proto == "tcp") {
         return IPPROTO_TCP;
     }
 
-    if (proto == "udp" || proto == "UDP") {
+    if (proto == "udp") {
         return IPPROTO_UDP;
     }
 
-    if (proto == "sctp" || proto == "SCTP") {
+    if (proto == "sctp") {
         return IPPROTO_SCTP;
     }
 
-    if (proto =="icmp" || proto == "ICMP") {
+    if (proto =="icmp") {
         return IPPROTO_ICMP;
+    }
+
+    if (proto == "icmp6") {
+        return IPPROTO_ICMPV6;
     }
 
     return atoi(proto.c_str());

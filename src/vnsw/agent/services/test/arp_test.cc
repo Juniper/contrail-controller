@@ -957,7 +957,8 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithSg1) {
     Ip4Address subnet = Ip4Address::from_string("8.1.1.0");
     InetUnicastAgentRouteTable::AddResolveRoute(vintf9->peer(), "vrf2",
                                                 subnet, 24, key, 0, false,
-                                                "vn1", SecurityGroupList());
+                                                "vn1", SecurityGroupList(),
+                                                TagList());
     client->WaitForIdle();
 
     Ip4Address sip = Ip4Address::from_string("9.1.1.1");
@@ -992,7 +993,8 @@ TEST_F(ArpTest, DISABLED_SubnetResolveWithSg1) {
     //Resync the same on leaked vrf
     InetUnicastAgentRouteTable::AddResolveRoute(vintf9->peer(), "vrf2",
                                                 subnet, 24, key, 0, false,
-                                                "vn1", SecurityGroupList(1));
+                                                "vn1", SecurityGroupList(1),
+                                                TagList());
     client->WaitForIdle();
 
     rt = RouteGet("vrf2", dip, 32);

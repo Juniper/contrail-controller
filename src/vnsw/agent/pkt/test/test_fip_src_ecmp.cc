@@ -129,7 +129,7 @@ public:
 
         EcmpTunnelRouteAdd(bgp_peer, VRF2, fip, 32,
                 comp_nh_list, -1, VN2, sg_id_list,
-                PathPreference());
+                TagList(), PathPreference());
     }
 
     void DeleteRemoteEcmpFip() {
@@ -168,7 +168,7 @@ public:
 
         EcmpTunnelRouteAdd(bgp_peer, vrf_name, vm_ip, plen,
                            comp_nh_list, -1, vn, sg_id_list,
-                           PathPreference());
+                           TagList(), PathPreference());
     }
 
     FlowProto *get_flow_proto() const { return flow_proto_; }

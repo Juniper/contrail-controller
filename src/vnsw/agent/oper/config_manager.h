@@ -84,6 +84,7 @@ public:
     void AddLogicalInterfaceNode(IFMapNode *node);
     void AddPhysicalInterfaceNode(IFMapNode *node);
     void AddSgNode(IFMapNode *node);
+    void AddTagNode(IFMapNode *node);
     void AddVnNode(IFMapNode *node);
     void AddVrfNode(IFMapNode *node);
     void AddVmNode(IFMapNode *node);
@@ -104,6 +105,7 @@ public:
                              const boost::uuids::uuid &vn);
     void AddHealthCheckServiceNode(IFMapNode *node);
     void AddBridgeDomainNode(IFMapNode *node);
+    void AddPolicySetNode(IFMapNode *node);
     uint32_t PhysicalDeviceVnCount() const;
     bool CanUseNode(IFMapNode *node);
     bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
@@ -127,6 +129,7 @@ private:
     std::auto_ptr<ConfigManagerNodeList> logical_interface_list_;
     std::auto_ptr<ConfigManagerNodeList> device_list_;
     std::auto_ptr<ConfigManagerNodeList> sg_list_;
+    std::auto_ptr<ConfigManagerNodeList> tag_list_;
     std::auto_ptr<ConfigManagerNodeList> vn_list_;
     std::auto_ptr<ConfigManagerNodeList> vrf_list_;
     std::auto_ptr<ConfigManagerNodeList> vm_list_;
@@ -136,6 +139,7 @@ private:
     std::auto_ptr<ConfigManagerNodeList> forwarding_class_list_;
     std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
     std::auto_ptr<ConfigManagerNodeList> bridge_domain_list_;
+    std::auto_ptr<ConfigManagerNodeList> policy_set_list_;
 
     // Lists of IFMapNodes without corresponding oper db-tables
     std::auto_ptr<ConfigManagerNodeList> global_vrouter_list_;

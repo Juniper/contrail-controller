@@ -58,6 +58,7 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     ret |= InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
                                                  label_, local_ecmp_nh_,
                                                  vrf_name_, sg_list_,
+                                                 tag_list_,
                                                  CommunityList(),
                                                  path_preference_,
                                                  tunnel_bmap_,
@@ -77,6 +78,7 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
                                          uint32_t label,
                                          const VnListType &dest_vn_list,
                                          const SecurityGroupList &sg_list,
+                                         const TagList &tag_list,
                                          const PathPreference &path_preference,
                                          bool ecmp_suppressed,
                                          const EcmpLoadBalance &ecmp_load_balance,
@@ -90,7 +92,7 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
     // Make route request pointing to Tunnel-NH created above
     ControllerVmRoute *data =
         new ControllerVmRoute(bgp_peer, default_vrf, tunnel_dest, label,
-                              dest_vn_list, bmap, sg_list, path_preference,
+                              dest_vn_list, bmap, sg_list, tag_list, path_preference,
                               nh_req, ecmp_suppressed,
                               ecmp_load_balance, etree_leaf);
     return data;
@@ -194,6 +196,11 @@ bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
         path->set_sg_list(sg_list_);
+        ret = true;
+    }
+
+    if (tag_list_ != path->tag_list()) {
+        path->set_tag_list(tag_list_);
         ret = true;
     }
 

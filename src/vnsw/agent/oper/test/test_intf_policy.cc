@@ -625,7 +625,7 @@ TEST_F(PolicyTest, IntfPolicyDisable_Flow) {
     //Since policy is enabled on reverse flow's VMI, verify that out SG rules
     //are present
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    EXPECT_TRUE(fe->data().match_p.out_sg_rule_present);
+    EXPECT_TRUE(fe->data().match_p.sg_policy.out_rule_present);
 
     //Delete all the flows
     client->EnqueueFlowFlush();
@@ -647,7 +647,7 @@ TEST_F(PolicyTest, IntfPolicyDisable_Flow) {
     //Since policy is disabled on reverse flow's VMI, verify that out SG rules
     //are not present
     fe = flow[0].pkt_.FlowFetch();
-    EXPECT_FALSE(fe->data().match_p.out_sg_rule_present);
+    EXPECT_FALSE(fe->data().match_p.sg_policy.out_rule_present);
 
     //Cleanup
     client->EnqueueFlowFlush();

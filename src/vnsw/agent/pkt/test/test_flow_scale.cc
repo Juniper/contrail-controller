@@ -32,7 +32,7 @@ public:
                             Ip4Address::from_string("5.0.0.0", ec),
                             8, Ip4Address::from_string("1.1.1.2", ec),
                             TunnelType::AllType(), 16, "TestVn",
-                            SecurityGroupList(), PathPreference());
+                            SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
     }

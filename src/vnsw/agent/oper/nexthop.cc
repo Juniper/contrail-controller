@@ -937,7 +937,8 @@ bool TunnelNH::ChangeEntry(const DBRequest *req) {
                                               nh->interface(),
                                               nh->PolicyEnabled(),
                                               rt->GetActivePath()->dest_vn_list(),
-                                              rt->GetActivePath()->sg_list());
+                                              rt->GetActivePath()->sg_list(),
+                                              rt->GetActivePath()->tag_list());
         rt = NULL;
     } else {
         valid = rt->GetActiveNextHop()->IsValid();
@@ -1109,7 +1110,8 @@ bool MirrorNH::ChangeEntry(const DBRequest *req) {
                                               nh->interface(),
                                               nh->PolicyEnabled(),
                                               rt->GetActivePath()->dest_vn_list(),
-                                              rt->GetActivePath()->sg_list());
+                                              rt->GetActivePath()->sg_list(),
+                                              rt->GetActivePath()->tag_list());
         rt = NULL;
     } else {
         valid = rt->GetActiveNextHop()->IsValid();

@@ -11,7 +11,9 @@
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 #include <oper/sg.h>
+#include <oper/tag.h>
 #include <oper/bgp_as_service.h>
+#include "ifmap/ifmap_link.h"
 
 #include <port_ipc/port_ipc_handler.h>
 #include <port_ipc/port_subscribe_table.h>
@@ -624,6 +626,19 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
     }
 }
 
+static void BuildTagList(VmInterface::TagEntryList *tag_list, IFMapNode *node) {
+
+    Tag *tag_cfg = static_cast<Tag *>(node->GetObject());
+    assert(tag_cfg);
+
+    uuid tag_uuid = nil_uuid();
+    autogen::IdPermsType id_perms = tag_cfg->id_perms();
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+               tag_uuid);
+    uint32_t tag_type = TagEntry::GetTypeVal(tag_cfg->type());
+    tag_list->list_.insert(VmInterface::TagEntry(tag_type, tag_uuid));
+}
+
 static void BuildSgList(VmInterfaceConfigData *data, IFMapNode *node) {
     SecurityGroup *sg_cfg = static_cast<SecurityGroup *>
         (node->GetObject());
@@ -768,14 +783,63 @@ static void CompareVnVm(const uuid &vmi_uuid, VmInterfaceConfigData *data,
     }
 }
 
-static void BuildVn(VmInterfaceConfigData *data, IFMapNode *node,
-                    const boost::uuids::uuid &u) {
+static void BuildVn(VmInterfaceConfigData *data,
+                    IFMapNode *node,
+                    const boost::uuids::uuid &u,
+                    VmInterface::TagEntryList *tag_list) {
+    const Agent *agent = data->agent();
     VirtualNetwork *vn =
         static_cast<VirtualNetwork *>(node->GetObject());
     assert(vn);
     autogen::IdPermsType id_perms = vn->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vn_uuid_);
+
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator iter =
+            node->begin(table->GetGraph());
+            iter != node->end(table->GetGraph()); ++iter) {
+
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent->config_manager()->SkipNode(adj_node,
+                                              agent->cfg()->cfg_tag_table())) {
+            continue;
+        }
+        BuildTagList(tag_list, adj_node);
+    }
+}
+
+static void BuildProject(VmInterfaceConfigData *data,
+                         IFMapNode *node,
+                         const boost::uuids::uuid &u,
+                         VmInterface::TagEntryList *tag_list) {
+    const Agent *agent = data->agent();
+    Project *pr = static_cast<Project *>(node->GetObject());
+    assert(pr);
+
+    //We parse thru edge table while getting tag attached to project
+    //This is done because project to tag has 2 links
+    //1> With metadata project-scoped-tag this is used to create tag
+    //   specific to project
+    //2> Another with metadata project-tag which signifies that tag
+    //   is attached to project
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::edge_iterator iter =
+            node->edge_list_begin(table->GetGraph());
+            iter != node->edge_list_end(table->GetGraph()); ++iter) {
+
+        IFMapLink *link = static_cast<IFMapLink *>(iter.operator->());
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.target());
+        if (link->metadata() != "project-tag") {
+            continue;
+        }
+
+        if (agent->config_manager()->SkipNode(adj_node,
+                                              agent->cfg()->cfg_tag_table())) {
+            continue;
+        }
+        BuildTagList(tag_list, adj_node);
+    }
 }
 
 static void BuildQosConfig(VmInterfaceConfigData *data, IFMapNode *node) {
@@ -787,14 +851,31 @@ static void BuildQosConfig(VmInterfaceConfigData *data, IFMapNode *node) {
                id_perms.uuid.uuid_lslong, data->qos_config_uuid_);
 }
 
-static void BuildVm(VmInterfaceConfigData *data, IFMapNode *node,
-                    const boost::uuids::uuid &u) {
+static void BuildVm(VmInterfaceConfigData *data,
+                    IFMapNode *node,
+                    const boost::uuids::uuid &u,
+                    VmInterface::TagEntryList *tag_list) {
+    const Agent *agent = data->agent();
     VirtualMachine *vm = static_cast<VirtualMachine *>(node->GetObject());
     assert(vm);
 
     autogen::IdPermsType id_perms = vm->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vm_uuid_);
+
+
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator iter =
+            node->begin(table->GetGraph());
+            iter != node->end(table->GetGraph()); ++iter) {
+
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent->config_manager()->SkipNode(adj_node,
+                                              agent->cfg()->cfg_tag_table())) {
+            continue;
+        }
+        BuildTagList(tag_list, adj_node);
+    }
 }
 
 // Get DHCP configuration
@@ -1151,6 +1232,40 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
     return;
 }
 
+void CopyTagList(VmInterfaceConfigData *data,
+                 VmInterface::TagEntryList &tag_list, bool *label_added) {
+    bool dont_copy_label = *label_added;
+
+    VmInterface::TagEntrySet::iterator tag_it;
+    for (tag_it = tag_list.list_.begin(); tag_it != tag_list.list_.end();
+         tag_it++) {
+        if (tag_it->type_ == TagTable::LABEL) {
+            *label_added = true;
+            if (dont_copy_label) {
+                continue;
+            }
+        }
+        data->tag_list_.list_.insert(*tag_it);
+    }
+}
+
+void CopyTag(VmInterfaceConfigData *data ,
+             VmInterface::TagEntryList &vmi_list,
+             VmInterface::TagEntryList &vm_list,
+             VmInterface::TagEntryList &vn_list,
+             VmInterface::TagEntryList &project_list) {
+    bool label_added = false;
+    //Order of below should be maintained
+    //This is becasue any tag present at VMI takes
+    //precedence over VM, VN and project and since
+    //tag type is key (except for label) duplicate
+    //insertion doesnt happen
+    CopyTagList(data, vmi_list, &label_added);
+    CopyTagList(data, vm_list, &label_added);
+    CopyTagList(data, vn_list, &label_added);
+    CopyTagList(data, project_list, &label_added);
+}
+
 bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
                                       const boost::uuids::uuid &u) {
     // Get interface UUID
@@ -1180,6 +1295,11 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     IFMapNode *parent_vmi_node = NULL;
     uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
     uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
+    VmInterface::TagEntryList vmi_list;
+    VmInterface::TagEntryList vm_list;
+    VmInterface::TagEntryList vn_list;
+    VmInterface::TagEntryList project_list;
+
     std::list<IFMapNode *> bgp_as_a_service_node_list;
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph()); 
@@ -1194,9 +1314,13 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
             BuildSgList(data, adj_node);
         }
 
+        if (adj_node->table() == agent_->cfg()->cfg_tag_table()) {
+            BuildTagList(&vmi_list, adj_node);
+        }
+
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {
             vn_node = adj_node;
-            BuildVn(data, adj_node, u);
+            BuildVn(data, adj_node, u, &vn_list);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_qos_table()) {
@@ -1204,7 +1328,11 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vm_table()) {
-            BuildVm(data, adj_node, u);
+            BuildVm(data, adj_node, u, &vm_list);
+        }
+
+        if (adj_node->table() == agent_->cfg()->cfg_project_table()) {
+            BuildProject(data, adj_node, u, &project_list);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_instanceip_table()) {
@@ -1301,6 +1429,8 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     if (data->device_type_ != VmInterface::DEVICE_TYPE_INVALID) {
         AddVmiToVmiType(u, data->device_type_);
     }
+
+    CopyTag(data, vmi_list, vm_list, vn_list, project_list);
 
     if (data->device_type_ == VmInterface::REMOTE_VM_VLAN_ON_VMI &&
         (rx_vlan_id == VmInterface::kInvalidVlanId ||

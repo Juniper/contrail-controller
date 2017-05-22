@@ -145,7 +145,8 @@ public:
         agent()->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent()->local_peer(), vrf, addr, 32,
                                intf->GetUuid(), vn_list, label,
-                               SecurityGroupList(), CommunityList(), false,
+                               SecurityGroupList(), TagList(),
+                               CommunityList(), false,
                                PathPreference(), Ip4Address(0),
                                EcmpLoadBalance(), false, false);
         client->WaitForIdle();
@@ -157,7 +158,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
         Inet4TunnelRouteAdd(peer_, vrf, addr, plen, gw, TunnelType::MplsType(),
-                            label, vn, SecurityGroupList(), PathPreference());
+                            label, vn, SecurityGroupList(),
+                            TagList(), PathPreference());
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, plen) == true));
     }

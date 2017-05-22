@@ -333,6 +333,7 @@ public:
 private:
     ArpVrfState *vrf_state_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     bool policy_;
     bool resolve_route_;
     VnListType vn_list_;

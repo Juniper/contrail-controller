@@ -157,6 +157,16 @@ struct VmIntfBridgeDomainUuid {
     1: string bridge_domain_uuid (link="BridgeDomainSandeshReq");
 }
 
+struct ApplicationPolicySetLink {
+    1: string application_policy_set (link="ApplicationPolicySetReq");
+}
+
+struct VmiTagData {
+    1: string name;
+    2: i32 id;
+    3: list<ApplicationPolicySetLink> application_policy_set_list;
+}
+
 /**
  * Structure definition for interface in oper db
  */
@@ -291,6 +301,10 @@ struct ItfSandeshData {
    58: bool drop_new_flows;
    /** List of bridge domain entries configured on this interface */
    59: list<VmIntfBridgeDomainUuid> bridge_domain_list;
+   /** List of tags associated to VMI */
+   60: list<VmiTagData> vmi_tag_list;
+   /** Policy set ACL to be applied */
+   61: list<string> policy_set_acl_list;
 }
 
 /**
@@ -669,6 +683,8 @@ struct PathSandeshData {
    23: bool etree_leaf;
    /** Layer 2 control word */
    24: bool layer2_control_word;
+   /** Tags associated with route */
+   25: optional list<i32> tag_list;
 }
 
 /**
@@ -1263,7 +1279,7 @@ struct AclAction {
  */
 struct AceId {
     /** Id used for acl entry */
-    1: i32 id;
+    1: string id;
 }
 
 /**
@@ -1294,6 +1310,8 @@ struct AclEntrySandeshData {
     10: string dst_type;
     /** Uuid of acl entry */
     11: string uuid;
+    /** Match condition for new firewall rules */
+    12: string match_condition;
 }
 
 /**
@@ -1406,7 +1424,7 @@ struct ServiceInstanceSandeshData {
  */
 struct AceIdFlowCnt {
     /** Id of acl entry for flow count entry*/
-    1: i32 ace_id;
+    1: string ace_id;
     /** Counter for flow count entry */
     2: i32 flow_cnt;
 }
@@ -1525,7 +1543,7 @@ trace sandesh AclInfo {
  * @type: Trace
  * @severity: DEBUG
  */
-traceobject sandesh AclAclTrace {
+trace sandesh AclAclTrace {
     /** Information for acl statistics */
     1: string info;
     /** Uuid of acl entry */
@@ -2517,6 +2535,19 @@ trace sandesh OperBridgeDomain {
     /** ISID of bridge-domain db entry */
     3: i32 isid;
 }
+
+/**
+ * @description: Trace message for Tags
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh OperTag {
+    /** Message for Tag db entry */
+    1: string message;
+    /** Uuid of Tag db entry */
+    2: string uuid;
+}
+
 /**
  * Structure definition for PhysicalDevice
  */
@@ -3045,6 +3076,33 @@ response sandesh BridgeDomainSandeshResp {
     1: list<BridgeDomainSandeshData> bd_list;
 }
 
+struct TagSandeshData {
+    /** UUID of Tag instance */
+    1: string uuid;
+    /** Name of the Tag instance */
+    2: string name;
+    /** ID of Tag */
+    3: u32 id;
+    /** List of application policy set associated to this tag */
+    4: list<ApplicationPolicySetLink> application_policy_set_list;
+}
+
+/**
+ * @description: Request message to get operdb Tag list
+ * @cli_name: read oper bridgedoamin list
+ */
+request sandesh TagSandeshReq {
+    /** UUID of Tag to query for */
+    1: string uuid;
+    /** Name for Tag to query for */
+    2: string name;
+}
+
+response sandesh TagSandeshResp {
+    /** List of Tag */
+    1: list<TagSandeshData> tag_list;
+}
+
 /**
  * @description: Request to add QOS queue
  * @cli_name: create qos queue
@@ -3148,4 +3206,38 @@ request sandesh AddVmiQosConfig {
 response sandesh QosResponse {
     /** Response message for qos config */
     1: string resp;
+}
+
+struct PolicyLinkData {
+    1: string firewall_policy (link="AclReq");
+}
+
+struct ApplicationPolicySetSandeshData {
+    /** Name of application policy set */
+    1: string name;
+    /** Uuid of application policy set*/
+    2: string uuid;
+    /** Uuid of acl associated with policy set */
+    3: list<PolicyLinkData> firewall_policy_list;
+    /** Is application policy set global */
+    4: bool is_global;
+}
+
+/**
+ * @description: Request message for Application policy set
+ * @cli_name: read oper application policy set list
+ */
+request sandesh ApplicationPolicySetReq {
+    /** Uuid of virtual network */
+    1: string uuid;
+    /** Name of virtual network */
+    2: string name;
+}
+
+/**
+ * Response message for virtual network list
+ */
+response sandesh ApplicationPolicySetResp {
+    /** List of virtual network information */
+    1: list<ApplicationPolicySetSandeshData> application_policy_set_list;
 }

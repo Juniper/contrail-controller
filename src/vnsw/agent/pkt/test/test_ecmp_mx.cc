@@ -90,7 +90,7 @@ public:
         }
 
         EcmpTunnelRouteAdd(bgp_peer, vrf_name, vm_ip, plen,
-                           comp_nh_list, -1, vn, sg_id_list,
+                           comp_nh_list, -1, vn, sg_id_list, TagList(),
                            PathPreference());
     }
 
@@ -257,8 +257,9 @@ TEST_F(EcmpTest, EcmpTest_5) {
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(agent_->local_peer(),
                 "vrf2", ip, 32, MakeUuid(1), vn_list,
-                vm1_label, SecurityGroupList(), CommunityList(),
-                false, PathPreference(), Ip4Address(0), EcmpLoadBalance(),
+                vm1_label, SecurityGroupList(), TagList(),
+                CommunityList(), false, PathPreference(),
+                Ip4Address(0), EcmpLoadBalance(),
                 false, false);
     client->WaitForIdle();
 
