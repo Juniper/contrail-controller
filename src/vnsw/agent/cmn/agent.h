@@ -74,6 +74,12 @@ typedef boost::intrusive_ptr<const SgEntry> SgEntryConstRef;
 void intrusive_ptr_release(const SgEntry* p);
 void intrusive_ptr_add_ref(const SgEntry* p);
 
+class TagEntry;
+typedef boost::intrusive_ptr<TagEntry> TagEntryRef;
+typedef boost::intrusive_ptr<const TagEntry> TagEntryConstRef;
+void intrusive_ptr_release(const TagEntry* p);
+void intrusive_ptr_add_ref(const TagEntry* p);
+
 class VrfEntry;
 typedef IntrusivePtrRef<VrfEntry> VrfEntryRef;
 typedef IntrusivePtrRef<const VrfEntry> VrfEntryConstRef;
@@ -123,6 +129,12 @@ typedef boost::intrusive_ptr<const AclDBEntry> AclDBEntryConstRef;
 void intrusive_ptr_release(const AclDBEntry* p);
 void intrusive_ptr_add_ref(const AclDBEntry* p);
 
+class PolicySet;
+typedef boost::intrusive_ptr<PolicySet> PolicySetRef;
+typedef boost::intrusive_ptr<const AclDBEntry> PolicySetConstRef;
+void intrusive_ptr_release(const PolicySet* p);
+void intrusive_ptr_add_ref(const PolicySet* p);
+
 class PhysicalDevice;
 typedef boost::intrusive_ptr<PhysicalDevice> PhysicalDeviceRef;
 typedef boost::intrusive_ptr<const PhysicalDevice> PhysicalDeviceConstRef;
@@ -166,6 +178,7 @@ void intrusive_ptr_add_ref(const BridgeDomainEntry *p);
 
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
+typedef std::vector<int> TagList;
 typedef std::vector<std::string> CommunityList;
 
 typedef std::set<std::string> VnListType;
@@ -177,6 +190,7 @@ class NextHopTable;
 class VmTable;
 class VnTable;
 class SgTable;
+class TagTable;
 class VrfTable;
 class MplsTable;
 class RouteTable;
@@ -186,6 +200,7 @@ class Inet4MulticastAgentRouteTable;
 class EvpnAgentRouteTable;
 class BridgeAgentRouteTable;
 class AclTable;
+class PolicySetTable;
 class MirrorTable;
 class VrfAssignTable;
 class DomainConfig;
@@ -412,6 +427,11 @@ public:
         sg_table_ = table;
     }
 
+    TagTable *tag_table() const { return tag_table_;}
+    void set_tag_table(TagTable *table) {
+        tag_table_ = table;
+    }
+
     MplsTable *mpls_table() const { return mpls_table_;}
     void set_mpls_table(MplsTable *table) { 
         mpls_table_ = table;
@@ -421,7 +441,12 @@ public:
     void set_acl_table(AclTable *table) { 
         acl_table_ = table;
     }
-    
+
+    PolicySetTable* policy_set_table() const { return policy_set_table_;}
+    void set_policy_set_table(PolicySetTable *table) {
+        policy_set_table_ = table;
+    }
+
     MirrorTable *mirror_table() const { return mirror_table_;}
     void set_mirror_table(MirrorTable *table) {
         mirror_table_ = table;
@@ -1186,6 +1211,7 @@ private:
     VmTable *vm_table_;
     VnTable *vn_table_;
     SgTable *sg_table_;
+    TagTable *tag_table_;
     MplsTable *mpls_table_;
     AclTable *acl_table_;
     MirrorTable *mirror_table_;
@@ -1197,6 +1223,7 @@ private:
     ForwardingClassTable *forwarding_class_table_;
     QosQueueTable *qos_queue_table_;
     AgentQosConfigTable *qos_config_table_;
+    PolicySetTable *policy_set_table_;
     std::auto_ptr<ConfigManager> config_manager_;
  
     // Mirror config table

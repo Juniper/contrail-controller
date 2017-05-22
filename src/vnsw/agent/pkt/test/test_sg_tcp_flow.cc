@@ -313,14 +313,16 @@ public:
         Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn1:vn1",
              Ip4Address::from_string("1.1.1.0", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
-             17, "default-project:vn1", sg_id_list, PathPreference());
+             17, "default-project:vn1", sg_id_list, TagList(),
+             PathPreference());
         client->WaitForIdle();
 
         //Add a remote route for floating-ip VN pointing to SG id 2
         Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn3:vn3",
              Ip4Address::from_string("3.3.3.2", ec), 24,
              Ip4Address::from_string("10.10.10.10", ec), TunnelType::AllType(),
-             18, "default-project:vn3", sg_id_list, PathPreference());
+             18, "default-project:vn3", sg_id_list, TagList(),
+             PathPreference());
         client->WaitForIdle();
 
 

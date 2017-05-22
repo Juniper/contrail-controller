@@ -65,6 +65,12 @@ struct TestQosConfigData {
     std::map<uint32_t, uint32_t> mpls_exp_;
 };
 
+struct TestTag {
+    std::string name_;
+    uint32_t uuid_;
+    uint32_t id_;
+};
+
 uuid MakeUuid(int id);
 void DelXmlHdr(char *buff, int &len);
 void DelXmlTail(char *buff, int &len);
@@ -139,6 +145,8 @@ bool VxlanFind(int id);
 VxLanId *VxlanGet(int id);
 bool AclFind(int id);
 AclDBEntry *AclGet(int id);
+bool PolicySetFind(int id);
+PolicySet* PolicySetGet(int id);
 VmEntry *VmGet(int id);
 bool VmFind(int id);
 bool VmPortFind(int id);
@@ -235,12 +243,14 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
                         const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name, const SecurityGroupList &sg,
+                       const TagList &tag,
                        const PathPreference &path_preference);
 bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
                         const Ip4Address &vm_ip,
                        uint8_t plen, ComponentNHKeyList &comp_nh_list,
                        bool local_ecmp, const string &vn_name,
                        const SecurityGroupList &sg,
+                       const TagList &tag,
                        const PathPreference &path_preference, EcmpLoadBalance& ecmp_load_balnce);
 bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf_name,
                         const string &prefix, uint8_t plen,
@@ -257,6 +267,7 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
+                         const TagList &tag,
                          const PathPreference &path_preference);
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
@@ -266,6 +277,7 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_add
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
+                         const TagList &tag,
                          const PathPreference &path_preference);
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                     int label, const char *vn);
@@ -305,6 +317,7 @@ void AddMirrorAcl(const char *name, int id, const char *src_vn,
                   const char *dest_vn, const char *action,
                   std::string mirror_ip);
 void AddSg(const char *name, int id, int sg_id = 1);
+void AddTag(const char *name, int id);
 void DelOperDBAcl(int id);
 void AddFloatingIp(const char *name, int id, const char *addr,
                    const char *fixed_ip="0.0.0.0",
@@ -611,7 +624,7 @@ bool Inet6TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                          const Ip6Address &vm_addr,
                          uint8_t plen, const Ip4Address &server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
-                         const SecurityGroupList &sg,
+                         const SecurityGroupList &sg, const TagList &tag,
                          const PathPreference &path_preference);
 void AddPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
 void DelPhysicalDeviceVn(Agent *agent, int dev_id, int vn_id, bool validate);
@@ -654,6 +667,41 @@ void FreeLabel(uint32_t label);
 void AddBridgeDomain(const char *name, uint32_t id, uint32_t isid,
                      bool mac_learning = true);
 void AddVmportBridgeDomain(const char *name, uint32_t vlan_tag);
+void AddTag(const char *name, uint32_t uuid, uint32_t id,
+            const std::string type = "");
+void AddFirewallPolicyRuleLink(const std::string &node_name,
+                               const std::string &fp,
+                               const std::string &fr,
+                               const std::string &id);
+void DelFirewallPolicyRuleLink(const std::string &node_name,
+                               const std::string &fp,
+                               const std::string &fr);
+void AddPolicySetFirewallPolicyLink(const std::string &node_name,
+                                  const std::string &ps,
+                                  const std::string &fp,
+                                  const std::string &id);
+void DelPolicySetFirewallPolicyLink(const std::string &node_name,
+                                  const std::string &ps,
+                                  const std::string &fp);
+void AddAddressGroup(const char *name, uint32_t id,
+                     TestIp4Prefix *prefix, uint32_t count);
 bool BridgeDomainFind(int id);
 BridgeDomainEntry* BridgeDomainGet(int id);
+void AddFwRuleTagLink(std::string fw_rule, TestTag *tag, uint32_t count);
+void DelFwRuleTagLink(std::string fw_rule, TestTag *tag, uint32_t count);
+void AddFirewall(const std::string &name, uint32_t id,
+                 const std::string &src_ag, const std::string &dst_ag,
+                 const std::string &action,
+                 const std::string direction="<>");
+void AddFirewall(const std::string &name, uint32_t id,
+                 const std::vector<std::string> &match,
+                 TestTag *src, uint32_t src_count,
+                 TestTag *dst, uint32_t dst_count,
+                 const std::string action, const std::string direction="<>");
+void AddServiceGroup(const std::string &name, uint32_t id,
+                     const std::vector<std::string> &protocol,
+                     const std::vector<uint16_t> &port);
+void CreateTags(TestTag *tag, uint32_t count);
+void DeleteTags(TestTag *tag, uint32_t count);
+void AddGlobalPolicySet(const std::string &name, uint32_t id);
 #endif // vnsw_agent_test_cmn_util_h

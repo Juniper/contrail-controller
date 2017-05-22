@@ -23,6 +23,7 @@
 #include <oper/bridge_domain.h>
 #include <oper/sg.h>
 #include <oper/bgp_as_service.h>
+#include <oper/tag.h>
 
 #include <filter/acl.h>
 #include <port_ipc/port_ipc_handler.h>
@@ -527,6 +528,18 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (AuditList<BridgeDomainList, BridgeDomainEntrySet::iterator>
             (bridge_domain_list_, old_bd_list.begin(), old_bd_list.end(),
              new_bd_list.begin(), new_bd_list.end())) {
+        ret = true;
+    }
+
+
+    TagEntrySet &old_tag_list = tag_list_.list_;
+    const TagEntrySet &new_tag_list = data->tag_list_.list_;
+    *sg_changed = AuditList<TagEntryList, TagEntrySet::iterator>(tag_list_,
+                                                           old_tag_list.begin(),
+                                                           old_tag_list.end(),
+                                                           new_tag_list.begin(),
+                                                           new_tag_list.end());
+    if (*sg_changed) {
         ret = true;
     }
 

@@ -541,7 +541,8 @@ TEST_F(SgTestV6, DISABLED_Sg_Policy_1) {
     Inet6TunnelRouteAdd(NULL, "vrf1", addr6, 120,
                         Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(),
-                        vnet[1]->label(), "vn1", sg_id_list, PathPreference());
+                        vnet[1]->label(), "vn1", sg_id_list,
+                        TagList(), PathPreference());
     client->WaitForIdle();
     WAIT_FOR(500, 1000, (RouteFindV6("vrf1", addr6, 120) == true));
 
@@ -560,7 +561,7 @@ TEST_F(SgTestV6, DISABLED_Sg_Policy_1) {
     Inet6TunnelRouteAdd(NULL, "vrf1", addr6, 120,
                         Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), vnet[1]->label(), "vn1", sg_id_list,
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -599,7 +600,8 @@ TEST_F(SgTestV6, Sg_Policy_2) {
     Inet6TunnelRouteAdd(bgp_peer_, "vrf1", addr6, 120,
                         Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(),
-                        vnet[1]->label(), "vn1", sg_id_list, PathPreference());
+                        vnet[1]->label(), "vn1", sg_id_list,
+                        TagList(), PathPreference());
     client->WaitForIdle();
     WAIT_FOR(500, 1000, (RouteFindV6("vrf1", addr6, 120) == true));
 
@@ -622,7 +624,8 @@ TEST_F(SgTestV6, Sg_Policy_2) {
     Inet6TunnelRouteAdd(bgp_peer_, "vrf1", addr6, 120,
                         Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(),
-                        vnet[1]->label(), "vn1", sg_id_list, PathPreference());
+                        vnet[1]->label(), "vn1", sg_id_list,
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,

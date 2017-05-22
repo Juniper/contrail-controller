@@ -644,7 +644,8 @@ TEST_F(CfgTest, Nexthop_keys) {
         fabric_inet4_unicast_table()->
         AddResolveRoute(agent_->local_peer(), agent_->fabric_vrf_name(),
                         Ip4Address::from_string("10.1.1.100"), 32,
-                        vhost_intf_key, 0, false, "", SecurityGroupList());
+                        vhost_intf_key, 0, false, "", SecurityGroupList(),
+                        TagList());
     client->WaitForIdle();
 
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
@@ -968,7 +969,8 @@ TEST_F(CfgTest, EcmpNH_18) {
     agent_->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
                 MakeUuid(1), vn_list, vm_intf->label(),
-                SecurityGroupList(), CommunityList(), false, PathPreference(),
+                SecurityGroupList(), TagList(), CommunityList(),
+                false, PathPreference(),
                 Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);

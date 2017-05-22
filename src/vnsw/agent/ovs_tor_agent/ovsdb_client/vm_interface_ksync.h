@@ -52,6 +52,7 @@ private:
     boost::uuids::uuid uuid_;
     std::string vn_name_;
     SecurityGroupList sg_list_;
+    TagList tag_list_;
     DISALLOW_COPY_AND_ASSIGN(VMInterfaceKSyncEntry);
 };
 };

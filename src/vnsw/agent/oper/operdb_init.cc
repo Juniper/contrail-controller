@@ -23,6 +23,7 @@
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/sg.h>
+#include <oper/tag.h>
 #include <oper/mirror_table.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
@@ -30,6 +31,7 @@
 #include <oper/global_vrouter.h>
 #include <oper/path_preference.h>
 #include <filter/acl.h>
+#include <filter/policy_set.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <base/task_trigger.h>
 #include <oper/instance_manager.h>
@@ -80,6 +82,7 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.vn.0", &VnTable::CreateTable);
     DB::RegisterFactory("db.vm.0", &VmTable::CreateTable);
     DB::RegisterFactory("db.sg.0", &SgTable::CreateTable);
+    DB::RegisterFactory("db.tag.0", &TagTable::CreateTable);
     DB::RegisterFactory("db.mpls.0", &MplsTable::CreateTable);
     DB::RegisterFactory("db.acl.0", &AclTable::CreateTable);
     DB::RegisterFactory("db.mirror_table.0", &MirrorTable::CreateTable);
@@ -104,6 +107,7 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.bridge_domain.0",
                         boost::bind(&BridgeDomainTable::CreateTable,
                                     agent_, _1, _2));
+    DB::RegisterFactory("db.policy_set.0", &PolicySetTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -146,6 +150,12 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->set_sg_table(sg_table);
     sg_table->set_agent(agent_);
 
+    TagTable *tag_table;
+    tag_table = static_cast<TagTable *>(db->CreateTable("db.tag.0"));
+    assert(tag_table);
+    agent_->set_tag_table(tag_table);
+    tag_table->set_agent(agent_);
+
     VnTable *vn_table;
     vn_table = static_cast<VnTable *>(db->CreateTable("db.vn.0"));
     assert(vn_table);
@@ -178,6 +188,12 @@ void OperDB::CreateDBTables(DB *db) {
     assert(vassign_table);
     agent_->set_vrf_assign_table(vassign_table);
     vassign_table->set_agent(agent_);
+
+    PolicySetTable *policy_set =
+        static_cast<PolicySetTable *>(db->CreateTable("db.policy_set.0"));
+    assert(policy_set);
+    agent_->set_policy_set_table(policy_set);
+    policy_set->set_agent(agent_);
 
     domain_config_.reset(new DomainConfig(agent_));
 

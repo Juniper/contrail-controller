@@ -21,7 +21,53 @@ class AclEntrySpec;
 class TrafficAction;
 class AclEntryMatch;
 
-typedef std::vector<int32_t> AclEntryIDList;
+struct AclEntryID {
+
+    AclEntryID(int32_t id) : reverse_(false) {
+        id_ = integerToString(id);
+    }
+
+    AclEntryID(std::string id, bool reverse):
+        id_(id), reverse_(false) {
+    }
+
+    bool operator ==(const AclEntryID &ace_id) const {
+        if (id_ == ace_id.id_ && reverse_ == ace_id.reverse_) {
+            return true;
+        }
+        return false;
+    }
+
+    bool operator <(const AclEntryID &ace_id) const {
+        if (id_ != ace_id.id_) {
+            return id_ < ace_id.id_;
+        }
+
+        return reverse_ < ace_id.reverse_;
+    }
+
+    bool operator >(const AclEntryID &ace_id) const {
+      if (id_ != ace_id.id_) {
+            return id_ > ace_id.id_;
+        }
+
+        return reverse_ > ace_id.reverse_;
+    }
+
+    bool operator !=(const AclEntryID &ace_id) const {
+        if (id_ != ace_id.id_ ||
+            reverse_ != ace_id.reverse_) {
+            return true;
+        }
+
+        return false;
+    }
+
+    std::string id_;
+    bool reverse_;
+};
+
+typedef std::vector<AclEntryID> AclEntryIDList;
 
 class AclEntry {
 public:
@@ -56,7 +102,7 @@ public:
 
     bool IsTerminal() const;
 
-    uint32_t id() const { return id_; }
+    const AclEntryID& id() const { return id_; }
     const std::string &uuid() const { return uuid_; }
 
     boost::intrusive::list_member_hook<> acl_list_node;
@@ -64,8 +110,12 @@ public:
     bool operator==(const AclEntry &rhs) const;
     bool ResyncQosConfigEntries();
     bool IsQosConfigResolved();
+    const AclEntryMatch* Get(uint32_t index) const {
+        return matches_[index];
+    }
+
 private:
-    uint32_t id_;
+    AclEntryID id_;
     AclType type_;
     std::vector<AclEntryMatch *> matches_;
     ActionList actions_;

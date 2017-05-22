@@ -53,6 +53,8 @@
 #include <oper/sg.h>
 #include <oper/bridge_domain.h>
 #include <oper/ecmp_load_balance.h>
+#include <oper/tag.h>
+#include <filter/policy_set.h>
 #include <uve/stats_collector.h>
 #include <uve/agent_uve.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
