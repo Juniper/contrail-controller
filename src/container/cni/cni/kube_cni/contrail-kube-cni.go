@@ -19,7 +19,7 @@ import (
 
 // Use "docker inspect" equivalent API to get UUID and Name for container
 func getPodInfo(skelArgs *skel.CmdArgs) (string, string, error) {
-	os.Setenv("DOCKER_API_VERSION", "1.24")
+	os.Setenv("DOCKER_API_VERSION", "1.22")
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		log.Errorf("Error creating docker client. %+v", err)

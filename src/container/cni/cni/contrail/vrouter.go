@@ -141,8 +141,8 @@ func (vrouter *VRouter) Get(url string) (*Result, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		msg := fmt.Sprintf("Failed HTTP Get operation. Return code %s",
-			string(resp.StatusCode))
+		msg := fmt.Sprintf("Failed HTTP Get operation. Return code %d",
+			int(resp.StatusCode))
 		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
 	}
@@ -244,8 +244,8 @@ func (vrouter *VRouter) addVmToAgent(addMsg []byte) error {
 
 	if (resp.StatusCode != http.StatusOK) &&
 		(resp.StatusCode != http.StatusCreated) {
-		msg := fmt.Sprintf("Failed HTTP Post operation. Return code %s",
-			string(resp.StatusCode))
+		msg := fmt.Sprintf("Failed HTTP Post operation. Return code %d",
+			int(resp.StatusCode))
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
