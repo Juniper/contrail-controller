@@ -92,6 +92,7 @@ const std::map<uint16_t, const char*>
 
 tbb::atomic<int> FlowEntry::alloc_count_;
 SecurityGroupList FlowEntry::default_sg_list_;
+TagList FlowEntry::default_tag_list_;
 
 /////////////////////////////////////////////////////////////////////////////
 // VmFlowRef
@@ -340,7 +341,14 @@ void MatchPolicy::Reset() {
     out_mirror_action = 0;
     m_vrf_assign_acl_l.clear();
     vrf_assign_acl_action = 0;
+    m_aps_l.clear();
+    aps_action = 0;
+    rev_aps_action = 0;
+    m_out_aps_l.clear();
+    out_aps_action = 0;
+    rev_out_aps_action = 0;
     sg_action_summary = 0;
+    aps_action_summary = 0;
     action_info.Clear();
 }
 
@@ -397,6 +405,8 @@ void FlowEntry::Reset() {
     refcount_ = 0;
     nw_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
     sg_rule_uuid_= FlowPolicyStateStr.at(NOT_EVALUATED);
+    policy_set_ace_uuid_ = FlowPolicyStateStr.at(NOT_EVALUATED);
+    policy_set_acl_name_ = "";
     fsc_ = NULL;
     trace_ = false;
     event_logs_.reset();
@@ -451,6 +461,8 @@ void FlowEntry::Copy(FlowEntry *rhs, bool update) {
     short_flow_reason_ = rhs->short_flow_reason_;
     sg_rule_uuid_ = rhs->sg_rule_uuid_;
     nw_ace_uuid_ = rhs->nw_ace_uuid_;
+    policy_set_acl_name_ = rhs->policy_set_acl_name_;
+    policy_set_ace_uuid_ = rhs->policy_set_ace_uuid_;
     peer_vrouter_ = rhs->peer_vrouter_;
     tunnel_type_ = rhs->tunnel_type_;
     fip_ = rhs->fip_;
@@ -1153,6 +1165,7 @@ void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
             data_.source_vn_match = *path->dest_vn_list().begin();
         data_.source_sg_id_l = path->sg_list();
         data_.source_plen = rt->plen();
+        data_.source_tag_id_l = path->tag_list();
     }
 }
 
@@ -1176,6 +1189,7 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
             data_.dest_vn_match = *path->dest_vn_list().begin();
         data_.dest_sg_id_l = path->sg_list();
         data_.dest_plen = rt->plen();
+        data_.dest_tag_id_l = path->tag_list();
     }
 }
 
@@ -1233,6 +1247,8 @@ void FlowEntry::ResetPolicy() {
     data_.match_p.reverse_out_sg_rule_present = false;
     data_.match_p.m_reverse_out_sg_acl_l.clear();
     data_.match_p.m_vrf_assign_acl_l.clear();
+    data_.match_p.m_aps_l.clear();
+    data_.match_p.m_out_aps_l.clear();
 }
 
 // Rebuild all the policy rules to be applied
@@ -1262,6 +1278,9 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow) {
 
     //Get VRF translate ACL
     GetVrfAssignAcl();
+
+    //Get Application policy set ACL
+    GetApplicationPolicySet(data_.intf_entry.get(), rflow);
 }
 
 void FlowEntry::GetPolicyInfo() {
@@ -1419,6 +1438,60 @@ void FlowEntry::GetSgList(const Interface *intf) {
         GetNonLocalFlowSgList(vm_port);
     }
 }
+
+void FlowEntry::GetApplicationPolicySet(const Interface *intf,
+        const FlowEntry *rflow) {
+    if (is_flags_set(FlowEntry::LinkLocalFlow) ||
+            is_flags_set(FlowEntry::Multicast) ||
+            is_flags_set(FlowEntry::BgpRouterService)) {
+        return;
+    }
+
+    if (is_flags_set(FlowEntry::ReverseFlow)) {
+        return;
+    }
+
+    MatchAclParams acl;
+    const VmInterface *vm_port = NULL;
+    if (intf != NULL) {
+        if (intf->type() == Interface::VM_INTERFACE) {
+            vm_port = static_cast<const VmInterface *>(intf);
+        }
+    }
+
+    if (vm_port != NULL) {
+        MatchAclParams acl;
+        FirewallPolicyList::const_iterator it =
+            vm_port->fw_policy_list().begin();
+        for(; it != vm_port->fw_policy_list().end(); it++) {
+            acl.acl = *it;
+            data_.match_p.m_aps_l.push_back(acl);
+        }
+    }
+
+    // For local flows, we have to apply NW Policy from out-vn also
+    if (!is_flags_set(FlowEntry::LocalFlow) || rflow == NULL) {
+        // Not local flow
+        return;
+    }
+
+    const Interface *r_intf = rflow->data_.intf_entry.get();
+    if (r_intf == NULL) {
+        return;
+    }
+
+    vm_port = dynamic_cast<const VmInterface *>(r_intf);
+    if (vm_port != NULL) {
+        MatchAclParams acl;
+        FirewallPolicyList::const_iterator it =
+            vm_port->fw_policy_list().begin();
+        for(; it != vm_port->fw_policy_list().end(); it++) {
+            acl.acl = *it;
+            data_.match_p.m_out_aps_l.push_back(acl);
+        }
+    }
+}
+
 
 // Ingress-ACL/Egress-ACL in interface with VM as reference point.
 //      Ingress : Packet to VM
@@ -1686,6 +1759,8 @@ void FlowEntry::SetPacketHeader(PacketHeader *hdr) {
     hdr->dst_policy_id = &(data_.dest_vn_list);
     hdr->src_sg_id_l = &(data_.source_sg_id_l);
     hdr->dst_sg_id_l = &(data_.dest_sg_id_l);
+    hdr->src_tags_ = data_.source_tag_id_l;
+    hdr->dst_tags_ = data_.dest_tag_id_l;
 }
 
 // In case of NAT flows, the key fields can change.
@@ -1709,6 +1784,8 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
     hdr->dst_policy_id = &(rflow->data().source_vn_list);
     hdr->src_sg_id_l = &(rflow->data().dest_sg_id_l);
     hdr->dst_sg_id_l = &(rflow->data().source_sg_id_l);
+    hdr->src_tags_ = rflow->data_.dest_tag_id_l;
+    hdr->dst_tags_ = rflow->data_.source_tag_id_l;
 }
 
 void FlowEntry::SetSgAclInfo(const FlowPolicyInfo &fwd_flow_info,
@@ -1799,12 +1876,18 @@ bool FlowEntry::DoPolicy() {
     data_.match_p.mirror_action = 0;
     data_.match_p.out_mirror_action = 0;
     data_.match_p.sg_action_summary = 0;
+    data_.match_p.aps_action = 0;
+    data_.match_p.out_aps_action = 0;
+    data_.match_p.rev_aps_action = 0;
+    data_.match_p.rev_aps_action = 0;
+    data_.match_p.aps_action_summary = 0;
 
     const string value = FlowPolicyStateStr.at(NOT_EVALUATED);
     FlowPolicyInfo nw_acl_info(value), sg_acl_info(value);
     FlowPolicyInfo out_sg_acl_info(value);
     FlowPolicyInfo rev_sg_acl_info(value);
     FlowPolicyInfo rev_out_sg_acl_info(value);
+    FlowPolicyInfo fw_acl_info(value);
 
     FlowEntry *rflow = reverse_flow_entry();
     PacketHeader hdr;
@@ -1833,6 +1916,63 @@ bool FlowEntry::DoPolicy() {
                                                true, true, &nw_acl_info);
     if (ShouldDrop(data_.match_p.policy_action)) {
         goto done;
+    }
+
+    if (!is_flags_set(FlowEntry::ReverseFlow)) {
+        // Apply application policy set firewall rules
+        data_.match_p.aps_action =
+            MatchAcl(hdr, data_.match_p.m_aps_l,
+                     true, true, &fw_acl_info);
+
+        if (ShouldDrop(data_.match_p.aps_action) == false) {
+            data_.match_p.out_aps_action =
+                MatchAcl(hdr, data_.match_p.m_out_aps_l,
+                         true, true, &fw_acl_info);
+        }
+
+        FlowPolicyInfo rev_fw_acl_info(value);
+        bool check_rev_aps = false;
+        if (ShouldDrop(data_.match_p.aps_action) ||
+                ShouldDrop(data_.match_p.out_aps_action)) {
+            //If forward direction SG action is DENY
+            //verify if packet is allowed in reverse side,
+            check_rev_aps = true;
+        }
+
+        if ((check_rev_aps || is_flags_set(FlowEntry::TcpAckFlow)) && rflow) {
+            PacketHeader out_hdr;
+            rflow->SetPacketHeader(&out_hdr);
+            data_.match_p.rev_aps_action =
+                MatchAcl(out_hdr, data_.match_p.m_aps_l, true,
+                         true, &rev_fw_acl_info);
+            if (ShouldDrop(data_.match_p.rev_aps_action) == false) {
+                data_.match_p.rev_out_aps_action =
+                    MatchAcl(out_hdr, data_.match_p.m_out_aps_l,
+                            true, true, &rev_fw_acl_info);
+            }
+        }
+
+        if (is_flags_set(FlowEntry::TcpAckFlow) == false) {
+        data_.match_p.aps_action_summary =
+            data_.match_p.aps_action |
+            data_.match_p.out_aps_action |
+            data_.match_p.rev_aps_action |
+            data_.match_p.rev_out_aps_action;
+        } else {
+            if (ShouldDrop(data_.match_p.aps_action |
+                           data_.match_p.out_aps_action)
+                    &&
+                    ShouldDrop(data_.match_p.rev_aps_action |
+                               data_.match_p.rev_out_aps_action)) {
+                data_.match_p.aps_action_summary = (1 << TrafficAction::DENY);
+            } else {
+                data_.match_p.aps_action_summary = (1 << TrafficAction::PASS);
+                if (!ShouldDrop(data_.match_p.rev_aps_action |
+                                data_.match_p.rev_out_aps_action)) {
+                    fw_acl_info = rev_fw_acl_info;
+                }
+            }
+        }
     }
 
     // Apply security-group
@@ -1934,6 +2074,8 @@ bool FlowEntry::DoPolicy() {
 
 done:
     nw_ace_uuid_ = nw_acl_info.uuid;
+    policy_set_ace_uuid_ = fw_acl_info.uuid;
+    policy_set_acl_name_ = fw_acl_info.acl_name;
     if (!nw_acl_info.src_match_vn.empty())
         data_.source_vn_match = nw_acl_info.src_match_vn;
     if (!nw_acl_info.dst_match_vn.empty())
@@ -2056,7 +2198,8 @@ bool FlowEntry::ActionRecompute() {
 
     action = data_.match_p.policy_action | data_.match_p.out_policy_action |
         data_.match_p.sg_action_summary |
-        data_.match_p.mirror_action | data_.match_p.out_mirror_action;
+        data_.match_p.mirror_action | data_.match_p.out_mirror_action |
+        data_.match_p.aps_action_summary;
 
     //Only VRF assign acl, can specify action to
     //translate VRF. VRF translate action specified
@@ -2164,11 +2307,20 @@ void FlowEntry::UpdateReflexiveAction() {
     data_.match_p.reverse_out_sg_action = (1 << TrafficAction::PASS);
     data_.match_p.sg_action_summary = (1 << TrafficAction::PASS);
 
+    data_.match_p.aps_action = (1 << TrafficAction::PASS);
+    data_.match_p.out_aps_action = (1 << TrafficAction::PASS);
+    data_.match_p.rev_aps_action = (1 << TrafficAction::PASS);
+    data_.match_p.rev_out_aps_action = (1 << TrafficAction::PASS);
+    data_.match_p.aps_action_summary = (1 << TrafficAction::PASS);
+
     FlowEntry *fwd_flow = reverse_flow_entry();
     if (fwd_flow) {
         data_.match_p.sg_action_summary =
             fwd_flow->data().match_p.sg_action_summary;
+        data_.match_p.aps_action_summary =
+            fwd_flow->data().match_p.aps_action_summary;
     }
+
     // If forward flow is DROP, set action for reverse flow to
     // TRAP. If packet hits reverse flow, we will re-establish
     // the flows
@@ -2179,6 +2331,20 @@ void FlowEntry::UpdateReflexiveAction() {
             data_.match_p.sg_action &= ~(TrafficAction::DROP_FLAGS);
             set_flags(FlowEntry::Trap);
         }
+    }
+
+    if (ShouldDrop(data_.match_p.aps_action_summary)) {
+        if (fwd_flow &&
+            ShouldDrop(fwd_flow->data().match_p.rev_aps_action) == false &&
+            ShouldDrop(fwd_flow->data().match_p.rev_out_aps_action) == false) {
+            data_.match_p.aps_action &= ~(TrafficAction::DROP_FLAGS);
+            set_flags(FlowEntry::Trap);
+        }
+    }
+
+    if (fwd_flow) {
+        policy_set_ace_uuid_ = fwd_flow->policy_set_ace_uuid_;
+        policy_set_acl_name_ = fwd_flow->policy_set_acl_name_;
     }
 }
 
@@ -2374,6 +2540,17 @@ void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const {
         data_.match_p.m_vrf_assign_acl_l;
     acl_type = "vrf assign";
     SetAclListAclAction(vrf_assign_acl_l, acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &aps_l =
+        data_.match_p.m_aps_l;
+    acl_type = "fw acl";
+    SetAclListAclAction(aps_l, acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &out_aps_l =
+        data_.match_p.m_out_aps_l;
+    acl_type = "reverse fw acl";
+    SetAclListAclAction(out_aps_l,
+                        acl_action_l, acl_type);
 }
 
 void FlowEntry::FillFlowInfo(FlowInfo &info) const {
@@ -2525,7 +2702,7 @@ static void SetAclListAceId(const AclDBEntry *acl,
         for (ait = (*ma_it).ace_id_list.begin(); 
              ait != (*ma_it).ace_id_list.end(); ++ ait) {
             AceId ace_id;
-            ace_id.id = *ait;
+            ace_id.id = ait->id_;
             ace_l.push_back(ace_id);
         }
     }
@@ -2598,6 +2775,10 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     SetAclListAceId(acl, data_.match_p.m_out_mirror_acl_l,
                     fe_sandesh_data.ace_l);
     SetAclListAceId(acl, data_.match_p.m_vrf_assign_acl_l,
+                    fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.m_aps_l,
+                    fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.m_out_aps_l,
                     fe_sandesh_data.ace_l);
 
     fe_sandesh_data.set_reverse_flow(is_flags_set(FlowEntry::ReverseFlow) ?
@@ -2720,4 +2901,53 @@ void FlowEntry::LogFlow(FlowEventLog::Event event, FlowTableKSyncEntry* ksync,
     log->gen_id_ = (ksync != NULL) ? ksync->gen_id() : 0;
     log->vrouter_flow_handle_ = flow_handle;
     log->vrouter_gen_id_ = gen_id;
+}
+
+const TagList &FlowEntry::local_tagset() const {
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        return data_.source_tag_id_l;
+    }
+    return data_.dest_tag_id_l;
+}
+
+const TagList &FlowEntry::remote_tagset() const {
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        return data_.dest_tag_id_l;
+    }
+    return data_.source_tag_id_l;
+}
+
+const std::string FlowEntry::BuildRemotePrefix(const FlowRouteRefMap &rt_list,
+                                               uint32_t vrf,
+                                               const IpAddress &ip) const {
+    int plen = -1;
+    FlowRouteRefMap::const_iterator it;
+    for (it = rt_list.begin(); it != rt_list.end(); it++) {
+        if (it->first == static_cast<int>(vrf)) {
+            plen = it->second;
+            break;
+        }
+    }
+    if (plen != -1) {
+        return ip.to_string() + "/" + integerToString(plen);
+    }
+    return "";
+}
+
+/* Remote prefix is required only wnen remote_tagset is absent. Returns empty
+ * string as remote-prefix when remote-tagset is present */
+const std::string FlowEntry::RemotePrefix() const {
+     if (remote_tagset().size() > 0) {
+        return "";
+    }
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        return BuildRemotePrefix(data_.flow_dest_plen_map,
+                                 data_.flow_dest_vrf, key_.dst_addr);
+    }
+    return BuildRemotePrefix(data_.flow_source_plen_map, data_.flow_source_vrf,
+                             key_.src_addr);
+}
+
+const std::string FlowEntry::fw_policy_name_uuid() const {
+    return policy_set_acl_name_ + ":" + policy_set_ace_uuid_;
 }

@@ -455,20 +455,21 @@ private:
 
 class AclFlowMgmtEntry : public FlowMgmtEntry {
 public:
-    typedef std::map<int, int> AceIdFlowCntMap;
+    typedef std::map<std::string, int> AceIdFlowCntMap;
     AclFlowMgmtEntry() : FlowMgmtEntry() { }
     virtual ~AclFlowMgmtEntry() { }
     void FillAclFlowSandeshInfo(const AclDBEntry *acl, AclFlowResp &data,
                                 const int last_count, Agent *agent);
     void FillAceFlowSandeshInfo(const AclDBEntry *acl, AclFlowCountResp &data,
-                                int ace_id);
+                                const std::string &ace_id);
     bool Add(const AclEntryIDList *ace_id_list, FlowEntry *flow,
              const AclEntryIDList *old_id_list, FlowMgmtKeyNode *node);
     bool Delete(const AclEntryIDList *ace_id_list, FlowEntry *flow,
                 FlowMgmtKeyNode *node);
     void DecrementAceIdCountMap(const AclEntryIDList *id_list);
 private:
-    std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
+    std::string GetAceSandeshDataKey(const AclDBEntry *acl,
+                                     const std::string &ace_id);
     std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl,
                                          const int last_count) const;
     uint32_t flow_miss_;
@@ -1165,7 +1166,7 @@ private:
     void DeleteFlowEntryInfo(FlowEntryPtr &flow);
     void MakeFlowMgmtKeyTree(FlowEntry *flow, FlowMgmtKeyTree *tree);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
-                           int ace_id);
+                           const std::string &ace_id);
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
                                const int last_count);
     void ControllerNotify(uint8_t index);

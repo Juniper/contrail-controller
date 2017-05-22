@@ -38,7 +38,9 @@ public:
         SOURCE_PORT_MATCH,
         DESTINATION_PORT_MATCH,
         PROTOCOL_MATCH,
-       ADDRESS_MATCH
+        ADDRESS_MATCH,
+        SERVICE_GROUP_MATCH,
+        TAGS_MATCH
     };
     AclEntryMatch(Type type):type_(type) { }
     virtual ~AclEntryMatch() {}
@@ -84,7 +86,6 @@ struct delete_disposer {
     void operator() (Range *range) { delete range;}
 };
 
-
 class PortMatch : public AclEntryMatch {
 public:
     PortMatch(Type type): AclEntryMatch(type) {}
@@ -127,6 +128,68 @@ private:
     RangeSList protocol_ranges_;
 };
 
+class ServicePort {
+public:
+    Range protocol;
+    std::vector<Range> src_port;
+    std::vector<Range> dst_port;
+
+    bool operator==(const ServicePort &rhs) const {
+        if (protocol == rhs.protocol &&
+            src_port == rhs.src_port &&
+            dst_port == rhs.dst_port) {
+            return true;
+        }
+        return false;
+    }
+};
+
+class ServiceGroupMatch : public AclEntryMatch {
+public:
+    typedef std::vector<ServicePort> ServicePortList;
+
+    ServiceGroupMatch(ServicePortList service_port_list):
+        AclEntryMatch(SERVICE_GROUP_MATCH),
+        service_port_list_(service_port_list) {}
+    ~ServiceGroupMatch() {};
+
+    bool Match(const PacketHeader *packet_header,
+               FlowPolicyInfo *info) const;
+    void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
+    virtual bool Compare(const AclEntryMatch &rhs) const;
+
+    size_t size() const {
+        return service_port_list_.size();
+    }
+private:
+    ServicePortList service_port_list_;
+};
+
+
+class TagsMatch : public AclEntryMatch {
+public:
+    TagsMatch(TagList tag_list) :
+        AclEntryMatch(TAGS_MATCH),
+        tag_list_(tag_list) {}
+    ~TagsMatch() {};
+
+    bool Match(const PacketHeader *packet_header,
+               FlowPolicyInfo *info) const;
+    void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
+    virtual bool Compare(const AclEntryMatch &rhs) const;
+
+    size_t size() const {
+        return tag_list_.size();
+    }
+
+    const TagList& tag_list() const {
+        return tag_list_;
+    }
+
+private:
+    TagList tag_list_;
+};
+
 class AddressMatch : public AclEntryMatch {
 public:
     typedef boost::uuids::uuid uuid;
@@ -136,7 +199,9 @@ public:
        IP_ADDR = 1,
        NETWORK_ID = 2,
        SG = 3,
-       UNKNOWN_TYPE = 4,
+       TAGS = 4,
+       ADDRESS_GROUP = 5,
+       UNKNOWN_TYPE = 6,
     };
 
     AddressMatch():AclEntryMatch(ADDRESS_MATCH) {}
@@ -149,6 +214,17 @@ public:
     void SetNetworkID(const uuid id);
     void SetNetworkIDStr(const std::string id);
     void SetSGId(const uint32_t id);
+    void SetTags(const TagList &tags) {
+        addr_type_ = TAGS;
+        tags_ = tags;
+    }
+
+    void SetAddressGroup(const std::vector<AclAddressInfo> &list,
+                         const TagList &tags);
+
+    const TagList& tags() const {
+        return tags_;
+    }
     // Set IP Address and mask
     void SetIPAddress(const std::vector<AclAddressInfo> &list);
     // Match packet header for address
@@ -157,6 +233,10 @@ public:
     void SetAclEntryMatchSandeshData(AclEntrySandeshData &data);
     virtual bool Compare(const AclEntryMatch &rhs) const;
     static std::string BuildIpMaskList(const std::vector<AclAddressInfo> &list);
+    static std::string BuildTags(const TagList &list);
+    size_t ip_list_size() const {
+        return ip_list_.size();
+    }
 private:
     AddressType addr_type_;
     bool src_;
@@ -167,8 +247,10 @@ private:
     uuid policy_id_;
     std::string policy_id_s_;
     int sg_id_;
+    TagList tags_;
 
     bool SGMatch(const SecurityGroupList &sg_l, int id) const;
     bool SGMatch(const SecurityGroupList *sg_l, int id) const;
+    bool TagsMatch(const TagList &tags) const;
 };
 #endif

@@ -46,7 +46,8 @@ public:
     bool DeleteArpRoute();
     bool IsResolved();
     void Resync(bool policy, const VnListType &vnlist,
-                const SecurityGroupList &sg);
+                const SecurityGroupList &sg,
+                const TagList &tag);
     int retry_count() const { return retry_count_; }
 private:
     void StartTimer(uint32_t timeout, uint32_t mtype);

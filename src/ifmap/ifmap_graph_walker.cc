@@ -345,7 +345,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("provider-attachment-virtual-router"))
         ("virtual-machine",
          list_of("virtual-machine-service-instance")
-                ("virtual-machine-interface-virtual-machine"))
+                ("virtual-machine-interface-virtual-machine")
+                ("virtual-machine-tag"))
         ("bgp-router", 
          list_of("instance-bgp-router")
                 ("physical-router-bgp-router"))
@@ -355,7 +356,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("qos-config-global-system-config"))
         ("provider-attachment", std::set<std::string>())
         ("service-instance", list_of("service-instance-service-template"))
-        ("global-vrouter-config", std::set<std::string>())
+        ("global-vrouter-config",
+             list_of("application-policy-set-global-vrouter-config"))
         ("virtual-machine-interface",
          list_of("virtual-machine-virtual-machine-interface")
                 ("virtual-machine-interface-sub-interface")
@@ -371,7 +373,9 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("service-port-health-check")
                 ("bgpaas-virtual-machine-interface")
                 ("virtual-machine-interface-qos-config")
-                ("virtual-machine-interface-bridge-domain"))
+                ("virtual-machine-interface-bridge-domain")
+                ("project-virtual-machine-interface")
+                ("virtual-machine-interface-tag"))
         ("virtual-machine-interface-bridge-domain",
          list_of("virtual-machine-interface-bridge-domain"))
         ("security-group", list_of("security-group-access-control-list"))
@@ -388,7 +392,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          ("virtual-network-access-control-list")
          ("virtual-network-routing-instance")
          ("virtual-network-qos-config")
-         ("virtual-network-bridge-domain"))
+         ("virtual-network-bridge-domain")
+         ("virtual-network-tag"))
         ("floating-ip", list_of("floating-ip-pool-floating-ip")
          ("instance-ip-floating-ip"))
         ("alias-ip", list_of("alias-ip-pool-alias-ip"))
@@ -418,5 +423,20 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          list_of("global-qos-config-forwarding-class")
          ("global-qos-config-qos-queue")
          ("global-qos-config-qos-config"))
-        ("bridge-domain", std::set<std::string>());
+        ("bridge-domain", std::set<std::string>())
+        ("tag", list_of("application-policy-set-tag"))
+        ("application-policy-set", list_of("application-policy-set-firewall-policy")
+                                          ("policy-management-application-policy-set"))
+        ("application-policy-set-firewall-policy",
+                                   list_of("application-policy-set-firewall-policy"))
+        ("firewall-policy", list_of("firewall-policy-firewall-rule"))
+        ("firewall-policy-firewall-rule",
+                            list_of("firewall-policy-firewall-rule"))
+        ("firewall-rule", list_of("firewall-rule-tag")
+                                 ("firewall-rule-service-group")
+                                 ("firewall-rule-address-group"))
+        ("service-group", std::set<std::string>())
+        ("address-group", list_of("address-group-tag"))
+        ("project", list_of("project-tag"))
+        ("policy-management", std::set<std::string>());
 }

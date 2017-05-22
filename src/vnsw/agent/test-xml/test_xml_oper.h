@@ -198,6 +198,21 @@ private:
     std::string sg_id_;
 };
 
+class AgentUtXmlTag : public AgentUtXmlConfig {
+public:
+    AgentUtXmlTag(const std::string &name, const boost::uuids::uuid &uuid,
+                  const pugi::xml_node &node, AgentUtXmlTestCase *test_case);
+    ~AgentUtXmlTag();
+
+    virtual bool ReadXml();
+    virtual bool ToXml(pugi::xml_node *parent);
+    virtual std::string NodeType();
+    virtual void ToString(std::string *str);
+
+private:
+    std::string tag_id_;
+};
+
 class AgentUtXmlInstanceIp : public AgentUtXmlConfig {
 public:
     AgentUtXmlInstanceIp(const std::string &name, const boost::uuids::uuid &uuid,
@@ -409,6 +424,7 @@ private:
     std::string tunnel_dest_;
     std::string tunnel_type_;
     uint16_t sg_id_;
+    uint16_t tag_id_;
     uint16_t label_;
 };
 
@@ -456,6 +472,7 @@ private:
     std::string tunnel_dest_;
     std::string tunnel_type_;
     uint16_t sg_id_;
+    uint16_t tag_id_;
     uint16_t label_;
     uint16_t plen_;
 };

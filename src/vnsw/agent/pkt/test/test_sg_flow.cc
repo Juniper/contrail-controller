@@ -637,7 +637,8 @@ TEST_F(SgTest, Fwd_Sg_Change_3) {
     Agent::GetInstance()->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
-                SecurityGroupList(), CommunityList(), false, PathPreference(),
+                SecurityGroupList(), TagList(),
+                CommunityList(), false, PathPreference(),
                 Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
 
@@ -662,7 +663,7 @@ TEST_F(SgTest, Fwd_Sg_Change_3) {
     Agent::GetInstance()->fabric_inet4_unicast_table()->
         AddLocalVmRouteReq(bgp_peer_, "vrf1", vm_ip, 32,
                 vm_intf->GetUuid(), vn_list, vm_intf->label(),
-                sg_list, CommunityList(), false, PathPreference(),
+                sg_list, TagList(), CommunityList(), false, PathPreference(),
                 Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
 
@@ -870,7 +871,8 @@ TEST_F(SgTest, Sg_Policy_1) {
                         24,
                         Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), 
-                        17, "vn1", sg_id_list, PathPreference());
+                        17, "vn1", sg_id_list, TagList(),
+                        PathPreference());
     client->WaitForIdle();
 
     char remote_ip[] = "10.10.10.1";
@@ -887,7 +889,7 @@ TEST_F(SgTest, Sg_Policy_1) {
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), 17, "vn1", sg_id_list,
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
@@ -925,7 +927,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), 17, "vn1", sg_id_list,
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     char remote_ip[] = "10.10.10.1";
@@ -943,7 +945,7 @@ TEST_F(SgTest, Sg_Policy_2) {
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", Ip4Address::from_string("10.10.10.0", ec),
                         24, Ip4Address::from_string("10.10.10.10", ec),
                         TunnelType::AllType(), 17, "vn1", sg_id_list,
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,

@@ -24,9 +24,18 @@ public:
     void UpdatePortBitmap
     (const string &name, uint8_t proto, uint16_t sport, uint16_t dport);
     void IncrInterfaceAceStats(const std::string &itf, const std::string &u);
+    void IncrInterfaceEndpointHits(const std::string &itf,
+                                   const std::string &fw_pol,
+                                   const TagList &tglist,
+                                   const std::string &rprefix,
+                                   bool initiator);
     void SendInterfaceAceStats(const string &name, UveInterfaceEntry *entry);
+    void UpdateVmiTagBasedStats(const EndpointStatsInfo &info);
+    void BuildInterfaceUveInfo(InterfaceUveInfoResp *r);
 
 private:
+    bool FrameInterfaceObjectLog(UveInterfaceEntry* entry,
+                                 EndpointSecurityStats *obj) const;
     void SendInterfaceStatsMsg(UveInterfaceEntry* entry);
     uint64_t GetVmPortBandwidth
         (StatsManager::InterfaceStats *s, bool dir_in) const;

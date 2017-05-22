@@ -122,6 +122,7 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         state->vrf_assign_acl_ = vm_port->vrf_assign_acl();
         state->is_vn_qos_config_ = vm_port->is_vn_qos_config();
         state->qos_config_ = vm_port->qos_config();
+        state->fw_policy_list_ = vm_port->fw_policy_list();
         changed = true;
     } else {
         if (state->deleted_) {
@@ -151,6 +152,11 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         }
         if (state->qos_config_.get() != vm_port->qos_config()) {
             state->qos_config_ = vm_port->qos_config();
+            changed = true;
+        }
+
+        if (state->fw_policy_list_ != vm_port->fw_policy_list()) {
+            state->fw_policy_list_ = vm_port->fw_policy_list();
             changed = true;
         }
     }
@@ -643,6 +649,11 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
 
     if (state->ecmp_load_balance_ != path->ecmp_load_balance()) {
         state->ecmp_load_balance_ = path->ecmp_load_balance();
+        changed = true;
+    }
+
+    if (state->tags_l_ != path->tag_list()) {
+        state->tags_l_ = path->tag_list();
         changed = true;
     }
 

@@ -106,7 +106,7 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_controller) {
     vn_list.insert("vn10");
     ControllerEcmpRoute *data =
         new ControllerEcmpRoute(peer_, prefix, 24, vn_list, -1,
-                                false, "vrf10", sg, rp,
+                                false, "vrf10", sg, TagList(), rp,
                                 (1 << TunnelType::MPLS_GRE),
                                 EcmpLoadBalance(),
                                 nh_req);
@@ -565,7 +565,7 @@ TEST_F(EcmpNhTest, EcmpNH_5) {
     //Add a remote VM route
     Inet4TunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32, remote_server_ip1,
                         TunnelType::DefaultType(), 30, "vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
@@ -587,7 +587,8 @@ TEST_F(EcmpNhTest, EcmpNH_5) {
 
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32,
-                       comp_nh_list, -1, "vn2", sg_id_list, PathPreference());
+                       comp_nh_list, -1, "vn2", sg_id_list,
+                       TagList(), PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -636,7 +637,7 @@ TEST_F(EcmpNhTest, EcmpNH_6) {
                         32, remote_server_ip1,
                         TunnelType::AllType(),
                         30, "vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
@@ -658,7 +659,8 @@ TEST_F(EcmpNhTest, EcmpNH_6) {
 
     SecurityGroupList sg_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32,
-                       comp_nh_list, -1, "vn2", sg_list, PathPreference());
+                       comp_nh_list, -1, "vn2", sg_list,
+                       TagList(), PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -740,7 +742,8 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_7) {
 
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     CreateVmportWithEcmp(input3, 1);
@@ -868,12 +871,14 @@ TEST_F(EcmpNhTest, EcmpNH_8) {
     Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
@@ -887,7 +892,7 @@ TEST_F(EcmpNhTest, EcmpNH_8) {
     //and ensure ip2 route still points to old composite nexthop
     Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip1, 32, remote_server_ip1,
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
@@ -914,7 +919,8 @@ TEST_F(EcmpNhTest, EcmpNH_9) {
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.1.1.10");
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
@@ -924,7 +930,7 @@ TEST_F(EcmpNhTest, EcmpNH_9) {
     //Change ip1 route nexthop to be unicast nexthop
     Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip1, 32, remote_server_ip1,
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::TUNNEL);
@@ -972,7 +978,8 @@ TEST_F(EcmpNhTest, EcmpNH_10) {
     Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
-            comp_nh_list1, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list1, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     ComponentNHKeyList comp_nh_list2;
@@ -981,7 +988,8 @@ TEST_F(EcmpNhTest, EcmpNH_10) {
 
     Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
-            comp_nh_list2, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list2, false, "vn1", sg_id_list, 
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
@@ -995,7 +1003,7 @@ TEST_F(EcmpNhTest, EcmpNH_10) {
     //should share same nexthop
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
                        comp_nh_list1, false, "vn1", sg_id_list,
-                       PathPreference());
+                       TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(rt1->GetActiveNextHop() == rt2->GetActiveNextHop());
@@ -1050,7 +1058,8 @@ TEST_F(EcmpNhTest, EcmpNH_11) {
     Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
-            comp_nh_list1, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list1, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     ComponentNHKeyList comp_nh_list2;
@@ -1060,7 +1069,8 @@ TEST_F(EcmpNhTest, EcmpNH_11) {
 
     Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
-            comp_nh_list2, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list2, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
@@ -1084,7 +1094,7 @@ TEST_F(EcmpNhTest, EcmpNH_11) {
     //should share same nexthop
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
                        comp_nh_list2, false, "vn1", sg_id_list,
-                       PathPreference());
+                       TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(rt1->GetActiveNextHop() == rt2->GetActiveNextHop());
@@ -1118,7 +1128,7 @@ TEST_F(EcmpNhTest, EcmpNH_12) {
     //Change ip1 route nexthop to be unicast nexthop
     Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip1, 32, remote_server_ip1,
                         TunnelType::AllType(), 8, "vn1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
@@ -1127,7 +1137,8 @@ TEST_F(EcmpNhTest, EcmpNH_12) {
 
     ComponentNHKeyList comp_nh_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     rt1 = RouteGet("vrf1", ip1, 32);
@@ -1167,7 +1178,8 @@ TEST_F(EcmpNhTest, EcmpNH_13) {
     Ip4Address ip1 = Ip4Address::from_string("100.1.1.1");
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference());
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     //Delete composite NH
@@ -1242,7 +1254,7 @@ TEST_F(EcmpNhTest, EcmpNH_14) {
     SecurityGroupList sg_id_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip, 32,
                        comp_nh_list, false, "vn1", sg_id_list,
-                       PathPreference());
+                       TagList(), PathPreference());
     client->WaitForIdle();
 
     //Deactivate vm interface
@@ -1250,7 +1262,7 @@ TEST_F(EcmpNhTest, EcmpNH_14) {
     //Transition ecmp to tunnel NH
     Inet4TunnelRouteAdd(bgp_peer, "vrf1", ip, 32, remote_server_ip1,
                         TunnelType::DefaultType(), 30, "vn2",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
 
     //Resync the route
@@ -1301,7 +1313,8 @@ TEST_F(EcmpNhTest, EcmpNH_15) {
 
     SecurityGroupList sg_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32,
-                       comp_nh_list, -1, "vn2", sg_list, PathPreference());
+                       comp_nh_list, -1, "vn2", sg_list,
+                       TagList(), PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -1336,7 +1349,8 @@ TEST_F(EcmpNhTest, EcmpNH_15) {
     comp_nh_list.push_back(nh_data1);
 
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32,
-                       comp_nh_list, -1, "vn2", sg_list, PathPreference());
+                       comp_nh_list, -1, "vn2", sg_list,
+                       TagList(), PathPreference());
     client->WaitForIdle();
     rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -1369,7 +1383,8 @@ TEST_F(EcmpNhTest, EcmpNH_15) {
     comp_nh_list.push_back(nh_data1);
 
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32,
-                       comp_nh_list, -1, "vn2", sg_list, PathPreference());
+                       comp_nh_list, -1, "vn2", sg_list,
+                       TagList(), PathPreference());
     client->WaitForIdle();
     rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -1424,7 +1439,8 @@ TEST_F(EcmpNhTest, EcmpNH_16) {
     comp_nh_list.push_back(nh_data1);
     SecurityGroupList sg_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32,
-                       comp_nh_list, -1, "vn2", sg_list, PathPreference());
+                       comp_nh_list, -1, "vn2", sg_list, 
+                       TagList(), PathPreference());
     client->WaitForIdle();
 
     //Nexthop is not found, hence component NH count is 0
@@ -1449,7 +1465,8 @@ TEST_F(EcmpNhTest, EcmpNH_16) {
 
     client->NextHopReset();
     EcmpTunnelRouteAdd(bgp_peer, "vrf2", remote_vm_ip, 32,
-            comp_nh_list, -1, "vn2", sg_list, PathPreference());
+            comp_nh_list, -1, "vn2", sg_list,
+            TagList(), PathPreference());
     client->WaitForIdle();
 
     EXPECT_TRUE(client->CompositeNHWait(1));
@@ -1492,7 +1509,8 @@ TEST_F(EcmpNhTest, EcmpNH_17) {
     agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent_->local_peer(), "vrf1", ip, 32,
             MakeUuid(1), vn_list, intf->label(),
-            SecurityGroupList(), CommunityList(), false, PathPreference(),
+            SecurityGroupList(), TagList(),
+            CommunityList(), false, PathPreference(),
             Ip4Address(0), EcmpLoadBalance(), false, false);
     client->WaitForIdle();
 
@@ -1521,7 +1539,8 @@ TEST_F(EcmpNhTest, EcmpNH_17) {
 
     SecurityGroupList sg_list;
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip, 32,
-                       comp_nh_list, false, "vn1", sg_list, PathPreference());
+                       comp_nh_list, false, "vn1", sg_list,
+                       TagList(), PathPreference());
     client->WaitForIdle();
 
     rt = RouteGet("vrf1", ip, 32);
@@ -1579,7 +1598,8 @@ TEST_F(EcmpNhTest, EcmpNH_18) {
     ecmp_load_balance.set_destination_ip();
     ecmp_load_balance.set_source_port();
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference(), ecmp_load_balance);
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference(), ecmp_load_balance);
     client->WaitForIdle();
 
     Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
@@ -1588,7 +1608,8 @@ TEST_F(EcmpNhTest, EcmpNH_18) {
     ecmp_load_balance.set_destination_ip();
     ecmp_load_balance.set_ip_protocol();
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference(), ecmp_load_balance);
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference(), ecmp_load_balance);
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
@@ -1647,7 +1668,8 @@ TEST_F(EcmpNhTest, EcmpNH_19) {
     ecmp_load_balance.set_destination_ip();
     ecmp_load_balance.set_ip_protocol();
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip1, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference(), ecmp_load_balance);
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference(), ecmp_load_balance);
     client->WaitForIdle();
 
     Ip4Address ip2 = Ip4Address::from_string("100.1.1.2");
@@ -1655,13 +1677,15 @@ TEST_F(EcmpNhTest, EcmpNH_19) {
     ecmp_load_balance.set_source_ip();
     ecmp_load_balance.set_destination_ip();
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip2, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference(), ecmp_load_balance);
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference(), ecmp_load_balance);
     client->WaitForIdle();
     Ip4Address ip3 = Ip4Address::from_string("100.1.1.3");
     ecmp_load_balance.ResetAll();
     ecmp_load_balance.set_source_ip();
     EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip3, 32,
-            comp_nh_list, false, "vn1", sg_id_list, PathPreference(), ecmp_load_balance);
+            comp_nh_list, false, "vn1", sg_id_list,
+            TagList(), PathPreference(), ecmp_load_balance);
     client->WaitForIdle();
     InetUnicastRouteEntry *rt1 = RouteGet("vrf1", ip1, 32);
     InetUnicastRouteEntry *rt2 = RouteGet("vrf1", ip2, 32);

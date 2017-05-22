@@ -140,7 +140,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_1) {
     string vn_name = vif0->vn()->GetName();
     Inet4TunnelRouteAdd(peer_, vrf_name, remote_subnet, 24, remote_compute,
                         TunnelType::AllType(), 10, vn_name, SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     char router_id[80];
@@ -182,7 +182,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_2) {
     string vn_name = vif0->vn()->GetName();
     Inet4TunnelRouteAdd(peer_, vrf_name, remote_subnet, 24, remote_compute,
                         TunnelType::AllType(), 10, vn_name, SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     char router_id[80];
@@ -229,7 +229,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_3) {
     string vn_name = vif0->vn()->GetName();
     Inet4TunnelRouteAdd(peer_, vrf_name, remote_subnet, 24, remote_compute,
                         TunnelType::AllType(), 10, vn_name, SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     char router_id[80];
@@ -266,7 +266,7 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_4) {
     string vn_name = vif0->vn()->GetName();
     Inet4TunnelRouteAdd(peer_, vrf_name, remote_subnet, 24, remote_compute,
                         TunnelType::AllType(), 10, vn_name, SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     TxIpMplsPacket(eth->id(), remote_compute.to_string().c_str(),
@@ -320,10 +320,11 @@ TEST_F(FlowMgmtRouteTest, RouteDelete_5) {
     Inet4TunnelRouteAdd(peer_, "vrf10", remote_ip1, 0,
                         remote_compute, TunnelType::AllType(), 10,
                         vn_name, SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     Inet4TunnelRouteAdd(peer_, "vrf10", remote_compute, 24,
                         remote_compute, TunnelType::AllType(), 10,
-                        vn_name, SecurityGroupList(), PathPreference());
+                        vn_name, SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     VrfDelReq("vrf10");
@@ -350,7 +351,7 @@ TEST_F(FlowMgmtRouteTest, RouteAddDelete_6) {
         Inet4TunnelRouteAdd(peer_, "vrf10",
                 ip, 32,
                 remote_compute, TunnelType::AllType(), 10,
-                vn_name, SecurityGroupList(),
+                vn_name, SecurityGroupList(), TagList(),
                 PathPreference());
         client->WaitForIdle();
     }
@@ -461,7 +462,7 @@ TEST_F(FlowMgmtRouteTest, FlowEntry_dbstate_1) {
     string vn_name = vif0->vn()->GetName();
     Inet4TunnelRouteAdd(peer_, "vrf1", remote_subnet, 24, remote_compute,
                         TunnelType::AllType(), 10, vn_name, SecurityGroupList(),
-                        PathPreference());
+                        TagList(), PathPreference());
     client->WaitForIdle();
     VrfEntry *vrf = VrfGet("vrf1");
     agent_->vrf_table()->DeleteVrfReq("vrf1", 0xFF);

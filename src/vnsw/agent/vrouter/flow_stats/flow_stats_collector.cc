@@ -278,6 +278,73 @@ VmInterfaceKey FlowStatsCollector::ReverseFlowFipVmi
     return VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "");
 }
 
+void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
+                                                uint64_t bytes, uint64_t pkts) {
+    FlowEntry *flow = info->flow();
+
+    /* Ignore link local flows as they don't have remote-tagset/prefix */
+    if (flow->is_flags_set(FlowEntry::LinkLocalFlow)) {
+        return;
+    }
+    /* Ignore flows for which we don't have policy name as it is required to
+     * reach remote endpoint. One example of Flow not having policy name is when
+     * the rule it matches is IMPLICIT_ALLOW */
+    if (flow->policy_set_acl_name().empty()) {
+        return;
+    }
+    const Interface *itf = flow->intf_entry();
+    if (!itf) {
+        return;
+    }
+    if (itf->type() != Interface::VM_INTERFACE) {
+        return;
+    }
+    const VmInterface *vmi = static_cast<const VmInterface *>(itf);
+    const string &src_vn = flow->data().source_vn_match;
+    const string &dst_vn = flow->data().dest_vn_match;
+
+    /* Ignore flows for which source VN or destination VN are not known */
+    if (!src_vn.length() || !dst_vn.length()) {
+        return;
+    }
+
+    InterfaceUveStatsTable *itf_table = static_cast<InterfaceUveStatsTable *>
+        (agent_uve_->interface_uve_table());
+    EndpointStatsInfo ep;
+    ep.vmi = vmi;
+    ep.local_tagset = flow->local_tagset();
+    ep.remote_tagset = flow->remote_tagset();
+    ep.remote_prefix = flow->RemotePrefix();
+    ep.policy = flow->fw_policy_name_uuid();
+    ep.diff_bytes = bytes;
+    ep.diff_pkts = pkts;
+    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
+        ep.local_vn = src_vn;
+        ep.remote_vn = dst_vn;
+        ep.in_stats = true;
+        itf_table->UpdateVmiTagBasedStats(ep);
+
+        /* Local flows will not have egress flows in the system. So we need to
+         * explicitly build stats for egress flow using the data available from
+         * ingress flow */
+        ep.local_tagset = flow->remote_tagset();
+        ep.remote_tagset = flow->local_tagset();
+        ep.in_stats = false;
+        itf_table->UpdateVmiTagBasedStats(ep);
+    } else {
+        if (flow->is_flags_set(FlowEntry::IngressDir)) {
+            ep.local_vn = src_vn;
+            ep.remote_vn = dst_vn;
+            ep.in_stats = true;
+        } else {
+            ep.local_vn = dst_vn;
+            ep.remote_vn = src_vn;
+            ep.in_stats = false;
+        }
+        itf_table->UpdateVmiTagBasedStats(ep);
+    }
+}
+
 void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
                                             uint64_t bytes, uint64_t pkts) {
     FlowEntry *flow = info->flow();
@@ -391,6 +458,8 @@ void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
 
     //Update Inter-VN stats
     UpdateInterVnStats(info, *diff_bytes, *diff_pkts);
+    //Update Endpoint stats
+    UpdateVmiTagBasedStats(info, *diff_bytes, *diff_pkts);
     //Update Floating-IP stats
     UpdateFloatingIpStats(info, *diff_bytes, *diff_pkts);
     if (teardown_time) {

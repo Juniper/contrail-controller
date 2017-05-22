@@ -269,7 +269,7 @@ void ArpPathPreferenceState::SendArpRequestForAllIntf(const
 
 ArpDBState::ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id, IpAddress ip,
                        uint8_t plen) : vrf_state_(vrf_state),
-    sg_list_(0), policy_(false), resolve_route_(false) {
+    sg_list_(0), tag_list_(0), policy_(false), resolve_route_(false) {
     if (plen == Address::kMaxV4PrefixLen && ip != Ip4Address(0)) {
        arp_path_preference_state_.reset(vrf_state->Locate(ip));
     }
@@ -291,7 +291,7 @@ void ArpDBState::UpdateArpRoutes(const InetUnicastRouteEntry *rt) {
            start_iter->first.vrf == rt->vrf() &&
            IsIp4SubnetMember(Ip4Address(start_iter->first.ip),
                              rt->addr().to_v4(), plen)) {
-        start_iter->second->Resync(policy_, vn_list_, sg_list_);
+        start_iter->second->Resync(policy_, vn_list_, sg_list_, tag_list_);
         start_iter++;
     }
 }
@@ -333,12 +333,14 @@ void ArpDBState::Update(const AgentRoute *rt) {
 
     bool policy = ip_rt->GetActiveNextHop()->PolicyEnabled();
     const SecurityGroupList sg = ip_rt->GetActivePath()->sg_list();
+    const TagList tag = ip_rt->GetActivePath()->tag_list();
     
 
-    if (policy_ != policy || sg != sg_list_ ||
+    if (policy_ != policy || sg != sg_list_ || tag != tag_list_ ||
         vn_list_ != ip_rt->GetActivePath()->dest_vn_list()) {
         policy_ = policy;
         sg_list_ = sg;
+        tag_list_ = tag;
         vn_list_ = ip_rt->GetActivePath()->dest_vn_list();
         if (resolve_route_) {
             UpdateArpRoutes(ip_rt);
