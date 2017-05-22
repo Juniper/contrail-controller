@@ -233,7 +233,7 @@ class MesosServer(object):
             bottle.run(app=pipe_start_app, host=self.get_ip_addr(),
                        port=self.get_port(), server='gevent')
         except Exception:
-            self.cleanup()
+            self.logger.info("Error in starting  mesos-manager server.")
     # start_server
 
 # end class MesosServer

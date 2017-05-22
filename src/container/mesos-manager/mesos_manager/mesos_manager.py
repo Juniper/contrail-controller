@@ -20,6 +20,9 @@ import mesos_server as mserver
 
 class MesosNetworkManager(object):
     '''Starts all background process'''
+
+    _mesos_network_manager = None
+
     def __init__(self, args=None, mesos_api_connected=False, queue=None):
         self.args = args
         if queue:
@@ -44,8 +47,21 @@ class MesosNetworkManager(object):
     # end start_tasks
 
     def reset(self):
-        for cls in DBBaseST.get_obj_type_map().values():
+        for cls in DBBaseMM.get_obj_type_map().values():
             cls.reset()
+
+    @classmethod
+    def get_instance(cls):
+       return MesosNetworkManager._mesos_network_manager
+
+    @classmethod
+    def destroy_instance(cls):
+       inst = cls.get_instance()
+       if inst is None:
+           return
+       inst.vnc = None
+       inst.q = None
+       MesosNetworkManager._mesos_network_manager = None
 # end class MesosNetworkManager
 
 
@@ -55,6 +71,7 @@ def main(args_str=None, mesos_api_skip=False, event_queue=None):
     mesos_nw_mgr = MesosNetworkManager(args,
                                        mesos_api_connected=mesos_api_skip,
                                        queue=event_queue)
+    MesosNetworkManager._mesos_network_manager = mesos_nw_mgr
     mesos_nw_mgr.start_tasks()
 
 

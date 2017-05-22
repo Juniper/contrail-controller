@@ -24,29 +24,42 @@ class MMTestCase(test_common.TestCase):
         if extra_config_knobs:
             extra_config.append(extra_config_knobs)
         super(MMTestCase, cls).setUpClass(extra_config_knobs=extra_config)
+        cls._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
+                                             cls._cluster_id, cls.__name__,
+                                             cls._api_server_ip,
+                                             cls._api_server_port)
+
+        cls._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+                                        cls._cluster_id, cls.__name__,
+                                        cls._api_server_ip,
+                                        cls._api_server_port)
+
+        mesos_config = [
+            ('DEFAULTS', 'log_file', 'contrail-mesos-manager.log'),
+            ('VNC', 'vnc_endpoint_ip', cls._api_server_ip),
+            ('VNC', 'vnc_endpoint_port', cls._api_server_port),
+            ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
+            ('MESOS', 'service_subnets', "10.96.0.0/12"),
+            ('MESOS', 'app_subnets', "10.32.0.0/12"),
+        ]
+        cls.event_queue = Queue()
+        cls._mm_greenlet = gevent.spawn(test_common.launch_mesos_manager,
+                                        cls.__name__, mesos_config, True,
+                                        cls.event_queue)
+        test_common.wait_for_mesos_manager_up()
+
+    @classmethod
+    def tearDownClass(cls):
+        test_common.kill_svc_monitor(cls._svc_mon_greenlet)
+        test_common.kill_schema_transformer(cls._st_greenlet)
+        test_common.kill_mesos_manager(cls._mm_greenlet)
+        super(MMTestCase, cls).tearDownClass()
 
     def _class_str(self):
         return str(self.__class__).strip('<class ').strip('>').strip("'")
 
     def setUp(self, extra_config_knobs=None):
         super(MMTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
-        self._svc_mon_greenlet = gevent.spawn(test_common.launch_svc_monitor,
-            self.id(), self._api_server_ip, self._api_server_port)
-
-        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
-            self.id(), self._api_server_ip, self._api_server_port, extra_config_knobs)
-
-        mesos_config = [
-            ('DEFAULTS', 'log_file', 'contrail-mesos-manager.log'),
-            ('VNC', 'vnc_endpoint_ip', self._api_server_ip),
-            ('VNC', 'vnc_endpoint_port', self._api_server_port),
-            ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
-            ('MESOS', 'service_subnets', "10.96.0.0/12"),
-            ('MESOS', 'pod_subnets', "10.32.0.0/12"),
-        ]
-        self.event_queue = Queue()
-        self._mm_greenlet = gevent.spawn(test_common.launch_mesos_manager,
-            self.id(), mesos_config, True, self.event_queue)
 
     def tearDown(self):
         super(MMTestCase, self).tearDown()
@@ -56,7 +69,6 @@ class MMTestCase(test_common.TestCase):
         while self.event_queue.empty() is False:
             time.sleep(1)
 
-
     def generate_mesos_args(self):
         args_str = ""
         mesos_config = [
@@ -65,7 +77,7 @@ class MMTestCase(test_common.TestCase):
             ('VNC', 'vnc_endpoint_port', self._api_server_port),
             ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
             ('MESOS', 'service_subnets', "10.96.0.0/12"),
-            ('MESOS', 'pod_subnets', "10.32.0.0/12"),
+            ('MESOS', 'app_subnets', "10.32.0.0/12"),
         ]
         vnc_cgitb.enable(format='text')
 
@@ -84,4 +96,3 @@ class MMTestCase(test_common.TestCase):
 
     def test_test(self):
         pass
-
