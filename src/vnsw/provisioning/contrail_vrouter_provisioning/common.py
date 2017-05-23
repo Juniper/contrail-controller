@@ -181,12 +181,38 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             local("sudo mount -t hugetlbfs hugetlbfs /hugepages",
                   warn_only=False)
 
+    def search_and_replace(self, lvalue, rvalue, position, vrouter_file):
+        """Search and replace strings in the format <key>=<filepath> <args>
+           - 'position' determines where the <rvalue> needs to be inserted
+           - If it is "Begin", the string becomes:
+               <key>=<rvalue> <filepath> <args>
+           - If it is "End", the string becomes:
+               <key>=<filepath> <args> <rvalue>
+           - If <rvalue> already exists in <args>, it deletes it first
+           - If <rvalue> already preceeds <filepath> it deletes it first
+           Input:
+           - lvalue = <key>
+           - rvalue = <arg> to be searched and replaced
+           - position = Begin/End
+           - vrouter_file = path of vrouter file
+        """
+        if position == "Begin":
+            regexp_del = r"'s/\(^ *%s *=\)\(.*\)\( \/.*\)/\1\3/'" % (lvalue)
+            regexp_add = r"'s/\(^%s=\)\(.*\)/\1%s \2/'" %(lvalue, rvalue)
+            regexp = "sed -i.bak -e %s -e %s %s" \
+                     % (regexp_del, regexp_add, vrouter_file)
+            local(regexp, warn_only=False)
+        elif position == "End":
+            regexp_del = r"'s/\(^ *%s *=.*\) \(%s [^ ]*\)\(.*\) *$/\1\3/'" \
+                         % (lvalue, rvalue.split(' ')[0])
+            regexp_add = r"'s/\(^ *%s *=.*\)/\1 %s/'" % (lvalue, rvalue)
+            regexp = "sed -i.bak -e %s -e %s %s" \
+                     % (regexp_del, regexp_add, vrouter_file)
+            local(regexp, warn_only=False)
+
     def setup_coremask_node(self, dpdk_args):
         """Setup core mask on one or list of nodes
         """
-        vrouter_file = ('/etc/contrail/supervisord_vrouter_files/' +
-                        'contrail-vrouter-dpdk.ini')
-
         try:
             coremask = dpdk_args['coremask']
         except KeyError:
@@ -205,10 +231,11 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
 
         # supported coremask format: hex: (0x3f); list: (0,3-5), (0,1,2,3,4,5)
         # try taskset on a dummy command
+
         if local('sudo taskset%s %s true' % (taskset_param, coremask),
                  capture=True, warn_only=False).succeeded:
-            local('sudo sed -i \'s/command=/command=taskset%s %s /\' %s'
-                  % (taskset_param, coremask, vrouter_file), warn_only=False)
+            self.search_and_replace(self.command_key, 'taskset ' + coremask,
+                                    "Begin", self.vrouter_file)
         else:
             raise RuntimeError("Error: Core mask %s for host %s is invalid."
                                % (coremask, dpdk_args))
@@ -346,18 +373,28 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         """Increase the maximum number of mpls label
         and nexthop on tsn node"""
 
-        vrouter_file = ('/etc/contrail/supervisord_vrouter_files/' +
-                        'contrail-vrouter-dpdk.ini')
-        cmd = "--vr_mpls_labels %s "\
-              % vrouter_module_params_args.setdefault('mpls_labels', '5120')
-        cmd += "--vr_nexthops %s "\
-               % vrouter_module_params_args.setdefault('nexthops', '65536')
-        cmd += "--vr_vrfs %s "\
-               % vrouter_module_params_args.setdefault('vrfs', '5120')
-        cmd += "--vr_bridge_entries %s "\
-               % vrouter_module_params_args.setdefault('macs', '262144')
-        local('sudo sed -i \'s#\(^command=.*$\)#\\1 %s#\' %s'
-              % (cmd, vrouter_file), warn_only=False)
+        vr_params = {
+            'flow_entries': '524288',
+            'oflow_entries': '3000',
+            'mpls_labels': '5120',
+            'nexthops': '65536',
+            'vrfs': '5120',
+            'macs': {'bridge_entries':'262144'},
+        }
+        for param in vr_params:
+            if isinstance(vr_params[param], dict):
+                for p in vr_params[param]:
+                    param_name = p
+                    param_val = vrouter_module_params_args.setdefault\
+                                               (param, vr_params[param][p])
+            else:
+                param_name = param
+                param_val = vrouter_module_params_args.setdefault\
+                                               (param, vr_params[param])
+
+            param = "--vr_" + param_name + " " + param_val
+            self.search_and_replace(self.command_key, param,\
+                                    "End", self.vrouter_file)
 
     def fixup_contrail_vrouter_agent(self):
         compute_ip = self._args.self_ip
@@ -429,6 +466,22 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 log.info(dpdk_args)
                 platform_mode = "dpdk"
                 iface = self.dev
+
+                supervisor_vrouter_file = ('/etc/contrail/' +
+                                           'supervisord_vrouter_files/' +
+                                           'contrail-vrouter-dpdk.ini')
+                systemd_vrouter_file = ('/lib/systemd/system/' +
+                                        'contrail-vrouter-dpdk.service')
+
+                if os.path.isfile(supervisor_vrouter_file):
+                    self.vrouter_file = supervisor_vrouter_file
+                    self.command_key = "command"
+                elif os.path.isfile(systemd_vrouter_file):
+                    self.vrouter_file = systemd_vrouter_file
+                    self.command_key = "ExecStart"
+                else:
+                    raise RuntimeError("Vrouter Supervisor/Systemd not found.")
+
                 if self.is_interface_vlan(self.dev):
                     iface = self.get_physical_interface_of_vlan(self.dev)
                 local("ls /opt/contrail/bin/dpdk_nic_bind.py", warn_only=False)
