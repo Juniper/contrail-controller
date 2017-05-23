@@ -496,19 +496,21 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 self.setup_hugepages_node(dpdk_args)
                 self.setup_coremask_node(dpdk_args)
                 self.setup_vm_coremask_node(False, dpdk_args)
-
-                if self.pdist == 'Ubuntu':
-                    # Fix /dev/vhost-net permissions. It is required for
-                    # multiqueue operation
-                    local('sudo echo \'KERNEL=="vhost-net", '
-                          'GROUP="kvm", MODE="0660"\' > '
-                          '/etc/udev/rules.d/vhost-net.rules', warn_only=True)
-                    # The vhost-net module has to be loaded at startup to
-                    # ensure the correct permissions while the qemu is being
-                    # launched
-                    local('sudo echo "vhost-net" >> /etc/modules')
-
                 self.setup_uio_driver(dpdk_args)
+
+            if self.pdist == 'Ubuntu':
+                # Fix /dev/vhost-net permissions. It is required for
+                # multiqueue operation
+                local('sudo echo \'KERNEL=="vhost-net", '
+                      'GROUP="kvm", MODE="0660"\' > '
+                      '/etc/udev/rules.d/vhost-net.rules', warn_only=True)
+                # The vhost-net module has to be loaded at startup to
+                # ensure the correct permissions while the qemu is being
+                # launched
+                pattern = "vhost-net"
+                line = "vhost-net"
+                insert_line_to_file(pattern=pattern, line=line,
+                                    file_name='/etc/modules')
 
             control_servers = ' '.join('%s:%s' % (server, '5269')
                                        for server in self._args.control_nodes)
