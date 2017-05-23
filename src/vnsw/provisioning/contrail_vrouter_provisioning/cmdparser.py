@@ -62,6 +62,7 @@ class ComputeArgsParser(object):
             'hypervisor': self.get_config('HYPERVISOR', 'type', 'kvm'),
             'gateway_server_list': '',
             'default_hw_queue_qos': False,
+            'qos_priority_tagging': '',
             'qos_logical_queue': None,
             'qos_queue_id': None,
             'priority_id': None,
@@ -264,6 +265,10 @@ class ComputeArgsParser(object):
                 "--default_hw_queue_qos",
                 help="Default hardware queue is defined for qos",
                 action="store_true")
+        parser.add_argument(
+                "--qos_priority_tagging",
+                help= "Knob to configure priority tagging when in DCB mode",
+                type=str)
         parser.add_argument("--priority_id", help="Priority group id",
                             nargs='+', type=str)
         parser.add_argument(
