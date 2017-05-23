@@ -31,6 +31,14 @@ GLOBAL_READ_ONLY_ROLE = None
 PERMS2_VALID_SHARE_TYPES = ['tenant', 'domain']
 DOMAIN_SHARING_PERMS = PERMS_RW
 
+tag_dict = {
+    'label'      :0,
+    'application':1,
+    'tier'       :2,
+    'deployment' :3,
+    'site'       :4,
+}
+
 def obj_to_json(obj):
     return dict((k, v) for k, v in obj.__dict__.iteritems())
 #end obj_to_json

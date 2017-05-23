@@ -144,6 +144,8 @@ _ACTION_RESOURCES = [
      'method': 'PUT', 'method_name': 'mt_http_put'},
     {'uri': '/aaa-mode', 'link_name': 'aaa-mode',
      'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
+    {'uri': '/set-tag-application', 'link_name': 'set-tag-application',
+     'method': 'POST', 'method_name': 'set_tag_application'},
 ]
 
 
@@ -1121,6 +1123,9 @@ class VncApiServer(object):
     def alloc_vn_id(self, name):
         return self._db_conn._zk_db.alloc_vn_id(name) + 1
 
+    def alloc_tag_value_id(self, name):
+        return self._db_conn._zk_db.alloc_tag_value_id(name)
+
     def create_default_children(self, object_type, parent_obj):
         r_class = self.get_resource_class(object_type)
         for child_fields in r_class.children_fields:
@@ -1328,6 +1333,10 @@ class VncApiServer(object):
         self.route('/multi-tenancy', 'PUT', self.mt_http_put)
         self.route('/aaa-mode',      'GET', self.aaa_mode_http_get)
         self.route('/aaa-mode',      'PUT', self.aaa_mode_http_put)
+
+        # APIs to set tags to an object
+        self.route('/set-tag-application/<id>',
+            'POST', self.set_tag_application)
 
         # randomize the collector list
         self._random_collectors = self._args.collectors
@@ -3371,6 +3380,54 @@ class VncApiServer(object):
     @property
     def global_read_only_role(self):
         return self._args.global_read_only_role
+
+    # set application tag to caller
+    def set_tag_application(self, id):
+        tag_value = get_request().json['tag_value']
+        tag_type = 'application'
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(id)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Object Not Found: ' + id)
+
+        # unless global, inherit project id from caller
+        if tag_value[0:7] == 'global:':
+            tag_fq_name = [tag_type + "-" + tag_value[7:]]
+        else:
+            tag_fq_name = self._db_conn.uuid_to_fq_name(id)
+            tag_fq_name[-1] = tag_type + "-" + tag_value
+
+        # lookup (validate) tag
+        try:
+            tag_uuid = self._db_conn.fq_name_to_uuid('tag', tag_fq_name)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Name ' + pformat(tag_fq_name) + ' not found')
+
+        obj_fields = ['tag_refs']
+        (read_ok, obj_dict) = self._db_conn.dbe_read(obj_type, id, obj_fields)
+        if not read_ok:
+            bottle.abort(
+                404, 'No %s object found for id %s' %(obj_type, id))
+
+        if not 'tag_refs' in obj_dict:
+            obj_dict['tag_refs'] = []
+
+        # check if ref already exists
+        for ref in obj_dict['tag_refs']:
+            if ref['uuid'] == tag_uuid:
+                return {}
+
+        ref = {
+            'attr': None,
+            'uuid': tag_uuid
+        }
+        obj_dict['tag_refs'].append(ref)
+        self._db_conn.dbe_update(obj_type, id, obj_dict)
+        return {}
+    # end
 
     def keystone_version(self):
         k_v = 'v2.0'
