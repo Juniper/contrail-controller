@@ -288,6 +288,7 @@ public:
     // Max number of threads
     static const uint32_t kMaxTbbThreads = 8;
     static const uint32_t kDefaultTbbKeepawakeTimeout = (20); //time-millisecs
+    static const uint32_t kDefaultTaskMonitorTimeout = (5000); //time-millisecs
     // Default number of tx-buffers on pkt0 interface
     static const uint32_t kPkt0TxBufferCount = 1000;
     // Default value for cleanup of stale interface entries
@@ -1277,6 +1278,8 @@ private:
     FlowStatsReqHandler flow_stats_req_handler_;
 
     uint32_t tbb_keepawake_timeout_;
+    // Monitor task library and assert if inactivity detected
+    uint32_t task_monitor_timeout_msec_;
     // Constants
 public:
     static const std::string config_file_;
