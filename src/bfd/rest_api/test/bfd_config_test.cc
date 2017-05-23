@@ -120,12 +120,14 @@ class BFDConfigTest : public ::testing::Test {
                       BFDState state, bool state_changed = true) {
         if (state_changed) {
             while (session_state != state) {
+                std::cout << "**** Waiting for " << session_state <<
+                             " to become " << state << std::endl;
                 monitor_ec.reset();
                 EXPECT_TRUE(client->Monitor(boost::bind(
                     &BFDConfigTest::MonitorCallback, this, _1, _2)));
                 TASK_UTIL_EXPECT_TRUE(monitor_ec.is_initialized());
-                EXPECT_EQ(boost::system::errc::success, monitor_ec.get());
-                session_state = new_states.states[addr];
+                if (monitor_ec.get() == boost::system::errc::success)
+                    session_state = new_states.states[addr];
              }
         } else {
             get_bfd_session_ec.reset();

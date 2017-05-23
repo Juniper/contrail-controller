@@ -16,11 +16,13 @@ RESTClientSession::RESTClientSession(Server* server, ClientId client_id) :
     client_id_(client_id), server_(server), changed_(true) {
 }
 
-Session* RESTClientSession::GetSession(const boost::asio::ip::address& ip) {
-    if (bfd_sessions_.find(ip) == bfd_sessions_.end())
-        return NULL;
+Session *RESTClientSession::GetSession(const boost::asio::ip::address &ip,
+        const SessionIndex &index) const {
+    return GetSession(SessionKey(ip, index));
+}
 
-    return server_->SessionByAddress(ip);
+Session *RESTClientSession::GetSession(const SessionKey &key) const {
+    return server_->SessionByKey(key);
 }
 
 void RESTClientSession::Notify() {
@@ -28,15 +30,17 @@ void RESTClientSession::Notify() {
     if (!bfd_sessions_.empty() && http_sessions_.empty()) {
         changed_ = true;
         return;
-    } else {
-        changed_ = false;
     }
+    changed_ = false;
+
+    if (http_sessions_.empty())
+        return;
 
     REST::JsonStateMap map;
     for (Sessions::iterator it = bfd_sessions_.begin();
          it != bfd_sessions_.end(); ++it) {
         Session *session = GetSession(*it);
-        map.states[session->remote_host()] = session->local_state();
+        map.states[session->key().remote_address] = session->local_state();
     }
 
     std::string json;
@@ -52,51 +56,52 @@ void RESTClientSession::Notify() {
     http_sessions_.clear();
 }
 
+// typedef std::map<HttpSession *, ClientId> HttpSessionMap;
+// HttpSessionMap http_session_map_;
+void RESTClientSession::OnHttpSessionEvent(HttpSession* session,
+                                           enum TcpSession::Event event) {
+    if (event == TcpSession::CLOSE) {
+        if (!http_sessions_.erase(session))
+            LOG(ERROR, "Unable to find client session");
+    }
+}
+
 void RESTClientSession::AddMonitoringHttpSession(HttpSession* session) {
     http_sessions_.insert(session);
+    session->RegisterEventCb(boost::bind(&RESTClientSession::OnHttpSessionEvent,
+                                         this, _1, _2));
     if (changed_)
         Notify();
 }
 
-ResultCode RESTClientSession::AddBFDConnection(
-                                const boost::asio::ip::address& remoteHost,
-                                const SessionConfig& config) {
-    if (bfd_sessions_.find(remoteHost) != bfd_sessions_.end()) {
-        // TODO(bfd) implement REST configuration update
-        return kResultCode_Error;
-    }
-
+ResultCode RESTClientSession::AddBFDConnection(const SessionKey &key,
+                                               const SessionConfig &config) {
+    Session *session = GetSession(key);
+    if (session)
+        return kResultCode_Ok;
     Discriminator discriminator;
-    ResultCode result =
-      server_->ConfigureSession(remoteHost, config, &discriminator);
-    bfd_sessions_.insert(remoteHost);
-
-    Session *session = GetSession(remoteHost);
-    if (NULL == session)
+    ResultCode result = server_->ConfigureSession(key, config, &discriminator);
+    session = GetSession(key);
+    if (!session)
       return kResultCode_Error;
     session->RegisterChangeCallback(client_id_,
-      boost::bind(&RESTClientSession::Notify, this));
+        boost::bind(&RESTClientSession::Notify, this));
     Notify();
-
     return result;
 }
 
-ResultCode RESTClientSession::DeleteBFDConnection(
-                    const boost::asio::ip::address& remoteHost) {
-    if (bfd_sessions_.find(remoteHost) == bfd_sessions_.end()) {
+ResultCode RESTClientSession::DeleteBFDConnection(const SessionKey &key) {
+    Session *session = GetSession(key);
+    if (!session)
         return kResultCode_UnknownSession;
-    }
-
-    ResultCode result = server_->RemoveSessionReference(remoteHost);
-    bfd_sessions_.erase(remoteHost);
-
+    ResultCode result = server_->RemoveSessionReference(key);
     return result;
 }
 
 RESTClientSession::~RESTClientSession() {
     for (Sessions::iterator it = bfd_sessions_.begin();
          it != bfd_sessions_.end(); ++it) {
-      Session *session = server_->SessionByAddress(*it);
+      Session *session = server_->SessionByKey(*it);
       session->UnregisterChangeCallback(client_id_);
       server_->RemoveSessionReference(*it);
     }

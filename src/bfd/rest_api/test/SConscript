@@ -22,8 +22,10 @@ env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/bfd')
 env.Append(LIBPATH = env['TOP'] + '/bfd/rest_api')
 
-env.Prepend(LIBS = ['bfd_rest_api', 'bfd', 'gunit', 'task_test', 'io', 'sandesh', 'sandeshvns', 'base', 'http', 'httpc', 'io',
-                    'ssl', 'crypto', 'http_parser', 'curl', 'pugixml', 'boost_program_options', 'boost_thread', 'boost_regex',
+env.Prepend(LIBS = ['bfd_rest_client', 'bfd_rest', 'bfd', 'gunit', 'task_test',
+                    'io', 'sandesh', 'sandeshvns', 'base', 'http', 'httpc',
+                    'io', 'ssl', 'crypto', 'http_parser', 'curl', 'pugixml',
+                    'boost_program_options', 'boost_thread', 'boost_regex',
                     'process_info'])
 
 if sys.platform != 'darwin':
@@ -48,10 +50,16 @@ env.Alias('src/bfd:bfd_config_test', bfd_config_test)
 # All Tests
 test_suite = [
     bfd_json_config_test,
+]
+
+flaky_test_suite = [
     bfd_config_test
 ]
 
-test = env.TestSuite('bfd-http-test', test_suite)
-env.Alias('src/bfd:test_http', test)
+test = env.TestSuite('bfd-test', test_suite)
+env.Alias('controller/src/bfd/rest_api:test', test)
+
+flaky_test = env.TestSuite('bfd-flaky-test', flaky_test_suite)
+env.Alias('controller/src/bfd/rest_api:flaky-test', flaky_test)
 
 Return('test_suite')

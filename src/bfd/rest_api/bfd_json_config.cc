@@ -261,19 +261,18 @@ bool JsonStateMap::ValidateJsonDocument(const contrail_rapidjson::Value& documen
     return true;
 }
 
-bool JsonStateMap::ParseFromJsonDocument(const contrail_rapidjson::Value& document) {
+bool JsonStateMap::ParseFromJsonDocument(
+        const contrail_rapidjson::Value& document) {
     if (!ValidateJsonDocument(document))
         return false;
 
     states.clear();
 
-    for (contrail_rapidjson::Value::ConstMemberIterator it = document.MemberBegin();
-        it != document.MemberEnd(); ++it) {
-
+    for (contrail_rapidjson::Value::ConstMemberIterator
+            it = document.MemberBegin(); it != document.MemberEnd(); ++it) {
         boost::asio::ip::address address =
             boost::asio::ip::address::from_string(it->name.GetString());
-        BFDState state =
-            *BFDStateFromString(it->value.GetString());
+        BFDState state = *BFDStateFromString(it->value.GetString());
         states[address] = state;
     }
     return true;

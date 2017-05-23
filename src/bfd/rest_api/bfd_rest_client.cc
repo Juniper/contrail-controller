@@ -60,12 +60,12 @@ void RESTClient::Init() {
 
 void RESTClient::Stop() {
     tbb::interface5::unique_lock<tbb::mutex> lock(mutex_);
-
-    if (!stopped_) {
-        stopped_ = true;
-        LOG(DEBUG, "Stopping bfd client: " << ep_);
-        http_client_->Shutdown();
-    }
+    if (stopped_)
+        return;
+    stopped_ = true;
+    LOG(DEBUG, "Stopping bfd client: " << ep_);
+    lock.unlock();
+    http_client_->Shutdown();
 }
 
 void RESTClient::SetError() {

@@ -12,10 +12,9 @@
 #include <io/event_manager.h>
 
 namespace BFD {
+class Session;
 class StateMachine {
  public:
-    typedef boost::function<void(const BFD::BFDState &new_state)> ChangeCb;
-
     virtual void ProcessRemoteState(BFD::BFDState state) = 0;
     virtual void ProcessTimeout() = 0;
     virtual BFD::BFDState GetState() = 0;
@@ -23,7 +22,7 @@ class StateMachine {
     virtual ~StateMachine() {}
 };
 
-StateMachine *CreateStateMachine(EventManager *evm);
+StateMachine *CreateStateMachine(EventManager *evm, Session *session);
 }  // namespace BFD
 
 #endif  // SRC_BFD_STATE_MACHINE_H_
