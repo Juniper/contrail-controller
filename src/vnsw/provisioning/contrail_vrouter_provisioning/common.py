@@ -444,13 +444,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 self.setup_coremask_node(dpdk_args)
                 self.setup_vm_coremask_node(False, dpdk_args)
 
-                if self._args.vrouter_module_params:
-                    vrouter_module_params_args = dict(
-                            u.split("=") for u in
-                            self._args.vrouter_module_params.split(","))
-                    self.dpdk_increase_vrouter_limit(
-                            vrouter_module_params_args)
-
                 if self.pdist == 'Ubuntu':
                     # Fix /dev/vhost-net permissions. It is required for
                     # multiqueue operation
@@ -810,11 +803,50 @@ SUBCHANNELS=1,2,3
         self.add_tsn_vnc_config()
         self.start_tsn_service()
 
+    def increase_vrouter_limit(self):
+        """Increase the maximum number of mpls label
+        and nexthop on tsn node"""
+
+        if self._args.vrouter_module_params:
+            vrouter_module_params = self._args.vrouter_module_params.rstrip(',')
+            vrouter_module_params_args = dict(
+                        u.split("=") for u in
+                        vrouter_module_params.split(","))
+            if self._args.dpdk:
+                self.dpdk_increase_vrouter_limit(
+                        vrouter_module_params_args)
+            else:
+                cmd = "options vrouter"
+                if 'mpls_labels' in vrouter_module_params_args.keys():
+                    cmd += " vr_mpls_labels=%s" % vrouter_module_params_args['mpls_labels']
+                if 'nexthops' in vrouter_module_params_args.keys():
+                    cmd += " vr_nexthops=%s" % vrouter_module_params_args['nexthops']
+                if 'vrfs' in vrouter_module_params_args.keys():
+                    cmd += " vr_vrfs=%s" % vrouter_module_params_args['vrfs']
+                if 'macs' in vrouter_module_params_args.keys():
+                    cmd += " vr_bridge_entries=%s" % vrouter_module_params_args['macs']
+                if 'flow_entries' in vrouter_module_params_args.keys():
+                    cmd += " vr_flow_entries=%s" % vrouter_module_params_args['flow_entries']
+                if 'oflow_entries' in vrouter_module_params_args.keys():
+                    cmd += " vr_oflow_entries=%s" % vrouter_module_params_args['oflow_entries']
+                if 'mac_oentries' in vrouter_module_params_args.keys():
+                    cmd += " vr_bridge_oentries=%s" % vrouter_module_params_args['mac_oentries']
+                if 'flow_hold_limit' in vrouter_module_params_args.keys():
+                    cmd += " vr_flow_hold_limit=%s" % vrouter_module_params_args['flow_hold_limit']
+                if 'max_interface_entries' in vrouter_module_params_args.keys():
+                    cmd += " vr_interfaces=%s" % vrouter_module_params_args['max_interface_entries']
+                if 'vrouter_dbg' in vrouter_module_params_args.keys():
+                    cmd += " vrouter_dbg=%s" % vrouter_module_params_args['vrouter_dbg']
+                if 'vr_memory_alloc_checks' in vrouter_module_params_args.keys():
+                    cmd += " vr_memory_alloc_checks=%s" % vrouter_module_params_args['vr_memory_alloc_checks']
+                local("echo %s > %s" %(cmd, '/etc/modprobe.d/vrouter.conf'), warn_only=True)
+
     def setup(self):
         self.disable_selinux()
         self.disable_iptables()
         self.setup_coredump()
         self.fixup_config_files()
+        self.increase_vrouter_limit()
         if self._args.tsn_mode:
             self.setup_tsn_node()
             self.run_services()
