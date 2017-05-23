@@ -24,7 +24,8 @@ TEST_F(BFDExternalTest, Test1) {
     EventManager evm;
     UDPConnectionManager cm(&evm);
 
-    const boost::asio::ip::address addr = boost::asio::ip::address::from_string("10.5.3.165");
+    const boost::asio::ip::address addr =
+        boost::asio::ip::address::from_string("10.5.3.165");
 
     Server server(&evm, &cm);
     SessionConfig config1;
@@ -33,8 +34,8 @@ TEST_F(BFDExternalTest, Test1) {
     config1.detectionTimeMultiplier = 3;
     Discriminator disc1;
     server.ConfigureSession(addr, config1, &disc1);
-
-    cm.RegisterCallback(boost::bind(&Server::ProcessControlPacket, &server, _1));
+    cm.RegisterCallback(boost::bind(&Server::ProcessControlPacket, &server, _1,
+                                    _2, _3, _4, _5, _6));
 
     EventManagerThread emt(&evm);
     for (;;) {

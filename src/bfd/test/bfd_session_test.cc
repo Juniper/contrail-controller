@@ -2,6 +2,7 @@
  * Copyright (c) 2014 CodiLime, Inc. All rights reserved.
  */
 
+#include "bfd/bfd_server.h"
 #include "bfd/bfd_session.h"
 #include "bfd/test/bfd_test_utils.h"
 
@@ -16,6 +17,18 @@ static const Discriminator localDiscriminator = 0x12345678;
 static const Discriminator remoteDiscriminator = 0x87654321;
 static const int detectionTimeMultiplier = 3;
 const boost::asio::ip::address addr = boost::asio::ip::address::from_string("1.1.1.1");
+
+class SessionMock : public Session {
+public:
+    SessionMock(Discriminator localDiscriminator,
+                boost::asio::ip::address remoteHost, EventManager *evm,
+                const SessionConfig &config, Connection *communicator) :
+            Session(localDiscriminator, SessionKey(remoteHost), evm, config,
+                    communicator) {
+    }
+
+    bool TriggerRecvTimerExpired() { return RecvTimerExpired(); }
+};
 
 class SessionTest : public ::testing::Test {
   public:
@@ -41,14 +54,28 @@ class SessionTest : public ::testing::Test {
     }
     class TestConnection : public Connection {
       public:
-        virtual void SendPacket(const boost::asio::ip::address &dstAddr, const ControlPacket *packet)  {
+        virtual void SendPacket(
+            const boost::asio::ip::udp::endpoint &local_endpoint,
+            const boost::asio::ip::udp::endpoint &remote_endpoint,
+            const SessionIndex &session_index,
+            const boost::asio::mutable_buffer &pkt, int pktSize) {
+            ControlPacket *packet =
+                ParseControlPacket(boost::asio::buffer_cast<const uint8_t *>(
+                                       pkt), pktSize);
             ASSERT_EQ(localDiscriminator, packet->sender_discriminator);
             ASSERT_EQ(remoteDiscriminator, packet->receiver_discriminator);
-            ASSERT_EQ(detectionTimeMultiplier, packet->detection_time_multiplier);
+            ASSERT_EQ(detectionTimeMultiplier,
+                      packet->detection_time_multiplier);
             savedPacket = *packet;
         }
+        virtual void NotifyStateChange(const SessionKey &key, const bool &up) {
+        }
+        virtual Server *GetServer() const { return server_; }
+        virtual void SetServer(Server *server) { server_ = server; }
         boost::optional<ControlPacket> savedPacket;
         virtual ~TestConnection() {}
+      private:
+        Server *server_;
     };
     SessionConfig config;
     ControlPacket packet;
@@ -57,17 +84,18 @@ class SessionTest : public ::testing::Test {
 
 TEST_F(SessionTest, UpTest) {
     TestConnection tc;
-    Session session(localDiscriminator, addr, &evm, config, &tc);
+    SessionMock session(localDiscriminator, addr, &evm, config, &tc);
 
     EXPECT_EQ(kInit, session.local_state());
     packet.state = kInit;
     session.ProcessControlPacket(&packet);
     EXPECT_EQ(kUp, session.local_state());
+    std::cout << session.toString();
 }
 
 TEST_F(SessionTest, PollRecvTest) {
     TestConnection tc;
-    Session session(localDiscriminator, addr, &evm, config, &tc);
+    SessionMock session(localDiscriminator, addr, &evm, config, &tc);
 
     packet.poll = true;
     session.ProcessControlPacket(&packet);
@@ -84,7 +112,7 @@ TEST_F(SessionTest, PollRecvTest) {
 
 TEST_F(SessionTest, PollSendTest) {
     TestConnection tc;
-    Session session(localDiscriminator, addr, &evm, config, &tc);
+    SessionMock session(localDiscriminator, addr, &evm, config, &tc);
 
     session.ProcessControlPacket(&packet);
     session.InitPollSequence();
@@ -105,9 +133,21 @@ TEST_F(SessionTest, PollSendTest) {
     evm.Shutdown();
 }
 
+TEST_F(SessionTest, RecvTimerExpiredTest) {
+    TestConnection tc;
+    SessionMock session(localDiscriminator, addr, &evm, config, &tc);
+
+    EXPECT_EQ(kInit, session.local_state());
+    packet.state = kInit;
+    session.ProcessControlPacket(&packet);
+    EXPECT_EQ(kUp, session.local_state());
+
+    session.TriggerRecvTimerExpired();
+    EXPECT_EQ(kDown, session.local_state());
+}
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
-

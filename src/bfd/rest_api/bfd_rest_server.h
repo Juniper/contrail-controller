@@ -22,11 +22,9 @@ class RESTServer {
     explicit RESTServer(Server* bfd_server);
     ~RESTServer();
 
-    void OnHttpSessionEvent(HttpSession* session, enum TcpSession::Event event);
     void HandleRequest(HttpSession* session, const HttpRequest* request);
 
  protected:
-    typedef std::map<HttpSession *, ClientId> HttpSessionMap;
     typedef std::map<ClientId, RESTClientSession *> ClientMap;
 
     ClientId UniqClientId();
@@ -81,7 +79,6 @@ class RESTServer {
     void ClientIPAddressHandlerDelete(const struct RESTData&);
     void ClientMonitorHandler(const struct RESTData&);
 
-    HttpSessionMap http_session_map_;
     ClientMap client_sessions_;   
     Server *bfd_server_;
     tbb::mutex mutex_;

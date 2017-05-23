@@ -2,8 +2,9 @@
  * Copyright (c) 2014 CodiLime, Inc. All rights reserved.
  */
 
-#include "bfd/bfd_state_machine.h"
 #include "bfd/bfd_common.h"
+#include "bfd/bfd_session.h"
+#include "bfd/bfd_state_machine.h"
 
 #include <list>
 #include <boost/optional.hpp>
@@ -40,14 +41,17 @@ struct UpState;
 class StateMachineImpl : public StateMachine,
                          public sc::state_machine<StateMachineImpl, InitState> {
  public:
-    explicit StateMachineImpl(EventManager *evm) : evm_(evm) {
+    explicit StateMachineImpl(EventManager *evm, Session *session) :
+            evm_(evm), session_(session) {
         initiate();
     }
 
     void Notify(BFDState state) {
         LOG(DEBUG, "StateMachine state: " << state);
-        if (cb_.is_initialized())
-            evm_->io_service()->post(boost::bind(cb_.get(), GetState()));
+        if (cb_.is_initialized()) {
+            evm_->io_service()->post(boost::bind(cb_.get(),
+                session_ ? session_->key() : SessionKey(), GetState()));
+        }
     }
 
     void ProcessRemoteState(BFDState state) {
@@ -88,6 +92,7 @@ class StateMachineImpl : public StateMachine,
  private:
     boost::optional<ChangeCb> cb_;
     EventManager *evm_;
+    Session *session_;
 };
 
 struct InitState : sc::simple_state<InitState, StateMachineImpl>,
@@ -128,8 +133,8 @@ struct DownState : sc::simple_state<DownState, StateMachineImpl>,
     virtual ~DownState() {}
 };
 
-StateMachine *CreateStateMachine(EventManager *evm) {
-    return new StateMachineImpl(evm);
+StateMachine *CreateStateMachine(EventManager *evm, Session *session) {
+    return new StateMachineImpl(evm, session);
 }
 
 }  // namespace BFD

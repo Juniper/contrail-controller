@@ -3,6 +3,7 @@
  */
 
 
+#include "bfd/bfd_server.h"
 #include "bfd/bfd_udp_connection.h"
 #include "bfd/bfd_control_packet.h"
 #include "bfd/test/bfd_test_utils.h"
@@ -18,7 +19,19 @@ using namespace BFD;
 
 class BFDTest : public ::testing::Test {
  public:
-    void ComparePacket(const ControlPacket *p1, const ControlPacket *p2) {
+    void ComparePacket(boost::asio::ip::udp::endpoint remote_endpoint,
+                       const boost::asio::const_buffer &recv_buffer,
+                       std::size_t bytes_transferred,
+                       const boost::system::error_code &error,
+                       const ControlPacket *p1) {
+        boost::scoped_ptr<ControlPacket> p2(ParseControlPacket(
+            boost::asio::buffer_cast<const uint8_t *>(recv_buffer),
+            bytes_transferred));
+        if (p2 == NULL) {
+            LOG(ERROR, __func__ <<  "Unable to parse packet");
+            cmpResult = false;
+            return;
+        }
         LOG(INFO, p1->toString());
         LOG(INFO, p2->toString());
         cmpResult = (*p1 == *p2);
@@ -33,9 +46,12 @@ TEST_F(BFDTest, UDPConnection) {
 
     EventManager em;
     UDPConnectionManager communicationManager1(&em, port1, port2);
+    Server server1(&em, &communicationManager1);
     UDPConnectionManager communicationManager2(&em, port2, port1);
+    Server server2(&em, &communicationManager2);
 
-    const boost::asio::ip::address addr = boost::asio::ip::address::from_string("127.0.0.1");
+    const boost::asio::ip::address addr =
+        boost::asio::ip::address::from_string("127.0.0.1");
 
     ControlPacket packet;
     packet.poll = true;
@@ -54,9 +70,11 @@ TEST_F(BFDTest, UDPConnection) {
     packet.desired_min_tx_interval = boost::posix_time::milliseconds(100);
     packet.required_min_rx_interval = boost::posix_time::milliseconds(200);
     packet.required_min_echo_rx_interval = boost::posix_time::milliseconds(0);
-    packet.sender_host = addr;
+    packet.remote_endpoint.address(addr);
 
-    communicationManager2.RegisterCallback(boost::bind(&BFDTest::ComparePacket, this, &packet, _1));
+    UDPConnectionManager::RecvCallback cb =
+        boost::bind(&BFDTest::ComparePacket, this, _1, _2, _3, _4, &packet);
+    communicationManager2.RegisterCallback(cb);
     EventManagerThread evmThread(&em);
     communicationManager1.SendPacket(addr, &packet);
 

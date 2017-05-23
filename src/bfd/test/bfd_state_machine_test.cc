@@ -14,7 +14,7 @@ using namespace BFD;
 
 class StateMachineTest : public ::testing::Test {
   public:
-    StateMachineTest() : sm(CreateStateMachine(&evm)) {}
+    StateMachineTest() : sm(CreateStateMachine(&evm, NULL)) {}
 
     EventManager evm;
     boost::scoped_ptr<StateMachine> sm;
@@ -56,7 +56,8 @@ TEST_F(StateMachineTest, Test2) {
     EXPECT_EQ(kDown, sm->GetState());
 }
 
-static void ChangeCallback(boost::optional<BFDState> *output, BFDState input) {
+static void ChangeCallback(const SessionKey &key, const BFDState &input,
+                           boost::optional<BFDState> *output) {
     *output = input;
 }
 
@@ -64,7 +65,7 @@ TEST_F(StateMachineTest, Test_Callback) {
     EventManagerThread evt(&evm);
 
     boost::optional<BFDState> state;
-    boost::optional<StateMachine::ChangeCb> cb(boost::bind(&ChangeCallback, &state, _1));
+    boost::optional<ChangeCb> cb(boost::bind(&ChangeCallback, _1, _2, &state));
     sm->SetCallback(cb);
 
     EXPECT_EQ(kInit, sm->GetState());

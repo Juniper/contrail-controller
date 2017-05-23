@@ -11,6 +11,12 @@
 
 #include "http/http_session.h"
 
+using contrail_rapidjson::Document;
+using contrail_rapidjson::StringBuffer;
+using contrail_rapidjson::Value;
+using contrail_rapidjson::Writer;
+
+
 namespace BFD {
 namespace REST {
 
@@ -25,13 +31,15 @@ void SendResponse(HttpSession *session,
                   response.length(), NULL);
 }
 
-void SendErrorResponse(HttpSession *session,
-                        const std::string &error_msg, int status_code) {
-    contrail_rapidjson::Document document;
+void SendErrorResponse(HttpSession *session, const std::string &error_msg,
+                       int status_code) {
+    Document document;
     document.SetObject();
-    document.AddMember("error", error_msg.c_str(), document.GetAllocator());
-    contrail_rapidjson::StringBuffer strbuf;
-    contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(strbuf);
+    Document::AllocatorType &a = document.GetAllocator();
+    Value v;
+    document.AddMember("error", v.SetString(error_msg.c_str(), a), a);
+    StringBuffer strbuf;
+    Writer<StringBuffer> writer(strbuf);
     document.Accept(writer);
     SendResponse(session, strbuf.GetString(), status_code);
 }
