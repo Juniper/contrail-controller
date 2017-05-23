@@ -15,6 +15,7 @@ PrivateTmp=yes
 PrivateDevices=yes
 ProtectHome=yes
 ReadOnlyDirectories=/
+ReadWriteDirectories=-/var/crashes
 ReadWriteDirectories=-/var/log/contrail
 ReadWriteDirectories=-/etc/contrail
 
