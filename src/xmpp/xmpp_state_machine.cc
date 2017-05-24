@@ -1347,66 +1347,82 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
     XmppConnectionEndpoint *endpoint = NULL;
 
     // Look for an endpoint which may already exist
-    if (xmpp_server)
-        endpoint = xmpp_server->FindConnectionEndpoint(connection_->ToString());
-
-    // If older endpoint is present and is still associated with XmppConnection,
-    // check if older connection is under graceful-restart.
-    if (endpoint && endpoint->connection()) {
-        if (connection_ != endpoint->connection()) {
-            // Close new connection and retain old connection if the endpoint
-            // IP addresses do not match.
-            boost::asio::ip::address addr =
-                endpoint->connection()->endpoint().address();
-            if (connection_->endpoint().address() != addr) {
-                XMPP_WARNING(XmppDeleteConnection, session->ToUVEKey(),
-                    XMPP_PEER_DIR_IN,
-                    "Drop new xmpp connection " + session->ToString() +
-                    " as another connection with same name " + msg->from +
-                    " but with different IP address " + addr.to_string() +
-                    " already exists");
-                ProcessEvent(xmsm::EvTcpClose(session));
-                delete msg;
-                return;
-            }
-
-            XmppChannelMux *channel = endpoint->connection()->ChannelMux();
-
-            // If GR is not supported, then close all new connections until old
-            // one is completely deleted. Even if GR is supported, new
-            // connection cannot be accepted until old one is fully cleaned up.
-            bool ready = channel->GetPeerState() == xmps::READY;
-            if (!xmpp_server->IsPeerCloseGraceful() || ready ||
-                    channel->ReceiverCount()) {
-
-                // Bring down old session if it is still in ESTABLISHED state.
-                // This is the scenario in which old session's TCP did not learn
-                // the session down event, possibly due to compute cold reboot.
-                // In that case, trigger closure (and possibly GR) process for
-                // the old session.
-                if (ready) {
-                    XmppStateMachine *sm =
-                        endpoint->connection()->state_machine();
-                    XMPP_NOTICE(XmppDeleteConnection, sm->session()->ToUVEKey(),
-                                XMPP_PEER_DIR_IN,
-                                "Delete old xmpp connection " +
-                                sm->session()->ToString() +
-                                " as a new connection as been initiated");
-                    sm->Enqueue(xmsm::EvTcpClose(sm->session()));
-                }
-
-                XMPP_NOTICE(XmppDeleteConnection, session->ToUVEKey(),
-                            XMPP_PEER_DIR_IN,
-                            "Drop new xmpp connection " + session->ToString() +
-                            " as current connection is still not deleted");
-                ProcessEvent(xmsm::EvTcpClose(session));
-                delete msg;
-                return;
-            }
-        }
+    if (xmpp_server) {
+        endpoint =
+            xmpp_server->FindConnectionEndpoint(connection_->ToString());
     }
 
-    // In all other cases, process the OpenMessage like it is normally done.
+    // If there is no connection already associated with the end-point,
+    // process the incoming open message and move forward with the session
+    // establishment.
+    if (!endpoint || !endpoint->connection() ||
+            connection_ == endpoint->connection()) {
+        ProcessEvent(xmsm::EvXmppOpen(session, msg));
+        return;
+    }
+
+    // Check if the IP addresses match.
+    boost::asio::ip::address addr =
+        endpoint->connection()->endpoint().address();
+    if (connection_->endpoint().address() != addr) {
+        XMPP_WARNING(XmppDeleteConnection, session->ToUVEKey(),
+            XMPP_PEER_DIR_IN,
+            "Drop new xmpp connection " + session->ToString() +
+            " as another connection with same name " + msg->from +
+            " but with different IP address " + addr.to_string() +
+            " already exists");
+        ProcessEvent(xmsm::EvTcpClose(session));
+        delete msg;
+        return;
+    }
+
+    XmppChannelMux *channel = endpoint->connection()->ChannelMux();
+
+    // If GR Helper mode is not enabled, ignore the new connection request.
+    // Existing connection, if down will get cleaned up eventually. If it is
+    // up, it shall remain intact.
+    if (!xmpp_server->IsPeerCloseGraceful()) {
+        XMPP_NOTICE(XmppDeleteConnection, session->ToUVEKey(),
+                    XMPP_PEER_DIR_IN,
+                    "Drop new xmpp connection " + session->ToString() +
+                    " as another connection is alreready present");
+        ProcessEvent(xmsm::EvTcpClose(session));
+        return;
+    }
+
+    XmppStateMachine *old_sm = endpoint->connection()->state_machine();
+
+    // Bring down old session if connection is already up and ready. This is
+    // the scenario in which old session's TCP did not learn the session down
+    // event, possibly due to compute cold reboot. In that case, trigger
+    // closure (and possibly GR) process for the old session.
+    if (channel->GetPeerState() == xmps::READY) {
+        XMPP_NOTICE(XmppDeleteConnection, old_sm->session()->ToUVEKey(),
+            XMPP_PEER_DIR_IN, "Delete old xmpp connection " +
+            old_sm->session()->ToString() +
+            " as a new connection as been initiated (GR Helper is active)");
+        old_sm->Enqueue(xmsm::EvTcpClose(old_sm->session()));
+
+        // Drop the new session until old one is deleted or marked stale.
+        ProcessEvent(xmsm::EvTcpClose(session));
+        return;
+    }
+
+    // If previous closure is still in progress, drop the new connection.
+    if (channel->ReceiverCount()) {
+        XMPP_NOTICE(XmppDeleteConnection, session->ToUVEKey(),
+                    XMPP_PEER_DIR_IN,
+                    "Drop new xmpp connection " + session->ToString() +
+                    " as current connection is still under deletion");
+        ProcessEvent(xmsm::EvTcpClose(session));
+        return;
+    }
+
+    // Now we reach for the classic GR case, in which existing session stale
+    // process is complete, (peer is in GR/LLGR timer wait state).
+    // In this case, we should process the open message, and later switch to
+    // the new connection and state machine, retaining the old XmppPeer,
+    // BgpXmppChannel, routes, etc.
     ProcessEvent(xmsm::EvXmppOpen(session, msg));
 }
 
