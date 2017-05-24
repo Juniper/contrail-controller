@@ -120,5 +120,7 @@ def parse_args(args_str=None):
         args.pod_subnets = args.pod_subnets.split()
     if type(args.service_subnets) is str:
         args.service_subnets = args.service_subnets.split()
+    if type(args.collectors) is str:
+        args.collectors = args.collectors.split()
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
     return args

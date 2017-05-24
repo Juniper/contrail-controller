@@ -7,6 +7,7 @@ Kubernetes network manager
 """
 
 import gevent
+import random
 from gevent.queue import Queue
 
 from vnc_api.vnc_api import *
@@ -30,6 +31,13 @@ class KubeNetworkManager(object):
         self.args = args
         if 'kube_timer_interval' not in self.args:
             self.args.kube_timer_interval = '60'
+
+        # randomize collector list
+        self.args.random_collectors = args.collectors
+        if self.args.collectors:
+            self.args.random_collectors = random.sample(self.args.collectors,
+                                               len(self.args.collectors))
+
         self.logger = logger.KubeManagerLogger(args)
         if queue:
             self.q = queue
