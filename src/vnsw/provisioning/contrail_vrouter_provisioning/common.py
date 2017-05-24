@@ -368,7 +368,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         gateway_server_list = self._args.gateway_server_list
 
         self.mac = None
-        if self.dev and self.dev != 'vhost0':
+        if (self.dev and self.dev != 'vhost0' or self._args.upgrade):
             self.mac = netifaces.ifaddresses(self.dev)[netifaces.AF_LINK][0][
                            'addr']
             if not self.mac:
