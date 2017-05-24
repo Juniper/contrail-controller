@@ -12,10 +12,11 @@ ExecStop=/bin/kill -s TERM $MAINPID
 PrivateTmp=yes
 ProtectHome=yes
 ReadOnlyDirectories=/
-ReadWriteDirectories=-/var/crashes
-ReadWriteDirectories=-/var/log/contrail
-ReadWriteDirectories=-/var/lib/contrail
 ReadWriteDirectories=-/dev
+ReadWriteDirectories=-/run
+ReadWriteDirectories=-/var/crashes
+ReadWriteDirectories=-/var/lib/contrail
+ReadWriteDirectories=-/var/log/contrail
 
 [Install]
 WantedBy=multi-user.target
