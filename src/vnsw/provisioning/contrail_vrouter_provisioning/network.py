@@ -76,6 +76,28 @@ class ComputeNetworkSetup(object):
                            ip)
     # end get_device_by_ip
 
+    def get_physical_dev_of_vhost(self, ip):
+        if not 'vhost0' in netifaces.interfaces():
+            return get_device_by_ip(ip)
+
+        vhost_mac = None
+        for i in netifaces.interfaces():
+            if i == 'vhost0':
+                vhost_mac = netifaces.ifaddresses(i)[netifaces.AF_LINK][0]['addr']
+            else:
+                continue
+
+        for i in netifaces.interfaces():
+            if i == 'vhost0':
+                continue
+            dev_mac = netifaces.ifaddresses(i)[netifaces.AF_LINK][0]['addr']
+            if dev_mac == vhost_mac:
+                return i
+        raise RuntimeError('%s not configured, rerun w/ --physical_interface' %
+                           ip)
+
+
+
     def get_secondary_device(self, primary):
         for i in netifaces.interfaces():
             try:
