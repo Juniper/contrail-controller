@@ -71,6 +71,7 @@ public:
 private:
     XmppServer *server_;
     ChannelMap channel_map_;
+    tbb::mutex mutex_;
     RecordRequestWorkQueue work_queue_;
 };
 
