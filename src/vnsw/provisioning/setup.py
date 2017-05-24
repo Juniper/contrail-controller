@@ -20,7 +20,6 @@ setuptools.setup(
             'contrail-compute-setup = contrail_vrouter_provisioning.setup:main',
             'contrail-toragent-setup = contrail_vrouter_provisioning.toragent.setup:main',
             'contrail-toragent-cleanup = contrail_vrouter_provisioning.toragent.cleanup:main',
-            'contrail-compute-upgrade = contrail_vrouter_provisioning.upgrade:main'
             ],
     },
 )
