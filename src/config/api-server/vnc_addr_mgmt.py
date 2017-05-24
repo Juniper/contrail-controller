@@ -1351,6 +1351,10 @@ class AddrMgmt(object):
             if ('ip_prefix' in subnet):
                 #This is a user-define-subnet
                 continue
+            sn_uuid = first_ipam_subnet.get('subnet_uuid')
+
+            #get subnet_uuid from ipam->vn link to return as a subnet_uuid
+           # along with ip_addr
 
             if sub:
                 #check if subnet_uuid is stored in the vm->ipam link
@@ -1360,6 +1364,7 @@ class AddrMgmt(object):
                     ipam_subnet_uuid = ipam_subnet.get('subnet_uuid')
                     if (ipam_subnet_uuid != None) and\
                         (ipam_subnet_uuid == sub):
+                        sn_uuid = ipam_subnet_uuid
                         found_subnet_match = True
                         break
                 if not found_subnet_match:
@@ -1376,9 +1381,9 @@ class AddrMgmt(object):
                 if asked_ip_version and asked_ip_version != subnet_obj.get_version():
                     continue
                 if asked_ip_addr == str(subnet_obj.gw_ip):
-                    return asked_ip_addr
+                    return (asked_ip_addr, sn_uuid)
                 if asked_ip_addr == str(subnet_obj.dns_server_address):
-                    return asked_ip_addr
+                    return (asked_ip_addr, sn_uuid)
                 if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                     continue
 
@@ -1395,15 +1400,15 @@ class AddrMgmt(object):
                             'Requested IP address %s not aligned' %(
                                 asked_ip_addr))
 
-                    return subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
-                                                 value=alloc_id)
+                    return (subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
+                                                  value=alloc_id), sn_uuid)
                 try:
                     ip_addr = subnet_obj.ip_alloc(ipaddr=None,
                                                   value=alloc_id)
                 except cfgm_common.exceptions.ResourceExhaustionError as e:
                     continue
                 if ip_addr is not None or sub:
-                    return ip_addr
+                    return (ip_addr, sn_uuid)
 
         if sub:
             if not found_subnet_match:
@@ -1435,8 +1440,9 @@ class AddrMgmt(object):
 
         for subnet_name in subnet_dicts:
             subnet_dict = subnet_dicts[subnet_name]
+            sn_uuid = subnet_dict['subnet_uuid']
             if subnet_uuid:
-                if subnet_uuid != subnet_dict['subnet_uuid']:
+                if subnet_uuid != sn_uuid:
                     continue
                 else:
                     found_subnet_match = True
@@ -1448,9 +1454,9 @@ class AddrMgmt(object):
             if asked_ip_version and asked_ip_version != subnet_obj.get_version():
                 continue
             if asked_ip_addr == str(subnet_obj.gw_ip):
-                return asked_ip_addr
+                return (asked_ip_addr, sn_uuid)
             if asked_ip_addr == str(subnet_obj.dns_server_address):
-                return asked_ip_addr
+                return (asked_ip_addr, sn_uuid)
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
 
@@ -1467,8 +1473,8 @@ class AddrMgmt(object):
                         'Requested IP address %s not aligned' %(
                             asked_ip_addr))
 
-                return subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
-                                             value=alloc_id)
+                return (subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
+                                              value=alloc_id), sn_uuid)
             try:
                 ip_addr = subnet_obj.ip_alloc(ipaddr=None,
                                               value=alloc_id)
@@ -1476,7 +1482,7 @@ class AddrMgmt(object):
                 continue
 
             if ip_addr is not None or subnet_uuid:
-                return ip_addr
+                return (ip_addr, sn_uuid)
 
         if subnet_uuid:
             if not found_subnet_match:

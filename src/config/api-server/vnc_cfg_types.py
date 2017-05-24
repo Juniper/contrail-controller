@@ -268,9 +268,9 @@ class FloatingIpServer(Resource, FloatingIp):
                 # Subnet specification was not found on the floating-ip-pool.
                 # Proceed to allocated floating-ip from any of the subnets
                 # on the virtual-network.
-                fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
-                                                  asked_ip_addr=req_ip,
-                                                  alloc_id=obj_dict['uuid'])
+                (fip_addr, sn_uuid) = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
+                                          asked_ip_addr=req_ip,
+                                          alloc_id=obj_dict['uuid'])
             else:
                 subnets_tried = []
                 # Iterate through configured subnets on floating-ip-pool.
@@ -281,9 +281,11 @@ class FloatingIpServer(Resource, FloatingIp):
                         # Record the subnets that we try to allocate from.
                         subnets_tried.append(fip_pool_subnet)
 
-                        fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
-                                sub = fip_pool_subnet, asked_ip_addr=req_ip,
-                                alloc_id=obj_dict['uuid'])
+                        (fip_addr, sn_uuid) = cls.addr_mgmt.ip_alloc_req(
+                                                  vn_fq_name,
+                                                  sub = fip_pool_subnet,
+                                                  asked_ip_addr=req_ip,
+                                                  alloc_id=obj_dict['uuid'])
 
                     except cls.addr_mgmt.AddrMgmtSubnetExhausted:
                         # This subnet is exhausted. Try next subnet.
@@ -365,9 +367,9 @@ class AliasIpServer(Resource, AliasIp):
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
             return (False, (400, 'Ip address already in use'))
         try:
-            aip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
-                                                  asked_ip_addr=req_ip,
-                                                  alloc_id=obj_dict['uuid'])
+            (aip_addr, sn_uuid) = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
+                                      asked_ip_addr=req_ip,
+                                      alloc_id=obj_dict['uuid'])
             def undo():
                 db_conn.config_log(
                     'AddrMgmt: free FIP %s for vn=%s tenant=%s, on undo'
@@ -503,7 +505,7 @@ class InstanceIpServer(Resource, InstanceIp):
         # end if request has ip addr
 
         try:
-            ip_addr = cls.addr_mgmt.ip_alloc_req(
+            (ip_addr, sn_uuid) = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, vn_dict=vn_dict, sub=subnet_uuid,
                 asked_ip_addr=req_ip,
                 asked_ip_version=req_ip_version,
@@ -520,6 +522,7 @@ class InstanceIpServer(Resource, InstanceIp):
         except Exception as e:
             return (False, (400, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
+        obj_dict['subnet_uuid'] = sn_uuid
         db_conn.config_log('AddrMgmt: alloc %s for vn=%s, tenant=%s, askip=%s'
             % (obj_dict['instance_ip_address'],
                vn_fq_name, tenant_name, req_ip),
@@ -1657,7 +1660,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, sub=subnet_uuid,
                                               asked_ip_version=ip_version,
-                                              alloc_id=str(uuid.uuid4()))
+                                              alloc_id=str(uuid.uuid4()))[0]
                    for i in range(count)]
         msg = 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
             % (count, vn_fq_name, subnet_uuid or '', ip_list)
