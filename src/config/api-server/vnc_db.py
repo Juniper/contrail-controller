@@ -783,6 +783,20 @@ class VncDbClient(object):
             self._object_db.object_update('bgp_router', obj_uuid, obj_dict)
     # end update_bgp_router_type
 
+    def iip_check_subnet(self, iip_dict, ipam_subnet, sn_uuid):
+        pfx = ipam_subnet['subnet']['ip_prefix']
+        pfx_len = ipam_subnet['subnet']['ip_prefix_len']
+        cidr = '%s/%s' % (pfx, pfx_len)
+        if (IPAddress(iip_dict['instance_ip_address']) in
+                IPNetwork(cidr)):
+            iip_dict['subnet_uuid'] = sn_uuid
+            self._object_db.object_update('instance-ip',
+                                          iip_dict['uuid'], iip_dict)
+            return True
+
+        return False
+    # end iip_check_subnet
+
     def iip_update_subnet_uuid(self, iip_dict):
         """ Set the subnet uuid as instance-ip attribute """
         for vn_ref in iip_dict.get('virtual_network_refs', []):
@@ -792,7 +806,10 @@ class VncDbClient(object):
             if not ok:
                 return
             vn_dict = results[0]
-            for ipam in vn_dict.get('network_ipam_refs', []):
+            ipam_refs = vn_dict.get('network_ipam_refs', [])
+            # if iip is from the subnet in ipam['attr'],
+            # update valid subnet_uuid in iip object
+            for ipam in ipam_refs:
                 ipam_subnets = ipam['attr']['ipam_subnets']
 
                 for ipam_subnet in ipam_subnets:
@@ -801,16 +818,31 @@ class VncDbClient(object):
                         # Ipam subnet info need not have ip/prefix info,
                         # instead they could hold the uuid of subnet info.
                         continue
-                    pfx = ipam_subnet['subnet']['ip_prefix']
-                    pfx_len = ipam_subnet['subnet']['ip_prefix_len']
-                    cidr = '%s/%s' % (pfx, pfx_len)
-                    if (IPAddress(iip_dict['instance_ip_address']) in
-                            IPNetwork(cidr)):
-                        iip_dict['subnet_uuid'] = ipam_subnet['subnet_uuid']
-                        self._object_db.object_update('instance-ip',
-                                                          iip_dict['uuid'],
-                                                          iip_dict)
+                    sn_uuid = ipam_subnet['subnet_uuid']
+                    if self.iip_check_subnet(iip_dict, ipam_subnet, sn_uuid):
                         return
+
+            # resync subnet_uuid if iip is from subnet which is in flat subnet
+            for ipam in ipam_refs:
+                ipam_uuid = ipam.get('uuid')
+                (ok, result) = self_object_db.object_read(
+                    'network_ipam', [ipam_uuid])
+                if not ok:
+                    return
+                ipam_dict = result[0]
+                subnet_method = ipam_dict.get('ipam_subnet_method')
+                if subnet_method is not 'flat-subnet':
+                    continue
+
+                flat_ipam_subnets = ipam['attr']['ipam_subnets']
+                flat_ipam_subnet = flat_ipam_subnets[0]
+                sn_uuid = flat_ipam_subnet['subnet_uuid']
+                ipam_subnets_dict = ipam_dict.get('ipam_subnets') or {}
+                ipam_subnets = ipams_subnets_dict.get('subnets') or []
+                for ipam_subnet in ipam_subnets:
+                    if self.iip_check_subnet(iip_dict, ipam_subnet, sn_uuid):
+                        return
+    # end iip_update_subnet_uuid
 
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
