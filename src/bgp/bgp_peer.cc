@@ -295,6 +295,10 @@ bool BgpPeer::IsServerStartingUp() const {
     return server_->IsServerStartingUp();
 }
 
+bool BgpPeer::IsCloseGraceful() const {
+    return peer_close_->IsCloseGraceful();
+}
+
 time_t BgpPeer::GetRTargetTableLastUpdatedTimeStamp() const {
     return server_->GetRTargetTableLastUpdatedTimeStamp();
 }
