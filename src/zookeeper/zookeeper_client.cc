@@ -191,7 +191,7 @@ int ZookeeperClientImpl::DeleteNodeSync(const char *path, int *err) {
  retry:
     do {
         rc = zki_->ZooDelete(zk_handle_, path, -1);
-    } while (IsZooErrorUnrecoverable(rc));
+    } while (IsZooErrorRecoverable(rc));
     if (IsZooErrorUnrecoverable(rc)) {
         // Reconnect
         Reconnect();
