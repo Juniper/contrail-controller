@@ -734,6 +734,7 @@ SUBCHANNELS=1,2,3
         qos_logical_queue = self._args.qos_logical_queue
         qos_queue_id_list = self._args.qos_queue_id
         default_hw_queue_qos = self._args.default_hw_queue_qos
+        qos_priority_tagging = self._args.qos_priority_tagging
         priority_id_list = self._args.priority_id
         priority_scheduling = self._args.priority_scheduling
         priority_bandwidth = self._args.priority_bandwidth
@@ -746,11 +747,11 @@ SUBCHANNELS=1,2,3
             # Clean existing config
             ltemp_dir = tempfile.mkdtemp()
             local("cp %s %s/" %(agent_conf, ltemp_dir))
-            local("sed -i -e '/^\[QOS\]/d' -e '/^\[QUEUE-/d' -e '/^logical_queue/d' -e '/^default_hw_queue/d'  %s/%s" % (ltemp_dir, conf_file))
+            local("sed -i -e '/^\[QOS\]/d' -e '/^\[QUEUE-/d' -e '/^logical_queue/d' -e '/^default_hw_queue/d' -e '/^priority_tagging/d'  %s/%s" % (ltemp_dir, conf_file))
             local("cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
             local('rm -rf %s' % (ltemp_dir))
 
-            local('sudo contrail-config --set /etc/contrail/contrail-vrouter-agent.conf  QOS')
+            self.set_config(agent_conf, 'QOS', 'priority_tagging', qos_priority_tagging)
             num_sections = len(qos_logical_queue)
             if(len(qos_logical_queue) == len(qos_queue_id_list) and
                     default_hw_queue_qos):
