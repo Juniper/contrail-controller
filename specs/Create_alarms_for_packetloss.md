@@ -2,7 +2,6 @@
 # 1. Introduction
 Currently vRouter , VMI and Virtual Network UVE provide Packet Loss details(from Contrail 3.2). Due to unavailability of Python ruleset, Packet Loss alarm is not getting triggered.We are proposing to create new packet loss alarm in OPSERVER for Virtual Machine Interface(VMI), VRouter and Virtual Network(VN) by using dropstats statistics. Downstream applications such as Contrail GUI can use Opserver API to pull Packet loss statistics.
 
-
 # 2. Problem statement
 Currently vRouter captures Packet Loss counters by following UVEs. Due to unavailability of Python ruleset, Packet Loss alarm is not getting triggered. Below are the agents for each UVE.
 1. VrouterStatsAgent for vRouter
