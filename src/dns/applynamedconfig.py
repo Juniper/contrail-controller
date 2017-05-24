@@ -19,6 +19,32 @@ import os
 import subprocess
 import ConfigParser
 
+
+class AttributeString(str):
+    """
+    Simple string subclass to allow arbitrary attribute access.
+    """
+    @property
+    def stdout(self):
+        return str(self)
+
+
+def local(cmd, capture=False, warn_only=False, executable='/bin/sh'):
+    """
+    Wrapper to execute local command and collect its stdout/status.
+    """
+    output, succeeded, failed = (AttributeString(''), True, False)
+    try:
+        output = AttributeString(subprocess.check_output(
+            cmd, stderr=subprocess.STDOUT, shell=True, executable=executable))
+    except subprocess.CalledProcessError as err:
+        succeeded, failed = (False, True)
+
+    output.succeeded = succeeded
+    output.failed = failed
+
+    return output
+
 def parse_contrail_dns_conf():
 
     named_defaults = {
@@ -101,11 +127,21 @@ def parse_contrail_dns_conf():
 
 # end parse_contrail_dns_conf
 
+def get_base_file_hash():
+    return local('md5sum /etc/contrail/dns/contrail-named-base.conf')
 
 def main():
     if not os.path.exists('/etc/contrail/dns/contrail-named-base.conf'):
         # parse contrail-dns.conf and build contrail-named-base.conf
         parse_contrail_dns_conf()
+
+    # TODO : improve the scheme for scale configuration needs
+    # if the base named file hasnt changed, dont do anything
+    default_base_file_hash = '41be1c1ea7805f3de22f53d77453aa11'
+    base_file_hash = get_base_file_hash().split()
+    if base_file_hash[0] == default_base_file_hash:
+        os.system('/usr/bin/contrail-rndc -c /etc/contrail/dns/contrail-rndc.conf reconfig')
+        return
 
     # open contrail-named-base.conf and read the base configs
     file1 = open('/etc/contrail/dns/contrail-named-base.conf', 'r')
