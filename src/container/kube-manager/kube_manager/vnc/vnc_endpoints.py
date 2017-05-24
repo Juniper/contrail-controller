@@ -32,7 +32,8 @@ class VncEndpoints(VncCommon):
         return DBBaseKM.is_nested()
 
     def _get_host_vm(self, host_ip):
-        iip = InstanceIpKM.get_object(host_ip)
+        iip = InstanceIpKM.get_object(host_ip,
+            vnc_kube_config.cluster_default_network_fq_name())
         if iip:
             for vmi_id in iip.virtual_machine_interfaces:
                 vm_vmi = VirtualMachineInterfaceKM.get(vmi_id)
