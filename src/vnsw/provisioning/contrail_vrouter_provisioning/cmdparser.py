@@ -82,6 +82,7 @@ class ComputeArgsParser(object):
             'introspect_ssl_enable': self.get_config(
                 'GLOBAL', 'introspect_ssl_enable', False),
             'register': False,
+            'upgrade': False,
         }
 
         self.parse_args(args_str)
@@ -251,7 +252,7 @@ class ComputeArgsParser(object):
         parser.add_argument(
                 "--vrouter_module_params", help="vRouter module parameters.")
         parser.add_argument("--sriov", help="sriov configuration")
-        parser.add_argument("--tsn_mode", help="tsn mode ", action="store_true")
+        parser.add_argument("--tsn_mode", help="tsn mode", action="store_true")
         parser.add_argument(
                 "--gateway_server_list", help="Compute's acting as gateway",
                 nargs='+', type=str)
@@ -267,7 +268,7 @@ class ComputeArgsParser(object):
                 action="store_true")
         parser.add_argument(
                 "--qos_priority_tagging",
-                help= "Knob to configure priority tagging when in DCB mode",
+                help="Knob to configure priority tagging when in DCB mode",
                 type=str)
         parser.add_argument("--priority_id", help="Priority group id",
                             nargs='+', type=str)
@@ -307,6 +308,10 @@ class ComputeArgsParser(object):
         parser.add_argument(
                 "--register",
                 help="create virtual-router object in api-server",
+                action="store_true")
+        parser.add_argument(
+                "--upgrade",
+                help="Re-provison config files during upgrade",
                 action="store_true")
 
         parser.set_defaults(**self.global_defaults)
