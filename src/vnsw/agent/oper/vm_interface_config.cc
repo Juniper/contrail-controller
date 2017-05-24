@@ -605,7 +605,10 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
         // it to instance ip list to allow route export and save it
         // under service_health_check_ip_ to allow usage for health
         // check service
-        data->service_health_check_ip_ = addr;
+        if (addr.is_v4()) {
+            // TODO: currently only v4 health check is supported
+            data->service_health_check_ip_ = addr;
+        }
     }
 
     if (addr.is_v4()) {
