@@ -15,7 +15,6 @@ sources = [
     'contrail_vrouter_provisioning/base.py',
     'contrail_vrouter_provisioning/common.py',
     'contrail_vrouter_provisioning/network.py',
-    'contrail_vrouter_provisioning/upgrade.py',
     'contrail_vrouter_provisioning/toragent/__init__.py',
     'contrail_vrouter_provisioning/toragent/setup.py',
     'contrail_vrouter_provisioning/toragent/cleanup.py',
