@@ -105,7 +105,6 @@ BFDState Session::local_state_non_locking() const {
 }
 
 BFDState Session::local_state() const {
-
     return local_state_non_locking();
 }
 

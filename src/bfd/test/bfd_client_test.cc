@@ -88,6 +88,29 @@ class ClientTest : public ::testing::Test {
         thread_->Join();
     }
 
+    void GetSessionCb(const Server *server, const SessionKey &key,
+                      Session **session) const {
+        *session = server->SessionByKey(key);
+    }
+
+    Session *GetSession(const Server &server, const SessionKey &key) const {
+        Session *session;
+        task_util::TaskFire(boost::bind(&ClientTest::GetSessionCb, this,
+                                        &server, key, &session), "BFD");
+        return session;
+    }
+
+    void UpCb(const Client *client, const SessionKey &key, bool *up) const {
+        *up = client->Up(key);
+    }
+
+    bool Up(const Client &client, const SessionKey &key) const {
+        bool up;
+        task_util::TaskFire(boost::bind(&ClientTest::UpCb, this, &client, key,
+                                        &up), "BFD");
+        return up;
+    }
+
     EventManager evm_;
     auto_ptr<ServerThread> thread_;
     Communicator cm_;
@@ -118,17 +141,17 @@ TEST_F(ClientTest, BasicSingleHop1) {
                   &cm_));
     SessionConfig sc;
     sc.desiredMinTxInterval = boost::posix_time::milliseconds(30);
-    sc.requiredMinRxInterval = boost::posix_time::milliseconds(50);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc.detectionTimeMultiplier = 3;
     client_.AddConnection(client_key, sc);
 
     SessionConfig sc_t;
     sc_t.desiredMinTxInterval = boost::posix_time::milliseconds(30);
-    sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(50);
+    sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc_t.detectionTimeMultiplier = 3;
     client_test_.AddConnection(client_test_key, sc_t);
-    TASK_UTIL_EXPECT_TRUE(client_.Up(client_key));
-    TASK_UTIL_EXPECT_TRUE(client_test_.Up(client_test_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
 }
 
 // Multiple sessions with same IPs (but with different ifindex)
@@ -150,13 +173,13 @@ TEST_F(ClientTest, BasicSingleHop2) {
                                          client_test_key.index), &cm_));
     SessionConfig sc;
     sc.desiredMinTxInterval = boost::posix_time::milliseconds(30);
-    sc.requiredMinRxInterval = boost::posix_time::milliseconds(50);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc.detectionTimeMultiplier = 3;
 
     client_.AddConnection(client_key, sc);
     client_test_.AddConnection(client_test_key, sc);
-    TASK_UTIL_EXPECT_TRUE(client_.Up(client_key));
-    TASK_UTIL_EXPECT_TRUE(client_test_.Up(client_test_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
 
     SessionKey client_key2 = SessionKey(client_address, SessionIndex(1),
                                         kSingleHop, client_test_address);
@@ -173,21 +196,21 @@ TEST_F(ClientTest, BasicSingleHop2) {
     client_test_.AddConnection(client_test_key2, sc);
 
     TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
-                        client_.GetSession(client_key));
-    TASK_UTIL_EXPECT_NE(client_.GetSession(client_key),
-                        client_.GetSession(client_key2));
+                        GetSession(server_, client_key));
+    TASK_UTIL_EXPECT_NE(GetSession(server_, client_key),
+                        GetSession(server_, client_key2));
     TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
-              client_test_.GetSession(client_test_key));
+              GetSession(server_test_, client_test_key));
     TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
-              client_test_.GetSession(client_test_key2));
+              GetSession(server_test_, client_test_key2));
 
-    TASK_UTIL_EXPECT_NE(client_.GetSession(client_key),
-              client_.GetSession(client_key2));
-    TASK_UTIL_EXPECT_NE(client_test_.GetSession(client_test_key),
-              client_test_.GetSession(client_test_key2));
+    TASK_UTIL_EXPECT_NE(GetSession(server_, client_key),
+              GetSession(server_, client_key2));
+    TASK_UTIL_EXPECT_NE(GetSession(server_test_, client_test_key),
+              GetSession(server_test_, client_test_key2));
 
-    TASK_UTIL_EXPECT_TRUE(client_.Up(client_key2));
-    TASK_UTIL_EXPECT_TRUE(client_test_.Up(client_test_key2));
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key2));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key2));
 }
 
 TEST_F(ClientTest, BasicMultiHop1) {
@@ -208,13 +231,13 @@ TEST_F(ClientTest, BasicMultiHop1) {
                   &cm_));
     SessionConfig sc;
     sc.desiredMinTxInterval = boost::posix_time::milliseconds(30);
-    sc.requiredMinRxInterval = boost::posix_time::milliseconds(50);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc.detectionTimeMultiplier = 3;
     client_.AddConnection(client_key, sc);
 
     SessionConfig sc_t;
     sc_t.desiredMinTxInterval = boost::posix_time::milliseconds(30);
-    sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(50);
+    sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc_t.detectionTimeMultiplier = 3;
     client_test_.AddConnection(client_test_key, sc_t);
     TASK_UTIL_EXPECT_TRUE(client_.Up(client_key));
@@ -240,13 +263,13 @@ TEST_F(ClientTest, BasicMultipleHop2) {
                                          client_test_key.index), &cm_));
     SessionConfig sc;
     sc.desiredMinTxInterval = boost::posix_time::milliseconds(30);
-    sc.requiredMinRxInterval = boost::posix_time::milliseconds(50);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc.detectionTimeMultiplier = 3;
 
     client_.AddConnection(client_key, sc);
     client_test_.AddConnection(client_test_key, sc);
-    TASK_UTIL_EXPECT_TRUE(client_.Up(client_key));
-    TASK_UTIL_EXPECT_TRUE(client_test_.Up(client_test_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
 
     SessionKey client_key2 = SessionKey(client_address, SessionIndex(0, 2),
                                        kMultiHop, client_test_address);
@@ -263,20 +286,20 @@ TEST_F(ClientTest, BasicMultipleHop2) {
     client_test_.AddConnection(client_test_key2, sc);
 
     TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
-                        client_.GetSession(client_key));
-    TASK_UTIL_EXPECT_NE(client_.GetSession(client_key),
-                        client_.GetSession(client_key2));
+                        GetSession(server_, client_key));
+    TASK_UTIL_EXPECT_NE(GetSession(server_, client_key),
+                        GetSession(server_, client_key2));
     TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
-              client_test_.GetSession(client_test_key));
+              GetSession(server_test_, client_test_key));
     TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
-              client_test_.GetSession(client_test_key2));
+              GetSession(server_test_, client_test_key2));
 
-    TASK_UTIL_EXPECT_NE(client_.GetSession(client_key),
-              client_.GetSession(client_key2));
-    TASK_UTIL_EXPECT_NE(client_test_.GetSession(client_test_key),
-              client_test_.GetSession(client_test_key2));
-    TASK_UTIL_EXPECT_TRUE(client_.Up(client_key2));
-    TASK_UTIL_EXPECT_TRUE(client_test_.Up(client_test_key2));
+    TASK_UTIL_EXPECT_NE(GetSession(server_, client_key),
+              GetSession(server_, client_key2));
+    TASK_UTIL_EXPECT_NE(GetSession(server_test_, client_test_key),
+              GetSession(server_test_, client_test_key2));
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key2));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key2));
 }
 
 int main(int argc, char **argv) {
