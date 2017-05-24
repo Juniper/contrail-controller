@@ -1350,30 +1350,15 @@ TEST_P(BgpXmppBasicParamTest2, DuplicateEndpointName1) {
     agent_x2_->SessionUp();
     agent_x3_->SessionUp();
 
-    // Make sure that latter two agents see sessions getting closed if their IP
-    // address is not the same.
-    if (!agent_address_same_) {
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x2_->get_session_close() >= client_x2_session_close + 3);
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x3_->get_session_close() >= client_x3_session_close + 3);
+    // Make sure that latter two agents see sessions getting closed
+    TASK_UTIL_EXPECT_TRUE(
+        agent_x2_->get_session_close() >= client_x2_session_close + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        agent_x3_->get_session_close() >= client_x3_session_close + 3);
 
-        // Session which was up to begin with should remain up and not flap.
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x1_->get_session_close() == client_x1_session_close);
-    } else {
-        // Sessions flap, triggering GR Helper mode if configured so. Even
-        // otherwise, in case like 'reboot' we expect existing session to reset
-        // if new connection formation is attempted from the same name-address
-        // combination.
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x2_->get_session_close() >= client_x2_session_close + 3);
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x3_->get_session_close() >= client_x3_session_close + 3);
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x1_->get_session_close() >= client_x1_session_close + 3);
-    }
-
+    // Session which was up to begin with should remain up and not flap.
+    TASK_UTIL_EXPECT_TRUE(
+        agent_x1_->get_session_close() == client_x1_session_close);
     DestroyAgents();
 }
 
@@ -1391,18 +1376,10 @@ TEST_P(BgpXmppBasicParamTest2, DuplicateEndpointName2) {
     agent_x2_->SessionUp();
 
     // Make sure that second agent sees sessions getting closed.
-    if (!agent_address_same_) {
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x2_->get_session_close() >= client_x2_session_close + 3);
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x1_->get_session_close() == client_x1_session_close);
-
-    } else {
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x2_->get_session_close() >= client_x2_session_close + 3);
-        TASK_UTIL_EXPECT_TRUE(
-            agent_x1_->get_session_close() >= client_x1_session_close + 3);
-    }
+    TASK_UTIL_EXPECT_TRUE(
+        agent_x2_->get_session_close() >= client_x2_session_close + 3);
+    TASK_UTIL_EXPECT_TRUE(
+        agent_x1_->get_session_close() == client_x1_session_close);
 
     // Bring down the first agent and make sure that second comes up.
     agent_x1_->SessionDown();
