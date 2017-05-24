@@ -764,11 +764,13 @@ class InstanceIpKM(DBBaseKM):
         del cls._dict[uuid]
 
     @classmethod
-    def get_object(cls, ip):
+    def get_object(cls, ip, vn_fq_name):
         items = cls._dict.items()
         for uuid, iip_obj in items:
             if ip == iip_obj.address:
-                return iip_obj
+                vn_uuid = VirtualNetworkKM.get_fq_name_to_uuid(vn_fq_name)
+                if vn_uuid and vn_uuid in iip_obj.virtual_networks:
+                    return iip_obj
         return None
 
 # end class InstanceIpKM

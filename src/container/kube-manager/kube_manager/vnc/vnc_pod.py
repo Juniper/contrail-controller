@@ -144,6 +144,10 @@ class VncPod(VncCommon):
         # VN. Get the subnet uuid of the pod ipam on this VN, so we can request
         # an IP from it.
         vn = VirtualNetworkKM.find_by_name_or_uuid(vn_obj.get_uuid())
+        if not vn:
+            # It is possible our cache may not have the VN yet. Locate it.
+            vn = VirtualNetworkKM.locate(vn_obj.get_uuid())
+
         pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(
             vnc_kube_config.pod_ipam_fq_name())
 
@@ -172,7 +176,8 @@ class VncPod(VncCommon):
     def _get_host_vmi(self, pod_name):
         host_ip = self._get_host_ip(pod_name)
         if host_ip:
-            iip = InstanceIpKM.get_object(host_ip)
+            iip = InstanceIpKM.get_object(host_ip,
+                vnc_kube_config.cluster_default_network_fq_name())
             if iip:
                 for vmi_id in iip.virtual_machine_interfaces:
                     vm_vmi = VirtualMachineInterfaceKM.get(vmi_id)
@@ -471,6 +476,12 @@ class VncPod(VncCommon):
             if self._is_pod_nested():
                 vm_vmi = self._get_host_vmi(pod_name)
                 if not vm_vmi:
+                    self._logger.debug(
+                        "Nested Mode: Pod processing skipped. Unable to "
+                        "determine host vmi for Pod[%s] Namespace[%s] "
+                        "Event[%s] HostIP[%s])"
+                        %(pod_name, pod_namespace, event_type,
+                          self._get_host_ip(pod_name)))
                     return
 
             if event['type'] == 'ADDED':
