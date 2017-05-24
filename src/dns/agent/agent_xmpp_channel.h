@@ -72,6 +72,7 @@ private:
     uint8_t ChannelToDscp(const XmppChannel *xc) const;
     XmppServer *server_;
     ChannelMap channel_map_;
+    tbb::mutex mutex_;
     RecordRequestWorkQueue work_queue_;
 };
 
