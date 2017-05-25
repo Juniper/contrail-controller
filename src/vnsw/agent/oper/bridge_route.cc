@@ -144,10 +144,11 @@ void BridgeAgentRouteTable::AddBridgeRoute(const AgentRoute *rt) {
 void BridgeAgentRouteTable::AddMacVmBindingRoute(const Peer *peer,
                                                  const std::string &vrf_name,
                                                  const MacAddress &mac,
-                                                 const VmInterface *vm_intf) {
+                                                 const VmInterface *vm_intf,
+                                                 bool flood_dhcp) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, 0));
-    req.data.reset(new MacVmBindingPathData(vm_intf));
+    req.data.reset(new MacVmBindingPathData(vm_intf, flood_dhcp));
     BridgeTableProcess(agent(), vrf_name, req);
 }
 
@@ -157,7 +158,7 @@ void BridgeAgentRouteTable::DeleteMacVmBindingRoute(const Peer *peer,
                                                     const VmInterface *vm_intf) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new BridgeRouteKey(peer, vrf_name, mac, 0));
-    req.data.reset(new MacVmBindingPathData(vm_intf));
+    req.data.reset(new MacVmBindingPathData(vm_intf, false));
     BridgeTableProcess(agent(), vrf_name, req);
 }
 

@@ -384,19 +384,20 @@ TEST_F(Ipv6Test, VnNotifyRoutes_1) {
  * routes are added */
 TEST_F(Ipv6Test, VlanNHRoute_1) {
     struct PortInfo input[] = {
-        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd11::2"},
     };
     IpamInfo ipam_info[] = {
         {"1.1.1.0", 24, "1.1.1.10"},
+        {"fd11::", 96, "fd11::1"},
     };
 
     string service_vlan_ip("2.2.2.1");
     string service_vlan_ip6("fd12::1");
 
     client->Reset();
-    CreateVmportEnv(input, 1);
+    CreateV6VmportEnv(input, 1, 0);
     client->WaitForIdle();
-    AddIPAM("vn1", ipam_info, 1);
+    AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();
 
     //Verify that interface is IPv4 active.

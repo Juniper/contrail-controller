@@ -143,7 +143,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
              * notifications for VM interface with un-installed FIP entries
              * when the VM interface is not "L3 Active".
              */
-            if (ip.installed_) {
+            if (ip.Installed()) {
                 VmFloatingIPAgent uve_fip;
                 uve_fip.set_ip_address(ip.floating_ip_.to_string());
                 uve_fip.set_virtual_network(ip.vn_.get()->GetName());
@@ -294,7 +294,7 @@ void InterfaceUveTable::InterfaceAddHandler(const VmInterface* itf,
         /* Skip entries which are not installed as they wouldn't have been
          * added
          */
-        if (!fip.installed_) {
+        if (!fip.Installed()) {
             continue;
         }
         VmInterface::FloatingIpSet::const_iterator new_it = new_list.find(fip);
@@ -310,7 +310,7 @@ void InterfaceUveTable::InterfaceAddHandler(const VmInterface* itf,
         /* Skip entries which are not installed as they wouldn't have been
          * added
          */
-        if (!fip.installed_) {
+        if (!fip.Installed()) {
             continue;
         }
         entry->AddFloatingIp(fip);
@@ -502,7 +502,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FillFloatingIpStats
         while(it != fip_list.list_.end()) {
             const VmInterface::FloatingIp &ip = *it;
             /* Skip FIP entries which are not yet activated */
-            if (!ip.installed_) {
+            if (!ip.Installed()) {
                 it++;
                 continue;
             }

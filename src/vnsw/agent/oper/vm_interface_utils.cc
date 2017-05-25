@@ -388,6 +388,45 @@ void VmInterface::CopyEcmpLoadBalance(EcmpLoadBalance &ecmp_load_balance) {
 /////////////////////////////////////////////////////////////////////////////
 // Route utility methods
 /////////////////////////////////////////////////////////////////////////////
+
+// Add EVPN route of type <ip, mac>
+void VmInterface::AddL2InterfaceRoute(const IpAddress &ip,
+                                      const MacAddress &mac,
+                                      const IpAddress &dependent_ip) const {
+    assert(peer_.get());
+    EvpnAgentRouteTable *table =
+        static_cast<EvpnAgentRouteTable *>(vrf_->GetEvpnRouteTable());
+
+    SecurityGroupList sg_id_list;
+    CopySgIdList(&sg_id_list);
+
+    PathPreference path_preference;
+    SetPathPreference(&path_preference, false, dependent_ip);
+
+    uint32_t label = l2_label_;
+    if (pbb_interface()) {
+        label = GetPbbLabel();
+    }
+
+    table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this, ip,
+                           label, vn_->GetName(), sg_id_list, path_preference,
+                           ethernet_tag_, etree_leaf_);
+}
+
+// Delete EVPN route
+void VmInterface::DeleteL2InterfaceRoute(const VrfEntry *vrf,
+                                         uint32_t ethernet_tag,
+                                         const IpAddress &ip,
+                                         const MacAddress &mac) const {
+    EvpnAgentRouteTable *table =
+        static_cast<EvpnAgentRouteTable *>(vrf->GetEvpnRouteTable());
+    if (table == NULL)
+        return;
+
+    table->DelLocalVmRoute(peer_.get(), vrf->GetName(), mac, this,
+                           ip, ethernet_tag);
+}
+
 //Add a route for VM port
 //If ECMP route, add new composite NH and mpls label for same
 void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
@@ -802,14 +841,6 @@ uint32_t VmInterface::GetPbbLabel() const {
 /////////////////////////////////////////////////////////////////////////////
 // Metadata related routines
 /////////////////////////////////////////////////////////////////////////////
-Ip4Address VmInterface::mdata_ip_addr() const {
-    if (mdata_ip_.get() == NULL) {
-        return Ip4Address(0);
-    }
-
-    return mdata_ip_->GetLinkLocalIp();
-}
-
 MetaDataIp *VmInterface::GetMetaDataIp(const Ip4Address &ip) const {
     MetaDataIpMap::const_iterator it = metadata_ip_map_.find(ip);
     if (it != metadata_ip_map_.end()) {
@@ -817,42 +848,6 @@ MetaDataIp *VmInterface::GetMetaDataIp(const Ip4Address &ip) const {
     }
 
     return NULL;
-}
-
-// Add meta-data route if linklocal_ip is needed
-void VmInterface::UpdateMetadataRoute(bool old_metadata_ip_active,
-                                      VrfEntry *old_vrf) {
-    if (metadata_ip_active_ == false || old_metadata_ip_active == true)
-        return;
-
-    if (!need_linklocal_ip_) {
-        return;
-    }
-
-    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
-    Agent *agent = table->agent();
-    if (mdata_ip_.get() == NULL) {
-        mdata_ip_.reset(new MetaDataIp(agent->metadata_ip_allocator(),
-                                       this, id()));
-    }
-    //mdata_ip_->set_nat_src_ip(Ip4Address(METADATA_IP_ADDR));
-    mdata_ip_->set_active(true);
-}
-
-// Delete MPLS Label for Layer3 routes
-void VmInterface::DeleteL3MplsLabel() {
-    if (label_ == MplsTable::kInvalidLabel) {
-        return;
-    }
-
-    label_ = MplsTable::kInvalidLabel;
-    UpdateMetaDataIpInfo();
-}
-
-void VmInterface::DeleteL3TunnelId() {
-    if (!metadata_ip_active_) {
-        DeleteL3MplsLabel();
-    }
 }
 
 void VmInterface::InsertMetaDataIpInfo(MetaDataIp *mip) {

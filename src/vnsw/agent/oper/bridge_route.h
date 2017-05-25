@@ -29,7 +29,8 @@ public:
     void AddMacVmBindingRoute(const Peer *peer,
                       const std::string &vrf_name,
                       const MacAddress &mac,
-                      const VmInterface *vm_intf);
+                      const VmInterface *vm_intf,
+                      bool flood_dhcp);
     void AddBridgeRoute(const AgentRoute *rt);
     static AgentRouteData *BuildNonBgpPeerData(const string &vrf_name,
                                                const std::string &vn_name,

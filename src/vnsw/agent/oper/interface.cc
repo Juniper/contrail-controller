@@ -905,7 +905,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 entry.set_vrf_name("--ERROR--");
             }
 
-            if (ip.installed_) {
+            if (ip.Installed()) {
                 entry.set_installed("Y");
             } else {
                 entry.set_installed("N");
@@ -964,7 +964,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 entry.set_vrf_name("--ERROR--");
             }
 
-            if (ip.installed_) {
+            if (ip.Installed()) {
                 entry.set_installed("Y");
             } else {
                 entry.set_installed("N");
@@ -994,7 +994,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             entry.set_ip6_addr(vlan->addr6_.to_string());
             entry.set_label(vlan->label_);
 
-            if (vlan->installed_) {
+            if (vlan->v4_rt_installed_ || vlan->v6_rt_installed_) {
                 entry.set_installed("Y");
             } else {
                 entry.set_installed("N");
@@ -1019,7 +1019,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         while (static_rt_it != vintf->static_route_list().list_.end()) {
             const VmInterface::StaticRoute &rt = *static_rt_it;
             StaticRouteSandesh entry;
-            entry.set_vrf_name(rt.vrf_);
+            entry.set_vrf_name("");
             entry.set_ip_addr(rt.addr_.to_string());
             entry.set_prefix(rt.plen_);
             entry.set_communities(rt.communities_);
@@ -1034,7 +1034,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         while (aap_it != vintf->allowed_address_pair_list().list_.end()) {
             const VmInterface::AllowedAddressPair &rt = *aap_it;
             StaticRouteSandesh entry;
-            entry.set_vrf_name(rt.vrf_);
+            entry.set_vrf_name("");
             entry.set_ip_addr(rt.addr_.to_string());
             entry.set_prefix(rt.plen_);
             if (rt.mac_ !=  MacAddress::ZeroMac()) {
