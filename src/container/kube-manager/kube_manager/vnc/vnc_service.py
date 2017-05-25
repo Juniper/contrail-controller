@@ -33,7 +33,7 @@ class VncService(VncCommon):
         self._fip_pool_obj = None
 
         # Cache kubernetes API server params.
-        self._kubernetes_api_secure_ip = self._args.kubernetes_api_secure_ip
+        self._kubernetes_api_server = self._args.kubernetes_api_server
         self._kubernetes_api_secure_port =\
             int(self._args.kubernetes_api_secure_port)
 
@@ -48,8 +48,7 @@ class VncService(VncCommon):
 
         # If Kubernetes API server info is incomplete, disable link-local create,
         # as create is not possible.
-        if not self._kubernetes_api_secure_ip or\
-            not self._kubernetes_api_secure_ip:
+        if not self._kubernetes_api_server:
             self._create_linklocal = False
         elif self._args.cluster_network and DBBaseKM.is_nested():
             # In nested mode, if cluster network is configured, then the k8s api
@@ -172,7 +171,7 @@ class VncService(VncCommon):
                         name=svc_name + '-' + port['port'].__str__(),
                         k8s_ns=svc_ns,
                         service_ip=svc_ip, service_port=port['port'],
-                        fabric_ip=self._kubernetes_api_secure_ip,
+                        fabric_ip=self._kubernetes_api_server,
                         fabric_port=self._kubernetes_api_secure_port)
                 except:
                     self.logger.error("Create link-local service failed for"
