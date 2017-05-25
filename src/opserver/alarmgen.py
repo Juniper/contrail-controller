@@ -1545,10 +1545,6 @@ class Controller(object):
                     if asm.is_new_alarm_same(new_uve_alarms[nm]):
                         del new_uve_alarms[nm]
 
-        if not self._alarmstats.has_key(part):
-            self._alarmstats[part] = {}
-        if not self._alarmstats[part].has_key(table_str):
-            self._alarmstats[part][table_str] = {}
         if len(del_types) != 0  or len(new_uve_alarms) != 0:
             self._logger.debug("Alarm[%s] Deleted %s" % \
                     (table, str(del_types)))
@@ -1576,6 +1572,10 @@ class Controller(object):
                 # go through alarm set state machine code
                 asm.set_alarms()
                 # increment alarm set count here.
+                if not self._alarmstats.has_key(part):
+                    self._alarmstats[part] = {}
+                if not self._alarmstats[part].has_key(table_str):
+                    self._alarmstats[part][table_str] = {}
                 if not self._alarmstats[part][table_str].has_key(nm):
                     self._alarmstats[part][table_str][nm] = \
                                             AlarmgenAlarmStats(table_str, nm,
@@ -1585,6 +1585,10 @@ class Controller(object):
             for dnm in del_types:
                 if dnm in self.tab_alarms[table][uve_key]:
                     # increment alarm reset count here.
+                    if not self._alarmstats.has_key(part):
+                        self._alarmstats[part] = {}
+                    if not self._alarmstats[part].has_key(table_str):
+                        self._alarmstats[part][table_str] = {}
                     if not self._alarmstats[part][table_str].has_key(dnm):
                         self._alarmstats[part][table_str][dnm] = \
                                             AlarmgenAlarmStats(table_str, dnm,
@@ -2102,11 +2106,16 @@ class Controller(object):
         for pk,pc in self._workers.iteritems():
             s_partitions.add(pk)
             din = pc.stats()
-            dout = copy.deepcopy(self._uvestats[pk])
+            dout = self._uvestats[pk]
             self._uvestats[pk] = {}
-            alarm_stats_pk = copy.deepcopy(self._alarmstats[pk])
+            alarm_stats_pk = self._alarmstats[pk]
             self._alarmstats[pk] = {}
             for ktab,tab in dout.iteritems():
+                # use mapped table-names if defined
+                if ktab in _OBJECT_TABLES:
+                    ktab_str = _OBJECT_TABLES[ktab].log_query_name
+                else:
+                    ktab_str = ktab
                 uve_stats = {}
                 for uk,uc in tab.iteritems():
                     uve_stats[uk] = AlarmgenUVEStats(uc.add_count,
@@ -2118,7 +2127,7 @@ class Controller(object):
                         self._sandesh._module + ':' + \
                         self._sandesh._instance_id,
                         partition = pk,
-                        table = ktab,
+                        table = ktab_str,
                         i = None,
                         uve_stats = uve_stats,
                         sandesh=self._sandesh)
@@ -2151,30 +2160,40 @@ class Controller(object):
             # data structure is as follows: _alarmstats[partition][table_name][alarm_name]
             # we want to collect alarm-stats across partitions
             for table_name,table_val in alarm_stats_pk.iteritems():
-                if not alarm_stats.has_key(table_name):
-                    alarm_stats[table_name] = {}
+                # use mapped table-names if defined
+                if table_name in _OBJECT_TABLES:
+                    table_str = _OBJECT_TABLES[table_name].log_query_name
+                else:
+                    table_str = table_name
+                if not alarm_stats.has_key(table_str):
+                    alarm_stats[table_str] = {}
                 for alarm_name,alarm_val in table_val.iteritems():
-                    if not alarm_stats[table_name].has_key(alarm_name):
-                        alarm_stats[table_name][alarm_name] \
-                            = AlarmgenAlarmStats(table_name, alarm_name,
+                    if not alarm_stats[table_str].has_key(alarm_name):
+                        alarm_stats[table_str][alarm_name] \
+                            = AlarmgenAlarmStats(table_str, alarm_name,
                                                  alarm_val.set_count,
                                                  alarm_val.reset_count,
                                                  0)
                     else:
-                        alarm_stats[table_name][alarm_name].set_count \
+                        alarm_stats[table_str][alarm_name].set_count \
                                 += alarm_val.set_count
-                        alarm_stats[table_name][alarm_name].reset_count \
+                        alarm_stats[table_str][alarm_name].reset_count \
                                 += alarm_val.reset_count
         # set active alarm count
         for table_name in self.tab_alarms.keys():
+            # use mapped table-names if defined
+            if table_name in _OBJECT_TABLES:
+                table_str = _OBJECT_TABLES[table_name].log_query_name
+            else:
+                table_str = table_name
             for alarm_name in self.tab_alarms[table_name]:
-                if not alarm_stats.has_key(table_name):
-                    alarm_stats[table_name] = {}
-                if not alarm_stats[table_name].has_key(alarm_name):
-                    alarm_stats[table_name][alarm_name] \
-                        = AlarmgenAlarmStats(table_name, alarm_name,
+                if not alarm_stats.has_key(table_str):
+                    alarm_stats[table_str] = {}
+                if not alarm_stats[table_str].has_key(alarm_name):
+                    alarm_stats[table_str][alarm_name] \
+                        = AlarmgenAlarmStats(table_str, alarm_name,
                                              0, 0, 0)
-                alarm_stats[table_name][alarm_name].active_count \
+                alarm_stats[table_str][alarm_name].active_count \
                     = len(self.tab_alarms[table_name][alarm_name])
 
         au = AlarmgenStatus()
@@ -2184,9 +2203,9 @@ class Controller(object):
         ags = AlarmgenStats()
         ags.instance =  self._instance_id
         ags.table_stats = []
-        for table_name,table in alarm_stats.iteritems():
-            for alarm_name,alarm in alarm_stats[table_name].iteritems():
-                ags.table_stats.append(alarm_stats[table_name][alarm_name])
+        for table_str,table in alarm_stats.iteritems():
+            for alarm_name,alarm in alarm_stats[table_str].iteritems():
+                ags.table_stats.append(alarm_stats[table_str][alarm_name])
         ags.partitions = len(s_partitions)
         ags.keys = len(s_keys)
         ags.updates = n_updates
