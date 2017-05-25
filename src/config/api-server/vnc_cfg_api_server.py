@@ -2584,10 +2584,13 @@ class VncApiServer(object):
 
     def _db_init_entries(self):
         # create singleton defaults if they don't exist already in db
-        glb_sys_cfg = self._create_singleton_entry(
-            GlobalSystemConfig(autonomous_system=64512,
-                               config_version=CONFIG_VERSION))
-        def_domain = self._create_singleton_entry(Domain())
+        self._create_singleton_entry(GlobalSystemConfig(
+            autonomous_system=64512, config_version=CONFIG_VERSION))
+        self._create_singleton_entry(Domain())
+        pm_obj = self._create_singleton_entry(PolicyManagement())
+        self._create_singleton_entry(ApplicationPolicySet(
+            'global-application-policy-set', is_global=True,
+            parent_obj=pm_obj))
         ip_fab_vn = self._create_singleton_entry(
             VirtualNetwork(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1]))
         self._create_singleton_entry(
