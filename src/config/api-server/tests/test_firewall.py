@@ -336,7 +336,7 @@ class TestFw(test_case.ApiServerTestCase):
         match_tags = ['application', 'tier', 'deployment', 'site']
         rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
                      action_list=ActionListType(simple_action='pass'),
-                     match_tags=FirewallTagListType(tag_list=match_tags),
+                     match_tags=FirewallRuleMatchTagsType(tag_list=match_tags),
                      endpoint_1=FirewallRuleEndpointType(any=True),
                      endpoint_2=FirewallRuleEndpointType(any=True),
                      direction='<>')
@@ -344,7 +344,7 @@ class TestFw(test_case.ApiServerTestCase):
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
 
         # validate match-tag types
-        received_set = set(rule.get_match_tag_types().get_tag_type())
+        received_set = set(rule.get_match_tag_types().get_tag_type_id())
         expected_set = set([cfgm_common.tag_dict[tag_type] for tag_type in match_tags])
         self.assertEqual(expected_set, received_set)
     # end test_firewall_rule_match_tags
