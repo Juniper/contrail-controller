@@ -26,7 +26,7 @@ class TorAgentBaseSetup(ContrailSetup):
 
     def fixup_tor_agent(self):
         #if self._args.tor_ovs_protocol.lower() == 'pssl':
-        self.ssl_cacert = '/etc/contrail/ssl/certs/ca-cert.pem'
+        self.ssl_cacert = '/etc/contrail/ssl/certs/tor-ca-cert.pem'
         self.ssl_cert = '/etc/contrail/ssl/certs/tor.' + self._args.tor_id + '.cert.pem'
         self.ssl_privkey = '/etc/contrail/ssl/private/tor.' + self._args.tor_id + '.private.pem'
         control_servers = ' '.join('%s:%s' % (server, '5269')
