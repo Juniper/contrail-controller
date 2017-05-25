@@ -1142,6 +1142,29 @@ class BridgeDomainServer(Resource, BridgeDomain):
     # end pre_dbe_create
 # end class BridgeDomainServer
 
+class ServiceGroupServer(Resource, ServiceGroup):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+
+        # create protcol id
+        try:
+            firewall_services = obj_dict['service_group_firewall_service_list']['firewall_service']
+        except Exception as e:
+            msg = "Tag must be created with type and value"
+            return (False, (400, msg))
+
+        for service in firewall_services:
+            protocol = service['protocol']
+            if protocol not in cfgm_common.proto_dict:
+                return (False, (400, 'Invalid protocol : %s' % protocol))
+            service['protocol_id'] = cfgm_common.proto_dict[protocol]
+
+        return True, ""
+    # end pre_dbe_create
+
+# end class ServiceGroupServer
+
 class TagServer(Resource, Tag):
 
     @classmethod
@@ -1153,6 +1176,9 @@ class TagServer(Resource, Tag):
         if tag_type is None or tag_value is None:
             msg = "Tag must be created with type and value"
             return (False, (400, msg))
+        if tag_type not in cfgm_common.tag_dict:
+            msg = "Invalid tag type %s" % tag_type
+            return (False, (400, msg))
 
         if obj_dict.get('tag_id'):
             msg = "Tag id is not setable"
@@ -1161,6 +1187,19 @@ class TagServer(Resource, Tag):
         # assign name automatically
         tag_type = tag_type.lower()
         tag_name = tag_type + "-" + tag_value
+
+        if obj_dict.get('parent_type') == 'project':
+            tag_fq_name = copy.deepcopy(obj_dict['fq_name'])
+            tag_fq_name[-1] = tag_name
+        else:
+            tag_fq_name = [tag_name]
+        try:
+            tag_uuid = db_conn.fq_name_to_uuid('tag', tag_fq_name)
+            (ok, tag_dict) = db_conn.dbe_read(obj_type='tag', obj_id=tag_uuid)
+            return (False, (400, 'Existing tag object found for name %s' % tag_name))
+        except cfgm_common.exceptions.NoIdError:
+            pass
+
         obj_dict['name'] = tag_name
         obj_dict['fq_name'][-1] = tag_name
         obj_dict['tag_type'] = tag_type
@@ -1183,8 +1222,8 @@ class TagServer(Resource, Tag):
             return ok, read_result
 
         # user can't update type or value once created
-        if obj_dict.get('tag_type') or obj_dict.get('tag_value'):
-            msg = "Tag type or id cannot be updated"
+        if obj_dict.get('tag_type') or obj_dict.get('tag_value') or obj_dict.get('tag_id'):
+            msg = "Tag type, value or id cannot be updated"
             return (False, (400, msg))
 
         return True, ""
@@ -1193,57 +1232,90 @@ class TagServer(Resource, Tag):
 class FirewallRuleServer(Resource, FirewallRule):
 
     @classmethod
+    def _check_endpoint(cls, ep, db_conn):
+        # check no ids present
+        # check endpoints exclusivity clause
+        # validate VN name in endpoints
+        return False
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
 
         ep1 = obj_dict['endpoint_1']
         ep2 = obj_dict['endpoint_2']
 
-        obj_dict['tag_refs'] = []
+        if cls._check_endpoint(ep1, db_conn) or cls._check_endpoint(ep2, db_conn):
+            msg = "Invalid endpoint specification"
+            return (False, (400, msg))
 
         # create tag references for endpoint tag expressions
-        tag_set = set([tag_name for tag_name in ep1['tags'] + ep2['tags']])
-        if len(tag_set) > 0:
-            for tag_name in tag_set:
-                # unless global, inherit project id from caller
-                (tag_type, tag_value) = tag_name.split("-", 1)
-                if tag_value[0:7] == 'global:':
-                    tag_fq_name = [tag_type + "-" + tag_value[7:]]
-                elif obj_dict['parent_type'] == "policy-management":
-                    tag_fq_name = [tag_name]
-                else:
-                    tag_fq_name = copy.deepcopy(obj_dict['fq_name'])
-                    tag_fq_name[-1] = tag_name
-                try:
-                    tag_uuid = db_conn.fq_name_to_uuid('tag', tag_fq_name)
-                except cfgm_common.exceptions.NoIdError:
-                    return (False, (404, 'No tag object found for name %s' % tag_name))
+        obj_dict['tag_refs'] = []
+        ep1['tag_ids'] = []
+        ep2['tag_ids'] = []
+        tag_set = set([tag_name for tag_name in ep1['tags']+ep2['tags']])
+        for tag_name in tag_set:
+            # unless global, inherit project id from caller
+            (tag_type, tag_value) = tag_name.split("-", 1)
+            if tag_value[0:7] == 'global:':
+                tag_fq_name = [tag_type + "-" + tag_value[7:]]
+            elif obj_dict['parent_type'] == "policy-management":
+                tag_fq_name = [tag_name]
+            else:
+                tag_fq_name = copy.deepcopy(obj_dict['fq_name'])
+                tag_fq_name[-1] = tag_name
+            try:
+                tag_uuid = db_conn.fq_name_to_uuid('tag', tag_fq_name)
+                (ok, tag_dict) = db_conn.dbe_read(obj_type='tag', obj_id=tag_uuid)
+            except cfgm_common.exceptions.NoIdError:
+                return (False, (404, 'No tag object found for name %s' % tag_name))
 
-                ref = {
-                    'to'  : tag_fq_name,
-                    'attr': None,
-                    'uuid': tag_uuid
-                }
-                obj_dict['tag_refs'].append(ref)
+            ref = {
+                'to'  : tag_fq_name,
+                'attr': None,
+                'uuid': tag_uuid
+            }
+            obj_dict['tag_refs'].append(ref)
+            if tag_name in ep1['tags']:
+                ep1['tag_ids'].append(tag_dict['tag_id'])
+            if tag_name in ep2['tags']:
+                ep2['tag_ids'].append(tag_dict['tag_id'])
 
-        if not 'address_group_refs' in obj_dict:
-            obj_dict['address_group_refs'] = []
+        # create tag references for address group
+        obj_dict['address_group_refs'] = []
         ag_set = set()
         if ep1['address_group']:
             ag_set.add(('endpoint1', ep1['address_group']))
         if ep2['address_group']:
             ag_set.add(('endpoint2', ep2['address_group']))
-        if len(ag_set) > 0:
-            for ep_name, ref_uuid in ag_set:
-                try:
-                    ref_fq_name = db_conn.uuid_to_fq_name(ref_uuid)
-                except cfgm_common.exceptions.NoIdError:
-                    return(False, (404, 'No tag object found for id %s' % ref_uuid))
-                ref = {
-                    'to'  : ref_fq_name,
-                    'attr': {'endpoint': ep_name},
-                    'uuid': ref_uuid
-                }
-                obj_dict['address_group_refs'].append(ref)
+        for ep_name, ref_fq_name_str in ag_set:
+            try:
+                ref_fq_name = ref_fq_name_str.split(":")
+                ref_uuid = db_conn.fq_name_to_uuid('address_group', ref_fq_name)
+            except cfgm_common.exceptions.NoIdError:
+                return(False, (404, 'No address group object found for %s' % ref_fq_name))
+            ref = {
+                'to'  : ref_fq_name,
+                'attr': {'endpoint': ep_name},
+                'uuid': ref_uuid
+            }
+            obj_dict['address_group_refs'].append(ref)
+
+        # create protcol id
+        if 'service' in obj_dict:
+            protocol = obj_dict['service']['protocol']
+            if protocol not in cfgm_common.proto_dict:
+                return (False, (400, 'Rule with invalid protocol : %s' % protocol))
+            obj_dict['service']['protocol_id'] = cfgm_common.proto_dict[protocol]
+
+        # compile match-tags
+        obj_dict['match_tag_types'] = {'tag_type': []}
+        if 'match_tags' in obj_dict and 'tag_list' in obj_dict['match_tags']:
+            for tag_type in obj_dict['match_tags']['tag_list']:
+                tag_type = tag_type.lower()
+                if tag_type not in cfgm_common.tag_dict:
+                    return (False, (400, 'match-tags with invalid type : %s' % tag_type))
+                tag_type_val = cfgm_common.tag_dict[tag_type];
+                obj_dict['match_tag_types']['tag_type'].append(tag_type_val)
 
         return True, ""
     # end pre_dbe_create
