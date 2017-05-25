@@ -580,6 +580,18 @@ def package_installed(pkg):
         except subprocess.CalledProcessError:
             return False
 
+
+def service_enabled(svc):
+    filename = '/etc/contrailctl/controller.conf'
+    if (not os.path.isfile(filename)) or (not os.path.exists(filename)):
+        return True
+
+    cmd = 'cat ' + filename + ' | grep -v "^\s*#" | grep enable_' + svc \
+          + '_service | grep False | wc -l'
+    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, \
+                            close_fds=True)
+    return not int(proc.communicate()[0])
+
 def main():
     parser = OptionParser()
     parser.add_option('-d', '--detail', dest='detail',
@@ -616,6 +628,12 @@ def main():
     storage = package_installed('contrail-storage')
     kubemanager = package_installed('contrail-kube-manager')
 
+    # analytics-standalone
+    # check if config, control, webui services are enabled 
+    config_enabled = service_enabled('config')
+    control_enabled = service_enabled('control')
+    webui_enabled = service_enabled('webui')
+
     vr = False
     lsmodout = None
     lsofvrouter = None
@@ -645,16 +663,16 @@ def main():
         if vr:
             print "vRouter is PRESENT\n"
 
-    if control:
+    if control and control_enabled:
         contrail_service_status('control', options)
 
     if analytics:
         contrail_service_status('analytics', options)
 
-    if capi:
+    if capi and config_enabled:
         contrail_service_status('config', options)
 
-    if cwebui or cwebstorage:
+    if (cwebui or cwebstorage) and webui_enabled:
         contrail_service_status('webui', options)
 
     if database:
