@@ -199,6 +199,7 @@ void DnsAgentXmppChannelManager::RemoveChannel(XmppChannel *ch) {
 DnsAgentXmppChannel *
 DnsAgentXmppChannelManager::DnsAgentXmppChannelManager::FindChannel(
     const XmppChannel *ch) {
+    tbb::mutex::scoped_lock lock(mutex_);
     ChannelMap::iterator it = channel_map_.find(ch);
     if (it == channel_map_.end())
         return NULL;
@@ -208,6 +209,7 @@ DnsAgentXmppChannelManager::DnsAgentXmppChannelManager::FindChannel(
 void 
 DnsAgentXmppChannelManager::HandleXmppChannelEvent(XmppChannel *channel,
                                                    xmps::PeerState state) {
+    tbb::mutex::scoped_lock lock(mutex_);
     ChannelMap::iterator it = channel_map_.find(channel);
 
     if (state == xmps::READY) {
@@ -247,6 +249,7 @@ uint8_t DnsAgentXmppChannelManager::ChannelToDscp(const XmppChannel *xc) const {
 }
 
 void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
+    tbb::mutex::scoped_lock lock(mutex_);
     for (ChannelMap::iterator iter = channel_map_.begin(); 
          iter != channel_map_.end(); ++iter) {
         const XmppChannel *channel = iter->first;
@@ -266,6 +269,7 @@ void DnsAgentXmppChannelManager::GetAgentData(std::vector<AgentData> &list) {
 }
 
 void DnsAgentXmppChannelManager::GetAgentDnsData(std::vector<AgentDnsData> &dt) {
+    tbb::mutex::scoped_lock lock(mutex_);
     for (ChannelMap::iterator iter = channel_map_.begin(); 
          iter != channel_map_.end(); ++iter) {
         DnsAgentXmppChannel *ch = iter->second;
