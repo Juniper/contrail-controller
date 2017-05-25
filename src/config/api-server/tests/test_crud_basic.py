@@ -3668,6 +3668,7 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
             patch_ks = test_common.FakeSystemManager.patch_keyspace
             with patch_ks('to_bgp_keyspace', {}), \
                  patch_ks('svc_monitor_keyspace', {}), \
+                 patch_ks('dm_keyspace', {}), \
                  patch_ks('DISCOVERY_SERVER', {}):
                 vn_obj = self._create_test_object()
                 db_json_exim.DatabaseExim('--export-to %s' %(
@@ -3690,6 +3691,7 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
             patch_ks = test_common.FakeSystemManager.patch_keyspace
             with patch_ks('to_bgp_keyspace', {}), \
                  patch_ks('svc_monitor_keyspace', {}), \
+                 patch_ks('dm_keyspace', {}), \
                  patch_ks('DISCOVERY_SERVER', {}):
                 vn_obj = self._create_test_object()
                 db_json_exim.DatabaseExim('--export-to %s' %(
