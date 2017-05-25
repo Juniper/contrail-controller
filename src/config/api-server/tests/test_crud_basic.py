@@ -4146,6 +4146,7 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
             patch_ks = test_common.FakeSystemManager.patch_keyspace
             with patch_ks('to_bgp_keyspace', {}), \
                  patch_ks('svc_monitor_keyspace', {}), \
+                 patch_ks('dm_keyspace', {}), \
                  patch_ks('DISCOVERY_SERVER', {}):
                 vn_obj = self._create_test_object()
                 db_json_exim.DatabaseExim('--export-to %s' %(
@@ -4168,12 +4169,12 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
             patch_ks = test_common.FakeSystemManager.patch_keyspace
             with patch_ks('to_bgp_keyspace', {}), \
                  patch_ks('svc_monitor_keyspace', {}), \
+                 patch_ks('dm_keyspace', {}), \
                  patch_ks('DISCOVERY_SERVER', {}):
                 vn_obj = self._create_test_object()
                 db_json_exim.DatabaseExim('--export-to %s' %(
                     dump_f.name)).db_export()
-                with ExpectedException(db_json_exim.CassandraNotEmptyError,
-                    'obj_uuid_table has entries'):
+                with ExpectedException(db_json_exim.CassandraNotEmptyError):
                     db_json_exim.DatabaseExim('--import-from %s' %(
                         dump_f.name)).db_import()
 
@@ -4181,7 +4182,9 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
                     'config_db_uuid', 'obj_uuid_table')
                 fq_name_cf = test_common.CassandraCFs.get_cf(
                     'config_db_uuid', 'obj_fq_name_table')
-                with uuid_cf.patch_cf({}), fq_name_cf.patch_cf({}):
+                shared_cf = test_common.CassandraCFs.get_cf(
+                    'config_db_uuid', 'obj_shared_table')
+                with uuid_cf.patch_cf({}), fq_name_cf.patch_cf({}), shared_cf.patch_cf({}):
                     with ExpectedException(
                          db_json_exim.ZookeeperNotEmptyError):
                         db_json_exim.DatabaseExim('--import-from %s' %(
