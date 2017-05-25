@@ -60,7 +60,7 @@ class ComputeArgsParser(object):
             'vcenter_cluster': None,
             'vcenter_dvswitch': None,
             'hypervisor': self.get_config('HYPERVISOR', 'type', 'kvm'),
-            'gateway_server_list': '',
+            'compute_as_gateway': '',
             'default_hw_queue_qos': False,
             'qos_priority_tagging': '',
             'qos_logical_queue': None,
@@ -253,8 +253,8 @@ class ComputeArgsParser(object):
         parser.add_argument("--sriov", help="sriov configuration")
         parser.add_argument("--tsn_mode", help="tsn mode",action="store_true") 
         parser.add_argument(
-                "--gateway_server_list", help="Compute's acting as gateway",
-                nargs='+', type=str)
+                "compute_as_gateway", help="Compute's acting as gateway",
+                type=str)
         parser.add_argument(
                 "--qos_logical_queue", help="Logical queue for qos",
                 nargs='+', type=str)
