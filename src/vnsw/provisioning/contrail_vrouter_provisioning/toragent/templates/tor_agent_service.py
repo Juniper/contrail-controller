@@ -15,6 +15,7 @@ ExecStop=/bin/kill -s KILL $MAINPID
 PrivateTmp=yes
 ProtectHome=yes
 ReadOnlyDirectories=/
+ReadWriteDirectories=-/var/crashes
 ReadWriteDirectories=-/var/log/contrail
 ReadWriteDirectories=-/var/lib/contrail
 ReadWriteDirectories=-/dev
