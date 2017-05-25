@@ -93,6 +93,7 @@ class DatabaseManager(object):
         stdout.setLevel(log_level)
         stdout.setFormatter(logformat)
         self._logger.addHandler(stdout)
+        cluster_id = self._api_args.cluster_id
 
         # cassandra connection
         self._cassandra_servers = self._api_args.cassandra_server_list
@@ -105,7 +106,11 @@ class DatabaseManager(object):
                cred={'username':self._args.cassandra_user,
                      'password':self._args.cassandra_password}
         for ks_name, cf_name_list in db_info:
-            pool = pycassa.ConnectionPool(keyspace=ks_name,
+            if cluster_id:
+                full_ks_name = '%s_%s' %(cluster_id, ks_name)
+            else:
+                full_ks_name = ks_name
+            pool = pycassa.ConnectionPool(keyspace=full_ks_name,
                        server_list=self._cassandra_servers, prefill=False,
                        credentials=cred)
             for cf_name in cf_name_list:
@@ -113,6 +118,10 @@ class DatabaseManager(object):
                                          read_consistency_level=rd_consistency)
 
         # zookeeper connection
+        self.base_vn_id_zk_path = cluster_id + self.BASE_VN_ID_ZK_PATH
+        self.base_rtgt_id_zk_path = cluster_id + self.BASE_RTGT_ID_ZK_PATH
+        self.base_sg_id_zk_path = cluster_id + self.BASE_SG_ID_ZK_PATH
+        self.base_subnet_zk_path = cluster_id + self.BASE_SUBNET_ZK_PATH
         zk_server = self._api_args.zk_server_ip.split(',')[0]
         self._zk_client = kazoo.client.KazooClient(zk_server)
         self._zk_client.start()
@@ -215,7 +224,7 @@ class DatabaseManager(object):
         ret_errors = []
 
         # read in route-target ids from zookeeper
-        base_path = self.BASE_RTGT_ID_ZK_PATH
+        base_path = self.base_rtgt_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_rtgts = {}
         num_bad_rtgts = 0 
@@ -270,7 +279,7 @@ class DatabaseManager(object):
         ret_errors = []
 
         # read in security-group ids from zookeeper
-        base_path = self.BASE_SG_ID_ZK_PATH
+        base_path = self.base_sg_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_sgs = {}
         for sg_id in self._zk_client.get_children(base_path) or []:
@@ -317,7 +326,7 @@ class DatabaseManager(object):
         ret_errors = []
 
         # read in virtual-network ids from zookeeper
-        base_path = self.BASE_VN_ID_ZK_PATH
+        base_path = self.base_vn_id_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         zk_all_vns = {}
         for vn_id in self._zk_client.get_children(base_path) or []:
@@ -366,8 +375,8 @@ class DatabaseManager(object):
 
         return zk_set, cassandra_set, ret_errors
     # end audit_virtual_networks_id
-
 # end class DatabaseManager
+
 
 class DatabaseChecker(DatabaseManager):
     def checker(func):
@@ -457,9 +466,13 @@ class DatabaseChecker(DatabaseManager):
                 schema_transformer.db.SchemaTransformerDB.get_db_info() + \
                 discovery.disc_cassdb.DiscoveryCassandraClient.get_db_info()
             for ks_name, _ in db_info:
+                if self._api_args.cluster_id:
+                    full_ks_name = '%s_%s' %(self._api_args.cluster_id, ks_name)
+                else:
+                    full_ks_name = ks_name
                 logger.debug("Reading keyspace properties for %s on %s: ",
                              ks_name, server)
-                ks_prop = sys_mgr.get_keyspace_properties(ks_name)
+                ks_prop = sys_mgr.get_keyspace_properties(full_ks_name)
                 logger.debug("Got %s", ks_prop)
 
                 repl_factor = int(ks_prop['strategy_options']['replication_factor'])
@@ -645,7 +658,7 @@ class DatabaseChecker(DatabaseManager):
         logger = self._logger
 
         zk_all_vns = {}
-        base_path = self.BASE_SUBNET_ZK_PATH
+        base_path = self.base_subnet_zk_path
         logger.debug("Doing recursive zookeeper read from %s", base_path)
         num_addrs = 0
         try:
@@ -1199,7 +1212,7 @@ class DatabaseCleaner(DatabaseManager):
         stale_rtgt_ids = zk_set - cassandra_set
         for rtgt_id, rtgt_fq_name_str in stale_rtgt_ids:
             id_str = "%(#)010d" % {'#': rtgt_id}
-            self._zk_client.delete('%s/%s' %(self.BASE_RTGT_ID_ZK_PATH, id_str))
+            self._zk_client.delete('%s/%s' %(self.base_rtgt_id_zk_path, id_str))
             logger.info("Removed stale route-target id %s for %s",
                 rtgt_id, rtgt_fq_name_str)
 
@@ -1217,7 +1230,7 @@ class DatabaseCleaner(DatabaseManager):
         stale_sg_ids = zk_set - cassandra_set
         for sg_id, sg_fq_name_str in stale_sg_ids:
             id_str = "%(#)010d" % {'#': sg_id}
-            self._zk_client.delete('%s/%s' %(self.BASE_SG_ID_ZK_PATH, id_str))
+            self._zk_client.delete('%s/%s' %(self.base_sg_id_zk_path, id_str))
             logger.info("Removed stale security group id %s for %s",
                 sg_id, sg_fq_name_str)
 
@@ -1235,7 +1248,7 @@ class DatabaseCleaner(DatabaseManager):
         stale_vn_ids = zk_set - cassandra_set
         for vn_id, vn_fq_name_str in stale_vn_ids:
             id_str = "%(#)010d" % {'#': vn_id-1}
-            self._zk_client.delete('%s/%s' %(self.BASE_VN_ID_ZK_PATH, id_str))
+            self._zk_client.delete('%s/%s' %(self.base_vn_id_zk_path, id_str))
             logger.info("Removed stale virtual network id %s for %s",
                 vn_id, vn_fq_name_str)
 
