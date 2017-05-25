@@ -403,7 +403,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         vgw_public_vn_name = self._args.vgw_public_vn_name
         vgw_intf_list = self._args.vgw_intf_list
         vgw_gateway_routes = self._args.vgw_gateway_routes
-        gateway_server_list = self._args.gateway_server_list
+        compute_as_gateway = self._args.compute_as_gateway
 
         self.mac = None
         if self.dev and self.dev != 'vhost0':
@@ -454,7 +454,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             if (self._args.mode == 'vcenter' or
                     self._args.hypervisor == 'vmware'):
                 vmware_dev = self.get_secondary_device(self.dev)
-            if compute_ip in gateway_server_list:
+            if compute_as_gateway == 'server':
                 gateway_mode = "server"
 
             # Set template options for DPDK mode
@@ -747,14 +747,18 @@ SUBCHANNELS=1,2,3
         conf_file = "contrail-vrouter-agent.conf"
         configs = {}
 
+        # Clean existing qos config
+        ltemp_dir = tempfile.mkdtemp()
+        local("cp %s %s/" %(agent_conf, ltemp_dir))
+        local("sed -i -e '/^\[QOS\]/d' -e '/^\[QUEUE-/d' -e '/^logical_queue/d' -e '/^default_hw_queue/d' -e '/^priority_tagging/d'  %s/%s" % (ltemp_dir, conf_file))
+        local("sed -i -e '/^\[QOS-NIANTIC\]/d' -e '/^\[PG-/d' -e '/^scheduling/d' -e '/^bandwidth/d' %s/%s" % (ltemp_dir, conf_file))
+        local("sudo cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
+        local('rm -rf %s' % (ltemp_dir))
+        # Set qos_enabled in agent_param to false
+        self.set_config('/etc/contrail/agent_param', sec="''", var='qos_enabled', val='false')
+
         # QOS configs
         if qos_queue_id_list is not None:
-            # Clean existing config
-            ltemp_dir = tempfile.mkdtemp()
-            local("cp %s %s/" %(agent_conf, ltemp_dir))
-            local("sed -i -e '/^\[QOS\]/d' -e '/^\[QUEUE-/d' -e '/^logical_queue/d' -e '/^default_hw_queue/d' -e '/^priority_tagging/d'  %s/%s" % (ltemp_dir, conf_file))
-            local("cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
-            local('rm -rf %s' % (ltemp_dir))
 
             self.set_config(agent_conf, 'QOS', 'priority_tagging', qos_priority_tagging)
             num_sections = len(qos_logical_queue)
@@ -784,12 +788,6 @@ SUBCHANNELS=1,2,3
                             section, key, val)
 
         if priority_id_list is not None:
-            # Clean existing config
-            ltemp_dir = tempfile.mkdtemp()
-            local("sudo cp %s %s/" %(agent_conf, ltemp_dir))
-            local("sed -i -e '/^\[QOS-NIANTIC\]/d' -e '/^\[PG-/d' -e '/^scheduling/d' -e '/^bandwidth/d' %s/%s" % (ltemp_dir, conf_file))
-            local("sudo cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
-            local('rm -rf %s' % (ltemp_dir))
 
             local('sudo contrail-config --set /etc/contrail/contrail-vrouter-agent.conf  QOS-NIANTIC')
             for i in range(len(priority_id_list)):
@@ -805,10 +803,7 @@ SUBCHANNELS=1,2,3
 
         if (qos_queue_id_list or priority_id_list):
             # Set qos_enabled in agent_param
-            pattern = 'qos_enabled='
-            line = 'qos_enabled=true'
-            insert_line_to_file(pattern=pattern, line=line,
-                                file_name='/etc/contrail/agent_param')
+            self.set_config('/etc/contrail/agent_param', sec="''", var='qos_enabled', val='true')
 
             # Run qosmap script on physical interface (on all members for bond interface)
             physical_interface = local("sudo openstack-config --get /etc/contrail/contrail-vrouter-agent.conf VIRTUAL-HOST-INTERFACE physical_interface")
