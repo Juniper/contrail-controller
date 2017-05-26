@@ -69,7 +69,6 @@ def parse_args(args_str=None):
         'kubernetes_api_server': 'localhost',
         'kubernetes_api_port': '8080',
         'kubernetes_api_secure_port': 8443,
-        'kubernetes_api_secure_ip': None,
         'kubernetes_service_name': 'kubernetes',
         'service_subnets': '',
         'pod_subnets': '',
