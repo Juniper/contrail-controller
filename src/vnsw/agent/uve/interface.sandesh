@@ -231,6 +231,16 @@ struct UveVMInterfaceAgent {
    39: optional u16 rx_vlan;
    /** Parent interface name */
    40: optional string parent_interface;
+   /** Name of Application */
+   44: optional string app;
+   /** Name of Tier */
+   45: optional string tier;
+   /** Name of site */
+   46: optional string site;
+   /** Name of deployment */
+   47: optional string deployment;
+   /** Firewall policy rules along with its policy set name */
+   48: optional list<string> policy_rules;
 }
 
 /**
@@ -260,15 +270,18 @@ struct SecurityPolicyFlowStats {
     5:  string remote_prefix;
     /** Remote Virtual network name*/
     6:  string remote_vn;
-    7:  u64    hits;
+    /** Number of sessions started by local_tagset */
+    7:  u64    initiator_session_count;
+    /** Number of sessions responded by local_tagset */
+    8:  u64    responder_session_count;
     /** Incoming statistics in bytes */
-    8:  u64    in_bytes;
+    9:  u64    in_bytes;
     /** Outgoing statistics in bytes */
-    9:  u64    out_bytes;
+    10:  u64    out_bytes;
     /** Incoming statistics in packets */
-    10: u64    in_pkts;
+    11: u64    in_pkts;
     /** Outgoing statistics in packets */
-    11: u64    out_pkts;
+    12: u64    out_pkts;
 }
 
 /**
