@@ -112,7 +112,7 @@ protected:
         config_options_.rabbitmq_server_list.push_back("127.0.0.1:100");
         config_options_.rabbitmq_user = "foo";
         config_options_.rabbitmq_password = "bar";
-        config_options_.rabbitmq_vhost = "test";
+        config_options_.rabbitmq_vhost = "/test";
         return config_options_;
     }
 
