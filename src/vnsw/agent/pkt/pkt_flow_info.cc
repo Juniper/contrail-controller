@@ -160,8 +160,8 @@ static bool IsVgwOrVmInterface(const Interface *intf) {
     return false;
 }
 
-static bool PickEcmpMember(const NextHop **nh, const PktInfo *pkt,
-                           PktFlowInfo *info,
+static bool PickEcmpMember(const Agent *agent, const NextHop **nh,
+			   const PktInfo *pkt, PktFlowInfo *info,
                            const EcmpLoadBalance &ecmp_load_balance) {
     // We dont support ECMP in L2 yet. Return failure to drop packet
     if (info->l3_flow == false) {
@@ -198,7 +198,7 @@ static bool PickEcmpMember(const NextHop **nh, const PktInfo *pkt,
     // If affinity-nh is set but points to deleted NH, then affinity is ignored
     // and new index is allocated
     info->out_component_nh_idx =
-        comp_nh->PickMember(pkt->hash(ecmp_load_balance),
+        comp_nh->PickMember(pkt->hash(agent, ecmp_load_balance),
                             info->out_component_nh_idx);
     *nh = comp_nh->GetNH(info->out_component_nh_idx);
 
@@ -218,9 +218,9 @@ static bool PickEcmpMember(const NextHop **nh, const PktInfo *pkt,
 //             TODO: Revisit the use of vrf_, dest_vrf and nat_vrf
 // force_vmport means, we want destination to be VM_INTERFACE only
 // This is to avoid routing across fabric interface itself
-static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
-                     PktControlInfo *in, PktControlInfo *out,
-                     bool force_vmport,
+static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
+		     PktFlowInfo *info, PktControlInfo *in,
+		     PktControlInfo *out, bool force_vmport,
                      const EcmpLoadBalance &ecmp_load_balance) {
     bool ret = true;
 
@@ -229,7 +229,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 
     // If nh is Composite, pick the ECMP first. The nh index and vrf used
     // in reverse flow will depend on the ECMP member picked
-    if (PickEcmpMember(&nh, pkt, info, ecmp_load_balance) == false) {
+    if (PickEcmpMember(agent, &nh, pkt, info, ecmp_load_balance) == false) {
         return false;
     }
 
@@ -403,9 +403,9 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 }
 
 // Decode route and get Interface / ECMP information
-static bool RouteToOutInfo(const AgentRoute *rt, const PktInfo *pkt,
-                           PktFlowInfo *info, PktControlInfo *in,
-                           PktControlInfo *out) {
+static bool RouteToOutInfo(const Agent *agent, const AgentRoute *rt,
+			   const PktInfo *pkt, PktFlowInfo *info,
+			   PktControlInfo *in, PktControlInfo *out) {
     const AgentPath *path = rt->GetActivePath();
     if (path == NULL)
         return false;
@@ -419,7 +419,7 @@ static bool RouteToOutInfo(const AgentRoute *rt, const PktInfo *pkt,
         return false;
     }
 
-    return NhDecode(nh, pkt, info, in, out, false,
+    return NhDecode(agent, nh, pkt, info, in, out, false,
                     path->ecmp_load_balance());
 }
 
@@ -620,7 +620,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
                                            PktControlInfo *out) {
-    if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
+    if (RouteToOutInfo(agent, out->rt_, pkt, this, in, out) == false) {
         return;
     }
 
@@ -1008,7 +1008,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Compute out-intf and ECMP info from out-route
-    if (RouteToOutInfo(out->rt_, pkt, this, in, out) == false) {
+    if (RouteToOutInfo(agent, out->rt_, pkt, this, in, out) == false) {
         return;
     }
 
@@ -1187,7 +1187,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
-        if (RouteToOutInfo(out->rt_, pkt, this, in, out)) {
+        if (RouteToOutInfo(agent, out->rt_, pkt, this, in, out)) {
             if (out->intf_) {
                 out->vn_ = InterfaceToVn(out->intf_);
                 if (out->vrf_) {
@@ -1211,7 +1211,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     
     if (out->rt_ != NULL) {
         // Route is present. If IP-DA is a floating-ip, we need DNAT
-        if (RouteToOutInfo(out->rt_, pkt, this, in, out)) {
+        if (RouteToOutInfo(agent, out->rt_, pkt, this, in, out)) {
             if (out->intf_ && IntfHasFloatingIp(this, out->intf_, pkt->family)) {
                 FloatingIpDNat(pkt, in, out);
             }
@@ -1239,7 +1239,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
     // If out-interface was not found, get it based on out-route
     if (out->intf_ == NULL && out->rt_) {
-        RouteToOutInfo(out->rt_, pkt, this, in, out);
+        RouteToOutInfo(agent, out->rt_, pkt, this, in, out);
     }
     if (out->rt_) {
         const NextHop* nh = out->rt_->GetActiveNextHop();
@@ -1313,7 +1313,8 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
     //Delay hash pick up till route is picked.
-    if (NhDecode(nh, pkt, this, in, out, true, EcmpLoadBalance()) == false) {
+    if (NhDecode(agent, nh, pkt, this, in, out, true,
+		 EcmpLoadBalance()) == false) {
         return;
     }
 
@@ -1367,7 +1368,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         if (ecmp && out->rt_->GetActivePath()) {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
             out_component_nh_idx = comp_nh->hash(pkt->
-                                   hash(out->rt_->GetActivePath()->
+                                   hash(agent, out->rt_->GetActivePath()->
                                         ecmp_load_balance()));
         }
         if (out->rt_->GetActiveNextHop()->GetType() == NextHop::ARP ||
@@ -1376,7 +1377,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
             //vrf NH, then we need to do a route lookup
             //and set the nexthop for reverse flow properly
             //as mpls pointed NH would not be used for reverse flow
-            if (RouteToOutInfo(out->rt_, pkt, this, in, out)) {
+            if (RouteToOutInfo(agent, out->rt_, pkt, this, in, out)) {
                 if (out->intf_) {
                     out->vn_ = InterfaceToVn(out->intf_);
                 }
