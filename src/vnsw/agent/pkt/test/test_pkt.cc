@@ -233,6 +233,7 @@ TEST_F(PktTest, tx_vlan_1) {
     data->tx_vlan_id_ = 1;
     data->rx_vlan_id_ = 2;
     data->ip6_addr_ = Ip6Address();
+    req.data.reset(data);
     agent_->interface_table()->Enqueue(&req);
     client->WaitForIdle();
 
@@ -247,6 +248,7 @@ TEST_F(PktTest, tx_vlan_1) {
     DBRequest req1(DBRequest::DB_ENTRY_DELETE);
     req1.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, MakeUuid(2),
                                      "vm-itf-2"));
+    req1.data.reset(new VmInterfaceConfigData(NULL, NULL));
     agent_->interface_table()->Enqueue(&req1);
     client->WaitForIdle();
 }

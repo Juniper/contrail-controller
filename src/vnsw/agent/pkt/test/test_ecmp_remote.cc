@@ -337,6 +337,49 @@ TEST_F(RemoteEcmpTest, Fabric_DstFip_NonEcmpToEcmp_1) {
             CompositeNH::kInvalidComponentNHIdx);
 }
 
+// Non-ECMP to ECMP
+// FIP DNAT case with source in vrf2 and dest in vrf1
+// Ensure that flows are distributed across all members
+TEST_F(RemoteEcmpTest, Fabric_DstFip_NonEcmpToEcmp_2) {
+    //FIP of vrf3 interfaces
+    char vm_ip[80] = "4.1.1.100";
+    char router_id[80];
+    char remote_server_ip[80];
+    char remote_vm_ip[80];
+
+    strcpy(router_id, agent_->router_id().to_string().c_str());
+    strcpy(remote_server_ip, remote_server_ip_.to_string().c_str());
+    strcpy(remote_vm_ip, remote_vm_ip3_.to_string().c_str());
+
+    uint8_t ecmp_flow_count[3] = { 0, 0, 0 };
+    for (int i = 0; i < 32; i++) {
+        TxUdpMplsPacket(eth_intf_id_, remote_server_ip, router_id, mpls_label_3,
+                       remote_vm_ip, vm_ip, 1, 100+i);
+        client->WaitForIdle();
+
+        int nh_id = GetActiveLabel(mpls_label_3)->nexthop()->id();
+        FlowEntry *entry = FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(),
+                                   remote_vm_ip, vm_ip, 17, 1, 100+i, nh_id);
+        EXPECT_TRUE(entry != NULL);
+        EXPECT_TRUE(entry->data().component_nh_idx !=
+                    CompositeNH::kInvalidComponentNHIdx);
+        EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
+
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
+        EXPECT_TRUE(rev_entry->data().component_nh_idx ==
+                    CompositeNH::kInvalidComponentNHIdx);
+
+        if (entry->data().component_nh_idx !=
+            CompositeNH::kInvalidComponentNHIdx) {
+            ecmp_flow_count[entry->data().component_nh_idx]++;
+        }
+    }
+
+    for (int i = 0; i < 3; i++) {
+        EXPECT_TRUE(ecmp_flow_count[i] != 0);
+    }
+}
+
 // Ping from fabric.
 // ECMP to Non-ECMP
 // FIP DNAT case with source in vrf2 and dest in vrf1

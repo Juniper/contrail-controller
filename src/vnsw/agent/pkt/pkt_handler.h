@@ -381,7 +381,8 @@ struct PktInfo {
 
     const AgentHdr &GetAgentHdr() const;
     void UpdateHeaderPtr();
-    std::size_t hash(const EcmpLoadBalance &ecmp_has_fields_to_use) const;
+    std::size_t hash(const Agent *agent,
+		     const EcmpLoadBalance &ecmp_has_fields_to_use) const;
 
     PacketBuffer *packet_buffer() const { return packet_buffer_.get(); }
     PacketBufferPtr packet_buffer_ptr() const { return packet_buffer_; }
