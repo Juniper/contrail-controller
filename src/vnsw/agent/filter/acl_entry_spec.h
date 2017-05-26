@@ -29,6 +29,11 @@ struct StaticMirrorNhData {
 };
 
 struct MirrorActionSpec {
+    MirrorActionSpec() : analyzer_name(""), vrf_name(""), encap(""),
+    juniper_header(true), nh_mode(""), nic_assisted_mirroring(false) { }
+    bool operator == (const MirrorActionSpec &rhs) const {
+        return analyzer_name == rhs.analyzer_name;
+    }
     std::string analyzer_name;
     std::string vrf_name;
     IpAddress ip;
@@ -40,9 +45,6 @@ struct MirrorActionSpec {
     StaticMirrorNhData staticnhdata;
     bool nic_assisted_mirroring;
     uint16_t nic_assisted_mirroring_vlan;
-    bool operator == (const MirrorActionSpec &rhs) const {
-        return analyzer_name == rhs.analyzer_name;
-    }
 };
 
 struct VrfTranslateActionSpec {
