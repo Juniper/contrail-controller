@@ -877,6 +877,28 @@ TEST_F(PktParseTest, MulticastControlWord) {
     client->WaitForIdle();
 }
 
+// Validate that hash changes when vhost-ip changes
+TEST_F(PktParseTest, ECMP_Hash_1) {
+    VmInterface *vnet1 = VmInterfaceGet(1);
+    std::auto_ptr<PktGen> pkt(new PktGen());
+
+    pkt->Reset();
+    MakeIpPacket(pkt.get(), vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
+    PktInfo pkt_info(Agent::GetInstance(), 100, PktHandler::FLOW, 0);
+    TestPkt(&pkt_info, pkt.get());
+    client->WaitForIdle();
+    EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 1, 0, 0));
+
+    // Check that hash changes when vhost-ip changes
+    std::size_t hash1 = pkt_info.hash(agent_, EcmpLoadBalance());
+    Ip4Address vhost_ip = agent_->router_id();
+    agent_->set_router_id(Ip4Address::from_string("100.100.100.100"));
+    std::size_t hash2 = pkt_info.hash(agent_, EcmpLoadBalance());
+    EXPECT_TRUE(hash1 != hash2);
+
+    agent_->set_router_id(vhost_ip);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
