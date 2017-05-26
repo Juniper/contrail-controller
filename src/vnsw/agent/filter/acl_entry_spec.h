@@ -29,6 +29,8 @@ struct StaticMirrorNhData {
 };
 
 struct MirrorActionSpec {
+    MirrorActionSpec() : analyzer_name(""), vrf_name(""), encap(""),
+    juniper_header(false), nh_mode(""), nic_assisted_mirroring(false) { }
     std::string analyzer_name;
     std::string vrf_name;
     IpAddress ip;
