@@ -112,8 +112,11 @@ string ConfigAmqpClient::FormAmqpUri() const {
     string uri = string("amqp://" + rabbitmq_user() + ":" +
                         rabbitmq_password() + "@" + rabbitmq_ip() + ":" +
                         rabbitmq_port());
-    if (!rabbitmq_vhost().empty())
-        uri += rabbitmq_vhost();
+    if (!rabbitmq_vhost().empty()) {
+        if (rabbitmq_vhost().compare("/") != 0) {
+            uri += "/" + rabbitmq_vhost();
+        }
+    }
     return uri;
 }
 
