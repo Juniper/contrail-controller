@@ -83,6 +83,11 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                           'systemd' :['rabbitmq-server',
                                                       'zookeeper']},
                     }
+
+SHOW_IF_DISABLED = {
+                       'contrail-vrouter-dpdk': False
+                   }
+
 distribution = platform.linux_distribution()[0].lower()
 if distribution.startswith('centos') or \
    distribution.startswith('red hat'):
@@ -318,13 +323,20 @@ def service_status(svc, check_return_code):
 
 def check_svc(svc, initd_svc=False, check_return_code=False):
     psvc = svc + ':'
+    show = True
+
     if service_installed(svc, initd_svc):
         bootstatus = service_bootstatus(svc, initd_svc)
         status = service_status(svc, check_return_code)
     else:
-        bootstatus = ' (disabled on boot)'
-        status='inactive'
-    print '%-30s%s%s' %(psvc, status, bootstatus)
+        if svc in SHOW_IF_DISABLED and SHOW_IF_DISABLED[svc] == False:
+            show = False
+        else:
+            bootstatus = ' (disabled on boot)'
+            status='inactive'
+
+    if show == True:
+        print '%-30s%s%s' %(psvc, status, bootstatus)
 
 def _get_http_server_port_from_conf(svc_name, conf_file, debug):
     try:
