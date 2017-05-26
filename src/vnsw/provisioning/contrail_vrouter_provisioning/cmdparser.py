@@ -267,7 +267,7 @@ class ComputeArgsParser(object):
                 action="store_true")
         parser.add_argument(
                 "--qos_priority_tagging",
-                help= "Knob to configure priority tagging when in DCB mode",
+                help="Knob to configure priority tagging when in DCB mode",
                 type=str)
         parser.add_argument("--priority_id", help="Priority group id",
                             nargs='+', type=str)

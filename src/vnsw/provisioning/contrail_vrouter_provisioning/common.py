@@ -42,16 +42,26 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         else:
             self.vhost_ip = self._args.self_ip
 
-        self.dev = None
+        self.dev = None # will be physical device or vhost0
+        self.physical_dev = None # always be physical device
         if self._args.physical_interface:
-            if self._args.physical_interface in netifaces.interfaces():
+            # During re-provision/upgrade vhost0 will be present
+            # so vhost0 should be treated as dev,
+            # which is used to get netmask/gateway
+            if 'vhost0' in netifaces.interfaces():
+                self.dev = vhost0
+            # During intial provision actual interface should be treated as dev
+            # which is used to get netmask/gateway
+            elif self._args.physical_interface in netifaces.interfaces():
                 self.dev = self._args.physical_interface
             else:
                 raise KeyError('Interface %s in present' %
                                self._args.physical_interface)
         else:
-            # Deduce the phy interface from ip, if configured
+            # Deduce the vhost/phy interface from ip, if configured
             self.dev = self.get_device_by_ip(self.vhost_ip)
+        # Deduce physical interface of vhost0 from ip, if vhost0 exist.
+        self.physical_dev = self.get_physical_dev_of_vhost(self.vhost_ip)
 
     def enable_kernel_core(self):
         self.enable_kernel_core()
@@ -406,7 +416,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         compute_as_gateway = self._args.compute_as_gateway
 
         self.mac = None
-        if self.dev and self.dev != 'vhost0':
+        if self.dev:
             self.mac = netifaces.ifaddresses(self.dev)[netifaces.AF_LINK][0][
                            'addr']
             if not self.mac:
@@ -435,7 +445,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 vgw_intf_list_str = str(tuple(
                     vgw_intf_list[1:-1].split(";"))).replace(" ", "")
 
-                cmds = ["sudo sed 's@dev=.*@dev=%s@g;" % self.dev,
+                cmds = ["sudo sed 's@dev=.*@dev=%s@g;" % self.physical_dev,
                         "s@vgw_subnet_ip=.*@vgw_subnet_ip=%s@g;" %
                         vgw_public_subnet_str,
                         "s@vgw_intf=.*@vgw_intf=%s@g'" % vgw_intf_list_str,
@@ -444,7 +454,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 local("sudo mv agent_param.new /etc/contrail/agent_param")
             else:
                 os.chdir(self._temp_dir_name)
-                cmds = ["sudo sed 's/dev=.*/dev=%s/g' " % self.dev,
+                cmds = ["sudo sed 's/dev=.*/dev=%s/g' " % self.physical_dev,
                         "/etc/contrail/agent_param.tmpl > agent_param.new"]
                 local(''.join(cmds))
                 local("sudo mv agent_param.new /etc/contrail/agent_param")
@@ -533,7 +543,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         'name': 'vhost0',
                         'ip': str(self.cidr),
                         'gateway': self.gateway,
-                        'physical_interface': self.dev},
+                        'physical_interface': self.physical_dev},
                     'HYPERVISOR': {
                         'type': ('kvm' if self._args.hypervisor == 'libvirt'
                                  else self._args.hypervisor),
