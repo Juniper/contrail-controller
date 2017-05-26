@@ -253,7 +253,7 @@ class ComputeArgsParser(object):
         parser.add_argument("--sriov", help="sriov configuration")
         parser.add_argument("--tsn_mode", help="tsn mode")
         parser.add_argument(
-                "compute_as_gateway", help="Compute's acting as gateway",
+                "--compute_as_gateway", help="Compute's acting as gateway",
                 type=str)
         parser.add_argument(
                 "--qos_logical_queue", help="Logical queue for qos",
