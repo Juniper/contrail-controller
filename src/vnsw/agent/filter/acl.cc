@@ -1019,6 +1019,7 @@ void AclEntrySpec::PopulateAction(const AclTable *acl_table,
     ActionSpec maction;
     maction.ta_type = TrafficAction::MIRROR_ACTION;
     maction.simple_action = TrafficAction::MIRROR;
+    maction.ma.nic_assisted_mirroring = false;
     // Check nic assisted mirroring supported.
     // Then Copy only mirroring_vlan.
     if (!action_list.mirror_to.analyzer_name.empty()
