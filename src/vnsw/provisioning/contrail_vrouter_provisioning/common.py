@@ -234,7 +234,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
 
         if local('sudo taskset%s %s true' % (taskset_param, coremask),
                  capture=True, warn_only=False).succeeded:
-            self.search_and_replace(self.command_key, '/usr/bin/taskset ' + coremask,
+            self.search_and_replace(self.command_key, '\/usr\/bin\/taskset ' + coremask,
                                     "Begin", self.vrouter_file)
         else:
             raise RuntimeError("Error: Core mask %s for host %s is invalid."
