@@ -92,6 +92,7 @@ env.Depends(SandeshGenSrcs,'#/build/lib/libsandesh.a')
 SandeshGenObjs = env.Object(SandeshGenSrcs)
 
 StatsSandeshGenFiles = env.SandeshGenCpp('stats_interval.sandesh')
+StatsSandeshGenFiles += env.SandeshGenCpp('uve.sandesh')
 StatsSandeshGenSrcs = env.ExtractCpp(StatsSandeshGenFiles)
 StatsSandeshGenObjs = env.Object(StatsSandeshGenSrcs)
 
