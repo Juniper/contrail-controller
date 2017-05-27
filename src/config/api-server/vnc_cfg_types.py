@@ -1154,7 +1154,7 @@ class ServiceGroupServer(Resource, ServiceGroup):
         try:
             firewall_services = obj_dict['service_group_firewall_service_list']['firewall_service']
         except Exception as e:
-            msg = "Tag must be created with type and value"
+            msg = "Invalid firewall service specification"
             return (False, (400, msg))
 
         for service in firewall_services:
@@ -1259,8 +1259,8 @@ class FirewallRuleServer(Resource, FirewallRule):
         for tag_name in tag_set:
             # unless global, inherit project id from caller
             (tag_type, tag_value) = tag_name.split("-", 1)
-            if tag_value[0:7] == 'global:':
-                tag_fq_name = [tag_type + "-" + tag_value[7:]]
+            if tag_type[0:7] == 'global:':
+                tag_fq_name = [tag_type[7:] + "-" + tag_value]
             elif obj_dict['parent_type'] == "policy-management":
                 tag_fq_name = [tag_name]
             else:
