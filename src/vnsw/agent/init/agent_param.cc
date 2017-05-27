@@ -475,8 +475,8 @@ void AgentParam::ParseDefaultSectionArguments
                           "DEFAULT.http_server_port");
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
-    GetValueFromTree<int>(log_files_count_, "DEFAULT.log_files_count");
-    GetValueFromTree<long>(log_file_size_, "DEFAULT.log_file_size");
+    GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
+    GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
 
@@ -1223,10 +1223,13 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_ksync_tokens_(Agent::kFlowKSyncTokens),
         flow_del_tokens_(Agent::kFlowDelTokens),
         flow_update_tokens_(Agent::kFlowUpdateTokens),
+        flow_netlink_pin_cpuid_(0),
         stale_interface_cleanup_timeout_
         (Agent::kDefaultStaleInterfaceCleanupTimeout),
         config_file_(), program_name_(),
-        log_file_(), log_local_(false), log_flow_(false), log_level_(),
+        log_file_(), log_files_count_(kLogFilesCount),
+        log_file_size_(kLogFileSize),
+        log_local_(false), log_flow_(false), log_level_(),
         log_category_(), use_syslog_(false),
         http_server_port_(), host_name_(),
         agent_stats_interval_(kAgentStatsInterval),
@@ -1270,7 +1273,11 @@ AgentParam::AgentParam(bool enable_flow_options,
         task_monitor_timeout_msec_(Agent::kDefaultTaskMonitorTimeout),
         qos_priority_tagging_(true),
         default_nic_queue_(Agent::kInvalidQueueId),
-        llgr_params_() {
+        llgr_params_(),
+        mac_learning_thread_count_(Agent::kDefaultFlowThreadCount),
+        mac_learning_add_tokens_(Agent::kMacLearningDefaultTokens),
+        mac_learning_update_tokens_(Agent::kMacLearningDefaultTokens),
+        mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens) {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;

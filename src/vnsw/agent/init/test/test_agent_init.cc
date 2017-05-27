@@ -92,6 +92,10 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.get_nic_queue(8), 2);
     EXPECT_EQ(param.get_nic_queue(105), 8);
     EXPECT_FALSE(param.sandesh_config().disable_object_logs);
+
+    // Logging parameters
+    EXPECT_EQ(param.log_files_count(), kLogFilesCount);
+    EXPECT_EQ(param.log_file_size(), kLogFileSize);
 }
 
 TEST_F(AgentParamTest, Agent_Conf_file_2) {
@@ -127,6 +131,10 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 1000);
     EXPECT_EQ(param.services_queue_limit(), 1024);
     EXPECT_TRUE(param.sandesh_config().disable_object_logs);
+
+    // Logging parameters
+    EXPECT_EQ(param.log_files_count(), 5);
+    EXPECT_EQ(param.log_file_size(), 2048);
 }
 
 TEST_F(AgentParamTest, Agent_Flows_Option_1) {

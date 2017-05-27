@@ -250,6 +250,8 @@ extern void RouterIdDepInit(Agent *agent);
 
 #define VROUTER_SERVER_PORT 20914
 
+#define kLogFilesCount 10
+#define kLogFileSize (1024*1024)
 /****************************************************************************
  * Definitions related to config/resource backup/restore
  ****************************************************************************/
