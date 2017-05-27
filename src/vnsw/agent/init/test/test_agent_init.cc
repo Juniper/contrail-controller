@@ -92,6 +92,11 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.get_nic_queue(8), 2);
     EXPECT_EQ(param.get_nic_queue(105), 8);
     EXPECT_FALSE(param.sandesh_config().disable_object_logs);
+
+    // Logging parameters
+    EXPECT_EQ(param.log_files_count(), kLogFilesCount);
+    EXPECT_EQ(param.log_file_size(), kLogFileSize);
+    EXPECT_STREQ(param.log_level().c_str(), "SYS_NOTICE");
 }
 
 TEST_F(AgentParamTest, Agent_Conf_file_2) {
@@ -127,6 +132,11 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 1000);
     EXPECT_EQ(param.services_queue_limit(), 1024);
     EXPECT_TRUE(param.sandesh_config().disable_object_logs);
+
+    // Logging parameters
+    EXPECT_EQ(param.log_files_count(), 5);
+    EXPECT_EQ(param.log_file_size(), 2048);
+    EXPECT_STREQ(param.log_level().c_str(), "SYS_NOTICE");
 }
 
 TEST_F(AgentParamTest, Agent_Flows_Option_1) {
@@ -406,7 +416,7 @@ TEST_F(AgentParamTest, Default_Cmdline_arg2) {
     EXPECT_STREQ(param.log_category().c_str(), "");
     EXPECT_STREQ(param.log_file().c_str(),
                  Agent::GetInstance()->log_file().c_str());
-    EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
+    EXPECT_STREQ(param.log_level().c_str(), "SYS_NOTICE");
     EXPECT_TRUE(param.isKvmMode());
     EXPECT_EQ(param.agent_mode(), AgentParam::TOR_AGENT);
     EXPECT_TRUE(param.use_syslog());
