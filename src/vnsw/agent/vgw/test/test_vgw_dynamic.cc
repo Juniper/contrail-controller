@@ -192,7 +192,7 @@ static void ValidateVgwInterface(InetUnicastRouteEntry *route,
     EXPECT_TRUE(inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY);
     EXPECT_STREQ(intf->name().c_str(), name);
     EXPECT_TRUE(route->GetActivePath()->GetTunnelBmap() ==
-                TunnelType::GREType());
+                TunnelType::MplsType());
     EXPECT_TRUE(static_cast<const InterfaceNH *>(nh)->GetVrf()->GetName() ==
                 inet_intf->vrf()->GetName());
 }
