@@ -24,7 +24,7 @@ test_flow_mgmt_route = AgentEnv.MakeTestCmd(env, 'test_flow_mgmt_route',
 test_tsn_flow = AgentEnv.MakeTestCmd(env, 'test_tsn_flow', pkt_test_suite)
 test_flow_table = AgentEnv.MakeTestCmd(env, 'test_flow_table', pkt_test_suite)
 test_flow_hc = AgentEnv.MakeTestCmd(env, 'test_flow_hc', pkt_test_suite)
-test_pkt = AgentEnv.MakeTestCmd(env, 'test_pkt', pkt_flaky_test_suite)
+test_pkt = AgentEnv.MakeTestCmd(env, 'test_pkt', pkt_test_suite)
 test_pkt_flow_mock = AgentEnv.MakeTestCmd(env, 'test_pkt_flow_mock',
                                           pkt_flaky_test_suite)
 
@@ -44,7 +44,7 @@ test_flow_policy = AgentEnv.MakeTestCmd(env, 'test_flow_policy', pkt_test_suite)
 test_flow_update = AgentEnv.MakeTestCmd(env, 'test_flow_update', pkt_test_suite)
 test_pkt_flowv6 = AgentEnv.MakeTestCmd(env, 'test_pkt_flowv6', pkt_test_suite)
 test_rpf_uc = AgentEnv.MakeTestCmd(env, 'test_rpf_uc', pkt_test_suite)
-test_pkt_parse = AgentEnv.MakeTestCmd(env, 'test_pkt_parse', pkt_flaky_test_suite)
+test_pkt_parse = AgentEnv.MakeTestCmd(env, 'test_pkt_parse', pkt_test_suite)
 test_flowtable = AgentEnv.MakeTestCmd(env, 'test_flowtable', pkt_test_suite)
 test_pkt_fip = AgentEnv.MakeTestCmd(env, 'test_pkt_fip', pkt_test_suite)
 test_flow_native_lb = AgentEnv.MakeTestCmd(env, 'test_flow_native_lb',

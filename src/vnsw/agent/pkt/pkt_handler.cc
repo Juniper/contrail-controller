@@ -1071,8 +1071,25 @@ void PktInfo::UpdateHeaderPtr() {
     transp.tcp = (struct tcphdr *)(ip + 1);
 }
 
-std::size_t PktInfo::hash(const EcmpLoadBalance &ecmp_load_balance) const {
+std::size_t PktInfo::hash(const Agent *agent,
+                          const EcmpLoadBalance &ecmp_load_balance) const {
     std::size_t seed = 0;
+    // Bug: 1687879
+    // Consider that source compute has 2 member ECMP - compute-1 and compute-2
+    // Compute-1 is chosed in hash is even and Compute-2 is chosen if hash
+    // is add.
+    //
+    // On Compute-1, the hash computation uses same 5-tuple and will always
+    // result in even number. As a result, flows from Compute-1 will go to
+    // even-numbered ECMP members and never odd-numbered members. 
+    // If Compute-2 happens to have only 2 members, all flows go to ecmp-index
+    // 0 and never to 1
+    //
+    // Solution:
+    // We need to ensure that hash computed in Compute-1 and Compute-2 are
+    // different. We also want to have same hash on agent restarts. So, include
+    // vhost-ip also to compute hash
+    boost::hash_combine(seed, agent->router_id().to_ulong());
 
     if (family == Address::INET) {
         if (ecmp_load_balance.is_source_ip_set()) {
@@ -1111,7 +1128,14 @@ std::size_t PktInfo::hash(const EcmpLoadBalance &ecmp_load_balance) const {
     if (ecmp_load_balance.is_destination_port_set()) {
         boost::hash_combine(seed, dport);
     }
-    return seed;
+
+    // When only the sport changes by 2, its observed that only the lower 32
+    // bits of hash changes. Just hash combine upper and lower 32 bit numbers
+    // to randomize in case of incremental sport numbers
+    std::size_t hash = 0;
+    boost::hash_combine(hash, (seed & 0xFFFFFFFF));
+    boost::hash_combine(hash, (seed >> 16));
+    return hash;
 }
 
 uint32_t PktInfo::GetUdpPayloadLength() const {
