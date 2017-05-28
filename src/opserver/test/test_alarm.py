@@ -16,7 +16,7 @@ import unittest
 import collections
 from utils.util import retry
 from collections import namedtuple
-from kafka.common import OffsetAndMessage,Message
+from kafka.consumer.fetcher import ConsumerRecord
 
 from vnc_api.gen.resource_client import Alarm
 from vnc_api.gen.resource_xsd import AlarmExpression, AlarmOperand2, \
@@ -125,20 +125,19 @@ class Mock_get_uve(Mock_base):
             return False, {}
         return False, self.store[key]
 
-class Mock_get_messages(Mock_base):
+class Mock_poll(Mock_base):
     def __init__(self, *args, **kwargs):
         Mock_base.__init__(self)
 
-    def __call__(self, num, timeout):
+    def __call__(self):
         vals = []
         for key in self.store.keys():
             vals.append(self.store[key])
             del self.store[key]
-        gevent.sleep(timeout)
         if len(vals):
-            return vals
+            return {None:vals}
         else:
-            return [None]
+            return {}
 
 class Mock_agp(Mock_base):
     def __init__(self, *args, **kwargs):
@@ -259,19 +258,13 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     def setUpClass(cls):
         cls._pc = mock.patch('opserver.alarmgen.PartitionClient', autospec=True)
         cls._pc.start()
-        cls._kc = mock.patch('opserver.partition_handler.KafkaClient', autospec=True)
+        cls._kc = mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
         cls._kc.start()
-        cls._ac = mock.patch('opserver.alarmgen.KafkaClient', autospec=True)
-        cls._ac.start()
-        cls._sc = mock.patch('opserver.alarmgen.SimpleProducer', autospec=True)
-        cls._sc.start()
 
     @classmethod
     def tearDownClass(cls):
         cls._pc.stop()
         cls._kc.stop()
-        cls._ac.stop()
-        cls._sc.stop()
     
     def setUp(self):
         config = CfgParser('--http_server_port 0 '
@@ -374,11 +367,11 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
-    @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
+    @mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
     # Test partition Initialization, including boot-straping using UVEServer
     # Test partition shutdown as well
     def test_00_init(self,
-            mock_SimpleConsumer,
+            mock_KafkaConsumer,
             mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
@@ -396,9 +389,9 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         m_redis_instances[("127.0.0.1",0)] = 0
         mock_redis_instances.side_effect = m_redis_instances
 
-        m_get_messages = Mock_get_messages()
-        mock_SimpleConsumer.return_value.get_messages.side_effect = \
-            m_get_messages
+        m_poll = Mock_poll()
+        mock_KafkaConsumer.return_value.poll.side_effect = \
+            m_poll
 
         self._ag.libpart_cb([1])
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info))
@@ -417,11 +410,11 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
-    @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
+    @mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
     # Test initialization followed by read from Kafka
     # Also test for deletetion of a boot-straped UVE
     def test_01_rxmsg(self,
-            mock_SimpleConsumer,
+            mock_KafkaConsumer,
             mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
@@ -440,13 +433,13 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         m_redis_instances[("127.0.0.1",0)] = 0
         mock_redis_instances.side_effect = m_redis_instances
 
-        m_get_messages = Mock_get_messages()
-        m_get_messages["ObjectYY:uve2"] = OffsetAndMessage(offset=0,
-                    message=Message(magic=0, attributes=0,
+        m_poll = Mock_poll()
+        m_poll["ObjectYY:uve2"] = ConsumerRecord(topic='-uve',
+                    partition=0, offset=0,
                     key='ObjectYY:uve2|type2|gen1|127.0.0.1:0',
-                    value='{}'))
-        mock_SimpleConsumer.return_value.get_messages.side_effect = \
-            m_get_messages
+                    value='{}')
+        mock_KafkaConsumer.return_value.poll.side_effect = \
+            m_poll
 
         self._ag.libpart_cb([1])
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info, False))
@@ -460,11 +453,11 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
     @mock.patch.object(UVEServer, 'redis_instances')
     @mock.patch.object(UVEServer, 'get_part')
     @mock.patch.object(UVEServer, 'get_uve')
-    @mock.patch('opserver.partition_handler.SimpleConsumer', autospec=True)
+    @mock.patch('opserver.partition_handler.KafkaConsumer', autospec=True)
     # Test late bringup of collector
     # Also test collector shutdown
     def test_02_collectorha(self,
-            mock_SimpleConsumer,
+            mock_KafkaConsumer,
             mock_get_uve, mock_get_part, mock_redis_instances,
             mock_send_agg_uve, mock_clear_agg_uve, mock_reconnect_agg_uve):
 
@@ -488,13 +481,13 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         mock_redis_instances.side_effect = m_redis_instances
 
         # When this message is read, 127.0.0.5 will not be present
-        m_get_messages = Mock_get_messages()
-        m_get_messages["ObjectYY:uve2"] = OffsetAndMessage(offset=0,
-                    message=Message(magic=0, attributes=0,
+        m_poll = Mock_poll()
+        m_poll["ObjectYY:uve2"] = ConsumerRecord(topic='-uve',
+                    partition=0, offset=0,
                     key='ObjectYY:uve2|type2|gen1|127.0.0.5:0',
-                    value='{}'))
-        mock_SimpleConsumer.return_value.get_messages.side_effect = \
-            m_get_messages
+                    value='{}')
+        mock_KafkaConsumer.return_value.poll.side_effect = \
+            m_poll
 
         self._ag.libpart_cb([1])
 
@@ -505,10 +498,10 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
 
         self.assertTrue(self.checker_dict([1, "ObjectYY", "uve2"], self._ag.ptab_info, False))
         # Feed the message in again
-        m_get_messages["ObjectYY:uve2"] = OffsetAndMessage(offset=0,
-                    message=Message(magic=0, attributes=0,
+        m_poll["ObjectYY:uve2"] = ConsumerRecord(topic='-uve',
+                    partition=0, offset=0,
                     key='ObjectYY:uve2|type2|gen1|127.0.0.5:0',
-                    value='{}'))
+                    value='{}')
         self.assertTrue(self.checker_dict([1, "ObjectYY", "uve2"], self._ag.ptab_info))
 
         

@@ -66,7 +66,6 @@ from opserver_util import AnalyticsDiscovery
 from stevedore import hook, extension
 from pysandesh.util import UTCTimestampUsec
 from libpartition.libpartition import PartitionClient
-from kafka import KafkaClient, SimpleProducer
 import redis
 from collections import namedtuple
 from strict_redis_wrapper import StrictRedisWrapper
@@ -1128,7 +1127,7 @@ class Controller(object):
                     for kk in types.keys():
                         self._uveq[part][uv][kk] = {}
 
-    def handle_resource_check(self, part, current_inst, msgs):
+    def handle_resource_check(self, part, current_inst):
         """
         This function compares the set of synced redis instances
         against the set now being reported by UVEServer
