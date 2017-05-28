@@ -1654,7 +1654,7 @@ void InetUnicastAgentRouteTable::AddInetInterfaceRouteReq(const Peer *peer,
                                                           const VnListType &vn_list) {
     InetInterfaceKey intf_key(interface);
     InetInterfaceRoute *data = new InetInterfaceRoute
-        (intf_key, label, TunnelType::GREType(), vn_list,
+        (intf_key, label, TunnelType::MplsType(), vn_list,
          peer->sequence_number());
 
     AddInetInterfaceRouteReq(peer, vm_vrf, addr, plen, data);

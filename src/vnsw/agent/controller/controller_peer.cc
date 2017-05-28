@@ -1067,7 +1067,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                 InetInterfaceKey intf_key(interface->name());
                 InetInterfaceRoute *inet_interface_route =
                     new InetInterfaceRoute(intf_key, label,
-                                           TunnelType::GREType(),
+                                           TunnelType::MplsType(),
                                            vn_list, sequence_number());
 
                 rt_table->AddInetInterfaceRouteReq(bgp_peer, vrf_name,
