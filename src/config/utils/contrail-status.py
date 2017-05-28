@@ -29,6 +29,7 @@ from lxml import etree
 from sandesh_common.vns.constants import ServiceHttpPortMap, \
     NodeUVEImplementedServices, ServicesDefaultConfigurationFiles, \
     BackupImplementedServices
+from distutils.version import LooseVersion
 
 DPDK_NETLINK_TCP_PORT = 20914
 
@@ -93,21 +94,30 @@ CONTRAIL_SUPPORT_SERVICES_NODETYPE = { 'redis-server' : ['webui', 'analytics'],
                                'rabbitmq-server' : ['config'],
                                'zookeeper' : ['config']
                             }
-distribution = platform.linux_distribution()[0].lower()
-if distribution.startswith('centos') or \
-   distribution.startswith('red hat'):
-    distribution = 'redhat'
-elif distribution.startswith('ubuntu'):
-    distribution = 'debian'
+
+(distribution, os_version, os_id) = \
+    platform.linux_distribution(full_distribution_name=0)
+distribution = distribution.lower()
+
+def is_xenial_or_above():
+    is_xenial_or_above = False
+    if distribution == 'ubuntu' and \
+            (LooseVersion(os_version) >= LooseVersion('16.04')):
+        is_xenial_or_above = True
+    return is_xenial_or_above
+# end is_xenial_or_above
 
 def get_init_systems():
     init_sys_used = None
-    try:
-        with open(os.devnull, "w") as fnull:
-            subprocess.check_call(["pidof", "systemd"], stdout=fnull,
-                    stderr=fnull)
+    # Earlier, we were checking pidof systemd howwver that is not a
+    # full proof check since on ubuntu 16.04 /sbin/init is symlinked to
+    # systemd and there is no process named systemd running. Also on
+    # centos7/redhat even though systemd is running but we are still using
+    # supervisor. Hence we will do platform distribution check to determine
+    # the init systems
+    if is_xenial_or_above():
         init = 'systemd'
-    except:
+    else:
         try:
             with open(os.devnull, "w") as fnull:
                 subprocess.check_call(["initctl", "list"], stdout=fnull,
@@ -130,7 +140,7 @@ def get_init_systems():
     # contrail services in redhat system uses sysv, though systemd is default.
     if not init_sys_used:
         init_sys_used = init
-    if distribution in ['redhat']:
+    if distribution in ['redhat', 'centos']:
         init_sys_used = 'sysv'
     return (init, init_sys_used)
 # end get_init_systems
@@ -266,15 +276,15 @@ def service_installed(svc, initd_svc):
     si_init = init_sys_used
     if initd_svc:
         si_init = 'sysv'
-    if distribution == 'redhat':
-        cmd = 'chkconfig --list %s' % svc
+    elif distribution in ['redhat', 'centos']:
+        si_init = 'systemd'
+
+    if si_init == 'systemd':
+        cmd = 'systemctl cat %s' % svc
+    elif si_init == 'upstart':
+        cmd = 'initctl show-config %s' % svc
     else:
-        if si_init == 'systemd':
-            cmd = 'systemctl cat %s' % svc
-        elif si_init == 'upstart':
-            cmd = 'initctl show-config %s' % svc
-        else:
-            return os.path.exists('/etc/init.d/%s' % svc)
+        return os.path.exists('/etc/init.d/%s' % svc)
     with open(os.devnull, "w") as fnull:
         return not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull)
 # end service_installed
@@ -283,26 +293,26 @@ def service_bootstatus(svc, initd_svc):
     sb_init = init_sys_used
     if initd_svc:
         sb_init = 'sysv'
-    if distribution == 'redhat':
-        cmd = 'chkconfig %s' % svc
-    else:
-        if sb_init == 'systemd':
-            cmd = 'systemctl is-enabled %s' % svc
-        elif sb_init == 'upstart':
-            cmd = 'initctl show-config %s' % svc
-            cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
-            if cmdout.find('  start on') != -1:
-                return ''
-            else:
-                return ' (disabled on boot)'
+    elif distribution in ['redhat', 'centos']:
+        sb_init = 'systemd'
+
+    if sb_init == 'systemd':
+        cmd = 'systemctl is-enabled %s' % svc
+    elif sb_init == 'upstart':
+        cmd = 'initctl show-config %s' % svc
+        cmdout = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()[0]
+        if cmdout.find('  start on') != -1:
+            return ''
         else:
-            # On ubuntu/debian there does not seem to be an easy way to find
-            # the boot status for init.d services without going through the
-            # /etc/rcX.d level
-            if glob.glob('/etc/rc*.d/S*%s' % svc):
-                return ''
-            else:
-                return ' (disabled on boot)'
+            return ' (disabled on boot)'
+    else:
+        # On ubuntu/debian there does not seem to be an easy way to find
+        # the boot status for init.d services without going through the
+        # /etc/rcX.d level
+        if glob.glob('/etc/rc*.d/S*%s' % svc):
+            return ''
+        else:
+            return ' (disabled on boot)'
 
     with open(os.devnull, "w") as fnull:
         if not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull):
@@ -326,11 +336,17 @@ def service_status(svc, check_return_code):
         return 'inactive'
 # end service_status
 
-def check_svc(svc, initd_svc=False, check_return_code=False):
+def check_svc(svc, initd_svc=False, check_return_code=False,
+              options=None):
     psvc = svc + ':'
     if service_installed(svc, initd_svc):
         bootstatus = service_bootstatus(svc, initd_svc)
         status = service_status(svc, check_return_code)
+        if options:
+            status = get_svc_uve_info(svc, status, options.debug,
+                options.detail, options.timeout, options.keyfile,
+                options.cacert, options.certfile)
+        print '{0:<30}{1:<20}{2}'.format(psvc, status, bootstatus)
     else:
         bootstatus = ' (disabled on boot)'
         status='inactive'
@@ -458,7 +474,46 @@ def check_tor_agent_svc_status(svc_name, options):
                     svc_name = svc_name + '-' + tor_agent_service_name[3]
                     check_status(svc_name, options)
 
-def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile, cacert):
+def get_svc_uve_info(svc_name, svc_status, debug, detail, timeout, keyfile,
+                     certfile, cacert):
+    # Extract UVE state only for running processes
+    svc_uve_description = None
+    if (svc_name in NodeUVEImplementedServices or
+            svc_name.rsplit('-', 1)[0] in NodeUVEImplementedServices) and \
+            svc_status == 'active':
+        try:
+            svc_uve_status, svc_uve_description = \
+                get_svc_uve_status(svc_name, debug, timeout, keyfile,\
+                                   certfile, cacert)
+        except requests.ConnectionError, e:
+            if debug:
+                print 'Socket Connection error : %s' % (str(e))
+            svc_uve_status = "connection-error"
+        except (requests.Timeout, socket.timeout) as te:
+            if debug:
+                print 'Timeout error : %s' % (str(te))
+            svc_uve_status = "connection-timeout"
+
+        if svc_uve_status is not None:
+            if svc_uve_status == 'Non-Functional':
+                svc_status = 'initializing'
+            elif svc_uve_status == 'connection-error':
+                if svc_name in BackupImplementedServices:
+                    svc_status = 'backup'
+                else:
+                    svc_status = 'initializing'
+            elif svc_uve_status == 'connection-timeout':
+                svc_status = 'timeout'
+        else:
+            svc_status = 'initializing'
+        if svc_uve_description is not None and svc_uve_description is not '':
+            svc_status = svc_status + ' (' + svc_uve_description + ')'
+
+    return svc_status
+# end get_svc_uve_info
+
+def check_supervisor_svc_status(service_name, debug, detail, timeout, keyfile,
+                                certfile, cacert):
     service_sock = service_name.replace('-', '_')
     service_sock = service_sock.replace('supervisor_', 'supervisord_') + '.sock'
     if os.path.exists('/tmp/' + service_sock):
@@ -484,55 +539,30 @@ def check_svc_status(service_name, debug, detail, timeout, keyfile, certfile, ca
                 svc_name = supervisor_svc_info[0]
                 svc_status = supervisor_svc_info[1]
                 svc_detail_info = ' '.join(supervisor_svc_info[2:])
-                # Extract UVE state only for running processes
-                svc_uve_description = None
-                if (svc_name in NodeUVEImplementedServices or
-                    svc_name.rsplit('-', 1)[0] in NodeUVEImplementedServices) and svc_status == 'active':
-                    try:
-                        svc_uve_status, svc_uve_description = \
-                        get_svc_uve_status(svc_name, debug, timeout, keyfile,\
-                                certfile, cacert)
-                    except requests.ConnectionError, e:
-                        if debug:
-                            print 'Socket Connection error : %s' % (str(e))
-                        svc_uve_status = "connection-error"
-                    except (requests.Timeout, socket.timeout) as te:
-                        if debug:
-                            print 'Timeout error : %s' % (str(te))
-                        svc_uve_status = "connection-timeout"
-
-                    if svc_uve_status is not None:
-                        if svc_uve_status == 'Non-Functional':
-                            svc_status = 'initializing'
-                        elif svc_uve_status == 'connection-error':
-                            if svc_name in BackupImplementedServices:
-                                svc_status = 'backup'
-                            else:
-                                svc_status = 'initializing'
-                        elif svc_uve_status == 'connection-timeout':
-                            svc_status = 'timeout'
-                    else:
-                        svc_status = 'initializing'
-                    if svc_uve_description is not None and svc_uve_description is not '':
-                        svc_status = svc_status + ' (' + svc_uve_description + ')'
-
+                svc_status = get_svc_uve_info(svc_name, svc_status, debug, detail,
+                        timeout, keyfile, certfile, cacert)
                 if not detail:
                     print '{0:<30}{1:<20}'.format(svc_name, svc_status)
                 else:
                     print '{0:<30}{1:<20}{2:<40}'.format(svc_name, svc_status, svc_detail_info)
         print
+# end check_supervisor_svc_status
 
 def check_status(svc_name, options):
     do_check_svc = True
+    # In ubuntu 14.04 docker, the docker entrypoint launches supervisor-X and
+    # so there is no initd entry for supervisor-X
     if init_sys_used in ['supervisor'] and svc_name.startswith('supervisor'):
         do_check_svc = False
     if do_check_svc:
-        check_svc(svc_name)
-    if init_sys_used not in ['systemd']:
-        if svc_name.startswith('supervisor'):
-            check_svc_status(svc_name, options.debug, options.detail, \
+        check_svc(svc_name, options=options)
+    # Check supervisor-X status to get details about processes launched by
+    # supervisor
+    if svc_name.startswith('supervisor'):
+        check_supervisor_svc_status(svc_name, options.debug, options.detail, \
                     options.timeout, options.keyfile, options.certfile, \
                     options.cacert)
+# end check_status
 
 install_service = []
 def service_check_customer(svc):
@@ -569,9 +599,13 @@ def contrail_service_status(nodetype, options):
         check_return_code = True
         check_svc('contrail-database', initd_svc=initd_svc,
             check_return_code=check_return_code)
-        print ""
-        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
-            check_status(svc_name, options)
+        # Verify if this is analyticsdb node or config node by
+        # checking contrail-openstack-database.
+        analyticsdb = package_installed('contrail-openstack-database')
+        if analyticsdb:
+            print
+            for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+                check_status(svc_name, options)
     elif nodetype == 'webui':
         print "== Contrail Web UI =="
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
@@ -591,12 +625,12 @@ def contrail_service_status(nodetype, options):
     install_service.append(nodetype)
 
 def package_installed(pkg):
-    if distribution == 'debian':
+    if distribution in ['debian', 'ubuntu']:
         cmd = "dpkg-query -W -f=${VERSION} " + pkg
         # Handling virtual package in ubuntu
         if pkg == 'contrail-vrouter':
             cmd = "dpkg -l " + pkg
-    elif distribution == 'redhat':
+    elif distribution in ['redhat', 'centos']:
         cmd = "rpm -q --qf %{V} " + pkg
     with open(os.devnull, "w") as fnull:
         try:
