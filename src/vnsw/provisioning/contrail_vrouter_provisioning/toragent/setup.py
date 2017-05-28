@@ -6,6 +6,7 @@ import os
 import sys
 import argparse
 import platform
+import socket
 
 from contrail_vrouter_provisioning import local
 from contrail_vrouter_provisioning.base import ContrailSetup
@@ -23,12 +24,13 @@ class TorAgentBaseSetup(ContrailSetup):
         # if the non_mgmt_ip is set use this as control ip
         if self._args.non_mgmt_ip:
             self._args.self_ip = self._args.non_mgmt_ip
-
+        if self._args.tor_agent_name is None:
+            self._args.tor_agent_name = socket.gethostname()+ '-' + str(self._args.tor_id)
     def fixup_tor_agent(self):
         #if self._args.tor_ovs_protocol.lower() == 'pssl':
-        self.ssl_cacert = '/etc/contrail/ssl/certs/ca-cert.pem'
+        self.ssl_cacert = '/etc/contrail/ssl/certs/tor-ca-cert.pem'
         self.ssl_cert = '/etc/contrail/ssl/certs/tor.' + self._args.tor_id + '.cert.pem'
-        self.ssl_privkey = '/etc/contrail/ssl/private/tor.' + self._args.tor_id + '.privkey.pem'
+        self.ssl_privkey = '/etc/contrail/ssl/private/tor.' + self._args.tor_id + '.private.pem'
         control_servers = ' '.join('%s:%s' % (server, '5269')
                                    for server in self._args.control_nodes)
         collector_servers = ' '.join('%s:%s' % (server, '8086')
@@ -130,7 +132,8 @@ class TorAgentBaseSetup(ContrailSetup):
         cmd += " --openstack_ip %s" % self._args.authserver_ip
         if self._args.auth_protocol == 'https':
             cmd += " --api_server_use_ssl True"
-        cmd += " --product_name %s" %(self._args.tor_product_name)
+        if self._args.tor_product_name:
+            cmd += " --product_name %s" %(self._args.tor_product_name)
         cmd += " --oper add "
         local(cmd)
     
@@ -169,8 +172,10 @@ class TorAgentSetup(ContrailSetup):
             'admin_passwd':None,
             'admin_tenant_name':'admin',
             'auth_protocol':None,
+            'tor_agent_name':None,
             'tor_vendor_name':'',
             'tor_product_name':'',
+            'http_server_port':9090,
             'tor_agent_ovs_ka':10000,
             'restart':True
         }
