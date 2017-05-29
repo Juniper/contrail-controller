@@ -552,12 +552,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          description='List of subnets associated with this floating ip pool.'/>
 </xsd:complexType>
 
-<xsd:complexType name="SubnetListType">
-    <xsd:all>
-        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded"/>
-    </xsd:all>
-</xsd:complexType>
-
 <xsd:complexType name="IpamSubnetType">
     <xsd:all>
         <xsd:element name="subnet" type="SubnetType"  required='true'
@@ -3175,12 +3169,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <!-- New firewall rule start -->
 
-<xsd:complexType name="FirewallSequence">
-    <xsd:all>
-        <xsd:element name="sequence" type="bgp:SequenceNumberType" required='true'/>
-    </xsd:all>
-</xsd:complexType>
-
 <xsd:simpleType name="TagValueRangeType">
     <xsd:annotation>
         <xsd:documentation>
@@ -3235,4 +3223,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('object-tag', 'all', 'tag', ['ref'], 'optional', 'CRUD',
           'Tag attached to an object - has a type and value') -->
 
+<xsd:element name="application-policy-set-global-vrouter-config"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('application-policy-set-global-vrouter-config',
+          'application-policy-set', 'global-vrouter-config', ['ref'], 'system-internal', 'CRUD',
+          'Reference to global-vrouter-config is automatically created by system for global
+           application policy sets') -->
+<xsd:element name="firewall-rule-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('firewall-rule-virtual-network',
+          'firewall-rule', 'virtual-network', ['ref'], 'optional', 'R',
+          'Reference to virtual network attached to endpoints') -->
 </xsd:schema>
