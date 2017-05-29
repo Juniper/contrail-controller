@@ -336,7 +336,7 @@ class TestFw(test_case.ApiServerTestCase):
         match_tags = ['application', 'tier', 'deployment', 'site']
         rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
                      action_list=ActionListType(simple_action='pass'),
-                     match_tags=FirewallTagListType(tag_list=match_tags),
+                     match_tags=FirewallRuleMatchTagsType(tag_list=match_tags),
                      endpoint_1=FirewallRuleEndpointType(any=True),
                      endpoint_2=FirewallRuleEndpointType(any=True),
                      direction='<>')
