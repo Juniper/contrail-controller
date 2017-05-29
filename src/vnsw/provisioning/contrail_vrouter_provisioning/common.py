@@ -664,6 +664,9 @@ SUBCHANNELS=1,2,3
         if self.running_in_container:
             for svc in ['contrail-vrouter-agent', 'contrail-vrouter-nodemgr']:
                 local('sudo service %s restart' % svc)
+        # TODO need to if  we can skip this restart.
+        if self._args.tsn_mode:
+            local('sudo service supervisor-vrouter restart')
 
     def add_vnc_config(self):
         compute_ip = self._args.self_ip
@@ -769,21 +772,24 @@ SUBCHANNELS=1,2,3
         # Stop if running on TSN node
         if local("sudo service nova-compute status | grep running").succeeded:
             # Stop the service
-            local("sudo service nova-compute stop")
-            if self.pdist in DEBIAN:
+            local("sudo service nova-compute stop", warn_only=True)
+            if self.pdist in ['Ubuntu']:
                 local('sudo echo "manual" >> /etc/init/nova-compute.override')
             else:
                 local('sudo chkconfig nova-compute off')
-        # Remove TSN node from nova manage service list
-        # Mostly require when converting an exiting compute to TSN
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        session = ssh.connect(self._args.keystone_ip, \
-                              self._args.keystone_admin_user, \
-                              self._args.keystone_admin_password)
-        cmd = "nova-manage service disable --host=%s --service=nova-compute" \
-                %(compute_hostname)
-        stdin, stdout, stderr = session.exec_command(cmd)
+            # Remove TSN node from nova manage service list
+            # Mostly require when converting an exiting compute to TSN
+            try:
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                session = ssh.connect(self._args.keystone_ip, \
+                        self._args.keystone_admin_user, \
+                        self._args.keystone_admin_password)
+                cmd = "nova-manage service disable --host=%s --service=nova-compute" \
+                        %(compute_hostname)
+                stdin, stdout, stderr = session.exec_command(cmd)
+            except Exception:
+                log.error("ssh connection to openstack node failed ")
 
     def add_tsn_vnc_config(self):
         tsn_ip = self._args.self_ip
@@ -795,15 +801,15 @@ SUBCHANNELS=1,2,3
                       self._args.keystone_admin_user,
                       self._args.keystone_admin_password,
                       self._args.keystone_admin_tenant_name, self._args.keystone_ip)
-        if apiserver_ssl_enabled():
-           prov_args += " --api_server_use_ssl True"
+        if self._args.keystone_auth_protocol == 'https':
+            prov_args += " --api_server_use_ssl True"
         local("python /opt/contrail/utils/provision_vrouter.py %s" %(prov_args))
 
-    def start_tsn_service():
+    def start_tsn_service(self):
         nova_conf_file = '/etc/contrail/contrail-vrouter-agent.conf'
-        sudo("openstack-config --set %s DEFAULT agent_mode tsn" % nova_conf_file)
+        local("openstack-config --set %s DEFAULT agent_mode tsn" % nova_conf_file)
 
-    def setup_tsn_node():
+    def setup_tsn_node(self):
         self.disable_nova_compute()
         self.add_tsn_vnc_config()
         self.start_tsn_service()
