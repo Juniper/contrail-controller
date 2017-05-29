@@ -1611,11 +1611,11 @@ class VncApiServer(object):
             return True
 
         env = bottle.request.headers.environ
+        roles = []
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
             if field in env:
-                roles = env[field].split(',')
-                return has_role(self.cloud_admin_role, roles)
-        return False
+                roles.extend(env[field].split(','))
+        return has_role(self.cloud_admin_role, roles)
 
     def get_auth_headers_from_token(self, request, token):
         if self.is_auth_disabled() or not self.is_multi_tenancy_set():
