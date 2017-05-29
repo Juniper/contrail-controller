@@ -131,6 +131,7 @@ protected:
 
 private:
     friend class TcpSession;
+    friend class SslSession;
     friend class TcpMessageWriter;
     friend class BgpServerUnitTest;
     friend void intrusive_ptr_add_ref(TcpServer *server);

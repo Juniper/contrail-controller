@@ -212,6 +212,7 @@ protected:
 
     // Protects session state and buffer queue.
     mutable tbb::mutex mutex_;
+    io::SocketStats stats_;
 
 private:
     class Reader;
@@ -261,7 +262,6 @@ private:
     tbb::mutex obs_mutex_;
     EventObserver observer_;
 
-    io::SocketStats stats_;
     boost::scoped_ptr<TcpMessageWriter> writer_;
 
     tbb::atomic<int> refcount_;
