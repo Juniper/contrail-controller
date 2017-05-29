@@ -29,6 +29,7 @@ public:
         WAIT_FOR(1000, 100, (flow_proto_->FlowCount() == 0U));
 
         client->agent()->flow_stats_manager()->set_delete_short_flow(false);
+        FlowStatsTimerStartStop(agent_, true);
     }
 
     virtual void TearDown() {
@@ -37,6 +38,7 @@ public:
         client->WaitForIdle();
 
         WAIT_FOR(1000, 100, (0U == flow_proto_->FlowCount()));
+        FlowStatsTimerStartStop(agent_, false);
     }
 
     Agent *agent_;
@@ -1083,6 +1085,7 @@ TEST_F(FlowTest, DuplicateFlow_1) {
 
 // Nat to Non-Nat flow conversion test for traffic from VM to local VM
 TEST_F(FlowTest, Nat2NonNat) {
+    FlowStatsTimerStartStop(agent_, false);
     //Create a Nat Flow
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
     client->WaitForIdle();
@@ -1144,6 +1147,7 @@ TEST_F(FlowTest, Nat2NonNat) {
 
 // Non-Nat to Nat flow conversion test for traffic from VM to local VM
 TEST_F(FlowTest, NonNat2Nat) {
+    FlowStatsTimerStartStop(agent_, false);
     agent_->flow_stats_manager()->
         default_flow_stats_collector_obj()->
         SetFlowAgeTime(FlowStatsCollector::FlowAgeTime);
@@ -1577,6 +1581,7 @@ TEST_F(FlowTest, Prefer_policy_over_fip_LPM_route_add_after_flow) {
 
 TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
     client->agent()->flow_stats_manager()->set_delete_short_flow(false);
+    FlowStatsTimerStartStop(agent_, false);
     Ip4Address addr = Ip4Address::from_string("20.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", addr, 30, gw,
@@ -1612,6 +1617,7 @@ TEST_F(FlowTest, Prefer_policy_later_moveto_fip_for_LPM) {
 }
 
 TEST_F(FlowTest, Prefer_fip_nochange_for_lower_LPM_in_policy) {
+    FlowStatsTimerStartStop(agent_, false);
     Ip4Address addr = Ip4Address::from_string("20.1.1.1");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
     Inet4TunnelRouteAdd(bgp_peer_, "default-project:vn2:vn2", addr, 32, gw,
