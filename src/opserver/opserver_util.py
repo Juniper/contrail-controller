@@ -129,7 +129,8 @@ class AnalyticsDiscovery(gevent.Greenlet):
             self._logger = logger
         self._conn_state = None
         self._sandesh_connection_info_update(status='INIT', message='')
-        self._zk = KazooClient(hosts=zkservers)
+        self._zkservers = zkservers
+        self._zk = None
         self._pubinfo = None
         self._publock = Semaphore()
         self._watchers = watchers
@@ -186,18 +187,24 @@ class AnalyticsDiscovery(gevent.Greenlet):
     def _run(self):
         while True:
             try:
+                self._logger.error("Analytics Discovery zk start")
+                self._zk = KazooClient(hosts=self._zkservers)
                 self._zk.start()
                 break
-            except gevent.event.Timeout as e:
-                # Update connection info
-                self._sandesh_connection_info_update(status='DOWN',
-                                                         message=str(e))
-                gevent.sleep(1)
-                # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
                 # Update connection info
                 self._sandesh_connection_info_update(status='DOWN',
                                                      message=str(e))
+                try:
+                    self._zk.stop()
+                    self._zk.close()
+                except Exception as ex:
+                    template = "Exception {0} in AnalyticsDiscovery zkstart. Args:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("%s : traceback %s for %s info %s" % \
+                        (messag, traceback.format_exc(), self._svc_name))
+                finally:
+                    self._zk = None
                 gevent.sleep(1)
 
         try:
