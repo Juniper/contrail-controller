@@ -415,20 +415,25 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
     switch (req->event()) {
     case FlowMgmtRequest::UPDATE_FLOW: {
         FlowEntry *flow = req->flow().get();
-        {
-            // Before processing event, set the request pointer in flow to
-            // NULL. This ensures flow-entry enqueues new request from now
-            // onwards
-            tbb::mutex::scoped_lock mutex(flow->mutex());
-            flow->set_flow_mgmt_request(NULL);
-        }
+        // Before processing event, set the request pointer in flow to
+        // NULL. This ensures flow-entry enqueues new request from now
+        // onwards
+        tbb::mutex::scoped_lock mutex(flow->mutex());
+        flow->set_flow_mgmt_request(NULL);
 
         // Update flow-mgmt information based on flow-state
-        if (req->flow()->deleted() == false) {
+        if (flow->deleted() == false) {
             FlowMgmtRequestPtr log_req(new FlowMgmtRequest
                                        (FlowMgmtRequest::ADD_FLOW,
                                         req->flow().get()));
             log_queue_.Enqueue(log_req);
+
+            //Enqueue Add request to flow-stats-collector
+            agent_->flow_stats_manager()->AddEvent(req->flow());
+
+            //Enqueue Add request to UVE module for ACE stats
+            EnqueueUveAddEvent(flow);
+
             AddFlow(req->flow());
 
         } else {
@@ -436,6 +441,13 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
                                        (FlowMgmtRequest::DELETE_FLOW,
                                         req->flow().get(), req->params()));
             log_queue_.Enqueue(log_req);
+
+            //Enqueue Delete request to flow-stats-collector
+            agent_->flow_stats_manager()->DeleteEvent(flow, req->params());
+
+            //Enqueue Delete request to UVE module for ACE stats
+            EnqueueUveDeleteEvent(flow);
+
             DeleteFlow(req->flow(), req->params());
         }
         break;
@@ -492,25 +504,11 @@ bool FlowMgmtManager::LogHandler(FlowMgmtRequestPtr req) {
     switch (req->event()) {
     case FlowMgmtRequest::ADD_FLOW: {
         LogFlowUnlocked(flow, "ADD");
-
-        //Enqueue Add request to flow-stats-collector
-        agent_->flow_stats_manager()->AddEvent(req->flow());
-
-        //Enqueue Add request to UVE module for ACE stats
-        EnqueueUveAddEvent(flow);
-
         break;
     }
 
     case FlowMgmtRequest::DELETE_FLOW: {
         LogFlowUnlocked(flow, "DEL");
-
-        //Enqueue Delete request to flow-stats-collector
-        agent_->flow_stats_manager()->DeleteEvent(flow, req->params());
-
-        //Enqueue Delete request to UVE module for ACE stats
-        EnqueueUveDeleteEvent(flow);
-
         break;
     }
 
@@ -538,7 +536,6 @@ void FlowMgmtManager::LogFlowUnlocked(FlowEntry *flow, const std::string &op) {
 // Extract all the FlowMgmtKey for a flow
 void FlowMgmtManager::MakeFlowMgmtKeyTree(FlowEntry *flow,
                                           FlowMgmtKeyTree *tree) {
-    tbb::mutex::scoped_lock mutex(flow->mutex());
     acl_flow_mgmt_tree_.ExtractKeys(flow, tree);
     interface_flow_mgmt_tree_.ExtractKeys(flow, tree);
     vn_flow_mgmt_tree_.ExtractKeys(flow, tree);
