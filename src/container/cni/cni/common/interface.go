@@ -21,6 +21,12 @@ import (
 // Number of characters to pick from UUID for ifname
 const CNI_UUID_IFNAME_LEN = 11
 
+// Number of characters from start to pick from container-id for ifname
+const CNI_ID_IFNAME_START_LEN = 5
+
+// Number of characters from end to pick from container-id for ifname
+const CNI_ID_IFNAME_END_LEN = 5
+
 // Default MTU for interface configured
 const CNI_MTU = 1500
 
@@ -35,6 +41,7 @@ type CniIntfMethods interface {
 
 // Base definition for CniIntf
 type CniIntf struct {
+	containerId        string
 	containerUuid      string
 	containerIfName    string
 	containerNamespace string
