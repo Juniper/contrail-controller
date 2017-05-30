@@ -5,6 +5,12 @@
     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
 
+<xsd:complexType name="SubnetListType">
+    <xsd:all>
+        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="FirewallServiceType">
     <xsd:all>
         <xsd:element name="protocol"     type="xsd:string"
@@ -94,16 +100,17 @@
 <!--#IFMAP-SEMANTICS-IDL
      Property('direction', 'firewall-rule', 'required', 'CRUD',
               'Direction in the rule') -->
-<xsd:element name="firewall-rule-virtual-network"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Link('firewall-rule-virtual-network',
-          'firewall-rule', 'virtual-network', ['ref'], 'optional', 'R',
-          'Reference to virtual network attached to endpoints') -->
 <xsd:element name="firewall-rule-address-group"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('firewall-rule-address-group',
           'firewall-rule', 'address-group', ['ref'], 'optional', 'R',
           'Reference to address group attached to endpoints') -->
+
+<xsd:complexType name="FirewallSequence">
+    <xsd:all>
+        <xsd:element name="sequence" type="bgp:SequenceNumberType" required='true'/>
+    </xsd:all>
+</xsd:complexType>
 
 <xsd:element name="firewall-policy" type="ifmap:IdentityType"/>
 <xsd:element name="firewall-policy-firewall-rule" type="FirewallSequence"/>
@@ -124,19 +131,8 @@
      Property('is-global', 'application-policy-set', 'optional', 'R',
               'If set, indicates application policy set to be applied globally') -->
 <!-- global flag in application policy set not controlled by user -->
-<xsd:element name="application-policy-set-global-vrouter-config"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Link('application-policy-set-global-vrouter-config',
-          'application-policy-set', 'global-vrouter-config', ['ref'], 'system-internal', 'CRUD',
-          'Reference to global-vrouter-config is automatically created by system for global
-           application policy sets') -->
 
 <xsd:element name="policy-management" type="ifmap:IdentityType"/>
-<xsd:element name="config-root-policy-management"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Link('config-root-policy-management',
-           'config-root', 'policy-management', ['has'], 'required', 'R',
-           'Policy management object container of firewall related objects') -->
 <xsd:element name="policy-management-service-group"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('policy-management-service-group',
