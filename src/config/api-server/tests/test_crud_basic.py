@@ -4700,6 +4700,592 @@ class TestDbJsonExim(test_case.ApiServerTestCase):
     # end test_db_export_and_import
 # end class TestDbJsonExim
 
+class TestPagination(test_case.ApiServerTestCase):
+    default_paginate_count = 5
+    @classmethod
+    def setUpClass(cls):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        return super(TestPagination, cls).setUpClass(
+            extra_config_knobs=[('DEFAULTS', 'paginate_count',
+            TestPagination.default_paginate_count)])
+    # end setUpClass
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestPagination, cls).tearDownClass(*args, **kwargs)
+    # end tearDownClass
+
+    class FetchExpect(object):
+        def __init__(self, num_objs, marker):
+            self.num_objs = num_objs
+            self.marker = marker
+    # end FetchExpect
+
+    def _create_vn_collection(self, count, proj_obj=None):
+        return self._create_test_objects(count=count, proj_obj=proj_obj)
+    # end _create_vn_collection
+
+    def _create_vmi_collection(self, count, vn_obj):
+        proj_obj = self._vnc_lib.project_read(id=vn_obj.parent_uuid)
+        vmi_objs = []
+        for i in range(count):
+            vmi_obj = VirtualMachineInterface(
+                'vmi-%s-%s-%s' %(self.id(), vn_obj.name, i),
+                parent_obj=proj_obj)
+            vmi_obj.add_virtual_network(vn_obj)
+            self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+            vmi_objs.append(vmi_obj)
+
+        return vmi_objs
+    # end _create_vmi_collection
+
+    def test_validate_input(self):
+        # * fail 400 if last part of non-None page_marker is not alphanumeric 
+        #   (non-None marker is uuid in anchored walks and fq_name_str_uuid
+        #    in unanchored walks)
+        # * fail 400 if page_limit is not number(None, string, array, dict)
+        pass
+    # end test_validate_input
+
+    def test_unanchored(self):
+        # 1. create a collection of n
+        # * cover with marker=None, no limit specified, run should be
+        #    n/(default limit)
+        # * cover with marker=None, limit=n, run should be 1
+        # * cover with marker=None, limit=n/2, run should be 2
+        # * cover with marker=None, limit=1, run should be n
+        # * cover with marker=None, limit<=0, run should be 1
+        # * cover with marker=1, limit=n, run should be 1
+        # * cover with marker=n, limit=n, run should be 1 and empty
+        # * cover with marker=1, limit<=0, run should be 1
+        # * test with unicode/non-ascii char in fqn
+        vn_objs = self._create_vn_collection(self.default_paginate_count*2)
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        def verify_collection_walk(page_limit=None):
+            marker = None
+            all_vn_ids = []
+            all_vn_count = self._vnc_lib.virtual_networks_list(
+                count=True)['virtual-networks']['count']
+            max_fetches = (all_vn_count / 
+                           (page_limit or self.default_paginate_count)) + 1
+            fetches = 0
+            while True:
+                if ((max_fetches > 0) and (fetches > max_fetches)):
+                    break
+                fetches += 1
+                url = 'http://%s:%s/virtual-networks?page_marker=%s' %(
+                    listen_ip, listen_port, marker)
+                if page_limit is not None:
+                    url += '&page_limit=%s' %(page_limit)
+                resp = requests.get(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'})
+                if page_limit is not None and page_limit <= 0:
+                    self.assertEqual(resp.status_code, 400)
+                    return
+
+                self.assertEqual(resp.status_code, 200)
+                read_vn_ids = [vn['uuid'] 
+                    for vn in json.loads(resp.text)['virtual-networks']]
+                all_vn_ids.extend(read_vn_ids)
+                marker = json.loads(resp.text)['marker']
+                if marker is not None:
+                    self.assertEqual(len(read_vn_ids),
+                        page_limit or self.default_paginate_count)
+                else:
+                    # all fetched
+                    break
+
+            self.assertLessEqual(fetches, max_fetches)
+            self.assertEqual(set([o.uuid for o in vn_objs]) - set(all_vn_ids),
+                             set([]))
+        # end verify_collection_walk
+
+        verify_collection_walk()
+        verify_collection_walk(page_limit=-1)
+        verify_collection_walk(page_limit=0)
+        verify_collection_walk(page_limit=10000)
+        verify_collection_walk(page_limit=1)
+        verify_collection_walk(page_limit=2)
+        logger.info("Verified unanchored pagination fetch.")
+    # end test_unanchored
+
+    def test_anchored_by_one_parent(self):
+        proj_obj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+        vn_objs = self._create_vn_collection(
+            self.default_paginate_count*2, proj_obj)
+
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        def verify_collection_walk(page_limit=None, fetch_expects=None):
+            marker = None
+            all_vn_ids = []
+            for fe_obj in fetch_expects or []:
+                url = 'http://%s:%s/virtual-networks?page_marker=%s&parent_id=%s' %(
+                    listen_ip, listen_port, marker, proj_obj.uuid)
+                if page_limit is not None:
+                    url += '&page_limit=%s' %(page_limit)
+                resp = requests.get(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'})
+                if page_limit is not None and page_limit <= 0:
+                    self.assertEqual(resp.status_code, 400)
+                    return
+                self.assertEqual(resp.status_code, 200)
+                read_vn_ids = [vn['uuid'] 
+                    for vn in json.loads(resp.text)['virtual-networks']]
+                self.assertEqual(len(read_vn_ids), fe_obj.num_objs)
+                marker = json.loads(resp.text)['marker']
+                self.assertEqual(marker, fe_obj.marker)
+                all_vn_ids.extend(read_vn_ids)
+
+            self.assertEqual(set([o.uuid for o in vn_objs]) - set(all_vn_ids),
+                         set([]))
+        # end verify_collection_walk
+
+        sorted_vn_uuid = sorted([o.uuid for o in vn_objs])
+        FetchExpect = self.FetchExpect
+        verify_collection_walk(fetch_expects=[
+            FetchExpect(self.default_paginate_count,
+                sorted_vn_uuid[self.default_paginate_count-1]),
+            FetchExpect(self.default_paginate_count,
+                sorted_vn_uuid[(self.default_paginate_count*2)-1]),
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=-1, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=0, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=1, fetch_expects=[
+            FetchExpect(1, val) for idx,val in enumerate(sorted_vn_uuid)] +
+            [FetchExpect(0, None)])
+        verify_collection_walk(page_limit=2, fetch_expects=[
+            FetchExpect(2, sorted_vn_uuid[(i*2)+1])
+                for i in range(len(vn_objs)/2)] +
+            [FetchExpect(0, None)])
+
+        logger.info("Verified anchored pagination fetch with one parent.")
+    # end test_anchored_by_one_parent
+
+    def test_anchored_by_one_backref(self):
+        proj_obj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+        vn_obj = VirtualNetwork('vn1', parent_obj=proj_obj)
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vmi_objs = self._create_vmi_collection(
+            (self.default_paginate_count*2)-1, vn_obj)
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        def verify_collection_walk(page_limit=None, fetch_expects=None):
+            marker = None
+            all_vmi_ids = []
+            for fe_obj in fetch_expects or []:
+                url = 'http://%s:%s/virtual-machine-interfaces?page_marker=%s&back_ref_id=%s' %(
+                    listen_ip, listen_port, marker, vn_obj.uuid)
+                if page_limit is not None:
+                    url += '&page_limit=%s' %(page_limit)
+                resp = requests.get(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'})
+                if page_limit is not None and page_limit <= 0:
+                    self.assertEqual(resp.status_code, 400)
+                    return
+                self.assertEqual(resp.status_code, 200)
+                read_vmi_ids = [vmi['uuid'] 
+                    for vmi in json.loads(resp.text)['virtual-machine-interfaces']]
+                self.assertEqual(len(read_vmi_ids), fe_obj.num_objs)
+                marker = json.loads(resp.text)['marker']
+                self.assertEqual(marker, fe_obj.marker)
+                all_vmi_ids.extend(read_vmi_ids)
+
+            self.assertEqual(set([o.uuid for o in vmi_objs]) - set(all_vmi_ids),
+                set([]))
+        # end verify_collection_walk
+ 
+        sorted_vmi_uuid = sorted([o.uuid for o in vmi_objs])
+        FetchExpect = self.FetchExpect
+        verify_collection_walk(fetch_expects=[
+            FetchExpect(self.default_paginate_count,
+                sorted_vmi_uuid[self.default_paginate_count-1]),
+            FetchExpect(self.default_paginate_count-1,
+                None)])
+        verify_collection_walk(page_limit=-1, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=0, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=1, fetch_expects=[
+            FetchExpect(1, val) for idx,val in enumerate(sorted_vmi_uuid)] +
+            [FetchExpect(0, None)])
+        verify_collection_walk(page_limit=2, fetch_expects=[
+            FetchExpect(2, sorted_vmi_uuid[1]),
+            FetchExpect(2, sorted_vmi_uuid[3]),
+            FetchExpect(2, sorted_vmi_uuid[5]),
+            FetchExpect(2, sorted_vmi_uuid[7]),
+            FetchExpect(1, None)])
+
+        logger.info("Verified anchored pagination fetch with one backref.")
+    # end test_anchored_by_one_backref
+
+    def test_anchored_by_parent_list(self):
+        proj1_obj = Project('%s-project1' %(self.id()))
+        self._vnc_lib.project_create(proj1_obj)
+        proj2_obj = Project('%s-project2' %(self.id()))
+        self._vnc_lib.project_create(proj2_obj)
+
+        vn_p1_objs = self._create_vn_collection(
+            self.default_paginate_count+1, proj1_obj)
+        vn_p2_objs = self._create_vn_collection(2, proj2_obj)
+
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        def verify_collection_walk(page_limit=None, fetch_expects=None):
+            all_vn_ids = []
+
+            def request_with_query_params(marker):
+                url = 'http://%s:%s/virtual-networks?page_marker=%s&parent_id=%s,%s' %(
+                    listen_ip, listen_port, marker, proj1_obj.uuid, proj2_obj.uuid)
+                if page_limit is not None:
+                    url += '&page_limit=%s' %(page_limit)
+                resp = requests.get(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'})
+                return resp
+
+            def request_with_bulk_post(marker):
+                url = 'http://%s:%s/list-bulk-collection' %(listen_ip, listen_port)
+                body = {'type': 'virtual-network',
+                        'parent_id': '%s,%s' %(proj1_obj.uuid, proj2_obj.uuid),
+                        'page_marker': marker}
+                if page_limit is not None:
+                    body['page_limit'] = page_limit
+                resp = requests.post(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'},
+                    data=json.dumps(body))
+                return resp
+
+            for req_method in [request_with_query_params,
+                               request_with_bulk_post]:
+                marker = None
+                for fe_obj in fetch_expects or []:
+                    resp = req_method(marker)
+                    if page_limit is not None and page_limit <= 0:
+                        self.assertEqual(resp.status_code, 400)
+                        break
+                    self.assertEqual(resp.status_code, 200)
+                    read_vn_ids = [vn['uuid']
+                        for vn in json.loads(resp.text)['virtual-networks']]
+                    self.assertEqual(len(read_vn_ids), fe_obj.num_objs)
+                    marker = json.loads(resp.text)['marker']
+                    self.assertEqual(marker, fe_obj.marker)
+                    all_vn_ids.extend(read_vn_ids)
+
+                if page_limit is not None and page_limit <= 0:
+                    continue
+
+                self.assertEqual(
+                    set([vn.uuid for vn in vn_p1_objs+vn_p2_objs]) - set(all_vn_ids),
+                    set([]))
+            # end for req_method
+        # end verify_collection_walk
+
+        sorted_vn_uuid = sorted([o.uuid for o in (vn_p1_objs+vn_p2_objs)])
+        FetchExpect = self.FetchExpect
+        verify_collection_walk(fetch_expects=[
+            FetchExpect(self.default_paginate_count,
+                sorted_vn_uuid[self.default_paginate_count-1]),
+            FetchExpect(3, None)])
+        verify_collection_walk(page_limit=-1, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=0, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=1, fetch_expects=[
+            FetchExpect(1, val) for idx, val in enumerate(sorted_vn_uuid)] +
+            [FetchExpect(0, None)])
+        verify_collection_walk(page_limit=2, fetch_expects=[
+            FetchExpect(2, sorted_vn_uuid[1]),
+            FetchExpect(2, sorted_vn_uuid[3]),
+            FetchExpect(2, sorted_vn_uuid[5]),
+            FetchExpect(2, sorted_vn_uuid[7]),
+            FetchExpect(0, None)])
+    # end test_anchored_by_parent_list
+
+    def test_anchored_by_backref_list(self):
+        proj_obj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(proj_obj)
+        vn1_obj = VirtualNetwork('vn1', parent_obj=proj_obj)
+        self._vnc_lib.virtual_network_create(vn1_obj)
+        vn2_obj = VirtualNetwork('vn2', parent_obj=proj_obj)
+        self._vnc_lib.virtual_network_create(vn2_obj)
+
+        vmi_vn1_objs = self._create_vmi_collection(
+            self.default_paginate_count-1, vn1_obj)
+        vmi_vn2_objs = self._create_vmi_collection(
+            self.default_paginate_count-1, vn2_obj)
+
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        def verify_collection_walk(page_limit=None, fetch_expects=None):
+            all_vmi_ids = []
+
+            def request_with_query_params(marker):
+                url = 'http://%s:%s/virtual-machine-interfaces?page_marker=%s&back_ref_id=%s,%s' %(
+                    listen_ip, listen_port, marker, vn1_obj.uuid, vn2_obj.uuid)
+                if page_limit is not None:
+                    url += '&page_limit=%s' %(page_limit)
+                resp = requests.get(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'})
+                return resp
+
+            def request_with_bulk_post(marker):
+                url = 'http://%s:%s/list-bulk-collection' %(listen_ip, listen_port)
+                body = {'type': 'virtual-machine-interface',
+                        'back_ref_id': '%s,%s' %(vn1_obj.uuid, vn2_obj.uuid),
+                        'page_marker': marker}
+                if page_limit is not None:
+                    body['page_limit'] = page_limit
+                resp = requests.post(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'},
+                    data=json.dumps(body))
+                return resp
+
+            for req_method in [request_with_query_params,
+                               request_with_bulk_post]:
+                marker = None
+                for fe_obj in fetch_expects or []:
+                    resp = req_method(marker)
+                    if page_limit is not None and page_limit <= 0:
+                        self.assertEqual(resp.status_code, 400)
+                        break
+                    self.assertEqual(resp.status_code, 200)
+                    read_vmi_ids = [vmi['uuid']
+                        for vmi in json.loads(resp.text)['virtual-machine-interfaces']]
+                    self.assertEqual(len(read_vmi_ids), fe_obj.num_objs)
+                    marker = json.loads(resp.text)['marker']
+                    self.assertEqual(marker, fe_obj.marker)
+                    all_vmi_ids.extend(read_vmi_ids)
+
+                if page_limit is not None and page_limit <= 0:
+                    continue
+
+                self.assertEqual(
+                    set([vmi.uuid for vmi in vmi_vn1_objs+vmi_vn2_objs]) - set(all_vmi_ids),
+                    set([]))
+            # end for req_method
+        # end verify_collection_walk
+
+        sorted_vmi_uuid = sorted([o.uuid for o in (vmi_vn1_objs+vmi_vn2_objs)])
+        FetchExpect = self.FetchExpect
+        verify_collection_walk(fetch_expects=[
+            FetchExpect(self.default_paginate_count,
+                sorted_vmi_uuid[self.default_paginate_count-1]),
+            FetchExpect(3, None)])
+        verify_collection_walk(page_limit=-1, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=0, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=1, fetch_expects=[
+            FetchExpect(1, val) for idx, val in enumerate(sorted_vmi_uuid)] +
+            [FetchExpect(0, None)])
+        verify_collection_walk(page_limit=2, fetch_expects=[
+            FetchExpect(2, sorted_vmi_uuid[1]),
+            FetchExpect(2, sorted_vmi_uuid[3]),
+            FetchExpect(2, sorted_vmi_uuid[5]),
+            FetchExpect(2, sorted_vmi_uuid[7]),
+            FetchExpect(0, None)])
+    # end test_anchored_by_backref_list
+
+    def test_by_obj_list(self):
+        proj_objs = [Project('%s-proj%s' %(self.id(), i))
+                     for i in range(self.default_paginate_count+2)]
+        for proj_obj in proj_objs:
+            self._vnc_lib.project_create(proj_obj)
+
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        def verify_collection_walk(page_limit=None, fetch_expects=None):
+            all_proj_ids = []
+
+            def request_with_query_params(marker):
+                url = 'http://%s:%s/projects?page_marker=%s&obj_uuids=%s' %(
+                    listen_ip, listen_port, marker,
+                    ','.join([o.uuid for o in proj_objs]))
+                if page_limit is not None:
+                    url += '&page_limit=%s' %(page_limit)
+                resp = requests.get(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'})
+                return resp
+
+            def request_with_bulk_post(marker):
+                url = 'http://%s:%s/list-bulk-collection' %(listen_ip, listen_port)
+                body = {'type': 'project',
+                        'obj_uuids': '%s' %(','.join([o.uuid for o in proj_objs])),
+                        'page_marker': marker}
+                if page_limit is not None:
+                    body['page_limit'] = page_limit
+                resp = requests.post(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"'},
+                    data=json.dumps(body))
+                return resp
+
+            for req_method in [request_with_query_params,
+                               request_with_bulk_post]:
+                marker = None
+                for fe_obj in fetch_expects or []:
+                    resp = req_method(marker)
+                    if page_limit is not None and page_limit <= 0:
+                        self.assertEqual(resp.status_code, 400)
+                        break
+                    self.assertEqual(resp.status_code, 200)
+                    read_proj_ids = [proj['uuid']
+                        for proj in json.loads(resp.text)['projects']]
+                    self.assertEqual(len(read_proj_ids), fe_obj.num_objs)
+                    marker = json.loads(resp.text)['marker']
+                    self.assertEqual(marker, fe_obj.marker)
+                    all_proj_ids.extend(read_proj_ids)
+
+                if page_limit is not None and page_limit <= 0:
+                    continue
+
+                self.assertEqual(
+                    set([proj.uuid for proj in proj_objs]) - set(all_proj_ids),
+                    set([]))
+            # end for req_method
+        # end verify_collection_walk
+
+        proj_uuids = [o.uuid for o in proj_objs]
+        FetchExpect = self.FetchExpect
+        verify_collection_walk(fetch_expects=[
+            FetchExpect(self.default_paginate_count,
+                proj_uuids[self.default_paginate_count-1]),
+            FetchExpect(2, None)])
+        verify_collection_walk(page_limit=-1, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=0, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=1, fetch_expects=[
+            FetchExpect(1, val) for idx, val in enumerate(proj_uuids)] +
+            [FetchExpect(0, None)])
+        verify_collection_walk(page_limit=2, fetch_expects=[
+            FetchExpect(2, proj_uuids[1]),
+            FetchExpect(2, proj_uuids[3]),
+            FetchExpect(2, proj_uuids[5]),
+            FetchExpect(1, None)])
+    # end test_by_obj_list
+
+    def test_anchored_by_parent_list_shared(self):
+        proj1_obj = Project('%s-project1' %(self.id()))
+        self._vnc_lib.project_create(proj1_obj)
+        proj2_obj = Project('%s-project2' %(self.id()))
+        self._vnc_lib.project_create(proj2_obj)
+
+        vn_p1_objs = self._create_vn_collection(
+            self.default_paginate_count+1, proj1_obj)
+        vn_p2_objs = self._create_vn_collection(2, proj2_obj)
+
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        # create couple of globally shared obj and verify they appear at
+        # end of pagination
+        proj3_obj = Project('%s-project3' %(self.id()))
+        self._vnc_lib.project_create(proj3_obj)
+        vn_p3_objs = self._create_vn_collection(
+            2, proj3_obj)
+        url = 'http://%s:%s/chmod' %(listen_ip, listen_port)
+        for vn_obj in vn_p3_objs:
+            body = {'uuid': vn_obj.uuid,
+                    'global_access': cfgm_common.PERMS_R}
+            resp = requests.post(url,
+                headers={'Content-type': 'application/json; charset="UTF-8"'},
+                data=json.dumps(body))
+
+        def verify_collection_walk(page_limit=None, fetch_expects=None):
+            all_vn_ids = []
+
+            def request_with_query_params(marker):
+                url = 'http://%s:%s/virtual-networks?page_marker=%s&parent_id=%s,%s&shared=True' %(
+                    listen_ip, listen_port, marker, proj1_obj.uuid, proj2_obj.uuid)
+                if page_limit is not None:
+                    url += '&page_limit=%s' %(page_limit)
+                resp = requests.get(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"',
+                             'X_USER_DOMAIN_ID': str(uuid.uuid4())})
+                return resp
+
+            def request_with_bulk_post(marker):
+                url = 'http://%s:%s/list-bulk-collection' %(listen_ip, listen_port)
+                body = {'type': 'virtual-network',
+                        'parent_id': '%s,%s' %(proj1_obj.uuid, proj2_obj.uuid),
+                        'page_marker': marker,
+                        'shared': True}
+                if page_limit is not None:
+                    body['page_limit'] = page_limit
+                resp = requests.post(url,
+                    headers={'Content-type': 'application/json; charset="UTF-8"',
+                             'X_USER_DOMAIN_ID': str(uuid.uuid4())},
+                    data=json.dumps(body))
+                return resp
+
+            for req_method in [request_with_query_params,
+                               request_with_bulk_post]:
+                marker = None
+                for fe_obj in fetch_expects or []:
+                    resp = req_method(marker)
+                    if page_limit is not None and page_limit <= 0:
+                        self.assertEqual(resp.status_code, 400)
+                        break
+                    self.assertEqual(resp.status_code, 200)
+                    read_vn_ids = [vn['uuid']
+                        for vn in json.loads(resp.text)['virtual-networks']]
+                    self.assertEqual(len(read_vn_ids), fe_obj.num_objs)
+                    marker = json.loads(resp.text)['marker']
+                    self.assertEqual(marker, fe_obj.marker)
+                    all_vn_ids.extend(read_vn_ids)
+
+                if page_limit is not None and page_limit <= 0:
+                    continue
+
+                self.assertEqual(
+                    set([vn.uuid for vn in vn_p1_objs+vn_p2_objs+vn_p3_objs]) -
+                        set(all_vn_ids),
+                    set([]))
+            # end for req_method
+        # end verify_collection_walk
+
+        sorted_vn_uuid = sorted([o.uuid for o in (vn_p1_objs+vn_p2_objs)])
+        sorted_shared_vn_uuid = sorted([o.uuid for o in vn_p3_objs])
+        FetchExpect = self.FetchExpect
+        verify_collection_walk(fetch_expects=[
+            FetchExpect(self.default_paginate_count,
+                sorted_vn_uuid[self.default_paginate_count-1]),
+            FetchExpect(self.default_paginate_count,
+                'shared:%s' %(sorted_shared_vn_uuid[-1])),
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=-1, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=0, fetch_expects=[
+            FetchExpect(0, None)])
+        verify_collection_walk(page_limit=1, fetch_expects=[
+            FetchExpect(1, val) for idx, val in enumerate(sorted_vn_uuid)] +
+            [FetchExpect(1, 'shared:%s' %(val)) 
+                for idx, val in enumerate(sorted_shared_vn_uuid)] +
+            [FetchExpect(0, None)])
+        verify_collection_walk(page_limit=2, fetch_expects=[
+            FetchExpect(2, sorted_vn_uuid[1]),
+            FetchExpect(2, sorted_vn_uuid[3]),
+            FetchExpect(2, sorted_vn_uuid[5]),
+            FetchExpect(2, sorted_vn_uuid[7]),
+            FetchExpect(2, 'shared:%s' %(sorted_shared_vn_uuid[-1])),
+            FetchExpect(0, None)])
+    # end test_anchored_by_parent_list_shared
+# end class TestPagination
+
 if __name__ == '__main__':
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)

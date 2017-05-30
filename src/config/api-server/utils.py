@@ -75,6 +75,7 @@ def parse_args(args_str):
         'rabbit_health_check_interval': '120.0', # in seconds
         'cluster_id': '',
         'max_requests': 1024,
+        'paginate_count': 256,
         'region_name': 'RegionOne',
         'stale_lock_seconds': '5', # lock but no resource past this => stale
         'cloud_admin_role': cfgm_common.CLOUD_ADMIN_ROLE,
@@ -274,6 +275,9 @@ def parse_args(args_str):
     parser.add_argument(
         "--max_requests", type=int,
         help="Maximum number of concurrent requests served by api server")
+    parser.add_argument(
+        "--paginate_count", type=int,
+        help="Default number of items when pagination is requested")
     parser.add_argument("--cassandra_user",
             help="Cassandra user name")
     parser.add_argument("--cassandra_password",
