@@ -102,7 +102,8 @@ BgpPeer::BgpPeer(const Ip4Address &server_ip, const std::string &name,
                  Peer::Type bgp_peer_type) :
     DynamicPeer(agent, bgp_peer_type, name, false),
     server_ip_(server_ip), id_(id),
-    route_walker_(new ControllerRouteWalker(agent, this)) {
+    route_walker_(new ControllerRouteWalker(agent, this)),
+    stale_walker_(new ControllerRouteWalker(agent, this)) {
         is_disconnect_walk_ = false;
         setup_time_ = UTCTimestampUsec();
 }
@@ -129,7 +130,7 @@ void BgpPeer::PeerNotifyMulticastRoutes(bool associate) {
 }
 
 void BgpPeer::StalePeerRoutes() {
-    route_walker_->Start(ControllerRouteWalker::STALE, true, NULL);
+    stale_walker_->Start(ControllerRouteWalker::STALE, true, NULL);
 }
 
 /*
