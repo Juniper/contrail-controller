@@ -252,12 +252,14 @@ func (intf MacVlan) Create() error {
 	return nil
 }
 
-func buildVlanIfName(uuid string, vlanId int) string {
-	return "vlan" + uuid[:CNI_UUID_IFNAME_LEN]
+func buildVlanIfName(str string, vlanId int) string {
+	return "vlan" + str[:CNI_ID_IFNAME_START_LEN] + "-" +
+		str[len(str)-CNI_ID_IFNAME_END_LEN:]
 }
 
-func buildContainerTmpIfName(uuid string) string {
-	return "mac" + uuid[:CNI_UUID_IFNAME_LEN]
+func buildContainerTmpIfName(str string) string {
+	return "mac" + str[:CNI_ID_IFNAME_START_LEN] + "-" +
+		str[len(str)-CNI_ID_IFNAME_END_LEN:]
 }
 
 func (intf MacVlan) GetHostIfName() string {
@@ -269,11 +271,12 @@ func (intf MacVlan) Log() {
 }
 
 // Create MacVlan interface object
-func InitMacVlan(parentIfName, containerIfName, containerUuid,
+func InitMacVlan(parentIfName, containerIfName, containerId, containerUuid,
 	containerNamespace string, vlanId int) MacVlan {
 
 	intf := MacVlan{
 		CniIntf: CniIntf{
+			containerId:        containerId,
 			containerUuid:      containerUuid,
 			containerIfName:    containerIfName,
 			containerNamespace: containerNamespace,
@@ -284,8 +287,8 @@ func InitMacVlan(parentIfName, containerIfName, containerUuid,
 		vlanId:             vlanId,
 		containerTmpIfName: "",
 	}
-	intf.vlanIfName = buildVlanIfName(intf.containerUuid, intf.vlanId)
-	intf.containerTmpIfName = buildContainerTmpIfName(intf.containerUuid)
+	intf.vlanIfName = buildVlanIfName(intf.CniIntf.containerId, intf.vlanId)
+	intf.containerTmpIfName = buildContainerTmpIfName(intf.CniIntf.containerId)
 
 	log.Infof("Initialized MacVlan interface %+v\n", intf)
 	return intf

@@ -118,11 +118,12 @@ func (cni *ContrailCni) Update(containerName, containerUuid,
 func (cni *ContrailCni) makeInterface(vlanId int) cniIntf.CniIntfMethods {
 	if cni.VifType == VIF_TYPE_MACVLAN {
 		return cniIntf.CniIntfMethods(cniIntf.InitMacVlan(cni.VifParent,
-			cni.cniArgs.IfName, cni.ContainerUuid, cni.cniArgs.Netns, vlanId))
+			cni.cniArgs.IfName, cni.cniArgs.ContainerID, cni.ContainerUuid,
+			cni.cniArgs.Netns, vlanId))
 	}
 
 	return cniIntf.CniIntfMethods(cniIntf.InitVEth(cni.cniArgs.IfName,
-		cni.ContainerUuid, cni.cniArgs.Netns))
+		cni.cniArgs.ContainerID, cni.ContainerUuid, cni.cniArgs.Netns))
 }
 
 /****************************************************************************
