@@ -889,29 +889,6 @@ class DBInterface(object):
         return None
     # end _subnet_read
 
-    def _ip_address_to_subnet_id(self, ip_addr, net_obj, memo_req=None):
-        # find subnet-id for ip-addr, called when instance-ip created
-        # first try if memo created during req can help avoid trips to
-        # backend
-        try:
-           subnets_info = memo_req['subnets'][net_obj.uuid]
-           for subnet_info in subnets_info:
-               if ip_addr in IPNetwork(subnet_info['cidr']):
-                   subnet_id = subnet_info['id']
-                   return subnet_id
-        except Exception:
-            # memo didnt help, need to reach backend for info
-            ipam_refs = net_obj.get_network_ipam_refs()
-            for ipam_ref in ipam_refs or []:
-                subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
-                for subnet_vnc in subnet_vncs:
-                    cidr = self._subnet_vnc_get_prefix(subnet_vnc)
-                    if ip_addr in IPNetwork(subnet_info['cidr']):
-                        subnet_id = subnet_vnc.subnet_uuid
-                        return subnet_id
-        return None
-    #end _ip_address_to_subnet_id
-
     # Returns a list of dicts of subnet-id:cidr for a VN
     def _virtual_network_to_subnets(self, net_obj):
         ret_subnets = []
@@ -2316,8 +2293,7 @@ class DBInterface(object):
                 ip_q_dict = {}
                 ip_q_dict['ip_address'] = ip_addr
                 if ip_addr:
-                    ip_q_dict['subnet_id'] = self._ip_address_to_subnet_id(ip_addr,
-                            net_obj, port_req_memo)
+                    ip_q_dict['subnet_id'] = ip_obj.get_subnet_uuid()
 
                 if ip_obj.get_instance_ip_secondary():
                     primary_ip = False
