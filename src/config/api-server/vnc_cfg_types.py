@@ -157,7 +157,8 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         global_asn = obj_dict.get('autonomous_system')
         if not global_asn:
             return (True, '')
-        (ok, result) = db_conn.dbe_list('virtual_network', field_names=['route_target_list'])
+        (ok, result, _) = db_conn.dbe_list(
+            'virtual_network', field_names=['route_target_list'])
         if not ok:
             return (ok, (500, 'Error in dbe_list: %s' %(result)))
 
@@ -913,7 +914,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             sub_vmi_uuids = [ref['uuid'] for ref in sub_vmi_refs]
 
             if sub_vmi_uuids:
-                ok, sub_vmis = db_conn.dbe_list(
+                ok, sub_vmis, _ = db_conn.dbe_list(
                     'virtual_machine_interface', obj_uuids=sub_vmi_uuids,
                     field_names=['virtual_machine_interface_properties'])
                 if not ok:
@@ -1114,7 +1115,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        (ok, result) = db_conn.dbe_list('loadbalancer_pool', back_ref_uuids=[id])
+        (ok, result, _) = db_conn.dbe_list(
+            'loadbalancer_pool', back_ref_uuids=[id])
         if not ok:
             return (ok, (500, 'Error in dbe_list: %s' %(result)))
         if len(result) > 0:
@@ -1599,7 +1601,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             if not ipam_uuid_list:
                 return (True, 200, '')
 
-            ok, ipam_lists = db_conn.dbe_list('network_ipam',
+            (ok, ipam_lists, _) = db_conn.dbe_list('network_ipam',
                                               obj_uuids=ipam_uuid_list,
                                               field_names=['ipam_subnet_method'])
             if not ok:
@@ -2896,7 +2898,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
             # all interfaces.
 
             obj_fields = [u'logical_interface_vlan_tag']
-            (ok, result) = db_conn.dbe_list('logical_interface',
+            (ok, result, _) = db_conn.dbe_list('logical_interface',
                     [physical_interface['uuid']], field_names=obj_fields)
             if not ok:
                 return (False, (500, 'Internal error : Read logical interface list for ' +
@@ -2998,7 +3000,7 @@ class ForwardingClassServer(Resource, ForwardingClass):
             fc_id = obj_dict.get('forwarding_class_id')
 
         id_filters = {'forwarding_class_id' : [fc_id]}
-        (ok, forwarding_class_list) = db_conn.dbe_list('forwarding_class',
+        (ok, forwarding_class_list, _) = db_conn.dbe_list('forwarding_class',
                                                        filters = id_filters)
         if not ok:
             return (ok, (500, 'Error in dbe_list: %s' %(forwarding_class_list)))
@@ -3209,9 +3211,9 @@ class PhysicalRouterServer(Resource, PhysicalRouter):
         return True, ''
 
     @classmethod
-    def post_dbe_list(cls, obj_dict_list, db_conn):
-        for obj_dict in obj_dict_list:
-            (ok, err_msg) = cls.post_dbe_read(obj_dict, db_conn)
+    def post_dbe_list(cls, obj_result_list, db_conn):
+        for obj_result in obj_result_list:
+            (ok, err_msg) = cls.post_dbe_read(obj_result['physical-router'], db_conn)
             if not ok:
                 return ok, err_msg
         return True, ''
@@ -3257,7 +3259,7 @@ class BgpvpnServer(Resource, Bgpvpn):
         if not bgpvpn_uuids:
             return True, ''
 
-        ok, result = db_conn.dbe_list('bgpvpn',
+        (ok, result, _) = db_conn.dbe_list('bgpvpn',
                                       obj_uuids=list(bgpvpn_uuids),
                                       field_names=['bgpvpn_type'])
         if not ok:
@@ -3289,8 +3291,8 @@ class BgpvpnServer(Resource, Bgpvpn):
         if not bgpvpn_uuids:
             return True, ''
 
-        ok, result = db_conn.dbe_list('bgpvpn',
-                                      obj_uuids=bgpvpn_uuids,
+        (ok, result, _) = db_conn.dbe_list('bgpvpn',
+                                      obj_uuids=list(bgpvpn_uuids),
                                       field_names=['bgpvpn_type'])
         if not ok:
             return ok, (500, 'Error in dbe_list: %s' % pformat(result))
@@ -3325,7 +3327,7 @@ class BgpvpnServer(Resource, Bgpvpn):
             'virtual_machine_interface_device_owner':
             ['network:router_interface']
         }
-        ok, result = db_conn.dbe_list('virtual_machine_interface',
+        (ok, result, _) = db_conn.dbe_list('virtual_machine_interface',
                                       back_ref_uuids=[vn_dict['uuid']],
                                       filters=filters,
                                       field_names=['logical_router_back_refs'])
@@ -3338,7 +3340,7 @@ class BgpvpnServer(Resource, Bgpvpn):
                     for vmi in vmis]
         if not lr_uuids:
             return True, ''
-        ok, result = db_conn.dbe_list('logical_router',
+        (ok, result, _) = db_conn.dbe_list('logical_router',
                                       obj_uuids=lr_uuids,
                                       field_names=['bgpvpn_refs'])
         if not ok:
@@ -3390,7 +3392,7 @@ class BgpvpnServer(Resource, Bgpvpn):
             return True, ''
 
         # List vmis to obtain their virtual networks
-        ok, result = db_conn.dbe_list('virtual_machine_interface',
+        (ok, result, _) = db_conn.dbe_list('virtual_machine_interface',
                                       obj_uuids=vmi_uuids,
                                       field_names=['virtual_network_refs'])
         if not ok:
@@ -3403,7 +3405,7 @@ class BgpvpnServer(Resource, Bgpvpn):
             return True, ''
 
         # List bgpvpn refs of virtual networks found
-        ok, result = db_conn.dbe_list('virtual_network',
+        (ok, result, _) = db_conn.dbe_list('virtual_network',
                                       obj_uuids=vn_uuids,
                                       field_names=['bgpvpn_refs'])
         if not ok:

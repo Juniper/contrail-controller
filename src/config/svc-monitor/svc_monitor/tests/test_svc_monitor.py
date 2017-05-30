@@ -619,8 +619,8 @@ class SvcMonitorTest(unittest.TestCase):
     def db_list(self, obj_type):
         if obj_type == 'domain':
             fq_name = 'default-domain'
-            return (True, [([fq_name], obj_type)])
-        return (False, None)
+            return (True, [([fq_name], obj_type)], None)
+        return (False, None, None)
 
     def test_svc_monitor_init(self):
         ServiceMonitorLogger.info.assert_any_call(test_utils.AnyStringWith('template created with uuid'))
@@ -1031,12 +1031,12 @@ class SvcMonitorTest(unittest.TestCase):
         def db_list(obj_type):
             if obj_type == 'service_template':
                 fq_name = 'default-domain:fake-template'
-                return (True, [([fq_name], obj_type)])
+                return (True, [([fq_name], obj_type)], None)
             elif obj_type == 'service_instance':
                 fq_name = 'default-domain:default-project:fake-instance'
-                return (True, [([fq_name], obj_type)])
+                return (True, [([fq_name], obj_type)], None)
             else:
-                return (False, None)
+                return (False, None, None)
 
         config_db.DBBaseSM._object_db.reset()
         config_db.DBBaseSM._object_db.object_list = db_list

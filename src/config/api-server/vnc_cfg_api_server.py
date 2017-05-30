@@ -969,6 +969,7 @@ class VncApiServer(object):
         parent_uuids = None
         back_ref_uuids = None
         obj_uuids = None
+        pagination = {}
         if (('parent_fq_name_str' in get_request().query) and
             ('parent_type' in get_request().query)):
             parent_fq_name = get_request().query.parent_fq_name_str.split(':')
@@ -982,6 +983,14 @@ class VncApiServer(object):
             back_ref_uuids = get_request().query.back_ref_id.split(',')
         if 'obj_uuids' in get_request().query:
             obj_uuids = get_request().query.obj_uuids.split(',')
+
+        if 'page_marker' in get_request().query:
+            pagination['marker'] = self._validate_page_marker(
+                                       get_request().query['page_marker'])
+
+        if 'page_limit' in get_request().query:
+            pagination['limit'] = self._validate_page_limit(
+                                       get_request().query['page_limit'])
 
         # common handling for all resource get
         for parent_uuid in list(parent_uuids or []):
@@ -1025,7 +1034,8 @@ class VncApiServer(object):
 
         return self._list_collection(obj_type, parent_uuids, back_ref_uuids,
                                      obj_uuids, is_count, is_detail, filters,
-                                     req_fields, include_shared, exclude_hrefs)
+                                     req_fields, include_shared, exclude_hrefs,
+                                     pagination)
     # end http_resource_list
 
     # internal_request_<oper> - handlers of internally generated requests
@@ -2318,10 +2328,20 @@ class VncApiServer(object):
 
         exclude_hrefs = get_request().json.get('exclude_hrefs', False)
 
+        pagination = {}
+        if 'page_marker' in get_request().json:
+            pagination['marker'] = self._validate_page_marker(
+                                       get_request().json['page_marker'])
+
+        if 'page_limit' in get_request().json:
+            pagination['limit'] = self._validate_page_limit(
+                                       get_request().json['page_limit'])
+
         return self._list_collection(r_class.object_type, parent_uuids,
                                      back_ref_uuids, obj_uuids, is_count,
                                      is_detail, filters, req_fields,
-                                     include_shared, exclude_hrefs)
+                                     include_shared, exclude_hrefs,
+                                     pagination)
     # end list_bulk_collection_http_post
 
     # Private Methods
@@ -2735,96 +2755,169 @@ class VncApiServer(object):
         return s_obj
     # end _create_singleton_entry
 
+    def _validate_page_marker(self, req_page_marker):
+        # query params always appears as string
+        if req_page_marker and req_page_marker.lower() != 'none':
+            try:
+                req_page_marker_uuid = req_page_marker.split(':')[-1]
+                _ = str(uuid.UUID(req_page_marker_uuid))
+            except Exception as e:
+                raise cfgm_common.exceptions.HttpError(
+                    400, 'Invalid page_marker %s: %s' %(
+                         req_page_marker, e))
+        else:
+            req_page_marker = None
+
+        return req_page_marker
+    # end _validate_page_marker
+
+    def _validate_page_limit(self, req_page_limit):
+        try:
+            val = int(req_page_limit)
+            if val <= 0:
+                raise Exception("page_limit has to be greater than zero")
+        except Exception as e:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Invalid page_limit %s: %s' %(
+                     req_page_limit, e))
+        return int(req_page_limit)
+    # end _validate_page_limit
+
     def _list_collection(self, obj_type, parent_uuids=None,
                          back_ref_uuids=None, obj_uuids=None,
                          is_count=False, is_detail=False, filters=None,
                          req_fields=None, include_shared=False,
-                         exclude_hrefs=False):
+                         exclude_hrefs=False, pagination=None):
         resource_type, r_class = self._validate_resource_type(obj_type)
+
         is_admin = self.is_admin_request()
         if is_admin:
             field_names = req_fields
         else:
             field_names = [u'id_perms'] + (req_fields or [])
 
+        if is_count and self.is_admin_request():
+            ret_result = 0
+        else:
+            ret_result = []
+
+        page_filled = False
+        if 'marker' in pagination:
+            # if marker is None, start scanning from uuid 0
+            page_start = pagination['marker'] or '0'
+            if 'limit' in pagination:
+                page_count = pagination['limit']
+            else:
+                page_count = self._args.paginate_count
+        else:
+            page_start = None # cookie to start next search
+            page_count = None # remainder count to finish page
+
         (ok, result) = r_class.pre_dbe_list(obj_uuids, self._db_conn)
         if not ok:
             (code, msg) = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
-        (ok, result) = self._db_conn.dbe_list(obj_type,
-                             parent_uuids, back_ref_uuids, obj_uuids, is_count and self.is_admin_request(),
-                             filters, is_detail=is_detail, field_names=field_names,
-                             include_shared=include_shared)
-        if not ok:
-            self.config_object_error(None, None, '%ss' %(obj_type),
-                                     'dbe_list', result)
-            raise cfgm_common.exceptions.HttpError(404, result)
+        while not page_filled:
+            (ok, result, ret_marker) = self._db_conn.dbe_list(obj_type,
+                                 parent_uuids, back_ref_uuids, obj_uuids, is_count and self.is_admin_request(),
+                                 filters, is_detail=is_detail, field_names=field_names,
+                                 include_shared=include_shared,
+                                 paginate_start=page_start,
+                                 paginate_count=page_count)
+            if not ok:
+                self.config_object_error(None, None, '%ss' %(obj_type),
+                                         'dbe_list', result)
+                raise cfgm_common.exceptions.HttpError(404, result)
 
-        (ok, err_msg) = r_class.post_dbe_list(result, self._db_conn)
+            # If only counting, return early
+            if is_count and self.is_admin_request():
+                ret_result += result
+                return {'%ss' %(resource_type): {'count': ret_result}}
+
+            allowed_fields = ['uuid', 'href', 'fq_name'] + (req_fields or [])
+            obj_dicts = []
+            if is_admin:
+                for obj_result in result:
+                    if not exclude_hrefs:
+                        obj_result['href'] = self.generate_url(
+                            resource_type, obj_result['uuid'])
+                    if is_detail:
+                        obj_result['name'] = obj_result['fq_name'][-1]
+                        obj_dicts.append({resource_type: obj_result})
+                    else:
+                        obj_dicts.append(obj_result)
+            else:
+                for obj_result in result:
+                    # TODO(nati) we should do this using sql query
+                    id_perms = obj_result.get('id_perms')
+
+                    if not id_perms:
+                        # It is possible that the object was deleted, but received
+                        # an update after that. We need to ignore it for now. In
+                        # future, we should clean up such stale objects
+                        continue
+
+                    if not id_perms.get('user_visible', True):
+                        # skip items not authorized
+                        continue
+
+                    (ok, status) = self._permissions.check_perms_read(
+                            get_request(), obj_result['uuid'],
+                            obj_result)
+                    if not ok and status[0] == 403:
+                        continue
+
+                    obj_dict = {}
+
+                    if is_detail:
+                        obj_result = self.obj_view(resource_type, obj_result)
+                        obj_result['name'] = obj_result['fq_name'][-1]
+                        obj_dict.update(obj_result)
+                        obj_dicts.append({resource_type: obj_dict})
+                    else:
+                        obj_dict.update(obj_result)
+                        for key in obj_dict.keys():
+                            if not key in allowed_fields:
+                                del obj_dict[key]
+                        if obj_dict.get('id_perms') and not 'id_perms' in allowed_fields:
+                            del obj_dict['id_perms']
+                        obj_dicts.append(obj_dict)
+
+                    if not exclude_hrefs:
+                        obj_dict['href'] = self.generate_url(resource_type, obj_result['uuid'])
+                # end obj_result in result
+            # end not admin req
+
+            ret_result.extend(obj_dicts)
+            if 'marker' not in pagination:
+                page_filled = True
+            elif ret_marker is None: # pagination request and done
+                page_filled = True
+            else: # pagination request and partially filled
+                page_start = ret_marker
+                page_count -= len(result)
+                if page_count <= 0:
+                    page_filled = True
+        # end while not page_filled
+
+        (ok, err_msg) = r_class.post_dbe_list(ret_result, self._db_conn)
         if not ok:
             (code, msg) = err_msg
             raise cfgm_common.exceptions.HttpError(code, msg)
 
-        # If only counting, return early
-        if is_count and self.is_admin_request():
-            return {'%ss' %(resource_type): {'count': result}}
-
-        allowed_fields = ['uuid', 'href', 'fq_name'] + (req_fields or [])
-        obj_dicts = []
-        if is_admin:
-            for obj_result in result:
-                if not exclude_hrefs:
-                    obj_result['href'] = self.generate_url(
-                        resource_type, obj_result['uuid'])
-                if is_detail:
-                    obj_result['name'] = obj_result['fq_name'][-1]
-                    obj_dicts.append({resource_type: obj_result})
-                else:
-                    obj_dicts.append(obj_result)
-        else:
-            for obj_result in result:
-                # TODO(nati) we should do this using sql query
-                id_perms = obj_result.get('id_perms')
-
-                if not id_perms:
-                    # It is possible that the object was deleted, but received
-                    # an update after that. We need to ignore it for now. In
-                    # future, we should clean up such stale objects
-                    continue
-
-                if not id_perms.get('user_visible', True):
-                    # skip items not authorized
-                    continue
-
-                (ok, status) = self._permissions.check_perms_read(
-                        get_request(), obj_result['uuid'],
-                        obj_result)
-                if not ok and status[0] == 403:
-                    continue
-
-                obj_dict = {}
-
-                if is_detail:
-                    obj_result = self.obj_view(resource_type, obj_result)
-                    obj_result['name'] = obj_result['fq_name'][-1]
-                    obj_dict.update(obj_result)
-                    obj_dicts.append({resource_type: obj_dict})
-                else:
-                    obj_dict.update(obj_result)
-                    for key in obj_dict.keys():
-                        if not key in allowed_fields:
-                            del obj_dict[key]
-                    if obj_dict.get('id_perms') and not 'id_perms' in allowed_fields:
-                        del obj_dict['id_perms']
-                    obj_dicts.append(obj_dict)
-
-                if not exclude_hrefs:
-                    obj_dict['href'] = self.generate_url(resource_type, obj_result['uuid'])
+        if 'marker' in pagination: # send next marker along with results
+            if is_count:
+                return {'%ss' %(resource_type): {'count': len(ret_result)},
+                        'marker': ret_marker}
+            else:
+                return {'%ss' %(resource_type): ret_result,
+                        'marker': ret_marker}
 
         if is_count:
-            return {'%ss' %(resource_type): {'count': len(obj_dicts)}}
-        return {'%ss' %(resource_type): obj_dicts}
+            return {'%ss' %(resource_type): {'count': len(ret_result)}}
+        else:
+            return {'%ss' %(resource_type): ret_result}
     # end _list_collection
 
     def get_db_connection(self):

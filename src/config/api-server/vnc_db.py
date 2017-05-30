@@ -1243,30 +1243,79 @@ class VncDbClient(object):
                  obj_uuids, is_count, filters,
                  paginate_start, paginate_count, is_detail,
                  field_names, include_shared)
-        (ok, result) = self._object_db.object_list(
-            obj_type, parent_uuids=parent_uuids,
-            back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
-            count=is_count, filters=filters)
 
-        if not ok or is_count:
-            return (ok, result)
-
-        # include objects shared with tenant
-        if include_shared:
+        def collect_shared(owned_fq_name_uuids=None, start=None, count=None):
+            shared_result = []
+            # include objects shared with tenant
             domain, tenant_uuid = self._owner_id()
             shares = self.get_shared_objects(obj_type, tenant_uuid, domain)
-            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in result])
+            if start is not None:
+                # pick only ones greater than marker
+                shares = sorted(shares, key=lambda uuid_perm: uuid_perm[0])
+                shares = [(_uuid, _perms) for _uuid, _perms in shares
+                    if _uuid > start]
+
+            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in 
+                                       owned_fq_name_uuids or []])
+
+            collected = 0
+            marker = None
             for (obj_uuid, obj_perm) in shares:
                 # skip owned objects already included in results
                 if obj_uuid in owned_objs:
                     continue
                 try:
                     fq_name = self.uuid_to_fq_name(obj_uuid)
-                    result.append((fq_name, obj_uuid))
+                    shared_result.append((fq_name, obj_uuid))
+                    collected += 1
+                    if count is not None and collected >= count:
+                        marker = obj_uuid
+                        break
                 except NoIdError:
                     # uuid no longer valid. Delete?
                     pass
-        # end shared
+
+            return shared_result, marker
+        # end collect_shared
+
+        if paginate_start is None:
+            (ok, result, ret_marker) = self._object_db.object_list(
+                     obj_type, parent_uuids=parent_uuids,
+                     back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
+                     count=is_count, filters=filters,
+                     paginate_start=paginate_start,
+                     paginate_count=paginate_count)
+
+            if not ok or is_count:
+                return (ok, result, None)
+
+            if include_shared:
+                result.extend(collect_shared(result)[0])
+        elif not paginate_start.startswith('shared:'):
+            # choose to finish non-shared items before shared ones
+            # else, items can be missed since sorted order used across two
+            # collections (normally available vs shared with tenant)
+            (ok, result, ret_marker) = self._object_db.object_list(
+                     obj_type, parent_uuids=parent_uuids,
+                     back_ref_uuids=back_ref_uuids, obj_uuids=obj_uuids,
+                     count=is_count, filters=filters,
+                     paginate_start=paginate_start,
+                     paginate_count=paginate_count)
+
+            if not ok or is_count:
+                return (ok, result, None)
+
+            if ret_marker is None and include_shared:
+                # transition to collect shared objects
+                return (True, [], 'shared:0')
+        else: # paginated and non-shared already visited
+            result, marker = collect_shared(
+                                    start=paginate_start.split(':')[-1],
+                                    count=paginate_count)
+            if marker is None:
+                ret_marker = None
+            else:
+                ret_marker = 'shared:%s' %(marker)
 
         if is_detail:
             cls = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
@@ -1279,13 +1328,20 @@ class VncDbClient(object):
 
         if not obj_fields:
             return (True, [{'uuid': obj_uuid, 'fq_name': fq_name}
-                           for fq_name, obj_uuid in result])
+                           for fq_name, obj_uuid in result], ret_marker)
+
         obj_ids_list = [obj_uuid for _, obj_uuid in result]
         try:
-            return self._object_db.object_read(
+            ok, read_result = self._object_db.object_read(
                 obj_type, obj_ids_list, obj_fields, ret_readonly=True)
         except NoIdError as e:
-            return (False, str(e))
+            ok = False
+            read_result = str(e)
+
+        if not ok:
+            return ok, read_result, None
+
+        return ok, read_result, ret_marker
     # end dbe_list
 
     @dbe_trace('delete')

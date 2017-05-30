@@ -873,7 +873,7 @@ class AddrMgmt(object):
 
         field_names = [u'network_ipam_refs']
         # Read list of virtual networks for the given project
-        (ok, result) = db_conn.dbe_list(
+        (ok, result, _) = db_conn.dbe_list(
             'virtual_network', [proj_uuid], is_detail=True, field_names=field_names)
         if not ok:
             return (False, 'Internal error : Failed to read virtual networks')
