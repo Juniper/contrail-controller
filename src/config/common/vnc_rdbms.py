@@ -1111,7 +1111,7 @@ class VncRDBMSClient(object):
                 sqa_objs = sqa_objs.filter(getattr(sqa_class, key).in_(value))
 
         if count:
-            return (True, sqa_objs.count())
+            return (True, sqa_objs.count(), None)
         rows = sqa_objs.all()
         if is_detail or extra_sqa_classes:
             objs_dict = self._format_rows(
@@ -1164,7 +1164,7 @@ class VncRDBMSClient(object):
                 for field in field_names_set:
                     obj[field] = json.loads(getattr(row, field))
                 objs.append(obj)
-        return (True, objs)
+        return (True, objs, None)
     # end object_list
 
     @use_session

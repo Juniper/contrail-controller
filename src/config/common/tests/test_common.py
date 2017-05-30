@@ -630,11 +630,11 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return (response.status_code, response.text)
     #end _http_put
 
-    def _create_test_objects(self, count=1):
+    def _create_test_objects(self, count=1, proj_obj=None):
         ret_objs = []
         for i in range(count):
             obj_name = self.id() + '-vn-' + str(i)
-            obj = VirtualNetwork(obj_name)
+            obj = VirtualNetwork(obj_name, parent_obj=proj_obj)
             self._add_detail('creating-object ' + obj_name)
             self._vnc_lib.virtual_network_create(obj)
             ret_objs.append(obj)
