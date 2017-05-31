@@ -73,15 +73,14 @@ class ContrailSetup(object):
     def setup_crashkernel_params(self):
         kcmd = r"sudo sed -i 's/crashkernel=.*\([ | \"]\)"
         kcmd += r"/crashkernel=384M-2G:64M,2G-16G:128M,16G-:256M\1/g' "
+        kcmd += "/etc/default/grub.d/kexec-tools.cfg"
         if self.pdistversion == '14.04':
-            kcmd += "/etc/default/grub.d/kexec-tools.cfg"
             local(kcmd, warn_only=True)
             cmd = "[ -f /etc/default/kdump-tools ] && "
             cmd += "sudo sed -i 's/USE_KDUMP=0/USE_KDUMP=1/' "
             cmd += "/etc/default/kdump-tools"
             local(cmd, warn_only=True)
         else:
-            kcmd += "/etc/grub.d/10_linux"
             local(kcmd)
         local("sudo update-grub")
 
