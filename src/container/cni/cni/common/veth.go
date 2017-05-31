@@ -161,20 +161,24 @@ func (intf VEth) Log() {
 	log.Infof("%+v", intf)
 }
 
-// Make tap-interface name in host namespace. Name is based on UUID
-func buildHostIfName(uuid string) string {
-	return "tap" + uuid[:CNI_UUID_IFNAME_LEN]
+// Make tap-interface name in host namespace. Name is based on container-id
+func buildHostIfName(str string) string {
+	return "tap" + str[:CNI_ID_IFNAME_START_LEN] + "-" +
+		str[len(str)-CNI_ID_IFNAME_END_LEN:]
 }
 
 // The tap-interface interface is initially created in host-os namespace. The
 // peer interface in such case is a temporary name
-func buildTmpHostIfName(uuid string) string {
-	return "tmp" + uuid[:CNI_UUID_IFNAME_LEN]
+func buildTmpHostIfName(str string) string {
+	return "tmp" + str[:CNI_ID_IFNAME_START_LEN] + "-" +
+		str[len(str)-CNI_ID_IFNAME_END_LEN:]
 }
 
-func InitVEth(containerIfName, containerUuid, containerNamespace string) VEth {
+func InitVEth(containerIfName, containerUuid, containerId,
+	containerNamespace string) VEth {
 	intf := VEth{
 		CniIntf: CniIntf{
+			containerId:        containerId,
 			containerUuid:      containerUuid,
 			containerIfName:    containerIfName,
 			containerNamespace: containerNamespace,
@@ -183,7 +187,7 @@ func InitVEth(containerIfName, containerUuid, containerNamespace string) VEth {
 		HostIfName: "",
 	}
 
-	intf.HostIfName = buildHostIfName(intf.containerUuid)
-	intf.TmpHostIfName = buildTmpHostIfName(intf.containerUuid)
+	intf.HostIfName = buildHostIfName(intf.containerId)
+	intf.TmpHostIfName = buildTmpHostIfName(intf.containerId)
 	return intf
 }
