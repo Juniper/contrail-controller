@@ -479,6 +479,7 @@ def get_svc_uve_info(svc_name, svc_status, debug, detail, timeout, keyfile,
                      certfile, cacert):
     # Extract UVE state only for running processes
     svc_uve_description = None
+    svc_uve_status = None
     if (svc_name in NodeUVEImplementedServices or
             svc_name.rsplit('-', 1)[0] in NodeUVEImplementedServices) and \
             svc_status == 'active':
@@ -487,13 +488,13 @@ def get_svc_uve_info(svc_name, svc_status, debug, detail, timeout, keyfile,
                 get_svc_uve_status(svc_name, debug, timeout, keyfile,\
                                    certfile, cacert)
         except requests.ConnectionError, e:
+            svc_uve_status = "connection-error"
             if debug:
                 print 'Socket Connection error : %s' % (str(e))
-                svc_uve_status = "connection-error"
         except (requests.Timeout, socket.timeout) as te:
+            svc_uve_status = "connection-timeout"
             if debug:
                 print 'Timeout error : %s' % (str(te))
-                svc_uve_status = "connection-timeout"
 
         if svc_uve_status is not None:
             if svc_uve_status == 'Non-Functional':
