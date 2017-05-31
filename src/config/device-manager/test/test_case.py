@@ -46,7 +46,8 @@ class DMTestCase(test_common.TestCase):
         super(DMTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
         flexmock(manager, connect=fake_netconf_connect)
         setattr(device_manager.mx_conf.MxConf, 'device_send', fake_send_netconf)
-        setattr(device_manager.qfx_conf.QfxConf, 'device_send', fake_send_netconf)
+        setattr(device_manager.qfx_5k.Qfx5kConf, 'device_send', fake_send_netconf)
+        setattr(device_manager.qfx_10k.Qfx10kConf, 'device_send', fake_send_netconf)
         FakeNetconfManager.set_model(self.product)
         return
 
