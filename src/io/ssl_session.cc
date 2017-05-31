@@ -42,10 +42,17 @@ public:
         if (session_->IsEstablished()) {
             session_->ssl_last_read_len_ = BufferSize(buffer_);
             read_fn_(buffer_);
-            if (session_->IsSslDisabled()) {
-                session_->AsyncReadStart();
-            } else if (!session_->IsSslHandShakeInProgress()) {
-                session_->AsyncReadStart();
+            if (session_->IsReaderDeferred()) {
+                // Update socket read block count.
+                session_->stats_.read_block_start_time = UTCTimestampUsec();
+                session_->stats_.read_blocked++;
+                session_->server()->stats_.read_blocked++;
+            } else {
+                if (session_->IsSslDisabled()) {
+                     session_->AsyncReadStart();
+                } else if (!session_->IsSslHandShakeInProgress()) {
+                    session_->AsyncReadStart();
+                }
             }
         }
         return true;
