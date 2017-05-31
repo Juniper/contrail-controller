@@ -9,5 +9,4 @@
 <xsd:include schemaLocation='vnc_cfg.xsd'/>
 <xsd:include schemaLocation='bgp_schema.xsd'/>
 <xsd:include schemaLocation='structured_syslog_config.xsd'/>
-<xsd:include schemaLocation='firewall_policy.xsd'/>
 </xsd:schema>
