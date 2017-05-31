@@ -751,14 +751,14 @@ class VncApiServer(object):
         obj_links = r_class.obj_links & set(obj_dict.keys())
         obj_uuids = [ref['uuid'] for link in obj_links for ref in list(obj_dict[link])]
         obj_dicts = self._db_conn._object_db.object_raw_read(obj_uuids, ["perms2"])
-        uuid_to_perms2 = dict((o['uuid'], o['perms2']) for o in obj_dicts)
+        uuid_to_obj_dict = dict((o['uuid'], o) for o in obj_dicts)
 
         for link_field in obj_links:
             links = obj_dict[link_field]
 
             # build new links in returned dict based on permissions on linked object
             ret_obj_dict[link_field] = [l for l in links
-                if self._permissions.check_perms_read(get_request(), l['uuid'], id_perms=uuid_to_perms2[l['uuid']])[0] == True]
+                if self._permissions.check_perms_read(get_request(), l['uuid'], obj_dict=uuid_to_obj_dict[l['uuid']])[0] == True]
 
         return ret_obj_dict
     # end obj_view
@@ -2793,7 +2793,7 @@ class VncApiServer(object):
 
                 (ok, status) = self._permissions.check_perms_read(
                         get_request(), obj_result['uuid'],
-                        obj_result['id_perms'])
+                        obj_result)
                 if not ok and status[0] == 403:
                     continue
 
