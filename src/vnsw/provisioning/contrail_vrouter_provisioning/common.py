@@ -62,12 +62,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         # Deduce physical interface of vhost0 from ip, if vhost0 exist.
         self.physical_dev = self.get_physical_dev_of_vhost(self.vhost_ip)
 
-    def enable_kernel_core(self):
-        self.enable_kernel_core()
-        if self.pdist not in ['Ubuntu']:
-            for svc in ['abrt-vmcore', 'abrtd', 'kdump']:
-                local('sudo chkconfig %s on' % svc)
-
     def fixup_config_files(self):
         self.add_dev_tun_in_cgroup_device_acl()
         self.fixup_contrail_vrouter_agent()
