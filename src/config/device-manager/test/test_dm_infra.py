@@ -122,12 +122,6 @@ class TestInfraDM(TestCommonDM):
             self._cluster_id, TestInfraDM._api_server_ip, TestInfraDM._api_server_port)
         wait_for_device_manager_up()
 
-    @retries(5, hook=retry_exc_handler)
-    def check_dm_plugin(self):
-        self.assertIsNone(DMCassandraDB.dm_object_db_instance)
-        self.assertIsNone(DeviceManager.get_instance())
-        self.assertIsNone(DBBase._object_db)
-
     # check dm plugin
     @retries(5, hook=retry_exc_handler)
     def check_dm_plugin(self, is_valid = True):
@@ -158,9 +152,23 @@ class TestInfraDM(TestCommonDM):
 
         # update valid another vendor, product; another plugin should be found
         FakeDeviceConnect.reset()
-        FakeNetconfManager.set_model('qfx')
+        FakeNetconfManager.set_model('qfx5110')
         pr.physical_router_vendor_name = "juniper"
-        pr.physical_router_product_name = "qfx"
+        pr.physical_router_product_name = "qfx5110"
+        self._vnc_lib.physical_router_update(pr)
+        self.check_dm_plugin()
+
+        FakeDeviceConnect.reset()
+        FakeNetconfManager.set_model('qfx5100')
+        pr.physical_router_vendor_name = "juniper"
+        pr.physical_router_product_name = "qfx5100"
+        self._vnc_lib.physical_router_update(pr)
+        self.check_dm_plugin()
+
+        FakeDeviceConnect.reset()
+        FakeNetconfManager.set_model('qfx10000')
+        pr.physical_router_vendor_name = "juniper"
+        pr.physical_router_product_name = "qfx10000"
         self._vnc_lib.physical_router_update(pr)
         self.check_dm_plugin()
 
@@ -177,6 +185,13 @@ class TestInfraDM(TestCommonDM):
         FakeNetconfManager.set_model('mx80')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "mx"
+        self._vnc_lib.physical_router_update(pr)
+        self.check_dm_plugin()
+
+        FakeDeviceConnect.reset()
+        FakeNetconfManager.set_model('mx480')
+        pr.physical_router_vendor_name = "juniper"
+        pr.physical_router_product_name = "mx480"
         self._vnc_lib.physical_router_update(pr)
         self.check_dm_plugin()
 
