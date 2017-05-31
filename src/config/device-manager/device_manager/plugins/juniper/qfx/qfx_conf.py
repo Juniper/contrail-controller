@@ -13,31 +13,19 @@ from juniper_conf import JuniperConf
 from device_api.juniper_common_xsd import *
 
 class QfxConf(JuniperConf):
-    _product = 'qfx'
 
-    def __init__(self, logger, params={}):
-        self._logger = logger
-        self.physical_router = params.get("physical_router")
-        super(QfxConf, self).__init__()
-    # end __init__
+    _FAMILY_MAP = {
+        'route-target': '',
+        'e-vpn': FamilyEvpn(signaling='')
+    }
 
     @classmethod
-    def register(cls):
-        qconf = {
-              "vendor": cls._vendor,
-              "product": cls._product,
-              "class": cls
-            }
-        return super(QfxConf, cls).register(qconf)
-    # end register
+    def is_product_supported(cls, name):
+        if name.lower() in self._products:
+            return True
 
-    def push_conf(self, is_delete=False):
-        if not self.physical_router:
-            return 0
-        if is_delete:
-            return self.send_conf(is_delete=True)
-        self.build_bgp_config()
-        return self.send_conf()
-    # end push_conf
+    def __init__(self):
+        super(QfxConf, self).__init__()
+    # end __init__
 
 # end QfxConf

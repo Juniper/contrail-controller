@@ -9,7 +9,7 @@ from test_dm_bgp import TestBgpDM
 class TestQfxBgpDM(TestBgpDM):
 
     def __init__(self, *args, **kwargs):
-        self.product = "qfx"
+        self.product = "qfx5110"
         super(TestQfxBgpDM, self).__init__(*args, **kwargs)
 
     # test hold time configuration

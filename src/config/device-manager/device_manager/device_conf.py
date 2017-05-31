@@ -53,19 +53,20 @@ class DeviceConf(object):
     # instantiate a plugin dynamically
     @classmethod
     def plugin(cls, vendor, product, params, logger):
+        pconfs = DeviceConf._plugins.get(vendor)
+        for pconf in pconfs or []:
+            inst_cls = pconf.get('class')
+            if inst_cls.is_product_supported(product):
+                return  inst_cls(logger, params)
+        pr = params.get("physical_router")
         name = vendor + ":" + product
-        pconf = DeviceConf._plugins.get(name)
-        if not pconf:
-            pr = params.get("physical_router")
-            logger.warning("No plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
-            return None
-        inst_cls = pconf.get('class')
-        return  inst_cls(logger, params)
+        logger.warning("No plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
+        return None
     # end plugin
 
     # validate plugin name
     def verify_plugin(self, vendor, product):
-        if vendor == self._vendor and product == self._product:
+        if vendor.lower() == self._vendor.lower() and self.is_product_supported(product):
             return True
         return False
     # end verify_plugin
@@ -93,7 +94,7 @@ class DeviceConf(object):
         for scls in subclasses or []:
             try:
                 scls.register()
-            except PluginError as e:
+            except DeviceConf.PluginError as e:
                 exceptions.append(str(e))
         if exceptions:
             raise PluginsRegistrationFailed(exceptions)
@@ -101,11 +102,17 @@ class DeviceConf(object):
 
     @classmethod
     def register(cls, plugin_info):
-        if not all (k in plugin_info for k in ("vendor", "product")):
-            raise PluginError(plugin_info)
-        name = plugin_info['vendor'] + ":" + plugin_info['product']
-        DeviceConf._plugins[name] = plugin_info
+        if not all (k in plugin_info for k in ("vendor", "products")):
+            raise DeviceConf.PluginError(plugin_info)
+        name = plugin_info['vendor']
+        DeviceConf._plugins.setdefault(name, []).append(plugin_info)
     # end register
+
+    @classmethod
+    def is_product_supported(cls, product):
+        """ check if plugin is capable of supporting product """
+        return False
+    # end is_product_supported
 
     @abc.abstractmethod
     def initialize(self):
@@ -120,9 +127,9 @@ class DeviceConf(object):
         if not self.device_config:
             self.device_config = self.device_get()
         model = self.device_config.get('product-model')
-        if self._product.lower() not in model.lower():
-            self._logger.error("product model mismatch: device model = %s,"
-                      " plugin mode = %s" % (model, self._product))
+        if not self.is_product_supported(model):
+            self._logger.error("product model mismatch: device model = %s," \
+                      " plugin mode = %s" % (model, str(self._products)))
             self.device_config = {}
             return False
         return True
