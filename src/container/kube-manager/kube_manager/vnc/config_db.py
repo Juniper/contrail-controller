@@ -971,7 +971,7 @@ class FloatingIpPoolKM(DBBaseKM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
-        self.update_single_ref('virtual_network', None)
+        obj.update_single_ref('virtual_network', None)
         del cls._dict[uuid]
 
 class FloatingIpKM(DBBaseKM):
