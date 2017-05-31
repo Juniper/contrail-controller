@@ -87,17 +87,16 @@ class VncPermissions(object):
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
-    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None):
+    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None, perms2=None):
         err_msg = (403, 'Permission Denied')
 
         # retrieve object and permissions
-        try:
-            config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
-            perms2 = config.get('prop:perms2', config.get("perms2"))
-            obj_name = config.get("fq_name")
-            obj_type = config.get("type")
-        except NoIdError:
-            return (True, '')
+        if not perms2:
+            try:
+                config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
+                perms2 = config.get('prop:perms2', config.get("perms2"))
+            except NoIdError:
+                return (True, '')
 
         user, roles = self.get_user_roles(request)
         is_admin = has_role(self.cloud_admin_role, roles)
@@ -155,9 +154,9 @@ class VncPermissions(object):
             ok = (tenant == obj_owner_for_delete)
         granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
-        msg = 'rbac: %s (%s:%s) %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
+        msg = 'rbac: %s (%s:%s) admin=%s, mode=%03o mask=%03o perms=%03o, \
             (usr=%s(%s)/own=%s/sh=%s)' \
-            % ('+++' if ok else '---', self.mode_str[mode], obj_uuid, obj_type, obj_name,
+            % ('+++' if ok else '---', self.mode_str[mode], obj_uuid,
                'yes' if is_admin else 'no', mode_mask, mask, perms,
                tenant, tenant_name, owner, tenants)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
@@ -204,15 +203,17 @@ class VncPermissions(object):
             return (True, '')
     # end check_perms_write
 
-    def check_perms_read(self, request, id, id_perms=None):
+    def check_perms_read(self, request, id, obj_dict={}):
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
 
         if self._rbac:
-            return self.validate_perms_rbac(request, id, PERMS_R)
+            return self.validate_perms_rbac(request, id, PERMS_R,
+                       perms2=obj_dict.get("perms2"))
         elif self._multi_tenancy:
-            return self.validate_perms(request, id, PERMS_R, id_perms)
+            return self.validate_perms(request, id, PERMS_R,
+                       id_perms=obj_dict.get("id_perms"))
         else:
             return (True, '')
     # end check_perms_read
