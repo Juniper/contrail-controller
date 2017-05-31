@@ -170,6 +170,10 @@ public:
         return route_walker_.get(); 
     }
 
+    ControllerRouteWalker *stale_walker() const {
+        return stale_walker_.get(); 
+    }
+
     //Helper routines to get export state for vrf and route
     DBState *GetVrfExportState(DBTablePartBase *partition,
                                DBEntryBase *e);
@@ -187,6 +191,7 @@ private:
     uint32_t setup_time_;
     tbb::atomic<bool> is_disconnect_walk_;
     boost::scoped_ptr<ControllerRouteWalker> route_walker_;
+    boost::scoped_ptr<ControllerRouteWalker> stale_walker_;
     DISALLOW_COPY_AND_ASSIGN(BgpPeer);
 };
 
