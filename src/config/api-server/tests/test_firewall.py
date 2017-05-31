@@ -164,27 +164,50 @@ class TestFw(test_case.ApiServerTestCase):
     # verify unique id are allocated for global and per-project tags
     def test_tag_id(self):
         # create valid tags
-        app_type = cfgm_common.tag_dict['application']
+        pobj = Project('%s-project' %(self.id()))
+        self._vnc_lib.project_create(pobj)
 
-        tag1_obj = Tag('tag1-%s' %(self.id()))
-        tag1_obj.set_tag_type('application')
-        tag1_obj.set_tag_value('MyTestApp-1')
-        self._vnc_lib.tag_create(tag1_obj)
-        tag1 = self._vnc_lib.tag_read(id=tag1_obj.uuid)
-        tag1_id = tag1.get_tag_id()
+        tag_list = [
+            ('application', 'App1'),
+            ('deployment', 'Site1'),
+            ('application', 'App2'),
+            ('deployment', 'Site2')
+        ]
 
-        proj_obj = Project('%s-project' %(self.id()))
-        self._vnc_lib.project_create(proj_obj)
-        tag2_obj = Tag('tag2-%s' %(self.id()), parent_obj = proj_obj)
-        tag2_obj.set_tag_type('application')
-        tag2_obj.set_tag_value('MyTestApp-1')
-        self._vnc_lib.tag_create(tag2_obj)
-        tag2 = self._vnc_lib.tag_read(id=tag2_obj.uuid)
-        tag2_id = tag2.get_tag_id()
+        tag_ids = []
+        tag_uuids = []
+        for tt, tv in tag_list:
+            tag_obj = Tag(tag_type=tt, tag_value=tv, parent_obj=pobj)
+            self._vnc_lib.tag_create(tag_obj)
+            tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+            tag_id = tag.get_tag_id()
+            self.assertEqual(tag_id>>27, cfgm_common.tag_dict[tt])
+            tag_ids.append(tag_id)
+            tag_uuids.append(tag.uuid)
+            time.sleep(5)
 
-        self.assertNotEqual(tag1_id, tag2_id)
-        self.assertEqual(tag1_id>>27, app_type)
-        self.assertEqual(tag2_id>>27, app_type)
+        # validate all ids are unique
+        tag_ids_set = set(tag_ids)
+        self.assertEqual(len(tag_ids_set), 4)
+
+        # validate ids are allocated sequentially per type
+        self.assertEqual(tag_ids[2], tag_ids[0]+1)
+        self.assertEqual(tag_ids[3], tag_ids[1]+1)
+
+        # validate ids get freed up on delete (and re-allocated on create)
+        for tag_uuid in tag_uuids:
+            self._vnc_lib.tag_delete(id=tag_uuid)
+
+        tag_ids_post_delete = []
+        for tt, tv in tag_list:
+            tag_obj = Tag(tag_type=tt, tag_value=tv, parent_obj=pobj)
+            self._vnc_lib.tag_create(tag_obj)
+            tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+            tag_id = tag.get_tag_id()
+            tag_ids_post_delete.append(tag_id)
+            time.sleep(5)
+
+        self.assertEqual(tag_ids, tag_ids_post_delete)
     # end test_tag_id
 
     def test_firewall_rule_using_ep_tag(self):
@@ -333,7 +356,8 @@ class TestFw(test_case.ApiServerTestCase):
         pobj = Project('%s-project' %(self.id()))
         self._vnc_lib.project_create(pobj)
 
-        match_tags = ['application', 'tier', 'deployment', 'site']
+        # validate specified match-tag types
+        match_tags = ['application', 'tier', 'site']
         rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
                      action_list=ActionListType(simple_action='pass'),
                      match_tags=FirewallRuleMatchTagsType(tag_list=match_tags),
@@ -342,11 +366,37 @@ class TestFw(test_case.ApiServerTestCase):
                      direction='<>')
         self._vnc_lib.firewall_rule_create(rule_obj)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
-
-        # validate match-tag types
         received_set = set(rule.get_match_tag_types().get_tag_type())
         expected_set = set([cfgm_common.tag_dict[tag_type] for tag_type in match_tags])
         self.assertEqual(expected_set, received_set)
+        self._vnc_lib.firewall_rule_delete(id=rule_obj.uuid)
+
+        # validate default match-tags
+        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
+                     action_list=ActionListType(simple_action='pass'),
+                     endpoint_1=FirewallRuleEndpointType(any=True),
+                     endpoint_2=FirewallRuleEndpointType(any=True),
+                     direction='<>')
+        self._vnc_lib.firewall_rule_create(rule_obj)
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+        received_set = set(rule.get_match_tag_types().get_tag_type())
+        expected_set = set([cfgm_common.tag_dict[tag_type] for tag_type in cfgm_common.DEFAULT_MATCH_TAG_TYPE])
+        self.assertEqual(expected_set, received_set)
+        self._vnc_lib.firewall_rule_delete(id=rule_obj.uuid)
+
+        # validate override of default match-tags
+        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
+                     action_list=ActionListType(simple_action='pass'),
+                     match_tags=FirewallRuleMatchTagsType(tag_list=[]),
+                     endpoint_1=FirewallRuleEndpointType(any=True),
+                     endpoint_2=FirewallRuleEndpointType(any=True),
+                     direction='<>')
+        self._vnc_lib.firewall_rule_create(rule_obj)
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+        received_set = set(rule.get_match_tag_types().get_tag_type())
+        expected_set = set()
+        self.assertEqual(expected_set, received_set)
+        self._vnc_lib.firewall_rule_delete(id=rule_obj.uuid)
     # end test_firewall_rule_match_tags
 
     def test_firewall_rule_service(self):

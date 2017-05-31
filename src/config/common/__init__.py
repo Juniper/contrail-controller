@@ -46,6 +46,8 @@ proto_dict = {
     'udp'    : 17,
 }
 
+DEFAULT_MATCH_TAG_TYPE = ['deployment']
+
 def obj_to_json(obj):
     return dict((k, v) for k, v in obj.__dict__.iteritems())
 #end obj_to_json
