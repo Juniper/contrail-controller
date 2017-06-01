@@ -1,0 +1,62 @@
+<!--
+ Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
+
+<xsd:simpleType name="TagValueRangeType">
+    <xsd:annotation>
+        <xsd:documentation>
+            Min and Max values to be used for generation of Tag id
+            Default Min and Max are 0, 2^27-1
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:integer">
+        <xsd:minInclusive value="0"/>
+        <xsd:maxInclusive value="134217727"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="tag-value-range" type="TagValueRangeType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('tag-value-range', 'global-system-config', 'optional', 'CRUD',
+              'Minimum and maximum numbers for value part of internal tag id') -->
+
+<xsd:simpleType name="TagType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="application"/>
+        <xsd:enumeration value="tier"/>
+        <xsd:enumeration value="deployment"/>
+        <xsd:enumeration value="site"/>
+        <xsd:enumeration value="label"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="tag" type="ifmap:IdentityType"/>
+<xsd:element name="tag-type" type="TagType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('tag-type', 'tag', 'required', 'CR',
+             'Tag type ') -->
+<xsd:element name="tag-value" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('tag-value', 'tag', 'required', 'CR',
+             'Tag Value ') -->
+<xsd:element name="tag-id" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('tag-id', 'tag', 'optional', 'R',
+             'Internal Tag id encapsulating tag type and value') -->
+<xsd:element name="config-root-tag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('config-root-tag', 'config-root', 'tag', ['has'], 'optional', 'CRUD',
+          'Attribute attached to objects - has a type and value') -->
+<xsd:element name="project-scoped-tag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-scoped-tag', 'project', 'tag', ['has'], 'optional', 'CRUD',
+          'Attribute attached to objects - has a type and value') -->
+<xsd:element name="object-tag"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('object-tag', 'all', 'tag', ['ref'], 'optional', 'CRUD',
+          'Tag attached to an object - has a type and value') -->
+
+</xsd:schema>
