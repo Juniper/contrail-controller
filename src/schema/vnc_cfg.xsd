@@ -2880,6 +2880,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Userdefined Counter Config -->
 <xsd:include schemaLocation='usr_def_cntr.xsd'/>
 
+<!-- Firewall policy -->
+<xsd:include schemaLocation='firewall_policy.xsd'/>
+
 <!-- PBB EVPN Configurations -->
 <xsd:simpleType name="MACLimitExceedActionType">
     <xsd:annotation>
@@ -3167,8 +3170,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('layer2-control-word', 'virtual-network', 'optional', 'CRUD',
               'Enable/Disable adding control word to the Layer 2 encapsulation') -->
 
-<!-- New firewall rule start -->
-
 <xsd:simpleType name="TagValueRangeType">
     <xsd:annotation>
         <xsd:documentation>
@@ -3222,16 +3223,4 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Link('object-tag', 'all', 'tag', ['ref'], 'optional', 'CRUD',
           'Tag attached to an object - has a type and value') -->
-
-<xsd:element name="application-policy-set-global-vrouter-config"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Link('application-policy-set-global-vrouter-config',
-          'application-policy-set', 'global-vrouter-config', ['ref'], 'system-internal', 'CRUD',
-          'Reference to global-vrouter-config is automatically created by system for global
-           application policy sets') -->
-<xsd:element name="firewall-rule-virtual-network"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Link('firewall-rule-virtual-network',
-          'firewall-rule', 'virtual-network', ['ref'], 'optional', 'R',
-          'Reference to virtual network attached to endpoints') -->
 </xsd:schema>

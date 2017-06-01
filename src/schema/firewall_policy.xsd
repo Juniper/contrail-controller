@@ -78,7 +78,6 @@
 <!--#IFMAP-SEMANTICS-IDL
      Property('endpoint-2', 'firewall-rule', 'required', 'CRUD',
               'match condition for traffic destination') -->
-<!-- New firewall rule end -->
 
 <xsd:complexType name="FirewallRuleMatchTagsType">
     <xsd:element name="tag-list" type="TagType" maxOccurs="unbounded" required='true'/>
@@ -184,5 +183,16 @@
      Link('project-application-policy-set',
           'project', 'application-policy-set', ['has'], 'optional', 'CRUD',
           'Project level application-policy object defining policies to apply for a given application tag') -->
-<!-- New firewall rule end -->
+
+<xsd:element name="application-policy-set-global-vrouter-config"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('application-policy-set-global-vrouter-config',
+          'application-policy-set', 'global-vrouter-config', ['ref'], 'system-internal', 'CRUD',
+          'Reference to global-vrouter-config is automatically created by system for global
+           application policy sets') -->
+<xsd:element name="firewall-rule-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('firewall-rule-virtual-network',
+          'firewall-rule', 'virtual-network', ['ref'], 'optional', 'R',
+          'Reference to virtual network attached to endpoints') -->
 </xsd:schema>
