@@ -1045,7 +1045,7 @@ struct Established : sc::state<Established, StateMachine> {
         state_machine->DeleteSession(session);
 
         // If GR Helper mode is enabled, trigger graceful closure.
-        if (state_machine->peer()->IsCloseGraceful())
+        if (state_machine->IsCloseGraceful())
             state_machine->Shutdown(BgpProto::Notification::Unknown);
         return discard_event();
     }
@@ -1414,6 +1414,10 @@ bool StateMachine::HoldTimerExpired() {
 bool StateMachine::IdleHoldTimerExpired() {
     Enqueue(fsm::EvIdleHoldTimerExpired(idle_hold_timer_));
     return false;
+}
+
+bool StateMachine::IsCloseGraceful() const {
+    return peer_->IsCloseGraceful();
 }
 
 //

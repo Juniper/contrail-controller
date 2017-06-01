@@ -196,9 +196,20 @@ public:
         skip_bgp_notification_msg_ = flag;
     }
 
+    bool IsCloseGraceful() const {
+        if (graceful_close_ == -1)
+            return StateMachine::IsCloseGraceful();
+        return graceful_close_ != 0;
+    }
+
+    static void SetCloseGraceful(int graceful_close) {
+        graceful_close_ = graceful_close;
+    }
+
 private:
     static int hold_time_msecs_;
     static int keepalive_time_msecs_;
+    static int graceful_close_;
     static TcpSession::Event skip_tcp_event_;
     bool skip_bgp_notification_msg_;
 };
@@ -368,8 +379,8 @@ private:
 
 class XmppStateMachineTest : public XmppStateMachine {
 public:
-    explicit XmppStateMachineTest(XmppConnection *connection, bool active,
-                                  bool auth_enabled = false)
+    XmppStateMachineTest(XmppConnection *connection, bool active,
+                         bool auth_enabled = false)
         : XmppStateMachine(connection, active, auth_enabled) {
         if (!notify_fn_.empty())
             notify_fn_(this, true);
