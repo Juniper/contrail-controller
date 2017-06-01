@@ -188,6 +188,11 @@ class PhysicalRouterConfig(object):
     # end send_config
 
     def get_device_config(self):
+        dev_conf = {
+                     'product-name' : '',
+                     'product-model': '',
+                     'software-version': ''
+                   }
         try:
             with manager.connect(host=self.management_ip, port=22,
                                  username=self.user_creds['username'],
@@ -199,19 +204,26 @@ class PhysicalRouterConfig(object):
                 res = m.rpc(sw_info)
                 pname = res.xpath('//software-information/product-name')[0].text
                 pmodel = res.xpath('//software-information/product-model')[0].text
-                ele = res.xpath("//software-information/package-information"
-                                "[name='junos-version']")[0]
-                jversion = ele.find('comment').text
-                dev_conf = {}
+                jversion = ''
+                try:
+                    jversion = res.xpath('//software-information/junos-version')[0].text
+                except:
+                    try:
+                        ele = res.xpath("//software-information/package-information"
+                                        "[name='junos-version']")[0]
+                        jversion = ele.find('comment').text
+                    except:
+                        if self._logger:
+                            self._logger.error("could not fetch junos version: %s" % (
+                                                              self.management_ip))
                 dev_conf['product-name'] = pname
                 dev_conf['product-model'] = pmodel
                 dev_conf['software-version'] = jversion
-                return dev_conf
         except Exception as e:
             if self._logger:
                 self._logger.error("could not fetch config from router %s: %s" % (
                                           self.management_ip, e.message))
-        return {}
+        return dev_conf
 
     def add_pnf_logical_interface(self, junos_interface):
 
