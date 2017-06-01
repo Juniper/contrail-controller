@@ -187,7 +187,23 @@ class PhysicalRouterConfig(object):
         return config_size
     # end send_config
 
+    def get_xpath_data(self, res, path_name):
+        data = ''
+        try:
+            data = res.xpath(path_name)[0].text
+        except IndexError:
+            if self._logger:
+                self._logger.warning("could not fetch element data: %s, ip: %s" % (
+                                             path_name, self.management_ip))
+        return data
+    # end get_xpath_data
+
     def get_device_config(self):
+        dev_conf = {
+                     'product-name' : '',
+                     'product-model': '',
+                     'software-version': ''
+                   }
         try:
             with manager.connect(host=self.management_ip, port=22,
                                  username=self.user_creds['username'],
@@ -197,21 +213,22 @@ class PhysicalRouterConfig(object):
                                  unknown_host_cb=lambda x, y: True) as m:
                 sw_info = new_ele('get-software-information')
                 res = m.rpc(sw_info)
-                pname = res.xpath('//software-information/product-name')[0].text
-                pmodel = res.xpath('//software-information/product-model')[0].text
-                ele = res.xpath("//software-information/package-information"
-                                "[name='junos-version']")[0]
-                jversion = ele.find('comment').text
-                dev_conf = {}
-                dev_conf['product-name'] = pname
-                dev_conf['product-model'] = pmodel
-                dev_conf['software-version'] = jversion
-                return dev_conf
+                dev_conf['product-name'] = self.get_xpath_data(res,
+                                             '//software-information/product-name')
+                dev_conf['product-model'] = self.get_xpath_data(res,
+                                             '//software-information/product-model')
+                dev_conf['software-version'] = self.get_xpath_data(res,
+                                             '//software-information/junos-version')
+                if not dev_conf.get('software-version'):
+                    ele = self.get_xpath_data(res,
+                      "//software-information/package-information[name='junos-version']")
+                    if ele:
+                        dev_conf['software-version'] = ele.find('comment').text
         except Exception as e:
             if self._logger:
                 self._logger.error("could not fetch config from router %s: %s" % (
                                           self.management_ip, e.message))
-        return {}
+        return dev_conf
 
     def add_pnf_logical_interface(self, junos_interface):
 
