@@ -101,6 +101,13 @@ class MMTestCase(test_common.TestCase):
         event['cid'] = uuid
         return event
 
+    def create_del_event_object(self, uuid):
+        event = {}
+        event['labels'] = {}
+        event['cmd'] = 'DEL'
+        event['cid'] = uuid
+        return event
+
     def create_project(self, name):
         proj_fq_name = ['default-domain', name]
         proj_obj = Project(name=name, fq_name=proj_fq_name)
@@ -128,6 +135,14 @@ class MMTestCase(test_common.TestCase):
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         except NoIdError:
             pass
+        # Test delete project and task
+        event = self.create_del_event_object(task_uuid)
+        label_dict = event['labels']
+        label_dict['domain-name'] = 'default-domain'
+        label_dict['project-name'] = 'default-project'
+        label_dict['networks'] = 'yellow-net'
+        label_dict['cluster-name'] = 's2s33'
+        self.enqueue_event(event)
 
     def test_pass(self):
         pass
