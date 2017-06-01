@@ -19,6 +19,7 @@ import ConfigParser
 from keystoneclient import session as ksession
 from keystoneclient.auth.identity import generic as kauth
 from keystoneclient import client as kclient
+from keystoneclient import exceptions as kexceptions
 from netaddr import *
 try:
     from cfgm_common import vnc_plugin_base
@@ -149,7 +150,7 @@ def fill_keystone_opts(obj, conf_sections):
         # Get the project_domain_name for keystone v3
         obj._project_domain_name = conf_sections.get('KEYSTONE', 'project_domain_name')
     except ConfigParser.NoOptionError:
-        obj._project_domain_name = None
+        obj._project_domain_name = 'Default'
 
     try:
         # Get the project_name for keystone v3
@@ -228,7 +229,13 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         self._config_sections = conf_sections
         fill_keystone_opts(self, conf_sections)
 
-        if 'v3' in self._auth_url.split('/')[-1]:
+        self._ks = None
+        ConnectionState.update(conn_type=ConnType.OTHER, name='Keystone',
+                               status=ConnectionStatus.INIT, message='',
+                               server_addrs=[self._auth_url])
+        self._get_keystone_conn()
+
+        if self._ks.version == 'v3':
             self._ks_domains_list = self._ksv3_domains_list
             self._ks_domain_get = self._ksv3_domain_get
             self._ks_projects_list = self._ksv3_projects_list
@@ -246,10 +253,6 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             self._add_project_to_vnc = self._ksv2_add_project_to_vnc
             self._del_project_from_vnc = self._ksv2_del_project_from_vnc
 
-        self._ks = None
-        ConnectionState.update(conn_type=ConnType.OTHER,
-            name='Keystone', status=ConnectionStatus.INIT, message='',
-            server_addrs=[self._auth_url])
         self._vnc_lib = None
 
         # resync failures, don't retry forever
@@ -302,6 +305,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if self._ks:
             return
 
+        verify = self._kscertbundle if self._use_certs else self._insecure
         if self._admin_token:
             auth = kauth.token.Token(self._auth_url, token=self._admin_token)
         else:
@@ -309,27 +313,32 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 'project_name': self._admin_tenant,
                 'username': self._auth_user,
                 'password': self._auth_passwd,
+                'user_domain_name': self._user_domain_name,
             }
-            if 'v3' in self._auth_url.split('/')[-1]:
+            if self._domain_id:
+              kwargs.update({
+                'domain_id': self._domain_id,
+              })
+              kwargs.pop('project_name')
+            else:
                 kwargs.update({
-                    'user_domain_name': self._user_domain_name,
+                    'project_domain_name': self._project_domain_name,
+                    'project_name': self._project_name,
                 })
-                if self._domain_id:
-                  kwargs.update({
-                    'domain_id': self._domain_id,
-                  })
-                  kwargs.pop('project_name')
-                else:
-                    kwargs.update({
-                        'project_domain_name': self._project_domain_name,
-                        'project_name': self._project_name,
-                    })
-
             auth = kauth.password.Password(self._auth_url, **kwargs)
 
-        verify = self._kscertbundle if self._use_certs else not self._insecure
         sess = ksession.Session(auth=auth, verify=verify)
-        self._ks = kclient.Client(session=sess, auth_url=self._auth_url)
+
+        try:
+            self._ks = kclient.Client(session=sess, auth_url=self._auth_url)
+        except kexceptions.DiscoveryFailure:
+            # Probably a v2 Keytone API, remove v3 args and try again
+            v3_args = ['user_domain_name', 'project_domain_name', 'domain_id']
+            for arg in v3_args:
+                kwargs.pop(arg, None)
+            auth = kauth.password.Password(self._auth_url, **kwargs)
+            sess = ksession.Session(auth=auth, verify=verify)
+            self._ks = kclient.Client(session=sess, auth_url=self._auth_url)
 
         if self._endpoint_type and auth.auth_ref.service_catalog:
             self._ks.management_url = \
@@ -337,9 +346,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                     service_type='identity',
                     endpoint_type=self._endpoint_type)[0]
 
-        ConnectionState.update(conn_type=ConnType.OTHER,
-                    name='Keystone', status=ConnectionStatus.UP, message='',
-                    server_addrs=[self._auth_url])
+        ConnectionState.update(conn_type=ConnType.OTHER, name='Keystone',
+                               status=ConnectionStatus.UP, message='',
+                               server_addrs=[self._auth_url])
 
     def _ksv2_projects_list(self):
         return [{'id': tenant.id} for tenant in self._ks.tenants.list()]
