@@ -156,13 +156,9 @@ void NamedConfig::CreateNamedConf(const VirtualDnsConfig *updated_vdns) {
      GetDefaultForwarders();
      file_.open(named_config_file_.c_str());
 
-     ifstream pyscript("/etc/contrail/dns/applynamedconfig.py");
-     if (!pyscript.good()) {
-         WriteOptionsConfig();
-         WriteRndcConfig();
-         WriteLoggingConfig();
-     }
-
+     WriteOptionsConfig();
+     WriteRndcConfig();
+     WriteLoggingConfig();
      WriteViewConfig(updated_vdns);
 
      file_.flush();

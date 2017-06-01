@@ -101,7 +101,6 @@ def parse_contrail_dns_conf():
 
 # end parse_contrail_dns_conf
 
-
 def main():
     if not os.path.exists('/etc/contrail/dns/contrail-named-base.conf'):
         # parse contrail-dns.conf and build contrail-named-base.conf
@@ -125,7 +124,7 @@ def main():
     file2.close()
 
     # delete all lines before the view stanza {}
-    del lines[1:count]
+    del lines[0:count]
 
     # open contrail-named.conf
     file3 = open('/etc/contrail/dns/contrail-named.conf', 'w')
