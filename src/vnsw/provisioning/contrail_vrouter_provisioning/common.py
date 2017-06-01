@@ -42,7 +42,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             self.vhost_ip = self._args.self_ip
 
         self.dev = None # will be physical device or vhost0
-        self.physical_dev = None # always be physical device
         if self._args.physical_interface:
             # During re-provision/upgrade vhost0 will be present
             # so vhost0 should be treated as dev,
@@ -59,8 +58,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         else:
             # Deduce the vhost/phy interface from ip, if configured
             self.dev = self.get_device_by_ip(self.vhost_ip)
-        # Deduce physical interface of vhost0 from ip, if vhost0 exist.
-        self.physical_dev = self.get_physical_dev_of_vhost(self.vhost_ip)
 
     def fixup_config_files(self):
         self.add_dev_tun_in_cgroup_device_acl()
@@ -372,7 +369,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         compute_as_gateway = self._args.compute_as_gateway
 
         self.mac = None
-        if self.dev:
+        if (self.dev and self.dev != 'vhost0'):
             self.mac = netifaces.ifaddresses(self.dev)[netifaces.AF_LINK][0][
                            'addr']
             if not self.mac:
@@ -401,7 +398,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 vgw_intf_list_str = str(tuple(
                     vgw_intf_list[1:-1].split(";"))).replace(" ", "")
 
-                cmds = ["sudo sed 's@dev=.*@dev=%s@g;" % self.physical_dev,
+                cmds = ["sudo sed 's@dev=.*@dev=%s@g;" % self.dev,
                         "s@vgw_subnet_ip=.*@vgw_subnet_ip=%s@g;" %
                         vgw_public_subnet_str,
                         "s@vgw_intf=.*@vgw_intf=%s@g'" % vgw_intf_list_str,
@@ -410,7 +407,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 local("sudo mv agent_param.new /etc/contrail/agent_param")
             else:
                 os.chdir(self._temp_dir_name)
-                cmds = ["sudo sed 's/dev=.*/dev=%s/g' " % self.physical_dev,
+                cmds = ["sudo sed 's/dev=.*/dev=%s/g' " % self.dev,
                         "/etc/contrail/agent_param.tmpl > agent_param.new"]
                 local(''.join(cmds))
                 local("sudo mv agent_param.new /etc/contrail/agent_param")
@@ -459,84 +456,94 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                     local('sudo echo "vhost-net" >> /etc/modules')
 
                 self.setup_uio_driver(dpdk_args)
-
-            control_servers = ' '.join('%s:%s' % (server, '5269')
-                                       for server in self._args.control_nodes)
-            dns_servers = ' '.join('%s:%s' % (server, '53')
-                                   for server in self._args.control_nodes)
-            collector_servers = ' '.join('%s:%s' % (server, '8086')
-                                         for server in self._args.collectors)
             configs = {
                     'DEFAULT': {
                         'platform': platform_mode,
                         'gateway_mode': gateway_mode or '',
                         'physical_interface_address': pci_dev,
-                        'physical_interface_mac': self.mac,
-                        'collectors': collector_servers,
-                        'xmpp_auth_enable': self._args.xmpp_auth_enable,
-                        'xmpp_dns_auth_enable': self._args.xmpp_dns_auth_enable},
-                    'NETWORKS': {
-                        'control_network_ip': compute_ip},
+                        'physical_interface_mac': self.mac},
                     'VIRTUAL-HOST-INTERFACE': {
                         'name': 'vhost0',
                         'ip': str(self.cidr),
                         'gateway': self.gateway,
-                        'physical_interface': self.physical_dev},
-                    'HYPERVISOR': {
-                        'type': ('kvm' if self._args.hypervisor == 'libvirt'
-                                 else self._args.hypervisor),
-                        'vmware_mode': self._args.mode or '',
-                        'vmware_physical_interface': vmware_dev or ''},
-                    'CONTROL-NODE': {
-                        'servers': control_servers},
-                    'DNS': {
-                        'servers': dns_servers},
-                    'SANDESH': {
-                        'sandesh_ssl_enable': self._args.sandesh_ssl_enable,
-                        'introspect_ssl_enable':
-                        self._args.introspect_ssl_enable}
+                        'physical_interface': self.dev},
                     }
-
-            # VGW configs
-            if vgw_public_vn_name and vgw_public_subnet:
-                vgw_public_vn_name = vgw_public_vn_name[1:-1].split(';')
-                vgw_public_subnet = vgw_public_subnet[1:-1].split(';')
-                vgw_intf_list = vgw_intf_list[1:-1].split(';')
-                if vgw_gateway_routes is not None:
-                    vgw_gateway_routes = vgw_gateway_routes[1:-1].split(';')
-                for i in range(len(vgw_public_vn_name)):
-                    ip_blocks = ''
-                    if vgw_public_subnet[i].find("[") != -1:
-                        for ele in vgw_public_subnet[i][1:-1].split(","):
-                            ip_blocks += ele[1:-1] + " "
-                    else:
-                        ip_blocks += vgw_public_subnet[i]
-                    routes = ''
-                    if (vgw_gateway_routes is not None and
-                            i < len(vgw_gateway_routes)):
-                        if vgw_gateway_routes[i] != '[]':
-                            if vgw_gateway_routes[i].find("[") != -1:
-                                for ele in vgw_gateway_routes[i][1:-1].split(
-                                        ","):
-                                    routes += ele[1:-1] + " "
-                            else:
-                                routes += vgw_gateway_routes[i]
-
-                    configs['GATEWAY-%s' % i] = {'interface': vgw_intf_list[i],
-                                                 'ip_blocks': ip_blocks,
-                                                 'routes': routes,
-                                                 'routing_instance': vgw_public_vn_name[i]}
-
-            if self._args.metadata_secret:
-                configs['METADATA'] = {
-                    'metadata_proxy_secret': self._args.metadata_secret}
-
             for section, key_vals in configs.items():
                 for key, val in key_vals.items():
                     self.set_config(
                             '/etc/contrail/contrail-vrouter-agent.conf',
                             section, key, val)
+        # end if self.dev and self.dev !='vhost0'
 
+        control_servers = ' '.join('%s:%s' % (server, '5269')
+                                   for server in self._args.control_nodes)
+        dns_servers = ' '.join('%s:%s' % (server, '53')
+                               for server in self._args.control_nodes)
+        collector_servers = ' '.join('%s:%s' % (server, '8086')
+                                     for server in self._args.collectors)
+        configs = {
+                'DEFAULT': {
+                    'collectors': collector_servers,
+                    'xmpp_auth_enable': self._args.xmpp_auth_enable,
+                    'xmpp_dns_auth_enable': self._args.xmpp_dns_auth_enable},
+                'NETWORKS': {
+                    'control_network_ip': compute_ip},
+                'HYPERVISOR': {
+                    'type': ('kvm' if self._args.hypervisor == 'libvirt'
+                             else self._args.hypervisor),
+                    'vmware_mode': self._args.mode or '',
+                    'vmware_physical_interface': vmware_dev or ''},
+                'CONTROL-NODE': {
+                    'servers': control_servers},
+                'DNS': {
+                    'servers': dns_servers},
+                'SANDESH': {
+                    'sandesh_ssl_enable': self._args.sandesh_ssl_enable,
+                    'introspect_ssl_enable':
+                    self._args.introspect_ssl_enable}
+                }
+
+        # VGW configs
+        if vgw_public_vn_name and vgw_public_subnet:
+            vgw_public_vn_name = vgw_public_vn_name[1:-1].split(';')
+            vgw_public_subnet = vgw_public_subnet[1:-1].split(';')
+            vgw_intf_list = vgw_intf_list[1:-1].split(';')
+            if vgw_gateway_routes is not None:
+                vgw_gateway_routes = vgw_gateway_routes[1:-1].split(';')
+            for i in range(len(vgw_public_vn_name)):
+                ip_blocks = ''
+                if vgw_public_subnet[i].find("[") != -1:
+                    for ele in vgw_public_subnet[i][1:-1].split(","):
+                        ip_blocks += ele[1:-1] + " "
+                else:
+                    ip_blocks += vgw_public_subnet[i]
+                routes = ''
+                if (vgw_gateway_routes is not None and
+                        i < len(vgw_gateway_routes)):
+                    if vgw_gateway_routes[i] != '[]':
+                        if vgw_gateway_routes[i].find("[") != -1:
+                            for ele in vgw_gateway_routes[i][1:-1].split(
+                                    ","):
+                                routes += ele[1:-1] + " "
+                        else:
+                            routes += vgw_gateway_routes[i]
+
+                configs['GATEWAY-%s' % i] = {'interface': vgw_intf_list[i],
+                                             'ip_blocks': ip_blocks,
+                                             'routes': routes,
+                                             'routing_instance': vgw_public_vn_name[i]}
+
+        if self._args.metadata_secret:
+            configs['METADATA'] = {
+                'metadata_proxy_secret': self._args.metadata_secret}
+
+        for section, key_vals in configs.items():
+            for key, val in key_vals.items():
+                self.set_config(
+                        '/etc/contrail/contrail-vrouter-agent.conf',
+                        section, key, val)
+
+        if self. dev and self.dev != 'vhost0':
             if self.running_in_container:
                 self.config_vhost0_interface_in_container()
             else:
