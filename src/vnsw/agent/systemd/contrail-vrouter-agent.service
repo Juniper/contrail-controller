@@ -17,6 +17,7 @@ ReadWriteDirectories=-/run
 ReadWriteDirectories=-/var/crashes
 ReadWriteDirectories=-/var/lib/contrail
 ReadWriteDirectories=-/var/log/contrail
+LimitCORE=infinity
 
 [Install]
 WantedBy=multi-user.target
