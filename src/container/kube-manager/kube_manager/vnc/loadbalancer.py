@@ -119,31 +119,31 @@ class ServiceLbManager(VncCommon):
 
     def _delete_virtual_interface(self, vmi_ids):
         for vmi_id in vmi_ids:
-            vmi = VirtualMachineInterfaceKM.get(vmi_id)
-            if vmi:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
+            if vmi_obj:
                 # Delete vmi-->floating-ip
-                fip_ids = vmi.floating_ips.copy()
-                for fip_id in fip_ids:
-                    self._vnc_lib.floating_ip_delete(id=fip_id)
+                fip_refs = vmi_obj.get_floating_ip_back_refs()
+                for fip_ref in fip_refs or []:
+                    self._vnc_lib.floating_ip_delete(id=fip_ref['uuid'])
 
-                ip_ids = vmi.instance_ips.copy()
-                for ip_id in ip_ids:
-                    ip = InstanceIpKM.get(ip_id)
-                    if ip:
-                        fip_ids = ip.floating_ips.copy()
-                        for fip_id in fip_ids:
+                iip_refs = vmi_obj.get_instance_ip_back_refs()
+                for iip_ref in iip_refs or []:
+                    iip_obj = self._vnc_lib.instance_ip_read(id=iip_ref['uuid'])
+                    if iip_obj:
+                        fip_list = iip_obj.get_floating_ips()
+                        for fip in fip_list or []:
                             # Delete vmi-->instance-ip-->floating-ip
                             try:
-                                self._vnc_lib.floating_ip_delete(id=fip_id)
+                                self._vnc_lib.floating_ip_delete(id=fip['uuid'])
                             except NoIdError:
                                 # deleted by svc-monitor
                                 pass
 
                         # Delete vmi-->instance-ip
-                        self._vnc_lib.instance_ip_delete(id=ip_id)
+                        self._vnc_lib.instance_ip_delete(id=iip_ref['uuid'])
 
                 # Delete vmi
-                self.logger.debug("Deleting LB Interface %s" % vmi.name)
+                self.logger.debug("Deleting LB Interface %s" % vmi_obj.name)
                 self._vnc_lib.virtual_machine_interface_delete(id=vmi_id)
 
     def _check_provider_exists(self, loadbalancer_provider):
