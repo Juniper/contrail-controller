@@ -41,8 +41,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         else:
             self.vhost_ip = self._args.self_ip
 
-        self.dev = None # will be physical device or vhost0
-        self.physical_dev = None # always be physical device
+        self.dev = None # Will be physical device
         if self._args.physical_interface:
             # During re-provision/upgrade vhost0 will be present
             # so vhost0 should be treated as dev,
@@ -57,10 +56,10 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 raise KeyError('Interface %s in present' %
                                self._args.physical_interface)
         else:
-            # Deduce the vhost/phy interface from ip, if configured
-            self.dev = self.get_device_by_ip(self.vhost_ip)
-        # Deduce physical interface of vhost0 from ip, if vhost0 exist.
-        self.physical_dev = self.get_physical_dev_of_vhost(self.vhost_ip)
+            # Get the physical device and provision status
+            # if reprov is False, it means fresh install
+            #              True,  it means reprovision
+            (self.dev, self.reprov) = self.get_device_info(self.vhost_ip)
 
     def fixup_config_files(self):
         self.add_dev_tun_in_cgroup_device_acl()
@@ -409,7 +408,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         compute_as_gateway = self._args.compute_as_gateway
 
         self.mac = None
-        if self.dev:
+        # Fresh install
+        if self.dev and not self.reprov:
             self.mac = netifaces.ifaddresses(self.dev)[netifaces.AF_LINK][0][
                            'addr']
             if not self.mac:
@@ -423,7 +423,21 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 self.gateway = self.find_gateway(self.dev)
             self.cidr = netaddr.IPNetwork('%s/%s' % (self.vhost_ip,
                                                      self.netmask))
+        elif self.dev:
+            # Reprovision
+            cfg_file = "/etc/contrail/contrail-vrouter-agent.conf"
+            section = "DEFAULT"
+            key = "physical_interface_mac"
+            self.mac = self.get_config(cfg_file, section, key).strip()
+            section = "VIRTUAL-HOST-INTERFACE"
+            key = "ip"
+            self.cidr = self.get_config(cfg_file, section, key).strip()
+            section = "VIRTUAL-HOST-INTERFACE"
+            key = "gateway"
+            self.gateway = self.get_config(cfg_file, section, key).strip()
+            self.netmask = "255.255.255.0"
 
+        if self.dev:
             if vgw_public_subnet:
                 os.chdir(self._temp_dir_name)
                 # Manipulating the string to use in agent_param
@@ -438,7 +452,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 vgw_intf_list_str = str(tuple(
                     vgw_intf_list[1:-1].split(";"))).replace(" ", "")
 
-                cmds = ["sudo sed 's@dev=.*@dev=%s@g;" % self.physical_dev,
+                cmds = ["sudo sed 's@dev=.*@dev=%s@g;" % self.dev,
                         "s@vgw_subnet_ip=.*@vgw_subnet_ip=%s@g;" %
                         vgw_public_subnet_str,
                         "s@vgw_intf=.*@vgw_intf=%s@g'" % vgw_intf_list_str,
@@ -447,7 +461,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 local("sudo mv agent_param.new /etc/contrail/agent_param")
             else:
                 os.chdir(self._temp_dir_name)
-                cmds = ["sudo sed 's/dev=.*/dev=%s/g' " % self.physical_dev,
+                cmds = ["sudo sed 's/dev=.*/dev=%s/g' " % self.dev,
                         "/etc/contrail/agent_param.tmpl > agent_param.new"]
                 local(''.join(cmds))
                 local("sudo mv agent_param.new /etc/contrail/agent_param")
@@ -468,7 +482,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         u.split("=") for u in self._args.dpdk.split(","))
                 log.info(dpdk_args)
                 platform_mode = "dpdk"
-                iface = self.dev
 
                 supervisor_vrouter_file = ('/etc/contrail/' +
                                            'supervisord_vrouter_files/' +
@@ -485,6 +498,13 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 else:
                     raise RuntimeError("Vrouter Supervisor/Systemd not found.")
 
+                self.setup_hugepages_node(dpdk_args)
+                self.setup_coremask_node(dpdk_args)
+                self.setup_vm_coremask_node(False, dpdk_args)
+                self.setup_uio_driver(dpdk_args)
+
+            if self._args.dpdk and not self.reprov:
+                iface = self.dev
                 if self.is_interface_vlan(self.dev):
                     iface = self.get_physical_interface_of_vlan(self.dev)
                 local("ls /opt/contrail/bin/dpdk_nic_bind.py", warn_only=False)
@@ -495,11 +515,11 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 # Bond interface in DPDK has zero PCI address.
                 if not pci_dev:
                     pci_dev = "0000:00:00.0"
-
-                self.setup_hugepages_node(dpdk_args)
-                self.setup_coremask_node(dpdk_args)
-                self.setup_vm_coremask_node(False, dpdk_args)
-                self.setup_uio_driver(dpdk_args)
+            elif self._args.dpdk and self.reprov:
+                cfg_file = "/etc/contrail/contrail-vrouter-agent.conf"
+                section = "DEFAULT"
+                key = "physical_interface_address"
+                pci_dev = self.get_config(cfg_file, section, key).strip()
 
             if self.pdist == 'Ubuntu':
                 # Fix /dev/vhost-net permissions. It is required for
@@ -536,7 +556,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         'name': 'vhost0',
                         'ip': str(self.cidr),
                         'gateway': self.gateway,
-                        'physical_interface': self.physical_dev},
+                        'physical_interface': self.dev},
                     'HYPERVISOR': {
                         'type': ('kvm' if self._args.hypervisor == 'libvirt'
                                  else self._args.hypervisor),
@@ -638,6 +658,10 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 self.set_config(cfgfile, section, key, val)
 
     def fixup_vhost0_interface_configs(self):
+        if self.reprov:
+            log.info("fixup_vhost0_interface_configs() not applicable")
+            return
+
         if self.pdist in ['centos', 'fedora', 'redhat']:
             # make ifcfg-vhost0
             with open('%s/ifcfg-vhost0' % self._temp_dir_name, 'w') as f:
@@ -898,5 +922,5 @@ SUBCHANNELS=1,2,3
             self.run_services()
         else:
             self.run_services()
-            if self._args.register:
+            if self._args.register and not self.reprov:
                 self.add_vnc_config()
