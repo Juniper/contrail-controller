@@ -276,6 +276,11 @@ class ContrailSetup(object):
                        capture=True, warn_only=True)
         return output.succeeded
 
+    def get_value_from_agent_cfg_file(self, section, key):
+        cmd = 'contrail-config --get '\
+              '/etc/contrail/contrail-vrouter-agent.conf '\
+              '%s %s' % (section, key)
+
     def setup(self):
         self.disable_selinux()
         self.disable_iptables()
