@@ -79,7 +79,7 @@ We have deprecated the MessageTable which has PRIMARY index key=UUID.
 ObjectTable is indexed on T2 and <object-type> and it has UUID column. This UUID is used for second lookup in MessageTable.
 In new proposal, MessageTablev2 is not indexed on UUID.
 So we plan the following
-1. Remove object table and save these messages in MessageTablev2.
+1. Donot use Objecttable and save these messages in MessageTablev2.
 2. Add 2 columns to MessageTablev2, column6(<object-type1>:<object-value1>) and column7(<object-type2>:<object-value2>)
 Those values are in key3 and column1 in below query output.
 
@@ -97,10 +97,21 @@ Note the "*" in 'ObjectGeneratorInfo*'.
 4. Once data is read from db, it would be of the format <object-typeX>:<object-valueX>. We need to remove “<object-typeX>:” in QE before sending it to UI.
 5. These columns 6 and 7 could be empty for various messages in MessageTablev2.
 
-In conclusion, we will have 2 tables going forward
-- MessageTablev2
-- StatsTable
-- FlowTable
+We need to decide on handling existing customer data with old schema. We have 3 options
+a) Dont do anything. After upgrade customer will lose access to old data.
+   New tables names are different from old one, so the old tables would lie dormant till TTL kicks in.
+b) migrate old data to new schema
+   There are few issues here.
+   - If existing database is huge this might take enormous time. All data might not available just after upgrade.
+   - Migration might take longer than TTL of data elements.
+c) handle old and new tables simultaneously in query-engine
+   - Query logic is different for old and new schema tables. So we cannot merge the handling into single code. 
+   - New schema logic will be in separate files/functions. At the very beginning of query logic, we decide on which path would be executed.
+   - We shall save the timestamp of upgrade. All queries with timestamps before this would query the old tables and the rest would query the new schema tables.
+   - Query cannot span across the timestamp when upgrade was done. If it is present in the query, we would return results for the time duration after upgrade.
+
+In conclusion, we will have 1 new table(MessageTablev2) going forward. This is in addition to existing tables maintained for backward compatibility.
+We shall remove support for tables with deprecated schema in future releases.
 
 ## 3.1 Alternatives considered
 None
