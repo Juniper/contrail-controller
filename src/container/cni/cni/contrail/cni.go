@@ -199,7 +199,15 @@ func (cni *ContrailCni) CmdDel() error {
 	intf := cni.makeInterface(0)
 	intf.Log()
 
-	err := intf.Delete()
+	err := cni.VRouter.CanDelete(cni.cniArgs.ContainerID, cni.ContainerUuid,
+		cni.ContainerVn)
+	if err != nil {
+		log.Errorf("Failed in CanDelete")
+		return nil
+	}
+
+	// Build CNI response from response
+	err = intf.Delete()
 	if err != nil {
 		log.Errorf("Error deleting interface")
 	} else {
@@ -208,7 +216,8 @@ func (cni *ContrailCni) CmdDel() error {
 	}
 
 	// Inform vrouter about interface-delete.
-	err = cni.VRouter.Del(cni.ContainerUuid, cni.ContainerVn)
+	err = cni.VRouter.Del(cni.cniArgs.ContainerID, cni.ContainerUuid,
+		cni.ContainerVn)
 	if err != nil {
 		log.Errorf("Error deleting interface from agent")
 	}
