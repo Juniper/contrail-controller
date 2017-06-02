@@ -1385,6 +1385,7 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
                     "Drop new xmpp connection " + session->ToString() +
                     " as another connection is alreready present");
         ProcessEvent(xmsm::EvTcpClose(session));
+        delete msg;
         return;
     }
 
@@ -1403,6 +1404,7 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
 
         // Drop the new session until old one is deleted or marked stale.
         ProcessEvent(xmsm::EvTcpClose(session));
+        delete msg;
         return;
     }
 
@@ -1413,6 +1415,7 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
                     "Drop new xmpp connection " + session->ToString() +
                     " as current connection is still under deletion");
         ProcessEvent(xmsm::EvTcpClose(session));
+        delete msg;
         return;
     }
 

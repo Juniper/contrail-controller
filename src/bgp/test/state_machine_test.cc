@@ -2595,6 +2595,35 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpen) {
 }
 
 // Old State: Established
+// Event:     EvTcpPassiveOpen
+// New State: Idle
+TEST_F(StateMachineEstablishedTest, TcpPassiveOpenWithGRHelper) {
+    StateMachineTest::SetCloseGraceful(1);
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::IDLE);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->active_session() == NULL);
+    StateMachineTest::SetCloseGraceful(-1);
+}
+
+// Old State: Established
+// Event:     EvTcpPassiveOpen + EvBgpOpen (on passive session)
+// New State: Idle
+TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpenWithGRHelper) {
+    StateMachineTest::SetCloseGraceful(1);
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    BgpSessionMock *session = session_mgr_->passive_session();
+    EvBgpOpenCustom(session, lower_id_);
+    TaskScheduler::GetInstance()->Start();
+    task_util::WaitForIdle();
+    VerifyState(StateMachine::IDLE);
+    StateMachineTest::SetCloseGraceful(-1);
+}
+
+// Old State: Established
 // Event:     EvBgpOpen (on active session)
 // New State: Idle
 TEST_F(StateMachineEstablishedTest, BgpOpen) {
@@ -2627,6 +2656,8 @@ int main(int argc, char **argv) {
         boost::factory<BgpIfmapConfigManager *>());
     BgpObjectFactory::Register<BgpSessionManager>(
         boost::factory<BgpSessionManagerMock *>());
+    BgpObjectFactory::Register<StateMachine>(
+        boost::factory<StateMachineTest *>());
     ::testing::InitGoogleTest(&argc, argv);
     int result = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
