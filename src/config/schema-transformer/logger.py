@@ -43,6 +43,8 @@ class SchemaTransformerLogger(ConfigServiceLogger):
         sandesh_ri_list = []
         for riname in vn.routing_instances:
             ri = RoutingInstanceST.get(riname)
+            if ri is None:
+                continue
             sandesh_ri = sandesh.RoutingInstance(name=ri.obj.get_fq_name_str())
             sandesh_ri.service_chain = ri.service_chain
             sandesh_ri.connections = list(ri.connections)
