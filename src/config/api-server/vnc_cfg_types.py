@@ -1216,9 +1216,9 @@ class TagServer(Resource, Tag):
 
         # Allocate id for tag value
         tag_fq_name = ':'.join(obj_dict['fq_name'])
-        tag_value_id = cls.vnc_zk_client.alloc_tag_value_id(tag_fq_name)
+        tag_value_id = cls.vnc_zk_client.alloc_tag_value_id(tag_type, tag_fq_name)
         def undo_tag_value_id():
-            cls.vnc_zk_client.free_tag_value_id(tag_value_id)
+            cls.vnc_zk_client.free_tag_value_id(tag_type, tag_value_id)
             return True, ""
         get_context().push_undo(undo_tag_value_id)
         obj_dict['tag_id'] = cfgm_common.tag_dict[tag_type] << 27 | tag_value_id
@@ -1237,6 +1237,15 @@ class TagServer(Resource, Tag):
             return (False, (400, msg))
 
         return True, ""
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        # Deallocate the tag value id
+        tag_value_id = obj_dict['tag_id'] & ((1<<27)-1)
+        cls.vnc_zk_client.free_tag_value_id(
+            obj_dict['tag_type'], tag_value_id)
+        return True, ""
+    # end post_dbe_delete
 # end class TagServer
 
 class FirewallRuleServer(Resource, FirewallRule):
@@ -1267,9 +1276,9 @@ class FirewallRuleServer(Resource, FirewallRule):
 
     @classmethod
     def _frs_fix_match_tags(cls, obj_dict):
-        if 'match_tags' in obj_dict and 'tag_list' in obj_dict['match_tags']:
+        if 'match_tags' in obj_dict:
             obj_dict['match_tag_types'] = {'tag_type': []}
-            for tag_type in obj_dict['match_tags']['tag_list']:
+            for tag_type in obj_dict['match_tags'].get('tag_list', []):
                 tag_type = tag_type.lower()
                 if tag_type not in cfgm_common.tag_dict:
                     return (False, (400, 'match-tags with invalid type : %s' % tag_type))
@@ -1349,6 +1358,12 @@ class FirewallRuleServer(Resource, FirewallRule):
 
         obj_dict['tag_refs'] = []
         obj_dict['address_group_refs'] = []
+
+        # create default match tag if use doesn't specifiy any explicitly
+        if 'match_tags' not in obj_dict:
+            obj_dict['match_tag_types'] = {
+                'tag_type': [cfgm_common.tag_dict[tag_type] for tag_type in cfgm_common.DEFAULT_MATCH_TAG_TYPE]
+            }
 
         # create protcol id
         ok, msg = cls._frs_fix_service_protocol(obj_dict)
