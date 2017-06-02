@@ -10,6 +10,7 @@ package cniIntf
 
 import (
 	log "../logging"
+	"fmt"
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/vishvananda/netlink"
@@ -129,9 +130,13 @@ func (intf VEth) Create() error {
 	err = netns.Do(func(_ ns.NetNS) error {
 		_, err := netlink.LinkByName(intf.containerIfName)
 		if err == nil {
+			// Interface already present. This is most likely an unexpected
+			// case of 2 ADD messages for same POD-UID??? Fail creating the
+			// new container
 			log.Infof("Interface %s already present inside container",
 				intf.containerIfName)
-			return nil
+			return fmt.Errorf("Interface %s already present inside container",
+				intf.containerIfName)
 		}
 
 		return err
@@ -163,18 +168,16 @@ func (intf VEth) Log() {
 
 // Make tap-interface name in host namespace. Name is based on container-id
 func buildHostIfName(str string) string {
-	return "tap" + str[:CNI_ID_IFNAME_START_LEN] + "-" +
-		str[len(str)-CNI_ID_IFNAME_END_LEN:]
+	return "tap" + str[:CNI_UUID_IFNAME_LEN]
 }
 
 // The tap-interface interface is initially created in host-os namespace. The
 // peer interface in such case is a temporary name
 func buildTmpHostIfName(str string) string {
-	return "tmp" + str[:CNI_ID_IFNAME_START_LEN] + "-" +
-		str[len(str)-CNI_ID_IFNAME_END_LEN:]
+	return "tmp" + str[:CNI_UUID_IFNAME_LEN]
 }
 
-func InitVEth(containerIfName, containerUuid, containerId,
+func InitVEth(containerIfName, containerId, containerUuid,
 	containerNamespace string) VEth {
 	intf := VEth{
 		CniIntf: CniIntf{
@@ -187,7 +190,7 @@ func InitVEth(containerIfName, containerUuid, containerId,
 		HostIfName: "",
 	}
 
-	intf.HostIfName = buildHostIfName(intf.containerId)
-	intf.TmpHostIfName = buildTmpHostIfName(intf.containerId)
+	intf.HostIfName = buildHostIfName(intf.containerUuid)
+	intf.TmpHostIfName = buildTmpHostIfName(intf.containerUuid)
 	return intf
 }

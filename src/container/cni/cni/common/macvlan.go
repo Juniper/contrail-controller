@@ -50,16 +50,14 @@ func (intf *MacVlan) ensureVlanIntf() (*netlink.Link, error) {
 	log.Infof("Creating vlan interface %+v", *intf)
 
 	// Check if VLAN Interface already present
-	link, err := netlink.LinkByName(intf.vlanIfName)
+	_, err := netlink.LinkByName(intf.vlanIfName)
 	if err == nil {
+		// Interface already present. This is most likely an unexpected
+		// case of 2 ADD messages for same POD-UID??? Fail creating the
+		// new container
 		log.Infof("vlan interface %s already present", intf.vlanIfName)
-		err = netlink.LinkSetUp(link)
-		if err != nil {
-			log.Errorf("Error in bring up of vlan interface %s. Error %+v",
-				intf.vlanIfName, err)
-			return nil, err
-		}
-		return &link, nil
+		return nil, fmt.Errorf("Error in bring up of vlan interface %s. "+
+			"Error %+v", intf.vlanIfName, err)
 	}
 
 	// Vlan Interface not present. Create it
@@ -253,13 +251,11 @@ func (intf MacVlan) Create() error {
 }
 
 func buildVlanIfName(str string, vlanId int) string {
-	return "vlan" + str[:CNI_ID_IFNAME_START_LEN] + "-" +
-		str[len(str)-CNI_ID_IFNAME_END_LEN:]
+	return "vlan" + str[:CNI_UUID_IFNAME_LEN]
 }
 
 func buildContainerTmpIfName(str string) string {
-	return "mac" + str[:CNI_ID_IFNAME_START_LEN] + "-" +
-		str[len(str)-CNI_ID_IFNAME_END_LEN:]
+	return "mac" + str[:CNI_UUID_IFNAME_LEN]
 }
 
 func (intf MacVlan) GetHostIfName() string {
@@ -287,8 +283,8 @@ func InitMacVlan(parentIfName, containerIfName, containerId, containerUuid,
 		vlanId:             vlanId,
 		containerTmpIfName: "",
 	}
-	intf.vlanIfName = buildVlanIfName(intf.CniIntf.containerId, intf.vlanId)
-	intf.containerTmpIfName = buildContainerTmpIfName(intf.CniIntf.containerId)
+	intf.vlanIfName = buildVlanIfName(intf.containerUuid, intf.vlanId)
+	intf.containerTmpIfName = buildContainerTmpIfName(intf.containerUuid)
 
 	log.Infof("Initialized MacVlan interface %+v\n", intf)
 	return intf
