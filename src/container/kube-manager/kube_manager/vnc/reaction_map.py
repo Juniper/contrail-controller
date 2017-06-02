@@ -4,11 +4,11 @@
 
 REACTION_MAP = {
     "instance_ip": {
-        'self': [],
+        'self': ['virtual_machine_interface'],
         'virtual_machine_interface': [],
     },
     "floating_ip": {
-        'self': [],
+        'self': ['virtual_machine_interface'],
     },
     "security_group": {
         'self': [],
@@ -26,6 +26,8 @@ REACTION_MAP = {
                  'instance_ip'],
         'security_group': [],
         'virtual_machine': [],
+        'instance_ip': [],
+        'floating_ip': []
     },
     "project": {
         'self': [],
