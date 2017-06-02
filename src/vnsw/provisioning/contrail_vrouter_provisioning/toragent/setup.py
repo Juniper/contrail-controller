@@ -145,6 +145,8 @@ class TorAgentBaseSetup(ContrailSetup):
         if self._args.restart:
             cmd = "sudo service %s start" % self.tor_process_name
             local(cmd)
+            cmd = "sudo systemctl enable %s" % self.tor_process_name
+            local(cmd)
 
     def setup(self):
         self.fixup_tor_agent()
