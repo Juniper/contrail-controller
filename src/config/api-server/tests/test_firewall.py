@@ -422,6 +422,31 @@ class TestFw(test_case.ApiServerTestCase):
         self._vnc_lib.firewall_rule_update(rule_obj)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         self.assertEqual(rule.get_service().get_protocol_id(), 17)
+
+        # create a new service group 
+        fst = FirewallServiceType(protocol="tcp", dst_ports=PortType(80, 80))
+        fsgt = FirewallServiceGroupType(firewall_service=[fst])
+        sg_obj = ServiceGroup(service_group_firewall_service_list=fsgt, parent_obj=pobj)
+        self._vnc_lib.service_group_create(sg_obj)
+        sg = self._vnc_lib.service_group_read(id=sg_obj.uuid)
+        fsgt = sg.get_service_group_firewall_service_list()
+        fst = fsgt.get_firewall_service()
+        self.assertEqual(len(fst), 1)
+        expected_protocol_id_list = [6]
+        received_list = [service.protocol_id for service in fst]
+        self.assertEqual(received_list, expected_protocol_id_list)
+
+        # update service group and verify all items
+        fsgt.add_firewall_service(FirewallServiceType(protocol="udp", dst_ports=PortType(52, 53)))
+        sg.set_service_group_firewall_service_list(fsgt)
+        self._vnc_lib.service_group_update(sg)
+        sg = self._vnc_lib.service_group_read(id=sg_obj.uuid)
+        fsgt = sg.get_service_group_firewall_service_list()
+        fst = fsgt.get_firewall_service()
+        self.assertEqual(len(fst), 2)
+        expected_protocol_id_list = [6,17]
+        received_list = [service.protocol_id for service in fst]
+        self.assertEqual(received_list, expected_protocol_id_list)
     # end test_firewall_rule_service
 
     def test_firewall_rule_update(self):
@@ -438,6 +463,12 @@ class TestFw(test_case.ApiServerTestCase):
         rule_obj = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         self.assertEqual(rule_obj.action_list.simple_action, 'pass')
 
+        # update rule with service - validate protocol_id in service get populated
+        rule_obj.set_service(FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)))
+        self._vnc_lib.firewall_rule_update(rule_obj)
+        rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
+        self.assertEqual(rule.get_service().get_protocol_id(), 6)
+
         # update match_tags
         match_tags = ['application', 'tier', 'deployment', 'site']
         rule_obj.set_action_list(ActionListType(simple_action='deny'))
@@ -446,6 +477,7 @@ class TestFw(test_case.ApiServerTestCase):
         rule_obj = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         self.assertEqual(rule_obj.action_list.simple_action, 'deny')
         self.assertEqual(set(rule_obj.match_tags.tag_list), set(match_tags))
+        self.assertEqual(rule_obj.get_service().get_protocol_id(), 6)
 
         # create tags and a label
         tag1_obj = Tag(tag_type='application', tag_value='App1', parent_obj=pobj)
@@ -475,6 +507,7 @@ class TestFw(test_case.ApiServerTestCase):
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         self.assertEqual(rule.action_list.simple_action, 'deny')
         self.assertEqual(set(rule.match_tags.tag_list), set(match_tags))
+        self.assertEqual(rule.get_service().get_protocol_id(), 6)
 
         # validate rule->tag refs exists after update
         tag_refs = rule.get_tag_refs()
@@ -521,12 +554,6 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(len(ag_refs), 1)
         self.assertEqual(ag_refs[0]['uuid'], ag_obj.uuid)
 
-        # update rule with service - validate protocol_id in service get populated
-        rule.set_service(FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)))
-        self._vnc_lib.firewall_rule_update(rule)
-        rule = self._vnc_lib.firewall_rule_read(id=rule.uuid)
-        self.assertEqual(rule.get_service().get_protocol_id(), 6)
-
         # update SG and VN in endpoint
         fst = FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082))
         fsgt = FirewallServiceGroupType(firewall_service=[fst])
@@ -543,6 +570,9 @@ class TestFw(test_case.ApiServerTestCase):
         self._vnc_lib.firewall_rule_update(rule)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
 
+        self.assertEqual(set(rule.match_tags.tag_list), set(match_tags))
+        self.assertEqual(rule.get_service().get_protocol_id(), 6)
+
         # validate rule->tag refs exists after update
         tag_refs = rule.get_tag_refs()
         self.assertEqual(len(tag_refs), 2)
@@ -551,12 +581,84 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(received_set, expected_set)
         self.assertEqual(rule.endpoint_2.virtual_network, ":".join(vn1_obj.get_fq_name()))
 
-        # validate protocol_id in service get populated
+        # validate protocol_id in service stays populated
         sg = self._vnc_lib.service_group_read(fq_name=sg_obj.get_fq_name())
         sg_fsl = sg.get_service_group_firewall_service_list()
         sg_firewall_service = sg_fsl.get_firewall_service()
         self.assertEqual(sg_firewall_service[0].protocol_id, 6)
     # end test_firewall_rule_update
+
+    def test_aps_global(self):
+        pm_obj = PolicyManagement('pm-%s' % self.id())
+        self._vnc_lib.policy_management_create(pm_obj)
+
+        # validate another global APS can't be created
+        aps = ApplicationPolicySet('aps-%s' % self.id(), parent_obj=pm_obj, is_global=True)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.application_policy_set_create(pm_obj)
+
+        # validate APS can't be updated to global
+        aps = ApplicationPolicySet('aps-%s' % self.id(), parent_obj=pm_obj)
+        self._vnc_lib.application_policy_set_create(aps)
+        aps.set_is_global(True)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.application_policy_set_update(aps)
+        aps.set_is_global(False)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.application_policy_set_update(aps)
+
+        # validate default global APS can't be deleted
+        global_aps = ['default-policy-management', 'global-application-policy-set']
+        aps = self._vnc_lib.application_policy_set_read(fq_name=global_aps)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.application_policy_set_delete(id=aps.uuid)
+    # end test_aps_global
+
+    def test_unset_tag(self):
+        pobj = vnc_api.Project('proj-%s' %(self.id()))
+        self._vnc_lib.project_create(pobj)
+
+        tag_list = [
+            ('application', 'HR',         False),
+            ('deployment',  '%s' % self.id(), True),
+            ('label',       'RedVlan',    False),
+            ('label',       'BlueVlan',   False)
+        ]
+
+        tag_uuids = []
+        for tt, tv, is_global in tag_list:
+            tag_obj = Tag(tag_type=tt, tag_value=tv, parent_obj=(pobj if not is_global else None))
+            self._vnc_lib.tag_create(tag_obj)
+            tag = self._vnc_lib.tag_read(id=tag_obj.uuid)
+            tag_uuids.append(tag.uuid)
+            time.sleep(5)
+
+        # create a VN and attach tags
+        vn_obj = VirtualNetwork('vn-%s' %(self.id()), parent_obj=pobj)
+        self._vnc_lib.virtual_network_create(vn_obj)
+        for tt, tv, is_global in tag_list:
+            self._vnc_lib.set_tag(vn_obj, tag_type=tt, tag_value=tv, is_global=is_global)
+
+        # validate vn->tag ref exists
+        vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        tag_refs = vn.get_tag_refs()
+        self.assertEqual(len(tag_refs), 4)
+        received_set = set([ref['uuid'] for ref in tag_refs])
+        expected_set = set(tag_uuids)
+        self.assertEqual(received_set, expected_set)
+
+        # deattach some tags
+        for tt, tv, is_global in [tag_list[0], tag_list[3]]:
+            self._vnc_lib.unset_tag(vn_obj, tag_type=tt, tag_value=tv, is_global=is_global)
+
+        # validate remaining vn->tag ref exists
+        vn = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
+        tag_refs = vn.get_tag_refs()
+        self.assertEqual(len(tag_refs), 2)
+        received_set = set([ref['uuid'] for ref in tag_refs])
+        expected_set = set([tag_uuids[1], tag_uuids[2]])
+        self.assertEqual(received_set, expected_set)
+    # end test_unset_tag
 
 # end class TestFw
 
