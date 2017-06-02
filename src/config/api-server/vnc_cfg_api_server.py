@@ -1342,6 +1342,10 @@ class VncApiServer(object):
                 functools.partial(self.set_tag_type, tag_type))
             self.route('/set-tag-%s' % tag_type,
                 'POST', getattr(self, 'set_tag_%s' % tag_type))
+            setattr(self, 'unset_tag_%s' %(tag_type),
+                functools.partial(self.unset_tag_type, tag_type))
+            self.route('/set-tag-%s' % tag_type,
+                'DELETE', getattr(self, 'unset_tag_%s' % tag_type))
 
         # randomize the collector list
         self._random_collectors = self._args.collectors
@@ -3432,10 +3436,13 @@ class VncApiServer(object):
         for ref in list(obj_dict['tag_refs']):
             if ref['uuid'] == tag_uuid:
                 return {}
-            # allow single instance of a type
+            # allow single instance of a type unless label
             ref_tag_name = ref['to'][-1]
             ref_tag_type, ref_tag_value = ref_tag_name.split("=", 1)
-            if ref_tag_type == tag_type:
+            if tag_type == 'label':
+                if ref_tag_value == tag_value:
+                    return {}
+            elif ref_tag_type == tag_type:
                 obj_dict['tag_refs'].remove(ref)
                 break
 
@@ -3445,6 +3452,46 @@ class VncApiServer(object):
             'uuid': tag_uuid
         }
         obj_dict['tag_refs'].append(ref)
+        self._db_conn.dbe_update(obj_type, id, obj_dict)
+        return {}
+    # end
+
+    def unset_tag_type(self, tag_type):
+        tag_value = get_request().json['tag_value']
+        is_global = get_request().json['is_global']
+        id = get_request().json['obj_uuid']
+
+        try:
+            obj_type = self._db_conn.uuid_to_obj_type(id)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Object Not Found: ' + id)
+
+        # unless global, inherit project id from caller
+        if is_global:
+            tag_fq_name = [tag_type + "=" + tag_value]
+        else:
+            tag_fq_name = self._db_conn.uuid_to_fq_name(id)
+            tag_fq_name[-1] = tag_type + "=" + tag_value
+
+        # lookup (validate) tag
+        try:
+            tag_uuid = self._db_conn.fq_name_to_uuid('tag', tag_fq_name)
+        except NoIdError:
+            raise cfgm_common.exceptions.HttpError(
+                404, 'Name ' + pformat(tag_fq_name) + ' not found')
+
+        obj_fields = ['tag_refs']
+        (read_ok, obj_dict) = self._db_conn.dbe_read(obj_type, id, obj_fields)
+        if not read_ok:
+            bottle.abort(
+                404, 'No %s object found for id %s' %(obj_type, id))
+
+        # check if ref exists
+        for ref in list(obj_dict['tag_refs']):
+            if ref['uuid'] == tag_uuid:
+                obj_dict['tag_refs'].remove(ref)
+
         self._db_conn.dbe_update(obj_type, id, obj_dict)
         return {}
     # end
