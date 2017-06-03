@@ -139,7 +139,7 @@ class TorAgentBaseSetup(ContrailSetup):
     
     def update_supervisor(self):
         if self._args.restart:
-            local("sudo supervisorctl -c /etc/contrail/supervisord_vrouter.conf update")
+            local("sudo supervisorctl -c /etc/contrail/supervisord_vrouter.conf update", warn_only=True)
 
     def run_services(self):
         if self._args.restart:
