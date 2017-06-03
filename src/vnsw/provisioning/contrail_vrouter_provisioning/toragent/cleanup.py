@@ -51,6 +51,8 @@ class TorAgentBaseCleanup(ContrailSetup):
             os.remove(self.tor_file_name)
         self.tor_process_name = 'contrail-tor-agent-' + tor_id
         local("sudo service %s stop" % self.tor_process_name)
+        if self.systemd_setup:
+            local("sudo systemctl disable %s" % self.tor_process_name)
 
     def remove_tor_agent_ini_files(self, tor_id):
         self.tor_ini_file_name = self.dirname + self.tor_process_name + self.suffix
