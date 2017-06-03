@@ -11,4 +11,6 @@ def import_plugins():
     from juniper_conf import JuniperConf
     from mx_conf import MxConf
     from qfx_conf import QfxConf
+    from qfx_5k import Qfx5kConf
+    from qfx_10k import Qfx10kConf
 # end import_plugins

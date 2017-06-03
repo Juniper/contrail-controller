@@ -14,8 +14,8 @@ from juniper_conf import JunosInterface
 from device_api.juniper_common_xsd import *
 
 class MxConf(JuniperConf):
-    _product = 'mx'
- 
+    _products = ['mx']
+
     def __init__(self, logger, params={}):
         self._logger = logger
         self.physical_router = params.get("physical_router")
@@ -26,11 +26,19 @@ class MxConf(JuniperConf):
     def register(cls):
         mconf = {
               "vendor": cls._vendor,
-              "product": cls._product,
+              "products": cls._products,
               "class": cls
             }
         return super(MxConf, cls).register(mconf)
     # end register
+
+    @classmethod
+    def is_product_supported(cls, name):
+        for product in cls._products:
+            if name.lower().startswith(product.lower()):
+                return True
+        return False
+    # end is_product_supported
 
     def add_pnf_logical_interface(self, junos_interface):
         if not self.interfaces_config:
@@ -307,10 +315,14 @@ class MxConf(JuniperConf):
                     ri.add_interface(Interface(name=interface.name))
             if static_routes:
                 self.add_static_routes(ri_opt, static_routes)
+            family = Family()
             if has_ipv4_prefixes:
-                ri_opt.set_auto_export(AutoExport(family=Family(inet=FamilyInet(unicast=''))))
+                family.set_inet(FamilyInet(unicast=''))
             if has_ipv6_prefixes:
-                ri_opt.set_auto_export(AutoExport(family=Family(inet6=FamilyInet6(unicast=''))))
+                family.set_inet6(FamilyInet6(unicast=''))
+            if has_ipv4_prefixes or has_ipv6_prefixes:
+                auto_export = AutoExport(family=family)
+                ri_opt.set_auto_export(auto_export)
         else:
             if highest_enapsulation_priority == "VXLAN":
                 ri.set_instance_type("virtual-switch")
