@@ -31,6 +31,8 @@ class DeviceManagerLogger(ConfigServiceLogger):
     def redefine_sandesh_handles(self):
         sandesh.BgpRouterList.handle_request = \
             self.sandesh_bgp_handle_request
+        sandesh.PhysicalRouterList.handle_request = \
+            self.sandesh_pr_handle_request
 
     def sandesh_bgp_build(self, bgp_router):
         return sandesh.BgpRouter(name=bgp_router.name, uuid=bgp_router.uuid,
@@ -42,12 +44,12 @@ class DeviceManagerLogger(ConfigServiceLogger):
         resp = sandesh.BgpRouterListResp(bgp_routers=[])
         if req.name_or_uuid is None:
             for router in BgpRouterDM:
-                sandesh_router = self.sandesh_bgp_build()
+                sandesh_router = self.sandesh_bgp_build(router)
                 resp.bgp_routers.extend(sandesh_router)
         else:
             router = BgpRouterDM.find_by_name_or_uuid(req.name_or_uuid)
             if router:
-                sandesh_router = router.sandesh_bgp_build()
+                sandesh_router = router.sandesh_bgp_build(router)
                 resp.bgp_routers.extend(sandesh_router)
         resp.response(req.context())
     # end sandesh_bgp_handle_request
@@ -64,12 +66,12 @@ class DeviceManagerLogger(ConfigServiceLogger):
         resp = sandesh.PhysicalRouterListResp(physical_routers=[])
         if req.name_or_uuid is None:
             for router in PhysicalRouterDM:
-                sandesh_router = self.sandesh_pr_build()
+                sandesh_router = self.sandesh_pr_build(router)
                 resp.physical_routers.extend(sandesh_router)
         else:
             router = PhysicalRouterDM.find_by_name_or_uuid(req.name_or_uuid)
             if router:
-                sandesh_router = router.sandesh_pr_build()
+                sandesh_router = router.sandesh_pr_build(router)
                 resp.physical_routers.extend(sandesh_router)
         resp.response(req.context())
     # end sandesh_pr_handle_request
