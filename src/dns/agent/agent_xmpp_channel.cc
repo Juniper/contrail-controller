@@ -60,6 +60,10 @@ void DnsAgentXmppChannel::ReceiveReq(const XmppStanza::XmppMessage *msg) {
 void DnsAgentXmppChannel::HandleAgentUpdate(
     std::auto_ptr<DnsUpdateData> rcv_data) {
     DnsUpdateData *data = rcv_data.get();
+    if (data->virtual_dns.empty() || data->zone.empty()) {
+        // if key is not present, ignore the update
+        return;
+    }
     DataSet::iterator it = update_data_.find(data);
     if (it != update_data_.end()) {
         DnsUpdateData *xmpp_data = *it;
