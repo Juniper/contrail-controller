@@ -38,6 +38,7 @@ type VRouter struct {
 	Dir           string `json:"config-dir"`
 	PollTimeout   int    `json:"poll-timeout"`
 	PollRetries   int    `json:"poll-retries"`
+	containerId   string
 	containerUuid string
 	containerVn   string
 	httpClient    *http.Client
@@ -199,7 +200,7 @@ type contrailAddMsg struct {
 }
 
 // Make JSON for Add Message
-func makeAddMsg(containerName, containerUuid, containerId, containerNamespace,
+func makeMsg(containerName, containerUuid, containerId, containerNamespace,
 	containerIfName, hostIfName string) []byte {
 	t := time.Now()
 	addMsg := contrailAddMsg{Time: t.String(), Vm: containerId,
@@ -215,7 +216,7 @@ func makeAddMsg(containerName, containerUuid, containerId, containerNamespace,
 }
 
 // Store the config to file for persistency
-func (vrouter *VRouter) addVmToFile(addMsg []byte) error {
+func (vrouter *VRouter) addVmFile(addMsg []byte) error {
 	_, err := os.Stat(vrouter.Dir)
 	if err != nil {
 		log.Errorf("Error accessing VM config directory %s. Error : %s",
@@ -258,14 +259,15 @@ func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
 	containerId, containerNamespace, containerIfName,
 	hostIfName string) (*Result, error) {
 	vrouter.containerUuid = containerUuid
+	vrouter.containerId = containerId
 	vrouter.containerVn = containerVn
 	// Make Add Message structure
-	addMsg := makeAddMsg(containerName, containerUuid, containerId,
+	addMsg := makeMsg(containerName, containerUuid, containerId,
 		containerNamespace, containerIfName, hostIfName)
 	log.Infof("VRouter add message is %s", addMsg)
 
 	// Store config to file for persistency
-	if err := vrouter.addVmToFile(addMsg); err != nil {
+	if err := vrouter.addVmFile(addMsg); err != nil {
 		// Fail adding VM if directory not present
 		log.Errorf("Error storing config file")
 		return nil, err
@@ -291,30 +293,30 @@ func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
  * DEL message handling
  ****************************************************************************/
 // Del VM config file
-func (vrouter *VRouter) delVmToFile() error {
+func (vrouter *VRouter) delVmFile() (error, error) {
 	fname := vrouter.makeFileName()
 	_, err := os.Stat(fname)
 	// File not present... noting to do
 	if err != nil {
 		log.Infof("File %s not found. Error : %s", fname, err)
-		return nil
+		return nil, nil
 	}
 
-	// Delete file
 	err = os.Remove(fname)
 	if err != nil {
 		log.Infof("Failed deleting file %s. Error : %s", fname, err)
-		return nil
+		return nil, nil
 	}
 
 	log.Infof("Delete file done")
-	return nil
+	return nil, nil
 }
 
 func (vrouter *VRouter) delVmToAgent() error {
-	var req []byte
+	delMsg := makeMsg("", vrouter.containerUuid, vrouter.containerId,
+		"", "", "")
 	resp, err := vrouter.doOp("DELETE", vrouter.containerUuid,
-		vrouter.containerVn, "/vm", req)
+		vrouter.containerVn, "/vm", delMsg)
 	if err != nil {
 		log.Errorf("Failed HTTP DELETE operation")
 		return err
@@ -335,15 +337,25 @@ func (vrouter *VRouter) delVmToAgent() error {
 /* Process delete VM. The method ignores intermediate errors and does best
  * effort cleanup
  */
-func (vrouter *VRouter) Del(containerUuid, containerVn string) error {
-	log.Infof("Deleting container : %s Vn : %s", containerUuid, containerVn)
+func (vrouter *VRouter) Del(containerId, containerUuid,
+	containerVn string) error {
+	log.Infof("Deleting container with id : %s uuid : %s Vn : %s",
+		containerId, containerUuid, containerVn)
 	vrouter.containerUuid = containerUuid
+	vrouter.containerId = containerId
 	vrouter.containerVn = containerVn
 	var ret error
 	// Remove the configuraion file stored for persistency
-	if err := vrouter.delVmToFile(); err != nil {
+	err, id_match_err := vrouter.delVmFile()
+	if err != nil {
 		log.Infof("Error in deleting config file")
 		ret = err
+	}
+
+	if id_match_err != nil {
+		log.Infof("Error in deleting config file")
+		ret = err
+		return ret
 	}
 
 	// Make the del message call to agent
@@ -354,6 +366,52 @@ func (vrouter *VRouter) Del(containerUuid, containerVn string) error {
 
 	log.Infof("Delete return code %+v", ret)
 	return ret
+}
+
+/*
+ * If a container fails (due to CNI failure or otherwise), kubelet will
+ * delete the failed container and create a new one. In some cases kubelet
+ * is calling CNI multiple times for failed container. We create interface
+ * with names based on POD-UUID. So, both new and old container will map to
+ * same tap interface name.
+ *
+ * If delete of the container comes after new container is spawned, the delete
+ * must be ignored. When new container is created, the config file stored by
+ * vrouter is updated with new container-id. Compare the container-id in
+ * in this instance with one present in the config file. Ignore the request if
+ * they do not match
+ */
+func (vrouter *VRouter) CanDelete(containerId, containerUuid,
+	containerVn string) error {
+	vrouter.containerUuid = containerUuid
+	vrouter.containerId = containerId
+	vrouter.containerVn = containerVn
+
+	fname := vrouter.makeFileName()
+	_, err := os.Stat(fname)
+	// File not present... noting to do
+	if err != nil {
+		log.Infof("File %s not found. Error : %s", fname, err)
+		return fmt.Errorf("File %s not found. Error : %s", fname, err)
+	}
+
+	// Check if the container-id in the file matches
+	file, err := ioutil.ReadFile(fname)
+	if err != nil {
+		log.Infof("Error reading file %s. Error : %s", fname, err)
+		return fmt.Errorf("Error reading file %s. Error : %s", fname, err)
+	}
+
+	var obj contrailAddMsg
+	json.Unmarshal(file, &obj)
+	if obj.Vm != vrouter.containerId {
+		log.Infof("Mismatch in container-id between request and config file."+
+			"Expected %s got %s", vrouter.containerId, obj.Vm)
+		return fmt.Errorf("Mismatch in container-id between request and "+
+			" config file. Expected %s got %s", vrouter.containerId, obj.Vm)
+	}
+
+	return nil
 }
 
 /****************************************************************************
@@ -388,7 +446,7 @@ func VRouterInit(stdinData []byte) (*VRouter, error) {
 	httpClient := new(http.Client)
 	vrouter := VRouter{Server: VROUTER_AGENT_IP, Port: VROUTER_AGENT_PORT,
 		Dir: VROUTER_CONFIG_DIR, PollTimeout: VROUTER_POLL_TIMEOUT,
-		PollRetries: VROUTER_POLL_RETRIES, containerUuid: "",
+		PollRetries: VROUTER_POLL_RETRIES, containerId: "", containerUuid: "",
 		containerVn: "", httpClient: httpClient}
 	args := vrouterJson{VRouter: vrouter}
 
