@@ -2173,6 +2173,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('bgpaas-suppress-route-advertisement', 'bgp-as-a-service', 'optional', 'CRUD',
               'True when server should not advertise any routes to the client i.e. the client has static routes (typically a default) configured.') -->
 
+<xsd:element name='bgpaas-health-check' type='ServiceHealthCheckType'/>
+    <xsd:annotation>
+        <xsd:documentation>
+            This is used to enable health check for BGPaaS session over the
+            virtual machine interface over which the session is active.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgpaas-health-check', 'bgp-as-a-service', 'optional', 'CRUD',
+              'Health Check service for BGPaaS sessions') -->
+
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>
 <!--#IFMAP-SEMANTICS-IDL
