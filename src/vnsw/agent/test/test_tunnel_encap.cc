@@ -32,6 +32,7 @@ public:
         remote_ecmp_vm_ip_ = Ip4Address::from_string("1.1.1.12");
         local_vm_mac_ = MacAddress::FromString("00:00:01:01:01:10");
         remote_vm_mac_ = MacAddress::FromString("00:00:01:01:01:11");
+        bcast_mac_ = MacAddress::FromString("ff:ff:ff:ff:ff:ff");
     };
     ~TunnelEncapTest() {
     }
@@ -57,9 +58,11 @@ public:
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
         client->Reset();
+        bgp_peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
     }
 
     virtual void TearDown() {
+        DeleteBgpPeer(bgp_peer_);
         client->Reset();
         DelIPAM("vn1");
         client->WaitForIdle();
@@ -100,14 +103,13 @@ public:
     void AddRemoteVmRoute(TunnelType::TypeBmap l3_bmap, 
                           TunnelType::TypeBmap l2_bmap) {
 
-        Inet4TunnelRouteAdd(Agent::GetInstance()->local_peer(), 
-                            vrf_name_, remote_vm_ip_, 32, server1_ip_,
-                            l3_bmap, 1000, vrf_name_,
+        Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32,
+                            server1_ip_, l3_bmap, 1000, vrf_name_,
                             SecurityGroupList(), PathPreference());
         client->WaitForIdle();
 
-        BridgeTunnelRouteAdd(Agent::GetInstance()->local_peer(), vrf_name_,
-                             l2_bmap, server1_ip_, 2000, remote_vm_mac_, remote_vm_ip_, 32);
+        BridgeTunnelRouteAdd(bgp_peer_, vrf_name_, l2_bmap, server1_ip_, 2000,
+                             remote_vm_mac_, remote_vm_ip_, 32, 1);
         client->WaitForIdle();
 
         //Add an ecmp route
@@ -126,10 +128,9 @@ public:
         comp_nh_list1.push_back(nh_data2);
 
         SecurityGroupList sg_id_list;
-        EcmpTunnelRouteAdd(agent->local_peer(), vrf_name_,
-                           remote_ecmp_vm_ip_, 32,
-                           comp_nh_list1, false, "vn1",
-                           sg_id_list, PathPreference());
+        EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_ecmp_vm_ip_, 32,
+                           comp_nh_list1, false, "vn1", sg_id_list,
+                           PathPreference());
         client->WaitForIdle();
 
         TunnelOlist olist_map;
@@ -155,12 +156,10 @@ public:
 
     void DeleteRemoteVmRoute() {
         Agent::GetInstance()->fabric_inet4_unicast_table()->
-            DeleteReq(Agent::GetInstance()->local_peer(), vrf_name_,
-                      remote_vm_ip_, 32, NULL);
+            DeleteReq(bgp_peer_, vrf_name_, remote_vm_ip_, 32, NULL);
         client->WaitForIdle();
-        EvpnAgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(),
-                                         vrf_name_, remote_vm_mac_,
-                                         remote_vm_ip_, 0, NULL);
+        EvpnAgentRouteTable::DeleteReq(bgp_peer_, vrf_name_, remote_vm_mac_,
+                                       remote_vm_ip_, 0, NULL);
         client->WaitForIdle();
         agent->fabric_inet4_unicast_table()->
             DeleteReq(agent->local_peer(), vrf_name_,
@@ -265,10 +264,10 @@ public:
     }
 
     void VerifyMulticastRoutes(TunnelType::Type type) {
-        Inet4MulticastRouteEntry *mc_rt = MCRouteGet("vrf1", "255.255.255.255");
-        ASSERT_TRUE(mc_rt != NULL);
+        BridgeRouteEntry *route = L2RouteGet(vrf_name_, bcast_mac_);
+        ASSERT_TRUE(route != NULL);
         const CompositeNH *flood_cnh =
-            static_cast<const CompositeNH *>(mc_rt->GetActiveNextHop());
+            static_cast<const CompositeNH *>(route->GetActiveNextHop());
         ASSERT_TRUE(flood_cnh != NULL);
         ASSERT_TRUE(flood_cnh->ComponentNHCount() == 2);
         const CompositeNH *flood_fabric_cnh =
@@ -278,7 +277,7 @@ public:
         ASSERT_TRUE(tnh->GetTunnelType().GetType() == type);
 
         const CompositeNH *subnet_cnh =
-            static_cast<const CompositeNH *>(mc_rt->GetActiveNextHop());
+            static_cast<const CompositeNH *>(route->GetActiveNextHop());
         ASSERT_TRUE(subnet_cnh->ComponentNHCount() == 2);
         const CompositeNH *subnet_fabric_cnh =
             dynamic_cast<const CompositeNH *>(subnet_cnh->GetNH(0));
@@ -296,6 +295,8 @@ public:
     Ip4Address  remote_ecmp_vm_ip_;
     MacAddress  local_vm_mac_;
     MacAddress  remote_vm_mac_;
+    MacAddress  bcast_mac_;
+    BgpPeer *bgp_peer_;
     static TunnelType::Type type_;
 };
 
@@ -345,7 +346,7 @@ TEST_F(TunnelEncapTest, gre_to_vxlan_udp) {
     client->Reset();
     AddRemoteVmRoute(TunnelType::MplsType(), TunnelType::AllType());
     client->WaitForIdle();
-    AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
+    VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoUDP", "MPLSoGRE");
     client->WaitForIdle();
     VerifyInet4UnicastRoutes(TunnelType::MPLS_UDP);
     VerifyBridgeUnicastRoutes(TunnelType::VXLAN);

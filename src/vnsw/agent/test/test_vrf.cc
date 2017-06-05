@@ -63,6 +63,7 @@ protected:
         client->WaitForIdle();
         Agent::GetInstance()->controller()->DisConnect();
         client->WaitForIdle();
+
         client->Reset();
         thread_ = new ServerThread(&evm_);
         bgp_peer1 = new test::ControlNodeMock(&evm_, "127.0.0.1");
@@ -76,20 +77,14 @@ protected:
     }
 
     virtual void TearDown() {
-        if (Agent::GetInstance()->headless_agent_mode()) {
-            TaskScheduler::GetInstance()->Stop();
-            Agent::GetInstance()->controller()->unicast_cleanup_timer().cleanup_timer_->Fire();
-            Agent::GetInstance()->controller()->multicast_cleanup_timer().cleanup_timer_->Fire();
-            TaskScheduler::GetInstance()->Start();
-            client->WaitForIdle();
-            Agent::GetInstance()->controller()->Cleanup();
-            client->WaitForIdle();
-        }
-        Agent::GetInstance()->controller()->config_cleanup_timer().cleanup_timer_->Cancel();
-
         bgp_peer1->Shutdown();
         client->WaitForIdle();
         delete bgp_peer1;
+
+        Agent::GetInstance()->controller()->Cleanup();
+        client->WaitForIdle();
+        Agent::GetInstance()->controller()->DisConnect();
+        client->WaitForIdle();
 
         evm_.Shutdown();
         thread_->Join();
@@ -165,6 +160,11 @@ TEST_F(VrfTest, VrfAddDelWithVm_1) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
         {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
     Ip4Address vm1_ip = Ip4Address::from_string(input[0].addr);
     Ip4Address vm2_ip = Ip4Address::from_string(input[1].addr);
 
@@ -175,8 +175,8 @@ TEST_F(VrfTest, VrfAddDelWithVm_1) {
     EXPECT_TRUE(RouteFind("vrf1", vm1_ip, 32));
     EXPECT_TRUE(RouteFind("vrf1", vm2_ip, 32));
 
-    WAIT_FOR(100, 10000, PathCount("vrf1", vm1_ip, 32) == 2);
-    WAIT_FOR(100, 10000, PathCount("vrf1", vm2_ip, 32) == 2);
+    WAIT_FOR(100, 10000, PathCount("vrf1", vm1_ip, 32) == 3);
+    WAIT_FOR(100, 10000, PathCount("vrf1", vm2_ip, 32) == 3);
 
     //Interface still present
     DeleteVmportEnv(input, 2, true);
@@ -184,6 +184,9 @@ TEST_F(VrfTest, VrfAddDelWithVm_1) {
     WAIT_FOR(100, 10000, (VrfFind("vrf1") == false));
     client->WaitForIdle();
     EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
+
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 TEST_F(VrfTest, VrfAddDelWithNoRoutes_1) {
@@ -194,16 +197,6 @@ TEST_F(VrfTest, VrfAddDelWithNoRoutes_1) {
     DelVrf("vrf10");
     WAIT_FOR(100, 10000, (VrfFind("vrf10") == false));
     EXPECT_FALSE(DBTableFind("vrf10.route.0"));
-}
-
-TEST_F(VrfTest, CheckDefaultVrfDelete) {
-    AddVrf(Agent::GetInstance()->fabric_vrf_name().c_str());
-    client->WaitForIdle();
-    EXPECT_TRUE(VrfFind(Agent::GetInstance()->fabric_vrf_name().c_str()));
-
-    DelVrf(Agent::GetInstance()->fabric_vrf_name().c_str());
-    client->WaitForIdle();
-    EXPECT_TRUE(VrfFind(Agent::GetInstance()->fabric_vrf_name().c_str()));
 }
 
 TEST_F(VrfTest, CheckTableDeleteAndEntryDelete) {
@@ -267,6 +260,11 @@ TEST_F(VrfTest, CheckIntfActivate) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
         {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
     Ip4Address vm1_ip = Ip4Address::from_string(input[0].addr);
     Ip4Address vm2_ip = Ip4Address::from_string(input[1].addr);
 
@@ -300,6 +298,9 @@ TEST_F(VrfTest, CheckIntfActivate) {
     EXPECT_TRUE(RouteFind("vrf1", vm2_ip, 32));
     DeleteVmportEnv(input, 2, true);
     client->WaitForIdle();
+
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 TEST_F(VrfTest, FloatingIpRouteWithdraw) {
@@ -308,6 +309,11 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
         {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 2, 2},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+    AddIPAM("default-project:vn1", ipam_info, 1);
+    AddIPAM("default-project:vn2", ipam_info, 1);
     Ip4Address vm1_ip = Ip4Address::from_string(input[0].addr);
     Ip4Address vm2_ip = Ip4Address::from_string(input[1].addr);
 
@@ -332,7 +338,7 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
     Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
     EXPECT_TRUE(RouteFind("default-project:vn1:vn1", floating_ip, 32));
     WAIT_FOR(100, 10000,
-             PathCount("default-project:vn1:vn1", floating_ip, 32) == 2);
+             PathCount("default-project:vn1:vn1", floating_ip, 32) == 3);
 
     //Delete floating IP and expect route to get deleted
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
@@ -345,6 +351,8 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
              RouteFind("default-project:vn1:vn1",floating_ip, 32) == false);
     DeleteVmportFIpEnv(input, 2, true);
     client->WaitForIdle();
+    DelIPAM("default-project:vn1");
+    DelIPAM("default-project:vn2");
 }
 
 TEST_F(VrfTest, DelReqonDeletedVrfRouteTable) {
@@ -390,7 +398,8 @@ TEST_F(VrfTest, AddReqonDeletedVrfRouteTable) {
     VrfDelReq("vrf1");
     Ip4Address vip(0);
     Ip4Address server_ip(0);
-    Inet4TunnelRouteAdd(agent->local_peer(), "vrf1", vip, 32,
+    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
+    Inet4TunnelRouteAdd(bgp_peer, "vrf1", vip, 32,
                         server_ip, TunnelType::AllType(),
                         16, "vn1", SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -402,6 +411,7 @@ TEST_F(VrfTest, AddReqonDeletedVrfRouteTable) {
     vrf_ref = NULL;
     client->WaitForIdle();
     EXPECT_TRUE(VrfFind("vrf1", true) == false);
+    DeleteBgpPeer(bgp_peer);
 }
 
 int main(int argc, char **argv) {

@@ -138,9 +138,6 @@ bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req,
     SecurityGroup *cfg = static_cast<SecurityGroup *>(node->GetObject());
     assert(cfg);
 
-    SgKey *key = new SgKey(u);
-    SgData *data  = NULL;
-
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     uint32_t sg_id;
     stringToInteger(cfg->id(), sg_id);
@@ -148,6 +145,9 @@ bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req,
         OPER_TRACE(Sg, "Ignore SG id 0", UuidToString(u));
         return false;
     }
+
+    SgKey *key = new SgKey(u);
+    SgData *data  = NULL;
 
     uuid egress_acl_uuid = nil_uuid();
     uuid ingress_acl_uuid = nil_uuid();

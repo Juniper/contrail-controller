@@ -1541,7 +1541,8 @@ bool VlanNhFind(int id, uint16_t tag) {
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
-                          const IpAddress &vm_addr, uint8_t plen, bool leaf) {
+                          const IpAddress &vm_addr, uint8_t plen, uint32_t tag,
+                          bool leaf) {
     VnListType vn_list;
     ControllerVmRoute *data =
         ControllerVmRoute::MakeControllerVmRoute(peer,
@@ -1552,18 +1553,19 @@ bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                               PathPreference(), false, EcmpLoadBalance(),
                               leaf);
     EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
-                                        vm_addr, 0, data);
+                                        vm_addr, tag, data);
     return true;
 }
 
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
-                          const char *vm_addr, uint8_t plen, bool leaf) {
+                          const char *vm_addr, uint8_t plen,uint32_t tag,
+                          bool leaf) {
     boost::system::error_code ec;
     BridgeTunnelRouteAdd(peer, vm_vrf, bmap,
                         Ip4Address::from_string(server_ip, ec), label, remote_vm_mac,
-                        IpAddress::from_string(vm_addr, ec), plen, leaf);
+                        IpAddress::from_string(vm_addr, ec), plen, tag, leaf);
 }
 
 bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
@@ -2520,13 +2522,29 @@ void DeleteGlobalVrouterConfig() {
     ApplyXmlString(buf);
 }
 
-void VxLanNetworkIdentifierMode(bool config) {
+void VxLanNetworkIdentifierMode(bool config, const char *encap1,
+                                const char *encap2, const char *encap3) {
     std::stringstream str;
     if (config) {
         str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
     } else {
         str << "<vxlan-network-identifier-mode>automatic</vxlan-network-identifier-mode>" << endl;
     }
+
+    str << "<encapsulation-priorities>" << endl;
+    if (encap1) {
+        str << "    <encapsulation>" << encap1 << "</encapsulation>";
+    }
+
+    if (encap2) {
+        str << "    <encapsulation>" << encap2 << "</encapsulation>";
+    }
+
+    if (encap3) {
+        str << "    <encapsulation>" << encap3 << "</encapsulation>";
+    }
+    str << "</encapsulation-priorities>";
+
     AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
 }
 

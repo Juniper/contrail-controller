@@ -33,24 +33,21 @@ std::string analyzer = "TestAnalyzer";
 
 //TestClient *client;
 
-void RouterIdDepInit(Agent *agent) {
-}
-
 class CfgTest : public ::testing::Test {
 public:
     void SetUp() {
         boost::system::error_code ec;
-        bgp_peer = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+        bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
                                  "xmpp channel");
         agent_ = Agent::GetInstance();
     }
     void TearDown() {
         WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
-        DeleteBgpPeer(bgp_peer);
+        DeleteBgpPeer(bgp_peer_);
     }
 
     Agent *agent_;
-    BgpPeer *bgp_peer;
+    BgpPeer *bgp_peer_;
 };
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
@@ -345,25 +342,19 @@ TEST_F(CfgTest, NhSandesh_1) {
 }
 
 TEST_F(CfgTest, CreateVrfNh_1) {
-    DBRequest req;
-
+    ConcurrencyScope scope("db::DBTable");
     VrfAddReq("test_vrf");
     client->WaitForIdle();
 
-    NextHopKey *key = new VrfNHKey("test_vrf", false, false);
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    req.data.reset(new VrfNHData(false, false));
-    agent_->nexthop_table()->Enqueue(&req);
+    VrfEntryRef vrf(VrfGet("test_vrf"));
+    vrf->CreateTableLabel(false, false, false, false);
     client->WaitForIdle();
 
-    key = new VrfNHKey("test_vrf", false, false);
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-    req.key.reset(key);
-    req.data.reset(new VrfNHData(false, false));
-    agent_->nexthop_table()->Enqueue(&req);
-
     VrfDelReq("test_vrf");
+    client->WaitForIdle();
+
+    vrf.reset(NULL);
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, TunnelType_1) {
@@ -390,7 +381,7 @@ TEST_F(CfgTest, TunnelType_1) {
                                      false, TunnelType::MPLS_GRE) == true));
 
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.12"),
-                                     false, TunnelType::DefaultType()) == true));
+                                     false, TunnelType::MPLS_UDP) == true));
 
     DeleteTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
                    Ip4Address::from_string("10.1.1.10"), false,
@@ -562,7 +553,7 @@ TEST_F(CfgTest, TunnelType_5) {
                                      false, TunnelType::DefaultType()) == true));
 
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.12"),
-                                     false, TunnelType::DefaultType()) == true));
+                                     false, TunnelType::MPLS_UDP) == true));
 
     DeleteTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
                    Ip4Address::from_string("10.1.1.10"), false,
@@ -586,6 +577,12 @@ TEST_F(CfgTest, Nexthop_keys) {
     struct PortInfo input1[] = {
         {"vnet10", 10, "1.1.1.1", "00:00:00:01:01:01", 10, 10}
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn10", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
@@ -616,7 +613,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     DBEntryBase::KeyPtr nh_key_base(intf_nh->GetDBRequestKey());
     NextHopKey *nh_key = static_cast<NextHopKey *>(nh_key_base.get());
     EXPECT_TRUE(nh_key->GetType() == NextHop::INTERFACE);
-    EXPECT_TRUE(nh_key->GetPolicy() == false);
+    EXPECT_TRUE(nh_key->GetPolicy());
     NextHop *base_nh = static_cast<NextHop *>
         (agent_-> nexthop_table()->FindActiveEntry(nh_key));
     base_nh->SetKey(base_nh->GetDBRequestKey().get());
@@ -649,7 +646,7 @@ TEST_F(CfgTest, Nexthop_keys) {
 
     Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
     MacAddress remote_vm_mac("00:00:01:01:01:11");
-    BridgeTunnelRouteAdd(agent_->local_peer(), "vrf10", TunnelType::MplsType(),
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf10", TunnelType::MplsType(),
                          Ip4Address::from_string("10.1.1.100"),
                          1000, remote_vm_mac, vm_ip, 32);
     client->WaitForIdle();
@@ -719,9 +716,9 @@ TEST_F(CfgTest, Nexthop_keys) {
     SecurityGroupList sg_l;
     VnListType vn_list;
     vn_list.insert("vn10");
-    agent_->fabric_inet4_unicast_table()->AddVlanNHRouteReq(NULL, "vrf10",
-                          Ip4Address::from_string("2.2.2.0"), 24, MakeUuid(10), 100, 100,
-                          vn_list, sg_l, PathPreference());
+    agent_->fabric_inet4_unicast_table()->AddVlanNHRouteReq
+        (agent_->local_peer(), "vrf10", Ip4Address::from_string("2.2.2.0"), 24,
+         MakeUuid(10), 100, 100, vn_list, sg_l, PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *vlan_rt =
         RouteGet("vrf10", Ip4Address::from_string("2.2.2.0"), 24);
@@ -735,7 +732,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     //Sandesh request
     DoNextHopSandesh();
 
-    agent_->fabric_inet4_unicast_table()->DeleteReq(NULL,
+    agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
                           "vrf10", Ip4Address::from_string("2.2.2.0"), 24, NULL);
     VlanNHKey *del_vlan_nhkey = new VlanNHKey(MakeUuid(10), 100);
     DBRequest del_nh_req;
@@ -778,10 +775,9 @@ TEST_F(CfgTest, Nexthop_keys) {
                 FindActiveEntry(&find_del_arp_nh_key) == NULL);
 
     //Delete
-    agent_->fabric_inet4_unicast_table()->
-        DeleteReq(agent_->local_peer(),
-                  agent_->fabric_vrf_name(),
-                  Ip4Address::from_string("10.1.1.100"), 32, NULL);
+    agent_->fabric_inet4_unicast_table()->DeleteReq
+        (bgp_peer_, agent_->fabric_vrf_name(),
+         Ip4Address::from_string("10.1.1.100"), 32, NULL);
     client->WaitForIdle();
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -789,6 +785,8 @@ TEST_F(CfgTest, Nexthop_keys) {
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf10", ip, 32));
     WAIT_FOR(1000, 1000, (VrfGet("vrf10") == NULL));
+    DelIPAM("vn10");
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, Nexthop_invalid_vrf) {
@@ -830,7 +828,7 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     DBRequest vrf_nh_req;
     vrf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     vrf_nh_req.key.reset(new VrfNHKey("vrf11", true, false));
-    vrf_nh_req.data.reset(new VrfNHData(false, false));
+    vrf_nh_req.data.reset(new VrfNHData(false, false, false));
     agent_->nexthop_table()->Enqueue(&vrf_nh_req);
     client->WaitForIdle();
     VrfNHKey find_vrf_nh_key("vrf11", true, false);
@@ -923,6 +921,12 @@ TEST_F(CfgTest, EcmpNH_18) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
         {"vnet2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
     CreateVmportWithEcmp(input, 2);
     client->WaitForIdle();
 
@@ -943,7 +947,7 @@ TEST_F(CfgTest, EcmpNH_18) {
     comp_nh_list.push_back(nh_data1);
 
     SecurityGroupList sg_list;
-    EcmpTunnelRouteAdd(bgp_peer, "vrf1", ip, 32,
+    EcmpTunnelRouteAdd(bgp_peer_, "vrf1", ip, 32,
             comp_nh_list, false, "vn1", sg_list, PathPreference());
     client->WaitForIdle();
 
@@ -966,7 +970,7 @@ TEST_F(CfgTest, EcmpNH_18) {
     VnListType vn_list;
     vn_list.insert("vn1");
     agent_->fabric_inet4_unicast_table()->
-        AddLocalVmRouteReq(bgp_peer, "vrf1", ip, 32,
+        AddLocalVmRouteReq(bgp_peer_, "vrf1", ip, 32,
                 MakeUuid(1), vn_list, vm_intf->label(),
                 SecurityGroupList(), CommunityList(), false, PathPreference(),
                 Ip4Address(0), EcmpLoadBalance(), false, false);
@@ -978,6 +982,8 @@ TEST_F(CfgTest, EcmpNH_18) {
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, EcmpNH_19) {
@@ -986,6 +992,12 @@ TEST_F(CfgTest, EcmpNH_19) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
         {"vnet2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
     CreateVmportWithEcmp(input, 2);
     client->WaitForIdle();
 
@@ -1013,6 +1025,8 @@ TEST_F(CfgTest, EcmpNH_19) {
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, EcmpNH_20) {
@@ -1021,6 +1035,12 @@ TEST_F(CfgTest, EcmpNH_20) {
         {"vnet1", 1, "1.1.1.3", "00:00:00:01:01:01", 1, 1},
         {"vnet2", 2, "1.1.1.4", "00:00:00:01:01:01", 1, 2},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
     CreateVmportWithEcmp(input, 2);
     client->WaitForIdle();
 
@@ -1056,12 +1076,20 @@ TEST_F(CfgTest, EcmpNH_20) {
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, mcast_comp_nh_encap_change) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.3", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     CreateVmportWithEcmp(input, 1);
     client->WaitForIdle();
@@ -1073,7 +1101,7 @@ TEST_F(CfgTest, mcast_comp_nh_encap_change) {
     tor_olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
-    mc_handler->ModifyTorMembers(bgp_peer,
+    mc_handler->ModifyTorMembers(bgp_peer_,
                                  "vrf1",
                                  tor_olist,
                                  10,
@@ -1083,7 +1111,7 @@ TEST_F(CfgTest, mcast_comp_nh_encap_change) {
     evpn_olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
-    mc_handler->ModifyEvpnMembers(bgp_peer,
+    mc_handler->ModifyEvpnMembers(bgp_peer_,
                                  "vrf1",
                                  evpn_olist,
                                  0,
@@ -1109,6 +1137,8 @@ TEST_F(CfgTest, mcast_comp_nh_encap_change) {
 
     DeleteVmportEnv(input, 1, true);
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
 }
 

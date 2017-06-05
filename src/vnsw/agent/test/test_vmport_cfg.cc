@@ -94,16 +94,16 @@ TEST_F(CfgTest, AddDelVmPortNoVn_1) {
 TEST_F(CfgTest, AddDelExport) {
 
     client->Reset();
-    PortSuscribe("vnet1", MakeUuid(1), MakeUuid(1), UuidToString(MakeUuid(1)),
-                 MakeUuid(1), MakeUuid(kProjectUuid), ip, Ip6Address(),
-                 "00:00:00:01:01:01");
+    boost::system::error_code ec;
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1", ec);
+    PortSubscribe("vnet1", MakeUuid(1), MakeUuid(1), UuidToString(MakeUuid(1)),
+                  MakeUuid(1), MakeUuid(kProjectUuid), ip, Ip6Address(),
+                  "00:00:00:01:01:01");
+    client->WaitForIdle();
+    EXPECT_EQ(1U, PortSubscribeSize(agent_));
 
-    ip = Ip4Address::from_string("1.1.1.1", ec);
-    PortSuscribe("vnet1", MakeUuid(1), MakeUuid(1), UuidToString(MakeUuid(1)),
-                 MakeUuid(1), MakeUuid(kProjectUuid), ip, Ip6Address(),
-                 "00:00:00:01:01:01");
-    usleep(1000);
-
+    PortUnSubscribe(MakeUuid(1));
+    client->WaitForIdle();
     EXPECT_EQ(0U, PortSubscribeSize(agent_));
 }
 
@@ -514,8 +514,9 @@ TEST_F(CfgTest, VmPortPolicy_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
-    EXPECT_FALSE(VmPortPolicyEnable(input, 0));
-    EXPECT_FALSE(VmPortPolicyEnable(input, 1));
+    // Policy still enabled, since its based on disable_policy attribute
+    EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 1));
 
     AddLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
@@ -527,8 +528,9 @@ TEST_F(CfgTest, VmPortPolicy_1) {
     client->WaitForIdle();
     EXPECT_TRUE(client->AclNotifyWait(0));
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_TRUE(VmPortPolicyDisable(input, 0));
-    EXPECT_TRUE(VmPortPolicyDisable(input, 1));
+    // Policy still enabled, since its based on disable_policy attribute
+    EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 1));
 
     client->Reset();
     DelNode("access-control-list", "acl1");
@@ -641,8 +643,8 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     // Port inactive since VRF is not yet present
     EXPECT_TRUE(VmPortInactive(input, 0));
     EXPECT_TRUE(VmPortInactive(input, 1));
-    EXPECT_TRUE(VmPortPolicyDisable(input, 0));
-    EXPECT_TRUE(VmPortPolicyDisable(input, 1));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 1));
     EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
@@ -694,8 +696,8 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     client->WaitForIdle();
     EXPECT_TRUE(client->AclNotifyWait(0));
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_TRUE(VmPortPolicyDisable(input, 0));
-    EXPECT_TRUE(VmPortPolicyDisable(input, 1));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 1));
 
     client->Reset();
     DelNode("access-control-list", "acl1");
@@ -878,8 +880,8 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_TRUE(VmPortPolicyDisable(input, 0));
-    EXPECT_TRUE(VmPortPolicyDisable(input, 1));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 1));
 
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet2");
@@ -1048,19 +1050,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFloatingIpCount(1, 2));
 
-    AddLink("virtual-network", "default-project:vn2", "routing-instance",
-            "vrf6");
-    client->WaitForIdle();
-    AddLink("virtual-network", "default-project:vn2", "routing-instance",
-            "vrf8");
-    client->WaitForIdle();
     DelLink("virtual-network", "vn1", "routing-instance", "vrf6");
-    client->WaitForIdle();
-    DelLink("virtual-network", "default-project:vn2", "routing-instance",
-            "vrf6");
-    client->WaitForIdle();
-    DelLink("virtual-network", "default-project:vn2", "routing-instance",
-            "vrf8");
     client->WaitForIdle();
     DelLink("virtual-network", "default-project:vn2", "routing-instance",
             "default-project:vn2:vn2");
@@ -1347,6 +1337,12 @@ TEST_F(CfgTest, Basic_2) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -1392,9 +1388,11 @@ TEST_F(CfgTest, Basic_2) {
     if (nh == NULL) {
         return;
     }
-    EXPECT_FALSE(nh->PolicyEnabled());
+    EXPECT_TRUE(nh->PolicyEnabled());
 
     DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
 }
@@ -1403,6 +1401,12 @@ TEST_F(CfgTest, SecurityGroup_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -1443,7 +1447,6 @@ TEST_F(CfgTest, SecurityGroup_1) {
     DoInterfaceSandesh("vnet1");
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
-    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     DelLink("security-group", "sg1", "access-control-list", "acl1");
     client->WaitForIdle();
@@ -1452,6 +1455,7 @@ TEST_F(CfgTest, SecurityGroup_1) {
 
     DeleteVmportEnv(input, 1, true);
     DelNode("security-group", "sg1");
+    DelIPAM("vn1");
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
 }
@@ -1460,6 +1464,12 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -1498,7 +1508,6 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
     EXPECT_TRUE(sg_entry->GetSgId() == 3);
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
-    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     DelLink("security-group", "sg1", "access-control-list", "acl1");
     client->WaitForIdle();
@@ -1507,6 +1516,7 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_1) {
 
     DeleteVmportEnv(input, 1, true);
     DelNode("security-group", "sg1");
+    DelIPAM("vn1");
     client->WaitForIdle();
     delete key;
     EXPECT_FALSE(VmPortFind(1));
@@ -1549,7 +1559,6 @@ TEST_F(CfgTest, SecurityGroup_ignore_invalid_sgid_2) {
     EXPECT_TRUE(it->sg_->GetSgId() == 1);
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
-    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     DelLink("security-group", "sg1", "access-control-list", "acl1");
     client->WaitForIdle();
