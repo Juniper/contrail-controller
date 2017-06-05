@@ -42,9 +42,6 @@
 using namespace boost::assign;
 std::string eth_itf;
 
-void RouterIdDepInit(Agent *agent) {
-}
-
 static void WalkDone(DBTableBase *base)
 {
     return;
@@ -121,6 +118,7 @@ protected:
 
     virtual void SetUp() {
         client->Reset();
+        bgp_peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
         PhysicalInterface::CreateReq(agent_->interface_table(),
@@ -137,13 +135,15 @@ protected:
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();
         WAIT_FOR(100, 100, (VrfFind(vrf_name_.c_str()) != true));
+        DeleteBgpPeer(bgp_peer_);
+        client->WaitForIdle();
     }
 
     void AddRemoteVmRoute(MacAddress &remote_vm_mac, const IpAddress &ip_addr,
                           const Ip4Address &server_ip,
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any other peer than localvmpeer
-        BridgeTunnelRouteAdd(agent_->local_peer(), vrf_name_, bmap, server_ip,
+        BridgeTunnelRouteAdd(bgp_peer_, vrf_name_, bmap, server_ip,
                              label, remote_vm_mac, ip_addr, 32);
         client->WaitForIdle();
     }
@@ -209,6 +209,7 @@ protected:
     Ip4Address  server2_ip_;
 
     static TunnelType::Type type_;
+    BgpPeer *bgp_peer_;
     Agent *agent_;
 };
 TunnelType::Type RouteTest::type_;
@@ -369,8 +370,7 @@ TEST_F(RouteTest, RemoteVmRoute_label_change) {
                     remote_vm_ip4_);
     EXPECT_TRUE(rt->GetActiveLabel() == (MplsTable::kStartLabel + 1));
 
-    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
-                remote_vm_ip4_);
+    DeleteBridgeRoute(bgp_peer_, vrf_name_, remote_vm_mac_, remote_vm_ip4_);
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
@@ -409,8 +409,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
-                remote_vm_ip4_);
+    DeleteBridgeRoute(bgp_peer_, vrf_name_, remote_vm_mac_, remote_vm_ip4_);
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
@@ -421,11 +420,17 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
         {"vnet2", 2, "2.2.2.10", "00:00:02:02:02:10", 2, 2},
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"2.2.2.0", 24, "2.2.2.254", true},
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
 
     client->Reset();
     RouteTest::SetTunnelType(TunnelType::VXLAN);
-    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
-    VxLanNetworkIdentifierMode(false);
+    VxLanNetworkIdentifierMode(false, "VXLAN", "MPLSoGRE", "MPLSoUDP");
     client->WaitForIdle();
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
@@ -437,7 +442,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
                                             local_vm_ip4_);
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
     EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
-    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetActiveLabel() == 1);
+    EXPECT_EQ(vnet1_rt->GetActivePath()->GetActiveLabel(), 1);
     EXPECT_TRUE(vnet1_rt->GetActivePath()->GetTunnelType() ==
                 TunnelType::VXLAN);
     InetUnicastRouteEntry *inet_rt = RouteGet(vrf_name_, local_vm_ip4_, 32);
@@ -471,13 +476,15 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     l2_req->Release();
     client->WaitForIdle();
 
-    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_2_,
-                remote_vm_ip4_2_);
+    DeleteBridgeRoute(bgp_peer_, vrf_name_, remote_vm_mac_2_, remote_vm_ip4_2_);
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 2, true);
     client->WaitForIdle();
     DelEncapList();
+    client->WaitForIdle();
+
+    DelIPAM("vn1");
     client->WaitForIdle();
 }
 
@@ -489,8 +496,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
 
     client->Reset();
     RouteTest::SetTunnelType(TunnelType::VXLAN);
-    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
-    VxLanNetworkIdentifierMode(true);
+    VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoGRE", "MPLSoUDP");
     client->WaitForIdle();
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
@@ -530,8 +536,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
                 TunnelType::VXLAN);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_2_,
-                remote_vm_ip4_2_);
+    DeleteBridgeRoute(bgp_peer_, vrf_name_, remote_vm_mac_2_, remote_vm_ip4_2_);
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 2, true);
@@ -594,8 +599,7 @@ TEST_F(RouteTest, Vxlan_basic) {
 
     client->Reset();
     RouteTest::SetTunnelType(TunnelType::VXLAN);
-    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
-    VxLanNetworkIdentifierMode(true);
+    VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoGRE", "MPLSoUDP");
     client->WaitForIdle();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -633,6 +637,12 @@ TEST_F(RouteTest, vxlan_network_id_change_for_non_l2_interface) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     CreateVmportEnv(input, 1);
@@ -654,6 +664,8 @@ TEST_F(RouteTest, vxlan_network_id_change_for_non_l2_interface) {
              (L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_) == NULL));
     EXPECT_FALSE(VmPortFind(input, 0));
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 TEST_F(RouteTest, RemoteVxlanEncapRoute_1) {
@@ -673,7 +685,7 @@ TEST_F(RouteTest, RemoteVxlanEncapRoute_1) {
     BridgeRouteEntry *rt = L2RouteGet(vrf_name_, remote_vm_mac_,
                                       remote_vm_ip4_);
     const AgentPath *path = rt->GetActivePath();
-    EXPECT_TRUE(path->tunnel_type() != TunnelType::VXLAN);
+    EXPECT_TRUE(path->tunnel_type() == TunnelType::VXLAN);
 
     //Update VXLAN in encap prio
     AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
@@ -684,8 +696,7 @@ TEST_F(RouteTest, RemoteVxlanEncapRoute_1) {
         static_cast<const TunnelNH *>(path->nexthop());
     EXPECT_TRUE(nh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteBridgeRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_,
-                remote_vm_ip4_);
+    DeleteBridgeRoute(bgp_peer_, vrf_name_, remote_vm_mac_, remote_vm_ip4_);
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
@@ -695,6 +706,12 @@ TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     CreateVmportEnv(input, 1);
@@ -712,12 +729,20 @@ TEST_F(RouteTest, Enqueue_l2_route_add_on_deleted_vrf) {
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     CreateVmportEnv(input, 1);
@@ -732,49 +757,49 @@ TEST_F(RouteTest, Enqueue_l2_route_del_on_deleted_vrf) {
     vrf_ref = NULL;
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
-TEST_F(RouteTest, add_deleted_peer_to_multicast_route) {
+TEST_F(RouteTest, DISABLED_add_deleted_peer_to_multicast_route) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
     //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
-    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
-                                                                   oper_db()->multicast());
+    MulticastHandler *mc_handler =
+        static_cast<MulticastHandler *>(agent_->oper_db()->multicast());
     TunnelOlist olist;
     olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     TaskScheduler::GetInstance()->Stop();
     client->WaitForIdle();
-    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetAgentXmppChannel(),
-                                                        xmps::NOT_READY);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent
+        (bgp_peer_->GetAgentXmppChannel(), xmps::TIMEDOUT);
     TaskScheduler::GetInstance()->Start();
     client->WaitForIdle();
-    mc_handler->ModifyTorMembers(bgp_peer.get(),
-                                 "vrf1",
-                                 olist,
-                                 10,
-                                 1);
+    mc_handler->ModifyTorMembers(bgp_peer_, "vrf1", olist, 10, 1);
     client->WaitForIdle();
-    BridgeRouteEntry *rt = L2RouteGet("vrf1",
-                                      MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
-                                      Ip4Address(0));
-    EXPECT_FALSE(rt->FindPath(bgp_peer.get()));
+    BridgeRouteEntry *rt =
+        L2RouteGet("vrf1", MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
+                   Ip4Address(0));
+    EXPECT_FALSE(rt->FindPath(bgp_peer_));
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
+    DelIPAM("vn1");
     client->WaitForIdle();
-    bgp_peer.reset();
 }
 
 //Add local VM - flood route gets added
@@ -786,6 +811,12 @@ TEST_F(RouteTest, all_evpn_routes_deleted_when_local_vms_are_gone) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     //Add local VM
@@ -797,21 +828,14 @@ TEST_F(RouteTest, all_evpn_routes_deleted_when_local_vms_are_gone) {
                                       Ip4Address(0));
     EXPECT_TRUE(rt != NULL);
     //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
-    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
-                                                                   oper_db()->multicast());
+    MulticastHandler *mc_handler =
+        static_cast<MulticastHandler *>(agent_->oper_db()->multicast());
     TunnelOlist olist;
     olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     //Send explicit evpn olist
-    mc_handler->ModifyEvpnMembers(bgp_peer.get(),
-                                 "vrf1",
-                                 olist,
-                                 0,
-                                 1);
+    mc_handler->ModifyEvpnMembers(bgp_peer_, "vrf1", olist, 0, 1);
     client->WaitForIdle();
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
@@ -829,28 +853,30 @@ TEST_F(RouteTest, all_evpn_routes_deleted_when_local_vms_are_gone) {
 
     //Send explicit delete of evpn olist
     TunnelOlist del_olist;
-    mc_handler->ModifyEvpnMembers(bgp_peer.get(),
-                                 "vrf1",
-                                 del_olist,
-                                 0,
+    mc_handler->ModifyEvpnMembers(bgp_peer_, "vrf1", del_olist, 0,
                                  ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
                     Ip4Address(0));
-    EXPECT_TRUE(rt->FindPath(bgp_peer_ptr) == NULL);
+    EXPECT_TRUE(rt->FindPath(bgp_peer_) == NULL);
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
+    DelIPAM("vn1");
     client->WaitForIdle();
-    bgp_peer.reset();
 }
 
 TEST_F(RouteTest, evpn_mcast_label_deleted) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     //Add VM
@@ -863,41 +889,35 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
     EXPECT_TRUE(rt != NULL);
     uint32_t evpn_mpls_label = rt->GetActivePath()->label();
     //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
-    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
-                                                                   oper_db()->multicast());
+    MulticastHandler *mc_handler =
+        static_cast<MulticastHandler *>(agent_->oper_db()->multicast());
     TunnelOlist olist;
     olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     //Add EVPN olist
-    mc_handler->ModifyEvpnMembers(bgp_peer.get(),
-                                 "vrf1",
-                                 olist,
-                                 0,
-                                 1);
+    mc_handler->ModifyEvpnMembers(bgp_peer_, "vrf1", olist, 0, 1);
     client->WaitForIdle();
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
                     Ip4Address(0));
     EXPECT_TRUE(rt != NULL);
     //Label is retained
-    EXPECT_TRUE(rt->GetActivePath()->label() == evpn_mpls_label);
+    EXPECT_EQ(rt->GetActivePath()->label(), evpn_mpls_label);
 
     //Delete VM
     DeleteVmportEnv(input, 1, false);
     client->WaitForIdle();
     //Because VN is pending.
-    EXPECT_TRUE(agent_->mpls_table()->FindActiveEntry(new MplsLabelKey(evpn_mpls_label)) != NULL);
+    MplsLabelKey mpls_key(evpn_mpls_label);
+    EXPECT_TRUE(agent_->mpls_table()->FindActiveEntry(&mpls_key) != NULL);
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
                     Ip4Address(0));
     WAIT_FOR(1000, 1000, (rt->FindPath(agent_->local_vm_peer()) == NULL));
     EXPECT_TRUE(rt != NULL);
     //Label is retained as evpn still present
-    EXPECT_TRUE(rt->GetActivePath()->label() == 0);
+    EXPECT_EQ(rt->GetActivePath()->label(), evpn_mpls_label);
     EXPECT_TRUE(rt->FindPath(agent_->local_peer())->label() == evpn_mpls_label);
     EXPECT_TRUE(FindMplsLabel(evpn_mpls_label));
     MplsLabel *mpls_entry = GetActiveLabel(evpn_mpls_label);
@@ -906,22 +926,20 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
 
     //Delete EVPN
     TunnelOlist del_olist;
-    mc_handler->ModifyEvpnMembers(bgp_peer.get(),
-                                 "vrf1",
-                                 del_olist,
-                                 0,
+    mc_handler->ModifyEvpnMembers(bgp_peer_, "vrf1", del_olist, 0,
                                  ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
     rt = L2RouteGet("vrf1",
                     MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
                     Ip4Address(0));
     //route should get deleted
-    EXPECT_TRUE(rt->FindPath(bgp_peer_ptr) == NULL);
+    EXPECT_TRUE(rt->FindPath(bgp_peer_) == NULL);
 
     //Label should have been released
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    EXPECT_TRUE(agent_->mpls_table()->FindActiveEntry(new MplsLabelKey(evpn_mpls_label)) == NULL);
+    MplsLabelKey mpls_key2(evpn_mpls_label);
+    EXPECT_TRUE(agent_->mpls_table()->FindActiveEntry(&mpls_key2) == NULL);
 
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
@@ -935,9 +953,8 @@ TEST_F(RouteTest, evpn_mcast_label_deleted) {
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
+    DelIPAM("vn1");
     client->WaitForIdle();
-    bgp_peer.reset();
 }
 
 //Let VRF be unsubscribed from Bgp Peer and then add
@@ -947,12 +964,15 @@ TEST_F(RouteTest, DISABLED_send_route_add_in_not_subscribed_vrf) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
@@ -960,14 +980,14 @@ TEST_F(RouteTest, DISABLED_send_route_add_in_not_subscribed_vrf) {
              (L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_) != NULL));
     EvpnRouteEntry *rt = EvpnRouteGet("vrf1", local_vm_mac_, local_vm_ip4_, 0);
     RouteExport::State *route_state = static_cast<RouteExport::State *>
-        (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
+        (bgp_peer_->GetRouteExportState(rt->get_table_partition(),
                                         rt));
     EXPECT_TRUE(route_state->exported_ == true);
 
     VrfEntry *vrf = VrfGet(vrf_name_.c_str());
     RouteExport *rt_export_tmp[Agent::ROUTE_TABLE_MAX];
     VrfExport::State *vrf_state = static_cast<VrfExport::State *>
-        (bgp_peer_ptr->GetVrfExportState(vrf->get_table_partition(), vrf));
+        (bgp_peer_->GetVrfExportState(vrf->get_table_partition(), vrf));
     for (uint8_t table_type = (Agent::INVALID + 1);
          table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
         rt_export_tmp[table_type] = vrf_state->rt_export_[table_type];
@@ -975,7 +995,7 @@ TEST_F(RouteTest, DISABLED_send_route_add_in_not_subscribed_vrf) {
 
     //Stop BGP peer
     vrf->ClearState(vrf->get_table_partition()->parent(),
-                    bgp_peer_ptr->GetVrfExportListenerId());
+                    bgp_peer_->GetVrfExportListenerId());
     //Mark Old route as not exported.
     route_state->exported_ = false;
     rt = EvpnRouteGet("vrf1", local_vm_mac_, local_vm_ip4_, 0);
@@ -997,21 +1017,18 @@ TEST_F(RouteTest, DISABLED_send_route_add_in_not_subscribed_vrf) {
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
+    DelIPAM("vn1");
     client->WaitForIdle();
-    bgp_peer.reset();
 }
 
 TEST_F(RouteTest, notify_on_vrf_with_deleted_state_for_peer) {
+#if 0
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
 
     client->Reset();
     //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
@@ -1019,14 +1036,14 @@ TEST_F(RouteTest, notify_on_vrf_with_deleted_state_for_peer) {
              (L2RouteGet(vrf_name_, local_vm_mac_, local_vm_ip4_) != NULL));
     EvpnRouteEntry *rt = EvpnRouteGet("vrf1", local_vm_mac_, local_vm_ip4_, 0);
     RouteExport::State *route_state = static_cast<RouteExport::State *>
-        (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
+        (bgp_peer_->GetRouteExportState(rt->get_table_partition(),
                                         rt));
     EXPECT_TRUE(route_state->exported_ == true);
 
     VrfEntry *vrf = VrfGet(vrf_name_.c_str());
     RouteExport *rt_export_tmp[Agent::ROUTE_TABLE_MAX];
     VrfExport::State *vrf_state = static_cast<VrfExport::State *>
-        (bgp_peer_ptr->GetVrfExportState(vrf->get_table_partition(), vrf));
+        (bgp_peer_->GetVrfExportState(vrf->get_table_partition(), vrf));
     for (uint8_t table_type = (Agent::INVALID + 1);
          table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
         rt_export_tmp[table_type] = vrf_state->rt_export_[table_type];
@@ -1034,23 +1051,22 @@ TEST_F(RouteTest, notify_on_vrf_with_deleted_state_for_peer) {
     }
 
     //Stop BGP peer
-    bgp_peer_ptr->GetAgentXmppChannel()->DeCommissionBgpPeer();
+    //bgp_peer_->GetAgentXmppChannel()->DeCommissionBgpPeer();
     //create another bgp peer
-    bgp_peer_ptr->GetAgentXmppChannel()->CreateBgpPeer();
+    bgp_peer_->GetAgentXmppChannel()->CreateBgpPeer();
     //Mark Old route as not exported.
     rt = EvpnRouteGet("vrf1", local_vm_mac_, local_vm_ip4_, 0);
     rt->get_table_partition()->Notify(rt);
     client->WaitForIdle();
     route_state = static_cast<RouteExport::State *>
-        (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
-                                        rt));
+        (bgp_peer_->GetRouteExportState(rt->get_table_partition(), rt));
     EXPECT_TRUE(route_state == NULL);
-    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetAgentXmppChannel(),
-                                                        xmps::NOT_READY);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent
+        (bgp_peer_->GetAgentXmppChannel(), xmps::NOT_READY);
     client->WaitForIdle();
-    bgp_peer_ptr->DelPeerRoutes(
+    bgp_peer_->DelPeerRoutes(
         boost::bind(&VNController::ControllerPeerHeadlessAgentDelDoneEnqueue,
-                    agent_->controller(), bgp_peer_ptr));
+                    agent_->controller(), bgp_peer_));
     client->WaitForIdle();
 
     //Delete route
@@ -1060,21 +1076,22 @@ TEST_F(RouteTest, notify_on_vrf_with_deleted_state_for_peer) {
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
-    client->WaitForIdle();
-    bgp_peer.reset();
+#endif
 }
 
 TEST_F(RouteTest, delete_notify_on_multicast_rt_with_no_state) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
@@ -1088,11 +1105,11 @@ TEST_F(RouteTest, delete_notify_on_multicast_rt_with_no_state) {
                                       MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
                                       Ip4Address(0));
     RouteExport::State *route_state = static_cast<RouteExport::State *>
-        (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
+        (bgp_peer_->GetRouteExportState(rt->get_table_partition(),
                                         rt));
     EXPECT_TRUE(route_state != NULL);
     VrfExport::State *vs = static_cast<VrfExport::State *>
-        (bgp_peer_ptr->GetVrfExportState(agent_->vrf_table()->GetTablePartition(rt->vrf()),
+        (bgp_peer_->GetVrfExportState(agent_->vrf_table()->GetTablePartition(rt->vrf()),
                            rt->vrf())); 
     rt->ClearState(rt->get_table(),
                    vs->rt_export_[Agent::BRIDGE]->GetListenerId());
@@ -1102,8 +1119,7 @@ TEST_F(RouteTest, delete_notify_on_multicast_rt_with_no_state) {
                                               "vrf1", 1,
                                               Composite::L2COMP);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
-    bgp_peer.reset();
+    DelIPAM("vn1");
     client->WaitForIdle();
 }
 
@@ -1115,19 +1131,20 @@ TEST_F(RouteTest, delete_notify_on_multicast_rt_with_no_state) {
 // Objective:
 // Analogous to channel coming down however VRF delete notification coming later
 // and delpeer walk running after that.
-TEST_F(RouteTest, delpeer_walk_on_deleted_vrf) {
+TEST_F(RouteTest, DISABLED_delpeer_walk_on_deleted_vrf) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
-
-    //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
 
     //Reset agent xmpp channel and back up the original channel.
     AgentXmppChannel *channel1 = agent_->controller_xmpp_channel(1);
@@ -1140,21 +1157,22 @@ TEST_F(RouteTest, delpeer_walk_on_deleted_vrf) {
     agent_->set_controller_xmpp_channel(channel1, 1);
 
     //Now bring channel down
-    AgentXmppChannel::HandleAgentXmppClientChannelEvent(bgp_peer.get()->GetAgentXmppChannel(),
-                                                        xmps::NOT_READY);
+    AgentXmppChannel::HandleAgentXmppClientChannelEvent
+        (bgp_peer_->GetAgentXmppChannel(), xmps::NOT_READY);
     client->WaitForIdle();
     //Release VRF reference
     vrf_ref.reset();
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);
-    DeleteBgpPeer(bgp_peer_ptr);
     client->WaitForIdle();
-    bgp_peer.reset();
+
+    DelIPAM("vn1");
     client->WaitForIdle();
 }
 
 TEST_F(RouteTest, notify_walk_on_deleted_vrf_with_no_state_but_listener_id) {
+#if 0
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
@@ -1164,11 +1182,7 @@ TEST_F(RouteTest, notify_walk_on_deleted_vrf_with_no_state_but_listener_id) {
     client->WaitForIdle();
 
     //Add a peer and keep a reference of same.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    DBTableBase::ListenerId bgp_peer_id =
-        bgp_peer_ptr->GetVrfExportListenerId();
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
+    DBTableBase::ListenerId bgp_peer_id = bgp_peer_->GetVrfExportListenerId();
 
     //Take VRF reference and delete VRF.
     VrfEntryRef vrf_ref = VrfGet("vrf1");
@@ -1177,25 +1191,22 @@ TEST_F(RouteTest, notify_walk_on_deleted_vrf_with_no_state_but_listener_id) {
     DBState *state = new DBState();
     rt->SetState(rt->get_table(), DBEntryBase::ListenerId(100), state);
 
-    bgp_peer_ptr->PeerNotifyRoutes();
+    bgp_peer_->PeerNotifyRoutes();
     client->WaitForIdle();
-    bgp_peer_ptr->SetVrfListenerId(100);
-    bgp_peer_ptr->route_walker()->RouteWalkNotify(rt->get_table_partition(),
+    bgp_peer_->SetVrfListenerId(100);
+    bgp_peer_->route_walker()->RouteWalkNotify(rt->get_table_partition(),
                                                   rt);
     client->WaitForIdle();
-    bgp_peer_ptr->SetVrfListenerId(bgp_peer_id);
+    bgp_peer_->SetVrfListenerId(bgp_peer_id);
 
     rt->ClearState(rt->get_table(), DBEntryBase::ListenerId(100));
-    DeleteBgpPeer(bgp_peer.get());
-    client->WaitForIdle();
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     DelVrf("vrf1");
     client->WaitForIdle();
     //Release VRF reference
     vrf_ref.reset();
-    bgp_peer.reset();
-    client->WaitForIdle();
+#endif
 }
 
 TEST_F(RouteTest, add_route_in_vrf_with_delayed_vn_vrf_link_add) {
@@ -1203,20 +1214,17 @@ TEST_F(RouteTest, add_route_in_vrf_with_delayed_vn_vrf_link_add) {
     AddVrf("vrf1", 1);
     AddVn("vn1", 1, true);
     client->WaitForIdle();
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
 
     //Delete VN
     VrfEntry *vrf = VrfGet("vrf1");
     //Add remote evpn route
-    BridgeTunnelRouteAdd(bgp_peer_ptr, "vrf1", TunnelType::AllType(),
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf1", TunnelType::AllType(),
                          server1_ip_, MplsTable::kStartLabel,
                          remote_vm_mac_, remote_vm_ip4_, 32);
     WAIT_FOR(1000, 100,
              (L2RouteFind("vrf1", remote_vm_mac_, remote_vm_ip4_) == true));
     //Now add remote l3 route for IP.
-    Inet4TunnelRouteAdd(bgp_peer_ptr, "vrf1", remote_vm_ip4_, 32, server1_ip_,
+    Inet4TunnelRouteAdd(bgp_peer_, "vrf1", remote_vm_ip4_, 32, server1_ip_,
                         TunnelType::AllType(), MplsTable::kStartLabel, "vrf1",
                         SecurityGroupList(), PathPreference());
     client->WaitForIdle();
@@ -1244,19 +1252,16 @@ TEST_F(RouteTest, add_route_in_vrf_with_delayed_vn_vrf_link_add) {
     EXPECT_TRUE(vrf_obj->RouteNeedsMacBinding(inet_rt));
 
     //Delete
-    DeleteBridgeRoute(bgp_peer_ptr, vrf_name_, remote_vm_mac_,
+    DeleteBridgeRoute(bgp_peer_, vrf_name_, remote_vm_mac_,
                 remote_vm_ip4_);
     WAIT_FOR(1000, 100,
              (L2RouteFind("vrf1", remote_vm_mac_, remote_vm_ip4_) == false));
-    DeleteRoute("vrf1", remote_vm_ip4_str_, 32, bgp_peer_ptr);
-    client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
+    DeleteRoute("vrf1", remote_vm_ip4_str_, 32, bgp_peer_);
     client->WaitForIdle();
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     DelVrf("vrf1");
     DelVn("vn1");
     client->WaitForIdle();
-    bgp_peer.reset();
 }
 
 TEST_F(RouteTest, deleted_peer_walk_on_deleted_vrf) {
@@ -1269,9 +1274,6 @@ TEST_F(RouteTest, deleted_peer_walk_on_deleted_vrf) {
     client->WaitForIdle();
 
     VrfEntry *vrf1 = VrfGet("vrf1");
-    //Add a peer
-    BgpPeer *bgp_peer = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-
     DBTableBase *table = Agent::GetInstance()->vrf_table();
     DBTableBase::ListenerId l_id =
         table->Register(boost::bind(&TestL2RouteVrfNotify, _1, _2));
@@ -1285,9 +1287,8 @@ TEST_F(RouteTest, deleted_peer_walk_on_deleted_vrf) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 
-    bgp_peer->route_walker()->set_type(ControllerRouteWalker::DELPEER);
-    bgp_peer->route_walker()->VrfWalkNotify(vrf1->get_table_partition(), vrf1);
-    DeleteBgpPeer(bgp_peer);
+    bgp_peer_->route_walker()->set_type(ControllerRouteWalker::DELPEER);
+    bgp_peer_->route_walker()->VrfWalkNotify(vrf1->get_table_partition(), vrf1);
     vrf1->ClearState(table, l_id);
     table->Unregister(l_id);
     client->WaitForIdle();
@@ -1295,6 +1296,7 @@ TEST_F(RouteTest, deleted_peer_walk_on_deleted_vrf) {
 
 // Bug# 1508894
 TEST_F(RouteTest, add_stale_non_stale_path_in_l2_mcast_and_delete_non_stale) {
+#if 0
     client->Reset();
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
@@ -1362,6 +1364,7 @@ TEST_F(RouteTest, add_stale_non_stale_path_in_l2_mcast_and_delete_non_stale) {
     client->WaitForIdle();
     bgp_peer.reset();
     bgp_peer_2.reset();
+#endif
 }
 
 TEST_F(RouteTest, multiple_peer_evpn_label_check) {
@@ -1371,7 +1374,6 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
     //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
     agent_->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
     MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
                                                                    oper_db()->multicast());
@@ -1379,11 +1381,7 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
     olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::MplsType()));
-    mc_handler->ModifyTorMembers(bgp_peer_ptr,
-                                 "vrf1",
-                                 olist,
-                                 10,
-                                 1);
+    mc_handler->ModifyTorMembers(bgp_peer_, "vrf1", olist, 10, 1);
     client->WaitForIdle();
 
     mc_handler->ModifyFabricMembers(Agent::GetInstance()->
@@ -1408,26 +1406,15 @@ TEST_F(RouteTest, multiple_peer_evpn_label_check) {
                                     ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
     TunnelOlist del_olist;
-    mc_handler->ModifyTorMembers(bgp_peer_ptr,
-                                 "vrf1",
-                                 del_olist,
-                                 10,
+    mc_handler->ModifyTorMembers(bgp_peer_, "vrf1", del_olist, 10,
                                  ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
-    mc_handler->ModifyTorMembers(bgp_peer_ptr,
-                                 "vrf1",
-                                 olist,
-                                 10,
-                                 1);
+    mc_handler->ModifyTorMembers(bgp_peer_, "vrf1", olist, 10, 1);
     client->WaitForIdle();
-    mc_handler->ModifyTorMembers(bgp_peer_ptr,
-                                 "vrf1",
-                                 del_olist,
-                                 10,
+    mc_handler->ModifyTorMembers(bgp_peer_, "vrf1", del_olist, 10,
                                  ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
 
-    DeleteBgpPeer(bgp_peer_ptr);
     client->WaitForIdle();
 }
 
@@ -1439,13 +1426,16 @@ TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
     AddVrf("vrf1", 1);
     AddVn("vn1", 1, true);
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     client->WaitForIdle();
 
     BridgeRouteEntry *rt = L2RouteGet("vrf1",
@@ -1453,8 +1443,7 @@ TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
                                       Ip4Address(0));
     EXPECT_TRUE(rt != NULL);
     RouteExport::State *route_state = static_cast<RouteExport::State *>
-        (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
-                                        rt));
+        (bgp_peer_->GetRouteExportState(rt->get_table_partition(), rt));
     //EXPECT_TRUE(route_state->label_ != 0);
 
     autogen::EnetItemType item;
@@ -1482,32 +1471,32 @@ TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
     route_state = static_cast<RouteExport::State *>
-        (bgp_peer_ptr->GetRouteExportState(rt->get_table_partition(),
-                                        rt));
+        (bgp_peer_->GetRouteExportState(rt->get_table_partition(), rt));
     EXPECT_TRUE(route_state->label_ != 0);
 
     //Delete all
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
+    DelIPAM("vn1");
     client->WaitForIdle();
-    bgp_peer.reset();
 }
 
 TEST_F(RouteTest, add_local_peer_and_then_vm) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
-    //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
     client->WaitForIdle();
     BridgeRouteEntry *rt = L2RouteGet("vrf1",
                                       MacAddress::FromString("ff:ff:ff:ff:ff:ff"),
@@ -1528,15 +1517,20 @@ TEST_F(RouteTest, add_local_peer_and_then_vm) {
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
+    DelIPAM("vn1");
     client->WaitForIdle();
-    bgp_peer.reset();
 }
 
 TEST_F(RouteTest, l2_flood_vxlan_update) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     VnAddReq(1, "vn1");
@@ -1562,6 +1556,8 @@ TEST_F(RouteTest, l2_flood_vxlan_update) {
     client->WaitForIdle();
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
 }
 
 //Bug# 1562961
@@ -1569,17 +1565,18 @@ TEST_F(RouteTest, StalePathDeleteRouteDelete) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
-    //Add a peer and keep a reference of same.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
-
-    BridgeTunnelRouteAdd(bgp_peer_ptr, vrf_name_, TunnelType::MplsType(),
+    BridgeTunnelRouteAdd(bgp_peer_, vrf_name_, TunnelType::MplsType(),
                          server1_ip_, MplsTable::kStartLabel + 10,
                          remote_vm_mac_, remote_vm_ip4_, 32);
     client->WaitForIdle();
@@ -1587,23 +1584,21 @@ TEST_F(RouteTest, StalePathDeleteRouteDelete) {
     EvpnRouteEntry *rt = EvpnRouteGet(vrf_name_, remote_vm_mac_,
                                         remote_vm_ip4_, 0);
     EXPECT_TRUE(rt != NULL);
-    AgentPath *path = rt->FindPath(bgp_peer_ptr);
-    path->set_is_stale(true);
+    //AgentPath *path = rt->FindPath(bgp_peer_);
+    //path->set_is_stale(true);
     DelVrf(vrf_name_.c_str());
     client->WaitForIdle();
     rt = EvpnRouteGet(vrf_name_, remote_vm_mac_,
                     remote_vm_ip4_, 0);
     EXPECT_TRUE(rt == NULL);
 
-    DeleteBgpPeer(bgp_peer.get());
-    client->WaitForIdle();
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    //Release VRF reference
-    bgp_peer.reset();
+    DelIPAM("vn1");
     client->WaitForIdle();
 }
 
+#if 0
 class SetupTask : public Task {
     public:
         SetupTask(RouteTest *test, std::string name) :
@@ -1659,12 +1654,19 @@ TEST_F(RouteTest, SquashPathTest_1) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 }
+#endif
 
 //Bug# 1580733
 TEST_F(RouteTest, label_in_evpn_mcast_path) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
     };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.254", true},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
 
     client->Reset();
     //Add VM
@@ -1676,22 +1678,14 @@ TEST_F(RouteTest, label_in_evpn_mcast_path) {
                                       Ip4Address(0));
     EXPECT_TRUE(rt != NULL);
     uint32_t mpls_label = rt->GetActivePath()->label();
-    //Add a peer and enqueue path add in multicast route.
-    BgpPeer *bgp_peer_ptr = CreateBgpPeer(Ip4Address(1), "BGP Peer1");
-    PeerConstPtr bgp_peer =
-        bgp_peer_ptr->GetAgentXmppChannel()->bgp_peer_id_ref();
-    MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent_->
-                                                                   oper_db()->multicast());
+    MulticastHandler *mc_handler = static_cast<MulticastHandler *>
+        (agent_->oper_db()->multicast());
     TunnelOlist olist;
     olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
                                      IpAddress::from_string("8.8.8.8").to_v4(),
                                      TunnelType::VxlanType()));
     //Add EVPN olist
-    mc_handler->ModifyEvpnMembers(bgp_peer.get(),
-                                 "vrf1",
-                                 olist,
-                                 mpls_label,
-                                 1);
+    mc_handler->ModifyEvpnMembers(bgp_peer_, "vrf1", olist, mpls_label, 1);
     client->WaitForIdle();
     agent_->oper_db()->multicast()->DeleteBroadcast(agent_->local_vm_peer(), "vrf1",
                     0, Composite::L2INTERFACE);
@@ -1711,17 +1705,13 @@ TEST_F(RouteTest, label_in_evpn_mcast_path) {
 
     //Delete EVPN
     TunnelOlist del_olist;
-    mc_handler->ModifyEvpnMembers(bgp_peer.get(),
-                                 "vrf1",
-                                 del_olist,
-                                 mpls_label,
+    mc_handler->ModifyEvpnMembers(bgp_peer_, "vrf1", del_olist, mpls_label,
                                  ControllerPeerPath::kInvalidPeerIdentifier);
     client->WaitForIdle();
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    DeleteBgpPeer(bgp_peer.get());
+    DelIPAM("vn1");
     client->WaitForIdle();
-    bgp_peer.reset();
 }
 
 int main(int argc, char *argv[]) {
