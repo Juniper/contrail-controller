@@ -57,7 +57,14 @@ Multi dimension segmentation (Example dimensions: Application, Tier, Deployment,
 Customers are looking for portability of their security policies to different environments. Portability might be required ‘from development to production’, ‘from pci-complaint to production’, ‘to bare metal environment’ and ‘to container environment’. 
 
 ## Visibility and Analytics
-[Anish]
+
+We need to analyze traffic between groups of workloads/ports, across security policies. To achieve this, we are proposing a new construct called "SessionEndpoint", which is a groups of flows/sessions seen on a specific VMI. Each SecurityEndpoint is identified by a combination of the following:
+
+* VMI, the VN it lives in, and its tags (Application, Tier, Deployment, Site)
+* Security Policy and Security Rule
+* Route attributes for the remote endpoint (tags and VN. If tags are not present, use remote prefix)
+
+For each SessionEndpoint, we will record bytes, packets and rule hits.
 
 # Proposed solution
 
@@ -154,9 +161,9 @@ label is special tag type, used to assign labels for objects. All the above tag 
 #### Analytics
 Given tag SQL where clause and select clause, analytics should give out objects. Query may contain labels also, whereas labels will have different operators. 
 Examples: User might want to know ... 
-list of VMIs where ’site == USA and deployment == Production' 
-list of VMIs where ’site == USA and deployment == Production has <label name>’ 
-Given tag SQL where clause and select clause, analytics should give out flows. 
+list of VMIs where ’site == USA and deployment == Production'.
+
+Given VN/tag(s) and/or security policy-rule SQL where clause and select clause, analytics should give out bytes/packets on a per-remote tag-id/VN/prefix basis.
 
 #### Control node
 Control node passes the tags along with route updates to agents and other control nodes.
