@@ -391,6 +391,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
 
     SiteOfOrigin soo;
     ExtCommunity::ExtCommunityList sgid_list;
+    ExtCommunity::ExtCommunityList tag_list;
     LoadBalance load_balance;
     bool load_balance_present = false;
     const Community *orig_community = NULL;
@@ -413,6 +414,8 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
                           ext_community->communities()) {
                 if (ExtCommunity::is_security_group(comm))
                     sgid_list.push_back(comm);
+                if (ExtCommunity::is_tag(comm))
+                    tag_list.push_back(comm);
                 if (ExtCommunity::is_site_of_origin(comm) && soo.IsNull())
                     soo = SiteOfOrigin(comm);
                 if (ExtCommunity::is_load_balance(comm)) {
@@ -465,6 +468,10 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
         // Replace the SGID list with the list from the original route.
         new_ext_community = extcomm_db->ReplaceSGIDListAndLocate(
             new_ext_community.get(), sgid_list);
+
+        // Replace the Tag list with the list from the original route.
+        new_ext_community = extcomm_db->ReplaceTagListAndLocate(
+            new_ext_community.get(), tag_list);
 
         // Replace SiteOfOrigin with value from original route if any.
         if (soo.IsNull()) {

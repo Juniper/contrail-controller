@@ -15,6 +15,7 @@
 #include "bgp/bgp_export.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_route.h"
+#include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/bgp_update.h"
 #include "bgp/bgp_update_sender.h"
@@ -33,8 +34,9 @@ RibOutAttr::NextHop::NextHop(const BgpTable *table, IpAddress address,
       l3_label_(l3_label),
       origin_vn_index_(-1) {
     if (ext_community) {
+        as_t asn = table ? table->server()->autonomous_system() : 0;
         encap_ = ext_community->GetTunnelEncap();
-        tag_list_ = ext_community->GetTagList();
+        tag_list_ = ext_community->GetTagList(asn);
         origin_vn_index_ = ext_community->GetOriginVnIndex();
     }
     if (origin_vn_index_ < 0 && vrf_originated) {

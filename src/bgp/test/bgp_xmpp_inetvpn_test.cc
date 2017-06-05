@@ -11,6 +11,7 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_update_sender.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/extended-community/tag.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/xmpp_message_builder.h"
@@ -2865,6 +2866,61 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, SecurityGroupsDifferentAsn) {
         agent_a_, "blue", route_a.str(), "192.168.1.1", sgids);
     VerifyRouteExists(
         agent_b_, "blue", route_a.str(), "192.168.1.1", global_sgids);
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+TEST_F(BgpXmppInetvpn2ControlNodeTest, TagListDifferentAsn) {
+    Configure(config_2_control_nodes_different_asn);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    vector<int> tag_list = list_of
+        (Tag::kMinGlobalId - 1)(Tag::kMinGlobalId + 1)
+        (Tag::kMinGlobalId - 2)(Tag::kMinGlobalId + 2);
+    test::NextHop next_hop("192.168.1.1", 0, tag_list);
+    agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B with expected tags.
+    vector<int> global_tags = list_of
+        (Tag::kMinGlobalId + 1)(Tag::kMinGlobalId + 2);
+    sort(tag_list.begin(), tag_list.end());
+    sort(global_tags.begin(), global_tags.end());
+
+    // Verify that route showed up on agents A and B.
+    VerifyRouteExists(
+       agent_a_, "blue", route_a.str(), "192.168.1.1", vector<int>(), tag_list);
+    VerifyRouteExists(agent_b_, "blue", route_a.str(),
+                      "192.168.1.1", vector<int>(), global_tags);
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());

@@ -16,6 +16,7 @@
 #include "base/parse_object.h"
 #include "base/util.h"
 #include "bgp/bgp_attr_base.h"
+#include "bgp/bgp_common.h"
 #include "bgp/extended-community/types.h"
 
 class BgpAttr;
@@ -173,7 +174,7 @@ public:
     }
 
     std::vector<std::string> GetTunnelEncap() const;
-    std::vector<int> GetTagList() const;
+    std::vector<int> GetTagList(as_t asn = 0) const;
     bool ContainsTunnelEncapVxlan() const;
     int GetOriginVnIndex() const;
 
@@ -309,6 +310,7 @@ private:
     void Append(const ExtCommunityList &list);
     void RemoveRTarget();
     void RemoveSGID();
+    void RemoveTag();
     void RemoveSiteOfOrigin();
     void RemoveOriginVn();
     void RemoveTunnelEncapsulation();
@@ -361,6 +363,8 @@ public:
             const ExtCommunity::ExtCommunityList &export_list);
     ExtCommunityPtr ReplaceSGIDListAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &sgid_list);
+    ExtCommunityPtr ReplaceTagListAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityList &tag_list);
     ExtCommunityPtr RemoveSiteOfOriginAndLocate(const ExtCommunity *src);
     ExtCommunityPtr ReplaceSiteOfOriginAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &soo);
