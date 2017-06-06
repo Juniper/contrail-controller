@@ -2400,8 +2400,14 @@ class Controller(object):
                         new_chksum = hashlib.md5("".join(collectors)).hexdigest()
                         if new_chksum != self._chksum:
                             self._chksum = new_chksum
-                            random_collectors = random.sample(collectors, len(collectors))
-                            self._sandesh.reconfig_collectors(random_collectors)
+                            self._conf.random_collectors =
+                                random.sample(collectors, len(collectors))
+                            self._sandesh.reconfig_collectors(
+                                self._conf.random_collectors)
+                    else:
+                        # Do not randomize, reconnect to achieve load-balance
+                        self._sandesh.reconfig_collectors(
+                            self._conf.random_collectors)
                 except ConfigParser.NoOptionError as e:
                     pass
             if 'REDIS' in config.sections():

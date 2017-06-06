@@ -373,6 +373,9 @@ void Options::ParseReConfig() {
                             randomized_collector_server_list_.end());
         // ReConnect Collectors
         Sandesh::ReConfigCollectors(randomized_collector_server_list_);
+    } else {
+        // ReConnect Collectors to achieve load-balance
+        Sandesh::ReConfigCollectors(randomized_collector_server_list_);
     }
 
     uint32_t old_config_chksum = configdb_chksum_;

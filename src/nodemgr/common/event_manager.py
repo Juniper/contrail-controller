@@ -955,6 +955,10 @@ class EventManager(object):
             new_chksum = hashlib.md5("".join(collector_list)).hexdigest()
             if new_chksum != self.collector_chksum:
                 self.collector_chksum = new_chksum
-                random_collectors = random.sample(collector_list, len(collector_list))
-                self.sandesh_instance.reconfig_collectors(random_collectors)
+                self.random_collectors =
+                    random.sample(collector_list, len(collector_list)) 
+                self.sandesh_instance.reconfig_collectors(self.random_collectors)
+            else:
+                # Do not randomize, reconnect to achieve load-balance
+                self.sandesh_instance.reconfig_collectors(self.random_collectors)
     #end nodemgr_sighup_handler
