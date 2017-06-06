@@ -2572,8 +2572,9 @@ class OpServer(object):
                         new_chksum = hashlib.md5("".join(collectors)).hexdigest()
                         if new_chksum != self._chksum:
                             self._chksum = new_chksum
-                            random_collectors = random.sample(collectors, len(collectors))
-                            self._sandesh.reconfig_collectors(random_collectors)
+                            self.random_collectors = random.sample(collectors, len(collectors))
+                        # Reconnect to achieve load-balance irrespective of list 
+                        self._sandesh.reconfig_collectors(self.random_collectors)
                 try:
                     api_servers = config.get('DEFAULTS', 'api_server')
                 except ConfigParser.NoOptionError as e:

@@ -304,8 +304,11 @@ class Controller(object):
                         new_chksum = hashlib.md5("".join(collectors)).hexdigest()
                         if new_chksum != self._chksum:
                             self._chksum = new_chksum
-                            random_collectors = random.sample(collectors, len(collectors))
-                            self.uve.sandesh_reconfig_collectors(random_collectors)
+                            self._config.random_collectors = \
+                                random.sample(collectors, len(collectors))
+                        # Reconnect to achieve load-balance irrespective of list
+                        self.uve.sandesh_reconfig_collectors(
+                                self._config.random_collectors)
                 except ConfigParser.NoOptionError as e: 
                     pass
             if 'API_SERVER' in config.sections():
