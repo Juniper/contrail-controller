@@ -1432,5 +1432,15 @@ class VncApi(object):
         content = self._request_server(rest.OP_POST, url, json.dumps(data))
         return json.loads(content)
 
+    # disassociate tag from an object
+    def unset_tag(self, obj, tag_type, tag_value, is_global=False):
+        url = self._action_uri['set-tag-%s' % tag_type.lower()]
+        data = {
+            'obj_uuid': obj.get_uuid(),
+            'tag_value': tag_value,
+            'is_global': is_global
+        }
+        content = self._request_server(rest.OP_DELETE, url, json.dumps(data))
+        return json.loads(content)
 
 # end class VncApi

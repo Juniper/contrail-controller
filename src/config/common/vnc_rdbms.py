@@ -340,6 +340,9 @@ class VncRDBMSClient(object):
     _SG_ID_ALLOC_PATH = "/id/security-groups/id/"
     _SG_MAX_ID = 1 << 32
 
+    _TAG_VALUE_ID_ALLOC_PATH = "/id/tag-values/%s/"
+    _TAG_VALUE_MAX_ID = (1<<27) - 1
+
     @classmethod
     def create_sqalchemy_models(cls):
         global init_done
@@ -507,6 +510,12 @@ class VncRDBMSClient(object):
             self._sg_id_allocator.delete(0)
         self._sg_id_allocator.reserve(0, '__reserved__')
         self._generate_url = generate_url or (lambda x,y: '')
+
+        # Initialize the tag value ID allocator
+        self._tag_value_id_allocator = {tag_type: RDBMSIndexAllocator(engine,
+                                               self._TAG_VALUE_ID_ALLOC_PATH % tag_type,
+                                               self._TAG_VALUE_MAX_ID)
+                                        for tag_type in cfgm_common.tag_dict.keys()}
     # end __init__
 
     def _get_resource_class(self, obj_type):
@@ -1598,6 +1607,18 @@ class VncRDBMSClient(object):
                 sg_id > SGID_MIN_ALLOC and
                 sg_id < self._SG_MAX_ID):
             return self._sg_id_allocator.read(sg_id - SGID_MIN_ALLOC)
+
+    def alloc_tag_value_id(self, tag_type, name):
+        if name is not None:
+            return self._tag_value_id_allocator[tag_type].alloc(name)
+
+    def free_tag_value_id(self, tag_type, tag_value_id):
+        if tag_value_id is not None and tag_value_id < self._TAG_VALUE_MAX_ID:
+            self._tag_value_id_allocator[tag_type].delete(tag_value_id)
+
+    def get_tag_value_from_id(self, tag_type, tag_value_id):
+        if tag_value_id is not None and tag_value_id < self._TAG_VALUE_MAX_ID:
+            return self._tag_value_id_allocator[tag_type].read(tag_value_id)
 
     @use_session
     def prop_collection_read(self, obj_type, obj_uuid, obj_fields, position):

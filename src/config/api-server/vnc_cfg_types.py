@@ -1154,10 +1154,11 @@ class ServiceGroupServer(Resource, ServiceGroup):
         try:
             firewall_services = obj_dict['service_group_firewall_service_list']['firewall_service']
         except Exception as e:
-            msg = "Invalid firewall service specification"
-            return (False, (400, msg))
+            return True, ""
 
         for service in firewall_services:
+            if service.get('protocol') is None:
+                continue
             protocol = service['protocol']
             if protocol.isdigit():
                 protocol_id = int(protocol)
@@ -1172,6 +1173,11 @@ class ServiceGroupServer(Resource, ServiceGroup):
 
         return True, ""
     # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return cls.pre_dbe_create(None, obj_dict, db_conn)
+
 
 # end class ServiceGroupServer
 
@@ -1432,6 +1438,35 @@ class FirewallRuleServer(Resource, FirewallRule):
 
         return True, ""
 # end class FirewallRuleServer
+
+class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
+
+    @classmethod
+    def _check_global_flag(cls, obj_dict):
+        # is_global flag is read-only for user
+        if 'is_global' in obj_dict:
+            msg = "Application policy set global flag is read-only"
+            return (False, (400, msg))
+        return True, ""
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls._check_global_flag(obj_dict)
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return cls._check_global_flag(obj_dict)
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, read_result = cls.dbe_read(db_conn, 'application_policy_set', id)
+        if not ok:
+            return ok, read_result
+        if read_result['is_global']:
+            msg = "Global Application Policy Set cannot be deleted"
+            return (False, (400, msg))
+        return True, ''
+# end class ApplicationPolicySetServer
 
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
