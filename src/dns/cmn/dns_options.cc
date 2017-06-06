@@ -371,9 +371,10 @@ void Options::ParseReConfig() {
         randomized_collector_server_list_ = collector_server_list_;
         std::random_shuffle(randomized_collector_server_list_.begin(),
                             randomized_collector_server_list_.end());
-        // ReConnect Collectors
-        Sandesh::ReConfigCollectors(randomized_collector_server_list_);
     }
+    // ReConnect Collectors irrespective of change list to achieve
+    // rebalance when older collector nodes are up again.
+    Sandesh::ReConfigCollectors(randomized_collector_server_list_);
 
     uint32_t old_config_chksum = configdb_chksum_;
     ParseConfigOptions(var_map);
