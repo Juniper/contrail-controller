@@ -66,14 +66,24 @@ void ConfigClientManager::SetUp() {
 
     for (vnc_cfg_FilterInfo::iterator it = vnc_filter_info.begin();
          it != vnc_filter_info.end(); it++) {
-        link_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
+        if (it->is_ref_) {
+            link_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
                                     make_pair(it->metadata_, it->linkattr_)));
+        } else {
+            parent_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
+                                              it->metadata_));
+        }
     }
 
     for (bgp_schema_FilterInfo::iterator it = bgp_schema_filter_info.begin();
          it != bgp_schema_filter_info.end(); it++) {
-        link_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
+        if (it->is_ref_) {
+            link_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
                                     make_pair(it->metadata_, it->linkattr_)));
+        } else {
+            parent_name_map_.insert(make_pair(make_pair(it->left_, it->right_),
+                                              it->metadata_));
+        }
     }
 
     bgp_schema_Server_GenerateWrapperPropertyInfo(&wrapper_field_map_);
@@ -198,6 +208,15 @@ IFMapTable::RequestKey *ConfigClientManager::CloneKey(
     // Tag each DB Request with current generation number
     retkey->id_seq_num = GetGenerationNumber();
     return retkey;
+}
+
+string ConfigClientManager::GetParentName(const string &left,
+                                          const string &right) const {
+    ParentNameMap::const_iterator it =
+        parent_name_map_.find(make_pair(left, right));
+    if (it == parent_name_map_.end())
+        return "";
+    return it->second;
 }
 
 string ConfigClientManager::GetLinkName(const string &left,
