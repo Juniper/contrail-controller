@@ -138,13 +138,17 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     mirror_entry->dip_ = data->dip_;
     mirror_entry->dport_ = data->dport_;
     mirror_entry->mirror_flags_ = data->mirror_flags_;
-    mirror_entry->vni_ = data->vni_;
+    // Check for any Vxlan changes.
+    if (mirror_entry->vni_ != data->vni_) {
+        mirror_entry->vni_ = data->vni_;
+        ret = true;
+    }
     mirror_entry->mac_ = data->mac_;
     mirror_entry->createdvrf_ = data->createdvrf_;
     if (mirror_entry->mirror_flags_ == MirrorEntryData::DynamicNH_Without_JuniperHdr ||
         mirror_entry->mirror_flags_ == MirrorEntryData::StaticNH_Without_JuniperHdr)
     {
-        ret = OnChange(mirror_entry);
+        ret |= OnChange(mirror_entry);
         return ret;
     }
 
