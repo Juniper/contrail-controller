@@ -39,8 +39,6 @@ class ContrailDb(object):
         group = parser.add_mutually_exclusive_group()
         group.add_argument("--show", action='store_true',
                             help="show database usage and purge stats")
-        group.add_argument("--purge", help='Purge data from contrail-db')
-        self._args = parser.parse_args()
         return 0
     # end parse_args
 
@@ -73,27 +71,6 @@ class ContrailDb(object):
                 print "Exception: Unable to fetch db information. %s" % e
     # end contrail_db_show
 
-    def start_purge(self, params):
-        url = "http://%s:%s/analytics/operation/database-purge" \
-            % (self._args.analytics_api_ip, self._args.analytics_api_port)
-        hdrs = {'Content-type': 'application/json; charset="UTF-8"',
-                'Expect': '202-accepted'}
-        try:
-            response = requests.post(url,
-                       data=json.dumps({'purge_input': params}), headers=hdrs)
-            res = json.loads(response.text)
-            if ('purge_input' in res.keys()):
-                del res['purge_input']
-            if ('purge_start_time' in res.keys()):
-                res['purge_start_time'] = datetime.datetime.fromtimestamp(
-                    int(res['purge_start_time'])*(10**(-6))).strftime(
-                    '%Y-%m-%d %H:%M:%S.%f')
-            for key in res:
-                print "%s : %s" % (key, res[key])
-        except requests.exceptions.ConnectionError, e:
-            print "Connection to %s failed %s" % (url, str(e))
-    # end start_purge
-
 # end class ContrailDb
 
 def main(args_str=None):
@@ -105,12 +82,6 @@ def main(args_str=None):
         if db._args.show:
              db.contrail_db_show()
 
-        if db._args.purge:
-            if (db._args.purge.isdigit()):
-                input = int(db._args.purge)
-            else:
-                input = db._args.purge
-            db.start_purge(input)
     except KeyboardInterrupt:
         return
 # end main
