@@ -397,7 +397,7 @@ TEST_F(PolicyTest, IntfPolicyDisable_Fip) {
     WAIT_FOR(1000, 100, (client->vn_notify_ >= 1));
     AddVrf("default-project:vn2:vn2");
     client->WaitForIdle();
-    EXPECT_TRUE(client->VrfNotifyWait(1));
+    EXPECT_TRUE(client->VrfNotifyWait(2));
     EXPECT_TRUE(VrfFind("default-project:vn2:vn2"));
     AddLink("virtual-network", "default-project:vn2", "routing-instance",
             "default-project:vn2:vn2");

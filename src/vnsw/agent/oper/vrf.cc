@@ -63,7 +63,8 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         table_label_(MplsTable::kInvalidLabel),
         vxlan_id_(VxLanTable::kInvalidvxlan_id),
         rt_table_delete_bmap_(0),
-        route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false) {
+        route_resync_walker_(NULL), allow_route_add_on_deleted_vrf_(false),
+        rd_(0) {
 }
 
 VrfEntry::~VrfEntry() {
@@ -460,10 +461,22 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     vrf->set_flags(data->flags_);
 
     VnEntry *vn = agent()->vn_table()->Find(data->vn_uuid_);
+    bool resync_routes = false;
+    
     if (vn != vrf->vn_.get()) {
+        resync_routes = true;
         vrf->vn_.reset(vn);
-        vrf->ResyncRoutes();
         ret = true;
+    }
+
+    if (vrf->rd() != vrf->RDInstanceId()) {
+        resync_routes = true;
+        vrf->set_rd(vrf->RDInstanceId());
+        ret = true;
+    }
+
+    if (resync_routes) {
+        vrf->ResyncRoutes();
     }
 
     uint32_t vxlan_id = VxLanTable::kInvalidvxlan_id;

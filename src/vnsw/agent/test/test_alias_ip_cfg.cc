@@ -116,7 +116,7 @@ TEST_F(CfgTest, AliasIp_1) {
     AddVrf("vrf1");
     AddVrf("default-project:vn2:vn2");
     client->WaitForIdle();
-    EXPECT_TRUE(client->VrfNotifyWait(2));
+    EXPECT_TRUE(client->VrfNotifyWait(4));
 
     AddVn("vn1", 1);
     AddVn("default-project:vn2", 2);
