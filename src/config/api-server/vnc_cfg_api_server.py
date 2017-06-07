@@ -2094,9 +2094,14 @@ class VncApiServer(object):
                     obj_dict[ref_obj_type+'_refs'].remove(old_ref)
                     break
 
+        if attr is not None:
+            ref_data = {'attr': attr}
+        else:
+            ref_data = None
         self._put_common(
             'ref-update', obj_type, obj_uuid, read_result,
-             req_obj_dict=obj_dict)
+            req_obj_dict=obj_dict, ref_obj_type=ref_obj_type, ref_uuid=ref_uuid,
+            ref_data=ref_data, operation=operation)
 
         return {'uuid': obj_uuid}
     # end ref_update_http_post
@@ -2474,8 +2479,6 @@ class VncApiServer(object):
                 obj_dict['id_perms'] = id_perms
                 return
 
-            return
-
         # retrieve the previous version of the id_perms
         # from the database and update the id_perms with
         # them.
@@ -2495,11 +2498,12 @@ class VncApiServer(object):
             field_list = ['enable', 'description', 'user_visible', 'creator']
 
         # Start from default and update from obj_dict
-        req_id_perms = obj_dict['id_perms']
-        for key in field_list:
-            if key in req_id_perms:
-                id_perms[key] = req_id_perms[key]
-        # TODO handle perms present in req_id_perms
+        if 'id_perms' in obj_dict:
+            req_id_perms = obj_dict['id_perms']
+            for key in field_list:
+                if key in req_id_perms:
+                    id_perms[key] = req_id_perms[key]
+            # TODO handle perms present in req_id_perms
 
         obj_dict['id_perms'] = id_perms
     # end _ensure_id_perms_present
@@ -2958,7 +2962,8 @@ class VncApiServer(object):
 
     def _put_common(
             self, api_name, obj_type, obj_uuid, db_obj_dict, req_obj_dict=None,
-            req_prop_coll_updates=None):
+            req_prop_coll_updates=None, ref_obj_type=None, ref_uuid=None,
+            ref_data=None, operation=None):
 
         obj_fq_name = db_obj_dict.get('fq_name', 'missing-fq-name')
         # ZK and rabbitmq should be functional
@@ -3062,7 +3067,12 @@ class VncApiServer(object):
                 return (ok, result)
 
             get_context().set_state('DBE_UPDATE')
-            if req_obj_dict:
+            if ref_data:
+                (ok, result) = db_conn.ref_update(
+                                       obj_type, obj_uuid, ref_obj_type,
+                                       ref_uuid, ref_data, operation,
+                                       req_obj_dict['id_perms'])
+            elif req_obj_dict:
                 (ok, result) = db_conn.dbe_update(obj_type, obj_uuid, req_obj_dict)
             elif req_prop_coll_updates:
                 (ok, result) = db_conn.prop_collection_update(
