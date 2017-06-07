@@ -1259,13 +1259,16 @@ class Controller(object):
     def send_alarm_update(self, tab, uk):
         ustruct = None
         alm_copy = []
-        for nm, asm in self.tab_alarms[tab][uk].iteritems():
-            uai = asm.get_uai()
-            if uai:
-                alm_copy.append(copy.deepcopy(uai))
+        if not self.tab_alarms[tab][uk]:
+            del self.tab_alarms[tab][uk]
+        else:
+            for nm, asm in self.tab_alarms[tab][uk].iteritems():
+                uai = asm.get_uai()
+                if uai:
+                    alm_copy.append(copy.deepcopy(uai))
         if len(alm_copy) == 0:
             ustruct = UVEAlarms(name = str(uk).split(':',1)[1], deleted = True)
-            self._logger.info('deleting alarm:')
+            self._logger.info('deleting alarm: %s' % (uk))
         else:
             ustruct = UVEAlarms(name = str(uk).split(':',1)[1],
                                     alarms = alm_copy)
