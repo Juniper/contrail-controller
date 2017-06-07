@@ -285,35 +285,26 @@ public:
     const int id() const { return id_; }
     void set_id(int id) { id_ = id; }
 
-    virtual void SetAdminState(bool down) {
+    virtual void SetAdminState(bool down,
+                     int subcode = BgpProto::Notification::AdminShutdown) {
         if (!ConcurrencyChecker::IsInMainThr()) {
-            BgpPeer::SetAdminState(down);
+            BgpPeer::SetAdminState(down, subcode);
             return;
         }
         tbb::interface5::unique_lock<tbb::mutex> lock(work_mutex_);
 
         Request request;
         request.type = down ? ADMIN_DOWN : ADMIN_UP;
+        request.subcode = subcode;
         work_queue_.Enqueue(&request);
 
         // Wait for the request to get processed.
         cond_var_.wait(lock);
     }
 
-    bool AttemptGRHelperModeDefault(int code, int subcode) const {
-        return BgpPeer::AttemptGRHelperMode(code, subcode);
-    }
-
-    virtual bool AttemptGRHelperMode(int code, int subcode) const {
-        if (attempt_gr_helper_mode_fnc_.empty())
-            return AttemptGRHelperModeDefault(code, subcode);
-        return attempt_gr_helper_mode_fnc_(code, subcode);
-    }
-
     boost::function<bool(const uint8_t *, size_t)> SendUpdate_fnc_;
     boost::function<bool(uint16_t, uint8_t)> MpNlriAllowed_fnc_;
     boost::function<bool()> IsReady_fnc_;
-    boost::function<bool(int, int)> attempt_gr_helper_mode_fnc_;
 
     BgpTestUtil util_;
 
@@ -322,6 +313,7 @@ private:
     struct Request {
         Request() : result(false) { }
         RequestType type;
+        int         subcode;
         bool        result;
     };
     bool ProcessRequest(Request *request);
