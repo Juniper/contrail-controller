@@ -171,7 +171,7 @@ public:
         allow_route_add_on_deleted_vrf_ = val;
     }
     InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr) const;
-    int RDInstanceId() const;
+    void ReleaseWalker();
 
     uint32_t isid() const {
         return isid_;
@@ -193,10 +193,14 @@ public:
         mac_aging_time_ = aging_time;
     }
 
+    int rd() const {return rd_;}
+    void set_rd(int rd) {rd_ = rd;}
+
 private:
     friend class VrfTable;
     void CreateRouteTables();
     void SetNotify();
+    int RDInstanceId(bool tor_agent_enabled) const;
 
     class DeleteActor;
     string name_;
@@ -220,6 +224,7 @@ private:
     bool learning_enabled_;
     bool layer2_control_word_;
     bool l2_;
+    int rd_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
