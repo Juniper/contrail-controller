@@ -1366,6 +1366,9 @@ bool XmppStateMachine::PassiveOpen(XmppSession *session) {
 // Return true if msg is enqueued for further processing, false otherwise.
 void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
         const XmppStanza::XmppMessage *msg) {
+    XmppConnectionManager *connection_manager =
+        dynamic_cast<XmppConnectionManager *>(connection_->server());
+    tbb::mutex::scoped_lock lock(connection_manager->mutex());
 
     // Update "To" information which can be used to map an older session
     session->Connection()->SetTo(msg->from);
@@ -1381,6 +1384,21 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
     // check if older connection is under graceful-restart.
     if (endpoint && endpoint->connection()) {
         if (connection_ != endpoint->connection()) {
+            // Close new connection and retain old connection if the endpoint
+            // IP addresses do not match.
+            boost::asio::ip::address addr =
+                endpoint->connection()->endpoint().address();
+            if (connection_->endpoint().address() != addr) {
+                XMPP_WARNING(XmppDeleteConnection,
+                    "Drop new xmpp connection " + session->ToString() +
+                    " as another connection with same name " + msg->from +
+                    " but with different IP address " + addr.to_string() +
+                    " already exists");
+                ProcessEvent(xmsm::EvTcpClose(session));
+                delete msg;
+                return;
+            }
+
             XmppChannelMux *channel = endpoint->connection()->ChannelMux();
 
             // If GR is not supported, then close all new connections until old
@@ -1398,16 +1416,16 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
                 if (ready) {
                     XmppStateMachine *sm =
                         endpoint->connection()->state_machine();
-                    XMPP_DEBUG(XmppDeleteConnection,
+                    XMPP_NOTICE(XmppDeleteConnection,
                                "Delete old xmpp connection " +
                                sm->session()->ToString() +
                                " as a new connection as been initiated");
                     sm->Enqueue(xmsm::EvTcpClose(sm->session()));
                 }
 
-                XMPP_DEBUG(XmppDeleteConnection,
-                           "Drop new xmpp connection " + session->ToString() +
-                           " as current connection is still not deleted");
+                XMPP_NOTICE(XmppDeleteConnection,
+                            "Drop new xmpp connection " + session->ToString() +
+                            " as current connection is still not deleted");
                 ProcessEvent(xmsm::EvTcpClose(session));
                 delete msg;
                 return;
