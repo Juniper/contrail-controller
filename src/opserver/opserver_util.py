@@ -673,11 +673,6 @@ class OpServerUtils(object):
             "/analytics/query"
     # end opserver_query_url
 
-    @staticmethod
-    def opserver_database_purge_query_url(opserver_ip, opserver_port):
-        return "http://" + opserver_ip + ":" + opserver_port +\
-            "/analytics/operation/database-purge"
-    # end opserver_database_purge_query_url
 
     @staticmethod
     def messages_xml_data_to_dict(messages_dict, msg_type):
