@@ -25,6 +25,7 @@ AgentRouteWalker::AgentRouteWalker(Agent *agent, WalkType type) :
     walk_count_ = AgentRouteWalker::kInvalidWalkCount;
     queued_walk_count_ = AgentRouteWalker::kInvalidWalkCount;
     queued_walk_done_count_ = AgentRouteWalker::kInvalidWalkCount;
+    walkable_route_tables_ = 0;
     for (uint8_t table_type = (Agent::INVALID + 1);
          table_type < Agent::ROUTE_TABLE_MAX;
          table_type++) {
