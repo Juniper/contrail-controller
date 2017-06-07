@@ -1061,6 +1061,9 @@ class DBInterface(object):
         else:
             sg_vnc = self._vnc_lib.security_group_read(id=sg_q['id'])
 
+        if oper == UPDATE and sg_vnc.name == 'default':
+            self._raise_contrail_exception("SecurityGroupCannotUpdateDefault")
+
         if 'name' in sg_q and sg_q['name']:
             sg_vnc.display_name = sg_q['name']
         if 'description' in sg_q:
