@@ -472,39 +472,53 @@ class EventManager(object):
             (self.core_file_path, stderr) = Popen(
                 dirname_cmd.split(),
                 stdout=PIPE, close_fds=True).communicate()
-        return self.core_file_path
+        return self.core_file_path.rstrip()
 
-    def update_process_core_file_list(self):
-        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: begin:')
-        ret_value = False
+    def get_corefiles(self):
         try:
-            ls_command = "ls -1 " + self.get_corefile_path()
+            # Get the core files list in the chronological order
+            ls_command = "ls -1tr " + self.get_corefile_path()
             (corenames, stderr) = Popen(
                 ls_command.split(),
                 stdout=PIPE, close_fds=True).communicate()
-
-            process_state_db_tmp = {}
-            for key in self.process_state_db:
-                #LOG_DEBUG sys.stderr.write('update_process_core_file_list: key: '+key+'\n')
-                proc_stat = self.get_process_stat_object(key)
-                process_state_db_tmp[key] = proc_stat
-
-            #LOG_DEBUG sys.stderr.write('update_process_core_file_list: corenames: '+corenames+'\n')
-            for corename in corenames.split():
-                exec_name = corename.split('.')[1]
-                for key in self.process_state_db:
-                    if key.startswith(exec_name):
-                        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: startswith: '+exec_name+'\n')
-                        process_state_db_tmp[key].core_file_list.append(corename.rstrip())
-
-            for key in self.process_state_db:
-                if set(process_state_db_tmp[key].core_file_list) != set(self.process_state_db[key].core_file_list):
-                    self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
-                    ret_value = True
         except Exception as e:
-            sys.stderr.write('update_process_core_file_list: exception: '+str(e))
+            self.msg_log('Failed to get core files: %s' % (str(e)),
+                SandeshLevel.SYS_ERR)
+        else:
+            return [self.get_corefile_path()+'/'+core for core in corenames.split()]
+    # end get_corefiles
 
-        #LOG_DEBUG sys.stderr.write('update_process_core_file_list: ret_value: '+str(ret_value)+'\n')
+    def remove_corefiles(self, core_files):
+        for core_file in core_files:
+            self.msg_log('deleting core file: %s' % (core_file),
+                SandeshLevel.SYS_ERR)
+            try:
+                os.remove(core_file)
+            except OSError as e:
+                self.msg_log('Failed to delete core file: %s - %s' % (core_file,
+                    str(e)), SandeshLevel.SYS_ERR)
+    # end remove_corefiles
+
+    def update_process_core_file_list(self):
+        ret_value = False
+        corenames = self.get_corefiles()
+        process_state_db_tmp = {}
+        for key in self.process_state_db:
+            proc_stat = self.get_process_stat_object(key)
+            process_state_db_tmp[key] = proc_stat
+
+        for corename in corenames:
+            exec_name = corename.split('.')[1]
+            for key in self.process_state_db:
+                if key.startswith(exec_name):
+                    process_state_db_tmp[key].core_file_list.append(
+                        corename.rstrip())
+
+        for key in self.process_state_db:
+            if set(process_state_db_tmp[key].core_file_list) != set(self.process_state_db[key].core_file_list):
+                self.process_state_db[key].core_file_list = process_state_db_tmp[key].core_file_list
+                ret_value = True
+
         return ret_value
     #end update_process_core_file_list
 
@@ -562,11 +576,7 @@ class EventManager(object):
         if modified_time[0] == self.core_dir_modified_time:
             return False
         self.core_dir_modified_time = modified_time[0]
-        ls_command_option = "ls " + self.get_corefile_path()
-        (corename, stderr) = Popen(
-            ls_command_option.split(),
-            stdout=PIPE, close_fds=True).communicate()
-        self.all_core_file_list = corename.split('\n')[0:-1]
+        self.all_core_file_list = self.get_corefiles()
         self.send_process_state_db(self.group_names)
         return True
 
@@ -608,54 +618,41 @@ class EventManager(object):
             proc_stat.last_cpu = None
             proc_stat.last_time = 0
             if not process_info['expected']:
-                self.stderr.write(
-                    pname + " with pid:" + process_info['pid'] +
-                    " exited abnormally\n")
+                self.msg_log('%s with pid: %s exited abnormally' %
+                    (pname, process_info['pid']), SandeshLevel.SYS_ERR)
                 proc_stat.last_exit_unexpected = True
                 # check for core file for this exit
                 find_command_option = \
                     "find " + self.get_corefile_path() + " -name core.[A-Za-z]*." + \
                     process_info['pid'] + "*"
-                self.stderr.write(
-                    "find command option for cores:" +
-                    find_command_option + "\n")
+                self.msg_log('find command option for cores: %s' %
+                    (find_command_option), SandeshLevel.SYS_DEBUG)
                 (corename, stderr) = Popen(
                     find_command_option.split(),
                     stdout=PIPE, close_fds=True).communicate()
-                self.stderr.write("core file: " + corename + "\n")
 
                 if ((corename is not None) and (len(corename.rstrip()) >= 1)):
+                    self.msg_log('core file: %s' % (corename),
+                        SandeshLevel.SYS_ERR)
                     # before adding to the core file list make
                     # sure that we do not have too many cores
-                    sys.stderr.write(
-                        'core_file_list:' + str(proc_stat.core_file_list) +
-                        ", self.max_cores:" + str(self.max_cores) + "\n")
-                    if (len(proc_stat.core_file_list) == self.max_cores):
+                    self.msg_log('core_file_list: %s, max_cores: %d' %
+                        (str(proc_stat.core_file_list), self.max_cores),
+                        SandeshLevel.SYS_DEBUG)
+                    if (len(proc_stat.core_file_list) >= self.max_cores):
                         # get rid of old cores
-                        sys.stderr.write(
-                            'max # of cores reached:' +
-                            str(self.max_cores) + "\n")
-                        val = self.max_cores - self.max_new_cores + 1
+                        start = self.max_old_cores
+                        end = len(proc_stat.core_file_list) - \
+                                self.max_new_cores + 1
                         core_files_to_be_deleted = \
-                            proc_stat.core_file_list[self.max_old_cores:(val)]
-                        sys.stderr.write(
-                            'deleting core file list:' +
-                            str(core_files_to_be_deleted) + "\n")
-                        for core_file in core_files_to_be_deleted:
-                            sys.stderr.write(
-                                'deleting core file:' + core_file + "\n")
-                            try:
-                                os.remove(core_file)
-                            except OSError as e:
-                                sys.stderr.write('ERROR: ' + str(e) + '\n')
-                        # now delete the list as well
-                        val = self.max_cores - self.max_new_cores + 1
-                        del proc_stat.core_file_list[self.max_old_cores:(val)]
+                            proc_stat.core_file_list[start:end]
+                        self.remove_corefiles(core_files_to_be_deleted)
+                        # now delete the cores from the list as well
+                        del proc_stat.core_file_list[start:end]
                     # now add the new core to the core file list
                     proc_stat.core_file_list.append(corename.rstrip())
-                    sys.stderr.write(
-                        "# of cores for " + pname + ":" +
-                        str(len(proc_stat.core_file_list)) + "\n")
+                    self.msg_log('# of cores for %s: %d' % (pname,
+                        len(proc_stat.core_file_list)), SandeshLevel.SYS_DEBUG)
 
         # update process state database
         self.process_state_db[pname] = proc_stat
