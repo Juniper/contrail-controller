@@ -158,26 +158,46 @@ class JuniperConf(DeviceConf):
         return config_size
     # end device_send
 
+    def get_xpath_data(self, res, path_name, is_node=False):
+        data = ''
+        try:
+            if not is_node:
+                data = res.xpath(path_name)[0].text
+            else:
+                data = res.xpath(path_name)[0]
+        except IndexError:
+            if self._logger:
+                self._logger.warning("could not fetch element data: %s, ip: %s" % (
+                                             path_name, self.management_ip))
+        return data
+    # end get_xpath_data
+
     def device_get(self, filters = {}):
+        dev_conf = {
+                     'product-name' : '',
+                     'product-model': '',
+                     'software-version': ''
+                   }
         try:
             self.device_connect()
             sw_info = new_ele('get-software-information')
             res = self._nc_manager.rpc(sw_info)
-            pname = res.xpath('//software-information/product-name')[0].text
-            pmodel = res.xpath('//software-information/product-model')[0].text
-            ele = res.xpath("//software-information/package-information"
-                                "[name='junos-version']")[0]
-            jversion = ele.find('comment').text
-            dev_conf = {
-                'product-name': pname,
-                'product-model': pmodel,
-                'software-version': jversion
-            }
-            return dev_conf
+            dev_conf['product-name'] = self.get_xpath_data(res,
+                                             '//software-information/product-name')
+            dev_conf['product-model'] = self.get_xpath_data(res,
+                                             '//software-information/product-model')
+            dev_conf['software-version'] = self.get_xpath_data(res,
+                                             '//software-information/junos-version')
+            if not dev_conf.get('software-version'):
+                ele = self.get_xpath_data(res,
+                     "//software-information/package-information[name='junos-version']", True)
+                if ele:
+                    dev_conf['software-version'] = ele.find('comment').text
         except Exception as e:
-            self._logger.error("could not fetch config from router %s: %s" % (
+            if self._logger:
+                self._logger.error("could not fetch config from router %s: %s" % (
                                           self.management_ip, e.message))
-        return {}
+        return dev_conf
     # end device_get
 
     def get_vn_li_map(self):
@@ -330,7 +350,10 @@ class JuniperConf(DeviceConf):
             if family in self._FAMILY_MAP:
                 getattr(family_etree, "set_" + fam)(self._FAMILY_MAP[family])
             else:
-                self._logger.info("DM does not support address family: %s" % fam)
+                try:
+                    getattr(family_etree, "set_" + fam)('')
+                except AttributeError:
+                    self._logger.info("DM does not support address family: %s" % fam)
     # end add_families
 
     def add_ibgp_export_policy(self, params):
@@ -351,7 +374,7 @@ class JuniperConf(DeviceConf):
         for vpn_type in vpn_types:
             is_v6 = True if vpn_type == 'inet6-vpn' else False
             term = Term(name=DMUtils.make_ibgp_export_policy_term_name(is_v6))
-            ps.set_term(term)
+            ps.add_term(term)
             then = Then()
             from_ = From()
             term.set_from(from_)
