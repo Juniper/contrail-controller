@@ -1678,7 +1678,7 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     pugi->AddAttribute("node", vrf->GetName());
     pugi->AddChildNode("options", "" );
     stringstream vrf_id;
-    vrf_id << vrf->RDInstanceId();
+    vrf_id << vrf->rd();
     pugi->AddChildNode("instance-id", vrf_id.str());
 
     datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
