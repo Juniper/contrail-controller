@@ -118,10 +118,12 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
 
 BgpProto::OpenMessage::Capability *
 BgpProto::OpenMessage::Capability::GR::Encode(
-        uint16_t gr_time, bool restarted, const vector<uint8_t> &gr_afi_flags,
+        uint16_t gr_time, bool restarted, bool notification,
+        const vector<uint8_t> &gr_afi_flags,
         const vector<Address::Family> &gr_families) {
     assert((gr_time & ~RestartTimeMask) == 0);
     uint16_t restart_flags = restarted ? RestartedFlag : 0;
+    restart_flags |= notification ? NotificationFlag : 0;
     const uint16_t gr_bytes = restart_flags | gr_time;
 
     vector<uint8_t> restart_cap;
