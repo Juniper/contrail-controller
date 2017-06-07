@@ -4021,14 +4021,6 @@ class DBInterface(object):
         port_objs = []
         if filters.get('device_id'):
             back_ref_ids = filters.get('device_id')
-            if filters.get('network_id'):
-                back_ref_ids += filters.get('network_id')
-            # Get all VM port
-            port_objs_filtered_by_device_id =\
-                self._virtual_machine_interface_list(
-                    obj_uuids=filters.get('id'),
-                    back_ref_id=back_ref_ids)
-
             port_objs_filtered_by_device_id = []
             founded_device_ids = set()
             for vmi_obj in self._virtual_machine_interface_list(
@@ -4036,7 +4028,18 @@ class DBInterface(object):
                     back_ref_id=back_ref_ids):
                 for device_ref in vmi_obj.get_virtual_machine_refs() or [] +\
                         vmi_obj.get_logical_router_back_refs() or []:
-                    if device_ref['uuid'] in filters.get('device_id'):
+                    # check if the device-id matches and if the network-id
+                    # filter is set
+                    if device_ref['uuid'] in filters.get('device_id') and \
+                            filters.get('network_id'):
+                        for vn_ref in vmi_obj.get_virtual_network_refs() or []:
+                            # add only the vmi_obj that has also the same
+                            # network-id
+                            if vn_ref['uuid'] in filters.get('network_id'):
+                                port_objs_filtered_by_device_id.append(vmi_obj)
+                                founded_device_ids.add(device_ref['uuid'])
+                    # without network-id filters
+                    elif device_ref['uuid'] in filters.get('device_id'):
                         port_objs_filtered_by_device_id.append(vmi_obj)
                         founded_device_ids.add(device_ref['uuid'])
 
@@ -4068,11 +4071,14 @@ class DBInterface(object):
                                   if p.parent_uuid in project_ids])
             else:
                 port_objs.extend(port_objs_filtered_by_device_id)
+        elif filters.get('network_id'):
+            port_objs = self._virtual_machine_interface_list(
+                obj_uuids=filters.get('id'),
+                back_ref_id=filters.get('network_id'))
         else:
             port_objs = self._virtual_machine_interface_list(
                 obj_uuids=filters.get('id'),
-                parent_id=project_ids,
-                back_ref_id=filters.get('network_id'))
+                parent_id=project_ids)
 
         neutron_ports = self._port_list(port_objs)
 
