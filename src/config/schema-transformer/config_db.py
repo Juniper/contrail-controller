@@ -1125,6 +1125,7 @@ class VirtualNetworkST(DBBaseST):
         old_service_chains = self.service_chains
         self.connections = set()
         self.service_chains = {}
+        self.acl_rule_count = 0
 
         static_acl_entries = None
         dynamic_acl_entries = None
