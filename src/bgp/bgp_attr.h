@@ -857,7 +857,8 @@ public:
     LabelBlockPtr label_block() const { return label_block_; }
     BgpOListPtr olist() const { return olist_; }
     BgpOListPtr leaf_olist() const { return leaf_olist_; }
-    BgpAttrDB *attr_db() const { return attr_db_; }
+    BgpAttrDB *attr_db() { return attr_db_; }
+    const BgpAttrDB *attr_db() const { return attr_db_; }
     uint32_t sequence_number() const;
     bool evpn_sticky_mac() const;
     bool etree_leaf() const;
@@ -953,6 +954,7 @@ public:
     BgpAttrPtr ReplaceNexthopAndLocate(const BgpAttr *attr,
                                        const IpAddress &addr);
     BgpServer *server() { return server_; }
+    const BgpServer *server() const { return server_; }
 
 private:
     BgpServer *server_;
