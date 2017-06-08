@@ -103,8 +103,8 @@ env.Alias('controller/src/container/cni/cni:test', test_cmd)
 # mode: python
 # End:
 
-subdirs=[
-    'cni',
-]
+#subdirs=[
+#    'cni',
+#]
 
-env.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
+#env.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
