@@ -12,7 +12,6 @@
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/ermvpn/ermvpn_table.h"
-#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 class McastTreeManager::DeleteActor : public LifetimeActor {
@@ -490,17 +489,11 @@ void McastSGEntry::AddLocalTreeRoute() {
     }
 
     // Build the attributes.
-    const RoutingInstance *rt_instance = partition_->routing_instance();
     BgpAttrSpec attr_spec;
     BgpAttrNextHop nexthop(server->bgp_identifier());
     attr_spec.push_back(&nexthop);
     BgpAttrSourceRd source_rd(GetSourceRd());
     attr_spec.push_back(&source_rd);
-    ExtCommunitySpec extcomm_spec;
-    OriginVn origin_vn(server->autonomous_system(),
-        rt_instance->virtual_network_index());
-    extcomm_spec.communities.push_back(origin_vn.GetExtCommunityValue());
-    attr_spec.push_back(&extcomm_spec);
     EdgeDiscoverySpec edspec;
     for (int idx = 1; idx <= McastTreeManager::kDegree - 1; ++idx) {
         EdgeDiscoverySpec::Edge *edge = new EdgeDiscoverySpec::Edge;
