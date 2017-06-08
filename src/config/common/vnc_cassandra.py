@@ -866,6 +866,11 @@ class VncCassandraClient(object):
             results.append(result)
         # end for all rows
 
+        # Partial data in cassandra, missing requested fields
+        if not results:
+            if len(obj_uuids) == 1:
+                raise NoIdError(obj_uuids[0])
+
         return (True, results)
     # end object_read
 
