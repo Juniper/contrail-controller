@@ -28,9 +28,6 @@
 using namespace std;
 using namespace boost::assign;
 
-void RouterIdDepInit(Agent *agent) {
-}
-
 class CfgTest : public ::testing::Test {
 };
 
@@ -142,6 +139,7 @@ TEST_F(CfgTest, VmAddDelAllocUnitIpam_1) {
 
     DelIPAM("vn1", "vdns1");
     client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1", true) == false));
 }
 
 TEST_F(CfgTest, VmAddDelAllocUnitIpam_2) {

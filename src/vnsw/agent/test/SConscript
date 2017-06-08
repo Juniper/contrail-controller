@@ -58,6 +58,7 @@ agent_suite = []
 flaky_agent_suite = []
 
 test_vn = AgentEnv.MakeTestCmd(env, 'test_vn', agent_suite)
+test_vm = AgentEnv.MakeTestCmd(env, 'test_vm', agent_suite)
 test_ksync = AgentEnv.MakeTestCmd(env, 'test_ksync', agent_suite)
 test_vmport_cfg = AgentEnv.MakeTestCmd(env, 'test_vmport_cfg', agent_suite)
 test_alias_ip_cfg = AgentEnv.MakeTestCmd(env, 'test_alias_ip_cfg', agent_suite)
@@ -94,7 +95,6 @@ test_agent_route_walker = AgentEnv.MakeTestCmd(env, 'test_agent_route_walker',
 test_vrf = AgentEnv.MakeTestCmd(env, 'test_vrf', flaky_agent_suite)
 test_tunnel_encap = AgentEnv.MakeTestCmd(env, 'test_tunnel_encap',
                                          flaky_agent_suite)
-test_vm = AgentEnv.MakeTestCmd(env, 'test_vm', flaky_agent_suite)
 
 test_peer_del = AgentEnv.MakeTestCmd(env, 'test_peer_del', flaky_agent_suite)
 test_mirror = AgentEnv.MakeTestCmd(env, 'test_mirror', flaky_agent_suite)
