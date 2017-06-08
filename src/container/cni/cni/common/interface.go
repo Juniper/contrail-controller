@@ -11,9 +11,9 @@ package cniIntf
 import (
 	log "../logging"
 	"fmt"
-	"github.com/containernetworking/cni/pkg/ipam"
-	"github.com/containernetworking/cni/pkg/ns"
-	"github.com/containernetworking/cni/pkg/types/current"
+	"github.com/containernetworking/plugins/pkg/ipam"
+	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/containernetworking/plugins/pkg/types/current"
 	"github.com/vishvananda/netlink"
 	"net"
 )
