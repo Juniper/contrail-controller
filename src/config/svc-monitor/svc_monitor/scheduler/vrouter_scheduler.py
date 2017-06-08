@@ -111,8 +111,8 @@ class VRouterScheduler(object):
             for values in response['value']:
                 response_dict[values['name']] = values['value']
         except Exception as e:
-            pass
-        return response_dict
+            return False, response_dict
+        return True, response_dict
 
     def vrouters_running(self):
         # get az host list
@@ -122,8 +122,12 @@ class VRouterScheduler(object):
         self._analytics = self.get_analytics_client()
         if not self._analytics:
             return
-        agents_status = self.query_uve("*?cfilt=NodeStatus:process_status")
-        vrouters_mode = self.query_uve("*?cfilt=VrouterAgent:mode")
+        query_status, agents_status = self.query_uve("*?cfilt=NodeStatus:process_status")
+        if not query_status:
+            return
+        query_status, vrouters_mode = self.query_uve("*?cfilt=VrouterAgent:mode")
+        if not query_status:
+            return
 
         for vr in VirtualRouterSM.values():
             if az_vrs and vr.name not in az_vrs:
