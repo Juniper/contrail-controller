@@ -334,6 +334,7 @@ public:
     const BgpGlobalSystemConfig *config() const { return &data_; }
     bool Update(BgpIfmapConfigManager *manager,
                 const autogen::GlobalSystemConfig *system);
+
 private:
     BgpGlobalSystemConfig data_;
 };
@@ -343,6 +344,7 @@ public:
     const BgpGlobalQosConfig *config() const { return &data_; }
     bool Update(BgpIfmapConfigManager *manager,
                 const autogen::GlobalQosConfig *qos);
+
 private:
     BgpGlobalQosConfig data_;
 };

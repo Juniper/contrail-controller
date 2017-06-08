@@ -85,6 +85,14 @@ public:
         server_->global_config()->set_gr_bgp_helper(
                 system->gr_bgp_helper());
 
+        // Clear peers if there's a change in always-compare-med knob.
+        if (server_->global_config()->always_compare_med() !=
+            system->always_compare_med()) {
+            server_->global_config()->set_always_compare_med(
+                system->always_compare_med());
+            clear_peers = true;
+        }
+
         if (!clear_peers)
             return;
         RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
