@@ -1860,6 +1860,11 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
         changed |= true;
     }
 
+    if (data_.always_compare_med() != system->bgp_always_compare_med()) {
+        data_.set_always_compare_med(system->bgp_always_compare_med());
+        changed |= true;
+    }
+
     return changed;
 }
 
