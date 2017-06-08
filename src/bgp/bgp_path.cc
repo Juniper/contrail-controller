@@ -6,8 +6,9 @@
 
 #include <boost/foreach.hpp>
 
-#include "bgp/bgp_route.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_route.h"
+#include "bgp/bgp_server.h"
 #include "net/community_type.h"
 
 using std::string;
@@ -85,6 +86,11 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
 
     // Compare med if both paths are learnt from the same neighbor as.
     if (attr_->neighbor_as() && attr_->neighbor_as() == rattr->neighbor_as())
+        KEY_COMPARE(attr_->med(), rattr->med());
+
+    // Compare med if always compare med is enabled.
+    const BgpServer *server = attr_->attr_db()->server();
+    if (server->global_config()->always_compare_med())
         KEY_COMPARE(attr_->med(), rattr->med());
 
     // For ECMP paths, above checks should suffice.

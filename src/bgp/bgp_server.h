@@ -246,6 +246,9 @@ public:
     uint32_t GetStaticRouteCount() const;
     uint32_t GetDownStaticRouteCount() const;
     BgpGlobalSystemConfig *global_config() { return global_config_.get(); }
+    const BgpGlobalSystemConfig *global_config() const {
+        return global_config_.get();
+    }
     bool gr_helper_disable() const { return gr_helper_disable_; }
     void set_gr_helper_disable(bool gr_helper_disable) {
         gr_helper_disable_ = gr_helper_disable;
