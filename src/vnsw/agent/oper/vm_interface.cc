@@ -416,9 +416,8 @@ static void BuildInterfaceConfigurationData(Agent *agent,
     }
     if (*phy_device == NULL) {
         *phy_device =
-            agent->config_manager()->helper()->
-            FindLink("physical-router-physical-interface",
-                     *phy_interface);
+            agent->config_manager()->
+            FindAdjacentIFMapNode(*phy_interface, "physical-router");
     }
     if (!(*phy_device)) {
         *rx_vlan_id = VmInterface::kInvalidVlanId;
@@ -898,9 +897,8 @@ static PhysicalRouter *BuildParentInfo(Agent *agent,
             data->physical_interface_ = (*phy_interface)->name();
             // Find vrouter for the physical interface
             if ((*phy_device) == NULL) {
-                *phy_device = agent->config_manager()->helper()->
-                    FindLink("physical-router-physical-interface",
-                             (*phy_interface));
+                *phy_device = agent->config_manager()->
+                    FindAdjacentIFMapNode(*phy_interface, "physical-router");
             }
         }
         if ((*phy_device) == NULL)

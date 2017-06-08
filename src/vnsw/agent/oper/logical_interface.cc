@@ -256,8 +256,8 @@ static LogicalInterfaceData *BuildData(Agent *agent, IFMapNode *node,
             static_cast <autogen::PhysicalInterface *>(adj_node->GetObject());
         assert(port);
         phy_intf_display_name = port->display_name();
-        prouter_node = agent->config_manager()->helper()->
-            FindLink("physical-router-physical-interface", adj_node);
+        prouter_node = agent->config_manager()->FindAdjacentIFMapNode
+                          (adj_node, "physical-router");
         if (prouter_node) {
             autogen::PhysicalRouter *router =
                 static_cast<autogen::PhysicalRouter *>(prouter_node->GetObject());
