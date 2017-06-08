@@ -25,6 +25,7 @@ import kombu
 import requests
 import bottle
 
+from vnc_cfg_api_server.vnc_addr_mgmt import *
 from vnc_api.vnc_api import *
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
@@ -47,6 +48,164 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ch.setLevel(logging.DEBUG)
         logger.addHandler(ch)
         super(TestIpAlloc, self).__init__(*args, **kwargs)
+
+    #test for delete/update notify methods of AddrMgmt class
+    def test_update_delete_notify(self):
+
+        addr_mgmt = AddrMgmt(self._api_server)
+
+        # declare a project
+        project = Project('v4-proj-%s' %(self.id()), Domain())
+        # create the project
+        self._vnc_lib.project_create(project)
+        logger.debug('Created Project')
+
+        # declare subnets
+        ipam1_sn_1 = IpamSubnetType(subnet=SubnetType('192.168.150.0', 24))
+        ipam1_sn_2 = IpamSubnetType(subnet=SubnetType('192.168.160.0', 24))
+
+        ipam2_sn_1 = ipam0_v4 = IpamSubnetType(subnet=SubnetType('11.1.2.0', 23))
+        ipam2_sn_2 = ipam0_v4 = IpamSubnetType(subnet=SubnetType('12.1.2.0', 23))
+
+        # declare ipams
+        ipam1 = NetworkIpam('ipam1', project, IpamType("dhcp"))
+        ipam2 = NetworkIpam('ipam2', project, IpamType("dhcp"), ipam_subnet_method="flat-subnet")
+        # create ipams
+        self._vnc_lib.network_ipam_create(ipam1)
+        logger.debug('Created ipam1')
+        self._vnc_lib.network_ipam_create(ipam2)
+        logger.debug('Created ipam2')
+
+        # add subnet to ipam2
+        ipam2.set_ipam_subnets(IpamSubnets([ipam2_sn_1, ipam2_sn_2]))
+
+        # declare virtual network
+        vn1 = VirtualNetwork('Vnet-1', project)
+
+        # add ipam to the virtual network and attach subnets
+        vn1.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_1, ipam1_sn_2]))
+        logger.debug('Added ipam1 to vn1')
+
+        # create the virtual networks
+        self._vnc_lib.virtual_network_create(vn1)
+        logger.debug('Created vn1')
+
+        # create proper dict from VNs
+        vn1_dict = self._vnc_lib.obj_to_dict(vn1)
+        ipam2_dict = self._vnc_lib.obj_to_dict(ipam2)
+
+        # declare VNs in addr_mgmt
+        addr_mgmt.net_create_req(vn1_dict)
+        addr_mgmt.ipam_create_req(ipam2_dict)
+
+        ##########################################################
+        #                Test Update methods                     #
+        ##########################################################
+
+        # vn1:
+        # check that vn1 has 2 declared subnets
+        self.assertEqual(len(addr_mgmt._subnet_objs[vn1.uuid]), 2)
+
+        # delete subnet 2
+        vn1.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_1]))
+
+        # update vn1
+        self._vnc_lib.virtual_network_update(vn1)
+
+        # check _subnet_objs
+        self.assertEqual(len(addr_mgmt._subnet_objs[vn1.uuid]), 2)
+
+        # exec update notify to update _subnet_obj
+        addr_mgmt.net_update_notify({'oper': 'UPDATE', 'type': 'virtual_network', 'uuid': vn1.uuid})
+
+        # check that it remains only one subnet
+        self.assertEqual(len(addr_mgmt._subnet_objs[vn1.uuid]), 1)
+        self.assertEqual(addr_mgmt._subnet_objs[vn1.uuid].keys()[0], '192.168.150.0/24')
+
+        # restore
+        vn1.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_1, ipam1_sn_2]))
+        self._vnc_lib.virtual_network_update(vn1)
+        addr_mgmt.net_update_notify({'oper': 'UPDATE', 'type': 'virtual_network', 'uuid': vn1.uuid})
+        self.assertEqual(len(addr_mgmt._subnet_objs[vn1.uuid]), 2)
+
+
+        # ipam2:
+        # check that ipam2 has 2 declared subnets
+        self.assertEqual(len(addr_mgmt._subnet_objs[ipam2.uuid]), 2)
+
+        # delete subnet 2
+        ipam2.set_ipam_subnets(IpamSubnets([ipam2_sn_1]))
+
+        # update ipam2
+        self._vnc_lib.network_ipam_update(ipam2)
+
+        # check _subnet_objs
+        self.assertEqual(len(addr_mgmt._subnet_objs[ipam2.uuid]), 2)
+
+        # exec update notify to update _subnet_obj
+        addr_mgmt.ipam_update_notify({'oper': 'UPDATE', 'type': 'network_ipam', 'uuid': ipam2.uuid})
+
+        # check that it remains only one subnet
+        self.assertEqual(len(addr_mgmt._subnet_objs[ipam2.uuid]), 1)
+        self.assertEqual(addr_mgmt._subnet_objs[ipam2.uuid].keys()[0], '11.1.2.0/23')
+
+        # restore
+        ipam2.set_ipam_subnets(IpamSubnets([ipam2_sn_1, ipam2_sn_2]))
+        self._vnc_lib.network_ipam_update(ipam2)
+        addr_mgmt.ipam_update_notify({'oper': 'UPDATE', 'type': 'network_ipam', 'uuid': ipam2.uuid})
+        self.assertEqual(len(addr_mgmt._subnet_objs[ipam2.uuid]), 2)
+
+
+        ##########################################################
+        #                Test Delete methods                     #
+        ##########################################################
+
+        # vn1:
+        # check that we have 2 elements in '_subnet_objs'
+        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 2)
+
+        # check that '_subnet_objs' has not been modifed yet
+        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 2)
+
+        # exec delete notify should delete data from '_subnet_objs'
+        addr_mgmt.net_delete_notify(vn1.uuid, vn1_dict)
+
+        # check that 'vn1' has been delete from '_subnet_objs'
+        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 1)
+
+        # check that ipam2 still remains in '_subnet_objs'
+        self.assertEqual(addr_mgmt._subnet_objs.keys()[0],
+            ipam2.uuid)
+
+        # ipam2:
+        # exec delete request should not modify '_subnet_objs'
+        addr_mgmt.ipam_delete_req(ipam2_dict)
+
+        # check that '_subnet_objs' has not been modifed yet
+        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 1)
+
+        # exec delete notify should delete data from '_subnet_objs'
+        addr_mgmt.ipam_delete_notify(ipam2.uuid, ipam2_dict)
+
+        # check that '_subnet_objs' is empty
+        self.assertEqual(len(addr_mgmt._subnet_objs.keys()), 0)
+
+        # delete ressources:
+
+        # VNs
+        self._vnc_lib.virtual_network_delete(id=vn1.uuid)
+        logger.debug('Deleted vn1')
+
+        # IPAMs
+        self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
+        logger.debug('Deleted ipam1')
+        self._vnc_lib.network_ipam_delete(id=ipam2.uuid)
+        logger.debug('Deleted ipam2')
+
+        # project
+        self._vnc_lib.project_delete(id=project.uuid)
+        logger.debug('Deleted Project')
+    #end test_update_delete_notify
 
     def test_subnet_overlap(self):
         project = Project('v4-proj-%s' %(self.id()), Domain())
@@ -1626,9 +1785,9 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # delete vn and create a new subnet with add from start and add
         # new network
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
-        
+
         #create a subnet with allocation from start and test the subnet
-        # to make sure gw_ip and dns_server_address is not updateable 
+        # to make sure gw_ip and dns_server_address is not updateable
         ipam4_sn_v4 = IpamSubnetType(subnet=SubnetType('14.1.1.0', 24),
                                      addr_from_start=True)
 
