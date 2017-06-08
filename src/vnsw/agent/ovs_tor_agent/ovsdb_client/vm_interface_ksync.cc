@@ -59,7 +59,7 @@ bool VMInterfaceKSyncEntry::Sync(DBEntry *db_entry) {
         const VnEntry *vn = entry->vn();
         const VxLanId *vxlan = NULL;
         if (vn)
-            vxlan = vn->vxlan_id();
+            vxlan = vn->vxlan_id_ref();
         if (vrf != NULL && vn != NULL && vxlan != NULL &&
             !table_->client_idl()->IsDeleted() &&
             table_->client_idl()->route_peer() != NULL) {

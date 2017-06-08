@@ -92,8 +92,7 @@ struct VnData : public AgentOperDBData {
            const uuid &acl_id, const string &vrf_name,
            const uuid &mirror_acl_id, const uuid &mc_acl_id,
            const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
-           int vxlan_id, int vnid, bool bridging,
-           bool layer3_forwarding, bool admin_state, bool enable_rpf,
+           int vxlan_id, int vnid, bool admin_state, bool enable_rpf,
            bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode,
            const boost::uuids::uuid &qos_config_uuid, bool mirror_destination,
            bool pbb_etree_enable, bool pbb_evpn_enable,
@@ -101,10 +100,8 @@ struct VnData : public AgentOperDBData {
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
-        vxlan_id_(vxlan_id), vnid_(vnid), bridging_(bridging),
-        layer3_forwarding_(layer3_forwarding), admin_state_(admin_state),
-        enable_rpf_(enable_rpf),
-        flood_unknown_unicast_(flood_unknown_unicast),
+        vxlan_id_(vxlan_id), vnid_(vnid), admin_state_(admin_state),
+        enable_rpf_(enable_rpf), flood_unknown_unicast_(flood_unknown_unicast),
         forwarding_mode_(forwarding_mode), qos_config_uuid_(qos_config_uuid),
         mirror_destination_(mirror_destination),
         pbb_etree_enable_(pbb_etree_enable), pbb_evpn_enable_(pbb_evpn_enable),
@@ -121,8 +118,6 @@ struct VnData : public AgentOperDBData {
     VnIpamDataMap vn_ipam_data_;
     int vxlan_id_;
     int vnid_;
-    bool bridging_;
-    bool layer3_forwarding_;
     bool admin_state_;
     bool enable_rpf_;
     bool flood_unknown_unicast_;
@@ -149,12 +144,12 @@ public:
     bool IsAclSet() const {
         return ((acl_.get() != NULL) || (mirror_acl_.get() != NULL) ||
                 (mirror_cfg_acl_.get() != NULL));
-    };
-    const AclDBEntry *GetAcl() const {return acl_.get();};
-    const AclDBEntry *GetMirrorAcl() const {return mirror_acl_.get();};
-    const AclDBEntry *GetMirrorCfgAcl() const {return mirror_cfg_acl_.get();};
-    VrfEntry *GetVrf() const {return vrf_.get();};
-    const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
+    }
+    const AclDBEntry *GetAcl() const {return acl_.get();}
+    const AclDBEntry *GetMirrorAcl() const {return mirror_acl_.get();}
+    const AclDBEntry *GetMirrorCfgAcl() const {return mirror_cfg_acl_.get();}
+    VrfEntry *GetVrf() const {return vrf_.get();}
+    const std::vector<VnIpam> &GetVnIpam() const { return ipam_; }
     const VnIpam *GetIpam(const IpAddress &ip) const;
     IpAddress GetGatewayFromIpam(const IpAddress &ip) const;
     IpAddress GetDnsFromIpam(const IpAddress &ip) const;
@@ -171,12 +166,8 @@ public:
                    uint8_t *plen) const;
     std::string GetProject() const;
     int GetVxLanId() const;
-    int ComputeEthernetTag() const;
-    bool Resync(); 
-    void UpdateMacVmBindingFloodFlag();
 
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
-    const VxLanId *vxlan_id() const {return vxlan_id_ref_.get();}
     void set_bridging(bool bridging) {bridging_ = bridging;}
     bool bridging() const {return bridging_;};
     bool layer3_forwarding() const {return layer3_forwarding_;};
@@ -188,16 +179,6 @@ public:
     bool enable_rpf() const {return enable_rpf_;}
     bool flood_unknown_unicast() const {return flood_unknown_unicast_;}
 
-    AgentDBTable *DBToTable() const;
-    uint32_t GetRefCount() const {
-        return AgentRefCount<VnEntry>::GetRefCount();
-    }
-
-    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    void SendObjectLog(AgentLogEvent::type event) const;
-    void ResyncRoutes();
-    bool IdentifyBgpRoutersServiceIp(const IpAddress &ip_address,
-                                     bool *is_dns, bool *is_gateway) const;
     const AgentQosConfig* qos_config() const {
         return qos_config_.get();
     }
@@ -206,8 +187,6 @@ public:
         return mirror_destination_;
     }
     int vnid() const {return vnid_;}
-    void AllocWalker();
-    void ReleaseWalker();
 
     bool pbb_etree_enable() const {
         return pbb_etree_enable_;
@@ -221,8 +200,35 @@ public:
         return layer2_control_word_;
     }
 
+    uint32_t GetRefCount() const {
+        return AgentRefCount<VnEntry>::GetRefCount();
+    }
+    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
+    void SendObjectLog(AgentLogEvent::type event) const;
+    bool IdentifyBgpRoutersServiceIp(const IpAddress &ip_address, bool *is_dns,
+                                     bool *is_gateway) const;
+    void AllocWalker();
+    void ReleaseWalker();
 private:
     friend class VnTable;
+    bool Resync(Agent *agent);
+    bool ChangeHandler(Agent *agent, const DBRequest *req);
+    bool UpdateVxlan(Agent *agent, bool op_del);
+    void ResyncRoutes();
+    bool UpdateForwardingMode(Agent *agent);
+    bool ApplyAllIpam(Agent *agent, VrfEntry *old_vrf, bool del);
+    bool ApplyIpam(Agent *agent, VnIpam *ipam, VrfEntry *old_vrf, bool del);
+    bool CanInstallIpam(const VnIpam *ipam);
+    bool UpdateIpam(Agent *agent, std::vector<VnIpam> &new_ipam);
+    bool HandleIpamChange(Agent *agent, VnIpam *old_ipam, VnIpam *new_ipam);
+    void UpdateHostRoute(Agent *agent, const IpAddress &old_address,
+                         const IpAddress &new_address, bool relaxed_policy);
+    bool AddIpamRoutes(Agent *agent, VnIpam *ipam);
+    void DelIpamRoutes(Agent *agent, VnIpam *ipam, VrfEntry *vrf);
+    void AddHostRoute(const IpAddress &address, bool relaxed_policy);
+    void DelHostRoute(const IpAddress &address);
+    void AddSubnetRoute(VnIpam *ipam);
+    void DelSubnetRoute(VnIpam *ipam);
 
     Agent *agent_;
     uuid uuid_;
@@ -235,6 +241,9 @@ private:
     VnData::VnIpamDataMap vn_ipam_data_;
     int vxlan_id_;
     int vnid_;
+    // Based on vxlan-network-identifier mode, the active_vxlan_id_ is picked
+    // from either vxlan_id_ or vnid_
+    int active_vxlan_id_;
     bool bridging_;
     bool layer3_forwarding_;
     bool admin_state_;
@@ -242,7 +251,6 @@ private:
     uint32_t table_label_;
     bool enable_rpf_;
     bool flood_unknown_unicast_;
-    uint32_t old_vxlan_id_;
     Agent::ForwardingMode forwarding_mode_;
     AgentRouteWalkerPtr route_resync_walker_;
     AgentQosConfigConstRef qos_config_;
@@ -277,11 +285,10 @@ public:
     virtual void Clear();
 
     int ComputeCfgVxlanId(IFMapNode *node);
-    void CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3, bool *rpf,
+    void CfgForwardingFlags(IFMapNode *node, bool *rpf,
                             bool *flood_unknown_unicast,
                             Agent::ForwardingMode *forwarding_mode,
                             bool *mirror_destination);
-
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VnTable *GetInstance() {return vn_table_;};
@@ -293,40 +300,16 @@ public:
                bool flood_unknown_unicast, bool pbb_etree_enable,
                bool pbb_evpn_enable, bool layer2_control_word);
     void DelVn(const uuid &vn_uuid);
-    void ResyncVxlan(const boost::uuids::uuid &vn);
+    void ResyncReq(const boost::uuids::uuid &vn);
     VnEntry *Find(const uuid &vn_uuid);
     void GlobalVrouterConfigChanged();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
     void VnEntryWalkDone(DBTable::DBTableWalkRef walk_ref, DBTableBase *partition);
-    bool RebakeVxlan(VnEntry *vn, bool op_del);
-    bool EvaluateForwardingMode(VnEntry *vn);
-    bool GetLayer3ForwardingConfig(Agent::ForwardingMode forwarding_mode) const;
-    bool GetBridgingConfig(Agent::ForwardingMode forwarding_mode) const;
-    bool ForwardingModeChangeHandler(bool old_layer3_forwarding,
-                                     bool old_bridging,
-                                     bool *resync_routes,
-                                     VnData *data,
-                                     VnEntry *vn);
     int GetCfgVnId(autogen::VirtualNetwork *cfg_vn);
 
 private:
     static VnTable *vn_table_;
-    bool IpamChangeNotify(std::vector<VnIpam> &old_ipam, 
-                          std::vector<VnIpam> &new_ipam, VnEntry *vn);
-    void UpdateHostRoute(const IpAddress &old_address,
-                         const IpAddress &new_address, VnEntry *vn,
-                         bool relaxed_policy);
-    void AddIPAMRoutes(VnEntry *vn, VnIpam &ipam);
-    void DelIPAMRoutes(VnEntry *vn, VnIpam &ipam);
-    void AddAllIpamRoutes(VnEntry *vn);
-    void DeleteAllIpamRoutes(VnEntry *vn);
-    void AddSubnetRoute(VnEntry *vn, VnIpam &ipam);
-    void DelSubnetRoute(VnEntry *vn, VnIpam &ipam);
     bool IsGwHostRouteRequired();
-    void AddHostRoute(VnEntry *vn, const IpAddress &address,
-                      bool relaxed_policy);
-    void DelHostRoute(VnEntry *vn, const IpAddress &address);
-    bool ChangeHandler(DBEntry *entry, const DBRequest *req);
     bool IsGatewayL2(const string &gateway) const;
     void BuildVnIpamData(const std::vector<autogen::IpamSubnetType> &subnets,
                          const std::string &ipam_name,
