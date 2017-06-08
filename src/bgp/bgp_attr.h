@@ -942,6 +942,7 @@ public:
     BgpAttrPtr ReplaceNexthopAndLocate(const BgpAttr *attr,
                                        const IpAddress &addr);
     BgpServer *server() { return server_; }
+    const BgpServer *server() const { return server_; }
 
 private:
     BgpServer *server_;
