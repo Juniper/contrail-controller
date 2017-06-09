@@ -18,6 +18,7 @@ from pysandesh.util import UTCTimestampUsec
 import select
 import redis
 import errno
+import time
 from collections import namedtuple
 from strict_redis_wrapper import StrictRedisWrapper
 
@@ -336,6 +337,7 @@ class UveStreamPart(gevent.Greenlet):
         lredis = None
         pb = None
         pause = False
+        self.redis_prev_time = 0
         while True:
             try:
                 if pause:
@@ -421,12 +423,22 @@ class UveStreamPart(gevent.Greenlet):
                     redis.exceptions.TimeoutError):
                 pass
             except Exception as ex:
-                template = "Exception {0} in uve stream proc. Arguments:\n{1!r}"
-                messag = template.format(type(ex).__name__, ex.args)
-                self._logger.error("[%s:%d] AlarmGen %s,%d %s : traceback %s" % \
-                                  (self._pi.ip_address, self._pi.port, \
-                                   self._pi.instance_id, self._partno, \
-                                   messag, traceback.format_exc()))
+                self.redis_cur_time = time.time()
+                if self.redis_prev_time == 0 or self.redis_cur_time - self.redis_prev_time > 60:
+                    self.redis_prev_time = self.redis_cur_time
+                    template = "Exception {0} in uve stream proc. Arguments:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("[%s:%d] AlarmGen %s,%d %s : traceback %s" % \
+                                      (self._pi.ip_address, self._pi.port, \
+                                       self._pi.instance_id, self._partno, \
+                                       messag, traceback.format_exc()))
+                else:
+                    template = "Exception {0} in uve stream proc. Arguments:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("[%s:%d] AlarmGen %s,%d %s" % \
+                                      (self._pi.ip_address, self._pi.port, \
+                                       self._pi.instance_id, self._partno, \
+                                       messag))
             finally:
                 lredis = None
                 if pb is not None:
@@ -575,6 +587,7 @@ class PartitionHandler(gevent.Greenlet):
     def _run(self):
 	pcount = 0
         pause = False
+        self.part_prev_time = 0
         while True:
             try:
                 if pause:
@@ -587,10 +600,17 @@ class PartitionHandler(gevent.Greenlet):
                         bootstrap_servers=self._brokers.split(','),
                         group_id=None)
                 except Exception as ex:
-                    template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
-                    messag = template.format(type(ex).__name__, ex.args)
-                    self._logger.error("Error: %s trace %s" % \
-                        (messag, traceback.format_exc()))
+                    self.part_cur_time = time.time()
+                    if slef.part_prev_time == 0 or self.part_cur_time - self.part_prev_time > 60:
+                        self.part_prev_time = self.part_cur_time
+                        template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
+                        messag = template.format(type(ex).__name__, ex.args)
+                        self._logger.error("Error: %s trace %s" % \
+                            (messag, traceback.format_exc()))
+                    else:
+                        template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
+                        messag = template.format(type(ex).__name__, ex.args)
+                        self._logger.error("Error: %s" % (messag))
 		    self._failed = True
                     raise RuntimeError(messag)
 
@@ -629,10 +649,17 @@ class PartitionHandler(gevent.Greenlet):
                 self._partoffset = ex
                 break
             except Exception as ex:
-                template = "An exception of type {0} occured. Arguments:\n{1!r}"
-                messag = template.format(type(ex).__name__, ex.args)
-                self._logger.error("%s %s : traceback %s" % \
-                                  (self._topic, messag, traceback.format_exc()))
+                self.part_cur_time = time.time()
+                if self.part_prev_time == 0 or self.part_cur_time - self.part_prev_time > 60:
+                    slef.part_prev_time = self.part_cur_time
+                    template = "An exception of type {0} occured. Arguments:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("%s %s : traceback %s" % \
+                                      (self._topic, messag, traceback.format_exc()))
+                else:
+                    template = "An exception of type {0} occured. Arguments:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("%s %s" % (self._topic, messag))
                 self.stop_partition()
 		self._failed = True
                 pause = True
