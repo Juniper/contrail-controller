@@ -29,7 +29,7 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
 
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->bgp_peer_id());
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
-    uint32_t instance_id = vrf->RDInstanceId();
+    uint32_t instance_id = vrf->rd();
     //Instance ID being zero is possible because of VN unavailability and VRF
     //ending up with NULL VRF. Reason being config sequence.
     //So seeing 0 instance_id delete the state so that resubscribe can be done

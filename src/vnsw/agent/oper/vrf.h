@@ -131,11 +131,13 @@ public:
         allow_route_add_on_deleted_vrf_ = val;
     }
     InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr) const;
-    int RDInstanceId() const;
+    int rd() const {return rd_;}
+    void set_rd(int rd) {rd_ = rd;}
 
 private:
     friend class VrfTable;
     void CreateRouteTables();
+    int RDInstanceId(bool tor_agent_enabled) const;
 
     class DeleteActor;
     string name_;
@@ -152,6 +154,7 @@ private:
     IFMapDependencyManager::IFMapNodePtr vrf_node_ptr_;
     boost::scoped_ptr<AgentRouteResync> route_resync_walker_;
     bool allow_route_add_on_deleted_vrf_;
+    int rd_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
