@@ -11,37 +11,19 @@ view information about the networks for which they have the read permissions.
 # 3. Proposed solution
 Analytics API will map query and UVE objects to configuration objects on
 which RBAC rules are applied so that read permissions can be verified using
-VNC API.
+VNC API. Following steps will be needed:
 
-Analytics API RBAC will be implemented in 2 phases:
-
-## Phase 1:
-1. All statistics, flow, and log queries are allowed only for cloud-admin
-   role and hence for tenant, the query pages need to be greyed out in the
-   UI.
-2. All UVEs list queries (e.g. analytics/uves/virtual-networks/) are allowed
-   only for cloud-admin role. For displaying appropriate networks on the
-   monitoring page, UI will have to get the list of networks with read
-   permissions for the user using the VNC API. VM and VMI information are
-   obtained from the VN UVEs and hence no other change should be needed
-   on the UI.
-3. UVE query for specific resource (e.g. analytics/uves/virtual-network/vn1),
-   contrail-analytics-api will check the object level read permissions using
-   VNC API.
-
-## Phase 2:
-1. For flow and log queries, we will evaluate the object read permissions for
-   each AND term in the where query.
-2. For statistics queries, we will add annotations to sandesh file so that
-   indexes/tag on statistics queries can be associated with objects/UVEs.
+1. For statistics queries, annotations will be added to sandesh file so that
+   indices/tags on statistics queries can be associated with objects/UVEs.
    These can then be added to the schema and used by contrail-analytics-api
    to determine the object level read permissions.
-3. Some tables like the FieldNamesTable will still be accessible to only
-   cloud-admin role and hence drop-downs on some of the UI pages will not
-   work for tenants.
-4. For UVEs list queries (e.g. analytics/uve/virtual-networks/),
-   contrail-analytics-api will use VNC API to determine whether the user
-   has read permission for each UVE object.
+2. For flow and log queries, we will evaluate the object read permissions for
+   each AND term in the where query.
+3. For UVEs list queries (e.g. analytics/uve/virtual-networks/),
+   contrail-analytics-api will get list of UVEs which have read permissions
+   for given token. Similarly, for UVE query for specific
+   resource (e.g. analytics/uves/virtual-network/vn1), contrail-analytics-api
+   will check the object level read permissions using VNC API.
 
 ## 3.1 Alternatives considered
 None
@@ -50,58 +32,39 @@ None
 None
 
 ## 3.3 User workflow impact
-Tenants will not be able to view the query pages in Phase 1.
+Tenants will not be able to view system-logs and and flow-logs.
 
 ## 3.4 UI changes
-### Phase 1:
 1. UI needs to use VNC API to get list of networks to display in the
    network monitoring page based on the tenant user.
-2. Query pages need to be greyed out for tenant user.
+2. System logs and flows tabs need to be greyed out for tenant user.
 
 ## 3.5 Notification impact
 None
 
 # 4. Implementation
-## Phase 1:
 * Currently VNC API provides obj_perms function which takes object
   UUID and token, and returns the permissions.
-* For every UVE, UUID of corresponding config object will be retrieved from
-  ContrailConfig struct of UVE, wherever present. All other UVEs will be
-  treated as infrastructure UVEs for which analytics-api will allow
-  cloud-admin roles and won't check object level permissions. Here is the list
-  of UVEs having ContrailConfig structure:
+* A non-admin user will be able to see only non-global UVEs. There is an
+  existing list of UVEs with a global flag indicating if it is a global UVE.
+  Here is the list of UVEs which will be visible to a tenant user to start
+  with:
 
         * virtual_network
         * virtual_machine
         * virtual_machine_interface
         * service_instance
-        * virtual_router
-        * analytics_node
-        * database_node
-        * config_node
-        * service_chain
-        * physical_router
-        * bgp_router
 
-## Phase 2:
+  More will be added to this list as and when backend support is added.
+
 * UVEs list queries (e.g. analytics/uve/virtual-networks)
 
-  There will be a mapping from uve-type (virtual-network in the example) to
-  corresponding uve table (ObjectVNTable in the example) and config object
-  type (virtual_network for this example). For a uve list query, analytics-api
-  will pass config object type and user token to ApiServer to get a list of
-  objects that the user has permissions for. This is how the mapping table
-  will look like:
-
-            "virtual-network" : ("ObjectVNTable", virtual_network),
-            "service-instance" : ("ObjectSITable", service_instance),
-            "vrouter" : ("ObjectVRouter", virtual_router),
-            "analytics-node" : ("ObjectCollectorInfo", analytics_node),
-            "database-node" : ("ObjectDatabaseInfo", database_node),
-            "config-node" : ("ObjectConfigNode", config_node),
-            "service-chain" : ("ServiceChain", service_chain),
-            "prouter" : ("ObjectPRouter", physical_router),
-            "control-node": ("ObjectBgpRouter", bgp_router),
+  There is an already existing mapping(_OBJECT_TABLES) from uve-type
+  (virtual-network in the example) to corresponding uve table (ObjectVNTable in
+  the example). An extra field indicating corredponding config object type
+  (virtual_network for this example) will be added to that. For a uve list
+  query, analytics-api will pass config object type and user token to ApiServer
+  to get a list of objects that the user has permissions for.
 * System Logs and Flow Logs
 
   These are displayed for cloud-admin roles only
@@ -129,15 +92,9 @@ None
 
           optional list<InterVnStats>        vn_stats (tags=".other_vn,.vrouter")
 
-  Corresponding tags are defined in structure InterVnStats:
+  It will be changed to:
 
-          string                         other_vn
-          string                         vrouter
-
-  These tags will be changed to:
-
-          string                         other_vn (uve_type="virtual-network")
-          string                         vrouter  (uve_type="vrouter")
+          optional list<InterVnStats>        vn_stats (tags=".other_vn,.vrouter",uve_type=".other_vn:virtual_network"))
 
   Corresponding stats table schema will also change from:
 
@@ -171,6 +128,23 @@ None
                 suffixes: null
           }
 
+* Alarms
+
+  Alarms are binned based on alarm-key (same as object type e.g. Virtual-network
+  ) and uve-key. As mentioned in previous section, there is already a list of
+  non-global UVEs. This list is used as a filter (tablefilt) for non-admin
+  users. For every non-global UVE type, get list of permitted uves from
+  ApiServer. Now, for every alarm, dsplay if uve-key is in permitted uves.
+  Discard all other alarms
+
+* Alarm/uve-stream
+
+  As mentioned in previous section, there is a list of object-log types which
+  are supported for non-admin users. This list is passed as ‘tablefilt’ to
+  UveStreamer. In addition, ContrailConfig structure (which has details of owner
+  and all the domains/tenants with which that UVE is shared) is checked in every
+  UVE to check whether the user has 'read' permissions.
+
 # 5. Performance and scaling impact
 ## 5.1 API and control plane
 API server will have to make additional calls per invocation of obj_perms
@@ -182,8 +156,8 @@ Not affected
 
 # 6. Upgrade
 We will not change the ```DEFAULTS.aaa_mode``` during upgrade if it exists in
-```/etc/contrail/contrail-analytics-api.conf```. However new installations
-will default to ```rbac``` instead of the current ```cloud-admin```.
+```/etc/contrail/contrail-analytics-api.conf```. Same provisioning flag will be
+used for ApiServer as well as analytics-api.
 
 # 7. Deprecations
 None
