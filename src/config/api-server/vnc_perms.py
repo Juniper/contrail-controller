@@ -47,7 +47,7 @@ class VncPermissions(object):
 
     def validate_perms(self, request, uuid, mode=PERMS_R, id_perms=None):
         # retrieve object and permissions
-        if not id_perms:
+        if not id_perms or "permissons" not in id_perms:
             try:
                 id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(uuid)
             except NoIdError:
