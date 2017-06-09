@@ -656,7 +656,9 @@ class VncApiServer(VncApiServerGen):
                 bottle.abort(code, msg)
         obj_type = obj_type.replace('-', '_')
         try:
-            id = self._db_conn.ref_update(obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr}, operation)
+            id = self._db_conn.ref_update(
+                      obj_type, obj_uuid, ref_type, ref_uuid, {'attr': attr},
+                      operation, id_perms=obj_dict['id_perms'])
         except NoIdError:
             bottle.abort(404, 'uuid ' + obj_uuid + ' not found')
 

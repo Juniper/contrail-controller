@@ -539,7 +539,8 @@ class VncServerCassandraClient(VncCassandraClient):
     # end list
 
 
-    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data, operation):
+    def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
+                   operation, id_perms):
         bch = self._obj_uuid_cf.batch()
         if operation == 'ADD':
             self._create_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid, ref_data)
@@ -547,7 +548,7 @@ class VncServerCassandraClient(VncCassandraClient):
             self._delete_ref(bch, obj_type, obj_uuid, ref_type, ref_uuid)
         else:
             pass
-        self.update_last_modified(bch, obj_uuid)
+        self.update_last_modified(bch, obj_uuid, id_perms)
         bch.send()
     # end ref_update
 
@@ -1535,9 +1536,9 @@ class VncDbClient(object):
     # end uuid_to_obj_perms
 
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
-                   operation):
+                   operation, id_perms):
         self._cassandra_db.ref_update(obj_type, obj_uuid, ref_type, ref_uuid,
-                                      ref_data, operation)
+                                      ref_data, operation, id_perms)
         self._msgbus.dbe_update_publish(obj_type.replace('_', '-'),
                                         {'uuid':obj_uuid})
         return obj_uuid
