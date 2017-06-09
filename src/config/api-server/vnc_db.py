@@ -136,7 +136,7 @@ class VncServerCassandraClient(VncCassandraClient):
     # end prop_collection_update
 
     def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid,
-                   ref_data, operation):
+                   ref_data, operation, id_perms):
         bch = self._obj_uuid_cf.batch()
         if operation == 'ADD':
             self._create_ref(bch, obj_type, obj_uuid, ref_obj_type, ref_uuid,
@@ -145,7 +145,7 @@ class VncServerCassandraClient(VncCassandraClient):
             self._delete_ref(bch, obj_type, obj_uuid, ref_obj_type, ref_uuid)
         else:
             pass
-        self.update_last_modified(bch, obj_type, obj_uuid)
+        self.update_last_modified(bch, obj_type, obj_uuid, id_perms)
         bch.send()
     # end ref_update
 
@@ -1406,13 +1406,14 @@ class VncDbClient(object):
     # end prop_collection_update
 
     def ref_update(self, obj_type, obj_uuid, ref_obj_type, ref_uuid, ref_data,
-                   operation):
+                   operation, id_perms):
         self._object_db.ref_update(obj_type, obj_uuid, ref_obj_type,
-                                   ref_uuid, ref_data, operation)
+                                   ref_uuid, ref_data, operation, id_perms)
         fq_name = self.uuid_to_fq_name(obj_uuid)
         self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name)
         if obj_type == ref_obj_type:
             self._dbe_publish_update_implicit(obj_type, [ref_uuid])
+        return True, ''
     # ref_update
 
     def ref_relax_for_delete(self, obj_uuid, ref_uuid):
