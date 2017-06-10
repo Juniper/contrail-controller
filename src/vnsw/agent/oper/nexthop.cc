@@ -126,6 +126,13 @@ void NextHop::PostAdd() {
     }
 }
 
+void NextHop::EnqueueResync() const {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key = GetDBRequestKey();
+    (static_cast<NextHopKey *>(req.key.get()))->sub_op_ = AgentKey::RESYNC;
+    get_table()->Enqueue(&req);
+}
+
 void NextHop::FillObjectLog(AgentLogEvent::type event, 
                             NextHopObjectLogInfo &info) const {
     string type_str, policy_str("Disabled"), valid_str("Invalid"), str;

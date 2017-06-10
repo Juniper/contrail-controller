@@ -321,6 +321,14 @@ public:
         hash_fields_to_use_ = comp_hash_fields_to_use_;
     }
 
+    void Reset() {
+        sip_ = NULL;
+        dip_ = NULL;
+        proto_ = NULL;
+        sport_ = NULL;
+        dport_ = NULL;
+    }
+
 private:
     // This will have latest computed value
     uint8_t comp_hash_fields_to_use_;
