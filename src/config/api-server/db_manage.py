@@ -1385,7 +1385,7 @@ class DatabaseCleaner(DatabaseManager):
                 else:
                     logger.info("Deleting zk path: %s", path)
                     self._zk_client.delete(path, recursive=True)
-            zk_all_vns.pop(vn)
+            zk_all_vns.pop(vn, None)
 
         # Clean extra subnet in zk
         extra_vn_sn = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
@@ -1398,8 +1398,8 @@ class DatabaseCleaner(DatabaseManager):
             else:
                 logger.info("Deleting zk path: %s", path)
                 self._zk_client.delete(path, recursive=True)
-            zk_all_vns[vn].pop(sn_key)
-            zk_all_vn_sn.pop((vn, sn_key))
+            if vn in zk_all_vns:
+                zk_all_vns[vn].pop(sn_key, None)
 
         # Check for extra IP addresses in zk
         for vn, sn_key in cassandra_all_vn_sn:
