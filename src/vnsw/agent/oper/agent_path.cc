@@ -1519,6 +1519,10 @@ void AgentPath::UpdateEcmpHashFields(const Agent *agent,
     }
 }
 
+void AgentPath::ResetEcmpHashFields() {
+    ecmp_hash_fields_.Reset();
+}
+
 bool AgentPath::ResyncControlWord(const AgentRoute *rt) {
     const BridgeRouteEntry *bridge_rt =
         dynamic_cast<const BridgeRouteEntry *>(rt);

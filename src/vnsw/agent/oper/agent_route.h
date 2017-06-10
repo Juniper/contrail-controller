@@ -122,20 +122,14 @@ public:
 
     virtual void ProcessDelete(AgentRoute *rt) { }
     virtual void ProcessAdd(AgentRoute *rt) { }
-    //Entry notification
     virtual void NotifyEntry(AgentRoute *entry);
-    //Can be used for operations related to updation of route.
-    virtual void UpdateDerivedRoutes(AgentRoute *entry,
-                                     const AgentPath *path,
-                                     bool active_path_changed) { }
-    //Can be used for operations resulting from deletion of route.
-    virtual void PreRouteDelete(AgentRoute *entry) { }
 
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context) {
         return AgentSandeshPtr();
     }
     virtual SandeshTraceBufferPtr GetOperDBTraceBuf() const {return OperDBTraceBuf;}
+
     // Unresolved route tree accessors
     UnresolvedRouteTree::const_iterator unresolved_route_begin() const {
         return unresolved_rt_tree_.begin();
@@ -155,6 +149,9 @@ public:
     UnresolvedNHTree::const_iterator unresolved_nh_end() const {
         return unresolved_nh_tree_.end();
     }
+    void EvaluateUnresolvedRoutes(void);
+    void AddUnresolvedRoute(const AgentRoute *rt);
+    void RemoveUnresolvedRoute(const AgentRoute *rt);
 
     Agent *agent() const { return agent_; }
     const std::string &vrf_name() const;
@@ -169,7 +166,6 @@ public:
     void SetVrf(VrfEntry * vrf);
 
     // Helper functions to delete routes
-    bool DeleteAllBgpPath(DBTablePartBase *part, DBEntryBase *entry);
     bool DelExplicitRouteWalkerCb(DBTablePartBase *part, DBEntryBase *entry);
 
     // Lifetime actor routines
@@ -183,29 +179,22 @@ public:
     // Path comparator
     static bool PathSelection(const Path &path1, const Path &path2);
     static const std::string &GetSuffix(Agent::RouteTableType type);
-    void DeletePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
-                            AgentPath *path);
-                            //const Peer *peer);
-    void EvaluateUnresolvedRoutes(void);
-
 private:
     class DeleteActor;
-    void AddUnresolvedRoute(const AgentRoute *rt);
-    void RemoveUnresolvedRoute(const AgentRoute *rt);
     void DeleteRouteDone(DBTable::DBTableWalkRef walk_ref, DBTableBase *base,
                          RouteTableWalkerState *state);
 
     void Input(DBTablePartition *part, DBClient *client, DBRequest *req);
 
     Agent *agent_;
-    UnresolvedRouteTree unresolved_rt_tree_;
-    UnresolvedNHTree unresolved_nh_tree_;
-    VrfEntryRef vrf_entry_;
-    // VRF is stored to identify which VRF this table belonged to
-    // in case lifetimeactor has reset the vrf_. 
     uint32_t vrf_id_;
+    VrfEntryRef vrf_entry_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<AgentRouteTable> vrf_delete_ref_;
+    UnresolvedRouteTree unresolved_rt_tree_;
+    UnresolvedNHTree unresolved_nh_tree_;
+    // VRF is stored to identify which VRF this table belonged to
+    // in case lifetimeactor has reset the vrf_. 
     SandeshTraceBufferPtr OperDBTraceBuf;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteTable);
 };
@@ -264,6 +253,13 @@ public:
                              DBTablePartition *part,
                              AgentPath *path,
                              AgentRouteData *data) {return false;}
+    //Can be used for operations related to updation of route.
+    virtual void UpdateDerivedRoutes(AgentRouteTable *table,
+                                     const AgentPath *path,
+                                     bool active_path_changed) {
+    }
+    //Can be used for operations resulting from deletion of route.
+    virtual void DeleteDerivedRoutes(AgentRouteTable *table) { }
 
     // Accessor functions
     bool is_multicast() const {return is_multicast_;}
@@ -290,18 +286,18 @@ public:
     bool WaitForTraffic() const;
     virtual uint8_t plen() const { return 0; }
 
+    bool DeleteAllBgpPath(DBTablePartBase *part, AgentRouteTable *table);
+    void DeletePathFromPeer(DBTablePartBase *part, AgentRouteTable *table,
+                            AgentPath *path);
 protected:
     void SetVrf(VrfEntry *vrf) { vrf_ = vrf; }
-    void RemovePathInternal(AgentPath *path);
     void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
     void DeletePathInternal(AgentPath *path);
 
 private:
     friend class AgentRouteTable;
-    bool ProcessPath(Agent *agent,
-                     DBTablePartition *part,
-                     AgentPath *path,
+    bool ProcessPath(Agent *agent, DBTablePartition *part, AgentPath *path,
                      AgentRouteData *data);
 
     VrfEntry *vrf_;

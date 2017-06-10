@@ -414,49 +414,6 @@ void EvpnAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
     EvpnTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
-//Notify L2 route corresponding to MAC in evpn route.
-//On addition of evpn routes, update bridge route using mac of evpn and inet
-//route using ip of evpn.
-//NH of bridge route is same as of EVPN as bridge rt is programmed in kernel.
-//NH of Inet route will be of subnet route to which it belongs. This makes sure
-//that n absence of any directly installed Inet route for this IP packets are
-//forwarded as per the subnet route decision.
-void EvpnAgentRouteTable::UpdateDerivedRoutes(AgentRoute *entry,
-                                              const AgentPath *path,
-                                              bool active_path_changed) {
-    EvpnRouteEntry *evpn_rt = dynamic_cast<EvpnRouteEntry *>(entry);
-    //As active path is picked from route, any modification in non-active
-    //path need not rebake agent route.
-    //Path is NULL when resync is issued on route, hence no need to check flag
-    if ((path != NULL) && !active_path_changed)
-        return;
-
-
-    if (evpn_rt->publish_to_bridge_route_table()) {
-        BridgeAgentRouteTable *table = static_cast<BridgeAgentRouteTable *>
-            (vrf_entry()->GetBridgeRouteTable());
-        table->AddBridgeRoute(entry);
-    }
-    if (evpn_rt->publish_to_inet_route_table()) {
-        InetUnicastAgentRouteTable *table = vrf_entry()->
-                        GetInetUnicastRouteTable(evpn_rt->ip_addr());
-        table->AddEvpnRoute(entry);
-    }
-}
-
-//Delete path from L2 route corresponding to MAC+IP in evpn route.
-void EvpnAgentRouteTable::PreRouteDelete(AgentRoute *entry) {
-    EvpnRouteEntry *evpn_rt = dynamic_cast<EvpnRouteEntry *>(entry);
-    //Delete from bridge table
-    BridgeAgentRouteTable *bridge_table = static_cast<BridgeAgentRouteTable *>
-        (vrf_entry()->GetBridgeRouteTable());
-    bridge_table->DeleteBridgeRoute(entry);
-    //Delete from Inet table
-    InetUnicastAgentRouteTable *inet_table = vrf_entry()->
-        GetInetUnicastRouteTable(evpn_rt->ip_addr());
-    inet_table->DeleteEvpnRoute(entry);
-}
-
 /////////////////////////////////////////////////////////////////////////////
 // EvpnRouteEntry methods
 /////////////////////////////////////////////////////////////////////////////
@@ -544,6 +501,49 @@ const AgentPath *EvpnRouteEntry::FindOvsPath() const {
         }
     }
     return NULL;
+}
+
+//Notify L2 route corresponding to MAC in evpn route.
+//On addition of evpn routes, update bridge route using mac of evpn and inet
+//route using ip of evpn.
+//NH of bridge route is same as of EVPN as bridge rt is programmed in kernel.
+//NH of Inet route will be of subnet route to which it belongs. This makes sure
+//that n absence of any directly installed Inet route for this IP packets are
+//forwarded as per the subnet route decision.
+void EvpnRouteEntry::UpdateDerivedRoutes(AgentRouteTable *table,
+                                         const AgentPath *path,
+                                         bool active_path_changed) {
+    //As active path is picked from route, any modification in non-active
+    //path need not rebake agent route.
+    //Path is NULL when resync is issued on route, hence no need to check flag
+    if ((path != NULL) && !active_path_changed)
+        return;
+
+
+    if (publish_to_bridge_route_table()) {
+        BridgeAgentRouteTable *bridge_table = NULL;
+        bridge_table = static_cast<BridgeAgentRouteTable *>
+            (table->vrf_entry()->GetBridgeRouteTable());
+        bridge_table->AddBridgeRoute(this);
+    }
+    if (publish_to_inet_route_table()) {
+        InetUnicastAgentRouteTable *inet_table =
+            table->vrf_entry()->GetInetUnicastRouteTable(ip_addr());
+        inet_table->AddEvpnRoute(this);
+    }
+}
+
+//Delete path from L2 route corresponding to MAC+IP in evpn route.
+void EvpnRouteEntry::DeleteDerivedRoutes(AgentRouteTable *table) {
+    //Delete from bridge table
+    BridgeAgentRouteTable *bridge_table = static_cast<BridgeAgentRouteTable *>
+        (table->vrf_entry()->GetBridgeRouteTable());
+    bridge_table->DeleteBridgeRoute(this);
+
+    //Delete from Inet table
+    InetUnicastAgentRouteTable *inet_table =
+        table->vrf_entry()->GetInetUnicastRouteTable(ip_addr());
+    inet_table->DeleteEvpnRoute(this);
 }
 
 /////////////////////////////////////////////////////////////////////////////

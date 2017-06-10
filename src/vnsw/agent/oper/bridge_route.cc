@@ -728,6 +728,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                                       vrf()->GetName(),
                                                       ToString());
             }
+            std::auto_ptr<AgentPath> path_ref(multicast_peer_path);
             RemovePath(multicast_peer_path);
         }
         return true;

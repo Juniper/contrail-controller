@@ -422,6 +422,7 @@ public:
     MplsLabel *AllocateLabel(Agent *agent, const NextHopKey *key);
     virtual bool NeedMplsLabel() = 0;
     void PostAdd();
+    void EnqueueResync() const;
 protected:
     void FillObjectLog(AgentLogEvent::type event,
                        NextHopObjectLogInfo &info) const;

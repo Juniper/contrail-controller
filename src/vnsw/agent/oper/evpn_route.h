@@ -19,10 +19,6 @@ public:
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::EVPN;
     }
-    virtual void UpdateDerivedRoutes(AgentRoute *entry,
-                                     const AgentPath *path,
-                                     bool active_path_changed);
-    virtual void PreRouteDelete(AgentRoute *entry);
     virtual AgentSandeshPtr GetAgentSandesh(const AgentSandeshArguments *args,
                                             const std::string &context);
 
@@ -189,6 +185,10 @@ public:
     }
     const AgentPath *FindOvsPath() const;
 
+    virtual void UpdateDerivedRoutes(AgentRouteTable *table,
+                                     const AgentPath *path,
+                                     bool active_path_changed);
+    virtual void DeleteDerivedRoutes(AgentRouteTable *table);
 private:
 
     MacAddress mac_;
