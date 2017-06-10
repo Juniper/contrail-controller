@@ -836,6 +836,7 @@ SUBCHANNELS=1,2,3
         self.setup_coredump()
         self.fixup_config_files()
         self.increase_vrouter_limit()
+        self.setup_sriov_grub()
         if self._args.tsn_mode:
             self.setup_tsn_node()
             self.run_services()
