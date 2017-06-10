@@ -47,8 +47,8 @@ bool HaStaleL2RouteEntry::Add() {
         return true;
     }
 
-    if (path_preference_ < PathPreference::LOW) {
-        // donot reexport the route if path preference is less than LOW
+    if (path_preference_ == PathPreference::HA_STALE) {
+        // donot reexport the route if path preference is HA_STALE
         return true;
     }
     HaStaleDevVnEntry *dev_vn = table->dev_vn_;
@@ -109,7 +109,7 @@ bool HaStaleL2RouteEntry::Sync(DBEntry *db_entry) {
     bool change = false;
     if (path != NULL && path_preference_ != path->preference()) {
         path_preference_ = path->preference();
-        if (path_preference_ < PathPreference::LOW) {
+        if (path_preference_ == PathPreference::HA_STALE) {
             // Active Path gone, start the timer to delete path
             if (time_stamp_ == 0) {
                 HaStaleL2RouteTable *table =
@@ -224,9 +224,9 @@ KSyncDBObject::DBFilterResp HaStaleL2RouteTable::OvsdbDBEntryFilter(
 
     const AgentPath *path = entry->GetActivePath();
     if (path != NULL) {
-        // if connection is active and preference is less than
-        // PathPreference::LOW trigger delete
-        if (path->preference() < PathPreference::LOW
+        // if connection is active and preference is
+        // PathPreference::HA_STALE trigger delete
+        if (path->preference() == PathPreference::HA_STALE
             && state_->IsConnectionActive()) {
             return DBFilterDelete;
         }
