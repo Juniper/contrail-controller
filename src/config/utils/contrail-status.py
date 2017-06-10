@@ -37,6 +37,7 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                   'upstart' : ['supervisor-vrouter'],
                                   'supervisor' : ['supervisor-vrouter'],
                                   'systemd' : ['contrail-vrouter-agent',
+                                               'contrail-vrouter-dpdk',
                                                'contrail-tor-agent',
                                                'contrail-vrouter-nodemgr']},
                      'control' : {'sysv' : ['supervisor-control'],
@@ -94,6 +95,10 @@ CONTRAIL_SUPPORT_SERVICES_NODETYPE = { 'redis-server' : ['webui', 'analytics'],
                                'rabbitmq-server' : ['config'],
                                'zookeeper' : ['config']
                             }
+
+SHOW_IF_DISABLED = {
+                       'contrail-vrouter-dpdk': False
+                   }
 
 (distribution, os_version, os_id) = \
     platform.linux_distribution(full_distribution_name=0)
@@ -339,6 +344,8 @@ def service_status(svc, check_return_code):
 def check_svc(svc, initd_svc=False, check_return_code=False,
               options=None):
     psvc = svc + ':'
+    show = True
+
     if service_installed(svc, initd_svc):
         bootstatus = service_bootstatus(svc, initd_svc)
         status = service_status(svc, check_return_code)
@@ -348,9 +355,13 @@ def check_svc(svc, initd_svc=False, check_return_code=False,
                 options.cacert, options.certfile)
         print '{0:<30}{1:<20}{2}'.format(psvc, status, bootstatus)
     else:
-        bootstatus = ' (disabled on boot)'
-        status='inactive'
-    print '%-30s%s%s' %(psvc, status, bootstatus)
+        if svc in SHOW_IF_DISABLED and SHOW_IF_DISABLED[svc] == False:
+            show = False
+        else:
+            bootstatus = ' (disabled on boot)'
+            status='inactive'
+        if show == True:
+            print '%-30s%s%s' %(psvc, status, bootstatus)
 
 def _get_http_server_port_from_conf(svc_name, conf_file, debug):
     try:
