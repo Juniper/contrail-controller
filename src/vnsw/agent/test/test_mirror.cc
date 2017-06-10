@@ -661,6 +661,15 @@ TEST_F(MirrorTableTest, StaticMirrorEntryAdd_9) {
     EXPECT_TRUE(mirr_entry != NULL);
     const NextHop *mirr_nh = mirr_entry->GetNH();
     EXPECT_TRUE(mirr_nh->GetType() == NextHop::TUNNEL);
+    // change the Vxlan look for change reflected
+    MirrorTable::AddMirrorEntry(ana, "vrf3", vhost_ip, 0x1, remote_server,
+                                      0x2, 3 , 4, remote_vm_mac);
+    client->WaitForIdle();
+    MirrorEntryKey key_chg(ana);
+    const MirrorEntry *mirr_entry_chg = static_cast<const MirrorEntry *>
+                                    (agent_->mirror_table()->FindActiveEntry(&key_chg));
+    EXPECT_TRUE(mirr_entry_chg != NULL);
+    EXPECT_TRUE(mirr_entry_chg->GetVni() == 3);
 
     DelArp("8.8.8.8", "00:00:08:08:08:08", agent_->fabric_interface_name().c_str());
     client->WaitForIdle();
