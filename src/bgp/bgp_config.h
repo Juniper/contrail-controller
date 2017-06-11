@@ -558,14 +558,15 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpProtocolConfig);
 };
 
-// Route Policy configuration.
+// Global system configuration.
 class BgpGlobalSystemConfig {
 public:
     static const int kEndOfRibTime = 300; // seconds
     BgpGlobalSystemConfig() :
             last_change_at_(0), gr_time_(0), llgr_time_(0),
             end_of_rib_timeout_(kEndOfRibTime), gr_enable_(false),
-            gr_bgp_helper_(false), gr_xmpp_helper_(false) {
+            gr_bgp_helper_(false), gr_xmpp_helper_(false),
+            always_compare_med_(false) {
     }
     ~BgpGlobalSystemConfig() { }
 
@@ -583,6 +584,10 @@ public:
     void set_gr_xmpp_helper(bool helper) { gr_xmpp_helper_ = helper; }
     bool gr_enable() const { return gr_enable_; }
     void set_gr_enable(bool enable) { gr_enable_ = enable; }
+    bool always_compare_med() const { return always_compare_med_; }
+    void set_always_compare_med(bool always_compare_med) {
+        always_compare_med_ = always_compare_med;
+    }
 
 private:
     mutable uint64_t last_change_at_;
@@ -592,6 +597,8 @@ private:
     bool gr_enable_;
     bool gr_bgp_helper_;
     bool gr_xmpp_helper_;
+    bool always_compare_med_;
+
     DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);
 };
 
