@@ -68,7 +68,9 @@ struct AgentRouteData : public AgentData {
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt) = 0;
     virtual bool CanDeletePath(Agent *agent, AgentPath *path,
-                            const AgentRoute *rt) const {return true;}
+                               const AgentRoute *rt) const {
+        return true;
+    }
     virtual bool UpdateRoute(AgentRoute *rt) {return false;}
 
     bool AddChangePath(Agent *agent, AgentPath *path, const AgentRoute *rt);
@@ -179,6 +181,13 @@ public:
     // Path comparator
     static bool PathSelection(const Path &path1, const Path &path2);
     static const std::string &GetSuffix(Agent::RouteTableType type);
+
+    void AddChangeInput(DBTablePartition *part, VrfEntry *vrf, AgentRoute *rt,
+                        AgentRouteKey *key, AgentRouteData *data);
+    AgentRoute *LocateRoute(DBTablePartition *part, VrfEntry *vrf,
+                            AgentRoute *rt, AgentRouteKey *key,
+                            AgentRouteData *data, bool *notify);
+
 private:
     class DeleteActor;
     void DeleteRouteDone(DBTable::DBTableWalkRef walk_ref, DBTableBase *base,
@@ -246,9 +255,6 @@ public:
     virtual AgentPath *FindPathUsingKeyData(const AgentRouteKey *key,
                                             const AgentRouteData *data) const;
     virtual AgentPath *FindPath(const Peer *peer) const;
-    virtual void DeletePathUsingKeyData(const AgentRouteKey *key,
-                                        const AgentRouteData *data,
-                                        bool force_delete);
     virtual bool RecomputeRoutePath(Agent *agent,
                              DBTablePartition *part,
                              AgentPath *path,
@@ -289,11 +295,18 @@ public:
     bool DeleteAllBgpPath(DBTablePartBase *part, AgentRouteTable *table);
     void DeletePathFromPeer(DBTablePartBase *part, AgentRouteTable *table,
                             AgentPath *path);
+    bool SubOpResyncInput(VrfEntry *vrf, AgentRouteTable *table,
+                          AgentPath **path_ptr, AgentRouteKey *key,
+                          AgentRouteData *data);
+    bool SubOpAddChangeInput(VrfEntry *vrf, AgentRouteTable *table,
+                             AgentPath **path_ptr, AgentRouteKey *key,
+                             AgentRouteData *data, bool route_added);
+    void DeleteInput(DBTablePartition *part, AgentRouteTable *table,
+                     AgentRouteKey *key, AgentRouteData *data);
 protected:
     void SetVrf(VrfEntry *vrf) { vrf_ = vrf; }
     void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
-    void DeletePathInternal(AgentPath *path);
 
 private:
     friend class AgentRouteTable;

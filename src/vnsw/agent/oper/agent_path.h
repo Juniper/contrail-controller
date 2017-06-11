@@ -478,6 +478,8 @@ public:
     uint32_t ethernet_tag() const {return ethernet_tag_;}
     const AgentPath *reference_path() const {return reference_path_;}
 
+    virtual bool CanDeletePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt) const;
 private:
     void CopyData(const AgentPath *path);
 
@@ -730,7 +732,8 @@ public:
                                    uint32_t tunnel_type,
                                    NextHop *nh,
                                    const AgentRoute *rt);
-
+    virtual bool CanDeletePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt) const;
 private:
     string vn_name_;
     uint32_t label_;
