@@ -118,10 +118,6 @@ public:
     virtual bool ReComputePathAdd(AgentPath *path);
     virtual AgentPath *FindPathUsingKeyData(const AgentRouteKey *key,
                                             const AgentRouteData *data) const;
-    virtual void DeletePathUsingKeyData(const AgentRouteKey *key,
-                                        const AgentRouteData *data,
-                                        bool force_delete);
-
     const MacAddress &mac() const {return mac_;}
     const MacVmBindingPath *FindMacVmBindingPath() const;
 
