@@ -2243,13 +2243,18 @@ bool CompositeNHKey::NextHopKeyIsLess(const NextHopKey &rhs) const {
     return false;
 }
 
+// Expand list of local composite members using the MPLS label in
+// local-composite key
+// Note, another alternative could be to use path created for local-composites
+// However, in cases such as service-chain, the MPLS label can point to
+// local composite created from different route (route for service-ip)
 bool CompositeNHKey::ExpandLocalCompositeNH(Agent *agent) {
     uint32_t label = MplsTable::kInvalidLabel;
     //Find local composite ecmp label
     BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
                   component_nh_key_list_) {
         if (component_nh_key.get() &&
-                component_nh_key->nh_key()->GetType() == NextHop::COMPOSITE) {
+            component_nh_key->nh_key()->GetType() == NextHop::COMPOSITE) {
             label = component_nh_key->label();
             //Erase the entry from list, it will be replaced with
             //individual entries of this local composite NH
@@ -2269,6 +2274,18 @@ bool CompositeNHKey::ExpandLocalCompositeNH(Agent *agent) {
     }
 
     const NextHop *mpls_nh = mpls->nexthop();
+
+    // FIXME: Its possible that the label we have got here is re-cycled one
+    // We dont have a good scheme to handle recycled labels. For now ensure
+    // that label points to COMPOSITE.
+    //
+    // If the label is really recyecled, then we will get a route update
+    // shortly with new label or route delete
+    if (mpls_nh->GetType() != NextHop::COMPOSITE) {
+        component_nh_key_list_.clear();
+        return false;
+    }
+
     assert(mpls_nh->GetType() == NextHop::COMPOSITE);
     const CompositeNH *cnh = static_cast<const CompositeNH *>(mpls_nh);
 

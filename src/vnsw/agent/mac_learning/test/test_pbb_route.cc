@@ -188,7 +188,7 @@ TEST_F(PbbRouteTest, RouteTest3) {
     //Add a BMAC route in evpn vrf
     BridgeTunnelRouteAdd(bgp_peer_, "vrf1", TunnelType::AllType(),
                          server1_ip_, (MplsTable::kStartLabel + 60), b_smac_,
-                         Ip4Address(0), 32, true);
+                         Ip4Address(0), 32, 0, true);
     client->WaitForIdle();
 
     EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1", b_smac_, Ip4Address(0), 0);
@@ -202,7 +202,7 @@ TEST_F(PbbRouteTest, RouteTest3) {
 
     BridgeTunnelRouteAdd(bgp_peer_, "vrf1", TunnelType::AllType(),
             server1_ip_, (MplsTable::kStartLabel + 60), b_smac_,
-            Ip4Address(0), 32, false);
+            Ip4Address(0), 32, 0, false);
     client->WaitForIdle();
     EXPECT_TRUE(pbb_nh->etree_leaf() == false);
 

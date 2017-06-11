@@ -251,6 +251,11 @@ bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const IpAddress &vm_addr, uint8_t plen,
+                          uint32_t tag = 0, bool leaf = false);
+bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
+                          TunnelType::TypeBmap bmap, const char *server_ip,
+                          uint32_t label, MacAddress &remote_vm_mac,
+                          const char *vm_addr, uint8_t plen, uint32_t tag = 0,
                           bool leaf = false);
 bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                          const Ip4Address &vm_addr,
@@ -258,10 +263,6 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                          uint32_t label, const string &dest_vn_name,
                          const SecurityGroupList &sg,
                          const PathPreference &path_preference);
-bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
-                          TunnelType::TypeBmap bmap, const char *server_ip,
-                          uint32_t label, MacAddress &remote_vm_mac,
-                          const char *vm_addr, uint8_t plen, bool leaf = false);
 bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, char *vm_addr,
                          uint8_t plen, char *server_ip, TunnelType::TypeBmap bmap,
                          uint32_t label, const string &dest_vn_name,
@@ -462,7 +463,9 @@ void DelHealthCheckService(const char *name);
 void AddHealthCheckService(const char *name, int id, const char *url_path,
                            const char *monitor_type);
 
-void VxLanNetworkIdentifierMode(bool config);
+void VxLanNetworkIdentifierMode(bool config, const char *encap1 = NULL,
+                                const char *encap2 = NULL,
+                                const char *encap3 = NULL);
 void GlobalForwardingMode(std::string mode);
 void AddFlowExportRate(int cfg_flow_export_rate);
 int MplsToVrfId(int label);

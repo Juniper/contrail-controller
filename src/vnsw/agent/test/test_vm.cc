@@ -133,9 +133,9 @@ TEST_F(CfgTest, VmAddDelAllocUnitIpam_1) {
     client->WaitForIdle();
 
     Ip4Address instance_ip = Ip4Address::from_string("17.1.1.4");
-    InetUnicastRouteEntry *rt = RouteGet("vrf1", instance_ip, 30);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", instance_ip, 24);
     EXPECT_TRUE(rt != NULL);
-    EXPECT_EQ(30U, rt->plen());
+    EXPECT_EQ(24U, rt->plen());
 
     DeleteVmportEnv(input1, 1, 1);
     client->WaitForIdle();
@@ -159,9 +159,9 @@ TEST_F(CfgTest, VmAddDelAllocUnitIpam_2) {
     client->WaitForIdle();
 
     Ip4Address instance_ip = Ip4Address::from_string("17.1.1.4");
-    InetUnicastRouteEntry *rt = RouteGet("vrf1", instance_ip, 30);
+    InetUnicastRouteEntry *rt = RouteGet("vrf1", instance_ip, 24);
     EXPECT_TRUE(rt != NULL);
-    EXPECT_EQ(30U, rt->plen());
+    EXPECT_EQ(24U, rt->plen());
 
     DeleteVmportEnv(input1, 1, 1);
     client->WaitForIdle();
