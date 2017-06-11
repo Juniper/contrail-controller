@@ -264,17 +264,21 @@ class DMUtils(object):
         return "/* Contrail Generated Group Config */"
 
     @staticmethod
-    def vn_ri_comment(vn, is_l2, is_l2_l3, is_nat):
+    def vn_ri_comment(vn, is_l2, is_l2_l3, is_nat, router_external):
         vrf_type = "L3"
         fwd_mode = "L3"
+        vn_type = "Private"
         if is_l2:
             vrf_type = "L2"
             fwd_mode = "L2"
         if is_l2_l3:
             fwd_mode = "L2-L3"
+        if router_external:
+            vn_type = "Public"
         if not is_nat:
-            return "/* Virtual Network: %s, UUID: %s, VRF Type: %s," \
-                " Forwarding Mode: %s */"%(vn.fq_name[-1], vn.uuid, vrf_type, fwd_mode)
+            return "/* %s Virtual Network: %s, UUID: %s, VRF Type: %s," \
+                " Forwarding Mode: %s */"%(vn_type, vn.fq_name[-1], vn.uuid,
+                                                           vrf_type, fwd_mode)
         return "/* Virtual Network: %s, UUID: %s, VRF Type: %s (NAT)," \
             " Forwarding Mode: %s */"%(vn.fq_name[-1], vn.uuid, vrf_type, fwd_mode)
 

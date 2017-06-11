@@ -291,7 +291,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     <xsd:all>
         <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="name" type="xsd:string"/>
-        <xsd:element name="term" type="Term"/>
+        <xsd:element name="term" type="Term" maxOccurs="unbounded"/>
         <xsd:element name="then" type="Then"/>
     </xsd:all>
 </xsd:complexType>

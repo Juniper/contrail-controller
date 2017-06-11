@@ -266,7 +266,7 @@ class MxConf(JuniperConf):
         ri = Instance(name=ri_name)
         if vn:
             is_nat = True if fip_map else False
-            ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat))
+            ri.set_comment(DMUtils.vn_ri_comment(vn, is_l2, is_l2_l3, is_nat, router_external))
         ri_config.add_instance(ri)
         ri_opt = None
         if router_external and is_l2 == False:
@@ -367,7 +367,7 @@ class MxConf(JuniperConf):
         ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
         ps.set_comment(DMUtils.vn_ps_comment(vn, "Export"))
         then = Then()
-        ps.set_term(Term(name="t1", then=then))
+        ps.add_term(Term(name="t1", then=then))
         for route_target in export_targets:
             comm = Community(add='',
                              community_name=DMUtils.make_community_name(route_target))
@@ -384,7 +384,7 @@ class MxConf(JuniperConf):
         ps.set_comment(DMUtils.vn_ps_comment(vn, "Import"))
         from_ = From()
         term = Term(name="t1", fromxx=from_)
-        ps.set_term(term)
+        ps.add_term(term)
         for route_target in import_targets:
             from_.add_community(DMUtils.make_community_name(route_target))
         term.set_then(Then(accept=''))
@@ -536,6 +536,7 @@ class MxConf(JuniperConf):
             inet = None
             inet6 = None
             for (lo_ip, _) in gateways:
+                subnet = lo_ip
                 (ip, _) = lo_ip.split('/')
                 if ':' in lo_ip:
                     if not inet6:
@@ -552,7 +553,7 @@ class MxConf(JuniperConf):
                     inet.add_address(addr)
                     lo_ip = ip + '/' + '32'
                 addr.set_name(lo_ip)
-                addr.set_comment(DMUtils.lo0_ip_comment(lo_ip))
+                addr.set_comment(DMUtils.lo0_ip_comment(subnet))
             ri.add_interface(Interface(name="lo0." + ifl_num,
                                        comment=DMUtils.lo0_ri_intf_comment(vn)))
 
