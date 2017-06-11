@@ -170,6 +170,8 @@ public:
             return false;
         if (!peer_->state_machine_->IsQueueEmpty())
             return false;
+        if (peer_->prefix_limit_trigger_.IsSet())
+            return false;
         return true;
     }
 
@@ -453,6 +455,9 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetTaskInstance()),
+          prefix_limit_trigger_(boost::bind(&BgpPeer::CheckPrefixLimits, this),
+                   TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+                   GetTaskInstance()),
           buffer_capacity_(GetBufferCapacity()),
           session_(NULL),
           keepalive_timer_(TimerManager::CreateTimer(*server->ioservice(),
@@ -473,6 +478,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           peer_as_(config->peer_as()),
           local_bgp_id_(config->local_identifier()),
           peer_bgp_id_(0),
+          family_primary_path_count_(Address::NUM_FAMILIES),
           peer_type_((config->peer_as() == config->local_as()) ?
                          BgpProto::IBGP : BgpProto::EBGP),
           state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
@@ -520,12 +526,12 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
     for (Address::Family family = Address::UNSPEC;
             family < Address::NUM_FAMILIES;
             family = static_cast<Address::Family>(family + 1)) {
+        family_primary_path_count_[family] = 0;
          eor_send_timer_[family] =
              TimerManager::CreateTimer(*server->ioservice(),
                  "BGP EoR Send timer for " + Address::FamilyToString(family),
                  TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                  GetTaskInstance());
-
          eor_receive_timer_[family] =
              TimerManager::CreateTimer(*server->ioservice(),
                  "BGP EoR Receive timer for " + Address::FamilyToString(family),
@@ -734,6 +740,28 @@ void BgpPeer::LogInstallAuthKeys(const string &socket_name,
 }
 
 //
+// Check if the configured prefix limit for any address family has been
+// exceeded. If yes, clear the peer by sending a notification with a cease
+// subcode of MaxPrefixes.
+//
+bool BgpPeer::CheckPrefixLimits() {
+    RetryDelete();
+    if (!IsReady())
+        return true;
+    for (size_t idx = Address::UNSPEC; idx < Address::NUM_FAMILIES; ++idx) {
+        BgpPeerFamilyAttributes *family_attributes =
+            family_attributes_list_[idx];
+        if (!family_attributes || family_attributes->prefix_limit == 0)
+            continue;
+        if (family_primary_path_count_[idx] <= family_attributes->prefix_limit)
+            continue;
+        Clear(BgpProto::Notification::MaxPrefixes);
+        break;
+    }
+    return true;
+}
+
+//
 // Process family attributes configuration and update the family attributes
 // list.
 //
@@ -758,6 +786,7 @@ bool BgpPeer::ProcessFamilyAttributesConfig(const BgpNeighborConfig *config) {
     STLDeleteValues(&family_attributes_list_);
     family_attributes_list_ = family_attributes_list;
     configured_families_ = config->GetAddressFamilies();
+    prefix_limit_trigger_.Set();
     return (ret != 0);
 }
 
@@ -1041,7 +1070,7 @@ const IPeerDebugStats *BgpPeer::peer_stats() const {
 }
 
 void BgpPeer::Clear(int subcode) {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine");
     state_machine_->Shutdown(subcode);
 }
 
@@ -1699,6 +1728,18 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
             "Update size " << msgsize <<
             " reach " << reach_count << " unreach " << unreach_count);
     }
+}
+
+void BgpPeer::UpdatePrimaryPathCount(int count, Address::Family family) const {
+    primary_path_count_ += count;
+    if (family == Address::UNSPEC)
+        return;
+    family_primary_path_count_[family] += count;
+    uint32_t limit = 0;
+    if (family_attributes_list_[family])
+        limit = family_attributes_list_[family]->prefix_limit;
+    if (limit && family_primary_path_count_[family] > limit)
+        prefix_limit_trigger_.Set();
 }
 
 void BgpPeer::EndOfRibTimerErrorHandler(string error_name,

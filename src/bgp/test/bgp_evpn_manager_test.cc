@@ -117,7 +117,8 @@ public:
     }
     virtual void UpdateTotalPathCount(int count) { }
     virtual int GetTotalPathCount() const { return 0; }
-    virtual void UpdatePrimaryPathCount(int count) const { }
+    virtual void UpdatePrimaryPathCount(int count,
+        Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
     virtual void MembershipRequestCallback(BgpTable *table) { }
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,

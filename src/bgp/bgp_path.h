@@ -71,7 +71,7 @@ public:
     const IPeer *GetPeer() const { return peer_; }
     const uint32_t GetPathId() const { return path_id_; }
 
-    void UpdatePeerRefCount(int count) const;
+    void UpdatePeerRefCount(int count, Address::Family family) const;
 
     void SetAttr(const BgpAttrPtr attr, const BgpAttrPtr original_attr) {
         attr_ = attr;

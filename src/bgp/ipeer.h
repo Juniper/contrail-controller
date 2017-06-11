@@ -208,7 +208,8 @@ public:
     virtual const std::string GetStateName() const = 0;
     virtual void UpdateTotalPathCount(int count) const = 0;
     virtual int GetTotalPathCount() const = 0;
-    virtual void UpdatePrimaryPathCount(int count) const = 0;
+    virtual void UpdatePrimaryPathCount(int count,
+        Address::Family family = Address::UNSPEC) const = 0;
     virtual int GetPrimaryPathCount() const = 0;
     virtual void MembershipRequestCallback(BgpTable *table) = 0;
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,

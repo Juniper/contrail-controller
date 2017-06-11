@@ -152,13 +152,13 @@ bool BgpPath::PathSameNeighborAs(const BgpPath &rhs) const {
     return (attr_->neighbor_as() == rattr->neighbor_as());
 }
 
-void BgpPath::UpdatePeerRefCount(int count) const {
+void BgpPath::UpdatePeerRefCount(int count, Address::Family family) const {
     if (!peer_)
         return;
     peer_->UpdateTotalPathCount(count);
-    if (source_ != BGP_XMPP || IsReplicated())
+    if (source_ != BGP_XMPP || IsReplicated() || IsResolved())
         return;
-    peer_->UpdatePrimaryPathCount(count);
+    peer_->UpdatePrimaryPathCount(count, family);
 }
 
 string BgpPath::ToString() const {
