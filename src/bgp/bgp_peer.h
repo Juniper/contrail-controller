@@ -336,6 +336,7 @@ public:
     virtual bool IsInGRTimerWaitState() const;
     PeerCloseManager *close_manager() { return close_manager_.get(); }
     virtual bool IsServerStartingUp() const;
+    bool IsCloseGraceful() const;
 
 protected:
     virtual void SendEndOfRIBActual(Address::Family family);

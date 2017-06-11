@@ -181,6 +181,7 @@ public:
     void LogEvent(std::string event_name, std::string msg,
                   SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG);
     bool HoldTimerExpired();
+    virtual bool IsCloseGraceful() const;
 
 protected:
     virtual void OnNotificationMessage(BgpSession *session,
