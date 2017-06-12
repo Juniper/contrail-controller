@@ -100,7 +100,11 @@ class Hook(cgitb.Hook):
         doc = local_buf.getvalue()
         local_buf.close()
         self.file.write(mask_password(doc))
-        self.file.flush()
+        try:
+            self.file.flush()
+        except:
+            # Ignore errors during flush.
+            pass
 
 
 handler = Hook(format='text').handle
