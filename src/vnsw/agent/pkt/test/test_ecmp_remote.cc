@@ -357,7 +357,7 @@ TEST_F(RemoteEcmpTest, Fabric_DstFip_NonEcmpToEcmp_2) {
                        remote_vm_ip, vm_ip, 1, 100+i);
         client->WaitForIdle();
 
-        int nh_id = GetActiveLabel(mpls_label_3)->nexthop()->id();
+        int nh_id = GetActiveLabel(MplsLabel::VPORT_NH, mpls_label_3)->nexthop()->id();
         FlowEntry *entry = FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(),
                                    remote_vm_ip, vm_ip, 17, 1, 100+i, nh_id);
         EXPECT_TRUE(entry != NULL);
