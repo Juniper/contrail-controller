@@ -78,21 +78,18 @@ def dump_ksync_mc_route_entries(table):
     print_ksync_entries(ksync_mc_route_table, print_ksync_route_entry)
 
 def print_ksync_flow_entry(entry_ptr, entry):
-    flow = entry.cast(gdb.lookup_type('FlowTableKSyncEntry'))
+    kflow = entry.cast(gdb.lookup_type('FlowTableKSyncEntry'))
     print ( str(entry_ptr) + "  hash=0x%-8x  fp=%s \n" % (kflow['hash_id_'], kflow['flow_entry_']['px']))
 
 def dump_ksync_flow_entries(table):
     pksync_entries = gdb.parse_and_eval(str(table))
     print_ksync_entries(pksync_entries, print_ksync_flow_entry)
 
-def print_ksync_mirror_entry(entry, entry_ptr):
+def print_ksync_mirror_entry(entry_ptr, entry):
     kmirror_entry = entry.cast(gdb.lookup_type('MirrorKSyncEntry'))
-    sip = mirror['sip_']['addr_']['s_addr']
-    dip = mirror['dip_']['addr_']['s_addr']
-    print (str(entry_ptr) + "   %d.%d.%d.%d:%d   %d.%d.%d.%d:%d nh=%s\n" % ((sip >> 8 & 0xff), (sip >> 16 & 0xff),\
-           (sip >> 24 & 0xff), mirror['sport_'],\
-           (dip & 0xff), (dip >> 8 & 0xff), (dip >> 16 & 0xff),\
-           (dip >> 24 & 0xff), mirror['dport_'], mirror['nh_']['px'] ))
+    sip = str(kmirror_entry['sip_'])
+    dip = str(kmirror_entry['dip_'])
+    print (str(entry_ptr) + "    sip = " + sip + "    dip = " + dip + "    nh = " + str(kmirror_entry['nh_']['px']) + "    sport = " + str(kmirror_entry['sport_'])  + "    dport = " + str(kmirror_entry['dport_']))
 
 def dump_ksync_mirror_entries():
     mirror_entries = gdb.parse_and_eval('Agent::singleton_->ksync_->mirror_ksync_obj_.px')
@@ -102,6 +99,6 @@ def dump_ksync_vxlan_entries():
     vxlan_entries = gdb.parse_and_eval('Agent::singleton_->ksync_->vxlan_ksync_obj_.px')
     print_ksync_entries(vxlan_entries, print_ksync_vxlan_entry)
 
-def print_ksync_vxlan_entry(entry, entry_ptr):
+def print_ksync_vxlan_entry(entry_ptr, entry):
     kvxlan = entry.cast(gdb.lookup_type('VxLanIdKSyncEntry'))
     print (str(entry_ptr) + "   nh=%s  label=%s\n" % (kvxlan['nh_']['px'], kvxlan['label_']))

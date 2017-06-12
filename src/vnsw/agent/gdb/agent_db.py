@@ -77,8 +77,15 @@ def print_flow_entry_map(flow_table):
         pass
 
 def dump_flow_entries():
-    f_table = gdb.parse_and_eval('Agent::singleton_->pkt_->flow_table_.px')
-    print_flow_entry_map(f_table)
+    flow_table_pointer = my_value(gdb.parse_and_eval('Agent::singleton_->flow_proto_->flow_table_list_'))
+    flow_table_list = StdVectorPrinter('FlowTable *', flow_table_pointer)
+    it = flow_table_list.children()
+    try:
+        while 1:
+            flow_table = next(it)[1]
+            print_flow_entry_map(flow_table)
+    except StopIteration:
+        pass
 
 def print_vrf_entry(entry):
     vrf = entry.cast(gdb.lookup_type('VrfEntry'))
@@ -122,7 +129,7 @@ def dump_nh_entries(filter_fn = default_filter):
 
 def print_mpls_entry(entry):
     mpls = entry.cast(gdb.lookup_type('MplsLabel'))
-    print(str(mpls.address) +  "    label=%-4x   nh=%d" % (mpls['label_'], mpls['nh_']['px']))
+    print(str(mpls.address) +  "    label=%-4x   nh=%d" % (mpls['label_'], mpls['nh_']))
 
 def dump_mpls_entries(filter_fn = default_filter):
     mpls_table = gdb.parse_and_eval('Agent::singleton_.mpls_table_')
@@ -137,8 +144,9 @@ def dump_vxlan_entries(filter_fn = default_filter):
     print_db_entries(vxlan_table, print_vxlan_entry, filter_fn)
 
 def print_vrf_assign_entry(entry):
-    vrf_assign = entry.cast(gdb.lookup_type('VrfAssign'))
-    print (str(vrf_assign.address) +  "    flags=%-4d    ref=%-4d    type=%-4d    tag=%-4d" % (va['flags'], va['refcount_']['my_storage']['my_value'], va['type'], va['vlan_tag_']))
+    vrf_assign = entry.cast(gdb.lookup_type(str(entry.dynamic_type)))
+    print (str(vrf_assign.address))
+    print (str(vrf_assign.address) +  "    flags=%-4d    ref=%-4d    type=%-4d    tag=%-4d" % (vrf_assign['flags'], vrf_assign['refcount_']['my_storage']['my_value'], vrf_assign['type_'], vrf_assign['vlan_tag_']))
 
 def dump_vrf_assign_entries(filter_fn = default_filter):
     vrf_assign_table = gdb.parse_and_eval('Agent::singleton_.vrf_assign_table_')
@@ -220,9 +228,9 @@ def dump_ifmap_link_entries(table, filter_fn = default_filter):
 def print_service_instance_entry(entry):
     svi = entry.cast(gdb.lookup_type('ServiceInstance'))
     prop = svi['properties_']
-    print (str(svi.address) +  "   Uuid:%-20s ServiceType:%s VirtualisationType:%s VmiInside:%-20s VmiOutside:%-20s MacIn:%s MacOut:%s IpIn:%s IpOut:%s IpLenIn:%s IpLenOut:%s IfCount:%s LbPool:%-20s" % (
-       prop['instance_id']['data'], prop['service_type'], prop['virtualization_type'], prop['vmi_inside']['data'], prop['vmi_outside']['data'], prop['mac_addr_inside'], prop['mac_addr_outside'],
-       prop['ip_addr_inside'], prop['ip_addr_outside'], prop['ip_prefix_len_inside'], prop['ip_prefix_len_outside'], prop['interface_count'], prop['loadbalancer_id']['data']))
+    print (str(svi.address) +  "   Uuid:%s ServiceType:%s VirtualisationType:%s VmiInside:%s VmiOutside:%s MacIn:%s MacOut:%s IpIn:%s IpOut:%s IpLenIn:%s IpLenOut:%s IfCount:%s LbPool:%s" % (
+       prop['instance_id'], prop['service_type'], prop['virtualization_type'], prop['vmi_inside'], prop['vmi_outside'], prop['mac_addr_inside'], prop['mac_addr_outside'],
+       prop['ip_addr_inside'], prop['ip_addr_outside'], prop['ip_prefix_len_inside'], prop['ip_prefix_len_outside'], prop['interface_count'], prop['loadbalancer_id']))
 
 def dump_service_instance_entries(table, filter_fn = default_filter):
     svi_table = gdb.parse_and_eval(str(table))
@@ -230,8 +238,8 @@ def dump_service_instance_entries(table, filter_fn = default_filter):
 
 def print_mirror_entry(entry):
     mir = entry.cast(gdb.lookup_type(str(entry.dynamic_type)))
-    sip = ipv4_to_string(mir['sip_']['addr_']['s_addr'])
-    dip = ipv4_to_string(mir['dip_']['addr_']['s_addr'])
+    sip = str(mir['sip_'])
+    dip = str(mir['dip_'])
     print(str(mir.address) + "    " + sip + "    " + dip + "    nh = " + str(mir['nh_']['px']))
 
 def dump_mirror_entries(filter_fn = default_filter):
