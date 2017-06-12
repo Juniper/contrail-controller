@@ -375,17 +375,17 @@ class FakeAgent(object):
         return config, agent, thr
 
 
-class FakeVirtIOServer(object):
+class FakeVirtIOPortControlServer(object):
     def __init__(self, handle_request=None, **kwds):
-        super(FakeVirtIOServer, self).__init__(**kwds)
+        super(FakeVirtIOPortControlServer, self).__init__(**kwds)
 
         self.stop_event = threading.Event()
         self.handle_request = handle_request
         self.request_log = []
         self.request_types = {}
 
-    def run(self, zmq_ep, ready_event):
-        if zmq_ep is None:
+    def run(self, zmq_port_control_ep, ready_event):
+        if zmq_port_control_ep is None:
             # don't listen; used to test connect() timeout
             ready_event.set()
             self.stop_event.wait()
@@ -397,7 +397,7 @@ class FakeVirtIOServer(object):
         socket.setsockopt(zmq.LINGER, 500)
         socket.setsockopt(zmq.SNDTIMEO, 500)
         socket.setsockopt(zmq.RCVTIMEO, 500)
-        socket.bind(zmq_ep)
+        socket.bind(zmq_port_control_ep)
 
         ready_event.set()
 
@@ -436,14 +436,94 @@ class FakeVirtIOServer(object):
         self.stop_event.set()
 
     @classmethod
-    def boot(cls, assertTrue, server_zmq_ep, **kwds):
+    def boot(cls, assertTrue, server_zmq_port_control_ep, **kwds):
         ready_event = threading.Event()
         ready_event.clear()
 
         server = cls(**kwds)
         thr = threading.Thread(
             target=server.run,
-            kwargs={'zmq_ep': server_zmq_ep, 'ready_event': ready_event},
+            kwargs={
+                'zmq_port_control_ep': server_zmq_port_control_ep,
+                'ready_event': ready_event,
+            },
+        )
+        thr.daemon = True
+        thr.start()
+
+        READY_TIMEOUT_SEC = 2
+        ready_event.wait(READY_TIMEOUT_SEC)
+        assertTrue(
+            ready_event.is_set(),
+            'server thread not ready after {}s'.format(READY_TIMEOUT_SEC)
+        )
+
+        return server, thr
+
+
+class FakeVirtIOConfigServer(object):
+    def __init__(self, handle_request=None, **kwds):
+        super(FakeVirtIOConfigServer, self).__init__(**kwds)
+
+        self.stop_event = threading.Event()
+        self.handle_request = handle_request
+
+    def run(self, zmq_config_ep, ready_event):
+        if zmq_config_ep is None:
+            # Don't listen. This can be used to test the connect() timeout.
+            ready_event.set()
+            self.stop_event.wait()
+            return
+
+        context = zmq.Context()
+
+        socket = context.socket(zmq.REP)
+        socket.setsockopt(zmq.LINGER, 500)
+        socket.setsockopt(zmq.SNDTIMEO, 500)
+        socket.setsockopt(zmq.RCVTIMEO, 500)
+        socket.bind(zmq_config_ep)
+
+        ready_event.set()
+
+        while not self.stop_event.is_set():
+            try:
+                request_data = socket.recv()
+            except zmq.error.Again as e:
+                # recv() timeout
+                continue
+
+            request = self.decode_request(request_data)
+
+            if self.handle_request is not None:
+                response = self.handle_request(request)
+                socket.send(response)
+            else:
+                # No response. This can be used used to test the recv()
+                # timeout.
+                break
+
+        self.stop_event.wait()
+
+    def decode_request(self, request_data):
+        req = relay.ConfigRequest()
+        req.ParseFromString(request_data)
+        return req
+
+    def stop(self):
+        self.stop_event.set()
+
+    @classmethod
+    def boot(cls, assertTrue, server_zmq_config_ep, **kwds):
+        ready_event = threading.Event()
+        ready_event.clear()
+
+        server = cls(**kwds)
+        thr = threading.Thread(
+            target=server.run,
+            kwargs={
+                'zmq_config_ep': server_zmq_config_ep,
+                'ready_event': ready_event,
+            },
         )
         thr.daemon = True
         thr.start()
@@ -459,4 +539,5 @@ class FakeVirtIOServer(object):
 
 
 if relay is None:
-    FakeVirtIOServer = None
+    FakeVirtIOPortControlServer = None
+    FakeVirtIOConfigServer = None
