@@ -867,6 +867,48 @@ TEST_P(BgpTableExportParamTest2, EBgpStripNonTransitive) {
     VerifyAttrNoClusterList();
 }
 
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP (effectively XMPP since AsPath is NULL)
+// RibOut: eBGP
+// Intent: Remove private all is handled gracefully when AsPath is empty.
+//
+TEST_P(BgpTableExportParamTest2, RemovePrivateAll1) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+    ResetAttrAsPath();
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(1);
+    VerifyAttrAsPathAsCount(LocalAsNumber(), 1);
+}
+
+//
+// Table : inet.0, bgp.l3vpn.0
+// Source: iBGP
+// RibOut: eBGP
+// Intent: Remove private all is handled gracefully when AsPath has no
+//         segments.
+//
+TEST_P(BgpTableExportParamTest2, RemovePrivateAll2) {
+    RibExportPolicy policy(
+        BgpProto::EBGP, RibExportPolicy::BGP, 300, false, false, -1, 0);
+    bool all = true; bool replace = false; bool peer_loop_check = true;
+    policy.SetRemovePrivatePolicy(all, replace, peer_loop_check);
+    CreateRibOut(policy);
+    AddPath();
+    RunExport();
+    VerifyExportAccept();
+    VerifyAttrAsPrepend();
+    VerifyAttrAsPathCount(1);
+    VerifyAttrAsPathAsCount(LocalAsNumber(), 1);
+}
+
 INSTANTIATE_TEST_CASE_P(Instance, BgpTableExportParamTest2,
     ::testing::Values("inet.0", "bgp.l3vpn.0"));
 
@@ -1110,8 +1152,6 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace1) {
 // Table : inet.0, bgp.l3vpn.0
 // Source: eBGP
 // RibOut: iBGP
-// Intent: Remove private all (w/ replace) replaces all private ASes.
-//         first public AS.
 // Intent: Remove private all (w/ replace) replaces all private ASes. All
 //         private ASes up to the first public AS are replaced with the
 //         leftmost public as. Remaining private ASes are replaced with the
@@ -1140,8 +1180,6 @@ TEST_P(BgpTableExportParamTest3, RemovePrivateAllReplace2) {
 // Table : inet.0, bgp.l3vpn.0
 // Source: eBGP
 // RibOut: iBGP
-// Intent: Remove private all (w/ replace) replaces all private ASes.
-//         first public AS.
 // Intent: Remove private all (w/ replace) replaces all private ASes. All
 //         private ASes up to the first public AS are replaced with the
 //         leftmost public as. Remaining private ASes are replaced with the
