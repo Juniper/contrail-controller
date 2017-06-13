@@ -40,6 +40,9 @@ using boost::assign::list_of;
 
 VnTable *VnTable::vn_table_;
 
+/////////////////////////////////////////////////////////////////////////////
+// VnIpam routines
+/////////////////////////////////////////////////////////////////////////////
 VnIpam::VnIpam(const std::string& ip, uint32_t len, const std::string& gw,
                const std::string& dns, bool dhcp, const std::string &name,
                const std::vector<autogen::DhcpOptionType> &dhcp_options,
@@ -89,17 +92,469 @@ bool VnIpam::IsSubnetMember(const IpAddress &ip) const {
     return false;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// VnEntry routines
+/////////////////////////////////////////////////////////////////////////////
 VnEntry::VnEntry(Agent *agent, uuid id) :
     AgentOperDBEntry(), agent_(agent), uuid_(id), vrf_(NULL, this),
-    vxlan_id_(0), vnid_(0), bridging_(true), layer3_forwarding_(true),
-    admin_state_(true), table_label_(0), enable_rpf_(true),
-    flood_unknown_unicast_(false), old_vxlan_id_(0),
-    forwarding_mode_(Agent::L2_L3),
-    mirror_destination_(false)
-{
+    vxlan_id_(0), vnid_(0), active_vxlan_id_(0), bridging_(true),
+    layer3_forwarding_(true), admin_state_(true), table_label_(0),
+    enable_rpf_(true), flood_unknown_unicast_(false),
+    forwarding_mode_(Agent::L2_L3), mirror_destination_(false) {
 }
 
 VnEntry::~VnEntry() {
+}
+
+bool VnEntry::IsLess(const DBEntry &rhs) const {
+    const VnEntry &a = static_cast<const VnEntry &>(rhs);
+    return (uuid_ < a.uuid_);
+}
+
+string VnEntry::ToString() const {
+    std::stringstream uuidstring;
+    uuidstring << uuid_;
+    return uuidstring.str();
+}
+
+DBEntryBase::KeyPtr VnEntry::GetDBRequestKey() const {
+    return DBEntryBase::KeyPtr(new VnKey(uuid_));
+}
+
+void VnEntry::SetKey(const DBRequestKey *key) { 
+    const VnKey *k = static_cast<const VnKey *>(key);
+    uuid_ = k->uuid_;
+}
+
+// Resync operation for VN. Invoked on change of forwarding-mode or global
+// vxlan-config mode
+bool VnEntry::Resync(Agent *agent) {
+    // Evaluate rebake of vxlan
+    bool ret = UpdateVxlan(agent, false);
+    // Evaluate forwarding mode change
+    ret |= UpdateForwardingMode(agent);
+    // Update routes from Ipam
+    ret |= ApplyAllIpam(agent, vrf_.get(), false);
+    return ret;
+}
+
+bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
+    bool ret = false;
+    VnData *data = static_cast<VnData *>(req->data.get());
+
+    AclKey key(data->acl_id_);
+    AclDBEntry *acl = static_cast<AclDBEntry *>
+        (agent->acl_table()->FindActiveEntry(&key));
+    if (acl_.get() != acl) {
+        acl_ = acl;
+        ret = true;
+    }
+
+    AclKey mirror_key(data->mirror_acl_id_);
+    AclDBEntry *mirror_acl = static_cast<AclDBEntry *>
+        (agent->acl_table()->FindActiveEntry(&mirror_key));
+    if (mirror_acl_.get() != mirror_acl) {
+        mirror_acl_ = mirror_acl;
+        ret = true;
+    }
+
+    AclKey mirror_cfg_acl_key(data->mirror_cfg_acl_id_);
+    AclDBEntry *mirror_cfg_acl = static_cast<AclDBEntry *>
+         (agent->acl_table()->FindActiveEntry(&mirror_cfg_acl_key));
+    if (mirror_cfg_acl_.get() != mirror_cfg_acl) {
+        mirror_cfg_acl_ = mirror_cfg_acl;
+        ret = true;
+    }
+
+    AgentQosConfigKey qos_config_key(data->qos_config_uuid_);
+    AgentQosConfig *qos_config = static_cast<AgentQosConfig *>
+        (agent->qos_config_table()->FindActiveEntry(&qos_config_key));
+    if (qos_config_.get() != qos_config) {
+        qos_config_ = qos_config;
+        ret = true;
+    }
+
+    VrfKey vrf_key(data->vrf_name_);
+    VrfEntry *vrf = static_cast<VrfEntry *>
+        (agent->vrf_table()->FindActiveEntry(&vrf_key));
+    VrfEntryRef old_vrf = vrf_;
+    bool rebake_vxlan = false;
+    if (vrf != old_vrf.get()) {
+        if (!vrf) {
+            ApplyAllIpam(agent, old_vrf.get(), true);
+        }
+        vrf_ = vrf;
+        rebake_vxlan = true;
+        ret = true;
+    }
+
+    if (admin_state_ != data->admin_state_) {
+        admin_state_ = data->admin_state_;
+        ret = true;
+    }
+
+    if (forwarding_mode_ != data->forwarding_mode_) {
+        forwarding_mode_ = data->forwarding_mode_;
+        ret = true;
+    }
+
+    // Recompute the forwarding modes in VN
+    // Must rebake the routes if any change in forwarding modes 
+    bool resync_routes = false;
+    resync_routes = UpdateForwardingMode(agent);
+    ret |= resync_routes;
+
+    // Update the routes derived from IPAM
+    ret |= UpdateIpam(agent, data->ipam_);
+
+    if (vn_ipam_data_ != data->vn_ipam_data_) {
+        vn_ipam_data_ = data->vn_ipam_data_;
+        ret = true;
+    }
+
+    if (enable_rpf_ != data->enable_rpf_) {
+        enable_rpf_ = data->enable_rpf_;
+        ret = true;
+    }
+
+    if (vxlan_id_ != data->vxlan_id_) {
+        vxlan_id_ = data->vxlan_id_;
+        ret = true;
+        if (agent->vxlan_network_identifier_mode() == Agent::CONFIGURED) {
+            rebake_vxlan = true;
+        }
+    }
+
+    if (vnid_ != data->vnid_) {
+        vnid_ = data->vnid_;
+        ret = true;
+        if (agent->vxlan_network_identifier_mode() == Agent::AUTOMATIC) {
+            rebake_vxlan = true;
+        }
+    }
+
+    if (flood_unknown_unicast_ != data->flood_unknown_unicast_) {
+        flood_unknown_unicast_ = data->flood_unknown_unicast_;
+        rebake_vxlan = true;
+        ret = true;
+    }
+
+    if (mirror_destination_ != data->mirror_destination_) {
+        mirror_destination_ = data->mirror_destination_;
+        rebake_vxlan = true;
+        ret = true;
+    }
+
+    if (rebake_vxlan) {
+        ret |= UpdateVxlan(agent, false);
+    }
+
+    if (resync_routes) {
+        if (vrf_.get() != NULL) {
+            AgentRouteResync *resync =
+                (static_cast<AgentRouteResync *>(route_resync_walker_.get()));
+            resync->UpdateRoutesInVrf(vrf_.get());
+        }
+    }
+
+    if (pbb_evpn_enable_ != data->pbb_evpn_enable_) {
+        pbb_evpn_enable_ = data->pbb_evpn_enable_;
+        ret = true;
+    }
+
+    if (pbb_etree_enable_ != data->pbb_etree_enable_) {
+        pbb_etree_enable_ = data->pbb_etree_enable_;
+        ret = true;
+    }
+
+    if (layer2_control_word_ != data->layer2_control_word_) {
+        layer2_control_word_ = data->layer2_control_word_;
+        ret = true;
+    }
+
+    return ret;
+}
+
+// Rebake handles
+// - vxlan-id change :
+//   Deletes the config-entry for old-vxlan and adds config-entry for new-vxlan
+//   Might result in change of vxlan_id_ref_ for the VN
+//
+//   If vxlan_id is 0, or vrf is NULL, its treated as delete of config-entry
+// - Delete
+//   Deletes the vxlan-config entry. Will reset the vxlan-id-ref to NULL
+bool VnEntry::UpdateVxlan(Agent *agent, bool op_del) {
+    int old_vxlan = active_vxlan_id_;
+    int new_vxlan = GetVxLanId();
+
+    if (op_del || old_vxlan != new_vxlan || vrf_.get() == NULL) {
+        if (old_vxlan != 0) {
+            agent->vxlan_table()->Delete(old_vxlan, uuid_);
+            vxlan_id_ref_ = NULL;
+            active_vxlan_id_ = 0;
+        }
+    }
+
+    if (op_del == false && vrf_.get() != NULL && new_vxlan != 0) {
+        vxlan_id_ref_ = agent->vxlan_table()->Locate
+            (new_vxlan, uuid_, vrf_->GetName(), flood_unknown_unicast_,
+             mirror_destination_, false);
+        active_vxlan_id_ = new_vxlan;
+    }
+
+    return (old_vxlan != new_vxlan);
+}
+
+// Compute the layer3_forwarding_ and bridging mode for the VN.
+// Forwarding mode is picked from VN if its defined. Else, picks forwarding
+// mode from global-vrouter-config
+bool VnEntry::UpdateForwardingMode(Agent *agent) {
+    Agent::ForwardingMode forwarding_mode = forwarding_mode_;
+    if (forwarding_mode == Agent::NONE) {
+        forwarding_mode =
+            agent->oper_db()->global_vrouter()->forwarding_mode();
+    }
+
+    bool ret = false;
+    bool routing = (forwarding_mode == Agent::L2) ? false : true;
+    if (routing != layer3_forwarding_) {
+        layer3_forwarding_ = routing;
+        ret = true;
+    }
+
+    bool bridging = (forwarding_mode == Agent::L3) ? false : true;
+    if (bridging != bridging_) {
+        bridging_ = bridging;
+        ret = true;
+    }
+
+    return ret;
+}
+
+// Update all IPAM configurations. Typically invoked when forwarding-mode
+// changes or VRF is set for the VN
+bool VnEntry::ApplyAllIpam(Agent *agent, VrfEntry *old_vrf, bool del) {
+    bool ret = false;
+    for (unsigned int i = 0; i < ipam_.size(); ++i) {
+        ret |= ApplyIpam(agent, &ipam_[i], old_vrf, del);
+    }
+
+    return ret;
+}
+
+// Add/Delete routes dervied from a single IPAM
+bool VnEntry::ApplyIpam(Agent *agent, VnIpam *ipam, VrfEntry *old_vrf,
+                        bool del) {
+    if (CanInstallIpam(ipam) == false)
+        del = true;
+
+    bool old_installed = ipam->installed;
+    if (del == false) {
+        ipam->installed = AddIpamRoutes(agent, ipam);
+    } else {
+        DelIpamRoutes(agent, ipam, old_vrf);
+        ipam->installed = false;
+    }
+
+    return old_installed != ipam->installed;
+}
+
+bool VnEntry::CanInstallIpam(const VnIpam *ipam) {
+    if (vrf_.get() == NULL || layer3_forwarding_ == false)
+        return false;
+    return true;
+}
+
+// Check the old and new Ipam data and update receive routes for GW addresses
+bool VnEntry::UpdateIpam(Agent *agent, std::vector<VnIpam> &new_ipam) {
+    std::sort(new_ipam.begin(), new_ipam.end());
+
+    std::vector<VnIpam>::iterator it_old = ipam_.begin();
+    std::vector<VnIpam>::iterator it_new = new_ipam.begin();
+    bool change = false;
+    while (it_old != ipam_.end() && it_new != new_ipam.end()) {
+        if (*it_old < *it_new) {
+            // old entry is deleted
+            ApplyIpam(agent, &(*it_old), vrf_.get(), true);
+            change = true;
+            it_old++;
+        } else if (*it_new < *it_old) {
+            // new entry
+            ApplyIpam(agent, &(*it_new), vrf_.get(), false);
+            change = true;
+            it_new++;
+        } else {
+            change |= HandleIpamChange(agent, &(*it_old), &(*it_new));
+            it_old++;
+            it_new++;
+        }
+    }
+
+    // delete remaining old entries
+    for (; it_old != ipam_.end(); ++it_old) {
+        ApplyIpam(agent, &(*it_old), vrf_.get(), true);
+        change = true;
+    }
+
+    // add remaining new entries
+    for (; it_new != new_ipam.end(); ++it_new) {
+        ApplyIpam(agent, &(*it_new), vrf_.get(), false);
+        change = true;
+    }
+
+    ipam_ = new_ipam;
+    return change;
+}
+
+static bool IsGwHostRouteRequired(const Agent *agent) {
+    return (!agent->tsn_enabled());
+}
+
+// Evaluate non key members of IPAM for changes. Key fields are not changed
+// Handles changes to gateway-ip and service-ip in the IPAM
+bool VnEntry::HandleIpamChange(Agent *agent, VnIpam *old_ipam,
+                               VnIpam *new_ipam) {
+    bool install = CanInstallIpam(new_ipam);
+
+    if (install == false && old_ipam->installed == false)
+        return false;
+
+    if (install == false && old_ipam->installed == true) {
+        ApplyIpam(agent, old_ipam, vrf_.get(), true);
+        return true;
+    }
+
+    if (install == true && old_ipam->installed == false) {
+        ApplyIpam(agent, new_ipam, vrf_.get(), false);
+        return true;
+    }
+
+    new_ipam->installed = install;
+    bool changed = false;
+    if (old_ipam->default_gw != new_ipam->default_gw) {
+        changed = true;
+        if (IsGwHostRouteRequired(agent)) {
+            UpdateHostRoute(agent, old_ipam->default_gw, new_ipam->default_gw,
+                            true);
+        }
+    }
+
+    if (old_ipam->dns_server != new_ipam->dns_server) {
+        UpdateHostRoute(agent, old_ipam->dns_server, new_ipam->dns_server,
+                        true);
+        changed = true;
+    }
+
+    // update DHCP options
+    old_ipam->oper_dhcp_options = new_ipam->oper_dhcp_options;
+
+    if (old_ipam->dhcp_enable != new_ipam->dhcp_enable) {
+        changed = true;
+    }
+    
+    return changed;
+}
+
+void VnEntry::UpdateHostRoute(Agent *agent, const IpAddress &old_address, 
+                              const IpAddress &new_address,
+                              bool relaxed_policy) {
+    if (vrf_.get() && (vrf_->GetName() != agent->linklocal_vrf_name())) {
+        AddHostRoute(new_address, relaxed_policy);
+        DelHostRoute(old_address);
+    }
+}
+
+// Add all routes derived from IPAM. IPAM generates following routes,
+// - Subnet route
+// - Gateway route
+// - Service-IP route
+bool VnEntry::AddIpamRoutes(Agent *agent, VnIpam *ipam) {
+    if (vrf_ == NULL)
+        return false;
+
+    // Do not let the gateway configuration overwrite the receive nh.
+    if (vrf_->GetName() == agent->linklocal_vrf_name()) {
+        return false;
+    }
+
+    // Allways policy will be enabled for default Gateway and
+    // Dns server to create flows for BGP as service even
+    // though explicit disable policy config form user.
+    if (IsGwHostRouteRequired(agent))
+        AddHostRoute(ipam->default_gw, true);
+    AddHostRoute(ipam->dns_server, true);
+    AddSubnetRoute(ipam);
+    return true;
+}
+
+// Delete routes generated from an IPAM
+void VnEntry::DelIpamRoutes(Agent *agent, VnIpam *ipam, VrfEntry *vrf) {
+    if (ipam->installed == false)
+        return;
+
+    assert(vrf);
+    if (IsGwHostRouteRequired(agent))
+        DelHostRoute(ipam->default_gw);
+    DelHostRoute(ipam->dns_server);
+    DelSubnetRoute(ipam);
+}
+
+// Add host route for gateway-ip or service-ip
+void VnEntry::AddHostRoute(const IpAddress &address, bool relaxed_policy) {
+    if (address.is_v4()) {
+        static_cast<InetUnicastAgentRouteTable *>(vrf_->
+            GetInet4UnicastRouteTable())->AddHostRoute(vrf_->GetName(),
+                address.to_v4(), 32, GetName(), relaxed_policy);
+    } else if (address.is_v6()) {
+        static_cast<InetUnicastAgentRouteTable *>(vrf_->
+            GetInet6UnicastRouteTable())->AddHostRoute(vrf_->GetName(),
+                address.to_v6(), 128, GetName(), relaxed_policy);
+    }
+}
+
+// Del host route for gateway-ip or service-ip
+void VnEntry::DelHostRoute(const IpAddress &address) {
+    Agent *agent = static_cast<VnTable *>(get_table())->agent();
+    if (address.is_v4()) {
+        static_cast<InetUnicastAgentRouteTable *>
+            (vrf_->GetInet4UnicastRouteTable())->DeleteReq
+            (agent->local_peer(), vrf_->GetName(), address.to_v4(), 32, NULL);
+    } else if (address.is_v6()) {
+        static_cast<InetUnicastAgentRouteTable *>
+            (vrf_->GetInet6UnicastRouteTable())->DeleteReq
+            (agent->local_peer(), vrf_->GetName(), address.to_v6(), 128,
+             NULL);
+    }
+}
+
+// Add subnet route for the IPAM
+void VnEntry::AddSubnetRoute(VnIpam *ipam) {
+    if (ipam->IsV4()) {
+        static_cast<InetUnicastAgentRouteTable *>(vrf_->
+            GetInet4UnicastRouteTable())->AddIpamSubnetRoute
+            (vrf_->GetName(), ipam->GetSubnetAddress(), ipam->plen, GetName());
+    } else if (ipam->IsV6()) {
+        static_cast<InetUnicastAgentRouteTable *>(vrf_->
+            GetInet6UnicastRouteTable())->AddIpamSubnetRoute
+            (vrf_->GetName(), ipam->GetV6SubnetAddress(), ipam->plen,
+             GetName());
+    }
+}
+
+// Del subnet route for the IPAM
+void VnEntry::DelSubnetRoute(VnIpam *ipam) {
+    Agent *agent = static_cast<VnTable *>(get_table())->agent();
+    if (ipam->IsV4()) {
+        static_cast<InetUnicastAgentRouteTable *>(vrf_->
+            GetInet4UnicastRouteTable())->DeleteReq
+            (agent->local_peer(), vrf_->GetName(),
+             ipam->GetSubnetAddress(), ipam->plen, NULL);
+    } else if (ipam->IsV6()) {
+        static_cast<InetUnicastAgentRouteTable *>(vrf_->
+            GetInet6UnicastRouteTable())->DeleteReq
+            (agent->local_peer(), vrf_->GetName(),
+             ipam->GetV6SubnetAddress(), ipam->plen, NULL);
+    }
 }
 
 void VnEntry::AllocWalker() {
@@ -117,31 +572,6 @@ void VnEntry::ReleaseWalker() {
     agent_->oper_db()->agent_route_walk_manager()->
         ReleaseWalker(route_resync_walker_.get());
     route_resync_walker_.reset(NULL);
-}
-
-bool VnEntry::IsLess(const DBEntry &rhs) const {
-    const VnEntry &a = static_cast<const VnEntry &>(rhs);
-    return (uuid_ < a.uuid_);
-}
-
-string VnEntry::ToString() const {
-    std::stringstream uuidstring;
-    uuidstring << uuid_;
-    return uuidstring.str();
-}
-
-DBEntryBase::KeyPtr VnEntry::GetDBRequestKey() const {
-    VnKey *key = new VnKey(uuid_);
-    return DBEntryBase::KeyPtr(key);
-}
-
-void VnEntry::SetKey(const DBRequestKey *key) { 
-    const VnKey *k = static_cast<const VnKey *>(key);
-    uuid_ = k->uuid_;
-}
-
-AgentDBTable *VnEntry::DBToTable() const {
-    return VnTable::GetInstance();
 }
 
 bool VnEntry::GetVnHostRoutes(const std::string &ipam,
@@ -259,37 +689,13 @@ int VnEntry::GetVxLanId() const {
     }
 }
 
-int VnEntry::ComputeEthernetTag() const {
-    if (TunnelType::ComputeType(TunnelType::AllType()) != TunnelType::VXLAN) {
-        return 0;
-    }
-    return GetVxLanId();
-}
-
-bool VnEntry::Resync() {
-    VnTable *table = static_cast<VnTable *>(get_table());
-    bool ret = false;
-
-    //Evaluate rebake of vxlan
-    ret |= table->RebakeVxlan(this, false);
-    //Evaluate forwarding mode change
-    ret |= table->EvaluateForwardingMode(this);
-
-    return ret;
-}
-
-void VnEntry::ResyncRoutes() {
-    if (vrf_.get() == NULL)
-        return;
-    (static_cast<AgentRouteResync *>(route_resync_walker_.get()))->
-     UpdateRoutesInVrf(vrf_.get());
-}
-
+/////////////////////////////////////////////////////////////////////////////
+// VnTable routines
+/////////////////////////////////////////////////////////////////////////////
 VnTable::VnTable(DB *db, const std::string &name) : AgentOperDBTable(db, name) {
-    walk_ref_ = AllocWalker(boost::bind(&VnTable::VnEntryWalk,
-                                        this, _1, _2),
-                            boost::bind(&VnTable::VnEntryWalkDone, this,
-                                        _1, _2));
+    walk_ref_ = AllocWalker(boost::bind(&VnTable::VnEntryWalk, this, _1, _2),
+                            boost::bind(&VnTable::VnEntryWalkDone, this, _1,
+                                        _2));
 }
 
 VnTable::~VnTable() {
@@ -299,124 +705,15 @@ void VnTable::Clear() {
     ReleaseWalker(walk_ref_);
 }
 
-bool VnTable::GetLayer3ForwardingConfig
-(Agent::ForwardingMode forwarding_mode) const {
-    if (forwarding_mode == Agent::L2) {
-        return false;
-    }
-    return true;
-}
+DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {
+    vn_table_ = new VnTable(db, name);
+    vn_table_->Init();
+    return vn_table_;
+};
 
-bool VnTable::GetBridgingConfig(Agent::ForwardingMode forwarding_mode) const {
-    if (forwarding_mode == Agent::L3) {
-        return false;
-    }
-    return true;
-}
-
-bool VnTable::EvaluateForwardingMode(VnEntry *vn) {
-    bool ret = false;
-    Agent::ForwardingMode forwarding_mode = vn->forwarding_mode();
-    //Evaluate only if VN does not have specific forwarding mode change.
-    if (forwarding_mode == Agent::NONE) {
-        Agent::ForwardingMode global_forwarding_mode =
-            agent()->oper_db()->global_vrouter()->forwarding_mode();
-        bool layer3_forwarding =
-            GetLayer3ForwardingConfig(global_forwarding_mode);
-        if (layer3_forwarding != vn->layer3_forwarding()) {
-            vn->set_layer3_forwarding(layer3_forwarding);
-            ret |= true;
-        }
-        bool bridging = GetBridgingConfig(global_forwarding_mode);
-        if (bridging != vn->bridging()) {
-            vn->set_bridging(bridging);
-            ret |= true;
-        }
-        //Evaluate IPAMs
-        if (!vn->layer3_forwarding()) {
-            DeleteAllIpamRoutes(vn);
-        } else {
-            AddAllIpamRoutes(vn);
-        }
-    }
-
-    return ret;
-}
-
-// Rebake handles
-// - vxlan-id change :
-//   Deletes the config-entry for old-vxlan and adds config-entry for new-vxlan
-//   Might result in change of vxlan_id_ref_ for the VN
-//
-//   If vxlan_id is 0, or vrf is NULL, its treated as delete of config-entry
-// - Delete
-//   Deletes the vxlan-config entry. Will reset the vxlan-id-ref to NULL
-bool VnTable::RebakeVxlan(VnEntry *vn, bool op_del) {
-    VxLanId *old_vxlan = vn->vxlan_id_ref_.get();
-
-    uint32_t vxlan = 0;
-    // Get vxlan if op is not DELETE and VRF is not NULL
-    if (op_del == false && vn->vrf_.get() != NULL)
-        vxlan = vn->GetVxLanId();
-
-    // Delete config-entry if there is change in vxlan
-    VxLanTable *table = agent()->vxlan_table();
-    if (vxlan != vn->old_vxlan_id_) {
-        if (vn->old_vxlan_id_) {
-            table->Delete(vn->old_vxlan_id_, vn->uuid_);
-            vn->vxlan_id_ref_ = NULL;
-        }
-    }
-
-    // Add new config-entry
-    if (vxlan) {
-        vn->old_vxlan_id_ = vxlan;
-        vn->vxlan_id_ref_ = table->Locate(vxlan, vn->uuid_, vn->vrf_->GetName(),
-                                          vn->flood_unknown_unicast_,
-                                          vn->mirror_destination_, false);
-    }
-
-    return (old_vxlan != vn->vxlan_id_ref_.get());
-}
-
-bool VnTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
-    VnEntry *vn = static_cast<VnEntry *>(entry);
-    bool ret = vn->Resync();
-    return ret;
-}
-
-void VnTable::ResyncVxlan(const uuid &vn) {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    VnKey *key = new VnKey(vn);
-    key->sub_op_ = AgentKey::RESYNC;
-    req.key.reset(key);
-    req.data.reset(NULL);
-    Enqueue(&req);
-}
-
-bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
-    VnEntry *vn_entry = static_cast<VnEntry *>(entry);
-    if (vn_entry->GetVrf()) {
-        VnKey *key = new VnKey(vn_entry->GetUuid());
-        key->sub_op_ = AgentKey::RESYNC;
-        DBRequest req;
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        req.key.reset(key); 
-        req.data.reset(NULL);
-        Enqueue(&req);
-    }
-    return true;
-}
-
-void VnTable::VnEntryWalkDone(DBTable::DBTableWalkRef walk_ref,
-                              DBTableBase *partition) {
-    agent()->interface_table()->GlobalVrouterConfigChanged();
-    agent()->physical_device_vn_table()->
-        UpdateVxLanNetworkIdentifierMode();
-}
-
-void VnTable::GlobalVrouterConfigChanged() {
-    WalkAgain(walk_ref_);
+VnEntry *VnTable::Find(const boost::uuids::uuid &u) {
+    VnKey key(u);
+    return static_cast<VnEntry *>(FindActiveEntry(&key));
 }
 
 std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
@@ -432,14 +729,23 @@ DBEntry *VnTable::OperDBAdd(const DBRequest *req) {
     vn->name_ = data->name_;
     vn->AllocWalker();
 
-    ChangeHandler(vn, req);
+    vn->ChangeHandler(agent(), req);
     vn->SendObjectLog(AgentLogEvent::ADD);
     return vn;
 }
 
-bool VnTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
-    bool ret = ChangeHandler(entry, req);
+bool VnTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
+    vn->ApplyAllIpam(agent(), vn->vrf_.get(), true);
+    vn->UpdateVxlan(agent(), true);
+    vn->ReleaseWalker();
+    vn->SendObjectLog(AgentLogEvent::DELETE);
+    return true;
+}
+
+bool VnTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
+    VnEntry *vn = static_cast<VnEntry *>(entry);
+    bool ret = vn->ChangeHandler(agent(), req);
     vn->SendObjectLog(AgentLogEvent::CHANGE);
     if (ret) {
         VnData *data = static_cast<VnData *>(req->data.get());
@@ -451,206 +757,29 @@ bool VnTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-bool VnTable::ForwardingModeChangeHandler(bool old_layer3_forwarding,
-                                          bool old_bridging,
-                                          bool *resync_routes,
-                                          VnData *data,
-                                          VnEntry *vn)
-{
-    bool ret = false;
-    if (vn->layer3_forwarding_ != data->layer3_forwarding_) {
-        vn->layer3_forwarding_ = data->layer3_forwarding_;
-        *resync_routes = true;
-        ret = true;
-    }
-
-    if (vn->bridging_ != data->bridging_) {
-        vn->bridging_ = data->bridging_;
-        *resync_routes = true;
-        ret = true;
-    }
-
-    if (vn->layer3_forwarding_ && old_layer3_forwarding) {
-        //Evaluate IPAM change only if there is no change in
-        //layer3_forwarding.
-        if (IpamChangeNotify(vn->ipam_, data->ipam_, vn)) {
-            vn->ipam_ = data->ipam_;
-            ret = true;
-        }
-    } else {
-        if (vn->layer3_forwarding_) {
-            //layer3_forwarding has been enabled.
-            //Add all new ipam routes.
-            vn->ipam_ = data->ipam_;
-            if (!old_layer3_forwarding) {
-                AddAllIpamRoutes(vn);
-                ret = true;
-            }
-        } else {
-            //layer3_forwarding has been disabled.
-            //Delete all new ipam routes.
-            if (old_layer3_forwarding) {
-                DeleteAllIpamRoutes(vn);
-                ret = true;
-            }
-            vn->ipam_ = data->ipam_;
-        }
-    }
-    return ret;
+bool VnTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
+    VnEntry *vn = static_cast<VnEntry *>(entry);
+    return vn->Resync(agent());
 }
 
-bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
-    bool ret = false;
-    VnEntry *vn = static_cast<VnEntry *>(entry);
-    VnData *data = static_cast<VnData *>(req->data.get());
-    VrfEntry *old_vrf = vn->vrf_.get();
-    bool old_layer3_forwarding = vn->layer3_forwarding_;
-    bool old_bridging = vn->bridging_;
-    bool rebake_vxlan = false;
-    bool resync_routes = false;
-
-    AclKey key(data->acl_id_);
-    AclDBEntry *acl = static_cast<AclDBEntry *>
-        (agent()->acl_table()->FindActiveEntry(&key));
-    if (vn->acl_.get() != acl) {
-        vn->acl_ = acl;
-        ret = true;
+bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
+    VnEntry *vn_entry = static_cast<VnEntry *>(entry);
+    if (vn_entry->GetVrf()) {
+        ResyncReq(vn_entry->GetUuid());
     }
-
-    AclKey mirror_key(data->mirror_acl_id_);
-    AclDBEntry *mirror_acl = static_cast<AclDBEntry *>
-        (agent()->acl_table()->FindActiveEntry(&mirror_key));
-    if (vn->mirror_acl_.get() != mirror_acl) {
-        vn->mirror_acl_ = mirror_acl;
-        ret = true;
-    }
-
-    AclKey mirror_cfg_acl_key(data->mirror_cfg_acl_id_);
-    AclDBEntry *mirror_cfg_acl = static_cast<AclDBEntry *>
-         (agent()->acl_table()->FindActiveEntry(&mirror_cfg_acl_key));
-    if (vn->mirror_cfg_acl_.get() != mirror_cfg_acl) {
-        vn->mirror_cfg_acl_ = mirror_cfg_acl;
-        ret = true;
-    }
-
-    AgentQosConfigKey qos_config_key(data->qos_config_uuid_);
-    AgentQosConfig *qos_config = static_cast<AgentQosConfig *>
-        (agent()->qos_config_table()->FindActiveEntry(&qos_config_key));
-    if (vn->qos_config_.get() != qos_config) {
-        vn->qos_config_ = qos_config;
-        ret = true;
-    }
-
-    VrfKey vrf_key(data->vrf_name_);
-    VrfEntry *vrf = static_cast<VrfEntry *>
-        (agent()->vrf_table()->FindActiveEntry(&vrf_key));
-    if (vrf != old_vrf) {
-        if (!vrf) {
-            DeleteAllIpamRoutes(vn);
-        }
-        vn->vrf_ = vrf;
-        rebake_vxlan = true;
-        ret = true;
-    }
-
-    if (vn->admin_state_ != data->admin_state_) {
-        vn->admin_state_ = data->admin_state_;
-        ret = true;
-    }
-
-    ret |= ForwardingModeChangeHandler(old_layer3_forwarding,
-                                       old_bridging,
-                                       &resync_routes,
-                                       data,
-                                       vn);
-
-    if (vn->vn_ipam_data_ != data->vn_ipam_data_) {
-        vn->vn_ipam_data_ = data->vn_ipam_data_;
-        ret = true;
-    }
-
-    if (vn->enable_rpf_ != data->enable_rpf_) {
-        vn->enable_rpf_ = data->enable_rpf_;
-        ret = true;
-    }
-
-    if (vn->vxlan_id_ != data->vxlan_id_) {
-        vn->vxlan_id_ = data->vxlan_id_;
-        ret = true;
-        if (agent()->vxlan_network_identifier_mode() == Agent::CONFIGURED) {
-            rebake_vxlan = true;
-        }
-    }
-
-    if (vn->vnid_ != data->vnid_) {
-        vn->vnid_ = data->vnid_;
-        ret = true;
-        if (agent()->vxlan_network_identifier_mode() == Agent::AUTOMATIC) {
-            rebake_vxlan = true;
-        }
-    }
-
-    if (vn->flood_unknown_unicast_ != data->flood_unknown_unicast_) {
-        vn->flood_unknown_unicast_ = data->flood_unknown_unicast_;
-        rebake_vxlan = true;
-        ret = true;
-    }
-
-    if (vn->forwarding_mode_ != data->forwarding_mode_) {
-        vn->forwarding_mode_ = data->forwarding_mode_;
-        ret = true;
-    }
-
-    if (vn->mirror_destination_ != data->mirror_destination_) {
-        vn->mirror_destination_ = data->mirror_destination_;
-        rebake_vxlan = true;
-        ret = true;
-    }
-
-    if (rebake_vxlan) {
-        ret |= RebakeVxlan(vn, false);
-    }
-
-    if (resync_routes) {
-        vn->ResyncRoutes();
-    }
-
-    if (vn->pbb_evpn_enable_ != data->pbb_evpn_enable_) {
-        vn->pbb_evpn_enable_ = data->pbb_evpn_enable_;
-        ret = true;
-    }
-
-    if (vn->pbb_etree_enable_ != data->pbb_etree_enable_) {
-        vn->pbb_etree_enable_ = data->pbb_etree_enable_;
-        ret = true;
-    }
-
-    if (vn->layer2_control_word_ != data->layer2_control_word_) {
-        vn->layer2_control_word_ = data->layer2_control_word_;
-        ret = true;
-    }
-    return ret;
-}
-
-bool VnTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
-    VnEntry *vn = static_cast<VnEntry *>(entry);
-    DeleteAllIpamRoutes(vn);
-    RebakeVxlan(vn, true);
-    vn->ReleaseWalker();
-    vn->SendObjectLog(AgentLogEvent::DELETE);
     return true;
 }
 
-VnEntry *VnTable::Find(const boost::uuids::uuid &u) {
-    VnKey key(u);
-    return static_cast<VnEntry *>(FindActiveEntry(&key));
+void VnTable::VnEntryWalkDone(DBTable::DBTableWalkRef walk_ref,
+                              DBTableBase *partition) {
+    agent()->interface_table()->GlobalVrouterConfigChanged();
+    agent()->physical_device_vn_table()->
+        UpdateVxLanNetworkIdentifierMode();
 }
 
-DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {
-    vn_table_ = new VnTable(db, name);
-    vn_table_->Init();
-    return vn_table_;
-};
+void VnTable::GlobalVrouterConfigChanged() {
+    WalkAgain(walk_ref_);
+}
 
 /*
  * IsVRFServiceChainingInstance
@@ -726,7 +855,7 @@ int VnTable::ComputeCfgVxlanId(IFMapNode *node) {
     }
 }
 
-void VnTable::CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3,
+void VnTable::CfgForwardingFlags(IFMapNode *node,
                                  bool *rpf, bool *flood_unknown_unicast,
                                  Agent::ForwardingMode *forwarding_mode,
                                  bool *mirror_destination) {
@@ -741,25 +870,8 @@ void VnTable::CfgForwardingFlags(IFMapNode *node, bool *l2, bool *l3,
 
     *flood_unknown_unicast = cfg->flood_unknown_unicast();
     *mirror_destination = properties.mirror_destination;
-    //dervived forwarding mode is resultant of configured VN forwarding and global
-    //configure forwarding mode. It is then used to setup the VN forwarding
-    //mode.
-    //In derivation, global configured forwarding mode is consulted only if VN
-    //configured f/wing mode is not set.
     *forwarding_mode =
         agent()->TranslateForwardingMode(properties.forwarding_mode);
-    Agent::ForwardingMode derived_forwarding_mode = *forwarding_mode;
-    if (derived_forwarding_mode == Agent::NONE) {
-        //Use global configured forwarding mode.
-        derived_forwarding_mode = agent()->oper_db()->global_vrouter()->
-            forwarding_mode();
-    }
-
-    //Set the forwarding mode in VN based on calculation above.
-    //By default assume both bridging and layer3_forwarding is enabled.
-    //Flap the mode if configured forwarding mode is not "l2_l3" i.e. l2 or l3.
-    *l2 = GetBridgingConfig(derived_forwarding_mode);
-    *l3 = GetLayer3ForwardingConfig(derived_forwarding_mode);
  }
 
 void
@@ -873,8 +985,6 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     std::sort(vn_ipam.begin(), vn_ipam.end());
 
     // Fetch VN forwarding Properties
-    bool bridging;
-    bool layer3_forwarding;
     bool enable_rpf;
     bool flood_unknown_unicast;
     bool mirror_destination;
@@ -883,14 +993,12 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     bool layer2_control_word = cfg->layer2_control_word();
 
     Agent::ForwardingMode forwarding_mode;
-    CfgForwardingFlags(node, &bridging, &layer3_forwarding, &enable_rpf,
-                       &flood_unknown_unicast, &forwarding_mode,
-                       &mirror_destination);
+    CfgForwardingFlags(node, &enable_rpf, &flood_unknown_unicast,
+                       &forwarding_mode, &mirror_destination);
     return new VnData(agent(), node, node->name(), acl_uuid, vrf_name,
                       mirror_acl_uuid, mirror_cfg_acl_uuid, vn_ipam,
                       vn_ipam_data, cfg->properties().vxlan_network_identifier,
-                      GetCfgVnId(cfg), bridging, layer3_forwarding,
-                      cfg->id_perms().enable, enable_rpf,
+                      GetCfgVnId(cfg), cfg->id_perms().enable, enable_rpf,
                       flood_unknown_unicast, forwarding_mode,
                       qos_config_uuid, mirror_destination, pbb_etree_enable,
                       pbb_evpn_enable, layer2_control_word);
@@ -941,240 +1049,39 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     int vxlan_id, bool admin_state, bool enable_rpf,
                     bool flood_unknown_unicast, bool pbb_etree_enable,
                     bool pbb_evpn_enable, bool layer2_control_word) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VnKey(vn_uuid));
     bool mirror_destination = false;
-    DBRequest req;
-    VnKey *key = new VnKey(vn_uuid);
     VnData *data = new VnData(agent(), NULL, name, acl_id, vrf_name, nil_uuid(), 
                               nil_uuid(), ipam, vn_ipam_data,
-                              vn_id, vxlan_id, true, true,
-                              admin_state, enable_rpf,
+                              vxlan_id, vn_id, admin_state, enable_rpf,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
-                              mirror_destination, pbb_etree_enable, pbb_evpn_enable,
-                              layer2_control_word);
+                              mirror_destination, pbb_etree_enable,
+                              pbb_evpn_enable, layer2_control_word);
  
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
     req.data.reset(data);
     Enqueue(&req);
 }
 
 void VnTable::DelVn(const uuid &vn_uuid) {
-    DBRequest req;
-    VnKey *key = new VnKey(vn_uuid);
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new VnKey(vn_uuid));
+    req.data.reset(NULL);
+    Enqueue(&req);
+}
 
-    req.oper = DBRequest::DB_ENTRY_DELETE;
+void VnTable::ResyncReq(const uuid &vn) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    VnKey *key = new VnKey(vn);
+    key->sub_op_ = AgentKey::RESYNC;
     req.key.reset(key);
     req.data.reset(NULL);
     Enqueue(&req);
 }
 
-void VnTable::UpdateHostRoute(const IpAddress &old_address, 
-                              const IpAddress &new_address,
-                              VnEntry *vn, bool relaxed_policy) {
-    VrfEntry *vrf = vn->GetVrf();
-
-    if (vrf && (vrf->GetName() != agent()->linklocal_vrf_name())) {
-        AddHostRoute(vn, new_address, relaxed_policy);
-        DelHostRoute(vn, old_address);
-    }
-}
-
-// Check the old and new Ipam data and update receive routes for GW addresses
-bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam, 
-                               std::vector<VnIpam> &new_ipam,
-                               VnEntry *vn) {
-    bool change = false;
-    std::sort(old_ipam.begin(), old_ipam.end());
-    std::sort(new_ipam.begin(), new_ipam.end());
-    std::vector<VnIpam>::iterator it_old = old_ipam.begin();
-    std::vector<VnIpam>::iterator it_new = new_ipam.begin();
-    while (it_old != old_ipam.end() && it_new != new_ipam.end()) {
-        if (*it_old < *it_new) {
-            // old entry is deleted
-            DelIPAMRoutes(vn, *it_old);
-            change = true;
-            it_old++;
-        } else if (*it_new < *it_old) {
-            // new entry
-            AddIPAMRoutes(vn, *it_new);
-            change = true;
-            it_new++;
-        } else {
-            //Evaluate non key members of IPAM for changes.
-            // no change in entry
-            bool gateway_changed = ((*it_old).default_gw !=
-                                    (*it_new).default_gw);
-            bool service_address_changed = ((*it_old).dns_server != (*it_new).dns_server);
-
-            if ((*it_old).installed) {
-                (*it_new).installed = true;
-                // VNIPAM comparator does not check for gateway.
-                // If gateway is changed then take appropriate actions.
-                IpAddress unspecified;
-                if (gateway_changed) {
-                    if (IsGwHostRouteRequired()) {
-                        UpdateHostRoute((*it_old).default_gw,
-                                        (*it_new).default_gw, vn, true);
-                    }
-                }
-                if (service_address_changed) {
-                    UpdateHostRoute((*it_old).dns_server,
-                                    (*it_new).dns_server, vn, true);
-                }
-            } else {
-                AddIPAMRoutes(vn, *it_new);
-                (*it_old).installed = (*it_new).installed;
-            }
-
-            if (gateway_changed) {
-                (*it_old).default_gw = (*it_new).default_gw;
-            }
-            if (service_address_changed) {
-                (*it_old).dns_server = (*it_new).dns_server;
-            }
-
-            if (gateway_changed || service_address_changed) {
-                // DHCP service would need to know in case this changes
-                change = true;
-            }
-
-            // update DHCP options
-            (*it_old).oper_dhcp_options = (*it_new).oper_dhcp_options;
-
-            if ((*it_old).dhcp_enable != (*it_new).dhcp_enable) {
-                (*it_old).dhcp_enable = (*it_new).dhcp_enable;
-                change = true;
-            }
-
-            it_old++;
-            it_new++;
-        }
-    }
-
-    // delete remaining old entries
-    for (; it_old != old_ipam.end(); ++it_old) {
-        DelIPAMRoutes(vn, *it_old);
-        change = true;
-    }
-
-    // add remaining new entries
-    for (; it_new != new_ipam.end(); ++it_new) {
-        AddIPAMRoutes(vn, *it_new);
-        change = true;
-    }
-
-    std::sort(new_ipam.begin(), new_ipam.end());
-    return change;
-}
-
-void VnTable::AddAllIpamRoutes(VnEntry *vn) {
-    std::vector<VnIpam> &ipam = vn->ipam_;
-    for (unsigned int i = 0; i < ipam.size(); ++i) {
-        AddIPAMRoutes(vn, ipam[i]);
-    }
-}
-
-void VnTable::DeleteAllIpamRoutes(VnEntry *vn) {
-    std::vector<VnIpam> &ipam = vn->ipam_;
-    for (unsigned int i = 0; i < ipam.size(); ++i) {
-        DelIPAMRoutes(vn, ipam[i]);
-    }
-}
-
-void VnTable::AddIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
-    VrfEntry *vrf = vn->GetVrf();
-    if (vrf) {
-        // Do not let the gateway configuration overwrite the receive nh.
-        if (vrf->GetName() == agent()->linklocal_vrf_name()) {
-            return;
-        }
-        // Allways policy will be enabled for default Gateway and
-        // Dns server to create flows for BGP as service even
-        // though explicit disable policy config form user.
-        if (IsGwHostRouteRequired())
-            AddHostRoute(vn, ipam.default_gw, true);
-        AddHostRoute(vn, ipam.dns_server, true);
-        AddSubnetRoute(vn, ipam);
-        ipam.installed = true;
-    }
-}
-
-void VnTable::DelIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
-    VrfEntry *vrf = vn->GetVrf();
-    if (vrf && ipam.installed) {
-        if (IsGwHostRouteRequired())
-            DelHostRoute(vn, ipam.default_gw);
-        DelHostRoute(vn, ipam.dns_server);
-        DelSubnetRoute(vn, ipam);
-        ipam.installed = false;
-    }
-}
-
-bool VnTable::IsGwHostRouteRequired() {
-    return (!agent()->tsn_enabled());
-}
-
-// Add receive route for default gw
-void VnTable::AddHostRoute(VnEntry *vn, const IpAddress &address,
-                           bool relaxed_policy) {
-    VrfEntry *vrf = vn->GetVrf();
-    if (address.is_v4()) {
-        static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
-                address.to_v4(), 32, vn->GetName(), relaxed_policy);
-    } else if (address.is_v6()) {
-        static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
-                address.to_v6(), 128, vn->GetName(), relaxed_policy);
-    }
-}
-
-// Del receive route for default gw
-void VnTable::DelHostRoute(VnEntry *vn, const IpAddress &address) {
-    VrfEntry *vrf = vn->GetVrf();
-    if (address.is_v4()) {
-        static_cast<InetUnicastAgentRouteTable *>
-            (vrf->GetInet4UnicastRouteTable())->DeleteReq
-            (agent()->local_peer(), vrf->GetName(),
-             address.to_v4(), 32, NULL);
-    } else if (address.is_v6()) {
-        static_cast<InetUnicastAgentRouteTable *>
-            (vrf->GetInet6UnicastRouteTable())->DeleteReq
-            (agent()->local_peer(), vrf->GetName(),
-             address.to_v6(), 128, NULL);
-    }
-}
-
-void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
-    VrfEntry *vrf = vn->GetVrf();
-    if (ipam.IsV4()) {
-        static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet4UnicastRouteTable())->AddIpamSubnetRoute
-            (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen, vn->GetName());
-    } else if (ipam.IsV6()) {
-        static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet6UnicastRouteTable())->AddIpamSubnetRoute
-            (vrf->GetName(), ipam.GetV6SubnetAddress(), ipam.plen,
-             vn->GetName());
-    }
-}
-
-// Del receive route for default gw
-void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
-    VrfEntry *vrf = vn->GetVrf();
-    if (ipam.IsV4()) {
-        static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet4UnicastRouteTable())->DeleteReq
-            (agent()->local_peer(), vrf->GetName(),
-             ipam.GetSubnetAddress(), ipam.plen, NULL);
-    } else if (ipam.IsV6()) {
-        static_cast<InetUnicastAgentRouteTable *>(vrf->
-            GetInet6UnicastRouteTable())->DeleteReq
-            (agent()->local_peer(), vrf->GetName(),
-             ipam.GetV6SubnetAddress(), ipam.plen, NULL);
-    }
-}
-
+/////////////////////////////////////////////////////////////////////////////
+// Introspect routines
+/////////////////////////////////////////////////////////////////////////////
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     VnListResp *resp = static_cast<VnListResp *>(sresp);
 
@@ -1322,19 +1229,23 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
 }
 
 void VnListReq::HandleRequest() const {
-    AgentSandeshPtr sand(new AgentVnSandesh(context(), get_name(),
-                                       get_uuid(), get_vxlan_id(),
-                                       get_ipam_name()));
+    AgentSandeshPtr sand(new AgentVnSandesh(context(), get_name(), get_uuid(),
+                                            get_vxlan_id(), get_ipam_name()));
     sand->DoSandesh(sand);
 }
 
 AgentSandeshPtr VnTable::GetAgentSandesh(const AgentSandeshArguments *args,
                                          const std::string &context) {
-    return AgentSandeshPtr(new AgentVnSandesh(context,
-                                              args->GetString("name"), args->GetString("uuid"),
-                                              args->GetString("vxlan_id"), args->GetString("ipam_name")));
+    return AgentSandeshPtr
+        (new AgentVnSandesh(context, args->GetString("name"),
+                            args->GetString("uuid"),
+                            args->GetString("vxlan_id"),
+                            args->GetString("ipam_name")));
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// DomainConfig routines
+/////////////////////////////////////////////////////////////////////////////
 DomainConfig::DomainConfig(Agent *agent) {
 }
 
@@ -1482,6 +1393,9 @@ bool DomainConfig::GetVDns(const std::string &vdns,
     return true;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// OperNetworkIpam routines
+/////////////////////////////////////////////////////////////////////////////
 OperNetworkIpam::OperNetworkIpam(Agent *agent, DomainConfig *domain_config) :
     OperIFMapTable(agent), domain_config_(domain_config) {
 }

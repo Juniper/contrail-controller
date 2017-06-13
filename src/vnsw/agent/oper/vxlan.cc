@@ -290,7 +290,7 @@ VxLanId *VxLanTable::Delete(uint32_t vxlan_id, const boost::uuids::uuid &vn) {
     it->second.active_ = true;
     Create(vxlan_id, it->second.vrf_, it->second.flood_unknown_unicast_,
            it->second.mirror_destination_, it->second.learning_enabled_);
-    agent()->vn_table()->ResyncVxlan(it->first.vn_);
+    agent()->vn_table()->ResyncReq(it->first.vn_);
     return NULL;
 }
 

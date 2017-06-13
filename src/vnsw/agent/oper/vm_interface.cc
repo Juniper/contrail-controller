@@ -1206,11 +1206,11 @@ bool VmInterface::InstanceIpList::UpdateList
         InstanceIpSet::iterator prev = it++;
         VmInterfaceState::Op l2_op = prev->GetOp(l2_force_op);
         VmInterfaceState::Op l3_op = prev->GetOp(l3_force_op);
+        if (prev->del_pending() == false)
+            prev->SetPrefixForAllocUnitIpam(vmi);
         vmi->UpdateState(&(*prev), l2_op, l3_op);
         if (prev->del_pending()) {
             list_.erase(prev);
-        } else {
-            prev->SetPrefixForAllocUnitIpam(vmi);
         }
     }
 
