@@ -364,9 +364,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         if local('sudo modprobe %s'
                  % (uio_driver), capture=True, warn_only=False).succeeded:
             log.info("Setting UIO driver to %s for host..." % uio_driver)
-            local('sudo sed -i.bak \'s/physical_uio_driver='
-                  '.*/physical_uio_driver=%s/\' %s'
-                  % (uio_driver, vrouter_agent_file))
+            local('sudo contrail-config --set %s DEFAULT '\
+                  'physical_uio_driver %s' % (vrouter_agent_file, uio_driver))
         else:
             raise RuntimeError("Error: invalid UIO driver %s for host"
                                % (uio_driver))
