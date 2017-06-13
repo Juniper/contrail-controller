@@ -1,7 +1,7 @@
 #
 # Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
 #
-import pprint, socket
+import socket
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
 from sandesh.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
@@ -47,7 +47,6 @@ class LinkUve(object):
     # end logger
 
     def send(self, data):
-        pprint.pprint(data)
         for prouter in data:
             lt = map(lambda x: LinkEntry(**x), data[prouter])
             uve = PRouterLinkUVE(data=PRouterLinkEntry(name=prouter,
