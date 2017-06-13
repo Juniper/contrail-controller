@@ -111,12 +111,11 @@ class KafkaProcessor::KafkaWorker {
 };
 
 class KafkaRebalanceCb : public RdKafka::RebalanceCb {
-  public:
+  public: 
     void rebalance_cb (RdKafka::KafkaConsumer *consumer,
              RdKafka::ErrorCode err,
                 std::vector<RdKafka::TopicPartition*> &pts) {
        map<string, map<int32_t,uint64_t> > topics;
-   
 
        // Load all topic-partitions into a
        // map (key topic) of sets of ints (partitions)
@@ -200,7 +199,9 @@ class KafkaRebalanceCb : public RdKafka::RebalanceCb {
            LOG(ERROR, "Assign " << ss.str());
            {
                KafkaAggStatus data;
-               data.set_name(collector_->name());
+               if (collector_) {
+                   data.set_name(collector_->name());
+               }
                data.set_assign_offsets(all_offsets);
                KafkaAggStatusTrace::Send(data);
            }
@@ -223,6 +224,10 @@ class KafkaRebalanceCb : public RdKafka::RebalanceCb {
         collector_ = collector;
         topics_ = topics;
         aggs_ = aggs;
+    }
+
+    void Shutdown(){
+        collector_ = NULL;
     }
     KafkaRebalanceCb() : collector_(NULL) {}
   private:
@@ -559,6 +564,7 @@ void
 KafkaProcessor::Shutdown() {
     TimerManager::DeleteTimer(kafka_timer_);
     kafka_timer_ = NULL;
+    k_re_cb.Shutdown();
     StopKafka();
 }
 
