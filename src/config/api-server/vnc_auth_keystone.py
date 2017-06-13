@@ -123,15 +123,6 @@ class AuthPostKeystone(object):
         if self.conf['auth_svc']._mt_rbac:
             return self.app(env, start_response)
 
-        # only allow admin access when MT is on
-        roles = []
-        if 'HTTP_X_ROLE' in env:
-            roles = env['HTTP_X_ROLE'].split(',')
-        if not 'admin' in [x.lower() for x in roles]:
-            start_response('403 Permission Denied',
-                [('Content-type', 'text/plain')])
-            return ['403 Permission Denied']
-
         return self.app(env, start_response)
 
 
