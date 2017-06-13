@@ -118,7 +118,8 @@ private:
 class StateMachineTest : public StateMachine {
 public:
     explicit StateMachineTest(BgpPeer *peer)
-        : StateMachine(peer), skip_bgp_notification_msg_(false) {
+        : StateMachine(peer), gr_close_(false),
+          skip_bgp_notification_msg_(false) {
     }
     virtual ~StateMachineTest() { }
 
@@ -197,20 +198,15 @@ public:
     }
 
     bool IsCloseGraceful() const {
-        if (graceful_close_ == -1)
-            return StateMachine::IsCloseGraceful();
-        return graceful_close_ != 0;
+        return gr_close_ ?: StateMachine::IsCloseGraceful();
     }
-
-    static void SetCloseGraceful(int graceful_close) {
-        graceful_close_ = graceful_close;
-    }
+    void SetCloseGraceful(bool gr_close) { gr_close_ = gr_close; }
 
 private:
     static int hold_time_msecs_;
     static int keepalive_time_msecs_;
-    static int graceful_close_;
     static TcpSession::Event skip_tcp_event_;
+    bool gr_close_;
     bool skip_bgp_notification_msg_;
 };
 
