@@ -694,7 +694,29 @@ class LogicalRouterServer(Resource, LogicalRouter):
         return (True, '')
 
     @classmethod
+    def check_configured_vni(cls, db_conn, obj_dict):
+        _, global_config_list = db_conn.dbe_list('global_vrouter_config')
+        _, project = db_conn.dbe_read('project', obj_dict['parent_uuid'])
+        _, global_vrouter_config = db_conn.dbe_read('global_vrouter_config',
+                                         global_config_list[0].get('uuid'))
+
+        vxlan_id_mode = global_vrouter_config.get('vxlan_network_identifier_mode')
+        vxlan_routing = project['vxlan_routing']
+
+        if vxlan_routing:
+            if vxlan_id_mode == 'configured' and 'configured_vni' not in obj_dict:
+                return (False, (400, 'Provide Configured VNI for Logical Router'))
+            if vxlan_id_mode == 'automatic' and 'configured_vni' in obj_dict:
+                return (False, (400, 'Configured VNI for Logical Router is generated ' +
+                                     'and need not be provided'))
+        return (True, '')
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_configured_vni(db_conn, obj_dict)
+        if not ok:
+            return (ok, result)
+
         ok, result = cls.check_port_gateway_not_in_same_network(
                 db_conn, obj_dict)
         if not ok:
@@ -2913,7 +2935,24 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
 # end class PhysicalInterfaceServer
 
+class ProjectServer(Resource, Project):
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        if obj_dict.get('vxlan_routing') is not None:
+            # VxLAN routing can be enabled or disabled
+            # only when the project does not have any 
+            # Logical routers already attached.
+            ok, result = cls.dbe_read(db_conn, 'project', id)
 
+            if not ok:
+                return ok, result
+
+            if result.get('logical_routers') is not None:
+                return (False, (400, 'VxLAN Routing update cannot be ' +
+                                'done when Logical Routers are configured'))
+        return True, ""
+#end ProjectServer
+ 
 class LoadbalancerMemberServer(Resource, LoadbalancerMember):
 
     @classmethod
