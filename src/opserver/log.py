@@ -204,7 +204,7 @@ class LogQuerier(object):
         parser.add_argument("--node-type", help="Logs from node type",
             choices=NodeTypeNames.values())
         parser.add_argument(
-            "--module", help="Logs from module", choices=ModuleNames.values())
+            "--module", nargs="*", help="Logs from module", choices=ModuleNames.values())
         parser.add_argument("--instance-id", help="Logs from module instance")
         parser.add_argument("--category", help="Logs of category")
         parser.add_argument("--level", help="Logs of level")
@@ -297,6 +297,7 @@ class LogQuerier(object):
             self._args.analytics_api_ip,
             self._args.analytics_api_port)
         where_msg = []
+        where_or_list = []
         where_obj = []
         and_filter = []
         or_filter = []
@@ -312,10 +313,12 @@ class LogQuerier(object):
             where_msg.append(source_match.__dict__)
 
         if self._args.module is not None:
-            module_match = OpServerUtils.Match(name=VizConstants.MODULE,
-                                               value=self._args.module,
-                                               op=OpServerUtils.MatchOp.EQUAL)
-            where_msg.append(module_match.__dict__)
+            for module in self._args.module:
+                module_match = OpServerUtils.Match(name=VizConstants.MODULE,
+                                                   value=module,
+                                                   op=OpServerUtils.MatchOp.EQUAL)
+                where_or_list.append([])
+                where_or_list[-1].append(module_match.__dict__)
 
         if self._args.category is not None:
             if self._args.category.endswith('*'):
@@ -444,9 +447,15 @@ class LogQuerier(object):
                 ]
 
             if len(where_obj) or len(where_msg):
-                where = [where_obj + where_msg]
+                if len(where_or_list):
+                    where = [where_obj + where_msg + where_or for where_or in where_or_list]
+                else:
+                    where = [where_obj + where_msg]
             else:
-                where = None
+                if len(where_or_list):
+                    where = where_or_list
+                else:
+                    where = None
 
         elif self._args.trace is not None:
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
@@ -461,7 +470,7 @@ class LogQuerier(object):
                 value=self._args.trace,
                 op=OpServerUtils.MatchOp.EQUAL)
             where_msg.append(trace_buf_match.__dict__)
-            where = [where_msg]
+            where = [where_msg + where_or for where_or in where_or_list]
             select_list = [
                 VizConstants.TIMESTAMP,
                 VizConstants.MESSAGE_TYPE,
@@ -480,9 +489,15 @@ class LogQuerier(object):
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
 
             if len(where_msg):
-                where = [where_msg]
+                if len(where_or_list):
+                    where = [where_msg + where_or for where_or in where_or_list]
+                else:
+                    where = [where_msg]
             else:
-                where = None
+                if len(where_or_list):
+                    where = where_or_list
+                else:
+                    where = None
 
             select_list = [
                 VizConstants.TIMESTAMP,
