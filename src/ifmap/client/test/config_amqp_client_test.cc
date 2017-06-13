@@ -150,7 +150,7 @@ TEST_F(ConfigAmqpClientTest, Basic) {
     ConfigAmqpConnInfo conn_info;
     config_client_manager_->config_amqp_client()->GetConnectionInfo(conn_info);
     TASK_UTIL_EXPECT_EQ(string("amqp://" + config_options_.rabbitmq_user + ":" +
-        config_options_.rabbitmq_password + "@" + "127.0.0.1:100" +
+        config_options_.rabbitmq_password + "@" + "127.0.0.1:100/" +
         config_options_.rabbitmq_vhost), conn_info.url);
 
     config_client_manager_->Initialize();
