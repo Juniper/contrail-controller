@@ -78,6 +78,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
         name_ = boost::asio::ip::host_name(error) + "dup";
     else
         name_ = boost::asio::ip::host_name(error);
+    if (error)
+        name_ = "<UNKNOWN>";
     if (protobuf_collector_enabled) {
         protobuf_collector_.reset(new ProtobufCollector(evm,
             protobuf_listen_port, db_initializer_->GetDbHandler()));
@@ -107,6 +109,8 @@ VizCollector::VizCollector(EventManager *evm, DbHandlerPtr db_handler,
     sflow_collector_(NULL), ipfix_collector_(NULL), redis_gen_(0), partitions_(0) {
     error_code error;
     name_ = boost::asio::ip::host_name(error);
+    if (error)
+        name_ = "<UNKNOWN>";
 }
 
 VizCollector::~VizCollector() {
