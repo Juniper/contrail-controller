@@ -3867,6 +3867,7 @@ class LogicalRouterST(DBBaseST):
         self.bgpvpn_rt_list = set()
         self.bgpvpn_import_rt_list = set()
         self.bgpvpn_export_rt_list = set()
+        self.vxlan_vn_uuid = None
         self.update_vnc_obj()
 
         rt_ref = self.obj.get_route_target_refs()
@@ -3888,7 +3889,48 @@ class LogicalRouterST(DBBaseST):
         if old_rt_key:
             RouteTargetST.delete_vnc_obj(old_rt_key)
         self.route_target = rt_key
+
+        import pdb; pdb.set_trace()
+        proj_name = self.obj.get_parent_fq_name_str()
+        proj_obj = self._vnc_lib.project_read(fq_name_str=proj_name)
+
+        if proj_obj.get_vxlan_routing() == True:
+            self.vxlan_vn_uuid = self.create_internal_vn()
     # end __init__
+
+    def get_internal_vn_name(self, uuid):
+        return '__contrail' + uuid + 'lr_internal_vn__'
+
+    def create_internal_vn(self):
+        proj_name = self.obj.get_parent_fq_name_str()
+        proj_obj = self._vnc_lib.project_read(fq_name_str=proj_name)
+        int_vn_name = self.get_internal_vn_name(self.obj.get_uuid())
+
+        vn_obj = VirtualNetwork(name=int_vn_name, parent_obj=proj_obj)
+        id_perms = IdPermsType(enable=True, user_visible=False)
+        vn_obj.set_id_perms(id_perms)
+
+        gvc_name = 'default-global-system-config:default-global-vrouter-config'
+        gvc_obj = self._vnc_lib.global_vrouter_config_read(fq_name_str=gvc_name)
+
+        if gvc_obj.get_vxlan_network_identifier_mode() == 'configured':
+            if 'configured_vni' in self.obj:
+                vni_id = self.obj['configured_vni'] 
+                vn_obj.set_virtual_network_network_id(vni_id)
+            else:
+                self._logger.error(
+                    "Configured VNI not present for LR " + str(self.name))
+                return None
+        try:
+            self._vnc_lib.virtual_network_create(vn_obj)
+        except RefsExistError:
+            vn_obj = self._vnc_lib.virtual_network_read(
+                fq_name=vn_obj.get_fq_name())
+        return vn_obj.uuid
+    # end create_internal_vn
+
+    def delete_internal_vn(self):
+        self._vnc_lib.virtual_network_delete(id=self.vxlan_vn_uuid)
 
     def evaluate(self):
         self.update_virtual_networks()
@@ -3900,6 +3942,7 @@ class LogicalRouterST(DBBaseST):
         self.update_multiple_refs('route_table', {})
         self.update_multiple_refs('bgpvpn', {})
         self.update_virtual_networks()
+        self.delete_internal_vn()
         rtgt_num = int(self.route_target.split(':')[-1])
         self._object_db.free_route_target_by_number(rtgt_num)
         self.delete_route_targets([self.route_target])
