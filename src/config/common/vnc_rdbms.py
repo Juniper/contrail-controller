@@ -1203,7 +1203,7 @@ class VncRDBMSClient(object):
     # end object_delete
 
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
-                   operation):
+                   operation, id_perms=None):
         self._ref_update(obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
                          operation)
         if obj_type == ref_type:
