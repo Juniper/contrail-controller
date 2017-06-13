@@ -69,7 +69,7 @@ public:
         Inet4TunnelRouteAdd(peer_, vrf_name_, remote_ip, 32,
                             remote_compute_ip,
                             TunnelType::AllType(), 10, vn_name_,
-                            SecurityGroupList(), PathPreference());
+                            SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
         strcpy(router_id_, agent_->router_id().to_string().c_str());

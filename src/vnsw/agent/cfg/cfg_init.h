@@ -110,6 +110,46 @@ public:
         return cfg_health_check_table_;
     }
 
+    IFMapAgentTable *cfg_policy_set_table() const {
+        return cfg_policy_set_table_;
+    }
+
+    IFMapAgentTable *cfg_firewall_policy_table() const {
+        return cfg_firewall_policy_table_;
+    }
+
+    IFMapAgentTable *cfg_firewall_rule_table() const {
+        return cfg_firewall_rule_table_;
+    }
+
+    IFMapAgentTable *cfg_service_group_table() const {
+        return cfg_service_group_table_;
+    }
+
+    IFMapAgentTable *cfg_address_group_table() const {
+        return cfg_address_group_table_;
+    }
+
+    IFMapAgentTable *cfg_firewall_policy_firewall_rule_table() const {
+        return cfg_firewall_policy_firewall_rule_table_;
+    }
+
+    IFMapAgentTable *cfg_tag_table() const {
+        return cfg_tag_table_;
+    }
+
+    IFMapAgentTable *cfg_policy_set_firewall_policy_table() const {
+        return cfg_policy_set_firewall_policy_table_;
+    }
+
+    IFMapAgentTable *cfg_policy_management_table() const {
+        return cfg_policy_management_table_;
+    }
+
+    IFMapAgentTable *cfg_project_table() const {
+        return cfg_project_table_;
+    }
+
     Agent *agent() const { return agent_; }
     CfgFilter *cfg_filter() const { return cfg_filter_.get(); }
     IFMapAgentParser *cfg_parser() const { return cfg_parser_.get(); }
@@ -170,7 +210,16 @@ private:
     IFMapAgentTable *cfg_forwarding_class_table_;
     IFMapAgentTable *cfg_bridge_domain_table_;
     IFMapAgentTable *cfg_vm_port_bridge_domain_table_;
-
+    IFMapAgentTable *cfg_policy_set_table_;
+    IFMapAgentTable *cfg_firewall_policy_table_;
+    IFMapAgentTable *cfg_firewall_rule_table_;
+    IFMapAgentTable *cfg_service_group_table_;
+    IFMapAgentTable *cfg_address_group_table_;
+    IFMapAgentTable *cfg_firewall_policy_firewall_rule_table_;
+    IFMapAgentTable *cfg_tag_table_;
+    IFMapAgentTable *cfg_policy_set_firewall_policy_table_;
+    IFMapAgentTable *cfg_policy_management_table_;
+    IFMapAgentTable *cfg_project_table_;
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };
 

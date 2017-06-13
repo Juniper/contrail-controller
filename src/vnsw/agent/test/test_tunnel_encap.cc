@@ -105,7 +105,7 @@ public:
 
         Inet4TunnelRouteAdd(bgp_peer_, vrf_name_, remote_vm_ip_, 32,
                             server1_ip_, l3_bmap, 1000, vrf_name_,
-                            SecurityGroupList(), PathPreference());
+                            SecurityGroupList(), TagList(), PathPreference());
         client->WaitForIdle();
 
         BridgeTunnelRouteAdd(bgp_peer_, vrf_name_, l2_bmap, server1_ip_, 2000,
@@ -130,7 +130,7 @@ public:
         SecurityGroupList sg_id_list;
         EcmpTunnelRouteAdd(bgp_peer_, vrf_name_, remote_ecmp_vm_ip_, 32,
                            comp_nh_list1, false, "vn1", sg_id_list,
-                           PathPreference());
+                           TagList(), PathPreference());
         client->WaitForIdle();
 
         TunnelOlist olist_map;

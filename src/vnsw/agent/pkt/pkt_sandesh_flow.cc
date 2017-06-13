@@ -145,19 +145,19 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
                   fe->match_p().m_out_acl_l);
     data.set_out_policy(policy);
 
-    SetOneAclInfo(&policy, fe->match_p().sg_action, fe->match_p().m_sg_acl_l);
+    SetOneAclInfo(&policy, fe->match_p().sg_policy.action, fe->match_p().sg_policy.m_acl_l);
     data.set_sg(policy);
 
-    SetOneAclInfo(&policy, fe->match_p().out_sg_action,
-                  fe->match_p().m_out_sg_acl_l);
+    SetOneAclInfo(&policy, fe->match_p().sg_policy.out_action,
+                  fe->match_p().sg_policy.m_out_acl_l);
     data.set_out_sg(policy);
 
-    SetOneAclInfo(&policy, fe->match_p().reverse_sg_action,
-                  fe->match_p().m_reverse_sg_acl_l);
+    SetOneAclInfo(&policy, fe->match_p().sg_policy.reverse_action,
+                  fe->match_p().sg_policy.m_reverse_acl_l);
     data.set_reverse_sg(policy);
 
-    SetOneAclInfo(&policy, fe->match_p().reverse_out_sg_action,
-                  fe->match_p().m_reverse_out_sg_acl_l);
+    SetOneAclInfo(&policy, fe->match_p().sg_policy.reverse_out_action,
+                  fe->match_p().sg_policy.m_reverse_out_acl_l);
     data.set_reverse_out_sg(policy);
 
     SetOneAclInfo(&policy, fe->match_p().vrf_assign_acl_action,
@@ -165,7 +165,7 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
     data.set_vrf_assign_acl(policy);
 
     FlowAction action_info;
-    action_info.action = fe->match_p().sg_action_summary;
+    action_info.action = fe->match_p().sg_policy.action_summary;
     std::vector<ActionStr> action_str_l;
     SetActionStr(action_info, action_str_l);
     data.set_sg_action_summary(action_str_l);
@@ -177,6 +177,14 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
     SetOneAclInfo(&policy, fe->match_p().out_mirror_action,
                   fe->match_p().m_out_mirror_acl_l);
     data.set_out_mirror(policy);
+
+    SetOneAclInfo(&policy, fe->match_p().aps_policy.action,
+                  fe->match_p().aps_policy.m_acl_l);
+    data.set_policy_set(policy);
+
+    SetOneAclInfo(&policy, fe->match_p().aps_policy.out_action,
+                  fe->match_p().aps_policy.m_out_acl_l);
+    data.set_out_policy_set(policy);
 
     data.set_sg_rule_uuid(fe->sg_rule_uuid());
     data.set_nw_ace_uuid(fe->nw_ace_uuid());

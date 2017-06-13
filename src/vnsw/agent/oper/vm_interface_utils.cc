@@ -400,6 +400,9 @@ void VmInterface::AddL2InterfaceRoute(const IpAddress &ip,
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
 
+    TagList tag_list;
+    CopyTagIdList(&tag_list);
+
     PathPreference path_preference;
     SetPathPreference(&path_preference, false, dependent_ip);
 
@@ -409,7 +412,8 @@ void VmInterface::AddL2InterfaceRoute(const IpAddress &ip,
     }
 
     table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this, ip,
-                           label, vn_->GetName(), sg_id_list, path_preference,
+                           label, vn_->GetName(), sg_id_list,
+                           tag_list, path_preference,
                            ethernet_tag_, etree_leaf_);
 }
 
@@ -439,6 +443,9 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
 
+    TagList tag_list;
+    CopyTagIdList(&tag_list);
+
     PathPreference path_preference;
     SetPathPreference(&path_preference, ecmp, dependent_rt);
 
@@ -448,8 +455,8 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     CopyEcmpLoadBalance(ecmp_load_balance);
     InetUnicastAgentRouteTable::AddLocalVmRoute
         (peer_.get(), vrf_name, addr, plen, GetUuid(), vn_list, label,
-         sg_id_list, communities, force_policy, path_preference, service_ip,
-         ecmp_load_balance, is_local, is_health_check_service);
+         sg_id_list, tag_list, communities, force_policy, path_preference,
+         service_ip, ecmp_load_balance, is_local, is_health_check_service);
     return;
 }
 
@@ -458,11 +465,16 @@ void VmInterface::ResolveRoute(const std::string &vrf_name,
                                const std::string &dest_vn, bool policy) {
     SecurityGroupList sg_id_list;
     CopySgIdList(&sg_id_list);
+
+    TagList tag_list;
+    CopyTagIdList(&tag_list);
+
     VmInterfaceKey vm_intf_key(AgentKey::ADD_DEL_CHANGE, GetUuid(), "");
 
     InetUnicastAgentRouteTable::AddResolveRoute
         (peer_.get(), vrf_name, Address::GetIp4SubnetAddress(addr, plen), plen,
-         vm_intf_key, vrf_->table_label(), policy, dest_vn, sg_id_list);
+         vm_intf_key, vrf_->table_label(), policy, dest_vn, sg_id_list,
+         tag_list);
 }
 
 void VmInterface::DeleteRoute(const std::string &vrf_name,

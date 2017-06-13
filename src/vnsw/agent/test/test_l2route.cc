@@ -153,7 +153,7 @@ protected:
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),
                 agent_->fabric_vrf_name(), server_ip, plen, vhost_key,
-                0, false, "", SecurityGroupList());
+                0, false, "", SecurityGroupList(), TagList());
         client->WaitForIdle();
     }
 
@@ -1226,7 +1226,7 @@ TEST_F(RouteTest, add_route_in_vrf_with_delayed_vn_vrf_link_add) {
     //Now add remote l3 route for IP.
     Inet4TunnelRouteAdd(bgp_peer_, "vrf1", remote_vm_ip4_, 32, server1_ip_,
                         TunnelType::AllType(), MplsTable::kStartLabel, "vrf1",
-                        SecurityGroupList(), PathPreference());
+                        SecurityGroupList(), TagList(), PathPreference());
     client->WaitForIdle();
     InetUnicastRouteEntry *inet_rt = RouteGet("vrf1", remote_vm_ip4_, 32);
     VrfKSyncObject *vrf_obj = agent_->ksync()->vrf_ksync_obj();;
@@ -1451,12 +1451,14 @@ TEST_F(RouteTest, evpn_mcast_label_check_with_no_vm) {
     AgentXmppChannel *channel1 = agent_->controller_xmpp_channel(1);
     SecurityGroupList sg;
     CommunityList communities;
+    TagList tag_list;
     channel1->BuildEvpnMulticastMessage(item,
                                         ss_node,
                                         rt,
                                         agent_->router_ip_ptr(),
                                         "vn1",
                                         &sg,
+                                        &tag_list,
                                         &communities,
                                         route_state->label_,
                                         TunnelType::AllType(),

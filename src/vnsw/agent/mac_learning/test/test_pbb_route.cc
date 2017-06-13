@@ -106,7 +106,7 @@ TEST_F(PbbRouteTest, RouteTest1) {
     client->WaitForIdle();
 
     PBBRoute *data = new PBBRoute(VrfKey("evpn_vrf"), b_smac_, 0, VnListType(),
-                                  SecurityGroupList());
+                                  SecurityGroupList(), TagList());
     EvpnAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "pbb_vrf", c_smac_,
                                              Ip4Address(0), 0, data);
     client->WaitForIdle();

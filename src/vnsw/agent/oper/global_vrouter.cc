@@ -333,7 +333,8 @@ void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
     vn_list.insert(agent->fabric_vn_name());
     InetUnicastAgentRouteTable::CheckAndAddArpReq(agent->fabric_vrf_name(),
                                                   srv, agent->vhost_interface(),
-                                                  vn_list, SecurityGroupList());
+                                                  vn_list, SecurityGroupList(),
+                                                  TagList());
 }
 
 // Walk thru all the VNs

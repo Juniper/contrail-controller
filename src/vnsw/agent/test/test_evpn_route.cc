@@ -139,7 +139,8 @@ protected:
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),
                 agent_->fabric_vrf_name(), server_ip, plen, vhost_key,
-                0, false, "", SecurityGroupList());
+                0, false, "", SecurityGroupList(),
+                TagList());
         client->WaitForIdle();
     }
 
@@ -326,7 +327,8 @@ TEST_F(RouteTest, RemoteVmRoute_with_ipam) {
                         26, server1_ip_,
                         TunnelType::MplsType(),
                         (MplsTable::kStartLabel + 50),
-                        vrf_name_, SecurityGroupList(), PathPreference());
+                        vrf_name_, SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     BridgeTunnelRouteAdd(bgp_peer, "vrf1", TunnelType::AllType(), server1_ip_,
@@ -421,7 +423,8 @@ TEST_F(RouteTest, RemoteVmRoute_with_ipam_2) {
                         26, server1_ip_,
                         TunnelType::MplsType(),
                         (MplsTable::kStartLabel + 50),
-                        vrf_name_, SecurityGroupList(), PathPreference());
+                        vrf_name_, SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     ipam_subnet_rt = RouteGet("vrf1",
@@ -551,7 +554,8 @@ TEST_F(RouteTest, LocalVmRoute_with_ipam_and_external_subnet_route) {
     Inet4TunnelRouteAdd(bgp_peer, vrf_name_,
                         ipam_subnet_ip4_, 24, server1_ip_,
                         TunnelType::MplsType(), MplsTable::kStartLabel,
-                        vrf_name_, SecurityGroupList(), PathPreference());
+                        vrf_name_, SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     //Take out subnet route
@@ -575,7 +579,8 @@ TEST_F(RouteTest, LocalVmRoute_with_ipam_and_external_subnet_route) {
     Inet4TunnelRouteAdd(bgp_peer, vrf_name_,
                         ipam_subnet_ip4_, 24, server1_ip_,
                         TunnelType::MplsType(), (MplsTable::kStartLabel + 1),
-                        vrf_name_, SecurityGroupList(), PathPreference());
+                        vrf_name_, SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
     EXPECT_TRUE(subnet_rt->GetActiveNextHop() ==
                 evpn_inet_path->ComputeNextHop(agent_));
@@ -614,7 +619,8 @@ TEST_F(RouteTest, RemoteVmRoute_with_non_ipam_subnet) {
                         26, server1_ip_,
                         TunnelType::MplsType(),
                         (MplsTable::kStartLabel + 50),
-                        vrf_name_, SecurityGroupList(), PathPreference());
+                        vrf_name_, SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     BridgeTunnelRouteAdd(bgp_peer, "vrf1", TunnelType::AllType(), server1_ip_,

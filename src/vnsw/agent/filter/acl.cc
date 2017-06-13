@@ -31,6 +31,7 @@
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
 #include <oper/qos_config.h>
+#include <oper/config_manager.h>
 
 static AclTable *acl_table_;
 
@@ -40,7 +41,7 @@ SandeshTraceBufferPtr AclTraceBuf(SandeshTraceBufferCreate("Acl", 32000));
 
 FlowPolicyInfo::FlowPolicyInfo(const std::string &u)
     : uuid(u), drop(false), terminal(false), other(false),
-      src_match_vn(), dst_match_vn() {
+      src_match_vn(), dst_match_vn(), acl_name() {
 }
 
 bool AclDBEntry::IsLess(const DBEntry &rhs) const {
@@ -115,6 +116,11 @@ DBEntry *AclTable::OperDBAdd(const DBRequest *req) {
          ++it) {
         acl->AddAclEntry(*it, acl->acl_entries_);
     }
+
+    AclSandeshData sandesh_data;
+    acl->SetAclSandeshData(sandesh_data);
+    ACL_TRACE(AclTrace, "Add", UuidToString(acl->uuid_), sandesh_data);
+
     return acl;
 }
 
@@ -183,6 +189,10 @@ bool AclTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     if (acl->IsQosConfigResolved() == false) {
         AddUnresolvedEntry(acl);
     }
+
+    AclSandeshData sandesh_data;
+    acl->SetAclSandeshData(sandesh_data);
+    ACL_TRACE(AclTrace, "Changed", UuidToString(acl->uuid_), sandesh_data);
     return changed;
 }
 
@@ -270,7 +280,17 @@ DBTableBase *AclTable::CreateTable(DB *db, const std::string &name) {
 
 static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &ace_spec)
 {
-    ace_sandesh.set_ace_id(integerToString(ace_spec.id));
+    uint32_t id;
+
+    if (stringToInteger(ace_spec.id.id_, id)) {
+        //XXX ci sanity expects integers
+        //and since we are now comparing string
+        //id are prepended with 0, and verification fails
+        //To be removed once ci scripts would be corrected.
+        ace_sandesh.set_ace_id(integerToString(id));
+    } else {
+        ace_sandesh.set_ace_id(ace_spec.id.id_);
+    }
     if (ace_spec.terminal) {
         ace_sandesh.set_rule_type("T");
     } else {
@@ -388,9 +408,19 @@ static void AclObjectTrace(AgentLogEvent::type event, AclSpec &acl_spec)
 }
 
 bool AclTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
-    AccessControlList *cfg_acl = static_cast <AccessControlList *> (node->GetObject());
-    autogen::IdPermsType id_perms = cfg_acl->id_perms();
-    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    AccessControlList *cfg_acl = dynamic_cast <AccessControlList *> (node->GetObject());
+    if (cfg_acl) {
+        autogen::IdPermsType id_perms = cfg_acl->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    }
+
+    FirewallPolicy *fw_acl =
+        dynamic_cast <FirewallPolicy *> (node->GetObject());
+    if (fw_acl) {
+        autogen::IdPermsType id_perms = fw_acl->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+    }
+
     return true;
 }
 
@@ -401,7 +431,9 @@ static void AddAceToAcl(AclSpec *acl_spec, const AclTable *acl_table,
                         const string rule_uuid, uint32_t id) {
     // ACE clean up
     AclEntrySpec ace_spec;
-    ace_spec.id = id;
+    std::stringstream stream;
+    stream << std::setfill('0') << std::setw(8) << id;
+    ace_spec.id.id_ = stream.str();
 
     if (ace_spec.Populate(match_condition) == false) {
         return;
@@ -426,31 +458,127 @@ static void AddAceToAcl(AclSpec *acl_spec, const AclTable *acl_table,
     ACL_TRACE(EntryTrace, ae_spec);
 }
 
-bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
-        const boost::uuids::uuid &u) {
+void AclTable::PopulateServicePort(AclEntrySpec &ace_spec, IFMapNode *node) {
+    IFMapAgentTable *firewall_rule_table =
+         static_cast<IFMapAgentTable *>(node->table());
+     DBGraph *graph = firewall_rule_table->GetGraph();
 
-    AccessControlList *cfg_acl = static_cast <AccessControlList *> (node->GetObject());
-    assert(!u.is_nil());
+     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+          iter != node->end(graph); ++iter) {
+         IFMapNode *service_group_node =
+             static_cast<IFMapNode *>(iter.operator->());
+         if (agent()->config_manager()->SkipNode(service_group_node,
+                              agent()->cfg()->cfg_service_group_table())) {
+             continue;
+         }
 
-    // Delete ACL
-    if (req.oper == DBRequest::DB_ENTRY_DELETE) {
-        AclSpec acl_spec;
-        AclKey *key = new AclKey(u);
-        req.key.reset(key);
-        req.data.reset(NULL);
-        Agent::GetInstance()->acl_table()->Enqueue(&req);
-        acl_spec.acl_id = u;
-        AclObjectTrace(AgentLogEvent::DELETE, acl_spec);
-        return false;
+         const ServiceGroup *service_group =
+             static_cast<const ServiceGroup*>(service_group_node->GetObject());
+         ace_spec.PopulateServiceGroup(service_group);
+     }
+}
+
+IFMapNode* AclTable::GetFirewallRule(IFMapNode *node) {
+    IFMapAgentTable *fp_fr_table =
+        static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = fp_fr_table->GetGraph();
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+            iter != node->end(graph); iter++) {
+        IFMapNode *firewall_rule_node =
+            static_cast<IFMapNode *>(iter.operator->());
+
+        if (agent()->config_manager()->SkipNode(firewall_rule_node,
+                    agent()->cfg()->cfg_firewall_rule_table())) {
+            continue;
+        }
+
+        return firewall_rule_node;
     }
 
-    // Add ACL
+    return NULL;
+}
+
+void AclTable::AddImplicitRule(AclSpec &acl_spec, AclEntrySpec &ace_spec,
+                               const FirewallRule *rule) {
+    if ((rule->direction().compare("<>") == 0)) {
+        AclEntrySpec implicit_forward_ace_spec(ace_spec);
+        implicit_forward_ace_spec.Reverse(&ace_spec,
+                                          AclEntryID::DERIVED,
+                                          true, false);
+        acl_spec.acl_entry_specs_.push_back(implicit_forward_ace_spec);
+    }
+}
+
+void AclTable::FirewallPolicyIFNodeToReq(IFMapNode *node, DBRequest &req,
+                                         const boost::uuids::uuid &u,
+                                         AclSpec &acl_spec) {
+     IFMapAgentTable *firewall_policy_table =
+         static_cast<IFMapAgentTable *>(node->table());
+     DBGraph *graph = firewall_policy_table->GetGraph();
+
+     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+          iter != node->end(graph); ++iter) {
+          IFMapNode *fp_fr_rule_node =
+              static_cast<IFMapNode *>(iter.operator->());
+          if (agent()->config_manager()->SkipNode(fp_fr_rule_node,
+                 agent()->cfg()->cfg_firewall_policy_firewall_rule_table())) {
+               continue;
+          }
+
+          const FirewallPolicyFirewallRule *fp_fr =
+              static_cast<const FirewallPolicyFirewallRule *>(
+                      fp_fr_rule_node->GetObject());
+          if (fp_fr->data().sequence == Agent::NullString()) {
+              continue;
+          }
+          IFMapNode *rule = GetFirewallRule(fp_fr_rule_node);
+          if (rule == NULL) {
+              continue;
+          }
+
+          const FirewallRule *fw_rule =
+              static_cast<const FirewallRule *>(rule->GetObject());
+          AclEntrySpec ace_spec;
+          ace_spec.Populate(agent(), rule, fw_rule);
+          ace_spec.id.id_ = fp_fr->data().sequence;
+          ace_spec.terminal = true;
+
+          //Parse thru FW rule to service group and populate service group
+          PopulateServicePort(ace_spec, rule);
+
+          boost::uuids::uuid rule_uuid;
+          autogen::IdPermsType id_perms = fw_rule->id_perms();
+          CfgUuidSet(id_perms.uuid.uuid_mslong,
+                  id_perms.uuid.uuid_lslong, rule_uuid);
+
+          ace_spec.rule_uuid = UuidToString(rule_uuid);
+          ace_spec.PopulateAction(this, fw_rule->action_list());
+
+          if ((fw_rule->direction().compare("<") == 0)) {
+              AclEntrySpec rev_ace_spec;
+              rev_ace_spec.Reverse(&ace_spec, AclEntryID::FORWARD,
+                                   true, false);
+              acl_spec.acl_entry_specs_.push_back(rev_ace_spec);
+          } else {
+              acl_spec.acl_entry_specs_.push_back(ace_spec);
+              if ((fw_rule->direction().compare("<>") == 0)) {
+                  AddImplicitRule(acl_spec, ace_spec, fw_rule);
+              }
+          }
+     }
+}
+
+void AclTable::AclIFNodeToReq(IFMapNode *node, DBRequest &req,
+                              const boost::uuids::uuid &u,
+                              AclSpec &acl_spec) {
+    AccessControlList *cfg_acl =
+        dynamic_cast <AccessControlList *> (node->GetObject());
     const std::vector<AclRuleType> &entrs = cfg_acl->entries().acl_rule;
 
-    AclSpec acl_spec;
     acl_spec.acl_id = u;
     acl_spec.dynamic_acl = cfg_acl->entries().dynamic;
-    
+
     //AclEntrySpec *ace_spec;
     std::vector<AclRuleType>::const_iterator ir;
     uint32_t id = 1;
@@ -469,13 +597,40 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
                         ir->action_list, ir->rule_uuid, id++);
         }
     }
+}
+
+bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
+                           const boost::uuids::uuid &u) {
+
+    assert(!u.is_nil());
+    // Delete ACL
+    if (req.oper == DBRequest::DB_ENTRY_DELETE) {
+        AclSpec acl_spec;
+        AclKey *key = new AclKey(u);
+        req.key.reset(key);
+        req.data.reset(NULL);
+        Enqueue(&req);
+        acl_spec.acl_id = u;
+        AclObjectTrace(AgentLogEvent::DELETE, acl_spec);
+        return false;
+    }
+
+    AccessControlList *cfg_acl = dynamic_cast <AccessControlList *> (node->GetObject());
+    AclSpec acl_spec;
+    acl_spec.acl_id = u;
+    if (cfg_acl) {
+        AclIFNodeToReq(node, req, u, acl_spec);
+    } else {
+        //Firewall Policy also has ACL table as handler
+        FirewallPolicyIFNodeToReq(node, req, u, acl_spec);
+    }
 
     AclKey *key = new AclKey(acl_spec.acl_id);
     AclData *data = new AclData(agent(), node, acl_spec);
     data->cfg_name_ = node->name();
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetInstance()->acl_table()->Enqueue(&req);
+    Enqueue(&req);
     AclObjectTrace(AgentLogEvent::ADD, acl_spec);
     return false;
 }
@@ -524,14 +679,10 @@ AclEntry *AclDBEntry::AddAclEntry(const AclEntrySpec &acl_entry_spec, AclEntries
 {
     AclEntries::iterator iter;
 
-    if (acl_entry_spec.id < 0) {
-        ACL_TRACE(Err, "acl entry id is negative value");
-        return NULL;
-    }
     for (iter = entries.begin();
          iter != entries.end(); ++iter) {
         if (acl_entry_spec.id == iter->id()) {
-            ACL_TRACE(Err, "acl entry id " + integerToString(acl_entry_spec.id) + 
+            ACL_TRACE(Err, "acl entry id " + acl_entry_spec.id.id_ +
                 " already exists");
             return NULL;
         } else if (iter->id() > acl_entry_spec.id) {
@@ -562,7 +713,7 @@ AclEntry *AclDBEntry::AddAclEntry(const AclEntrySpec &acl_entry_spec, AclEntries
         }
     }
     entries.insert(iter, *entry);
-    ACL_TRACE(Info, "acl entry " + integerToString(acl_entry_spec.id) + " added");
+    ACL_TRACE(Info, "acl entry " + integerToString(acl_entry_spec.id.id_) + " added");
     return entry;
 }
 
@@ -571,7 +722,8 @@ bool AclDBEntry::DeleteAclEntry(const uint32_t acl_entry_id)
     AclEntries::iterator iter;
     for (iter = acl_entries_.begin();
          iter != acl_entries_.end(); ++iter) {
-        if (acl_entry_id == iter->id()) {
+        AclEntryID ace_id(acl_entry_id);
+        if (ace_id == iter->id()) {
             AclEntry *ae = iter.operator->();
             acl_entries_.erase(acl_entries_.iterator_to(*iter));
             ACL_TRACE(Info, "acl entry " + integerToString(acl_entry_id) + " deleted");
@@ -602,6 +754,11 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
     bool ret_val = false;
     m_acl.terminal_rule = false;
 	m_acl.action_info.action = 0;
+
+    if (info) {
+        info->acl_name = GetName();
+    }
+
     for (iter = acl_entries_.begin();
          iter != acl_entries_.end();
          ++iter) {
@@ -651,7 +808,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
 	}
         if (!(al.empty())) {
             ret_val = true;
-            m_acl.ace_id_list.push_back((int32_t)(iter->id()));
+            m_acl.ace_id_list.push_back(iter->id());
             if (iter->IsTerminal()) {
                 m_acl.terminal_rule = true;
                 /* Set uuid only if it is NOT already set as
@@ -753,7 +910,8 @@ void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
 }
 
 void AclTable::AclFlowCountResponse(const string acl_uuid_str, 
-                                    const string ctx, int ace_id) {
+                                    const string ctx,
+                                    const string &ace_id) {
     AclFlowCountResp *resp = new AclFlowCountResp();
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
@@ -800,11 +958,11 @@ void NextAclFlowReq::HandleRequest() const {
 }
 
 void AclFlowReq::HandleRequest() const {
-    AclTable::AclFlowResponse(get_uuid(), context(), 0); 
+    AclTable::AclFlowResponse(get_uuid(), context(), 0);
 }
 
 void AclFlowCountReq::HandleRequest() const { 
-    AclTable::AclFlowCountResponse(get_uuid(), context(), 0);
+    AclTable::AclFlowCountResponse(get_uuid(), context(), Agent::NullString());
 }
 
 void NextAclFlowCountReq::HandleRequest() const { 
@@ -817,12 +975,12 @@ void NextAclFlowCountReq::HandleRequest() const {
     }
     stringstream ss(key);
     string uuid_str, item;
-    int ace_id = 0;
+    std::string ace_id = "";
     if (getline(ss, item, ':')) {
         uuid_str = item;
     }
     if (getline(ss, item, ':')) {
-        istringstream(item) >> ace_id;
+        ace_id = item;
     }
 
     AclTable::AclFlowCountResponse(uuid_str, context(), ace_id);
@@ -846,6 +1004,254 @@ void AclEntrySpec::BuildAddressInfo(const std::string &prefix, int plen,
         info.ip_addr = Address::GetIp6SubnetAddress(info.ip_addr.to_v6(), plen);
     }
     list->push_back(info);
+}
+
+void AclEntrySpec::PopulateServiceType(const FirewallServiceType *fst) {
+    ServicePort sp;
+    if (fst->protocol.compare("any") == 0) {
+        sp.protocol.min = 0x0;
+        sp.protocol.max = 0xff;
+        //Ignore port
+        Range port;
+        port.min = 0x0;
+        port.max = 0xFFFF;
+        sp.src_port = port;
+        sp.dst_port = port;
+    } else {
+        sp.protocol.min = fst->protocol_id;
+        sp.protocol.max = sp.protocol.min;
+
+        sp.src_port.min = fst->src_ports.start_port;
+        sp.src_port.max = fst->src_ports.end_port;
+
+        sp.dst_port.min = fst->dst_ports.start_port;
+        sp.dst_port.max = fst->dst_ports.end_port;
+    }
+    service_group.push_back(sp);
+}
+
+bool AclEntrySpec::PopulateServiceGroup(const ServiceGroup *s_group) {
+    std::vector<FirewallServiceType>::const_iterator it =
+        s_group->firewall_service_list().begin();
+    for (; it != s_group->firewall_service_list().end(); it++) {
+        PopulateServiceType(&(*it));
+    }
+
+    return true;
+}
+
+void AclEntrySpec::ReverseAddress(AclEntrySpec *reverse) {
+    src_addr_type = reverse->dst_addr_type;
+    src_ip_list = reverse->dst_ip_list;
+    src_policy_id = reverse->dst_policy_id;
+    src_policy_id_str = reverse->dst_policy_id_str;
+    src_sg_id = reverse->dst_sg_id;
+    src_tags = reverse->dst_tags;
+
+    dst_addr_type = reverse->src_addr_type;
+    dst_ip_list = reverse->src_ip_list;
+    dst_policy_id = reverse->src_policy_id;
+    dst_policy_id_str = reverse->src_policy_id_str;
+    dst_sg_id = reverse->src_sg_id;
+    dst_tags = reverse->src_tags;
+}
+
+void AclEntrySpec::ReversePort(AclEntrySpec *reverse) {
+    src_port = reverse->dst_port;
+    dst_port = reverse->src_port;
+
+    service_group.clear();
+
+    ServiceGroupMatch::ServicePortList::const_iterator it;
+    for (it = reverse->service_group.begin(); it != reverse->service_group.end();
+         it++) {
+        ServicePort sp;
+        sp.protocol = it->protocol;
+        sp.src_port = it->dst_port;
+        sp.dst_port = it->src_port;
+        service_group.push_back(sp);
+    }
+}
+
+void AclEntrySpec::Reverse(AclEntrySpec *reverse, AclEntryID::Type id_type,
+                           bool swap_address, bool swap_port) {
+    type = reverse->type;
+    id = reverse->id;
+    id.type_ = id_type;
+
+    if (swap_address) {
+        ReverseAddress(reverse);
+    }
+
+    if (swap_port) {
+        ReversePort(reverse);
+    }
+
+    protocol = reverse->protocol;
+
+    terminal = reverse->terminal;
+    action_l = reverse->action_l;
+
+    match_tags = reverse->match_tags;
+    rule_uuid = reverse->rule_uuid;
+}
+
+IFMapNode*
+AclEntrySpec::GetAddressGroup(Agent *agent, IFMapNode *node,
+                              const std::string &name) {
+
+    IFMapAgentTable *fr_table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = fr_table->GetGraph();
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *ag_node =
+            static_cast<IFMapNode *>(iter.operator->());
+        if (agent->config_manager()->SkipNode(ag_node,
+                    agent->cfg()->cfg_address_group_table())) {
+            continue;
+        }
+
+        if (ag_node->name() == name) {
+            return ag_node;
+        }
+    }
+
+    return NULL;
+}
+
+bool AclEntrySpec::BuildAddressGroup(Agent *agent, IFMapNode *node,
+                                     const std::string &name,
+                                     bool source) {
+
+    IFMapNode *ag_ifmap_node = GetAddressGroup(agent, node, name);
+    if (!ag_ifmap_node) {
+        return false;
+    }
+
+    AddressGroup *ag = static_cast<AddressGroup *>(ag_ifmap_node->GetObject());
+
+    //Walk thru all the labels associated with address_group
+    IFMapAgentTable *ag_table =
+        static_cast<IFMapAgentTable *>(ag_ifmap_node->table());
+    DBGraph *graph = ag_table->GetGraph();
+
+    for (DBGraphVertex::adjacency_iterator iter = ag_ifmap_node->begin(graph);
+            iter != ag_ifmap_node->end(graph); ++iter) {
+        IFMapNode *tag_node =
+            static_cast<IFMapNode *>(iter.operator->());
+        if (agent->config_manager()->SkipNode(tag_node,
+                    agent->cfg()->cfg_tag_table())) {
+            continue;
+        }
+
+        const Tag* tag=
+            static_cast<const Tag *>(tag_node->GetObject());
+        if (tag->id() == 0) {
+            continue;
+        }
+
+        if (source) {
+            src_tags.push_back(tag->id());
+        } else {
+            dst_tags.push_back(tag->id());
+        }
+    }
+
+    std::vector<AclAddressInfo> ip_list;
+    std::vector<SubnetType>::const_iterator it = ag->prefix().begin();
+    for (; it != ag->prefix().end(); it++) {
+        BuildAddressInfo(it->ip_prefix, it->ip_prefix_len, &ip_list);
+    }
+
+    if (source) {
+        src_ip_list = ip_list;
+    } else {
+        dst_ip_list = ip_list;
+    }
+
+    return true;
+}
+
+bool AclEntrySpec::Populate(Agent *agent, IFMapNode *fw_rule_node,
+                            const FirewallRule *fw_rule) {
+    if (fw_rule->IsPropertySet(FirewallRule::SERVICE)) {
+        PopulateServiceType(&(fw_rule->service()));
+    }
+
+    if (fw_rule->match_tags().size()) {
+        std::vector<int>::const_iterator it =
+            fw_rule->match_tag_types().begin();
+        for (; it != fw_rule->match_tag_types().end(); it++) {
+            match_tags.push_back(*it);
+        }
+        std::sort(match_tags.begin(), match_tags.end());
+    }
+
+    /* We need to support both subnet and subnet-list configurations being
+     * present in a single ACL rule */
+    if (fw_rule->endpoint_1().subnet.ip_prefix.size()) {
+        src_addr_type = AddressMatch::IP_ADDR;
+        //Build src_ip_list from 'subnet'
+        if (fw_rule->endpoint_1().subnet.ip_prefix.size()) {
+            BuildAddressInfo(fw_rule->endpoint_1().subnet.ip_prefix,
+                             fw_rule->endpoint_1().subnet.ip_prefix_len,
+                             &src_ip_list);
+        }
+    } else if (fw_rule->endpoint_1().virtual_network.size()) {
+        std::string nt;
+        nt = fw_rule->endpoint_1().virtual_network;
+        src_addr_type = AddressMatch::NETWORK_ID;
+        src_policy_id_str = nt;
+    } else if (fw_rule->endpoint_1().tags.size()) {
+        src_addr_type = AddressMatch::TAGS;
+        std::vector<int>::const_iterator it =
+            fw_rule->endpoint_1().tag_ids.begin();
+        for (;it != fw_rule->endpoint_1().tag_ids.end(); it++) {
+            src_tags.push_back(*it);
+        }
+         //Sort the tags for optimizing comparision
+        std::sort(src_tags.begin(), src_tags.end());
+    } else if (fw_rule->endpoint_1().address_group.size()) {
+        if (BuildAddressGroup(agent, fw_rule_node,
+                              fw_rule->endpoint_1().address_group, true)) {
+            src_addr_type = AddressMatch::ADDRESS_GROUP;
+        }
+    }
+
+    /* We need to support both subnet and subnet-list configurations being
+     * present in a single ACL rule */
+    if (fw_rule->endpoint_2().subnet.ip_prefix.size()) {
+        dst_addr_type = AddressMatch::IP_ADDR;
+        //Build src_ip_list from 'subnet'
+        if (fw_rule->endpoint_2().subnet.ip_prefix.size()) {
+            BuildAddressInfo(fw_rule->endpoint_2().subnet.ip_prefix,
+                             fw_rule->endpoint_2().subnet.ip_prefix_len,
+                             &dst_ip_list);
+            dst_addr_type = AddressMatch::IP_ADDR;
+        }
+    } else if (fw_rule->endpoint_2().virtual_network.size()) {
+        std::string nt;
+        nt = fw_rule->endpoint_2().virtual_network;
+        dst_addr_type = AddressMatch::NETWORK_ID;
+        dst_policy_id_str = nt;
+    } else if (fw_rule->endpoint_2().tags.size()) {
+        dst_addr_type = AddressMatch::TAGS;
+        std::vector<int>::const_iterator it =
+            fw_rule->endpoint_2().tag_ids.begin();
+        for (;it != fw_rule->endpoint_2().tag_ids.end(); it++) {
+            dst_tags.push_back(*it);
+        }
+        //Sort the tags for optimizing comparision
+        std::sort(dst_tags.begin(), dst_tags.end());
+    } else if (fw_rule->endpoint_2().address_group.size()) {
+        if (BuildAddressGroup(agent, fw_rule_node,
+                              fw_rule->endpoint_2().address_group, false)) {
+            dst_addr_type = AddressMatch::ADDRESS_GROUP;
+        }
+    }
+
+    return true;
 }
 
 bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
