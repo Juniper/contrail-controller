@@ -318,8 +318,8 @@ bool ConfigClientManager::InitConfigClient() {
     }
 
     // Common code path for both init/reinit
-    config_db_client_->InitDatabase();
     config_amqp_client_->StartRabbitMQReader();
+    config_db_client_->InitDatabase();
     if (is_reinit_triggered()) return false;
     return true;
 }
