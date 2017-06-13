@@ -112,12 +112,15 @@ class KafkaProcessor::KafkaWorker {
 };
 
 class KafkaRebalanceCb : public RdKafka::RebalanceCb {
-  public:
+  public: 
     void rebalance_cb (RdKafka::KafkaConsumer *consumer,
              RdKafka::ErrorCode err,
                 std::vector<RdKafka::TopicPartition*> &pts) {
        map<string, map<int32_t,uint64_t> > topics;
-   
+
+       if (NULL == collector_) {
+           return;
+       }
 
        // Load all topic-partitions into a
        // map (key topic) of sets of ints (partitions)
@@ -224,6 +227,10 @@ class KafkaRebalanceCb : public RdKafka::RebalanceCb {
         collector_ = collector;
         topics_ = topics;
         aggs_ = aggs;
+    }
+
+    void Shutdown(){
+        collector_ = NULL;
     }
     KafkaRebalanceCb() : collector_(NULL) {}
   private:
@@ -560,6 +567,7 @@ void
 KafkaProcessor::Shutdown() {
     TimerManager::DeleteTimer(kafka_timer_);
     kafka_timer_ = NULL;
+    k_re_cb.Shutdown();
     StopKafka();
 }
 
