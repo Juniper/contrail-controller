@@ -12,6 +12,9 @@
 #include <string>
 #include <boost/intrusive_ptr.hpp>
 
+#include "bfd/bfd_common.h"
+#include "io/tcp_session.h"
+
 class HttpSession;
 
 namespace BFD {
@@ -23,18 +26,21 @@ class RESTClientSession {
     RESTClientSession(Server* server, ClientId client_id);
     ~RESTClientSession();
 
-    Session* GetSession(const boost::asio::ip::address& ip);
-
+    Session *GetSession(const boost::asio::ip::address& ip,
+                        const SessionIndex &index = SessionIndex()) const;
+    Session *GetSession(const SessionKey &key) const;
     void Notify();
     void AddMonitoringHttpSession(HttpSession* session);
 
-    ResultCode AddBFDConnection(const boost::asio::ip::address& remoteHost,
-                            const SessionConfig& config);
-    ResultCode DeleteBFDConnection(const boost::asio::ip::address& remoteHost);
+    ResultCode AddBFDConnection(const SessionKey &key,
+                                const SessionConfig &config);
+    ResultCode DeleteBFDConnection(const SessionKey &key);
 
  private:
-    typedef std::set<boost::asio::ip::address> Sessions;
+    typedef std::set<SessionKey> Sessions;
     typedef std::set<boost::intrusive_ptr<HttpSession> > HttpSessionSet;
+
+    void OnHttpSessionEvent(HttpSession* session, enum TcpSession::Event event);
 
     ClientId client_id_;
     Server *server_;

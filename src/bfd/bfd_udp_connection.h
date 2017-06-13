@@ -14,42 +14,55 @@
 namespace BFD {
 class UDPConnectionManager : public Connection {
  public:
-    typedef boost::function<void(const ControlPacket *)> RecvCallback;
+    typedef boost::function<void(boost::asio::ip::udp::endpoint remote_endpoint,
+                                 const boost::asio::const_buffer &recv_buffer,
+                                 std::size_t bytes_transferred,
+                                 const boost::system::error_code& error)>
+                RecvCallback;
 
-    UDPConnectionManager(EventManager *evm, int recvPort = kRecvPortDefault,
-                         int remotePort = kRecvPortDefault);
+    UDPConnectionManager(EventManager *evm, int recvPort = kSingleHop,
+                         int remotePort = kSingleHop);
     ~UDPConnectionManager();
-
     void RegisterCallback(RecvCallback callback);
-    virtual void SendPacket(const boost::asio::ip::address &dstAddr,
-                            const ControlPacket *packet);
+
+    virtual void SendPacket(
+        const boost::asio::ip::udp::endpoint &local_endpoint,
+        const boost::asio::ip::udp::endpoint &remote_endpoint,
+        const SessionIndex &session_index,
+        const boost::asio::mutable_buffer &send, int pktSize);
+    void SendPacket(boost::asio::ip::address remoteHost,
+                    const ControlPacket *packet);
+    virtual Server *GetServer() const;
+    virtual void SetServer(Server *server);
+    virtual void NotifyStateChange(const SessionKey &key, const bool &up);
 
  private:
-    static const int kRecvPortDefault = 3784;
-    static const int kSendPortMin = 49152;
-    static const int kSendPortMax = 65535;
 
     class UDPRecvServer : public UdpServer {
-        boost::optional<RecvCallback> callback_;
-
      public:
-        UDPRecvServer(EventManager *evm, int recvPort);
+        UDPRecvServer(UDPConnectionManager *parent,
+                      EventManager *evm, int recvPort);
         void RegisterCallback(RecvCallback callback);
         void HandleReceive(const boost::asio::const_buffer &recv_buffer,
                 boost::asio::ip::udp::endpoint remote_endpoint,
                 std::size_t bytes_transferred,
-                const boost::system::error_code& error);
+                const boost::system::error_code &error);
+
+     private:
+        UDPConnectionManager *parent_;
+        boost::optional<RecvCallback> callback_;
     } *udpRecv_;
 
     class UDPCommunicator : public UdpServer {
-        const int remotePort_;
-
      public:
         UDPCommunicator(EventManager *evm, int remotePort);
-        virtual void SendPacket(const boost::asio::ip::address &dstAddr,
-                                const ControlPacket *packet);
         // TODO(bfd) add multiple instances to randomize source port (RFC5881)
+        int remotePort() const { return remotePort_; }
+     private:
+        const int remotePort_;
     } *udpSend_;
+
+    Server *server_;
 };
 }  // namespace BFD
 

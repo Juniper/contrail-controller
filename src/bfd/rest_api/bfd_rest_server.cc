@@ -7,10 +7,11 @@
 #include <vector>
 #include <string>
 
-#include <boost/regex.hpp>
-#include <boost/bind.hpp>
-#include <boost/random.hpp>
 #include <boost/assign.hpp>
+#include <boost/bind.hpp>
+#include <boost/foreach.hpp>
+#include <boost/random.hpp>
+#include <boost/regex.hpp>
 
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -96,26 +97,6 @@ RESTServer::RESTServer(Server* bfd_server) :
         bfd_server_(bfd_server) {
 }
 
-void RESTServer::OnHttpSessionEvent(HttpSession* session,
-                                    enum TcpSession::Event event) {
-    tbb::mutex::scoped_lock lock(mutex_);
-
-    if (event == TcpSession::CLOSE) {
-        HttpSessionMap::iterator it = http_session_map_.find(session);
-        if (it != http_session_map_.end()) {
-            ClientId client_id = it->second;
-            ClientMap::iterator jt = client_sessions_.find(client_id);
-            if (jt != client_sessions_.end()) {
-                delete jt->second;
-                client_sessions_.erase(jt);
-            }
-            http_session_map_.erase(it);
-        } else {
-            LOG(ERROR, "Unable to find client session");
-        }
-    }
-}
-
 RESTClientSession* RESTServer::GetClientSession(ClientId client_id,
                                                 HttpSession* session) {
     ClientMap::iterator it = client_sessions_.find(client_id);
@@ -133,9 +114,6 @@ void RESTServer::CreateRESTClientSession(HttpSession* session,
     RESTClientSession* client_session =
         new RESTClientSession(bfd_server_, client_id);
     client_sessions_[client_id] = client_session;
-    http_session_map_[session] = client_id;
-    session->RegisterEventCb(boost::bind(&RESTServer::OnHttpSessionEvent,
-                                         this, _1, _2));
 
     contrail_rapidjson::Document document;
     document.SetObject();
@@ -178,7 +156,7 @@ void RESTServer::CreateBFDConnection(ClientId client_id,
         config.detectionTimeMultiplier =
             bfd_session_data.detection_time_multiplier;
         ResultCode result = client_session->AddBFDConnection(
-            bfd_session_data.address, config);
+            SessionKey(bfd_session_data.address), config);
         if (kResultCode_Ok != result) {
             REST::SendErrorResponse(session, "Unable to create session", 500);
         } else {
@@ -214,7 +192,7 @@ void RESTServer::GetBFDConnection(ClientId client_id,
     session_state.bfd_remote_state = remote_state.state;
     session_state.remote_min_rx_interval = remote_state.minRxInterval;
     REST::JsonConfig& session_data = session_state.session_config;
-    session_data.address = bfd_session->remote_host();
+    session_data.address = bfd_session->key().remote_address;
     session_data.desired_min_tx_interval = config.desiredMinTxInterval;
     session_data.required_min_rx_interval = config.requiredMinRxInterval;
     session_data.detection_time_multiplier = config.detectionTimeMultiplier;
@@ -232,7 +210,7 @@ void RESTServer::DeleteBFDConnection(ClientId client_id,
         REST::SendErrorResponse(session, "Unknown client session", 404);
         return;
     }
-    ResultCode result = client_session->DeleteBFDConnection(ip);
+    ResultCode result = client_session->DeleteBFDConnection(SessionKey(ip));
     if (result != kResultCode_Ok) {
         REST::SendErrorResponse(session, "Unable to delete session");
     } else {

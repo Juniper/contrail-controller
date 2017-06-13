@@ -14,19 +14,12 @@
 #include <boost/asio/ip/address.hpp>
 
 #include "base/timer.h"
-#include "tbb/mutex.h"
 #include "io/event_manager.h"
 
 namespace BFD {
 class Connection;
 class SessionConfig;
 class ControlPacket;
-
-struct SessionConfig {
-    TimeInterval desiredMinTxInterval;
-    TimeInterval requiredMinRxInterval;
-    int detectionTimeMultiplier;
-};
 
 struct BFDRemoteSessionState {
     BFDRemoteSessionState() : discriminator(0),
@@ -44,27 +37,25 @@ struct BFDRemoteSessionState {
 
 class Session {
  public:
-    Session(Discriminator localDiscriminator,
-            boost::asio::ip::address remoteHost,
-            EventManager *evm,
-            const SessionConfig &config,
+    Session(Discriminator localDiscriminator, const SessionKey &key,
+            EventManager *evm, const SessionConfig &config,
             Connection *communicator);
-    ~Session();
+    virtual ~Session();
 
     void Stop();
     ResultCode ProcessControlPacket(const ControlPacket *packet);
     void InitPollSequence();
-    void RegisterChangeCallback(ClientId client_id,
-                                StateMachine::ChangeCb cb);
+    void RegisterChangeCallback(ClientId client_id, ChangeCb cb);
     void UnregisterChangeCallback(ClientId client_id);
     void UpdateConfig(const SessionConfig& config);
 
     std::string               toString() const;
-    boost::asio::ip::address  remote_host();
-    BFDState                  local_state();
-    SessionConfig             config();
-    BFDRemoteSessionState     remote_state();
-    Discriminator             local_discriminator();
+    const SessionKey &        key() const;
+    BFDState                  local_state() const;
+    SessionConfig             config() const;
+    BFDRemoteSessionState     remote_state() const;
+    Discriminator             local_discriminator() const;
+    bool                      Up() const;
 
     TimeInterval detection_time();
     TimeInterval tx_interval();
@@ -74,22 +65,25 @@ class Session {
     // reference count drops to zero.
     int reference_count();
 
+ protected:
+    bool RecvTimerExpired();
+
  private:
-    typedef std::map<ClientId, StateMachine::ChangeCb> Callbacks;
+    typedef std::map<ClientId, ChangeCb> Callbacks;
 
     bool SendTimerExpired();
-    bool RecvTimerExpired();
     void ScheduleSendTimer();
     void ScheduleRecvDeadlineTimer();
     void PreparePacket(const SessionConfig &config, ControlPacket *packet);
     void SendPacket(const ControlPacket *packet);
-    void CallStateChangeCallbacks(const BFD::BFDState &new_state);
+    void CallStateChangeCallbacks(const SessionKey &key,
+                                  const BFD::BFDState &new_state);
+    boost::asio::ip::udp::endpoint GetRandomLocalEndPoint() const;
+    uint16_t GetRandomLocalPort() const;
+    BFDState local_state_non_locking() const;
 
-    BFDState local_state_non_locking();
-
-    mutable tbb::mutex       mutex_;
     Discriminator            localDiscriminator_;
-    boost::asio::ip::address remoteHost_;
+    SessionKey               key_;
     Timer                    *sendTimer_;
     Timer                    *recvTimer_;
     SessionConfig            currentConfig_;
@@ -98,6 +92,8 @@ class Session {
     boost::scoped_ptr<StateMachine> sm_;
     bool                     pollSequence_;
     Connection               *communicator_;
+    boost::asio::ip::udp::endpoint local_endpoint_;
+    boost::asio::ip::udp::endpoint remote_endpoint_;
     bool                     stopped_;
     Callbacks                callbacks_;
 };

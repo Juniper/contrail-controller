@@ -48,7 +48,9 @@ struct ControlPacket : public ParseObject {
     TimeInterval required_min_rx_interval;
     TimeInterval required_min_echo_rx_interval;
 
-    boost::asio::ip::address sender_host;
+    SessionIndex session_index;
+    boost::asio::ip::udp::endpoint local_endpoint;
+    boost::asio::ip::udp::endpoint remote_endpoint;
 };
 
 ControlPacket* ParseControlPacket(const uint8_t *data, size_t size);

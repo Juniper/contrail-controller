@@ -2549,6 +2549,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="PING"/>
         <xsd:enumeration value="HTTP"/>
+        <xsd:enumeration value="BFD"/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -2566,11 +2567,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='health-check-type' type='HealthCheckType' required='true' operations='CRUD'
              description='Health check type, currently only link-local and end-to-end are supported'/>
         <xsd:element name='monitor-type' type='HealthCheckProtocolType' required='true' operations='CRUD'
-             description='Protocol used to monitor health, currently only HTTP and ICMP(ping) is supported'/>
+             description='Protocol used to monitor health, currently only HTTP, ICMP(ping), and BFD are supported'/>
         <xsd:element name='delay' type='xsd:integer' required='true' operations='CRUD'
-             description='Time in seconds  at which health check is repeated'/>
+             description='Time in seconds at which health check is repeated'/>
+        <xsd:element name='delayUsecs' type='xsd:integer' required='optional' operations='CRUD' default='0'
+             description='Time in micro seconds at which health check is repeated'/>
         <xsd:element name='timeout' type='xsd:integer' required='true' operations='CRUD'
              description='Time in seconds to wait for response'/>
+        <xsd:element name='timeoutUsecs' type='xsd:integer' required='optional' operations='CRUD' default='0'
+             description='Time in micro seconds to wait for response'/>
         <xsd:element name='max-retries' type='xsd:integer' required='true' operations='CRUD'
              description='Number of failures before declaring health bad'/>
         <xsd:element name='http-method' type='xsd:string' required='optional' operations='CRUD'
