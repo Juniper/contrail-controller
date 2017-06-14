@@ -486,6 +486,18 @@ bool EvpnDerivedPathData::AddChangePathExtended(Agent *agent, AgentPath *path,
     return ret;
 }
 
+bool EvpnDerivedPathData::CanDeletePath(Agent *agent, AgentPath *path,
+                                        const AgentRoute *rt) const {
+    const EvpnDerivedPath *evpn_path =
+        dynamic_cast<const EvpnDerivedPath *>(path);
+    assert(evpn_path != NULL);
+
+    if (evpn_path->ethernet_tag() != ethernet_tag())
+        return false;
+
+    return (evpn_path->ip_addr() == ip_addr());
+}
+
 bool HostRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                       const AgentRoute *rt) {
     bool ret = false;
@@ -1037,6 +1049,11 @@ bool MulticastRoute::CopyPathParameters(Agent *agent,
     path->ResyncControlWord(rt);
 
     return true;
+}
+
+bool MulticastRoute::CanDeletePath(Agent *agent, AgentPath *path,
+                                   const AgentRoute *rt) const {
+    return (vxlan_id() == path->vxlan_id());
 }
 
 bool PathPreferenceData::AddChangePathExtended(Agent *agent, AgentPath *path,
