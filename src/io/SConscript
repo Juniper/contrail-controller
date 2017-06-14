@@ -36,6 +36,7 @@ libio = env.Library('io',
              'tcp_session.cc',
              'udp_server.cc',
              'usock_server',
+             'process_signal.cc',
             ])
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

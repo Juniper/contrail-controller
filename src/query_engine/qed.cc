@@ -29,6 +29,8 @@
 #include <base/misc_utils.h>
 #include <query_engine/buildinfo.h>
 #include <sandesh/sandesh_http.h>
+#include <io/process_signal.h>
+
 using std::auto_ptr;
 using std::string;
 using std::vector;
@@ -43,6 +45,8 @@ using process::GetProcessStateCb;
 using process::ConnectionType;
 using process::ConnectionTypeName;
 using process::g_process_info_constants;
+using process::Signal;
+
 // This is to force qed to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug qed during systest
@@ -50,8 +54,6 @@ volatile int gdbhelper = 1;
 bool QedVersion(std::string &version) {
     return MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo, version);
 }
-
-#include <csignal>
 
 static EventManager * pevm = NULL;
 static Options options;
@@ -97,14 +99,26 @@ static void ShutdownQe() {
     WaitForIdle();
 }
 
-static void terminate_qe (int param)
-{
-  ShutdownQe();
-  pevm->Shutdown();
+static void TerminateQe(const boost::system::error_code &error, int sig) {
+    if (!error) {
+        static bool done;
+        if (done) {
+            return;
+        }
+        ShutdownQe();
+        pevm->Shutdown();
+        done = true;
+    } else {
+        LOG(ERROR, "SIGTERM handler ERROR: " << error);
+    }
 }
 
-static void reconfig_qe(int signum) {
-    options.ParseReConfig();
+static void ReConfigQe(const boost::system::error_code &error, int sig) {
+    if (!error) {
+        options.ParseReConfig();
+    } else {
+        LOG(ERROR, "SIGHUP handler ERROR: " << error);
+    }
 }
 
 static bool QEDbStatsTrigger() {
@@ -340,10 +354,18 @@ main(int argc, char *argv[]) {
         TaskScheduler::GetInstance()->GetTaskId("QE::DBStats"), 0);
     qe_dbstats_timer->Start(5*1000, boost::bind(&QEDbStatsTrigger), NULL);
 
-    signal(SIGTERM, terminate_qe);
-    signal(SIGHUP, reconfig_qe);
+    vector<Signal::SignalHandler> sigterm_handlers = boost::assign::list_of
+        (boost::bind(&TerminateQe, _1, _2));
+    vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
+        (boost::bind(&ReConfigQe, _1, _2));
+    Signal::SignalCallbackMap smap = boost::assign::map_list_of
+        (SIGTERM, sigterm_handlers)
+        (SIGHUP, sighup_handlers);
+    // Register the signal handlers
+    Signal signal(&evm, smap, vector<Signal::SignalChildHandler>(), false);
     evm.Run();
-
+    // Deregister the signal handlers since we are exiting
+    signal.Terminate();
     return 0;
 }
 

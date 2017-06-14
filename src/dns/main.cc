@@ -13,6 +13,7 @@
 #include <base/misc_utils.h>
 #include <base/contrail_ports.h>
 #include <base/task.h>
+#include <io/process_signal.h>
 #include <db/db_graph.h>
 #include <ifmap/client/config_client_manager.h>
 #include <ifmap/ifmap_link_table.h>
@@ -45,7 +46,7 @@ using process::ProcessState;
 using process::ConnectionType;
 using process::ConnectionTypeName;
 using process::g_process_info_constants;
-
+using process::Signal;
 
 uint64_t start_time;
 TaskTrigger *dns_info_trigger;
@@ -124,13 +125,12 @@ static bool OptionsParse(Options &options, int argc, char *argv[]) {
     return false;
 }
 
-void ReConfigSignalHandler(int signum) {
+void ReConfigSignalHandler(const boost::system::error_code &error, int sig) {
+    if (error) {
+        LOG(ERROR, "SIGHUP handler ERROR: " << error);
+        return;
+    }
     options.ParseReConfig();
-}
-
-void InitializeSignalHandlers() {
-    srand(unsigned(time(NULL)));                                                                                                  
-    signal(SIGHUP, ReConfigSignalHandler);
 }
 
 int main(int argc, char *argv[]) {
@@ -147,7 +147,12 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    InitializeSignalHandlers();
+    srand(unsigned(time(NULL)));
+    std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
+        (boost::bind(&ReConfigSignalHandler, _1, _2));
+    Signal::SignalCallbackMap smap = boost::assign::map_list_of
+        (SIGHUP, sighup_handlers);
+    Signal signal(Dns::GetEventManager(), smap);
 
     Dns::SetProgramName(argv[0]);
     Module::type module = Module::DNS;
@@ -285,6 +290,6 @@ int main(int argc, char *argv[]) {
     config_client_manager->Initialize();
 
     Dns::GetEventManager()->Run();
-
+    signal.Terminate();
     return 0;
 }

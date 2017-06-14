@@ -32,6 +32,7 @@
 #include <base/misc_utils.h>
 #include <analytics/buildinfo.h>
 #include "boost/python.hpp"
+#include <io/process_signal.h>
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -41,6 +42,7 @@ using process::GetProcessStateCb;
 using process::ConnectionType;
 using process::ConnectionTypeName;
 using process::g_process_info_constants;
+using process::Signal;
 
 static TaskTrigger *collector_info_trigger;
 static Timer *collector_info_log_timer;
@@ -128,7 +130,11 @@ void CollectorShutdown() {
     a_evm->Shutdown();
 }
 
-static void terminate(int param) {
+static void Terminate(const boost::system::error_code &error, int sig) {
+    if (error) {
+        LOG(ERROR, "SIGTERM handler ERROR: " << error);
+        return;
+    }
     // Shutdown can result in a malloc-detected error
     // Taking a stack trace during this error can result in
     // the process not terminating correctly
@@ -169,7 +175,11 @@ static bool OptionsParse(Options &options, int argc, char *argv[]) {
     return false;
 }
 
-void ReConfigSignalHandler(int signum) {
+void ReConfigSignalHandler(const boost::system::error_code &error, int sig) {
+    if (error) {
+        LOG(ERROR, "SIGHUP handler ERROR: " << error);
+        return;
+    }
     uint32_t api_server_checksum = options.api_server_checksum();
     options.ParseReConfig();
     uint32_t new_api_server_checksum = options.api_server_checksum();
@@ -182,12 +192,6 @@ void ReConfigSignalHandler(int signum) {
             api_servers_str.str());
         analytics->ReConfigApiServerList(api_servers);
     }
-}
-
-void InitializeSignalHandlers() {
-    srand(unsigned(time(NULL)));
-    signal(SIGTERM, terminate);
-    signal(SIGHUP, ReConfigSignalHandler);
 }
 
 // This is to force vizd to wait for a gdbattach
@@ -442,9 +446,17 @@ int main(int argc, char *argv[])
         "Collector Info log timer",
         TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
     collector_info_log_timer->Start(5*1000, boost::bind(&CollectorInfoLogTimer), NULL);
-    InitializeSignalHandlers();
+    srand(unsigned(time(NULL)));
+    std::vector<Signal::SignalHandler> sigterm_handlers = boost::assign::list_of
+        (boost::bind(&Terminate, _1, _2));
+    std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
+        (boost::bind(&ReConfigSignalHandler, _1, _2));
+    Signal::SignalCallbackMap smap = boost::assign::map_list_of
+        (SIGHUP, sighup_handlers)
+        (SIGTERM, sigterm_handlers);
+    Signal signal(a_evm, smap);
     a_evm->Run();
-
+    signal.Terminate();
     ShutdownServers(analytics);
 
     delete analytics;
