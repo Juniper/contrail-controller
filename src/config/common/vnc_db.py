@@ -365,7 +365,7 @@ class DBBase(object):
     @classmethod
     def list_obj(cls, obj_type=None, fields=None):
         obj_type = obj_type or cls.obj_type
-        ok, result = cls._object_db.object_list(obj_type)
+        ok, result, _ = cls._object_db.object_list(obj_type)
         if not ok:
             return []
         uuids = [uuid for _, uuid in result]

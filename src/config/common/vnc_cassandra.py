@@ -185,10 +185,16 @@ class VncCassandraClient(object):
         return result.get(key)
 
     def multiget(self, cf_name, keys, columns=None, start='', finish='',
-                 timestamp=False):
+                 timestamp=False, num_columns=None):
         _thrift_limit_size = 10000
         results = {}
         cf = self.get_cf(cf_name)
+
+        # if requested, read lesser than default
+        if num_columns and num_columns < self._MAX_COL:
+            column_count = num_columns
+        else:
+            column_count = self._MAX_COL
 
         if not columns or start or finish:
             try:
@@ -196,7 +202,7 @@ class VncCassandraClient(object):
                                       column_start=start,
                                       column_finish=finish,
                                       include_timestamp=timestamp,
-                                      column_count=self._MAX_COL)
+                                      column_count=column_count)
             except OverflowError:
                 for key in keys:
                     rows = dict(cf.xget(key,
@@ -214,7 +220,7 @@ class VncCassandraClient(object):
                     rows = cf.multiget(key_chunk,
                                        columns=columns,
                                        include_timestamp=timestamp,
-                                       column_count=self._MAX_COL)
+                                       column_count=column_count)
                     merge_dict(results, rows)
             elif max_key_range == 0:
                 for column_chunk in [columns[x:x+(_thrift_limit_size - 1)] for x in
@@ -222,7 +228,7 @@ class VncCassandraClient(object):
                     rows = cf.multiget(keys,
                                        columns=column_chunk,
                                        include_timestamp=timestamp,
-                                       column_count=self._MAX_COL)
+                                       column_count=column_count)
                     merge_dict(results, rows)
             elif max_key_range == 1:
                 for key in keys:
@@ -230,7 +236,7 @@ class VncCassandraClient(object):
                         cols = cf.get(key,
                                       columns=column_chunk,
                                       include_timestamp=timestamp,
-                                      column_count=self._MAX_COL)
+                                      column_count=column_count)
                     except pycassa.NotFoundException:
                         continue
                     results.setdefault(key, {}).update(cols)
@@ -980,10 +986,13 @@ class VncCassandraClient(object):
     # end object_update
 
     def object_list(self, obj_type, parent_uuids=None, back_ref_uuids=None,
-                     obj_uuids=None, count=False, filters=None):
-        obj_class = self._get_resource_class(obj_type)
+                     obj_uuids=None, count=False, filters=None,
+                     paginate_start=None, paginate_count=None):
 
+        obj_class = self._get_resource_class(obj_type)
         children_fq_names_uuids = []
+        ret_marker = None
+        anchored_op = True
 
         def filter_rows(coll_infos, filters=None):
             if not coll_infos or not filters:
@@ -1029,10 +1038,21 @@ class VncCassandraClient(object):
 
         if parent_uuids:
             # go from parent to child
+            ## tune start and count if paginated on same row
+            #if paginate_start and (len(parent_uuids) == 1):
+            if paginate_start and paginate_start != '0':
+                start = 'children:%s:%s' % (obj_type,
+                    paginate_start[:-1]+chr(ord(paginate_start[-1])+1))
+                num_columns = paginate_count
+            else:
+                start = 'children:%s:' % (obj_type)
+                num_columns = None
+
             obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
                                      parent_uuids,
-                                     start='children:%s:' % (obj_type),
+                                     start=start,
                                      finish='children:%s;' % (obj_type),
+                                     num_columns=num_columns,
                                      timestamp=True)
 
             def filter_rows_parent_anchor(sort=False):
@@ -1064,10 +1084,20 @@ class VncCassandraClient(object):
 
         if back_ref_uuids:
             # go from anchor to backrefs
+            if paginate_start and paginate_start != '0':
+                # get next lexical value of marker
+                start = 'backref:%s:%s' % (obj_type,
+                    paginate_start[:-1]+chr(ord(paginate_start[-1])+1))
+                num_columns = paginate_count
+            else:
+                start = 'backref:%s:' % (obj_type)
+                num_columns = None
+
             obj_rows = self.multiget(self._OBJ_UUID_CF_NAME,
                                      back_ref_uuids,
-                                     start='backref:%s:' % (obj_type),
+                                     start=start,
                                      finish='backref:%s;' % (obj_type),
+                                     num_columns=num_columns,
                                      timestamp=True)
 
             def filter_rows_backref_anchor():
@@ -1092,41 +1122,87 @@ class VncCassandraClient(object):
             children_fq_names_uuids.extend(filter_rows_backref_anchor())
 
         if not parent_uuids and not back_ref_uuids:
+            anchored_op = False
             if obj_uuids:
                 # exact objects specified
                 def filter_rows_object_list():
                     all_obj_infos = {}
-                    for obj_uuid in obj_uuids:
+                    marker = None
+                    read_in = 0
+                    start_idx = 0
+                    if paginate_start and paginate_start != '0':
+                        # paginate through objects
+                        # in list order of obj_uuids
+                        try:
+                            start_idx = obj_uuids.index(paginate_start) + 1
+                        except ValueError:
+                            # simulate end of pagination
+                            start_idx = len(obj_uuids)
+
+                    for obj_uuid in obj_uuids[start_idx:]:
                         all_obj_infos[obj_uuid] = None
+                        read_in += 1
+                        if paginate_start and read_in >= paginate_count:
+                            marker = obj_uuid
+                            break
 
                     filt_obj_infos = filter_rows(all_obj_infos, filters)
-                    return get_fq_name_uuid_list(filt_obj_infos.keys())
+                    return get_fq_name_uuid_list(filt_obj_infos.keys()), marker
                 # end filter_rows_object_list
 
-                children_fq_names_uuids.extend(filter_rows_object_list())
+                filtered_rows, ret_marker = filter_rows_object_list()
+                children_fq_names_uuids.extend(filtered_rows)
 
             else:  # grab all resources of this type
                 obj_fq_name_cf = self._obj_fq_name_cf
-                cols = obj_fq_name_cf.xget('%s' % (obj_type))
+                if paginate_start and paginate_start != '0':
+                    start = paginate_start[:-1] + \
+                                   chr(ord(paginate_start[-1]) + 1)
+                else:
+                    start = ''
+
+                cols = obj_fq_name_cf.xget('%s' %(obj_type),
+                                           column_start=start)
 
                 def filter_rows_no_anchor():
+                    marker = None
                     all_obj_infos = {}
+                    read_in = 0
                     for col_name, _ in cols:
                         # give chance for zk heartbeat/ping
                         gevent.sleep(0)
                         col_name_arr = utils.decode_string(col_name).split(':')
                         obj_uuid = col_name_arr[-1]
                         all_obj_infos[obj_uuid] = (col_name_arr[:-1], obj_uuid)
+                        read_in += 1
+                        if paginate_start and read_in >= paginate_count:
+                            marker = col_name
+                            break
 
                     filt_obj_infos = filter_rows(all_obj_infos, filters)
-                    return filt_obj_infos.values()
+                    return filt_obj_infos.values(), marker
                 # end filter_rows_no_anchor
 
-                children_fq_names_uuids.extend(filter_rows_no_anchor())
+                filtered_rows, ret_marker = filter_rows_no_anchor()
+                children_fq_names_uuids.extend(filtered_rows)
 
         if count:
-            return (True, len(children_fq_names_uuids))
-        return (True, children_fq_names_uuids)
+            return (True, len(children_fq_names_uuids), None)
+
+        # for anchored list with pagination, 
+        # prune from union of anchors and last uuid is marker
+        if paginate_start and anchored_op:
+            children_fq_names_uuids = sorted(children_fq_names_uuids,
+                key=lambda fqn_uuid: fqn_uuid[1])
+            if len(children_fq_names_uuids) > paginate_count:
+                children_fq_names_uuids = children_fq_names_uuids[:paginate_count]
+
+            if not children_fq_names_uuids:
+                ret_marker = None
+            else:
+                ret_marker = children_fq_names_uuids[-1][1]
+
+        return (True, children_fq_names_uuids, ret_marker)
     # end object_list
 
     def object_delete(self, obj_type, obj_uuid):
