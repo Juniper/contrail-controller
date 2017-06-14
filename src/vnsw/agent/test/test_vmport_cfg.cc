@@ -643,8 +643,10 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     // Port inactive since VRF is not yet present
     EXPECT_TRUE(VmPortInactive(input, 0));
     EXPECT_TRUE(VmPortInactive(input, 1));
-    EXPECT_TRUE(VmPortPolicyEnable(input, 0));
-    EXPECT_TRUE(VmPortPolicyEnable(input, 1));
+    /* Policy will be disabled because layer3_forwarding is false on that VMI.
+     * layer3_forwarding is false because VMI is not associated with VN */
+    EXPECT_FALSE(VmPortPolicyEnable(input, 0));
+    EXPECT_FALSE(VmPortPolicyEnable(input, 1));
     EXPECT_EQ(5U, Agent::GetInstance()->interface_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
@@ -684,6 +686,8 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 0));
+    EXPECT_TRUE(VmPortPolicyEnable(input, 1));
 
     client->Reset();
     AddLink("virtual-network", "vn1", "access-control-list", "acl1");
