@@ -67,6 +67,12 @@ usock_io_test = env.UnitTest('usock_io_test',
 
 env.Alias('src/io:usock_io_test', usock_io_test)
 
+process_signal_test = env.UnitTest('process_signal_test',
+                          ['process_signal_test.cc'],
+                          )
+
+env.Alias('src/io:process_signal_test', process_signal_test)
+
 # netlink_test = env.Program('netlink_test', ['netlink_test.cc'])
 # env.Alias('src/io:netlink_test', netlink_test)
 
@@ -78,6 +84,7 @@ test_suite = [
     tcp_stress_test,
     udp_io_test,
     usock_io_test,
+    process_signal_test,
 ]
 
 flaky_test_suite = [
