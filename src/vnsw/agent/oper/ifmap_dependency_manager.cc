@@ -688,7 +688,7 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("logical-interface",
                       MakePath("physical-interface-logical-interface",
                                "physical-interface", true,
-                               "physical-interface-physical-router",
+                               "physical-router-physical-interface",
                                "physical-router", true));
     AddDependencyPath("logical-interface",
                       MakePath("logical-interface-virtual-machine-interface",
