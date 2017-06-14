@@ -714,12 +714,6 @@ class VncCassandraClient(object):
                                      start='d',
                                      timestamp=True)
 
-        if not obj_rows:
-            if len(obj_uuids) == 1:
-                raise NoIdError(obj_uuids[0])
-            else:
-                return (True, [])
-
         results = []
         for obj_uuid, obj_cols in obj_rows.items():
             if 'type' not in obj_cols or 'fq_name' not in obj_cols:
@@ -861,6 +855,11 @@ class VncCassandraClient(object):
 
             results.append(result)
         # end for all rows
+
+        # Partial data in cassandra, missing requested fields
+        if not results:
+            if len(obj_uuids) == 1:
+                raise NoIdError(obj_uuids[0])
 
         return (True, results)
     # end object_read
