@@ -34,6 +34,11 @@ public:
     RabbitMQReader(ConfigAmqpClient *amqpclient) :
             Task(amqpclient->reader_task_id()), amqpclient_(amqpclient) {
         channel_.reset(IFMapFactory::Create<ConfigAmqpChannel>());
+
+        // Connect to rabbit-mq asap so that notification messages over
+        // rabbit mq are never missed (during bulk db sync which happens
+        // soon afterwards.
+        ConnectToRabbitMQ();
     }
 
     virtual bool Run();
@@ -303,8 +308,6 @@ bool ConfigAmqpClient::RabbitMQReader::AckRabbitMessages(
 
 
 bool ConfigAmqpClient::RabbitMQReader::Run() {
-    ConnectToRabbitMQ();
-
     // If reinit is triggerred, don't wait for end of config trigger
     // return from here to process reinit
     if (amqpclient_->config_manager()->is_reinit_triggered())
