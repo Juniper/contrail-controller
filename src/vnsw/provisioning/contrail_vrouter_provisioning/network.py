@@ -76,41 +76,29 @@ class ComputeNetworkSetup(object):
                            ip)
     # end get_device_by_ip
 
-    def get_physical_dev_of_vhost(self, ip):
-        # vhost0 not present, Initial setup
-        # find and return physical device by ip
-        if 'vhost0' not in netifaces.interfaces():
-            return self.get_device_by_ip(ip)
-
-        # vhost0 present, re-provison/upgrade
-        # find and return physical device by mac
-        for i in netifaces.interfaces():
-            if i == 'vhost0':
-                vhost_mac = netifaces.ifaddresses(i)[netifaces.AF_LINK][0]['addr']
+    def get_device_info(self, ip):
+        reprov = False
+        cfg_file = "/etc/contrail/contrail-vrouter-agent.conf"
+        try:
+            dev = self.get_device_by_ip(ip)
+            if dev == "vhost0":
+                dev = self.get_config(cfg_file,
+                                      "VIRTUAL-HOST-INTERFACE",
+                                      "physical_interface")
+                log.info("Re-provision. vhost0 present")
+                reprov = True
             else:
-                continue
-
-        # get physical device by matching the mac
-        # with vhost0 mac
-        physical_dev = None
-        for i in netifaces.interfaces():
-            if i == 'vhost0':
-                continue
-            dev_mac = netifaces.ifaddresses(i)[netifaces.AF_LINK][0]['addr']
-            if dev_mac == vhost_mac:
-                # Might be a bond member cache and continue
-                # iteration to find the bond interface
-                physical_dev = i
-                # Cached interface is a bond interface return it
-                if os.path.isdir('/sys/class/net/%s/bonding' % physical_dev):
-                    return physical_dev
-
-        # Cached interface is not a bond member return it
-        if physical_dev:
-            return physical_dev
-        raise RuntimeError('%s not configured, rerun w/ --physical_interface' %
-                           ip)
-    # end get_physical_dev_of_vhost
+                log.info("Fresh Install. vhost0 not present")
+        except RuntimeError:
+            dev = self.get_config(cfg_file,
+                                  "VIRTUAL-HOST-INTERFACE",
+                                  "physical_interface")
+            if not dev.succeeded:
+                raise
+            log.info("vhost0 not present, vrouter not running")
+            reprov = True
+        return (dev.strip(), reprov)
+    # end get_device_info
 
     def get_secondary_device(self, primary):
         for i in netifaces.interfaces():
