@@ -128,11 +128,6 @@ void ReConfigSignalHandler(int signum) {
     options.ParseReConfig();
 }
 
-void InitializeSignalHandlers() {
-    srand(unsigned(time(NULL)));                                                                                                  
-    signal(SIGHUP, ReConfigSignalHandler);
-}
-
 int main(int argc, char *argv[]) {
     // Initialize the task scheduler
     int num_threads_to_tbb = TaskScheduler::GetDefaultThreadCount() +
@@ -147,7 +142,12 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    InitializeSignalHandlers();
+    srand(unsigned(time(NULL)));
+    std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
+        (boost::bind(&ReConfigSignalHandler, _1, _2));
+    Signal::SignalCallbackMap smap = boost::assign::map_list_of
+        (SIGHUP, sighup_handlers);
+    Signal signal(a_evm, smap);
 
     Dns::SetProgramName(argv[0]);
     Module::type module = Module::DNS;
@@ -285,6 +285,6 @@ int main(int argc, char *argv[]) {
     config_client_manager->Initialize();
 
     Dns::GetEventManager()->Run();
-
+    signal.Terminate();
     return 0;
 }

@@ -198,18 +198,18 @@ void ReConfigSignalHandler(int signum) {
     options.ParseReConfig();
 }
 
-void InitializeSignalHandlers() {
-    srand(unsigned(time(NULL)));
-    signal(SIGHUP, ReConfigSignalHandler);
-}
-
 int main(int argc, char *argv[]) {
     // Process options from command-line and configuration file.
     if (!options.Parse(evm, argc, argv)) {
         exit(-1);
     }
 
-    InitializeSignalHandlers();
+    srand(unsigned(time(NULL)));
+    std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
+        (boost::bind(&ReConfigSignalHandler, _1, _2));
+    Signal::SignalCallbackMap smap = boost::assign::map_list_of
+        (SIGHUP, sighup_handlers);
+    Signal signal(a_evm, smap);
 
     ControlNode::SetProgramName(argv[0]);
     Module::type module = Module::CONTROL_NODE;
@@ -370,6 +370,7 @@ int main(int argc, char *argv[]) {
     // Event loop.
     evm.Run();
 
+    signal.Terminate();
     ShutdownServers(&bgp_peer_manager);
     BgpServer::Terminate();
     return 0;
