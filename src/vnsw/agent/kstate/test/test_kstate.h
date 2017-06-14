@@ -113,10 +113,28 @@ public:
     TestNHKState(bool verify, int nh_count, KNHResp *obj, std::string resp_ctx,
                  vr_nexthop_req &encoder, int id): NHKState(obj, resp_ctx, 
                  encoder, id), TestKStateBase(verify, nh_count, id) {}
-    virtual void SendResponse() { }
+    virtual void SendResponse() {
+        //Update the response_object_ with empty list
+        KNHResp *resp = static_cast<KNHResp *>(response_object_);
+        vector<KNHInfo> list;
+        resp->set_nh_list(list);
+    }
 
     virtual void Handler() {
-        BaseHandler();
+        KNHResp *resp = static_cast<KNHResp *>(response_object_);
+        if (resp) {
+            UpdateFetchCount();
+            if (MoreData()) {
+                SendResponse();
+                SendNextRequest();
+            } else {
+                if (verify_) {
+                    EXPECT_EQ(expected_count_, fetched_count_);
+                }
+                handler_count_++;
+                more_context_ = NULL;
+            }
+        }
         if (verify_idx_ != -1) {
             KNHResp *resp = static_cast<KNHResp *>(response_object_);
             EXPECT_TRUE(resp != NULL);
@@ -133,7 +151,6 @@ public:
                 }
             }
         }
-        more_context_ = NULL;
     }
 
     void PrintNHResp(KNHResp *r) {

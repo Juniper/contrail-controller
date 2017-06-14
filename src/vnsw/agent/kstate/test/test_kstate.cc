@@ -263,16 +263,14 @@ TEST_F(KStateTest, IfGetTest) {
     }
     DeletePorts();
 }
-/* TODO: enable the below UT. We need to handle multiple responses coming from
- * vrouter when we cannot accomodate all the nexthops in single response */
-TEST_F(KStateTest, DISABLED_NHDumpTest) {
+TEST_F(KStateTest, NHDumpTest) {
     int nh_count = 0;
     TestNHKState::Init();
     client->WaitForIdle();
     client->KStateResponseWait(1);
     nh_count = TestKStateBase::fetched_count_;
     LOG(DEBUG, "nh count " << nh_count);
-    int max_ports = 2;
+    int max_ports = 5;
 
     CreatePorts(0, nh_count, 0, max_ports);
     //4 interface nexthops get created for each interface
