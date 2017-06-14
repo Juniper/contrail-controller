@@ -18,6 +18,7 @@
 #include "base/connection_info.h"
 #include "base/logging.h"
 #include "base/misc_utils.h"
+#include "io/process_signal.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_config_parser.h"
@@ -62,6 +63,7 @@ using process::ProcessState;
 using process::ConnectionType;
 using process::ConnectionTypeName;
 using process::g_process_info_constants;
+using process::Signal;
 
 static EventManager evm;
 static Options options;
@@ -196,13 +198,12 @@ static void ControlNodeGetProcessStateCb(const BgpServer *bgp_server,
     }
 }
 
-void ReConfigSignalHandler(int signum) {
+void ReConfigSignalHandler(const boost::system::error_code &error, int sig) {
+    if (error) {
+        LOG(ERROR, "SIGHUP handler ERROR: " << error);
+        return;
+    }
     options.ParseReConfig();
-}
-
-void InitializeSignalHandlers() {
-    srand(unsigned(time(NULL)));
-    signal(SIGHUP, ReConfigSignalHandler);
 }
 
 int main(int argc, char *argv[]) {
@@ -211,7 +212,12 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    InitializeSignalHandlers();
+    srand(unsigned(time(NULL)));
+    std::vector<Signal::SignalHandler> sighup_handlers = boost::assign::list_of
+        (boost::bind(&ReConfigSignalHandler, _1, _2));
+    Signal::SignalCallbackMap smap = boost::assign::map_list_of
+        (SIGHUP, sighup_handlers);
+    Signal signal(&evm, smap);
 
     ControlNode::SetProgramName(argv[0]);
     Module::type module = Module::CONTROL_NODE;
@@ -372,6 +378,7 @@ int main(int argc, char *argv[]) {
     // Event loop.
     evm.Run();
 
+    signal.Terminate();
     ShutdownServers(&bgp_peer_manager);
     BgpServer::Terminate();
     return 0;
