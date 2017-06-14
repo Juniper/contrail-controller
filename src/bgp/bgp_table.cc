@@ -134,6 +134,8 @@ void BgpTable::ProcessRemovePrivate(const RibOut *ribout, BgpAttr *attr) const {
         return;
     if (!ribout->remove_private_enabled())
         return;
+    if (!attr->as_path())
+        return;
 
     bool all = ribout->remove_private_all();
     bool replace = ribout->remove_private_replace();
