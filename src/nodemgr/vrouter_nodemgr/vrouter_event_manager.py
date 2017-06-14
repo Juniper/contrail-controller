@@ -43,4 +43,25 @@ class VrouterEventManager(EventManager):
         self.lb_stats.send_loadbalancer_stats()
     # end do_periodic_events
 
+    def nodemgr_sighup_handler(self):
+        self.update_current_process()
+        config = ConfigParser.SafeConfigParser()
+        config.read(self.config_file)
+        if 'COLLECTOR' in config.sections():
+            try:
+                collector = config.get('COLLECTOR', 'server_list')
+                collector_list = collector.split()
+            except ConfigParser.NoOptionError as e:
+                pass
+
+        if collector_list:
+            new_chksum = hashlib.md5("".join(collector_list)).hexdigest()
+            if new_chksum != self.collector_chksum:
+                self.collector_chksum = new_chksum
+                self.random_collectors = \
+                    random.sample(collector_list, len(collector_list))
+            # Reconnect to achieve load-balance irrespective of list
+            self.sandesh_instance.reconfig_collectors(self.random_collectors)
+    # end nodemgr_sighup_handler
+
 # end class VrouterEventManager

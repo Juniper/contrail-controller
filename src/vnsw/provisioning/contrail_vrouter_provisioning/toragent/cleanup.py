@@ -9,6 +9,8 @@ import argparse
 import ConfigParser
 import platform
 import re
+import subprocess
+import signal
 
 from contrail_vrouter_provisioning import local
 from setup import TorAgentSetup
@@ -90,6 +92,8 @@ class TorAgentBaseCleanup(ContrailSetup):
         if self._args.restart:
             if not self.systemd_setup:
                 local("sudo supervisorctl -c /etc/contrail/supervisord_vrouter.conf update")
+            vrouter_nodemgr_pid = [line.split()[1] for line in subprocess.check_output("ps -eaf".split()).split("\n") if '--nodetype=contrail-vrouter' in line][0]
+            os.kill(int(vrouter_nodemgr_pid), signal.SIGHUP)
 
     def cleanup(self, tor_id):
         self.remove_tor_agent_conf_files(tor_id)
