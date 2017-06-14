@@ -329,6 +329,7 @@ public:
     }
     bool ResyncControlWord(const AgentRoute *rt);
 
+    void ResetEcmpHashFields();
 private:
     PeerConstPtr peer_;
     // Nexthop for route. Not used for gateway routes
