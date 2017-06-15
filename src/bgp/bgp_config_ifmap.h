@@ -334,10 +334,10 @@ public:
     const BgpGlobalSystemConfig *config() const { return &data_; }
     bool Update(BgpIfmapConfigManager *manager,
                 const autogen::GlobalSystemConfig *system);
+
 private:
     BgpGlobalSystemConfig data_;
 };
-
 
 //
 // BgpConfigData contains all the configuration data that's relevant to a
