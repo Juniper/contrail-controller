@@ -152,13 +152,12 @@ struct UveVMInterfaceAgent {
    16: optional list<VmFloatingIPStats> fip_agg_stats;
     /** Floating IP statistics of all Floating IPs on VMI since previous send.*/
     /** @display_name:Virtual Machine Floating IP Statistics */
-   17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address")
-
+   17: optional list<VmFloatingIPStats> fip_diff_stats (tags=".virtual_network,.ip_address", uve_type=".virtual_network:virtual_network")
     /** Statistics of VMI. Contains aggregate statistics */
    18: optional VmInterfaceStats raw_if_stats (metric="agg", hidden="yes")
     /** Contains statistics of VMI since previous send */
     /** @display_name:Virtual Machine Interface Statistics */
-   30: optional VmInterfaceStats if_stats (stats="raw_if_stats:DSNon0:", tags="vm_name,vm_uuid")
+   30: optional VmInterfaceStats if_stats (stats="raw_if_stats:DSNon0:", tags="vm_name,vm_uuid", uve_type="vm_uuid:virtual_machine")
    36: optional VmInterfaceStats if_stats_1h (stats="raw_if_stats:DSSum:3600")
  
     /** Anomaly Detection for incoming packets count using Exponentially
@@ -201,7 +200,7 @@ struct UveVMInterfaceAgent {
     /** @display_name:VMI ACL Rule Statistics */
    25: optional list<SgAclRuleStats> sg_rule_stats (tags=".rule");
     /** @display_name:Interface Flow Setup Statistics*/
-   26: optional vrouter.VrouterFlowRate flow_rate (tags="virtual_network")
+   26: optional vrouter.VrouterFlowRate flow_rate (tags="virtual_network",uve_type="virtual_network:virtual_network")
     /** Anomaly Detection for added flows using Exponentially Weighed Mean */
    41: optional derived_stats_results.AnomalyResult added_flows_ewm
                     (stats="flow_rate.added_flows:DSAnomaly:EWM:0.1")
@@ -221,7 +220,7 @@ struct UveVMInterfaceAgent {
 
    33: optional vrouter.AgentDropStats raw_drop_stats (metric="agg", hidden="yes")
    /** @display_name:VMI Packet drop Statistics*/
-   34: optional vrouter.AgentDropStats drop_stats (stats="raw_drop_stats:DSNon0:", tags="virtual_network")
+   34: optional vrouter.AgentDropStats drop_stats (stats="raw_drop_stats:DSNon0:", tags="virtual_network",uve_type="virtual_network:virtual_network")
    35: optional vrouter.AgentDropStats drop_stats_1h (stats="raw_drop_stats:DSSum:3600")
    /** UUID of VMI's VN */
    37: optional string vn_uuid;

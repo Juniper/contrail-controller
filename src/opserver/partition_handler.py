@@ -8,9 +8,11 @@ from gevent.lock import BoundedSemaphore
 from kafka import KeyedProducer, KafkaConsumer, common
 from uveserver import UVEServer
 import os
+import ast
 import json
 import copy
 import traceback
+import cfgm_common
 import uuid
 import struct
 import socket
@@ -271,7 +273,8 @@ class UveCacheProcessor(object):
 
 class UveStreamPart(gevent.Greenlet):
     def __init__(self, partno, logger, cb, pi, rpass, content = True, 
-                tablefilt = None, cfilter = None, patterns = None):
+                tablefilt = None, cfilter = None, patterns = None, token =
+                None):
         gevent.Greenlet.__init__(self)
         self._logger = logger
         self._cb = cb
@@ -287,6 +290,62 @@ class UveStreamPart(gevent.Greenlet):
         if cfilter:
             self._cfilter = set(cfilter.keys())
         self._patterns = patterns
+        self._token = token
+        self._token_info = None
+        if token and 'token_info' in token:
+            self._token_info = token['token_info']
+        self._uvecache = {}
+
+    def is_uve_read_permitted(self, uves):
+        """
+        Check for permissions in ContrailConfig structure for given user
+        """
+        if not self._token or self._token['is_global_read_only_role']:
+            return True
+        if "ContrailConfig" in uves.keys():
+            cc = json.loads(uves["ContrailConfig"])
+            perms2 = ast.literal_eval(cc['elements']['perms2'])
+            owner = perms2['owner'].replace('-','')
+            perms = perms2['owner_access'] << 6
+            perms |= perms2['global_access']
+            mask = 07
+            mode = 4
+            share = perms2['share']
+            if 'token' in self._token_info:
+                token = self._token_info['token']
+                if 'project' in  token.keys():
+                    tenant = token['project']['id']
+                    tenant = tenant.replace('-','')
+                    tenant_name = token['project']['name']
+                    domain = token['project']['domain']['id']
+                    if tenant == owner:
+                        mask |= 0700
+                    # grant access if shared with tenant or domain
+                    for item in share:
+                        (share_type, share_uuid) = cfgm_common.utils.\
+                                shareinfo_from_perms2_tenant(item['tenant'])
+                        share_uuid = share_uuid.replace('-','')
+                        if ((share_type == 'tenant' and tenant == share_uuid)\
+                                 or (share_type == 'domain' and domain == \
+                                     share_uuid)):
+                            perms |= item['tenant_access'] << 3
+                            mask |= 0070
+                            break
+                    mode_mask = mode | mode << 3 | mode << 6
+                    ok = (mask & perms & mode_mask)
+                    if not ok:
+                        self._logger.error("no permissins for %s" %tenant_name)
+                        return False
+                    else:
+                        return True
+                else:
+                    self._logger.error("no project in token %s" %token)
+            else:
+                self._logger.error("no token specified %s" %self._token_info)
+        else:
+            self._logger.error("no ContrailConfig structure %s" %uves.keys())
+        return False
+    # end is_uve_read_permitted
 
     def syncpart(self, redish):
         inst = self._pi.instance_id
@@ -312,16 +371,24 @@ class UveStreamPart(gevent.Greenlet):
             # For DBCache case, we only need the struct types
             if self._content:
                 ppe.hgetall("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
+                if not key in self._uvecache:
+                    self._uvecache[key] = {}
             else:
                 ppe.hkeys("AGPARTVALUES:%s:%d:%s" % (inst, part, key))
         pperes = ppe.execute()
         idx=0
         for res in pperes:
             if self._content:
+                if self._token is not None:
+                    if not self.is_uve_read_permitted(res):
+                        idx += 1
+                        continue
                 for tk,tv in res.iteritems():
+                    self._uvecache[lkeys[idx]][tk] = tv
                     if self._cfilter:
                         if not tk in self._cfilter:
                             continue
+
                     self._cb(self._partno, self._pi, lkeys[idx], tk, json.loads(tv))
             else:
                 for telem in res:
@@ -404,14 +471,23 @@ class UveStreamPart(gevent.Greenlet):
 
                         if not typ is None:
                             if self._content:
+                                if not key in self._uvecache:
+                                    self._uvecache[key] = {}
+
                                 vjson = pperes[idx]
                                 if vjson is None:
                                     vdata = None
+                                    if typ in self._uvecache[key]:
+                                        del self._uvecache[key][typ]
                                 else:
                                     vdata = json.loads(vjson)
+                                    self._uvecache[key][typ] = vjson
+                                if self._token is not None:
+                                    if not self.is_uve_read_permitted(\
+                                            self._uvecache[key]):
+                                        continue
                             else:
                                 vdata = {}
-
                         self._cb(self._partno, self._pi, key, typ, vdata)
                         idx += 1
 
@@ -438,7 +514,7 @@ class UveStreamPart(gevent.Greenlet):
 class UveStreamer(gevent.Greenlet):
     def __init__(self, logger, q, rfile, agp_cb, rpass,\
             tablefilt = None, cfilter = None, patterns = None,
-            USP_class = UveStreamPart):
+            USP_class = UveStreamPart, token=None):
         gevent.Greenlet.__init__(self)
         self._logger = logger
         self._q = q
@@ -453,6 +529,7 @@ class UveStreamer(gevent.Greenlet):
         self._tablefilt = tablefilt
         self._cfilter = cfilter
         self._patterns = patterns
+        self._token = token
 
     def get_uve(self, key, filters=None):
         return False, self._uvedbcache.get_cache_uve(key, filters)
@@ -541,7 +618,7 @@ class UveStreamer(gevent.Greenlet):
             content = False
         self._parts[partno] = self._USP_class(partno, self._logger,
             self.partition_callback, pi, self._rpass, content,
-            self._tablefilt, self._cfilter, self._patterns)
+            self._tablefilt, self._cfilter, self._patterns, self._token)
         self._parts[partno].start()
 
     def partition_stop(self, partno):
