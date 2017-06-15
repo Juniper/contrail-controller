@@ -3241,3 +3241,43 @@ response sandesh ApplicationPolicySetResp {
     /** List of virtual network information */
     1: list<ApplicationPolicySetSandeshData> application_policy_set_list;
 }
+
+/**
+ * Structure definition for security-logging-object in oper db
+ */
+struct SLOSandeshRule {
+    /** Uuid of security-logging-object Rule */
+    1: string uuid;
+    /** Rate of security-logging-object Rule */
+    2: i32 rate;
+}
+
+/**
+ * Structure definition for security-logging-object in oper db
+ */
+struct SLOSandeshData {
+    /** Name of security-logging-object */
+    1: string name;
+    /** Uuid of security-logging-object  */
+    2: string uuid;
+    /** Rate of security-logging-object  */
+    3: i32 rate;
+    /** List of security-logging-object rules */
+    4: list<SLOSandeshRule> rules;
+}
+
+/**
+ * Request message for Security-logging-object list from oper db
+ */
+request sandesh SLOListReq {
+    /** Uuid of security-logging-object  */
+    1: string uuid;
+}
+
+/**
+ * Response message for security logging object list
+ */
+response sandesh SLOListResp {
+    /** List of security logging objects information */
+    1: list<SLOSandeshData> slo_list;
+}

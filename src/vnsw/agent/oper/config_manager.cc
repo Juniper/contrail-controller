@@ -33,6 +33,7 @@
 #include <oper/forwarding_class.h>
 #include<oper/qos_queue.h>
 #include <oper/bridge_domain.h>
+#include <oper/security_logging_object.h>
 #include <filter/policy_set.h>
 #include <vector>
 #include <string>
@@ -285,6 +286,8 @@ void ConfigManager::Init() {
     qos_queue_list_.reset(new ConfigManagerNodeList(agent_->qos_queue_table()));
     forwarding_class_list_.reset(new
             ConfigManagerNodeList(agent_->forwarding_class_table()));
+    slo_list_.reset(new
+            ConfigManagerNodeList(agent_->slo_table()));
 
     OperDB *oper_db = agent()->oper_db();
     global_vrouter_list_.reset
@@ -407,6 +410,7 @@ int ConfigManager::Run() {
     count += device_list_->Process(max_count - count);
     count += hc_list_->Process(max_count - count);
     count += device_vn_list_->Process(max_count - count);
+    count += slo_list_->Process(max_count - count);
     return count;
 }
 
@@ -472,6 +476,10 @@ void ConfigManager::AddQosConfigNode(IFMapNode *node) {
 
 void ConfigManager::AddForwardingClassNode(IFMapNode *node) {
     forwarding_class_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddSecurityLoggingObjectNode(IFMapNode *node) {
+    slo_list_->Add(agent_, this, node);
 }
 
 void ConfigManager::AddQosQueueNode(IFMapNode *node) {

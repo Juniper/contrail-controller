@@ -572,4 +572,15 @@ private:
     std::string name_;
     boost::uuids::uuid uuid_;
 };
+
+class AgentSecurityLoggingObjectSandesh : public AgentSandesh {
+public:
+    AgentSecurityLoggingObjectSandesh(std::string context, std::string uuid)
+        : AgentSandesh(context, uuid) {}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+};
+
 #endif // vnsw_agent_sandesh_h_

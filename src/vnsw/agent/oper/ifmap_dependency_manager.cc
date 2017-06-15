@@ -27,6 +27,7 @@
 #include "oper/bridge_domain.h"
 #include "filter/policy_set.h"
 #include "cfg/cfg_init.h"
+#include "oper/security_logging_object.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
@@ -106,6 +107,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "qos-queue",
         "routing-instance",
         "security-group",
+        "security-logging-object",
         "service-group",
         "service-health-check",
         "service-instance",
@@ -595,6 +597,7 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     // VN <----> RI
     //    <----> ACL
     //    <----> VN-IPAM <----> IPAM
+    //    <----> SecurityLoggingObject
     ////////////////////////////////////////////////////////////////////////
     AddDependencyPath("virtual-network",
                       MakePath("virtual-network-routing-instance",
@@ -610,6 +613,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("virtual-network",
                       MakePath("virtual-network-qos-config",
                                "qos-config", true));
+    AddDependencyPath("virtual-network",
+                      MakePath("virtual-network-security-logging-object",
+                               "security-logging-object", true));
     RegisterConfigHandler(this, "virtual-network",
                           agent ? agent->vn_table() : NULL);
 
@@ -651,6 +657,7 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     //     <----> subnet
     //     //<----> vn <----> VN-IPAM <----> IPAM
     //     <----> LI <----> physical-interface <----> physical-router
+    //     <----> SecurityLoggingObject
     ////////////////////////////////////////////////////////////////////////
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-virtual-network",
@@ -717,6 +724,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-qos-config",
                           "qos-config", true));
+    AddDependencyPath("virtual-machine-interface",
+                   MakePath("virtual-machine-interface-security-logging-object",
+                            "security-logging-object", true));
 
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-bridge-domain",
@@ -849,6 +859,19 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                 "qos-queue", true));
     RegisterConfigHandler(this, "forwarding-class",
                           agent ? agent->forwarding_class_table() : NULL);
+
+    ////////////////////////////////////////////////////////////////////////
+    // security-logging-object <----> network-policy
+    //                         <----> security-group
+    ////////////////////////////////////////////////////////////////////////
+    AddDependencyPath("security-logging-object",
+                       MakePath("security-logging-object-network-policy",
+                                "network-policy", true));
+    AddDependencyPath("security-logging-object",
+                       MakePath("security-logging-object-security-group",
+                                "security-group", true));
+    RegisterConfigHandler(this, "security-logging-object",
+                          agent ? agent->slo_table() : NULL);
 
     // Register callback for ifmap node not having corresponding oper-dbtable
     RegisterConfigHandler(this, "virtual-router", agent->oper_db()->vrouter());

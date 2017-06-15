@@ -358,6 +358,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
         ("service-instance", list_of("service-instance-service-template"))
         ("global-vrouter-config",
              list_of("application-policy-set-global-vrouter-config"))
+        ("global-vrouter-config",
+         list_of("global-vrouter-config-security-logging-object"))
         ("virtual-machine-interface",
          list_of("virtual-machine-virtual-machine-interface")
                 ("virtual-machine-interface-sub-interface")
@@ -374,6 +376,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("bgpaas-virtual-machine-interface")
                 ("virtual-machine-interface-qos-config")
                 ("virtual-machine-interface-bridge-domain")
+                ("virtual-machine-interface-security-logging-object")
                 ("project-virtual-machine-interface")
                 ("virtual-machine-interface-tag"))
         ("virtual-machine-interface-bridge-domain",
@@ -393,6 +396,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          ("virtual-network-routing-instance")
          ("virtual-network-qos-config")
          ("virtual-network-bridge-domain")
+         ("virtual-network-security-logging-object")
          ("virtual-network-tag"))
         ("floating-ip", list_of("floating-ip-pool-floating-ip")
          ("instance-ip-floating-ip"))
@@ -424,6 +428,10 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
          ("global-qos-config-qos-queue")
          ("global-qos-config-qos-config"))
         ("bridge-domain", std::set<std::string>())
+        ("security-logging-object",
+         list_of("virtual-network-security-logging-object")
+                ("virtual-machine-interface-security-logging-object")
+                ("global-vrouter-config-security-logging-object"))
         ("tag", list_of("application-policy-set-tag"))
         ("application-policy-set", list_of("application-policy-set-firewall-policy")
                                           ("policy-management-application-policy-set"))

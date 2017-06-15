@@ -97,6 +97,7 @@ public:
     void AddGlobalVrouterNode(IFMapNode *node);
     void AddVirtualRouterNode(IFMapNode *node);
     uint32_t LogicalInterfaceNodeCount() const;
+    void AddSecurityLoggingObjectNode(IFMapNode *node);
 
     void AddPhysicalDeviceNode(IFMapNode *node);
     void AddPhysicalDeviceVn(const boost::uuids::uuid &dev,
@@ -139,6 +140,7 @@ private:
     std::auto_ptr<ConfigManagerNodeList> forwarding_class_list_;
     std::auto_ptr<ConfigManagerDeviceVnList> device_vn_list_;
     std::auto_ptr<ConfigManagerNodeList> bridge_domain_list_;
+    std::auto_ptr<ConfigManagerNodeList> slo_list_;
     std::auto_ptr<ConfigManagerNodeList> policy_set_list_;
 
     // Lists of IFMapNodes without corresponding oper db-tables
