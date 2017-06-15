@@ -705,6 +705,7 @@ SUBCHANNELS=1,2,3
                             % self.dev
                 if not os.path.isfile(ifcfg_bkp):
                     local("sudo cp %s %s" % (ifcfg, ifcfg_bkp), warn_only=True)
+                local("sudo sed -i -e 's/^BOOTPROTO.*/BOOTPROTO=none/' %s " % ifcfg_bkp)
                 ifcfg_tmp = '%s/ifcfg-%s' % (self._temp_dir_name, self.dev)
                 self._rewrite_ifcfg_file(ifcfg_tmp, self.dev, prsv_cfg)
 
