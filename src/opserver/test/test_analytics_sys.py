@@ -23,6 +23,7 @@ import unittest
 import testtools
 import fixtures
 import socket
+import mock
 from utils.analytics_fixture import AnalyticsFixture
 from utils.generator_fixture import GeneratorFixture
 from utils.stats_fixture import StatsFixture
@@ -30,6 +31,7 @@ from mockcassandra import mockcassandra
 import logging
 import time
 from opserver.sandesh.viz.constants import *
+from opserver.opserver import OpServer
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
 from utils.util import find_buildroot
@@ -624,6 +626,44 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert test_gen.verify_on_setup()
 
     # end test_15_verify_introspect_ssl
+
+    #@unittest.skip('check for rbac permissions')
+    @mock.patch.object(OpServer, 'get_resource_list_from_uve_type')
+    @mock.patch.object(OpServer, 'is_role_cloud_admin')
+    def test_16_rbac(self, mock_is_role_cloud_admin,
+            mock_get_resource_list_from_uve_type):
+        logging.info("%%% test_16_rbac %%%")
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        collectors = [vizd_obj.get_collector()]
+        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
+        generator_obj = self.useFixture(
+            GeneratorFixture("contrail-vrouter-agent", collectors,
+                             logging, vizd_obj.get_opserver_port(),
+                             start_time))
+        assert generator_obj.verify_on_setup()
+        logging.info("Starting intervn gen " + str(UTCTimestampUsec()))
+        # send 2 vn UVEs
+        generator_obj.generate_intervn()
+        token = 'user:admin'
+        mock_is_role_cloud_admin.return_value=True
+        mock_get_resource_list_from_uve_type.return_value=None
+        # for admin role, there should be 2 vn uves
+        uves = vizd_obj.get_ops_vns(vizd_obj.opserver, token)
+        assert (len(uves) == 2)
+        mock_is_role_cloud_admin.return_value=False
+        mock_get_resource_list_from_uve_type.return_value=set(["default-domain:vn0"])
+        token = 'user:default-domain:vn0'
+        # for non-admin role, there should be 1 vn uve
+        uves = vizd_obj.get_ops_vns(vizd_obj.opserver, token)
+        assert (len(uves) == 1)
+        return True
+    # end test_16_rbac
 
     @staticmethod
     def get_free_port():

@@ -150,7 +150,7 @@ class Mock_agp(Mock_base):
 
 class Mock_usp(object):
     def __init__(self, partno, logger, cb, pi, rpass, content,\
-            tablefilt, cfilter, patterns):
+            tablefilt, cfilter, patterns, token=None):
         self._cb = cb
         self._partno = partno
         self._pi = pi
