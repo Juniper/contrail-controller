@@ -28,6 +28,7 @@
 #include <oper/qos_queue.h>
 #include <oper/bridge_domain.h>
 #include <oper/tag.h>
+#include <oper/security_logging_object.h>
 #include <filter/acl.h>
 #include <filter/policy_set.h>
 
@@ -1341,4 +1342,12 @@ bool TagSandesh::FilterToArgs(AgentSandeshArguments *args) {
     args->Add("uuid", uuid_str_);
     args->Add("name", name_);
     return true;
+}
+
+DBTable *AgentSecurityLoggingObjectSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->slo_table());
+}
+
+void AgentSecurityLoggingObjectSandesh::Alloc() {
+    resp_ = new SLOListResp();
 }

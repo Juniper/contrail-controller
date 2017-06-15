@@ -37,6 +37,7 @@ class FlowStatsCollector;
 class FlowStatsManager;
 class MetaDataIpAllocator;
 class ResourceManager;
+class SecurityLoggingObjectTable;
 namespace OVSDB {
 class OvsdbClient;
 };
@@ -175,6 +176,12 @@ typedef boost::intrusive_ptr<BridgeDomainEntry> BridgeDomainRef;
 typedef boost::intrusive_ptr<const BridgeDomainEntry> BridgeDomainConstRef;
 void intrusive_ptr_release(const BridgeDomainEntry *p);
 void intrusive_ptr_add_ref(const BridgeDomainEntry *p);
+
+class SecurityLoggingObject;
+typedef boost::intrusive_ptr<SecurityLoggingObject> SecurityLoggingObjectRef;
+typedef boost::intrusive_ptr<const SecurityLoggingObject> SecurityLoggingObjectConstRef;
+void intrusive_ptr_release(const SecurityLoggingObject *p);
+void intrusive_ptr_add_ref(const SecurityLoggingObject *p);
 
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
@@ -467,6 +474,13 @@ public:
     }
     void set_forwarding_class_table(ForwardingClassTable *table) {
         forwarding_class_table_ = table;
+    }
+
+    SecurityLoggingObjectTable *slo_table() const {
+        return slo_table_;
+    }
+    void set_slo_table(SecurityLoggingObjectTable *table) {
+        slo_table_ = table;
     }
 
     AgentQosConfigTable *qos_config_table() const {
@@ -1221,6 +1235,7 @@ private:
     PhysicalDeviceTable *physical_device_table_;
     PhysicalDeviceVnTable *physical_device_vn_table_;
     ForwardingClassTable *forwarding_class_table_;
+    SecurityLoggingObjectTable *slo_table_;
     QosQueueTable *qos_queue_table_;
     AgentQosConfigTable *qos_config_table_;
     PolicySetTable *policy_set_table_;

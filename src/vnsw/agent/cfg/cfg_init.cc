@@ -256,6 +256,11 @@ void AgentConfig::RegisterDBClients(DB *db) {
         (static_cast<IFMapAgentTable *>(IFMapTable::FindTable(agent_->db(),
                                                               "project")));
     assert(cfg_project_table_);
+
+    cfg_slo_table_ = (static_cast<IFMapAgentTable *>
+                            (IFMapTable::FindTable(agent_->db(),
+                                                   "security-logging-object")));
+    assert(cfg_slo_table_);
 }
 
 void AgentConfig::Init() {
