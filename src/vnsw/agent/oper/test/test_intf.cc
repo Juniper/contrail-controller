@@ -3322,7 +3322,7 @@ TEST_F(IntfTest, Layer2Mode_1) {
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
     const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(1));
-    EXPECT_FALSE(vm_intf->policy_enabled() == false);
+    EXPECT_TRUE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
 
     const MacAddress mac("00:00:00:00:00:01");
@@ -3380,17 +3380,17 @@ TEST_F(IntfTest, Layer2Mode_2) {
     //EVPN route should be added with IP set to 0
     AddL2Vn("vn1", 1);
     client->WaitForIdle();
-    EXPECT_FALSE(vm_intf->policy_enabled() == false);
+    EXPECT_TRUE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
     EXPECT_TRUE(vm_intf->dhcp_enable_config() == true);
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
                            vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt != NULL);
-    EXPECT_FALSE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
     uint32_t label = vm_intf->l2_label();
     MplsLabel *mpls_label = GetActiveLabel(MplsLabel::VPORT_NH, label);
-    EXPECT_FALSE(mpls_label->nexthop()->PolicyEnabled() == false);
+    EXPECT_TRUE(mpls_label->nexthop()->PolicyEnabled() == false);
     evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt == NULL);
     WAIT_FOR(100, 1000, (RouteFind("vrf1", "8.1.1.1", 32) == false));
@@ -3452,7 +3452,7 @@ TEST_F(IntfTest, Layer2Mode_3) {
     //EVPN route should be added with IP set to 0
     AddL2Vn("vn1", 1);
     client->WaitForIdle();
-    EXPECT_FALSE(vm_intf->policy_enabled() == false);
+    EXPECT_TRUE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
@@ -3666,16 +3666,16 @@ TEST_F(IntfTest, MultipleIp2) {
     //EVPN route should be added with IP set to 0
     AddL2Vn("vn1", 1);
     client->WaitForIdle();
-    EXPECT_FALSE(vm_intf->policy_enabled() == false);
+    EXPECT_TRUE(vm_intf->policy_enabled() == false);
     EXPECT_TRUE(vm_intf->IsL2Active() == true);
 
     evpn_rt = EvpnRouteGet("vrf1", mac, zero_ip,
                            vm_intf->ethernet_tag());
     EXPECT_TRUE(evpn_rt != NULL);
-    EXPECT_FALSE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
+    EXPECT_TRUE(evpn_rt->GetActiveNextHop()->PolicyEnabled() == false);
     uint32_t label = vm_intf->l2_label();
     MplsLabel *mpls_label = GetActiveLabel(MplsLabel::VPORT_NH, label);
-    EXPECT_FALSE(mpls_label->nexthop()->PolicyEnabled() == false);
+    EXPECT_TRUE(mpls_label->nexthop()->PolicyEnabled() == false);
 
     //VN is on l2 only mode, verify ip + mac evpn route is deleted
     evpn_rt = EvpnRouteGet("vrf1", mac, ip, vm_intf->ethernet_tag());

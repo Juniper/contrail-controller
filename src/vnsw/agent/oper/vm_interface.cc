@@ -2610,6 +2610,11 @@ bool VmInterface::PolicyEnabled() const {
     if (disable_policy_) {
         return false;
     }
+
+    /* For a l2-only VN's VMI, policy should be implicitly disabled */
+    if (layer3_forwarding_ == false) {
+        return false;
+    }
     return true;
 }
 
