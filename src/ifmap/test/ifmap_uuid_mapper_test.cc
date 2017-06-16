@@ -5,6 +5,7 @@
 #include "ifmap/ifmap_uuid_mapper.h"
 
 #include <fstream>
+#include <boost/assign/list_of.hpp>
 
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
@@ -29,14 +30,36 @@
 #include "ifmap/test/ifmap_test_util.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
+#include "ifmap/ifmap_server_show_types.h"
+#include "ifmap/ifmap_server_show_internal_types.h"
 #include "testing/gunit.h"
 
 using namespace std;
+using boost::assign::list_of;
 using contrail_rapidjson::Document;
 using contrail_rapidjson::SizeType;
 using contrail_rapidjson::Value;
 
 class IFMapVmUuidMapperTest : public ::testing::Test {
+public:
+    void ValidateIFMapPendingVmRegResponse(Sandesh *sandesh,
+        vector<string> &result) {
+        const IFMapPendingVmRegResp *resp =
+        dynamic_cast<const IFMapPendingVmRegResp *>(sandesh);
+        TASK_UTIL_EXPECT_TRUE(resp != NULL);
+        if(validate_subsequent_and_final_response_ && resp->get_more()) {
+            return;
+        }
+        TASK_UTIL_EXPECT_EQ((int)result.size(), resp->get_map_count());
+        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_vm_reg_map().size());
+        for (size_t i = 0; i < resp->get_vm_reg_map().size(); ++i) {
+            string result_match = resp->get_vm_reg_map()[i].get_vr_name() +
+                ':' + resp->get_vm_reg_map()[i].get_vm_uuid() ;
+            TASK_UTIL_EXPECT_EQ(result[i], result_match);
+            cout << resp->get_vm_reg_map()[i].log() << endl;
+        }
+        validate_done_ = true;
+    }
 protected:
     IFMapVmUuidMapperTest() :
         thread_(&evm_),
@@ -44,12 +67,14 @@ protected:
         server_(new IFMapServer(&db_, &db_graph_, evm_.io_service())),
         config_client_manager_(new ConfigClientManager(&evm_,
             server_.get(), "localhost", "config-test", config_options_)),
-        ifmap_sandesh_context_(new IFMapSandeshContext(server_.get())) {
+        ifmap_sandesh_context_(new IFMapSandeshContext(server_.get())),
+        validate_subsequent_and_final_response_(false),validate_done_(false) {
         config_cassandra_client_ = dynamic_cast<ConfigCassandraClientTest *>(
             config_client_manager_->config_db_client());
     }
 
     void SandeshSetup() {
+        Sandesh::set_module_context("IFMap", ifmap_sandesh_context_.get());
         if (!getenv("CONFIG_JSON_PARSER_TEST_INTROSPECT"))
             return;
         int port =
@@ -58,7 +83,6 @@ protected:
             port = 5910;
         boost::system::error_code error;
         string hostname(boost::asio::ip::host_name(error));
-        Sandesh::set_module_context("IFMap", ifmap_sandesh_context_.get());
         Sandesh::InitGenerator("ConfigJsonParserTest", hostname, "IFMapTest",
             "Test", &evm_, port, ifmap_sandesh_context_.get());
         std::cout << "Introspect at http://localhost:" << Sandesh::http_port()
@@ -138,6 +162,8 @@ protected:
     boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
     ConfigCassandraClientTest *config_cassandra_client_;
     IFMapVmUuidMapper *vm_uuid_mapper_;
+    bool validate_subsequent_and_final_response_;
+    bool validate_done_;
 };
 
 class IFMapVmUuidMapperTestWithParam1
@@ -191,6 +217,7 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, ConfigThenSubscribe) {
     TASK_UTIL_EXPECT_TRUE(c1.NodeExists("virtual-network",
                                         "default-domain:demo:vn27"));
 }
+
 
 // Add all the config and then simulate receiving a vm-subscribe just after the
 // node was marked deleted.
@@ -428,6 +455,133 @@ TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeThenConfig) {
     EXPECT_EQ(3, vm_uuid_mapper_->NodeUuidMapCount());
     EXPECT_EQ(0, vm_uuid_mapper_->PendingVmRegCount());
 }
+
+
+TEST_P(IFMapVmUuidMapperTestWithParam1, ShowIFMapPendingVmRegOneShot) {
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+
+    // VM Subscribe
+    IFMapClientMock
+        c1("default-global-system-config:a1s27.contrail.juniper.net");
+    server_->AddClient(&c1);
+    server_->ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
+    server_->ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
+    server_->ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
+    task_util::WaitForIdle();
+
+    string vr_name;
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->PendingVmRegExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117", &vr_name));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->PendingVmRegExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c", &vr_name));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->PendingVmRegExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", &vr_name));
+    EXPECT_EQ(0, vm_uuid_mapper_->UuidMapperCount());
+    EXPECT_EQ(0, vm_uuid_mapper_->NodeUuidMapCount());
+    EXPECT_EQ(3, vm_uuid_mapper_->PendingVmRegCount());
+
+    vector<string> pending_vm_reg_expected_entries = list_of(
+        "default-global-system-config:a1s27.contrail.juniper.net:2d308482-c7b3-4e05-af14-e732b7b50117")
+        ("default-global-system-config:a1s27.contrail.juniper.net:43d086ab-52c4-4a1f-8c3d-63b321e36e8a")
+        ("default-global-system-config:a1s27.contrail.juniper.net:93e76278-1990-4905-a472-8e9188f41b2c");
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(3);
+    TASK_UTIL_EXPECT_TRUE(ifmap_sandesh_context_->page_limit() == 3);
+    Sandesh::set_response_callback(boost::bind(
+        &IFMapVmUuidMapperTest::ValidateIFMapPendingVmRegResponse, this,
+        _1, pending_vm_reg_expected_entries));
+    IFMapPendingVmRegReq *req = new IFMapPendingVmRegReq;
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
+
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+    EXPECT_EQ(3, vm_uuid_mapper_->UuidMapperCount());
+    EXPECT_EQ(3, vm_uuid_mapper_->NodeUuidMapCount());
+    EXPECT_EQ(0, vm_uuid_mapper_->PendingVmRegCount());
+}
+
+TEST_P(IFMapVmUuidMapperTestWithParam1, ShowIFMapPendingVmRegTwoStepResponse) {
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_FALSE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+
+    // VM Subscribe
+    IFMapClientMock
+        c1("default-global-system-config:a1s27.contrail.juniper.net");
+    server_->AddClient(&c1);
+    server_->ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "2d308482-c7b3-4e05-af14-e732b7b50117", true, 1);
+    server_->ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "93e76278-1990-4905-a472-8e9188f41b2c", true, 2);
+    server_->ProcessVmSubscribe(
+        "default-global-system-config:a1s27.contrail.juniper.net",
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", true, 3);
+    task_util::WaitForIdle();
+
+    string vr_name;
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->PendingVmRegExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117", &vr_name));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->PendingVmRegExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c", &vr_name));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->PendingVmRegExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a", &vr_name));
+    EXPECT_EQ(0, vm_uuid_mapper_->UuidMapperCount());
+    EXPECT_EQ(0, vm_uuid_mapper_->NodeUuidMapCount());
+    EXPECT_EQ(3, vm_uuid_mapper_->PendingVmRegCount());
+
+    vector<string> pending_vm_reg_expected_entries = list_of(
+        "default-global-system-config:a1s27.contrail.juniper.net:93e76278-1990-4905-a472-8e9188f41b2c");
+    validate_done_ = false;
+    validate_subsequent_and_final_response_ = true;
+    ifmap_sandesh_context_->set_page_limit(2);
+    TASK_UTIL_EXPECT_TRUE(ifmap_sandesh_context_->page_limit() == 2);
+    Sandesh::set_response_callback(boost::bind(
+        &IFMapVmUuidMapperTest::ValidateIFMapPendingVmRegResponse, this,
+        _1, pending_vm_reg_expected_entries));
+    IFMapPendingVmRegReq *req = new IFMapPendingVmRegReq;
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    ParseEventsJson(GetParam());
+    FeedEventsJson();
+
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "2d308482-c7b3-4e05-af14-e732b7b50117"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "93e76278-1990-4905-a472-8e9188f41b2c"));
+    TASK_UTIL_EXPECT_TRUE(vm_uuid_mapper_->VmNodeExists(
+        "43d086ab-52c4-4a1f-8c3d-63b321e36e8a"));
+    EXPECT_EQ(3, vm_uuid_mapper_->UuidMapperCount());
+    EXPECT_EQ(3, vm_uuid_mapper_->NodeUuidMapCount());
+    EXPECT_EQ(0, vm_uuid_mapper_->PendingVmRegCount());
+}
+
 
 // Vm-subscribe is received, then client gets deleted, then config is received.
 TEST_P(IFMapVmUuidMapperTestWithParam1, SubscribeDeleteClientThenConfig) {

@@ -151,7 +151,7 @@ public:
     static bool TableToBuffer(const IFMapTableShowReq *request,
                               IFMapTable *table, IFMapServer *server,
                               const string &last_node_name,
-                              ShowData *show_data);
+                              ShowData *show_data, uint32_t page_limit);
     static bool BufferAllTables(const IFMapTableShowReq *req,
                                 RequestPipeline::InstData *data,
                                 const string &next_table_name,
@@ -168,7 +168,7 @@ public:
 // Return true if the buffer is full.
 bool ShowIFMapTable::TableToBuffer(const IFMapTableShowReq *request,
         IFMapTable *table, IFMapServer *server, const string &last_node_name,
-        ShowData *show_data) {
+        ShowData *show_data, uint32_t page_limit) {
     DBEntryBase *src = NULL;
     if (last_node_name.length()) {
         // If the last_node_name is set, it was the last node printed in the
@@ -199,7 +199,7 @@ bool ShowIFMapTable::TableToBuffer(const IFMapTableShowReq *request,
         show_data->send_buffer.push_back(dest);
 
         // If we have picked up enough nodes for this round...
-        if (show_data->send_buffer.size() == kMaxElementsPerRound) {
+        if (show_data->send_buffer.size() == page_limit) {
             // Save the values needed for the next round. When we come
             // back, we will use the 'names' to lookup the elements since
             // the 'names' are the keys in the respective tables.
@@ -222,9 +222,11 @@ bool ShowIFMapTable::BufferOneTable(const IFMapTableShowReq *request,
                                               request->get_table_name());
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
-        show_data->send_buffer.reserve(kMaxElementsPerRound);
+        uint32_t page_limit = sctx->page_limit() ?
+            sctx->page_limit() : kMaxElementsPerRound;
+        show_data->send_buffer.reserve(page_limit);
         TableToBuffer(request, table, sctx->ifmap_server(), last_node_name,
-                      show_data);
+                      show_data, page_limit);
     } else {
         IFMAP_WARN(IFMapTblNotFound, "Cant show/find table ",
                    request->get_table_name());
@@ -249,14 +251,16 @@ bool ShowIFMapTable::BufferAllTables(const IFMapTableShowReq *request,
     }
 
     ShowData *show_data = static_cast<ShowData *>(data);
-    show_data->send_buffer.reserve(kMaxElementsPerRound);
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    show_data->send_buffer.reserve(page_limit);
     for (; iter != db->end(); ++iter) {
         if (iter->first.find("__ifmap__.") != 0) {
             break;
         }
         IFMapTable *table = static_cast<IFMapTable *>(iter->second);
         bool buffer_full = TableToBuffer(request, table, sctx->ifmap_server(),
-                                         last_name, show_data);
+                                         last_name, show_data, page_limit);
         if (buffer_full) {
             break;
         }
@@ -362,6 +366,8 @@ void ShowIFMapTable::SendStageCommon(const IFMapTableShowReq *request,
     const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
     const ShowIFMapTable::ShowData &show_data =
         static_cast<const ShowIFMapTable::ShowData &> (prev_stage_data->at(0));
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     vector<IFMapNodeShowInfo> dest_buffer;
     dest_buffer = show_data.send_buffer;
@@ -369,7 +375,9 @@ void ShowIFMapTable::SendStageCommon(const IFMapTableShowReq *request,
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (dest_buffer.size() == kMaxElementsPerRound) {
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    if (dest_buffer.size() == page_limit) {
         next_batch = request->get_table_name() + kShowIterSeparator +
                      request->get_search_string() + kShowIterSeparator +
                      show_data.next_table_name + kShowIterSeparator +
@@ -628,7 +636,9 @@ bool ShowIFMapLinkTable::BufferStageCommon(const IFMapLinkTableShowReq *request,
         regex search_expr(request->get_search_string());
         regex metadata_expr(request->get_metadata());
         ShowData *show_data = static_cast<ShowData *>(data);
-        show_data->send_buffer.reserve(kMaxElementsPerRound);
+        uint32_t page_limit = sctx->page_limit() ?
+            sctx->page_limit() : kMaxElementsPerRound;
+        show_data->send_buffer.reserve(page_limit);
         show_data->table_size = table->Size();
 
         DBEntryBase *src = NULL;
@@ -645,7 +655,9 @@ bool ShowIFMapLinkTable::BufferStageCommon(const IFMapLinkTableShowReq *request,
                 CopyNode(&dest, src, sctx->ifmap_server());
                 show_data->send_buffer.push_back(dest);
                 // If we have picked up enough links for this round...
-                if (show_data->send_buffer.size() == kMaxElementsPerRound) {
+                uint32_t page_limit = sctx->page_limit() ?
+                    sctx->page_limit() : kMaxElementsPerRound;
+                if (show_data->send_buffer.size() == page_limit) {
                     IFMapLink *src_link = static_cast<IFMapLink *>(src);
                     show_data->last_link_name = src_link->link_name();
                     buffer_full = true;
@@ -703,7 +715,11 @@ void ShowIFMapLinkTable::SendStageCommon(const IFMapLinkTableShowReq *request,
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (dest_buffer.size() == kMaxElementsPerRound) {
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    if (dest_buffer.size() == page_limit) {
         next_batch = request->get_search_string() + kShowIterSeparator +
                      request->get_metadata() + kShowIterSeparator +
                      show_data.last_link_name;
@@ -1027,8 +1043,12 @@ bool ShowIFMapPerClientNodes::TableToBuffer(
         if (send) {
             show_data->send_buffer.push_back(dest);
 
+            IFMapSandeshContext *sctx =
+                static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+            uint32_t page_limit = sctx->page_limit() ?
+                sctx->page_limit() : kMaxElementsPerRound;
             // If we have picked up enough nodes for this round...
-            if (show_data->send_buffer.size() == kMaxElementsPerRound) {
+            if (show_data->send_buffer.size() == page_limit) {
                 // Save the values needed for the next round. When we come
                 // back, we will use the 'names' to lookup the elements since
                 // the 'names' are the keys in the respective tables.
@@ -1074,8 +1094,10 @@ bool ShowIFMapPerClientNodes::BufferStageCommon(
         iter = db->FindTableIter(next_table_name);
     }
 
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
     ShowData *show_data = static_cast<ShowData *>(data);
-    show_data->send_buffer.reserve(kMaxElementsPerRound);
+    show_data->send_buffer.reserve(page_limit);
     for (; iter != db->end(); ++iter) {
         if (iter->first.find("__ifmap__.") != 0) {
             break;
@@ -1143,7 +1165,11 @@ void ShowIFMapPerClientNodes::SendStageCommon(
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (dest_buffer.size() == kMaxElementsPerRound) {
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    if (dest_buffer.size() == page_limit) {
         next_batch = request->get_client_index_or_name() + kShowIterSeparator +
                      request->get_search_string() + kShowIterSeparator +
                      show_data.next_table_name + kShowIterSeparator +
@@ -1381,9 +1407,11 @@ void ShowIFMapPerClientLinkTable::BufferTable(
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
         sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
 
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
     if (table) {
         vector<IFMapPerClientLinksShowInfo> dest_buffer;
-        dest_buffer.reserve(kMaxElementsPerRound);
+        dest_buffer.reserve(page_limit);
 
         DBEntryBase *src = NULL;
         DBTablePartBase *partition = table->GetTablePartition(0);
@@ -1402,7 +1430,7 @@ void ShowIFMapPerClientLinkTable::BufferTable(
                                  client_index);
             if (send) {
                 dest_buffer.push_back(dest);
-                if (dest_buffer.size() == kMaxElementsPerRound) {
+                if (dest_buffer.size() == page_limit) {
                     string next_batch = request->get_client_index_or_name() +
                         kShowIterSeparator + request->get_search_string() +
                         kShowIterSeparator + src_link->link_name();
@@ -1567,9 +1595,14 @@ bool ShowIFMapUuidToNodeMapping::SendStage(const Sandesh *sr,
     } else {
         first = tracker_data->first;
     }
+    const IFMapUuidToNodeMappingReq *request =
+        static_cast<const IFMapUuidToNodeMappingReq *>(ps.snhRequest_.get());
+    IFMapSandeshContext *sctx =
+    static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
     int rem_num = show_data.send_buffer.end() - first;
-    int send_num = (rem_num < kMaxElementsPerRound) ? rem_num :
-                                                      kMaxElementsPerRound;
+    int send_num = (rem_num < (int)page_limit) ? rem_num : (int)page_limit;
     last = first + send_num;
     copy(first, last, back_inserter(dest_buffer));
     // Decide if we want to be called again.
@@ -1578,8 +1611,6 @@ bool ShowIFMapUuidToNodeMapping::SendStage(const Sandesh *sr,
     } else {
         more = false;
     }
-    const IFMapUuidToNodeMappingReq *request = 
-        static_cast<const IFMapUuidToNodeMappingReq *>(ps.snhRequest_.get());
     IFMapUuidToNodeMappingResp *response = new IFMapUuidToNodeMappingResp();
     response->set_map_count(dest_buffer.size());
     response->set_uuid_to_node_map(dest_buffer);
@@ -1651,7 +1682,7 @@ bool ShowIFMapNodeToUuidMapping::BufferStage(const Sandesh *sr,
                                              const RequestPipeline::PipeSpec ps,
                                              int stage, int instNum,
                                              RequestPipeline::InstData *data) {
-    const IFMapNodeToUuidMappingReq *request = 
+    const IFMapNodeToUuidMappingReq *request =
         static_cast<const IFMapNodeToUuidMappingReq *>(ps.snhRequest_.get());
     IFMapSandeshContext *sctx = 
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
@@ -1696,8 +1727,13 @@ bool ShowIFMapNodeToUuidMapping::SendStage(const Sandesh *sr,
         first = tracker_data->first;
     }
     int rem_num = show_data.send_buffer.end() - first;
-    int send_num = (rem_num < kMaxElementsPerRound) ? rem_num :
-                                                      kMaxElementsPerRound;
+    const IFMapNodeToUuidMappingReq *request =
+        static_cast<const IFMapNodeToUuidMappingReq *>(ps.snhRequest_.get());
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    int send_num = (rem_num < (int)page_limit) ? rem_num : (int)page_limit;
     last = first + send_num;
     copy(first, last, back_inserter(dest_buffer));
     // Decide if we want to be called again.
@@ -1706,8 +1742,6 @@ bool ShowIFMapNodeToUuidMapping::SendStage(const Sandesh *sr,
     } else {
         more = false;
     }
-    const IFMapNodeToUuidMappingReq *request = 
-        static_cast<const IFMapNodeToUuidMappingReq *>(ps.snhRequest_.get());
     IFMapNodeToUuidMappingResp *response = new IFMapNodeToUuidMappingResp();
     response->set_map_count(dest_buffer.size());
     response->set_node_to_uuid_map(dest_buffer);
@@ -1779,7 +1813,7 @@ bool ShowIFMapPendingVmReg::BufferStage(const Sandesh *sr,
                                         const RequestPipeline::PipeSpec ps,
                                         int stage, int instNum,
                                         RequestPipeline::InstData *data) {
-    const IFMapPendingVmRegReq *request = 
+    const IFMapPendingVmRegReq *request =
         static_cast<const IFMapPendingVmRegReq *>(ps.snhRequest_.get());
     IFMapSandeshContext *sctx = 
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
@@ -1823,8 +1857,13 @@ bool ShowIFMapPendingVmReg::SendStage(const Sandesh *sr,
         first = tracker_data->first;
     }
     int rem_num = show_data.send_buffer.end() - first;
-    int send_num = (rem_num < kMaxElementsPerRound) ? rem_num :
-                                                      kMaxElementsPerRound;
+    const IFMapPendingVmRegReq *request =
+        static_cast<const IFMapPendingVmRegReq *>(ps.snhRequest_.get());
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    int send_num = (rem_num < (int)page_limit) ? rem_num : (int)page_limit;
     last = first + send_num;
     copy(first, last, back_inserter(dest_buffer));
     // Decide if we want to be called again.
@@ -1833,8 +1872,6 @@ bool ShowIFMapPendingVmReg::SendStage(const Sandesh *sr,
     } else {
         more = false;
     }
-    const IFMapPendingVmRegReq *request = 
-        static_cast<const IFMapPendingVmRegReq *>(ps.snhRequest_.get());
     IFMapPendingVmRegResp *response = new IFMapPendingVmRegResp();
     response->set_map_count(dest_buffer.size());
     response->set_vm_reg_map(dest_buffer);
@@ -1996,7 +2033,9 @@ bool ShowConfigDBUUIDCache::BufferStageCommon(const ConfigDBUUIDCacheReq *req,
         static_cast<IFMapSandeshContext *>(req->module_context("IFMap"));
     ConfigClientManager *ccmgr = sctx->ifmap_server()->get_config_manager();
     ShowData *show_data = static_cast<ShowData *>(data);
-    show_data->send_buffer.reserve(kMaxElementsPerRound);
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    show_data->send_buffer.reserve(page_limit);
     if (req->get_uuid().length()) {
         ConfigDBUUIDCacheEntry entry;
         if (!ccmgr->config_db_client()->UUIDToObjCacheShow(instNum,
@@ -2007,7 +2046,7 @@ bool ShowConfigDBUUIDCache::BufferStageCommon(const ConfigDBUUIDCacheReq *req,
         return true;
     } else {
         ccmgr->config_db_client()->UUIDToObjCacheShow(instNum, last_uuid,
-                                  kMaxElementsPerRound, show_data->send_buffer);
+                                  page_limit, show_data->send_buffer);
         return true;
     }
 }
@@ -2064,9 +2103,13 @@ void ShowConfigDBUUIDCache::SendStageCommon(const ConfigDBUUIDCacheReq *request,
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (uuid_cache_list.size() > kMaxElementsPerRound) {
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    if (uuid_cache_list.size() > page_limit) {
         vector<ConfigDBUUIDCacheEntry> ouput_list(uuid_cache_list.begin(),
-                              uuid_cache_list.begin() + kMaxElementsPerRound);
+                              uuid_cache_list.begin() + page_limit);
         response->set_uuid_cache(ouput_list);
         next_batch = ouput_list.back().uuid;
     } else {
@@ -2199,20 +2242,21 @@ bool ShowConfigDBUUIDToFQName::BufferStageCommon(
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     ConfigClientManager *ccmgr = sctx->ifmap_server()->get_config_manager();
     ShowData *show_data = static_cast<ShowData *>(data);
-    show_data->send_buffer.reserve(kMaxElementsPerRound);
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
+    page_limit++; // used to detect last entry
+    show_data->send_buffer.reserve(page_limit);
     if (request->get_uuid().length()) {
         ConfigDBFQNameCacheEntry entry;
-        if (!ccmgr->config_db_client()->UUIDToFQNameShow(request->get_uuid(),
+        if (ccmgr->config_db_client()->UUIDToFQNameShow(request->get_uuid(),
                                                          entry)) {
-            return true;
+            show_data->send_buffer.push_back(entry);
         }
-        show_data->send_buffer.push_back(entry);
-        return true;
     } else {
         ccmgr->config_db_client()->UUIDToFQNameShow(last_uuid,
-                                kMaxElementsPerRound, show_data->send_buffer);
-        return true;
+                                page_limit, show_data->send_buffer);
     }
+    return true;
 }
 
 bool ShowConfigDBUUIDToFQName::BufferStage(const Sandesh *sr,
@@ -2240,13 +2284,6 @@ bool ShowConfigDBUUIDToFQName::BufferStageIterate(const Sandesh *sr,
     return true;
 }
 
-bool ShowConfigDBUUIDToFQName::SortList(
-        const ConfigDBFQNameCacheEntry& lhs,
-        const ConfigDBFQNameCacheEntry& rhs) {
-    BOOL_KEY_COMPARE(lhs.uuid, rhs.uuid);
-    return false;
-}
-
 void ShowConfigDBUUIDToFQName::SendStageCommon(
                            const ConfigDBUUIDToFQNameReq *request,
                            const RequestPipeline::PipeSpec ps,
@@ -2257,26 +2294,27 @@ void ShowConfigDBUUIDToFQName::SendStageCommon(
     const ShowConfigDBUUIDToFQName::ShowData &show_data = static_cast
         <const ShowConfigDBUUIDToFQName::ShowData &>(prev_stage_data->at(0));
     if (show_data.send_buffer.size()) {
-        size_t list_size = fq_name_cache_list.size();
-        fq_name_cache_list.reserve(list_size + show_data.send_buffer.size());
+        fq_name_cache_list.reserve(show_data.send_buffer.size());
         copy(show_data.send_buffer.begin(), show_data.send_buffer.end(),
              std::back_inserter(fq_name_cache_list));
-        if (list_size) {
-            std::inplace_merge(fq_name_cache_list.begin(),
-               fq_name_cache_list.begin() + list_size,
-               fq_name_cache_list.end(),
-               ShowConfigDBUUIDToFQName::SortList);
-        }
     }
 
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (fq_name_cache_list.size() == kMaxElementsPerRound) {
-        next_batch = fq_name_cache_list.back().uuid;
-    }
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = sctx->page_limit() ?
+        sctx->page_limit() : kMaxElementsPerRound;
 
-    response->set_fqname_cache(fq_name_cache_list);
+    if (fq_name_cache_list.size() >  page_limit) {
+        vector<ConfigDBFQNameCacheEntry> output_list(fq_name_cache_list.begin(),
+                fq_name_cache_list.begin() + page_limit);
+        next_batch = output_list.back().uuid;
+        response->set_fqname_cache(output_list);
+    } else {
+        response->set_fqname_cache(fq_name_cache_list);
+    }
     response->set_next_batch(next_batch);
 }
 
