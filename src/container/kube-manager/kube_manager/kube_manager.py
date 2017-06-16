@@ -127,6 +127,7 @@ class KubeNetworkManager(object):
         inst = cls.get_instance()
         if inst is None:
             return
+        inst.logger.sandesh_uninit()
         inst.vnc.destroy_instance()
         inst.vnc = None
         inst.q = None
