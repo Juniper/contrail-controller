@@ -115,6 +115,17 @@ class KMTestCase(test_common.TestCase):
         event['object'] = object
         return event
 
+    def create_event(self, kind, spec, meta, type):
+        # type: (object, object, object, object) -> object
+        event = {}
+        object = {}
+        object['kind'] = kind
+        object['spec'] = spec
+        object['metadata'] = meta
+        event['type'] = type
+        event['object'] = object
+        return event
+
     def create_project(self, name):
         proj_fq_name = ['default-domain', name]
         proj_obj = Project(name=name, fq_name=proj_fq_name)
