@@ -9,9 +9,13 @@ Kubernetes network manager
 import gevent
 import random
 from gevent.queue import Queue
+from vnc.config_db import *
+from vnc.reaction_map import REACTION_MAP
 
 from vnc_api.vnc_api import *
 
+from cfgm_common.vnc_amqp import VncAmqpHandle
+from cfgm_common.zkclient import ZookeeperClient
 import common.logger as logger
 import common.args as kube_args
 import vnc.vnc_kubernetes as vnc_kubernetes
@@ -27,22 +31,13 @@ class KubeNetworkManager(object):
 
     _kube_network_manager = None
 
-    def __init__(self, args=None, kube_api_connected=False, queue=None):
-        self.args = args
-        if 'kube_timer_interval' not in self.args:
-            self.args.kube_timer_interval = '60'
-
-        # randomize collector list
-        self.args.random_collectors = args.collectors
-        if self.args.collectors:
-            self.args.random_collectors = random.sample(self.args.collectors,
-                                               len(self.args.collectors))
-
-        self.logger = logger.KubeManagerLogger(args)
+    def __init__(self, args=None, logger=None, kube_api_connected=False, queue=None):
         if queue:
             self.q = queue
         else:
             self.q = Queue()
+        self.args = args
+        self.logger = logger
         # All monitors supported by this manager.
         self.monitors = {}
         self.kube = None
@@ -83,6 +78,7 @@ class KubeNetworkManager(object):
 
         self.vnc = vnc_kubernetes.VncKubernetes(args=self.args,
             logger=self.logger, q=self.q, kube=self.kube)
+    # end __init__
 
     def _kube_object_cache_enabled(self):
         return True if self.args.kube_object_cache == 'True' else False;
@@ -132,12 +128,59 @@ class KubeNetworkManager(object):
         inst.q = None
         KubeNetworkManager._kube_network_manager = None
 
-
-def main(args_str=None, kube_api_skip=False, event_queue=None):
-    args = kube_args.parse_args(args_str)
-    kube_nw_mgr = KubeNetworkManager(args,kube_api_connected=kube_api_skip, queue=event_queue)
+def run_kube_manager(km_logger, args, kube_api_skip, event_queue):
+    kube_nw_mgr = KubeNetworkManager(args, km_logger, kube_api_connected=kube_api_skip, queue=event_queue)
     KubeNetworkManager._kube_network_manager = kube_nw_mgr
     kube_nw_mgr.start_tasks()
 
+def main(args_str=None, kube_api_skip=False, event_queue=None):
+    _zookeeper_client = None
+
+    args = kube_args.parse_args(args_str)
+    if 'kube_timer_interval' not in args:
+        args.kube_timer_interval = '60'
+
+    if args.cluster_id:
+        client_pfx = args.cluster_id + '-'
+        zk_path_pfx = args.cluster_id + '/'
+    else:
+        client_pfx = ''
+        zk_path_pfx = ''
+
+    # randomize collector list
+    args.random_collectors = args.collectors
+    if args.collectors:
+        args.random_collectors = random.sample(args.collectors,
+                                           len(args.collectors))
+
+    km_logger = logger.KubeManagerLogger(args)
+
+    if args.nested_mode == '0':
+        # Initialize AMQP handler then close it to be sure remain queue of a
+        # precedent run is cleaned
+        try:
+            vnc_amqp = VncAmqpHandle(km_logger, DBBaseKM,
+                                     REACTION_MAP, 'kube_manager', args=args)
+            vnc_amqp.establish()
+            vnc_amqp.close()
+        except Exception:
+            pass
+        finally:
+            km_logger.debug("Removed remained AMQP queue")
+ 
+        # Ensure zookeeper is up and running before starting kube-manager
+        _zookeeper_client = ZookeeperClient(client_pfx+"kube-manager",
+                                            args.zk_server_ip)
+
+        km_logger.notice("Waiting to be elected as master...")
+        _zookeeper_client.master_election(zk_path_pfx+"/kube-manager",
+                                          os.getpid(), run_kube_manager,
+                                          km_logger, args, kube_api_skip, 
+                                          event_queue)
+        km_logger.notice("Elected master kube-manager node. Initializing...")
+
+    else: #nested mode, skip zookeeper mastership check
+        run_kube_manager(km_logger, args, kube_api_skip, event_queue)
+ 
 if __name__ == '__main__':
     main()
