@@ -44,23 +44,28 @@ struct HealthCheckServiceData : public AgentOperDBData {
     HealthCheckServiceData(Agent *agent, IpAddress dest_ip,
                            const std::string &name,
                            const std::string &monitor_type,
+                           uint8_t ip_proto,
                            const std::string &http_method,
                            const std::string &url_path,
+                           uint16_t url_port,
                            const std::string &expected_codes,
                            uint32_t delay, uint32_t timeout,
                            uint32_t max_retries, IFMapNode *ifmap_node) :
         AgentOperDBData(agent, ifmap_node), dest_ip_(dest_ip), name_(name),
-        monitor_type_(monitor_type), http_method_(http_method),
-        url_path_(url_path), expected_codes_(expected_codes), delay_(delay),
-        timeout_(timeout), max_retries_(max_retries) {
+        monitor_type_(monitor_type), ip_proto_(ip_proto),
+        http_method_(http_method), url_path_(url_path), url_port_(url_port),
+        expected_codes_(expected_codes), delay_(delay), timeout_(timeout),
+        max_retries_(max_retries) {
     }
     virtual ~HealthCheckServiceData() {}
 
     IpAddress dest_ip_;
     std::string name_;
     std::string monitor_type_;
+    uint8_t ip_proto_;
     std::string http_method_;
     std::string url_path_;
+    uint16_t url_port_;
     std::string expected_codes_;
     uint32_t delay_;
     uint32_t timeout_;
@@ -86,7 +91,8 @@ public:
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceEvent);
 };
 
-struct HealthCheckInstance {
+class HealthCheckInstance {
+public:
     typedef InstanceTaskExecvp HeathCheckProcessInstance;
     static const std::string kHealthCheckCmd;
 
@@ -117,6 +123,11 @@ struct HealthCheckInstance {
     bool active() {return active_;}
     bool IsRunning() const;
 
+    HealthCheckService *service() const { return service_.get(); }
+    const MetaDataIp *ip() const { return ip_.get(); }
+private:
+    friend class HealthCheckService;
+    friend class HealthCheckTable;
     // reference to health check service under
     // which this instance is running
     HealthCheckServiceRef service_;
@@ -165,6 +176,8 @@ public:
     const boost::uuids::uuid &uuid() const { return uuid_; }
     const std::string &name() const { return name_; }
 
+    uint8_t ip_proto() const { return ip_proto_; }
+    uint16_t url_port() const { return url_port_; }
 private:
     friend class HealthCheckInstance;
     friend class HealthCheckInstanceEvent;
@@ -175,8 +188,12 @@ private:
     std::string name_;
     // monitor type of service PING/HTTP etc
     std::string monitor_type_;
+    // ip_proto derived from monitor_type_
+    uint8_t ip_proto_;
     std::string http_method_;
     std::string url_path_;
+    // tcp/udp port numbers derived from url
+    uint16_t url_port_;
     std::string expected_codes_;
     uint32_t delay_;
     uint32_t timeout_;
