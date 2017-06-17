@@ -63,6 +63,7 @@ def parse_args(args_str=None):
         'admin_password' : '',
         'admin_tenant' : '',
         'public_fip_pool': '{}',
+        'zk_server_ip': '127.0.0.1:2181',
     }
 
     k8s_opts = {
