@@ -70,6 +70,8 @@ public:
                                 PktControlInfo *out);
     void BgpRouterServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
                                    PktControlInfo *out);
+    void ProcessHealthCheckFatFlow(const VmInterface *vmi, const PktInfo *pkt,
+                                   PktControlInfo *in, PktControlInfo *out);
     void FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
                         PktControlInfo *out);
     void FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
