@@ -161,7 +161,7 @@ def main():
     file2.close()
 
     # delete all lines before the view stanza {}
-    del lines[1:count]
+    del lines[0:count]
 
     # open contrail-named.conf
     file3 = open('/etc/contrail/dns/contrail-named.conf', 'w')
