@@ -4,12 +4,16 @@ import sys
 from haproxy_stats import HaproxyStats
 from vrouter.loadbalancer.ttypes import \
     LoadbalancerStats, UveLoadbalancerStats, UveLoadbalancerTrace
+from pysandesh.sandesh_logger import SandeshLogger
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 LB_BASE_DIR = '/var/lib/contrail/loadbalancer/'
 
 class LoadbalancerStatsUVE(object):
-    def __init__(self):
+    def __init__(self, logger):
+       self.logger = logger
        self.driver = HaproxyStats()
+       self.driver.logger = logger
        if not self.driver.lbaas_dir:
            self.driver.lbaas_dir = LB_BASE_DIR
        try:
@@ -109,4 +113,4 @@ class LoadbalancerStatsUVE(object):
         try:
             self._send_loadbalancer_uve()
         except Exception as e:
-            sys.stderr.write('LB stats failure ' + str(e) + '\n')
+            sys.logger.log(SandeshLogger.get_py_logger_level(SandeshLevel.SYS_ERR), 'LB stats failure ' + str(e))

@@ -2,6 +2,8 @@ import os
 import socket
 import sys
 import csv
+from pysandesh.sandesh_logger import SandeshLogger
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 HAPROXY_DIR = '/var/lib/contrail/loadbalancer/haproxy/'
 
@@ -29,14 +31,15 @@ TYPE_BACKEND_RESPONSE = '1'
 TYPE_SERVER_RESPONSE = '2'
 
 class HaproxyStats(object):
-    def __init__(self):
+    def __init__(self, logger):
         self.lbaas_dir = HAPROXY_DIR
+        self.logger = logger
         pass
 
     def get_stats(self, pool_id):
         sock_path = os.path.join(self.lbaas_dir, pool_id, 'haproxy.sock')
         if not os.path.exists(sock_path):
-            sys.stderr.write('\nStats socket not found for pool ' + pool_id)
+            self.logger.log(SandeshLogger.get_py_logger_level(SandeshLevel.SYS_ERR), 'Stats socket not found for pool ' + pool_id)
             return {}
 
         lb_stats = {}
@@ -81,6 +84,6 @@ class HaproxyStats(object):
                 if len(chunk) < chunk_size:
                     break
         except socket.error as e:
-            sys.stderr.write('\nstats socket error: ' + str(e))
+            self.logger.log(SandeshLogger.get_py_logger_level(SandeshLevel.SYS_ERR), 'stats socket error: ' + str(e))
 
         return raw_stats
