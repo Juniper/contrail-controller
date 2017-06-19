@@ -31,18 +31,31 @@ The transfer of data from/to cassandra database is very expensive. Using seconda
 Desired features
 - Write an entry to single table
 - Index-able on multiple fields
+
 - Neither number of rows nor number of columns should not be very high.
   Having a middle ground for these numbers gives better performance.
 - Avoid hotspots in the table.
 
 We achieve the above as follows
 - Create message_timestamp table with TS as PRIMARY key.
-- Keep only 2 columns as clustering columns. Cassandra avoids sorts the entries on these columns while writing.
+- Keep only 2 columns as clustering columns. Cassandra sorts the entries on these columns while writing.
   column3 and beyond are non-clustering columns.
 - Create SECONDARY keys for the fields - Source, Messagetype, ModuleId.
 - Use "partition" as key2 to avoid hotspot - existing feature for current messagetable.
-- Prepend Source, Messagetype, ModuleId, object1 and object2 column values with "T2:" to avoid very wide rows.
+- Following non-primary and non-clustering columns are prepended with "T2:" to avoid very wide rows.
   T2 is prefixed in hex with ":" as delimiter.
+  We do indexing on these columns using secondary or SASI index.
+  SASI index is specified if prefix search support is required.
+  - Source      - SASI index
+  - Messagetype - secondary index
+  - ModuleId    - secondary index
+  - object1     - SASI index
+  - object2     - SASI index
+  - object3     - SASI index
+  - object4     - SASI index
+  - object5     - SASI index
+  - object6     - SASI index
+  Instead of having a single very wide row for one Source in the Source secondary index, we would have (TTL in seconds/8) = (48hrs * 3600)/8 = 21600 rows
 
 
 ```
@@ -56,23 +69,31 @@ CREATE TABLE "ContrailAnalyticsCql".messagetablev2 (
     column5 text,   // T2:ModuleId
     column6 text,   // T2:<object-type1>:<object-value1>)
     column7 text,   // T2:<object-type2>:<object-value2>)
-    column8 text,   // Category
-    column9 int,    // Level
-    column10 int,   // Type
-    column11 text,  // InstanceId
-    column12 text,  // NodeType
-    column13 int,   // SequenceNum
-    column14 text,  // Context
+    column8 text,   // T2:<object-type3>:<object-value3>)
+    column9 text,   // T2:<object-type4>:<object-value4>)
+    column10 text,  // T2:<object-type5>:<object-value5>)
+    column11 text,  // T2:<object-type6>:<object-value6>)
+    column12 text,  // Category
+    column13 int,   // Level
+    column14 int,   // Type
+    column15 text,  // InstanceId
+    column16 text,  // NodeType
+    column17 int,   // SequenceNum
+    column18 text,  // Context
     value   text    // XMLmessage
     PRIMARY KEY ((key, key2), column1, column2)
 )
 
 
-CREATE INDEX messagetable_source_index   ON "ContrailAnalyticsCql".messagetablev2 ("column3");
+CREATE CUSTOM INDEX messagetable_source_index ON "ContrailAnalyticsCql".messagetablev2 ("column3") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
 CREATE INDEX messagetable_msgtype_index  ON "ContrailAnalyticsCql".messagetablev2 ("column4");
 CREATE INDEX messagetable_moduleid_index ON "ContrailAnalyticsCql".messagetablev2 ("column5");
-CREATE INDEX messagetable_object1_index  ON "ContrailAnalyticsCql".messagetablev2 ("column6");
-CREATE INDEX messagetable_object2_index  ON "ContrailAnalyticsCql".messagetablev2 ("column7");
+CREATE CUSTOM INDEX messagetable_object1_index ON "ContrailAnalyticsCql".messagetablev2 ("column6") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
+CREATE CUSTOM INDEX messagetable_object2_index ON "ContrailAnalyticsCql".messagetablev2 ("column7") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
+CREATE CUSTOM INDEX messagetable_object3_index ON "ContrailAnalyticsCql".messagetablev2 ("column8") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
+CREATE CUSTOM INDEX messagetable_object4_index ON "ContrailAnalyticsCql".messagetablev2 ("column9") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
+CREATE CUSTOM INDEX messagetable_object5_index ON "ContrailAnalyticsCql".messagetablev2 ("column10") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
+CREATE CUSTOM INDEX messagetable_object6_index ON "ContrailAnalyticsCql".messagetablev2 ("column11") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
 ```
 
 We have deprecated the MessageTable which has PRIMARY index key=UUID.
@@ -84,6 +105,7 @@ So we plan the following
 Those values are in key3 and column1 in below query output.
 
 cqlsh:ContrailAnalyticsCql> select * from objecttable WHERE key=177442050 and key2=0 and key3='ObjectGeneratorInfo'
+                                                                  (T2)      (partition)
 key        | key2 | key3                | column1                                      | column2 | value
 -----------+------+---------------------+----------------------------------------------+---------+--------------------------------------
  177442050 |    0 | ObjectGeneratorInfo |                 a1s42:Control:contrail-dns:0 |  235040 | 5e0c5621-7039-4497-a11a-18457a153d72
@@ -91,9 +113,11 @@ key        | key2 | key3                | column1                               
 
 We would save “ObjectGeneratorInfo:a1s42:Database:contrail-database-nodemgr:0”.
 Note the first “:” from left, this will be the delimiter.
-3. Query would look like
+3. Query would look like any of the examples below
 cqlsh:ContrailAnalyticsCql> select * from MessageTablev2 WHERE key=177442050 and key2=0 and column6='ObjectGeneratorInfo*' ;
-Note the "*" in 'ObjectGeneratorInfo*'.
+cqlsh:ContrailAnalyticsCql> select * from MessageTablev2 WHERE key=177442050 and key2=0 and column6='ObjectGeneratorInfo:a1s42*' ;
+cqlsh:ContrailAnalyticsCql> select * from MessageTablev2 WHERE key=177442050 and key2=0 and column6='ObjectGeneratorInfo:a1s42:Database*' ;
+Note the "*" in end of match term.
 4. Once data is read from db, it would be of the format <object-typeX>:<object-valueX>. We need to remove “<object-typeX>:” in QE before sending it to UI.
 5. These columns 6 and 7 could be empty for various messages in MessageTablev2.
 
@@ -134,7 +158,7 @@ We publish the primary and secondary indices so that user can make informed deci
 
 
 COLLECTOR
-- Add support for secondary index
+- Add support for secondary index in the schema
 - Prepend "T2:" to <column{3|4|5|6|7}> while writting to cassandra.
 
 QUERY ENGINE
