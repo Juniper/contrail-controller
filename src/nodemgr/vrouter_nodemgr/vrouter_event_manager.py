@@ -11,6 +11,8 @@ from nodemgr.vrouter_nodemgr.vrouter_process_stat import VrouterProcessStat
 from pysandesh.sandesh_base import sandesh_global
 from sandesh_common.vns.ttypes import Module
 from loadbalancer_stats import LoadbalancerStatsUVE
+from pysandesh.sandesh_logger import SandeshLogger
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 class VrouterEventManager(EventManager):
     def __init__(self, rule_file, unit_names,
@@ -30,11 +32,11 @@ class VrouterEventManager(EventManager):
         EventManager.__init__(self, type_info, rule_file,
                               collector_addr, sandesh_global,
                               sandesh_config, update_process_list = True)
-        self.lb_stats = LoadbalancerStatsUVE()
+        self.lb_stats = LoadbalancerStatsUVE(self.logger)
     # end __init__
 
     def get_process_stat_object(self, pname):
-        return VrouterProcessStat(pname)
+        return VrouterProcessStat(pname, self.logger)
     # end get_process_stat_object
 
     def do_periodic_events(self):
