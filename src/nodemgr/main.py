@@ -137,7 +137,6 @@ def main(args_str=' '.join(sys.argv[1:])):
         usage()
     rule_file = _args.rules
     collector_addr = _args.collectors
-    sys.stderr.write("Collector address: " + str(collector_addr) + "\n")
 
     # randomize collector list
     _args.chksum = ""
@@ -147,7 +146,6 @@ def main(args_str=' '.join(sys.argv[1:])):
         _args.collectors = _args.random_collectors
 
     collector_addr = _args.collectors
-    sys.stderr.write("Random Collector address: " + str(collector_addr) + "\n")
 
     sandesh_config = SandeshConfig.from_parser_arguments(_args)
     # done parsing arguments
