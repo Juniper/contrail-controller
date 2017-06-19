@@ -87,6 +87,7 @@ const string PHYSICAL_IF_TABLE      = "ObjectPhysicalInterfaceTable"
 const string LOGICAL_IF_TABLE       = "ObjectLogicalInterfaceTable"
 const string STORAGE_CLUSTER_TABLE  = "ObjectStorageClusterTable"
 const string USR_DEF_LOG_STAT_TABLE  = "UserDefinedLogStatTable"
+const string KUBERNETES_MANAGER_TABLE = "ObjectKubernetesManagerNode"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -118,6 +119,7 @@ const string LOGICAL_IF_DISPLAY_NAME       = "Logical Interface"
 const string PHYSICAL_IF_DISPLAY_NAME      = "Physical Interface"
 const string STORAGE_CLUSTER_DISPLAY_NAME  = "Storage Cluster"
 const string USR_DEF_LOG_STAT_DISPLAY_NAME  = "User Defined Log Statistic"
+const string KUBERNETES_MANAGER_NODE_DISPLAY_NAME = "Kubernetes Manager Node"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -381,6 +383,7 @@ const map<string, PartType> PART_TYPES = {
     BGP_ROUTER_TABLE: PartType.PART_TYPE_CNODES,
     CONFIG_NODE_TABLE: PartType.PART_TYPE_CNODES,
     DNS_TABLE: PartType.PART_TYPE_CNODES,
+    KUBERNETES_MANAGER_TABLE: PartType.PART_TYPE_CNODES,
     SERVER_TABLE: PartType.PART_TYPE_PNODES,
     PROUTER_TABLE: PartType.PART_TYPE_PNODES,
     VROUTER_TABLE: PartType.PART_TYPE_PNODES,
@@ -415,7 +418,8 @@ const map<string, string> UVE_MAP = {
     "physical-interface" : PHYSICAL_IF_TABLE,
     "logical-interface" : LOGICAL_IF_TABLE,
     "storage-cluster" : STORAGE_CLUSTER_TABLE,
-    "user-defined-log-statistic" : USR_DEF_LOG_STAT_TABLE
+    "user-defined-log-statistic" : USR_DEF_LOG_STAT_TABLE,
+    "kubernetes-manager-node" : KUBERNETES_MANAGER_TABLE
 }
 
 struct objtable_info {
@@ -603,6 +607,12 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     USR_DEF_LOG_STAT_TABLE   : {
         'objtable_display_name' : USR_DEF_LOG_STAT_DISPLAY_NAME
         'log_query_name'        : "user-defined-log-statistic"
+        'is_uve'                : true
+        'global_system_object'  : true
+    }
+    KUBERNETES_MANAGER_TABLE: {
+        'objtable_display_name' : KUBERNETES_MANAGER_NODE_DISPLAY_NAME
+        'log_query_name'        : "kubernetes-manager-node"
         'is_uve'                : true
         'global_system_object'  : true
     }
@@ -1590,6 +1600,57 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_type' : 'NodeStatus'
       'stat_attr' : 'system_cpu_usage',
       'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'system_cpu_usage.one_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.fifteen_min_avg', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'system_cpu_usage.node_type', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Kubernetes Manager Disk Usage Info',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'disk_usage_info',
+      'obj_table' : KUBERNETES_MANAGER_TABLE,
+      'attributes': [
+          { 'name' : 'disk_usage_info.partition_type', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.__key', 'datatype' : 'string', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_used_1k', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'disk_usage_info.partition_space_available_1k', 'datatype' : 'int', 'index' : false },
+        ]
+    },
+    {
+      'display_name' : 'Kubernetes Manager Process Memory CPU Usage',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'process_mem_cpu_usage',
+      'obj_table' : KUBERNETES_MANAGER_TABLE,
+      'attributes': [
+          { 'name' : 'process_mem_cpu_usage.__key', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'process_mem_cpu_usage.mem_virt', 'datatype' : 'int', 'index' : false },
+          { 'name' : 'process_mem_cpu_usage.cpu_share', 'datatype' : 'double', 'index' : true},
+          { 'name' : 'process_mem_cpu_usage.mem_res', 'datatype' : 'int', 'index' : false },
+        ]
+    },
+    {
+      'display_name' : 'Kubernetes Manager System Memory Usage',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'system_mem_usage',
+      'obj_table' : KUBERNETES_MANAGER_TABLE,
+      'attributes': [
+          { 'name' : 'system_mem_usage.total', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.used', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.free', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.buffers', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.cached', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'system_mem_usage.node_type', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Kubernetes Manager System CPU Usage',
+      'stat_type' : 'NodeStatus'
+      'stat_attr' : 'system_cpu_usage',
+      'obj_table' : KUBERNETES_MANAGER_TABLE,
       'attributes': [
           { 'name' : 'system_cpu_usage.one_min_avg', 'datatype' : 'int', 'index' : false},
           { 'name' : 'system_cpu_usage.five_min_avg', 'datatype' : 'int', 'index' : false},
