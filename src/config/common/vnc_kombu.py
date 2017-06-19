@@ -197,11 +197,15 @@ class VncKombuClientBase(object):
             message.ack()
 
 
-    def _start(self):
+    def _start(self, client_name):
         self._reconnect(delete_old_q=True)
 
-        self._publisher_greenlet = gevent.spawn(self._publisher)
-        self._connection_monitor_greenlet = gevent.spawn(self._connection_watch_forever)
+        self._publisher_greenlet = vnc_greenlets.VncGreenlet(
+                                               'Kombu ' + client_name,
+                                               self._publisher)
+        self._connection_monitor_greenlet = vnc_greenlets.VncGreenlet(
+                                               'Kombu ' + client_name + '_ConnMon',
+                                               self._connection_watch_forever)
         if self._heartbeat_seconds:
             self._connection_heartbeat_greenlet = gevent.spawn(
                 self._connection_heartbeat)
@@ -277,7 +281,7 @@ class VncKombuClientV1(VncKombuClientBase):
                                       password=self._rabbit_password,
                                       virtual_host=self._rabbit_vhost)
         self._update_queue_obj = kombu.Queue(q_name, self.obj_upd_exchange, durable=False)
-        self._start()
+        self._start(q_name)
     # end __init__
 
 
@@ -329,7 +333,7 @@ class VncKombuClientV2(VncKombuClientBase):
                                              durable=False,
                                              queue_arguments=queue_args)
 
-        self._start()
+        self._start(q_name)
     # end __init__
 
 
