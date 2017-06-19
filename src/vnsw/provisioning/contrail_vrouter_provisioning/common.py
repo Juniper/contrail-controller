@@ -633,7 +633,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             local("ip route add unicast %s dev vhost0 scope link" %
                   self.gateway)
         # Add default gateway to vhost
-        local("ip route add default via %s dev vhost0" % self.gateway)
+        if not self.multi_net:
+            local("ip route add default via %s dev vhost0" % self.gateway)
 
     def fixup_contrail_lbaas(self):
         auth_url = self._args.keystone_auth_protocol + '://'
