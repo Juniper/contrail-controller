@@ -1,0 +1,24 @@
+//
+// greenlets.sandesh
+//
+// Introspect structs for Greenlets
+//
+// Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
+//
+
+
+struct GreenletObject {
+    1: string   greenlet_name;
+    2: i32      count;
+    3: optional string greenlet_launch_cmd;
+    4: string   greenlet_traces;
+}
+
+request sandesh GreenletObjectReq {
+    1: string greenlet_name;
+}
+
+response sandesh GreenletObjectListResp {
+    1: list<GreenletObject> greenlets;
+}
+
