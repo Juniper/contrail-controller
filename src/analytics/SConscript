@@ -55,14 +55,14 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'pugixml',
         'hiredis',
         'protobuf',
-        'ssl',
-        'crypto',
         'boost_filesystem',
         'boost_program_options'])
 
 (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 if PLATFORM.lower() != 'ubuntu':
-    AnalyticsEnv.Prepend(LIBS=['sasl2'])
+    AnalyticsEnv.Prepend(LIBS=['ssl',
+        'crypto',
+        'sasl2'])
 
 if sys.platform != 'darwin':
     AnalyticsEnv.Append(LIBS=['rt'])
