@@ -25,7 +25,6 @@ using namespace std;
 
 int StateMachineTest::hold_time_msecs_ = 0;
 int StateMachineTest::keepalive_time_msecs_ = 0;
-int StateMachineTest::graceful_close_ = -1;
 int XmppStateMachineTest::hold_time_msecs_ = 0;
 XmppStateMachineTest::NotifyFn XmppStateMachineTest::notify_fn_;
 TcpSession::Event XmppStateMachineTest::skip_tcp_event_ =TcpSession::EVENT_NONE;

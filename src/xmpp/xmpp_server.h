@@ -81,7 +81,7 @@ public:
         std::vector<ShowXmppConnection> *show_connection_list) const;
     void FillShowServer(ShowXmppServerResp *resp) const;
     void CreateConfigUpdater(BgpConfigManager *config_manager);
-    bool IsPeerCloseGraceful() const;
+    virtual bool IsPeerCloseGraceful() const;
     uint16_t GetGracefulRestartTime() const;
     uint32_t GetLongLivedGracefulRestartTime() const;
     uint32_t GetEndOfRibReceiveTime() const;

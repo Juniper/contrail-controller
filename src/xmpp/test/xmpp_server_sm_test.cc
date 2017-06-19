@@ -30,6 +30,21 @@ namespace ip = boost::asio::ip;
 
 #define XMPP_CONTROL_SERV   "bgp.contrail.com"
 
+class XmppServerTest : public XmppServer {
+public:
+    XmppServerTest(EventManager *evm, const string &server_addr) :
+            XmppServer(evm, server_addr), gr_close_(false) {
+    }
+
+    bool IsPeerCloseGraceful() const {
+        return gr_close_ ?: XmppServer::IsPeerCloseGraceful();
+    }
+    void SetCloseGraceful(bool gr_close) { gr_close_ = gr_close; }
+
+private:
+    bool gr_close_;
+};
+
 class XmppStateMachineTest : public ::testing::Test {
 protected:
     XmppStateMachineTest() {
@@ -40,7 +55,7 @@ protected:
     }
 
     virtual void SetUp() {
-        server_ = new XmppServer(evm_.get(), XMPP_CONTROL_SERV);
+        server_ = new XmppServerTest(evm_.get(), XMPP_CONTROL_SERV);
         server_->Initialize(0, false);
         LOG(DEBUG, "Created Xmpp server at port: " << server_->GetPort());
         SetUpServerSideConnection(); //Accept
@@ -207,7 +222,7 @@ protected:
 
     auto_ptr<EventManager> evm_;
 
-    XmppServer *server_;
+    XmppServerTest *server_;
     XmppStateMachine *sm_;
     XmppServerConnection *connection_;
     XmppSession *session_;
@@ -425,6 +440,41 @@ TEST_F(XmppStateMachineTest, EvXmppMessageStanza) {
     VerifyState(xmsm::ESTABLISHED);
 
     EvTcpClose();
+    VerifyState(xmsm::IDLE);
+}
+
+// Old State : Established
+// Event     : EvXmppOpen
+// New State : Established
+TEST_F(XmppStateMachineTest, Established_EvXmppOpen) {
+    VerifyState(xmsm::ACTIVE);
+
+    EvTcpPassiveOpenFake();
+    VerifyState(xmsm::ACTIVE);
+
+    EvXmppOpen();
+
+    VerifyState(xmsm::ESTABLISHED);
+
+    EvXmppOpen();
+    VerifyState(xmsm::ESTABLISHED);
+}
+
+// Old State : Established
+// Event     : EvXmppOpen with GR Close
+// New State : Idle (In case of GR, session should get closed upon EvOpen)
+TEST_F(XmppStateMachineTest, DISABLED_Established_EvXmppOpen_GRClose) {
+    server_->SetCloseGraceful(true);
+    VerifyState(xmsm::ACTIVE);
+
+    EvTcpPassiveOpenFake();
+    VerifyState(xmsm::ACTIVE);
+
+    EvXmppOpen();
+
+    VerifyState(xmsm::ESTABLISHED);
+
+    EvXmppOpen();
     VerifyState(xmsm::IDLE);
 }
 }
