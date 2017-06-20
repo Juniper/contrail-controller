@@ -226,6 +226,11 @@ class JuniperConf(DeviceConf):
         return vn_dict
     # end
 
+    def add_product_specific_config(self, groups):
+        # override this method to add any product specific configurations
+        pass
+    # end add_product_specific_config
+
     def prepare_groups(self, is_delete=False):
         groups = Groups()
         if is_delete:
@@ -239,6 +244,7 @@ class JuniperConf(DeviceConf):
         groups.set_forwarding_options(self.forwarding_options_config)
         groups.set_routing_options(self.global_routing_options_config)
         groups.set_protocols(self.proto_config)
+        self.add_product_specific_config(groups)
         return groups
     # end prepare_groups
 
