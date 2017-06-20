@@ -41,7 +41,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         else:
             self.vhost_ip = self._args.self_ip
 
-        self.dev = None # Will be physical device
+        self.dev = None  # Will be physical device
         if self._args.physical_interface:
             # During re-provision/upgrade vhost0 will be present
             # so vhost0 should be treated as dev,
@@ -200,7 +200,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         """
         if position == "Begin":
             regexp_del = r"'s/\(^ *%s *=\)\(.*\)\( \/.*\)/\1\3/'" % (lvalue)
-            regexp_add = r"'s/\(^%s=\)\(.*\)/\1%s \2/'" %(lvalue, rvalue)
+            regexp_add = r"'s/\(^%s=\)\(.*\)/\1%s \2/'" % (lvalue, rvalue)
             regexp = "sed -i.bak -e %s -e %s %s" \
                      % (regexp_del, regexp_add, vrouter_file)
             local(regexp, warn_only=False)
@@ -298,8 +298,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 (3,1), (4,1)] -> '0,3,4'
                 """
                 vr_coremask = [
-                        x[0] for x in enumerate(reversed(bin(vr_coremask)[2:]))
-                        if x[1] == '1']
+                    x[0] for x in enumerate(reversed(bin(vr_coremask)[2:]))
+                    if x[1] == '1']
             # Range or list of cores.
             elif (',' in vr_coremask) or ('-' in vr_coremask):
                 # Get list of core numbers and/or core ranges.
@@ -310,7 +310,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 for rng in vr_coremask:
                     if '-' in rng:  # If it's a range - expand it.
                         a, b = rng.split('-')
-                        vr_coremask_expanded += range(int(a), int(b)+1)
+                        vr_coremask_expanded += range(int(a), int(b) + 1)
                     else:  # If not, just add to the list.
                         vr_coremask_expanded.append(int(rng))
 
@@ -380,21 +380,21 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             'mpls_labels': '5120',
             'nexthops': '65536',
             'vrfs': '5120',
-            'macs': {'bridge_entries':'262144'},
+            'macs': {'bridge_entries': '262144'},
         }
         for param in vr_params:
             if isinstance(vr_params[param], dict):
                 for p in vr_params[param]:
                     param_name = p
-                    param_val = vrouter_module_params_args.setdefault\
-                                               (param, vr_params[param][p])
+                    param_val = vrouter_module_params_args.setdefault(
+                        param, vr_params[param][p])
             else:
                 param_name = param
-                param_val = vrouter_module_params_args.setdefault\
-                                               (param, vr_params[param])
+                param_val = vrouter_module_params_args.setdefault(
+                    param, vr_params[param])
 
             param = "--vr_" + param_name + " " + param_val
-            self.search_and_replace(self.command_key, param,\
+            self.search_and_replace(self.command_key, param,
                                     "End", self.vrouter_file)
 
     def fixup_contrail_vrouter_agent(self):
@@ -405,17 +405,18 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         vgw_intf_list = self._args.vgw_intf_list
         vgw_gateway_routes = self._args.vgw_gateway_routes
         compute_as_gateway = self._args.compute_as_gateway
+        flow_thread_count = self._args.flow_thread_count
 
         self.mac = None
         # Fresh install
         if self.dev and not self.reprov:
             self.mac = netifaces.ifaddresses(self.dev)[netifaces.AF_LINK][0][
-                           'addr']
+                'addr']
             if not self.mac:
                 raise KeyError('Interface %s Mac %s' % (str(self.dev),
                                                         str(self.mac)))
             self.netmask = netifaces.ifaddresses(self.dev)[
-                               netifaces.AF_INET][0]['netmask']
+                netifaces.AF_INET][0]['netmask']
             if self.multi_net:
                 self.gateway = non_mgmt_gw
             else:
@@ -478,7 +479,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             platform_mode = "default"
             if self._args.dpdk:
                 dpdk_args = dict(
-                        u.split("=") for u in self._args.dpdk.split(","))
+                    u.split("=") for u in self._args.dpdk.split(","))
                 log.info(dpdk_args)
                 platform_mode = "dpdk"
 
@@ -541,35 +542,37 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             collector_servers = ' '.join('%s:%s' % (server, '8086')
                                          for server in self._args.collectors)
             configs = {
-                    'DEFAULT': {
-                        'platform': platform_mode,
-                        'gateway_mode': gateway_mode or '',
-                        'physical_interface_address': pci_dev,
-                        'physical_interface_mac': self.mac,
-                        'collectors': collector_servers,
-                        'xmpp_auth_enable': self._args.xmpp_auth_enable,
-                        'xmpp_dns_auth_enable': self._args.xmpp_dns_auth_enable},
-                    'NETWORKS': {
-                        'control_network_ip': compute_ip},
-                    'VIRTUAL-HOST-INTERFACE': {
-                        'name': 'vhost0',
-                        'ip': str(self.cidr),
-                        'gateway': self.gateway,
-                        'physical_interface': self.dev},
-                    'HYPERVISOR': {
-                        'type': ('kvm' if self._args.hypervisor == 'libvirt'
-                                 else self._args.hypervisor),
-                        'vmware_mode': self._args.mode or '',
-                        'vmware_physical_interface': vmware_dev or ''},
-                    'CONTROL-NODE': {
-                        'servers': control_servers},
-                    'DNS': {
-                        'servers': dns_servers},
-                    'SANDESH': {
-                        'sandesh_ssl_enable': self._args.sandesh_ssl_enable,
-                        'introspect_ssl_enable':
-                        self._args.introspect_ssl_enable}
-                    }
+                'DEFAULT': {
+                    'platform': platform_mode,
+                    'gateway_mode': gateway_mode or '',
+                    'physical_interface_address': pci_dev,
+                    'physical_interface_mac': self.mac,
+                    'collectors': collector_servers,
+                    'xmpp_auth_enable': self._args.xmpp_auth_enable,
+                    'xmpp_dns_auth_enable': self._args.xmpp_dns_auth_enable},
+                'NETWORKS': {
+                    'control_network_ip': compute_ip},
+                'VIRTUAL-HOST-INTERFACE': {
+                    'name': 'vhost0',
+                    'ip': str(self.cidr),
+                    'gateway': self.gateway,
+                    'physical_interface': self.dev},
+                'HYPERVISOR': {
+                    'type': ('kvm' if self._args.hypervisor == 'libvirt'
+                             else self._args.hypervisor),
+                    'vmware_mode': self._args.mode or '',
+                    'vmware_physical_interface': vmware_dev or ''},
+                'CONTROL-NODE': {
+                    'servers': control_servers},
+                'DNS': {
+                    'servers': dns_servers},
+                'SANDESH': {
+                    'sandesh_ssl_enable': self._args.sandesh_ssl_enable,
+                    'introspect_ssl_enable':
+                        self._args.introspect_ssl_enable},
+                'FLOWS': {
+                    'thread_count': flow_thread_count}
+            }
 
             # VGW configs
             if vgw_public_vn_name and vgw_public_subnet:
@@ -608,8 +611,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             for section, key_vals in configs.items():
                 for key, val in key_vals.items():
                     self.set_config(
-                            '/etc/contrail/contrail-vrouter-agent.conf',
-                            section, key, val)
+                        '/etc/contrail/contrail-vrouter-agent.conf',
+                        section, key, val)
 
             if self.running_in_container:
                 self.config_vhost0_interface_in_container()
@@ -623,9 +626,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         local(insert_cmd, executable='/bin/bash')
         # Move ip address from vrouter physical device to vhost
         config_vhost0_cmd = "ip address delete %s/%s dev %s && " % (
-                self.vhost_ip, self.cidr.prefixlen, self.dev)
+            self.vhost_ip, self.cidr.prefixlen, self.dev)
         config_vhost0_cmd += "ip address add %s/%s dev vhost0 && " % (
-                self.vhost_ip, self.cidr.prefixlen)
+            self.vhost_ip, self.cidr.prefixlen)
         config_vhost0_cmd += "ip link set dev vhost0 up"
         local(config_vhost0_cmd)
         # Add default gateway to new device as link local if /32 IP Address
@@ -641,13 +644,13 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         auth_url += ':' + self._args.keystone_auth_port
         auth_url += '/' + 'v2.0'
         configs = {
-                'BARBICAN': {
-                    'admin_tenant_name': 'service',
-                    'admin_user': 'neutron',
-                    'admin_password': self._args.neutron_password,
-                    'auth_url': auth_url,
-                    'region': 'RegionOne'}
-                  }
+            'BARBICAN': {
+                'admin_tenant_name': 'service',
+                'admin_user': 'neutron',
+                'admin_password': self._args.neutron_password,
+                'auth_url': auth_url,
+                'region': 'RegionOne'}
+        }
         # Workaround https://bugs.launchpad.net/juniperopenstack/+bug/1681172
         cfgfile = '/etc/contrail/contrail-lbaas-auth.conf'
         if not os.path.isfile(cfgfile):
@@ -682,7 +685,7 @@ SUBCHANNELS=1,2,3
                         f.write('GATEWAY=%s\n' % self.gateway)
                     dns_list = self.get_dns_servers(self.dev)
                     for i, dns in enumerate(dns_list):
-                        f.write('DNS%d=%s\n' % (i+1, dns))
+                        f.write('DNS%d=%s\n' % (i + 1, dns))
                     domain_list = self.get_domain_search_list()
                     if domain_list:
                         f.write('DOMAIN="%s"\n' % domain_list)
@@ -691,7 +694,7 @@ SUBCHANNELS=1,2,3
                 mtu = self.get_if_mtu(self.dev)
                 if mtu:
                     dcfg = 'MTU=%s' % str(mtu)
-                    f.write(dcfg+'\n')
+                    f.write(dcfg + '\n')
                     prsv_cfg.append(dcfg)
                 f.flush()
             if self.dev != 'vhost0':
@@ -723,10 +726,10 @@ SUBCHANNELS=1,2,3
 
         if self.pdist in ['Ubuntu']:
             self._rewrite_net_interfaces_file(
-                    self.dev, self.mac, self.vhost_ip, self.netmask,
-                    self.gateway, self._args.vmware,
-                    self._args.vmware_vmpg_vswitch_mtu,
-                    self._args.vmware_datanic_mtu)
+                self.dev, self.mac, self.vhost_ip, self.netmask,
+                self.gateway, self._args.vmware,
+                self._args.vmware_vmpg_vswitch_mtu,
+                self._args.vmware_datanic_mtu)
         # end self.pdist == ubuntu
 
     def run_services(self):
@@ -772,18 +775,30 @@ SUBCHANNELS=1,2,3
 
         # Clean existing qos config
         ltemp_dir = tempfile.mkdtemp()
-        local("sudo cp %s %s/" %(agent_conf, ltemp_dir))
-        local("sudo sed -i -e '/^\[QOS\]/d' -e '/^\[QUEUE-/d' -e '/^logical_queue/d' -e '/^default_hw_queue/d' -e '/^priority_tagging/d'  %s/%s" % (ltemp_dir, conf_file))
-        local("sudo sed -i -e '/^\[QOS-NIANTIC\]/d' -e '/^\[PG-/d' -e '/^scheduling/d' -e '/^bandwidth/d' %s/%s" % (ltemp_dir, conf_file))
+        local("sudo cp %s %s/" % (agent_conf, ltemp_dir))
+        local(
+            "sudo sed -i -e '/^\[QOS\]/d' -e '/^\[QUEUE-/d' -e '/^logical_queue/d' -e '/^default_hw_queue/d' -e '/^priority_tagging/d'  %s/%s" %
+            (ltemp_dir, conf_file))
+        local(
+            "sudo sed -i -e '/^\[QOS-NIANTIC\]/d' -e '/^\[PG-/d' -e '/^scheduling/d' -e '/^bandwidth/d' %s/%s" %
+            (ltemp_dir, conf_file))
         local("sudo cp %s/%s %s" % (ltemp_dir, conf_file, agent_conf))
         local('sudo rm -rf %s' % (ltemp_dir))
         # Set qos_enabled in agent_param to false
-        self.set_config('/etc/contrail/agent_param', sec="''", var='qos_enabled', val='false')
+        self.set_config(
+            '/etc/contrail/agent_param',
+            sec="''",
+            var='qos_enabled',
+            val='false')
 
         # QOS configs
         if qos_queue_id_list is not None:
 
-            self.set_config(agent_conf, 'QOS', 'priority_tagging', qos_priority_tagging)
+            self.set_config(
+                agent_conf,
+                'QOS',
+                'priority_tagging',
+                qos_priority_tagging)
             num_sections = len(qos_logical_queue)
             if(len(qos_logical_queue) == len(qos_queue_id_list) and
                     default_hw_queue_qos):
@@ -796,7 +811,7 @@ SUBCHANNELS=1,2,3
             if (default_hw_queue_qos):
                 if(len(qos_logical_queue) == len(qos_queue_id_list)):
                     logical_queue = '[%s]' %\
-                            qos_logical_queue[-1].replace(",", ", ")
+                        qos_logical_queue[-1].replace(",", ", ")
                 else:
                     logical_queue = '[ ]'
 
@@ -807,12 +822,13 @@ SUBCHANNELS=1,2,3
             for section, key_vals in configs.items():
                 for key, val in key_vals.items():
                     self.set_config(
-                            agent_conf,
-                            section, key, val)
+                        agent_conf,
+                        section, key, val)
 
         if priority_id_list is not None:
 
-            local('sudo contrail-config --set /etc/contrail/contrail-vrouter-agent.conf  QOS-NIANTIC')
+            local(
+                'sudo contrail-config --set /etc/contrail/contrail-vrouter-agent.conf  QOS-NIANTIC')
             for i in range(len(priority_id_list)):
                 configs['PG-%s' % priority_id_list[i]] = {
                     'scheduling': priority_scheduling[i],
@@ -821,20 +837,30 @@ SUBCHANNELS=1,2,3
             for section, key_vals in configs.items():
                 for key, val in key_vals.items():
                     self.set_config(
-                            agent_conf,
-                            section, key, val)
+                        agent_conf,
+                        section, key, val)
 
         if (qos_queue_id_list or priority_id_list):
             # Set qos_enabled in agent_param
-            self.set_config('/etc/contrail/agent_param', sec="''", var='qos_enabled', val='true')
+            self.set_config(
+                '/etc/contrail/agent_param',
+                sec="''",
+                var='qos_enabled',
+                val='true')
 
-            # Run qosmap script on physical interface (on all members for bond interface)
-            physical_interface = local("sudo openstack-config --get /etc/contrail/contrail-vrouter-agent.conf VIRTUAL-HOST-INTERFACE physical_interface")
+            # Run qosmap script on physical interface (on all members for bond
+            # interface)
+            physical_interface = local(
+                "sudo openstack-config --get /etc/contrail/contrail-vrouter-agent.conf VIRTUAL-HOST-INTERFACE physical_interface")
             if os.path.isdir('/sys/class/net/%s/bonding' % physical_interface):
-                physical_interfaces_str = local("sudo cat /sys/class/net/%s/bonding/slaves | tr ' ' '\n' | sort | tr '\n' ' '" % physical_interface)
+                physical_interfaces_str = local(
+                    "sudo cat /sys/class/net/%s/bonding/slaves | tr ' ' '\n' | sort | tr '\n' ' '" %
+                    physical_interface)
             else:
                 physical_interfaces_str = physical_interface
-            local("cd /opt/contrail/utils; python qosmap.py --interface_list %s " % physical_interfaces_str)
+            local(
+                "cd /opt/contrail/utils; python qosmap.py --interface_list %s " %
+                physical_interfaces_str)
 
     def disable_nova_compute(self):
         # Check if nova-compute is allready running
@@ -853,17 +879,21 @@ SUBCHANNELS=1,2,3
         prov_args = "--host_name %s --host_ip %s --api_server_ip %s --oper add "\
                     "--admin_user %s --admin_password %s --admin_tenant_name %s "\
                     "--openstack_ip %s --router_type tor-service-node"\
-                    %(self.tsn_hostname, tsn_ip, self._args.cfgm_ip,
-                      self._args.keystone_admin_user,
-                      self._args.keystone_admin_password,
-                      self._args.keystone_admin_tenant_name, self._args.keystone_ip)
+                    % (self.tsn_hostname, tsn_ip, self._args.cfgm_ip,
+                       self._args.keystone_admin_user,
+                       self._args.keystone_admin_password,
+                       self._args.keystone_admin_tenant_name, self._args.keystone_ip)
         if self._args.keystone_auth_protocol == 'https':
             prov_args += " --api_server_use_ssl True"
-        local("python /opt/contrail/utils/provision_vrouter.py %s" %(prov_args))
+        local(
+            "python /opt/contrail/utils/provision_vrouter.py %s" %
+            (prov_args))
 
     def start_tsn_service(self):
         nova_conf_file = '/etc/contrail/contrail-vrouter-agent.conf'
-        local("openstack-config --set %s DEFAULT agent_mode tsn" % nova_conf_file)
+        local(
+            "openstack-config --set %s DEFAULT agent_mode tsn" %
+            nova_conf_file)
 
     def setup_tsn_node(self):
         self.disable_nova_compute()
@@ -875,13 +905,14 @@ SUBCHANNELS=1,2,3
         and nexthop on tsn node"""
 
         if self._args.vrouter_module_params:
-            vrouter_module_params = self._args.vrouter_module_params.rstrip(',')
+            vrouter_module_params = self._args.vrouter_module_params.rstrip(
+                ',')
             vrouter_module_params_args = dict(
-                        u.split("=") for u in
-                        vrouter_module_params.split(","))
+                u.split("=") for u in
+                vrouter_module_params.split(","))
             if self._args.dpdk:
                 self.dpdk_increase_vrouter_limit(
-                        vrouter_module_params_args)
+                    vrouter_module_params_args)
             else:
                 cmd = "options vrouter"
                 if 'mpls_labels' in vrouter_module_params_args.keys():
@@ -906,7 +937,9 @@ SUBCHANNELS=1,2,3
                     cmd += " vrouter_dbg=%s" % vrouter_module_params_args['vrouter_dbg']
                 if 'vr_memory_alloc_checks' in vrouter_module_params_args.keys():
                     cmd += " vr_memory_alloc_checks=%s" % vrouter_module_params_args['vr_memory_alloc_checks']
-                local("echo %s > %s" %(cmd, '/etc/modprobe.d/vrouter.conf'), warn_only=True)
+                local(
+                    "echo %s > %s" %
+                    (cmd, '/etc/modprobe.d/vrouter.conf'), warn_only=True)
 
     def setup(self):
         self.disable_selinux()
