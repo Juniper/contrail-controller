@@ -88,6 +88,7 @@ class PhysicalRouterDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_networks = set()
+        self.logical_routers = set()
         self.bgp_router = None
         self.config_manager = None
         self.nc_q = queue.Queue(maxsize=1)
@@ -118,11 +119,13 @@ class PhysicalRouterDM(DBBaseDM):
         self.vendor = obj.get('physical_router_vendor_name', '')
         self.product = obj.get('physical_router_product_name', '')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
+        self.physical_router_role = obj.get('physical_router_role')
         self.user_credentials = obj.get('physical_router_user_credentials')
         self.junos_service_ports = obj.get(
             'physical_router_junos_service_ports')
         self.update_single_ref('bgp_router', obj)
         self.update_multiple_refs('virtual_network', obj)
+        self.update_multiple_refs('logical_router', obj)
         self.physical_interfaces = set([pi['uuid'] for pi in
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
@@ -154,6 +157,7 @@ class PhysicalRouterDM(DBBaseDM):
         obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
+        obj.update_multiple_refs('logical_router', {})
         del cls._dict[uuid]
     # end delete
 
@@ -569,7 +573,6 @@ class GlobalVRouterConfigDM(DBBaseDM):
     # end delete
 # end GlobalVRouterConfigDM
 
-
 class GlobalSystemConfigDM(DBBaseDM):
     _dict = {}
     obj_type = 'global_system_config'
@@ -818,6 +821,45 @@ class VirtualMachineInterfaceDM(DBBaseDM):
 
 # end VirtualMachineInterfaceDM
 
+class LogicalRouterDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'logical_router'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.physical_routers = set()
+        self.virtual_network = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+            vn_name = DMUtils.get_internal_vn_name(self.uuid)
+            self.virtual_network = VirtualNetworkDM.find_by_name_or_uuid(vn_name)
+        self.update_multiple_refs('physical_router', obj)
+        self.fq_name = obj['fq_name']
+        self.virtual_machine_interfaces = set(
+            [vmi['uuid'] for vmi in
+             obj.get('virtual_machine_interface_back_refs', [])])
+    # end update
+
+    def get_internal_vn_name(self):
+        return '__contrail_' + self.uuid + '_lr_internal_vn__'
+    # end get_internal_vn_name
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('physical_router', {})
+        obj.update_single_ref('virtual_network', None)
+        del cls._dict[uuid]
+    # end delete
+
+# end LogicalRouterDM
+
 
 class VirtualNetworkDM(DBBaseDM):
     _dict = {}
@@ -826,6 +868,7 @@ class VirtualNetworkDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.physical_routers = set()
+        self.logical_router = None
         self.router_external = False
         self.forwarding_mode = None
         self.gateways = None
@@ -833,9 +876,16 @@ class VirtualNetworkDM(DBBaseDM):
         self.update(obj_dict)
     # end __init__
 
+    def set_logical_router(self, name):
+        if DMUtils.get_lr_internal_vn_prefix() in name:
+            lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(name)
+            self.logical_router = LogicalRouterDM.get(lr_uuid)
+    # end set_logical_router
+
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+            self.set_logical_router(obj.get("fq_name")[-1])
         self.update_multiple_refs('physical_router', obj)
         self.fq_name = obj['fq_name']
         try:
