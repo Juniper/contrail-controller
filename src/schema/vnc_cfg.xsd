@@ -2052,6 +2052,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          'Reference to virtual network, whose VRF is present on this physical router, Applicable when only VRF is present with no physical interfaces from this physical vrouter. Generally used when using device manager and option A+B for this virtual network in L3VPN use case.') -->
 
 <xsd:element name="physical-interface" type="ifmap:IdentityType"/>
+<xsd:element name="ethernet-segment-identifier" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ethernet-segment-identifier', 'physical-interface', 'optional', 'CRUD',
+              'Ethernet Segment Id configured for the Physical Interface. In a multihomed environment, user should configure the peer Physical interface with the same ESI.') -->
+
 <xsd:element name="physical-router-physical-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('physical-router-physical-interface',

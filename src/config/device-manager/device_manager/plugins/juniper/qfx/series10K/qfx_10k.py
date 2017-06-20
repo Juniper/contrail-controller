@@ -28,12 +28,22 @@ class Qfx10kConf(QfxConf):
         return super(Qfx10kConf, cls).register(qconf)
     # end register
 
+    def set_product_specific_config(self):
+        pass
+    # end set_product_specific_config
+
+    def check_vn_is_allowed(self, vn_obj):
+        if not vn_obj.get_vxlan_routing():
+            return False
+        return True
+    # end check_vn_is_allowed
+
     def push_conf(self, is_delete=False):
         if not self.physical_router:
             return 0
         if is_delete:
             return self.send_conf(is_delete=True)
-        self.build_bgp_config()
+        self.set_qfx_common_config()
         return self.send_conf()
     # end push_conf
 
