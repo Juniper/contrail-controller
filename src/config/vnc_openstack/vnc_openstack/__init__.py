@@ -327,11 +327,8 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
             auth = kauth.password.Password(self._auth_url, **kwargs)
 
-        if self._use_certs:
-            sess = ksession.Session(auth=auth, verify=self._kscertbundle)
-        else:
-            sess = ksession.Session(auth=auth, verify=self._insecure)
-
+        verify = self._kscertbundle if self._use_certs else not self._insecure
+        sess = ksession.Session(auth=auth, verify=verify)
         self._ks = kclient.Client(session=sess, auth_url=self._auth_url)
 
         if self._endpoint_type and auth.auth_ref.service_catalog:
