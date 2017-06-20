@@ -65,6 +65,8 @@ doc_files += env.SandeshGenDoc('bind/bind.sandesh')
 env.Alias('install', env.Install(env['INSTALL_BIN'], contrail_dns))
 env.Alias('install', env.Install(env['INSTALL_CONF'], 'contrail-dns.conf'))
 env.Alias('install', env.Install(env['INSTALL_CONF'] + 
+    '/dns', 'applynamedconfig.py'))
+env.Alias('install', env.Install(env['INSTALL_CONF'] +
     '/supervisord_control_files/', 'contrail-dns.ini'))
 env.Alias('install', env.Install(env['INSTALL_CONF'] + 
     '/supervisord_control_files/', 'contrail-named.ini'))
